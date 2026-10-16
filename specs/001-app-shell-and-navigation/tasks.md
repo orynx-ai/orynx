@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Sidebar session list in four states, refreshed by `sessions.changed`, and the `/sessions/$sessionId` route with its page bar (the typed session links need the route) (AC-8, AC-10, AC-11, AC-12, AC-13, AC-14)
       Check: pnpm test packages/app; pnpm gate component-coverage; pnpm gate design-source
       Files: packages/app/src/features/sessions/queries.ts, packages/app/src/features/sessions/source-label.ts, packages/app/src/features/sessions/components/sessions-load-error.tsx, packages/app/src/features/sessions/session-screen.tsx, packages/app/src/features/sessions/session-screen.test.tsx, packages/app/src/router.tsx, packages/app/src/shell/sidebar.tsx, packages/app/src/shell/sidebar-sessions.tsx, packages/app/src/shell/sidebar-sessions.test.tsx, packages/app/src/test/msw.ts
-- [ ] Task 7: The View all list with the same rows, in four states (AC-8, AC-10, AC-12)
+- [x] Task 7: The View all list with the same rows, in four states (AC-8, AC-10, AC-12)
       Check: pnpm test packages/app/src/features/sessions; pnpm gate design-source
       Files: packages/app/src/features/sessions/sessions-screen.tsx, packages/app/src/features/sessions/sessions-screen.test.tsx
 - [ ] Task 8: Footer with the person's initials and name, and Claude's state in words (AC-16)
