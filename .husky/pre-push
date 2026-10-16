@@ -1,0 +1,4 @@
+node --disable-warning=ExperimentalWarning scripts/run-gates.ts --push
+pnpm typecheck
+pnpm lint
+pnpm test

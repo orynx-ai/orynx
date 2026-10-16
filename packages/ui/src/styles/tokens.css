@@ -1,0 +1,50 @@
+/* DevHub design tokens, copied verbatim from docs/design/design-system.md (section 4, tokens.css).
+   Do not edit by hand: tokens come from the design system. If a value is wrong or missing, stop and ask. */
+/* DevHub — generated from tokens.json */
+:root, [data-theme="light"] {
+  --bg-canvas: #fcfcfb; --bg-sidebar: #f6f5f2; --bg-subtle: #efeee9; --bg-raised: #ffffff;
+  --border-default: #e6e4de; --border-control: #8b887f;
+  --text-primary: #1c1b18; --text-secondary: #5f5c54; --text-placeholder: #6f6c63;
+  --primary: #1c1b18; --on-primary: #ffffff;
+  --accent: #3b5bdb; --accent-subtle: #eef1fd; --accent-text: #2c45b0;
+  --success: #2b7a4b; --success-subtle: #e9f5ee;
+  --warning: #8f5a12; --warning-subtle: #fbf2e2;
+  --danger: #b3372b; --danger-subtle: #fcebe8; --on-danger: #ffffff;
+  --source-jira: var(--accent); --source-github: var(--text-primary); --source-slack: #7b3f8c; --source-slack-subtle: #f5edf7;
+  --shadow-overlay: 0 1px 2px rgba(28,27,24,0.05), 0 8px 24px rgba(28,27,24,0.08);
+}
+[data-theme="dark"] {
+  --bg-canvas: #171614; --bg-sidebar: #12110f; --bg-subtle: #22211e; --bg-raised: #201f1c;
+  --border-default: #2e2c28; --border-control: #706d65;
+  --text-primary: #eceae4; --text-secondary: #aaa69c; --text-placeholder: #8e8a80;
+  --primary: #eceae4; --on-primary: #1c1b18;
+  --accent: #8ea4ff; --accent-subtle: #1f2645; --accent-text: #b6c3ff;
+  --success: #74cf98; --success-subtle: #15291d;
+  --warning: #eab565; --warning-subtle: #2f2513;
+  --danger: #ff9286; --danger-subtle: #361a16; --on-danger: #171614;
+  --source-slack: #d6a3e4; --source-slack-subtle: #2b1d31;
+  --shadow-overlay: 0 8px 24px rgba(0,0,0,0.55);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-canvas: #171614; --bg-sidebar: #12110f; --bg-subtle: #22211e; --bg-raised: #201f1c;
+    --border-default: #2e2c28; --border-control: #706d65;
+    --text-primary: #eceae4; --text-secondary: #aaa69c; --text-placeholder: #8e8a80;
+    --primary: #eceae4; --on-primary: #1c1b18;
+    --accent: #8ea4ff; --accent-subtle: #1f2645; --accent-text: #b6c3ff;
+    --success: #74cf98; --success-subtle: #15291d;
+    --warning: #eab565; --warning-subtle: #2f2513;
+    --danger: #ff9286; --danger-subtle: #361a16; --on-danger: #171614;
+    --source-slack: #d6a3e4; --source-slack-subtle: #2b1d31;
+    --shadow-overlay: 0 8px 24px rgba(0,0,0,0.55);
+    color-scheme: dark;
+  }
+}
+:root {
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px; --space-8: 32px; --space-12: 48px;
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-full: 999px;
+  --font-sans: Geist, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: Newsreader, Georgia, "Times New Roman", serif;
+  --font-mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
+}

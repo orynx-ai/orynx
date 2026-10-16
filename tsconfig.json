@@ -1,0 +1,18 @@
+{
+  "//": "Root project: repo scripts (gates, hooks), e2e tests and every *.config.ts (root, packages/*, apps/*). Workspace source has its own tsconfig.json per package.",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "e2e/**/*.ts",
+    "*.config.ts",
+    "packages/*/*.config.ts",
+    "apps/*/*.config.ts",
+    "types/**/*.d.ts"
+  ]
+}

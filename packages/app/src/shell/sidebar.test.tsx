@@ -1,0 +1,81 @@
+import { screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { describe, expect, it } from 'vitest';
+import { apiRoutes } from '@devhub/contracts';
+import { makeStatus } from '@devhub/contracts/testing';
+import { apiUrl, server } from '../test/msw.ts';
+import { renderApp } from '../test/render.tsx';
+
+function mainNav() {
+  return screen.getByRole('navigation', { name: 'Main' });
+}
+
+describe('Sidebar', () => {
+  it('lists the places and marks the current one', async () => {
+    await renderApp({ route: '/tickets' });
+    const nav = mainNav();
+
+    expect(await within(nav).findByRole('link', { name: 'Tickets' })).toHaveAttribute('aria-current', 'page');
+    expect(within(nav).getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current');
+    expect(within(nav).getByRole('link', { name: 'Settings' })).toBeVisible();
+  });
+
+  it('moves the current place when you navigate', async () => {
+    const { user, history } = await renderApp();
+    const nav = mainNav();
+
+    await user.click(await within(nav).findByRole('link', { name: 'Settings' }));
+
+    expect(history.location.pathname).toBe('/settings/connections');
+    expect(within(nav).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('says in words whether Claude is connected', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.status), () =>
+        HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+      ),
+    );
+    await renderApp();
+
+    expect(await within(mainNav()).findByText('Connected · runs locally')).toBeVisible();
+  });
+
+  it('says when the local server cannot be reached', async () => {
+    server.use(http.get(apiUrl(apiRoutes.status), () => HttpResponse.error()));
+    await renderApp();
+
+    expect(await within(mainNav()).findByText('DevHub server not reachable')).toBeVisible();
+  });
+
+  it('shows that there are no sessions yet and links to the full list', async () => {
+    const { user, history } = await renderApp();
+    const nav = mainNav();
+
+    expect(within(nav).getByText('No sessions yet')).toBeVisible();
+    await user.click(within(nav).getByRole('link', { name: 'View all' }));
+
+    expect(history.location.pathname).toBe('/sessions');
+  });
+
+  it('collapses and remembers it', async () => {
+    const { user } = await renderApp();
+
+    await user.click(within(mainNav()).getByRole('button', { name: 'Collapse sidebar' }));
+
+    const expand = within(mainNav()).getByRole('button', { name: 'Expand sidebar' });
+    expect(expand).toHaveAttribute('aria-pressed', 'true');
+    expect(JSON.parse(localStorage.getItem('devhub.ui') ?? '{}')).toMatchObject({ state: { sidebarCollapsed: true } });
+
+    await user.click(expand);
+    expect(within(mainNav()).getByRole('button', { name: 'Collapse sidebar' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('keeps Search visible but disabled until search ships', async () => {
+    await renderApp();
+    expect(within(mainNav()).getByRole('button', { name: /Search/ })).toBeDisabled();
+  });
+});

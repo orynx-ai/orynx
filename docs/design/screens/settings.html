@@ -1,0 +1,1072 @@
+<!-- Reference design for the settings screen, exported from the DevHub screen designs (Oct 2026).
+     Source of truth for layout and copy. Build with @devhub/ui components, not these classes. -->
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>DevHub settings</title>
+<style>/* DevHub — generated from tokens.json */
+:root, [data-theme="light"] {
+  --bg-canvas: #fcfcfb; --bg-sidebar: #f6f5f2; --bg-subtle: #efeee9; --bg-raised: #ffffff;
+  --border-default: #e6e4de; --border-control: #8b887f;
+  --text-primary: #1c1b18; --text-secondary: #5f5c54; --text-placeholder: #6f6c63;
+  --primary: #1c1b18; --on-primary: #ffffff;
+  --accent: #3b5bdb; --accent-subtle: #eef1fd; --accent-text: #2c45b0;
+  --success: #2b7a4b; --success-subtle: #e9f5ee;
+  --warning: #8f5a12; --warning-subtle: #fbf2e2;
+  --danger: #b3372b; --danger-subtle: #fcebe8; --on-danger: #ffffff;
+  --source-jira: var(--accent); --source-github: var(--text-primary); --source-slack: #7b3f8c; --source-slack-subtle: #f5edf7;
+  --shadow-overlay: 0 1px 2px rgba(28,27,24,0.05), 0 8px 24px rgba(28,27,24,0.08);
+}
+[data-theme="dark"] {
+  --bg-canvas: #171614; --bg-sidebar: #12110f; --bg-subtle: #22211e; --bg-raised: #201f1c;
+  --border-default: #2e2c28; --border-control: #706d65;
+  --text-primary: #eceae4; --text-secondary: #aaa69c; --text-placeholder: #8e8a80;
+  --primary: #eceae4; --on-primary: #1c1b18;
+  --accent: #8ea4ff; --accent-subtle: #1f2645; --accent-text: #b6c3ff;
+  --success: #74cf98; --success-subtle: #15291d;
+  --warning: #eab565; --warning-subtle: #2f2513;
+  --danger: #ff9286; --danger-subtle: #361a16; --on-danger: #171614;
+  --source-slack: #d6a3e4; --source-slack-subtle: #2b1d31;
+  --shadow-overlay: 0 8px 24px rgba(0,0,0,0.55);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-canvas: #171614; --bg-sidebar: #12110f; --bg-subtle: #22211e; --bg-raised: #201f1c;
+    --border-default: #2e2c28; --border-control: #706d65;
+    --text-primary: #eceae4; --text-secondary: #aaa69c; --text-placeholder: #8e8a80;
+    --primary: #eceae4; --on-primary: #1c1b18;
+    --accent: #8ea4ff; --accent-subtle: #1f2645; --accent-text: #b6c3ff;
+    --success: #74cf98; --success-subtle: #15291d;
+    --warning: #eab565; --warning-subtle: #2f2513;
+    --danger: #ff9286; --danger-subtle: #361a16; --on-danger: #171614;
+    --source-slack: #d6a3e4; --source-slack-subtle: #2b1d31;
+    --shadow-overlay: 0 8px 24px rgba(0,0,0,0.55);
+    color-scheme: dark;
+  }
+}
+:root {
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px; --space-8: 32px; --space-12: 48px;
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-full: 999px;
+  --font-sans: Geist, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: Newsreader, Georgia, "Times New Roman", serif;
+  --font-mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+</style>
+<style>/* cyrillic-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwRGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwYGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwTGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwSGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwRGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwYGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwTGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwSGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwRGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwYGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwTGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwSGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrodmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrMdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* symbols2 */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFg08vz7MhEIVVeA.woff2) format('woff2');
+  unicode-range: U+2000-2001, U+2004-2008, U+200A, U+23B8-23BD, U+2500-259F;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrgdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrkdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrodmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrMdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* symbols2 */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFg08vz7MhEIVVeA.woff2) format('woff2');
+  unicode-range: U+2000-2001, U+2004-2008, U+200A, U+23B8-23BD, U+2500-259F;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrgdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrkdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/newsreader/v26/cY9AfjOCX1hbuyalUrK439HyjIJFJpeBZQ.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/newsreader/v26/cY9AfjOCX1hbuyalUrK439DyjIJFJpeBZQ.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/newsreader/v26/cY9AfjOCX1hbuyalUrK439HyjIJFJpeBZQ.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/newsreader/v26/cY9AfjOCX1hbuyalUrK439DyjIJFJpeBZQ.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+
+/* DevHub components. Every color, radius and space comes from tokens.css. */
+
+.dh-root { font-family: var(--font-sans); font-size: 14px; line-height: 20px; color: var(--text-primary); background: var(--bg-canvas); -webkit-font-smoothing: antialiased; }
+.dh-root *, .dh-root *::before, .dh-root *::after { box-sizing: border-box; }
+.dh-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.dh-icon { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.dh-mono { font-family: var(--font-mono); font-size: 12px; }
+
+/* Focus: one ring for everything */
+.dh-root :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Button */
+.dh-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: 36px; padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid transparent; font: inherit; font-weight: 500; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.dh-btn--primary { background: var(--primary); color: var(--on-primary); }
+.dh-btn--primary:hover { opacity: .88; }
+.dh-btn--secondary { background: var(--bg-raised); color: var(--text-primary); border-color: var(--border-control); }
+.dh-btn--secondary:hover { background: var(--bg-subtle); }
+.dh-btn--ghost { background: transparent; color: var(--text-primary); }
+.dh-btn--ghost:hover { background: var(--bg-subtle); }
+.dh-btn--danger { background: var(--danger); color: var(--on-danger); }
+.dh-btn--sm { height: 30px; padding: 0 10px; font-size: 13px; }
+.dh-btn--icon { width: 36px; padding: 0; }
+.dh-btn--icon.dh-btn--sm { width: 30px; }
+.dh-btn[disabled], .dh-btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+
+/* Breadcrumb */
+.dh-breadcrumb ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); list-style: none; margin: 0; padding: 0; font-size: 13px; color: var(--text-secondary); }
+.dh-breadcrumb li { display: inline-flex; align-items: center; gap: var(--space-1); }
+.dh-breadcrumb li + li::before { content: "/"; color: var(--text-secondary); padding: 0 var(--space-1); }
+.dh-breadcrumb a { color: var(--text-secondary); text-decoration: none; border-radius: 4px; padding: 2px 4px; }
+.dh-breadcrumb a:hover { color: var(--text-primary); background: var(--bg-subtle); }
+.dh-breadcrumb [aria-current="page"] { color: var(--text-primary); font-weight: 500; padding: 2px 4px; }
+
+/* Tabs: underline, for switching content inside a page */
+.dh-tabs { display: flex; gap: var(--space-4); border-bottom: 1px solid var(--border-default); overflow-x: auto; }
+.dh-tab { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 2px; border: 0; background: none; font: inherit; font-weight: 500; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+.dh-tab:hover { color: var(--text-primary); }
+.dh-tab[aria-selected="true"] { color: var(--text-primary); }
+.dh-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
+.dh-tab .dh-count { font-size: 12px; font-weight: 500; color: var(--text-secondary); background: var(--bg-subtle); border-radius: var(--radius-full); padding: 0 6px; }
+
+/* Segmented control: for switching a view of the same content (Board / List) */
+.dh-segmented { display: inline-flex; padding: 3px; gap: 2px; background: var(--bg-subtle); border-radius: var(--radius-sm); }
+.dh-segment { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; font: inherit; font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; }
+.dh-segment[aria-pressed="true"], .dh-segment[aria-selected="true"] { background: var(--bg-raised); color: var(--text-primary); box-shadow: 0 0 0 1px var(--border-default); }
+
+/* Sidebar nav */
+.dh-sidebar { display: flex; flex-direction: column; gap: var(--space-4); background: var(--bg-sidebar); padding: var(--space-3); }
+.dh-nav { display: flex; flex-direction: column; gap: 2px; }
+.dh-nav-label { font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--text-secondary); padding: var(--space-2) 10px 4px; }
+.dh-nav-item { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 10px; border-radius: var(--radius-sm); color: var(--text-secondary); text-decoration: none; font-weight: 500; }
+.dh-nav-item:hover { background: var(--bg-subtle); color: var(--text-primary); }
+.dh-nav-item[aria-current="page"] { background: var(--bg-subtle); color: var(--text-primary); }
+.dh-nav-item[aria-current="page"] .dh-icon { color: var(--accent); }
+.dh-nav-item .dh-nav-meta { margin-left: auto; font-size: 12px; color: var(--text-secondary); }
+.dh-nav-item .dh-nav-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* Pills and chips */
+.dh-pill { display: inline-flex; align-items: center; gap: var(--space-1); height: 22px; padding: 0 8px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; white-space: nowrap; background: var(--bg-subtle); color: var(--text-secondary); }
+.dh-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.dh-pill--plain::before { display: none; }
+.dh-pill--info { background: var(--accent-subtle); color: var(--accent-text); }
+.dh-pill--success { background: var(--success-subtle); color: var(--success); }
+.dh-pill--warning { background: var(--warning-subtle); color: var(--warning); }
+.dh-pill--danger { background: var(--danger-subtle); color: var(--danger); }
+.dh-source { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.dh-source-mark { width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+.dh-source--jira .dh-source-mark { background: var(--accent-subtle); color: var(--source-jira); }
+.dh-source--github .dh-source-mark { background: var(--bg-subtle); color: var(--source-github); }
+.dh-source--slack .dh-source-mark { background: var(--source-slack-subtle); color: var(--source-slack); }
+.dh-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: var(--radius-full); border: 1px solid var(--border-default); background: var(--bg-raised); font: inherit; font-size: 13px; color: var(--text-primary); cursor: pointer; }
+.dh-chip:hover { background: var(--bg-subtle); }
+
+/* Avatar */
+.dh-avatar { width: 24px; height: 24px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; background: var(--bg-subtle); color: var(--text-primary); border: 1px solid var(--border-default); flex-shrink: 0; }
+
+/* Card: one work item on a board or in a list */
+.dh-card { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-default); }
+.dh-card:hover { border-color: var(--border-control); }
+.dh-card-top { display: flex; align-items: center; gap: var(--space-2); }
+.dh-card-key { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.dh-card-title { font-weight: 500; color: var(--text-primary); text-decoration: none; }
+.dh-card-title:hover { text-decoration: underline; }
+.dh-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 12px; color: var(--text-secondary); }
+
+/* Board column */
+.dh-column { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.dh-column-head { display: flex; align-items: center; gap: var(--space-2); height: 32px; padding: 0 4px; font-weight: 600; }
+.dh-column-head .dh-count { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+
+/* List row: attention items */
+.dh-row { display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); }
+.dh-row:hover { background: var(--bg-subtle); }
+.dh-row + .dh-row { border-top: 1px solid var(--border-default); }
+.dh-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.dh-row-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); text-decoration: none; }
+.dh-row-sub { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Input */
+.dh-field { display: flex; flex-direction: column; gap: 6px; }
+.dh-field-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.dh-field-help { font-size: 13px; color: var(--text-secondary); }
+.dh-input { height: 36px; width: 100%; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-control); background: var(--bg-raised); color: var(--text-primary); font: inherit; }
+.dh-input::placeholder { color: var(--text-placeholder); }
+.dh-search { position: relative; display: flex; align-items: center; }
+.dh-search .dh-icon { position: absolute; left: 10px; color: var(--text-secondary); pointer-events: none; }
+.dh-search .dh-input { padding-left: 32px; }
+
+/* Composer: the one place to ask the agent */
+.dh-composer { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--bg-raised); border: 1px solid var(--border-default); box-shadow: var(--shadow-overlay); }
+.dh-composer textarea { border: 0; outline: none; resize: none; background: transparent; color: var(--text-primary); font: inherit; font-size: 15px; line-height: 22px; min-height: 48px; padding: 4px; }
+.dh-composer textarea::placeholder { color: var(--text-placeholder); }
+.dh-composer:focus-within { border-color: var(--accent); }
+.dh-composer-bar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.dh-composer-bar .dh-send { margin-left: auto; width: 34px; height: 34px; padding: 0; border-radius: var(--radius-full); }
+.dh-picker { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-raised); font: inherit; font-size: 13px; font-weight: 500; color: var(--text-primary); cursor: pointer; }
+.dh-picker:hover { background: var(--bg-subtle); }
+
+/* Menu */
+.dh-menu { display: flex; flex-direction: column; min-width: 260px; padding: 6px; border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-default); box-shadow: var(--shadow-overlay); }
+.dh-menu-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); padding: 6px 8px 4px; }
+.dh-menu-item { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: none; font: inherit; color: var(--text-primary); text-align: left; cursor: pointer; width: 100%; }
+.dh-menu-item:hover, .dh-menu-item:focus-visible { background: var(--bg-subtle); }
+.dh-menu-item small { display: block; font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); }
+.dh-menu-sep { height: 1px; background: var(--border-default); margin: 6px 0; }
+
+/* Callout: inline approval or notice */
+.dh-callout { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--bg-raised); }
+.dh-callout--warning { background: var(--warning-subtle); border-color: transparent; }
+.dh-callout--info { background: var(--accent-subtle); border-color: transparent; color: var(--accent-text); }
+.dh-callout-title { font-weight: 600; color: var(--text-primary); }
+.dh-callout--info .dh-callout-title { color: var(--accent-text); }
+.dh-callout code { font-family: var(--font-mono); font-size: 12px; background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 6px 8px; color: var(--text-primary); }
+
+/* Diff */
+.dh-diff { font-family: var(--font-mono); font-size: 12px; line-height: 20px; overflow-x: auto; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); }
+.dh-diff-file { display: flex; align-items: center; gap: var(--space-2); padding: 8px 12px; border-bottom: 1px solid var(--border-default); background: var(--bg-sidebar); font-family: var(--font-mono); }
+.dh-diff-line { display: grid; grid-template-columns: 44px 18px 1fr; white-space: pre; color: var(--text-primary); }
+.dh-diff-line > span:first-child { text-align: right; padding-right: 8px; color: var(--text-secondary); user-select: none; }
+.dh-diff-line--add { background: var(--success-subtle); }
+.dh-diff-line--add > span:nth-child(2) { color: var(--success); }
+.dh-diff-line--del { background: var(--danger-subtle); }
+.dh-diff-line--del > span:nth-child(2) { color: var(--danger); }
+
+/* Activity step (agent timeline) */
+.dh-step { display: grid; grid-template-columns: 22px 1fr; gap: 10px; }
+.dh-step-dot { width: 22px; height: 22px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; background: var(--bg-subtle); color: var(--text-secondary); }
+.dh-step--done .dh-step-dot { background: var(--success-subtle); color: var(--success); }
+.dh-step--wait .dh-step-dot { background: var(--warning-subtle); color: var(--warning); }
+.dh-step-title { font-weight: 500; }
+.dh-step-detail { font-size: 13px; color: var(--text-secondary); }
+
+/* Skip link: first focusable element on every screen */
+.dh-root { position: relative; }
+.dh-skip { position: absolute; left: 8px; top: -60px; z-index: 30; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--primary); color: var(--on-primary); font-weight: 500; text-decoration: none; }
+.dh-skip:focus { top: 8px; }
+
+/* Keyboard hint */
+.dh-kbd { margin-left: auto; font-family: var(--font-mono); font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--text-secondary); }
+
+/* Sidebar search and footer */
+.dh-sidebar-search { display: flex; align-items: center; gap: var(--space-2); width: 100%; height: 34px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--text-secondary); font: inherit; cursor: pointer; }
+.dh-sidebar-search:hover { border-color: var(--border-control); color: var(--text-primary); }
+.dh-sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: var(--space-3); border-top: 1px solid var(--border-default); }
+.dh-agent-status { display: flex; align-items: center; gap: var(--space-2); min-height: 30px; padding: 0 10px; font-size: 13px; color: var(--text-secondary); }
+.dh-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
+
+/* Sidebar v2: header, counts, sessions, user */
+.dh-sidebar-head { display: flex; align-items: center; gap: 10px; padding: 2px 2px 2px 6px; }
+.dh-nav-count { margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; border-radius: var(--radius-full); border: 1px solid var(--border-default); background: var(--bg-canvas); font-size: 12px; font-weight: 500; line-height: 18px; text-align: center; color: var(--text-secondary); }
+.dh-nav-item[aria-current="page"] .dh-nav-count { background: var(--primary); border-color: transparent; color: var(--on-primary); }
+.dh-nav-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 10px 4px; font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--text-secondary); }
+.dh-nav-head a { margin-left: auto; color: var(--text-secondary); text-decoration: none; border-radius: 4px; padding: 0 4px; }
+.dh-nav-head a:hover { color: var(--text-primary); background: var(--bg-subtle); }
+.dh-session { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; }
+.dh-session:hover { background: var(--bg-subtle); }
+.dh-session[aria-current="page"] { background: var(--bg-raised); box-shadow: 0 0 0 1px var(--border-default); }
+.dh-session-icon { width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dh-session-icon .dh-icon { width: 12px; height: 12px; stroke-width: 2.25; }
+.dh-session-icon--wait { background: var(--warning-subtle); color: var(--warning); }
+.dh-session-icon--run { background: var(--accent-subtle); color: var(--accent-text); }
+.dh-session-icon--done { background: var(--success-subtle); color: var(--success); }
+.dh-session-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.dh-session-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-session-sub { display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 16px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; }
+.dh-session-sub .dh-mono { font-size: 11px; }
+.dh-state--wait { color: var(--warning); font-weight: 500; }
+.dh-state--run { color: var(--accent-text); font-weight: 500; }
+.dh-state--done { color: var(--success); font-weight: 500; }
+.dh-user { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; }
+.dh-user:hover { background: var(--bg-subtle); }
+.dh-user .dh-avatar { width: 28px; height: 28px; font-size: 12px; }
+
+/* Resume banner: a session waiting on you */
+.dh-resume { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 14px; border-radius: var(--radius-md); background: var(--warning-subtle); color: var(--text-primary); text-decoration: none; }
+.dh-resume:hover { outline: 1px solid var(--warning); }
+.dh-resume-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.dh-resume-text span:last-child { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Stepper: where a session is in its flow */
+.dh-stepper { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.dh-stepper li { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.dh-stepper li + li::before { content: ""; width: 20px; height: 1px; margin-right: 2px; background: var(--border-control); }
+.dh-step-num { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; border: 1px solid var(--border-control); color: var(--text-secondary); }
+.dh-stepper [data-state="done"] .dh-step-num { background: var(--success-subtle); border-color: transparent; color: var(--success); }
+.dh-stepper [data-state="current"] { color: var(--text-primary); font-weight: 500; }
+.dh-stepper [data-state="current"] .dh-step-num { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+
+/* Empty state */
+.dh-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: var(--space-4) var(--space-2); border: 1px dashed var(--border-default); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); text-align: center; }
+
+/* File list (changed files) */
+.dh-filelist { display: flex; flex-direction: column; border: 1px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden; }
+.dh-file { display: flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 12px; border: 0; border-left: 2px solid transparent; background: var(--bg-raised); font: inherit; font-size: 12px; color: var(--text-primary); text-align: left; cursor: pointer; }
+.dh-file + .dh-file { border-top: 1px solid var(--border-default); }
+.dh-file:hover { background: var(--bg-subtle); }
+.dh-file[aria-current="true"] { background: var(--accent-subtle); border-left-color: var(--accent); }
+.dh-file-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+
+/* Choice card (radio as a card) */
+.dh-choice { display: flex; gap: 10px; align-items: flex-start; padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--bg-raised); cursor: pointer; }
+.dh-choice:has(input:checked) { border-color: var(--accent); background: var(--accent-subtle); }
+.dh-choice input { margin: 3px 0 0; width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* Page frame: every screen = page bar + optional toolbar + body */
+.dh-main { display: flex; flex-direction: column; min-width: 0; background: var(--bg-canvas); }
+.dh-pagebar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-height: 52px; padding: 6px 24px; border-bottom: 1px solid var(--border-default); }
+.dh-pagebar-actions { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.dh-pagebar-meta { font-size: 13px; color: var(--text-secondary); }
+.dh-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: 48px; padding: 6px 24px; border-bottom: 1px solid var(--border-default); }
+.dh-pagebody { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-6); min-width: 0; }
+
+/* Panel: a bordered surface holding a list */
+.dh-panel { border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); overflow: hidden; }
+.dh-panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: 14px 16px 0; }
+.dh-panel .dh-tabs { padding: 0 16px; }
+.dh-panel .dh-row { border-radius: 0; padding: 10px 16px; }
+
+/* Status icons: shape carries the state (Linear-style) */
+.dh-status-icon { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; }
+.dh-status--todo { color: var(--text-secondary); }
+.dh-status--doing { color: var(--warning); }
+.dh-status--review { color: var(--accent); }
+.dh-status--done { color: var(--success); }
+
+/* Card details */
+.dh-card { gap: 6px; padding: 10px 12px 10px; }
+.dh-card-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dh-card-meta { gap: 10px; min-height: 24px; }
+.dh-meta-item { display: inline-flex; align-items: center; gap: 4px; }
+.dh-meta-item .dh-icon { width: 14px; height: 14px; }
+.dh-meta-item--soon { color: var(--warning); font-weight: 500; }
+.dh-prio { display: inline-flex; align-items: center; gap: 4px; }
+.dh-prio svg { width: 14px; height: 14px; }
+.dh-prio rect { fill: var(--border-control); opacity: .35; }
+.dh-prio--high rect, .dh-prio--med rect:nth-child(-n+2), .dh-prio--low rect:first-child { fill: var(--text-primary); opacity: 1; }
+.dh-tag { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.dh-tag--bug { color: var(--danger); }
+.dh-agent-chip { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; margin-left: auto; border-radius: var(--radius-full); font-size: 12px; font-weight: 500; text-decoration: none; background: var(--warning-subtle); color: var(--warning); }
+.dh-card-action { margin-left: auto; color: var(--text-secondary); }
+.dh-card-action:hover { color: var(--accent); }
+.dh-column-head .dh-btn { margin-left: auto; color: var(--text-secondary); }
+
+/* Composer context: what the + button adds */
+.dh-context-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 2px 0; }
+.dh-context { display: inline-flex; align-items: center; gap: 6px; max-width: 300px; height: 28px; padding: 0 2px 0 6px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-sidebar); font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.dh-context-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.dh-context-remove { width: 22px; height: 22px; flex-shrink: 0; border: 0; border-radius: 4px; background: none; color: var(--text-secondary); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.dh-context-remove:hover { background: var(--bg-subtle); color: var(--text-primary); }
+.dh-menu-head { display: flex; align-items: center; gap: 6px; padding: 2px 2px 6px; font-weight: 600; }
+.dh-menu-item .dh-desc { display: block; font-size: 12px; line-height: 16px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dh-menu-item .dh-menu-text { flex: 1; min-width: 0; }
+.dh-menu-foot { padding: 6px 8px 2px; font-size: 12px; color: var(--text-secondary); border-top: 1px solid var(--border-default); margin-top: 4px; }
+
+@media (prefers-reduced-motion: reduce) { .dh-root * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+
+<style>/* cyrillic-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwRGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwYGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwTGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwSGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwRGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwYGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwTGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwSGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwRGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwYGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwTGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwSGFWNOITddY4.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrodmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrMdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* symbols2 */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFg08vz7MhEIVVeA.woff2) format('woff2');
+  unicode-range: U+2000-2001, U+2004-2008, U+200A, U+23B8-23BD, U+2500-259F;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrgdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrkdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrodmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrMdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* symbols2 */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFg08vz7MhEIVVeA.woff2) format('woff2');
+  unicode-range: U+2000-2001, U+2004-2008, U+200A, U+23B8-23BD, U+2500-259F;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrgdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrkdmhHkjkotbA.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/newsreader/v26/cY9VfjOCX1hbuyalUrK49dLafXjalZCsZBsgBgbCJYQ5ayZCzn4.woff2) format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/newsreader/v26/cY9VfjOCX1hbuyalUrK49dLafXjalZCsZBsgBgbDJYQ5ayZCzn4.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Newsreader';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Geist") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+</style>
+<style>
+body{margin:0}
+a{color:var(--accent)}a:hover{color:var(--accent-text)}
+</style>
+
+<div class="dh-root" data-theme="{{theme}}" style="display: flex; flex-wrap: wrap; min-height: 960px; background: var(--bg-canvas); color: var(--text-primary)">
+<a class="dh-skip" href="#main">Skip to content</a>
+
+<nav class="dh-sidebar" aria-label="Main" style="flex: 1 1 248px; max-width: 100%; border-right: 1px solid var(--border-default)">
+<div class="dh-sidebar-head">
+<span aria-hidden="true" style="width: 26px; height: 26px; border-radius: 6px; background: var(--primary); color: var(--on-primary); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px">D</span>
+<span style="font-weight: 600; font-size: 15px">DevHub</span>
+<button class="dh-btn dh-btn--ghost dh-btn--icon dh-btn--sm" type="button" aria-label="Collapse sidebar" style="margin-left: auto"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="9" y1="4" x2="9" y2="20"></line></svg></button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<a class="dh-btn dh-btn--secondary" href="home.html" style="justify-content: flex-start"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"></path></svg>New task<kbd class="dh-kbd">⌘N</kbd></a>
+<button class="dh-sidebar-search" type="button"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Search<kbd class="dh-kbd">⌘K</kbd></button>
+</div>
+<div class="dh-nav">
+<a class="dh-nav-item" href="home.html"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg><span class="dh-nav-text">Home</span><span class="dh-nav-count">14<span class="dh-sr-only"> need you</span></span></a>
+<a class="dh-nav-item" href="tickets.html"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1"></rect><rect x="10" y="4" width="5" height="11" rx="1"></rect><rect x="17" y="4" width="4" height="7" rx="1"></rect></svg><span class="dh-nav-text">Tickets</span><span class="dh-nav-count">9</span></a>
+<a class="dh-nav-item" href="settings.html" aria-current="page"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg><span class="dh-nav-text">Settings</span></a>
+</div>
+<div class="dh-nav">
+<div class="dh-nav-head"><span>Sessions</span><a href="home.html">View all</a></div>
+<a class="dh-session" href="session.html">
+<span class="dh-session-icon dh-session-icon--wait" aria-hidden="true"><svg class="dh-icon" viewBox="0 0 24 24"><path d="M12 7v6"></path><path d="M12 17h.01"></path></svg></span>
+<span class="dh-session-body"><span class="dh-session-title">Add bulk archive</span><span class="dh-session-sub"><span class="dh-mono">PROJ-1423</span><span aria-hidden="true">·</span><span class="dh-state--wait">Needs you</span></span></span>
+</a>
+<a class="dh-session" href="session.html">
+<span class="dh-session-icon dh-session-icon--run" aria-hidden="true"><svg class="dh-icon" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9"></path></svg></span>
+<span class="dh-session-body"><span class="dh-session-title">Read receipts on analytics</span><span class="dh-session-sub"><span class="dh-mono">PROJ-1398</span><span aria-hidden="true">·</span><span class="dh-state--run">Working</span></span></span>
+</a>
+<a class="dh-session" href="session.html">
+<span class="dh-session-icon dh-session-icon--done" aria-hidden="true"><svg class="dh-icon" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+<span class="dh-session-body"><span class="dh-session-title">Fix timezone shift in event cards</span><span class="dh-session-sub"><span class="dh-mono">PR #2836</span><span aria-hidden="true">·</span><span class="dh-state--done">Done, ready for PR</span></span></span>
+</a>
+</div>
+<div class="dh-sidebar-foot">
+<a class="dh-user" href="settings.html">
+<span class="dh-avatar">RD</span>
+<span class="dh-session-body"><span class="dh-session-title">Rakesh D.</span><span class="dh-session-sub"><span class="dh-dot" aria-hidden="true" style="color: var(--success)"></span>Claude connected · runs locally</span></span>
+</a>
+</div>
+</nav>
+
+<main id="main" tabindex="-1" class="dh-main" style="flex: 999 1 640px">
+<header class="dh-pagebar">
+<nav class="dh-breadcrumb" aria-label="Breadcrumb"><ol><li><a href="settings.html">Settings</a></li><li><span aria-current="page">{{tabLabel}}</span></li></ol></nav>
+<div class="dh-pagebar-actions"><span class="dh-pagebar-meta">Changes save automatically</span></div>
+</header>
+<div class="dh-pagebody" style="padding: 24px 24px 40px">
+<div style="width: 100%; max-width: 880px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<h1 style="margin: 0; font-size: 20px; line-height: 28px; font-weight: 600">Settings</h1>
+<span style="font-size: 13px; color: var(--text-secondary)">Connect your tools and choose how Claude works in your repos.</span>
+</div>
+
+<div class="dh-callout dh-callout--info" style="flex-direction: row; align-items: flex-start; gap: 12px">
+<svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true" style="width: 18px; height: 18px; margin-top: 1px"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+<div style="display: flex; flex-direction: column; gap: 2px"><span class="dh-callout-title">Everything stays on this computer</span><span>Tokens live in your OS keychain and the cache is a local file. DevHub talks only to Jira, GitHub, Slack and Claude.</span></div>
+</div>
+
+<div class="dh-tabs" role="tablist" aria-label="Settings sections">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="4">
+<button class="dh-tab" role="tab" id="{{t.id}}" aria-selected="{{t.sel}}" aria-controls="set-panel" tabindex="{{t.tabindex}}" type="button" sc-camel-on-click="{{t.pick}}">{{t.label}}</button>
+</sc-for>
+</div>
+
+<div id="set-panel" role="tabpanel" aria-labelledby="{{activeTab}}">
+
+<sc-if value="{{onConn}}" hint-placeholder-val="{{true}}">
+<div role="list" style="display: flex; flex-direction: column; border: 1px solid var(--border-default); border-radius: 10px">
+<sc-for list="{{conns}}" as="c" hint-placeholder-count="3">
+<div role="listitem" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border-default)">
+<span class="{{c.srcClass}}"><span class="dh-source-mark" aria-hidden="true" style="width: 32px; height: 32px; border-radius: 8px; font-size: 14px">{{c.mark}}</span></span>
+<div style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"><span style="font-weight: 600">{{c.name}}</span><span class="{{c.pillClass}}">{{c.status}}</span></div>
+<span style="font-size: 13px; color: var(--text-secondary)">{{c.detail}}</span>
+</div>
+<button class="dh-btn dh-btn--secondary dh-btn--sm" type="button">{{c.action}}</button>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{onAgent}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 20px">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px">
+<div class="dh-card" style="border-color: var(--accent); border-width: 2px">
+<div class="dh-card-top"><span style="font-weight: 600">Claude</span><span class="dh-pill dh-pill--success" style="margin-left: auto">Active</span></div>
+<span style="font-size: 13px; color: var(--text-secondary)">Uses your company Claude login through the Claude Agent SDK. No separate API key.</span>
+</div>
+<div class="dh-card" style="border-style: dashed; background: var(--bg-sidebar)">
+<span style="font-weight: 600">More agents</span>
+<span style="font-size: 13px; color: var(--text-secondary)">Coming later. Each agent plugs in through one small adapter.</span>
+</div>
+</div>
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px">
+<legend style="font-weight: 600; padding: 0 0 6px">What Claude can do without asking</legend>
+<sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+<label style="{{m.style}}">
+<input type="radio" name="mode" checked="{{m.checked}}" sc-camel-on-change="{{m.pick}}" style="margin: 3px 0 0; width: 16px; height: 16px; accent-color: var(--accent)">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500">{{m.title}}</span><span style="font-size: 13px; color: var(--text-secondary)">{{m.detail}}</span></span>
+</label>
+</sc-for>
+<span style="font-size: 13px; color: var(--text-secondary); padding-top: 4px">Claude never pushes code or opens a pull request by itself.</span>
+</fieldset>
+</div>
+</sc-if>
+
+<sc-if value="{{onRepos}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; gap: 8px"><span style="font-size: 13px; color: var(--text-secondary); flex-grow: 1">Folders on this computer that Claude can work in</span><button class="dh-btn dh-btn--secondary dh-btn--sm" type="button"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add local folder</button></div>
+<div role="list" style="border: 1px solid var(--border-default); border-radius: 10px">
+<sc-for list="{{repos}}" as="r" hint-placeholder-count="2">
+<div role="listitem" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border-default)">
+<svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+<span style="font-weight: 500; width: 100px">{{r.name}}</span>
+<span class="dh-mono" style="color: var(--text-secondary); flex: 1 1 200px">{{r.path}}</span>
+<span class="dh-pill dh-pill--plain">Jira {{r.jira}}</span>
+<button class="dh-btn dh-btn--ghost dh-btn--sm" type="button">Remove</button>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{onRules}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-size: 13px; color: var(--text-secondary)">Choose what shows up under Needs your attention on Home.</span>
+<div style="border: 1px solid var(--border-default); border-radius: 10px; padding: 0 16px">
+<sc-for list="{{rules}}" as="r" hint-placeholder-count="4">
+<label style="display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--border-default); cursor: pointer">
+<input type="checkbox" checked="{{r.on}}" sc-camel-on-change="{{r.flip}}" style="width: 16px; height: 16px; margin: 0; accent-color: var(--accent)">
+<span>{{r.text}}</span>
+</label>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{onLook}}" hint-placeholder-val="{{false}}">
+<fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-weight: 600; padding: 0 0 8px">Theme</legend>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px">
+<sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+<label class="dh-choice">
+<input type="radio" name="theme" checked="{{t.checked}}" sc-camel-on-change="{{t.pick}}">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500">{{t.title}}</span><span style="font-size: 13px; color: var(--text-secondary)">{{t.detail}}</span></span>
+</label>
+</sc-for>
+</div>
+<span style="font-size: 13px; color: var(--text-secondary)">Try it: this screen switches as you pick.</span>
+</fieldset>
+</sc-if>
+
+</div>
+</div>
+</div>
+</main>
+</div>
+
+
+
+
+</body></html>

@@ -1,0 +1,13 @@
+pnpm-lock.yaml
+dist/
+storybook-static/
+coverage/
+playwright-report/
+test-results/
+docs/design/screens/
+docs/design/design-system.md
+docs/product/spec.md
+AGENTS.md
+.github/copilot-instructions.md
+.cursor/rules/
+packages/ui/src/styles/tokens.css

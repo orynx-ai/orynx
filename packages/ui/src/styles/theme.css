@@ -1,0 +1,128 @@
+/*
+ * Tailwind theme for DevHub. Maps the design tokens (tokens.css) to Tailwind classes.
+ * The full translation table is docs/design-map.md; style-policy enforces it.
+ *
+ * - tokens.css is imported unlayered, so its values win over Tailwind's theme layer.
+ *   That is how --font-*, --radius-sm/md/lg/full and dark mode come straight from the tokens.
+ * - Tailwind's default colour palette, type sizes and shadows are removed: a class that is
+ *   not in the design system generates nothing, and style-policy reports it.
+ */
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* Scan this package's components. Hosts add @source for the packages they render. */
+@source '../';
+
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+  --shadow-*: initial;
+
+  /* Type styles from the design system (docs/design/design-system.md, Typography). */
+  --text-display: 32px;
+  --text-display--line-height: 40px;
+  --text-title-lg: 20px;
+  --text-title-lg--line-height: 28px;
+  --text-title: 15px;
+  --text-title--line-height: 22px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+  --text-label: 12px;
+  --text-label--line-height: 16px;
+  --text-code: 12px;
+  --text-code--line-height: 20px;
+
+  /* 4 px radius used inside components.css (segments, kbd); the other radii come from tokens.css. */
+  --radius-xs: 4px;
+}
+
+@theme inline {
+  /* shadcn-compatible names, mapped to DevHub tokens. */
+  --color-background: var(--bg-canvas);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--bg-raised);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--bg-raised);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--on-primary);
+  --color-muted: var(--bg-subtle);
+  --color-muted-foreground: var(--text-secondary);
+  --color-border: var(--border-default);
+  --color-input: var(--border-control);
+  --color-ring: var(--accent);
+
+  /* DevHub surfaces. */
+  --color-canvas: var(--bg-canvas);
+  --color-sidebar: var(--bg-sidebar);
+  --color-subtle: var(--bg-subtle);
+  --color-raised: var(--bg-raised);
+  --color-control: var(--border-control);
+  --color-placeholder: var(--text-placeholder);
+
+  /* DevHub's indigo accent: links, focus, selection marks. Never a large fill. */
+  --color-info: var(--accent);
+  --color-info-subtle: var(--accent-subtle);
+  --color-info-foreground: var(--accent-text);
+
+  /* Status: only for state. */
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-on-danger: var(--on-danger);
+
+  /* Sources: always shown with the source name. */
+  --color-jira: var(--source-jira);
+  --color-github: var(--source-github);
+  --color-slack: var(--source-slack);
+  --color-slack-subtle: var(--source-slack-subtle);
+}
+
+/* The one shadow: menus, popovers and the composer. */
+@utility shadow-overlay {
+  box-shadow: var(--shadow-overlay);
+}
+
+@layer base {
+  html {
+    background: var(--bg-canvas);
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    color: var(--text-primary);
+    background: var(--bg-canvas);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Focus: one ring for everything. Never remove it. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Outline icons, 16 px, 1.75 stroke, drawn in currentColor (design system, Iconography). */
+  .lucide {
+    width: 1rem;
+    height: 1rem;
+    stroke-width: 1.75;
+    flex-shrink: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+}

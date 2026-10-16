@@ -1,0 +1,2 @@
+pnpm exec lint-staged
+node --disable-warning=ExperimentalWarning scripts/run-gates.ts --only secrets --skip-self-test

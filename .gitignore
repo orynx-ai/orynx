@@ -1,0 +1,23 @@
+node_modules/
+dist/
+storybook-static/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.turbo/
+.vite/
+.eslintcache
+
+# Local runtime data (tokens, cache, sessions, worktrees) never belongs in git.
+.devhub/
+.env
+.env.*
+!.env.example
+
+# Local review stamp: proof that /review passed for this exact change.
+.claude/review-stamp.json
+.claude/settings.local.json
+
+.DS_Store
+*.log

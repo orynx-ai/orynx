@@ -1,0 +1,14 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 10 blocks dependency install scripts unless they are listed here.
+onlyBuiltDependencies:
+  - esbuild
+  - msw
+
+# eslint-plugin-jsx-a11y's peer range stops at ESLint 9, but its rules run on ESLint 10
+# (checked by linting a file with known a11y violations). Remove once the plugin widens its range.
+peerDependencyRules:
+  allowedVersions:
+    eslint-plugin-jsx-a11y>eslint: '10'

@@ -1,0 +1,88 @@
+# Architecture
+
+DevHub has two halves, both on the developer's laptop: a React web app and a Node server, which the spec calls "the hub". The web app asks the hub for data and gets live updates back. The hub calls Jira, GitHub, Slack and Claude with the user's own logins. There is no DevHub cloud.
+
+```
+ browser (or desktop window)                 laptop: local server (127.0.0.1:4317)
+┌──────────────────────────────┐   HTTP    ┌───────────────────────────────────────┐
+│ apps/web  ─ mounts ─┐        │  + SSE    │ apps/server ─ hosts ─┐                │
+│                     ▼        │ ────────▶ │                      ▼                │
+│  @devhub/app (screens,       │           │  @devhub/core (Fastify routes,        │──▶ Jira / GitHub / Slack
+│   routes, zustand, queries)  │ ◀──────── │   integrations, agent runtime,        │──▶ Claude Agent SDK
+│  @devhub/ui (design system)  │  events   │   storage in ~/.devhub)               │──▶ git worktrees
+│  @devhub/api-client (axios)  │           │                                       │
+└──────────────┬───────────────┘           └──────────────────┬────────────────────┘
+               └──────── both import @devhub/contracts (zod) ─┘
+```
+
+## Packages
+
+Each package's source is TypeScript that the consuming bundler or `tsx` compiles directly. There is no per-package build step: `exports` points at `src/`. Only the two hosts in `apps/` build.
+
+| Package                          | What it owns                                                                                          | May import (internal)     | Key libraries                                                                  |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------ |
+| `@devhub/contracts`              | zod schemas and inferred types for every HTTP body and server event, plus API paths                   | nothing                   | zod                                                                            |
+| `@devhub/api-client`             | axios instance, one typed function per endpoint, TanStack Query `queryOptions`, the event stream      | contracts                 | axios, @tanstack/react-query                                                   |
+| `@devhub/ui`                     | design tokens, Tailwind theme, shadcn-based components, Storybook                                     | nothing                   | react, radix-ui, cva, tailwind-merge, lucide-react                             |
+| `@devhub/app`                    | the product UI: shell, routes, features, zustand stores, the `Platform` interface                     | contracts, api-client, ui | react, @tanstack/react-router, @tanstack/react-query, zustand, react-hook-form |
+| `@devhub/core`                   | `createServer()`: Fastify plugins and routes, the event bus, integrations, the agent runtime, storage | contracts                 | fastify, fastify-type-provider-zod                                             |
+| `@devhub/web` (`apps/web`)       | the browser host: Vite, `index.html`, the web `Platform`, the token meta tag                          | app, ui, api-client       | vite, @tailwindcss/vite                                                        |
+| `@devhub/server` (`apps/server`) | the Node host: env config, data dir, session token, static files, `listen()`                          | core, contracts           | @fastify/static, tsdown                                                        |
+
+`pnpm gate boundaries` enforces the "may import" column, and blocks Node built-ins and server libraries in browser packages.
+
+## Runtime
+
+- **Ports.** The server always binds `127.0.0.1:4317` (`DEVHUB_PORT`). In `pnpm dev`, Vite serves the web app on `localhost:4318` (`DEVHUB_WEB_PORT`) and proxies `/api` to the server. In `pnpm start`, the server also serves the built web app, so there is one port.
+- **Session token.** On every start, the server makes a random token and writes `{ port, token, pid }` to `<DEVHUB_HOME>/runtime.json` (mode 0600). The page carries it in `<meta name="devhub-token">`: in production the server injects it, and in dev a small Vite plugin reads `runtime.json`. Every `/api` request sends `x-devhub-token`. `EventSource` cannot set headers, so the event stream takes `?token=`.
+- **Host check.** The server rejects requests whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>`. This blocks DNS-rebinding pages from reading the token. See `learn/local-security.md`.
+- **Live updates.** `GET /api/events` is a server-sent event stream of the `ServerEvent` union from contracts. The app turns events into TanStack Query invalidations; it never patches stores by hand.
+- **Data.** Everything lives under `DEVHUB_HOME`, which defaults to `~/.devhub`: `runtime.json`, `cache.db` (SQLite), `sessions/`, `worktrees/`. Tests always use a temporary `DEVHUB_HOME`.
+
+## Stack
+
+Decided means use it, and do not add an alternative. Planned means add it in the spec that first needs it. Anything else needs a person's OK (CLAUDE.md, "Stop and ask").
+
+| Need              | Library                                                                                                                                                          | Status                                                                                       |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Monorepo          | pnpm workspaces, Turborepo                                                                                                                                       | decided                                                                                      |
+| Language          | TypeScript 6.0, strictest options (`tsconfig.base.json`)                                                                                                         | decided; TS 7 waits for typescript-eslint support                                            |
+| Web build         | Vite 8, @vitejs/plugin-react                                                                                                                                     | decided                                                                                      |
+| Routing           | TanStack Router (code-based route tree in `@devhub/app`)                                                                                                         | decided                                                                                      |
+| Server state      | TanStack Query 5 + axios                                                                                                                                         | decided                                                                                      |
+| Client state      | zustand 5 (`persist` for preferences)                                                                                                                            | decided                                                                                      |
+| Styling           | Tailwind CSS 4, shadcn (radix-ui), class-variance-authority, tailwind-merge                                                                                      | decided                                                                                      |
+| Icons             | lucide-react (16 px, 1.75 stroke via `.lucide` base style)                                                                                                       | decided                                                                                      |
+| Fonts             | @fontsource/geist, geist-mono and newsreader, bundled locally rather than fetched from Google Fonts, because DevHub talks only to Jira, GitHub, Slack and Claude | decided                                                                                      |
+| Forms             | react-hook-form + @hookform/resolvers + zod                                                                                                                      | decided                                                                                      |
+| Validation        | zod 4                                                                                                                                                            | decided                                                                                      |
+| HTTP server       | Fastify 5 + fastify-type-provider-zod                                                                                                                            | decided                                                                                      |
+| Tests             | Vitest 5, Testing Library, MSW (network only), Playwright (e2e)                                                                                                  | decided                                                                                      |
+| Component gallery | Storybook 10 + addon-a11y                                                                                                                                        | decided                                                                                      |
+| Lint and format   | ESLint 10 (typescript-eslint strict, react-hooks, jsx-a11y, TanStack Query), Prettier                                                                            | decided; jsx-a11y's peer range says ESLint 9 but its rules run on 10 (`pnpm-workspace.yaml`) |
+| Server bundle     | tsdown                                                                                                                                                           | decided                                                                                      |
+| Coding agent      | @anthropic-ai/claude-agent-sdk                                                                                                                                   | planned (session spec)                                                                       |
+| Git worktrees     | simple-git                                                                                                                                                       | planned (session spec)                                                                       |
+| Cache             | better-sqlite3 + drizzle-orm                                                                                                                                     | planned (inbox spec)                                                                         |
+| OS keychain       | @napi-rs/keyring                                                                                                                                                 | planned (connections spec)                                                                   |
+| Integrations      | jira.js, @octokit/rest, @slack/web-api                                                                                                                           | planned (one per integration spec)                                                           |
+| Desktop           | Electron via electron-vite                                                                                                                                       | planned (after v1)                                                                           |
+
+## Porting to a desktop app
+
+The split exists so a desktop app is a third host, not a rewrite:
+
+- `apps/desktop` (Electron) main process: `createServer()` from `@devhub/core` on a random 127.0.0.1 port, with the same token handshake.
+- Renderer: mounts `<DevhubApp>` from `@devhub/app` with `createHashHistory()` and a desktop `Platform` (native folder and file dialogs, `shell.openExternal`, notifications).
+- Nothing in `app`, `ui`, `api-client` or `contracts` changes. Anything that differs between the browser and desktop goes through `Platform` (`packages/app/src/platform.tsx`), never `if (isElectron)`.
+- Native modules (better-sqlite3, keyring) need `electron-rebuild`; keep them inside `core` so only the main process loads them.
+
+## Decisions
+
+| Decision                                                       | Why                                                                                                                    |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Fastify, not Express                                           | The spec names it, it is schema-first with zod type inference, and `app.inject()` tests routes without opening a port. |
+| JIT internal packages (`exports` → `src/*.ts`)                 | No build watch loops in dev, and go-to-definition lands in source. Only hosts bundle.                                  |
+| Separate Vite port in dev                                      | Standard Vite HMR with no server middleware coupling; the proxy keeps one origin for the browser.                      |
+| Self-hosted fonts                                              | Local-first: the page loads nothing from the internet.                                                                 |
+| `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess` on | Agents write faster than people review; the compiler catches the gaps.                                                 |

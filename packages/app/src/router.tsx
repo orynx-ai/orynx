@@ -1,0 +1,82 @@
+import type { QueryClient } from '@tanstack/react-query';
+import {
+  createBrowserHistory,
+  createRootRouteWithContext,
+  createRoute,
+  createRouter,
+  redirect,
+  type RouterHistory,
+} from '@tanstack/react-router';
+import type { ApiClient } from '@devhub/api-client';
+import { HomeScreen } from './features/home/home-screen.tsx';
+import { NotFoundScreen } from './features/not-found/not-found-screen.tsx';
+import { SessionsScreen } from './features/sessions/sessions-screen.tsx';
+import { SettingsScreen } from './features/settings/settings-screen.tsx';
+import { SettingsTabSchema } from './features/settings/tabs.ts';
+import { TicketsScreen } from './features/tickets/tickets-screen.tsx';
+import { AppShell } from './shell/app-shell.tsx';
+
+export interface RouterContext {
+  queryClient: QueryClient;
+  api: ApiClient;
+}
+
+const rootRoute = createRootRouteWithContext<RouterContext>()({
+  component: AppShell,
+  notFoundComponent: NotFoundScreen,
+});
+
+const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomeScreen });
+
+const ticketsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tickets', component: TicketsScreen });
+
+const sessionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sessions', component: SessionsScreen });
+
+const settingsIndexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  beforeLoad: () => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- TanStack Router redirects by throwing
+    throw redirect({ to: '/settings/$tab', params: { tab: 'connections' }, replace: true });
+  },
+});
+
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/$tab',
+  params: {
+    // An unknown tab falls back to Connections instead of an error page.
+    parse: (raw) => ({ tab: SettingsTabSchema.catch('connections').parse(raw.tab) }),
+    stringify: ({ tab }) => ({ tab }),
+  },
+  component: SettingsScreen,
+});
+
+export const routeTree = rootRoute.addChildren([
+  homeRoute,
+  ticketsRoute,
+  sessionsRoute,
+  settingsIndexRoute,
+  settingsRoute,
+]);
+
+export interface CreateRouterOptions extends RouterContext {
+  /** Browser history by default; a desktop host passes hash history, tests pass memory history. */
+  history?: RouterHistory;
+}
+
+export function createDevhubRouter({ history, ...context }: CreateRouterOptions) {
+  return createRouter({
+    routeTree,
+    history: history ?? createBrowserHistory(),
+    context,
+    defaultPreload: 'intent',
+    scrollRestoration: true,
+  });
+}
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: ReturnType<typeof createDevhubRouter>;
+  }
+}
