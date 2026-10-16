@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { bundledFaces, waitForFonts } from './fonts.ts';
+import { bundledFontFaces } from '@devhub/ui';
+import { waitForFonts } from './fonts.ts';
 
 /** jsdom has no FontFaceSet; this stands in for the browser API, not for our code. */
 function fakeFonts(load: (face: string) => Promise<unknown>) {
@@ -25,8 +26,8 @@ describe('waitForFonts', () => {
 
     await waitForFonts(fonts);
 
-    expect(asked).toEqual(bundledFaces);
-    expect(bundledFaces).toContain('400 32px Newsreader');
+    expect(asked).toEqual(bundledFontFaces);
+    expect(bundledFontFaces).toContain('400 32px Newsreader');
   });
 
   it('renders anyway when a font takes longer than the limit', async () => {

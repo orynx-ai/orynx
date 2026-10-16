@@ -37,3 +37,14 @@ describe('ServerEventSchema', () => {
     expect(ServerEventSchema.safeParse({ type: 'session.exploded' }).success).toBe(false);
   });
 });
+
+describe('StatusSchema user', () => {
+  it('AC-16: rejects a name with nothing visible in it', () => {
+    expect(StatusSchema.safeParse({ ...makeStatus(), user: { name: '   ' } }).success).toBe(false);
+  });
+
+  it('AC-16: carries the name DevHub knows, or null', () => {
+    expect(StatusSchema.parse(makeStatus({ user: { name: 'Rakesh Dhariwal' } })).user.name).toBe('Rakesh Dhariwal');
+    expect(makeStatus().user.name).toBeNull();
+  });
+});

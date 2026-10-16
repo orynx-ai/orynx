@@ -61,7 +61,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const events = options.events ?? createEventBus();
   const status = createStatusService({
     version: options.version,
-    userName: options.userName ?? (() => readGitUserName()),
+    userName: options.userName ?? readGitUserName,
   });
 
   await app.register(

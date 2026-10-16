@@ -1,5 +1,5 @@
 import { screen, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeSessionList } from '@devhub/contracts/testing';
@@ -17,7 +17,7 @@ function pageBar() {
 }
 
 describe('SessionScreen', () => {
-  it('AC-14: shows Sessions / the title, with the ticket key beside it', async () => {
+  it('Q8: shows Sessions / the title, with the ticket key beside it', async () => {
     server.use(sessionsHandler(list));
     await renderApp({ route: '/sessions/session-1' });
 
@@ -27,7 +27,7 @@ describe('SessionScreen', () => {
     expect(within(pageBar()).getByText('PROJ-1423')).toBeVisible();
   });
 
-  it('AC-14: names a pull request source as PR #<number>', async () => {
+  it('Q8: names a pull request source as PR #<number>', async () => {
     server.use(sessionsHandler(list));
     await renderApp({ route: '/sessions/session-2' });
 
@@ -40,6 +40,20 @@ describe('SessionScreen', () => {
 
     expect(await within(pageBar()).findByText('Tidy the README')).toBeVisible();
     expect(within(pageBar()).queryByText(/PROJ-|PR #/)).toBeNull();
+  });
+
+  it('Q8: shows only the Sessions crumb while the session loads', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.sessions), async () => {
+        await delay('infinite');
+        return HttpResponse.json({ sessions: [] });
+      }),
+    );
+    await renderApp({ route: '/sessions/session-1' });
+
+    const crumbs = within(pageBar()).getByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(crumbs).getByRole('link', { name: 'Sessions' })).toBeVisible();
+    expect(within(crumbs).queryByText('Add bulk archive')).toBeNull();
   });
 
   it('says the page does not exist for an unknown session', async () => {

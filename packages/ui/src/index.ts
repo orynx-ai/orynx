@@ -20,4 +20,5 @@ export {
 } from './components/session-item.tsx';
 export { SourceMark, type Source, type SourceMarkProps } from './components/source-mark.tsx';
 export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsTriggerProps } from './components/tabs.tsx';
+export { bundledFontFaces } from './fonts.ts';
 export { cn } from './lib/cn.ts';

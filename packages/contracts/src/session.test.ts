@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { apiRoutes, ServerEventSchema, SessionListQuerySchema, SessionListSchema, StatusSchema } from './index.ts';
-import { makeSessionList, makeSessionSummary, makeStatus } from './testing.ts';
+import { apiRoutes, ServerEventSchema, SessionListQuerySchema, SessionListSchema } from './index.ts';
+import { makeSessionList, makeSessionSummary } from './testing.ts';
 
 describe('SessionListSchema', () => {
   it('AC-8: accepts sessions from a Jira ticket, a pull request and no source', () => {
@@ -42,12 +42,5 @@ describe('sessions on the wire', () => {
 
   it('AC-13: accepts the sessions.changed event', () => {
     expect(ServerEventSchema.parse({ type: 'sessions.changed' })).toEqual({ type: 'sessions.changed' });
-  });
-});
-
-describe('StatusSchema user', () => {
-  it('AC-16: carries the name DevHub knows, or null', () => {
-    expect(StatusSchema.parse(makeStatus({ user: { name: 'Rakesh Dhariwal' } })).user.name).toBe('Rakesh Dhariwal');
-    expect(makeStatus().user.name).toBeNull();
   });
 });

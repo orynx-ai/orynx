@@ -35,7 +35,7 @@ describe('createApiClient().sessions()', () => {
     expect(list.sessions.map((session) => session.title)).toEqual(['Add bulk archive', 'Read receipts']);
   });
 
-  it('AC-8: asks for every session when no limit is given', async () => {
+  it('asks for every session when no limit is given (the View all list)', async () => {
     let limit: string | null = 'unset';
     server.use(
       http.get(sessionsUrl, ({ request }) => {

@@ -2,6 +2,13 @@
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test';
 
+declare global {
+  interface Window {
+    /** The sidebar's width when it first appeared, recorded by an init script. */
+    firstNavWidth?: number;
+  }
+}
+
 /** Sums every layout shift the page reports, the way Core Web Vitals counts CLS. */
 async function layoutShiftScore(page: Page): Promise<number> {
   return page.evaluate(
@@ -62,7 +69,7 @@ test.describe('wide window', () => {
       new MutationObserver((_, observer) => {
         const nav = document.querySelector('nav[aria-label="Main"]');
         if (nav === null) return;
-        (window as unknown as { firstNavWidth: number }).firstNavWidth = nav.getBoundingClientRect().width;
+        window.firstNavWidth = nav.getBoundingClientRect().width;
         observer.disconnect();
       }).observe(document, { childList: true, subtree: true });
     });
@@ -70,7 +77,7 @@ test.describe('wide window', () => {
     await page.reload();
 
     await expect(page.getByRole('button', { name: 'Expand sidebar' })).toBeVisible();
-    expect(await page.evaluate(() => (window as unknown as { firstNavWidth: number }).firstNavWidth)).toBe(64);
+    expect(await page.evaluate(() => window.firstNavWidth)).toBe(64);
     expect(await layoutShiftScore(page)).toBe(0);
   });
 

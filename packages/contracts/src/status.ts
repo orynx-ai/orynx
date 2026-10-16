@@ -23,7 +23,7 @@ export type AgentStatus = z.infer<typeof AgentStatusSchema>;
 /** The person using DevHub, for the sidebar footer. */
 export const UserSchema = z.object({
   /** From `git config user.name` until a connection gives a better one; null when nobody is known. */
-  name: z.string().min(1).nullable(),
+  name: z.string().regex(/\S/, 'a name needs at least one visible character').nullable(),
 });
 export type User = z.infer<typeof UserSchema>;
 

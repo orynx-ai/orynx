@@ -1,12 +1,4 @@
-/** Every face `@devhub/ui` bundles (packages/ui/src/styles/index.css), as `document.fonts.load()` names them. */
-export const bundledFaces = [
-  '400 14px Geist',
-  '500 14px Geist',
-  '600 14px Geist',
-  '400 12px "Geist Mono"',
-  '500 12px "Geist Mono"',
-  '400 32px Newsreader',
-];
+import { bundledFontFaces } from '@devhub/ui';
 
 /**
  * Waits briefly for the bundled fonts so the first render already uses them. Without this,
@@ -18,7 +10,7 @@ export async function waitForFonts(fonts: Pick<FontFaceSet, 'load'> | undefined,
   if (fonts === undefined) return;
   let timer: ReturnType<typeof setTimeout> | undefined;
   await Promise.race([
-    Promise.allSettled(bundledFaces.map((face) => fonts.load(face))),
+    Promise.allSettled(bundledFontFaces.map((face) => fonts.load(face))),
     new Promise((resolve) => {
       timer = setTimeout(resolve, timeoutMs);
     }),
