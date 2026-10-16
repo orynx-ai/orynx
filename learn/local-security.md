@@ -19,6 +19,7 @@ That alone is not enough: a page on `evil.example` running in the developer's br
 3. `packages/api-client/src/client.ts` reads nothing from the page itself; the host passes the token to `createApiClient({ baseURL, token })`, and the axios instance sends it as `x-devhub-token` on every request (`status()`, `sessions()` and every endpoint added after them share that one instance). When the server answers 401 (for example after it restarted with a new token), `onUnauthorized` lets the host reload the page to pick up the new one.
 4. `EventSource` cannot set headers, so the event stream (`/api/events`) is the one route that accepts `?token=`.
 5. `packages/core/src/plugins/local-only.ts` compares the token in constant time and answers 401 when it is missing or wrong.
+6. It decides whether a request is an `/api` request from the path the router matches, not only the raw URL. The router decodes `GET /%61pi/sessions` to `/api/sessions`, so a check on the raw text alone would let that request skip the token. The hook needs the token if the raw path, the decoded path or the matched route is under `/api`, and `create-server.test.ts` sends four such encodings.
 
 **Why per start?** A token that never changes would live forever in old tabs, logs and screenshots. A new token on every start means a leaked one stops working the next time DevHub restarts, and stopping the server is always a full reset.
 
