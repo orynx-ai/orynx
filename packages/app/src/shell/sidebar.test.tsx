@@ -48,16 +48,6 @@ describe('Sidebar', () => {
     expect(await within(mainNav()).findByText('DevHub server not reachable')).toBeVisible();
   });
 
-  it('shows that there are no sessions yet and links to the full list', async () => {
-    const { user, history } = await renderApp();
-    const nav = mainNav();
-
-    expect(within(nav).getByText('No sessions yet')).toBeVisible();
-    await user.click(within(nav).getByRole('link', { name: 'View all' }));
-
-    expect(history.location.pathname).toBe('/sessions');
-  });
-
   it('collapses and remembers it', async () => {
     const { user } = await renderApp();
 

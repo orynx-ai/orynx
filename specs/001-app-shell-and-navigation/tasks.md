@@ -17,12 +17,12 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: `SessionItem` in `@devhub/ui` with all five states and the current look (AC-9, AC-14)
       Check: pnpm test packages/ui; pnpm gate component-coverage; pnpm gate style-policy
       Files: packages/ui/src/components/session-item.tsx, packages/ui/src/components/session-item.stories.tsx, packages/ui/src/components/session-item.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 6: Sidebar session list in four states, refreshed by `sessions.changed` (AC-8, AC-10, AC-11, AC-12, AC-13)
-      Check: pnpm test packages/app/src/shell packages/app/src/live-updates.test.tsx
-      Files: packages/app/src/features/sessions/queries.ts, packages/app/src/shell/sidebar.tsx, packages/app/src/shell/sidebar-sessions.tsx, packages/app/src/shell/sidebar.test.tsx, packages/app/src/live-updates.tsx, packages/app/src/live-updates.test.tsx, packages/app/src/test/msw.ts
-- [ ] Task 7: The `/sessions/$sessionId` route and the View all list (AC-14)
+- [x] Task 6: Sidebar session list in four states, refreshed by `sessions.changed`, and the `/sessions/$sessionId` route with its page bar (the typed session links need the route) (AC-8, AC-10, AC-11, AC-12, AC-13, AC-14)
+      Check: pnpm test packages/app; pnpm gate component-coverage; pnpm gate design-source
+      Files: packages/app/src/features/sessions/queries.ts, packages/app/src/features/sessions/source-label.ts, packages/app/src/features/sessions/components/sessions-load-error.tsx, packages/app/src/features/sessions/session-screen.tsx, packages/app/src/features/sessions/session-screen.test.tsx, packages/app/src/router.tsx, packages/app/src/shell/sidebar.tsx, packages/app/src/shell/sidebar-sessions.tsx, packages/app/src/shell/sidebar-sessions.test.tsx, packages/app/src/test/msw.ts
+- [ ] Task 7: The View all list with the same rows, in four states (AC-8, AC-10, AC-12)
       Check: pnpm test packages/app/src/features/sessions; pnpm gate design-source
-      Files: packages/app/src/router.tsx, packages/app/src/features/sessions/session-screen.tsx, packages/app/src/features/sessions/session-screen.test.tsx, packages/app/src/features/sessions/sessions-screen.tsx, packages/app/src/features/sessions/sessions-screen.test.tsx, packages/app/src/shell/page-frame.tsx
+      Files: packages/app/src/features/sessions/sessions-screen.tsx, packages/app/src/features/sessions/sessions-screen.test.tsx
 - [ ] Task 8: Footer with the person's initials and name, and Claude's state in words (AC-16)
       Check: pnpm test packages/app/src/shell
       Files: packages/app/src/shell/sidebar.tsx, packages/app/src/shell/sidebar-footer.tsx, packages/app/src/shell/person-name.ts, packages/app/src/shell/person-name.test.ts, packages/app/src/shell/sidebar.test.tsx

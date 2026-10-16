@@ -10,6 +10,7 @@ import {
 import type { ApiClient } from '@devhub/api-client';
 import { HomeScreen } from './features/home/home-screen.tsx';
 import { NotFoundScreen } from './features/not-found/not-found-screen.tsx';
+import { SessionScreen } from './features/sessions/session-screen.tsx';
 import { SessionsScreen } from './features/sessions/sessions-screen.tsx';
 import { SettingsScreen } from './features/settings/settings-screen.tsx';
 import { SettingsTabSchema } from './features/settings/tabs.ts';
@@ -31,6 +32,12 @@ const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', comp
 const ticketsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tickets', component: TicketsScreen });
 
 const sessionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sessions', component: SessionsScreen });
+
+const sessionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/sessions/$sessionId',
+  component: SessionScreen,
+});
 
 const settingsIndexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -56,6 +63,7 @@ export const routeTree = rootRoute.addChildren([
   homeRoute,
   ticketsRoute,
   sessionsRoute,
+  sessionRoute,
   settingsIndexRoute,
   settingsRoute,
 ]);

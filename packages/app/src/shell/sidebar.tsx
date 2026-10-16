@@ -4,6 +4,7 @@ import { House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucid
 import { Button, Kbd, cn } from '@devhub/ui';
 import { useStatus } from '../features/settings/queries.ts';
 import { useUiStore } from '../stores/ui-store.ts';
+import { SidebarSessions } from './sidebar-sessions.tsx';
 
 /**
  * Design system: SidebarNav. Places, the most recent sessions and the agent's state.
@@ -66,18 +67,7 @@ export function Sidebar() {
         <NavItem to="/settings" icon={<Settings aria-hidden />} label="Settings" collapsed={collapsed} />
       </div>
 
-      <div className={cn('flex flex-col gap-0.5', collapsed && 'md:hidden')}>
-        <div className="flex items-center gap-2 px-2.5 pt-2 pb-1 text-label font-medium text-muted-foreground">
-          <h2 className="m-0 text-label font-medium">Sessions</h2>
-          <Link
-            to="/sessions"
-            className="ml-auto rounded-xs px-1 text-muted-foreground no-underline hover:bg-subtle hover:text-foreground"
-          >
-            View all
-          </Link>
-        </div>
-        <p className="m-0 px-2.5 py-2 text-small text-muted-foreground">No sessions yet</p>
-      </div>
+      <SidebarSessions className={cn('flex flex-col gap-0.5', collapsed && 'md:hidden')} />
 
       <AgentStatus collapsed={collapsed} />
     </nav>
