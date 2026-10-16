@@ -21,7 +21,7 @@ service in core ──publish(event)──▶ event bus ──▶ GET /api/event
 
 ## 1. The event union
 
-`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens) and `status.changed`. Every new kind of change adds a member here first, so the server and the page agree on the payload.
+`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed` and `sessions.changed`. Every new kind of change adds a member here first, so the server and the page agree on the payload.
 
 ## 2. The event bus
 
@@ -40,12 +40,19 @@ service in core ──publish(event)──▶ event bus ──▶ GET /api/event
 `packages/app/src/live-updates.tsx` subscribes once, near the root, and maps each event type to the queries it makes stale:
 
 ```ts
-switch (event.type) {
-  case 'status.changed':
-    void queryClient.invalidateQueries({ queryKey: queryKeys.status });
-    break;
+function keysFor(event: ServerEvent): readonly (readonly string[])[] {
+  switch (event.type) {
+    case 'hello':
+      return [];
+    case 'status.changed':
+      return [queryKeys.status];
+    case 'sessions.changed':
+      return [queryKeys.sessions]; // the sidebar's 5 and the full list both start with this key
+  }
 }
 ```
+
+The switch has no `default`, so TypeScript refuses to compile until a new event type has a case.
 
 TanStack Query then refetches only the queries that are on screen.
 

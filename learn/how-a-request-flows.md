@@ -27,7 +27,7 @@ This page follows one request, `GET /api/status`, from the zod schema to the pix
 
 ## 1. The contract
 
-`packages/contracts/src/status.ts` defines `StatusSchema`: the app version, whether Claude is connected, and the connection state of Jira, GitHub and Slack (`connected`, `not_connected`, `needs_admin_approval`, `error`). `type Status = z.infer<typeof StatusSchema>` is derived from it, so there is no separate interface to keep in sync. The path lives in `apiRoutes.status` in `packages/contracts/src/routes.ts`.
+`packages/contracts/src/status.ts` defines `StatusSchema`: the app version, the user's name for the sidebar footer (from `git config --global user.name`, read once per start, or `null`), whether Claude is connected, and the connection state of Jira, GitHub and Slack (`connected`, `not_connected`, `needs_admin_approval`, `error`). `type Status = z.infer<typeof StatusSchema>` is derived from it, so there is no separate interface to keep in sync. The path lives in `apiRoutes.status` in `packages/contracts/src/routes.ts`.
 
 Both the server and the browser import this package, which is why it may import nothing but `zod`.
 
@@ -46,7 +46,7 @@ Before the handler runs, the `local-only` plugin checks the Host header and the 
 
 ## 4. The query options
 
-`packages/api-client/src/queries.ts` turns the function into `statusQueryOptions(api)`: a query key from `queryKeys` plus the fetcher. Keeping keys in one place means an event can invalidate exactly the right cache entries (see `learn/live-updates.md`).
+`packages/api-client/src/queries.ts` turns the function into `statusQueryOptions(api)`: a query key from `queryKeys` plus the fetcher. Keeping keys in one place means an event can invalidate exactly the right cache entries (see `learn/live-updates.md`). Keys go from general to specific: the sidebar's session list is `['sessions', { limit: 5 }]` and the full list is `['sessions', {}]`, so invalidating `queryKeys.sessions` refreshes both.
 
 ## 5. The feature hook
 
@@ -63,7 +63,7 @@ export function useStatus() {
 
 ## 6. The screen
 
-The Settings screen calls `useStatus()` and renders one of its states: a skeleton while pending, a one-line error, or the Jira, GitHub and Slack rows with their pills. It never stores the result in `useState` or zustand; the query cache is the only copy.
+The Settings screen (and the sidebar footer) calls `useStatus()` and renders one of its states: a skeleton while pending, a one-line error, or the Jira, GitHub and Slack rows with their pills. It never stores the result in `useState` or zustand; the query cache is the only copy.
 
 ## Testing each layer
 
