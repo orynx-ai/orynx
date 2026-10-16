@@ -21,6 +21,15 @@ Correct these now, or the work goes ahead on them.
 - Esc and arrow keys in menus wait for the Menu component (spec 006). This spec keeps the arrow keys that already work in the Settings tab list.
 - No new dependencies: shortcuts are a small hook in `@devhub/app`, not a hotkeys library.
 
+Decided while building (16 Oct 2026). Each needs a person's OK; the review lists them too:
+
+- **Sidebar width 288 px** (`md:w-72`), not the design system's 248–260 px. The footer's longest line, "Claude not connected · runs locally", needs about 286 px; the screens themselves render the sidebar at 283 px (`flex: 1 1 248px`). The width stays fixed so nothing shifts when the status arrives.
+- **No name known:** the footer says "You" (Q6) with a person icon in the avatar slot, so the row keeps its shape when a name arrives and the collapsed rail still shows something.
+- **The narrow-window Sessions place** uses Lucide's History icon; the design has no icon for it.
+- **Session source keys are 12 px mono**, not the 11 px in the design's CSS, because the design system allows nothing under 12 px.
+- **The Working icon spins** (the spec's "spinning arc"), except with reduced motion.
+- **The web host waits up to 300 ms for the bundled fonts** before its first render, so text never moves when a font swaps in.
+
 ## Goal
 
 Wherever I am in DevHub, the sidebar shows where I can go, my latest Claude sessions and their state, and whether Claude is connected. I can tuck the sidebar away and it stays that way, start a new task from the keyboard, and use it all on a narrow window or with a keyboard only.
