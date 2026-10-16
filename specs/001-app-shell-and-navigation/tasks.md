@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: API client `sessions()` and `sessionsQueryOptions` (AC-8, AC-15)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/api-client/src/sessions.test.ts
-- [ ] Task 5: `SessionItem` in `@devhub/ui` with all five states and the current look (AC-9, AC-14)
+- [x] Task 5: `SessionItem` in `@devhub/ui` with all five states and the current look (AC-9, AC-14)
       Check: pnpm test packages/ui; pnpm gate component-coverage; pnpm gate style-policy
       Files: packages/ui/src/components/session-item.tsx, packages/ui/src/components/session-item.stories.tsx, packages/ui/src/components/session-item.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 6: Sidebar session list in four states, refreshed by `sessions.changed` (AC-8, AC-10, AC-11, AC-12, AC-13)
