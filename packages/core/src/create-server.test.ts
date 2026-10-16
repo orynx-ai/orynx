@@ -47,6 +47,35 @@ describe('GET /api/status', () => {
   });
 });
 
+describe('GET /api/status user', () => {
+  it('AC-16: names the user, and asks for the name only once', async () => {
+    let asked = 0;
+    app = await createServer({
+      token,
+      port,
+      version: '1.2.3',
+      userName: () => {
+        asked += 1;
+        return Promise.resolve('Ada Lovelace');
+      },
+    });
+    const request = { method: 'GET', url: apiRoutes.status, headers: { host, [tokenHeader]: token } } as const;
+
+    const first = StatusSchema.parse((await app.inject(request)).json());
+    await app.inject(request);
+
+    expect(first.user).toEqual({ name: 'Ada Lovelace' });
+    expect(asked).toBe(1);
+  });
+
+  it('AC-16: says null when nobody is known', async () => {
+    app = await createServer({ token, port, version: '1.2.3', userName: () => Promise.resolve(null) });
+    const res = await app.inject({ method: 'GET', url: apiRoutes.status, headers: { host, [tokenHeader]: token } });
+
+    expect(StatusSchema.parse(res.json()).user).toEqual({ name: null });
+  });
+});
+
 describe('local-only security', () => {
   it('rejects a request without the token with 401 and says to reload', async () => {
     const res = await (await server()).inject({ method: 'GET', url: apiRoutes.status, headers: { host } });

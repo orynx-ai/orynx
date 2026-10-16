@@ -7,6 +7,7 @@ import { eventsRoutes } from './routes/events.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
 import { statusRoutes } from './routes/status.ts';
 import { createMemorySessionStore, type SessionStore } from './sessions/session-store.ts';
+import { readGitUserName } from './status/git-user-name.ts';
 import { createStatusService } from './status/status-service.ts';
 
 export interface CoreOptions {
@@ -23,6 +24,8 @@ export interface CoreOptions {
   eventsKeepAliveMs?: number;
   /** Where sessions are kept; an empty memory store until spec 011. */
   sessions?: SessionStore;
+  /** Who is using DevHub; the name from `git config --global user.name` by default. */
+  userName?: () => Promise<string | null>;
 }
 
 const tokenInUrl = new RegExp(`([?&]${tokenQueryParam}=)[^&#]*`, 'g');
@@ -56,7 +59,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   registerLocalOnly(app, { token: options.token, port: options.port });
 
   const events = options.events ?? createEventBus();
-  const status = createStatusService({ version: options.version });
+  const status = createStatusService({
+    version: options.version,
+    userName: options.userName ?? (() => readGitUserName()),
+  });
 
   await app.register(
     async (api) => {

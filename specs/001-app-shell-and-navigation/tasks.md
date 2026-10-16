@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Core session store and `GET /api/sessions?limit=` behind the local-only checks (AC-15)
       Check: pnpm test packages/core
       Files: packages/core/src/sessions/session-store.ts, packages/core/src/routes/sessions.ts, packages/core/src/routes/sessions.test.ts, packages/core/src/create-server.ts, packages/core/src/index.ts
-- [ ] Task 3: Core reads the person's name from git once and puts it in the status (AC-16)
+- [x] Task 3: Core reads the person's name from git once and puts it in the status (AC-16)
       Check: pnpm test packages/core
       Files: packages/core/src/status/git-user-name.ts, packages/core/src/status/git-user-name.test.ts, packages/core/src/status/status-service.ts, packages/core/src/create-server.ts, packages/core/src/create-server.test.ts
 - [ ] Task 4: API client `sessions()` and `sessionsQueryOptions` (AC-8, AC-15)
