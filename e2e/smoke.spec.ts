@@ -8,7 +8,8 @@ test('Given DevHub is running, when you open it, then Home greets you and the si
   await expect(page.getByRole('heading', { name: 'What should we build today?' })).toBeVisible();
   const nav = page.getByRole('navigation', { name: 'Main' });
   await expect(nav.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
-  await expect(nav.getByText('Not connected · runs locally')).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Tickets' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Settings' })).toBeVisible();
 });
 
 test('Given DevHub is running, when you open Settings, then each tool says it is not connected', async ({ page }) => {

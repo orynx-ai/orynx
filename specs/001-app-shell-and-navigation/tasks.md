@@ -35,8 +35,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: Compact top bar under 768 px (AC-19, AC-20)
       Check: pnpm test packages/app/src/shell; pnpm gate style-policy; checked in a real browser at 360 and 1280 px, light and dark
       Files: packages/app/src/shell/sidebar.tsx, packages/app/src/shell/sidebar-sessions.tsx, packages/app/src/shell/sidebar-footer.tsx, packages/app/src/shell/sidebar.test.tsx
-- [ ] Task 12: e2e in Chromium: the shortcut reaches the page, CLS is 0 after a collapsed reload, no horizontal scroll at 360 px (AC-3, AC-6, AC-19)
+- [x] Task 12: e2e in Chromium: the shortcut reaches the page, CLS is 0 after a collapsed reload, no horizontal scroll at 360 px (AC-3, AC-6, AC-19)
       Check: pnpm test:e2e
-      Files: e2e/shell.spec.ts
+      Files: e2e/shell.spec.ts, e2e/smoke.spec.ts (and the font fix in apps/web/src/fonts.ts, its own commit)
 - [ ] Task 13: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
