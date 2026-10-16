@@ -4,7 +4,9 @@ import { apiPrefix, tokenQueryParam, type ApiError } from '@devhub/contracts';
 import { createEventBus, type EventBus } from './events/event-bus.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { eventsRoutes } from './routes/events.ts';
+import { sessionsRoutes } from './routes/sessions.ts';
 import { statusRoutes } from './routes/status.ts';
+import { createMemorySessionStore, type SessionStore } from './sessions/session-store.ts';
 import { createStatusService } from './status/status-service.ts';
 
 export interface CoreOptions {
@@ -19,6 +21,8 @@ export interface CoreOptions {
   events?: EventBus;
   /** Keep-alive interval for the event stream. */
   eventsKeepAliveMs?: number;
+  /** Where sessions are kept; an empty memory store until spec 011. */
+  sessions?: SessionStore;
 }
 
 const tokenInUrl = new RegExp(`([?&]${tokenQueryParam}=)[^&#]*`, 'g');
@@ -75,6 +79,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       });
 
       await api.register(statusRoutes, { status });
+      await api.register(sessionsRoutes, { sessions: options.sessions ?? createMemorySessionStore() });
       await api.register(eventsRoutes, {
         events,
         ...(options.eventsKeepAliveMs === undefined ? {} : { keepAliveMs: options.eventsKeepAliveMs }),
