@@ -2,13 +2,16 @@ import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucide-react';
 import { Button, Kbd, cn } from '@devhub/ui';
-import { useStatus } from '../features/settings/queries.ts';
 import { useUiStore } from '../stores/ui-store.ts';
+import { SidebarFooter } from './sidebar-footer.tsx';
 import { SidebarSessions } from './sidebar-sessions.tsx';
 
 /**
  * Design system: SidebarNav. Places, the most recent sessions and the agent's state.
  * On phones it stacks above the content; it is never fixed to the viewport height.
+ * 288 px wide, not the design system's 248–260: the footer's longest line ("Claude not
+ * connected · runs locally") needs it, and the screens render the sidebar at 283 px.
+ * The width stays fixed, so nothing shifts when the status arrives.
  */
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
@@ -19,7 +22,7 @@ export function Sidebar() {
       aria-label="Main"
       className={cn(
         'flex flex-col gap-4 border-b border-border bg-sidebar p-3 md:shrink-0 md:border-r md:border-b-0',
-        collapsed ? 'md:w-16' : 'md:w-65',
+        collapsed ? 'md:w-16' : 'md:w-72',
       )}
     >
       <div className="flex items-center gap-2.5 py-0.5 pr-0.5 pl-1.5">
@@ -69,7 +72,7 @@ export function Sidebar() {
 
       <SidebarSessions className={cn('flex flex-col gap-0.5', collapsed && 'md:hidden')} />
 
-      <AgentStatus collapsed={collapsed} />
+      <SidebarFooter collapsed={collapsed} />
     </nav>
   );
 }
@@ -100,36 +103,5 @@ function NavItem({
       <span className="contents group-aria-[current=page]:text-info">{icon}</span>
       <Label collapsed={collapsed}>{label}</Label>
     </Link>
-  );
-}
-
-/**
- * The footer: whether Claude is reachable, in words and a dot, never colour alone.
- * Two lines like the design's user row, so the state never gets cut off.
- */
-function AgentStatus({ collapsed }: { collapsed: boolean }) {
-  const status = useStatus();
-
-  const { text, dot } = status.isPending
-    ? { text: 'Checking…', dot: 'text-muted-foreground' }
-    : status.isError
-      ? { text: 'DevHub server not reachable', dot: 'text-danger' }
-      : status.data.agent.connected
-        ? { text: 'Connected · runs locally', dot: 'text-success' }
-        : { text: 'Not connected · runs locally', dot: 'text-muted-foreground' };
-
-  return (
-    <div className="mt-auto border-t border-border pt-3">
-      <Link
-        to="/settings"
-        className="flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-foreground no-underline hover:bg-subtle"
-      >
-        <span aria-hidden className={cn('size-2 shrink-0 rounded-full bg-current', dot)} />
-        <span className={cn('flex min-w-0 flex-col', collapsed && 'md:sr-only')}>
-          <span className="font-medium">Claude</span>
-          <span className="truncate text-label text-muted-foreground">{text}</span>
-        </span>
-      </Link>
-    </div>
   );
 }
