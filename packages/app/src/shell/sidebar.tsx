@@ -2,9 +2,12 @@ import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucide-react';
 import { Button, Kbd, cn } from '@devhub/ui';
+import { usePlatform } from '../platform.tsx';
 import { useUiStore } from '../stores/ui-store.ts';
+import { newTaskShortcut, searchShortcutLabel } from './shortcuts.ts';
 import { SidebarFooter } from './sidebar-footer.tsx';
 import { SidebarSessions } from './sidebar-sessions.tsx';
+import { useNewTask } from './use-shortcuts.ts';
 
 /**
  * Design system: SidebarNav. Places, the most recent sessions and the agent's state.
@@ -16,6 +19,9 @@ import { SidebarSessions } from './sidebar-sessions.tsx';
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const platform = usePlatform();
+  const newTask = newTaskShortcut(platform);
+  const startNewTask = useNewTask();
 
   return (
     <nav
@@ -47,10 +53,19 @@ export function Sidebar() {
 
       <div className="flex flex-col gap-1.5">
         <Button asChild variant="secondary" className="justify-start">
-          <Link to="/">
+          <Link
+            to="/"
+            aria-keyshortcuts={newTask.ariaKeyShortcuts}
+            onClick={(event) => {
+              // Same as the shortcut: Home, with focus on its content. Modified clicks open a new tab as usual.
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              startNewTask();
+            }}
+          >
             <PenLine aria-hidden />
             <Label collapsed={collapsed}>New task</Label>
-            <Kbd className={cn('ml-auto', collapsed && 'md:hidden')}>⌘N</Kbd>
+            <Kbd className={cn('ml-auto', collapsed && 'md:hidden')}>{newTask.label}</Kbd>
           </Link>
         </Button>
         <button
@@ -60,7 +75,7 @@ export function Sidebar() {
         >
           <Search aria-hidden />
           <Label collapsed={collapsed}>Search</Label>
-          <Kbd className={cn('ml-auto', collapsed && 'md:hidden')}>⌘K</Kbd>
+          <Kbd className={cn('ml-auto', collapsed && 'md:hidden')}>{searchShortcutLabel(platform)}</Kbd>
         </button>
       </div>
 

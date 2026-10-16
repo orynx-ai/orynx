@@ -7,7 +7,7 @@ import { apiUrl, server } from '../test/msw.ts';
 import { renderApp } from '../test/render.tsx';
 
 describe('AppShell', () => {
-  it('makes "Skip to content" the first stop and points it at the main region', async () => {
+  it('AC-17: makes "Skip to content" the first stop, and Enter moves focus to the main region', async () => {
     const { user } = await renderApp();
     await screen.findByRole('heading', { name: 'What should we build today?' });
 
@@ -16,7 +16,10 @@ describe('AppShell', () => {
     const skip = screen.getByRole('link', { name: 'Skip to content' });
     expect(skip).toHaveFocus();
     expect(skip).toHaveAttribute('href', '#main');
-    expect(screen.getByRole('main')).toHaveAttribute('id', 'main');
+
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('main')).toHaveFocus();
   });
 
   it('asks to reload when the server answers 401 after a restart', async () => {

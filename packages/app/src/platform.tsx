@@ -6,6 +6,8 @@ import { createContext, use, type ReactNode } from 'react';
  */
 export interface Platform {
   readonly kind: 'web' | 'desktop';
+  /** Decides which keys shortcuts use and show: ⌘ on a Mac, Ctrl elsewhere. */
+  readonly os: 'mac' | 'other';
   /** Opens a Jira, GitHub or Slack link outside DevHub. */
   openExternal(url: string): void;
   /** Reloads the app, for example after the server restarted with a new token. */

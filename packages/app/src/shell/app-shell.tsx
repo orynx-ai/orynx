@@ -2,20 +2,29 @@ import { Outlet } from '@tanstack/react-router';
 import { Button, Callout } from '@devhub/ui';
 import { usePlatform } from '../platform.tsx';
 import { useConnectionStore } from '../stores/connection-store.ts';
+import { focusMainContent, mainContentId } from './main-content.ts';
 import { Sidebar } from './sidebar.tsx';
+import { useGlobalShortcuts } from './use-shortcuts.ts';
 
 /** Every screen: skip link, sidebar, then the page. Narrow windows stack the sidebar on top. */
 export function AppShell() {
+  useGlobalShortcuts();
+
   return (
     <div className="relative flex min-h-dvh flex-col bg-canvas text-foreground md:flex-row">
       <a
-        href="#main"
+        href={`#${mainContentId}`}
+        onClick={(event) => {
+          // Move focus ourselves: the router would otherwise treat the hash as a navigation.
+          event.preventDefault();
+          focusMainContent();
+        }}
         className="absolute -top-15 left-2 z-30 rounded-sm bg-primary px-3 py-2 font-medium text-primary-foreground no-underline focus:top-2"
       >
         Skip to content
       </a>
       <Sidebar />
-      <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col bg-canvas outline-none">
+      <main id={mainContentId} tabIndex={-1} className="flex min-w-0 flex-1 flex-col bg-canvas outline-none">
         <StaleBanner />
         <Outlet />
       </main>

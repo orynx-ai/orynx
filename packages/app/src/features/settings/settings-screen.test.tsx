@@ -29,4 +29,19 @@ describe('SettingsScreen', () => {
     await renderApp({ route: '/settings/nope' });
     expect(await screen.findByRole('tab', { name: 'Connections' })).toHaveAttribute('aria-selected', 'true');
   });
+
+  it('AC-18: arrow keys move between the tabs, and Tab leaves the list', async () => {
+    const { user } = await renderApp({ route: '/settings/connections' });
+    const connections = await screen.findByRole('tab', { name: 'Connections' });
+    connections.focus();
+
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: 'Appearance' })).toHaveFocus();
+
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByRole('tab', { name: 'Connections' })).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getAllByRole('tab').some((tab) => tab === document.activeElement)).toBe(false);
+  });
 });
