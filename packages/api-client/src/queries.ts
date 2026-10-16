@@ -1,4 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
+import type { SessionListQuery } from '@devhub/contracts';
 import type { ApiClient } from './client.ts';
 
 /** One key per resource. Server events invalidate by these keys (learn/live-updates.md). */
@@ -13,6 +14,15 @@ export function statusQueryOptions(api: ApiClient) {
     queryKey: queryKeys.status,
     queryFn: () => api.status(),
     // Freshness comes from the event stream (status.changed), not from polling.
+    staleTime: Infinity,
+  });
+}
+
+export function sessionsQueryOptions(api: ApiClient, query: SessionListQuery = {}) {
+  return queryOptions({
+    queryKey: [...queryKeys.sessions, query] as const,
+    queryFn: () => api.sessions(query),
+    // Freshness comes from the event stream (sessions.changed), not from polling.
     staleTime: Infinity,
   });
 }

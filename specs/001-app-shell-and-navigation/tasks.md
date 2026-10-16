@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Core reads the person's name from git once and puts it in the status (AC-16)
       Check: pnpm test packages/core
       Files: packages/core/src/status/git-user-name.ts, packages/core/src/status/git-user-name.test.ts, packages/core/src/status/status-service.ts, packages/core/src/create-server.ts, packages/core/src/create-server.test.ts
-- [ ] Task 4: API client `sessions()` and `sessionsQueryOptions` (AC-8, AC-15)
+- [x] Task 4: API client `sessions()` and `sessionsQueryOptions` (AC-8, AC-15)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/api-client/src/sessions.test.ts
 - [ ] Task 5: `SessionItem` in `@devhub/ui` with all five states and the current look (AC-9, AC-14)
