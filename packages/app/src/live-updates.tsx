@@ -11,6 +11,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       return [];
     case 'status.changed':
       return [queryKeys.status];
+    case 'sessions.changed':
+      return [queryKeys.sessions];
   }
 }
 

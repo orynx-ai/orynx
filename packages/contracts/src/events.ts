@@ -9,6 +9,8 @@ export const ServerEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('hello'), at: z.iso.datetime() }),
   /** A connection or the agent changed; refetch GET /api/status. */
   z.object({ type: z.literal('status.changed') }),
+  /** A session started, changed state or ended; refetch GET /api/sessions. */
+  z.object({ type: z.literal('sessions.changed') }),
 ]);
 export type ServerEvent = z.infer<typeof ServerEventSchema>;
 export type ServerEventType = ServerEvent['type'];

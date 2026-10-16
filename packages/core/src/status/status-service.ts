@@ -13,6 +13,7 @@ export function createStatusService(options: { version: string }): StatusService
     getStatus() {
       return Promise.resolve({
         version: options.version,
+        user: { name: null },
         agent: { id: 'claude', connected: false },
         integrations: {
           jira: { state: 'not_connected', detail: null },
