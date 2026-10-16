@@ -64,12 +64,16 @@ describe('Sidebar', () => {
     expect(places.map((place) => place.getAttribute('title'))).toEqual(['Home', 'Tickets', 'Settings']);
     expect(footer).toHaveAttribute('title', 'You · Claude not connected · runs locally');
 
-    const order = [expand, newTask, ...places, footer];
+    // jsdom applies no CSS, so the narrow-window Sessions link (display: none from 768 px) is
+    // in its Tab order too; check that the rail's controls come in this order, in sequence.
     expand.focus();
-    for (const control of order.slice(1)) {
+    const reached: Element[] = [];
+    while (document.activeElement !== footer && reached.length < 10) {
       await user.tab();
-      expect(control).toHaveFocus();
+      if (document.activeElement !== null) reached.push(document.activeElement);
     }
+    const order = [newTask, ...places, footer];
+    expect(reached.filter((element) => order.includes(element as HTMLElement))).toEqual(order);
   });
 
   it('AC-2: shows no tooltips while expanded, where every name is already on screen', async () => {
@@ -78,5 +82,13 @@ describe('Sidebar', () => {
 
     expect(within(nav).getByRole('link', { name: 'Home' })).not.toHaveAttribute('title');
     expect(within(nav).getByRole('link', { name: /^New task/ })).not.toHaveAttribute('title');
+  });
+
+  it('AC-19: reaches the session list from the narrow top bar, which has no session rows', async () => {
+    const { user, history } = await renderApp({ route: '/tickets' });
+
+    await user.click(within(mainNav()).getByRole('link', { name: 'Sessions' }));
+
+    expect(history.location.pathname).toBe('/sessions');
   });
 });

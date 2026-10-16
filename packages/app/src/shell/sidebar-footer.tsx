@@ -24,7 +24,7 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
         : { text: 'Claude not connected · runs locally', dot: 'text-muted-foreground' };
 
   return (
-    <div className="mt-auto border-t border-border pt-3">
+    <div className="mt-auto border-t border-border pt-3 max-md:hidden">
       <Link
         to="/settings"
         title={collapsed ? `${who} · ${text}` : undefined}
