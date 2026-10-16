@@ -29,7 +29,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Keyboard: `Platform.os`, the New task shortcut, focus to the main region, the skip link and the Settings tab arrows (AC-5, AC-6, AC-7, AC-17, AC-18)
       Check: pnpm test packages/app apps/web
       Files: packages/app/src/platform.tsx, packages/app/src/shell/shortcuts.ts, packages/app/src/shell/use-shortcuts.ts, packages/app/src/shell/main-content.ts, packages/app/src/shell/sidebar.tsx, packages/app/src/shell/app-shell.tsx, packages/app/src/shell/app-shell.test.tsx, packages/app/src/shell/shortcuts.test.tsx, packages/app/src/test/render.tsx, packages/app/src/features/settings/settings-screen.test.tsx, apps/web/src/platform.ts, apps/web/src/platform.test.ts
-- [ ] Task 10: Collapsed rail with tooltips and names for every icon-only control (AC-2, AC-3, AC-4)
+- [x] Task 10: Collapsed rail with tooltips and names for every icon-only control (AC-2, AC-3, AC-4)
       Check: pnpm test packages/app/src/shell; pnpm gate style-policy
       Files: packages/app/src/shell/sidebar.tsx, packages/app/src/shell/sidebar-footer.tsx, packages/app/src/shell/sidebar.test.tsx
 - [ ] Task 11: Compact top bar under 768 px (AC-19, AC-20)

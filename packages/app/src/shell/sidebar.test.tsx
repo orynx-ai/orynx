@@ -46,4 +46,37 @@ describe('Sidebar', () => {
     await renderApp();
     expect(within(mainNav()).getByRole('button', { name: /Search/ })).toBeDisabled();
   });
+
+  it('AC-4: names every icon-only control when collapsed, with a hover tooltip, in Tab order', async () => {
+    const { user } = await renderApp();
+    const nav = mainNav();
+    await within(nav).findByText('Claude not connected · runs locally');
+    await user.click(within(nav).getByRole('button', { name: 'Collapse sidebar' }));
+
+    const expand = within(nav).getByRole('button', { name: 'Expand sidebar' });
+    const newTask = within(nav).getByRole('link', { name: /^New task/ });
+    const places = ['Home', 'Tickets', 'Settings'].map((name) => within(nav).getByRole('link', { name }));
+    const footer = within(nav).getByRole('link', { name: 'You Claude not connected · runs locally' });
+
+    expect(expand).toHaveAttribute('title', 'Expand sidebar');
+    expect(newTask).toHaveAttribute('title', 'New task (⌥⌘N)');
+    expect(within(nav).getByRole('button', { name: /Search/ })).toHaveAttribute('title', 'Search');
+    expect(places.map((place) => place.getAttribute('title'))).toEqual(['Home', 'Tickets', 'Settings']);
+    expect(footer).toHaveAttribute('title', 'You · Claude not connected · runs locally');
+
+    const order = [expand, newTask, ...places, footer];
+    expand.focus();
+    for (const control of order.slice(1)) {
+      await user.tab();
+      expect(control).toHaveFocus();
+    }
+  });
+
+  it('AC-2: shows no tooltips while expanded, where every name is already on screen', async () => {
+    await renderApp();
+    const nav = mainNav();
+
+    expect(within(nav).getByRole('link', { name: 'Home' })).not.toHaveAttribute('title');
+    expect(within(nav).getByRole('link', { name: /^New task/ })).not.toHaveAttribute('title');
+  });
 });

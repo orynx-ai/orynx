@@ -31,7 +31,9 @@ export function Sidebar() {
         collapsed ? 'md:w-16' : 'md:w-72',
       )}
     >
-      <div className="flex items-center gap-2.5 py-0.5 pr-0.5 pl-1.5">
+      <div
+        className={cn('flex items-center gap-2.5 py-0.5 pr-0.5 pl-1.5', collapsed && 'md:flex-col md:gap-2 md:px-0')}
+      >
         <span
           aria-hidden
           className="flex size-6.5 shrink-0 items-center justify-center rounded-sm bg-primary text-small font-semibold text-primary-foreground"
@@ -42,8 +44,9 @@ export function Sidebar() {
         <Button
           variant="ghost"
           size="icon-sm"
-          className="ml-auto hidden md:inline-flex"
+          className={cn('ml-auto hidden md:inline-flex', collapsed && 'md:ml-0')}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? 'Expand sidebar' : undefined}
           aria-pressed={collapsed}
           onClick={toggleSidebar}
         >
@@ -52,10 +55,11 @@ export function Sidebar() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Button asChild variant="secondary" className="justify-start">
+        <Button asChild variant="secondary" className={cn('justify-start', collapsed && 'md:justify-center md:px-0')}>
           <Link
             to="/"
             aria-keyshortcuts={newTask.ariaKeyShortcuts}
+            title={collapsed ? `New task (${newTask.label})` : undefined}
             onClick={(event) => {
               // Same as the shortcut: Home, with focus on its content. Modified clicks open a new tab as usual.
               if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -71,7 +75,11 @@ export function Sidebar() {
         <button
           type="button"
           disabled
-          className="flex h-8.5 w-full cursor-not-allowed items-center gap-2 rounded-sm border border-border bg-canvas px-2.5 text-muted-foreground"
+          title={collapsed ? 'Search' : undefined}
+          className={cn(
+            'flex h-8.5 w-full cursor-not-allowed items-center gap-2 rounded-sm border border-border bg-canvas px-2.5 text-muted-foreground',
+            collapsed && 'md:justify-center md:px-0',
+          )}
         >
           <Search aria-hidden />
           <Label collapsed={collapsed}>Search</Label>
@@ -85,7 +93,8 @@ export function Sidebar() {
         <NavItem to="/settings" icon={<Settings aria-hidden />} label="Settings" collapsed={collapsed} />
       </div>
 
-      <SidebarSessions className={cn('flex flex-col gap-0.5', collapsed && 'md:hidden')} />
+      {/* The rail has no room for session rows; "View all" is one click away once expanded. */}
+      {collapsed ? null : <SidebarSessions className="flex flex-col gap-0.5" />}
 
       <SidebarFooter collapsed={collapsed} />
     </nav>
@@ -113,7 +122,11 @@ function NavItem({
     <Link
       to={to}
       activeOptions={{ exact }}
-      className="group flex min-h-8.5 items-center gap-2.5 rounded-sm px-2.5 font-medium text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:text-foreground"
+      title={collapsed ? label : undefined}
+      className={cn(
+        'group flex min-h-8.5 items-center gap-2.5 rounded-sm px-2.5 font-medium text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:text-foreground',
+        collapsed && 'md:justify-center md:px-0',
+      )}
     >
       <span className="contents group-aria-[current=page]:text-info">{icon}</span>
       <Label collapsed={collapsed}>{label}</Label>
