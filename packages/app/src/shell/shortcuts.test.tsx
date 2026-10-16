@@ -106,6 +106,16 @@ describe('New task', () => {
   });
 });
 
+describe('New task on Home', () => {
+  it('AC-1: is never marked as the current page; only the Home place is', async () => {
+    await renderApp({ route: '/' });
+    const nav = mainNav();
+
+    expect(within(nav).getByRole('link', { name: /^New task/ })).not.toHaveAttribute('aria-current');
+    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
+  });
+});
+
 describe('Search', () => {
   it('AC-7: stays inactive until search ships, and ⌘K does nothing yet', async () => {
     const { history } = await renderApp({ route: '/tickets' });

@@ -1,5 +1,5 @@
 import { screen, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeStatus } from '@devhub/contracts/testing';
@@ -48,5 +48,28 @@ describe('Sidebar footer', () => {
     await renderApp();
 
     expect(await within(mainNav()).findByText('DevHub server not reachable')).toBeVisible();
+  });
+
+  it('AC-16: is not a current page on Settings, where the Settings place is', async () => {
+    await renderApp({ route: '/settings/appearance' });
+    const nav = mainNav();
+
+    expect(
+      await within(nav).findByRole('link', { name: 'You Claude not connected · runs locally' }),
+    ).not.toHaveAttribute('aria-current');
+    expect(within(nav).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('AC-16: says no name while the status is still loading', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.status), async () => {
+        await delay('infinite');
+        return HttpResponse.json(makeStatus());
+      }),
+    );
+    await renderApp();
+
+    expect(within(mainNav()).getByText('Checking…')).toBeVisible();
+    expect(within(mainNav()).queryByText('You')).toBeNull();
   });
 });

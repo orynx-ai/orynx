@@ -13,12 +13,13 @@ export function SidebarSessions({ className }: { className?: string }) {
 
   return (
     <div className={className}>
-      <div className="flex items-center gap-2 px-2.5 pt-2 pb-1 text-label font-medium text-muted-foreground">
+      <div className="flex items-center gap-2 px-2.5 pt-2 pb-1 text-label leading-5 font-medium text-muted-foreground">
         <h2 className="m-0 text-label font-medium">Sessions</h2>
         <Link
           to="/sessions"
           activeOptions={{ exact: true }}
-          className="ml-auto rounded-xs px-1 text-muted-foreground no-underline hover:bg-subtle hover:text-foreground"
+          // A 32 px hit area (design system: 30 px in dense rows) without moving the heading row.
+          className="-my-1.5 ml-auto rounded-xs px-1 py-1.5 text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:text-foreground"
         >
           View all
         </Link>

@@ -50,4 +50,9 @@ describe('SessionsScreen', () => {
     expect(await within(content()).findByText("Couldn't load sessions")).toBeVisible();
     expect(within(content()).getByRole('button', { name: 'Try again' })).toBeVisible();
   });
+
+  it('names the page with a level-one heading for screen readers', async () => {
+    await renderApp({ route: '/sessions' });
+    expect(screen.getByRole('heading', { level: 1, name: 'Sessions' })).toBeInTheDocument();
+  });
 });

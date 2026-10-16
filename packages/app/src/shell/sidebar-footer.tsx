@@ -13,7 +13,8 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
   const status = useStatus();
   const name = status.data?.user.name ?? null;
   const person = name === null ? null : personName(name);
-  const who = person?.short ?? 'You';
+  // Nothing while the status loads: "You" means DevHub knows no name (Q6), which it cannot say yet.
+  const who = status.isPending ? '\u00a0' : (person?.short ?? 'You');
 
   const { text, dot } = status.isPending
     ? { text: 'Checking…', dot: 'text-muted-foreground' }
@@ -27,6 +28,8 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
     <div className="mt-auto border-t border-border pt-3 max-md:hidden">
       <Link
         to="/settings"
+        // Exact, so the footer is never a second "current page" next to the Settings place.
+        activeOptions={{ exact: true }}
         title={collapsed ? `${who} · ${text}` : undefined}
         className={cn(
           'flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-foreground no-underline hover:bg-subtle',
@@ -36,7 +39,7 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
         <span aria-hidden className="flex size-7 shrink-0 items-center justify-center text-muted-foreground">
           {person === null ? <UserRound /> : <Avatar initials={person.initials} size="lg" />}
         </span>
-        <span className={cn('flex min-w-0 flex-col', collapsed && 'md:sr-only')}>
+        <span className={cn('flex min-w-0 flex-col gap-px', collapsed && 'md:sr-only')}>
           <span className="truncate font-medium">{who}</span>{' '}
           <span className="flex min-w-0 items-center gap-1 text-label text-muted-foreground">
             <span aria-hidden className={cn('size-2 shrink-0 rounded-full bg-current', dot)} />

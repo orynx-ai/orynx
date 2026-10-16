@@ -14,6 +14,8 @@ export function SessionsScreen() {
     <>
       <PageBar breadcrumb={<PageBreadcrumb crumbs={[{ label: 'Sessions' }]} />} />
       <PageBody>
+        {/* The page bar shows "Sessions"; the heading names the page for screen readers too. */}
+        <h1 className="sr-only">Sessions</h1>
         {sessions.isPending ? null : sessions.isError ? (
           <SessionsLoadError onRetry={() => void sessions.refetch()} />
         ) : sessions.data.sessions.length === 0 ? (

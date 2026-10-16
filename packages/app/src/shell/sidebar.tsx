@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link, useLinkProps } from '@tanstack/react-router';
 import { History, House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucide-react';
 import { Button, Kbd, cn } from '@devhub/ui';
 import { SidebarSessions } from '../features/sessions/components/sidebar-sessions.tsx';
@@ -24,6 +24,9 @@ export function Sidebar() {
   const platform = usePlatform();
   const newTask = newTaskShortcut(platform);
   const startNewTask = useNewTask();
+  // New task is an action, so it must never announce itself as the current page on Home.
+  // Only the router's href (hash or path, per host); the click is handled below.
+  const { href: homeHref } = useLinkProps({ to: '/' });
 
   return (
     <nav
@@ -68,8 +71,8 @@ export function Sidebar() {
             collapsed && 'md:justify-center md:px-0',
           )}
         >
-          <Link
-            to="/"
+          <a
+            href={homeHref}
             aria-keyshortcuts={newTask.ariaKeyShortcuts}
             title={collapsed ? `New task (${newTask.label})` : undefined}
             onClick={(event) => {
@@ -84,7 +87,7 @@ export function Sidebar() {
               New task
             </Label>
             <Kbd className={cn('ml-auto max-md:hidden', collapsed && 'md:hidden')}>{newTask.label}</Kbd>
-          </Link>
+          </a>
         </Button>
         <button
           type="button"

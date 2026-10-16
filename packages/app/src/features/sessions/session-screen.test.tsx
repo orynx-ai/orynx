@@ -69,4 +69,10 @@ describe('SessionScreen', () => {
 
     expect(await within(screen.getByRole('main')).findByText("Couldn't load sessions")).toBeVisible();
   });
+
+  it('names the page after the session with a level-one heading', async () => {
+    server.use(sessionsHandler(list));
+    await renderApp({ route: '/sessions/session-1' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Add bulk archive' })).toBeInTheDocument();
+  });
 });
