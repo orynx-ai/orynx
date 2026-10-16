@@ -42,9 +42,14 @@ describe('Sidebar', () => {
     );
   });
 
-  it('keeps Search visible but disabled until search ships', async () => {
-    await renderApp();
-    expect(within(mainNav()).getByRole('button', { name: /Search/ })).toBeDisabled();
+  it('AC-7: keeps Search reachable but inactive until search ships', async () => {
+    const { user } = await renderApp({ route: '/tickets' });
+    const search = within(mainNav()).getByRole('button', { name: /Search/ });
+
+    expect(search).toHaveAttribute('aria-disabled', 'true');
+    await user.click(search);
+    expect(screen.getByRole('main')).toBeVisible();
+    expect(search).toHaveFocus();
   });
 
   it('AC-4: names every icon-only control when collapsed, with a hover tooltip, in Tab order', async () => {
@@ -55,12 +60,13 @@ describe('Sidebar', () => {
 
     const expand = within(nav).getByRole('button', { name: 'Expand sidebar' });
     const newTask = within(nav).getByRole('link', { name: /^New task/ });
+    const search = within(nav).getByRole('button', { name: /Search/ });
     const places = ['Home', 'Tickets', 'Settings'].map((name) => within(nav).getByRole('link', { name }));
     const footer = within(nav).getByRole('link', { name: 'You Claude not connected · runs locally' });
 
     expect(expand).toHaveAttribute('title', 'Expand sidebar');
     expect(newTask).toHaveAttribute('title', 'New task (⌥⌘N)');
-    expect(within(nav).getByRole('button', { name: /Search/ })).toHaveAttribute('title', 'Search');
+    expect(search).toHaveAttribute('title', 'Search');
     expect(places.map((place) => place.getAttribute('title'))).toEqual(['Home', 'Tickets', 'Settings']);
     expect(footer).toHaveAttribute('title', 'You · Claude not connected · runs locally');
 
@@ -72,7 +78,7 @@ describe('Sidebar', () => {
       await user.tab();
       if (document.activeElement !== null) reached.push(document.activeElement);
     }
-    const order = [newTask, ...places, footer];
+    const order = [newTask, search, ...places, footer];
     expect(reached.filter((element) => order.includes(element as HTMLElement))).toEqual(order);
   });
 

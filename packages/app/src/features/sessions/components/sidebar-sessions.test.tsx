@@ -3,9 +3,9 @@ import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type SessionSummary } from '@devhub/contracts';
 import { makeSessionList } from '@devhub/contracts/testing';
-import { FakeEventSource } from '../test/fake-event-source.ts';
-import { apiUrl, server, sessionsHandler } from '../test/msw.ts';
-import { renderApp } from '../test/render.tsx';
+import { FakeEventSource } from '../../../test/fake-event-source.ts';
+import { apiUrl, server, sessionsHandler } from '../../../test/msw.ts';
+import { renderApp } from '../../../test/render.tsx';
 
 function mainNav() {
   return screen.getByRole('navigation', { name: 'Main' });
@@ -110,6 +110,8 @@ describe('Sidebar sessions', () => {
       'page',
     );
     expect(within(nav).getByRole('link', { name: /^Add bulk archive/ })).not.toHaveAttribute('aria-current');
+    // The narrow-window "Sessions" place is current here too, by design: under 768 px it stands in
+    // for the session rows. From 768 px it is display: none, so only the row is current on screen.
     for (const name of ['Home', 'Tickets', 'Settings', 'View all']) {
       expect(within(nav).getByRole('link', { name })).not.toHaveAttribute('aria-current');
     }

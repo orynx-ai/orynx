@@ -107,11 +107,11 @@ describe('New task', () => {
 });
 
 describe('Search', () => {
-  it('AC-7: stays disabled until search ships, and ⌘K does nothing yet', async () => {
+  it('AC-7: stays inactive until search ships, and ⌘K does nothing yet', async () => {
     const { history } = await renderApp({ route: '/tickets' });
 
     const search = within(mainNav()).getByRole('button', { name: /Search/ });
-    expect(search).toBeDisabled();
+    expect(search).toHaveAttribute('aria-disabled', 'true');
     expect(within(search).getByText('⌘K')).toBeVisible();
     expect(press({ key: 'k', code: 'KeyK', metaKey: true })).toBe(true);
     expect(history.location.pathname).toBe('/tickets');

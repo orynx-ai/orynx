@@ -2,11 +2,11 @@ import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { History, House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucide-react';
 import { Button, Kbd, cn } from '@devhub/ui';
+import { SidebarSessions } from '../features/sessions/components/sidebar-sessions.tsx';
 import { usePlatform } from '../platform.tsx';
 import { useUiStore } from '../stores/ui-store.ts';
 import { newTaskShortcut, searchShortcutLabel } from './shortcuts.ts';
 import { SidebarFooter } from './sidebar-footer.tsx';
-import { SidebarSessions } from './sidebar-sessions.tsx';
 import { useNewTask } from './use-shortcuts.ts';
 
 /**
@@ -88,7 +88,8 @@ export function Sidebar() {
         </Button>
         <button
           type="button"
-          disabled
+          // aria-disabled, not disabled: it stays in the Tab order with its name and key until search ships (spec 009).
+          aria-disabled
           title={collapsed ? 'Search' : undefined}
           className={cn(
             'flex h-8.5 w-full cursor-not-allowed items-center gap-2 rounded-sm border border-border bg-canvas px-2.5 text-muted-foreground max-md:size-9 max-md:justify-center max-md:px-0',

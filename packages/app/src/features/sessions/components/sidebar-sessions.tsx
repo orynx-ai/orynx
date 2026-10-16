@@ -1,13 +1,13 @@
 import { Link } from '@tanstack/react-router';
 import { SessionItem } from '@devhub/ui';
-import { SessionsLoadError } from '../features/sessions/components/sessions-load-error.tsx';
-import { useSessions } from '../features/sessions/queries.ts';
-import { sourceLabel } from '../features/sessions/source-label.ts';
+import { SessionsLoadError } from './sessions-load-error.tsx';
+import { useSessions } from '../queries.ts';
+import { sourceLabel } from '../source-label.ts';
 
 /** How many sessions the sidebar shows; "View all" lists the rest (design system: SidebarNav). */
 const recentSessions = 5;
 
-/** The Sessions section: the most recent sessions, newest activity first. */
+/** The sidebar's Sessions section (the shell places it): the most recent sessions, newest activity first. */
 export function SidebarSessions({ className }: { className?: string }) {
   const sessions = useSessions({ limit: recentSessions });
 
