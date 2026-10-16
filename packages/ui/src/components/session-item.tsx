@@ -27,7 +27,8 @@ const iconVariants = cva('mt-px inline-flex size-5 shrink-0 items-center justify
   },
 });
 
-const wordVariants = cva('font-medium', {
+// The state word never shrinks: a long source truncates first, so the state is always readable.
+const wordVariants = cva('shrink-0 font-medium', {
   variants: {
     state: {
       needs_you: 'text-warning',
@@ -117,7 +118,10 @@ export function SessionItem({
         <span className="flex items-center gap-1 overflow-hidden text-label whitespace-nowrap text-muted-foreground">
           {source === undefined ? null : (
             <>
-              <span className="font-mono">{source}</span> <span aria-hidden>·</span>{' '}
+              <span className="min-w-0 truncate font-mono">{source}</span>{' '}
+              <span aria-hidden className="shrink-0">
+                ·
+              </span>{' '}
             </>
           )}
           <span className={wordVariants({ state })}>{sessionStateLabels[state]}</span>

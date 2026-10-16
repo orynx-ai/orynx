@@ -27,3 +27,6 @@ export const NoSource: Story = { args: { title: 'Tidy the README', source: undef
 export const LongTitle: Story = {
   args: { title: 'Show read receipts for every announcement in the analytics dashboard', state: 'working' },
 };
+export const LongSource: Story = {
+  args: { title: 'Rename the billing exports', source: 'PLATFORM-123456', state: 'done' },
+};
