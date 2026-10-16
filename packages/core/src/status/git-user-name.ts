@@ -18,7 +18,8 @@ export function readGitUserName(options: GitUserNameOptions = {}): Promise<strin
     execFile(
       options.git ?? 'git',
       ['config', ...scope, '--get', 'user.name'],
-      { timeout: options.timeoutMs ?? 2000, windowsHide: true },
+      // SIGKILL, so a git that ignores SIGTERM cannot leave the status waiting forever.
+      { timeout: options.timeoutMs ?? 2000, killSignal: 'SIGKILL', windowsHide: true },
       (error, stdout) => {
         const name = error === null ? stdout.trim() : '';
         resolve(name === '' ? null : name);

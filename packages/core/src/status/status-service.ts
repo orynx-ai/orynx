@@ -18,7 +18,8 @@ export function createStatusService(options: StatusServiceOptions): StatusServic
   let userName: Promise<string | null> | undefined;
   return {
     async getStatus() {
-      userName ??= options.userName();
+      // A failed lookup means "no name", so a broken git never turns /api/status into a 500.
+      userName ??= options.userName().catch(() => null);
       return {
         version: options.version,
         user: { name: await userName },
