@@ -27,7 +27,7 @@ This page follows one request, `GET /api/status`, from the zod schema to the pix
 
 ## 1. The contract
 
-`packages/contracts/src/status.ts` defines `StatusSchema`: the app version, the user's name for the sidebar footer (from `git config --global user.name`, read once per start, or `null`), whether Claude is connected, and the connection state of Jira, GitHub and Slack (`connected`, `not_connected`, `needs_admin_approval`, `error`). `type Status = z.infer<typeof StatusSchema>` is derived from it, so there is no separate interface to keep in sync. The path lives in `apiRoutes.status` in `packages/contracts/src/routes.ts`.
+`packages/contracts/src/status.ts` defines `StatusSchema`: the app version, the user's name for the sidebar footer (from `git config --global user.name`, read once per start, or `null`; the contract rejects a name with nothing visible in it), whether Claude is connected, and the connection state of Jira, GitHub and Slack (`connected`, `not_connected`, `needs_admin_approval`, `error`). `type Status = z.infer<typeof StatusSchema>` is derived from it, so there is no separate interface to keep in sync. The path lives in `apiRoutes.status` in `packages/contracts/src/routes.ts`.
 
 Both the server and the browser import this package, which is why it may import nothing but `zod`.
 
