@@ -16,7 +16,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 4: Read GitHub's review requests and your own pull requests in one GraphQL query in `client.ts`, and map them to records in `map.ts`: request time, failing checks and when they failed, unresolved threads whose last comment isn't yours (AC-6, AC-8, AC-9, AC-10)
       Check: pnpm test packages/core/src/integrations/github
       Files: packages/core/src/integrations/github/client.ts, client.test.ts, map.ts, map.test.ts, packages/core/src/test/fake-github.ts
-- [ ] Task 5: Add `rules.ts`: records, the inbox rules and waiting sessions become rows: one per ticket or pull request with the most pressing reason, a waiting session taking over its ticket's row, the tab, the link, longest wait first (AC-1, AC-3, AC-7, AC-11, AC-12, AC-15)
+- [x] Task 5: Add `rules.ts`: records, the inbox rules and waiting sessions become rows: one per ticket or pull request with the most pressing reason, a waiting session taking over its ticket's row, the tab, the link, longest wait first (AC-1, AC-3, AC-7, AC-11, AC-12, AC-15)
       Check: pnpm test packages/core/src/inbox/rules.test.ts
       Files: packages/core/src/inbox/rules.ts, rules.test.ts
 - [ ] Task 6: Give each connection one call that hands out its working credentials, or the problem that stops it (refused, sign-in needed, missing token, keychain, gh)
