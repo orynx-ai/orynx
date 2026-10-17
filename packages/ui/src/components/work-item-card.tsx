@@ -38,7 +38,14 @@ const bars = [
   { x: 10, y: 2, height: 11 },
 ];
 
-function Priority({ level, label }: { level: WorkItemPriorityLevel; label: ReactNode }) {
+export interface WorkItemPriorityProps {
+  level: WorkItemPriorityLevel;
+  /** Jira's own word for it: "High", "P2". */
+  label: ReactNode;
+}
+
+/** The priority bars and their word, as the card's meta row draws them; the list view uses them too (spec 008). */
+export function WorkItemPriority({ level, label }: WorkItemPriorityProps) {
   return (
     <span className="inline-flex items-center gap-1">
       {/* 16 px, as the design draws the card's meta icons (spec 006 Q2c). */}
@@ -91,7 +98,7 @@ export function WorkItemCard({
         {...props}
       >
         <div className="flex min-w-0 items-center gap-2">
-          <span className="font-mono text-code text-muted-foreground">{itemKey}</span>
+          <WorkItemKey>{itemKey}</WorkItemKey>
           <span className={cn('text-label font-medium', bug ? 'text-danger' : 'text-muted-foreground')}>{type}</span>
           {assignee ? (
             <Avatar
@@ -104,7 +111,7 @@ export function WorkItemCard({
         {title}
         {/* 32 px, the Build button's height, so a card is as tall with an agent chip as without. */}
         <div className="flex min-h-8 flex-wrap items-center gap-2.5 text-small text-muted-foreground">
-          {priority ? <Priority level={priority.level} label={priority.label} /> : null}
+          {priority ? <WorkItemPriority level={priority.level} label={priority.label} /> : null}
           {due ? (
             <span className={cn('inline-flex items-center gap-1', due.soon && 'font-medium text-warning')}>
               <CalendarDays aria-hidden className="size-4" />
@@ -116,6 +123,11 @@ export function WorkItemCard({
       </article>
     </TitleIdContext>
   );
+}
+
+/** A ticket's key in mono, as the card's top row draws it; the list view uses it too (spec 008). */
+export function WorkItemKey({ className, ...props }: ComponentProps<'span'>) {
+  return <span className={cn('font-mono text-code text-muted-foreground', className)} {...props} />;
 }
 
 /**

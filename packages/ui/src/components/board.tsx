@@ -14,8 +14,14 @@ export type BoardProps = ComponentProps<'div'> & {
  */
 export function Board({ className, children, ...props }: BoardProps) {
   return (
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling box must take focus to scroll by keyboard (axe: scrollable-region-focusable)
-    <div role="region" tabIndex={0} data-slot="board" className={cn('overflow-x-auto pb-2', className)} {...props}>
+    <div
+      role="region"
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling box must take focus to scroll by keyboard (axe: scrollable-region-focusable)
+      tabIndex={0}
+      data-slot="board"
+      className={cn('overflow-x-auto pb-2', className)}
+      {...props}
+    >
       <div className="flex items-start gap-3">{children}</div>
     </div>
   );

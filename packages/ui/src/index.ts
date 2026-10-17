@@ -93,15 +93,28 @@ export { SourceMark, type Source, type SourceMarkProps } from './components/sour
 export { Splitter, type SplitterProps } from './components/splitter.tsx';
 export { StatusIcon, type StatusIconProps, type StatusIconStatus } from './components/status-icon.tsx';
 export { Stepper, type StepperProps } from './components/stepper.tsx';
+export {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableRowSkeleton,
+  type TableProps,
+} from './components/table.tsx';
 export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsTriggerProps } from './components/tabs.tsx';
 export {
   WorkItemBuild,
   WorkItemCard,
   WorkItemCardSkeleton,
+  WorkItemKey,
+  WorkItemPriority,
   WorkItemTitle,
   type WorkItemBuildProps,
   type WorkItemCardProps,
   type WorkItemPriorityLevel,
+  type WorkItemPriorityProps,
   type WorkItemTitleProps,
 } from './components/work-item-card.tsx';
 export { bundledFontFaces } from './fonts.ts';

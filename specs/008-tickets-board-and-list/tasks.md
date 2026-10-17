@@ -38,9 +38,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: Add `Board` and `BoardColumn` to `@devhub/ui`: a named, focusable region that scrolls its columns sideways, and a column with its status icon, heading, count, cards or empty text, and a loading form (Q10a, Q10d) (AC-20, AC-30, AC-31)
       Check: pnpm test packages/ui; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/board.tsx, board.stories.tsx, board.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 13: Add `Table` to `@devhub/ui` from shadcn's table, restyled to the screen's list: a hidden caption, a header row on `bg-sidebar`, a border between rows, and loading rows (Q10b, Q10d) (AC-11, AC-20)
+- [x] Task 13: Add `Table` to `@devhub/ui` from shadcn's table, restyled to the screen's list: a hidden caption, a header row on `bg-sidebar`, a border between rows, and loading rows (Q10b, Q10d) (AC-11, AC-20)
       Check: pnpm test packages/ui; pnpm gate style-policy component-coverage
-      Files: packages/ui/src/components/table.tsx, table.stories.tsx, table.test.tsx, packages/ui/src/index.ts, docs/design-map.md
+      Files: packages/ui/src/components/table.tsx, table.stories.tsx, table.test.tsx, work-item-card.tsx, work-item-card.test.tsx, board.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 14: Build Tickets' page bar and toolbar: the breadcrumb with the sprint, the meta, Search tickets, Board / List remembered on this computer, the filters in the address, Clear filters, and the count read out politely. `inbox.changed`, `status.changed` and `sessions.changed` refresh the tickets (moved here from task 8: the count is the first thing on screen that reads them) (AC-1, AC-7, AC-8, AC-9, AC-10, AC-17, AC-31)
       Check: pnpm test packages/app/src/features/tickets packages/app/src/live-updates.test.tsx; pnpm gate style-policy design-source component-coverage
       Files: packages/app/src/features/tickets/tickets-screen.tsx, tickets-screen.test.tsx, store.ts, queries.ts, components/tickets-toolbar.tsx, packages/app/src/router.tsx, packages/app/src/live-updates.tsx, live-updates.test.tsx
