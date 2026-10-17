@@ -4,7 +4,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 Every task below that adds a part also exports it from `packages/ui/src/index.ts` and adds its story and test. Its Check always includes `pnpm gate style-policy component-coverage boundaries` and `pnpm typecheck`; only the part's own test is named.
 
-- [ ] Task 1: Add `Skeleton` from shadcn's `skeleton`: a plain `bg-subtle` block with no animation that loading forms are built from (Q4a, AC-26)
+- [x] Task 1: Add `Skeleton` from shadcn's `skeleton`: a plain `bg-subtle` block with no animation that loading forms are built from (Q4a, AC-26)
       Check: pnpm test packages/ui/src/components/skeleton.test.tsx
       Files: packages/ui/src/components/skeleton.tsx, skeleton.stories.tsx, skeleton.test.tsx, packages/ui/src/index.ts
 - [ ] Task 2: Add `SegmentedControl` from shadcn's `toggle-group`: a named group of 32 px toggle buttons with an icon and a word, one always pressed (AC-1, AC-2)

@@ -24,6 +24,7 @@ export {
   type SessionItemProps,
   type SessionItemState,
 } from './components/session-item.tsx';
+export { Skeleton, type SkeletonProps } from './components/skeleton.tsx';
 export { SourceMark, type Source, type SourceMarkProps } from './components/source-mark.tsx';
 export { Splitter, type SplitterProps } from './components/splitter.tsx';
 export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsTriggerProps } from './components/tabs.tsx';
