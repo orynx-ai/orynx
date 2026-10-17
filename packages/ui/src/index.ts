@@ -57,6 +57,7 @@ export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from
 export { Kbd } from './components/kbd.tsx';
 export {
   Menu,
+  MenuCheckboxItem,
   MenuContent,
   MenuItem,
   MenuLabel,
@@ -64,6 +65,7 @@ export {
   MenuRadioItem,
   MenuSeparator,
   MenuTrigger,
+  type MenuCheckboxItemProps,
   type MenuContentProps,
   type MenuItemProps,
   type MenuProps,
