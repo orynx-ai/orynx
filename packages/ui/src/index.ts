@@ -19,6 +19,12 @@ export { Kbd } from './components/kbd.tsx';
 export { Pill, type PillProps, type PillTone } from './components/pill.tsx';
 export { Select } from './components/select.tsx';
 export {
+  SegmentedControl,
+  SegmentedControlItem,
+  type SegmentedControlItemProps,
+  type SegmentedControlProps,
+} from './components/segmented-control.tsx';
+export {
   SessionItem,
   sessionStateLabels,
   type SessionItemProps,

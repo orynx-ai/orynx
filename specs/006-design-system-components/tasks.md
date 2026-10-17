@@ -7,7 +7,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 1: Add `Skeleton` from shadcn's `skeleton`: a plain `bg-subtle` block with no animation that loading forms are built from (Q4a, AC-26)
       Check: pnpm test packages/ui/src/components/skeleton.test.tsx
       Files: packages/ui/src/components/skeleton.tsx, skeleton.stories.tsx, skeleton.test.tsx, packages/ui/src/index.ts
-- [ ] Task 2: Add `SegmentedControl` from shadcn's `toggle-group`: a named group of 32 px toggle buttons with an icon and a word, one always pressed (AC-1, AC-2)
+- [x] Task 2: Add `SegmentedControl` from shadcn's `toggle` (its `toggle-group` makes single-choice options radios): a named group of 32 px toggle buttons with an icon and a word, one always pressed (AC-1, AC-2)
       Check: pnpm test packages/ui/src/components/segmented-control.test.tsx
       Files: packages/ui/src/components/segmented-control.tsx, segmented-control.stories.tsx, segmented-control.test.tsx, packages/ui/src/index.ts
 - [ ] Task 3: Add `Stepper`: an ordered list of done, current and to-do steps, with ", done" for screen readers and `aria-current="step"` (AC-3)
