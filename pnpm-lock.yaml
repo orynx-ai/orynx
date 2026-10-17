@@ -92,6 +92,12 @@ importers:
       '@octokit/rest':
         specifier: ^22.0.1
         version: 22.0.1
+      better-sqlite3:
+        specifier: ^13.0.3
+        version: 13.0.3
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
       fastify:
         specifier: ^5.12.7
         version: 5.12.7
