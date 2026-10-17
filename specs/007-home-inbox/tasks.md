@@ -52,7 +52,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 16: WAIT for 006 to merge. Then move this branch onto `main` and run the full check
       Check: git rebase main; pnpm verify
       Files: none, unless the rebase shows a conflict
-- [ ] Task 17: Build the "Needs your attention" panel on Home: head, the three tabs with counts and the tab in the address, and the rows from `AttentionList` and `AttentionRow` with their links (AC-1, AC-2, AC-6, AC-9, AC-10, AC-12, AC-14)
+- [x] Task 17: Build the "Needs your attention" panel on Home: head, the three tabs with counts and the tab in the address, and the rows from `AttentionList` and `AttentionRow` with their links (AC-1, AC-2, AC-6, AC-9, AC-10, AC-12, AC-14)
       Check: pnpm test packages/app/src/features/home; pnpm gate style-policy design-source component-coverage
       Files: packages/app/src/features/home/home-screen.tsx, home-screen.test.tsx, components/attention-panel.tsx, attention-panel.test.tsx, packages/app/src/router.tsx
 - [ ] Task 18: Home's states: loading rows, nothing connected, nothing matching (each tab), a tool not connected, a tool's failed sync, rules off, and the list not loading (AC-20, AC-21, AC-22, AC-23, AC-24, AC-25, AC-26, AC-27)

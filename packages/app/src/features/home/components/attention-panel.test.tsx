@@ -1,0 +1,225 @@
+import { act, screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiRoutes, type InboxItem } from '@devhub/contracts';
+import { makeInbox, makeInboxItem } from '@devhub/contracts/testing';
+import { apiUrl, server } from '../../../test/msw.ts';
+import { renderApp } from '../../../test/render.tsx';
+
+// The design's rows, longest wait first as the server sends them, seen at noon on 17 Oct 2026.
+const review = makeInboxItem();
+const ticket = makeInboxItem({
+  id: 'jira:PROJ-1423',
+  source: 'jira',
+  tab: 'jira',
+  title: 'Add bulk archive to the content list',
+  subject: { kind: 'issue', key: 'PROJ-1423', status: 'In progress', highPriorityBug: false },
+  reason: { kind: 'status', category: 'in_progress' },
+  waitingSince: '2026-10-15T12:00:00.000Z',
+  target: { kind: 'external', url: 'https://acme.atlassian.net/browse/PROJ-1423' },
+});
+const comments = makeInboxItem({
+  id: 'github:acme/api#77',
+  title: 'Return 207 for partial archive failures',
+  subject: { kind: 'pull_request', repository: 'api', number: 77, author: 'Rakesh Dhariwal', mine: true },
+  reason: { kind: 'unresolved_comments', count: 2 },
+  waitingSince: '2026-10-16T11:00:00.000Z',
+  target: { kind: 'external', url: 'https://github.com/acme/api/pull/77' },
+});
+const checks = makeInboxItem({
+  id: 'github:acme/web-app/pull/2836',
+  title: 'Fix timezone shift in event cards',
+  subject: { kind: 'pull_request', repository: 'web-app', number: 2836, author: 'Rakesh Dhariwal', mine: true },
+  reason: { kind: 'checks_failing' },
+  waitingSince: '2026-10-17T09:00:00.000Z',
+  target: { kind: 'external', url: 'https://github.com/acme/web-app/pull/2836/checks' },
+});
+const approval = makeInboxItem({
+  id: 'jira:PROJ-1500',
+  source: 'jira',
+  tab: 'jira',
+  title: 'Search returns archived sites for guest users',
+  subject: { kind: 'issue', key: 'PROJ-1500', status: 'In progress', highPriorityBug: false },
+  reason: { kind: 'approval' },
+  waitingSince: '2026-10-17T11:55:00.000Z',
+  target: { kind: 'session', sessionId: 'session-1' },
+});
+const everyRow = [review, ticket, comments, checks, approval];
+
+function inboxWith(items: InboxItem[]) {
+  server.use(http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json(makeInbox({ items }))));
+}
+
+async function openHome(route = '/') {
+  const rendered = await renderApp({ route });
+  const panel = screen.getByRole('region', { name: 'Needs your attention' });
+  const list = await within(panel).findByRole('list');
+  return { ...rendered, panel, list };
+}
+
+/** The row whose title link has this name. */
+function rowOf(title: string) {
+  const row = screen.getByRole('link', { name: title }).closest('li');
+  if (row === null) throw new Error(`No row for "${title}"`);
+  return within(row);
+}
+
+beforeEach(() => {
+  // Only the clock's date is fixed; timers stay real, so the network and the router run as usual.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-17T12:00:00.000Z'));
+  inboxWith(everyRow);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe('AttentionPanel', () => {
+  it('AC-1: shows the head, the three tabs with their counts, and one row per item, longest wait first', async () => {
+    const { panel, list } = await openHome();
+
+    expect(within(panel).getByText('Sorted by how long it has waited')).toBeVisible();
+    const tabs = within(panel).getByRole('tablist', { name: 'Filter by source' });
+    expect(
+      within(tabs)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['All 5', 'Jira 2', 'Pull requests 3']);
+    expect(within(tabs).getByRole('tab', { name: 'All 5' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(tabs).queryByRole('tab', { name: /slack/i })).not.toBeInTheDocument();
+
+    const titles = within(list)
+      .getAllByRole('listitem')
+      .map((row) => within(row).getAllByRole('link')[0]?.textContent);
+    expect(titles).toEqual(everyRow.map((item) => item.title));
+  });
+
+  it("AC-1: names each row's tool for a screen reader and speaks the wait in words", async () => {
+    await openHome();
+
+    expect(rowOf('Lazy-load the people directory').getByText('GitHub')).toBeInTheDocument();
+    expect(rowOf('Add bulk archive to the content list').getByText('Jira')).toBeInTheDocument();
+    expect(rowOf('Lazy-load the people directory').getByText('Review requested, 2 days')).toBeInTheDocument();
+    expect(rowOf('Lazy-load the people directory').getByText('Review requested · 2 d')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    );
+  });
+
+  it('AC-2: shows a Jira ticket with its sub line and reason, and opens it in Jira from the title and the action', async () => {
+    const { user, platform } = await openHome();
+    const row = rowOf('Add bulk archive to the content list');
+
+    expect(row.getByText('PROJ-1423 · In progress')).toBeVisible();
+    expect(row.getByText('In progress · 2 d')).toBeVisible();
+
+    await user.click(row.getByRole('link', { name: 'Add bulk archive to the content list' }));
+    await user.click(row.getByRole('link', { name: 'Open' }));
+
+    expect(platform.openExternal).toHaveBeenCalledTimes(2);
+    expect(platform.openExternal).toHaveBeenNthCalledWith(1, 'https://acme.atlassian.net/browse/PROJ-1423');
+    expect(platform.openExternal).toHaveBeenNthCalledWith(2, 'https://acme.atlassian.net/browse/PROJ-1423');
+  });
+
+  it("AC-6: shows a review request with its author, and Review opens the pull request's Files tab", async () => {
+    const { user, platform } = await openHome();
+    const row = rowOf('Lazy-load the people directory');
+
+    expect(row.getByText('web-app #2841 · by Priya S.')).toBeVisible();
+    expect(row.getByText('Review requested · 2 d')).toBeVisible();
+    const action = row.getByRole('link', { name: 'Review' });
+    expect(action).toHaveAttribute('href', 'https://github.com/acme/web-app/pull/2841/files');
+
+    await user.click(action);
+
+    expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/web-app/pull/2841/files');
+  });
+
+  it("AC-9: shows your pull request's failing checks, and Open goes to its Checks tab", async () => {
+    const { user, platform } = await openHome();
+    const row = rowOf('Fix timezone shift in event cards');
+
+    expect(row.getByText('web-app #2836 · your pull request')).toBeVisible();
+    expect(row.getByText('Checks failing · 3 h')).toBeVisible();
+
+    await user.click(row.getByRole('link', { name: 'Open' }));
+
+    expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/web-app/pull/2836/checks');
+  });
+
+  it('AC-10: shows the unresolved comments on your pull request, and Open goes to the pull request', async () => {
+    const { user, platform } = await openHome();
+    const row = rowOf('Return 207 for partial archive failures');
+
+    expect(row.getByText('api #77 · your pull request')).toBeVisible();
+    expect(row.getByText('2 unresolved comments · 1 d')).toBeVisible();
+
+    await user.click(row.getByRole('link', { name: 'Open' }));
+
+    expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/api/pull/77');
+  });
+
+  it("AC-12: shows a session waiting on your ticket in the ticket's row, and Open goes to the session in DevHub", async () => {
+    const { user, history, platform } = await openHome();
+    const row = rowOf('Search returns archived sites for guest users');
+
+    expect(row.getByText('Jira')).toBeInTheDocument();
+    expect(row.getByText('PROJ-1500 · In progress')).toBeVisible();
+    expect(row.getByText('Approve command · 5 min')).toBeVisible();
+
+    await user.click(row.getByRole('link', { name: 'Open' }));
+
+    expect(history.location.pathname).toBe('/sessions/session-1');
+    expect(platform.openExternal).not.toHaveBeenCalled();
+  });
+
+  it('AC-14: picks Jira with the arrow keys and Enter, shows only its rows, and puts it in the address', async () => {
+    const { user, history, panel } = await openHome();
+    const all = within(panel).getByRole('tab', { name: 'All 5' });
+
+    act(() => {
+      all.focus();
+    });
+    await user.keyboard('{ArrowRight}{Enter}');
+
+    expect(within(panel).getByRole('tab', { name: 'Jira 2' })).toHaveAttribute('aria-selected', 'true');
+    expect(history.location.search).toBe('?inbox=jira');
+    const list = within(panel).getByRole('list');
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((row) => within(row).getAllByRole('link')[0]?.textContent),
+    ).toEqual([ticket.title, approval.title]);
+  });
+
+  it('AC-14: a reload stays on the tab in the address, and Tab goes from the selected tab into the list', async () => {
+    const { user, panel } = await openHome('/?inbox=pull-requests');
+    const selected = within(panel).getByRole('tab', { name: 'Pull requests 3' });
+
+    expect(selected).toHaveAttribute('aria-selected', 'true');
+    expect(within(panel).getAllByRole('listitem')).toHaveLength(3);
+
+    act(() => {
+      selected.focus();
+    });
+    await user.tab();
+
+    expect(screen.getByRole('link', { name: review.title })).toHaveFocus();
+  });
+
+  it('AC-14: going back to All takes the tab out of the address', async () => {
+    const { user, history, panel } = await openHome('/?inbox=jira');
+
+    await user.click(within(panel).getByRole('tab', { name: 'All 5' }));
+
+    expect(history.location.search).toBe('');
+    expect(within(panel).getAllByRole('listitem')).toHaveLength(5);
+  });
+
+  it('AC-14: an unknown tab in the address opens All', async () => {
+    const { panel } = await openHome('/?inbox=slack');
+
+    expect(within(panel).getByRole('tab', { name: 'All 5' })).toHaveAttribute('aria-selected', 'true');
+  });
+});

@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router';
 import type { ApiClient } from '@devhub/api-client';
 import { HomeScreen } from './features/home/home-screen.tsx';
+import { HomeSearchSchema } from './features/home/inbox-tabs.ts';
 import { NotFoundScreen } from './features/not-found/not-found-screen.tsx';
 import { SessionScreen } from './features/sessions/session-screen.tsx';
 import { SessionsScreen } from './features/sessions/sessions-screen.tsx';
@@ -27,7 +28,13 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
   notFoundComponent: NotFoundScreen,
 });
 
-const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomeScreen });
+const homeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  // The inbox tab: `/?inbox=jira` or `/?inbox=pull-requests`; All has none.
+  validateSearch: (search) => HomeSearchSchema.parse(search),
+  component: HomeScreen,
+});
 
 const ticketsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tickets', component: TicketsScreen });
 

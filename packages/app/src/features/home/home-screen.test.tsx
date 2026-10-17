@@ -13,11 +13,11 @@ describe('HomeScreen', () => {
     );
   });
 
-  it('explains how the attention list gets filled and links to Connections', async () => {
+  it('AC-21: explains how the attention list gets filled and links to Connections', async () => {
     const { user, history } = await renderApp();
     const panel = screen.getByRole('region', { name: 'Needs your attention' });
 
-    expect(within(panel).getByText('Nothing needs you yet')).toBeVisible();
+    expect(await within(panel).findByText('Nothing needs you yet')).toBeVisible();
     await user.click(within(panel).getByRole('link', { name: 'Connect your tools' }));
 
     expect(history.location.pathname).toBe('/settings/connections');
