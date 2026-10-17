@@ -20,9 +20,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Sync the sprint side by side with Jira's issues and GitHub in the inbox's `run()`, and let a disconnect, Clear cache and a sync that finds Jira gone take the sprint too (AC-17, AC-29)
       Check: pnpm test packages/core/src/inbox packages/core/src/tickets
       Files: packages/core/src/inbox/inbox-service.ts, inbox-service.test.ts
-- [ ] Task 7: Add `GET /api/tickets` and wire the tickets service into `createServer`. The leak test also checks the sprint part (AC-1, AC-21, AC-28)
+- [x] Task 7: Add `GET /api/tickets` and wire the tickets service into `createServer`. The leak test also checks the sprint part (AC-1, AC-21, AC-28)
       Check: pnpm test packages/core/src/routes/tickets.test.ts packages/core/src/inbox/no-leaks.test.ts; pnpm typecheck
-      Files: packages/core/src/routes/tickets.ts, tickets.test.ts, packages/core/src/create-server.ts, packages/core/src/index.ts, packages/core/src/inbox/no-leaks.test.ts
+      Files: packages/core/src/routes/tickets.ts, tickets.test.ts, packages/core/src/create-server.ts, packages/core/src/inbox/no-leaks.test.ts
 - [ ] Task 8: Add `tickets()` and its query options to the api-client, and let `inbox.changed`, `status.changed` and `sessions.changed` refresh it (AC-17, AC-25)
       Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx
       Files: packages/api-client/src/endpoints/tickets.ts, tickets.test.ts, client.ts, queries.ts, index.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx, packages/app/src/test/msw.ts

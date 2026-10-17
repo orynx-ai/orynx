@@ -11,7 +11,19 @@ import { createServer } from '../create-server.ts';
 import { createMemoryKeychain, createUnreachableKeychain } from '../secrets/memory-keychain.ts';
 import { createFileSettingsStore } from '../settings/settings-store.ts';
 import { githubToken, graphqlUrl, pullNode } from '../test/fake-github.ts';
-import { goodBasicValue, goodToken, issueSearchUrl, jiraEmail, jiraIssue, jiraSite } from '../test/fake-jira.ts';
+import {
+  acceptingBoardConfiguration,
+  acceptingFieldList,
+  acceptingMyself,
+  acceptingMySprintSearch,
+  acceptingStatusList,
+  goodBasicValue,
+  goodToken,
+  issueSearchUrl,
+  jiraEmail,
+  jiraIssue,
+  jiraSite,
+} from '../test/fake-jira.ts';
 import { cacheFilePath, openInboxCache } from './inbox-cache.ts';
 
 const sessionToken = 'inbox-leaks-session-token-0123456789';
@@ -59,6 +71,7 @@ let app: FastifyInstance | undefined;
 let home: string | undefined;
 
 afterEach(async () => {
+  outside.resetHandlers();
   await app?.close();
   app = undefined;
   if (home !== undefined) await rm(home, { recursive: true, force: true });
@@ -90,14 +103,37 @@ describe('the inbox never leaks', () => {
       },
     });
 
+    // Tickets' sprint (spec 008), whose issues come with the same text DevHub never asks for.
+    outside.use(
+      acceptingMyself(),
+      acceptingFieldList(),
+      acceptingMySprintSearch([{ key: 'PROJ-1423', sprints: [{ id: 42, boardId: 7 }] }]),
+      http.post(issueSearchUrl(), async ({ request }) => {
+        const body = (await request.clone().json()) as { jql?: string };
+        if (body.jql?.startsWith('sprint = 42 ') !== true) return undefined;
+        const issue = jiraIssue({ key: 'PROJ-1402', summary: 'Add empty state to saved searches', priority: null });
+        return HttpResponse.json({
+          issues: [
+            { ...issue, fields: { ...issue.fields, description, comment: { comments: [{ body: commentText }] } } },
+          ],
+          isLast: true,
+        });
+      }),
+      acceptingBoardConfiguration(7),
+      acceptingStatusList(),
+    );
+
     await app.inject({ method: 'POST', url: apiRoutes.inboxRefresh, headers });
     const inbox = await app.inject({ method: 'GET', url: apiRoutes.inbox, headers });
+    const tickets = await app.inject({ method: 'GET', url: apiRoutes.tickets, headers });
     await app.close();
     app = undefined;
 
     expect(inbox.json<{ items: unknown[] }>().items).toHaveLength(2);
+    expect(tickets.json<{ tickets: unknown[] }>().tickets).toHaveLength(1);
     const cache = (await readFile(cacheFilePath(home))).toString('latin1');
     expect(cache).toContain('Add bulk archive to the content list');
+    expect(cache).toContain('Add empty state to saved searches');
     for (const secret of [goodToken, goodBasicValue, githubToken, sessionToken]) {
       expect(log.join('')).not.toContain(secret);
       expect(cache).not.toContain(secret);

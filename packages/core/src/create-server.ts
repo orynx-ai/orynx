@@ -23,12 +23,14 @@ import { jiraRoutes } from './routes/jira.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
+import { ticketsRoutes } from './routes/tickets.ts';
 import { statusRoutes } from './routes/status.ts';
 import type { Keychain } from './secrets/keychain.ts';
 import { createMemoryKeychain } from './secrets/memory-keychain.ts';
 import { createTokenStore, type EnvTokens, type TokenStore } from './secrets/token-store.ts';
 import { createMemorySessionStore, type SessionStore } from './sessions/session-store.ts';
 import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
+import { createTicketsService } from './tickets/tickets-service.ts';
 import { readGitUserName } from './status/git-user-name.ts';
 import { createStatusService } from './status/status-service.ts';
 
@@ -185,9 +187,23 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const sessions = options.sessions ?? createMemorySessionStore();
   const preferences = createPreferencesService({ settings, events });
   const cache = options.cache ?? openInboxCache(':memory:');
+  const tickets = createTicketsService({
+    cache,
+    settings,
+    connection: jira,
+    jira: jiraClient,
+    sessions,
+    onProblem: (problem) => {
+      app.log.warn({ problem }, 'The sprint sync could not read Jira');
+    },
+    onError: (error) => {
+      app.log.error(error, 'The sprint sync failed');
+    },
+  });
   const inbox = createInboxService({
     cache,
     settings,
+    sprint: tickets,
     connections: { jira, github },
     jira: jiraClient,
     github: githubClient,
@@ -259,6 +275,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(githubRoutes, { github });
       await api.register(preferencesRoutes, { preferences });
       await api.register(inboxRoutes, { inbox });
+      await api.register(ticketsRoutes, { tickets });
       await api.register(repositoriesRoutes, {
         repositories: createRepositoryService({
           settings,
