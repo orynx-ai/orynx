@@ -144,6 +144,22 @@ describe("token store when the keychain can't be reached", () => {
     await expect(store.remove('jira')).rejects.toMatchObject({ reason: 'Error' });
   });
 
+  it('AC-14: drops a name or code that could be a token, keeping only fixed words', async () => {
+    const echoing = Object.assign(new Error('failed'), { name: jiraToken, code: 'ghp_' + 'a1B2'.repeat(9) });
+    const statusName = Object.assign(new Error('failed'), { code: 'GenericFailure' });
+    const keychain: Keychain = {
+      get: () => Promise.reject(echoing),
+      set: () => Promise.reject(statusName),
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- a native library can reject with a non-Error
+      delete: () => Promise.reject('not an error'),
+    };
+    const { store } = setup({ keychain });
+
+    await expect(store.read('jira')).rejects.toMatchObject({ reason: 'unknown' });
+    await expect(store.save('jira', jiraToken)).rejects.toMatchObject({ reason: 'Error (GenericFailure)' });
+    await expect(store.remove('jira')).rejects.toMatchObject({ reason: 'unknown' });
+  });
+
   it("AC-14: no error contains a token, even when the keychain's own error would", async () => {
     // A keychain whose own failure echoes what it was given is the worst case for a leak.
     const echoing = createUnreachableKeychain((token) => `could not store ${token ?? 'nothing'}`);

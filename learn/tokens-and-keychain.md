@@ -14,7 +14,7 @@ DevHub calls Jira, GitHub and Slack with the developer's own tokens. A token is 
 | `app.tokens.save('jira', token)` | Saves to the keychain only, then publishes `status.changed`. Refuses empty tokens, whitespace and more than 4096 characters (`bad_request`) |
 | `app.tokens.remove('jira')`      | Deletes the keychain's token (fine if there is none), then publishes `status.changed`                                                       |
 
-When the keychain is locked, refuses access or does not exist, every call fails with `TokenStoreError` code `keychain_unavailable` and one fixed message: "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example)." The keychain's own error is dropped, not kept as `cause`, because it could echo the token it was given, and errors end up in logs and responses. Only its name and code survive, in `error.reason` (for example "Error (ERR_MODULE_NOT_FOUND)"), so a log can still say what went wrong. A read still succeeds when `.env` has that tool's token.
+When the keychain is locked, refuses access or does not exist, every call fails with `TokenStoreError` code `keychain_unavailable` and one fixed message: "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example)." The keychain's own error is dropped, not kept as `cause`, because it could echo the token it was given, and errors end up in logs and responses. Only its name and code survive, in `error.reason` (for example "Error (ERR_MODULE_NOT_FOUND)"), so a log can still say what went wrong; a name or code that isn't a fixed word, and so could be a token, becomes "unknown". A read still succeeds when `.env` has that tool's token.
 
 ## The OS keychain
 
@@ -42,7 +42,7 @@ DEVHUB_SLACK_USER_TOKEN=…
 ```
 
 - `apps/server/src/config.ts` reads `.env` with `node:util` `parseEnv`. A variable set in the shell wins over the file, and an empty value counts as not set. Only when the switch is on does it pass the tokens to `createServer({ envTokens })`.
-- Once read, `forgetTokenSettings()` deletes the three token settings from the server's own environment, so no child process (git today, Claude later) inherits a token. Turbo does not pass them through either, so `pnpm dev` keeps them out of Vite and Storybook.
+- Once read, `forgetTokenSettings()` deletes the three token settings from the server's own environment, so no child process (git today, Claude later) inherits a token. Turbo does not pass them through either, so under `pnpm dev` a token set in the shell never reaches the server, Vite or Storybook: there, tokens come only from `.env`. `pnpm start` runs the server outside turbo, so a shell token does reach it.
 - `apps/web/vite.config.ts` reads the same `.env` for `DEVHUB_PORT`, `DEVHUB_WEB_PORT` and `DEVHUB_HOME`, so in `pnpm dev` the proxy and the token in the page follow the server.
 - The keychain's token wins over the `.env` one. DevHub never writes `.env`, so saving a token always goes to the keychain.
 - `.env` is ignored by git, and the secrets gate and the pre-commit hook refuse to commit it.

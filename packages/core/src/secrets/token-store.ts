@@ -63,9 +63,16 @@ async function fromKeychain<T>(call: () => Promise<T>): Promise<T> {
   }
 }
 
+// Names like "TypeError", and codes like "ERR_MODULE_NOT_FOUND" or "GenericFailure". A token has
+// digits or lower-case letters mixed in, so it can't pass for one; anything else becomes "unknown".
+const errorName = /^[A-Z][A-Za-z]{0,39}$/;
+const errorCode = /^(?:[A-Z][A-Z0-9_]{0,39}|[A-Z][A-Za-z]{0,39})$/;
+
 function safeReason(error: unknown): string {
-  if (!(error instanceof Error)) return typeof error;
-  return 'code' in error && typeof error.code === 'string' ? `${error.name} (${error.code})` : error.name;
+  if (!(error instanceof Error) || !errorName.test(error.name)) return 'unknown';
+  const code = 'code' in error && typeof error.code === 'string' ? error.code : undefined;
+  if (code === undefined) return error.name;
+  return errorCode.test(code) ? `${error.name} (${code})` : 'unknown';
 }
 
 export function createTokenStore({ keychain, events, envTokens = {} }: TokenStoreOptions): TokenStore {
