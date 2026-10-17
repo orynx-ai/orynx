@@ -68,6 +68,19 @@ function withTokenRedaction(logger: CoreOptions['logger']): NonNullable<FastifyS
   const base = logger === true ? {} : logger;
   return {
     ...base,
+    // A second guard behind client.ts, which never logs a request: an Authorization header holds a
+    // Jira token in base64, wherever a log line might carry one (spec 003).
+    redact: {
+      paths: [
+        'headers.authorization',
+        'headers.Authorization',
+        '*.headers.authorization',
+        '*.headers.Authorization',
+        '*.*.headers.authorization',
+        '*.*.headers.Authorization',
+      ],
+      censor: '[redacted]',
+    },
     serializers: {
       ...base.serializers,
       req: (request: { method: string; url: string }) => ({ method: request.method, url: redactToken(request.url) }),

@@ -29,7 +29,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Routes `GET`, `PUT` and `DELETE /api/jira/connection`, error codes to HTTP, `createServer` takes the settings store, and the status service uses Jira's line (AC-3, AC-7, AC-8, AC-11, AC-14)
       Check: pnpm test packages/core; pnpm typecheck
       Files: packages/core/src/routes/jira.ts, packages/core/src/routes/jira.test.ts, packages/core/src/status/status-service.ts, packages/core/src/create-server.ts, packages/core/src/create-server.test.ts
-- [ ] Task 10: Pino redacts `authorization` headers; leak test at trace level for the token and its base64 Basic value (AC-15)
+- [x] Task 10: Pino redacts `authorization` headers; leak test at trace level for the token and its base64 Basic value (AC-15)
       Check: pnpm test packages/core; pnpm gate secrets
       Files: packages/core/src/create-server.ts, packages/core/src/integrations/jira/no-token-leaks.test.ts
 - [ ] Task 11: Server host: `DEVHUB_KEYCHAIN=os|memory`, the settings file under `DEVHUB_HOME`, `--use-system-ca` in dev and start, e2e uses the memory keychain (AC-18)
