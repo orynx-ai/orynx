@@ -32,7 +32,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: Leak test at trace level: the gh token and a pasted token, and their `authorization` header, appear nowhere; gh's output is never logged (AC-17)
       Check: pnpm test packages/core; pnpm gate secrets
       Files: packages/core/src/integrations/github/no-token-leaks.test.ts
-- [ ] Task 11: Server host: gh's search path from the built-in `PATH`, the real gh runner in `main.ts`, and a fake signed-out gh first on PATH in Playwright's server (AC-20)
+- [x] Task 11: Server host: gh's search path from the built-in `PATH`, the real gh runner in `main.ts`, and a fake signed-out gh first on PATH in Playwright's server (AC-20)
       Check: pnpm test apps/server; pnpm gate env-policy; pnpm build; pnpm exec playwright test e2e/smoke.spec.ts
       Files: apps/server/src/config.ts, apps/server/src/config.test.ts, apps/server/src/main.ts, playwright.config.ts, e2e/fake-gh/gh
 - [ ] Task 12: API client: GitHub connection get, save and delete, parsed with the contracts; query key (AC-3, AC-12, AC-13)

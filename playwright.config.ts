@@ -1,6 +1,6 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 // The e2e run gets its own port and data folder, so it never touches the real ~/.devhub.
@@ -35,6 +35,9 @@ export default defineConfig({
       DEVHUB_TOKENS_FROM_ENV: 'false',
       // Tokens in memory only: the e2e run never reads or writes your real "DevHub" keychain item.
       DEVHUB_KEYCHAIN: 'memory',
+      // A fake gh, always signed out, comes first on the server's PATH: the e2e run never reads your
+      // real gh login, and a press of Connect GitHub never reaches github.com (spec 004, AC-20).
+      PATH: `${join(import.meta.dirname, 'e2e', 'fake-gh')}${delimiter}${process.env['PATH'] ?? ''}`,
     },
   },
 });
