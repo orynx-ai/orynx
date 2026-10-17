@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { InboxProblem } from '@devhub/contracts';
+import { JiraLinkSchema, type InboxProblem } from '@devhub/contracts';
 import type { JiraAssignedIssue, JiraProblem } from './client.ts';
 
 /**
@@ -18,7 +18,7 @@ export const JiraIssueRecordSchema = z.object({
   dueDate: z.iso.date().nullable(),
   /** When the issue entered its status category, or when it was created if Jira doesn't say. */
   waitingSince: z.iso.datetime(),
-  url: z.url({ protocol: /^https$/ }),
+  url: JiraLinkSchema,
 });
 export type JiraIssueRecord = z.infer<typeof JiraIssueRecordSchema>;
 
@@ -37,14 +37,21 @@ function categoryOf(key: string): JiraIssueRecord['category'] | null {
   return key === 'indeterminate' ? 'in_progress' : 'to_do';
 }
 
-/** The inbox's records for `site`, in Jira's order. Done issues and keys that can't make a safe link are left out. */
+/**
+ * The inbox's records for `site`, in Jira's order. Done issues, keys that can't make a safe link and a
+ * key's second copy are left out.
+ */
 export function jiraRecords(
   site: string,
   issues: readonly JiraAssignedIssue[],
   priorityOrder: readonly string[],
 ): JiraIssueRecord[] {
   const highest = new Set(priorityOrder.slice(0, 2));
+  const seen = new Set<string>();
   return issues.flatMap(({ key, fields }) => {
+    // A key Jira sends twice is kept once: the cache holds one record per key.
+    if (seen.has(key)) return [];
+    seen.add(key);
     const category = categoryOf(fields.status.statusCategory.key);
     const waitingSince = isoTime(fields.statuscategorychangedate) ?? isoTime(fields.created);
     if (category === null || waitingSince === null || !issueKey.test(key)) return [];

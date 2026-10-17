@@ -89,4 +89,8 @@ describe('Jira map', () => {
 
     expect(kept.map((record) => [record.key, record.summary])).toEqual([['PROJ-7', 'PROJ-7']]);
   });
+
+  it('keeps an issue Jira sends twice once, so the cache never holds two records for one key', () => {
+    expect(records([{ key: 'PROJ-7' }, { key: 'PROJ-7' }]).map((record) => record.key)).toEqual(['PROJ-7']);
+  });
 });

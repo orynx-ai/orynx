@@ -88,11 +88,15 @@ const AssignedIssueSchema = z.object({
   }),
 });
 
-const IssueSearchSchema = z.object({ issues: z.array(AssignedIssueSchema) });
+// Each issue is checked on its own, so one odd issue is left out instead of failing the whole read.
+const IssueSearchSchema = z.object({ issues: z.array(z.unknown()) });
 const PrioritySearchSchema = z.object({ values: z.array(z.object({ id: z.string() })) });
 
-/** Statuses are matched by category, never by name (integration-adapter skill). */
-const assignedJql = 'assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC';
+/**
+ * Statuses are matched by category, never by name (integration-adapter skill). Oldest first, so the 100
+ * kept are the ones that have waited longest, as Home sorts them.
+ */
+const assignedJql = 'assignee = currentUser() AND statusCategory != Done ORDER BY created ASC';
 const assignedFields = ['summary', 'status', 'issuetype', 'priority', 'duedate', 'created', 'statuscategorychangedate'];
 const mostAssigned = 100;
 
@@ -166,12 +170,16 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
       const answer = await withJira(request, async (client) => {
         // Both requests share one wait, like the project list.
         const signal = AbortSignal.timeout(timeoutMs);
-        const { issues } = await client.sendRequest({
+        const page = await client.sendRequest({
           url: '/rest/api/3/search/jql',
           method: 'POST',
           body: { jql: assignedJql, fields: assignedFields, maxResults: mostAssigned },
           schema: IssueSearchSchema,
           signal,
+        });
+        const issues = page.issues.flatMap((found) => {
+          const issue = AssignedIssueSchema.safeParse(found);
+          return issue.success ? [issue.data] : [];
         });
         const anyBug = issues.some((issue) => issue.fields.issuetype?.name.toLowerCase() === 'bug');
         if (!anyBug) return { issues, priorityOrder: [] };
