@@ -8,6 +8,7 @@ import {
   acceptingPrioritySearch,
   acceptingProjectSearch,
   acceptingSprintIssueSearch,
+  acceptingStatusList,
   boardConfigurationUrl,
   designBoardColumns,
   fieldListUrl,
@@ -22,6 +23,7 @@ import {
   prioritySearchUrl,
   projectSearchUrl,
   sprintFieldId,
+  statusListUrl,
   useFakeJira,
 } from '../../test/fake-jira.ts';
 import { createJiraClient, type JiraCheck } from './client.ts';
@@ -618,5 +620,44 @@ describe('Jira client: the issues in a sprint (spec 008)', () => {
     );
 
     expect(await client.sprintIssues(credentials, 42)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+});
+
+describe('Jira client: status categories (spec 008)', () => {
+  it('AC-4: reads each status’s category by id, since a board’s columns name statuses by id only', async () => {
+    jira.use(acceptingStatusList());
+
+    const answer = await client.statusCategories(credentials);
+
+    expect(answer.ok && [...answer.categories]).toEqual([
+      ['10000', 'new'],
+      ['3', 'indeterminate'],
+      ['10001', 'indeterminate'],
+      ['10002', 'done'],
+    ]);
+  });
+
+  it('leaves out a status it can’t read, and keeps the rest', async () => {
+    jira.use(
+      http.get(statusListUrl(), () =>
+        HttpResponse.json([
+          { id: '1', name: 'No category' },
+          { id: '3', statusCategory: { key: 'indeterminate' } },
+        ]),
+      ),
+    );
+
+    const answer = await client.statusCategories(credentials);
+
+    expect(answer.ok && [...answer.categories]).toEqual([['3', 'indeterminate']]);
+  });
+
+  it('AC-24: a refused token comes back as a problem', async () => {
+    jira.use(acceptingStatusList());
+
+    expect(await client.statusCategories({ ...credentials, apiToken: 'fake-wrong-token' })).toEqual({
+      ok: false,
+      problem: { kind: 'rejected' },
+    });
   });
 });

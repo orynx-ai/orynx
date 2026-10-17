@@ -46,6 +46,34 @@ export function jiraSprint(sprint: FakeSprint) {
   };
 }
 
+export const statusListUrl = (site: string = jiraSite) => `https://${site}/rest/api/3/status`;
+
+/** The statuses of the design's board, with their categories. */
+export const designStatuses = [
+  { id: '10000', name: 'To Do', category: 'new' },
+  { id: '3', name: 'In Progress', category: 'indeterminate' },
+  { id: '10001', name: 'In Review', category: 'indeterminate' },
+  { id: '10002', name: 'Done', category: 'done' },
+] as const;
+
+/** Jira's list of statuses with their categories, for the good credentials. */
+export function acceptingStatusList(
+  statuses: readonly { id: string; name: string; category: string }[] = designStatuses,
+  { site = jiraSite }: { site?: string } = {},
+) {
+  return http.get(statusListUrl(site), ({ request }) => {
+    if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+    return HttpResponse.json(
+      statuses.map((status) => ({
+        id: status.id,
+        name: status.name,
+        self: `https://${site}/rest/api/3/status/${status.id}`,
+        statusCategory: { id: 2, key: status.category, colorName: 'blue-gray', name: status.name },
+      })),
+    );
+  });
+}
+
 /** The columns of the design's board, with the status ids a fresh Jira Software project gives them. */
 export const designBoardColumns = [
   { name: 'To Do', statusIds: ['10000'] },

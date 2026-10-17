@@ -64,6 +64,10 @@ export type JiraSprintIssues =
   | { ok: true; issues: JiraSprintIssue[]; truncated: boolean; priorityOrder: string[] }
   | { ok: false; problem: JiraProblem };
 
+/** Each status's category key (`new`, `indeterminate`, `done`), by status id. */
+export type JiraStatusCategories =
+  { ok: true; categories: ReadonlyMap<string, string> } | { ok: false; problem: JiraProblem };
+
 /** A board's columns, left to right, each with its statuses by id. */
 export interface JiraBoardColumn {
   name: string;
@@ -102,6 +106,11 @@ export interface JiraClient {
    * a comment.
    */
   sprintIssues(request: JiraCheckRequest, sprintId: number): Promise<JiraSprintIssues>;
+  /**
+   * Every status's category, by id (`GET /rest/api/3/status`, which any user may read). A board's columns
+   * name their statuses by id only, so this says which column is the first in progress (spec 008, Q2).
+   */
+  statusCategories(request: JiraCheckRequest): Promise<JiraStatusCategories>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -162,6 +171,10 @@ const BoardConfigurationSchema = z.object({
     columns: z.array(z.object({ name: z.string(), statuses: z.array(z.object({ id: z.string() })) })),
   }),
 });
+
+// Each status is checked on its own, so one odd status is left out instead of failing the list.
+const StatusListSchema = z.array(z.unknown());
+const StatusSchema = z.object({ id: z.string(), statusCategory: z.object({ key: z.string() }) });
 
 const SprintIssueSchema = z.object({
   key: z.string(),
@@ -393,6 +406,24 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
         return { issues, truncated, priorityOrder: priorities.values.map((priority) => priority.id) };
       });
       return answer.ok ? { ok: true, ...answer.value } : answer;
+    },
+
+    async statusCategories(request) {
+      const answer = await withJira(request, (client) =>
+        client.sendRequest({
+          url: '/rest/api/3/status',
+          method: 'GET',
+          schema: StatusListSchema,
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+      if (!answer.ok) return answer;
+      const categories = new Map<string, string>();
+      for (const found of answer.value) {
+        const status = StatusSchema.safeParse(found);
+        if (status.success) categories.set(status.data.id, status.data.statusCategory.key);
+      }
+      return { ok: true, categories };
     },
   };
 }

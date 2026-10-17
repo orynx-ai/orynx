@@ -11,9 +11,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Read every issue in a sprint in rank order through `nextPageToken`, 100 a page, at most 300, with whether more were left (AC-1, AC-26)
       Check: pnpm test packages/core/src/integrations/jira
       Files: packages/core/src/integrations/jira/client.ts, client.test.ts, packages/core/src/test/fake-jira.ts
-- [ ] Task 4: Add `sprint-map.ts`: pick the sprint (Q1), put each status in a column by category and the board's order (Q2), give each priority its bars (Q7a), and make the cache record with titles and metadata only (AC-1, AC-3, AC-4, AC-5, AC-28)
-      Check: pnpm test packages/core/src/integrations/jira/sprint-map.test.ts
-      Files: packages/core/src/integrations/jira/sprint-map.ts, sprint-map.test.ts
+- [x] Task 4: Add `sprint-map.ts`: pick the sprint (Q1), put each status in a column by category and the board's order (Q2), give each priority its bars (Q7a), and make the cache record with titles and metadata only. The board's columns give status ids only, so `client.ts` also reads the site's status categories (`GET /rest/api/3/status`) to find the first in-progress column (AC-1, AC-3, AC-4, AC-5, AC-28)
+      Check: pnpm test packages/core/src/integrations/jira
+      Files: packages/core/src/integrations/jira/sprint-map.ts, sprint-map.test.ts, map.ts, client.ts, client.test.ts, packages/core/src/test/fake-jira.ts
 - [ ] Task 5: Add the tickets service: sync the sprint into its own cache part with its last sync and problem, write only while the same account is connected, and read it back with each ticket's newest session joined (AC-12, AC-19, AC-22, AC-23, AC-24, AC-26)
       Check: pnpm test packages/core/src/tickets
       Files: packages/core/src/tickets/tickets-service.ts, tickets-service.test.ts, packages/core/src/inbox/inbox-cache.ts

@@ -26,7 +26,7 @@ export type JiraIssueRecord = z.infer<typeof JiraIssueRecordSchema>;
 const issueKey = /^[A-Z][A-Z0-9_]*-\d+$/;
 
 /** Jira writes offsets as `+0000`; ISO wants `+00:00`. Null when it isn't a time at all. */
-function isoTime(value: string | null | undefined): string | null {
+export function isoTime(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
   const at = Date.parse(value.replace(/([+-]\d{2})(\d{2})$/, '$1:$2'));
   return Number.isNaN(at) ? null : new Date(at).toISOString();
