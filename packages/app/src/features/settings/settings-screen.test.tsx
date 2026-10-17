@@ -36,7 +36,7 @@ describe('SettingsScreen', () => {
     connections.focus();
 
     await user.keyboard('{ArrowRight}');
-    expect(screen.getByRole('tab', { name: 'Appearance' })).toHaveFocus();
+    expect(screen.getByRole('tab', { name: 'Coding agent' })).toHaveFocus();
 
     await user.keyboard('{ArrowLeft}');
     expect(screen.getByRole('tab', { name: 'Connections' })).toHaveFocus();

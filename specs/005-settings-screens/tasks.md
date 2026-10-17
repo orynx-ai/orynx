@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: `Checkbox` in `@devhub/ui`: a native checkbox at 20 px with a `border-control` outline, `info` when checked, and a label filling a 48 px row, with stories (unchecked, checked, disabled, long label) and a test; design-map row (AC-12, AC-19)
       Check: pnpm test packages/ui/src/components/checkbox.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/checkbox.tsx, checkbox.stories.tsx, checkbox.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 5: The Coding agent tab: legend, three choices with their lines, the two footnotes, the loading chrome, an optimistic save, and on failure a rollback with a line under the group (AC-1, AC-2, AC-3, AC-14, AC-15, AC-16)
+- [x] Task 5: The Coding agent tab: legend, three choices with their lines, the two footnotes, the loading chrome, an optimistic save, and on failure a rollback with a line under the group (AC-1, AC-2, AC-3, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/settings; pnpm gate design-source style-policy component-coverage
       Files: packages/app/src/features/settings/tabs.ts, settings-screen.tsx (+test), queries.ts, components/coding-agent-panel.tsx (+test), components/save-error.tsx (+test), packages/app/src/test/msw.ts, packages/app/src/live-updates.test.tsx
 - [ ] Task 6: The Inbox rules tab: the intro line, five checkbox rows, the loading chrome, an optimistic save, and on failure a rollback with the save-error line (AC-1, AC-12, AC-13, AC-14, AC-15, AC-16)

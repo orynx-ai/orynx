@@ -4,6 +4,7 @@ import { Lock } from 'lucide-react';
 import { Callout, Tabs, TabsContent, TabsList, TabsTrigger } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb } from '../../shell/page-frame.tsx';
 import { AppearancePanel } from './components/appearance-panel.tsx';
+import { CodingAgentPanel } from './components/coding-agent-panel.tsx';
 import { ConnectionsPanel } from './components/connections-panel.tsx';
 import { SettingsTabSchema, settingsTabLabels } from './tabs.ts';
 
@@ -48,6 +49,9 @@ export function SettingsScreen() {
           </TabsList>
           <TabsContent value="connections" className="pt-6">
             <ConnectionsPanel />
+          </TabsContent>
+          <TabsContent value="coding-agent" className="pt-6">
+            <CodingAgentPanel />
           </TabsContent>
           <TabsContent value="appearance" className="pt-6">
             <AppearancePanel />

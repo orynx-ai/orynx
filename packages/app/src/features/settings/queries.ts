@@ -2,6 +2,7 @@ import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/
 import {
   githubConnectionQueryOptions,
   jiraConnectionQueryOptions,
+  preferencesQueryOptions,
   queryKeys,
   statusQueryOptions,
   type ApiRequestError,
@@ -11,6 +12,8 @@ import type {
   GitHubConnectionRequest,
   JiraConnection,
   JiraConnectionRequest,
+  Preferences,
+  PreferencesChange,
 } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
@@ -101,4 +104,46 @@ export function useConnectionChangeRunning(): boolean {
   const jira = useIsMutating({ mutationKey: queryKeys.jiraConnection });
   const github = useIsMutating({ mutationKey: queryKeys.githubConnection });
   return jira + github > 0;
+}
+
+/** Settings › Coding agent and Inbox rules. Kept fresh by `settings.changed` events, not polling. */
+export function usePreferences() {
+  const api = useApi();
+  return useQuery(preferencesQueryOptions(api));
+}
+
+function withChange(preferences: Preferences, change: PreferencesChange): Preferences {
+  return {
+    permissionMode: change.permissionMode ?? preferences.permissionMode,
+    inboxRules: { ...preferences.inboxRules, ...change.inboxRules },
+  };
+}
+
+/**
+ * Saves one change, showing it at once (spec 005: "the control shows the new value straight away"). A
+ * failed save puts back what was there before.
+ */
+export function useChangePreferences() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<Preferences, ApiRequestError, PreferencesChange, { before: Preferences | undefined }>({
+    mutationKey: queryKeys.preferences,
+    mutationFn: (change) => api.changePreferences(change),
+    onMutate: async (change) => {
+      // A refetch already on its way would land on top of the new value.
+      await queryClient.cancelQueries({ queryKey: queryKeys.preferences });
+      const before = queryClient.getQueryData<Preferences>(queryKeys.preferences);
+      if (before) queryClient.setQueryData(queryKeys.preferences, withChange(before, change));
+      return { before };
+    },
+    onError: (_error, _change, context) => {
+      if (context?.before) queryClient.setQueryData(queryKeys.preferences, context.before);
+    },
+    onSettled: async () => {
+      // Only after the last of several quick changes, so an early answer can't undo a later one on screen.
+      if (queryClient.isMutating({ mutationKey: queryKeys.preferences }) === 1) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.preferences });
+      }
+    },
+  });
 }

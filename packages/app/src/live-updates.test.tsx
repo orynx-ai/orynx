@@ -1,8 +1,9 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeStatus } from '@devhub/contracts/testing';
+import { makePreferences, makeStatus } from '@devhub/contracts/testing';
+import type { PermissionMode } from '@devhub/contracts';
 import { FakeEventSource } from './test/fake-event-source.ts';
 import { apiUrl, server } from './test/msw.ts';
 import { renderApp, testToken } from './test/render.tsx';
@@ -28,6 +29,23 @@ describe('LiveUpdates', () => {
     FakeEventSource.latest().emit({ type: 'status.changed' });
 
     expect(await within(nav).findByText('Claude connected · runs locally')).toBeVisible();
+  });
+
+  it('AC-17: refetches the preferences when another tab saved a change', async () => {
+    let permissionMode: PermissionMode = 'edit_freely_ask_commands';
+    server.use(http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences({ permissionMode }))));
+    await renderApp({ route: '/settings/coding-agent' });
+    const everything = await screen.findByRole('radio', { name: 'Ask before everything' });
+    await waitFor(() => {
+      expect(everything).toBeEnabled();
+    });
+
+    permissionMode = 'ask_everything';
+    FakeEventSource.latest().emit({ type: 'settings.changed' });
+
+    await waitFor(() => {
+      expect(everything).toBeChecked();
+    });
   });
 
   it('closes the stream when the app goes away', async () => {

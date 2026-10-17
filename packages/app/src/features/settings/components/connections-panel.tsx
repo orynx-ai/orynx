@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import type { IntegrationId } from '@devhub/contracts';
-import { Callout } from '@devhub/ui';
 import { useStatus } from '../queries.ts';
 import { ConnectionRow } from './connection-row.tsx';
 import { GitHubConnectionRow } from './github-connection-row.tsx';
 import { JiraConnectionRow } from './jira-connection-row.tsx';
 import type { RowControls } from './managed-connection-row.tsx';
+import { ServerUnreachable } from './server-unreachable.tsx';
 
 /** Settings › Connections: one row per tool with its state in a word, never colour alone. */
 export function ConnectionsPanel() {
@@ -25,13 +25,7 @@ export function ConnectionsPanel() {
     };
   }
 
-  if (status.isError) {
-    return (
-      <Callout tone="warning" role="alert" title="Could not reach the DevHub server">
-        <span>Check that DevHub is still running in your terminal, then reload the page.</span>
-      </Callout>
-    );
-  }
+  if (status.isError) return <ServerUnreachable />;
 
   return (
     <>
