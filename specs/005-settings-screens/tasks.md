@@ -17,9 +17,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: The Coding agent tab: legend, three choices with their lines, the two footnotes, the loading chrome, an optimistic save, and on failure a rollback with a line under the group (AC-1, AC-2, AC-3, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/settings; pnpm gate design-source style-policy component-coverage
       Files: packages/app/src/features/settings/tabs.ts, settings-screen.tsx (+test), queries.ts, components/coding-agent-panel.tsx (+test), components/save-error.tsx (+test), packages/app/src/test/msw.ts, packages/app/src/live-updates.test.tsx
-- [ ] Task 6: The Inbox rules tab: the intro line, five checkbox rows, the loading chrome, an optimistic save, and on failure a rollback with the save-error line (AC-1, AC-12, AC-13, AC-14, AC-15, AC-16)
+- [x] Task 6: The Inbox rules tab: the intro line, five checkbox rows, the loading chrome, an optimistic save, and on failure a rollback with the save-error line (AC-1, AC-12, AC-13, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy component-coverage
-      Files: packages/app/src/features/settings/tabs.ts, settings-screen.tsx, components/inbox-rules-panel.tsx (+test)
+      Files: packages/app/src/features/settings/tabs.ts, settings-screen.tsx, components/inbox-rules-panel.tsx (+test); packages/ui/src/components/tabs.tsx (an opened tab past the edge scrolls into view), checkbox.tsx (12 px above and below a wrapped label)
 - [ ] Task 7: The folder check: expand `~`, require a full path, resolve symlinks, and answer with a folder or one of the reasons (empty, not a full path, nothing there, a file, can't read, not a repository, inside a repository with its top folder, inside DevHub's folder). It uses the file system only, tested against real temporary folders (AC-7)
       Check: pnpm test packages/core/src/repositories/folder-check.test.ts
       Files: packages/core/src/repositories/folder-check.ts (+test)
@@ -41,7 +41,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 13: The add-folder form: react-hook-form and zod (path required, starting with / or ~), the Jira project select (connected, not connected, list failed), server errors under Folder, Add folder and Cancel, Escape, and focus on open and close (AC-5, AC-6, AC-7, AC-8, AC-9, AC-10)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy component-coverage
       Files: packages/app/src/features/settings/schemas.ts, queries.ts, components/add-folder-form.tsx (+test), components/repositories-panel.tsx
-- [ ] Task 14: e2e on the real server: the five tabs and their addresses with reload, CLS 0 on each new tab, keyboard through every control, adding and removing a temporary git folder with Jira not connected, a second page following along, and axe at 360 and 1280 px in light and dark. Then the browser check by hand (AC-1, AC-15, AC-17, AC-19, AC-20)
+- [ ] Task 14: e2e on the real server: the five tabs and their addresses with reload, at 360 px the opened tab scrolled fully into the tab list, CLS 0 on each new tab, keyboard through every control, adding and removing a temporary git folder with Jira not connected, a second page following along, and axe at 360 and 1280 px in light and dark. Then the browser check by hand (AC-1, AC-15, AC-17, AC-19, AC-20)
       Check: pnpm test:e2e e2e/settings.spec.ts
       Files: e2e/settings.spec.ts
 - [ ] Task 15: Docs: what settings.json holds (architecture), a learn page on how the settings save and how a folder is checked, the agent-runtime skill (the mode lives in Settings › Coding agent), and the comment in `tabs.ts`

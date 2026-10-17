@@ -8,9 +8,9 @@ export interface CheckboxProps extends Omit<ComponentProps<'input'>, 'type'> {
 
 /**
  * A native checkbox with its label, in a row at least 48 px tall that toggles wherever it's clicked (spec
- * 005 Q5, drawn on Settings › Inbox rules). It takes the `info` colour when checked. The browser draws
- * the box and the tick, as it draws ChoiceCard's radio, so the tick keeps its contrast in both themes.
- * Rows in a list get their dividers from the list.
+ * 005 Q5, drawn on Settings › Inbox rules). A label that wraps keeps 12 px above and below. It takes the
+ * `info` colour when checked. The browser draws the box and the tick, as it draws ChoiceCard's radio, so
+ * the tick keeps its contrast in both themes. Rows in a list get their dividers from the list.
  */
 export function Checkbox({ label, className, id, ...props }: CheckboxProps) {
   const madeUpId = useId();
@@ -19,7 +19,7 @@ export function Checkbox({ label, className, id, ...props }: CheckboxProps) {
   return (
     <label
       htmlFor={checkboxId}
-      className={cn('flex min-h-12 cursor-pointer items-center gap-3 has-disabled:cursor-not-allowed', className)}
+      className={cn('flex min-h-12 cursor-pointer items-center gap-3 py-3 has-disabled:cursor-not-allowed', className)}
     >
       <input
         type="checkbox"

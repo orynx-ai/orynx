@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import { useEffect, useRef, type ComponentProps } from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 
@@ -22,9 +22,33 @@ export type TabsTriggerProps = ComponentProps<typeof TabsPrimitive.Trigger> & {
   count?: number;
 };
 
-export function TabsTrigger({ className, count, children, ...props }: TabsTriggerProps) {
+/** Scrolls the tab list sideways, and only it, until `tab` is fully in view. */
+function scrollIntoList(tab: HTMLElement): void {
+  const list = tab.parentElement;
+  if (list === null) return;
+  const tabBox = tab.getBoundingClientRect();
+  const listBox = list.getBoundingClientRect();
+  if (tabBox.left < listBox.left) list.scrollLeft -= listBox.left - tabBox.left;
+  else if (tabBox.right > listBox.right) list.scrollLeft += tabBox.right - listBox.right;
+}
+
+export function TabsTrigger({ className, count, children, ref, ...props }: TabsTriggerProps) {
+  const tab = useRef<HTMLButtonElement | null>(null);
+
+  // A page opened on a tab past the edge of a narrow window (Settings › Appearance at 360 px) shows it.
+  // Later a click or an arrow key brings the tab into view by itself.
+  useEffect(() => {
+    if (tab.current?.getAttribute('aria-selected') === 'true') scrollIntoList(tab.current);
+  }, []);
+
   return (
     <TabsPrimitive.Trigger
+      ref={(element) => {
+        tab.current = element;
+        if (typeof ref === 'function') return ref(element);
+        if (ref) ref.current = element;
+        return undefined;
+      }}
       className={cn(
         // The list scrolls sideways, which clips anything outside it, so the focus ring is drawn inside the tab.
         'relative inline-flex h-12 cursor-pointer items-center gap-2 border-0 bg-transparent px-0.5 font-medium whitespace-nowrap text-muted-foreground hover:text-foreground focus-visible:-outline-offset-2 aria-selected:text-foreground',
