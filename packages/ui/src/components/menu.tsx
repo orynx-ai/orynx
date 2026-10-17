@@ -87,9 +87,12 @@ export function MenuContent({
   );
 }
 
-/** 40 px rows, `bg-subtle` when hovered or reached by the keyboard; icons are quieter than words. */
+/**
+ * 40 px rows, `bg-subtle` when hovered or reached by the keyboard. The item's own icons are quieter
+ * than its words; a source logo inside a `SourceMark` keeps its colours.
+ */
 export const menuItemClass =
-  'relative flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5 text-start text-foreground no-underline select-none data-disabled:cursor-not-allowed data-disabled:opacity-45 data-highlighted:bg-subtle [&_svg:not([class*=text-])]:text-muted-foreground';
+  'relative flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5 text-start text-foreground no-underline select-none data-disabled:cursor-not-allowed data-disabled:opacity-45 data-highlighted:bg-subtle [&>svg:not([class*=text-])]:text-muted-foreground';
 
 interface ItemContentProps {
   /** A lucide icon before the words. */
