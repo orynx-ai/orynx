@@ -40,7 +40,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
       Files: e2e/shell.spec.ts, e2e/smoke.spec.ts (and the font fix in apps/web/src/fonts.ts, its own commit)
 - [x] Task 13: STOP and run /review (passed 17 Oct 2026; Q10–Q12 then added Tasks 14–17)
       Check: the review stamp matches the branch (pnpm review:stamp verify)
-- [ ] Task 14: `Splitter` in `@devhub/ui`: a keyboard and pointer resize handle (window-splitter pattern) (AC-21, AC-22, AC-23)
+- [x] Task 14: `Splitter` in `@devhub/ui`: a keyboard and pointer resize handle (window-splitter pattern) (AC-21, AC-22, AC-23)
       Check: pnpm test packages/ui; pnpm gate component-coverage; pnpm gate style-policy
       Files: packages/ui/src/components/splitter.tsx, packages/ui/src/components/splitter.stories.tsx, packages/ui/src/components/splitter.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 15: Sidebar 260 px by default, resizable to 400 px, remembered (AC-21, AC-22, AC-23, AC-24)
