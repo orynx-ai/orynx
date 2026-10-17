@@ -49,5 +49,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: e2e: drag the handle in Chromium, clamp at 400 px, keep the width across a reload with no layout shift (AC-21, AC-23)
       Check: pnpm test:e2e
       Files: e2e/shell.spec.ts
-- [ ] Task 17: STOP and run /review
+- [x] Task 17: STOP and run /review (passed 17 Oct 2026)
       Check: the review stamp matches the branch (pnpm review:stamp verify)
