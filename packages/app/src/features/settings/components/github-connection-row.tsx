@@ -39,6 +39,9 @@ export function GitHubConnectionRow({ status, announce }: GitHubConnectionRowPro
                 onConnected={() => {
                   close('GitHub is connected.');
                 }}
+                onDisconnected={() => {
+                  close('GitHub is disconnected.');
+                }}
                 onCancel={() => {
                   close();
                 }}

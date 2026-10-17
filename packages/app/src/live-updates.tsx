@@ -10,8 +10,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'hello':
       return [];
     case 'status.changed':
-      // Connecting or disconnecting a tool also changes its saved settings (spec 003).
-      return [queryKeys.status, queryKeys.jiraConnection];
+      // Connecting or disconnecting a tool also changes its saved settings (specs 003 and 004).
+      return [queryKeys.status, queryKeys.jiraConnection, queryKeys.githubConnection];
     case 'sessions.changed':
       return [queryKeys.sessions];
   }

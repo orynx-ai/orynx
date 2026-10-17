@@ -86,6 +86,21 @@ export function useConnectGitHub() {
   });
 }
 
+/** Forgets the way GitHub was connected and deletes a saved token. gh stays signed in. */
+export function useDisconnectGitHub() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: queryKeys.githubConnection,
+    mutationFn: () => api.disconnectGitHub(),
+    onSuccess: async () => {
+      // Nothing is saved now, so the row reads "Connect" at once; the status line refetches.
+      queryClient.setQueryData<GitHubConnection>(queryKeys.githubConnection, (old) => old && { ...old, saved: null });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    },
+  });
+}
+
 /** Whether GitHub is being connected or disconnected right now. */
 export function useGitHubChangeRunning(): boolean {
   return useIsMutating({ mutationKey: queryKeys.githubConnection }) > 0;
