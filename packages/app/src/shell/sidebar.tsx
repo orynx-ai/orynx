@@ -201,7 +201,7 @@ function NavItem({
       {/* Hidden at 0, and on the collapsed rail and the narrow bar, where there is no room (spec 007, Q1b). */}
       <Label collapsed={collapsed}>
         {label}
-        {/* Inside the label, so every browser names the link "Home, 14 need you", with no stray space. */}
+        {/* Inside the label, so the link reads "Home, 14 need you" (Chrome adds a space before the comma). */}
         {showCount ? <span className="sr-only max-md:hidden">{`, ${count.spoken}`}</span> : null}
       </Label>
       {showCount ? (
