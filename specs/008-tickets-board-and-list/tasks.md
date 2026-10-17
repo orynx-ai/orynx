@@ -50,9 +50,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: Build the list: the same tickets in `Table` with Key, Title, Status, Priority, Due and Agent, in column then rank order, and its empty text (AC-11, AC-16)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/tickets-list.tsx, tickets-list.test.tsx, tickets-screen.tsx, ticket-words.ts, ticket-words.test.ts
-- [ ] Task 17: Tickets' states: loading, Jira not connected, no sprint, a failed sync's line, the server not answering and too many tickets (AC-20, AC-21, AC-22, AC-23, AC-24, AC-25, AC-26)
+- [x] Task 17: Tickets' states: loading, Jira not connected, no sprint, a failed sync's line, the server not answering and too many tickets (AC-20, AC-21, AC-22, AC-23, AC-24, AC-25, AC-26)
       Check: pnpm test packages/app/src/features/tickets
-      Files: packages/app/src/features/tickets/tickets-screen.tsx, tickets-screen.test.tsx
+      Files: packages/app/src/features/tickets/tickets-screen.tsx, tickets-screen.test.tsx, components/tickets-board.tsx, components/tickets-list.tsx
 - [ ] Task 18: Keep focus and scroll when a sync changes the cards, and move the search field into the toolbar under 768 px (AC-17, AC-18, AC-30, AC-32)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/tickets-board.tsx, tickets-board.test.tsx, tickets-screen.tsx, components/tickets-toolbar.tsx

@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeTickets } from '@devhub/contracts/testing';
@@ -116,4 +116,96 @@ describe('TicketsScreen', () => {
       });
     },
   );
+
+  describe('states', () => {
+    it('AC-20: before the first sync, the columns show their names and loading cards, and nothing counts yet', async () => {
+      server.use(ticketsHandler({ jira: { state: 'syncing' }, sprint: null, tickets: [] }));
+      await renderApp({ route: '/tickets' });
+
+      const board = await screen.findByRole('region', { name: 'Board' });
+      const columns = within(board).getAllByRole('region');
+      expect(columns.map((column) => column.getAttribute('aria-busy'))).toEqual(['true', 'true', 'true', 'true']);
+      expect(within(board).getByRole('heading', { name: 'In review' })).toBeVisible();
+      expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Tickets')).toBeVisible();
+      expect(filter('Assigned to me')).toBeVisible();
+      expect(count()).toBeEmptyDOMElement();
+    });
+
+    it('AC-20: the list loads as rows the size of real ones', async () => {
+      server.use(
+        http.get(apiUrl(apiRoutes.tickets), async () => {
+          await delay('infinite');
+          return HttpResponse.json({});
+        }),
+      );
+      const { user } = await renderApp({ route: '/tickets' });
+
+      await user.click(screen.getByRole('button', { name: 'List' }));
+
+      expect(screen.getByRole('table')).toHaveAttribute('aria-busy', 'true');
+      expect(screen.getByRole('columnheader', { name: 'Title' })).toBeVisible();
+    });
+
+    it('AC-22: no active sprint holds a ticket of yours', async () => {
+      server.use(ticketsHandler({ sprint: null, tickets: [] }));
+      await renderApp({ route: '/tickets' });
+
+      expect(await screen.findByText('None of your tickets is in an active sprint')).toBeVisible();
+      expect(
+        screen.getByText('Your sprint shows up here once Jira starts one with a ticket assigned to you.'),
+      ).toBeVisible();
+      expect(screen.queryByRole('group', { name: 'Filters' })).toBeNull();
+      expect(screen.queryByRole('searchbox')).toBeNull();
+    });
+
+    it('AC-23: Jira didn’t answer, so the last sprint stays under a quiet line that says how old it is', async () => {
+      server.use(
+        ticketsHandler({
+          jira: { state: 'failed', problem: { kind: 'no_answer' }, lastSyncedAt: '2026-10-17T08:48:00.000Z' },
+        }),
+      );
+      await renderApp({ route: '/tickets' });
+
+      expect(await screen.findByText(/^Jira didn't answer\. These are from \d+ (min|h) ago\.$/)).toBeVisible();
+      expect(screen.getByRole('region', { name: 'To do, 2 tickets' })).toBeVisible();
+    });
+
+    it('AC-24: Jira refused the saved token, and the line links to Settings › Connections', async () => {
+      server.use(
+        ticketsHandler({ jira: { state: 'failed', problem: { kind: 'rejected' }, lastSyncedAt: null }, sprint: null }),
+      );
+      const { user, history } = await renderApp({ route: '/tickets' });
+
+      expect(await screen.findByText(/Jira refused the saved token\./)).toBeVisible();
+      await user.click(screen.getByRole('link', { name: 'Reconnect it in Settings' }));
+
+      expect(history.location.pathname).toBe('/settings/connections');
+    });
+
+    it('AC-25: the local server stops answering, then Try again loads the sprint', async () => {
+      let answer: 'down' | 'up' = 'down';
+      server.use(
+        http.get(apiUrl(apiRoutes.tickets), () =>
+          answer === 'down' ? HttpResponse.error() : HttpResponse.json(makeTickets({ tickets: designTickets })),
+        ),
+      );
+      const { user } = await renderApp({ route: '/tickets' });
+
+      expect(await screen.findByText("Couldn't load the sprint")).toBeVisible();
+      expect(screen.getByText('Check that DevHub is still running, then try again.')).toBeVisible();
+      expect(screen.getByRole('navigation', { name: 'Main' })).toBeVisible();
+
+      answer = 'up';
+      await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+      expect(await screen.findByRole('region', { name: 'To do, 2 tickets' })).toBeVisible();
+    });
+
+    it('AC-26: a sprint DevHub cut short says so', async () => {
+      server.use(ticketsHandler({ truncated: true }));
+      await renderApp({ route: '/tickets' });
+
+      expect(await screen.findByText("Showing the first 300 tickets in Sprint 42, in Jira's order.")).toBeVisible();
+    });
+  });
 });

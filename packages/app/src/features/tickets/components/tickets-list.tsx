@@ -9,6 +9,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableRowSkeleton,
   WorkItemKey,
   WorkItemPriority,
 } from '@devhub/ui';
@@ -43,18 +44,7 @@ export function TicketsList({ shown, sprintName, filtered, onlyMine, now }: Tick
     <Panel>
       {/* 760 px at least, as the design draws it: a narrow window scrolls the table inside the panel. */}
       <Table caption={listCaption(sprintName)} className="min-w-190">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Key</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Priority</TableHead>
-            <TableHead>Due</TableHead>
-            <TableHead>
-              <span className="sr-only">Agent</span>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
+        <ListHead />
         <TableBody>
           {inListOrder(shown).map((ticket) => (
             <TableRow key={ticket.key}>
@@ -77,6 +67,41 @@ export function TicketsList({ shown, sprintName, filtered, onlyMine, now }: Tick
                 <TicketAgentChip ticket={ticket} />
               </TableCell>
             </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Panel>
+  );
+}
+
+const columns = 6;
+
+function ListHead() {
+  return (
+    <TableHeader>
+      <TableRow>
+        <TableHead>Key</TableHead>
+        <TableHead>Title</TableHead>
+        <TableHead>Status</TableHead>
+        <TableHead>Priority</TableHead>
+        <TableHead>Due</TableHead>
+        <TableHead>
+          <span className="sr-only">Agent</span>
+        </TableHead>
+      </TableRow>
+    </TableHeader>
+  );
+}
+
+/** Before the first sync (Q8a): the list's head and six loading rows, as tall as real ones. */
+export function TicketsListSkeleton() {
+  return (
+    <Panel>
+      <Table caption="Tickets" className="min-w-190" aria-busy>
+        <ListHead />
+        <TableBody>
+          {Array.from({ length: 6 }, (_, row) => (
+            <TableRowSkeleton key={row} columns={columns} />
           ))}
         </TableBody>
       </Table>

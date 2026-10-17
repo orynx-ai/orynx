@@ -1,5 +1,5 @@
 import type { Ticket, TicketColumn } from '@devhub/contracts';
-import { Board, BoardColumn, EmptyState, type StatusIconStatus } from '@devhub/ui';
+import { Board, BoardColumn, EmptyState, WorkItemCardSkeleton, type StatusIconStatus } from '@devhub/ui';
 import { byColumn } from '../filters.ts';
 import { columnEmptyText, columnNames, columnOrder, columnRegionName } from '../ticket-words.ts';
 import { TicketCard } from './ticket-card.tsx';
@@ -44,6 +44,24 @@ export function TicketsBoard({ shown, unfiltered, now }: TicketsBoardProps) {
           </BoardColumn>
         );
       })}
+    </Board>
+  );
+}
+
+/**
+ * Before the first sync (Q8a): the four columns with their icons and names, no counts, and three loading
+ * cards each, the size of real ones, so nothing above the board moves when the tickets arrive.
+ */
+export function TicketsBoardSkeleton() {
+  return (
+    <Board aria-label="Board">
+      {columnOrder.map((column) => (
+        <BoardColumn key={column} status={statusIcons[column]} title={columnNames[column]} busy>
+          <WorkItemCardSkeleton />
+          <WorkItemCardSkeleton />
+          <WorkItemCardSkeleton />
+        </BoardColumn>
+      ))}
     </Board>
   );
 }
