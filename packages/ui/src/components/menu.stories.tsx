@@ -21,7 +21,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The + button in the Composer: what Claude can work from. Each kind leads on to a list (spec 015). */
+/**
+ * The + button in the Composer: what Claude can work from. Each kind leads on to a list (spec 015).
+ * Home draws these icons quieter than the words, so they are passed in `text-muted-foreground`.
+ */
 export const AddContext: Story = {
   render: (args) => (
     <Menu {...args}>
@@ -36,7 +39,11 @@ export const AddContext: Story = {
         foot="Tip: you can also paste a Jira key or a pull request link into the box."
       >
         <MenuLabel>Add context for Claude</MenuLabel>
-        <MenuItem icon={<GitBranch />} description="The folder Claude works in" leadsOn>
+        <MenuItem
+          icon={<GitBranch className="text-muted-foreground" />}
+          description="The folder Claude works in"
+          leadsOn
+        >
           Git repository
         </MenuItem>
         <MenuItem icon={<SourceMark source="jira" label="none" />} description="Search by key or title" leadsOn>
@@ -56,7 +63,7 @@ export const AddContext: Story = {
         >
           Slack thread
         </MenuItem>
-        <MenuItem icon={<File />} description="Opens your computer's file dialog">
+        <MenuItem icon={<File className="text-muted-foreground" />} description="Opens your computer's file dialog">
           File from this computer
         </MenuItem>
       </MenuContent>

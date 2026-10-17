@@ -4,7 +4,7 @@ import { FileText, Folder, Plus } from 'lucide-react';
 import { Button } from './button.tsx';
 import { Composer, ComposerBar, ComposerHint, ComposerSend, ComposerTextarea } from './composer.tsx';
 import { ContextChip, ContextList } from './context-chip.tsx';
-import { Menu, MenuContent, MenuItem, MenuTrigger } from './menu.tsx';
+import { Menu, MenuContent, MenuItem, MenuRadioGroup, MenuRadioItem, MenuTrigger } from './menu.tsx';
 import { Picker } from './picker.tsx';
 import { SourceMark } from './source-mark.tsx';
 
@@ -58,8 +58,28 @@ function HomeComposer({
             <MenuItem>Jira ticket</MenuItem>
           </MenuContent>
         </Menu>
-        <Picker icon={<Folder />}>web-app</Picker>
-        <Picker icon={<span aria-hidden className="size-2 rounded-full bg-success" />}>Claude</Picker>
+        <Menu>
+          <MenuTrigger asChild>
+            <Picker icon={<Folder />}>web-app</Picker>
+          </MenuTrigger>
+          <MenuContent aria-label="Repository">
+            <MenuRadioGroup value="web-app">
+              <MenuRadioItem value="web-app" icon={<Folder />} path="~/code/web-app">
+                web-app
+              </MenuRadioItem>
+            </MenuRadioGroup>
+          </MenuContent>
+        </Menu>
+        <Menu>
+          <MenuTrigger asChild>
+            <Picker icon={<span aria-hidden className="size-2 rounded-full bg-success" />}>Claude</Picker>
+          </MenuTrigger>
+          <MenuContent aria-label="Agent">
+            <MenuRadioGroup value="claude">
+              <MenuRadioItem value="claude">Claude</MenuRadioItem>
+            </MenuRadioGroup>
+          </MenuContent>
+        </Menu>
         <ComposerSend label="Send to Claude" />
       </ComposerBar>
     </Composer>

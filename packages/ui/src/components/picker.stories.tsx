@@ -58,9 +58,20 @@ export const Repository: Story = {
   ),
 };
 
-/** The agent picker: Claude with its connection dot. */
+/** The agent picker: Claude with its connection dot, opening its menu. */
 export const Agent: Story = {
-  args: { icon: <span aria-hidden className="size-2 rounded-full bg-success" />, children: 'Claude' },
+  render: () => (
+    <Menu>
+      <MenuTrigger asChild>
+        <Picker icon={<span aria-hidden className="size-2 rounded-full bg-success" />}>Claude</Picker>
+      </MenuTrigger>
+      <MenuContent aria-label="Agent">
+        <MenuRadioGroup value="claude">
+          <MenuRadioItem value="claude">Claude</MenuRadioItem>
+        </MenuRadioGroup>
+      </MenuContent>
+    </Menu>
+  ),
 };
 
 export const LongName: Story = {

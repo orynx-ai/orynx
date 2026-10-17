@@ -15,9 +15,11 @@ export type PanelProps = Omit<ComponentProps<'section'>, 'title'> & {
  * head (heading and meta line). A tab strip inside it sits 16 px in from the edges. Panels never
  * hold another bordered box (Clean UI, "Cards don't hold cards").
  */
+const headings = { 2: 'h2', 3: 'h3', 4: 'h4' } as const;
+
 export function Panel({ title, meta, headingLevel = 2, className, children, ...props }: PanelProps) {
   const headingId = useId();
-  const Heading = `h${String(headingLevel)}` as 'h2' | 'h3' | 'h4';
+  const Heading = headings[headingLevel];
   const named = title !== undefined;
 
   // Without a title the section has no name, so it isn't announced as a region: a plain surface.
@@ -25,7 +27,11 @@ export function Panel({ title, meta, headingLevel = 2, className, children, ...p
     <section
       data-slot="panel"
       aria-labelledby={named ? headingId : undefined}
-      className={cn('overflow-hidden rounded-md border border-border bg-raised [&_[role=tablist]]:px-4', className)}
+      className={cn(
+        // The panel clips its corners, so a focused tab panel's ring is drawn inside it, as Tabs does for tabs.
+        'overflow-hidden rounded-md border border-border bg-raised [&_[role=tablist]]:px-4 [&_[role=tabpanel]]:focus-visible:-outline-offset-2',
+        className,
+      )}
       {...props}
     >
       {named ? (

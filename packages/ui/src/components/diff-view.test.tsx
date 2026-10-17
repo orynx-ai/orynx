@@ -46,6 +46,8 @@ describe('DiffView', () => {
 
     const scroller = screen.getByRole('region', { name: 'Changes in ContentList.tsx' }).querySelector('pre');
     expect(scroller).toHaveAttribute('tabindex', '0');
+    // Where focus lands is named by the file's path.
+    expect(scroller).toHaveAccessibleName('src/content/ContentList.tsx');
   });
 
   it('AC-22: marks the gap between hunks with the hunk header, which is not counted', () => {

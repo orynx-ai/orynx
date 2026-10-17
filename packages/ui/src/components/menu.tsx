@@ -88,11 +88,12 @@ export function MenuContent({
 }
 
 /**
- * 40 px rows, `bg-subtle` when hovered or reached by the keyboard. The item's own icons are quieter
- * than its words; a source logo inside a `SourceMark` keeps its colours.
+ * 40 px rows, `bg-subtle` when hovered or reached by the keyboard. Icons take the words' colour, as
+ * Home's repository menu draws them; pass a quieter icon (`text-muted-foreground`) where the design
+ * does, as in the + menu. Only the chevron is quiet by default.
  */
-export const menuItemClass =
-  'relative flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5 text-start text-foreground no-underline select-none data-disabled:cursor-not-allowed data-disabled:opacity-45 data-highlighted:bg-subtle [&>svg:not([class*=text-])]:text-muted-foreground';
+const menuItemClass =
+  'relative flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5 text-start text-foreground no-underline select-none data-disabled:cursor-not-allowed data-disabled:opacity-45 data-highlighted:bg-subtle';
 
 interface ItemContentProps {
   /** A lucide icon before the words. */
@@ -143,7 +144,7 @@ export function MenuItem({
   children,
   ...props
 }: MenuItemProps) {
-  const chevron = leadsOn ? <ChevronRight aria-hidden className="ms-auto" /> : null;
+  const chevron = leadsOn ? <ChevronRight aria-hidden className="ms-auto text-muted-foreground" /> : null;
   const itemProps = {
     'data-slot': 'menu-item',
     textValue: nameOf(children, textValue),

@@ -18,7 +18,7 @@ export function Picker({ icon, type, className, children, ...props }: PickerProp
       data-slot="picker"
       type={type ?? 'button'}
       className={cn(
-        'inline-flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-sm border border-border bg-raised px-2.5 text-small font-medium text-foreground hover:bg-subtle aria-expanded:bg-subtle [&>svg]:text-muted-foreground',
+        'inline-flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-sm border border-border bg-raised px-2.5 text-small font-medium text-foreground hover:bg-subtle aria-expanded:bg-subtle',
         className,
       )}
       {...props}

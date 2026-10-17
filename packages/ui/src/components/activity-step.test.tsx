@@ -19,12 +19,14 @@ describe('ActivityStep', () => {
     expect(list).toHaveAttribute('aria-live', 'polite');
     const steps = within(list).getAllByRole('listitem');
     expect(steps.map((step) => step.textContent)).toEqual([
-      'Read 6 filesContentList.tsx and 5 more',
-      'Edited 4 files+142 −18',
-      'Wants to run npm testWaiting for you',
+      'Read 6 files, doneContentList.tsx and 5 more',
+      'Edited 4 files, done+142 −18',
+      'Wants to run npm test, needs youWaiting for you',
       'Run the linter',
     ]);
-    expect(steps.map((step) => step.dataset['state'])).toEqual(['done', 'done', 'waiting', 'plain']);
+    // The state is in words for screen readers, not only in the dot's colour.
+    expect(within(steps[0] ?? list).getByText(', done')).toHaveClass('sr-only');
+    expect(within(list).getByText(', needs you')).toHaveClass('sr-only');
     // The dots and their icons are for the eye only.
     expect(within(list).queryByRole('img')).not.toBeInTheDocument();
     await expectNoAxeViolations(container);

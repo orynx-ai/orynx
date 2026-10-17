@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Kanban, List } from 'lucide-react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { SegmentedControl, SegmentedControlItem } from './segmented-control.tsx';
 
@@ -71,6 +71,21 @@ describe('SegmentedControl', () => {
 
     expect(screen.getByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true');
     expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  it('AC-1: brings the option Tab lands on into view, for a group that scrolls on a phone', async () => {
+    const user = userEvent.setup();
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    onTestFinished(() => {
+      scrolled.mockRestore();
+    });
+    render(<View />);
+
+    await user.tab();
+    await user.tab();
+
+    expect(scrolled).toHaveBeenLastCalledWith({ block: 'nearest', inline: 'nearest' });
+    expect(scrolled.mock.contexts.at(-1)).toBe(screen.getByRole('button', { name: 'List' }));
   });
 
   it('follows the value the screen holds', async () => {

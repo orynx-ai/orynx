@@ -68,7 +68,7 @@ export type SegmentedControlItemProps = Omit<
 };
 
 /** One option: an icon (`aria-hidden`) and a word. The pressed one sits on `bg-raised` with a hairline. */
-export function SegmentedControlItem({ value, className, ...props }: SegmentedControlItemProps) {
+export function SegmentedControlItem({ value, className, onFocus, ...props }: SegmentedControlItemProps) {
   const { value: current, pick } = useContext(SegmentedControlContext);
   return (
     <TogglePrimitive.Root
@@ -78,6 +78,11 @@ export function SegmentedControlItem({ value, className, ...props }: SegmentedCo
       // option always stays pressed.
       onPressedChange={(pressed) => {
         if (pressed) pick(value);
+      }}
+      // The group can scroll sideways on a phone; bring the option Tab lands on into view.
+      onFocus={(event) => {
+        onFocus?.(event);
+        event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       }}
       className={cn(
         // The group can scroll, which clips anything outside it, so the focus ring is drawn inside the option (as in Tabs).

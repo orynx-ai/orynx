@@ -54,7 +54,7 @@ describe('Picker', () => {
     // While the menu is open, Radix hides the rest of the page from screen readers, the picker too.
     expect(screen.getByRole('button', { name: 'web-app', hidden: true })).toHaveAttribute('aria-expanded', 'true');
     const menu = screen.getByRole('menu', { name: 'Repository' });
-    expect(menu).toContainElement(document.activeElement as HTMLElement);
+    expect(menu.contains(document.activeElement)).toBe(true);
     expect(screen.getByRole('menuitemradio', { name: /^web-app/ })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('menuitemradio', { name: /^api/ })).toHaveAttribute('aria-checked', 'false');
     await expectNoAxeViolations(menu);

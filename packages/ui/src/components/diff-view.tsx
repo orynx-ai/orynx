@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import { useId, type ComponentProps } from 'react';
 import { cva } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
 import { spokenCounts } from './file-list.tsx';
@@ -54,6 +54,7 @@ export function DiffView({ path, lines, className, ...props }: DiffViewProps) {
   const added = lines.filter((line) => line.kind === 'added').length;
   const removed = lines.filter((line) => line.kind === 'removed').length;
   const spoken = spokenCounts(added, removed);
+  const pathId = useId();
   return (
     <div
       data-slot="diff-view"
@@ -63,7 +64,7 @@ export function DiffView({ path, lines, className, ...props }: DiffViewProps) {
       {...props}
     >
       <div className="flex items-center gap-2 border-b border-border bg-sidebar px-3 py-2 font-mono text-code">
-        <span title={path} className="min-w-0 flex-1 truncate">
+        <span id={pathId} title={path} className="min-w-0 flex-1 truncate">
           {path}
         </span>
         <span aria-hidden className="flex shrink-0 gap-2">
@@ -73,8 +74,12 @@ export function DiffView({ path, lines, className, ...props }: DiffViewProps) {
         {spoken ? <span className="sr-only">{spoken}</span> : null}
       </div>
       {/* The code scrolls, which clips anything outside it, so the focus ring is drawn inside. */}
-      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling region must take keyboard focus (WCAG 2.1.1) */}
-      <pre tabIndex={0} className="m-0 overflow-x-auto py-1 font-mono text-code focus-visible:-outline-offset-2">
+      <pre
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling region must take keyboard focus (WCAG 2.1.1)
+        tabIndex={0}
+        aria-labelledby={pathId}
+        className="m-0 overflow-x-auto py-1 font-mono text-code focus-visible:-outline-offset-2"
+      >
         <code className="grid min-w-max">
           {lines.map((line, index) =>
             // Lines have no id of their own; their order is fixed for a given diff.

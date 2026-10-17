@@ -35,6 +35,9 @@ const dotVariants = cva(
   },
 );
 
+/** The sidebar's words for these states: Stepper's ", done" and the session's "Needs you". */
+const spokenStates: Record<ActivityStepState, string> = { done: ', done', waiting: ', needs you' };
+
 export type ActivityStepProps = Omit<ComponentProps<'li'>, 'title'> & {
   /** Done is green, waiting for you is amber; leave it out for a step that's running or still to come. */
   state?: ActivityStepState | undefined;
@@ -59,7 +62,11 @@ export function ActivityStep({ state, icon, title, detail, className, ...props }
         {icon}
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="font-medium">{title}</span>
+        <span className="font-medium">
+          {title}
+          {/* The dot's colour tells the state to the eye; these words tell it to screen readers. */}
+          {state ? <span className="sr-only">{spokenStates[state]}</span> : null}
+        </span>
         {detail ? <span className="text-small text-muted-foreground">{detail}</span> : null}
       </span>
     </li>

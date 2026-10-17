@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Folder, GitBranch, Plus, Settings } from 'lucide-react';
@@ -107,6 +108,40 @@ describe('Menu', () => {
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(onAdd).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Folders' })).toHaveFocus();
+  });
+
+  it('AC-5: a menu whose open state the screen holds closes on Tab and tells the screen', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    function Held() {
+      const [open, setOpen] = useState(false);
+      return (
+        <Menu
+          open={open}
+          onOpenChange={(next) => {
+            onOpenChange(next);
+            setOpen(next);
+          }}
+        >
+          <MenuTrigger asChild>
+            <Button>Folders</Button>
+          </MenuTrigger>
+          <MenuContent aria-label="Folders">
+            <MenuItem>web-app</MenuItem>
+          </MenuContent>
+        </Menu>
+      );
+    }
+    render(<Held />);
+
+    screen.getByRole('button', { name: 'Folders' }).focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('menu', { name: 'Folders' })).toBeVisible();
+    await user.keyboard('{Tab}');
+
+    expect(onOpenChange.mock.calls).toEqual([[true], [false]]);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Folders' })).toHaveFocus();
   });
 });
