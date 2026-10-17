@@ -17,6 +17,7 @@ export {
 export { Button, buttonVariants, type ButtonProps } from './components/button.tsx';
 export { Callout, type CalloutProps } from './components/callout.tsx';
 export { Checkbox, type CheckboxProps } from './components/checkbox.tsx';
+export { Chip, FilterChip, type ChipProps, type FilterChipProps } from './components/chip.tsx';
 export { ChoiceCard, type ChoiceCardProps } from './components/choice-card.tsx';
 export { ChoiceGroup, type ChoiceGroupProps } from './components/choice-group.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
