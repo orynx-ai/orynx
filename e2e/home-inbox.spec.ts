@@ -1,7 +1,22 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
+import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
 import { fakeToolsControlPort, fakeToolsHubPort, type FakeTools } from './fake-tools/config.ts';
+
+declare global {
+  interface Window {
+    axe: {
+      run: (
+        context: Element,
+        options: object,
+      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
+    };
+  }
+}
+
+// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
+const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Home with Jira and GitHub faked inside the hub (e2e/fake-tools/preload.ts): the real server syncs them,
 // and the real page shows the rows.
@@ -77,8 +92,9 @@ function attentionPanel(page: Page) {
   return page.getByRole('region', { name: 'Needs your attention' });
 }
 
+/** The rows: the panel's first list (the pager, when there is one, is another). */
 function rows(page: Page) {
-  return attentionPanel(page).getByRole('list').getByRole('listitem');
+  return attentionPanel(page).getByRole('list').first().getByRole('listitem');
 }
 
 /** Home showing what the tools hold. */
@@ -86,8 +102,18 @@ async function openHome(page: Page, tools: FakeTools = everything) {
   await page.goto('/');
   await holdInTools(page, tools);
   await syncNow(page);
-  await expect(rows(page)).toHaveCount(tools.issues.length + tools.reviews.length + tools.mine.length);
+  // 16 rows a page.
+  await expect(rows(page)).toHaveCount(Math.min(16, tools.issues.length + tools.reviews.length + tools.mine.length));
 }
+
+/** Twenty more tickets, so the list runs to two pages. */
+const backlog = Array.from({ length: 20 }, (_, index) => ({
+  key: `PROJ-${String(1500 + index)}`,
+  summary: `Backlog item ${String(index + 1)}`,
+  status: index % 2 === 0 ? 'To Do' : 'In Progress',
+  category: index % 2 === 0 ? ('new' as const) : ('indeterminate' as const),
+  statuscategorychangedate: jiraAgo((index + 1) * day),
+}));
 
 function connectionRow(page: Page, tool: string) {
   return page.getByRole('list', { name: 'Connections' }).getByRole('listitem').filter({ hasText: tool });
@@ -216,4 +242,63 @@ test("Given a row has focus, when a sync takes it away, then focus moves to the 
   // Newest first, the next row down is the ticket that has waited a day longer.
   await expect(attentionPanel(page).getByRole('link', { name: summaries[1] })).toBeFocused();
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+});
+
+test('Given two pages of rows, when I pick a page, search, tick a filter and change the order, then the list follows, and a reload keeps it all', async ({
+  page,
+}) => {
+  await openHome(page, { ...everything, issues: backlog });
+  const panel = attentionPanel(page);
+  const pager = panel.getByRole('navigation', { name: 'Pages' });
+
+  await pager.getByRole('link', { name: '2' }).click();
+  await expect(page).toHaveURL(/page=2/);
+  await expect(rows(page)).toHaveCount(6);
+  await expect(rows(page).first().getByRole('link').first()).toBeFocused();
+
+  const search = panel.getByRole('searchbox', { name: 'Search' });
+  await search.fill('people');
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page).first()).toContainText('Lazy-load the people directory');
+  await expect(page).not.toHaveURL(/page=/);
+  await search.fill('');
+  await expect(rows(page)).toHaveCount(16);
+
+  await panel.getByRole('button', { name: 'Reason' }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Checks failing' }).click();
+  await page.keyboard.press('Escape');
+  await expect(rows(page)).toHaveCount(1);
+  await expect(rows(page).first()).toContainText('Fix timezone shift in event cards');
+  await expect(panel.getByRole('button', { name: 'Reason · 1' })).toBeFocused();
+
+  await panel.getByRole('button', { name: 'Order: Newest first' }).click();
+  await page.getByRole('menuitemradio', { name: 'Longest wait first' }).click();
+  await expect(page).toHaveURL(/sort=longest/);
+  await expect(page).toHaveURL(/reason=checks-failing/);
+
+  await page.reload();
+  await expect(rows(page)).toHaveCount(1);
+  await expect(attentionPanel(page).getByRole('button', { name: 'Reason · 1' })).toBeVisible();
+  await expect(attentionPanel(page).getByRole('button', { name: 'Order: Longest wait first' })).toBeVisible();
+});
+
+test('Given the toolbar and the pager, when axe checks Home and then its open filter menu, then it finds nothing', async ({
+  page,
+}) => {
+  await openHome(page, { ...everything, issues: backlog });
+  await page.addScriptTag({ path: axePath });
+  const check = (selector: string) =>
+    page.evaluate(async (context) => {
+      const target = document.querySelector(context);
+      if (target === null) throw new Error(`Nothing matches ${context}`);
+      const results = await window.axe.run(target, { resultTypes: ['violations'] });
+      return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
+    }, selector);
+
+  expect(await check('body')).toEqual([]);
+
+  // An open menu hides the rest of the page from screen readers, so it is checked on its own.
+  await attentionPanel(page).getByRole('button', { name: 'Reason' }).click();
+  await expect(page.getByRole('menu', { name: 'Reason' })).toBeVisible();
+  expect(await check('[role="menu"]')).toEqual([]);
 });
