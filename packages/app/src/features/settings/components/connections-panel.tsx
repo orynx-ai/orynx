@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { IntegrationId } from '@devhub/contracts';
 import { Callout } from '@devhub/ui';
 import { useStatus } from '../queries.ts';
@@ -13,6 +14,8 @@ const laterIntegrations: readonly { id: Exclude<IntegrationId, 'jira'>; name: st
 /** Settings › Connections: one row per tool with its state in a word, never colour alone. */
 export function ConnectionsPanel() {
   const status = useStatus();
+  // One polite live region for every row: "Jira is connected.", "GitHub is disconnected."
+  const [announcement, setAnnouncement] = useState('');
 
   if (status.isError) {
     return (
@@ -23,20 +26,25 @@ export function ConnectionsPanel() {
   }
 
   return (
-    <ul
-      aria-label="Connections"
-      className="m-0 list-none divide-y divide-border rounded-md border border-border bg-raised p-0"
-    >
-      <JiraConnectionRow status={status.data?.integrations.jira} />
-      {laterIntegrations.map((integration) => (
-        <ConnectionRow
-          key={integration.id}
-          id={integration.id}
-          name={integration.name}
-          howToConnect={integration.howToConnect}
-          status={status.data?.integrations[integration.id]}
-        />
-      ))}
-    </ul>
+    <>
+      <ul
+        aria-label="Connections"
+        className="m-0 list-none divide-y divide-border rounded-md border border-border bg-raised p-0"
+      >
+        <JiraConnectionRow status={status.data?.integrations.jira} announce={setAnnouncement} />
+        {laterIntegrations.map((integration) => (
+          <ConnectionRow
+            key={integration.id}
+            id={integration.id}
+            name={integration.name}
+            howToConnect={integration.howToConnect}
+            status={status.data?.integrations[integration.id]}
+          />
+        ))}
+      </ul>
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
+    </>
   );
 }
