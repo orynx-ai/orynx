@@ -17,8 +17,8 @@ export type EnvTokens = Partial<Record<IntegrationId, string>>;
 export class TokenStoreError extends Error {
   readonly code: Extract<ApiErrorCode, 'bad_request' | 'keychain_unavailable'>;
 
-  constructor(code: TokenStoreError['code'], message: string, options?: ErrorOptions) {
-    super(message, options);
+  constructor(code: TokenStoreError['code'], message: string) {
+    super(message);
     this.name = 'TokenStoreError';
     this.code = code;
   }
@@ -43,12 +43,36 @@ export interface TokenStoreOptions {
 const MAX_TOKEN_LENGTH = 4096;
 const validToken = new RegExp(`^\\S{1,${String(MAX_TOKEN_LENGTH)}}$`);
 
+/** Spec 002, Q4(d). Spec 003 shows it where a token is saved. */
+export const keychainUnavailableMessage =
+  "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
+
+/**
+ * Runs a keychain call, turning any failure into `keychain_unavailable`. The keychain's own error
+ * is dropped on purpose, not kept as `cause`: it could echo what it was given, and an error can
+ * end up in a log line or a response.
+ */
+async function fromKeychain<T>(call: () => Promise<T>): Promise<T> {
+  try {
+    return await call();
+  } catch {
+    throw new TokenStoreError('keychain_unavailable', keychainUnavailableMessage);
+  }
+}
+
 export function createTokenStore({ keychain, events, envTokens = {} }: TokenStoreOptions): TokenStore {
   return {
     async read(tool) {
-      const saved = await keychain.get(tool);
-      if (saved !== null) return { token: saved, source: 'keychain' };
       const fromEnv = envTokens[tool];
+      let saved: string | null;
+      try {
+        saved = await fromKeychain(() => keychain.get(tool));
+      } catch (error) {
+        // An unreachable keychain may still hold a token, so only a .env token can stand in for it.
+        if (fromEnv === undefined) throw error;
+        return { token: fromEnv, source: 'env' };
+      }
+      if (saved !== null) return { token: saved, source: 'keychain' };
       return fromEnv === undefined ? null : { token: fromEnv, source: 'env' };
     },
 
@@ -59,12 +83,12 @@ export function createTokenStore({ keychain, events, envTokens = {} }: TokenStor
           `A token has no spaces or line breaks and is at most ${String(MAX_TOKEN_LENGTH)} characters.`,
         );
       }
-      await keychain.set(tool, token);
+      await fromKeychain(() => keychain.set(tool, token));
       events.publish({ type: 'status.changed' });
     },
 
     async remove(tool) {
-      await keychain.delete(tool);
+      await fromKeychain(() => keychain.delete(tool));
       events.publish({ type: 'status.changed' });
     },
   };

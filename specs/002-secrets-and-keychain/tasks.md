@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Token store over an in-memory keychain: read, save, delete, check, source, `.env` order, `status.changed` (AC-2, AC-3, AC-4, AC-5, AC-7, AC-8, AC-9)
       Check: pnpm test packages/core/src/secrets; pnpm typecheck
       Files: packages/core/src/secrets/keychain.ts, packages/core/src/secrets/token-store.ts, packages/core/src/secrets/memory-keychain.ts, packages/core/src/secrets/token-store.test.ts
-- [ ] Task 3: A keychain that can't be reached: fixed Q4(d) message, reads fall back to `.env`, saves fail, no token in any error (AC-6, AC-10, AC-14)
+- [x] Task 3: A keychain that can't be reached: fixed Q4(d) message, reads fall back to `.env`, saves fail, no token in any error (AC-6, AC-10, AC-14)
       Check: pnpm test packages/core/src/secrets; pnpm typecheck
       Files: packages/core/src/secrets/token-store.ts, packages/core/src/secrets/memory-keychain.ts, packages/core/src/secrets/token-store.test.ts
 - [ ] Task 4: OS keychain adapter over `@napi-rs/keyring`, loaded on first use, service `DevHub` (AC-1, AC-6)

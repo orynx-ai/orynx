@@ -19,3 +19,14 @@ export function createMemoryKeychain(initial: Partial<Record<IntegrationId, stri
     },
   };
 }
+
+/**
+ * A keychain that is locked, refuses access or does not exist: every call rejects. `describe`
+ * builds the failure's message from the token being saved, so a test can make it echo the token.
+ */
+export function createUnreachableKeychain(
+  describe: (token?: string) => string = () => 'The keychain is locked.',
+): Keychain {
+  const fail = (token?: string) => Promise.reject(new Error(describe(token)));
+  return { get: () => fail(), set: (_account, token) => fail(token), delete: () => fail() };
+}

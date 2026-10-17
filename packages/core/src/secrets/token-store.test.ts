@@ -1,17 +1,16 @@
+import { inspect } from 'node:util';
 import { describe, expect, it } from 'vitest';
 import type { ServerEvent } from '@devhub/contracts';
 import { createEventBus } from '../events/event-bus.ts';
-import { createMemoryKeychain } from './memory-keychain.ts';
+import type { Keychain } from './keychain.ts';
+import { createMemoryKeychain, createUnreachableKeychain } from './memory-keychain.ts';
 import { createTokenStore, TokenStoreError, type EnvTokens } from './token-store.ts';
 
 // Made-up values that match no real token format, so the secrets gate stays quiet.
 const jiraToken = 'jira-token-for-tests-1234';
 const otherJiraToken = 'jira-token-from-dotenv-5678';
 
-function setup({
-  keychain = createMemoryKeychain(),
-  envTokens,
-}: { keychain?: ReturnType<typeof createMemoryKeychain>; envTokens?: EnvTokens } = {}) {
+function setup({ keychain = createMemoryKeychain(), envTokens }: { keychain?: Keychain; envTokens?: EnvTokens } = {}) {
   const events = createEventBus();
   const seen: ServerEvent[] = [];
   events.subscribe((event) => seen.push(event));
@@ -104,5 +103,46 @@ describe('token store', () => {
     expect(await keychain.get('jira')).toBeNull();
     expect(envTokens).toEqual({ jira: otherJiraToken });
     expect(await store.read('jira')).toEqual({ token: otherJiraToken, source: 'env' });
+  });
+});
+
+describe("token store when the keychain can't be reached", () => {
+  const message = "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
+
+  it('AC-6: reading, saving and deleting fail with keychain_unavailable and publish nothing', async () => {
+    const { store, seen } = setup({ keychain: createUnreachableKeychain() });
+
+    for (const attempt of [store.read('jira'), store.save('jira', jiraToken), store.remove('jira')]) {
+      const error = await attempt.catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(TokenStoreError);
+      expect(error).toMatchObject({ code: 'keychain_unavailable', message });
+    }
+    expect(seen).toEqual([]);
+  });
+
+  it('AC-10: reads the .env token with no error, but a save still fails', async () => {
+    const { store } = setup({ keychain: createUnreachableKeychain(), envTokens: { jira: otherJiraToken } });
+
+    expect(await store.read('jira')).toEqual({ token: otherJiraToken, source: 'env' });
+    await expect(store.save('jira', jiraToken)).rejects.toMatchObject({ code: 'keychain_unavailable' });
+    await expect(store.read('github')).rejects.toMatchObject({ code: 'keychain_unavailable' });
+  });
+
+  it("AC-14: no error contains a token, even when the keychain's own error would", async () => {
+    // A keychain whose own failure echoes what it was given is the worst case for a leak.
+    const echoing = createUnreachableKeychain((token) => `could not store ${token ?? 'nothing'}`);
+    const { store } = setup({ keychain: echoing, envTokens: { github: otherJiraToken } });
+
+    const errors = await Promise.all(
+      [store.save('jira', jiraToken), store.read('jira'), store.remove('jira')].map((attempt) =>
+        attempt.catch((caught: unknown) => caught),
+      ),
+    );
+
+    for (const error of errors) {
+      const everything = inspect(error, { depth: Infinity, showHidden: true });
+      expect(everything).not.toContain(jiraToken);
+      expect(everything).not.toContain(otherJiraToken);
+    }
   });
 });
