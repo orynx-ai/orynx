@@ -27,7 +27,7 @@ describe('waitForFonts', () => {
     await waitForFonts(fonts);
 
     expect(asked).toEqual(bundledFontFaces);
-    expect(bundledFontFaces).toContain('400 32px Newsreader');
+    expect(bundledFontFaces).toContain('400 40px Newsreader');
   });
 
   it('renders anyway when a font takes longer than the limit', async () => {

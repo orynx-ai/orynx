@@ -60,16 +60,19 @@ export function TicketsScreen() {
         meta="Ends Oct 24"
       />
       <Toolbar>{/* filter chips, count */}</Toolbar>
-      <PageBody>{/* columns */}</PageBody>
+      <PageBody width="full">{/* columns */}</PageBody>
     </>
   );
 }
 ```
 
+- `PageBody` picks one of three widths: `wide` (960 px, the default), `narrow` (720 px, sparse pages and Home) or `full` (a large board). It owns the gutter and spacing, so it takes no `className`.
 - The one filled `primary` button for the view lives in the page bar actions.
 - Breadcrumb: the first item is the sidebar place, the last is `BreadcrumbPage` (plain text, `aria-current="page"`), three items at most.
 
 ## 5. Translate the design into code
+
+Follow `.claude/skills/clean-ui/SKILL.md` for layout, type scale, states and copy.
 
 - `dh-*` classes become `@devhub/ui` components. Tokens become theme classes. Use the tables in `docs/design-map.md`.
 - If the component you need is marked "build in the spec that first needs it", add it to `@devhub/ui` first with `.claude/skills/add-ui-component/SKILL.md`. Never style it inline in the feature.
@@ -93,7 +96,7 @@ Data comes from `queries.ts` hooks (`.claude/skills/server-state/SKILL.md`). UI-
 - Icon-only buttons have `aria-label`. Places and breadcrumbs carry `aria-current="page"`.
 - State is never colour alone: icon shape + word + colour ("! Needs you").
 - Approvals use `role="alert"`. Live agent output sits in `aria-live="polite"`.
-- Hit targets: 30 px tall in dense rows, 36 px elsewhere. Text is never smaller than 12 px.
+- Hit targets: 32 px tall in dense rows, 40 px elsewhere. Text is never smaller than 12 px.
 
 ## 8. Test it
 

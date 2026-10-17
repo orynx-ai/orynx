@@ -13,21 +13,21 @@ export function SidebarSessions({ className }: { className?: string }) {
 
   return (
     <div className={className}>
-      <div className="flex items-center gap-2 px-2.5 pt-2 pb-1 text-label leading-5 font-medium text-muted-foreground">
-        <h2 className="m-0 text-label font-medium">Sessions</h2>
+      <div className="flex items-center gap-2 ps-3 pe-2 pb-1 text-small text-muted-foreground">
+        <h2 className="m-0 text-small font-normal">Sessions</h2>
         <Link
           to="/sessions"
           activeOptions={{ exact: true }}
-          // A 32 px hit area (design system: 30 px in dense rows) without moving the heading row.
-          className="-my-1.5 ml-auto rounded-xs px-1 py-1.5 text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:text-foreground"
+          // A 32 px hit area (dense rows) without moving the heading row.
+          className="-my-1.5 ms-auto rounded-xs px-1 py-1.5 text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:text-foreground"
         >
           View all
         </Link>
       </div>
       {sessions.isPending ? null : sessions.isError ? (
-        <SessionsLoadError className="py-1 pl-2.5" onRetry={() => void sessions.refetch()} />
+        <SessionsLoadError className="py-1 ps-3" onRetry={() => void sessions.refetch()} />
       ) : sessions.data.sessions.length === 0 ? (
-        <p className="m-0 px-2.5 py-2 text-small text-muted-foreground">No sessions yet</p>
+        <p className="m-0 px-3 py-2 text-small text-muted-foreground">No sessions yet</p>
       ) : (
         sessions.data.sessions.map((session) => (
           <SessionItem

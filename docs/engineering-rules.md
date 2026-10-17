@@ -102,7 +102,7 @@ The theme leaves out Tailwind's default palette, sizes and shadows, and the shad
 - Skip link first; a visible 2 px focus ring on everything.
 - Real elements; `aria-label` on icon-only buttons; `aria-current` in nav and breadcrumbs.
 - Tabs with arrow keys; approvals in `role="alert"`; agent output in `aria-live="polite"`.
-- Hit targets 30 px in dense rows, 36 px elsewhere; text at least 12 px.
+- Hit targets 32 px in dense rows, 40 px elsewhere; text at least 12 px.
 
 **Checked by** Storybook a11y with `test: "error"`, `expectNoAxeViolations` in component tests, the design-reviewer agent.
 

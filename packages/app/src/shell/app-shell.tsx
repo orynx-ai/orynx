@@ -1,8 +1,9 @@
 import { Outlet } from '@tanstack/react-router';
-import { Button, Callout } from '@devhub/ui';
+import { Button, Callout, cn } from '@devhub/ui';
 import { usePlatform } from '../platform.tsx';
 import { useConnectionStore } from '../stores/connection-store.ts';
 import { focusMainContent, mainContentId } from './main-content.ts';
+import { pageGutter } from './page-frame.tsx';
 import { Sidebar } from './sidebar.tsx';
 import { useGlobalShortcuts } from './use-shortcuts.ts';
 
@@ -19,7 +20,7 @@ export function AppShell() {
           event.preventDefault();
           focusMainContent();
         }}
-        className="absolute -top-15 left-2 z-30 rounded-sm bg-primary px-3 py-2 font-medium text-primary-foreground no-underline focus:top-2"
+        className="absolute start-2 -top-15 z-30 rounded-sm bg-primary px-3 py-2 font-medium text-primary-foreground no-underline focus:top-2"
       >
         Skip to content
       </a>
@@ -39,7 +40,7 @@ function StaleBanner() {
   if (!stale) return null;
 
   return (
-    <div className="px-6 pt-4">
+    <div className={cn('pt-4', pageGutter)}>
       <Callout
         tone="warning"
         role="alert"

@@ -15,7 +15,7 @@ export const sessionStateLabels: Record<SessionItemState, string> = {
   stopped: 'Stopped',
 };
 
-const iconVariants = cva('mt-px inline-flex size-5 shrink-0 items-center justify-center rounded-full', {
+const iconVariants = cva('inline-flex size-6 shrink-0 items-center justify-center rounded-full', {
   variants: {
     state: {
       needs_you: 'bg-warning-subtle text-warning',
@@ -40,8 +40,8 @@ const wordVariants = cva('shrink-0 font-medium', {
   },
 });
 
-/** 12 px glyphs inside the 20 px circle (components.css `.dh-session-icon .dh-icon`). */
-const glyph = 'size-3 stroke-2';
+/** 14 px glyphs inside the 24 px circle, on the first line (components.css `.dh-session-icon`, scaled up). */
+const glyph = 'size-3.5 stroke-2';
 
 /** The "!" and the open arc are drawn by the design itself; Lucide has no bare versions of them. */
 function DesignGlyph({ children, className }: { children: ReactNode; className?: string }) {
@@ -103,7 +103,7 @@ export function SessionItem({
   return (
     <Comp
       className={cn(
-        'flex items-start gap-2.5 rounded-sm px-2.5 py-2 text-foreground no-underline hover:bg-subtle aria-[current=page]:bg-raised aria-[current=page]:ring-1 aria-[current=page]:ring-border',
+        'flex items-start gap-3 rounded-sm px-3 py-2 text-foreground no-underline hover:bg-subtle aria-[current=page]:bg-raised aria-[current=page]:ring-1 aria-[current=page]:ring-border',
         className,
       )}
       {...props}
@@ -113,9 +113,12 @@ export function SessionItem({
         {icons[state]}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-px">
-        {/* The spaces keep the link's name readable ("Add bulk archive PROJ-1423 Needs you"); flex drops them visually. */}
-        <span className="truncate font-medium">{title}</span>{' '}
-        <span className="flex items-center gap-1 overflow-hidden text-label whitespace-nowrap text-muted-foreground">
+        {/* The spaces keep the link's name readable ("Add bulk archive PROJ-1423 Needs you"); flex drops them visually.
+            The tooltip shows a title the row cuts short; the link's name still comes from the text. */}
+        <span className="truncate font-medium" title={title}>
+          {title}
+        </span>{' '}
+        <span className="flex items-center gap-1 overflow-hidden text-small whitespace-nowrap text-muted-foreground">
           {source === undefined ? null : (
             <>
               <span className="min-w-0 truncate font-mono">{source}</span>{' '}

@@ -32,18 +32,21 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
         activeOptions={{ exact: true }}
         title={collapsed ? `${who} · ${text}` : undefined}
         className={cn(
-          'flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-foreground no-underline hover:bg-subtle',
+          'flex items-center gap-3 rounded-sm px-2 py-2 text-foreground no-underline hover:bg-subtle',
           collapsed && 'md:justify-center md:px-0',
         )}
       >
-        <span aria-hidden className="flex size-7 shrink-0 items-center justify-center text-muted-foreground">
+        <span aria-hidden className="flex size-9 shrink-0 items-center justify-center text-muted-foreground">
           {person === null ? <UserRound /> : <Avatar initials={person.initials} size="lg" />}
         </span>
         <span className={cn('flex min-w-0 flex-col gap-px', collapsed && 'md:sr-only')}>
           <span className="truncate font-medium">{who}</span>{' '}
-          <span className="flex min-w-0 items-center gap-1 text-label text-muted-foreground">
+          <span className="flex min-w-0 items-center gap-1.5 text-small text-muted-foreground">
             <span aria-hidden className={cn('size-2 shrink-0 rounded-full bg-current', dot)} />
-            <span className="truncate">{text}</span>
+            {/* At the default width this line is cut; the tooltip keeps it readable. */}
+            <span className="truncate" title={text}>
+              {text}
+            </span>
           </span>
         </span>
       </Link>

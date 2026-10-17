@@ -4,10 +4,9 @@
  * Keep it in step with the @fontsource imports in `styles/index.css`.
  */
 export const bundledFontFaces: readonly string[] = [
-  '400 14px Geist',
-  '500 14px Geist',
-  '600 14px Geist',
-  '400 12px "Geist Mono"',
-  '500 12px "Geist Mono"',
-  '400 32px Newsreader',
+  '400 16px Geist',
+  '500 16px Geist',
+  '400 14px "Geist Mono"',
+  '500 14px "Geist Mono"',
+  '400 40px Newsreader',
 ];

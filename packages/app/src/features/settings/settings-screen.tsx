@@ -17,14 +17,13 @@ export function SettingsScreen() {
         breadcrumb={
           <PageBreadcrumb crumbs={[{ label: 'Settings', to: '/settings' }, { label: settingsTabLabels[tab] }]} />
         }
-        actions={<span className="text-small text-muted-foreground">Changes save automatically</span>}
+        // Under 768 px the bar has room only for the crumbs.
+        actions={<span className="text-small text-muted-foreground max-md:hidden">Changes save automatically</span>}
       />
-      <PageBody className="max-w-220">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="m-0 text-title-lg font-semibold">Settings</h1>
-          <p className="m-0 text-small text-muted-foreground">
-            Connect your tools and choose how Claude works in your repos.
-          </p>
+      <PageBody>
+        <div className="flex flex-col gap-1">
+          <h1 className="m-0 text-title-lg font-medium">Settings</h1>
+          <p className="m-0 text-muted-foreground">Connect your tools and choose how Claude works in your repos.</p>
         </div>
 
         <Callout tone="info" icon={<Lock aria-hidden />} title="Everything stays on this computer">
@@ -47,10 +46,10 @@ export function SettingsScreen() {
               </TabsTrigger>
             ))}
           </TabsList>
-          <TabsContent value="connections" className="pt-4">
+          <TabsContent value="connections" className="pt-6">
             <ConnectionsPanel />
           </TabsContent>
-          <TabsContent value="appearance" className="pt-4">
+          <TabsContent value="appearance" className="pt-6">
             <AppearancePanel />
           </TabsContent>
         </Tabs>

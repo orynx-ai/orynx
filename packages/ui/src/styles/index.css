@@ -1,7 +1,6 @@
 /* Everything a host needs: fonts (bundled, never fetched from the internet), tokens and the theme. */
 @import '@fontsource/geist/400.css';
 @import '@fontsource/geist/500.css';
-@import '@fontsource/geist/600.css';
 @import '@fontsource/geist-mono/400.css';
 @import '@fontsource/geist-mono/500.css';
 @import '@fontsource/newsreader/400.css';

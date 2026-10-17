@@ -29,6 +29,15 @@ describe('SessionItem', () => {
     });
   });
 
+  it('keeps a long title readable as a tooltip, since the row cuts it to one line', () => {
+    const title = 'Fix timezone shift in event cards and the calendar export';
+    render(<SessionItem href="#" title={title} source="PR #2836" state="done" />);
+
+    expect(screen.getByTitle(title)).toHaveTextContent(title);
+    // The tooltip adds nothing to the link's name.
+    expect(screen.getByRole('link', { name: `${title} PR #2836 Done, ready for PR` })).toBeVisible();
+  });
+
   it('AC-8: shows only the state when the session has no source', () => {
     render(<SessionItem href="#" title="Tidy the README" state="working" />);
 

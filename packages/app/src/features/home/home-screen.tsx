@@ -12,35 +12,27 @@ export function HomeScreen() {
   return (
     <>
       <PageBar breadcrumb={<PageBreadcrumb crumbs={[{ label: 'Home' }]} />} />
-      <PageBody className="items-center pt-8 pb-12">
-        <div className="flex w-full max-w-190 flex-col gap-5">
-          <h1 className="m-0 mt-4 text-center font-serif text-display font-normal">What should we build today?</h1>
+      <PageBody width="narrow">
+        {/* 48 px above the greeting (design system, --space-12): the body's 24 px plus 24 px here. */}
+        <h1 className="m-0 mt-6 text-center font-serif text-display font-normal">What should we build today?</h1>
 
-          <section
-            aria-labelledby="attention-title"
-            className="overflow-hidden rounded-md border border-border bg-raised"
+        <section aria-labelledby="attention-title" className="rounded-md border border-border bg-raised">
+          <h2 id="attention-title" className="m-0 px-5 pt-4 text-title font-medium">
+            Needs your attention
+          </h2>
+          <EmptyState
+            title="Nothing needs you yet"
+            action={
+              <Button asChild size="sm">
+                <Link to="/settings/$tab" params={{ tab: 'connections' }}>
+                  Connect your tools
+                </Link>
+              </Button>
+            }
           >
-            <div className="flex flex-wrap items-center gap-3 px-4 pt-3.5">
-              <h2 id="attention-title" className="m-0 text-title font-semibold">
-                Needs your attention
-              </h2>
-            </div>
-            <div className="p-4">
-              <EmptyState
-                title="Nothing needs you yet"
-                action={
-                  <Button asChild size="sm">
-                    <Link to="/settings/$tab" params={{ tab: 'connections' }}>
-                      Connect your tools
-                    </Link>
-                  </Button>
-                }
-              >
-                <span>Connect Jira, GitHub or Slack and the work that needs you shows up here.</span>
-              </EmptyState>
-            </div>
-          </section>
-        </div>
+            <span>Connect Jira, GitHub or Slack and the work that needs you shows up here.</span>
+          </EmptyState>
+        </section>
       </PageBody>
     </>
   );

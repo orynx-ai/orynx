@@ -35,9 +35,9 @@ shadcn output uses names this theme leaves out on purpose. Rewrite them (full ta
 | `text-xs`                             | `text-label`                                                        |
 | `shadow-xs`, `shadow-sm`, `shadow-md` | nothing; only menus, popovers and the composer get `shadow-overlay` |
 | `rounded-md` on a button or input     | `rounded-sm` (6 px); cards and menus are `rounded-md` (10 px)       |
-| `size-4` on lucide icons              | remove it; the `.lucide` base style sets 16 px and 1.75 stroke      |
+| `size-4` on lucide icons              | remove it; the `.lucide` base style sets 20 px and 1.75 stroke      |
 
-Then match the `dh-*` CSS: heights (36 px default, 30 px `sm`), padding, gaps, font weight.
+Then match the `dh-*` CSS for structure, at the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`): heights 40 px default and 32 px `sm`, `font-normal` or `font-medium` only.
 
 ## 4. Shape of a component
 
@@ -47,7 +47,7 @@ import type { ComponentProps } from 'react';
 import { cn } from '../lib/cn.ts';
 
 const pillVariants = cva(
-  'inline-flex h-5.5 items-center gap-1 rounded-sm px-2 text-label font-medium whitespace-nowrap',
+  'inline-flex h-6 items-center gap-1.5 rounded-sm px-2 text-label font-medium whitespace-nowrap',
   {
     variants: {
       tone: {
@@ -63,10 +63,10 @@ const pillVariants = cva(
 );
 ```
 
-`h-5.5` is 22 px on the 4 px scale. Never write the arbitrary form (`h-[22px]`); `pnpm gate style-policy` rejects it. If the design truly needs a value off the scale, use a one-line exception with a reason:
+`h-6` is 24 px on the 4 px scale, and half steps such as `h-5.5` (22 px) are fine too. Never write the arbitrary form (`h-[22px]`); `pnpm gate style-policy` rejects it. If the design truly needs a value off the scale, use a one-line exception with a reason:
 
 ```tsx
-// style-policy-ignore-next-line: 22 px pill height from components.css .dh-pill
+// style-policy-ignore-next-line: 13 px gap the design measures between diff gutter and code
 ```
 
 - Export a typed props interface. Pass `className` through `cn()` last so callers can adjust layout, never colour.
