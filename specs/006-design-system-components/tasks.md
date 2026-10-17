@@ -34,7 +34,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 10: Add `Composer` from AI Elements' Prompt Input pattern (shadcn's `input-group`) in its "task" look: hidden label, placeholder, a bar for + and the pickers, round primary Send; Enter sends, Shift+Enter adds a line, Enter while composing doesn't send (AC-8, AC-9)
       Check: pnpm test packages/ui/src/components/composer.test.tsx
       Files: packages/ui/src/components/composer.tsx, composer.stories.tsx, composer.test.tsx, packages/ui/src/index.ts
-- [ ] Task 11: Composer sending states and height: Send unavailable when there's nothing to send, its spinner while sending; the text box grows to 8 lines, then scrolls (AC-10, AC-11)
+- [x] Task 11: Composer sending states and height: Send unavailable when there's nothing to send, its spinner while sending; the text box grows to 8 lines, then scrolls (AC-10, AC-11)
       Check: pnpm test packages/ui/src/components/composer.test.tsx
       Files: packages/ui/src/components/composer.tsx, composer.stories.tsx, composer.test.tsx
 - [ ] Task 12: Add `ContextChip` from shadcn's `attachment`, and the Composer's "Context for Claude" list: mark or icon, text cut at 300 px with a tooltip, "Remove PROJ-1423" with a 32 px hit area, and focus to the next chip or the text box after removing (AC-12, AC-13)

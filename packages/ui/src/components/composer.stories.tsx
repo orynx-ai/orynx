@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Folder, Plus } from 'lucide-react';
 import { Button } from './button.tsx';
@@ -25,14 +26,14 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Home: the text box, + Add context, the folder and agent pickers, and Send. */
-export const Task: Story = {
-  render: (args) => (
+function HomeComposer({ text, ...args }: ComponentProps<typeof Composer> & { text?: string }) {
+  return (
     <Composer {...args}>
       <ComposerTextarea
         name="task"
         label="Describe a task for Claude"
         placeholder="Describe a task, or paste a Jira key like PROJ-1423"
+        defaultValue={text}
       />
       <ComposerBar>
         <Menu>
@@ -50,5 +51,23 @@ export const Task: Story = {
         <ComposerSend label="Send to Claude" />
       </ComposerBar>
     </Composer>
+  );
+}
+
+/** Home: the text box, + Add context, the folder and agent pickers, and Send. */
+export const Task: Story = { render: (args) => <HomeComposer {...args} /> };
+/** Nothing to send yet: Send stays focusable but reads as unavailable. */
+export const NothingToSend: Story = { render: (args) => <HomeComposer {...args} canSend={false} /> };
+/** A send on its way: Send shows its spinner, and the text stays. */
+export const Sending: Story = {
+  render: (args) => <HomeComposer {...args} pending text="Add bulk archive to the content list" />,
+};
+/** More than 8 lines: the text box stops growing and scrolls inside itself. */
+export const LongText: Story = {
+  render: (args) => (
+    <HomeComposer
+      {...args}
+      text={Array.from({ length: 12 }, (_, line) => `Line ${String(line + 1)} of the brief`).join('\n')}
+    />
   ),
 };

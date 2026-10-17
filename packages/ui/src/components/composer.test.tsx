@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Folder, Plus } from 'lucide-react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Button } from './button.tsx';
 import { Composer, ComposerBar, ComposerSend, ComposerTextarea } from './composer.tsx';
@@ -18,9 +18,17 @@ function sentText(onSend: (text: string) => void): ComponentProps<'form'>['onSub
   };
 }
 
-function HomeComposer({ onSend = () => undefined }: { onSend?: (text: string) => void }) {
+function HomeComposer({
+  onSend = () => undefined,
+  canSend,
+  pending,
+}: {
+  onSend?: (text: string) => void;
+  canSend?: boolean;
+  pending?: boolean;
+}) {
   return (
-    <Composer onSubmit={sentText(onSend)}>
+    <Composer onSubmit={sentText(onSend)} canSend={canSend} pending={pending}>
       <ComposerTextarea
         name="task"
         label="Describe a task for Claude"
@@ -103,5 +111,65 @@ describe('Composer', () => {
     await user.click(screen.getByRole('button', { name: 'Send to Claude' }));
 
     expect(onSend).toHaveBeenCalledWith('Fix the timezone shift');
+  });
+
+  it('AC-10: with nothing to send, Send stays focusable but reads as unavailable and nothing is sent', async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn();
+    render(<HomeComposer onSend={onSend} canSend={false} />);
+
+    const send = screen.getByRole('button', { name: 'Send to Claude' });
+    expect(send).toHaveAttribute('aria-disabled', 'true');
+    expect(send).not.toBeDisabled();
+    await user.click(send);
+    await user.type(screen.getByRole('textbox', { name: 'Describe a task for Claude' }), '{Enter}');
+
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it('AC-10: while a send is on its way, Send ignores presses and the text stays', async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn();
+    render(<HomeComposer onSend={onSend} pending />);
+
+    const box = screen.getByRole('textbox', { name: 'Describe a task for Claude' });
+    await user.type(box, 'Add bulk archive{Enter}');
+    const send = screen.getByRole('button', { name: 'Send to Claude' });
+    await user.click(send);
+
+    expect(onSend).not.toHaveBeenCalled();
+    expect(send).toHaveAttribute('aria-disabled', 'true');
+    expect(send).toHaveAttribute('aria-busy', 'true');
+    expect(box).toHaveValue('Add bulk archive');
+  });
+
+  it('AC-11: where the browser sizes the text box to its text itself, the Composer leaves its height alone', async () => {
+    const user = userEvent.setup();
+    render(<HomeComposer />);
+    const box = screen.getByRole('textbox', { name: 'Describe a task for Claude' });
+
+    await user.type(box, 'a');
+
+    expect(box.style.height).toBe('');
+  });
+
+  it('AC-11: where the browser cannot size the text box to its text, it grows to 8 lines and no further', async () => {
+    // As Firefox does: no CSS field-sizing.
+    const supports = vi.spyOn(CSS, 'supports').mockReturnValue(false);
+    onTestFinished(() => {
+      supports.mockRestore();
+    });
+    const user = userEvent.setup();
+    render(<HomeComposer />);
+    const box = screen.getByRole('textbox', { name: 'Describe a task for Claude' });
+
+    // jsdom lays nothing out, so give the text box the heights a browser would measure.
+    Object.defineProperty(box, 'scrollHeight', { configurable: true, value: 104 });
+    await user.type(box, 'a');
+    expect(box.style.height).toBe('104px');
+
+    Object.defineProperty(box, 'scrollHeight', { configurable: true, value: 600 });
+    await user.type(box, 'b');
+    expect(box.style.height).toBe('200px');
   });
 });
