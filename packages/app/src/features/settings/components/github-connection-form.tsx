@@ -28,15 +28,17 @@ const disconnectLine: Record<GitHubMethod, string> = {
  */
 function fieldFor(error: ApiRequestError, method: GitHubMethod): keyof GitHubFormValues | undefined {
   // The only one the form can't catch itself: no token given, and none saved after all.
-  if (error.code === 'bad_request') return 'token';
+  if (error.code === 'bad_request') return method === 'token' ? 'token' : undefined;
   if (error.code === 'integration_rejected') return method === 'gh' ? 'method' : 'token';
   return undefined;
 }
 
 export interface GitHubConnectionFormProps {
   id: string;
-  /** What the server has saved; the form starts from it. */
+  /** What the server has saved; the form starts from it, and keeps that start while it is open. */
   connection: GitHubConnection;
+  /** Says a message politely, for an error that lands where focus already is. */
+  announce: (message: string) => void;
   onConnected: () => void;
   onDisconnected: () => void;
   onCancel: () => void;
@@ -46,6 +48,7 @@ export interface GitHubConnectionFormProps {
 export function GitHubConnectionForm({
   id,
   connection,
+  announce,
   onConnected,
   onDisconnected,
   onCancel,
@@ -58,7 +61,9 @@ export function GitHubConnectionForm({
   const disconnectRef = useRef<HTMLButtonElement>(null);
   const confirmTitleId = useId();
   const confirmLineId = useId();
-  const { saved, envToken, ghFound } = connection;
+  // What the server had saved when the form opened. A refetch while it is open (another tab, or this
+  // Connect's own answer before the form closes) must not move focus or change what the form offers.
+  const [{ saved, envToken, ghFound }] = useState(connection);
   // Manage starts from the saved way; Connect from gh when it is there.
   const startWith: GitHubMethod = saved?.method ?? (ghFound ? 'gh' : 'token');
   // The token may stay empty only when DevHub already has one: saved in the keychain, or in .env.
@@ -72,10 +77,21 @@ export function GitHubConnectionForm({
 
   // Straight to the elements: react-hook-form can't focus one radio of a group, and its setFocus waits a tick.
   const radios = useRef<Partial<Record<GitHubMethod, HTMLInputElement | null>>>({});
+  const tokenInput = useRef<HTMLInputElement | null>(null);
   const methodField = form.register('method');
+  const tokenField = form.register('token');
   useEffect(() => {
     radios.current[startWith]?.focus();
   }, [startWith]);
+
+  /**
+   * Takes focus to where an error landed, so a screen reader reads the field and its new message. When
+   * focus is already there (Enter pressed in that very place), nothing new would be read: say it instead.
+   */
+  function pointAt(element: HTMLInputElement | null | undefined, message: string) {
+    if (element === document.activeElement) announce(message);
+    else element?.focus();
+  }
 
   // Focus moves into the confirm step when it opens, and back to Disconnect GitHub when it is cancelled.
   const confirmShown = useRef(false);
@@ -102,11 +118,9 @@ export function GitHubConnectionForm({
         onSuccess: onConnected,
         onError: (error) => {
           const field = fieldFor(error, values.method);
-          if (field === 'token') form.setError('token', { message: error.message }, { shouldFocus: true });
-          if (field === 'method') {
-            form.setError('method', { message: error.message });
-            radios.current[values.method]?.focus();
-          }
+          if (field === undefined) return;
+          form.setError(field, { message: error.message });
+          pointAt(field === 'token' ? tokenInput.current : radios.current[values.method], error.message);
         },
         onSettled: done,
       });
@@ -162,7 +176,11 @@ export function GitHubConnectionForm({
               autoComplete="one-time-code"
               data-1p-ignore
               data-lpignore="true"
-              {...form.register('token')}
+              {...tokenField}
+              ref={(element) => {
+                tokenField.ref(element);
+                tokenInput.current = element;
+              }}
             />
           </Field>
           {/* On a line of its own, so it stays whatever the field says. */}

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { apiRoutes, type GitHubConnection } from '@devhub/contracts';
 import { makeGitHubConnection } from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
+import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { failingGitHubSave, githubRow, githubServer } from '../../../test/github.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -218,5 +219,54 @@ describe('GitHub connection form', () => {
       .toBe('true');
 
     await expectNoAxeViolations(container);
+  });
+
+  it('AC-18: says an error out loud when it lands where focus already is', async () => {
+    const message = "gh isn't signed in to github.com. Run gh auth login in a terminal, then try again.";
+    const { user, form } = await openForm();
+    failingGitHubSave(422, { code: 'integration_rejected', message });
+
+    // Focus is on the gh choice, so Enter submits from where the error will land.
+    await user.keyboard('{Enter}');
+
+    await expect.poll(() => screen.getByRole('status').textContent).toBe(message);
+    expect(within(form).getByRole('radio', { name: 'Use my gh login' })).toHaveFocus();
+  });
+
+  it('AC-18: says a refused token out loud when Enter was pressed in the token field', async () => {
+    const message = "GitHub didn't accept this token. Check it, or create a new one.";
+    const { user, form } = await openTokenWay('fake-wrong-token');
+    failingGitHubSave(422, { code: 'integration_rejected', message });
+
+    await user.type(within(form).getByLabelText('Personal access token'), '{Enter}');
+
+    await expect.poll(() => screen.getByRole('status').textContent).toBe(message);
+  });
+
+  it('AC-16: keeps the way it opened with, and focus, when the saved settings change while it is open', async () => {
+    let calls = 0;
+    let saved: { method: 'gh' } | null = null;
+    server.use(
+      http.get(apiUrl(apiRoutes.githubConnection), () => {
+        calls += 1;
+        return HttpResponse.json(makeGitHubConnection({ saved, ghFound: saved !== null }));
+      }),
+    );
+    const { user } = await renderApp({ route: '/settings/connections' });
+    await user.click(await within(await githubRow()).findByRole('button', { name: 'Connect' }));
+    const form = await screen.findByRole('form', { name: 'GitHub connection' });
+    const token = within(form).getByLabelText('Personal access token');
+    await user.type(token, 'fake-tok');
+    const before = calls;
+
+    saved = { method: 'gh' };
+    FakeEventSource.latest().emit({ type: 'status.changed' });
+    await expect.poll(() => calls).toBeGreaterThan(before);
+    await user.keyboard('en');
+
+    expect(token).toHaveFocus();
+    expect(token).toHaveValue('fake-token');
+    expect(within(form).getByRole('radio', { name: 'Use a personal access token' })).toBeChecked();
+    expect(within(form).queryByRole('button', { name: 'Disconnect GitHub' })).not.toBeInTheDocument();
   });
 });

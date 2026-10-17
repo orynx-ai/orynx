@@ -30,10 +30,11 @@ export function GitHubConnectionRow({ status, ...controls }: GitHubConnectionRow
       {...controls}
       form={
         loaded
-          ? ({ id, close }) => (
+          ? ({ id, close, announce }) => (
               <GitHubConnectionForm
                 id={id}
                 connection={loaded}
+                announce={announce}
                 onConnected={() => {
                   close('GitHub is connected.');
                 }}
