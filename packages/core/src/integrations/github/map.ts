@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { GitHubPull } from './client.ts';
+import type { InboxProblem } from '@devhub/contracts';
+import type { GitHubProblem, GitHubPull } from './client.ts';
 
 /**
  * A pull request the inbox keeps in the cache (spec 007), with the facts its rules need: titles and
@@ -130,4 +131,18 @@ export function githubRecords(answer: {
     if (record.checksFailedAt !== null || record.unresolved !== null) kept.set(record.id, record);
   }
   return [...kept.values()];
+}
+
+/** A failed read in the inbox's terms (spec 007, Q5b). */
+export function githubInboxProblem(problem: GitHubProblem): InboxProblem {
+  switch (problem.kind) {
+    case 'rejected':
+      return { kind: 'rejected' };
+    case 'rate_limited':
+      return { kind: 'rate_limited', until: problem.resetAt === null ? null : new Date(problem.resetAt).toISOString() };
+    case 'unreachable':
+    case 'timeout':
+    case 'github_error':
+      return { kind: 'no_answer' };
+  }
 }

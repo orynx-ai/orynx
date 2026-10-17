@@ -78,8 +78,8 @@ function connectedVia(source: TokenSource, site: string): IntegrationStatus {
   };
 }
 
-/** A check's answer belongs to one site and email. */
-function keyOf(saved: JiraSavedConnection): string {
+/** A check's answer, and the inbox's rows, belong to one site and email. */
+export function jiraAccount(saved: JiraSavedConnection): string {
   return `${saved.site} ${saved.email}`;
 }
 
@@ -128,7 +128,7 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
   }
 
   const checked = createCheckedStatus<JiraSavedConnection>({
-    keyOf,
+    keyOf: jiraAccount,
     check: checkNow,
     events,
     now: options.now ?? Date.now,
@@ -193,7 +193,7 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
     async credentials() {
       const saved = (await settings.read()).jira;
       if (saved === undefined) return null;
-      const account = { connection: keyOf(saved), site: saved.site };
+      const account = { connection: jiraAccount(saved), site: saved.site };
       let stored;
       try {
         stored = await tokens.read('jira');

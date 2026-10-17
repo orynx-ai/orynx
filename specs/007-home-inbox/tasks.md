@@ -22,7 +22,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 6: Give each connection one call that hands out its working credentials, or the problem that stops it (refused, sign-in needed, missing token, keychain, gh)
       Check: pnpm test packages/core/src/integrations
       Files: packages/core/src/integrations/jira/connection.ts, connection.test.ts, packages/core/src/integrations/github/connection.ts, connection.test.ts
-- [ ] Task 7: Add the sync service: one sync at a time, the connected tools side by side, each tool's records or its problem into the cache, the time every connected tool last answered, `inbox.changed` at the end, nothing written for a tool disconnected during the sync (AC-3, AC-16, AC-24, AC-25)
+- [x] Task 7: Add the sync service: one sync at a time, the connected tools side by side, each tool's records or its problem into the cache, the time every connected tool last answered, `inbox.changed` at the end, nothing written for a tool disconnected during the sync (AC-3, AC-16, AC-24, AC-25)
       Check: pnpm test packages/core/src/inbox/inbox-service.test.ts
       Files: packages/core/src/inbox/inbox-service.ts, inbox-service.test.ts
 - [ ] Task 8: Add `GET /api/inbox`, `POST /api/inbox/refresh` and `DELETE /api/inbox/cache`, and wire the service and the cache into `createServer` (AC-1, AC-15, AC-17, AC-19, AC-21, AC-23, AC-31)

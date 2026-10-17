@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { JiraAssignedIssue } from './client.ts';
+import type { InboxProblem } from '@devhub/contracts';
+import type { JiraAssignedIssue, JiraProblem } from './client.ts';
 
 /**
  * An assigned, unfinished issue as the inbox keeps it in the cache (spec 007): titles and metadata only,
@@ -64,4 +65,19 @@ export function jiraRecords(
       },
     ];
   });
+}
+
+/** A failed read in the inbox's terms (spec 007, Q5b). */
+export function jiraInboxProblem(problem: JiraProblem, site: string): InboxProblem {
+  switch (problem.kind) {
+    case 'rejected':
+      return { kind: 'rejected' };
+    case 'sign_in_needed':
+      return { kind: 'sign_in_needed', site };
+    case 'not_found':
+    case 'unreachable':
+    case 'timeout':
+    case 'jira_error':
+      return { kind: 'no_answer' };
+  }
 }
