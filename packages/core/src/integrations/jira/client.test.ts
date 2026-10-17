@@ -490,8 +490,14 @@ describe('Jira client: board columns (spec 008)', () => {
 });
 
 describe('Jira client: the issues in a sprint (spec 008)', () => {
+  const someoneElse = { accountId: 'someone-else', displayName: 'Priya Shah' };
+  // Someone else's issues, so a sprint cut short has none of yours to add.
   const many = (count: number) =>
-    Array.from({ length: count }, (_, index) => ({ key: `PROJ-${String(index + 1)}`, priority: null }));
+    Array.from({ length: count }, (_, index) => ({
+      key: `PROJ-${String(index + 1)}`,
+      priority: null,
+      assignee: someoneElse,
+    }));
 
   /** The search bodies MSW saw, in order. */
   function searchBodies(): unknown[] {
@@ -553,7 +559,38 @@ describe('Jira client: the issues in a sprint (spec 008)', () => {
     expect(answer.ok && answer.issues.length).toBe(300);
     expect(answer.ok && answer.issues.at(-1)?.key).toBe('PROJ-300');
     expect(answer).toMatchObject({ ok: true, truncated: true });
-    expect(bodies).toMatchObject([{}, { nextPageToken: '100' }, { nextPageToken: '200' }]);
+    expect(bodies).toMatchObject([
+      {},
+      { nextPageToken: '100' },
+      { nextPageToken: '200' },
+      { jql: 'sprint = 42 AND assignee = currentUser() ORDER BY Rank ASC' },
+    ]);
+    jira.events.removeAllListeners();
+  });
+
+  it('AC-1, AC-26: in a sprint cut short, your own issues past the first 300 still come, after them, in rank order', async () => {
+    // Yours (no assignee given means you): the 5th, the 310th and the 320th in rank order.
+    const sprint = Array.from({ length: 340 }, (_, index) => ({
+      key: `PROJ-${String(index + 1)}`,
+      priority: null,
+      ...([5, 310, 320].includes(index + 1) ? {} : { assignee: someoneElse }),
+    }));
+    jira.use(acceptingSprintIssueSearch(42, sprint));
+    const bodies = searchBodies();
+
+    const answer = await client.sprintIssues(credentials, 42);
+
+    expect(answer.ok && answer.issues.length).toBe(302);
+    expect(answer.ok && answer.issues.slice(-3).map((issue) => issue.key)).toEqual([
+      'PROJ-300',
+      'PROJ-310',
+      'PROJ-320',
+    ]);
+    expect(answer.ok && answer.issues.filter((issue) => issue.key === 'PROJ-5')).toHaveLength(1);
+    expect(answer).toMatchObject({ ok: true, truncated: true });
+    expect(bodies).toContainEqual(
+      expect.objectContaining({ jql: 'sprint = 42 AND assignee = currentUser() ORDER BY Rank ASC' }),
+    );
     jira.events.removeAllListeners();
   });
 

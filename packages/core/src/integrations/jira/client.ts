@@ -102,8 +102,8 @@ export interface JiraClient {
   boardColumns(request: JiraCheckRequest, boardId: number): Promise<JiraBoardColumns>;
   /**
    * Every issue in the sprint in rank order (`sprint = <id> ORDER BY Rank ASC` through `search/jql`'s
-   * `nextPageToken`), 100 a page, at most 300, and the priority order for the bars. Never a description or
-   * a comment.
+   * `nextPageToken`), 100 a page, at most 300, and the priority order for the bars. When the sprint holds
+   * more, your own issues past the first 300 follow them (at most 300 more). Never a description or a comment.
    */
   sprintIssues(request: JiraCheckRequest, sprintId: number): Promise<JiraSprintIssues>;
   /**
@@ -369,32 +369,48 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
       const answer = await withJira(request, async (client) => {
         // Every page and the priority list share one wait, like the project list.
         const signal = AbortSignal.timeout(timeoutMs);
-        const found: unknown[] = [];
-        let nextPageToken: string | undefined;
-        let more = true;
-        while (more && found.length < mostSprintIssues) {
-          const page = await client.sendRequest({
-            url: '/rest/api/3/search/jql',
-            method: 'POST',
-            body: {
-              jql: `sprint = ${String(sprintId)} ORDER BY Rank ASC`,
-              fields: sprintFields,
-              maxResults: Math.min(sprintIssuesPerPage, mostSprintIssues - found.length),
-              ...(nextPageToken === undefined ? {} : { nextPageToken }),
-            },
-            schema: IssuePageSchema,
-            signal,
+
+        /** Up to 300 issues for `jql` in rank order, following `nextPageToken`, and whether Jira had more. */
+        async function pages(jql: string): Promise<{ issues: JiraSprintIssue[]; more: boolean }> {
+          const found: unknown[] = [];
+          let nextPageToken: string | undefined;
+          let more = true;
+          while (more && found.length < mostSprintIssues) {
+            const page = await client.sendRequest({
+              url: '/rest/api/3/search/jql',
+              method: 'POST',
+              body: {
+                jql,
+                fields: sprintFields,
+                maxResults: Math.min(sprintIssuesPerPage, mostSprintIssues - found.length),
+                ...(nextPageToken === undefined ? {} : { nextPageToken }),
+              },
+              schema: IssuePageSchema,
+              signal,
+            });
+            found.push(...page.issues);
+            nextPageToken = page.nextPageToken ?? undefined;
+            // Jira may send fewer than asked for: only isLast, or no token to go on with, ends the read.
+            more = page.isLast === false && nextPageToken !== undefined && page.issues.length > 0;
+          }
+          const issues = found.slice(0, mostSprintIssues).flatMap((issue) => {
+            const parsed = SprintIssueSchema.safeParse(issue);
+            return parsed.success ? [parsed.data] : [];
           });
-          found.push(...page.issues);
-          nextPageToken = page.nextPageToken ?? undefined;
-          // Jira may send fewer than asked for: only isLast, or no token to go on with, ends the sprint.
-          more = page.isLast === false && nextPageToken !== undefined && page.issues.length > 0;
+          return { issues, more: more || found.length > mostSprintIssues };
         }
-        const issues = found.slice(0, mostSprintIssues).flatMap((issue) => {
-          const parsed = SprintIssueSchema.safeParse(issue);
-          return parsed.success ? [parsed.data] : [];
-        });
-        const truncated = more || found.length > mostSprintIssues;
+
+        const sprint = `sprint = ${String(sprintId)}`;
+        const first = await pages(`${sprint} ORDER BY Rank ASC`);
+        let issues = first.issues;
+        if (first.more) {
+          // A sprint cut short may leave out your own issues, and Assigned to me is on by default. Any issue
+          // the first 300 left out ranks after all of them, so yours follow them in their own rank order.
+          const kept = new Set(issues.map((issue) => issue.key));
+          const mine = await pages(`${sprint} AND assignee = currentUser() ORDER BY Rank ASC`);
+          issues = [...issues, ...mine.issues.filter((issue) => !kept.has(issue.key))];
+        }
+        const truncated = first.more;
         if (!issues.some((issue) => issue.fields.priority)) return { issues, truncated, priorityOrder: [] };
         const priorities = await client.sendRequest({
           url: '/rest/api/3/priority/search',

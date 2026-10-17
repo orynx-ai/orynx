@@ -228,13 +228,17 @@ export function acceptingSprintIssueSearch(
     const body = (await request.clone().json()) as { jql?: string; maxResults?: number; nextPageToken?: string };
     if (body.jql?.startsWith(`sprint = ${String(sprintId)} `) !== true) return undefined;
     if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+    // Your own issues only, as `assignee = currentUser()` asks; an issue is yours unless it says otherwise.
+    const asked = body.jql.includes('assignee = currentUser()')
+      ? issues.filter((issue) => issue.assignee === undefined || issue.assignee?.accountId === myAccountId)
+      : issues;
     const startAt = Number(body.nextPageToken ?? 0);
-    const page = issues.slice(startAt, startAt + Math.min(body.maxResults ?? 50, pageCap));
+    const page = asked.slice(startAt, startAt + Math.min(body.maxResults ?? 50, pageCap));
     const next = startAt + page.length;
     return HttpResponse.json({
       issues: page.map(jiraIssue),
-      isLast: next >= issues.length,
-      ...(next >= issues.length ? {} : { nextPageToken: String(next) }),
+      isLast: next >= asked.length,
+      ...(next >= asked.length ? {} : { nextPageToken: String(next) }),
     });
   });
 }

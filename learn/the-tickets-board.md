@@ -13,7 +13,8 @@ inbox-service.sync()  ──▶ tickets-service.sync()           side by side wi
           client.mySprints()        /myself, /field, search/jql: you, the sprint field, your open sprints
           pickSprint()              the active sprint holding most of your issues
           client.boardColumns()     /rest/agile/1.0/board/{id}/configuration
-          client.sprintIssues()     search/jql "sprint = 42 ORDER BY Rank ASC", 100 a page, at most 300
+          client.sprintIssues()     search/jql "sprint = 42 ORDER BY Rank ASC", 100 a page, at most 300,
+                                    then your own past the first 300 ("… AND assignee = currentUser()")
           client.statusCategories() /rest/api/3/status, only when the board shows a status not yet known
           sprintRecord()            → cache.db, part `jira_sprint`
                               │
@@ -33,6 +34,8 @@ Jira has three status categories (To do, In progress, Done), but the design has 
 ## The cache
 
 The sprint is one JSON record in `cache.db`, in its own part (`jira_sprint`), next to Home's tools: the sprint's name, end and project, and its tickets in rank order, with titles and metadata only. No description or comment is ever asked for, and `sprintRecord()` copies only the fields it names, so one a proxy sent anyway never lands (`inbox/no-leaks.test.ts`). Each ticket's session isn't kept: `read()` joins the newest session on each ticket from the session store, unless that one was stopped. The part keeps its own last sync and problem, so a failed sprint read shows 007's quiet line on Tickets and leaves Home alone. Disconnecting Jira and Clear cache take it away.
+
+A big shared sprint can hold more than 300 issues, and yours may rank past the first 300; with Assigned to me on by default the board would then be empty. So when the sprint is cut short, a second read brings your own issues and adds the ones still missing after the first 300. Anything the first read left out ranks after all of it, so the list stays in rank order. A real Jira site showed this on the first look (spec 008, task 21).
 
 The project key in the page bar ("PROJ · ends 24 Oct") comes from the sprint's issue keys: one project gives its key, several give none.
 
