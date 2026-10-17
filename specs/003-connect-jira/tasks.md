@@ -53,5 +53,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 17: By hand, after your yes (Q6): you connect your real Jira in `pnpm dev`, and I run `pnpm test:keychain` once; record what happened
       Check: the Jira row says Connected for your site; `pnpm test:keychain` passes
       Files: specs/003-connect-jira/tasks.md
-- [ ] Task 18: STOP and run /review
+- [x] Task 18: STOP and run /review (passed 17 Oct 2026, three rounds: 0 critical; 1 important left for a person: at 360 px Jira's longer answers wrap a line or two past the help, so the row grows; 14 suggestions)
       Check: the review stamp matches the branch (pnpm review:stamp verify)
