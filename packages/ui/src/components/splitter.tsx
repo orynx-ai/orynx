@@ -50,6 +50,11 @@ export function Splitter({
   useEffect(() => {
     if (!dragging) return;
     const move = (event: globalThis.PointerEvent) => {
+      // No button held means the release happened where we could not see it (another window).
+      if (event.buttons === 0) {
+        setDragging(false);
+        return;
+      }
       dragTo(event.clientX);
     };
     const stop = () => {
@@ -77,15 +82,16 @@ export function Splitter({
     setDragging(true);
   };
 
+  // The window splitter keys. Up and Down stay with the page, and modified arrows stay with
+  // the browser (⌘← and Alt+← are Back).
   const keys: Record<string, () => number> = {
     ArrowRight: () => value + step,
-    ArrowUp: () => value + step,
     ArrowLeft: () => value - step,
-    ArrowDown: () => value - step,
     Home: () => min,
     End: () => max,
   };
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
     const next = keys[event.key];
     if (next === undefined) return;
     event.preventDefault();
@@ -96,21 +102,26 @@ export function Splitter({
     // A focusable separator is a widget in WAI-ARIA 1.2 (the window splitter pattern).
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- see above
     <div
+      {...props}
       role="separator"
       aria-orientation="vertical"
       aria-valuenow={value}
       aria-valuemin={min}
       aria-valuemax={max}
+      aria-valuetext={`${String(value)} pixels`}
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- see above
       tabIndex={0}
       data-dragging={dragging ? '' : undefined}
-      className={cn('group flex w-3 cursor-col-resize touch-none justify-center', className)}
+      // The ring sits inside the handle, so it closes even when the handle runs the page's full height.
+      className={cn(
+        'group flex w-3 cursor-col-resize touch-none justify-center focus-visible:-outline-offset-2',
+        className,
+      )}
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
       onDoubleClick={() => {
         if (defaultValue !== undefined) onValueChange(clamp(defaultValue));
       }}
-      {...props}
     >
       <span
         aria-hidden

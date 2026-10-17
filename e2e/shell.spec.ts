@@ -138,6 +138,7 @@ test.describe('narrow window', () => {
     await expect(nav.getByRole('link', { name: /^New task/ })).toBeVisible();
     await expect(nav.getByRole('button', { name: /Search/ })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'View all' })).toBeHidden();
+    await expect(nav.getByRole('separator', { name: 'Resize sidebar' })).toHaveCount(0);
 
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
     const mainTop = await page.getByRole('main').evaluate((main) => main.getBoundingClientRect().top);

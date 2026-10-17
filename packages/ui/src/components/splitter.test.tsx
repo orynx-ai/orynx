@@ -34,13 +34,14 @@ describe('Splitter', () => {
 
     expect(handle()).toHaveAttribute('aria-orientation', 'vertical');
     expect(handle()).toHaveAttribute('aria-valuenow', '260');
+    expect(handle()).toHaveAttribute('aria-valuetext', '260 pixels');
     expect(handle()).toHaveAttribute('aria-valuemin', '260');
     expect(handle()).toHaveAttribute('aria-valuemax', '400');
     expect(handle()).toHaveAttribute('aria-controls', 'panel');
     expect(handle()).toHaveAttribute('tabindex', '0');
   });
 
-  it('AC-22: moves 16 px per arrow key and jumps to the limits with Home and End', async () => {
+  it('AC-22: moves 16 px per Left or Right arrow and jumps to the limits with Home and End', async () => {
     const user = userEvent.setup();
     render(<Panel />);
     handle().focus();
@@ -71,14 +72,14 @@ describe('Splitter', () => {
     render(<Panel />);
 
     fireEvent.pointerDown(handle(), { button: 0, clientX: 260, pointerId: 1 });
-    fireEvent.pointerMove(handle(), { clientX: 330, pointerId: 1 });
+    fireEvent.pointerMove(handle(), { clientX: 330, buttons: 1, pointerId: 1 });
     expect(handle()).toHaveAttribute('aria-valuenow', '330');
 
-    fireEvent.pointerMove(handle(), { clientX: 900, pointerId: 1 });
+    fireEvent.pointerMove(handle(), { clientX: 900, buttons: 1, pointerId: 1 });
     expect(handle()).toHaveAttribute('aria-valuenow', '400');
 
     fireEvent.pointerUp(handle(), { clientX: 900, pointerId: 1 });
-    fireEvent.pointerMove(handle(), { clientX: 300, pointerId: 1 });
+    fireEvent.pointerMove(handle(), { clientX: 300, buttons: 1, pointerId: 1 });
     expect(handle()).toHaveAttribute('aria-valuenow', '400');
   });
 
@@ -86,9 +87,51 @@ describe('Splitter', () => {
     render(<Panel />);
 
     fireEvent.pointerDown(handle(), { button: 2, clientX: 260, pointerId: 1 });
-    fireEvent.pointerMove(handle(), { clientX: 330, pointerId: 1 });
+    fireEvent.pointerMove(handle(), { clientX: 330, buttons: 2, pointerId: 1 });
 
     expect(handle()).toHaveAttribute('aria-valuenow', '260');
+  });
+
+  it('AC-21: stops when the button is no longer held, even if the release was missed', () => {
+    render(<Panel />);
+
+    fireEvent.pointerDown(handle(), { button: 0, clientX: 260, pointerId: 1 });
+    fireEvent.pointerMove(handle(), { clientX: 300, buttons: 0, pointerId: 1 });
+    fireEvent.pointerMove(handle(), { clientX: 340, buttons: 1, pointerId: 1 });
+
+    expect(handle()).toHaveAttribute('aria-valuenow', '260');
+    expect(document.documentElement.style.cursor).toBe('');
+  });
+
+  it('AC-22: leaves modified arrows (browser Back) and Up/Down to the browser', async () => {
+    const user = userEvent.setup();
+    render(<Panel initial={300} />);
+    handle().focus();
+
+    await user.keyboard('{Meta>}{ArrowLeft}{/Meta}{Alt>}{ArrowLeft}{/Alt}{Control>}{ArrowRight}{/Control}');
+    await user.keyboard('{ArrowUp}{ArrowDown}');
+
+    expect(handle()).toHaveAttribute('aria-valuenow', '300');
+  });
+
+  it('keeps its own keyboard handling when the caller adds one', async () => {
+    const user = userEvent.setup();
+    let seen = 0;
+    render(
+      <Splitter
+        aria-label="Resize sidebar"
+        value={260}
+        min={260}
+        max={400}
+        onValueChange={() => (seen += 1)}
+        onKeyDown={() => undefined}
+      />,
+    );
+    handle().focus();
+
+    await user.keyboard('{ArrowRight}');
+
+    expect(seen).toBe(1);
   });
 
   it('AC-23: goes back to the default width on double-click', async () => {

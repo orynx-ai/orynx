@@ -27,7 +27,11 @@ export const useUiStore = create<UiState>()(
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
       },
       setSidebarWidth: (width) => {
-        set({ sidebarWidth: clampSidebarWidth(width) });
+        // A drag reports every pointer move; only a real change is stored (and written to storage).
+        set((state) => {
+          const next = clampSidebarWidth(width);
+          return next === state.sidebarWidth ? state : { sidebarWidth: next };
+        });
       },
     }),
     { name: 'devhub.ui' },

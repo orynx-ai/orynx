@@ -24,6 +24,7 @@ export function Sidebar() {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const width = useUiStore((state) => clampSidebarWidth(state.sidebarWidth));
   const setWidth = useUiStore((state) => state.setSidebarWidth);
+  const widthStyle: CSSProperties & Record<'--sidebar-width', string> = { '--sidebar-width': `${String(width)}px` };
   const platform = usePlatform();
   const newTask = newTaskShortcut(platform);
   const startNewTask = useNewTask();
@@ -35,7 +36,7 @@ export function Sidebar() {
     <nav
       id={sidebarId}
       aria-label="Main"
-      style={{ '--sidebar-width': `${String(width)}px` } as CSSProperties}
+      style={widthStyle}
       className={cn(
         'flex flex-wrap items-center gap-2 border-b border-border bg-sidebar p-3 md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:gap-4 md:border-r md:border-b-0',
         'md:relative',

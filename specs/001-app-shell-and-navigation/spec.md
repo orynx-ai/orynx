@@ -24,6 +24,8 @@ Correct these now, or the work goes ahead on them.
 Decided while building (16 Oct 2026), then settled by a person on 17 Oct 2026 (Q10–Q12):
 
 - **Sidebar width** (Q10): 260 px by default. Drag its right edge, or use the arrow keys on it, to resize it between 260 and 400 px; the width is remembered in the browser. At 260 px the footer's longest line ("Claude not connected · runs locally") is cut with an ellipsis; its full text stays in the link's name.
+- **The resize handle** (Q10) is invisible until hovered, focused or dragged, when a 2 px accent line marks the sidebar's edge. Screen readers hear it as "Resize sidebar, separator, 260 pixels". Left and Right move it 16 px, Home and End jump to 260 and 400 px, and a double-click resets it. Up, Down and modified arrows stay with the page and the browser.
+- **Open for later:** resizing needs a drag or the keyboard; WCAG 2.2 (2.5.7, Dragging Movements) also asks for a single-pointer way, such as a width choice under Settings › Appearance. Not built in 001; raise it with spec 005 (Settings).
 - **No name known:** the footer says "You" (Q6) with a person icon in the avatar slot, so the row keeps its shape when a name arrives and the collapsed rail still shows something.
 - **The narrow-window Sessions place** uses Lucide's History icon; the design has no icon for it.
 - **Session source keys are 12 px mono**, not the 11 px in the design's CSS, because the design system allows nothing under 12 px.
