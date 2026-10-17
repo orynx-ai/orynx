@@ -1,6 +1,7 @@
 export * from './errors.ts';
 export * from './events.ts';
 export * from './github.ts';
+export * from './inbox.ts';
 export * from './jira.ts';
 export * from './preferences.ts';
 export * from './repositories.ts';

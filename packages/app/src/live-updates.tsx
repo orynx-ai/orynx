@@ -16,6 +16,9 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       return [queryKeys.sessions];
     case 'settings.changed':
       return [queryKeys.preferences, queryKeys.repositories];
+    case 'inbox.changed':
+      // Nothing reads the inbox yet; spec 007's api-client task gives it a query key.
+      return [];
   }
 }
 

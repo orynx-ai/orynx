@@ -12,6 +12,9 @@ export const apiPaths = {
   preferences: '/preferences',
   repositories: '/repositories',
   repository: '/repositories/:id',
+  inbox: '/inbox',
+  inboxRefresh: '/inbox/refresh',
+  inboxCache: '/inbox/cache',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -27,6 +30,9 @@ export const apiRoutes = {
   preferences: `${apiPrefix}${apiPaths.preferences}`,
   repositories: `${apiPrefix}${apiPaths.repositories}`,
   repository: `${apiPrefix}${apiPaths.repository}`,
+  inbox: `${apiPrefix}${apiPaths.inbox}`,
+  inboxRefresh: `${apiPrefix}${apiPaths.inboxRefresh}`,
+  inboxCache: `${apiPrefix}${apiPaths.inboxCache}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];

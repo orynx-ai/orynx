@@ -4,7 +4,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 
-- [ ] Task 1: Add the inbox contract: the item (source, tab, title, subject, reason, wait start, target), each tool's sync state and problem, the sync time, the three paths, the `inbox.changed` event and test builders (AC-1, AC-24)
+- [x] Task 1: Add the inbox contract: the item (source, tab, title, subject, reason, wait start, target), each tool's sync state and problem, the sync time, the three paths, the `inbox.changed` event and test builders (AC-1, AC-24)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/inbox.ts, inbox.test.ts, routes.ts, events.ts, index.ts, testing.ts
 - [ ] Task 2: Add the cache with better-sqlite3 and drizzle-orm: records per tool as checked JSON, each tool's last sync and problem, emptying, forgetting a tool, and a damaged or older file deleted and made again (AC-28, AC-29, AC-30, AC-31)
