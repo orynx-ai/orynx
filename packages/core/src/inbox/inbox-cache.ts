@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, rmSync } from 'node:fs';
+import { chmodSync, lstatSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
 import { eq } from 'drizzle-orm';
@@ -87,8 +87,10 @@ export function cacheFilePath(home: string): string {
 }
 
 export interface InboxCacheOptions {
-  /** Told when an unreadable file, or one another version wrote, was deleted and made again. */
+  /** Told when an unreadable or damaged file, or one another version wrote, was deleted and made again. */
   onReset?: () => void;
+  /** Told when something that isn't a file sits at the path; the cache then lives in memory for this run. */
+  onUnusable?: () => void;
 }
 
 function remove(path: string): void {
@@ -101,17 +103,28 @@ function fresh(path: string): Database.Database {
   return sqlite;
 }
 
+/** SQLite's own codes for a file that isn't a database, or whose pages are damaged. */
+function isDamaged(error: unknown): boolean {
+  if (!(error instanceof Error) || !('code' in error) || typeof error.code !== 'string') return false;
+  return error.code.startsWith('SQLITE_CORRUPT') || error.code.startsWith('SQLITE_NOTADB');
+}
+
+/** Whether the file at this version is whole: its header and, through `quick_check`, its pages. */
+function usable(sqlite: Database.Database): 'ready' | 'empty' | 'unusable' {
+  const found = sqlite.pragma('user_version', { simple: true });
+  if (found === version) return sqlite.pragma('quick_check', { simple: true }) === 'ok' ? 'ready' : 'unusable';
+  const tables = sqlite.prepare('SELECT count(*) FROM sqlite_master').pluck().get();
+  return found === 0 && tables === 0 ? 'empty' : 'unusable';
+}
+
 /** The open file, ready at this version: made if it's new, made again if it can't be used. */
 function connect(path: string, onReset: (() => void) | undefined): Database.Database {
-  if (path === ':memory:') return fresh(path);
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   let sqlite: Database.Database | undefined;
   try {
     sqlite = new Database(path);
-    const found = sqlite.pragma('user_version', { simple: true });
-    if (found === version) return sqlite;
-    const tables = sqlite.prepare('SELECT count(*) AS n FROM sqlite_master').get() as { n: number };
-    if (found === 0 && tables.n === 0) {
+    const state = usable(sqlite);
+    if (state === 'ready') return sqlite;
+    if (state === 'empty') {
       sqlite.exec(createTables);
       return sqlite;
     }
@@ -122,6 +135,15 @@ function connect(path: string, onReset: (() => void) | undefined): Database.Data
   onReset?.();
   remove(path);
   return fresh(path);
+}
+
+/** Something other than a file (a folder, say) sits at the path, and DevHub never deletes that. */
+function notAFile(path: string): boolean {
+  try {
+    return !lstatSync(path).isFile();
+  } catch {
+    return false;
+  }
 }
 
 function problemOf(json: string | null): InboxProblem | null {
@@ -144,11 +166,41 @@ function parsed(json: string): unknown {
 
 /** Opens the cache at `path`, or in memory for `:memory:` (tests, and a host with no folder). */
 export function openInboxCache(path: string, options: InboxCacheOptions = {}): InboxCache {
-  const sqlite = connect(path, options.onReset);
-  if (path !== ':memory:') chmodSync(path, 0o600);
-  // A forgotten tool's titles are overwritten in the file, not just unlinked.
-  sqlite.pragma('secure_delete = ON');
-  const db = drizzle({ client: sqlite });
+  let where = path;
+  if (path !== ':memory:') {
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+    if (notAFile(path)) {
+      options.onUnusable?.();
+      where = ':memory:';
+    }
+  }
+  let sqlite = where === ':memory:' ? fresh(where) : connect(where, options.onReset);
+  let db = ready(sqlite);
+
+  function ready(opened: Database.Database) {
+    if (where !== ':memory:') chmodSync(where, 0o600);
+    // A forgotten tool's titles are overwritten in the file, not just unlinked.
+    opened.pragma('secure_delete = ON');
+    return drizzle({ client: opened });
+  }
+
+  /**
+   * Runs `work`; if SQLite finds the file damaged while DevHub runs, the file is made again and `work`
+   * runs once more, so neither Home nor Clear cache stays stuck on a broken file.
+   */
+  function guard<T>(work: () => T): T {
+    try {
+      return work();
+    } catch (error) {
+      if (where === ':memory:' || !isDamaged(error)) throw error;
+      sqlite.close();
+      options.onReset?.();
+      remove(where);
+      sqlite = fresh(where);
+      db = ready(sqlite);
+      return work();
+    }
+  }
 
   function saveTool(tool: InboxTool, row: Omit<typeof tools.$inferInsert, 'tool'>): void {
     db.insert(tools)
@@ -159,70 +211,82 @@ export function openInboxCache(path: string, options: InboxCacheOptions = {}): I
 
   return {
     tool(tool) {
-      const row = db.select().from(tools).where(eq(tools.tool, tool)).get();
-      if (row === undefined) return null;
-      const kept = db
-        .select({ data: records.data })
-        .from(records)
-        .where(eq(records.tool, tool))
-        .orderBy(records.id)
-        .all();
-      return {
-        connection: row.connection,
-        syncedAt: row.syncedAt,
-        problem: problemOf(row.problem),
-        records: kept.map((record) => parsed(record.data)).filter((record) => record !== undefined),
-      };
+      return guard(() => {
+        const row = db.select().from(tools).where(eq(tools.tool, tool)).get();
+        if (row === undefined) return null;
+        const kept = db
+          .select({ data: records.data })
+          .from(records)
+          .where(eq(records.tool, tool))
+          .orderBy(records.id)
+          .all();
+        return {
+          connection: row.connection,
+          syncedAt: row.syncedAt,
+          problem: problemOf(row.problem),
+          records: kept.map((record) => parsed(record.data)).filter((record) => record !== undefined),
+        };
+      });
     },
 
     synced(tool, { connection, at, records: written }) {
-      db.transaction((tx) => {
-        tx.delete(records).where(eq(records.tool, tool)).run();
-        if (written.length > 0) {
-          tx.insert(records)
-            .values(written.map((record) => ({ tool, id: record.id, data: JSON.stringify(record.data) })))
-            .run();
-        }
-        saveTool(tool, { connection, syncedAt: at, problem: null });
+      guard(() => {
+        db.transaction((tx) => {
+          tx.delete(records).where(eq(records.tool, tool)).run();
+          if (written.length > 0) {
+            tx.insert(records)
+              .values(written.map((record) => ({ tool, id: record.id, data: JSON.stringify(record.data) })))
+              .run();
+          }
+          saveTool(tool, { connection, syncedAt: at, problem: null });
+        });
       });
     },
 
     failed(tool, { connection, problem }) {
-      db.transaction((tx) => {
-        const before = tx.select().from(tools).where(eq(tools.tool, tool)).get();
-        const sameAccount = before?.connection === connection;
-        if (!sameAccount) tx.delete(records).where(eq(records.tool, tool)).run();
-        saveTool(tool, {
-          connection,
-          syncedAt: sameAccount ? before.syncedAt : null,
-          problem: JSON.stringify(problem),
+      guard(() => {
+        db.transaction((tx) => {
+          const before = tx.select().from(tools).where(eq(tools.tool, tool)).get();
+          const sameAccount = before?.connection === connection;
+          if (!sameAccount) tx.delete(records).where(eq(records.tool, tool)).run();
+          saveTool(tool, {
+            connection,
+            syncedAt: sameAccount ? before.syncedAt : null,
+            problem: JSON.stringify(problem),
+          });
         });
       });
     },
 
     syncedAt() {
-      return db.select().from(meta).where(eq(meta.key, syncedAtKey)).get()?.value ?? null;
+      return guard(() => db.select().from(meta).where(eq(meta.key, syncedAtKey)).get()?.value ?? null);
     },
 
     setSyncedAt(at) {
-      db.insert(meta)
-        .values({ key: syncedAtKey, value: at })
-        .onConflictDoUpdate({ target: meta.key, set: { value: at } })
-        .run();
+      guard(() => {
+        db.insert(meta)
+          .values({ key: syncedAtKey, value: at })
+          .onConflictDoUpdate({ target: meta.key, set: { value: at } })
+          .run();
+      });
     },
 
     forget(tool) {
-      db.transaction((tx) => {
-        tx.delete(records).where(eq(records.tool, tool)).run();
-        tx.delete(tools).where(eq(tools.tool, tool)).run();
+      guard(() => {
+        db.transaction((tx) => {
+          tx.delete(records).where(eq(records.tool, tool)).run();
+          tx.delete(tools).where(eq(tools.tool, tool)).run();
+        });
       });
     },
 
     clear() {
-      db.transaction((tx) => {
-        tx.delete(records).run();
-        tx.delete(tools).run();
-        tx.delete(meta).run();
+      guard(() => {
+        db.transaction((tx) => {
+          tx.delete(records).run();
+          tx.delete(tools).run();
+          tx.delete(meta).run();
+        });
       });
     },
 

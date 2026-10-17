@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { open as openFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -12,8 +12,11 @@ const jiraAccount = 'your-team.atlassian.net dev@example.com';
 let home: string;
 let opened: InboxCache[];
 
-function open(path: string = cacheFilePath(home), onReset?: () => void): InboxCache {
-  const cache = openInboxCache(path, onReset === undefined ? {} : { onReset });
+function open(path: string = cacheFilePath(home), onReset?: () => void, onUnusable?: () => void): InboxCache {
+  const cache = openInboxCache(path, {
+    ...(onReset === undefined ? {} : { onReset }),
+    ...(onUnusable === undefined ? {} : { onUnusable }),
+  });
   opened.push(cache);
   return cache;
 }
@@ -27,6 +30,18 @@ afterEach(async () => {
   for (const cache of opened) cache.close();
   await rm(join(home, '..'), { recursive: true, force: true });
 });
+
+/**
+ * Overwrites everything after the 100-byte header with noise, as a truncated copy or a bad disk would.
+ * `touchHeader` also bumps SQLite's change counter, so an open connection reads the pages again.
+ */
+async function damagePages(path: string, { touchHeader = false }: { touchHeader?: boolean } = {}) {
+  const file = await openFile(path, 'r+');
+  const { size } = await file.stat();
+  await file.write(Buffer.alloc(size - 100, 0x5a), 0, size - 100, 100);
+  if (touchHeader) await file.write(Buffer.from([0x7f, 0x7f, 0x7f, 0x7f]), 0, 4, 24);
+  await file.close();
+}
 
 describe('inbox cache', () => {
   it('knows nothing about a tool that never synced', () => {
@@ -130,6 +145,45 @@ describe('inbox cache', () => {
 
     expect(onReset).toHaveBeenCalledOnce();
     expect(again.tool('jira')?.records).toEqual([issue.data]);
+  });
+
+  it('AC-29: a cache.db whose header is fine but whose pages are damaged is made again when it opens', async () => {
+    const cache = open();
+    cache.synced('jira', { connection: jiraAccount, at: '2026-10-17T09:00:00.000Z', records: [issue] });
+    cache.close();
+    await damagePages(cacheFilePath(home));
+    const onReset = vi.fn();
+
+    const again = open(cacheFilePath(home), onReset);
+
+    expect(onReset).toHaveBeenCalledOnce();
+    expect(again.tool('jira')).toBeNull();
+  });
+
+  it('AC-29, AC-31: a cache.db damaged while DevHub runs is made again, so reads and Clear cache keep working', async () => {
+    const onReset = vi.fn();
+    const cache = open(cacheFilePath(home), onReset);
+    cache.synced('jira', { connection: jiraAccount, at: '2026-10-17T09:00:00.000Z', records: [issue] });
+
+    await damagePages(cacheFilePath(home), { touchHeader: true });
+
+    expect(cache.tool('jira')).toBeNull();
+    expect(onReset).toHaveBeenCalledOnce();
+    cache.clear();
+    cache.synced('jira', { connection: jiraAccount, at: '2026-10-17T09:05:00.000Z', records: [issue] });
+    expect(cache.tool('jira')?.records).toEqual([issue.data]);
+  });
+
+  it('keeps the cache in memory, and says so, when a folder sits where cache.db goes', async () => {
+    await mkdir(cacheFilePath(home), { recursive: true });
+    const onUnusable = vi.fn();
+
+    const cache = open(cacheFilePath(home), undefined, onUnusable);
+    cache.synced('jira', { connection: jiraAccount, at: '2026-10-17T09:00:00.000Z', records: [issue] });
+
+    expect(onUnusable).toHaveBeenCalledOnce();
+    expect(cache.tool('jira')?.records).toEqual([issue.data]);
+    expect((await stat(cacheFilePath(home))).isDirectory()).toBe(true);
   });
 
   it('AC-29: a cache.db another version of DevHub wrote is deleted and made again', () => {

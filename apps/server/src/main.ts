@@ -35,6 +35,11 @@ const cache = openInboxCache(cacheFilePath(config.home), {
       `${cacheFilePath(config.home)} could not be read; DevHub made a new one and fills it on the next sync.`,
     );
   },
+  onUnusable: () => {
+    cacheNotices.push(
+      `${cacheFilePath(config.home)} is not a file, so the inbox cache lives in memory until DevHub restarts. Move it away to keep the cache between runs.`,
+    );
+  },
 });
 
 const app = await createServer({
