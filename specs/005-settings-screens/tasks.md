@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: api-client preferences (get, update, queryOptions), and `settings.changed` refreshing them in live updates. The app-level test of that refresh comes with the first tab that shows them, in Task 5 (AC-17)
       Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx; pnpm gate learn-freshness
       Files: packages/api-client/src/endpoints/preferences.ts, client.ts, queries.ts, index.ts, preferences.test.ts; packages/app/src/live-updates.tsx; learn/live-updates.md
-- [ ] Task 4: `Checkbox` in `@devhub/ui`: a native checkbox at 20 px with a `border-control` outline, `info` when checked, and a label filling a 48 px row, with stories (unchecked, checked, disabled, long label) and a test; design-map row (AC-12, AC-19)
+- [x] Task 4: `Checkbox` in `@devhub/ui`: a native checkbox at 20 px with a `border-control` outline, `info` when checked, and a label filling a 48 px row, with stories (unchecked, checked, disabled, long label) and a test; design-map row (AC-12, AC-19)
       Check: pnpm test packages/ui/src/components/checkbox.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/checkbox.tsx, checkbox.stories.tsx, checkbox.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 5: The Coding agent tab: legend, three choices with their lines, the two footnotes, the loading chrome, an optimistic save, and on failure a rollback with a line under the group (AC-1, AC-2, AC-3, AC-14, AC-15, AC-16)
