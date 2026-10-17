@@ -1,4 +1,10 @@
 export { createApiClient, type ApiClient, type ApiClientOptions } from './client.ts';
 export { ApiRequestError } from './errors.ts';
 export { parseServerEvent, subscribeToEvents, type EventSourceConstructor, type EventSourceLike } from './events.ts';
-export { jiraConnectionQueryOptions, queryKeys, sessionsQueryOptions, statusQueryOptions } from './queries.ts';
+export {
+  githubConnectionQueryOptions,
+  jiraConnectionQueryOptions,
+  queryKeys,
+  sessionsQueryOptions,
+  statusQueryOptions,
+} from './queries.ts';

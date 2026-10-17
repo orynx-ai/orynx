@@ -8,6 +8,7 @@ export const queryKeys = {
   /** Every session list starts with this key, so one invalidation refreshes them all. */
   sessions: ['sessions'] as const,
   jiraConnection: ['jira', 'connection'] as const,
+  githubConnection: ['github', 'connection'] as const,
 };
 
 export function statusQueryOptions(api: ApiClient) {
@@ -32,6 +33,15 @@ export function jiraConnectionQueryOptions(api: ApiClient) {
   return queryOptions({
     queryKey: queryKeys.jiraConnection,
     queryFn: () => api.jiraConnection(),
+    // Connect and Disconnect publish status.changed, which refreshes this too.
+    staleTime: Infinity,
+  });
+}
+
+export function githubConnectionQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.githubConnection,
+    queryFn: () => api.githubConnection(),
     // Connect and Disconnect publish status.changed, which refreshes this too.
     staleTime: Infinity,
   });

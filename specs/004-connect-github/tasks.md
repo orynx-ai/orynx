@@ -35,7 +35,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: Server host: gh's search path from the built-in `PATH`, the real gh runner in `main.ts`, and a fake signed-out gh first on PATH in Playwright's server (AC-20)
       Check: pnpm test apps/server; pnpm gate env-policy; pnpm build; pnpm exec playwright test e2e/smoke.spec.ts
       Files: apps/server/src/config.ts, apps/server/src/config.test.ts, apps/server/src/main.ts, playwright.config.ts, e2e/fake-gh/gh
-- [ ] Task 12: API client: GitHub connection get, save and delete, parsed with the contracts; query key (AC-3, AC-12, AC-13)
+- [x] Task 12: API client: GitHub connection get, save and delete, parsed with the contracts; query key (AC-3, AC-12, AC-13)
       Check: pnpm test packages/api-client; pnpm typecheck
       Files: packages/api-client/src/endpoints/github.ts, packages/api-client/src/github.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts
 - [ ] Task 13: Move the Jira row's Connect, Manage and Close toggle, focus return and announcement into a shared row, with Jira's tests passing untouched
