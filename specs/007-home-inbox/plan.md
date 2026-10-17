@@ -21,6 +21,8 @@ The work splits in two at 006. Everything up to task 15 needs nothing from 006 a
 11. **Docs** (task 15). Architecture (the cache is decided, `cache.db`, the inbox routes) and a `learn/` page on how the inbox syncs.
 12. **After 006 merges** (tasks 16 to 21): move onto `main`, then the panel and tabs, the states, the page bar, focus when a row goes, an e2e run, and the browser check.
 
+13. **The amendment of 17 Oct 2026** (tasks 22 to 29; spec Q9 and Q10): search, filters, order and pages. All of it runs in the browser on the rows the page already has (at most 300), so the server and the contract don't change. Three parts come to `@devhub/ui` first: `SearchField` (the design system's `dh-search`), a checkbox item for `Menu`, and `Pagination` (new to the design system; its look is Q10f). Then the view as pure functions (the address, matching, options, filtering, order, pages), and the screen in three steps: the order, the toolbar, the pages. The tab, search, filters, order and page all live in the address, through the route's search schema.
+
 ## Risks
 
 | Risk                                                                                                                     | How we will notice early                                                                                                                                                                                  | What we do                                                                                                                                                                                          |

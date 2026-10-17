@@ -67,5 +67,32 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 21: Open Home in a real browser at 360 and 1280 px, light and dark, in each state: compare with the design, run axe, check for sideways scroll and for movement while loading, Tab through. Fix what turns up, then run the full check (AC-34)
       Check: pnpm dev in a browser; pnpm verify; pnpm test:coverage at 90% or more
       Files: whichever the check shows need fixing
-- [ ] Task 22: STOP and run /review
+
+Tasks 22 to 29 come from the amendment of 17 Oct 2026 (Q9, Q10): search, filters, order and pages.
+
+- [ ] Task 22: Add `SearchField` to `@devhub/ui` from the design system's `dh-search`: a magnifier inside a 32 px search input, with an `aria-label`, a story and a test (Q10b)
+      Check: pnpm test packages/ui/src/components/search-field.test.tsx; pnpm gate style-policy component-coverage
+      Files: packages/ui/src/components/search-field.tsx, search-field.test.tsx, search-field.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
+- [ ] Task 23: Give `Menu` a checkbox item (`MenuCheckboxItem`), as `MenuRadioItem` is built, with a story and a test (Q10c)
+      Check: pnpm test packages/ui/src/components/menu.test.tsx; pnpm gate style-policy component-coverage
+      Files: packages/ui/src/components/menu.tsx, menu.test.tsx, menu.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
+- [ ] Task 24: Add `Pagination` to `@devhub/ui` from shadcn: Previous, the page numbers and Next, the current page marked, ellipses past 7 pages, arrows only and fewer numbers under 480 px, pages rendered as the caller's links (Q10f)
+      Check: pnpm test packages/ui/src/components/pagination.test.tsx; pnpm gate style-policy component-coverage
+      Files: packages/ui/src/components/pagination.tsx, pagination.test.tsx, pagination.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
+- [ ] Task 25: Write the list's view as pure functions: the address (`q`, `reason`, `project`, `status`, `repo`, `sort`, `page`), search matching, each tab's filter options, filtering, both orders and pages of 16 (AC-36, AC-37, AC-39, AC-40, AC-41, Q10a, Q10c, Q10i)
+      Check: pnpm test packages/app/src/features/home
+      Files: packages/app/src/features/home/inbox-view.ts, inbox-view.test.ts, inbox-tabs.ts, packages/app/src/router.tsx
+- [ ] Task 26: Order the list newest wait first, with the order menu in the panel's head (AC-1, AC-39, Q10d)
+      Check: pnpm test packages/app/src/features/home; pnpm gate style-policy
+      Files: packages/app/src/features/home/components/attention-panel.tsx, attention-panel.test.tsx, components/order-menu.tsx, e2e/home-inbox.spec.ts
+- [ ] Task 27: The toolbar: the search box on the left and the tab's filter menus on the right, no matches with Clear search and filters, and filters dropped when the tab changes (AC-35, AC-36, AC-37, AC-38, AC-42, AC-45)
+      Check: pnpm test packages/app/src/features/home; pnpm gate style-policy component-coverage
+      Files: packages/app/src/features/home/components/inbox-toolbar.tsx, inbox-toolbar.test.tsx, attention-panel.tsx, attention-panel.test.tsx
+- [ ] Task 28: Pages of 16 with the pager, back to page 1 on any change, the last page when a sync shortens the list, and focus on the first row after paging (AC-40, AC-41, AC-44)
+      Check: pnpm test packages/app/src/features/home
+      Files: packages/app/src/features/home/components/attention-panel.tsx, attention-panel.test.tsx
+- [ ] Task 29: Run the new parts end to end and in a real browser at 360 and 1280 px, light and dark: e2e for search, a filter, the order and a page; axe; no sideways scroll. Update `learn/the-inbox.md`, then run the full check (AC-34, AC-43, AC-45)
+      Check: pnpm test:e2e e2e/home-inbox.spec.ts; pnpm verify; pnpm test:coverage at 90% or more
+      Files: e2e/home-inbox.spec.ts, learn/the-inbox.md, whichever the check shows need fixing
+- [ ] Task 30: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
