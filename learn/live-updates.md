@@ -57,6 +57,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
 
 The switch has no `default`, so TypeScript refuses to compile until a new event type has a case.
 
+One exception sits in the subscriber: for `settings.changed`, a key with a change still on its way is skipped. That change refetches when it settles (`refetchAfterLast` in `features/settings/queries.ts`); refetching earlier could read the server before the change is written and flip the control back for a moment (spec 005 review).
+
 TanStack Query then refetches only the queries that are on screen.
 
 ## Why invalidate instead of pushing data
