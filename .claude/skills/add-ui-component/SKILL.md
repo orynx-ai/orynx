@@ -66,7 +66,7 @@ const pillVariants = cva(
 `h-6` is 24 px on the 4 px scale, and half steps such as `h-5.5` (22 px) are fine too. Never write the arbitrary form (`h-[22px]`); `pnpm gate style-policy` rejects it. If the design truly needs a value off the scale, use a one-line exception with a reason:
 
 ```tsx
-// style-policy-ignore-next-line: 22 px pill height from components.css .dh-pill
+// style-policy-ignore-next-line: 13 px gap the design measures between diff gutter and code
 ```
 
 - Export a typed props interface. Pass `className` through `cn()` last so callers can adjust layout, never colour.

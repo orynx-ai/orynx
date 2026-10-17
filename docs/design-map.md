@@ -31,7 +31,14 @@ Why there is no `accent`: in shadcn, `accent` means the grey hover surface, but 
 
 ## Type
 
-The sizes follow the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`), not the 14 px scale in `docs/design/design-system.md`: on 17 Oct 2026 the user found the app "zoomed out" next to their reference screens and asked for the larger scale. The style names and their jobs are unchanged. Two weights only: `font-normal` and `font-medium` (the 600 face is no longer bundled). `design-system.md` still lists the old numbers until a person updates it.
+The sizes follow the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`), not the 14 px scale in `docs/design/design-system.md`: on 17 Oct 2026 the user found the app "zoomed out" next to their reference screens and asked for the larger scale. The style names and their jobs are unchanged. Two weights only: `font-normal` and `font-medium` (the 600 face is no longer bundled). `design-system.md` still lists the old numbers until a person updates it. Every size that changed from the design:
+
+- Type as below; icons 20 px (was 16).
+- Buttons 40 px and `sm` 32 px (was 36 and 30); sidebar rows 40 px (was 34); tabs 48 px (was 40).
+- Page bar 56 px on one line at every width (was 52 and wrapping); page widths below.
+- Session rows: 24 px state circles with 14 px glyphs, 14 px source keys (was 20, 12 and 12; spec 001 Q12).
+- Pills 24 px (was 22); source marks 20 and 40 px (was 18 and 32); avatars 28 and 36 px (was 24 and 28).
+- EmptyState is plain centred text, without the dashed outline.
 
 | Design style              | Classes                        | Use for                                        |
 | ------------------------- | ------------------------------ | ---------------------------------------------- |

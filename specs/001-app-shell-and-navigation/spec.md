@@ -29,6 +29,7 @@ Decided while building (16 Oct 2026), then settled by a person on 17 Oct 2026 (Q
 - **No name known:** the footer says "You" (Q6) with a person icon in the avatar slot, so the row keeps its shape when a name arrives and the collapsed rail still shows something.
 - **The narrow-window Sessions place** uses Lucide's History icon; the design has no icon for it.
 - **Session source keys are 12 px mono**, not the 11 px in the design's CSS, because the design system allows nothing under 12 px.
+- **Later, 17 Oct 2026:** the user found the app "zoomed out" and asked for the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`, branch `feat/clean-ui-scale`). Source keys are now 14 px and the state glyphs 14 px in 24 px circles; the 260–400 px sidebar is unchanged. `docs/design-map.md` lists every size that moved.
 - **The Working icon spins** (the spec's "spinning arc"), except with reduced motion.
 - **The web host waits up to 300 ms for the bundled fonts** before its first render, so text never moves when a font swaps in.
 

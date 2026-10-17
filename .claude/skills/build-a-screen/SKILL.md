@@ -60,7 +60,7 @@ export function TicketsScreen() {
         meta="Ends Oct 24"
       />
       <Toolbar>{/* filter chips, count */}</Toolbar>
-      <PageBody>{/* columns */}</PageBody>
+      <PageBody width="full">{/* columns */}</PageBody>
     </>
   );
 }

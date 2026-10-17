@@ -7,7 +7,7 @@ description: Use whenever building, changing or reviewing anything a person sees
 
 A screen feels clean when it makes very few choices and makes each one in a single shared place: one spacing scale, one page frame, one focus ring, one voice. This skill is the DevHub version of the Clean UI principles. The full, tool-agnostic text is in [principles.md](principles.md); read it once, then use this page while you work.
 
-Where this page and `docs/design/design-system.md` disagree, colour and component identity come from the design system, and layout, scale, states and copy come from here. Anything else that disagrees: **stop and ask**.
+Where this page and `docs/design/design-system.md` disagree, colour and component identity come from the design system, and layout, scale, states and copy come from here. Where `principles.md` gives a number (14 px default text, `rounded-xl`), this page's DevHub mapping wins. Anything else that disagrees: **stop and ask**.
 
 ## 1. Page layout: use the frame, never your own
 
@@ -22,7 +22,8 @@ Every route is `PageBar` → optional `Toolbar` → `PageBody` from `packages/ap
 - **No fourth width.** If none fits, it is a design question: stop and ask.
 - **The frame owns its geometry.** `PageBar` and `PageBody` take no `className`. Gutter (16 px phone, 48 px from 768 px), rhythm (24 px between sections, 24 px on top, 32 px below) and the measure live inside them. Change the frame, never the call site.
 - **Padding and max-width sit on different elements.** The gutter is on an outer wrapper and the measure on an inner one, or a "960 column" silently renders 864.
-- **One state per page bar:** a breadcrumb, or tabs, never both. The bar is 56 px with a bottom hairline; the page's one `primary` button lives in its actions.
+- **One state per page bar:** a breadcrumb, or tabs, never both. The bar is one 56 px line with a bottom hairline at every width: a long crumb is cut, and under 768 px the meta hides. The page's one `primary` button lives in its actions.
+- **The bar spans the pane; the column is centred under it.** At wide widths the crumb and the column do not line up. That is intended, as in the reference screens.
 - **One width per tab group.** Tabs under one strip share the wider measure, so nothing jumps when you switch.
 
 ## 2. Type: five sizes, two weights
@@ -56,7 +57,7 @@ Every route is `PageBar` → optional `Toolbar` → `PageBody` from `packages/ap
 
 - Use the real `@devhub/ui` part, never a lookalike; if it is missing, follow `.claude/skills/add-ui-component/SKILL.md`. Never invent a prop or variant.
 - Colours, radii and shadows are tokens from `docs/design-map.md`. Indigo (`info`) only marks links, focus and the selected item.
-- **One selected style:** `bg-subtle` plus `aria-current`, with the icon in `text-info`, in every list and nav.
+- **Selected items reuse the design system's marks, never a new one:** a place is `bg-subtle` with its icon in `text-info`, the open session row is `bg-raised` with a hairline, a tab has the `info` underline. All of them carry `aria-current` or `aria-selected`.
 - **Cards don't hold cards.** A bordered panel never contains another bordered or dashed box.
 - **The same name looks the same everywhere** (colour, weight, casing), and one concept has one word across the app.
 
@@ -77,11 +78,13 @@ Every route is `PageBar` → optional `Toolbar` → `PageBody` from `packages/ap
 ## 6. Focus, keyboard and motion
 
 - One focus ring everywhere (`:focus-visible` in `theme.css`); never remove or restyle it per component. Toggles never drop focus.
-- Links navigate (`<a href>` / router `Link`), buttons act. The logo is a link.
+- Links navigate (`<a href>` / router `Link`), buttons act. Anything that goes somewhere is a link, a logo included.
 - Prefer logical classes in new code: `ms-*`, `me-*`, `ps-*`, `pe-*`, `start-*`, `end-*`, `text-start`.
 - Motion: 150–200 ms, colour and opacity first, never `transition-all`, and only under `motion-safe:`.
 
 ## 7. Copy
+
+These rules are for new copy. Copy that a screen design or the spec gives word for word stays as given (the Home greeting "What should we build today?"); if it breaks a rule, raise it with a person instead of rewriting it.
 
 - Sentence case everywhere. Speak to "you"; the product never says "we" or "I".
 - No "Please", "Sorry", "Oops", no exclamation marks. A full sentence ends with a period; a label does not.
@@ -99,7 +102,7 @@ Every route is `PageBar` → optional `Toolbar` → `PageBody` from `packages/ap
 ## Stop and ask when
 
 - a value has no token, or the design gives a raw number instead of a named style
-- you need a fifth width, a sixth text size or a third weight
+- you need a fourth width, a sixth text size or a third weight
 - a state (hover, focus, disabled, loading, empty, error) is never drawn
 - two sources (spec, screens, design system, this skill) disagree
 
