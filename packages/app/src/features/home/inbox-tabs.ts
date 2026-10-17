@@ -8,9 +8,23 @@ import type { InboxItem, InboxTab } from '@devhub/contracts';
 export const homeTabs = ['all', 'jira', 'pull-requests'] as const;
 export type HomeTab = (typeof homeTabs)[number];
 
+/** Text in the address; the router reads `q=2841` as a number. */
+const text = z.union([z.string(), z.number()]).transform(String);
+
+/**
+ * The tab, then the list's search, filters, order and page (spec 007, Q10i). Filters are comma lists
+ * (`reason=checks-failing,to-do`). Anything the address holds that can't be read is left out, so a
+ * hand-typed address still opens, on All.
+ */
 export const HomeSearchSchema = z.object({
-  // An unknown tab opens All instead of an error page.
   inbox: z.enum(['jira', 'pull-requests']).optional().catch(undefined),
+  q: text.optional().catch(undefined),
+  reason: text.optional().catch(undefined),
+  project: text.optional().catch(undefined),
+  status: text.optional().catch(undefined),
+  repo: text.optional().catch(undefined),
+  sort: z.literal('longest').optional().catch(undefined),
+  page: z.coerce.number().int().min(2).optional().catch(undefined),
 });
 export type HomeSearch = z.infer<typeof HomeSearchSchema>;
 
