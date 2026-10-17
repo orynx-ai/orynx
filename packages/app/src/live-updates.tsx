@@ -14,6 +14,9 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       return [queryKeys.status, queryKeys.jiraConnection, queryKeys.githubConnection];
     case 'sessions.changed':
       return [queryKeys.sessions];
+    case 'settings.changed':
+      // No query holds Settings' own values yet.
+      return [];
   }
 }
 

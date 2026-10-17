@@ -4,6 +4,7 @@
  */
 import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
+import { defaultPreferences, PreferencesSchema, type InboxRules, type Preferences } from './preferences.ts';
 import { SessionListSchema, SessionSummarySchema, type SessionList, type SessionSummary } from './session.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 
@@ -61,4 +62,18 @@ export function makeJiraConnection(overrides: Partial<JiraConnection> = {}): Jir
 /** GitHub as the server reports it: not connected, no `.env` token and no gh, unless the override says otherwise. */
 export function makeGitHubConnection(overrides: Partial<GitHubConnection> = {}): GitHubConnection {
   return GitHubConnectionSchema.parse({ saved: null, envToken: false, ghFound: false, ...overrides });
+}
+
+export interface PreferencesOverrides {
+  permissionMode?: Preferences['permissionMode'];
+  /** Override some rules and keep the others on. */
+  inboxRules?: Partial<InboxRules>;
+}
+
+/** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
+export function makePreferences(overrides: PreferencesOverrides = {}): Preferences {
+  return PreferencesSchema.parse({
+    permissionMode: overrides.permissionMode ?? defaultPreferences.permissionMode,
+    inboxRules: { ...defaultPreferences.inboxRules, ...overrides.inboxRules },
+  });
 }

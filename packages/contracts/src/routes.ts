@@ -8,6 +8,7 @@ export const apiPaths = {
   events: '/events',
   jiraConnection: '/jira/connection',
   githubConnection: '/github/connection',
+  preferences: '/preferences',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -19,6 +20,7 @@ export const apiRoutes = {
   events: `${apiPrefix}${apiPaths.events}`,
   jiraConnection: `${apiPrefix}${apiPaths.jiraConnection}`,
   githubConnection: `${apiPrefix}${apiPaths.githubConnection}`,
+  preferences: `${apiPrefix}${apiPaths.preferences}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];
