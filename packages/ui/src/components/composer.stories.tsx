@@ -1,10 +1,12 @@
 import type { ComponentProps } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Folder, Plus } from 'lucide-react';
+import { FileText, Folder, Plus } from 'lucide-react';
 import { Button } from './button.tsx';
 import { Composer, ComposerBar, ComposerSend, ComposerTextarea } from './composer.tsx';
+import { ContextChip, ContextList } from './context-chip.tsx';
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './menu.tsx';
 import { Picker } from './picker.tsx';
+import { SourceMark } from './source-mark.tsx';
 
 const meta = {
   title: 'Components/Composer',
@@ -26,9 +28,19 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function HomeComposer({ text, ...args }: ComponentProps<typeof Composer> & { text?: string }) {
+function HomeComposer({
+  text,
+  withContext = false,
+  ...args
+}: ComponentProps<typeof Composer> & { text?: string; withContext?: boolean }) {
   return (
     <Composer {...args}>
+      {withContext ? (
+        <ContextList aria-label="Context for Claude">
+          <ContextChip label="PROJ-1423" icon={<SourceMark source="jira" label="none" />} onRemove={() => undefined} />
+          <ContextChip label="bulk-archive-spec.pdf" icon={<FileText />} onRemove={() => undefined} />
+        </ContextList>
+      ) : null}
       <ComposerTextarea
         name="task"
         label="Describe a task for Claude"
@@ -56,6 +68,10 @@ function HomeComposer({ text, ...args }: ComponentProps<typeof Composer> & { tex
 
 /** Home: the text box, + Add context, the folder and agent pickers, and Send. */
 export const Task: Story = { render: (args) => <HomeComposer {...args} /> };
+/** With a Jira ticket and a file added through + Add context. */
+export const WithContext: Story = {
+  render: (args) => <HomeComposer {...args} withContext />,
+};
 /** Nothing to send yet: Send stays focusable but reads as unavailable. */
 export const NothingToSend: Story = { render: (args) => <HomeComposer {...args} canSend={false} /> };
 /** A send on its way: Send shows its spinner, and the text stays. */
