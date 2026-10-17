@@ -21,20 +21,20 @@ pnpm start         # http://127.0.0.1:4317
 
 ## Repo map
 
-| Path                  | What it is                                                                           |
-| --------------------- | ------------------------------------------------------------------------------------ |
-| `apps/web`            | Browser host: Vite, `index.html`, the web `Platform`                                 |
-| `apps/server`         | Node host: env config, session token, serves the web app in production               |
-| `packages/contracts`  | zod schemas for every HTTP body and server event                                     |
-| `packages/api-client` | axios client, typed endpoints, TanStack Query options, event stream                  |
-| `packages/ui`         | The DevHub design system: tokens, Tailwind theme, shadcn-based components, Storybook |
-| `packages/app`        | The product UI: shell, routes, features, zustand stores                              |
-| `packages/core`       | The local server's logic: Fastify routes, integrations, agent runtime, storage       |
-| `specs/`              | One folder per feature: spec, plan, tasks                                            |
-| `docs/`               | Product spec, roadmap, design system, screens, architecture, rules                   |
-| `learn/`              | Explainer pages: how a request flows, local security, live updates                   |
-| `scripts/`            | Gates (one rule each), the gate runner, Claude hooks                                 |
-| `.claude/`            | Agent kit: settings and hooks, skills, slash commands, helper agents                 |
+| Path                  | What it is                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| `apps/web`            | Browser host: Vite, `index.html`, the web `Platform`                                        |
+| `apps/server`         | Node host: env config, session token, serves the web app in production                      |
+| `packages/contracts`  | zod schemas for every HTTP body and server event                                            |
+| `packages/api-client` | axios client, typed endpoints, TanStack Query options, event stream                         |
+| `packages/ui`         | The DevHub design system: tokens, Tailwind theme, shadcn-based components, Storybook        |
+| `packages/app`        | The product UI: shell, routes, features, zustand stores                                     |
+| `packages/core`       | The local server's logic: Fastify routes, integrations, agent runtime, storage              |
+| `specs/`              | One folder per feature: spec, plan, tasks                                                   |
+| `docs/`               | Product spec, roadmap, design system, screens, architecture, rules                          |
+| `learn/`              | Explainer pages: how a request flows, local security, live updates, tokens and the keychain |
+| `scripts/`            | Gates (one rule each), the gate runner, Claude hooks                                        |
+| `.claude/`            | Agent kit: settings and hooks, skills, slash commands, helper agents                        |
 
 The packages are split so a desktop app can be a third host later without a rewrite. See `docs/architecture.md`.
 

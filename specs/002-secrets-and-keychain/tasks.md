@@ -26,8 +26,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: Wire the store into `createServer` as `app.tokens`; `main.ts` passes the OS keychain; nothing reads it at start (AC-1, AC-6, AC-14)
       Check: pnpm test packages/core apps/server; pnpm build; pnpm exec playwright test e2e/
       Files: packages/core/src/create-server.ts, packages/core/src/secrets/tokens-in-server.test.ts, packages/core/src/index.ts, apps/server/src/main.ts
-- [ ] Task 9: Docs: a `learn/` page on tokens and the keychain, architecture, local-security and the integration-adapter skill
+- [x] Task 9: Docs: a `learn/` page on tokens and the keychain, architecture, local-security and the integration-adapter skill
       Check: pnpm gate learn-freshness; pnpm gate handbook-size; pnpm format:check
-      Files: learn/tokens-and-keychain.md, learn/local-security.md, docs/architecture.md, .claude/skills/integration-adapter/SKILL.md
+      Files: learn/tokens-and-keychain.md, learn/local-security.md, docs/architecture.md, .claude/skills/integration-adapter/SKILL.md, README.md
 - [ ] Task 10: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)

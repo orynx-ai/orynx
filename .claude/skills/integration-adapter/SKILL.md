@@ -28,7 +28,7 @@ Adding the SDK is part of that integration's spec. Any other library: stop and a
 ## Steps
 
 1. **Contract first.** Add the shapes the app sees (inbox item, ticket, PR) to `@devhub/contracts`. See `.claude/skills/add-api-endpoint/SKILL.md`.
-2. **Tokens.** Read and write tokens only through the keychain module (planned with `@napi-rs/keyring`, spec 002). A token is never written to disk in plain text, never sent to the browser, never put in an error message, and never logged. `.env` is an opt-in fallback only.
+2. **Tokens.** Read and write tokens only through `app.tokens` (`packages/core/src/secrets/token-store.ts`, spec 002): `read(tool)` gives the token and whether it came from the keychain or `.env`, `save` and `remove` go to the OS keychain. Turn a `TokenStoreError` into an `ApiError` with its `code` (`keychain_unavailable` or `bad_request`). A token is never written to disk in plain text, never sent to the browser, never put in an error message, and never logged. `.env` is an opt-in fallback only. See `learn/tokens-and-keychain.md`.
 3. **client.ts.** Wrap the SDK. Return typed results, and turn SDK errors into one of: not connected, needs admin approval, error (with a one-line reason).
 4. **map.ts.** Map outside data to contracts. Jira status is mapped by **status category** (To do, In progress, Done), never by status name, because teams name statuses differently. Make the acceptance-criteria field configurable.
 5. **rules.ts.** One pure function per inbox rule from the spec's "What counts as needs you" table. Each rule returns the reason text with the wait ("Review · 2 d", "No reply · 3 h"). Each rule can be switched off in Settings › Inbox rules.

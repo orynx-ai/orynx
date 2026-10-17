@@ -38,6 +38,8 @@ Each package's source is TypeScript that the consuming bundler or `tsx` compiles
 - **Host check.** The server rejects requests whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>`. This blocks DNS-rebinding pages from reading the token. See `learn/local-security.md`.
 - **Live updates.** `GET /api/events` is a server-sent event stream of the `ServerEvent` union from contracts. The app turns events into TanStack Query invalidations; it never patches stores by hand.
 - **Data.** Everything lives under `DEVHUB_HOME`, which defaults to `~/.devhub`: `runtime.json`, `cache.db` (SQLite), `sessions/`, `worktrees/`. Tests always use a temporary `DEVHUB_HOME`.
+- **Settings.** `apps/server/src/config.ts` reads the shell's variables and the repo-root `.env` (with `node:util` `parseEnv`); the shell wins. Every key is in `.env.example`.
+- **Tokens.** Jira, GitHub and Slack tokens live in the OS keychain (service "DevHub", one account per tool) through `app.tokens`, which `createServer()` builds from the keychain the host passes. The native library loads on the first token call, never at start. `.env` holds tokens only when the user sets `DEVHUB_TOKENS_FROM_ENV=true`. See `learn/tokens-and-keychain.md`.
 
 ## Stack
 
@@ -64,7 +66,7 @@ Decided means use it, and do not add an alternative. Planned means add it in the
 | Coding agent      | @anthropic-ai/claude-agent-sdk                                                                                                                                   | planned (session spec)                                                                       |
 | Git worktrees     | simple-git                                                                                                                                                       | planned (session spec)                                                                       |
 | Cache             | better-sqlite3 + drizzle-orm                                                                                                                                     | planned (inbox spec)                                                                         |
-| OS keychain       | @napi-rs/keyring                                                                                                                                                 | planned (connections spec)                                                                   |
+| OS keychain       | @napi-rs/keyring                                                                                                                                                 | decided (spec 002); loaded on first use, never at start                                      |
 | Integrations      | jira.js, @octokit/rest, @slack/web-api                                                                                                                           | planned (one per integration spec)                                                           |
 | Desktop           | Electron via electron-vite                                                                                                                                       | planned (after v1)                                                                           |
 
