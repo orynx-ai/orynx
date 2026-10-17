@@ -63,7 +63,10 @@ async function openHome(route = '/') {
   const panel = screen.getByRole('region', { name: 'Needs your attention' });
   // Loading rows are hidden from screen readers, so the first row found is a real one.
   await within(panel).findAllByRole('listitem');
-  return { ...rendered, panel, list: within(panel).getByRole('list') };
+  // The rows come first; a pager, when there is one, is a list of its own after them.
+  const [list] = within(panel).getAllByRole('list');
+  if (list === undefined) throw new Error('No list of rows');
+  return { ...rendered, panel, list };
 }
 
 /** The row whose title link has this name. */
@@ -512,5 +515,104 @@ describe('AttentionPanel when a sync changes the rows', () => {
     }
 
     expect(stops).toEqual(['Search', 'Reason', review.title, 'Review', ticket.title, 'Open']);
+  });
+});
+
+describe('AttentionPanel pages', () => {
+  /** Tickets PROJ-100 to PROJ-1nn, "Ticket 0" waiting longest; newest first, Ticket nn-1 leads. */
+  function tickets(count: number): InboxItem[] {
+    return Array.from({ length: count }, (_, index) =>
+      makeInboxItem({
+        id: `jira:PROJ-${String(100 + index)}`,
+        source: 'jira',
+        tab: 'jira',
+        title: `Ticket ${String(index)}`,
+        subject: { kind: 'issue', key: `PROJ-${String(100 + index)}`, status: 'To Do', highPriorityBug: false },
+        reason: { kind: 'status', category: 'to_do' },
+        waitingSince: new Date(Date.UTC(2026, 9, 1, index)).toISOString(),
+        target: { kind: 'external', url: `https://acme.atlassian.net/browse/PROJ-${String(100 + index)}` },
+      }),
+    );
+  }
+
+  function shownTitles(panel: HTMLElement) {
+    return within(within(panel).getAllByRole('list')[0] ?? panel)
+      .getAllByRole('listitem')
+      .map((row) => within(row).getAllByRole('link')[0]?.textContent);
+  }
+
+  it('AC-40: shows 16 rows, then a pager whose page links go to their page and move focus to its first row', async () => {
+    inboxWith(tickets(34));
+    const { user, history, panel } = await openHome('/?sort=longest');
+
+    expect(shownTitles(panel)).toHaveLength(16);
+    expect(shownTitles(panel)[0]).toBe('Ticket 0');
+    const pager = within(panel).getByRole('navigation', { name: 'Pages' });
+    expect(within(pager).getByRole('link', { name: '1' })).toHaveAttribute('aria-current', 'page');
+    expect(within(pager).getByRole('link', { name: 'Previous page' })).toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(within(pager).getByRole('link', { name: '3' }));
+
+    expect(new URLSearchParams(history.location.search).get('page')).toBe('3');
+    expect(shownTitles(panel)).toEqual(['Ticket 32', 'Ticket 33']);
+    expect(within(pager).getByRole('link', { name: '3' })).toHaveAttribute('aria-current', 'page');
+    expect(within(pager).getByRole('link', { name: 'Next page' })).toHaveAttribute('aria-disabled', 'true');
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Ticket 32' })).toHaveFocus();
+    });
+
+    await user.click(within(pager).getByRole('link', { name: 'Previous page' }));
+    expect(new URLSearchParams(history.location.search).get('page')).toBe('2');
+    expect(shownTitles(panel)[0]).toBe('Ticket 16');
+  });
+
+  it('AC-40: has no pager with 16 rows or fewer', async () => {
+    inboxWith(tickets(16));
+    const { panel } = await openHome();
+
+    expect(shownTitles(panel)).toHaveLength(16);
+    expect(within(panel).queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
+  });
+
+  it('AC-41: a search goes back to the first page, and a page past the end after a sync shows the last one', async () => {
+    inboxWith(tickets(34));
+    const { user, history, panel } = await openHome('/?sort=longest&page=3');
+    expect(shownTitles(panel)).toEqual(['Ticket 32', 'Ticket 33']);
+
+    inboxWith(tickets(20));
+    act(() => {
+      FakeEventSource.latest().emit({ type: 'inbox.changed' });
+    });
+    await waitFor(() => {
+      expect(shownTitles(panel)).toEqual(['Ticket 16', 'Ticket 17', 'Ticket 18', 'Ticket 19']);
+    });
+    expect(within(panel).getByRole('link', { name: '2' })).toHaveAttribute('aria-current', 'page');
+
+    await user.type(within(panel).getByRole('searchbox', { name: 'Search' }), 'ticket 19');
+    expect(new URLSearchParams(history.location.search).get('page')).toBeNull();
+    expect(shownTitles(panel)).toEqual(['Ticket 19']);
+  });
+
+  it('AC-44: a sync keeps the search, the filters, the order and the page', async () => {
+    inboxWith(tickets(40));
+    const { history, panel } = await openHome('/?sort=longest&q=ticket&reason=to-do&page=2');
+    expect(shownTitles(panel)[0]).toBe('Ticket 16');
+
+    inboxWith(tickets(41));
+    act(() => {
+      FakeEventSource.latest().emit({ type: 'inbox.changed' });
+    });
+
+    await waitFor(() => {
+      expect(within(panel).getByRole('link', { name: '3' })).toBeVisible();
+    });
+    expect(Object.fromEntries(new URLSearchParams(history.location.search))).toEqual({
+      q: 'ticket',
+      reason: 'to-do',
+      sort: 'longest',
+      page: '2',
+    });
+    expect(shownTitles(panel)[0]).toBe('Ticket 16');
+    expect(within(panel).getByRole('searchbox', { name: 'Search' })).toHaveValue('ticket');
   });
 });

@@ -9,6 +9,7 @@ import {
   AttentionTitle,
   Button,
   EmptyState,
+  Pagination,
   Panel,
   Tabs,
   TabsContent,
@@ -18,15 +19,7 @@ import {
 import { usePlatform } from '../../../platform.tsx';
 import { countKey, homeTabLabels, homeTabs, itemsInTab, tabTools, type HomeTab } from '../inbox-tabs.ts';
 import { actionLabel, emptyText, reasonPill, subLine, tabCounts, toolLine, type ToolLine } from '../inbox-words.ts';
-import {
-  defaultView,
-  filterMenus,
-  matchingRows,
-  searchFor,
-  searchForTab,
-  viewOf,
-  type HomeView,
-} from '../inbox-view.ts';
+import { defaultView, filterMenus, searchFor, showView, searchForTab, viewOf, type HomeView } from '../inbox-view.ts';
 import { useInbox, useInboxRules, type HomeItem } from '../queries.ts';
 import { useNow } from '../use-now.ts';
 import { InboxToolbar } from './inbox-toolbar.tsx';
@@ -236,7 +229,8 @@ function TabBody({
   onClear: () => void;
 }) {
   const { tab } = view;
-  const rows = matchingRows(inbox.items, view);
+  const shown = showView(inbox.items, view);
+  const { rows } = shown;
   const anyRows = itemsInTab(inbox.items, tab).length > 0;
   const lines = tabTools[tab].flatMap((tool) => {
     const state = inbox.tools[tool];
@@ -247,25 +241,66 @@ function TabBody({
   });
   const connected = tabTools[tab].some((tool) => inbox.tools[tool].state !== 'not_connected');
   const keepFocus = useFocusAfterSync(rows);
+  const firstRowAfterPaging = useFirstRowAfterPaging(shown.page, keepFocus.ref);
 
   return (
-    <div {...keepFocus}>
-      {lines.map(({ tool, line }) => (
-        <ToolNote key={tool} line={line} />
-      ))}
-      {rows.length > 0 ? (
-        <AttentionList>
-          {rows.map((item) => (
-            <Row key={item.id} item={item} now={now} />
-          ))}
-        </AttentionList>
-      ) : anyRows ? (
-        <NoMatches onClear={onClear} />
-      ) : connected ? (
-        <NothingHere tab={tab} rules={rules} />
+    <>
+      <div {...keepFocus}>
+        {lines.map(({ tool, line }) => (
+          <ToolNote key={tool} line={line} />
+        ))}
+        {rows.length > 0 ? (
+          <AttentionList>
+            {rows.map((item) => (
+              <Row key={item.id} item={item} now={now} />
+            ))}
+          </AttentionList>
+        ) : anyRows ? (
+          <NoMatches onClear={onClear} />
+        ) : connected ? (
+          <NothingHere tab={tab} rules={rules} />
+        ) : null}
+      </div>
+      {/* Outside the rows' box, so its list is never taken for theirs. */}
+      {shown.pageCount > 1 ? (
+        <div className="border-t border-border px-4 py-3">
+          <Pagination
+            page={shown.page}
+            pageCount={shown.pageCount}
+            pageLink={(page, children) => (
+              <Link
+                to="/"
+                search={searchFor({ ...view, page })}
+                resetScroll={false}
+                activeOptions={{ exact: true, includeSearch: true }}
+                onClick={firstRowAfterPaging}
+              >
+                {children}
+              </Link>
+            )}
+          />
+        </div>
       ) : null}
-    </div>
+    </>
   );
+}
+
+/**
+ * After a page is picked in the pager, the list's top scrolls into view under the page bar and focus moves to
+ * its first row's title (Q10g). Paging any other way, Back included, leaves focus alone.
+ */
+function useFirstRowAfterPaging(page: number, box: React.RefObject<HTMLDivElement | null>): () => void {
+  const picked = useRef(false);
+  useEffect(() => {
+    if (!picked.current) return;
+    picked.current = false;
+    const list = box.current?.querySelector('ul');
+    list?.querySelector('a')?.focus({ preventScroll: true });
+    list?.scrollIntoView({ block: 'start' });
+  }, [page, box]);
+  return () => {
+    picked.current = true;
+  };
 }
 
 /** The tab has rows, but the search and filters let none through (AC-38, Q10e). */

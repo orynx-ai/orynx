@@ -7,6 +7,9 @@ import { useUiStore } from '../stores/ui-store.ts';
 import { FakeEventSource } from './fake-event-source.ts';
 import { server } from './msw.ts';
 
+// jsdom does no layout, so it has no scrollIntoView: a browser scrolls there, here nothing moves.
+Element.prototype.scrollIntoView = () => undefined;
+
 beforeAll(() => {
   server.listen({ onUnhandledFrame: 'error' });
 });

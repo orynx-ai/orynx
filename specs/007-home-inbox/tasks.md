@@ -88,7 +88,7 @@ Tasks 22 to 29 come from the amendment of 17 Oct 2026 (Q9, Q10): search, filters
 - [x] Task 27: The toolbar: the search box on the left and the tab's filter menus on the right, no matches with Clear search and filters, and filters dropped when the tab changes (AC-35, AC-36, AC-37, AC-38, AC-42, AC-45)
       Check: pnpm test packages/app/src/features/home; pnpm gate style-policy component-coverage
       Files: packages/app/src/features/home/components/inbox-toolbar.tsx, inbox-toolbar.test.tsx, attention-panel.tsx, attention-panel.test.tsx
-- [ ] Task 28: Pages of 16 with the pager, back to page 1 on any change, the last page when a sync shortens the list, and focus on the first row after paging (AC-40, AC-41, AC-44)
+- [x] Task 28: Pages of 16 with the pager, back to page 1 on any change, the last page when a sync shortens the list, and focus on the first row after paging (AC-40, AC-41, AC-44)
       Check: pnpm test packages/app/src/features/home
       Files: packages/app/src/features/home/components/attention-panel.tsx, attention-panel.test.tsx
 - [ ] Task 29: Run the new parts end to end and in a real browser at 360 and 1280 px, light and dark: e2e for search, a filter, the order and a page; axe; no sideways scroll. Update `learn/the-inbox.md`, then run the full check (AC-34, AC-43, AC-45)
