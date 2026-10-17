@@ -17,9 +17,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Settings file store: `<DEVHUB_HOME>/settings.json`, mode 600, atomic writes in one queue, and an in-memory store for tests (AC-3). `createServer` takes it in task 9, where the routes first use it
       Check: pnpm test packages/core/src/settings; pnpm typecheck
       Files: packages/core/src/settings/settings-store.ts, packages/core/src/settings/settings-store.test.ts, packages/core/src/index.ts
-- [ ] Task 6: Jira client over jira.js: check email and token with `/myself`, 10 s timeout, every failure becomes a fixed outcome, nothing from jira.js's errors escapes (AC-4, AC-5, AC-6, AC-15)
+- [x] Task 6: Jira client over jira.js: check email and token with `/myself`, 10 s timeout, every failure becomes a fixed outcome, nothing from jira.js's errors escapes (AC-4, AC-5, AC-6, AC-15)
       Check: pnpm test packages/core/src/integrations/jira; pnpm typecheck; pnpm gate boundaries
-      Files: packages/core/src/integrations/jira/client.ts, packages/core/src/integrations/jira/client.test.ts, packages/core/src/test/msw.ts, packages/core/package.json, packages/core/vitest.config.ts, pnpm-lock.yaml (via pnpm add)
+      Files: packages/core/src/integrations/jira/client.ts, packages/core/src/integrations/jira/client.test.ts, packages/core/src/integrations/jira/problems.ts, packages/core/src/integrations/jira/problems.test.ts, packages/core/src/test/fake-jira.ts, packages/core/package.json, apps/server/package.json, pnpm-lock.yaml (via pnpm add)
 - [ ] Task 7: Jira connection service: connect checks then saves, disconnect removes all three, read never touches the keychain, `.env` token, `status.changed` (AC-3, AC-4, AC-8, AC-10, AC-11, AC-12)
       Check: pnpm test packages/core/src/integrations/jira; pnpm typecheck
       Files: packages/core/src/integrations/jira/connection.ts, packages/core/src/integrations/jira/connection.test.ts
