@@ -17,6 +17,7 @@ export {
   type AttentionTitleProps,
 } from './components/attention-row.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
+export { Board, BoardColumn, type BoardColumnProps, type BoardProps } from './components/board.tsx';
 export {
   Breadcrumb,
   BreadcrumbItem,

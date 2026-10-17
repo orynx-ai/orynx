@@ -35,7 +35,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: Add `SearchField` to `@devhub/ui`: an Input with the search icon and an `aria-label`, in 40 px and 32 px sizes (Q10c)
       Check: pnpm test packages/ui; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/search-field.tsx, search-field.stories.tsx, search-field.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 12: Add `Board` and `BoardColumn` to `@devhub/ui`: a named, focusable region that scrolls its columns sideways, and a column with its status icon, heading, count, cards or empty text, and a loading form (Q10a, Q10d) (AC-20, AC-30, AC-31)
+- [x] Task 12: Add `Board` and `BoardColumn` to `@devhub/ui`: a named, focusable region that scrolls its columns sideways, and a column with its status icon, heading, count, cards or empty text, and a loading form (Q10a, Q10d) (AC-20, AC-30, AC-31)
       Check: pnpm test packages/ui; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/board.tsx, board.stories.tsx, board.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 13: Add `Table` to `@devhub/ui` from shadcn's table, restyled to the screen's list: a hidden caption, a header row on `bg-sidebar`, a border between rows, and loading rows (Q10b, Q10d) (AC-11, AC-20)
