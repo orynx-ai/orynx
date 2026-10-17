@@ -38,5 +38,16 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: e2e in Chromium: the shortcut reaches the page, CLS is 0 after a collapsed reload, no horizontal scroll at 360 px (AC-3, AC-6, AC-19)
       Check: pnpm test:e2e
       Files: e2e/shell.spec.ts, e2e/smoke.spec.ts (and the font fix in apps/web/src/fonts.ts, its own commit)
-- [ ] Task 13: STOP and run /review
+- [x] Task 13: STOP and run /review (passed 17 Oct 2026; Q10–Q12 then added Tasks 14–17)
+      Check: the review stamp matches the branch (pnpm review:stamp verify)
+- [ ] Task 14: `Splitter` in `@devhub/ui`: a keyboard and pointer resize handle (window-splitter pattern) (AC-21, AC-22, AC-23)
+      Check: pnpm test packages/ui; pnpm gate component-coverage; pnpm gate style-policy
+      Files: packages/ui/src/components/splitter.tsx, packages/ui/src/components/splitter.stories.tsx, packages/ui/src/components/splitter.test.tsx, packages/ui/src/index.ts, docs/design-map.md
+- [ ] Task 15: Sidebar 260 px by default, resizable to 400 px, remembered (AC-21, AC-22, AC-23, AC-24)
+      Check: pnpm test packages/app/src/shell; pnpm gate style-policy; checked in a real browser at 1280 px, light and dark
+      Files: packages/app/src/stores/ui-store.ts, packages/app/src/shell/sidebar.tsx, packages/app/src/shell/sidebar.test.tsx
+- [ ] Task 16: e2e: drag the handle in Chromium, clamp at 400 px, keep the width across a reload with no layout shift (AC-21, AC-23)
+      Check: pnpm test:e2e
+      Files: e2e/shell.spec.ts
+- [ ] Task 17: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
