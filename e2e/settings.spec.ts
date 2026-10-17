@@ -121,12 +121,26 @@ test('AC-20: Given a narrow window, when Settings opens on its last tab, then th
   if (listBox === null || tabBox === null) throw new Error('The tab list is not on screen.');
   expect(tabBox.x).toBeGreaterThanOrEqual(listBox.x);
   expect(tabBox.x + tabBox.width).toBeLessThanOrEqual(listBox.x + listBox.width + 0.5);
+
+  // Back to the first tab without a click on it, as the Back button or a link does.
+  await page.goto('/settings/connections');
+  await page.goto('/settings/appearance');
+  await page.goBack();
+  const first = page.getByRole('tab', { name: 'Connections' });
+  await expect(first).toHaveAttribute('aria-selected', 'true');
+  const firstBox = await first.boundingBox();
+  const listAfter = await list.boundingBox();
+  if (firstBox === null || listAfter === null) throw new Error('The tab list is not on screen.');
+  expect(firstBox.x).toBeGreaterThanOrEqual(listAfter.x - 0.5);
 });
 
 for (const tab of ['coding-agent', 'repositories', 'inbox-rules'] as const) {
   test(`AC-15: Given Settings is opening on ${tab}, when its values arrive, then nothing on the page moves`, async ({
     page,
   }) => {
+    // No live updates on this page: the other run's folders coming and going would move rows that this
+    // test isn't about. It measures only the change from loading to loaded.
+    await page.route('**/api/events**', (route) => route.abort());
     await page.goto(`/settings/${tab}`);
     await waitForTab(page, tab);
 
@@ -180,6 +194,8 @@ test('AC-13, AC-19: Given Inbox rules, when I press Space on a rule, then it sav
   await expect(box).not.toBeChecked();
   await firstSave;
   await page.reload();
+  // Enabled first: while the values load, every rule is drawn unchecked and turned off.
+  await expect(page.getByRole('checkbox', { name: rule })).toBeEnabled();
   await expect(page.getByRole('checkbox', { name: rule })).not.toBeChecked();
 
   await page.getByRole('checkbox', { name: rule }).focus();

@@ -17,8 +17,7 @@ Everything goes in `<DEVHUB_HOME>/settings.json`, next to Jira's site and email 
 ```
 
 - Only what you changed is written. A rule you never touched isn't in the file, and `PreferencesService.read()` fills it in from `defaultPreferences` in contracts. So when Slack's rule arrives in spec 016, it starts on for everyone without a migration.
-- `settings-store.ts` reads each new key leniently. A value this version can't read counts as never chosen (`.catch(undefined)`), and a folder it can't read is skipped. One bad key can't make DevHub treat the whole file as broken and forget Jira's settings next to it.
-- Rule names this version doesn't know are kept when it saves, so a newer DevHub's rules survive an older one.
+- `settings-store.ts` keeps `agent`, `inbox` and `repositories` as they were written. The services take what they can read (`PermissionModeSchema.safeParse`, booleans only for rules, `SavedRepositorySchema` per folder) and keep everything else through every save. So a value a newer DevHub wrote, such as a new rule or a folder in a new shape, survives this version, and one bad value can't make DevHub treat the whole file as broken and forget Jira's settings next to it.
 - A folder's name and its `~` path aren't stored. They're worked out on every read from the real path and the real home folder.
 
 ## One change, end to end
@@ -35,24 +34,24 @@ click a mode ─▶ useChangePreferences().mutate({ permissionMode })
               every open tab: LiveUpdates invalidates preferences and repositories
 ```
 
-- **Instant, then confirmed.** The control moves before the server answers (spec 005: "the control shows the new value straight away"). If the save fails, `onError` puts back what was there, and `SaveError` says so under the group until the next change.
-- **Quick changes don't undo each other.** Each PATCH carries only what changed (`{ inboxRules: { checks_failing: false } }`), and the server applies changes one at a time. The client refetches only when the last pending change settles (`isMutating(…) === 1`), so an early answer can't flip a later change back on screen.
-- **Remove works the same way.** `useRemoveRepository()` takes the row away at once, moves focus to the next row's Remove (or to Add local folder), and says "Removed intranet-web." in the panel's polite live region. A failure brings the row back.
-- **Add waits for the server**, because only the server can look at the disk. The new row goes into the cache from the answer, and `settings.changed` confirms it.
+- **Instant, then confirmed.** The control moves before the server answers (spec 005: "the control shows the new value straight away"). If the save fails, `onError` takes back that change alone: each value it set goes back to what the server holds (the value from before the first change still on its way), unless a later change has set it again. `SaveError` says so under the group until the next change.
+- **Quick changes don't undo each other.** Each PATCH carries only what changed (`{ inboxRules: { checks_failing: false } }`), and the server applies changes one at a time. The client refetches only when the last pending change settles (`refetchAfterLast`), and `LiveUpdates` ignores `settings.changed` for data with a change still on its way, so neither an early answer nor an early event can flip a later change back on screen.
+- **Remove works the same way.** `useRemoveRepository()` takes the row away at once and moves focus to the next row's Remove (or to Add local folder). "Removed intranet-web." is said in the panel's polite live region once the server agrees. A failure puts back that row alone, at its place, and focus returns to its Remove. A held-down Enter removes one folder, not one after another.
+- **Add waits for the server**, because only the server can look at the disk. The new row goes into the cache from the answer, and the list refetches after. While a folder is on its way, Add local folder can't close the form, so the answer always has a place to show.
 
 ## How a folder is checked
 
 `folder-check.ts` takes the typed path and uses the file system only. It never runs git or a script in the folder, because a repository's own config can make git run commands.
 
 1. Empty, holding a line break or NUL, or not a full path (`/…`, `~` or `~/…`; `~someone` isn't supported): refused before the disk is read.
-2. `realpath` resolves `~`, `..` and symlinks. Nothing there, or a file in the middle of the path: "Nothing is at this path."
+2. `realpath` resolves `~`, `..` and symlinks. Nothing there, a file in the middle of the path, a symlink loop or a name too long for the disk: "Nothing is at this path."
 3. A file: "This is a file. Pick its folder."
-4. Inside DevHub's own folder, where the session worktrees live: refused.
+4. Inside DevHub's own folder, where the session worktrees live: refused. This compares the folders' identities on disk (device and inode) up the path, not their spelling: macOS reaches every folder under `/private` also through `/System/Volumes/Data/…`, and `realpath` keeps whichever spelling it was given.
 5. Can't read it: "DevHub can't read this folder."
 6. Holds `.git` (a folder in a clone, a file in a worktree): accepted, saved as the real path.
 7. Otherwise DevHub walks up the parents. A `.git` above means "inside the repository at ~/code/x", which names the folder to add instead. No `.git` anywhere means "not a git repository".
 
-The duplicate check and the 100-folder limit run inside `settings.update`, so two tabs adding the same folder at once can't both win. Comparing real paths means a symlink to a folder already in the list counts as a duplicate.
+The duplicate check and the 100-folder limit run inside `settings.update`, so two tabs adding the same folder at once can't both win. Duplicates are found by identity on disk too, so a symlink or a second spelling of a folder already in the list counts as the same folder.
 
 The form checks the first two cases itself with `RepositoryPathSchema`, the same schema the route validates with. The server's answer for the rest is `422 folder_rejected`, and the form puts its message under Folder.
 
@@ -62,7 +61,7 @@ When the form opens with Jira connected, it asks `GET /api/jira/projects` (see `
 
 ## The loading look
 
-While a tab's values load, it draws its real controls with nothing picked and turned off: three radios, five checkboxes, or the Repositories header with an empty space below. The loaded tab has the same shape, so nothing moves when the values arrive. The e2e run measures this (CLS 0 on each tab).
+While a tab's values load, it draws its real controls with nothing picked and turned off: three radios, five checkboxes, or the Repositories header with the list's frame one row tall below it. Nothing above the list moves when the values arrive, and the radios and checkboxes keep their exact shape. The e2e run measures this (CLS 0 on each tab).
 
 ## Testing
 
