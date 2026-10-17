@@ -1,0 +1,7 @@
+#!/bin/sh
+# A stand-in for GitHub's gh, for tests only (see ../fake-gh.ts). Each test folder holds a symlink
+# to this one file, so macOS checks a new program once per run instead of once per test, and a
+# behaviour.sh that says what to do. Every run appends its arguments to runs.log in that folder.
+here=$(dirname "$0")
+echo "$*" >> "$here/runs.log"
+. "$here/behaviour.sh"

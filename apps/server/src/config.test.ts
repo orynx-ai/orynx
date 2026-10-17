@@ -17,7 +17,14 @@ describe('loadConfig', () => {
       pretty: true,
       keychain: 'os',
       tokens: { fromEnv: false, env: {}, ignored: [] },
+      ghSearchPath: '',
     });
+  });
+
+  it("AC-2: looks for gh on the shell's PATH, never on a PATH written in .env", () => {
+    const config = loadConfig({ env: { PATH: '/opt/homebrew/bin:/usr/bin' }, envFile: 'PATH=/tmp/elsewhere\n' });
+    expect(config.ghSearchPath).toBe('/opt/homebrew/bin:/usr/bin');
+    expect(loadConfig({ env: {}, envFile: 'PATH=/tmp/elsewhere\n' }).ghSearchPath).toBe('');
   });
 
   it('AC-18: keeps tokens in memory with DEVHUB_KEYCHAIN=memory, so the e2e run never reads the real keychain', () => {

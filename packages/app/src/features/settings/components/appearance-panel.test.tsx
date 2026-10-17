@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -8,6 +8,17 @@ describe('AppearancePanel', () => {
 
     expect(await screen.findByRole('radio', { name: 'Match my computer' })).toBeChecked();
     expect(document.documentElement).not.toHaveAttribute('data-theme');
+  });
+
+  it('shows the themes as one group named Theme, moved through with the arrow keys', async () => {
+    const { user } = await renderApp({ route: '/settings/appearance' });
+
+    const group = await screen.findByRole('radiogroup', { name: 'Theme' });
+    await user.click(within(group).getByRole('radio', { name: 'Match my computer' }));
+    await user.keyboard('{ArrowDown}');
+
+    expect(within(group).getByRole('radio', { name: 'Light' })).toBeChecked();
+    expect(document.documentElement).toHaveAttribute('data-theme', 'light');
   });
 
   it('switches to dark at once and remembers it', async () => {

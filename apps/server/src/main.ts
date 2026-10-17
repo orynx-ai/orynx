@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   createFileSettingsStore,
+  createGhCli,
   createMemoryKeychain,
   createOsKeychain,
   createServer,
@@ -32,6 +33,8 @@ const app = await createServer({
   keychain: config.keychain === 'memory' ? createMemoryKeychain() : createOsKeychain(),
   // Empty unless the user turned on DEVHUB_TOKENS_FROM_ENV.
   envTokens: config.tokens.env,
+  // gh from the PATH of the terminal that started DevHub. The e2e run puts a fake one first.
+  gh: createGhCli({ searchPath: config.ghSearchPath }),
   settings: createFileSettingsStore(config.home, {
     onUnreadable: () => {
       app.log.warn(`${settingsFilePath(config.home)} is not valid; DevHub ignores it until the next save.`);

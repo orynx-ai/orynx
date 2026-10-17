@@ -1,8 +1,8 @@
 import { screen, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeStatus } from '@devhub/contracts/testing';
+import { makeGitHubConnection, makeStatus } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -80,5 +80,41 @@ describe('ConnectionsPanel', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Could not reach the DevHub server');
+  });
+
+  it('opens one connection form at a time, so the page never has two primary buttons', async () => {
+    const { user } = await renderApp({ route: '/settings/connections' });
+
+    await user.click(await within(await row('Jira')).findByRole('button', { name: 'Connect' }));
+    expect(screen.getByRole('form', { name: 'Jira connection' })).toBeVisible();
+    await user.click(within(await row('GitHub')).getByRole('button', { name: 'Connect' }));
+
+    expect(screen.queryByRole('form', { name: 'Jira connection' })).not.toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'GitHub connection' })).toBeVisible();
+    expect(within(await row('Jira')).getByRole('button', { name: 'Connect' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.getAllByRole('button', { name: /^Connect (Jira|GitHub)$/ })).toHaveLength(1);
+  });
+
+  it("while one tool's change is on its way, the other rows' buttons wait", async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(makeGitHubConnection({ ghFound: true }))),
+      http.put(apiUrl(apiRoutes.githubConnection), async () => {
+        await delay('infinite');
+        return HttpResponse.json(makeGitHubConnection({ saved: { method: 'gh' } }));
+      }),
+    );
+    const { user } = await renderApp({ route: '/settings/connections' });
+    await user.click(await within(await row('GitHub')).findByRole('button', { name: 'Connect' }));
+    await user.click(screen.getByRole('button', { name: 'Connect GitHub' }));
+
+    const jira = within(await row('Jira')).getByRole('button', { name: 'Connect' });
+    await expect.poll(() => jira.getAttribute('aria-disabled')).toBe('true');
+    await user.click(jira);
+
+    expect(screen.queryByRole('form', { name: 'Jira connection' })).not.toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'GitHub connection' })).toBeVisible();
   });
 });

@@ -2,6 +2,7 @@
  * Test data builders. Each returns a value that passes its schema, so tests on both
  * sides of the wire use the same shapes. These are data, not mocks of our code.
  */
+import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
 import { SessionListSchema, SessionSummarySchema, type SessionList, type SessionSummary } from './session.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
@@ -55,4 +56,9 @@ export function makeSessionList(items: readonly Partial<SessionSummary>[]): Sess
 /** Jira as the server reports it: not connected and no `.env` token, unless the override says otherwise. */
 export function makeJiraConnection(overrides: Partial<JiraConnection> = {}): JiraConnection {
   return JiraConnectionSchema.parse({ saved: null, envToken: false, ...overrides });
+}
+
+/** GitHub as the server reports it: not connected, no `.env` token and no gh, unless the override says otherwise. */
+export function makeGitHubConnection(overrides: Partial<GitHubConnection> = {}): GitHubConnection {
+  return GitHubConnectionSchema.parse({ saved: null, envToken: false, ghFound: false, ...overrides });
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { tokenOrBlankSchema, tokenSchema } from './token.ts';
 
 /** A Jira Cloud address, the only kind DevHub sends a token to (spec 003, Q2). */
 const cloudHost = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.atlassian\.net$/;
@@ -26,20 +27,10 @@ const emailMessage = 'Enter the email you sign in to Jira with.';
 
 export const JiraEmailSchema = z.string().trim().pipe(z.email(emailMessage).max(254, emailMessage));
 
-/** Spec 002's rule for every token: no spaces or line breaks inside, at most 4096 characters. */
-export const JiraApiTokenSchema = z
-  .string()
-  .trim()
-  .min(1, 'Paste your Jira API token.')
-  .max(4096, 'A token has no spaces or line breaks and is at most 4096 characters.')
-  .regex(/^\S*$/, 'Paste the token without spaces or line breaks.');
+export const JiraApiTokenSchema = tokenSchema('Paste your Jira API token.');
 
 /** A token field that may be left empty: empty means keep the saved token, or use the `.env` one. */
-export const JiraApiTokenOrBlankSchema = z
-  .string()
-  .trim()
-  .transform((token) => (token === '' ? undefined : token))
-  .pipe(JiraApiTokenSchema.optional());
+export const JiraApiTokenOrBlankSchema = tokenOrBlankSchema(JiraApiTokenSchema);
 
 /** PUT /api/jira/connection: check these with Jira, then save them. */
 export const JiraConnectionRequestSchema = z.object({

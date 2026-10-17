@@ -1,27 +1,17 @@
-import type {
-  ApiErrorCode,
-  IntegrationStatus,
-  JiraConnection,
-  JiraCredentials,
-  JiraSavedConnection,
-} from '@devhub/contracts';
+import type { IntegrationStatus, JiraConnection, JiraCredentials, JiraSavedConnection } from '@devhub/contracts';
 import type { EventBus } from '../../events/event-bus.ts';
 import { TokenStoreError, type TokenSource, type TokenStore } from '../../secrets/token-store.ts';
 import type { SettingsStore } from '../../settings/settings-store.ts';
+import { createCheckedStatus } from '../checked-status.ts';
+import { ConnectionError, type KeychainProblem } from '../connection-error.ts';
 import type { JiraClient, JiraProblem } from './client.ts';
 import { describeJiraProblem } from './problems.ts';
 
-/** Why connecting or disconnecting failed. The message is safe to show and never holds a token. */
-export class JiraConnectionError extends Error {
-  readonly code: Extract<
-    ApiErrorCode,
-    'bad_request' | 'integration_rejected' | 'integration_unreachable' | 'keychain_unavailable'
-  >;
-
-  constructor(code: JiraConnectionError['code'], message: string) {
-    super(message);
+/** Why connecting or disconnecting Jira failed. The message is safe to show and never holds a token. */
+export class JiraConnectionError extends ConnectionError {
+  constructor(code: ConnectionError['code'], message: string) {
+    super(code, message);
     this.name = 'JiraConnectionError';
-    this.code = code;
   }
 }
 
@@ -55,15 +45,6 @@ export interface JiraConnectionOptions {
   now?: () => number;
 }
 
-/** The keychain couldn't be reached. `reason` is its error's name and code, safe to log (spec 002). */
-export interface KeychainProblem {
-  kind: 'keychain_unavailable';
-  reason: string | undefined;
-}
-
-/** How long a check's answer stands before status asks Jira again. */
-const recheckAfterMs = 2 * 60_000;
-
 const notConnected: IntegrationStatus = { state: 'not_connected', detail: null };
 
 /** Spec 003 Q5(d): the row line for a working connection, by where the token came from. */
@@ -79,10 +60,6 @@ function keyOf(saved: JiraSavedConnection): string {
   return `${saved.site} ${saved.email}`;
 }
 
-function sameStatus(a: IntegrationStatus, b: IntegrationStatus): boolean {
-  return a.state === b.state && a.detail === b.detail;
-}
-
 function codeFor(problem: JiraProblem): JiraConnectionError['code'] {
   return problem.kind === 'rejected' || problem.kind === 'sign_in_needed'
     ? 'integration_rejected'
@@ -91,13 +68,6 @@ function codeFor(problem: JiraProblem): JiraConnectionError['code'] {
 
 export function createJiraConnection(options: JiraConnectionOptions): JiraConnectionService {
   const { settings, tokens, jira, events, envToken } = options;
-  const now = options.now ?? Date.now;
-
-  /** The last answer, for the saved site and email it was for. */
-  let last: { key: string; at: number; status: IntegrationStatus } | undefined;
-  let running: { key: string; answer: Promise<IntegrationStatus> } | undefined;
-  /** Goes up on every Connect and Disconnect, so a check that started before one can't overwrite it. */
-  let generation = 0;
 
   async function read(): Promise<JiraConnection> {
     return { saved: (await settings.read()).jira ?? null, envToken };
@@ -118,10 +88,6 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
     }
   }
 
-  function remember(key: string, status: IntegrationStatus): void {
-    last = { key, at: now(), status };
-  }
-
   async function checkNow(saved: JiraSavedConnection): Promise<IntegrationStatus> {
     let stored;
     try {
@@ -140,25 +106,13 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
     return { state: 'error', detail: describeJiraProblem(check.problem, saved.site) };
   }
 
-  /** One check per site and email at a time; everyone asking meanwhile shares it. */
-  function startCheck(saved: JiraSavedConnection, key: string): Promise<IntegrationStatus> {
-    if (running?.key === key) return running.answer;
-    const startedIn = generation;
-    const answer = checkNow(saved)
-      .then((status) => {
-        // Connect or Disconnect came first: their answer stands, for everyone still waiting too.
-        if (generation !== startedIn) return last?.status ?? notConnected;
-        const changed = last?.key === key && !sameStatus(last.status, status);
-        remember(key, status);
-        if (changed) events.publish({ type: 'status.changed' });
-        return status;
-      })
-      .finally(() => {
-        if (running?.answer === answer) running = undefined;
-      });
-    running = { key, answer };
-    return answer;
-  }
+  const checked = createCheckedStatus<JiraSavedConnection>({
+    keyOf,
+    check: checkNow,
+    events,
+    now: options.now ?? Date.now,
+    ...(options.onError === undefined ? {} : { onError: options.onError }),
+  });
 
   return {
     read,
@@ -178,8 +132,7 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
       // The token first: it is the step that fails when the keychain is locked, and then nothing has changed.
       if (apiToken !== undefined) await fromTokenStore(() => tokens.save('jira', apiToken));
       await settings.update((current) => ({ ...current, jira: { site, email } }));
-      generation += 1;
-      remember(keyOf({ site, email }), connectedVia(stored?.source ?? 'keychain', site));
+      checked.settle({ site, email }, connectedVia(stored?.source ?? 'keychain', site));
       events.publish({ type: 'status.changed' });
       return read();
     },
@@ -187,8 +140,7 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
     async disconnect() {
       await fromTokenStore(() => tokens.remove('jira'));
       await settings.update(({ jira: _, ...rest }) => rest);
-      generation += 1;
-      last = undefined;
+      checked.forget();
       events.publish({ type: 'status.changed' });
     },
 
@@ -196,13 +148,7 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
       try {
         const saved = (await settings.read()).jira;
         if (saved === undefined) return notConnected;
-        const key = keyOf(saved);
-        if (last?.key !== key) return await startCheck(saved, key);
-        if (now() - last.at >= recheckAfterMs) {
-          // Answer at once with what is known; a change arrives as status.changed.
-          startCheck(saved, key).catch((error: unknown) => options.onError?.(error));
-        }
-        return last.status;
+        return await checked.get(saved);
       } catch (error) {
         // One integration never breaks GET /api/status (integration-adapter skill).
         options.onError?.(error);

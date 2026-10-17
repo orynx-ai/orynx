@@ -1,0 +1,5 @@
+#!/bin/sh
+# Stands in for GitHub's gh in the e2e run: playwright.config.ts puts this folder first on the
+# server's PATH, so the run never reads your real gh login. It is always signed out, as gh 2.x says.
+echo 'no oauth token found for github.com' >&2
+exit 1

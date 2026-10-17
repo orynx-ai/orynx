@@ -49,6 +49,8 @@ const { errors } = form.formState;
 </form>;
 ```
 
+To pick one of a few ways (GitHub's gh login or a token), use `ChoiceGroup` around `ChoiceCard`s, registered under one name. The group takes an error the way `Field` does; focus the checked radio yourself, because react-hook-form can't focus one radio of a group.
+
 `Field` gives its control the label, the help line and the error, wired with `aria-invalid` and `aria-describedby`; the error takes the help line's place. Give a button that stays on screen while it waits `pending`, never `disabled`, so it keeps focus and blocks a second submit. Put a server error on its field with `form.setError(name, { message }, { shouldFocus: true })` (Jira: `integration_rejected` on API token, `integration_unreachable` on Jira site), and anything else in one `role="alert"` line above the buttons.
 
 ## Rules

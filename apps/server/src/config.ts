@@ -20,6 +20,9 @@ const EnvSchema = z.object({
   DEVHUB_KEYCHAIN: z.enum(['os', 'memory']).default('os'),
 });
 
+/** Settings read from the shell only, never from `.env`: a file must not decide which program DevHub starts. */
+const ShellSchema = z.object({ PATH: z.string().default('') });
+
 /** Which setting holds each tool's token when the `.env` fallback is on (spec 002, Q1). */
 export const tokenKeys = {
   jira: 'DEVHUB_JIRA_API_TOKEN',
@@ -43,6 +46,8 @@ export interface ServerConfig {
     /** Token settings that are set while `fromEnv` is off, so the terminal can say they are ignored. */
     ignored: string[];
   };
+  /** Where to look for GitHub's gh (spec 004): the shell's PATH, never one written in `.env`. */
+  ghSearchPath: string;
 }
 
 /** The `.env` next to `.env.example` at the repo root. The same path from `src/` (dev) and `dist/` (start). */
@@ -114,5 +119,6 @@ export function loadConfig({
     pretty: settings.NODE_ENV === 'development',
     keychain: settings.DEVHUB_KEYCHAIN,
     tokens: { fromEnv, env: tokens, ignored },
+    ghSearchPath: ShellSchema.parse(env).PATH,
   };
 }
