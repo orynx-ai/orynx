@@ -49,7 +49,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 15: Update `docs/architecture.md` (the cache is decided, the inbox routes, `autoSync`) and add `learn/the-inbox.md`: how a sync runs, where the cache lives, and why the words are written in the browser
       Check: pnpm gate learn-freshness specs; pnpm exec prettier --check docs learn
       Files: docs/architecture.md, learn/the-inbox.md
-- [ ] Task 16: WAIT for 006 to merge. Then move this branch onto `main` and run the full check
+- [x] Task 16: WAIT for 006 to merge. Then move this branch onto `main` and run the full check
       Check: git rebase main; pnpm verify
       Files: none, unless the rebase shows a conflict
 - [ ] Task 17: Build the "Needs your attention" panel on Home: head, the three tabs with counts and the tab in the address, and the rows from `AttentionList` and `AttentionRow` with their links (AC-1, AC-2, AC-6, AC-9, AC-10, AC-12, AC-14)
