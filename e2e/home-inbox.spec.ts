@@ -119,32 +119,34 @@ test.beforeAll(async ({ browser }, testInfo) => {
   await page.close();
 });
 
-test('Given Jira and GitHub are connected, when Home opens, then their rows show under the tabs, longest wait first', async ({
+test('Given Jira and GitHub are connected, when Home opens, then their rows show under the tabs, newest wait first', async ({
   page,
 }) => {
   await openHome(page);
   const panel = attentionPanel(page);
 
   await expect(panel.getByRole('tab')).toHaveText(['All 14', 'Jira 12', 'Pull requests 2']);
-  await expect(rows(page).first()).toContainText(summaries[0]);
-  await expect(rows(page).first()).toContainText('PROJ-1400 · In Progress');
-  await expect(rows(page).first()).toContainText('In progress · 20 d');
-  await expect(rows(page).nth(12)).toContainText('Lazy-load the people directory');
-  await expect(rows(page).nth(12)).toContainText('web-app #2841 · by Priya S.');
-  await expect(rows(page).nth(12)).toContainText('Review requested · 2 d');
-  await expect(rows(page).last()).toContainText('web-app #2836 · your pull request');
-  await expect(rows(page).last()).toContainText('Checks failing · 3 h');
+  await expect(panel.getByRole('button', { name: 'Order: Newest first' })).toBeVisible();
+  await expect(rows(page).first()).toContainText('Fix timezone shift in event cards');
+  await expect(rows(page).first()).toContainText('web-app #2836 · your pull request');
+  await expect(rows(page).first()).toContainText('Checks failing · 3 h');
+  await expect(rows(page).nth(1)).toContainText('Lazy-load the people directory');
+  await expect(rows(page).nth(1)).toContainText('web-app #2841 · by Priya S.');
+  await expect(rows(page).nth(1)).toContainText('Review requested · 2 d');
+  await expect(rows(page).last()).toContainText(summaries[0]);
+  await expect(rows(page).last()).toContainText('PROJ-1400 · In Progress');
+  await expect(rows(page).last()).toContainText('In progress · 20 d');
   await expect(page.getByText('Synced just now')).toBeVisible();
 });
 
-test('Given Home with rows, when I go through it with Tab, then it stops on Refresh, the selected tab, then each title and action, each with the focus ring', async ({
+test('Given Home with rows, when I go through it with Tab, then it stops on Refresh, the order, the selected tab, then each title and action, each with the focus ring', async ({
   page,
 }) => {
   await openHome(page);
   await page.getByRole('button', { name: 'Refresh' }).focus();
 
   const stops: { name: string; ring: boolean }[] = [];
-  for (let stop = 0; stop < 5; stop += 1) {
+  for (let stop = 0; stop < 6; stop += 1) {
     stops.push(
       await page.evaluate(() => {
         const focused = document.activeElement;
@@ -160,10 +162,11 @@ test('Given Home with rows, when I go through it with Tab, then it stops on Refr
 
   expect(stops).toEqual([
     { name: 'Refresh', ring: true },
+    { name: 'Newest first', ring: true },
     { name: 'All 14', ring: true },
-    { name: summaries[0], ring: true },
+    { name: 'Fix timezone shift in event cards', ring: true },
     { name: 'Open', ring: true },
-    { name: summaries[1], ring: true },
+    { name: 'Lazy-load the people directory', ring: true },
   ]);
 });
 
@@ -174,21 +177,22 @@ test('Given a row has focus, when a sync brings a new item and takes another awa
   await page.evaluate(() => {
     window.scrollTo(0, document.documentElement.scrollHeight);
   });
-  const kept = attentionPanel(page).getByRole('link', { name: summaries[9] });
+  // Newest first, so the tickets run from the 9-day wait (summaries[11]) down to the 20-day one (summaries[0]).
+  const kept = attentionPanel(page).getByRole('link', { name: summaries[2] });
   await kept.focus();
   const before = await kept.boundingBox();
 
-  const longestWait = {
-    key: 'PROJ-1399',
+  const newest = {
+    key: 'PROJ-1412',
     summary: 'Archive the old intranet theme',
     category: 'indeterminate' as const,
-    statuscategorychangedate: jiraAgo(30 * day),
+    statuscategorychangedate: jiraAgo(hour),
   };
-  await holdInTools(page, { ...everything, issues: [longestWait, ...tickets.filter((_, index) => index !== 2)] });
+  await holdInTools(page, { ...everything, issues: [...tickets.filter((_, index) => index !== 10), newest] });
   await syncNow(page);
 
   await expect(rows(page).first()).toContainText('Archive the old intranet theme');
-  await expect(attentionPanel(page).getByRole('link', { name: summaries[2] })).toHaveCount(0);
+  await expect(attentionPanel(page).getByRole('link', { name: summaries[10] })).toHaveCount(0);
   await expect(kept).toBeFocused();
   expect((await kept.boundingBox())?.y).toBe(before?.y);
 });
@@ -201,12 +205,13 @@ test("Given a row has focus, when a sync takes it away, then focus moves to the 
   await page.evaluate(() => {
     window.scrollTo(0, document.documentElement.scrollHeight - window.innerHeight - 100);
   });
-  await attentionPanel(page).getByRole('link', { name: summaries[9] }).focus();
+  await attentionPanel(page).getByRole('link', { name: summaries[2] }).focus();
   const scrolled = await page.evaluate(() => window.scrollY);
 
-  await holdInTools(page, { ...everything, issues: tickets.filter((_, index) => index !== 9) });
+  await holdInTools(page, { ...everything, issues: tickets.filter((_, index) => index !== 2) });
   await syncNow(page);
 
-  await expect(attentionPanel(page).getByRole('link', { name: summaries[10] })).toBeFocused();
+  // Newest first, the next row down is the ticket that has waited a day longer.
+  await expect(attentionPanel(page).getByRole('link', { name: summaries[1] })).toBeFocused();
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
 });

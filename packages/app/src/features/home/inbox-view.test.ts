@@ -110,7 +110,7 @@ describe('showView', () => {
     ['ARCHIVE content', [archive.title]],
     ['proj-1423', [archive.title]],
     ['2841', [people.title]],
-    ['#2841', [people.title]],
+    ['web-app #2841', [people.title]],
     ['web-app', [people.title]],
     ['priya', [people.title]],
     ['Priya S.', [people.title]],

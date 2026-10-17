@@ -169,11 +169,16 @@ export interface ShownView<Item> {
   pageCount: number;
 }
 
-/** The rows a view shows: the tab's, searched, filtered, ordered and cut into pages of 16. */
-export function showView<Item extends InboxItem>(items: readonly Item[], view: HomeView): ShownView<Item> {
-  const matched = itemsInTab(items, view.tab)
+/** The tab's rows that match the search and filters, in the view's order, across every page. */
+export function matchingRows<Item extends InboxItem>(items: readonly Item[], view: HomeView): Item[] {
+  return itemsInTab(items, view.tab)
     .filter((item) => matchesQuery(item, view.query) && matchesFilters(item, view.filters))
     .sort(byWait(view.order));
+}
+
+/** The rows a view shows: the tab's, searched, filtered, ordered and cut into pages of 16. */
+export function showView<Item extends InboxItem>(items: readonly Item[], view: HomeView): ShownView<Item> {
+  const matched = matchingRows(items, view);
   const pageCount = Math.max(1, Math.ceil(matched.length / pageSize));
   const page = Math.min(Math.max(1, view.page), pageCount);
   return { rows: matched.slice((page - 1) * pageSize, page * pageSize), matched: matched.length, page, pageCount };

@@ -85,10 +85,10 @@ afterEach(() => {
 });
 
 describe('AttentionPanel', () => {
-  it('AC-1: shows the head, the three tabs with their counts, and one row per item, longest wait first', async () => {
+  it('AC-1: shows the head, the three tabs with their counts, and one row per item, newest wait first', async () => {
     const { panel, list } = await openHome();
 
-    expect(within(panel).getByText('Sorted by how long it has waited')).toBeVisible();
+    expect(within(panel).getByRole('button', { name: 'Order: Newest first' })).toBeVisible();
     const tabs = within(panel).getByRole('tablist', { name: 'Filter by source' });
     expect(
       within(tabs)
@@ -101,7 +101,7 @@ describe('AttentionPanel', () => {
     const titles = within(list)
       .getAllByRole('listitem')
       .map((row) => within(row).getAllByRole('link')[0]?.textContent);
-    expect(titles).toEqual(everyRow.map((item) => item.title));
+    expect(titles).toEqual(everyRow.map((item) => item.title).reverse());
   });
 
   it("AC-1: names each row's tool for a screen reader and speaks the wait in words", async () => {
@@ -199,7 +199,7 @@ describe('AttentionPanel', () => {
       within(list)
         .getAllByRole('listitem')
         .map((row) => within(row).getAllByRole('link')[0]?.textContent),
-    ).toEqual([ticket.title, approval.title]);
+    ).toEqual([approval.title, ticket.title]);
   });
 
   it('AC-14: a reload stays on the tab in the address, and Tab goes from the selected tab into the list', async () => {
@@ -214,7 +214,7 @@ describe('AttentionPanel', () => {
     });
     await user.tab();
 
-    expect(screen.getByRole('link', { name: review.title })).toHaveFocus();
+    expect(screen.getByRole('link', { name: checks.title })).toHaveFocus();
   });
 
   it('AC-14: going back to All takes the tab out of the address', async () => {
@@ -255,7 +255,7 @@ describe('AttentionPanel states', () => {
     const list = await within(panel).findByRole('list');
     expect(list).toHaveAttribute('aria-busy', 'true');
     expect(within(list).getAllByRole('listitem', { hidden: true })).toHaveLength(5);
-    expect(within(panel).getByText('Sorted by how long it has waited')).toBeVisible();
+    expect(within(panel).getByRole('button', { name: 'Order: Newest first' })).toBeVisible();
     expect(
       within(panel)
         .getAllByRole('tab')
@@ -443,7 +443,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
 
   it("AC-18: moves focus to the next row's title when the focused row goes", async () => {
     inboxWith([review, ticket, comments]);
-    await openHome();
+    await openHome('/?sort=longest');
     focusOn(rowOf(ticket.title).getByRole('link', { name: 'Open' }));
 
     await syncTo([review, comments]);
@@ -453,7 +453,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
 
   it('AC-18: moves focus to the row before when the focused last row goes', async () => {
     inboxWith([review, ticket, comments]);
-    await openHome();
+    await openHome('/?sort=longest');
     focusOn(screen.getByRole('link', { name: comments.title }));
 
     await syncTo([review, ticket]);
@@ -478,7 +478,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
 
   it('AC-16: keeps focus where it is when rows come and go around it', async () => {
     inboxWith([review, ticket, comments]);
-    await openHome();
+    await openHome('/?sort=longest');
     const title = screen.getByRole('link', { name: ticket.title });
     focusOn(title);
 
@@ -489,7 +489,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
 
   it('AC-18: leaves focus alone when it is outside the list', async () => {
     inboxWith([review, ticket]);
-    const { user } = await openHome();
+    const { user } = await openHome('/?sort=longest');
     focusOn(screen.getByRole('link', { name: ticket.title }));
     await user.tab({ shift: true });
     await user.tab({ shift: true });
@@ -504,7 +504,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
 
   it('AC-33: goes from the selected tab through each row, title then action', async () => {
     inboxWith([review, ticket]);
-    const { user, panel } = await openHome();
+    const { user, panel } = await openHome('/?sort=longest');
     focusOn(within(panel).getByRole('tab', { name: 'All 2' }));
 
     const stops: (string | null)[] = [];

@@ -82,7 +82,7 @@ Tasks 22 to 29 come from the amendment of 17 Oct 2026 (Q9, Q10): search, filters
 - [x] Task 25: Write the list's view as pure functions: the address (`q`, `reason`, `project`, `status`, `repo`, `sort`, `page`), search matching, each tab's filter options, filtering, both orders and pages of 16 (AC-36, AC-37, AC-39, AC-40, AC-41, Q10a, Q10c, Q10i)
       Check: pnpm test packages/app/src/features/home
       Files: packages/app/src/features/home/inbox-view.ts, inbox-view.test.ts, inbox-tabs.ts, packages/app/src/router.tsx
-- [ ] Task 26: Order the list newest wait first, with the order menu in the panel's head (AC-1, AC-39, Q10d)
+- [x] Task 26: Order the list newest wait first, with the order menu in the panel's head (AC-1, AC-39, Q10d)
       Check: pnpm test packages/app/src/features/home; pnpm gate style-policy
       Files: packages/app/src/features/home/components/attention-panel.tsx, attention-panel.test.tsx, components/order-menu.tsx, e2e/home-inbox.spec.ts
 - [ ] Task 27: The toolbar: the search box on the left and the tab's filter menus on the right, no matches with Clear search and filters, and filters dropped when the tab changes (AC-35, AC-36, AC-37, AC-38, AC-42, AC-45)

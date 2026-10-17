@@ -18,23 +18,26 @@ import {
 import { usePlatform } from '../../../platform.tsx';
 import { countKey, homeTabLabels, homeTabs, itemsInTab, tabTools, type HomeTab } from '../inbox-tabs.ts';
 import { actionLabel, emptyText, reasonPill, subLine, tabCounts, toolLine, type ToolLine } from '../inbox-words.ts';
+import { matchingRows, searchFor, searchForTab, viewOf, type HomeView } from '../inbox-view.ts';
 import { useInbox, useInboxRules, type HomeItem } from '../queries.ts';
 import { useNow } from '../use-now.ts';
+import { OrderMenu } from './order-menu.tsx';
 
 const panelTitle = 'Needs your attention';
 
 /**
  * Home's "Needs your attention" panel (spec 007): the tabs All, Jira and Pull requests with their counts, and
- * one row per ticket or pull request, longest wait first, as the server sorts them. The tab lives in the
- * address, so a reload stays on it.
+ * one row per ticket or pull request, newest wait first unless the order menu says otherwise. The tab and
+ * the order live in the address, so a reload keeps them.
  */
 export function AttentionPanel() {
   const inbox = useInbox();
   const rules = useInboxRules().data;
-  const { inbox: inAddress } = useSearch({ from: '/' });
+  const search = useSearch({ from: '/' });
   const navigate = useNavigate();
   const now = useNow();
-  const tab: HomeTab = inAddress ?? 'all';
+  const view = viewOf(search);
+  const { tab } = view;
   const { data } = inbox;
 
   if (data === undefined && inbox.isError) {
@@ -76,13 +79,23 @@ export function AttentionPanel() {
   const counts = data === undefined ? undefined : tabCounts(data.items);
 
   return (
-    <Panel title={panelTitle} meta="Sorted by how long it has waited">
+    <Panel
+      title={panelTitle}
+      meta={
+        <OrderMenu
+          order={view.order}
+          onOrderChange={(order) => {
+            void navigate({ to: '/', search: searchFor({ ...view, order, page: 1 }), resetScroll: false });
+          }}
+        />
+      }
+    >
       <Tabs
         value={tab}
         onValueChange={(value) => {
           const picked = homeTabs.find((each) => each === value) ?? 'all';
           // The panel sits low on Home, so picking a tab keeps the page where it is.
-          void navigate({ to: '/', search: picked === 'all' ? {} : { inbox: picked }, resetScroll: false });
+          void navigate({ to: '/', search: searchForTab(search, picked), resetScroll: false });
         }}
       >
         <TabsList aria-label="Filter by source">
@@ -105,7 +118,12 @@ export function AttentionPanel() {
             {data === undefined || loading(value, data) ? (
               <LoadingRows />
             ) : (
-              <TabBody tab={value} inbox={data} rules={rules ?? defaultPreferences.inboxRules} now={now} />
+              <TabBody
+                view={{ ...view, tab: value }}
+                inbox={data}
+                rules={rules ?? defaultPreferences.inboxRules}
+                now={now}
+              />
             )}
           </TabsContent>
         ))}
@@ -134,17 +152,18 @@ function LoadingRows() {
 const homeLoadingRows = ['first', 'second', 'third', 'fourth', 'fifth'];
 
 function TabBody({
-  tab,
+  view,
   inbox,
   rules,
   now,
 }: {
-  tab: HomeTab;
+  view: HomeView;
   inbox: Inbox & { items: HomeItem[] };
   rules: InboxRules;
   now: Date;
 }) {
-  const rows = itemsInTab(inbox.items, tab);
+  const { tab } = view;
+  const rows = matchingRows(inbox.items, view);
   const lines = tabTools[tab].flatMap((tool) => {
     const state = inbox.tools[tool];
     // All says nothing of a tool that isn't connected, so someone who doesn't use it isn't nagged (Q5a).
