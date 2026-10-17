@@ -7,8 +7,16 @@ import { Button, EmptyState, SearchField, SegmentedControl, SegmentedControlItem
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
 import { useNow } from '../../words/use-now.ts';
 import { TicketsBoard } from './components/tickets-board.tsx';
+import { TicketsList } from './components/tickets-list.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
-import { defaultFilters, filtersFromSearch, matches, searchFromFilters, type AddressFilters } from './filters.ts';
+import {
+  defaultFilters,
+  filtersFromSearch,
+  hasExtraFilters,
+  matches,
+  searchFromFilters,
+  type AddressFilters,
+} from './filters.ts';
 import { useTickets } from './queries.ts';
 import { useTicketsStore } from './store.ts';
 import { pageHeading, sprintMeta } from './ticket-words.ts';
@@ -90,8 +98,16 @@ export function TicketsScreen() {
       />
       <PageBody width="full">
         <h1 className="sr-only">{sprint === null ? 'Tickets' : pageHeading(sprint.name)}</h1>
-        {data === undefined || view !== 'board' ? null : (
+        {data === undefined || sprint === null ? null : view === 'board' ? (
           <TicketsBoard shown={shown} unfiltered={unfiltered} now={now} />
+        ) : (
+          <TicketsList
+            shown={shown}
+            sprintName={sprint.name}
+            filtered={hasExtraFilters(filters)}
+            onlyMine={filters.mine}
+            now={now}
+          />
         )}
       </PageBody>
     </>

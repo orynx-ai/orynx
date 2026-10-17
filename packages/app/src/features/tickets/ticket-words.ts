@@ -105,6 +105,11 @@ export function columnEmptyText(column: TicketColumn, filtered: boolean): EmptyT
   return filtered ? { title: 'No tickets match these filters', line: null } : emptyColumns[column];
 }
 
+/** The list's caption, for screen readers, as the design gives it. */
+export function listCaption(sprintName: string): string {
+  return `Tickets in ${sprintName}`;
+}
+
 /** Q9e: the list with nothing to show. */
 export function listEmptyText(sprintName: string, { filtered, onlyMine }: { filtered: boolean; onlyMine: boolean }) {
   if (!filtered && onlyMine) {

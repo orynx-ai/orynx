@@ -7,6 +7,7 @@ import {
   columnOrder,
   columnRegionName,
   dueText,
+  listCaption,
   listEmptyText,
   noSprintText,
   pageHeading,
@@ -94,6 +95,10 @@ describe('Tickets’ words', () => {
       line: 'Finished tickets show up here.',
     });
     expect(columnEmptyText('in_progress', true)).toEqual({ title: 'No tickets match these filters', line: null });
+  });
+
+  it('AC-11: the list’s caption names the sprint, as the design gives it', () => {
+    expect(listCaption('Sprint 42')).toBe('Tickets in Sprint 42');
   });
 
   it('AC-16: the list says why it’s empty (Q9e)', () => {

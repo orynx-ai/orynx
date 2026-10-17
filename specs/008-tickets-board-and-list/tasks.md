@@ -47,9 +47,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: Build the board: the four columns with their counts, cards from `WorkItemCard` with the agent chip, the title's link (session or Jira, Q4a), and each column's empty text (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-12, AC-13, AC-14, AC-15)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/tickets-board.tsx, tickets-board.test.tsx, ticket-card.tsx, ticket-card.test.tsx, tickets-screen.tsx
-- [ ] Task 16: Build the list: the same tickets in `Table` with Key, Title, Status, Priority, Due and Agent, in column then rank order, and its empty text (AC-11, AC-16)
+- [x] Task 16: Build the list: the same tickets in `Table` with Key, Title, Status, Priority, Due and Agent, in column then rank order, and its empty text (AC-11, AC-16)
       Check: pnpm test packages/app/src/features/tickets
-      Files: packages/app/src/features/tickets/components/tickets-list.tsx, tickets-list.test.tsx
+      Files: packages/app/src/features/tickets/components/tickets-list.tsx, tickets-list.test.tsx, tickets-screen.tsx, ticket-words.ts, ticket-words.test.ts
 - [ ] Task 17: Tickets' states: loading, Jira not connected, no sprint, a failed sync's line, the server not answering and too many tickets (AC-20, AC-21, AC-22, AC-23, AC-24, AC-25, AC-26)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/tickets-screen.tsx, tickets-screen.test.tsx
