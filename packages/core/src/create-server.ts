@@ -11,6 +11,7 @@ import { createGhCli, type GhCli } from './integrations/github/gh.ts';
 import { createJiraClient } from './integrations/jira/client.ts';
 import { createJiraConnection } from './integrations/jira/connection.ts';
 import { openInboxCache, type InboxCache } from './inbox/inbox-cache.ts';
+import { startInboxSchedule } from './inbox/inbox-schedule.ts';
 import { createInboxService } from './inbox/inbox-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
@@ -67,6 +68,11 @@ export interface CoreOptions {
    * closes it when it closes.
    */
   cache?: InboxCache;
+  /**
+   * Sync the inbox on its own: at start, every 2 minutes while a page is open, and when a tool connects
+   * (spec 007). Hosts turn it on. Left off, only Refresh syncs, so no test reaches Jira or GitHub by surprise.
+   */
+  autoSync?: boolean;
 }
 
 /** The HTTP status for each error a connection route can answer with. */
@@ -179,9 +185,6 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const sessions = options.sessions ?? createMemorySessionStore();
   const preferences = createPreferencesService({ settings, events });
   const cache = options.cache ?? openInboxCache(':memory:');
-  app.addHook('onClose', () => {
-    cache.close();
-  });
   const inbox = createInboxService({
     cache,
     settings,
@@ -197,6 +200,23 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     onError: (error) => {
       app.log.error(error, 'The inbox sync failed');
     },
+  });
+  if (options.autoSync === true) {
+    const schedule = startInboxSchedule({
+      inbox,
+      settings,
+      events,
+      onError: (error) => {
+        app.log.error(error, 'The inbox sync failed');
+      },
+    });
+    app.addHook('onClose', () => {
+      schedule.stop();
+    });
+  }
+  // After the schedule's hook, so no timer can start a sync on a closed cache.
+  app.addHook('onClose', () => {
+    cache.close();
   });
   const status = createStatusService({
     version: options.version,

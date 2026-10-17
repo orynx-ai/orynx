@@ -26,4 +26,18 @@ describe('createEventBus', () => {
     expect(listener).not.toHaveBeenCalled();
     expect(bus.listenerCount()).toBe(0);
   });
+
+  it('AC-16: counts open pages apart from the hub’s own listeners', () => {
+    const bus = createEventBus();
+    bus.subscribe(vi.fn());
+    const closePage = bus.subscribe(vi.fn(), { page: true });
+
+    expect(bus.pageCount()).toBe(1);
+    expect(bus.listenerCount()).toBe(2);
+
+    closePage();
+
+    expect(bus.pageCount()).toBe(0);
+    expect(bus.listenerCount()).toBe(1);
+  });
 });

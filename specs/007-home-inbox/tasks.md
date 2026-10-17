@@ -28,7 +28,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 8: Add `GET /api/inbox`, `POST /api/inbox/refresh` and `DELETE /api/inbox/cache`, and wire the service and the cache into `createServer` (AC-1, AC-15, AC-17, AC-19, AC-21, AC-23, AC-31)
       Check: pnpm test packages/core/src/routes/inbox.test.ts; pnpm typecheck
       Files: packages/core/src/routes/inbox.ts, inbox.test.ts, packages/core/src/create-server.ts, packages/core/src/index.ts
-- [ ] Task 9: Add the `autoSync` schedule: a sync at start, every 2 minutes while a page has the event stream open, at once when a tool connects, and a disconnected tool's records removed. The event bus counts open pages apart from its own listeners (AC-16, AC-30)
+- [x] Task 9: Add the `autoSync` schedule: a sync at start, every 2 minutes while a page has the event stream open, at once when a tool connects, and a disconnected tool's records removed. The event bus counts open pages apart from its own listeners (AC-16, AC-30)
       Check: pnpm test packages/core/src/inbox packages/core/src/events packages/core/src/routes/events.test.ts
       Files: packages/core/src/inbox/inbox-schedule.ts, inbox-schedule.test.ts, packages/core/src/events/event-bus.ts, event-bus.test.ts, packages/core/src/routes/events.ts, events.test.ts, packages/core/src/create-server.ts
 - [ ] Task 10: The host opens `<DEVHUB_HOME>/cache.db` and turns `autoSync` on. Add a leak test: the real hub at trace level through a sync, with no token in the log or the cache and no description or comment text in the cache (AC-28)

@@ -27,7 +27,7 @@ export const eventsRoutes: FastifyPluginCallbackZod<EventsRouteOptions> = (app, 
     };
 
     send({ type: 'hello', at: new Date().toISOString() });
-    const unsubscribe = options.events.subscribe(send);
+    const unsubscribe = options.events.subscribe(send, { page: true });
     const keepAlive = setInterval(() => res.write(': keep-alive\n\n'), keepAliveMs);
 
     request.raw.on('close', () => {

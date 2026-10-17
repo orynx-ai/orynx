@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { apiRoutes, InboxSchema, tokenHeader, type ServerEvent } from '@devhub/contracts';
 import { createServer, type CoreOptions } from '../create-server.ts';
@@ -160,5 +160,17 @@ describe('/api/inbox', () => {
     expect(seen).toContainEqual({ type: 'inbox.changed' });
     await app.inject({ method: 'POST', url: apiRoutes.inboxRefresh, headers });
     expect((await readInbox(app)).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
+  });
+
+  it('AC-19: with autoSync on, the hub syncs as it starts, and stops when it closes', async () => {
+    outside.use(acceptingIssueSearch([{ key: 'PROJ-1423' }]));
+    const { app } = await server({
+      settings: createMemorySettingsStore({ jira: { site: jiraSite, email: jiraEmail } }),
+      autoSync: true,
+    });
+
+    await vi.waitFor(async () => {
+      expect((await readInbox(app)).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
+    });
   });
 });
