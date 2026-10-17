@@ -1,4 +1,12 @@
-import { createContext, useContext, useId, type ComponentProps, type KeyboardEvent } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useId,
+  type ComponentProps,
+  type KeyboardEvent,
+  type Ref,
+} from 'react';
 import { ArrowUp, LoaderCircle } from 'lucide-react';
 import { cn } from '../lib/cn.ts';
 import { Button } from './button.tsx';
@@ -80,14 +88,62 @@ function sizesItself(): boolean {
 }
 
 /**
+ * Where the browser can't size the text box itself, fits it now and after every form reset (as
+ * react-hook-form's `reset()` does after a send), since text set by code fires no input event.
+ * Returns what undoes it.
+ */
+function fitWhenSetByCode(box: HTMLTextAreaElement): () => void {
+  if (sizesItself()) return () => undefined;
+  fitToText(box);
+  const form = box.form;
+  // The reset event comes before the form clears its fields, so fit once it has.
+  const onReset = () => {
+    queueMicrotask(() => {
+      fitToText(box);
+    });
+  };
+  form?.addEventListener('reset', onReset);
+  return () => {
+    form?.removeEventListener('reset', onReset);
+  };
+}
+
+function assignRef<T>(ref: Ref<T> | undefined, value: T | null): void {
+  if (typeof ref === 'function') ref(value);
+  else if (ref) ref.current = value;
+}
+
+/**
  * The text box. Enter sends the form; Shift+Enter adds a line. It starts at 2 lines in the task
  * look and 1 in the follow-up look, grows with its text up to 8 lines, then scrolls inside itself
  * (spec 006 Q4d).
  */
-export function ComposerTextarea({ label, id, rows, className, onKeyDown, onInput, ...props }: ComposerTextareaProps) {
+export function ComposerTextarea({
+  label,
+  id,
+  rows,
+  ref,
+  className,
+  onKeyDown,
+  onInput,
+  ...props
+}: ComposerTextareaProps) {
   const { look, canSend, pending } = useContext(ComposerContext);
   const madeUpId = useId();
   const boxId = id ?? madeUpId;
+  // Keeps the form library's ref (react-hook-form's `register`) working alongside our own.
+  const attach = useCallback(
+    (box: HTMLTextAreaElement | null) => {
+      assignRef(ref, box);
+      if (box === null) return undefined;
+      const stop = fitWhenSetByCode(box);
+      return () => {
+        stop();
+        assignRef(ref, null);
+      };
+    },
+    [ref],
+  );
   return (
     <>
       <label htmlFor={boxId} className="sr-only">
@@ -95,6 +151,7 @@ export function ComposerTextarea({ label, id, rows, className, onKeyDown, onInpu
       </label>
       <textarea
         id={boxId}
+        ref={attach}
         data-slot="composer-textarea"
         rows={rows ?? (look === 'task' ? 2 : 1)}
         onKeyDown={(event) => {
@@ -108,7 +165,8 @@ export function ComposerTextarea({ label, id, rows, className, onKeyDown, onInpu
           if (!sizesItself()) fitToText(event.currentTarget);
         }}
         className={cn(
-          look === 'task' ? 'min-h-12' : 'min-h-8',
+          // field-sizing ignores rows, so the starting height is set here: 2 lines, or 1 in the follow-up box.
+          look === 'task' ? 'min-h-14' : 'min-h-8',
           'field-sizing-content max-h-50 w-full resize-none overflow-y-auto border-0 bg-transparent p-1 text-body text-foreground outline-none placeholder:text-placeholder',
           className,
         )}
@@ -134,10 +192,10 @@ export type ComposerSendProps = Omit<ComponentProps<'button'>, 'children' | 'typ
 };
 
 /**
- * Send: round, 36 px, with an arrow; the screen's one primary button in the task look, secondary
- * in the follow-up look. When there's nothing to send,
- * or while a send is on its way, it stays focusable but reads as unavailable and ignores presses;
- * while sending, a spinner takes the arrow's place.
+ * Send: round, 36 px, with an arrow; the screen's one primary button in the task look, secondary in
+ * the follow-up look. When there's nothing to send, or while a send is on its way, it stays
+ * focusable but reads as unavailable and ignores presses; while sending, a spinner takes the
+ * arrow's place.
  */
 export function ComposerSend({ label, className, onClick, ...props }: ComposerSendProps) {
   const { look, canSend, pending } = useContext(ComposerContext);
@@ -151,8 +209,11 @@ export function ComposerSend({ label, className, onClick, ...props }: ComposerSe
       aria-disabled={unavailable || undefined}
       aria-busy={pending || undefined}
       onClick={(event) => {
+        if (unavailable) {
+          event.preventDefault();
+          return;
+        }
         onClick?.(event);
-        if (unavailable) event.preventDefault();
       }}
       className={cn('ms-auto size-9 rounded-full', className)}
       {...props}

@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Folder, Plus } from 'lucide-react';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
@@ -194,5 +194,49 @@ describe('Composer', () => {
 
     await user.type(box, 'Use the shared toast{Enter}');
     expect(onSend).toHaveBeenCalledWith('Use the shared toast');
+  });
+
+  it('AC-11: where the browser cannot size the text box, it also fits text set by code: on mount and after a reset', async () => {
+    const supports = vi.spyOn(CSS, 'supports').mockReturnValue(false);
+    // jsdom lays nothing out, so give text boxes the height a browser would measure.
+    const measured = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(104);
+    onTestFinished(() => {
+      supports.mockRestore();
+      measured.mockRestore();
+    });
+    render(
+      <Composer>
+        <ComposerTextarea
+          label="Describe a task for Claude"
+          defaultValue={'Add bulk archive\nwith undo\nand a toast'}
+        />
+      </Composer>,
+    );
+    const box = screen.getByRole('textbox', { name: 'Describe a task for Claude' });
+    expect(box.style.height).toBe('104px');
+
+    // react-hook-form's reset() after a send resets the form, which changes the text without typing.
+    measured.mockReturnValue(56);
+    box.closest('form')?.reset();
+    await waitFor(() => {
+      expect(box.style.height).toBe('56px');
+    });
+  });
+
+  it('AC-10: an unavailable Send ignores presses without telling the screen', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    render(
+      <Composer canSend={false}>
+        <ComposerTextarea label="Describe a task for Claude" />
+        <ComposerBar>
+          <ComposerSend label="Send to Claude" onClick={onClick} />
+        </ComposerBar>
+      </Composer>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Send to Claude' }));
+
+    expect(onClick).not.toHaveBeenCalled();
   });
 });
