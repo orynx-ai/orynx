@@ -28,20 +28,24 @@ export function ConnectionRow({ id, name, howToConnect, status, action, children
     <li className="flex flex-col gap-4 p-4">
       <div className="flex items-center gap-4">
         <SourceMark source={id} size="lg" label="none" />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{name}</span>
-            {state ? (
-              <Pill tone={state.tone}>{state.label}</Pill>
-            ) : (
-              <Pill tone="neutral" aria-busy>
-                Checking
-              </Pill>
-            )}
+        {/* On a narrow row the button wraps under the text, so the text keeps room for its longest
+            pill and the row doesn't grow when "Checking" becomes "Not connected". */}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3">
+          <div className="flex min-w-0 flex-1 basis-60 flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">{name}</span>
+              {state ? (
+                <Pill tone={state.tone}>{state.label}</Pill>
+              ) : (
+                <Pill tone="neutral" aria-busy>
+                  Checking
+                </Pill>
+              )}
+            </div>
+            <span className="text-small text-muted-foreground">{status?.detail ?? howToConnect}</span>
           </div>
-          <span className="text-small text-muted-foreground">{status?.detail ?? howToConnect}</span>
+          {action}
         </div>
-        {action}
       </div>
       {children}
     </li>

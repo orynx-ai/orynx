@@ -44,9 +44,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: Manage, the `.env` help, and Disconnect with its confirm step; a second tab follows (AC-10, AC-11, AC-12, AC-14)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy; pnpm lint
       Files: packages/app/src/features/settings/components/jira-connection-form.tsx, packages/app/src/features/settings/components/jira-connection-row.tsx, packages/app/src/features/settings/components/jira-connection-row.test.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/live-updates.tsx
-- [ ] Task 15: e2e: the form at 360 and 1280 px in light and dark, client errors, Cancel returns focus, no layout shift, memory keychain (AC-2, AC-7, AC-16, AC-17, AC-18)
+- [x] Task 15: e2e: the form at 360 and 1280 px in light and dark, client errors, Cancel returns focus, no layout shift, memory keychain (AC-2, AC-7, AC-16, AC-17, AC-18)
       Check: pnpm build; pnpm exec playwright test e2e/connect-jira.spec.ts; open Settings in `pnpm dev` at 360 and 1280 px, light and dark
-      Files: e2e/connect-jira.spec.ts
+      Files: e2e/connect-jira.spec.ts, packages/app/src/features/settings/components/connection-row.tsx (the row's button wraps under the text on narrow rows: the e2e found a 0.007 load shift at 360 px)
 - [ ] Task 16: Docs: a `learn/` page on connecting Jira; architecture, integration-adapter and forms skills, roadmap (Q1)
       Check: pnpm gate learn-freshness; pnpm gate handbook-size; pnpm format:check
       Files: learn/connecting-jira.md, docs/architecture.md, docs/product/roadmap.md, .claude/skills/integration-adapter/SKILL.md, .claude/skills/forms/SKILL.md, README.md
