@@ -1,6 +1,8 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Writable } from 'node:stream';
+import { delay, http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
@@ -11,7 +13,7 @@ import { cacheFilePath, openInboxCache } from '../inbox/inbox-cache.ts';
 import { createMemoryKeychain } from '../secrets/memory-keychain.ts';
 import { createMemorySettingsStore, type Settings } from '../settings/settings-store.ts';
 import { acceptingInboxQuery, githubToken } from '../test/fake-github.ts';
-import { acceptingIssueSearch, goodToken, jiraEmail, jiraSite } from '../test/fake-jira.ts';
+import { acceptingIssueSearch, goodToken, issueSearchUrl, jiraEmail, jiraSite } from '../test/fake-jira.ts';
 
 const token = 'test-token-0123456789';
 const port = 4317;
@@ -146,7 +148,7 @@ describe('/api/inbox', () => {
     ]);
   });
 
-  it('AC-31: Clear cache empties the list, tells open pages and syncs again', async () => {
+  it('AC-31: Clear cache empties the list, tells open pages and syncs again on its own', async () => {
     outside.use(acceptingIssueSearch([{ key: 'PROJ-1423' }]));
     const { app, seen } = await server({
       settings: createMemorySettingsStore({ jira: { site: jiraSite, email: jiraEmail } }),
@@ -158,11 +160,12 @@ describe('/api/inbox', () => {
 
     expect(cleared.statusCode).toBe(204);
     expect(seen).toContainEqual({ type: 'inbox.changed' });
-    await app.inject({ method: 'POST', url: apiRoutes.inboxRefresh, headers });
-    expect((await readInbox(app)).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
+    await vi.waitFor(async () => {
+      expect((await readInbox(app)).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
+    });
   });
 
-  it('AC-19: with autoSync on, the hub syncs as it starts, and stops when it closes', async () => {
+  it('AC-19: with autoSync on, the hub syncs as it starts', async () => {
     outside.use(acceptingIssueSearch([{ key: 'PROJ-1423' }]));
     const { app } = await server({
       settings: createMemorySettingsStore({ jira: { site: jiraSite, email: jiraEmail } }),
@@ -172,5 +175,35 @@ describe('/api/inbox', () => {
     await vi.waitFor(async () => {
       expect((await readInbox(app)).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
     });
+  });
+
+  it('closing the hub during a sync waits for it, then closes the cache, with no error in the log', async () => {
+    const log: string[] = [];
+    let answered = false;
+    outside.use(
+      http.post(issueSearchUrl(), async () => {
+        await delay(80);
+        answered = true;
+        return HttpResponse.json({ issues: [], isLast: true });
+      }),
+    );
+    const { app } = await server({
+      settings: createMemorySettingsStore({ jira: { site: jiraSite, email: jiraEmail } }),
+      autoSync: true,
+      logger: {
+        level: 'warn',
+        stream: new Writable({
+          write(chunk: Buffer, _encoding, done) {
+            log.push(chunk.toString());
+            done();
+          },
+        }),
+      },
+    });
+
+    await app.close();
+
+    expect(answered).toBe(true);
+    expect(log.join('')).not.toContain('The inbox sync failed');
   });
 });

@@ -1,6 +1,9 @@
+import { chmod, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { delay, http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ServerEvent, SessionSummary } from '@devhub/contracts';
 import { makeSessionSummary } from '@devhub/contracts/testing';
 import { createEventBus } from '../events/event-bus.ts';
@@ -23,7 +26,7 @@ import {
   jiraSite,
   type FakeIssue,
 } from '../test/fake-jira.ts';
-import { openInboxCache } from './inbox-cache.ts';
+import { cacheFilePath, openInboxCache, type InboxCache } from './inbox-cache.ts';
 import { createInboxService } from './inbox-service.ts';
 
 /** Jira and GitHub, the outside services, faked for this file only. */
@@ -31,9 +34,13 @@ const outside = setupServer();
 beforeAll(() => {
   outside.listen({ onUnhandledFrame: 'error' });
 });
+const start = Date.parse('2026-10-17T10:00:00.000Z');
+let clock = start;
+
 afterEach(() => {
   outside.resetHandlers();
   outside.events.removeAllListeners();
+  clock = start;
 });
 afterAll(() => {
   outside.close();
@@ -54,9 +61,11 @@ const review: FakePull = {
   requests: [{ login: 'octocat', at: '2026-10-14T09:00:00Z' }],
 };
 
-let clock = Date.parse('2026-10-17T10:00:00.000Z');
-
-function setup({ settings: initial = {}, sessions = [] }: { settings?: Settings; sessions?: SessionSummary[] } = {}) {
+function setup({
+  settings: initial = {},
+  sessions = [],
+  cache = openInboxCache(':memory:'),
+}: { settings?: Settings; sessions?: SessionSummary[]; cache?: InboxCache } = {}) {
   const events = createEventBus();
   const seen: ServerEvent[] = [];
   events.subscribe((event) => seen.push(event));
@@ -65,7 +74,6 @@ function setup({ settings: initial = {}, sessions = [] }: { settings?: Settings;
     keychain: createMemoryKeychain({ jira: goodToken, github: githubToken }),
     events,
   });
-  const cache = openInboxCache(':memory:');
   const preferences = createPreferencesService({ settings, events });
   const inbox = createInboxService({
     cache,
@@ -281,18 +289,122 @@ describe('inbox service', () => {
     expect(seen.at(-1)).toEqual({ type: 'inbox.changed' });
   });
 
-  it('AC-31: clearing the cache empties it, tells open pages and syncs again at once', async () => {
+  it('AC-31: clearing the cache empties it, tells open pages and syncs again at once, on its own', async () => {
     outside.use(acceptingIssueSearch([issue]));
     const { inbox, seen } = setup({ settings: jiraConnected });
     await inbox.sync();
-    const asked = requests();
+    seen.length = 0;
 
     await inbox.clear();
 
-    expect(seen.at(-1)).toEqual({ type: 'inbox.changed' });
+    expect(seen[0]).toEqual({ type: 'inbox.changed' });
     expect((await inbox.read()).tools.jira).toEqual({ state: 'syncing' });
-    await inbox.sync();
-    expect(asked()).toEqual([issueSearchUrl()]);
+    await vi.waitFor(async () => {
+      expect((await inbox.read()).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
+    });
+  });
+
+  it('AC-31: clearing during a sync that already wrote syncs once more, so nothing is left empty', async () => {
+    outside.use(
+      acceptingIssueSearch([issue]),
+      http.post(graphqlUrl, async () => {
+        await delay(80);
+        return HttpResponse.json({
+          data: { viewer: { login: 'octocat' }, reviews: { nodes: [] }, mine: { nodes: [] } },
+        });
+      }),
+    );
+    const { inbox, cache } = setup({ settings: bothConnected });
+    const syncing = inbox.sync();
+    await vi.waitFor(() => {
+      expect(cache.tool('jira')).not.toBeNull();
+    });
+
+    await inbox.clear();
+    await syncing;
+    await inbox.idle();
+
+    expect((await inbox.read()).tools.jira.state).toBe('synced');
     expect((await inbox.read()).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
+  });
+
+  it('a tool connected while a sync runs is synced by a pass that follows it', async () => {
+    outside.use(
+      acceptingIssueSearch([issue]),
+      http.post(graphqlUrl, async () => {
+        await delay(80);
+        return HttpResponse.json({
+          data: { viewer: { login: 'octocat' }, reviews: { nodes: [] }, mine: { nodes: [] } },
+        });
+      }),
+    );
+    const { inbox, settings } = setup({ settings: githubConnected });
+    const syncing = inbox.sync();
+    await delay(10);
+
+    await settings.update((current) => ({ ...current, ...jiraConnected }));
+    await inbox.syncAfterChange();
+    await syncing;
+
+    expect((await inbox.read()).tools.jira.state).toBe('synced');
+    expect((await inbox.read()).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
+  });
+
+  it('AC-30: rows a disconnected tool left in the cache go at the next sync', async () => {
+    const cache = openInboxCache(':memory:');
+    cache.synced('jira', {
+      connection: `${jiraSite} ${jiraEmail}`,
+      at: '2026-10-17T09:00:00.000Z',
+      records: [{ id: 'PROJ-1', data: {} }],
+    });
+    const { inbox } = setup({ cache });
+
+    await inbox.sync();
+
+    expect(cache.tool('jira')).toBeNull();
+  });
+
+  it('says so in its line when a tool’s sync breaks in DevHub itself, such as a cache it can’t write', async () => {
+    const home = join(await mkdtemp(join(tmpdir(), 'devhub-inbox-broken-')), 'home');
+    const cache = openInboxCache(cacheFilePath(home));
+    outside.use(acceptingIssueSearch([issue]));
+    const errors: unknown[] = [];
+    const { inbox } = setup({ settings: jiraConnected, cache });
+    try {
+      // SQLite can't make its journal in a folder it can't write, so the write fails; reads still work.
+      await chmod(home, 0o500);
+      await inbox.sync().catch((error: unknown) => errors.push(error));
+
+      expect((await inbox.read()).tools.jira).toEqual({
+        state: 'failed',
+        problem: { kind: 'other', message: 'Something went wrong in the local server. See the terminal for details.' },
+        lastSyncedAt: null,
+      });
+      expect(errors).toEqual([]);
+
+      await chmod(home, 0o700);
+      await inbox.sync();
+      expect((await inbox.read()).tools.jira.state).toBe('synced');
+    } finally {
+      await chmod(home, 0o700);
+      cache.close();
+      await rm(join(home, '..'), { recursive: true, force: true });
+    }
+  });
+
+  it('is idle once no sync runs, so the host can close the cache after the last write', async () => {
+    outside.use(
+      http.post(issueSearchUrl(), async () => {
+        await delay(50);
+        return HttpResponse.json({ issues: [], isLast: true });
+      }),
+    );
+    const { inbox, cache } = setup({ settings: jiraConnected });
+
+    void inbox.sync();
+    await inbox.idle();
+
+    expect(cache.tool('jira')?.syncedAt).toBe('2026-10-17T10:00:00.000Z');
+    await inbox.idle();
   });
 });

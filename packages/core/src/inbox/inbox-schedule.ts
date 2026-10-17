@@ -57,10 +57,11 @@ export function startInboxSchedule({
       if (now[tool] === null) inbox.forget(tool);
       else connected = true;
     }
-    if (connected) sync();
+    if (connected) inbox.syncAfterChange().catch((error: unknown) => onError?.(error));
   }
 
-  const ready = connectionsChanged().catch((error: unknown) => onError?.(error));
+  // One comparison at a time, in the order the changes came, so a late read can't undo a newer one.
+  let checking = connectionsChanged().catch((error: unknown) => onError?.(error));
   sync();
 
   const timer = setInterval(() => {
@@ -70,7 +71,7 @@ export function startInboxSchedule({
 
   const unsubscribe = events.subscribe((event) => {
     if (event.type !== 'status.changed') return;
-    void ready.then(connectionsChanged).catch((error: unknown) => onError?.(error));
+    checking = checking.then(connectionsChanged).catch((error: unknown) => onError?.(error));
   });
 
   return {

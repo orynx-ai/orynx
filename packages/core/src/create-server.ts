@@ -201,21 +201,21 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       app.log.error(error, 'The inbox sync failed');
     },
   });
-  if (options.autoSync === true) {
-    const schedule = startInboxSchedule({
-      inbox,
-      settings,
-      events,
-      onError: (error) => {
-        app.log.error(error, 'The inbox sync failed');
-      },
-    });
-    app.addHook('onClose', () => {
-      schedule.stop();
-    });
-  }
-  // After the schedule's hook, so no timer can start a sync on a closed cache.
-  app.addHook('onClose', () => {
+  const schedule =
+    options.autoSync === true
+      ? startInboxSchedule({
+          inbox,
+          settings,
+          events,
+          onError: (error) => {
+            app.log.error(error, 'The inbox sync failed');
+          },
+        })
+      : undefined;
+  // One hook, in order: no new sync, then the running one ends, then the cache closes after its last write.
+  app.addHook('onClose', async () => {
+    schedule?.stop();
+    await inbox.idle();
     cache.close();
   });
   const status = createStatusService({

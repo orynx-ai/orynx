@@ -20,8 +20,15 @@ import { inboxItems } from './rules.ts';
 export interface InboxService {
   /** The rows the rules let through, longest wait first, and where each tool stands. Asks no tool. */
   read(): Promise<Inbox>;
-  /** Asks every connected tool now. A call while a sync runs waits for that one. */
+  /** Asks every connected tool now. A call while a sync runs waits for that one (Refresh). */
   sync(): Promise<void>;
+  /**
+   * A sync that sees a change just made, such as a tool connecting: a sync already running read the old
+   * state, so another one follows it. Resolves when that one has ended.
+   */
+  syncAfterChange(): Promise<void>;
+  /** Resolves once no sync is running, so the host can close the cache after the last write. */
+  idle(): Promise<void>;
   /** Clear cache: everything goes, open pages are told, and a sync starts. */
   clear(): Promise<void>;
   /** Disconnect: the tool's rows go and open pages are told. */
@@ -53,16 +60,28 @@ export interface InboxServiceOptions {
 /** How one tool's part of a sync ended. */
 type Outcome = 'answered' | 'failed' | 'not_connected';
 
+const syncedTools = ['jira', 'github'] as const satisfies readonly InboxTool[];
+
+/**
+ * What a tool's line says when its sync broke in DevHub itself (a cache it can't write, say): the words
+ * the /api error handler already uses, because the cause is in the terminal, not in the tool.
+ */
+const brokenHere: InboxProblem = {
+  kind: 'other',
+  message: 'Something went wrong in the local server. See the terminal for details.',
+};
+
 /** The account a tool is connected as, from the saved settings; null when it isn't connected. */
 function accountOf(settings: Settings, tool: InboxTool): string | null {
   if (tool === 'jira') return settings.jira === undefined ? null : jiraAccount(settings.jira);
   return settings.github?.method ?? null;
 }
 
-function stateOf(cached: CachedTool | null): InboxToolState {
+function stateOf(cached: CachedTool | null, broken: boolean): InboxToolState {
+  if (broken) return { state: 'failed', problem: brokenHere, lastSyncedAt: cached?.syncedAt ?? null };
   if (cached === null) return { state: 'syncing' };
   if (cached.problem !== null) return { state: 'failed', problem: cached.problem, lastSyncedAt: cached.syncedAt };
-  // A tool's row without a problem was written by a good sync, so it has a time.
+  // No time and no problem this version can read: nothing to show yet, as before a first sync.
   return cached.syncedAt === null ? { state: 'syncing' } : { state: 'synced', at: cached.syncedAt };
 }
 
@@ -78,6 +97,10 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
   const { cache, settings, connections, events } = options;
   const now = options.now ?? Date.now;
   let running: Promise<void> | undefined;
+  /** A change came while a sync was running, so another pass follows it. */
+  let again = false;
+  /** Tools whose last sync threw in DevHub itself; cleared by their next sync that ends normally. */
+  const broken = new Set<InboxTool>();
 
   /** The tool's cache, only while it's connected as the same account: a disconnected tool shows nothing. */
   function cachedFor(saved: Settings, tool: InboxTool): CachedTool | null | 'not_connected' {
@@ -135,10 +158,17 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
 
   async function run(): Promise<void> {
     const outcomes = await Promise.allSettled([syncJira(), syncGitHub()]);
-    const ended = outcomes.map((outcome) => {
-      if (outcome.status === 'fulfilled') return outcome.value;
-      options.onError?.(outcome.reason);
-      return 'failed';
+    const ended = outcomes.map((outcome, index): Outcome => {
+      const tool = syncedTools[index] ?? 'jira';
+      if (outcome.status === 'rejected') {
+        broken.add(tool);
+        options.onError?.(outcome.reason);
+        return 'failed';
+      }
+      broken.delete(tool);
+      // Rows a disconnected tool left behind (a late write, or a disconnect while DevHub was stopped) go.
+      if (outcome.value === 'not_connected' && cache.tool(tool) !== null) cache.forget(tool);
+      return outcome.value;
     });
     const connected = ended.filter((outcome) => outcome !== 'not_connected');
     if (connected.length > 0 && connected.every((outcome) => outcome === 'answered')) {
@@ -147,11 +177,30 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     events.publish({ type: 'inbox.changed' });
   }
 
-  function sync(): Promise<void> {
-    running ??= run().finally(() => {
+  /** Read through a call: `run()` can set it while it awaits, which narrowing can't see. */
+  function anotherPassAsked(): boolean {
+    return again;
+  }
+
+  async function passes(): Promise<void> {
+    try {
+      do {
+        again = false;
+        await run();
+      } while (anotherPassAsked());
+    } finally {
       running = undefined;
-    });
+    }
+  }
+
+  function sync(): Promise<void> {
+    running ??= passes();
     return running;
+  }
+
+  function syncAfterChange(): Promise<void> {
+    if (running !== undefined) again = true;
+    return sync();
   }
 
   return {
@@ -175,8 +224,8 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
       return {
         items,
         tools: {
-          jira: jira === 'not_connected' ? { state: 'not_connected' } : stateOf(jira),
-          github: github === 'not_connected' ? { state: 'not_connected' } : stateOf(github),
+          jira: jira === 'not_connected' ? { state: 'not_connected' } : stateOf(jira, broken.has('jira')),
+          github: github === 'not_connected' ? { state: 'not_connected' } : stateOf(github, broken.has('github')),
         },
         syncedAt: anyConnected ? cache.syncedAt() : null,
       };
@@ -184,10 +233,16 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
 
     sync,
 
+    syncAfterChange,
+
+    idle() {
+      return (running ?? Promise.resolve()).catch(() => undefined);
+    },
+
     clear() {
       cache.clear();
       events.publish({ type: 'inbox.changed' });
-      sync().catch((error: unknown) => options.onError?.(error));
+      syncAfterChange().catch((error: unknown) => options.onError?.(error));
       return Promise.resolve();
     },
 
