@@ -358,3 +358,58 @@ describe.skipIf(process.platform === 'win32')('GitHub connection', () => {
     expect(told).not.toContain(ghToken);
   });
 });
+
+describe.skipIf(process.platform === 'win32')('GitHub connection: credentials for the inbox (spec 007)', () => {
+  it('has none until GitHub is connected, and never runs gh or touches the keychain to say so', async () => {
+    const { connection, folder } = await setup({ keychain: createUnreachableKeychain() });
+
+    expect(await connection.credentials()).toBeNull();
+    expect(await folder.runs()).toEqual([]);
+  });
+
+  it('hands out gh’s token for the gh way', async () => {
+    const { connection } = await setup({ settings: { github: { method: 'gh' } } });
+
+    expect(await connection.credentials()).toEqual({ ok: true, connection: 'gh', token: ghToken });
+  });
+
+  it('hands out the saved token for the token way', async () => {
+    const { connection } = await setup({
+      keychain: createMemoryKeychain({ github: githubToken }),
+      settings: { github: { method: 'token' } },
+    });
+
+    expect(await connection.credentials()).toEqual({ ok: true, connection: 'token', token: githubToken });
+  });
+
+  it('AC-25: a token missing from the keychain reads as refused', async () => {
+    const { connection } = await setup({ settings: { github: { method: 'token' } } });
+
+    expect(await connection.credentials()).toEqual({ ok: false, connection: 'token', problem: { kind: 'rejected' } });
+  });
+
+  it('AC-25: a signed-out gh says so in spec 004’s words', async () => {
+    const { connection } = await setup({ gh: { kind: 'signed_out' }, settings: { github: { method: 'gh' } } });
+
+    expect(await connection.credentials()).toEqual({
+      ok: false,
+      connection: 'gh',
+      problem: {
+        kind: 'other',
+        message: "gh isn't signed in to github.com. Run gh auth login in a terminal, then try again.",
+      },
+    });
+  });
+
+  it('AC-25: a keychain DevHub can’t reach says so in spec 002’s words', async () => {
+    const { connection } = await setup({
+      keychain: createUnreachableKeychain(),
+      settings: { github: { method: 'token' } },
+    });
+
+    expect(await connection.credentials()).toMatchObject({
+      ok: false,
+      problem: { kind: 'other', message: keychainUnavailableMessage },
+    });
+  });
+});

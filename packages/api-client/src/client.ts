@@ -4,6 +4,7 @@ import {
   type AddRepositoryRequest,
   type GitHubConnection,
   type GitHubConnectionRequest,
+  type Inbox,
   type JiraConnection,
   type JiraConnectionRequest,
   type JiraProjectList,
@@ -18,6 +19,7 @@ import {
   type Status,
 } from '@devhub/contracts';
 import { deleteGitHubConnection, getGitHubConnection, putGitHubConnection } from './endpoints/github.ts';
+import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
 import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnection } from './endpoints/jira.ts';
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
 import { deleteRepository, getRepositories, postRepository } from './endpoints/repositories.ts';
@@ -63,6 +65,12 @@ export interface ApiClient {
   addRepository(request: AddRepositoryRequest): Promise<Repository>;
   /** Forgets the folder; nothing on disk changes. */
   removeRepository(id: RepositoryId): Promise<void>;
+  /** Home's "Needs your attention" list, from the server's cache. */
+  inbox(): Promise<Inbox>;
+  /** Syncs the inbox now; resolves once the sync has ended. */
+  refreshInbox(): Promise<void>;
+  /** Empties the inbox's cache; the server syncs again on its own. */
+  clearInboxCache(): Promise<void>;
   /** Opens the live event stream; returns a function that closes it. */
   subscribe(onEvent: (event: ServerEvent) => void, onError?: () => void): () => void;
 }
@@ -106,6 +114,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       postRepository(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     removeRepository: (id) =>
       deleteRepository(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    inbox: () => getInbox(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    refreshInbox: () => postInboxRefresh(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     subscribe: (onEvent, onError) =>
       subscribeToEvents({
         baseURL: options.baseURL,

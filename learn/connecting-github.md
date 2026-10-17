@@ -23,8 +23,8 @@ form (react-hook-form + the contract's schema)
 - **The gh way keeps no copy.** DevHub asks gh for the token each time it needs one and holds it only for that call (spec 004, Q2). Signing out of gh, `gh auth switch` or a refreshed login is followed at the next check, and the row names the account. DevHub never runs `gh auth login` or `logout`, and Disconnect leaves gh signed in. The gh way never touches DevHub's keychain item.
 - **One way at a time.** Picking gh deletes a token saved for the token way. If the keychain is locked, that fails, and the token way stays as it was.
 - **Only github.com.** The token goes only to `api.github.com`. GitHub Enterprise Server is out of scope.
-- **`repo` or nothing.** A classic token, and a gh login, must have the `repo` scope, because the PRs you review are mostly in private repos, and spec 014 opens PRs (Q3). GitHub lists a classic token's scopes in `X-OAuth-Scopes`, so DevHub refuses one without `repo` at Connect. A fine-grained token sends no such header, so DevHub accepts it, and spec 007 reports a repo it can't see. gh's default login has `repo`; `gh auth refresh --scopes repo` adds it.
-- **Single sign-on can't be checked here.** A classic token must be authorized for a company's SAML single sign-on, but `GET /user` works either way. GitHub only says so when a repo is read, so the token help mentions it and spec 007 reports it.
+- **`repo` or nothing.** A classic token, and a gh login, must have the `repo` scope, because the PRs you review are mostly in private repos, and spec 014 opens PRs (Q3). GitHub lists a classic token's scopes in `X-OAuth-Scopes`, so DevHub refuses one without `repo` at Connect. A fine-grained token sends no such header, so DevHub accepts it. A repo it can't see simply has no pull requests in the inbox's search (spec 007), as on GitHub's own search page; nothing names it. gh's default login has `repo`; `gh auth refresh --scopes repo` adds it.
+- **Single sign-on can't be checked here.** A classic token must be authorized for a company's SAML single sign-on, but `GET /user` works either way. GitHub only says so when a repo is read, so the token help mentions it. The inbox's GraphQL search (spec 007) takes the pull requests that came and leaves out the ones behind single sign-on, without naming them.
 - **A token left empty** means "keep the one DevHub has": the saved keychain token in Manage, or `DEVHUB_GITHUB_TOKEN` from `.env` when `DEVHUB_TOKENS_FROM_ENV=true`. Then only the way is saved.
 
 ## Finding gh
@@ -59,6 +59,10 @@ octokit reports a failed fetch as status 500 with no `response`, so `client.ts` 
 - No way saved: **Not connected**. gh never runs and the keychain is never read.
 - Saved: DevHub gets the token the saved way, asks GitHub, and names the account: "Signed in as octocat with the gh command-line tool", "Personal access token for octocat", or "Token from .env for octocat". Otherwise the row says **Error** with the reason, such as "The saved token is missing from your keychain. Connect again."
 - GitHub is asked at most once every 2 minutes through `integrations/checked-status.ts`, the same code as Jira's: one check shared by everyone asking, the last answer while a re-check runs, and `status.changed` when the line changes. Jira and GitHub run side by side, so the first `/api/status` waits for the slower one.
+
+## Your pull requests, for Home (spec 007)
+
+The inbox's sync asks `connection.credentials()` for a token: gh's for the gh way (running gh, never asking GitHub), the saved one for the token way. Null means GitHub isn't connected; a token missing from the keychain is a `rejected` problem; a signed-out gh or a locked keychain keeps the words from specs 002 and 004. Then `client.inbox()` sends one GraphQL query to `api.github.com/graphql` with the same octokit settings as Connect (no redirects, 10 seconds, the token in the header only). GraphQL's own `RATE_LIMITED` error reads as a rate limit with GitHub's reset time. The query's limits keep it to about 24 points a sync, because GitHub prices by the most nodes a query could return; the sum sits next to the query. A pull request's link must be https on github.com, or it isn't kept. See `learn/the-inbox.md`.
 
 ## Keeping the token in its place
 

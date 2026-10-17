@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Link, useLinkProps } from '@tanstack/react-router';
 import { History, House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucide-react';
 import { Button, Kbd, Splitter, cn } from '@devhub/ui';
+import { useInboxCount } from '../features/home/queries.ts';
 import { SidebarSessions } from '../features/sessions/components/sidebar-sessions.tsx';
 import { usePlatform } from '../platform.tsx';
 import { clampSidebarWidth, sidebarWidthLimits, useUiStore } from '../stores/ui-store.ts';
@@ -31,6 +32,7 @@ export function Sidebar() {
   // New task is an action, so it must never announce itself as the current page on Home.
   // Only the router's href (hash or path, per host); the click is handled below.
   const { href: homeHref } = useLinkProps({ to: '/' });
+  const needYou = useInboxCount();
 
   return (
     <nav
@@ -115,7 +117,16 @@ export function Sidebar() {
       </div>
 
       <div className="grid w-full grid-cols-4 gap-1 md:flex md:flex-col md:gap-0.5">
-        <NavItem to="/" icon={<House aria-hidden />} label="Home" collapsed={collapsed} exact />
+        <NavItem
+          to="/"
+          icon={<House aria-hidden />}
+          label="Home"
+          collapsed={collapsed}
+          exact
+          {...(needYou === undefined
+            ? {}
+            : { count: { value: needYou, spoken: `${String(needYou)} ${needYou === 1 ? 'needs' : 'need'} you` } })}
+        />
         <NavItem to="/tickets" icon={<SquareKanban aria-hidden />} label="Tickets" collapsed={collapsed} />
         <NavItem to="/settings" icon={<Settings aria-hidden />} label="Settings" collapsed={collapsed} />
         {/* Narrow windows have no session rows, so the full list gets a place of its own. */}
@@ -160,6 +171,7 @@ function NavItem({
   label,
   collapsed,
   exact = false,
+  count,
   className,
 }: {
   to: '/' | '/tickets' | '/settings' | '/sessions';
@@ -167,8 +179,11 @@ function NavItem({
   label: string;
   collapsed: boolean;
   exact?: boolean;
+  /** Design system: `.dh-nav-count`, and what a screen reader hears for it ("14 need you"). */
+  count?: { value: number; spoken: string };
   className?: string;
 }) {
+  const showCount = count !== undefined && count.value > 0 && !collapsed;
   return (
     <Link
       to={to}
@@ -183,7 +198,20 @@ function NavItem({
       )}
     >
       <span className="contents group-aria-[current=page]:text-info">{icon}</span>
-      <Label collapsed={collapsed}>{label}</Label>
+      {/* Hidden at 0, and on the collapsed rail and the narrow bar, where there is no room (spec 007, Q1b). */}
+      <Label collapsed={collapsed}>
+        {label}
+        {/* Inside the label, so the link reads "Home, 14 need you" (Chrome adds a space before the comma). */}
+        {showCount ? <span className="sr-only max-md:hidden">{`, ${count.spoken}`}</span> : null}
+      </Label>
+      {showCount ? (
+        <span
+          aria-hidden
+          className="ms-auto inline-flex h-5 min-w-5.5 items-center justify-center rounded-full border border-border bg-canvas px-1.5 text-label font-medium text-muted-foreground group-aria-[current=page]:border-transparent group-aria-[current=page]:bg-primary group-aria-[current=page]:text-primary-foreground max-md:hidden"
+        >
+          {count.value}
+        </span>
+      ) : null}
     </Link>
   );
 }

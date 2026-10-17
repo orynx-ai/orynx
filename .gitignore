@@ -11,6 +11,9 @@ test-results/
 
 # Local runtime data (tokens, cache, sessions, worktrees) never belongs in git.
 .devhub/
+# The inbox's cache holds work titles and the Jira email (spec 007), wherever DEVHUB_HOME points.
+cache.db
+cache.db-*
 .env
 .env.*
 !.env.example

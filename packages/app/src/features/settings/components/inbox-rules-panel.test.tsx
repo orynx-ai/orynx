@@ -147,4 +147,50 @@ describe('InboxRulesPanel', () => {
     expect(second).toHaveFocus();
     expect(second).not.toBeChecked();
   });
+
+  it('AC-31: says what the cache is for, then Clear cache empties it and a screen reader hears so (Q7)', async () => {
+    let cleared = 0;
+    server.use(
+      http.delete(apiUrl(apiRoutes.inboxCache), async () => {
+        await delay(50);
+        cleared += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await openTab();
+
+    expect(
+      screen.getByText(
+        'DevHub keeps a copy of your tickets and pull requests on this computer, so Home opens at once.',
+      ),
+    ).toBeVisible();
+    const clear = screen.getByRole('button', { name: 'Clear cache' });
+    expect(clear).toHaveAccessibleDescription(
+      'DevHub keeps a copy of your tickets and pull requests on this computer, so Home opens at once.',
+    );
+    await user.click(clear);
+
+    expect(clear).toHaveAttribute('aria-disabled', 'true');
+    // The live region is there from the start, so the words arrive in a region a screen reader already watches.
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('Cache cleared.');
+    });
+    expect(clear).not.toHaveAttribute('aria-disabled', 'true');
+    expect(cleared).toBe(1);
+  });
+
+  it('AC-31: says so when the cache couldn’t be cleared', async () => {
+    server.use(
+      http.delete(apiUrl(apiRoutes.inboxCache), () =>
+        HttpResponse.json({ code: 'internal', message: 'Something went wrong.' }, { status: 500 }),
+      ),
+    );
+    const { user } = await openTab();
+
+    await user.click(screen.getByRole('button', { name: 'Clear cache' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't clear the cache. Check that DevHub is still running, then try again.",
+    );
+  });
 });

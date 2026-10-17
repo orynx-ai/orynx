@@ -3,6 +3,7 @@ import { setupServer } from 'msw/node';
 import { apiRoutes, type SessionList } from '@devhub/contracts';
 import {
   makeGitHubConnection,
+  makeInbox,
   makeJiraConnection,
   makePreferences,
   makeSessionList,
@@ -33,4 +34,10 @@ export const server = setupServer(
   http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences())),
   http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: [] })),
   http.get(apiUrl(apiRoutes.jiraProjects), () => HttpResponse.json({ projects: [] })),
+  // Nothing connected yet, so nothing needs you.
+  http.get(apiUrl(apiRoutes.inbox), () =>
+    HttpResponse.json(
+      makeInbox({ tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } }, syncedAt: null }),
+    ),
+  ),
 );

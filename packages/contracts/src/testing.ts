@@ -3,6 +3,7 @@
  * sides of the wire use the same shapes. These are data, not mocks of our code.
  */
 import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
+import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
 import { defaultPreferences, PreferencesSchema, type InboxRules, type Preferences } from './preferences.ts';
 import { RepositorySchema, type Repository } from './repositories.ts';
@@ -87,6 +88,35 @@ export function makeRepository(overrides: Partial<Repository> = {}): Repository 
     name: 'intranet-web',
     displayPath: '~/code/intranet-web',
     jiraProject: 'PROJ',
+    ...overrides,
+  });
+}
+
+/**
+ * One row: the design's GitHub review request "Lazy-load the people directory", unless the override says
+ * otherwise.
+ */
+export function makeInboxItem(overrides: Partial<InboxItem> = {}): InboxItem {
+  return InboxItemSchema.parse({
+    id: 'github:acme/web-app#2841',
+    source: 'github',
+    tab: 'pull_requests',
+    title: 'Lazy-load the people directory',
+    subject: { kind: 'pull_request', repository: 'web-app', number: 2841, author: 'Priya Sharma', mine: false },
+    reason: { kind: 'review_requested' },
+    waitingSince: '2026-10-15T10:00:00.000Z',
+    target: { kind: 'external', url: 'https://github.com/acme/web-app/pull/2841/files' },
+    ...overrides,
+  });
+}
+
+/** The list with no rows, both tools synced at 10:00 on 17 Oct 2026, unless the override says otherwise. */
+export function makeInbox(overrides: Partial<Inbox> = {}): Inbox {
+  const synced = { state: 'synced', at: '2026-10-17T10:00:00.000Z' } as const;
+  return InboxSchema.parse({
+    items: [],
+    tools: { jira: synced, github: synced },
+    syncedAt: '2026-10-17T10:00:00.000Z',
     ...overrides,
   });
 }

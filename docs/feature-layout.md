@@ -47,7 +47,8 @@ packages/ui/src/index.ts                       export it
 packages/core/src/integrations/<tool>/
 ├── client.ts         thin wrapper over the official SDK; the only file that talks to the network
 ├── map.ts            outside shapes → contracts shapes (pure, fully tested)
-├── rules.ts          "needs you" rules for the inbox (pure, fully tested)
+├── rules.ts          "needs you" rules for this tool alone (pure, fully tested); rules that combine
+│                     tools, such as Home's inbox, live in packages/core/src/<area>/rules.ts
 └── *.test.ts         network faked with MSW; never fake our own modules
 ```
 

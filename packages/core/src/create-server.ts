@@ -10,11 +10,15 @@ import { createGitHubConnection } from './integrations/github/connection.ts';
 import { createGhCli, type GhCli } from './integrations/github/gh.ts';
 import { createJiraClient } from './integrations/jira/client.ts';
 import { createJiraConnection } from './integrations/jira/connection.ts';
+import { openInboxCache, type InboxCache } from './inbox/inbox-cache.ts';
+import { startInboxSchedule } from './inbox/inbox-schedule.ts';
+import { createInboxService } from './inbox/inbox-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
+import { inboxRoutes } from './routes/inbox.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
@@ -59,6 +63,16 @@ export interface CoreOptions {
   userHome?: string;
   /** DEVHUB_HOME, which Settings › Repositories never adds. `~/.devhub` by default. */
   dataDir?: string;
+  /**
+   * The inbox's cache (spec 007). Hosts pass `<DEVHUB_HOME>/cache.db`; tests get one in memory. The server
+   * closes it when it closes.
+   */
+  cache?: InboxCache;
+  /**
+   * Sync the inbox on its own: at start, every 2 minutes while a page is open, and when a tool connects
+   * (spec 007). Hosts turn it on. Left off, only Refresh syncs, so no test reaches Jira or GitHub by surprise.
+   */
+  autoSync?: boolean;
 }
 
 /** The HTTP status for each error a connection route can answer with. */
@@ -123,7 +137,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   registerLocalOnly(app, { token: options.token, port: options.port });
 
   const events = options.events ?? createEventBus();
-  // Nothing reads the keychain here: the first read happens when a route needs a token.
+  // Nothing reads the keychain here: the first read happens when a route or the inbox's sync needs a token.
   app.decorate(
     'tokens',
     createTokenStore({
@@ -133,10 +147,12 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     }),
   );
   const settings = options.settings ?? createMemorySettingsStore();
+  const jiraClient = createJiraClient();
+  const githubClient = createGitHubClient();
   const jira = createJiraConnection({
     settings,
     tokens: app.tokens,
-    jira: createJiraClient(),
+    jira: jiraClient,
     events,
     envToken: options.envTokens?.jira !== undefined,
     onProblem: (problem) => {
@@ -152,7 +168,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const github = createGitHubConnection({
     settings,
     tokens: app.tokens,
-    github: createGitHubClient(),
+    github: githubClient,
     gh: options.gh ?? createGhCli({ searchPath: '' }),
     events,
     envToken: options.envTokens?.github !== undefined,
@@ -165,6 +181,42 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     onError: (error) => {
       app.log.error(error, "GitHub's status line failed");
     },
+  });
+  const sessions = options.sessions ?? createMemorySessionStore();
+  const preferences = createPreferencesService({ settings, events });
+  const cache = options.cache ?? openInboxCache(':memory:');
+  const inbox = createInboxService({
+    cache,
+    settings,
+    connections: { jira, github },
+    jira: jiraClient,
+    github: githubClient,
+    sessions,
+    preferences,
+    events,
+    onProblem: (tool, problem) => {
+      app.log.warn({ tool, problem }, 'The inbox sync could not read this tool');
+    },
+    onError: (error) => {
+      app.log.error(error, 'The inbox sync failed');
+    },
+  });
+  const schedule =
+    options.autoSync === true
+      ? startInboxSchedule({
+          inbox,
+          settings,
+          events,
+          onError: (error) => {
+            app.log.error(error, 'The inbox sync failed');
+          },
+        })
+      : undefined;
+  // One hook, in order: no new sync, then the running one ends, then the cache closes after its last write.
+  app.addHook('onClose', async () => {
+    schedule?.stop();
+    await inbox.idle();
+    cache.close();
   });
   const status = createStatusService({
     version: options.version,
@@ -202,10 +254,11 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       });
 
       await api.register(statusRoutes, { status });
-      await api.register(sessionsRoutes, { sessions: options.sessions ?? createMemorySessionStore() });
+      await api.register(sessionsRoutes, { sessions });
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
-      await api.register(preferencesRoutes, { preferences: createPreferencesService({ settings, events }) });
+      await api.register(preferencesRoutes, { preferences });
+      await api.register(inboxRoutes, { inbox });
       await api.register(repositoriesRoutes, {
         repositories: createRepositoryService({
           settings,

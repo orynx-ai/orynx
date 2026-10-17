@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makePreferences, makeStatus } from '@devhub/contracts/testing';
+import { makeInbox, makeInboxItem, makePreferences, makeStatus } from '@devhub/contracts/testing';
 import type { PermissionMode } from '@devhub/contracts';
 import { FakeEventSource } from './test/fake-event-source.ts';
 import { apiUrl, server } from './test/msw.ts';
@@ -47,6 +47,32 @@ describe('LiveUpdates', () => {
       expect(everything).toBeChecked();
     });
   });
+
+  it.each(['inbox.changed', 'settings.changed', 'status.changed', 'sessions.changed'] as const)(
+    'AC-15, AC-16: refreshes what needs you when the server says %s',
+    async (type) => {
+      let count = 1;
+      server.use(
+        http.get(apiUrl(apiRoutes.inbox), () =>
+          HttpResponse.json(
+            makeInbox({
+              items: Array.from({ length: count }, (_, index) =>
+                makeInboxItem({ id: `jira:PROJ-${String(index + 1)}` }),
+              ),
+            }),
+          ),
+        ),
+      );
+      await renderApp({ route: '/tickets' });
+      const nav = screen.getByRole('navigation', { name: 'Main' });
+      await within(nav).findByRole('link', { name: 'Home, 1 needs you' });
+
+      count = 2;
+      FakeEventSource.latest().emit({ type });
+
+      expect(await within(nav).findByRole('link', { name: 'Home, 2 need you' })).toBeVisible();
+    },
+  );
 
   it('closes the stream when the app goes away', async () => {
     const { unmount } = await renderApp();

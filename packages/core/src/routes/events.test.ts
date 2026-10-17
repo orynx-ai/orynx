@@ -107,9 +107,10 @@ describe('GET /api/events', () => {
     const { events, received, res } = await openStream();
     await until(() => received.length === 1);
     expect(events.listenerCount()).toBe(1);
+    expect(events.pageCount()).toBe(1);
 
     res.destroy();
 
-    await until(() => events.listenerCount() === 0);
+    await until(() => events.listenerCount() === 0 && events.pageCount() === 0);
   });
 });

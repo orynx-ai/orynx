@@ -32,6 +32,16 @@ export type JiraCheck = { ok: true } | { ok: false; problem: JiraProblem };
 
 export type JiraProjects = { ok: true; projects: JiraProject[] } | { ok: false; problem: JiraProblem };
 
+/** One assigned issue as Jira sends it, with only the fields the inbox asks for (spec 007). */
+export type JiraAssignedIssue = z.infer<typeof AssignedIssueSchema>;
+
+/**
+ * Your unfinished issues, and the site's priority ids highest first. The order is read only when an issue
+ * is a bug, because only a bug's priority matters to the inbox; otherwise it's empty.
+ */
+export type JiraAssigned =
+  { ok: true; issues: JiraAssignedIssue[]; priorityOrder: string[] } | { ok: false; problem: JiraProblem };
+
 export interface JiraClient {
   readonly timeoutMs: number;
   /** Asks Jira who these credentials belong to (`GET /rest/api/3/myself`). */
@@ -42,6 +52,11 @@ export interface JiraClient {
    * 20-second wait gives up (spec 005).
    */
   projects(request: JiraCheckRequest): Promise<JiraProjects>;
+  /**
+   * The issues assigned to these credentials whose status category isn't Done, at most 100
+   * (`POST /rest/api/3/search/jql`), and the priority order for bugs. Never a description or a comment.
+   */
+  assigned(request: JiraCheckRequest): Promise<JiraAssigned>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -59,6 +74,31 @@ const ProjectPageSchema = z.object({
   values: z.array(z.object({ key: z.string(), name: z.string() })),
   isLast: z.boolean().optional(),
 });
+
+const AssignedIssueSchema = z.object({
+  key: z.string(),
+  fields: z.object({
+    summary: z.string().nullish(),
+    status: z.object({ name: z.string(), statusCategory: z.object({ key: z.string() }) }),
+    issuetype: z.object({ name: z.string() }).nullish(),
+    priority: z.object({ id: z.string() }).nullish(),
+    duedate: z.string().nullish(),
+    created: z.string(),
+    statuscategorychangedate: z.string().nullish(),
+  }),
+});
+
+// Each issue is checked on its own, so one odd issue is left out instead of failing the whole read.
+const IssueSearchSchema = z.object({ issues: z.array(z.unknown()) });
+const PrioritySearchSchema = z.object({ values: z.array(z.object({ id: z.string() })) });
+
+/**
+ * Statuses are matched by category, never by name (integration-adapter skill). Oldest first, so the 100
+ * kept are the ones that have waited longest, as Home sorts them.
+ */
+const assignedJql = 'assignee = currentUser() AND statusCategory != Done ORDER BY created ASC';
+const assignedFields = ['summary', 'status', 'issuetype', 'priority', 'duedate', 'created', 'statuscategorychangedate'];
+const mostAssigned = 100;
 
 const projectsPerPage = 100;
 const mostProjects = 1000;
@@ -124,6 +164,35 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
         return projects.slice(0, mostProjects);
       });
       return answer.ok ? { ok: true, projects: answer.value } : answer;
+    },
+
+    async assigned(request) {
+      const answer = await withJira(request, async (client) => {
+        // Both requests share one wait, like the project list.
+        const signal = AbortSignal.timeout(timeoutMs);
+        const page = await client.sendRequest({
+          url: '/rest/api/3/search/jql',
+          method: 'POST',
+          body: { jql: assignedJql, fields: assignedFields, maxResults: mostAssigned },
+          schema: IssueSearchSchema,
+          signal,
+        });
+        const issues = page.issues.flatMap((found) => {
+          const issue = AssignedIssueSchema.safeParse(found);
+          return issue.success ? [issue.data] : [];
+        });
+        const anyBug = issues.some((issue) => issue.fields.issuetype?.name.toLowerCase() === 'bug');
+        if (!anyBug) return { issues, priorityOrder: [] };
+        const priorities = await client.sendRequest({
+          url: '/rest/api/3/priority/search',
+          method: 'GET',
+          searchParams: { maxResults: 50 },
+          schema: PrioritySearchSchema,
+          signal,
+        });
+        return { issues, priorityOrder: priorities.values.map((priority) => priority.id) };
+      });
+      return answer.ok ? { ok: true, ...answer.value } : answer;
     },
   };
 }

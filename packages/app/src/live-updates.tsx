@@ -10,12 +10,17 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'hello':
       return [];
     case 'status.changed':
-      // Connecting or disconnecting a tool also changes its saved settings (specs 003 and 004).
-      return [queryKeys.status, queryKeys.jiraConnection, queryKeys.githubConnection];
+      // Connecting or disconnecting a tool also changes its saved settings (specs 003 and 004), and which
+      // tools the inbox shows (spec 007).
+      return [queryKeys.status, queryKeys.jiraConnection, queryKeys.githubConnection, queryKeys.inbox];
     case 'sessions.changed':
-      return [queryKeys.sessions];
+      // A session waiting for approval is a row on Home (spec 007).
+      return [queryKeys.sessions, queryKeys.inbox];
     case 'settings.changed':
-      return [queryKeys.preferences, queryKeys.repositories];
+      // The inbox rules apply when the server reads the list (spec 007).
+      return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];
+    case 'inbox.changed':
+      return [queryKeys.inbox];
   }
 }
 

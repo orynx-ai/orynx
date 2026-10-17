@@ -1,6 +1,14 @@
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { githubLogin, githubToken, userUrl, useFakeGitHub } from '../../test/fake-github.ts';
+import {
+  acceptingInboxQuery,
+  githubLogin,
+  githubToken,
+  graphqlUrl,
+  pullNode,
+  userUrl,
+  useFakeGitHub,
+} from '../../test/fake-github.ts';
 import { createGitHubClient, type GitHubCheck } from './client.ts';
 
 const github = useFakeGitHub();
@@ -141,5 +149,120 @@ describe('GitHub client', () => {
 
   it('waits 10 seconds by default', () => {
     expect(createGitHubClient().timeoutMs).toBe(10_000);
+  });
+});
+
+describe('GitHub client: the inbox (spec 007)', () => {
+  it('AC-6, AC-8: asks api.github.com once for open, non-draft review requests to you by name and for your own', async () => {
+    const seen: { url: string; authorization: string | null; body: unknown }[] = [];
+    github.use(acceptingInboxQuery({ reviews: [{ number: 2841 }], mine: [{ number: 2836 }] }));
+    github.events.on('request:start', ({ request }) => {
+      const copy = request.clone();
+      void copy.json().then((body) => {
+        seen.push({ url: copy.url, authorization: copy.headers.get('authorization'), body });
+      });
+    });
+
+    const answer = await client.inbox(githubToken);
+
+    expect(answer).toMatchObject({
+      ok: true,
+      login: githubLogin,
+      reviews: [{ number: 2841 }],
+      mine: [{ number: 2836 }],
+    });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({
+      url: graphqlUrl,
+      authorization: `token ${githubToken}`,
+      body: {
+        variables: {
+          reviews: 'is:pr is:open draft:false archived:false user-review-requested:@me',
+          mine: 'is:pr is:open draft:false archived:false author:@me',
+        },
+      },
+    });
+    github.events.removeAllListeners();
+  });
+
+  it('leaves out search results that aren’t pull requests', async () => {
+    github.use(
+      http.post(graphqlUrl, () =>
+        HttpResponse.json({
+          data: {
+            viewer: { login: githubLogin },
+            reviews: { nodes: [null, {}, pullNode({ number: 7 })] },
+            mine: { nodes: [] },
+          },
+        }),
+      ),
+    );
+
+    const answer = await client.inbox(githubToken);
+
+    expect(answer.ok && answer.reviews.map((pull) => pull.number)).toEqual([7]);
+  });
+
+  it('takes the pull requests that came when GitHub also reports errors, as it does for single sign-on', async () => {
+    github.use(
+      http.post(graphqlUrl, () =>
+        HttpResponse.json({
+          data: {
+            viewer: { login: githubLogin },
+            reviews: { nodes: [pullNode({ number: 9 }), null] },
+            mine: { nodes: [] },
+          },
+          errors: [{ type: 'FORBIDDEN', message: 'Resource protected by organization SAML enforcement.' }],
+        }),
+      ),
+    );
+
+    const answer = await client.inbox(githubToken);
+
+    expect(answer.ok && answer.reviews.map((pull) => pull.number)).toEqual([9]);
+  });
+
+  it('AC-25: a refused token comes back as a problem that never holds the token', async () => {
+    github.use(acceptingInboxQuery());
+
+    const answer = await client.inbox('fake-wrong-token-for-tests');
+
+    expect(answer).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(answer)).not.toContain('fake-wrong-token-for-tests');
+  });
+
+  it('AC-24: GraphQL’s own rate limit is a rate limit, with GitHub’s reset time', async () => {
+    github.use(
+      http.post(graphqlUrl, () =>
+        HttpResponse.json(
+          { errors: [{ type: 'RATE_LIMITED', message: 'API rate limit exceeded for user ID 583231.' }] },
+          { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1792245900' } },
+        ),
+      ),
+    );
+
+    expect(await client.inbox(githubToken)).toEqual({
+      ok: false,
+      problem: { kind: 'rate_limited', resetAt: 1_792_245_900_000 },
+    });
+  });
+
+  it('AC-24: an answer with errors and no data is a GitHub error', async () => {
+    github.use(http.post(graphqlUrl, () => HttpResponse.json({ errors: [{ message: 'Something went wrong' }] })));
+
+    expect(await client.inbox(githubToken)).toEqual({ ok: false, problem: { kind: 'github_error', status: 200 } });
+  });
+
+  it('AC-24: a slow GitHub is a timeout, and a broken one an error', async () => {
+    github.use(
+      http.post(graphqlUrl, async () => {
+        await delay('infinite');
+        return HttpResponse.json({});
+      }),
+    );
+    expect(await client.inbox(githubToken)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+
+    github.use(http.post(graphqlUrl, () => HttpResponse.json({ message: 'Server Error' }, { status: 502 })));
+    expect(await client.inbox(githubToken)).toEqual({ ok: false, problem: { kind: 'github_error', status: 502 } });
   });
 });

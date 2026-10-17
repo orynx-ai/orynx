@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import type { InboxRuleId } from '@devhub/contracts';
-import { Checkbox } from '@devhub/ui';
-import { useChangePreferences, usePreferences } from '../queries.ts';
+import { Button, Checkbox } from '@devhub/ui';
+import { useChangePreferences, useClearInboxCache, usePreferences } from '../queries.ts';
 import { SaveError } from './save-error.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
 
@@ -20,8 +20,10 @@ const rules: readonly { id: InboxRuleId; label: string }[] = [
  */
 export function InboxRulesPanel() {
   const introId = useId();
+  const cacheLineId = useId();
   const preferences = usePreferences();
   const change = useChangePreferences();
+  const clear = useClearInboxCache();
 
   if (preferences.data === undefined && preferences.isError) return <ServerUnreachable />;
   // While loading, the same rows unchecked, so nothing moves when the answer comes.
@@ -49,6 +51,32 @@ export function InboxRulesPanel() {
         ))}
       </fieldset>
       {change.isError ? <SaveError /> : null}
+
+      {/* Clear cache (spec 002 Q3, spec 007 Q7): only cache.db, never tokens, settings, sessions or worktrees. */}
+      <div className="mt-4 flex flex-col items-start gap-2">
+        <p id={cacheLineId} className="m-0 text-small text-muted-foreground">
+          DevHub keeps a copy of your tickets and pull requests on this computer, so Home opens at once.
+        </p>
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-describedby={cacheLineId}
+          pending={clear.isPending}
+          onClick={() => {
+            clear.mutate();
+          }}
+        >
+          Clear cache
+        </Button>
+        {clear.isError ? (
+          <p role="alert" className="m-0 text-small text-danger">
+            Couldn&apos;t clear the cache. Check that DevHub is still running, then try again.
+          </p>
+        ) : null}
+        <p role="status" className="sr-only">
+          {clear.isSuccess ? 'Cache cleared.' : ''}
+        </p>
+      </div>
     </div>
   );
 }

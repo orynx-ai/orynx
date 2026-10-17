@@ -1,12 +1,17 @@
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import {
+  acceptingIssueSearch,
+  acceptingPrioritySearch,
   acceptingProjectSearch,
   goodBasicValue,
+  issueSearchUrl,
   goodToken,
   jiraEmail,
+  jiraIssue,
   jiraSite,
   myselfUrl,
+  prioritySearchUrl,
   projectSearchUrl,
   useFakeJira,
 } from '../../test/fake-jira.ts';
@@ -216,5 +221,88 @@ describe('Jira client: projects', () => {
       ok: false,
       problem: { kind: 'unreachable', code: undefined },
     });
+  });
+});
+
+describe('Jira client: assigned issues (spec 007)', () => {
+  it('AC-2: asks for your unfinished issues by status category, with only the fields a row shows', async () => {
+    const bodies: unknown[] = [];
+    jira.use(acceptingIssueSearch([{ key: 'PROJ-1423', summary: 'Add bulk archive to the content list' }]));
+    jira.events.on('request:start', ({ request }) => {
+      if (request.url === issueSearchUrl())
+        void request
+          .clone()
+          .json()
+          .then((body) => bodies.push(body));
+    });
+
+    const answer = await client.assigned(credentials);
+
+    expect(answer).toMatchObject({ ok: true, issues: [{ key: 'PROJ-1423' }], priorityOrder: [] });
+    expect(bodies).toEqual([
+      {
+        jql: 'assignee = currentUser() AND statusCategory != Done ORDER BY created ASC',
+        fields: ['summary', 'status', 'issuetype', 'priority', 'duedate', 'created', 'statuscategorychangedate'],
+        maxResults: 100,
+      },
+    ]);
+    jira.events.removeAllListeners();
+  });
+
+  it('AC-5: reads the site’s priority order only when an issue is a bug', async () => {
+    const asked: string[] = [];
+    jira.use(acceptingIssueSearch([{ key: 'PROJ-1377', type: 'Bug', priority: '1' }]), acceptingPrioritySearch());
+    jira.events.on('request:start', ({ request }) => {
+      asked.push(new URL(request.url).pathname);
+    });
+
+    const answer = await client.assigned(credentials);
+
+    expect(answer).toMatchObject({ ok: true, priorityOrder: ['1', '2', '3', '4', '5'] });
+    expect(asked).toEqual(['/rest/api/3/search/jql', '/rest/api/3/priority/search']);
+    jira.events.removeAllListeners();
+  });
+
+  it('leaves out an issue it can’t read, and keeps the rest', async () => {
+    jira.use(
+      http.post(issueSearchUrl(), () =>
+        HttpResponse.json({
+          issues: [{ key: 'PROJ-1', fields: { summary: 'No status' } }, jiraIssue({ key: 'PROJ-2' })],
+        }),
+      ),
+    );
+
+    const answer = await client.assigned(credentials);
+
+    expect(answer.ok && answer.issues.map((issue) => issue.key)).toEqual(['PROJ-2']);
+  });
+
+  it('AC-25: a refused token comes back as a problem, never as the library’s error', async () => {
+    jira.use(acceptingIssueSearch([]));
+
+    const answer = await client.assigned({ ...credentials, apiToken: 'fake-wrong-token' });
+
+    expect(answer).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(answer)).not.toContain('fake-wrong-token');
+  });
+
+  it('AC-24: a slow Jira is a timeout', async () => {
+    jira.use(
+      http.post(issueSearchUrl(), async () => {
+        await delay('infinite');
+        return HttpResponse.json({});
+      }),
+    );
+
+    expect(await client.assigned(credentials)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+
+  it('AC-24: a priority list that fails fails the read, so a bug is never shown as the wrong priority', async () => {
+    jira.use(
+      acceptingIssueSearch([{ key: 'PROJ-1377', type: 'Bug' }]),
+      http.get(prioritySearchUrl(), () => HttpResponse.json({ errorMessages: ['Oops'] }, { status: 500 })),
+    );
+
+    expect(await client.assigned(credentials)).toEqual({ ok: false, problem: { kind: 'jira_error', status: 500 } });
   });
 });

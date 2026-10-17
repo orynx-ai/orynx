@@ -46,7 +46,7 @@ Before the handler runs, the `local-only` plugin checks the Host header and the 
 
 ## 4. The query options
 
-`packages/api-client/src/queries.ts` turns the function into `statusQueryOptions(api)`: a query key from `queryKeys` plus the fetcher. Keeping keys in one place means an event can invalidate exactly the right cache entries (see `learn/live-updates.md`). Keys go from general to specific: the sidebar's session list is `['sessions', { limit: 5 }]` and the full list is `['sessions', {}]`, so invalidating `queryKeys.sessions` refreshes both.
+`packages/api-client/src/queries.ts` turns the function into `statusQueryOptions(api)`: a query key from `queryKeys` plus the fetcher. Keeping keys in one place means an event can invalidate exactly the right cache entries (see `learn/live-updates.md`). Keys go from general to specific: the sidebar's session list is `['sessions', { limit: 5 }]` and the full list is `['sessions', {}]`, so invalidating `queryKeys.sessions` refreshes both. One key can also serve two views: the sidebar's Home count reads `queryKeys.inbox` with a `select` that keeps only the number of rows, so it shares Home's request and cache entry (spec 007).
 
 ## 5. The feature hook
 
@@ -65,7 +65,7 @@ export function useStatus() {
 
 The Settings screen (and the sidebar footer) calls `useStatus()` and renders one of its states: a skeleton while pending, a one-line error, or the Jira, GitHub and Slack rows with their pills. It never stores the result in `useState` or zustand; the query cache is the only copy.
 
-Writes take the same path the other way. Connecting Jira (spec 003) is a `useMutation` in the same `queries.ts` that calls `api.connectJira()`; its answer is the new saved connection, so it goes straight into the cache with `setQueryData`, and the status refetches. Connect and Disconnect share one mutation key per tool, so `useConnectionChangeRunning()` can ask `useIsMutating` whether any tool's change is on its way, and every row's button waits until it finishes. See `learn/connecting-jira.md`. GitHub (spec 004) works the same way with `api.connectGitHub()` under its own key; see `learn/connecting-github.md`. Settings' own values (spec 005) go the other way round: `useChangePreferences()` and `useRemoveRepository()` change the cache first (`onMutate`), take back only their own change if the save fails, and refetch only after the last of several quick changes; see `learn/settings-and-folders.md`.
+Writes take the same path the other way. Connecting Jira (spec 003) is a `useMutation` in the same `queries.ts` that calls `api.connectJira()`; its answer is the new saved connection, so it goes straight into the cache with `setQueryData`, and the status refetches. Connect and Disconnect share one mutation key per tool, so `useConnectionChangeRunning()` can ask `useIsMutating` whether any tool's change is on its way, and every row's button waits until it finishes. See `learn/connecting-jira.md`. GitHub (spec 004) works the same way with `api.connectGitHub()` under its own key; see `learn/connecting-github.md`. Settings' own values (spec 005) go the other way round: `useChangePreferences()` and `useRemoveRepository()` change the cache first (`onMutate`), take back only their own change if the save fails, and refetch only after the last of several quick changes; see `learn/settings-and-folders.md`. A write whose result the server announces needs no cache work at all: Clear cache (spec 007) only sends its request, and `inbox.changed` refreshes the list.
 
 ## Testing each layer
 

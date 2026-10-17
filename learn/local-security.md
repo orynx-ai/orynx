@@ -44,4 +44,4 @@ In dev, Vite's own `server.allowedHosts` check protects port 4318 the same way, 
 
 ## Where tokens for Jira, GitHub and Slack live
 
-Not here. Those live in the OS keychain, are read only by `packages/core` (through `app.tokens`), and never reach the browser, a log line or an event. See `learn/tokens-and-keychain.md`. The session token above only proves "this request came from DevHub's own page".
+Not here. Those live in the OS keychain, are read only by `packages/core` (through `app.tokens`), and never reach the browser, a log line, an event or the inbox's `cache.db` (spec 007). The inbox routes (`/api/inbox`, its refresh and its cache) sit behind the same Host and session-token checks as every other `/api` route. See `learn/tokens-and-keychain.md`. The session token above only proves "this request came from DevHub's own page".

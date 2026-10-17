@@ -282,3 +282,43 @@ describe('Jira connection: projects', () => {
     expect(error.message).toBe(keychainUnavailableMessage);
   });
 });
+
+describe('Jira connection: credentials for the inbox (spec 007)', () => {
+  it('has none until Jira is connected, and never touches the keychain to say so', async () => {
+    const { connection } = setup({ keychain: createUnreachableKeychain() });
+
+    expect(await connection.credentials()).toBeNull();
+  });
+
+  it('hands out the saved site, email and token, under the account they belong to', async () => {
+    const { connection } = setup({ keychain: createMemoryKeychain({ jira: goodToken }), settings: { jira: saved } });
+
+    expect(await connection.credentials()).toEqual({
+      ok: true,
+      connection: `${jiraSite} ${jiraEmail}`,
+      site: jiraSite,
+      request: { site: jiraSite, email: jiraEmail, apiToken: goodToken },
+    });
+  });
+
+  it('AC-25: a token missing from the keychain reads as refused, so the line says to reconnect', async () => {
+    const { connection } = setup({ settings: { jira: saved } });
+
+    expect(await connection.credentials()).toEqual({
+      ok: false,
+      connection: `${jiraSite} ${jiraEmail}`,
+      site: jiraSite,
+      problem: { kind: 'rejected' },
+    });
+  });
+
+  it('AC-25: a keychain DevHub can’t reach says so in spec 002’s words', async () => {
+    const { connection, onProblem } = setup({ keychain: createUnreachableKeychain(), settings: { jira: saved } });
+
+    expect(await connection.credentials()).toMatchObject({
+      ok: false,
+      problem: { kind: 'other', message: keychainUnavailableMessage },
+    });
+    expect(onProblem).toHaveBeenCalledWith({ kind: 'keychain_unavailable', reason: 'Error' });
+  });
+});

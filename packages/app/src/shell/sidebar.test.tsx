@@ -1,7 +1,19 @@
 import { screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+import { apiRoutes } from '@devhub/contracts';
+import { makeInbox, makeInboxItem } from '@devhub/contracts/testing';
 import { useUiStore } from '../stores/ui-store.ts';
+import { apiUrl, server } from '../test/msw.ts';
 import { renderApp } from '../test/render.tsx';
+
+/** GET /api/inbox answering with this many rows. */
+function inboxWith(count: number) {
+  const items = Array.from({ length: count }, (_, index) =>
+    makeInboxItem({ id: `github:acme/web-app#${String(index + 1)}` }),
+  );
+  server.use(http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json(makeInbox({ items }))));
+}
 
 function mainNav() {
   return screen.getByRole('navigation', { name: 'Main' });
@@ -155,5 +167,39 @@ describe('Sidebar', () => {
     await user.click(within(mainNav()).getByRole('button', { name: 'Collapse sidebar' }));
 
     expect(within(mainNav()).queryByRole('separator')).toBeNull();
+  });
+
+  it('AC-32: shows next to Home how many items need you, and a screen reader hears what the number means', async () => {
+    inboxWith(14);
+    await renderApp({ route: '/tickets' });
+
+    const home = await within(mainNav()).findByRole('link', { name: 'Home, 14 need you' });
+
+    expect(within(home).getByText('14')).toBeVisible();
+  });
+
+  it('AC-32: says "needs you" for one item', async () => {
+    inboxWith(1);
+    await renderApp({ route: '/tickets' });
+
+    expect(await within(mainNav()).findByRole('link', { name: 'Home, 1 needs you' })).toBeVisible();
+  });
+
+  it('AC-32: shows no count when nothing needs you', async () => {
+    inboxWith(0);
+    await renderApp({ route: '/tickets' });
+    await screen.findByText('Claude not connected · runs locally');
+
+    expect(within(mainNav()).getByRole('link', { name: 'Home' })).toBeVisible();
+  });
+
+  it('AC-32: leaves the count off the collapsed rail, where there is no room for it', async () => {
+    inboxWith(3);
+    useUiStore.setState({ sidebarCollapsed: true });
+    await renderApp({ route: '/tickets' });
+    await screen.findByText('Claude not connected · runs locally');
+
+    expect(within(mainNav()).getByRole('link', { name: 'Home' })).toBeVisible();
+    expect(within(mainNav()).queryByText('3')).toBeNull();
   });
 });

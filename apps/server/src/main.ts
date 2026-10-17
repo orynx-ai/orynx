@@ -2,11 +2,13 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  cacheFilePath,
   createFileSettingsStore,
   createGhCli,
   createMemoryKeychain,
   createOsKeychain,
   createServer,
+  openInboxCache,
   settingsFilePath,
 } from '@devhub/core';
 import { forgetTokenSettings, loadConfig, readEnvFile, repoEnvFile } from './config.ts';
@@ -25,6 +27,21 @@ const token = createSessionToken();
 const serveWebApp = process.argv.includes('--serve-web');
 trustSystemCertificates();
 
+// The inbox's cache (spec 007). It opens before the server, so a reset is told once the log exists.
+const cacheNotices: string[] = [];
+const cache = openInboxCache(cacheFilePath(config.home), {
+  onReset: () => {
+    cacheNotices.push(
+      `${cacheFilePath(config.home)} could not be read; DevHub made a new one and fills it on the next sync.`,
+    );
+  },
+  onUnusable: () => {
+    cacheNotices.push(
+      `${cacheFilePath(config.home)} is not a file, so the inbox cache lives in memory until DevHub restarts. Move it away to keep the cache between runs.`,
+    );
+  },
+});
+
 const app = await createServer({
   token,
   port: config.port,
@@ -42,11 +59,16 @@ const app = await createServer({
       app.log.warn(`${settingsFilePath(config.home)} is not valid; DevHub ignores it until the next save.`);
     },
   }),
+  cache,
+  // Home's list syncs at start, every 2 minutes while a page is open, and when a tool connects.
+  autoSync: true,
   logger: {
     level: config.logLevel,
     ...(config.pretty ? { transport: { target: 'pino-pretty', options: { ignore: 'pid,hostname' } } } : {}),
   },
 });
+
+for (const notice of cacheNotices) app.log.warn(notice);
 
 if (serveWebApp) {
   await serveWeb(app, { distDir: join(here, '..', '..', 'web', 'dist'), token });
