@@ -1,0 +1,93 @@
+import type { Meta, StoryObj } from '@storybook/react-vite';
+import {
+  AttentionAction,
+  AttentionList,
+  AttentionRow,
+  AttentionRowSkeleton,
+  AttentionTitle,
+} from './attention-row.tsx';
+import { Panel } from './panel.tsx';
+
+const meta = {
+  title: 'Components/AttentionRow',
+  component: AttentionRow,
+  args: {
+    source: 'github',
+    title: <AttentionTitle href="#pr-2841">Lazy-load the people directory</AttentionTitle>,
+    sub: 'web-app #2841 · by Priya S.',
+    reason: 'Review requested · 2 d',
+    reasonTone: 'warning',
+    action: <AttentionAction href="#pr-2841">Review</AttentionAction>,
+  },
+  decorators: [
+    (Story) => (
+      <Panel title="Needs your attention" meta="Sorted by how long it has waited" className="max-w-3xl">
+        <AttentionList aria-label="Needs your attention" className="mt-3">
+          <Story />
+        </AttentionList>
+      </Panel>
+    ),
+  ],
+} satisfies Meta<typeof AttentionRow>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const ReviewRequested: Story = {};
+/** Home's list: a review request, a Slack message, a Jira ticket and a pull request with failing checks. */
+export const Inbox: Story = {
+  render: (args) => (
+    <>
+      <AttentionRow {...args} />
+      <AttentionRow
+        source="slack"
+        title={
+          <AttentionTitle href="#slack">
+            Can you confirm the archive API returns 207 for partial failures?
+          </AttentionTitle>
+        }
+        sub="Neha K. in #web-platform"
+        reason="No reply · 3 h"
+        action={<AttentionAction href="#slack">Reply</AttentionAction>}
+      />
+      <AttentionRow
+        source="jira"
+        title={<AttentionTitle href="#ticket">Search returns archived sites for guest users</AttentionTitle>}
+        sub="PROJ-1377 · Bug · High"
+        reason="Due Fri"
+        reasonTone="danger"
+        action={<AttentionAction href="#build">Build</AttentionAction>}
+      />
+      <AttentionRow
+        source="github"
+        title={<AttentionTitle href="#checks">Fix timezone shift in event cards</AttentionTitle>}
+        sub="web-app #2836 · yours"
+        reason="Checks failing"
+        reasonTone="danger"
+        action={<AttentionAction href="#fix">Fix</AttentionAction>}
+      />
+    </>
+  ),
+};
+/** A long title and sub line stay on one line each, cut off with an ellipsis. */
+export const LongText: Story = {
+  args: {
+    title: (
+      <AttentionTitle href="#pr">
+        Move the people directory, the org chart and the profile cards onto the new virtualised list
+      </AttentionTitle>
+    ),
+    sub: 'platform-frontend-monorepo #12841 · by Priya Subramanian and 3 others',
+  },
+};
+/** Under 480 px the reason pill moves under the sub line, and the action stays at the end. */
+export const Narrow: Story = { args: { className: 'max-w-sm' } };
+/** Loading: rows the same size as real ones. */
+export const Loading: Story = {
+  render: () => (
+    <>
+      <AttentionRowSkeleton />
+      <AttentionRowSkeleton />
+    </>
+  ),
+};
