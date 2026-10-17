@@ -7,7 +7,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 1: Add the inbox contract: the item (source, tab, title, subject, reason, wait start, target), each tool's sync state and problem, the sync time, the three paths, the `inbox.changed` event and test builders (AC-1, AC-24)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/inbox.ts, inbox.test.ts, routes.ts, events.ts, index.ts, testing.ts
-- [ ] Task 2: Add the cache with better-sqlite3 and drizzle-orm: records per tool as checked JSON, each tool's last sync and problem, emptying, forgetting a tool, and a damaged or older file deleted and made again (AC-28, AC-29, AC-30, AC-31)
+- [x] Task 2: Add the cache with better-sqlite3 and drizzle-orm: records per tool as checked JSON, each tool's last sync and problem, emptying, forgetting a tool, and a damaged or older file deleted and made again (AC-28, AC-29, AC-30, AC-31)
       Check: pnpm test packages/core/src/inbox/inbox-cache.test.ts; pnpm gate boundaries
       Files: packages/core/package.json, pnpm-workspace.yaml, pnpm-lock.yaml (through pnpm add), packages/core/src/inbox/inbox-cache.ts, inbox-cache.test.ts
 - [ ] Task 3: Read Jira's assigned, unfinished issues (`search/jql`) and its priority order in `client.ts`, and map them to records by status category in `map.ts` (AC-2, AC-4, AC-5)
