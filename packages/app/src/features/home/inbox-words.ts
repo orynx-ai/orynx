@@ -76,20 +76,21 @@ function duePill(on: string, highPriorityBug: boolean, now: Date): ReasonPill {
     const late = -days;
     return { text: `Overdue · ${String(late)} d`, spoken: `Overdue by ${plural(late, 'day')}`, tone: 'danger' };
   }
+  const due = dueDate(on);
+  if (days > 6) {
+    // Due later is neutral, whatever the issue (Q2e).
+    const month = months[due.getMonth()] ?? '';
+    return {
+      text: `Due ${String(due.getDate())} ${month.slice(0, 3)}`,
+      spoken: `Due ${String(due.getDate())} ${month}`,
+      tone: 'neutral',
+    };
+  }
   const tone: PillTone = highPriorityBug ? 'danger' : days <= 2 ? 'warning' : 'neutral';
   if (days === 0) return { text: 'Due today', spoken: 'Due today', tone };
   if (days === 1) return { text: 'Due tomorrow', spoken: 'Due tomorrow', tone };
-  const due = dueDate(on);
-  if (days <= 6) {
-    const weekday = weekdays[due.getDay()] ?? '';
-    return { text: `Due ${weekday.slice(0, 3)}`, spoken: `Due ${weekday}`, tone };
-  }
-  const month = months[due.getMonth()] ?? '';
-  return {
-    text: `Due ${String(due.getDate())} ${month.slice(0, 3)}`,
-    spoken: `Due ${String(due.getDate())} ${month}`,
-    tone,
-  };
+  const weekday = weekdays[due.getDay()] ?? '';
+  return { text: `Due ${weekday.slice(0, 3)}`, spoken: `Due ${weekday}`, tone };
 }
 
 /** Q2b, Q2d, Q2e: the pill for a row, at `now`. */
@@ -240,7 +241,7 @@ export function emptyText(tab: 'all' | InboxTab, rules: InboxRules): EmptyText {
           line: "Tickets assigned to you that aren't done show up here.",
           rulesOff: false,
         }
-      : { title: 'The Jira rule is off', line: 'Turn it on in Settings › Inbox rules.', rulesOff: true };
+      : { title: 'The Jira rule is off', line: 'Turn them on in Settings › Inbox rules.', rulesOff: true };
   }
   return pullRequestRules.some((rule) => rules[rule])
     ? {

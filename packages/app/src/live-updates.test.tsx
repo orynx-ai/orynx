@@ -48,7 +48,7 @@ describe('LiveUpdates', () => {
     });
   });
 
-  it.each(['inbox.changed', 'settings.changed', 'status.changed'] as const)(
+  it.each(['inbox.changed', 'settings.changed', 'status.changed', 'sessions.changed'] as const)(
     'AC-15, AC-16: refreshes what needs you when the server says %s',
     async (type) => {
       let count = 1;
@@ -65,7 +65,7 @@ describe('LiveUpdates', () => {
       );
       await renderApp({ route: '/tickets' });
       const nav = screen.getByRole('navigation', { name: 'Main' });
-      await within(nav).findByRole('link', { name: 'Home, 1 need you' });
+      await within(nav).findByRole('link', { name: 'Home, 1 needs you' });
 
       count = 2;
       FakeEventSource.latest().emit({ type });

@@ -165,6 +165,9 @@ describe('InboxRulesPanel', () => {
       ),
     ).toBeVisible();
     const clear = screen.getByRole('button', { name: 'Clear cache' });
+    expect(clear).toHaveAccessibleDescription(
+      'DevHub keeps a copy of your tickets and pull requests on this computer, so Home opens at once.',
+    );
     await user.click(clear);
 
     expect(clear).toHaveAttribute('aria-disabled', 'true');

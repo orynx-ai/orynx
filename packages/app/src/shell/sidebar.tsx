@@ -123,7 +123,9 @@ export function Sidebar() {
           label="Home"
           collapsed={collapsed}
           exact
-          {...(needYou === undefined ? {} : { count: { value: needYou, meaning: 'need you' } })}
+          {...(needYou === undefined
+            ? {}
+            : { count: { value: needYou, spoken: `${String(needYou)} ${needYou === 1 ? 'needs' : 'need'} you` } })}
         />
         <NavItem to="/tickets" icon={<SquareKanban aria-hidden />} label="Tickets" collapsed={collapsed} />
         <NavItem to="/settings" icon={<Settings aria-hidden />} label="Settings" collapsed={collapsed} />
@@ -177,10 +179,11 @@ function NavItem({
   label: string;
   collapsed: boolean;
   exact?: boolean;
-  /** Design system: `.dh-nav-count`, with hidden words saying what the number means ("14 need you"). */
-  count?: { value: number; meaning: string };
+  /** Design system: `.dh-nav-count`, and what a screen reader hears for it ("14 need you"). */
+  count?: { value: number; spoken: string };
   className?: string;
 }) {
+  const showCount = count !== undefined && count.value > 0 && !collapsed;
   return (
     <Link
       to={to}
@@ -195,15 +198,20 @@ function NavItem({
       )}
     >
       <span className="contents group-aria-[current=page]:text-info">{icon}</span>
-      <Label collapsed={collapsed}>{label}</Label>
       {/* Hidden at 0, and on the collapsed rail and the narrow bar, where there is no room (spec 007, Q1b). */}
-      {count === undefined || count.value === 0 || collapsed ? null : (
-        <span className="ms-auto inline-flex h-5 min-w-5.5 items-center justify-center rounded-full border border-border bg-canvas px-1.5 text-label font-medium text-muted-foreground group-aria-[current=page]:border-transparent group-aria-[current=page]:bg-primary group-aria-[current=page]:text-primary-foreground max-md:hidden">
-          <span aria-hidden>{count.value}</span>
-          {/* One text for screen readers, so the link reads "Home, 14 need you". */}
-          <span className="sr-only">{`, ${String(count.value)} ${count.meaning}`}</span>
+      <Label collapsed={collapsed}>
+        {label}
+        {/* Inside the label, so every browser names the link "Home, 14 need you", with no stray space. */}
+        {showCount ? <span className="sr-only max-md:hidden">{`, ${count.spoken}`}</span> : null}
+      </Label>
+      {showCount ? (
+        <span
+          aria-hidden
+          className="ms-auto inline-flex h-5 min-w-5.5 items-center justify-center rounded-full border border-border bg-canvas px-1.5 text-label font-medium text-muted-foreground group-aria-[current=page]:border-transparent group-aria-[current=page]:bg-primary group-aria-[current=page]:text-primary-foreground max-md:hidden"
+        >
+          {count.value}
         </span>
-      )}
+      ) : null}
     </Link>
   );
 }

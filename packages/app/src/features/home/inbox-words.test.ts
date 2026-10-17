@@ -74,6 +74,8 @@ describe('Home’s words', () => {
     expect(due('2026-10-23')).toMatchObject({ text: 'Due Fri', tone: 'neutral' });
     expect(due('2026-10-28')).toEqual({ text: 'Due 28 Oct', spoken: 'Due 28 October', tone: 'neutral' });
     expect(due('2026-10-21', true)).toMatchObject({ text: 'Due Wed', tone: 'danger' });
+    // Due later is neutral, even for a high-priority bug (Q2e).
+    expect(due('2026-10-28', true)).toMatchObject({ text: 'Due 28 Oct', tone: 'neutral' });
   });
 
   it('AC-2, AC-6, AC-9, AC-12: each sub line says what the row is about (Q8a)', () => {
@@ -234,7 +236,7 @@ describe('Home’s words', () => {
     });
     expect(emptyText('jira', { ...rules, jira_assigned: false })).toEqual({
       title: 'The Jira rule is off',
-      line: 'Turn it on in Settings › Inbox rules.',
+      line: 'Turn them on in Settings › Inbox rules.',
       rulesOff: true,
     });
     expect(

@@ -178,6 +178,13 @@ describe('Sidebar', () => {
     expect(within(home).getByText('14')).toBeVisible();
   });
 
+  it('AC-32: says "needs you" for one item', async () => {
+    inboxWith(1);
+    await renderApp({ route: '/tickets' });
+
+    expect(await within(mainNav()).findByRole('link', { name: 'Home, 1 needs you' })).toBeVisible();
+  });
+
   it('AC-32: shows no count when nothing needs you', async () => {
     inboxWith(0);
     await renderApp({ route: '/tickets' });
