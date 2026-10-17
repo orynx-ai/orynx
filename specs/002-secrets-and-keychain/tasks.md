@@ -29,5 +29,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Docs: a `learn/` page on tokens and the keychain, architecture, local-security and the integration-adapter skill
       Check: pnpm gate learn-freshness; pnpm gate handbook-size; pnpm format:check
       Files: learn/tokens-and-keychain.md, learn/local-security.md, docs/architecture.md, .claude/skills/integration-adapter/SKILL.md, README.md
-- [ ] Task 10: STOP and run /review
+- [x] Task 10: STOP and run /review (passed 17 Oct 2026)
       Check: the review stamp matches the branch (pnpm review:stamp verify)
