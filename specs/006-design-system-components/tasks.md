@@ -49,7 +49,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 15: Add `WorkItemCard`: key, type (Bug in `danger`), avatar, a title link clamped to two lines, priority bars and word, a due date (warning when soon) with 16 px icons, and an AgentChip or a "Build … with Claude" icon button; the card isn't one big link (Q2c, AC-15, AC-16, AC-17)
       Check: pnpm test packages/ui/src/components/work-item-card.test.tsx
       Files: packages/ui/src/components/work-item-card.tsx, work-item-card.stories.tsx, work-item-card.test.tsx, packages/ui/src/index.ts
-- [ ] Task 16: WorkItemCard loading form, the same size as a card (Q4a, AC-26)
+- [x] Task 16: WorkItemCard loading form, the same size as a card (Q4a, AC-26)
       Check: pnpm test packages/ui/src/components/work-item-card.test.tsx
       Files: packages/ui/src/components/work-item-card.tsx, work-item-card.stories.tsx, work-item-card.test.tsx
 - [ ] Task 17: Add `AttentionList` and `AttentionRow`: source mark with its hidden name, title link and sub line, reason pill, Home's ghost action with a chevron; the pill moves under the sub line when the row is under 480 px; a loading form (Q3a, Q4a, Q4b, AC-18, AC-19, AC-26)

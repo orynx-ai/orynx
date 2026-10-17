@@ -76,6 +76,7 @@ export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsTriggerProps } from 
 export {
   WorkItemBuild,
   WorkItemCard,
+  WorkItemCardSkeleton,
   WorkItemTitle,
   type WorkItemBuildProps,
   type WorkItemCardProps,

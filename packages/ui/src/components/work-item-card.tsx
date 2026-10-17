@@ -4,6 +4,7 @@ import { Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { Avatar } from './avatar.tsx';
 import { Button, type ButtonProps } from './button.tsx';
+import { Skeleton } from './skeleton.tsx';
 
 /** The title's id, so the card is named by its title. */
 const TitleIdContext = createContext<string | undefined>(undefined);
@@ -113,6 +114,38 @@ export function WorkItemCard({
         </div>
       </article>
     </TitleIdContext>
+  );
+}
+
+/**
+ * A card's loading form (spec 006 Q4a): the same frame, rows and gaps as a card with a two-line
+ * title, the usual length at a board column's width, so nothing moves when tickets arrive. Hidden
+ * from screen readers; mark the column around it `aria-busy`.
+ */
+export function WorkItemCardSkeleton({ className, ...props }: Omit<ComponentProps<'div'>, 'children'>) {
+  return (
+    <div
+      data-slot="work-item-card-skeleton"
+      aria-hidden
+      className={cn('flex flex-col gap-1.5 rounded-md border border-border bg-raised px-3 py-2.5', className)}
+      {...props}
+    >
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-3 w-10" />
+        <Skeleton shape="circle" className="ms-auto size-7" />
+      </div>
+      {/* Two 24 px title lines. */}
+      <div className="flex flex-col gap-2 py-1">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-3/5" />
+      </div>
+      <div className="flex min-h-6 items-center gap-2.5">
+        <Skeleton className="h-4 w-14" />
+        <Skeleton className="h-4 w-12" />
+        <Skeleton className="ms-auto h-6 w-20 rounded-full" />
+      </div>
+    </div>
   );
 }
 

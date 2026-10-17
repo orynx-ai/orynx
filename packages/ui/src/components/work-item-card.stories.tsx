@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { AgentChip } from './agent-chip.tsx';
-import { WorkItemBuild, WorkItemCard, WorkItemTitle } from './work-item-card.tsx';
+import { WorkItemBuild, WorkItemCard, WorkItemCardSkeleton, WorkItemTitle } from './work-item-card.tsx';
 
 const meta = {
   title: 'Components/WorkItemCard',
@@ -69,4 +69,13 @@ export const Sparse: Story = {
     priority: { level: 'low', label: 'Low' },
     action: <WorkItemBuild itemKey="PROJ-1423" />,
   },
+};
+/** Loading: the same size as a card with a two-line title, shown here above one. */
+export const Loading: Story = {
+  render: (args) => (
+    <div className="flex flex-col gap-2" aria-busy>
+      <WorkItemCardSkeleton />
+      <WorkItemCard {...args} />
+    </div>
+  ),
 };

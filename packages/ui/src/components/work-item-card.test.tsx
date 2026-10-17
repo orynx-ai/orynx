@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { AgentChip } from './agent-chip.tsx';
-import { WorkItemBuild, WorkItemCard, WorkItemTitle } from './work-item-card.tsx';
+import { WorkItemBuild, WorkItemCard, WorkItemCardSkeleton, WorkItemTitle } from './work-item-card.tsx';
 
 function StoryCard() {
   return (
@@ -83,5 +83,20 @@ describe('WorkItemCard', () => {
     await user.tab();
     expect(screen.getByRole('link', { name: 'Needs you' })).toHaveFocus();
     expect(screen.getAllByRole('link')).toHaveLength(2);
+  });
+
+  it('AC-26: the loading form holds a card’s place without being read out', async () => {
+    const { container } = render(
+      <section aria-label="To do" aria-busy>
+        <WorkItemCardSkeleton />
+        <WorkItemCardSkeleton />
+      </section>,
+    );
+
+    const column = screen.getByRole('region', { name: 'To do' });
+    expect(column).toHaveTextContent('');
+    expect(within(column).queryByRole('article')).not.toBeInTheDocument();
+    for (const card of column.children) expect(card).toHaveAttribute('aria-hidden', 'true');
+    await expectNoAxeViolations(container);
   });
 });
