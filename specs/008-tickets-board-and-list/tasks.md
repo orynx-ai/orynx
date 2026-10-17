@@ -23,9 +23,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Add `GET /api/tickets` and wire the tickets service into `createServer`. The leak test also checks the sprint part (AC-1, AC-21, AC-28)
       Check: pnpm test packages/core/src/routes/tickets.test.ts packages/core/src/inbox/no-leaks.test.ts; pnpm typecheck
       Files: packages/core/src/routes/tickets.ts, tickets.test.ts, packages/core/src/create-server.ts, packages/core/src/inbox/no-leaks.test.ts
-- [ ] Task 8: Add `tickets()` and its query options to the api-client, and let `inbox.changed`, `status.changed` and `sessions.changed` refresh it (AC-17, AC-25)
-      Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx
-      Files: packages/api-client/src/endpoints/tickets.ts, tickets.test.ts, client.ts, queries.ts, index.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx, packages/app/src/test/msw.ts
+- [x] Task 8: Add `tickets()` and its query options to the api-client, and a default "Jira not connected" answer for the app's tests (AC-21, AC-25)
+      Check: pnpm test packages/api-client packages/app
+      Files: packages/api-client/src/endpoints/tickets.ts, tickets.test.ts, client.ts, queries.ts, index.ts, packages/app/src/test/msw.ts
 - [ ] Task 9: Move Home's calendar helpers to one shared file, and write Tickets' words as pure functions: each due date and its spoken form and `soon` (Q7b), the sprint meta (Q9a), the count, the columns and their empty texts, the avatars, and the no-sprint, can't-load and too-many lines (Q9) (AC-2, AC-6, AC-14, AC-15, AC-16, AC-22, AC-25, AC-26)
       Check: pnpm test packages/app/src/words packages/app/src/features/home packages/app/src/features/tickets
       Files: packages/app/src/words/calendar.ts, calendar.test.ts, packages/app/src/features/home/inbox-words.ts, packages/app/src/features/tickets/ticket-words.ts, ticket-words.test.ts
@@ -41,9 +41,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 13: Add `Table` to `@devhub/ui` from shadcn's table, restyled to the screen's list: a hidden caption, a header row on `bg-sidebar`, a border between rows, and loading rows (Q10b, Q10d) (AC-11, AC-20)
       Check: pnpm test packages/ui; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/table.tsx, table.stories.tsx, table.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 14: Build Tickets' page bar and toolbar: the breadcrumb with the sprint, the meta, Search tickets, Board / List remembered on this computer, the filters in the address, Clear filters, and the count read out politely (AC-1, AC-7, AC-8, AC-9, AC-10, AC-31)
-      Check: pnpm test packages/app/src/features/tickets; pnpm gate style-policy design-source component-coverage
-      Files: packages/app/src/features/tickets/tickets-screen.tsx, tickets-screen.test.tsx, store.ts, queries.ts, components/tickets-toolbar.tsx, packages/app/src/router.tsx
+- [ ] Task 14: Build Tickets' page bar and toolbar: the breadcrumb with the sprint, the meta, Search tickets, Board / List remembered on this computer, the filters in the address, Clear filters, and the count read out politely. `inbox.changed`, `status.changed` and `sessions.changed` refresh the tickets (moved here from task 8: the count is the first thing on screen that reads them) (AC-1, AC-7, AC-8, AC-9, AC-10, AC-17, AC-31)
+      Check: pnpm test packages/app/src/features/tickets packages/app/src/live-updates.test.tsx; pnpm gate style-policy design-source component-coverage
+      Files: packages/app/src/features/tickets/tickets-screen.tsx, tickets-screen.test.tsx, store.ts, queries.ts, components/tickets-toolbar.tsx, packages/app/src/router.tsx, packages/app/src/live-updates.tsx, live-updates.test.tsx
 - [ ] Task 15: Build the board: the four columns with their counts, cards from `WorkItemCard` with the agent chip, the title's link (session or Jira, Q4a), and each column's empty text (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-12, AC-13, AC-14, AC-15)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/tickets-board.tsx, tickets-board.test.tsx, components/ticket-card.tsx

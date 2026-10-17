@@ -13,6 +13,7 @@ export const queryKeys = {
   preferences: ['preferences'] as const,
   repositories: ['repositories'] as const,
   inbox: ['inbox'] as const,
+  tickets: ['tickets'] as const,
 };
 
 export function statusQueryOptions(api: ApiClient) {
@@ -86,6 +87,16 @@ export function inboxQueryOptions(api: ApiClient) {
     queryFn: () => api.inbox(),
     // Freshness comes from the event stream (inbox.changed, settings.changed, status.changed), not from
     // polling: the server syncs on its own every 2 minutes while a page is open.
+    staleTime: Infinity,
+  });
+}
+
+export function ticketsQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.tickets,
+    queryFn: () => api.tickets(),
+    // Freshness comes from the event stream (inbox.changed when a sync ends, status.changed, sessions.changed),
+    // not from polling: the sprint syncs with the inbox every 2 minutes while a page is open.
     staleTime: Infinity,
   });
 }
