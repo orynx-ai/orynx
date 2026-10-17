@@ -8,8 +8,10 @@ export const queryKeys = {
   /** Every session list starts with this key, so one invalidation refreshes them all. */
   sessions: ['sessions'] as const,
   jiraConnection: ['jira', 'connection'] as const,
+  jiraProjects: ['jira', 'projects'] as const,
   githubConnection: ['github', 'connection'] as const,
   preferences: ['preferences'] as const,
+  repositories: ['repositories'] as const,
 };
 
 export function statusQueryOptions(api: ApiClient) {
@@ -54,5 +56,25 @@ export function preferencesQueryOptions(api: ApiClient) {
     queryFn: () => api.preferences(),
     // Every save publishes settings.changed, which refreshes this in every open tab.
     staleTime: Infinity,
+  });
+}
+
+export function repositoriesQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.repositories,
+    queryFn: () => api.repositories(),
+    // Every add and remove publishes settings.changed, which refreshes this in every open tab.
+    staleTime: Infinity,
+  });
+}
+
+export function jiraProjectsQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.jiraProjects,
+    queryFn: () => api.jiraProjects(),
+    // Asked each time the add-folder form opens and dropped when it closes (spec 005): nothing is cached.
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
   });
 }

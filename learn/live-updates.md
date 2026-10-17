@@ -50,7 +50,7 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'sessions.changed':
       return [queryKeys.sessions]; // the sidebar's 5 and the full list both start with this key
     case 'settings.changed':
-      return [queryKeys.preferences];
+      return [queryKeys.preferences, queryKeys.repositories];
   }
 }
 ```

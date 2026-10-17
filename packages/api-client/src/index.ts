@@ -4,8 +4,10 @@ export { parseServerEvent, subscribeToEvents, type EventSourceConstructor, type 
 export {
   githubConnectionQueryOptions,
   jiraConnectionQueryOptions,
+  jiraProjectsQueryOptions,
   preferencesQueryOptions,
   queryKeys,
+  repositoriesQueryOptions,
   sessionsQueryOptions,
   statusQueryOptions,
 } from './queries.ts';

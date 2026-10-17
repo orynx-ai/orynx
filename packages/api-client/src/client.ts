@@ -1,20 +1,26 @@
 import axios, { type AxiosInstance } from 'axios';
 import {
   tokenHeader,
+  type AddRepositoryRequest,
   type GitHubConnection,
   type GitHubConnectionRequest,
   type JiraConnection,
   type JiraConnectionRequest,
+  type JiraProjectList,
   type Preferences,
   type PreferencesChange,
+  type Repository,
+  type RepositoryId,
+  type RepositoryList,
   type ServerEvent,
   type SessionList,
   type SessionListQuery,
   type Status,
 } from '@devhub/contracts';
 import { deleteGitHubConnection, getGitHubConnection, putGitHubConnection } from './endpoints/github.ts';
-import { deleteJiraConnection, getJiraConnection, putJiraConnection } from './endpoints/jira.ts';
+import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnection } from './endpoints/jira.ts';
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
+import { deleteRepository, getRepositories, postRepository } from './endpoints/repositories.ts';
 import { getSessions } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
 import { toApiRequestError } from './errors.ts';
@@ -40,6 +46,8 @@ export interface ApiClient {
   /** Checks with Jira, then saves; rejects with integration_rejected, integration_unreachable or keychain_unavailable. */
   connectJira(request: JiraConnectionRequest): Promise<JiraConnection>;
   disconnectJira(): Promise<void>;
+  /** The projects the saved Jira connection can see; rejects like {@link connectJira}, or bad_request when not connected. */
+  jiraProjects(): Promise<JiraProjectList>;
   /** The saved way of connecting GitHub, whether `.env` holds a GitHub token, and whether gh was found. */
   githubConnection(): Promise<GitHubConnection>;
   /** Gets a token the way asked, checks it with GitHub, then saves; rejects like {@link connectJira}. */
@@ -49,6 +57,12 @@ export interface ApiClient {
   preferences(): Promise<Preferences>;
   /** Saves one change and returns every preference. */
   changePreferences(change: PreferencesChange): Promise<Preferences>;
+  /** Settings › Repositories, in the order the folders were added. */
+  repositories(): Promise<RepositoryList>;
+  /** Checks the folder on disk, then saves it; rejects with folder_rejected and the message for the Folder field. */
+  addRepository(request: AddRepositoryRequest): Promise<Repository>;
+  /** Forgets the folder; nothing on disk changes. */
+  removeRepository(id: RepositoryId): Promise<void>;
   /** Opens the live event stream; returns a function that closes it. */
   subscribe(onEvent: (event: ServerEvent) => void, onError?: () => void): () => void;
 }
@@ -77,6 +91,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       putJiraConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     disconnectJira: () =>
       deleteJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    jiraProjects: () => getJiraProjects(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     githubConnection: () =>
       getGitHubConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     connectGitHub: (request) =>
@@ -86,6 +101,11 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     preferences: () => getPreferences(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     changePreferences: (change) =>
       patchPreferences(http, change).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    repositories: () => getRepositories(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    addRepository: (request) =>
+      postRepository(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    removeRepository: (id) =>
+      deleteRepository(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     subscribe: (onEvent, onError) =>
       subscribeToEvents({
         baseURL: options.baseURL,

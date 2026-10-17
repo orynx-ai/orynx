@@ -29,7 +29,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Jira projects: a paged `projects()` in the Jira client (100 per page, at most 1000, 10 s per page), a service method that reads the saved connection and token, and GET `/api/jira/projects` with spec 003's problem messages (AC-5, AC-9)
       Check: pnpm test packages/core/src/integrations/jira packages/core/src/routes/jira.test.ts packages/contracts; pnpm gate learn-freshness
       Files: packages/contracts/src/jira.ts (+test), routes.ts; packages/core/src/integrations/jira/client.ts (+test), connection.ts (+test), packages/core/src/routes/jira.ts (+test), packages/core/src/test/fake-jira.ts; learn/connecting-jira.md
-- [ ] Task 10: api-client for repositories (list, add, remove) and Jira projects (never cached), and `settings.changed` also refreshing repositories (AC-5, AC-17)
+- [x] Task 10: api-client for repositories (list, add, remove) and Jira projects (never cached), and `settings.changed` also refreshing repositories (AC-5, AC-17)
       Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx
       Files: packages/api-client/src/endpoints/repositories.ts, endpoints/jira.ts, client.ts, queries.ts, repositories.test.ts, jira.test.ts; packages/app/src/live-updates.tsx
 - [ ] Task 11: `Select` in `@devhub/ui`: a native `<select>` styled like `Input` (40 px, `border-control`, the same focus ring, works inside `Field`), with stories (default, disabled, invalid, long list) and a test; design-map row (AC-5, AC-19)
