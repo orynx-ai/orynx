@@ -1,4 +1,5 @@
 import type {
+  InboxProblem,
   IntegrationStatus,
   JiraConnection,
   JiraCredentials,
@@ -10,7 +11,7 @@ import { TokenStoreError, type TokenSource, type TokenStore } from '../../secret
 import type { SettingsStore } from '../../settings/settings-store.ts';
 import { createCheckedStatus } from '../checked-status.ts';
 import { ConnectionError, type KeychainProblem } from '../connection-error.ts';
-import type { JiraClient, JiraProblem } from './client.ts';
+import type { JiraCheckRequest, JiraClient, JiraProblem } from './client.ts';
 import { describeJiraProblem } from './problems.ts';
 
 /** Why connecting or disconnecting Jira failed. The message is safe to show and never holds a token. */
@@ -20,6 +21,14 @@ export class JiraConnectionError extends ConnectionError {
     this.name = 'JiraConnectionError';
   }
 }
+
+/**
+ * What the inbox's sync reads Jira with (spec 007), or what stops it before it asks. `connection` names
+ * the saved account, so rows from another account are never kept.
+ */
+export type JiraSyncCredentials =
+  | { ok: true; connection: string; site: string; request: JiraCheckRequest }
+  | { ok: false; connection: string; site: string; problem: InboxProblem };
 
 /** Jira's settings, its token and whether Jira accepts them (spec 003). */
 export interface JiraConnectionService {
@@ -39,6 +48,8 @@ export interface JiraConnectionService {
    * asks Jira at most once every 2 minutes.
    */
   status(): Promise<IntegrationStatus>;
+  /** The saved credentials for the inbox's sync, or null when Jira isn't connected. Doesn't ask Jira. */
+  credentials(): Promise<JiraSyncCredentials | null>;
 }
 
 export interface JiraConnectionOptions {
@@ -177,6 +188,23 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
         options.onError?.(error);
         return { state: 'error', detail: null };
       }
+    },
+
+    async credentials() {
+      const saved = (await settings.read()).jira;
+      if (saved === undefined) return null;
+      const account = { connection: keyOf(saved), site: saved.site };
+      let stored;
+      try {
+        stored = await tokens.read('jira');
+      } catch (error) {
+        if (!(error instanceof TokenStoreError)) throw error;
+        reportKeychain(error);
+        return { ok: false, ...account, problem: { kind: 'other', message: error.message } };
+      }
+      // Connecting again is the fix, as it is for a refused token.
+      if (stored === null) return { ok: false, ...account, problem: { kind: 'rejected' } };
+      return { ok: true, ...account, request: { ...saved, apiToken: stored.token } };
     },
   };
 }

@@ -3,6 +3,7 @@ import type {
   GitHubCredentials,
   GitHubMethod,
   GitHubSavedConnection,
+  InboxProblem,
   IntegrationStatus,
 } from '@devhub/contracts';
 import type { EventBus } from '../../events/event-bus.ts';
@@ -13,6 +14,14 @@ import { ConnectionError, type KeychainProblem } from '../connection-error.ts';
 import type { GitHubCheck, GitHubClient } from './client.ts';
 import type { GhCli } from './gh.ts';
 import { describeGitHubProblem, type GitHubConnectProblem } from './problems.ts';
+
+/**
+ * What the inbox's sync reads GitHub with (spec 007), or what stops it before it asks. `connection` is the
+ * saved way, so rows read the other way are never kept.
+ */
+export type GitHubSyncCredentials =
+  | { ok: true; connection: GitHubMethod; token: string }
+  | { ok: false; connection: GitHubMethod; problem: InboxProblem };
 
 /** GitHub's saved way of connecting, and whether GitHub accepts it (spec 004). */
 export interface GitHubConnectionService {
@@ -27,6 +36,8 @@ export interface GitHubConnectionService {
    * GitHub at most once every 2 minutes.
    */
   status(): Promise<IntegrationStatus>;
+  /** A token for the inbox's sync, or null when GitHub isn't connected. Runs gh or reads the keychain; doesn't ask GitHub. */
+  credentials(): Promise<GitHubSyncCredentials | null>;
 }
 
 export interface GitHubConnectionOptions {
@@ -214,6 +225,33 @@ export function createGitHubConnection(options: GitHubConnectionOptions): GitHub
         options.onError?.(error);
         return { state: 'error', detail: null };
       }
+    },
+
+    async credentials() {
+      const saved = (await settings.read()).github;
+      if (saved === undefined) return null;
+      const connection = saved.method;
+      if (connection === 'gh') {
+        const answer = await gh.token();
+        if (answer.ok) return { ok: true, connection, token: answer.token };
+        options.onProblem?.(answer.problem);
+        return {
+          ok: false,
+          connection,
+          problem: { kind: 'other', message: describeGitHubProblem(answer.problem, 'gh') },
+        };
+      }
+      let stored;
+      try {
+        stored = await tokens.read('github');
+      } catch (error) {
+        if (!(error instanceof TokenStoreError)) throw error;
+        options.onProblem?.({ kind: 'keychain_unavailable', reason: error.reason });
+        return { ok: false, connection, problem: { kind: 'other', message: error.message } };
+      }
+      // Connecting again is the fix, as it is for a refused token.
+      if (stored === null) return { ok: false, connection, problem: { kind: 'rejected' } };
+      return { ok: true, connection, token: stored.token };
     },
   };
 }
