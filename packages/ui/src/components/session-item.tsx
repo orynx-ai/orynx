@@ -113,8 +113,11 @@ export function SessionItem({
         {icons[state]}
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-px">
-        {/* The spaces keep the link's name readable ("Add bulk archive PROJ-1423 Needs you"); flex drops them visually. */}
-        <span className="truncate font-medium">{title}</span>{' '}
+        {/* The spaces keep the link's name readable ("Add bulk archive PROJ-1423 Needs you"); flex drops them visually.
+            The tooltip shows a title the row cuts short; the link's name still comes from the text. */}
+        <span className="truncate font-medium" title={title}>
+          {title}
+        </span>{' '}
         <span className="flex items-center gap-1 overflow-hidden text-small whitespace-nowrap text-muted-foreground">
           {source === undefined ? null : (
             <>

@@ -17,7 +17,8 @@ export function SettingsScreen() {
         breadcrumb={
           <PageBreadcrumb crumbs={[{ label: 'Settings', to: '/settings' }, { label: settingsTabLabels[tab] }]} />
         }
-        actions={<span className="text-small text-muted-foreground">Changes save automatically</span>}
+        // Under 768 px the bar has room only for the crumbs.
+        actions={<span className="text-small text-muted-foreground max-md:hidden">Changes save automatically</span>}
       />
       <PageBody>
         <div className="flex flex-col gap-1">

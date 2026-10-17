@@ -15,7 +15,7 @@ describe('PageBar and PageBreadcrumb', () => {
     expect(history.location.pathname).toBe('/settings/connections');
   });
 
-  it('keeps the current page readable as a tooltip, since a long one is cut to one line', async () => {
+  it('gives the current page a tooltip with its full name', async () => {
     await renderApp({ route: '/settings/appearance' });
     const crumbs = await screen.findByRole('navigation', { name: 'Breadcrumb' });
 

@@ -43,7 +43,10 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
           <span className="truncate font-medium">{who}</span>{' '}
           <span className="flex min-w-0 items-center gap-1.5 text-small text-muted-foreground">
             <span aria-hidden className={cn('size-2 shrink-0 rounded-full bg-current', dot)} />
-            <span className="truncate">{text}</span>
+            {/* At the default width this line is cut; the tooltip keeps it readable. */}
+            <span className="truncate" title={text}>
+              {text}
+            </span>
           </span>
         </span>
       </Link>

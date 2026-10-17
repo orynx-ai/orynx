@@ -19,8 +19,11 @@ export function BreadcrumbList({ className, ...props }: ComponentProps<'ol'>) {
   );
 }
 
+/** Only the last item, the current page, shrinks; the links before it keep their full width. */
 export function BreadcrumbItem({ className, ...props }: ComponentProps<'li'>) {
-  return <li className={cn('inline-flex min-w-0 items-center gap-1', className)} {...props} />;
+  return (
+    <li className={cn('inline-flex shrink-0 items-center gap-1 last:min-w-0 last:shrink', className)} {...props} />
+  );
 }
 
 export function BreadcrumbLink({ asChild = false, className, ...props }: ComponentProps<'a'> & { asChild?: boolean }) {
@@ -28,7 +31,7 @@ export function BreadcrumbLink({ asChild = false, className, ...props }: Compone
   return (
     <Comp
       className={cn(
-        'rounded-xs px-1 py-0.5 whitespace-nowrap text-muted-foreground no-underline hover:bg-subtle hover:text-foreground',
+        'rounded-xs px-1 py-1 whitespace-nowrap text-muted-foreground no-underline hover:bg-subtle hover:text-foreground',
         className,
       )}
       {...props}
@@ -36,14 +39,17 @@ export function BreadcrumbLink({ asChild = false, className, ...props }: Compone
   );
 }
 
-export function BreadcrumbPage({ className, ...props }: ComponentProps<'span'>) {
-  // One line: a long title truncates instead of wrapping the page bar. Pass `title` so it stays readable.
+export function BreadcrumbPage({ className, children, title, ...props }: ComponentProps<'span'>) {
+  // One line: a long title is cut instead of wrapping the page bar, and its text stays readable as a tooltip.
   return (
     <span
       aria-current="page"
-      className={cn('truncate px-1 py-0.5 font-medium text-foreground', className)}
+      title={title ?? (typeof children === 'string' ? children : undefined)}
+      className={cn('truncate px-1 py-1 font-medium text-foreground', className)}
       {...props}
-    />
+    >
+      {children}
+    </span>
   );
 }
 

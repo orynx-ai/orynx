@@ -27,6 +27,11 @@ async function layoutShiftScore(page: Page): Promise<number> {
   );
 }
 
+/** The page bar: the header that holds the breadcrumb (inside <main> it is not a banner landmark). */
+function pageBar(page: Page) {
+  return page.getByRole('navigation', { name: 'Breadcrumb' }).locator('xpath=..');
+}
+
 /** "Alt+Meta+N" (aria-keyshortcuts) → "Alt+Meta+KeyN" (Playwright), so the test presses what the page shows. */
 function playwrightKeys(ariaKeyShortcuts: string): string {
   return ariaKeyShortcuts.replace(/\+N$/, '+KeyN');
@@ -175,5 +180,46 @@ test.describe('narrow window', () => {
     // The page column keeps a 16 px gutter on both sides.
     const column = await page.getByRole('region', { name: 'Needs your attention' }).boundingBox();
     expect(column === null ? null : { start: column.x, width: column.width }).toEqual({ start: 16, width: 328 });
+  });
+
+  test('Given a session with a long title, when I open it at 360 px, then the crumbs sit side by side and only the title is cut', async ({
+    page,
+  }) => {
+    const title = 'Fix timezone shift in event cards and the calendar export for every region';
+    // Only the network is faked: the hub has no sessions until roadmap 011.
+    await page.route(/\/api\/sessions(\?.*)?$/, (route) =>
+      route.fulfill({
+        json: {
+          sessions: [
+            {
+              id: 'long',
+              title,
+              state: 'done',
+              source: { kind: 'pull_request', number: 2836 },
+              updatedAt: new Date().toISOString(),
+            },
+          ],
+        },
+      }),
+    );
+    await page.goto('/sessions/long');
+    const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
+    const link = await crumbs.getByRole('link', { name: 'Sessions' }).boundingBox();
+    const current = await crumbs.getByTitle(title).boundingBox();
+    if (link === null || current === null) throw new Error('the crumbs are not on screen');
+
+    expect(link.x + link.width).toBeLessThan(current.x);
+    expect(current.x + current.width).toBeLessThanOrEqual(360 - 16);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+    // One slim bar: the title is cut rather than the bar growing a second line.
+    expect((await pageBar(page).boundingBox())?.height).toBe(56);
+  });
+
+  test('Given Settings at 360 px, when it opens, then the page bar stays one 56 px line', async ({ page }) => {
+    await page.goto('/settings/connections');
+    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+
+    expect((await pageBar(page).boundingBox())?.height).toBe(56);
+    await expect(page.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Connections')).toBeVisible();
   });
 });

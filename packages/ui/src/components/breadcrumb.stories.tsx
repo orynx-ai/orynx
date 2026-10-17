@@ -25,6 +25,25 @@ export const Place: Story = {
   ),
 };
 
+/** A long current page is cut to one line and keeps its full name as a tooltip; the links never shrink. */
+export const LongCurrentPage: Story = {
+  render: () => (
+    <div className="max-w-80">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="#sessions">Sessions</BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Fix timezone shift in event cards and the calendar export</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    </div>
+  ),
+};
+
 export const ThreeLevels: Story = {
   render: () => (
     <Breadcrumb>

@@ -10,6 +10,9 @@ import {
   cn,
 } from '@devhub/ui';
 
+/** The page's side gutter: 16 px, 48 px from 768 px. The page bar, toolbar, body and banners share it. */
+export const pageGutter = 'px-4 md:px-12';
+
 /**
  * The frame every screen uses (design system: PageHeader, sized by the Clean UI skill): a 56 px
  * page bar, an optional toolbar for filters, then the body. Bars are split by a hairline, never
@@ -26,17 +29,21 @@ export function PageBar({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 md:px-12">
+    // One line at every width: the crumb is cut first, and under 768 px the meta steps aside.
+    <header className={cn('flex min-h-14 items-center gap-3 border-b border-border py-2', pageGutter)}>
       {breadcrumb}
-      {meta ? <span className="shrink-0 text-small text-muted-foreground">{meta}</span> : null}
-      {actions ? <div className="ms-auto flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {meta ? <span className="shrink-0 text-small text-muted-foreground max-md:hidden">{meta}</span> : null}
+      {actions ? <div className="ms-auto flex shrink-0 items-center gap-2">{actions}</div> : null}
     </header>
   );
 }
 
 export function Toolbar(props: Omit<ComponentProps<'div'>, 'className' | 'style'>) {
   return (
-    <div className="flex min-h-14 flex-wrap items-center gap-2 border-b border-border px-4 py-2 md:px-12" {...props} />
+    <div
+      {...props}
+      className={cn('flex min-h-14 flex-wrap items-center gap-2 border-b border-border py-2', pageGutter)}
+    />
   );
 }
 
@@ -61,8 +68,8 @@ export function PageBody({
   ...props
 }: Omit<ComponentProps<'div'>, 'className' | 'style'> & { width?: PageWidth }) {
   return (
-    <div className="px-4 md:px-12">
-      <div className={cn('mx-auto flex w-full min-w-0 flex-col gap-6 pt-6 pb-8', pageWidths[width])} {...props} />
+    <div className={pageGutter}>
+      <div {...props} className={cn('mx-auto flex w-full min-w-0 flex-col gap-6 pt-6 pb-8', pageWidths[width])} />
     </div>
   );
 }
@@ -95,7 +102,7 @@ function CrumbItem({ crumb, first }: { crumb: Crumb; first: boolean }) {
       {first ? null : <BreadcrumbSeparator />}
       <BreadcrumbItem>
         {crumb.to === undefined ? (
-          <BreadcrumbPage title={crumb.label}>{crumb.label}</BreadcrumbPage>
+          <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
         ) : (
           <BreadcrumbLink asChild>
             {/* Exact, so a parent place is never marked current next to the page itself. */}

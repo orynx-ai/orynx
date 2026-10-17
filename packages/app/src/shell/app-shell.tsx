@@ -1,8 +1,9 @@
 import { Outlet } from '@tanstack/react-router';
-import { Button, Callout } from '@devhub/ui';
+import { Button, Callout, cn } from '@devhub/ui';
 import { usePlatform } from '../platform.tsx';
 import { useConnectionStore } from '../stores/connection-store.ts';
 import { focusMainContent, mainContentId } from './main-content.ts';
+import { pageGutter } from './page-frame.tsx';
 import { Sidebar } from './sidebar.tsx';
 import { useGlobalShortcuts } from './use-shortcuts.ts';
 
@@ -39,7 +40,7 @@ function StaleBanner() {
   if (!stale) return null;
 
   return (
-    <div className="px-4 pt-4 md:px-12">
+    <div className={cn('pt-4', pageGutter)}>
       <Callout
         tone="warning"
         role="alert"
