@@ -30,8 +30,9 @@ form (react-hook-form + the contract's schema)
 ## Finding gh
 
 - `apps/server/src/config.ts` hands core the shell's `PATH` as gh's search path, never a `PATH` written in `.env`, so a file can't decide which program DevHub starts.
-- `gh.ts` looks through that path for an executable `gh` (`gh.exe` on Windows) without running it. That is how the form knows to pick gh, and how `GET /api/github/connection` says `ghFound`.
+- `gh.ts` looks through that path for an executable `gh` (`gh.exe` on Windows) without running it, skipping relative folders such as `.`, as gh's own lookup does. That is how the form knows to pick gh, and how `GET /api/github/connection` says `ghFound`.
 - gh runs only on Connect with the gh way, or when the status check needs a token for a saved gh connection. It gets 5 seconds, then SIGKILL. Its output must be one token on one line; anything else is "failed". stderr is read only to tell "no oauth token found" (signed out) from other failures, and only the exit code is kept.
+- gh must be the real program, or a wrapper that ends with `exec gh …`: the time limit stops the program DevHub started, so a wrapper that starts gh as a child of its own would leave that child running.
 - DevHub looks on the PATH of the terminal that started it. If gh is installed but the form says it isn't, start DevHub from a terminal where `which gh` finds it.
 
 ## What each answer means
@@ -61,7 +62,7 @@ octokit reports a failed fetch as status 500 with no `response`, so `client.ts` 
 
 ## Keeping the token in its place
 
-- `client.ts` hands octokit the token, and octokit sends `Authorization: token …`. No octokit error leaves `client.ts`, and octokit's own logger is silenced, so it never writes a request to the terminal.
+- `client.ts` hands octokit the token and names `https://api.github.com` itself, and octokit sends `Authorization: token …`. Redirects are refused, so the header can't follow one to another host. No octokit error leaves `client.ts`, and octokit's own logger is silenced, so it never writes a request to the terminal.
 - `gh.ts` is the only file that sees gh's output. A failure keeps only the exit code.
 - The Fastify logger's `authorization` redaction is the second guard, as for Jira.
 - `no-token-leaks.test.ts` runs the real hub at trace level through both ways, every kind of failure, status and disconnect, and finds neither token nor gh's output in any log line, response, event or `settings.json`.
@@ -71,4 +72,4 @@ octokit reports a failed fetch as status 500 with no `response`, so `client.ts` 
 - `packages/core/src/test/fake-github.ts` starts MSW as `api.github.com` for one test file, accepting two fake tokens for `octocat`.
 - `packages/core/src/test/fake-gh.ts` gives each test a folder with a `gh` that DevHub finds and runs like the real one. Each `gh` is a symlink to one shared script, `fake-gh/gh`, which reads what to do from `behaviour.sh` in the folder and logs its arguments. macOS checks every new program the first time it runs, one at a time, about 0.2 s each: with a fresh script per test, a parallel run made gh wait past its timeout.
 - `createServer()` without a `gh` gets one with an empty search path, so no core test can start your real gh.
-- The e2e run puts `e2e/fake-gh/` first on the server's `PATH` (`playwright.config.ts`). That gh is always signed out, so the e2e run never reads your gh login, and a press of Connect GitHub never reaches github.com.
+- The e2e run puts `e2e/fake-gh/` first on the server's `PATH` (`playwright.config.ts`). That gh is always signed out, so the e2e run never reads your gh login, and a press of Connect GitHub never reaches github.com. The config refuses to start the run if the fake can't run (Windows, or no executable bit) or a `node_modules/.bin/gh` would come before it, rather than fall back to your real gh.

@@ -1,6 +1,12 @@
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { apiRoutes, type ApiError, type GitHubConnection, type GitHubMethod } from '@devhub/contracts';
+import {
+  apiRoutes,
+  GitHubConnectionRequestSchema,
+  type ApiError,
+  type GitHubConnection,
+  type GitHubMethod,
+} from '@devhub/contracts';
 import { makeGitHubConnection, makeStatus } from '@devhub/contracts/testing';
 import { apiUrl, server } from './msw.ts';
 
@@ -36,7 +42,8 @@ export function githubServer(start: { connection?: GitHubConnection } = {}) {
     http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(status())),
     http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(connection)),
     http.put(apiUrl(apiRoutes.githubConnection), async ({ request }) => {
-      const body = (await request.json()) as { method: GitHubMethod };
+      // What the page sent, checked against the contract the real server uses.
+      const body = GitHubConnectionRequestSchema.parse(await request.json());
       sent.push(body);
       connection = makeGitHubConnection({ ...connection, saved: { method: body.method } });
       return HttpResponse.json(connection);

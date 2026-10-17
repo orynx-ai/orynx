@@ -26,15 +26,14 @@ const headers = { host: `127.0.0.1:${String(port)}`, [tokenHeader]: token };
 
 let app: FastifyInstance | undefined;
 
-/** The real hub, with a signed-in fake gh on its search path unless `gh: false`. */
-async function server(options: Partial<CoreOptions> & { keychain?: Keychain; withGh?: boolean } = {}) {
-  const { withGh = true, ...rest } = options;
+/** The real hub, with a signed-in fake gh on its search path. */
+async function server(rest: Partial<CoreOptions> & { keychain?: Keychain } = {}) {
   const events = createEventBus();
   const seen: ServerEvent[] = [];
   events.subscribe((event) => seen.push(event));
   const keychain = rest.keychain ?? createMemoryKeychain();
   const folder = await fakeGhFolder();
-  if (withGh) await folder.install({ kind: 'signed_in' });
+  await folder.install({ kind: 'signed_in' });
   app = await createServer({
     token,
     port,
