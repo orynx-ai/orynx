@@ -65,6 +65,8 @@ export function TicketCard({ ticket, now }: { ticket: Ticket; now: Date }) {
   const due = dueLabel(ticket, now);
   return (
     <WorkItemCard
+      // The board finds a card by its ticket to keep focus across syncs (AC-18).
+      data-key={ticket.key}
       itemKey={ticket.key}
       type={ticket.type}
       bug={ticket.bug}

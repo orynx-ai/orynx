@@ -13,6 +13,19 @@ if (!('scrollIntoView' in Element.prototype)) {
   Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: () => undefined });
 }
 
+// jsdom has no media queries; a stand-in reports a wide window, and a test of a narrow one stubs it.
+if (typeof window.matchMedia !== 'function') {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }),
+  });
+}
+
 beforeAll(() => {
   server.listen({ onUnhandledFrame: 'error' });
 });

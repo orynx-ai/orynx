@@ -1,8 +1,13 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { server } from '../../../test/msw.ts';
+import { apiRoutes, type Ticket } from '@devhub/contracts';
+import { makeTickets } from '@devhub/contracts/testing';
+import { FakeEventSource } from '../../../test/fake-event-source.ts';
+import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 import { designTickets, ticketsHandler, ticketsToday } from '../../../test/tickets.ts';
+import { ticketCount } from '../ticket-words.ts';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'], now: ticketsToday });
@@ -51,5 +56,98 @@ describe('TicketsBoard', () => {
     const progress = await screen.findByRole('region', { name: 'In progress, 0 tickets' });
     expect(within(progress).getByText('No tickets match these filters')).toBeVisible();
     expect(cardKeys(column(/^To do/))).toEqual(['PROJ-1377']);
+  });
+
+  describe('when a sync changes the cards', () => {
+    /** Serves `tickets`, which a test changes before telling the page a sync ended. */
+    function sprintServer(first: Ticket[]) {
+      const state = { tickets: first };
+      server.use(http.get(apiUrl(apiRoutes.tickets), () => HttpResponse.json(makeTickets({ tickets: state.tickets }))));
+      return {
+        async sync(next: Ticket[]) {
+          state.tickets = next;
+          FakeEventSource.latest().emit({ type: 'inbox.changed' });
+          await screen.findByText(ticketCount(next.filter((ticket) => ticket.assignee?.mine === true).length));
+        },
+      };
+    }
+
+    function title(name: string) {
+      return screen.getByRole('link', { name });
+    }
+
+    const keys = ['PROJ-1423', 'PROJ-1411'] as const;
+    const progress = designTickets.filter((ticket) => keys.includes(ticket.key as (typeof keys)[number]));
+    const others = designTickets.filter((ticket) => ticket.key === 'PROJ-1377' || ticket.key === 'PROJ-1340');
+
+    it('AC-17: a card that stays keeps its focus while others come and go', async () => {
+      const sprint = sprintServer([...others, ...progress]);
+      await renderApp({ route: '/tickets' });
+      await screen.findByText('4 tickets');
+      title('Keyboard navigation for the mega menu').focus();
+
+      await sprint.sync(progress);
+
+      expect(title('Keyboard navigation for the mega menu')).toHaveFocus();
+    });
+
+    it('AC-17: a focused card that moves to another column keeps its focus there', async () => {
+      const sprint = sprintServer(progress);
+      await renderApp({ route: '/tickets' });
+      await screen.findByText('2 tickets');
+      title('Keyboard navigation for the mega menu').focus();
+
+      const [first, second] = progress;
+      if (first === undefined || second === undefined) throw new Error('No tickets');
+      await sprint.sync([first, { ...second, column: 'in_review', status: 'Code Review' }]);
+
+      await waitFor(() => {
+        expect(title('Keyboard navigation for the mega menu')).toHaveFocus();
+      });
+      expect(within(column(/^In review/)).getByRole('link', { name: 'Keyboard navigation for the mega menu' })).toBe(
+        document.activeElement,
+      );
+    });
+
+    it('AC-18: a focused card that leaves the sprint hands focus to the next card in its column', async () => {
+      const sprint = sprintServer(progress);
+      await renderApp({ route: '/tickets' });
+      await screen.findByText('2 tickets');
+      title('Add bulk archive to the content list').focus();
+
+      await sprint.sync(progress.slice(1));
+
+      await waitFor(() => {
+        expect(title('Keyboard navigation for the mega menu')).toHaveFocus();
+      });
+    });
+
+    it('AC-18: the last card in a column hands focus to the one before it', async () => {
+      const sprint = sprintServer(progress);
+      await renderApp({ route: '/tickets' });
+      await screen.findByText('2 tickets');
+      title('Keyboard navigation for the mega menu').focus();
+
+      await sprint.sync(progress.slice(0, 1));
+
+      await waitFor(() => {
+        expect(title('Add bulk archive to the content list')).toHaveFocus();
+      });
+    });
+
+    it('AC-18: the only card in a column hands focus to the board', async () => {
+      const [only] = progress;
+      if (only === undefined) throw new Error('No tickets');
+      const sprint = sprintServer([...others, only]);
+      await renderApp({ route: '/tickets' });
+      await screen.findByText('3 tickets');
+      title('Add bulk archive to the content list').focus();
+
+      await sprint.sync(others);
+
+      await waitFor(() => {
+        expect(screen.getByRole('region', { name: 'Board' })).toHaveFocus();
+      });
+    });
   });
 });

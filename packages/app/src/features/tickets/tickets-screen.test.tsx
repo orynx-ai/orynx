@@ -50,6 +50,10 @@ describe('TicketsScreen', () => {
   it('AC-1, AC-31: the page bar names the sprint, and the toolbar has the filters and the count', async () => {
     server.use(ticketsHandler());
     await renderApp({ route: '/tickets' });
+    // From 768 px the search field sits in the page bar, as the design draws it.
+    expect(await screen.findByRole('banner')).toContainElement(
+      screen.getByRole('searchbox', { name: 'Search tickets' }),
+    );
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Sprint 42 tickets' })).toBeInTheDocument();
     const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' });
@@ -207,5 +211,21 @@ describe('TicketsScreen', () => {
 
       expect(await screen.findByText("Showing the first 300 tickets in Sprint 42, in Jira's order.")).toBeVisible();
     });
+  });
+
+  it('AC-32: under 768 px the search field moves from the page bar to the start of the toolbar', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    server.use(ticketsHandler());
+    await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+
+    expect(within(toolbar()).getByRole('searchbox', { name: 'Search tickets' })).toBeVisible();
+    expect(screen.getAllByRole('searchbox')).toHaveLength(1);
+    vi.unstubAllGlobals();
   });
 });

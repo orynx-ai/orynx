@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { Funnel } from 'lucide-react';
 import { Button, FilterChip } from '@devhub/ui';
 import { Toolbar } from '../../../shell/page-frame.tsx';
@@ -14,16 +14,26 @@ export interface TicketsToolbarProps {
   count: number | undefined;
   /** Assigned to me, where Clear filters puts focus (AC-9). */
   assignedToMeRef?: Ref<HTMLButtonElement>;
+  /** Under 768 px, the search field, on its own line at the start (Q8g). */
+  search?: ReactNode;
 }
 
 /**
  * Tickets' filters (spec 008, Q3) and the live count. The count is a polite status, so a screen reader
  * hears the new count when a filter or the search changes it (AC-31).
  */
-export function TicketsToolbar({ filters, onFiltersChange, onClear, count, assignedToMeRef }: TicketsToolbarProps) {
+export function TicketsToolbar({
+  filters,
+  onFiltersChange,
+  onClear,
+  count,
+  assignedToMeRef,
+  search,
+}: TicketsToolbarProps) {
   const { mine, dueThisWeek, bugsOnly } = filters;
   return (
     <Toolbar role="group" aria-label="Filters">
+      {search === undefined ? null : <div className="basis-full">{search}</div>}
       <Funnel aria-hidden className="text-muted-foreground" />
       <FilterChip
         ref={assignedToMeRef}

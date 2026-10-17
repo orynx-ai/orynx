@@ -6,6 +6,7 @@ import { List, SquareKanban } from 'lucide-react';
 import type { InboxToolState } from '@devhub/contracts';
 import { Button, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
+import { useWide } from '../../shell/use-wide.ts';
 import { toolLine } from '../../words/tool-line.ts';
 import { useNow } from '../../words/use-now.ts';
 import { TicketsBoard, TicketsBoardSkeleton } from './components/tickets-board.tsx';
@@ -37,6 +38,7 @@ export function TicketsScreen() {
   const text = useWatch({ control: form.control, name: 'text' });
   const assignedToMe = useRef<HTMLButtonElement>(null);
   const now = useNow();
+  const wide = useWide();
 
   const { data } = tickets;
   if (data === undefined && tickets.isError) {
@@ -75,6 +77,18 @@ export function TicketsScreen() {
     assignedToMe.current?.focus();
   }
 
+  // One search field: in the page bar from 768 px, as the design draws it, and at the start of the toolbar
+  // below that, so the page bar keeps to one line (Q8g).
+  const searchField = (
+    <SearchField
+      size="sm"
+      aria-label="Search tickets"
+      placeholder="Search tickets"
+      className={wide ? 'w-55' : 'w-full'}
+      {...form.register('text')}
+    />
+  );
+
   let body: ReactNode;
   if (sprint === null) {
     body = view === 'board' ? <TicketsBoardSkeleton /> : <TicketsListSkeleton />;
@@ -99,13 +113,7 @@ export function TicketsScreen() {
         meta={sprint === null ? undefined : (sprintMeta(sprint, now) ?? undefined)}
         actions={
           <>
-            <SearchField
-              size="sm"
-              aria-label="Search tickets"
-              placeholder="Search tickets"
-              className="w-55"
-              {...form.register('text')}
-            />
+            {wide ? searchField : null}
             <SegmentedControl
               aria-label="View"
               value={view}
@@ -131,6 +139,7 @@ export function TicketsScreen() {
         onClear={clearFilters}
         count={loading ? undefined : shown.length}
         assignedToMeRef={assignedToMe}
+        {...(wide ? {} : { search: searchField })}
       />
       <PageBody width="full">
         <h1 className="sr-only">{sprint === null ? 'Tickets' : pageHeading(sprint.name)}</h1>
