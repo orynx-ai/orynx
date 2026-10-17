@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Inbox, InboxItem, InboxSource } from '@devhub/contracts';
-import { inboxQueryOptions, preferencesQueryOptions } from '@devhub/api-client';
+import { inboxQueryOptions, preferencesQueryOptions, queryKeys } from '@devhub/api-client';
 import { useApi } from '../../api.tsx';
 
 /** A row Home can draw: one that leads with its tool's mark. */
@@ -30,4 +30,18 @@ export function useInboxCount(): number | undefined {
 export function useInboxRules() {
   const api = useApi();
   return useQuery({ ...preferencesQueryOptions(api), select: (preferences) => preferences.inboxRules });
+}
+
+/**
+ * Refresh: syncs now and resolves once the sync has ended. It stays pending until the new list is in, so
+ * the page bar reads "Synced just now" the moment the spinner stops (AC-17).
+ */
+export function useRefreshInbox() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: [...queryKeys.inbox, 'refresh'],
+    mutationFn: () => api.refreshInbox(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.inbox }),
+  });
 }

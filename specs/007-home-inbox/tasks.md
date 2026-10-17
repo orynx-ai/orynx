@@ -58,7 +58,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 18: Home's states: loading rows, nothing connected, nothing matching (each tab), a tool not connected, a tool's failed sync, rules off, and the list not loading (AC-20, AC-21, AC-22, AC-23, AC-24, AC-25, AC-26, AC-27)
       Check: pnpm test packages/app/src/features/home
       Files: packages/app/src/features/home/components/attention-panel.tsx, attention-panel.test.tsx
-- [ ] Task 19: The page bar: "Synced 2 min ago" moving on each minute, "Syncing" the first time, and Refresh with its spinner (AC-16, AC-17, AC-19, AC-20)
+- [x] Task 19: The page bar: "Synced 2 min ago" moving on each minute, "Syncing" the first time, and Refresh with its spinner (AC-16, AC-17, AC-19, AC-20)
       Check: pnpm test packages/app/src/features/home
       Files: packages/app/src/features/home/home-screen.tsx, home-screen.test.tsx, components/sync-status.tsx, sync-status.test.tsx
 - [ ] Task 20: Keep focus and scroll when a sync changes the rows: a gone row's focus moves to the next row's title, or to the selected tab. Add an e2e run of Home with Jira and GitHub faked (AC-16, AC-18, AC-33)
