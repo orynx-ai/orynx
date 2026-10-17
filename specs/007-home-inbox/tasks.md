@@ -64,7 +64,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 20: Keep focus and scroll when a sync changes the rows: a gone row's focus moves to the next row's title, or to the selected tab. Add an e2e run of Home with Jira and GitHub faked (AC-16, AC-18, AC-33)
       Check: pnpm test packages/app/src/features/home; pnpm test:e2e e2e/home-inbox.spec.ts
       Files: packages/app/src/features/home/components/attention-panel.tsx, attention-panel.test.tsx, e2e/home-inbox.spec.ts
-- [ ] Task 21: Open Home in a real browser at 360 and 1280 px, light and dark, in each state: compare with the design, run axe, check for sideways scroll and for movement while loading, Tab through. Fix what turns up, then run the full check (AC-34)
+- [x] Task 21: Open Home in a real browser at 360 and 1280 px, light and dark, in each state: compare with the design, run axe, check for sideways scroll and for movement while loading, Tab through. Fix what turns up, then run the full check (AC-34)
       Check: pnpm dev in a browser; pnpm verify; pnpm test:coverage at 90% or more
       Files: whichever the check shows need fixing
 - [ ] Task 22: STOP and run /review
