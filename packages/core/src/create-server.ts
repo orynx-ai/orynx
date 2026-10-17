@@ -2,10 +2,15 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { apiPrefix, tokenQueryParam, type ApiError } from '@devhub/contracts';
 import { createEventBus, type EventBus } from './events/event-bus.ts';
+import { ConnectionError } from './integrations/connection-error.ts';
+import { createGitHubClient } from './integrations/github/client.ts';
+import { createGitHubConnection } from './integrations/github/connection.ts';
+import { createGhCli, type GhCli } from './integrations/github/gh.ts';
 import { createJiraClient } from './integrations/jira/client.ts';
-import { createJiraConnection, JiraConnectionError } from './integrations/jira/connection.ts';
+import { createJiraConnection } from './integrations/jira/connection.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { eventsRoutes } from './routes/events.ts';
+import { githubRoutes } from './routes/github.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
 import { statusRoutes } from './routes/status.ts';
@@ -39,10 +44,15 @@ export interface CoreOptions {
   envTokens?: EnvTokens;
   /** Settings kept between runs. Hosts pass the file under DEVHUB_HOME; tests get memory. */
   settings?: SettingsStore;
+  /**
+   * GitHub's command-line tool. Hosts pass one that searches their PATH; tests pass a folder with a
+   * fake gh. Left out, gh is never found, so no test can start the real one (spec 004, AC-20).
+   */
+  gh?: GhCli;
 }
 
-/** The HTTP status for each error a Jira route can answer with. */
-const statusFor: Record<JiraConnectionError['code'], number> = {
+/** The HTTP status for each error a connection route can answer with. */
+const statusFor: Record<ConnectionError['code'], number> = {
   bad_request: 400,
   integration_rejected: 422,
   integration_unreachable: 502,
@@ -112,8 +122,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       ...(options.envTokens === undefined ? {} : { envTokens: options.envTokens }),
     }),
   );
+  const settings = options.settings ?? createMemorySettingsStore();
   const jira = createJiraConnection({
-    settings: options.settings ?? createMemorySettingsStore(),
+    settings,
     tokens: app.tokens,
     jira: createJiraClient(),
     events,
@@ -128,10 +139,28 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       app.log.error(error, "Jira's status line failed");
     },
   });
+  const github = createGitHubConnection({
+    settings,
+    tokens: app.tokens,
+    github: createGitHubClient(),
+    gh: options.gh ?? createGhCli({ searchPath: '' }),
+    events,
+    envToken: options.envTokens?.github !== undefined,
+    onProblem: (problem) => {
+      app.log.warn(
+        { github: problem },
+        problem.kind === 'keychain_unavailable' ? 'The keychain could not be reached' : 'The GitHub check failed',
+      );
+    },
+    onError: (error) => {
+      app.log.error(error, "GitHub's status line failed");
+    },
+  });
   const status = createStatusService({
     version: options.version,
     userName: options.userName ?? readGitUserName,
     jira: () => jira.status(),
+    github: () => github.status(),
   });
 
   await app.register(
@@ -146,7 +175,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
           const body: ApiError = { code: 'bad_request', message: error.message };
           return reply.code(400).send(body);
         }
-        if (error instanceof JiraConnectionError) {
+        if (error instanceof ConnectionError) {
           const body: ApiError = { code: error.code, message: error.message };
           return reply.code(statusFor[error.code]).send(body);
         }
@@ -161,6 +190,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(statusRoutes, { status });
       await api.register(sessionsRoutes, { sessions: options.sessions ?? createMemorySessionStore() });
       await api.register(jiraRoutes, { jira });
+      await api.register(githubRoutes, { github });
       await api.register(eventsRoutes, {
         events,
         ...(options.eventsKeepAliveMs === undefined ? {} : { keepAliveMs: options.eventsKeepAliveMs }),

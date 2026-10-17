@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach } from 'vitest';
@@ -25,16 +25,20 @@ function body(behaviour: FakeGhBehaviour): string {
     case 'fails':
       return `echo '${behaviour.stderr}' >&2\nexit ${String(behaviour.exitCode)}`;
     case 'slow':
-      return 'sleep 30';
+      // exec, so the kill that ends a slow gh ends the sleep too.
+      return 'exec sleep 30';
     case 'prints':
       return `printf '%s' '${behaviour.stdout}'`;
   }
 }
 
+/** The one fake gh program every test folder links to. */
+const sharedGh = join(import.meta.dirname, 'fake-gh', 'gh');
+
 export interface FakeGhFolder {
   /** The folder, to pass as gh's search path. */
   dir: string;
-  /** Writes an executable `gh` script into the folder that behaves as asked. */
+  /** Puts a `gh` into the folder that behaves as asked. Call it again to change how it behaves. */
   install(behaviour: FakeGhBehaviour): Promise<void>;
   /** The arguments of each run so far, one array per run. Empty when gh never ran. */
   runs(): Promise<string[][]>;
@@ -43,6 +47,10 @@ export interface FakeGhFolder {
 /**
  * gh is an outside program, so tests fake it the honest way: a real executable in a temp folder that
  * DevHub finds and starts like the real one. Each test gets a fresh folder, removed afterwards.
+ *
+ * The `gh` in each folder is a symlink to one shared script. macOS checks every new program the first
+ * time it runs, one at a time, about 0.2 s each: a fresh script per test made a parallel run wait for
+ * seconds, past gh's timeout.
  */
 export function useFakeGhFolder(): () => Promise<FakeGhFolder> {
   const folders: string[] = [];
@@ -57,10 +65,10 @@ export function useFakeGhFolder(): () => Promise<FakeGhFolder> {
     return {
       dir,
       async install(behaviour) {
-        const script = join(dir, 'gh');
-        // Each run appends its arguments as one line, so a test can see what DevHub asked gh.
-        await writeFile(script, `#!/bin/sh\necho "$*" >> '${log}'\n${body(behaviour)}\n`);
-        await chmod(script, 0o755);
+        await writeFile(join(dir, 'behaviour.sh'), `${body(behaviour)}\n`);
+        await symlink(sharedGh, join(dir, 'gh')).catch((error: unknown) => {
+          if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) throw error;
+        });
       },
       async runs() {
         let text: string;
