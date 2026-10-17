@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Jira connection contracts: site rule (atlassian.net only, forgiving input), request with optional token, response with `envToken`, paths, test builder (AC-7, AC-10, AC-12)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/jira.ts, packages/contracts/src/jira.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
-- [ ] Task 3: Button `pending`: disabled, spinner before the label (motion-safe), same width (AC-13)
+- [x] Task 3: Button `pending`: disabled, spinner before the label (motion-safe), same width (AC-13)
       Check: pnpm test packages/ui/src/components/button.test.tsx; pnpm gate component-coverage; pnpm gate style-policy
       Files: packages/ui/src/components/button.tsx, packages/ui/src/components/button.test.tsx, packages/ui/src/components/button.stories.tsx
 - [ ] Task 4: Input and Field in `@devhub/ui`: 40 px, label, help, error state wired with `aria-invalid` and `aria-describedby` (AC-2, AC-7, AC-16, AC-17)
