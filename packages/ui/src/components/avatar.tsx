@@ -3,9 +3,9 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
 
 const avatarVariants = cva(
-  'inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-subtle text-label font-semibold text-foreground',
+  'inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-subtle text-label font-medium text-foreground',
   {
-    variants: { size: { default: 'size-6', lg: 'size-7' } },
+    variants: { size: { default: 'size-7', lg: 'size-9' } },
     defaultVariants: { size: 'default' },
   },
 );

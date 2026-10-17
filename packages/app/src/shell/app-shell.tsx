@@ -19,7 +19,7 @@ export function AppShell() {
           event.preventDefault();
           focusMainContent();
         }}
-        className="absolute -top-15 left-2 z-30 rounded-sm bg-primary px-3 py-2 font-medium text-primary-foreground no-underline focus:top-2"
+        className="absolute start-2 -top-15 z-30 rounded-sm bg-primary px-3 py-2 font-medium text-primary-foreground no-underline focus:top-2"
       >
         Skip to content
       </a>
@@ -39,7 +39,7 @@ function StaleBanner() {
   if (!stale) return null;
 
   return (
-    <div className="px-6 pt-4">
+    <div className="px-4 pt-4 md:px-12">
       <Callout
         tone="warning"
         role="alert"

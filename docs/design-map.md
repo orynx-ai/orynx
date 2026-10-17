@@ -31,16 +31,28 @@ Why there is no `accent`: in shadcn, `accent` means the grey hover surface, but 
 
 ## Type
 
+The sizes follow the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`), not the 14 px scale in `docs/design/design-system.md`: on 17 Oct 2026 the user found the app "zoomed out" next to their reference screens and asked for the larger scale. The style names and their jobs are unchanged. Two weights only: `font-normal` and `font-medium` (the 600 face is no longer bundled). `design-system.md` still lists the old numbers until a person updates it.
+
 | Design style              | Classes                        | Use for                                        |
 | ------------------------- | ------------------------------ | ---------------------------------------------- |
-| `display` 32/40 serif 400 | `font-serif text-display`      | the Home greeting only                         |
-| `title-lg` 20/28 600      | `text-title-lg font-semibold`  | page title                                     |
-| `title` 15/22 600         | `text-title font-semibold`     | section and panel headings                     |
-| `body` 14/20 400          | `text-body` (the root default) | default text                                   |
-| `body-strong` 14/20 500   | `text-body font-medium`        | card titles, nav labels, buttons               |
-| `small` 13/18             | `text-small`                   | meta lines, helper text                        |
-| `label` 12/16 500         | `text-label font-medium`       | pills, counts, section labels; nothing smaller |
-| `code` 12/20 mono         | `font-mono text-code`          | keys, branches, paths, diffs                   |
+| `display` 40/48 serif 400 | `font-serif text-display`      | the Home greeting only                         |
+| `title-lg` 20/28 500      | `text-title-lg font-medium`    | page title                                     |
+| `title` 18/28 500         | `text-title font-medium`       | section and panel headings                     |
+| `body` 16/24 400          | `text-body` (the root default) | default text                                   |
+| `body-strong` 16/24 500   | `text-body font-medium`        | card titles, nav labels, buttons               |
+| `small` 14/20             | `text-small`                   | meta lines, helper text, a row's second line   |
+| `label` 12/16 500         | `text-label font-medium`       | pills, counts, keyboard hints; nothing smaller |
+| `code` 14/20 mono         | `font-mono text-code`          | keys, branches, paths, diffs                   |
+
+## Page widths
+
+`PageBody width` from `packages/app/src/shell/page-frame.tsx`; it owns the gutter (16 px, 48 px from 768 px) and the 24 px rhythm, and takes no `className`.
+
+| Width            | Max    | Use for                                    |
+| ---------------- | ------ | ------------------------------------------ |
+| `wide` (default) | 960 px | lists, settings, detail pages              |
+| `narrow`         | 720 px | Home and other sparse or reading pages     |
+| `full`           | none   | a board or table that 960 px would squeeze |
 
 ## Space, radius and shadow
 
@@ -64,7 +76,7 @@ Why there is no `accent`: in shadcn, `accent` means the grey hover surface, but 
 | Pill (`dh-pill`, `--info/success/warning/danger/plain`)                                                                      | `<Pill tone>`                                                          | built                                 |
 | Breadcrumb (`dh-breadcrumb`)                                                                                                 | `<Breadcrumb items>`                                                   | built                                 |
 | Tabs (`dh-tabs`, `dh-tab`, `dh-count`)                                                                                       | `<Tabs>`, `<TabsList>`, `<TabsTrigger count>`, `<TabsContent>` (Radix) | built                                 |
-| EmptyState (`dh-empty`)                                                                                                      | `<EmptyState title>`                                                   | built                                 |
+| EmptyState (`dh-empty`, drawn as plain centred text without the dashed outline: Clean UI)                                    | `<EmptyState title>`                                                   | built                                 |
 | Callout (`dh-callout--warning/info`)                                                                                         | `<Callout tone title>`                                                 | built                                 |
 | SourceMark (`dh-source--jira/github/slack`)                                                                                  | `<SourceMark source>`                                                  | built                                 |
 | SidebarNav, PageHeader (`dh-sidebar`, `dh-pagebar`, `dh-toolbar`, `dh-pagebody`)                                             | `packages/app/src/shell/*`                                             | built (app chrome, not ui)            |
@@ -74,4 +86,4 @@ Why there is no `accent`: in shadcn, `accent` means the grey hover surface, but 
 
 ## Icons
 
-The design system draws outline icons at 16 px with a 1.75 stroke. Use `lucide-react`. The `.lucide` base style in `theme.css` sets the size and stroke, so write `<Plus aria-hidden />` with no size props. An icon never stands alone: give it a visible label, or put `aria-label` on its button.
+Icons are outline, 20 px (Clean UI scale; the design system says 16 px), with a 1.75 stroke. Use `lucide-react`. The `.lucide` base style in `theme.css` sets the size and stroke, so write `<Plus aria-hidden />` with no size props. An icon never stands alone: give it a visible label, or put `aria-label` on its button.

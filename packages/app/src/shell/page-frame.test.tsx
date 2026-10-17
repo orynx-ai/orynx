@@ -15,6 +15,13 @@ describe('PageBar and PageBreadcrumb', () => {
     expect(history.location.pathname).toBe('/settings/connections');
   });
 
+  it('keeps the current page readable as a tooltip, since a long one is cut to one line', async () => {
+    await renderApp({ route: '/settings/appearance' });
+    const crumbs = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+
+    expect(within(crumbs).getByTitle('Appearance')).toHaveAttribute('aria-current', 'page');
+  });
+
   it('puts page actions in the page bar', async () => {
     await renderApp({ route: '/settings/connections' });
     const banner = await screen.findByRole('banner');

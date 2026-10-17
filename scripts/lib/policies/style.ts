@@ -41,9 +41,9 @@ const COLOUR_UTILITIES =
 
 const SIZE_FIX: Readonly<Record<string, string>> = {
   xs: 'text-label (12/16)',
-  sm: 'text-small (13/18) or text-body (14/20)',
-  base: 'text-body (14/20)',
-  lg: 'text-title (15/22) or text-title-lg (20/28)',
+  sm: 'text-small (14/20)',
+  base: 'text-body (16/24)',
+  lg: 'text-title (18/28)',
   xl: 'text-title-lg (20/28)',
 };
 
@@ -102,7 +102,7 @@ function classHits(text: string, snippet: boolean): Hit[] {
     return {
       rule: 'default-type-size',
       message: `"${m[0]}" is a Tailwind default size; DevHub type sizes are named`,
-      fix: `use ${SIZE_FIX[size] ?? 'text-display (32/40, the Home greeting only)'} — see ${MAP}, Type`,
+      fix: `use ${SIZE_FIX[size] ?? 'text-display (40/48, the Home greeting only)'} — see ${MAP}, Type`,
     };
   });
 

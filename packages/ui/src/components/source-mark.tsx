@@ -7,7 +7,7 @@ export type Source = 'jira' | 'github' | 'slack';
 const sourceNames: Record<Source, string> = { jira: 'Jira', github: 'GitHub', slack: 'Slack' };
 const sourceGlyphs: Record<Source, string> = { jira: 'J', github: 'G', slack: '#' };
 
-const markVariants = cva('inline-flex shrink-0 items-center justify-center font-semibold', {
+const markVariants = cva('inline-flex shrink-0 items-center justify-center font-medium', {
   variants: {
     source: {
       jira: 'bg-info-subtle text-jira',
@@ -15,8 +15,8 @@ const markVariants = cva('inline-flex shrink-0 items-center justify-center font-
       slack: 'bg-slack-subtle text-slack',
     },
     size: {
-      default: 'size-4.5 rounded-xs text-label',
-      lg: 'size-8 rounded-sm text-body',
+      default: 'size-5 rounded-xs text-label',
+      lg: 'size-10 rounded-sm text-body',
     },
   },
   defaultVariants: { size: 'default' },
@@ -43,7 +43,7 @@ export function SourceMark({ source, size, label = 'visible', className, ...prop
   }
   return (
     <span
-      className={cn('inline-flex items-center gap-1.5 text-label font-medium text-muted-foreground', className)}
+      className={cn('inline-flex items-center gap-1.5 text-small font-medium text-muted-foreground', className)}
       {...props}
     >
       <span aria-hidden className={markVariants({ source, size })}>

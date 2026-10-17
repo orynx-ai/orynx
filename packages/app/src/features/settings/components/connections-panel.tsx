@@ -59,11 +59,11 @@ function ConnectionRow({
 }) {
   const state = status ? stateLabels[status.state] : null;
   return (
-    <li className="flex items-center gap-3 px-4 py-3">
+    <li className="flex items-center gap-4 p-4">
       <SourceMark source={id} size="lg" label="none" />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold">{name}</span>
+          <span className="font-medium">{name}</span>
           {state ? (
             <Pill tone={state.tone}>{state.label}</Pill>
           ) : (

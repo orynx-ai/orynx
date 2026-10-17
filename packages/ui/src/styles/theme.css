@@ -18,20 +18,21 @@
   --text-*: initial;
   --shadow-*: initial;
 
-  /* Type styles from the design system (docs/design/design-system.md, Typography). */
-  --text-display: 32px;
-  --text-display--line-height: 40px;
+  /* Type styles. Sizes follow the Clean UI scale (.claude/skills/clean-ui/SKILL.md): five sizes, each
+     with its own line height, plus the Home greeting and code. Raised from 14 px body on 2026-10-17. */
+  --text-display: 40px;
+  --text-display--line-height: 48px;
   --text-title-lg: 20px;
   --text-title-lg--line-height: 28px;
-  --text-title: 15px;
-  --text-title--line-height: 22px;
-  --text-body: 14px;
-  --text-body--line-height: 20px;
-  --text-small: 13px;
-  --text-small--line-height: 18px;
+  --text-title: 18px;
+  --text-title--line-height: 28px;
+  --text-body: 16px;
+  --text-body--line-height: 24px;
+  --text-small: 14px;
+  --text-small--line-height: 20px;
   --text-label: 12px;
   --text-label--line-height: 16px;
-  --text-code: 12px;
+  --text-code: 14px;
   --text-code--line-height: 20px;
 
   /* 4 px radius used inside components.css (segments, kbd); the other radii come from tokens.css. */
@@ -109,10 +110,10 @@
     outline-offset: 2px;
   }
 
-  /* Outline icons, 16 px, 1.75 stroke, drawn in currentColor (design system, Iconography). */
+  /* Outline icons, 20 px, 1.75 stroke, drawn in currentColor (design system, Iconography; size from Clean UI). */
   .lucide {
-    width: 1rem;
-    height: 1rem;
+    width: 1.25rem;
+    height: 1.25rem;
     stroke-width: 1.75;
     flex-shrink: 0;
   }

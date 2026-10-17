@@ -112,6 +112,35 @@ test.describe('wide window', () => {
     expect(await navWidth()).toBe(260);
   });
 
+  test('Given a wide window, when I open a page, then its column is 960 px (Home 720 px), centred, inside a 48 px gutter', async ({
+    page,
+  }) => {
+    const main = page.getByRole('main');
+    /** The column's distance from each side of the main pane, and its width. */
+    const place = async (column: ReturnType<Page['getByRole']>) => {
+      const pane = await main.boundingBox();
+      const box = await column.boundingBox();
+      if (pane === null || box === null) throw new Error('the page is not on screen');
+      return {
+        width: Math.round(box.width),
+        start: Math.round(box.x - pane.x),
+        end: Math.round(pane.x + pane.width - (box.x + box.width)),
+      };
+    };
+    const settingsColumn = page.getByRole('tablist', { name: 'Settings sections' });
+    const homeColumn = page.getByRole('region', { name: 'Needs your attention' });
+
+    // 1280 px: a 1020 px pane is narrower than 960 + 2 × 48, so the gutter decides the width.
+    await page.goto('/settings/connections');
+    expect(await place(settingsColumn)).toEqual({ width: 924, start: 48, end: 48 });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    expect(await place(settingsColumn)).toEqual({ width: 960, start: 110, end: 110 });
+
+    await page.goto('/');
+    expect(await place(homeColumn)).toEqual({ width: 720, start: 230, end: 230 });
+  });
+
   test('Given a wide window, when I open DevHub, then the footer says whether Claude is connected', async ({
     page,
   }) => {
@@ -143,5 +172,8 @@ test.describe('narrow window', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
     const mainTop = await page.getByRole('main').evaluate((main) => main.getBoundingClientRect().top);
     expect(mainTop).toBeLessThan(140);
+    // The page column keeps a 16 px gutter on both sides.
+    const column = await page.getByRole('region', { name: 'Needs your attention' }).boundingBox();
+    expect(column === null ? null : { start: column.x, width: column.width }).toEqual({ start: 16, width: 328 });
   });
 });

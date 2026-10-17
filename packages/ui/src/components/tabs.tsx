@@ -13,7 +13,7 @@ export function Tabs(props: ComponentProps<typeof TabsPrimitive.Root>) {
 
 export function TabsList({ className, ...props }: ComponentProps<typeof TabsPrimitive.List>) {
   return (
-    <TabsPrimitive.List className={cn('flex gap-4 overflow-x-auto border-b border-border', className)} {...props} />
+    <TabsPrimitive.List className={cn('flex gap-6 overflow-x-auto border-b border-border', className)} {...props} />
   );
 }
 
@@ -26,7 +26,7 @@ export function TabsTrigger({ className, count, children, ...props }: TabsTrigge
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        'relative inline-flex h-10 cursor-pointer items-center gap-1.5 border-0 bg-transparent px-0.5 font-medium whitespace-nowrap text-muted-foreground hover:text-foreground aria-selected:text-foreground',
+        'relative inline-flex h-12 cursor-pointer items-center gap-2 border-0 bg-transparent px-0.5 font-medium whitespace-nowrap text-muted-foreground hover:text-foreground aria-selected:text-foreground',
         'after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-info after:opacity-0 aria-selected:after:opacity-100',
         className,
       )}

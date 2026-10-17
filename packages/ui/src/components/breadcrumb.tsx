@@ -13,14 +13,14 @@ export function Breadcrumb(props: ComponentProps<'nav'>) {
 export function BreadcrumbList({ className, ...props }: ComponentProps<'ol'>) {
   return (
     <ol
-      className={cn('m-0 flex list-none flex-wrap items-center gap-1 p-0 text-small text-muted-foreground', className)}
+      className={cn('m-0 flex min-w-0 list-none items-center gap-1 p-0 text-muted-foreground', className)}
       {...props}
     />
   );
 }
 
 export function BreadcrumbItem({ className, ...props }: ComponentProps<'li'>) {
-  return <li className={cn('inline-flex items-center gap-1', className)} {...props} />;
+  return <li className={cn('inline-flex min-w-0 items-center gap-1', className)} {...props} />;
 }
 
 export function BreadcrumbLink({ asChild = false, className, ...props }: ComponentProps<'a'> & { asChild?: boolean }) {
@@ -28,7 +28,7 @@ export function BreadcrumbLink({ asChild = false, className, ...props }: Compone
   return (
     <Comp
       className={cn(
-        'rounded-xs px-1 py-0.5 text-muted-foreground no-underline hover:bg-subtle hover:text-foreground',
+        'rounded-xs px-1 py-0.5 whitespace-nowrap text-muted-foreground no-underline hover:bg-subtle hover:text-foreground',
         className,
       )}
       {...props}
@@ -37,7 +37,14 @@ export function BreadcrumbLink({ asChild = false, className, ...props }: Compone
 }
 
 export function BreadcrumbPage({ className, ...props }: ComponentProps<'span'>) {
-  return <span aria-current="page" className={cn('px-1 py-0.5 font-medium text-foreground', className)} {...props} />;
+  // One line: a long title truncates instead of wrapping the page bar. Pass `title` so it stays readable.
+  return (
+    <span
+      aria-current="page"
+      className={cn('truncate px-1 py-0.5 font-medium text-foreground', className)}
+      {...props}
+    />
+  );
 }
 
 export function BreadcrumbSeparator({ className, ...props }: ComponentProps<'li'>) {

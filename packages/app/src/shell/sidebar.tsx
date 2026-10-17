@@ -38,28 +38,28 @@ export function Sidebar() {
       aria-label="Main"
       style={widthStyle}
       className={cn(
-        'flex flex-wrap items-center gap-2 border-b border-border bg-sidebar p-3 md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:gap-4 md:border-r md:border-b-0',
+        'flex flex-wrap items-center gap-2 border-b border-border bg-sidebar p-3 md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:gap-5 md:border-e md:border-b-0',
         'md:relative',
         collapsed ? 'md:w-16' : 'md:w-(--sidebar-width)',
       )}
     >
       <div
         className={cn(
-          'flex min-w-0 flex-1 items-center gap-2.5 py-0.5 pr-0.5 pl-1.5 md:flex-none',
+          'flex min-w-0 flex-1 items-center gap-3 ps-1 md:flex-none',
           collapsed && 'md:flex-col md:gap-2 md:px-0',
         )}
       >
         <span
           aria-hidden
-          className="flex size-6.5 shrink-0 items-center justify-center rounded-sm bg-primary text-small font-semibold text-primary-foreground"
+          className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-primary font-medium text-primary-foreground"
         >
           D
         </span>
-        <span className={cn('text-title font-semibold', collapsed && 'md:sr-only')}>DevHub</span>
+        <span className={cn('text-title font-medium', collapsed && 'md:sr-only')}>DevHub</span>
         <Button
           variant="ghost"
           size="icon-sm"
-          className={cn('ml-auto hidden md:inline-flex', collapsed && 'md:ml-0')}
+          className={cn('ms-auto hidden md:inline-flex', collapsed && 'md:ms-0')}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           title={collapsed ? 'Expand sidebar' : undefined}
           aria-pressed={collapsed}
@@ -69,12 +69,12 @@ export function Sidebar() {
         </Button>
       </div>
 
-      <div className="flex gap-1.5 md:flex-col">
+      <div className="flex gap-2 md:flex-col">
         <Button
           asChild
           variant="secondary"
           className={cn(
-            'justify-start max-md:w-9 max-md:justify-center max-md:px-0',
+            'justify-start px-3 max-md:w-10 max-md:justify-center max-md:px-0',
             collapsed && 'md:justify-center md:px-0',
           )}
         >
@@ -93,7 +93,7 @@ export function Sidebar() {
             <Label collapsed={collapsed} className="max-md:sr-only">
               New task
             </Label>
-            <Kbd className={cn('ml-auto max-md:hidden', collapsed && 'md:hidden')}>{newTask.label}</Kbd>
+            <Kbd className={cn('ms-auto max-md:hidden', collapsed && 'md:hidden')}>{newTask.label}</Kbd>
           </a>
         </Button>
         <button
@@ -102,7 +102,7 @@ export function Sidebar() {
           aria-disabled
           title={collapsed ? 'Search' : undefined}
           className={cn(
-            'flex h-8.5 w-full cursor-not-allowed items-center gap-2 rounded-sm border border-border bg-canvas px-2.5 text-muted-foreground max-md:size-9 max-md:justify-center max-md:px-0',
+            'flex h-10 w-full cursor-not-allowed items-center gap-2 rounded-sm border border-border bg-canvas px-3 text-muted-foreground max-md:size-10 max-md:justify-center max-md:px-0',
             collapsed && 'md:justify-center md:px-0',
           )}
         >
@@ -110,7 +110,7 @@ export function Sidebar() {
           <Label collapsed={collapsed} className="max-md:sr-only">
             Search
           </Label>
-          <Kbd className={cn('ml-auto max-md:hidden', collapsed && 'md:hidden')}>{searchShortcutLabel(platform)}</Kbd>
+          <Kbd className={cn('ms-auto max-md:hidden', collapsed && 'md:hidden')}>{searchShortcutLabel(platform)}</Kbd>
         </button>
       </div>
 
@@ -143,7 +143,7 @@ export function Sidebar() {
           defaultValue={sidebarWidthLimits.initial}
           onValueChange={setWidth}
           // Over the sidebar's right border; narrow windows stack the sidebar, so there is nothing to resize.
-          className="absolute inset-y-0 -right-1.5 z-10 max-md:hidden"
+          className="absolute inset-y-0 -end-1.5 z-10 max-md:hidden"
         />
       )}
     </nav>
@@ -175,9 +175,9 @@ function NavItem({
       activeOptions={{ exact }}
       title={collapsed ? label : undefined}
       className={cn(
-        'group flex min-h-8.5 items-center gap-2.5 rounded-sm px-2.5 font-medium text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:text-foreground',
-        // Narrow windows: icon over a 12 px label, four to a row.
-        'max-md:flex-col max-md:gap-1 max-md:px-1 max-md:py-1.5 max-md:text-label',
+        'group flex min-h-10 items-center gap-3 rounded-sm px-3 font-medium text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:text-foreground',
+        // Narrow windows: icon over a 14 px label, four to a row.
+        'max-md:flex-col max-md:gap-1 max-md:px-1 max-md:py-1.5 max-md:text-small',
         collapsed && 'md:justify-center md:px-0',
         className,
       )}

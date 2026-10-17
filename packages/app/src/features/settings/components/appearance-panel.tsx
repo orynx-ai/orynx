@@ -17,7 +17,7 @@ export function AppearancePanel() {
       {options.map((option) => (
         <label
           key={option.value}
-          className="flex cursor-pointer items-center gap-2.5 rounded-md border border-border bg-raised p-3 has-checked:border-info has-checked:bg-info-subtle"
+          className="flex min-h-14 cursor-pointer items-center gap-3 rounded-md border border-border bg-raised px-4 has-checked:border-info has-checked:bg-info-subtle"
         >
           <input
             type="radio"
@@ -27,9 +27,9 @@ export function AppearancePanel() {
             onChange={() => {
               setTheme(option.value);
             }}
-            className="m-0 size-4 accent-info"
+            className="m-0 size-5 accent-info"
           />
-          <span className="font-medium">{option.label}</span>
+          <span>{option.label}</span>
         </label>
       ))}
     </fieldset>
