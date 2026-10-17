@@ -112,6 +112,11 @@ describe('Sidebar', () => {
     expect(handle).toHaveAttribute('aria-valuenow', '332');
     expect(nav.style.getPropertyValue('--sidebar-width')).toBe('332px');
     expect(JSON.parse(localStorage.getItem('devhub.ui') ?? '{}')).toMatchObject({ state: { sidebarWidth: 332 } });
+
+    await user.keyboard('{Home}');
+    expect(handle).toHaveAttribute('aria-valuenow', '260');
+    await user.keyboard('{End}');
+    expect(handle).toHaveAttribute('aria-valuenow', '400');
   });
 
   it('AC-23: keeps a remembered width within 260–400 px', async () => {
@@ -125,6 +130,23 @@ describe('Sidebar', () => {
     expect(within(mainNav()).getByRole('separator', { name: 'Resize sidebar' })).toHaveAttribute(
       'aria-valuenow',
       '400',
+    );
+  });
+
+  it.each([
+    [260, '300'],
+    [340, '340'],
+  ])('AC-23: a width saved under the old 260 px default (%i) opens at %s px once', async (saved, opens) => {
+    localStorage.setItem(
+      'devhub.ui',
+      JSON.stringify({ state: { sidebarCollapsed: false, sidebarWidth: saved }, version: 0 }),
+    );
+    await useUiStore.persist.rehydrate();
+    await renderApp();
+
+    expect(within(mainNav()).getByRole('separator', { name: 'Resize sidebar' })).toHaveAttribute(
+      'aria-valuenow',
+      opens,
     );
   });
 
