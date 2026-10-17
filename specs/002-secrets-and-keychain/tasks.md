@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: Add the `keychain_unavailable` error code to the contracts (AC-6)
+- [x] Task 1: Add the `keychain_unavailable` error code to the contracts (AC-6)
       Check: pnpm test packages/contracts packages/api-client; pnpm typecheck
       Files: packages/contracts/src/errors.ts, packages/contracts/src/errors.test.ts
 - [ ] Task 2: Token store over an in-memory keychain: read, save, delete, check, source, `.env` order, `status.changed` (AC-2, AC-3, AC-4, AC-5, AC-7, AC-8, AC-9)
