@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, type FocusEvent } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { defaultPreferences, type Inbox, type InboxRules, type InboxTarget } from '@devhub/contracts';
 import {
@@ -152,9 +153,10 @@ function TabBody({
     return line === null ? [] : [{ tool, line }];
   });
   const connected = tabTools[tab].some((tool) => inbox.tools[tool].state !== 'not_connected');
+  const keepFocus = useFocusAfterSync(rows);
 
   return (
-    <>
+    <div {...keepFocus}>
       {lines.map(({ tool, line }) => (
         <ToolNote key={tool} line={line} />
       ))}
@@ -167,8 +169,64 @@ function TabBody({
       ) : connected ? (
         <NothingHere tab={tab} rules={rules} />
       ) : null}
-    </>
+    </div>
   );
+}
+
+/**
+ * When a sync takes away the row that has focus, focus moves to the next row's title, to the row before it
+ * when it was the last, or to the selected tab when no row is left (AC-18). Rows that stay keep their
+ * elements, so focus on them never moves (AC-16).
+ */
+function useFocusAfterSync(rows: readonly HomeItem[]) {
+  const box = useRef<HTMLDivElement>(null);
+  // The ids on screen, in order, and the one whose row holds focus.
+  const shown = useRef<string[]>([]);
+  const focused = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const before = shown.current;
+    const after = rows.map((row) => row.id);
+    shown.current = after;
+    const gone = focused.current;
+    if (gone === null || after.includes(gone)) return;
+    focused.current = null;
+    // The row took focus with it only if nothing else has it now.
+    if (document.activeElement !== null && document.activeElement !== document.body) return;
+    const at = before.indexOf(gone);
+    const next = [...before.slice(at + 1), ...before.slice(0, at).reverse()].find((id) => after.includes(id));
+    const target = next === undefined ? selectedTab(box.current) : rowTitle(box.current, after.indexOf(next));
+    target?.focus();
+  }, [rows]);
+
+  return {
+    ref: box,
+    onFocus: (event: FocusEvent) => {
+      const row = event.target.closest('li');
+      const list = box.current?.querySelector('ul');
+      focused.current =
+        row === null || list === null || list === undefined || row.parentElement !== list
+          ? null
+          : (shown.current[Array.prototype.indexOf.call(list.children, row)] ?? null);
+    },
+    onBlur: (event: FocusEvent) => {
+      const left = event.target;
+      // Focus leaving for somewhere else forgets the row; a row taken away by a sync is no longer on the page.
+      queueMicrotask(() => {
+        if (left.isConnected && !box.current?.contains(document.activeElement)) focused.current = null;
+      });
+    },
+  };
+}
+
+function rowTitle(box: HTMLElement | null, index: number): HTMLElement | null {
+  return box?.querySelector('ul')?.children[index]?.querySelector('a') ?? null;
+}
+
+/** Radix names the tab panel after its tab. */
+function selectedTab(box: HTMLElement | null): HTMLElement | null {
+  const tabId = box?.closest('[role="tabpanel"]')?.getAttribute('aria-labelledby');
+  return tabId === null || tabId === undefined ? null : document.getElementById(tabId);
 }
 
 /** One quiet line for a tool that isn't connected or whose last sync failed, above its rows (Q5). */

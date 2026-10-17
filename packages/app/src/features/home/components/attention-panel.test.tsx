@@ -1,8 +1,9 @@
-import { act, screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Inbox, type InboxItem } from '@devhub/contracts';
 import { makeInbox, makeInboxItem, makePreferences } from '@devhub/contracts/testing';
+import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -418,5 +419,100 @@ describe('AttentionPanel states', () => {
     await user.click(within(panel).getByRole('button', { name: 'Try again' }));
 
     expect(await within(panel).findByRole('link', { name: review.title })).toBeVisible();
+  });
+});
+
+describe('AttentionPanel when a sync changes the rows', () => {
+  /** The server's list changes, then it says a sync ended, as it does after each sync. */
+  async function syncTo(items: InboxItem[]) {
+    inboxWith(items);
+    act(() => {
+      FakeEventSource.latest().emit({ type: 'inbox.changed' });
+    });
+    const panel = screen.getByRole('region', { name: 'Needs your attention' });
+    await waitFor(() => {
+      expect(within(panel).getAllByRole('listitem')).toHaveLength(items.length);
+    });
+  }
+
+  function focusOn(element: HTMLElement) {
+    act(() => {
+      element.focus();
+    });
+  }
+
+  it("AC-18: moves focus to the next row's title when the focused row goes", async () => {
+    inboxWith([review, ticket, comments]);
+    await openHome();
+    focusOn(rowOf(ticket.title).getByRole('link', { name: 'Open' }));
+
+    await syncTo([review, comments]);
+
+    expect(screen.getByRole('link', { name: comments.title })).toHaveFocus();
+  });
+
+  it('AC-18: moves focus to the row before when the focused last row goes', async () => {
+    inboxWith([review, ticket, comments]);
+    await openHome();
+    focusOn(screen.getByRole('link', { name: comments.title }));
+
+    await syncTo([review, ticket]);
+
+    expect(screen.getByRole('link', { name: ticket.title })).toHaveFocus();
+  });
+
+  it('AC-18: moves focus to the selected tab when no row is left', async () => {
+    inboxWith([ticket]);
+    const { panel } = await openHome('/?inbox=jira');
+    focusOn(screen.getByRole('link', { name: ticket.title }));
+
+    inboxWith([]);
+    act(() => {
+      FakeEventSource.latest().emit({ type: 'inbox.changed' });
+    });
+
+    await waitFor(() => {
+      expect(within(panel).getByRole('tab', { name: 'Jira 0' })).toHaveFocus();
+    });
+  });
+
+  it('AC-16: keeps focus where it is when rows come and go around it', async () => {
+    inboxWith([review, ticket, comments]);
+    await openHome();
+    const title = screen.getByRole('link', { name: ticket.title });
+    focusOn(title);
+
+    await syncTo([checks, ticket, approval]);
+
+    expect(title).toHaveFocus();
+  });
+
+  it('AC-18: leaves focus alone when it is outside the list', async () => {
+    inboxWith([review, ticket]);
+    const { user } = await openHome();
+    focusOn(screen.getByRole('link', { name: ticket.title }));
+    await user.tab({ shift: true });
+    await user.tab({ shift: true });
+    await user.tab({ shift: true });
+    const outside = document.activeElement;
+    expect(outside).toHaveAttribute('role', 'tab');
+
+    await syncTo([review]);
+
+    expect(outside).toHaveFocus();
+  });
+
+  it('AC-33: goes from the selected tab through each row, title then action', async () => {
+    inboxWith([review, ticket]);
+    const { user, panel } = await openHome();
+    focusOn(within(panel).getByRole('tab', { name: 'All 2' }));
+
+    const stops: (string | null)[] = [];
+    for (let stop = 0; stop < 4; stop += 1) {
+      await user.tab();
+      stops.push(document.activeElement?.textContent ?? null);
+    }
+
+    expect(stops).toEqual([review.title, 'Review', ticket.title, 'Open']);
   });
 });
