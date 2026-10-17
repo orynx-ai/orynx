@@ -44,9 +44,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: Build Tickets' page bar and toolbar: the breadcrumb with the sprint, the meta, Search tickets, Board / List remembered on this computer, the filters in the address, Clear filters, and the count read out politely. `inbox.changed`, `status.changed` and `sessions.changed` refresh the tickets (moved here from task 8: the count is the first thing on screen that reads them) (AC-1, AC-7, AC-8, AC-9, AC-10, AC-17, AC-31)
       Check: pnpm test packages/app/src/features/tickets packages/app/src/live-updates.test.tsx; pnpm gate style-policy design-source component-coverage
       Files: packages/app/src/features/tickets/tickets-screen.tsx, tickets-screen.test.tsx, store.ts, queries.ts, components/tickets-toolbar.tsx, tickets-toolbar.test.tsx, packages/app/src/router.tsx, packages/app/src/live-updates.tsx, packages/app/src/words/use-now.ts, packages/app/src/shell/page-frame.tsx (a crumb link to the page's own address isn't current), packages/app/src/test/setup.ts, tickets.ts
-- [ ] Task 15: Build the board: the four columns with their counts, cards from `WorkItemCard` with the agent chip, the title's link (session or Jira, Q4a), and each column's empty text (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-12, AC-13, AC-14, AC-15)
+- [x] Task 15: Build the board: the four columns with their counts, cards from `WorkItemCard` with the agent chip, the title's link (session or Jira, Q4a), and each column's empty text (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-12, AC-13, AC-14, AC-15)
       Check: pnpm test packages/app/src/features/tickets
-      Files: packages/app/src/features/tickets/components/tickets-board.tsx, tickets-board.test.tsx, components/ticket-card.tsx
+      Files: packages/app/src/features/tickets/components/tickets-board.tsx, tickets-board.test.tsx, ticket-card.tsx, ticket-card.test.tsx, tickets-screen.tsx
 - [ ] Task 16: Build the list: the same tickets in `Table` with Key, Title, Status, Priority, Due and Agent, in column then rank order, and its empty text (AC-11, AC-16)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/tickets-list.tsx, tickets-list.test.tsx

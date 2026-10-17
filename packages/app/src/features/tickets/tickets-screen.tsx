@@ -6,6 +6,7 @@ import { List, SquareKanban } from 'lucide-react';
 import { Button, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
 import { useNow } from '../../words/use-now.ts';
+import { TicketsBoard } from './components/tickets-board.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
 import { defaultFilters, filtersFromSearch, matches, searchFromFilters, type AddressFilters } from './filters.ts';
 import { useTickets } from './queries.ts';
@@ -30,7 +31,10 @@ export function TicketsScreen() {
 
   const sprint = data?.sprint ?? null;
   const filters = { ...filtersFromSearch(search), text };
-  const shown = (data?.tickets ?? []).filter((ticket) => matches(ticket, filters, now));
+  const all = data?.tickets ?? [];
+  const shown = all.filter((ticket) => matches(ticket, filters, now));
+  // Assigned to me alone, so an empty column can say whether the other filters emptied it (Q9d).
+  const unfiltered = all.filter((ticket) => matches(ticket, { ...defaultFilters, mine: filters.mine }, now));
   const crumbs: Crumb[] =
     sprint === null ? [{ label: 'Tickets' }] : [{ label: 'Tickets', to: '/tickets' }, { label: sprint.name }];
 
@@ -86,6 +90,9 @@ export function TicketsScreen() {
       />
       <PageBody width="full">
         <h1 className="sr-only">{sprint === null ? 'Tickets' : pageHeading(sprint.name)}</h1>
+        {data === undefined || view !== 'board' ? null : (
+          <TicketsBoard shown={shown} unfiltered={unfiltered} now={now} />
+        )}
       </PageBody>
     </>
   );
