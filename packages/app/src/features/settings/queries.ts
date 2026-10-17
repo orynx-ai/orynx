@@ -28,3 +28,17 @@ export function useConnectJira() {
     },
   });
 }
+
+/** Removes the Jira token, site and email. */
+export function useDisconnectJira() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.disconnectJira(),
+    onSuccess: async () => {
+      // Nothing is saved now, so the row reads "Connect" at once; the status line refetches.
+      queryClient.setQueryData<JiraConnection>(queryKeys.jiraConnection, (old) => old && { ...old, saved: null });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    },
+  });
+}

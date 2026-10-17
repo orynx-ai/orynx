@@ -56,6 +56,9 @@ export function JiraConnectionRow({ status }: { status: IntegrationStatus | unde
             onConnected={() => {
               close('Jira is connected.');
             }}
+            onDisconnected={() => {
+              close('Jira is disconnected.');
+            }}
             onCancel={() => {
               close();
             }}
