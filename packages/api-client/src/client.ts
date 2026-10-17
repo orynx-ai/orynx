@@ -50,7 +50,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
   const http = axios.create({
     baseURL: options.baseURL,
     headers: { [tokenHeader]: options.token },
-    timeout: 15_000,
+    // Longer than the server's slowest answer: GitHub's gh way waits up to 5 s for gh, then 10 s for
+    // GitHub. A shorter wait would show "Could not reach the DevHub server" while the server is fine.
+    timeout: 20_000,
   });
 
   http.interceptors.response.use(undefined, (error: unknown) => {

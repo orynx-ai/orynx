@@ -91,6 +91,11 @@ describe('GitHub connection endpoints', () => {
     expect(await api.disconnectGitHub().catch((e: unknown) => e)).toMatchObject({ code: 'network' });
   });
 
+  it("AC-8: waits longer than the server's slowest answer, so the page shows the server's message, not its own", () => {
+    // The gh way can take gh's 5 s and then GitHub's 10 s, plus starting both.
+    expect(api.http.defaults.timeout).toBeGreaterThanOrEqual(20_000);
+  });
+
   it('keeps the connection under its own key, fresh from status.changed rather than polling', () => {
     const options = githubConnectionQueryOptions(api);
     expect(options.queryKey).toEqual(queryKeys.githubConnection);
