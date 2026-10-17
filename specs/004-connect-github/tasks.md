@@ -56,5 +56,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 18: By hand (Q7): you connect your real GitHub in `pnpm dev`, the gh way; record what happened
       Check: the GitHub row says Connected and names your account
       Files: specs/004-connect-github/tasks.md
-- [ ] Task 19: STOP and run /review
+- [x] Task 19: STOP and run /review (passed 17 Oct 2026, two rounds. Round one: code, security and design reviews; 1 critical fixed (two primary buttons with both forms open: one form at a time now), 9 important fixed. Round two: security and design re-checked the fixes and passed; the code re-check was stopped at your request before it finished. Left for a person: 2 important (a gh error adds a line under the choices, so the row grows: needs help-line wording or an AC-19 change; bordered choice cards inside the bordered Connections list) and 13 suggestions)
       Check: the review stamp matches the branch (pnpm review:stamp verify)
