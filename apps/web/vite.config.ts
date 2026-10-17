@@ -9,12 +9,15 @@ import { defineConfig, type Plugin } from 'vite';
 
 // The same settings the server reads (apps/server/src/config.ts): the shell first, then the
 // repo-root .env. An empty value, like the blank lines in .env.example, counts as not set.
+// Only these three are kept from the file, so a token in .env never stays in Vite's memory.
+type DevSetting = 'DEVHUB_PORT' | 'DEVHUB_WEB_PORT' | 'DEVHUB_HOME';
 const repoEnvFile = fileURLToPath(new URL('../../.env', import.meta.url));
-const fromFile = existsSync(repoEnvFile) ? parseEnv(readFileSync(repoEnvFile, 'utf8')) : {};
-function setting(
-  shell: string | undefined,
-  key: 'DEVHUB_PORT' | 'DEVHUB_WEB_PORT' | 'DEVHUB_HOME',
-): string | undefined {
+function readDevSettings(): Record<DevSetting, string | undefined> {
+  const all = existsSync(repoEnvFile) ? parseEnv(readFileSync(repoEnvFile, 'utf8')) : {};
+  return { DEVHUB_PORT: all['DEVHUB_PORT'], DEVHUB_WEB_PORT: all['DEVHUB_WEB_PORT'], DEVHUB_HOME: all['DEVHUB_HOME'] };
+}
+const fromFile = readDevSettings();
+function setting(shell: string | undefined, key: DevSetting): string | undefined {
   const value = shell === undefined || shell === '' ? fromFile[key] : shell;
   return value === '' ? undefined : value;
 }
