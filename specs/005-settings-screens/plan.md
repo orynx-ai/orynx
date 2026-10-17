@@ -1,19 +1,35 @@
-# Plan: <Title>
+# Plan: Settings screens
 
-Spec: `specs/<NNN-slug>/spec.md`
+Spec: `specs/005-settings-screens/spec.md`
 
 ## Order of work
 
-1. <step, and why it comes first>
+1. **Preferences end to end first** (permission mode and inbox rules). They're the smallest slice that crosses every package: a contract, settings.json keys, one GET/PATCH route, the `settings.changed` event, the api-client query, and the live-updates mapping. Once that slice works, both tabs are plain UI on top of it.
+2. **`Checkbox` in `@devhub/ui`** (Q5), then the **Coding agent** and **Inbox rules** tabs. Each tab is added to the tab list together with its panel, so no commit shows an empty tab. Saving is optimistic with a rollback (spec: "the control shows the new value straight away"). While loading, a tab shows its real chrome with the data slots empty: the choices or rows are drawn, disabled and unpicked, so the geometry matches the loaded view (clean-ui: "content whose layout is known").
+3. **The folder check as its own module.** It's a function over the file system that takes a path, the home folder and DevHub's folder, and returns either a folder or one of ten reasons. It runs no child process (spec: "Adding a folder runs nothing in it"). It's tested against real temporary folders, which covers AC-7 before any route exists.
+4. **Repositories service and routes**: list, add, remove, the 100-folder limit, a stable random id per folder, and the `folder_rejected` error code so the form knows the message belongs under Folder.
+5. **Jira projects**: `client.ts` gains a paged `GET /rest/api/3/project/search`, which stays the only file that talks to Jira. Behind it sit a `projects()` service method and `GET /api/jira/projects`. Failures reuse spec 003's problem kinds and messages.
+6. **api-client** for repositories and Jira projects. The projects query is never cached (`gcTime: 0`), because the spec keeps the list only while the form is open.
+7. **`Select` in `@devhub/ui`** (Q4), then the **Repositories** tab (list, empty text, Remove), then the **add-folder form** (react-hook-form and zod, the Jira project field in its three states).
+8. **e2e** across the three tabs on the real server, at 360 and 1280 px, in light and dark: the addresses and reload, CLS 0, keyboard, add and remove a folder from a temporary git folder, two tabs following along, and axe.
+9. **Docs**: architecture (what settings.json now holds), the design map (two new components), a `learn/` page on how the settings save, and the agent-runtime skill (where the mode lives).
 
 ## Risks
 
-| Risk | How we will notice early | What we do |
-| ---- | ------------------------ | ---------- |
-|      |                          |            |
+| Risk                                                                                                                                                                          | How we will notice early                                                                        | What we do                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| A `settings.changed` refetch lands while an optimistic save is still going, so the control flickers back for a moment                                                         | A component test that changes the mode twice quickly, with the event arriving between the saves | `cancelQueries` in `onMutate`, and invalidate in `onSettled`. The server runs saves one at a time, so the last change wins           |
+| Temporary folders on macOS sit behind a symlink (`/var` → `/private/var`), so "already in the list" and "inside DevHub's folder" compare different spellings of the same path | The folder-check tests use `mkdtemp`, which hits exactly this                                   | Compare `realpath` results on both sides, and save the real path                                                                     |
+| A user's home folder or DevHub's folder is itself a symlink                                                                                                                   | The same tests, with a symlinked home                                                           | Resolve the home folder with `realpath` before showing paths with `~`                                                                |
+| The Jira project list is long or slow (big companies have hundreds of projects)                                                                                               | A client test with three pages and a slow page                                                  | Ask for 100 per page, stop at 1000 projects, and apply the 10 s timeout to each page. AC-9 covers the failure                        |
+| The native `<select>` and checkbox look wrong in dark mode                                                                                                                    | The Storybook theme switch and the e2e dark run with axe                                        | `tokens.css` already sets `color-scheme: dark`. Check it by hand in the browser step                                                 |
+| Five tabs don't fit at 360 px                                                                                                                                                 | The e2e phone project, and axe on the tab list                                                  | The tab list already scrolls sideways (design system: "scrolls sideways on narrow screens"). Check that the focus ring stays visible |
+| The learn-freshness gate fails when a source a learn page names changes (`live-updates.tsx`, `create-server.ts`)                                                              | `pnpm gate learn-freshness` in each task's Check                                                | Touch the page in the same commit when its source changes                                                                            |
+| Coverage drops below 90%                                                                                                                                                      | `pnpm test:coverage` before the review                                                          | Each task's test comes first, so that shouldn't happen                                                                               |
+| A path typed into the form reaches something it shouldn't                                                                                                                     | Security review, and the folder-check tests                                                     | Only `fs` calls on the typed path, never a shell or git. Paths with a NUL or a line break are refused                                |
 
 ## Touches
 
-- Packages: <contracts, core, api-client, ui, app, web, server>
-- Gates that check this work: <style-policy, design-source, boundaries, …>
-- Skills to follow: <`.claude/skills/<name>/SKILL.md`>
+- **Packages:** contracts, core, api-client, ui, app, plus `apps/server` (it passes the home folder and DevHub's folder to `createServer`), `e2e/`, docs.
+- **Gates that check this work:** `boundaries`, `style-policy`, `design-source`, `component-coverage`, `test-policy`, `env-policy` (no new keys expected), `learn-freshness`, `specs`, `secrets`; `pnpm typecheck`, `pnpm lint`, Storybook a11y, `pnpm test:e2e`.
+- **Skills to follow:** `add-api-endpoint`, `server-state`, `client-state` (nothing new expected: every value here belongs to the server), `forms`, `add-ui-component`, `build-a-screen`, `clean-ui`, `honest-tests`, `integration-adapter` (Jira projects).
