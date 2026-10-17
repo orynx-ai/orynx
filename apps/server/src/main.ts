@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createOsKeychain, createServer } from '@devhub/core';
-import { loadConfig, readEnvFile, repoEnvFile } from './config.ts';
+import { forgetTokenSettings, loadConfig, readEnvFile, repoEnvFile } from './config.ts';
 import { createSessionToken, removeRuntimeFile, writeRuntimeFile } from './runtime-file.ts';
 import { tokenNotices } from './token-notices.ts';
 import { serveWeb } from './web.ts';
@@ -12,6 +12,7 @@ const packageJson = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'u
 
 const envFile = readEnvFile(repoEnvFile);
 const config = loadConfig(envFile === undefined ? {} : { envFile: envFile.text });
+forgetTokenSettings();
 const token = createSessionToken();
 const serveWebApp = process.argv.includes('--serve-web');
 
@@ -20,7 +21,8 @@ const app = await createServer({
   port: config.port,
   version: packageJson.version,
   keychain: createOsKeychain(),
-  ...(config.tokens.fromEnv ? { envTokens: config.tokens.env } : {}),
+  // Empty unless the user turned on DEVHUB_TOKENS_FROM_ENV.
+  envTokens: config.tokens.env,
   logger: {
     level: config.logLevel,
     ...(config.pretty ? { transport: { target: 'pino-pretty', options: { ignore: 'pid,hostname' } } } : {}),

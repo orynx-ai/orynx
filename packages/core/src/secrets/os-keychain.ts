@@ -25,7 +25,7 @@ export function createOsKeychain(service: string = keychainService): Keychain {
 
   return {
     async get(account) {
-      return (await (await entry(account)).getPassword()) ?? null;
+      return (await entry(account)).getPassword();
     },
     async set(account, token) {
       await (await entry(account)).setPassword(token);

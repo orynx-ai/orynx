@@ -16,11 +16,14 @@ export type EnvTokens = Partial<Record<IntegrationId, string>>;
 /** Why a token could not be read or saved. The message never contains the token. */
 export class TokenStoreError extends Error {
   readonly code: Extract<ApiErrorCode, 'bad_request' | 'keychain_unavailable'>;
+  /** For logs: the keychain error's name and code, such as "Error (ERR_MODULE_NOT_FOUND)", never its message. */
+  readonly reason: string | undefined;
 
-  constructor(code: TokenStoreError['code'], message: string) {
+  constructor(code: TokenStoreError['code'], message: string, reason?: string) {
     super(message);
     this.name = 'TokenStoreError';
     this.code = code;
+    this.reason = reason;
   }
 }
 
@@ -48,16 +51,21 @@ export const keychainUnavailableMessage =
   "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
 
 /**
- * Runs a keychain call, turning any failure into `keychain_unavailable`. The keychain's own error
- * is dropped on purpose, not kept as `cause`: it could echo what it was given, and an error can
- * end up in a log line or a response.
+ * Runs a keychain call, turning any failure into `keychain_unavailable`. Only the keychain error's
+ * name and code are kept, never its message or the error itself as `cause`: it could echo what it
+ * was given, and an error can end up in a log line or a response.
  */
 async function fromKeychain<T>(call: () => Promise<T>): Promise<T> {
   try {
     return await call();
-  } catch {
-    throw new TokenStoreError('keychain_unavailable', keychainUnavailableMessage);
+  } catch (error) {
+    throw new TokenStoreError('keychain_unavailable', keychainUnavailableMessage, safeReason(error));
   }
+}
+
+function safeReason(error: unknown): string {
+  if (!(error instanceof Error)) return typeof error;
+  return 'code' in error && typeof error.code === 'string' ? `${error.name} (${error.code})` : error.name;
 }
 
 export function createTokenStore({ keychain, events, envTokens = {} }: TokenStoreOptions): TokenStore {

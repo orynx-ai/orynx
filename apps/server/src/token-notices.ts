@@ -1,5 +1,4 @@
-import { parseEnv } from 'node:util';
-import { tokenKeys, type EnvFile, type ServerConfig } from './config.ts';
+import type { EnvFile, ServerConfig } from './config.ts';
 
 export interface Notice {
   level: 'info' | 'warn';
@@ -18,19 +17,15 @@ export function tokenNotices(
     level: 'warn',
     message: `${key} is set but not used. To use tokens from .env, set DEVHUB_TOKENS_FROM_ENV=true.`,
   }));
-  if (!tokens.fromEnv) return notices;
-
-  notices.push({ level: 'info', message: 'Tokens: OS keychain first, then .env (DEVHUB_TOKENS_FROM_ENV is on).' });
-  if (envFile?.othersCanRead === true && holdsToken(envFile.text)) {
+  if (tokens.fromEnv) {
+    notices.push({ level: 'info', message: 'Tokens: OS keychain first, then .env (DEVHUB_TOKENS_FROM_ENV is on).' });
+  }
+  // A token in a readable file is exposed whether or not DevHub uses it.
+  if (envFile?.othersCanRead === true && envFile.holdsTokens) {
     notices.push({
       level: 'warn',
       message: '.env holds tokens and other users on this computer can read it. Run: chmod 600 .env',
     });
   }
   return notices;
-}
-
-function holdsToken(text: string): boolean {
-  const settings = parseEnv(text);
-  return Object.values(tokenKeys).some((key) => (settings[key] ?? '') !== '');
 }

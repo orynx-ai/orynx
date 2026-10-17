@@ -1,15 +1,27 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseEnv } from 'node:util';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
-const serverPort = Number(process.env['DEVHUB_PORT'] ?? 4317);
-const webPort = Number(process.env['DEVHUB_WEB_PORT'] ?? 4318);
-// An empty DEVHUB_HOME (the blank line in .env.example) means the default folder.
-const devhubHomeSetting = process.env['DEVHUB_HOME'] ?? '';
-const devhubHome = devhubHomeSetting === '' ? join(homedir(), '.devhub') : devhubHomeSetting;
+// The same settings the server reads (apps/server/src/config.ts): the shell first, then the
+// repo-root .env. An empty value, like the blank lines in .env.example, counts as not set.
+const repoEnvFile = fileURLToPath(new URL('../../.env', import.meta.url));
+const fromFile = existsSync(repoEnvFile) ? parseEnv(readFileSync(repoEnvFile, 'utf8')) : {};
+function setting(
+  shell: string | undefined,
+  key: 'DEVHUB_PORT' | 'DEVHUB_WEB_PORT' | 'DEVHUB_HOME',
+): string | undefined {
+  const value = shell === undefined || shell === '' ? fromFile[key] : shell;
+  return value === '' ? undefined : value;
+}
+
+const serverPort = Number(setting(process.env['DEVHUB_PORT'], 'DEVHUB_PORT') ?? 4317);
+const webPort = Number(setting(process.env['DEVHUB_WEB_PORT'], 'DEVHUB_WEB_PORT') ?? 4318);
+const devhubHome = setting(process.env['DEVHUB_HOME'], 'DEVHUB_HOME') ?? join(homedir(), '.devhub');
 
 /**
  * In `pnpm dev`, Vite serves index.html, so this plugin does what the server does in

@@ -128,6 +128,22 @@ describe("token store when the keychain can't be reached", () => {
     await expect(store.read('github')).rejects.toMatchObject({ code: 'keychain_unavailable' });
   });
 
+  it("keeps the keychain error's name and code as a reason that is safe to log", async () => {
+    const missingModule = Object.assign(new Error(`Cannot find package '@napi-rs/keyring' (${jiraToken})`), {
+      code: 'ERR_MODULE_NOT_FOUND',
+    });
+    const keychain: Keychain = {
+      get: () => Promise.reject(missingModule),
+      set: () => Promise.reject(new TypeError('entry is not a constructor')),
+      delete: () => Promise.reject(new Error('locked')),
+    };
+    const { store } = setup({ keychain });
+
+    await expect(store.read('jira')).rejects.toMatchObject({ reason: 'Error (ERR_MODULE_NOT_FOUND)' });
+    await expect(store.save('jira', jiraToken)).rejects.toMatchObject({ reason: 'TypeError' });
+    await expect(store.remove('jira')).rejects.toMatchObject({ reason: 'Error' });
+  });
+
   it("AC-14: no error contains a token, even when the keychain's own error would", async () => {
     // A keychain whose own failure echoes what it was given is the worst case for a leak.
     const echoing = createUnreachableKeychain((token) => `could not store ${token ?? 'nothing'}`);

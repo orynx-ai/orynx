@@ -3,7 +3,6 @@ import { tokenNotices } from './token-notices.ts';
 
 const switchOn = 'Tokens: OS keychain first, then .env (DEVHUB_TOKENS_FROM_ENV is on).';
 const chmod = '.env holds tokens and other users on this computer can read it. Run: chmod 600 .env';
-const jiraLine = 'DEVHUB_JIRA_API_TOKEN=jira-token-for-tests-1234\n';
 
 describe('tokenNotices', () => {
   it('says nothing when tokens live only in the keychain', () => {
@@ -27,20 +26,26 @@ describe('tokenNotices', () => {
   });
 
   it('AC-11: says once that the switch is on', () => {
-    expect(tokenNotices({ fromEnv: true, ignored: [] }, { text: jiraLine, othersCanRead: false })).toEqual([
-      { level: 'info', message: switchOn },
-    ]);
+    expect(tokenNotices({ fromEnv: true, ignored: [] }, { text: '', othersCanRead: false, holdsTokens: true })).toEqual(
+      [{ level: 'info', message: switchOn }],
+    );
   });
 
   it('AC-11: asks for chmod 600 when .env holds a token and other users can read it', () => {
-    expect(tokenNotices({ fromEnv: true, ignored: [] }, { text: jiraLine, othersCanRead: true })).toEqual([
+    expect(tokenNotices({ fromEnv: true, ignored: [] }, { text: '', othersCanRead: true, holdsTokens: true })).toEqual([
       { level: 'info', message: switchOn },
       { level: 'warn', message: chmod },
     ]);
   });
 
+  it('asks for chmod 600 even with the switch off, since the file still holds a token', () => {
+    const readable = { text: '', othersCanRead: true, holdsTokens: true };
+
+    expect(tokenNotices({ fromEnv: false, ignored: [] }, readable)).toEqual([{ level: 'warn', message: chmod }]);
+  });
+
   it('AC-11: does not ask for chmod when the readable .env holds no token', () => {
-    const settingsOnly = { text: 'DEVHUB_TOKENS_FROM_ENV=true\nDEVHUB_GITHUB_TOKEN=\n', othersCanRead: true };
+    const settingsOnly = { text: '', othersCanRead: true, holdsTokens: false };
 
     expect(tokenNotices({ fromEnv: true, ignored: [] }, settingsOnly)).toEqual([{ level: 'info', message: switchOn }]);
   });

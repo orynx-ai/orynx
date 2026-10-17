@@ -23,6 +23,14 @@ Correct these now, or the work goes ahead on them.
 - **Tokens never leave the store's callers.** No token appears in a log line (at any level), an error message, an API response, an event or a session log. A test checks each of these.
 - **macOS may ask once.** The first time a new Node binary reads the "DevHub" item (for example after `nvm` installs a new Node), macOS asks "node wants to use your confidential information stored in "DevHub" in your keychain". Choosing Always Allow stops it from asking again. A `learn/` page explains this.
 
+Decided during review (17 Oct 2026):
+
+- **Tokens stay out of child processes.** Once read, the three token settings are deleted from the server's own environment, and turbo no longer passes them through, so git, Vite and later Claude never inherit one.
+- **Vite reads the same `.env`** for the ports and `DEVHUB_HOME`, so `pnpm dev` follows the server. An empty value counts as not set everywhere, in the shell too.
+- **The `chmod 600` line shows whenever a readable `.env` holds a token**, switch on or off.
+- **A keychain failure keeps a reason that is safe to log** (the error's name and code), never its message.
+- **The e2e server sets `DEVHUB_TOKENS_FROM_ENV=false`**, so a developer's `.env` tokens never reach it.
+
 ## Goal
 
 When I connect Jira, GitHub or Slack, my token goes into my computer's keychain and nowhere else: not a file, not the browser, not a log. If my keychain can't be used, I can choose to keep tokens in a `.env` file instead, and DevHub tells me when it is doing that.

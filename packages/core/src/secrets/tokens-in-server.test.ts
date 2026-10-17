@@ -77,6 +77,15 @@ describe('tokens in the hub', () => {
     expect(await app.tokens.read('slack')).toEqual({ token: envToken, source: 'env' });
   });
 
+  it('AC-4: publishes status.changed on the bus the event stream reads, after a save and a delete', async () => {
+    const { app, events } = await startHub();
+
+    await app.tokens.save('github', githubToken);
+    await app.tokens.remove('github');
+
+    expect(events).toEqual([{ type: 'status.changed' }, { type: 'status.changed' }]);
+  });
+
   it('uses an empty in-memory keychain when the host passes none', async () => {
     const { app } = await startHub();
 

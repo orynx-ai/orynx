@@ -1,8 +1,8 @@
-import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loadConfig, readEnvFile } from './config.ts';
+import { forgetTokenSettings, loadConfig, readEnvFile, repoEnvFile } from './config.ts';
 
 // Made-up values that match no real token format, so the secrets gate stays quiet.
 const jiraToken = 'jira-token-for-tests-1234';
@@ -53,6 +53,14 @@ describe('loadConfig', () => {
     expect(config.tokens).toEqual({ fromEnv: false, env: {}, ignored: ['DEVHUB_GITHUB_TOKEN'] });
   });
 
+  it('treats an empty shell variable as not set, so the .env value still counts', () => {
+    const envFile = `DEVHUB_PORT=4320\nDEVHUB_TOKENS_FROM_ENV=true\nDEVHUB_JIRA_API_TOKEN=${jiraToken}\n`;
+
+    const config = loadConfig({ env: { DEVHUB_PORT: '', DEVHUB_JIRA_API_TOKEN: '' }, envFile });
+
+    expect(config).toMatchObject({ port: 4320, tokens: { env: { jira: jiraToken } } });
+  });
+
   it('AC-8: with the switch on, hands core the .env tokens by tool', () => {
     const envFile = `DEVHUB_TOKENS_FROM_ENV=true\nDEVHUB_JIRA_API_TOKEN=${jiraToken}\nDEVHUB_SLACK_USER_TOKEN=\n`;
 
@@ -62,8 +70,23 @@ describe('loadConfig', () => {
   });
 });
 
+describe('forgetTokenSettings', () => {
+  it('AC-14: removes the token settings once read, so no child process inherits a token', () => {
+    const env: NodeJS.ProcessEnv = { DEVHUB_PORT: '4320', DEVHUB_GITHUB_TOKEN: githubToken, PATH: '/usr/bin' };
+
+    forgetTokenSettings(env);
+
+    expect(env).toEqual({ DEVHUB_PORT: '4320', PATH: '/usr/bin' });
+  });
+});
+
 describe('readEnvFile', () => {
   const folder = mkdtempSync(join(tmpdir(), 'devhub-env-'));
+
+  it('AC-12: looks for .env next to .env.example at the repo root', () => {
+    expect(basename(repoEnvFile)).toBe('.env');
+    expect(existsSync(join(dirname(repoEnvFile), '.env.example'))).toBe(true);
+  });
 
   it('returns nothing when there is no .env file', () => {
     expect(readEnvFile(join(folder, 'missing.env'))).toBeUndefined();
@@ -74,10 +97,23 @@ describe('readEnvFile', () => {
     writeFileSync(path, 'DEVHUB_PORT=4320\n');
 
     chmodSync(path, 0o600);
-    expect(readEnvFile(path)).toEqual({ text: 'DEVHUB_PORT=4320\n', othersCanRead: false });
+    expect(readEnvFile(path)).toEqual({ text: 'DEVHUB_PORT=4320\n', othersCanRead: false, holdsTokens: false });
 
-    chmodSync(path, 0o644);
-    expect(readEnvFile(path)).toEqual({ text: 'DEVHUB_PORT=4320\n', othersCanRead: true });
+    chmodSync(path, 0o640);
+    expect(readEnvFile(path)?.othersCanRead).toBe(true);
+
+    // Write and execute bits alone don't let anyone read it.
+    chmodSync(path, 0o622);
+    expect(readEnvFile(path)?.othersCanRead).toBe(false);
+  });
+
+  it('says whether the file holds a token, set or not', () => {
+    const path = join(folder, 'tokens.env');
+    writeFileSync(path, `DEVHUB_TOKENS_FROM_ENV=false\nDEVHUB_GITHUB_TOKEN=\nDEVHUB_JIRA_API_TOKEN=${jiraToken}\n`);
+    expect(readEnvFile(path)?.holdsTokens).toBe(true);
+
+    writeFileSync(path, 'DEVHUB_TOKENS_FROM_ENV=true\nDEVHUB_GITHUB_TOKEN=\n');
+    expect(readEnvFile(path)?.holdsTokens).toBe(false);
   });
 
   it('stops when .env is there but cannot be read, rather than starting without it', () => {
