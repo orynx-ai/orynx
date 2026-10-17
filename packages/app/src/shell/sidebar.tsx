@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { Link, useLinkProps } from '@tanstack/react-router';
 import { History, House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucide-react';
 import { Button, Kbd, Splitter, cn } from '@devhub/ui';
+import { useInboxCount } from '../features/home/queries.ts';
 import { SidebarSessions } from '../features/sessions/components/sidebar-sessions.tsx';
 import { usePlatform } from '../platform.tsx';
 import { clampSidebarWidth, sidebarWidthLimits, useUiStore } from '../stores/ui-store.ts';
@@ -31,6 +32,7 @@ export function Sidebar() {
   // New task is an action, so it must never announce itself as the current page on Home.
   // Only the router's href (hash or path, per host); the click is handled below.
   const { href: homeHref } = useLinkProps({ to: '/' });
+  const needYou = useInboxCount();
 
   return (
     <nav
@@ -115,7 +117,14 @@ export function Sidebar() {
       </div>
 
       <div className="grid w-full grid-cols-4 gap-1 md:flex md:flex-col md:gap-0.5">
-        <NavItem to="/" icon={<House aria-hidden />} label="Home" collapsed={collapsed} exact />
+        <NavItem
+          to="/"
+          icon={<House aria-hidden />}
+          label="Home"
+          collapsed={collapsed}
+          exact
+          {...(needYou === undefined ? {} : { count: { value: needYou, meaning: 'need you' } })}
+        />
         <NavItem to="/tickets" icon={<SquareKanban aria-hidden />} label="Tickets" collapsed={collapsed} />
         <NavItem to="/settings" icon={<Settings aria-hidden />} label="Settings" collapsed={collapsed} />
         {/* Narrow windows have no session rows, so the full list gets a place of its own. */}
@@ -160,6 +169,7 @@ function NavItem({
   label,
   collapsed,
   exact = false,
+  count,
   className,
 }: {
   to: '/' | '/tickets' | '/settings' | '/sessions';
@@ -167,6 +177,8 @@ function NavItem({
   label: string;
   collapsed: boolean;
   exact?: boolean;
+  /** Design system: `.dh-nav-count`, with hidden words saying what the number means ("14 need you"). */
+  count?: { value: number; meaning: string };
   className?: string;
 }) {
   return (
@@ -184,6 +196,14 @@ function NavItem({
     >
       <span className="contents group-aria-[current=page]:text-info">{icon}</span>
       <Label collapsed={collapsed}>{label}</Label>
+      {/* Hidden at 0, and on the collapsed rail and the narrow bar, where there is no room (spec 007, Q1b). */}
+      {count === undefined || count.value === 0 || collapsed ? null : (
+        <span className="ms-auto inline-flex h-5 min-w-5.5 items-center justify-center rounded-full border border-border bg-canvas px-1.5 text-label font-medium text-muted-foreground group-aria-[current=page]:border-transparent group-aria-[current=page]:bg-primary group-aria-[current=page]:text-primary-foreground max-md:hidden">
+          <span aria-hidden>{count.value}</span>
+          {/* One text for screen readers, so the link reads "Home, 14 need you". */}
+          <span className="sr-only">{`, ${String(count.value)} ${count.meaning}`}</span>
+        </span>
+      )}
     </Link>
   );
 }
