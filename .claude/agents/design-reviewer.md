@@ -21,7 +21,7 @@ A diff range and a spec folder. You may run `git diff`, `pnpm gate style-policy`
 
 **Fidelity**
 
-- The screen's `// Design:` note names the right reference, and the build matches it: order, spacing on the 4 px scale, sizes (52 px page bar, 48 px toolbar), copy word for word in sentence case.
+- The screen's `// Design:` note names the right reference, and the build matches it: order, spacing on the 4 px scale, sizes (56 px page bar and toolbar, `PageBody` width `narrow` 720 / `wide` 960 / `full`), copy word for word in sentence case.
 - Every colour, type size, radius and shadow is a theme class from `docs/design-map.md`. No raw values, no default palette, no `dark:`.
 - Components come from `@devhub/ui`, not ad hoc styles inside the feature.
 
@@ -30,7 +30,8 @@ A diff range and a spec folder. You may run `git diff`, `pnpm gate style-policy`
 - Exactly one filled `primary` button per view.
 - State is told by icon shape + word + colour, never colour alone; every source mark shows the source name.
 - Text is never smaller than 12 px; the serif appears only in the Home greeting.
-- Hit targets: at least 30 px tall in dense rows, 36 px elsewhere.
+- Hit targets: at least 32 px tall in dense rows, 40 px elsewhere.
+- The Clean UI rules hold (`.claude/skills/clean-ui/SKILL.md`): five text sizes and two weights, no box inside a box, plain empty states, sentence-case copy without "we", "please" or "!".
 - Cards use a border, not a shadow; only menus, popovers and the composer have `shadow-overlay`.
 
 **Accessibility**

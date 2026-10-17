@@ -13,7 +13,7 @@ DevHub is a local web app plus a small local server, both on the developer's lap
 3. **Server data lives in TanStack Query; UI-only state lives in zustand.** All HTTP goes through `@devhub/api-client` (axios). Never fetch in `useEffect`, never copy server data into zustand or `useState`.
    Checked by: `pnpm lint` · Guide: `.claude/skills/server-state/SKILL.md`, `.claude/skills/client-state/SKILL.md`
 4. **Design tokens only.** Colours, type sizes, radii and shadows come from the theme classes in `docs/design-map.md`. Never raw hex/rgb, arbitrary values (`p-[13px]`), Tailwind's default palette or `dark:`.
-   Checked by: `pnpm gate style-policy` (also a hook while you edit) · Guide: `.claude/skills/build-a-screen/SKILL.md`
+   Checked by: `pnpm gate style-policy` (also a hook while you edit) · Guide: `.claude/skills/build-a-screen/SKILL.md`, `.claude/skills/clean-ui/SKILL.md`
 5. **Screens are built from `@devhub/ui`.** If a component is missing, add it to `@devhub/ui` (shadcn, restyled to tokens) with a story and a test. Never style it ad hoc inside a feature.
    Checked by: `pnpm gate component-coverage` · Guide: `.claude/skills/add-ui-component/SKILL.md`
 6. **Say where the design came from.** Every `*-screen.tsx` starts with `// Design: docs/design/screens/<file> — <part>` or `// Design: none — <reason>`.
