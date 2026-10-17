@@ -15,7 +15,7 @@ That alone is not enough: a page on `evil.example` running in the developer's br
 1. On **every start**, `apps/server/src/runtime-file.ts` makes a fresh random token and writes `{ port, token, pid }` to `<DEVHUB_HOME>/runtime.json` (default `~/.devhub/runtime.json`) with file mode `0600`, so only the developer's user can read it.
 2. The page receives the token in `<meta name="devhub-token">`:
    - `pnpm start`: the server injects it into `index.html` when it serves the page.
-   - `pnpm dev`: Vite serves the page, so a small plugin in `apps/web/vite.config.ts` reads `runtime.json` and injects the same tag. Vite proxies `/api` to the server.
+   - `pnpm dev`: Vite serves the page, so a small plugin in `apps/web/vite.config.ts` reads `runtime.json` and injects the same tag. Vite proxies `/api` to the server. It finds `DEVHUB_HOME` and the server's port the way the server does (the shell, then the repo-root `.env`), so it always reads the running server's file.
 3. `packages/api-client/src/client.ts` reads nothing from the page itself; the host passes the token to `createApiClient({ baseURL, token })`, and the axios instance sends it as `x-devhub-token` on every request (`status()`, `sessions()` and every endpoint added after them share that one instance). When the server answers 401 (for example after it restarted with a new token), `onUnauthorized` lets the host reload the page to pick up the new one.
 4. `EventSource` cannot set headers, so the event stream (`/api/events`) is the one route that accepts `?token=`.
 5. `packages/core/src/plugins/local-only.ts` compares the token in constant time and answers 401 when it is missing or wrong.
