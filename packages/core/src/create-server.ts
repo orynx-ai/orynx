@@ -137,7 +137,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   registerLocalOnly(app, { token: options.token, port: options.port });
 
   const events = options.events ?? createEventBus();
-  // Nothing reads the keychain here: the first read happens when a route needs a token.
+  // Nothing reads the keychain here: the first read happens when a route or the inbox's sync needs a token.
   app.decorate(
     'tokens',
     createTokenStore({

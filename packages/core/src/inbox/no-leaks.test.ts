@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { apiRoutes, tokenHeader } from '@devhub/contracts';
 import { createServer } from '../create-server.ts';
-import { createMemoryKeychain } from '../secrets/memory-keychain.ts';
+import { createMemoryKeychain, createUnreachableKeychain } from '../secrets/memory-keychain.ts';
 import { createFileSettingsStore } from '../settings/settings-store.ts';
 import { githubToken, graphqlUrl, pullNode } from '../test/fake-github.ts';
 import { goodBasicValue, goodToken, issueSearchUrl, jiraEmail, jiraIssue, jiraSite } from '../test/fake-jira.ts';
@@ -104,5 +104,61 @@ describe('the inbox never leaks', () => {
     }
     expect(cache).not.toContain(description);
     expect(cache).not.toContain(commentText);
+  });
+
+  it('AC-28: failed syncs log what went wrong, never a token, an error body or a header', async () => {
+    home = await mkdtemp(join(tmpdir(), 'devhub-inbox-leaks-'));
+    const settings = createFileSettingsStore(home);
+    await settings.update(() => ({ jira: { site: jiraSite, email: jiraEmail }, github: { method: 'token' } }));
+    const errorBody = `Bad credentials for ${goodToken}`;
+    outside.use(
+      http.post(issueSearchUrl(), () =>
+        HttpResponse.json(
+          { errorMessages: [errorBody] },
+          { status: 401, headers: { 'X-Seraph-LoginReason': 'AUTHENTICATED_FAILED' } },
+        ),
+      ),
+      http.post(graphqlUrl, () =>
+        HttpResponse.json({ data: null, errors: [{ type: 'FORBIDDEN', message: `Token ${githubToken} refused` }] }),
+      ),
+    );
+
+    for (const keychain of [
+      createMemoryKeychain({ jira: goodToken, github: githubToken }),
+      createUnreachableKeychain(),
+    ]) {
+      const log: string[] = [];
+      app = await createServer({
+        token: sessionToken,
+        port,
+        version: 'test',
+        userName: () => Promise.resolve(null),
+        keychain,
+        settings,
+        cache: openInboxCache(cacheFilePath(home)),
+        logger: {
+          level: 'trace',
+          stream: new Writable({
+            write(chunk: Buffer, _encoding, done) {
+              log.push(chunk.toString());
+              done();
+            },
+          }),
+        },
+      });
+
+      await app.inject({ method: 'POST', url: apiRoutes.inboxRefresh, headers });
+      const inbox = await app.inject({ method: 'GET', url: apiRoutes.inbox, headers });
+      await app.close();
+      app = undefined;
+
+      const cache = (await readFile(cacheFilePath(home))).toString('latin1');
+      expect(log.join('')).toContain('The inbox sync could not read this tool');
+      for (const secret of [goodToken, goodBasicValue, githubToken, sessionToken, errorBody]) {
+        expect(log.join('')).not.toContain(secret);
+        expect(inbox.body).not.toContain(secret);
+        expect(cache).not.toContain(secret);
+      }
+    }
   });
 });
