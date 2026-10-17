@@ -32,7 +32,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: api-client for repositories (list, add, remove) and Jira projects (never cached), and `settings.changed` also refreshing repositories (AC-5, AC-17)
       Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx
       Files: packages/api-client/src/endpoints/repositories.ts, endpoints/jira.ts, client.ts, queries.ts, repositories.test.ts, jira.test.ts; packages/app/src/live-updates.tsx
-- [ ] Task 11: `Select` in `@devhub/ui`: a native `<select>` styled like `Input` (40 px, `border-control`, the same focus ring, works inside `Field`), with stories (default, disabled, invalid, long list) and a test; design-map row (AC-5, AC-19)
+- [x] Task 11: `Select` in `@devhub/ui`: a native `<select>` styled like `Input` (40 px, `border-control`, the same focus ring, works inside `Field`), with stories (default, disabled, invalid, long list) and a test; design-map row (AC-5, AC-19)
       Check: pnpm test packages/ui/src/components/select.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/select.tsx, select.stories.tsx, select.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 12: The Repositories tab: the intro line, Add local folder, folder rows (name, `~` path in mono, Jira pill, Remove), the empty text, the loading chrome, and an optimistic Remove with focus moving on, a spoken "Removed …" and a rollback on failure (AC-1, AC-4, AC-11, AC-14, AC-15, AC-16)
