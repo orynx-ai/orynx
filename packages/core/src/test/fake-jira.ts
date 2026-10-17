@@ -13,6 +13,46 @@ export const myselfUrl = (site: string = jiraSite) => `https://${site}/rest/api/
 export const projectSearchUrl = (site: string = jiraSite) => `https://${site}/rest/api/3/project/search`;
 export const issueSearchUrl = (site: string = jiraSite) => `https://${site}/rest/api/3/search/jql`;
 export const prioritySearchUrl = (site: string = jiraSite) => `https://${site}/rest/api/3/priority/search`;
+export const fieldListUrl = (site: string = jiraSite) => `https://${site}/rest/api/3/field`;
+export const boardConfigurationUrl = (boardId: number, site: string = jiraSite) =>
+  `https://${site}/rest/agile/1.0/board/${String(boardId)}/configuration`;
+
+/** The account /myself answers with for the good credentials. */
+export const myAccountId = '5b10ac8d82e05b22cc7d4ef5';
+
+/** The sprint field's id on these tests' site. A site names the field as it likes; its type is fixed. */
+export const sprintFieldId = 'customfield_10020';
+const sprintFieldType = 'com.pyxis.greenhopper.jira:gh-sprint';
+
+export interface FakeSprint {
+  id: number;
+  name?: string;
+  state?: 'active' | 'future' | 'closed';
+  boardId?: number;
+  /** As Jira writes it; null for a sprint with no end date. */
+  endDate?: string | null;
+}
+
+/** A sprint as an issue's sprint field holds it. */
+export function jiraSprint(sprint: FakeSprint) {
+  return {
+    id: sprint.id,
+    name: sprint.name ?? `Sprint ${String(sprint.id)}`,
+    state: sprint.state ?? 'active',
+    boardId: sprint.boardId ?? 7,
+    goal: '',
+    startDate: '2026-10-10T09:00:00.000Z',
+    ...(sprint.endDate === null ? {} : { endDate: sprint.endDate ?? '2026-10-24T17:00:00.000Z' }),
+  };
+}
+
+/** The columns of the design's board, with the status ids a fresh Jira Software project gives them. */
+export const designBoardColumns = [
+  { name: 'To Do', statusIds: ['10000'] },
+  { name: 'In Progress', statusIds: ['3'] },
+  { name: 'In Review', statusIds: ['10001'] },
+  { name: 'Done', statusIds: ['10002'] },
+] as const;
 
 /** Jira's default priorities, highest first, as a fresh Jira Cloud site lists them. */
 export const defaultPriorities = [
@@ -36,6 +76,8 @@ export interface FakeIssue {
   created?: string;
   /** As Jira writes it, with a `+0000` offset; left out when Jira doesn't say. */
   statuscategorychangedate?: string;
+  /** The issue's sprints, in the sprint field; left out when the site has no sprint field. */
+  sprints?: readonly FakeSprint[];
 }
 
 /** One issue as `search/jql` returns it, with every field the inbox asks for. */
@@ -58,6 +100,7 @@ export function jiraIssue(issue: FakeIssue) {
       ...(issue.statuscategorychangedate === undefined
         ? {}
         : { statuscategorychangedate: issue.statuscategorychangedate }),
+      ...(issue.sprints === undefined ? {} : { [sprintFieldId]: issue.sprints.map(jiraSprint) }),
     },
   };
 }
@@ -87,6 +130,80 @@ export function acceptingPrioritySearch(
   });
 }
 
+/**
+ * Jira's field list for the good credentials: a few system and custom fields, and the sprint field under
+ * `sprintFieldName`. `sprintFieldName: null` is a site without Jira Software, which has no sprint field.
+ */
+export function acceptingFieldList({
+  site = jiraSite,
+  sprintFieldName = 'Sprint',
+}: { site?: string; sprintFieldName?: string | null } = {}) {
+  return http.get(fieldListUrl(site), ({ request }) => {
+    if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+    return HttpResponse.json([
+      { id: 'summary', key: 'summary', name: 'Summary', custom: false, schema: { type: 'string', system: 'summary' } },
+      {
+        id: 'customfield_10014',
+        key: 'customfield_10014',
+        name: 'Epic Link',
+        custom: true,
+        schema: { type: 'any', custom: 'com.pyxis.greenhopper.jira:gh-epic-link', customId: 10_014 },
+      },
+      ...(sprintFieldName === null
+        ? []
+        : [
+            {
+              id: sprintFieldId,
+              key: sprintFieldId,
+              name: sprintFieldName,
+              custom: true,
+              schema: { type: 'array', items: 'json', custom: sprintFieldType, customId: 10_020 },
+            },
+          ]),
+    ]);
+  });
+}
+
+/**
+ * Jira's enhanced search for your issues in open sprints, for the good credentials. Any other search falls
+ * through to the next handler.
+ */
+export function acceptingMySprintSearch(issues: readonly FakeIssue[], { site = jiraSite }: { site?: string } = {}) {
+  return http.post(issueSearchUrl(site), async ({ request }) => {
+    const body = (await request.clone().json()) as { jql?: string };
+    if (body.jql?.includes('sprint in openSprints()') !== true) return undefined;
+    if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+    return HttpResponse.json({ issues: issues.map(jiraIssue), isLast: true });
+  });
+}
+
+/** A board's configuration as the agile API answers it, with its columns in order. */
+export function acceptingBoardConfiguration(
+  boardId: number,
+  columns: readonly { name: string; statusIds: readonly string[] }[] = designBoardColumns,
+  { site = jiraSite }: { site?: string } = {},
+) {
+  return http.get(boardConfigurationUrl(boardId, site), ({ request }) => {
+    if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+    return HttpResponse.json({
+      id: boardId,
+      name: 'PROJ board',
+      type: 'scrum',
+      self: `https://${site}/rest/agile/1.0/board/${String(boardId)}/configuration`,
+      location: { type: 'project', key: 'PROJ', id: '10000' },
+      filter: { id: '10001', self: `https://${site}/rest/api/2/filter/10001` },
+      columnConfig: {
+        columns: columns.map((column) => ({
+          name: column.name,
+          statuses: column.statusIds.map((id) => ({ id, self: `https://${site}/rest/api/2/status/${id}` })),
+        })),
+        constraintType: 'issueCount',
+      },
+      ranking: { rankCustomFieldId: 10_019 },
+    });
+  });
+}
+
 const refused = () =>
   HttpResponse.json(
     { errorMessages: ['Client must be authenticated to access this resource.'] },
@@ -97,7 +214,7 @@ const refused = () =>
 export function acceptingMyself(site: string = jiraSite) {
   return http.get(myselfUrl(site), ({ request }) => {
     if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
-    return HttpResponse.json({ accountId: '5b10ac8d82e05b22cc7d4ef5', displayName: 'Dev Example', active: true });
+    return HttpResponse.json({ accountId: myAccountId, displayName: 'Dev Example', active: true });
   });
 }
 

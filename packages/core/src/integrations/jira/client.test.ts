@@ -1,18 +1,26 @@
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import {
+  acceptingBoardConfiguration,
+  acceptingFieldList,
   acceptingIssueSearch,
+  acceptingMySprintSearch,
   acceptingPrioritySearch,
   acceptingProjectSearch,
+  boardConfigurationUrl,
+  designBoardColumns,
+  fieldListUrl,
   goodBasicValue,
   issueSearchUrl,
   goodToken,
   jiraEmail,
   jiraIssue,
   jiraSite,
+  myAccountId,
   myselfUrl,
   prioritySearchUrl,
   projectSearchUrl,
+  sprintFieldId,
   useFakeJira,
 } from '../../test/fake-jira.ts';
 import { createJiraClient, type JiraCheck } from './client.ts';
@@ -304,5 +312,176 @@ describe('Jira client: assigned issues (spec 007)', () => {
     );
 
     expect(await client.assigned(credentials)).toEqual({ ok: false, problem: { kind: 'jira_error', status: 500 } });
+  });
+});
+
+describe('Jira client: your sprints (spec 008)', () => {
+  it('AC-1: asks who you are, finds the sprint field by its type, and reads your issues in open sprints with it', async () => {
+    const bodies: unknown[] = [];
+    jira.use(
+      // A site may name the field as it likes; DevHub finds it by its type.
+      acceptingFieldList({ sprintFieldName: 'Sprints (team)' }),
+      acceptingMySprintSearch([
+        {
+          key: 'PROJ-1423',
+          sprints: [
+            { id: 41, state: 'closed' },
+            { id: 42, name: 'Sprint 42', boardId: 7 },
+          ],
+        },
+      ]),
+    );
+    jira.events.on('request:start', ({ request }) => {
+      if (request.url === issueSearchUrl())
+        void request
+          .clone()
+          .json()
+          .then((body) => bodies.push(body));
+    });
+
+    const answer = await client.mySprints(credentials);
+
+    expect(answer).toEqual({
+      ok: true,
+      accountId: myAccountId,
+      issues: [
+        {
+          key: 'PROJ-1423',
+          sprints: [
+            { id: 41, name: 'Sprint 41', state: 'closed', boardId: 7, endDate: '2026-10-24T17:00:00.000Z' },
+            { id: 42, name: 'Sprint 42', state: 'active', boardId: 7, endDate: '2026-10-24T17:00:00.000Z' },
+          ],
+        },
+      ],
+    });
+    expect(bodies).toEqual([
+      { jql: 'assignee = currentUser() AND sprint in openSprints()', fields: [sprintFieldId], maxResults: 100 },
+    ]);
+    jira.events.removeAllListeners();
+  });
+
+  it('AC-22: a site without Jira Software has no sprint field, so it asks for no issues', async () => {
+    const asked: string[] = [];
+    jira.use(acceptingFieldList({ sprintFieldName: null }), acceptingMySprintSearch([]));
+    jira.events.on('request:start', ({ request }) => {
+      asked.push(request.url);
+    });
+
+    const answer = await client.mySprints(credentials);
+
+    expect(answer).toEqual({ ok: true, accountId: myAccountId, issues: [] });
+    expect(asked).toEqual([myselfUrl(), fieldListUrl()]);
+    jira.events.removeAllListeners();
+  });
+
+  it('keeps a sprint with no board or end date, and leaves out a sprint or an issue it can’t read', async () => {
+    jira.use(
+      acceptingFieldList(),
+      http.post(issueSearchUrl(), () =>
+        HttpResponse.json({
+          issues: [
+            { key: 'PROJ-1', fields: { [sprintFieldId]: 'not a list' } },
+            {
+              key: 'PROJ-2',
+              fields: { [sprintFieldId]: [{ name: 'No id' }, { id: 42, name: 'Sprint 42', state: 'active' }] },
+            },
+            { key: 'PROJ-3', fields: { [sprintFieldId]: null } },
+          ],
+          isLast: true,
+        }),
+      ),
+    );
+
+    const answer = await client.mySprints(credentials);
+
+    expect(answer).toEqual({
+      ok: true,
+      accountId: myAccountId,
+      issues: [
+        { key: 'PROJ-2', sprints: [{ id: 42, name: 'Sprint 42', state: 'active', boardId: null, endDate: null }] },
+        { key: 'PROJ-3', sprints: [] },
+      ],
+    });
+  });
+
+  it('AC-24: a refused token comes back as a problem, never as the library’s error', async () => {
+    jira.use(acceptingFieldList(), acceptingMySprintSearch([]));
+
+    const answer = await client.mySprints({ ...credentials, apiToken: 'fake-wrong-token' });
+
+    expect(answer).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(answer)).not.toContain('fake-wrong-token');
+  });
+
+  it('AC-23: a slow field list is a timeout', async () => {
+    jira.use(
+      http.get(fieldListUrl(), async () => {
+        await delay('infinite');
+        return HttpResponse.json([]);
+      }),
+    );
+
+    expect(await client.mySprints(credentials)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+});
+
+describe('Jira client: board columns (spec 008)', () => {
+  it('AC-4: reads a board’s columns in order, each with its status ids', async () => {
+    jira.use(
+      acceptingBoardConfiguration(7, [
+        { name: 'To Do', statusIds: ['10000'] },
+        { name: 'In Progress', statusIds: ['3'] },
+        { name: 'Code Review', statusIds: ['10001'] },
+        { name: 'QA', statusIds: ['10003', '10004'] },
+        { name: 'Done', statusIds: ['10002'] },
+      ]),
+    );
+
+    expect(await client.boardColumns(credentials, 7)).toEqual({
+      ok: true,
+      columns: [
+        { name: 'To Do', statusIds: ['10000'] },
+        { name: 'In Progress', statusIds: ['3'] },
+        { name: 'Code Review', statusIds: ['10001'] },
+        { name: 'QA', statusIds: ['10003', '10004'] },
+        { name: 'Done', statusIds: ['10002'] },
+      ],
+    });
+  });
+
+  it.each([
+    ['gone', 404],
+    ['hidden from you', 403],
+  ])('AC-5: a board that’s %s has no columns, rather than a problem', async (_why, status) => {
+    jira.use(
+      http.get(boardConfigurationUrl(7), () =>
+        HttpResponse.json(
+          { errorMessages: ['The board does not exist or you do not have permission to see it.'] },
+          { status },
+        ),
+      ),
+    );
+
+    expect(await client.boardColumns(credentials, 7)).toEqual({ ok: true, columns: null });
+  });
+
+  it('AC-24: a refused token is still a problem', async () => {
+    jira.use(acceptingBoardConfiguration(7, designBoardColumns));
+
+    expect(await client.boardColumns({ ...credentials, apiToken: 'fake-wrong-token' }, 7)).toEqual({
+      ok: false,
+      problem: { kind: 'rejected' },
+    });
+  });
+
+  it('AC-23: a slow board is a timeout', async () => {
+    jira.use(
+      http.get(boardConfigurationUrl(7), async () => {
+        await delay('infinite');
+        return HttpResponse.json({});
+      }),
+    );
+
+    expect(await client.boardColumns(credentials, 7)).toEqual({ ok: false, problem: { kind: 'timeout' } });
   });
 });

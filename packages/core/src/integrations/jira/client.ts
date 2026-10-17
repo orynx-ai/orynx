@@ -42,6 +42,26 @@ export type JiraAssignedIssue = z.infer<typeof AssignedIssueSchema>;
 export type JiraAssigned =
   { ok: true; issues: JiraAssignedIssue[]; priorityOrder: string[] } | { ok: false; problem: JiraProblem };
 
+/** A sprint as an issue's sprint field holds it, with only what Tickets uses (spec 008). */
+export type JiraSprintRef = z.infer<typeof SprintRefSchema>;
+
+/**
+ * Who the credentials belong to, and each of their issues in an open sprint with that issue's sprints
+ * (active, future and closed ones alike: the sprint field keeps them all).
+ */
+export type JiraMySprints =
+  | { ok: true; accountId: string; issues: { key: string; sprints: JiraSprintRef[] }[] }
+  | { ok: false; problem: JiraProblem };
+
+/** A board's columns, left to right, each with its statuses by id. */
+export interface JiraBoardColumn {
+  name: string;
+  statusIds: string[];
+}
+
+/** Null columns: the board is gone, or hidden from these credentials. */
+export type JiraBoardColumns = { ok: true; columns: JiraBoardColumn[] | null } | { ok: false; problem: JiraProblem };
+
 export interface JiraClient {
   readonly timeoutMs: number;
   /** Asks Jira who these credentials belong to (`GET /rest/api/3/myself`). */
@@ -57,6 +77,14 @@ export interface JiraClient {
    * (`POST /rest/api/3/search/jql`), and the priority order for bugs. Never a description or a comment.
    */
   assigned(request: JiraCheckRequest): Promise<JiraAssigned>;
+  /**
+   * Who these credentials belong to (`/myself`), and their issues in open sprints with each one's sprints
+   * (spec 008, Q1), at most 100. The sprint field is found by its type in `/rest/api/3/field`, never by its
+   * name; a site without one (no Jira Software) has no sprints, so no issues are asked for.
+   */
+  mySprints(request: JiraCheckRequest): Promise<JiraMySprints>;
+  /** A board's columns in order (`/rest/agile/1.0/board/{id}/configuration`), for In review (spec 008, Q2). */
+  boardColumns(request: JiraCheckRequest, boardId: number): Promise<JiraBoardColumns>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -88,6 +116,36 @@ const AssignedIssueSchema = z.object({
   }),
 });
 
+const SprintRefSchema = z.object({
+  id: z.int().positive(),
+  name: z.string().min(1),
+  state: z.string(),
+  boardId: z
+    .int()
+    .positive()
+    .nullish()
+    .transform((boardId) => boardId ?? null),
+  endDate: z
+    .string()
+    .nullish()
+    .transform((endDate) => endDate ?? null),
+});
+
+const FieldListSchema = z.array(
+  z.object({ id: z.string(), schema: z.object({ custom: z.string() }).partial().nullish() }),
+);
+
+/** The sprint field's type; its name and id differ from site to site. */
+const sprintFieldType = 'com.pyxis.greenhopper.jira:gh-sprint';
+
+const MySprintIssueSchema = z.object({ key: z.string(), fields: z.record(z.string(), z.unknown()) });
+
+const BoardConfigurationSchema = z.object({
+  columnConfig: z.object({
+    columns: z.array(z.object({ name: z.string(), statuses: z.array(z.object({ id: z.string() })) })),
+  }),
+});
+
 // Each issue is checked on its own, so one odd issue is left out instead of failing the whole read.
 const IssueSearchSchema = z.object({ issues: z.array(z.unknown()) });
 const PrioritySearchSchema = z.object({ values: z.array(z.object({ id: z.string() })) });
@@ -100,6 +158,9 @@ const assignedJql = 'assignee = currentUser() AND statusCategory != Done ORDER B
 const assignedFields = ['summary', 'status', 'issuetype', 'priority', 'duedate', 'created', 'statuscategorychangedate'];
 const mostAssigned = 100;
 
+const mySprintsJql = 'assignee = currentUser() AND sprint in openSprints()';
+const mostMySprintIssues = 100;
+
 const projectsPerPage = 100;
 const mostProjects = 1000;
 
@@ -110,7 +171,7 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
   /** Runs `work` with a client for these credentials; any failure comes back as a problem, never the error. */
   async function withJira<T>(
     { site, email, apiToken }: JiraCheckRequest,
-    work: (client: JiraCore.Client) => Promise<T>,
+    work: (client: JiraCore.Client, sdk: typeof JiraCore) => Promise<T>,
   ): Promise<{ ok: true; value: T } | { ok: false; problem: JiraProblem }> {
     // Loaded on the first call, so starting DevHub never pays for it.
     const sdk = await import('jira.js/core');
@@ -122,7 +183,7 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
         onSchemaMismatch: 'throw',
         ...(fetch ? { fetch } : {}),
       });
-      return { ok: true, value: await work(client) };
+      return { ok: true, value: await work(client, sdk) };
     } catch (error) {
       return { ok: false, problem: problemOf(sdk, error) };
     }
@@ -193,6 +254,64 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
         return { issues, priorityOrder: priorities.values.map((priority) => priority.id) };
       });
       return answer.ok ? { ok: true, ...answer.value } : answer;
+    },
+
+    async mySprints(request) {
+      const answer = await withJira(request, async (client) => {
+        // The three requests share one wait, like the project list.
+        const signal = AbortSignal.timeout(timeoutMs);
+        const me = await client.sendRequest({ url: '/rest/api/3/myself', method: 'GET', schema: MyselfSchema, signal });
+        const fields = await client.sendRequest({
+          url: '/rest/api/3/field',
+          method: 'GET',
+          schema: FieldListSchema,
+          signal,
+        });
+        const sprintField = fields.find((field) => field.schema?.custom === sprintFieldType)?.id;
+        if (sprintField === undefined) return { accountId: me.accountId, issues: [] };
+        const page = await client.sendRequest({
+          url: '/rest/api/3/search/jql',
+          method: 'POST',
+          body: { jql: mySprintsJql, fields: [sprintField], maxResults: mostMySprintIssues },
+          schema: IssueSearchSchema,
+          signal,
+        });
+        const issues = page.issues.flatMap((found) => {
+          const issue = MySprintIssueSchema.safeParse(found);
+          if (!issue.success) return [];
+          const held = issue.data.fields[sprintField];
+          if (held !== null && held !== undefined && !Array.isArray(held)) return [];
+          const sprints = (held ?? []).flatMap((sprint: unknown) => {
+            const parsed = SprintRefSchema.safeParse(sprint);
+            return parsed.success ? [parsed.data] : [];
+          });
+          return [{ key: issue.data.key, sprints }];
+        });
+        return { accountId: me.accountId, issues };
+      });
+      return answer.ok ? { ok: true, ...answer.value } : answer;
+    },
+
+    async boardColumns(request, boardId) {
+      const answer = await withJira(request, async (client, sdk) => {
+        try {
+          const board = await client.sendRequest({
+            url: `/rest/agile/1.0/board/${String(boardId)}/configuration`,
+            method: 'GET',
+            schema: BoardConfigurationSchema,
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+          return board.columnConfig.columns.map((column) => ({
+            name: column.name,
+            statusIds: column.statuses.map((status) => status.id),
+          }));
+        } catch (error) {
+          // A board that's gone or hidden from you is an answer: the sprint shows without In review (AC-5).
+          if (sdk.isNotFoundError(error) || sdk.isForbiddenError(error)) return null;
+          throw error;
+        }
+      });
+      return answer.ok ? { ok: true, columns: answer.value } : answer;
     },
   };
 }
