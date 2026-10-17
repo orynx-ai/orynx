@@ -1,9 +1,16 @@
-import type { GitHubConnection, GitHubCredentials, GitHubMethod } from '@devhub/contracts';
+import type {
+  GitHubConnection,
+  GitHubCredentials,
+  GitHubMethod,
+  GitHubSavedConnection,
+  IntegrationStatus,
+} from '@devhub/contracts';
 import type { EventBus } from '../../events/event-bus.ts';
 import { TokenStoreError, type TokenSource, type TokenStore } from '../../secrets/token-store.ts';
 import type { SettingsStore } from '../../settings/settings-store.ts';
+import { createCheckedStatus } from '../checked-status.ts';
 import { ConnectionError, type KeychainProblem } from '../connection-error.ts';
-import type { GitHubClient } from './client.ts';
+import type { GitHubCheck, GitHubClient } from './client.ts';
 import type { GhCli } from './gh.ts';
 import { describeGitHubProblem, type GitHubConnectProblem } from './problems.ts';
 
@@ -15,6 +22,11 @@ export interface GitHubConnectionService {
   connect(credentials: GitHubCredentials): Promise<GitHubConnection>;
   /** Forgets the way and deletes a saved token. gh stays signed in. */
   disconnect(): Promise<void>;
+  /**
+   * GitHub's line in GET /api/status. Runs gh or reads the keychain only once a way is saved, and asks
+   * GitHub at most once every 2 minutes.
+   */
+  status(): Promise<IntegrationStatus>;
 }
 
 export interface GitHubConnectionOptions {
@@ -27,6 +39,10 @@ export interface GitHubConnectionOptions {
   envToken: boolean;
   /** Told about every failed check and keychain failure, for the terminal. Never holds a token. */
   onProblem?: (problem: GitHubConnectProblem | KeychainProblem) => void;
+  /** Told about anything unexpected while the status line is worked out, such as an unreadable settings.json. */
+  onError?: (error: unknown) => void;
+  /** The clock, in milliseconds. */
+  now?: () => number;
 }
 
 /** A token, how it was found, and the way it belongs to. */
@@ -34,6 +50,18 @@ interface Found {
   token: string;
   method: GitHubMethod;
   source: TokenSource | 'gh';
+}
+
+const notConnected: IntegrationStatus = { state: 'not_connected', detail: null };
+
+/** Spec 004 Q5 and Q6 (d): the row line for a working connection, naming the account. */
+function connectedVia(source: Found['source'], login: string): IntegrationStatus {
+  const detail = {
+    gh: `Signed in as ${login} with the gh command-line tool`,
+    keychain: `Personal access token for ${login}`,
+    env: `Token from .env for ${login}`,
+  }[source];
+  return { state: 'connected', detail };
 }
 
 function codeFor(problem: GitHubConnectProblem): ConnectionError['code'] {
@@ -87,16 +115,64 @@ export function createGitHubConnection(options: GitHubConnectionOptions): GitHub
     return { token: stored.token, method: 'token', source: stored.source };
   }
 
+  /**
+   * The account GitHub names for a token, or what stops DevHub from using it. Spec 004 Q3: a classic
+   * token or gh login must be able to read private repos; a fine-grained token names no scopes.
+   */
+  function verdict(check: GitHubCheck): { ok: true; login: string } | { ok: false; problem: GitHubConnectProblem } {
+    if (!check.ok) return check;
+    if (check.scopes !== null && !check.scopes.includes('repo'))
+      return { ok: false, problem: { kind: 'no_repo_scope' } };
+    return { ok: true, login: check.login };
+  }
+
+  async function checkNow(saved: GitHubSavedConnection): Promise<IntegrationStatus> {
+    let found: Found;
+    if (saved.method === 'gh') {
+      const answer = await gh.token();
+      if (!answer.ok) {
+        options.onProblem?.(answer.problem);
+        return { state: 'error', detail: describeGitHubProblem(answer.problem, 'gh') };
+      }
+      found = { token: answer.token, method: 'gh', source: 'gh' };
+    } else {
+      let stored;
+      try {
+        stored = await tokens.read('github');
+      } catch (error) {
+        if (!(error instanceof TokenStoreError)) throw error;
+        options.onProblem?.({ kind: 'keychain_unavailable', reason: error.reason });
+        return { state: 'error', detail: error.message };
+      }
+      if (stored === null) {
+        return { state: 'error', detail: 'The saved token is missing from your keychain. Connect again.' };
+      }
+      found = { token: stored.token, method: 'token', source: stored.source };
+    }
+    const result = verdict(await github.check(found.token));
+    if (!result.ok) {
+      options.onProblem?.(result.problem);
+      return { state: 'error', detail: describeGitHubProblem(result.problem, found.method) };
+    }
+    return connectedVia(found.source, result.login);
+  }
+
+  // One way at a time is saved, so the way is the key: a gh account switch shows up at the next check.
+  const checked = createCheckedStatus<GitHubSavedConnection>({
+    keyOf: (saved) => saved.method,
+    check: checkNow,
+    events,
+    now: options.now ?? Date.now,
+    ...(options.onError === undefined ? {} : { onError: options.onError }),
+  });
+
   return {
     read,
 
     async connect(credentials) {
       const found = await tokenFor(credentials);
-      const check = await github.check(found.token);
-      if (!check.ok) refuse(check.problem, found.method);
-      // Spec 004 Q3: a classic token or gh login must be able to read private repos. A fine-grained
-      // token names no scopes, so it can't be checked here.
-      if (check.scopes !== null && !check.scopes.includes('repo')) refuse({ kind: 'no_repo_scope' }, found.method);
+      const result = verdict(await github.check(found.token));
+      if (!result.ok) refuse(result.problem, found.method);
 
       const before = (await settings.read()).github;
       // The keychain first: it is the step that fails when the keychain is locked, and then nothing has changed.
@@ -109,6 +185,7 @@ export function createGitHubConnection(options: GitHubConnectionOptions): GitHub
         await fromTokenStore(() => tokens.remove('github'));
       }
       await settings.update((current) => ({ ...current, github: { method: found.method } }));
+      checked.settle({ method: found.method }, connectedVia(found.source, result.login));
       events.publish({ type: 'status.changed' });
       return read();
     },
@@ -117,7 +194,20 @@ export function createGitHubConnection(options: GitHubConnectionOptions): GitHub
       // The gh way never saved a token, so it never touches the keychain.
       if ((await settings.read()).github?.method === 'token') await fromTokenStore(() => tokens.remove('github'));
       await settings.update(({ github: _, ...rest }) => rest);
+      checked.forget();
       events.publish({ type: 'status.changed' });
+    },
+
+    async status() {
+      try {
+        const saved = (await settings.read()).github;
+        if (saved === undefined) return notConnected;
+        return await checked.get(saved);
+      } catch (error) {
+        // One integration never breaks GET /api/status (integration-adapter skill).
+        options.onError?.(error);
+        return { state: 'error', detail: null };
+      }
     },
   };
 }

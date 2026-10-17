@@ -23,7 +23,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: GitHub connection service: connect checks then saves both ways, `repo` scope check, picking gh deletes a saved token, disconnect leaves gh alone, read never runs gh, `.env` token, `status.changed` (AC-3, AC-4, AC-5, AC-6, AC-7, AC-10, AC-12, AC-13, AC-14)
       Check: pnpm test packages/core/src/integrations/github packages/core/src/settings; pnpm typecheck
       Files: packages/core/src/integrations/github/connection.ts, packages/core/src/integrations/github/connection.test.ts, packages/core/src/integrations/connection-error.ts (the error both tools throw; JiraConnectionError extends it), packages/core/src/integrations/jira/connection.ts, packages/core/src/settings/settings-store.ts, packages/core/src/settings/settings-store.test.ts
-- [ ] Task 8: GitHub's status line: gh or the keychain only once a way is saved, the shared 2-minute check, names the account and follows a gh account switch (AC-1, AC-11)
+- [x] Task 8: GitHub's status line: gh or the keychain only once a way is saved, the shared 2-minute check, names the account and follows a gh account switch (AC-1, AC-11)
       Check: pnpm test packages/core/src/integrations/github; pnpm typecheck
       Files: packages/core/src/integrations/github/connection.ts, packages/core/src/integrations/github/connection-status.test.ts
 - [ ] Task 9: Routes `GET`, `PUT` and `DELETE /api/github/connection`, error codes to HTTP, `createServer` takes `gh` (none by default), the status service uses GitHub's line (AC-1, AC-3, AC-9, AC-11, AC-16, AC-20)
