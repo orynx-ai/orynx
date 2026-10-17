@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Button `pending`: disabled, spinner before the label (motion-safe), same width (AC-13)
       Check: pnpm test packages/ui/src/components/button.test.tsx; pnpm gate component-coverage; pnpm gate style-policy
       Files: packages/ui/src/components/button.tsx, packages/ui/src/components/button.test.tsx, packages/ui/src/components/button.stories.tsx
-- [ ] Task 4: Input and Field in `@devhub/ui`: 40 px, label, help, error state wired with `aria-invalid` and `aria-describedby` (AC-2, AC-7, AC-16, AC-17)
+- [x] Task 4: Input and Field in `@devhub/ui`: 40 px, label, help, error state wired with `aria-invalid` and `aria-describedby` (AC-2, AC-7, AC-16, AC-17)
       Check: pnpm test packages/ui; pnpm gate component-coverage; pnpm gate style-policy; pnpm gate boundaries
       Files: packages/ui/src/components/input.tsx, packages/ui/src/components/input.test.tsx, packages/ui/src/components/input.stories.tsx, packages/ui/src/components/field.tsx, packages/ui/src/components/field.test.tsx, packages/ui/src/components/field.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 5: Settings file store: `<DEVHUB_HOME>/settings.json`, mode 600, atomic writes in one queue; `createServer` option with an in-memory default (AC-3)
