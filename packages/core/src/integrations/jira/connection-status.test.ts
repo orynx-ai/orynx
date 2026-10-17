@@ -213,6 +213,37 @@ describe("Jira's status line", () => {
     expect(await connection.status()).toEqual(connected);
   });
 
+  it.each([
+    ['Disconnect', 'not_connected'],
+    ['Manage with a new email', 'connected'],
+  ] as const)('a check that started before %s answers everyone waiting with what came after', async (change, state) => {
+    let answerOldCheck: () => void = () => undefined;
+    const oldCheckAnswered = new Promise<void>((resolve) => {
+      answerOldCheck = resolve;
+    });
+    jira.use(
+      http.get(
+        myselfUrl(),
+        async () => {
+          await oldCheckAnswered;
+          return HttpResponse.json({}, { status: 401 });
+        },
+        { once: true },
+      ),
+      // Then Jira accepts whatever Connect sends, the new email included.
+      http.get(myselfUrl(), () => HttpResponse.json({ accountId: 'abc' })),
+    );
+    const { connection } = setup();
+
+    const oldCheck = connection.status();
+    await delay(20);
+    if (change === 'Disconnect') await connection.disconnect();
+    else await connection.connect({ ...saved, email: 'new@example.com', apiToken: goodToken });
+    answerOldCheck();
+
+    expect((await oldCheck).state).toBe(state);
+  });
+
   it("never breaks GET /api/status: a settings file that can't be read makes Jira's line an error", async () => {
     const failure = Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
     const onError = vi.fn();

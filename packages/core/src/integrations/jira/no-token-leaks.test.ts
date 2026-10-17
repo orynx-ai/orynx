@@ -99,9 +99,16 @@ describe('Jira tokens never leave core', () => {
       { request: { headers: { cookie: goodBasicValue, 'x-devhub-token': goodBasicValue } } },
       'other headers',
     );
+    app.log.warn(
+      { request: { headers: { Cookie: goodBasicValue, 'X-Devhub-Token': goodBasicValue } } },
+      'capitalised headers',
+    );
+    app.log.warn({ a: { b: { c: { d: { headers: { Authorization: `Basic ${goodBasicValue}` } } } } } }, 'deep');
 
-    const lines = log.filter((line) => /direct|nested|axios style|cause|other headers/.test(line));
-    expect(lines).toHaveLength(5);
+    const lines = log.filter((line) =>
+      /direct|nested|axios style|cause|other headers|capitalised headers|deep/.test(line),
+    );
+    expect(lines).toHaveLength(7);
     for (const line of lines) {
       expect(line).not.toContain(goodBasicValue);
       expect(line).toContain('[redacted]');

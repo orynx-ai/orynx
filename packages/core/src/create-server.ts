@@ -71,12 +71,17 @@ function withTokenRedaction(logger: CoreOptions['logger']): NonNullable<FastifyS
     // A second guard behind client.ts, which never logs a request: an Authorization header holds a
     // Jira token in base64, wherever a log line might carry one (spec 003).
     redact: {
-      paths: ['authorization', 'Authorization', 'proxy-authorization', 'cookie', 'x-devhub-token'].flatMap((name) => [
-        `headers["${name}"]`,
-        `*.headers["${name}"]`,
-        `*.*.headers["${name}"]`,
-        `*.*.*.headers["${name}"]`,
-      ]),
+      // Header objects keep the casing they were given (axios, undici), so both spellings are listed.
+      paths: [
+        'authorization',
+        'Authorization',
+        'proxy-authorization',
+        'Proxy-Authorization',
+        'cookie',
+        'Cookie',
+        'x-devhub-token',
+        'X-Devhub-Token',
+      ].flatMap((name) => ['', '*.', '*.*.', '*.*.*.', '*.*.*.*.'].map((depth) => `${depth}headers["${name}"]`)),
       censor: '[redacted]',
     },
     serializers: {

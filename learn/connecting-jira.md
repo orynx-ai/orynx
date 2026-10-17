@@ -45,12 +45,13 @@ The terminal gets one warn line per failed check with the problem, for example `
 
 - No site and email saved: **Not connected**, and the keychain is never read. A fresh DevHub, CI and the e2e run never touch it.
 - Saved: DevHub reads the token and asks Jira. "Personal API token for your-team.atlassian.net" (or "API token from .env for …") when Jira accepts. Otherwise the row says **Error** with the reason, such as "The saved API token is missing from your keychain. Connect again."
-- Jira is asked at most once every 2 minutes, and requests that arrive together share one check. After the first check, status answers at once with the last result and re-checks behind it; if the answer changed, it publishes `status.changed`. Connect and Disconnect set the answer themselves, so nothing waits for Jira twice.
+- Jira is asked at most once every 2 minutes, and requests that arrive together share one check. After the first check, status answers at once with the last result and re-checks behind it; if the answer changed, it publishes `status.changed`. Connect and Disconnect set the answer themselves, so nothing waits for Jira twice, and a check that was already running when either happened hands everyone waiting the newer answer.
 
 ## Keeping the token in its place
 
 - `client.ts` hands jira.js the email and token, and jira.js builds the `Authorization: Basic base64(email:token)` header. No error from jira.js leaves `client.ts`, so nothing that held the request reaches a log or a response.
 - As a second guard, the Fastify logger redacts `authorization`, `proxy-authorization`, `cookie` and `x-devhub-token` headers up to four levels deep (`create-server.ts`).
+- While a Connect or Disconnect is on its way, the form's Cancel and the row's Close do nothing (they stay focusable), and a second submit sends nothing, so the change always finishes where the person can see it.
 - The token field asks browsers and password managers not to save it (`autoComplete="one-time-code"`, `data-1p-ignore`, `data-lpignore`), and the mutation that carries it keeps nothing in the cache (`gcTime: 0`).
 - `no-token-leaks.test.ts` runs the real hub at trace level through connect, refusal, an unreachable site, status and disconnect. It finds neither the token nor its base64 value in any log line, response, event or `settings.json`.
 - `settings.json` holds the site and email only. It is mode 0600 (the folder is created 0700), and is written through a temporary file and a rename, so a crash never leaves half a file. A broken file counts as empty (with a warn line) until the next save.

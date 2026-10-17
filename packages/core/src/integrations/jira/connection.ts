@@ -147,7 +147,7 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
     const answer = checkNow(saved)
       .then((status) => {
         // Connect or Disconnect came first: their answer stands, for everyone still waiting too.
-        if (generation !== startedIn) return last?.key === key ? last.status : status;
+        if (generation !== startedIn) return last?.status ?? notConnected;
         const changed = last?.key === key && !sameStatus(last.status, status);
         remember(key, status);
         if (changed) events.publish({ type: 'status.changed' });
