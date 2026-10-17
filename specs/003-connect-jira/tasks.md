@@ -50,7 +50,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: Docs: a `learn/` page on connecting Jira; architecture, integration-adapter and forms skills, roadmap (Q1)
       Check: pnpm gate learn-freshness; pnpm gate handbook-size; pnpm format:check
       Files: learn/connecting-jira.md, docs/architecture.md, docs/product/roadmap.md, .claude/skills/integration-adapter/SKILL.md, .claude/skills/forms/SKILL.md, README.md
-- [ ] Task 17: By hand, after your yes (Q6): you connect your real Jira in `pnpm dev`, and I run `pnpm test:keychain` once; record what happened
+- [x] Task 17: By hand, after your yes (Q6): you connect your real Jira in `pnpm dev`, and I run `pnpm test:keychain` once; record what happened (17 Oct 2026: you connected your real Jira and it worked the first time; no browser you tried offered to save the token; `pnpm test:keychain` passed once, saving, reading and deleting one item under "DevHub test")
       Check: the Jira row says Connected for your site; `pnpm test:keychain` passes
       Files: specs/003-connect-jira/tasks.md
 - [x] Task 18: STOP and run /review (passed 17 Oct 2026, three rounds: 0 critical; 1 important left for a person: at 360 px Jira's longer answers wrap a line or two past the help, so the row grows; 14 suggestions)
