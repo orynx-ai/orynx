@@ -32,9 +32,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: Pino redacts `authorization` headers; leak test at trace level for the token and its base64 Basic value (AC-15)
       Check: pnpm test packages/core; pnpm gate secrets
       Files: packages/core/src/create-server.ts, packages/core/src/integrations/jira/no-token-leaks.test.ts
-- [ ] Task 11: Server host: `DEVHUB_KEYCHAIN=os|memory`, the settings file under `DEVHUB_HOME`, `--use-system-ca` in dev and start, e2e uses the memory keychain (AC-18)
+- [x] Task 11: Server host: `DEVHUB_KEYCHAIN=os|memory`, the settings file under `DEVHUB_HOME`, the OS's certificates trusted at start (as `--use-system-ca` does), e2e uses the memory keychain (AC-18)
       Check: pnpm test apps/server; pnpm gate env-policy; pnpm build; pnpm exec playwright test e2e/smoke.spec.ts
-      Files: apps/server/src/config.ts, apps/server/src/config.test.ts, apps/server/src/main.ts, apps/server/package.json, .env.example, playwright.config.ts, turbo.json
+      Files: apps/server/src/config.ts, apps/server/src/config.test.ts, apps/server/src/main.ts, apps/server/src/system-certificates.ts, apps/server/src/system-certificates.test.ts, packages/core/src/index.ts, .env.example, playwright.config.ts, turbo.json
 - [ ] Task 12: API client: Jira connection get, save and delete, parsed with the contracts; query key; `status.changed` also refreshes it (AC-3, AC-10, AC-11, AC-14)
       Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx; pnpm typecheck
       Files: packages/api-client/src/endpoints/jira.ts, packages/api-client/src/jira.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/app/src/live-updates.tsx, packages/app/src/live-updates.test.tsx

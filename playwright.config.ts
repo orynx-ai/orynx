@@ -33,6 +33,8 @@ export default defineConfig({
       LOG_LEVEL: 'warn',
       NODE_ENV: 'production',
       DEVHUB_TOKENS_FROM_ENV: 'false',
+      // Tokens in memory only: the e2e run never reads or writes your real "DevHub" keychain item.
+      DEVHUB_KEYCHAIN: 'memory',
     },
   },
 });

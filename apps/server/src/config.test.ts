@@ -15,8 +15,19 @@ describe('loadConfig', () => {
       home: join(homedir(), '.devhub'),
       logLevel: 'info',
       pretty: true,
+      keychain: 'os',
       tokens: { fromEnv: false, env: {}, ignored: [] },
     });
+  });
+
+  it('AC-18: keeps tokens in memory with DEVHUB_KEYCHAIN=memory, so the e2e run never reads the real keychain', () => {
+    expect(loadConfig({ env: { DEVHUB_KEYCHAIN: 'memory' } }).keychain).toBe('memory');
+  });
+
+  it('AC-18: stops on a keychain that is not os or memory, and names it', () => {
+    expect(() => loadConfig({ env: { DEVHUB_KEYCHAIN: 'file' } })).toThrow(
+      /DevHub settings are not valid[\s\S]*DEVHUB_KEYCHAIN/,
+    );
   });
 
   it('reads overrides from the environment', () => {

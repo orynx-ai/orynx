@@ -17,6 +17,7 @@ const EnvSchema = z.object({
   DEVHUB_JIRA_API_TOKEN: z.string().optional(),
   DEVHUB_GITHUB_TOKEN: z.string().optional(),
   DEVHUB_SLACK_USER_TOKEN: z.string().optional(),
+  DEVHUB_KEYCHAIN: z.enum(['os', 'memory']).default('os'),
 });
 
 /** Which setting holds each tool's token when the `.env` fallback is on (spec 002, Q1). */
@@ -32,6 +33,8 @@ export interface ServerConfig {
   home: string;
   logLevel: z.infer<typeof EnvSchema>['LOG_LEVEL'];
   pretty: boolean;
+  /** Where tokens are saved: the OS keychain, or memory for the e2e run (spec 003). */
+  keychain: z.infer<typeof EnvSchema>['DEVHUB_KEYCHAIN'];
   tokens: {
     /** DEVHUB_TOKENS_FROM_ENV: the user opted into keeping tokens in `.env`. */
     fromEnv: boolean;
@@ -109,6 +112,7 @@ export function loadConfig({
     home: settings.DEVHUB_HOME ?? join(homedir(), '.devhub'),
     logLevel: settings.LOG_LEVEL,
     pretty: settings.NODE_ENV === 'development',
+    keychain: settings.DEVHUB_KEYCHAIN,
     tokens: { fromEnv, env: tokens, ignored },
   };
 }
