@@ -78,7 +78,13 @@ export interface FakeIssue {
   statuscategorychangedate?: string;
   /** The issue's sprints, in the sprint field; left out when the site has no sprint field. */
   sprints?: readonly FakeSprint[];
+  /** The status's id; by default the one {@link designBoardColumns} gives the category. */
+  statusId?: string;
+  /** Who it's assigned to; you, by default. Null for nobody. */
+  assignee?: { accountId: string; displayName: string } | null;
 }
+
+const statusIdOf = { new: '10000', indeterminate: '3', done: '10002', undefined: '1' } as const;
 
 /** One issue as `search/jql` returns it, with every field the inbox asks for. */
 export function jiraIssue(issue: FakeIssue) {
@@ -89,6 +95,7 @@ export function jiraIssue(issue: FakeIssue) {
     fields: {
       summary: issue.summary ?? `Summary of ${issue.key}`,
       status: {
+        id: issue.statusId ?? statusIdOf[issue.category ?? 'indeterminate'],
         name: issue.status ?? 'In Progress',
         statusCategory: { id: 4, key: issue.category ?? 'indeterminate', name: 'In Progress' },
       },
@@ -96,6 +103,7 @@ export function jiraIssue(issue: FakeIssue) {
       priority:
         priority === null ? null : { id: priority, name: defaultPriorities.find((p) => p.id === priority)?.name },
       duedate: issue.duedate ?? null,
+      assignee: issue.assignee === undefined ? { accountId: myAccountId, displayName: 'Dev Example' } : issue.assignee,
       created: issue.created ?? '2026-10-01T09:00:00.000+0000',
       ...(issue.statuscategorychangedate === undefined
         ? {}
@@ -174,6 +182,31 @@ export function acceptingMySprintSearch(issues: readonly FakeIssue[], { site = j
     if (body.jql?.includes('sprint in openSprints()') !== true) return undefined;
     if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
     return HttpResponse.json({ issues: issues.map(jiraIssue), isLast: true });
+  });
+}
+
+/**
+ * Jira's enhanced search for the issues in one sprint, for the good credentials, paged the way search/jql
+ * pages: `nextPageToken` carries on, and `isLast` says when it's done. Jira may send fewer than asked for:
+ * `pageCap` is the most it sends in one page. Any other search falls through to the next handler.
+ */
+export function acceptingSprintIssueSearch(
+  sprintId: number,
+  issues: readonly FakeIssue[],
+  { site = jiraSite, pageCap = 100 }: { site?: string; pageCap?: number } = {},
+) {
+  return http.post(issueSearchUrl(site), async ({ request }) => {
+    const body = (await request.clone().json()) as { jql?: string; maxResults?: number; nextPageToken?: string };
+    if (body.jql?.startsWith(`sprint = ${String(sprintId)} `) !== true) return undefined;
+    if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+    const startAt = Number(body.nextPageToken ?? 0);
+    const page = issues.slice(startAt, startAt + Math.min(body.maxResults ?? 50, pageCap));
+    const next = startAt + page.length;
+    return HttpResponse.json({
+      issues: page.map(jiraIssue),
+      isLast: next >= issues.length,
+      ...(next >= issues.length ? {} : { nextPageToken: String(next) }),
+    });
   });
 }
 

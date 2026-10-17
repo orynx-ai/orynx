@@ -7,6 +7,7 @@ import {
   acceptingMySprintSearch,
   acceptingPrioritySearch,
   acceptingProjectSearch,
+  acceptingSprintIssueSearch,
   boardConfigurationUrl,
   designBoardColumns,
   fieldListUrl,
@@ -483,5 +484,139 @@ describe('Jira client: board columns (spec 008)', () => {
     );
 
     expect(await client.boardColumns(credentials, 7)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+});
+
+describe('Jira client: the issues in a sprint (spec 008)', () => {
+  const many = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({ key: `PROJ-${String(index + 1)}`, priority: null }));
+
+  /** The search bodies MSW saw, in order. */
+  function searchBodies(): unknown[] {
+    const bodies: unknown[] = [];
+    jira.events.on('request:start', ({ request }) => {
+      if (request.url === issueSearchUrl())
+        void request
+          .clone()
+          .json()
+          .then((body) => bodies.push(body));
+    });
+    return bodies;
+  }
+
+  it('AC-1: reads every issue in the sprint in rank order, with only the fields a card shows', async () => {
+    jira.use(
+      acceptingSprintIssueSearch(42, [
+        { key: 'PROJ-1377', summary: 'Search returns archived sites for guest users', type: 'Bug', priority: null },
+        { key: 'PROJ-1402', summary: 'Add empty state to saved searches', category: 'new', priority: null },
+      ]),
+    );
+    const bodies = searchBodies();
+
+    const answer = await client.sprintIssues(credentials, 42);
+
+    expect(answer).toMatchObject({
+      ok: true,
+      truncated: false,
+      priorityOrder: [],
+      issues: [
+        {
+          key: 'PROJ-1377',
+          fields: {
+            summary: 'Search returns archived sites for guest users',
+            status: { id: '3', name: 'In Progress', statusCategory: { key: 'indeterminate' } },
+            issuetype: { name: 'Bug' },
+            assignee: { accountId: myAccountId, displayName: 'Dev Example' },
+          },
+        },
+        { key: 'PROJ-1402', fields: { status: { id: '10000', statusCategory: { key: 'new' } } } },
+      ],
+    });
+    expect(bodies).toEqual([
+      {
+        jql: 'sprint = 42 ORDER BY Rank ASC',
+        fields: ['summary', 'status', 'issuetype', 'priority', 'duedate', 'assignee'],
+        maxResults: 100,
+      },
+    ]);
+    jira.events.removeAllListeners();
+  });
+
+  it('AC-26: follows nextPageToken 100 at a time and stops at 300, saying more were left', async () => {
+    jira.use(acceptingSprintIssueSearch(42, many(340)));
+    const bodies = searchBodies();
+
+    const answer = await client.sprintIssues(credentials, 42);
+
+    expect(answer.ok && answer.issues.length).toBe(300);
+    expect(answer.ok && answer.issues.at(-1)?.key).toBe('PROJ-300');
+    expect(answer).toMatchObject({ ok: true, truncated: true });
+    expect(bodies).toMatchObject([{}, { nextPageToken: '100' }, { nextPageToken: '200' }]);
+    jira.events.removeAllListeners();
+  });
+
+  it('AC-26: a sprint of exactly 300 is whole', async () => {
+    jira.use(acceptingSprintIssueSearch(42, many(300)));
+
+    expect(await client.sprintIssues(credentials, 42)).toMatchObject({ ok: true, truncated: false });
+  });
+
+  it('moves on by what Jira sent, when Jira sends fewer per page than asked for', async () => {
+    jira.use(acceptingSprintIssueSearch(42, many(90), { pageCap: 40 }));
+
+    const answer = await client.sprintIssues(credentials, 42);
+
+    expect(answer.ok && answer.issues.map((issue) => issue.key)).toEqual(many(90).map((issue) => issue.key));
+    expect(answer).toMatchObject({ ok: true, truncated: false });
+  });
+
+  it('AC-2: reads the site’s priority order when an issue has a priority, for the bars', async () => {
+    jira.use(acceptingSprintIssueSearch(42, [{ key: 'PROJ-1423', priority: '2' }]), acceptingPrioritySearch());
+
+    expect(await client.sprintIssues(credentials, 42)).toMatchObject({
+      ok: true,
+      priorityOrder: ['1', '2', '3', '4', '5'],
+      issues: [{ key: 'PROJ-1423', fields: { priority: { id: '2', name: 'High' } } }],
+    });
+  });
+
+  it('leaves out an issue it can’t read, and keeps the rest', async () => {
+    jira.use(
+      http.post(issueSearchUrl(), () =>
+        HttpResponse.json({
+          issues: [{ key: 'PROJ-1', fields: { summary: 'No status' } }, jiraIssue({ key: 'PROJ-2', priority: null })],
+          isLast: true,
+        }),
+      ),
+    );
+
+    const answer = await client.sprintIssues(credentials, 42);
+
+    expect(answer.ok && answer.issues.map((issue) => issue.key)).toEqual(['PROJ-2']);
+  });
+
+  it('AC-24: a refused token comes back as a problem, never as the library’s error', async () => {
+    jira.use(acceptingSprintIssueSearch(42, []));
+
+    const answer = await client.sprintIssues({ ...credentials, apiToken: 'fake-wrong-token' }, 42);
+
+    expect(answer).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(answer)).not.toContain('fake-wrong-token');
+  });
+
+  it('AC-23: the pages share one wait, so a slow later page is a timeout', async () => {
+    jira.use(
+      http.post(issueSearchUrl(), async ({ request }) => {
+        const body = (await request.clone().json()) as { nextPageToken?: string };
+        if (body.nextPageToken !== undefined) await delay('infinite');
+        return HttpResponse.json({
+          issues: [jiraIssue({ key: 'PROJ-1', priority: null })],
+          isLast: false,
+          nextPageToken: '1',
+        });
+      }),
+    );
+
+    expect(await client.sprintIssues(credentials, 42)).toEqual({ ok: false, problem: { kind: 'timeout' } });
   });
 });

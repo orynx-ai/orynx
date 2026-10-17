@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Read who you are, find the sprint field by its type, read your issues in open sprints with it, and read a board's columns and project in Jira's `client.ts` (AC-1, AC-3, AC-4, AC-5)
       Check: pnpm test packages/core/src/integrations/jira
       Files: packages/core/src/integrations/jira/client.ts, client.test.ts, packages/core/src/test/fake-jira.ts
-- [ ] Task 3: Read every issue in a sprint in rank order through `nextPageToken`, 100 a page, at most 300, with whether more were left (AC-1, AC-26)
+- [x] Task 3: Read every issue in a sprint in rank order through `nextPageToken`, 100 a page, at most 300, with whether more were left (AC-1, AC-26)
       Check: pnpm test packages/core/src/integrations/jira
       Files: packages/core/src/integrations/jira/client.ts, client.test.ts, packages/core/src/test/fake-jira.ts
 - [ ] Task 4: Add `sprint-map.ts`: pick the sprint (Q1), put each status in a column by category and the board's order (Q2), give each priority its bars (Q7a), and make the cache record with titles and metadata only (AC-1, AC-3, AC-4, AC-5, AC-28)

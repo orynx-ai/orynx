@@ -53,6 +53,17 @@ export type JiraMySprints =
   | { ok: true; accountId: string; issues: { key: string; sprints: JiraSprintRef[] }[] }
   | { ok: false; problem: JiraProblem };
 
+/** One issue in a sprint as Jira sends it, with only the fields a card shows (spec 008). */
+export type JiraSprintIssue = z.infer<typeof SprintIssueSchema>;
+
+/**
+ * A sprint's issues in rank order, at most 300, whether Jira had more, and the site's priority ids highest
+ * first (read only when an issue has a priority, for its bars).
+ */
+export type JiraSprintIssues =
+  | { ok: true; issues: JiraSprintIssue[]; truncated: boolean; priorityOrder: string[] }
+  | { ok: false; problem: JiraProblem };
+
 /** A board's columns, left to right, each with its statuses by id. */
 export interface JiraBoardColumn {
   name: string;
@@ -85,6 +96,12 @@ export interface JiraClient {
   mySprints(request: JiraCheckRequest): Promise<JiraMySprints>;
   /** A board's columns in order (`/rest/agile/1.0/board/{id}/configuration`), for In review (spec 008, Q2). */
   boardColumns(request: JiraCheckRequest, boardId: number): Promise<JiraBoardColumns>;
+  /**
+   * Every issue in the sprint in rank order (`sprint = <id> ORDER BY Rank ASC` through `search/jql`'s
+   * `nextPageToken`), 100 a page, at most 300, and the priority order for the bars. Never a description or
+   * a comment.
+   */
+  sprintIssues(request: JiraCheckRequest, sprintId: number): Promise<JiraSprintIssues>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -146,8 +163,25 @@ const BoardConfigurationSchema = z.object({
   }),
 });
 
+const SprintIssueSchema = z.object({
+  key: z.string(),
+  fields: z.object({
+    summary: z.string().nullish(),
+    status: z.object({ id: z.string(), name: z.string(), statusCategory: z.object({ key: z.string() }) }),
+    issuetype: z.object({ name: z.string() }).nullish(),
+    priority: z.object({ id: z.string(), name: z.string() }).nullish(),
+    duedate: z.string().nullish(),
+    assignee: z.object({ accountId: z.string(), displayName: z.string().nullish() }).nullish(),
+  }),
+});
+
 // Each issue is checked on its own, so one odd issue is left out instead of failing the whole read.
 const IssueSearchSchema = z.object({ issues: z.array(z.unknown()) });
+const IssuePageSchema = z.object({
+  issues: z.array(z.unknown()),
+  nextPageToken: z.string().nullish(),
+  isLast: z.boolean().optional(),
+});
 const PrioritySearchSchema = z.object({ values: z.array(z.object({ id: z.string() })) });
 
 /**
@@ -160,6 +194,10 @@ const mostAssigned = 100;
 
 const mySprintsJql = 'assignee = currentUser() AND sprint in openSprints()';
 const mostMySprintIssues = 100;
+
+const sprintFields = ['summary', 'status', 'issuetype', 'priority', 'duedate', 'assignee'];
+const sprintIssuesPerPage = 100;
+const mostSprintIssues = 300;
 
 const projectsPerPage = 100;
 const mostProjects = 1000;
@@ -312,6 +350,49 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
         }
       });
       return answer.ok ? { ok: true, columns: answer.value } : answer;
+    },
+
+    async sprintIssues(request, sprintId) {
+      const answer = await withJira(request, async (client) => {
+        // Every page and the priority list share one wait, like the project list.
+        const signal = AbortSignal.timeout(timeoutMs);
+        const found: unknown[] = [];
+        let nextPageToken: string | undefined;
+        let more = true;
+        while (more && found.length < mostSprintIssues) {
+          const page = await client.sendRequest({
+            url: '/rest/api/3/search/jql',
+            method: 'POST',
+            body: {
+              jql: `sprint = ${String(sprintId)} ORDER BY Rank ASC`,
+              fields: sprintFields,
+              maxResults: Math.min(sprintIssuesPerPage, mostSprintIssues - found.length),
+              ...(nextPageToken === undefined ? {} : { nextPageToken }),
+            },
+            schema: IssuePageSchema,
+            signal,
+          });
+          found.push(...page.issues);
+          nextPageToken = page.nextPageToken ?? undefined;
+          // Jira may send fewer than asked for: only isLast, or no token to go on with, ends the sprint.
+          more = page.isLast === false && nextPageToken !== undefined && page.issues.length > 0;
+        }
+        const issues = found.slice(0, mostSprintIssues).flatMap((issue) => {
+          const parsed = SprintIssueSchema.safeParse(issue);
+          return parsed.success ? [parsed.data] : [];
+        });
+        const truncated = more || found.length > mostSprintIssues;
+        if (!issues.some((issue) => issue.fields.priority)) return { issues, truncated, priorityOrder: [] };
+        const priorities = await client.sendRequest({
+          url: '/rest/api/3/priority/search',
+          method: 'GET',
+          searchParams: { maxResults: 50 },
+          schema: PrioritySearchSchema,
+          signal,
+        });
+        return { issues, truncated, priorityOrder: priorities.values.map((priority) => priority.id) };
+      });
+      return answer.ok ? { ok: true, ...answer.value } : answer;
     },
   };
 }
