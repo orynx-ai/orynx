@@ -13,7 +13,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 3: Add `Stepper`: an ordered list of done, current and to-do steps, with ", done" for screen readers and `aria-current="step"` (AC-3)
       Check: pnpm test packages/ui/src/components/stepper.test.tsx
       Files: packages/ui/src/components/stepper.tsx, stepper.stories.tsx, stepper.test.tsx, packages/ui/src/index.ts
-- [ ] Task 4: Add `StatusIcon`: four 20 px shapes for to do, in progress, in review and done (Q1b, AC-25)
+- [x] Task 4: Add `StatusIcon`: four 20 px shapes for to do, in progress, in review and done (Q1b, AC-25)
       Check: pnpm test packages/ui/src/components/status-icon.test.tsx
       Files: packages/ui/src/components/status-icon.tsx, status-icon.stories.tsx, status-icon.test.tsx, packages/ui/src/index.ts
 - [ ] Task 5: Add `ActivityStep` from shadcn's `trace` (AI Elements' Task pattern): a 24 px dot with its icon, a title and a detail line, as done, waiting or plain (Q1b, AC-25)
