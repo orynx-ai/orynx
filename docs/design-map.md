@@ -31,11 +31,12 @@ Why there is no `accent`: in shadcn, `accent` means the grey hover surface, but 
 
 ## Type
 
-The sizes follow the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`), not the 14 px scale in `docs/design/design-system.md`: on 17 Oct 2026 the user found the app "zoomed out" next to their reference screens and asked for the larger scale. The style names and their jobs are unchanged. Two weights only: `font-normal` and `font-medium` (the 600 face is no longer bundled). `design-system.md` still lists the old numbers until a person updates it. Every size that changed from the design:
+The sizes follow the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`): on 17 Oct 2026 the user found the app "zoomed out" next to their reference screens and asked for the larger scale, and `docs/design/design-system.md` version 1.1 now lists the same numbers. The style names and their jobs are unchanged. Two weights only: `font-normal` and `font-medium` (the 600 face is no longer bundled). The screens in `docs/design/screens/` still show the 1.0 sizes. Every size that changed from 1.0:
 
 - Type as below; icons 20 px (was 16).
 - Buttons 40 px and `sm` 32 px (was 36 and 30); sidebar rows 40 px (was 34); tabs 48 px (was 40).
-- Page bar 56 px on one line at every width (was 52 and wrapping); page widths below.
+- Page bar and toolbar 56 px, the page bar on one line at every width (was 52 and 48, wrapping); page widths below.
+- Sidebar 300 px by default, resizable from 260 to 400 px (was 248–260).
 - Session rows: 24 px state circles with 14 px glyphs, 14 px source keys (was 20, 12 and 12; spec 001 Q12).
 - Pills 24 px (was 22); source marks 20 and 40 px (was 18 and 32); avatars 28 and 36 px (was 24 and 28).
 - EmptyState is plain centred text, without the dashed outline.
@@ -94,4 +95,4 @@ The sizes follow the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`), not th
 
 ## Icons
 
-Icons are outline, 20 px (Clean UI scale; the design system says 16 px), with a 1.75 stroke. Use `lucide-react`. The `.lucide` base style in `theme.css` sets the size and stroke, so write `<Plus aria-hidden />` with no size props. An icon never stands alone: give it a visible label, or put `aria-label` on its button.
+Icons are outline, 20 px, with a 1.75 stroke. Use `lucide-react`. The `.lucide` base style in `theme.css` sets the size and stroke, so write `<Plus aria-hidden />` with no size props. An icon never stands alone: give it a visible label, or put `aria-label` on its button.

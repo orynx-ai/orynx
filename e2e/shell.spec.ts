@@ -86,14 +86,14 @@ test.describe('wide window', () => {
     expect(await layoutShiftScore(page)).toBe(0);
   });
 
-  test('Given the expanded sidebar, when I drag its edge, then it resizes between 260 and 400 px and keeps the width', async ({
+  test('Given the expanded sidebar, when I drag its edge, then it opens at 300 px, resizes between 260 and 400 px and keeps the width', async ({
     page,
   }) => {
     await page.goto('/');
     const nav = page.getByRole('navigation', { name: 'Main' });
     const navWidth = async () => Math.round((await nav.boundingBox())?.width ?? 0);
     const handle = nav.getByRole('separator', { name: 'Resize sidebar' });
-    expect(await navWidth()).toBe(260);
+    expect(await navWidth()).toBe(300);
 
     const box = await handle.boundingBox();
     if (box === null) throw new Error('the resize handle is not on screen');
@@ -101,7 +101,7 @@ test.describe('wide window', () => {
     await page.mouse.move(box.x + box.width / 2, y);
     await page.mouse.down();
     await page.mouse.move(box.x + box.width / 2 + 80, y, { steps: 4 });
-    expect(await navWidth()).toBe(340);
+    expect(await navWidth()).toBe(380);
     await page.mouse.move(box.x + box.width / 2 + 600, y, { steps: 4 });
     await page.mouse.up();
     expect(await navWidth()).toBe(400);
@@ -114,7 +114,7 @@ test.describe('wide window', () => {
     expect(await layoutShiftScore(page)).toBe(0);
 
     await handle.dblclick();
-    expect(await navWidth()).toBe(260);
+    expect(await navWidth()).toBe(300);
   });
 
   test('Given a wide window, when I open a page, then its column is 960 px (Home 720 px), centred, inside a 48 px gutter', async ({
@@ -135,15 +135,15 @@ test.describe('wide window', () => {
     const settingsColumn = page.getByRole('tablist', { name: 'Settings sections' });
     const homeColumn = page.getByRole('region', { name: 'Needs your attention' });
 
-    // 1280 px: a 1020 px pane is narrower than 960 + 2 × 48, so the gutter decides the width.
+    // 1280 px: beside the 300 px sidebar, a 980 px pane is narrower than 960 + 2 × 48, so the gutter decides the width.
     await page.goto('/settings/connections');
-    expect(await place(settingsColumn)).toEqual({ width: 924, start: 48, end: 48 });
+    expect(await place(settingsColumn)).toEqual({ width: 884, start: 48, end: 48 });
 
     await page.setViewportSize({ width: 1440, height: 900 });
-    expect(await place(settingsColumn)).toEqual({ width: 960, start: 110, end: 110 });
+    expect(await place(settingsColumn)).toEqual({ width: 960, start: 90, end: 90 });
 
     await page.goto('/');
-    expect(await place(homeColumn)).toEqual({ width: 720, start: 230, end: 230 });
+    expect(await place(homeColumn)).toEqual({ width: 720, start: 210, end: 210 });
   });
 
   test('Given a wide window, when I open DevHub, then the footer says whether Claude is connected', async ({

@@ -14,8 +14,8 @@ import { useNewTask } from './use-shortcuts.ts';
  * Under 768 px it is a compact bar above the content (spec 001, Q3): the logo with New task
  * and Search as icon buttons, then the places in one row, with Sessions linking to the full
  * list. It is never fixed to the viewport height.
- * From 768 px it is 260 px wide by default and the user can drag its edge out to 400 px
- * (spec 001, Q10). The width is a remembered preference, so the first paint already uses it.
+ * From 768 px it is 300 px wide by default and the user can drag its edge between 260 and
+ * 400 px (spec 001, Q10). The width is a remembered preference, so the first paint already uses it.
  */
 const sidebarId = 'sidebar';
 

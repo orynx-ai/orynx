@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-/** The expanded sidebar's width in px: 260 by default, resizable up to 400 (spec 001, Q10). */
-export const sidebarWidthLimits = { min: 260, max: 400, initial: 260 } as const;
+/** The expanded sidebar's width in px: 300 by default, resizable from 260 to 400 (spec 001, Q10). */
+export const sidebarWidthLimits = { min: 260, max: 400, initial: 300 } as const;
 
 /** Keeps a width, including one read back from storage, inside the limits. */
 export function clampSidebarWidth(width: number): number {
@@ -34,6 +34,17 @@ export const useUiStore = create<UiState>()(
         });
       },
     }),
-    { name: 'devhub.ui' },
+    {
+      name: 'devhub.ui',
+      // Version 1 raised the default width from 260 to 300 px (spec 001, Q10). persist saves the whole
+      // state on any change, so a saved 260 is almost always the old default, not a choice: move it once.
+      version: 1,
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<UiState>;
+        return (
+          version === 0 && state.sidebarWidth === 260 ? { ...state, sidebarWidth: sidebarWidthLimits.initial } : state
+        ) as UiState;
+      },
+    },
   ),
 );
