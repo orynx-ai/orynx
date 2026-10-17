@@ -1,5 +1,5 @@
 import { chmod, mkdir, writeFile } from 'node:fs/promises';
-import { delimiter, join } from 'node:path';
+import { delimiter, join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ghToken, useFakeGhFolder } from '../../test/fake-gh.ts';
 import { createGhCli } from './gh.ts';
@@ -27,6 +27,15 @@ describe.skipIf(process.platform === 'win32')('gh runner', () => {
     await mkdir(join(other.dir, 'gh'));
 
     const gh = createGhCli({ searchPath: [folder.dir, '', join(folder.dir, 'missing'), other.dir].join(delimiter) });
+
+    expect(await gh.find()).toBeNull();
+  });
+
+  it('skips a folder written relative to where DevHub runs, as gh itself does', async () => {
+    const folder = await fakeGhFolder();
+    await folder.install({ kind: 'signed_in' });
+
+    const gh = createGhCli({ searchPath: relative(process.cwd(), folder.dir) });
 
     expect(await gh.find()).toBeNull();
   });

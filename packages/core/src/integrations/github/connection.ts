@@ -64,6 +64,7 @@ function connectedVia(source: Found['source'], login: string): IntegrationStatus
   return { state: 'connected', detail };
 }
 
+/** Something to wait for, or something to fix; every kind is listed, so a new one must choose. */
 function codeFor(problem: GitHubConnectProblem): ConnectionError['code'] {
   switch (problem.kind) {
     case 'rate_limited':
@@ -71,7 +72,12 @@ function codeFor(problem: GitHubConnectProblem): ConnectionError['code'] {
     case 'timeout':
     case 'github_error':
       return 'integration_unreachable';
-    default:
+    case 'gh_missing':
+    case 'gh_signed_out':
+    case 'gh_failed':
+    case 'gh_timeout':
+    case 'rejected':
+    case 'no_repo_scope':
       return 'integration_rejected';
   }
 }

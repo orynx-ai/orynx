@@ -22,7 +22,8 @@ const headers = { host: `127.0.0.1:${String(port)}`, [tokenHeader]: sessionToken
 const wrongToken = 'fake-wrong-token-for-leaks';
 const staleGhToken = 'fake-stale-gh-token-for-leaks';
 const ghOutput = 'fake-gh-output-for-leaks';
-const secrets = [githubToken, ghToken, wrongToken, staleGhToken, ghOutput];
+const envToken = 'fake-env-token-for-leaks';
+const secrets = [githubToken, ghToken, wrongToken, staleGhToken, ghOutput, envToken];
 
 let app: FastifyInstance | undefined;
 let home: string | undefined;
@@ -49,8 +50,9 @@ async function startHub() {
     events: bus,
     userName: () => Promise.resolve(null),
     keychain: createMemoryKeychain(),
+    envTokens: { github: envToken },
     settings: createFileSettingsStore(home),
-    gh: createGhCli({ searchPath: folder.dir }),
+    gh: createGhCli({ searchPath: folder.dir, timeoutMs: 300 }),
     logger: {
       level: 'trace',
       stream: new Writable({
@@ -76,8 +78,10 @@ describe.skipIf(process.platform === 'win32')('GitHub tokens never leave core', 
     const { home, folder, log, events, bodies, call } = await startHub();
     const connection = apiRoutes.githubConnection;
 
-    // The gh way: gh fails with output, gh hands out a token GitHub refuses, then a good one.
+    // The gh way: gh fails with output, gh is too slow, gh hands out a token GitHub refuses, then a good one.
     await folder.install({ kind: 'fails', exitCode: 1, stderr: ghOutput });
+    await call('PUT', connection, { method: 'gh' });
+    await folder.install({ kind: 'slow' });
     await call('PUT', connection, { method: 'gh' });
     await folder.install({ kind: 'signed_in', token: staleGhToken });
     await call('PUT', connection, { method: 'gh' });
@@ -85,11 +89,17 @@ describe.skipIf(process.platform === 'win32')('GitHub tokens never leave core', 
     expect((await call('PUT', connection, { method: 'gh' })).statusCode).toBe(200);
     await call('GET', apiRoutes.status);
 
-    // The token way: a spaced token, a wrong one, the network failing, then a good one.
+    // The token way: a spaced token, a wrong one, the network failing, the rate limit, the .env token
+    // (which GitHub refuses here), then a good one.
     await call('PUT', connection, { method: 'token', token: `${wrongToken} x` });
     await call('PUT', connection, { method: 'token', token: wrongToken });
     github.use(http.get(userUrl, () => HttpResponse.error(), { once: true }));
     await call('PUT', connection, { method: 'token', token: githubToken });
+    github.use(
+      http.get(userUrl, () => HttpResponse.json({}, { status: 429, headers: { 'Retry-After': '60' } }), { once: true }),
+    );
+    await call('PUT', connection, { method: 'token', token: githubToken });
+    await call('PUT', connection, { method: 'token' });
     expect((await call('PUT', connection, { method: 'token', token: githubToken })).statusCode).toBe(200);
     const settingsWhileConnected = await readFile(settingsFilePath(home), 'utf8');
     expect(settingsWhileConnected).toContain('"method": "token"');

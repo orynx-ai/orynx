@@ -1,4 +1,4 @@
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ServerEvent } from '@devhub/contracts';
 import { createEventBus } from '../../events/event-bus.ts';
@@ -230,6 +230,25 @@ describe.skipIf(process.platform === 'win32')('GitHub connection', () => {
 
     expect(error.code).toBe('integration_unreachable');
     expect(error.message).toBe("GitHub's rate limit for this account is used up. Try again in a minute.");
+  });
+
+  it.each([
+    ['takes more than the time allowed', "github.com didn't answer in 10 seconds. Try again."],
+    ['answers 503', 'GitHub answered with an error (503). Try again in a minute.'],
+  ])('AC-8: saves nothing when github.com %s, and says to wait, not that the token was refused', async (_, message) => {
+    github.use(
+      http.get(userUrl, async () => {
+        if (message.startsWith('github.com')) await delay('infinite');
+        return HttpResponse.json({ message: 'Unicorn' }, { status: 503 });
+      }),
+    );
+    const { connection, settings } = await setup();
+
+    const error = await failure(connection.connect({ method: 'token', token: githubToken }));
+
+    expect(error.code).toBe('integration_unreachable');
+    expect(error.message).toBe(message);
+    expect(await settings.read()).toEqual({});
   });
 
   it('AC-9: with no token typed, none saved and none in .env, refuses before asking GitHub', async () => {

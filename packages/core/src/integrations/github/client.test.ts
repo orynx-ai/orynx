@@ -116,6 +116,29 @@ describe('GitHub client', () => {
     expectNoSecret(check);
   });
 
+  it('AC-17: never follows a redirect, so the token can only ever go to api.github.com', async () => {
+    const elsewhere: string[] = [];
+    github.use(
+      http.get(
+        userUrl,
+        () => new HttpResponse(null, { status: 302, headers: { Location: 'https://elsewhere.example/user' } }),
+      ),
+      http.get('https://elsewhere.example/user', ({ request }) => {
+        elsewhere.push(request.headers.get('authorization') ?? '');
+        return HttpResponse.json({ login: githubLogin });
+      }),
+    );
+
+    expect(await client.check(githubToken)).toEqual({ ok: false, problem: { kind: 'unreachable', code: undefined } });
+    expect(elsewhere).toEqual([]);
+  });
+
+  it('treats a failure that is not an error object as unreachable', async () => {
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the network can reject with anything
+    const failing = createGitHubClient({ fetch: () => Promise.reject(null) });
+    expect(await failing.check(githubToken)).toEqual({ ok: false, problem: { kind: 'unreachable', code: undefined } });
+  });
+
   it('waits 10 seconds by default', () => {
     expect(createGitHubClient().timeoutMs).toBe(10_000);
   });

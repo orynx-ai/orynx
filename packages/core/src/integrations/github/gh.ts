@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { access, constants, stat } from 'node:fs/promises';
-import { delimiter, join } from 'node:path';
+import { delimiter, isAbsolute, join } from 'node:path';
+import { GitHubTokenSchema } from '@devhub/contracts';
 
 /**
  * The only file in DevHub that starts gh, GitHub's command-line tool (integration-adapter skill). It
@@ -39,8 +40,6 @@ export interface GhCliOptions {
 }
 
 const program = process.platform === 'win32' ? 'gh.exe' : 'gh';
-// Spec 002's rule for a token: one line, no spaces, at most 4096 characters.
-const oneToken = /^\S{1,4096}$/;
 // What gh 2.x says on stderr when it has no login for the host.
 const signedOut = /no oauth token/i;
 
@@ -57,7 +56,8 @@ async function isProgram(path: string): Promise<boolean> {
 export function createGhCli({ searchPath, timeoutMs = 5000 }: GhCliOptions): GhCli {
   async function find(): Promise<string | null> {
     for (const folder of searchPath.split(delimiter)) {
-      if (folder === '') continue;
+      // A relative folder would be looked up from wherever DevHub runs; gh's own lookup skips them too.
+      if (!isAbsolute(folder)) continue;
       const path = join(folder, program);
       if (await isProgram(path)) return path;
     }
@@ -73,9 +73,12 @@ export function createGhCli({ searchPath, timeoutMs = 5000 }: GhCliOptions): GhC
         { timeout: timeoutMs, killSignal: 'SIGKILL', windowsHide: true, maxBuffer: 64 * 1024, encoding: 'utf8' },
         (error, stdout, stderr) => {
           if (error === null) {
-            const token = stdout.trim();
+            // Spec 002's rule for a token: one line, no spaces, at most 4096 characters.
+            const token = GitHubTokenSchema.safeParse(stdout);
             resolve(
-              oneToken.test(token) ? { ok: true, token } : { ok: false, problem: { kind: 'gh_failed', exitCode: 0 } },
+              token.success
+                ? { ok: true, token: token.data }
+                : { ok: false, problem: { kind: 'gh_failed', exitCode: 0 } },
             );
           } else if (error.killed && error.signal === 'SIGKILL' && error.code !== 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
             resolve({ ok: false, problem: { kind: 'gh_timeout' } });

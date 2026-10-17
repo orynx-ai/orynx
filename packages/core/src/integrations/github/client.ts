@@ -48,12 +48,16 @@ const errorCode = /^[A-Z][A-Z0-9_]{0,63}$/;
 const ignore = (): undefined => undefined;
 const quiet = { debug: ignore, info: ignore, warn: ignore, error: ignore };
 
-/** What octokit's RequestError carries; read field by field, never passed on. */
-interface Failure {
-  status?: unknown;
-  response?: { headers?: Record<string, string | undefined> };
-  cause?: unknown;
-}
+/**
+ * The few fields of octokit's RequestError that say what went wrong. Anything else it holds, the request
+ * and its headers included, is dropped here and never passed on.
+ */
+const FailureSchema = z.object({
+  status: z.number().optional(),
+  response: z.object({ headers: z.record(z.string(), z.unknown()) }).optional(),
+  cause: z.unknown(),
+});
+type Failure = z.infer<typeof FailureSchema>;
 
 export function createGitHubClient({
   timeoutMs = 10_000,
@@ -69,9 +73,12 @@ export function createGitHubClient({
       try {
         const octokit = new Octokit({
           auth: token,
+          // Said here, not left to octokit's default: the token goes to api.github.com and nowhere else,
+          // and a redirect is a failure rather than a trip somewhere else with the header.
+          baseUrl: 'https://api.github.com',
           userAgent: 'DevHub',
           log: quiet,
-          request: { signal, ...(fetch ? { fetch } : {}) },
+          request: { signal, redirect: 'error', ...(fetch ? { fetch } : {}) },
         });
         const answer = await octokit.request('GET /user');
         const user = UserSchema.safeParse(answer.data);
@@ -81,7 +88,11 @@ export function createGitHubClient({
         const scopes = typeof header === 'string' ? header.split(',').flatMap((scope) => scope.trim() || []) : null;
         return { ok: true, login: user.data.login, scopes };
       } catch (error) {
-        return { ok: false, problem: problemOf(error as Failure, signal.aborted, now) };
+        const failure = FailureSchema.safeParse(error);
+        return {
+          ok: false,
+          problem: problemOf(failure.success ? failure.data : { cause: undefined }, signal.aborted, now),
+        };
       }
     },
   };
@@ -90,11 +101,9 @@ export function createGitHubClient({
 function problemOf(error: Failure, timedOut: boolean, now: () => number): GitHubProblem {
   if (timedOut) return { kind: 'timeout' };
   const headers = error.response?.headers;
-  // No answer at all: octokit reports a failed fetch as status 500 without a response.
-  if (headers === undefined || typeof error.status !== 'number') {
-    return { kind: 'unreachable', code: networkCode(error.cause) };
-  }
   const status = error.status;
+  // No answer at all: octokit reports a failed fetch as status 500 without a response.
+  if (headers === undefined || status === undefined) return { kind: 'unreachable', code: networkCode(error.cause) };
   if (status === 401) return { kind: 'rejected' };
   if (status === 429 || (status === 403 && (headers['x-ratelimit-remaining'] === '0' || 'retry-after' in headers))) {
     return { kind: 'rate_limited', resetAt: resetTime(headers, now) };
@@ -103,7 +112,7 @@ function problemOf(error: Failure, timedOut: boolean, now: () => number): GitHub
   return { kind: 'github_error', status };
 }
 
-function resetTime(headers: Record<string, string | undefined>, now: () => number): number | null {
+function resetTime(headers: Record<string, unknown>, now: () => number): number | null {
   const reset = Number(headers['x-ratelimit-reset']);
   if (headers['x-ratelimit-remaining'] === '0' && Number.isFinite(reset) && reset > 0) return reset * 1000;
   const wait = Number(headers['retry-after']);
