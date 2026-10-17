@@ -47,9 +47,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: Manage fills the form in, the `.env` help, Disconnect with its two confirm lines, and a second tab follows (AC-12, AC-13, AC-14, AC-16)
       Check: pnpm test packages/app/src/features/settings; pnpm lint
       Files: packages/app/src/features/settings/components/github-connection-form.tsx, packages/app/src/features/settings/components/github-connection-form.test.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/live-updates.tsx
-- [ ] Task 16: e2e: the GitHub form at 360 and 1280 px in light and dark, axe, no layout shift, arrow keys and Cancel, token-way errors, and the fake signed-out gh (AC-2, AC-4, AC-18, AC-19, AC-20)
+- [x] Task 16: e2e: the GitHub form at 360 and 1280 px in light and dark, axe, no layout shift, arrow keys and Cancel, token-way errors, and the fake signed-out gh (AC-2, AC-4, AC-18, AC-19, AC-20)
       Check: pnpm build; pnpm exec playwright test e2e/connect-github.spec.ts e2e/connect-jira.spec.ts; open Settings in `pnpm dev` at 360 and 1280 px, light and dark
-      Files: e2e/connect-github.spec.ts
+      Files: e2e/connect-github.spec.ts. Looked at in a real browser at 360 and 1280 px, light and dark, with the form open, the gh error and the token error
 - [ ] Task 17: Docs: a `learn/` page on connecting GitHub; architecture, integration-adapter skill, design map, roadmap (Q1)
       Check: pnpm gate learn-freshness; pnpm gate handbook-size; pnpm format:check
       Files: learn/connecting-github.md, docs/architecture.md, .claude/skills/integration-adapter/SKILL.md, docs/product/roadmap.md, README.md
