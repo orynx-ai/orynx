@@ -2,14 +2,18 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { apiPrefix, tokenQueryParam, type ApiError } from '@devhub/contracts';
 import { createEventBus, type EventBus } from './events/event-bus.ts';
+import { createJiraClient } from './integrations/jira/client.ts';
+import { createJiraConnection, JiraConnectionError } from './integrations/jira/connection.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { eventsRoutes } from './routes/events.ts';
+import { jiraRoutes } from './routes/jira.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
 import { statusRoutes } from './routes/status.ts';
 import type { Keychain } from './secrets/keychain.ts';
 import { createMemoryKeychain } from './secrets/memory-keychain.ts';
 import { createTokenStore, type EnvTokens, type TokenStore } from './secrets/token-store.ts';
 import { createMemorySessionStore, type SessionStore } from './sessions/session-store.ts';
+import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
 import { readGitUserName } from './status/git-user-name.ts';
 import { createStatusService } from './status/status-service.ts';
 
@@ -33,7 +37,17 @@ export interface CoreOptions {
   keychain?: Keychain;
   /** Tokens from `.env`, passed only when the user turned on DEVHUB_TOKENS_FROM_ENV. */
   envTokens?: EnvTokens;
+  /** Settings kept between runs. Hosts pass the file under DEVHUB_HOME; tests get memory. */
+  settings?: SettingsStore;
 }
+
+/** The HTTP status for each error a Jira route can answer with. */
+const statusFor: Record<JiraConnectionError['code'], number> = {
+  bad_request: 400,
+  integration_rejected: 422,
+  integration_unreachable: 502,
+  keychain_unavailable: 503,
+};
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -54,6 +68,22 @@ function withTokenRedaction(logger: CoreOptions['logger']): NonNullable<FastifyS
   const base = logger === true ? {} : logger;
   return {
     ...base,
+    // A second guard behind client.ts, which never logs a request: an Authorization header holds a
+    // Jira token in base64, wherever a log line might carry one (spec 003).
+    redact: {
+      // Header objects keep the casing they were given (axios, undici), so both spellings are listed.
+      paths: [
+        'authorization',
+        'Authorization',
+        'proxy-authorization',
+        'Proxy-Authorization',
+        'cookie',
+        'Cookie',
+        'x-devhub-token',
+        'X-Devhub-Token',
+      ].flatMap((name) => ['', '*.', '*.*.', '*.*.*.', '*.*.*.*.'].map((depth) => `${depth}headers["${name}"]`)),
+      censor: '[redacted]',
+    },
     serializers: {
       ...base.serializers,
       req: (request: { method: string; url: string }) => ({ method: request.method, url: redactToken(request.url) }),
@@ -82,9 +112,26 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       ...(options.envTokens === undefined ? {} : { envTokens: options.envTokens }),
     }),
   );
+  const jira = createJiraConnection({
+    settings: options.settings ?? createMemorySettingsStore(),
+    tokens: app.tokens,
+    jira: createJiraClient(),
+    events,
+    envToken: options.envTokens?.jira !== undefined,
+    onProblem: (problem) => {
+      app.log.warn(
+        { jira: problem },
+        problem.kind === 'keychain_unavailable' ? 'The keychain could not be reached' : 'Jira did not accept the check',
+      );
+    },
+    onError: (error) => {
+      app.log.error(error, "Jira's status line failed");
+    },
+  });
   const status = createStatusService({
     version: options.version,
     userName: options.userName ?? readGitUserName,
+    jira: () => jira.status(),
   });
 
   await app.register(
@@ -99,6 +146,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
           const body: ApiError = { code: 'bad_request', message: error.message };
           return reply.code(400).send(body);
         }
+        if (error instanceof JiraConnectionError) {
+          const body: ApiError = { code: error.code, message: error.message };
+          return reply.code(statusFor[error.code]).send(body);
+        }
         request.log.error(error);
         const body: ApiError = {
           code: 'internal',
@@ -109,6 +160,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
 
       await api.register(statusRoutes, { status });
       await api.register(sessionsRoutes, { sessions: options.sessions ?? createMemorySessionStore() });
+      await api.register(jiraRoutes, { jira });
       await api.register(eventsRoutes, {
         events,
         ...(options.eventsKeepAliveMs === undefined ? {} : { keepAliveMs: options.eventsKeepAliveMs }),

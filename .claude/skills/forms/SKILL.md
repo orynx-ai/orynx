@@ -9,59 +9,52 @@ Every `<form>` uses react-hook-form with a zod schema. Settings save as you chan
 
 ## Steps
 
-1. Write the zod schema in the feature's `schemas.ts`. If the server receives this data, reuse the request schema from `@devhub/contracts` instead of writing a second one.
+1. Write the zod schema in the feature's `schemas.ts`. If the server receives this data, reuse the request schema from `@devhub/contracts` instead of writing a second one (`jiraFormSchema` only extends `JiraConnectionRequestSchema`).
 2. Call `useForm` with `zodResolver(schema)`.
-3. Use `@devhub/ui` inputs. Each input has a visible `<label>`; help text sits under it in `text-small text-muted-foreground`.
-4. Submit with a `useMutation` (`.claude/skills/server-state/SKILL.md`). Disable the submit button while it is pending.
+3. Use `@devhub/ui` `Field` and `Input`: a visible label, and one help line that an error replaces.
+4. Submit with a `useMutation` (`.claude/skills/server-state/SKILL.md`). Give the submit button `pending={mutation.isPending}` while it waits.
 5. Show server errors next to the field they belong to, or in one line above the buttons.
 
-```tsx
+```ts
 // packages/app/src/features/settings/schemas.ts
-import { z } from 'zod';
-
-export const jiraConnectionSchema = z.object({
-  site: z.string().min(1, 'Enter the address you open Jira at.'),
-  email: z.email('Enter the email you sign in to Jira with.'),
-  apiToken: z.string().min(1, 'Paste your Jira API token.'),
-});
-export type JiraConnectionForm = z.infer<typeof jiraConnectionSchema>;
-```
-
-```tsx
-// packages/app/src/features/settings/components/jira-connection-form.tsx
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@devhub/ui';
-import { useForm } from 'react-hook-form';
-import { jiraConnectionSchema, type JiraConnectionForm } from '../schemas.ts';
-
-export function JiraConnectionFormFields({ onSubmit }: { onSubmit: (values: JiraConnectionForm) => void }) {
-  const form = useForm<JiraConnectionForm>({ resolver: zodResolver(jiraConnectionSchema) });
-  const { errors, isSubmitting } = form.formState;
-  return (
-    <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
-      <label htmlFor="jira-site">Jira site</label>
-      <input
-        id="jira-site"
-        aria-invalid={errors.site ? true : undefined}
-        aria-describedby="jira-site-help"
-        {...form.register('site')}
-      />
-      <span id="jira-site-help">{errors.site?.message ?? 'The address you open Jira at.'}</span>
-      {/* email and apiToken the same way, apiToken with type="password" and autoComplete="off" */}
-      <Button type="submit" variant="primary" disabled={isSubmitting}>
-        Connect Jira
-      </Button>
-    </form>
-  );
+export function jiraFormSchema(tokenRequired: boolean): z.ZodType<JiraCredentials, JiraFormValues> {
+  // The contract's own request, so the form and the server refuse the same values with the same words.
+  return JiraConnectionRequestSchema.extend({
+    apiToken: tokenRequired ? JiraApiTokenSchema : JiraApiTokenOrBlankSchema,
+  });
 }
 ```
 
-Replace the raw `<label>`, `<input>` and help `<span>` with the `@devhub/ui` Input/Field components once spec 006 builds them; until then, add the component through `.claude/skills/add-ui-component/SKILL.md`.
+```tsx
+// packages/app/src/features/settings/components/jira-connection-form.tsx (shortened)
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { Button, Field, Input } from '@devhub/ui';
+
+const form = useForm<JiraFormValues, unknown, JiraCredentials>({ resolver: zodResolver(jiraFormSchema(true)) });
+const { errors } = form.formState;
+
+<form aria-label="Jira connection" noValidate onSubmit={(event) => void submit(event)}>
+  <Field
+    label="Jira site"
+    help="The address you open Jira at, like your-team.atlassian.net."
+    error={errors.site?.message}
+  >
+    <Input inputMode="url" autoCapitalize="none" spellCheck={false} {...form.register('site')} />
+  </Field>
+  {/* API token: <Input type="password" autoComplete="off" /> */}
+  <Button type="submit" variant="primary" pending={connect.isPending}>
+    Connect Jira
+  </Button>
+</form>;
+```
+
+`Field` gives its control the label, the help line and the error, wired with `aria-invalid` and `aria-describedby`; the error takes the help line's place. Give a button that stays on screen while it waits `pending`, never `disabled`, so it keeps focus and blocks a second submit. Put a server error on its field with `form.setError(name, { message }, { shouldFocus: true })` (Jira: `integration_rejected` on API token, `integration_unreachable` on Jira site), and anything else in one `role="alert"` line above the buttons.
 
 ## Rules
 
 - Error messages say what to do, in the design system's voice ("Enter the address you open Jira at."), not "Invalid".
-- Secrets (API tokens) use `type="password"` and `autoComplete="off"`, are never echoed back, and are never logged.
+- Secrets (API tokens) use `type="password"` with `autoComplete="one-time-code"`, `data-1p-ignore` and `data-lpignore="true"`: browsers ignore `"off"` on a password and offer to save it as a sign-in. Secrets are never echoed back, never logged, and their mutation has `gcTime: 0`.
 - `Enter` submits; a composer uses `Shift+Enter` for a new line.
 - Buttons say what happens: "Connect Jira", "Add folder", never "Submit".
 

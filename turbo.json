@@ -8,7 +8,8 @@
     "DEVHUB_HOME",
     "LOG_LEVEL",
     "NODE_ENV",
-    "DEVHUB_TOKENS_FROM_ENV"
+    "DEVHUB_TOKENS_FROM_ENV",
+    "DEVHUB_KEYCHAIN"
   ],
   "tasks": {
     "build": {

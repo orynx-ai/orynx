@@ -58,7 +58,7 @@ DEVHUB_SLACK_USER_TOKEN=…
 - In `pnpm test`, `packages/core/vitest.config.ts` and `apps/server/vitest.config.ts` point `@napi-rs/keyring` at a stub that fails to load. A test that forgets to fake it gets an error instead of your real keychain, and `no-real-keychain.test.ts` proves the stub is in place. Never `vi.doUnmock` the library: the next import loads the real one.
 - `pnpm test:keychain` is the one run that uses the real keychain. It saves, reads and deletes one item under the service **DevHub test**. It is never part of `pnpm test`, `pnpm verify` or CI.
 
-Spec 003 will make `/api/status` read tokens. From then on:
+Since spec 003, `/api/status` reads the Jira token once a site and email are saved. So:
 
-- the e2e run needs its own keychain service or the in-memory keychain, so it never reads a developer's real "DevHub" items (it already sets `DEVHUB_TOKENS_FROM_ENV=false`, so `.env` tokens never reach it);
-- the Fastify logger needs `redact` paths for HTTP client errors (`err.config.headers.authorization` and the like), because `request.log.error(error)` prints every field of an axios or Octokit error.
+- the e2e run sets `DEVHUB_KEYCHAIN=memory` (`apps/server/src/config.ts`), and the server keeps tokens in memory, so it never reads a developer's real "DevHub" items (it already sets `DEVHUB_TOKENS_FROM_ENV=false`, so `.env` tokens never reach it either);
+- the Fastify logger redacts `authorization`, `proxy-authorization`, `cookie` and `x-devhub-token` headers, in either casing and up to five levels deep, wherever a log line carries one (`packages/core/src/create-server.ts`), behind `client.ts`, which never lets an HTTP client's error out. See `learn/connecting-jira.md`.

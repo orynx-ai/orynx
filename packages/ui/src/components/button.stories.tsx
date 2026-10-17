@@ -17,6 +17,9 @@ export const Ghost: Story = { args: { variant: 'ghost', children: 'Cancel' } };
 export const Danger: Story = { args: { variant: 'danger', children: 'Discard changes' } };
 export const Small: Story = { args: { variant: 'primary', size: 'sm', children: 'Build with Claude' } };
 export const Disabled: Story = { args: { variant: 'primary', disabled: true } };
+/** A button that can wait: it keeps room for the spinner, so it doesn't widen when it starts. */
+export const Ready: Story = { args: { variant: 'primary', pending: false, children: 'Connect Jira' } };
+export const Pending: Story = { args: { variant: 'primary', pending: true, children: 'Connect Jira' } };
 
 export const WithIcon: Story = {
   args: {

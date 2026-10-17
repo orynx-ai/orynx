@@ -37,6 +37,19 @@ describe('Button', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it('passes its action to the element it renders with asChild', async () => {
+    const onClick = vi.fn();
+    render(
+      <Button asChild onClick={onClick}>
+        <a href="#settings">Open settings</a>
+      </Button>,
+    );
+
+    await userEvent.click(screen.getByRole('link', { name: 'Open settings' }));
+
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
   it('renders a link with button styles when asChild is set', () => {
     render(
       <Button asChild variant="primary">
@@ -47,6 +60,77 @@ describe('Button', () => {
     const link = screen.getByRole('link', { name: 'Open settings' });
     expect(link).toHaveAttribute('href', '/settings');
     expect(link).not.toHaveAttribute('type');
+  });
+
+  it('AC-13: while pending it keeps its label and focus, and ignores clicks', async () => {
+    const onClick = vi.fn();
+    const { rerender } = render(
+      <Button pending={false} onClick={onClick}>
+        Connect Jira
+      </Button>,
+    );
+    const button = screen.getByRole('button', { name: 'Connect Jira' });
+    button.focus();
+
+    rerender(
+      <Button pending onClick={onClick}>
+        Connect Jira
+      </Button>,
+    );
+    await userEvent.click(button);
+
+    expect(screen.getByRole('button', { name: 'Connect Jira' })).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveFocus();
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('AC-13: a pending submit button sends its form neither on click nor on Enter', async () => {
+    const onSubmit = vi.fn();
+    render(
+      <form
+        aria-label="Connect"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <label>
+          Jira site
+          <input />
+        </label>
+        <Button type="submit" pending>
+          Connect Jira
+        </Button>
+      </form>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Connect Jira' }));
+    await userEvent.type(screen.getByLabelText('Jira site'), 'your-team{Enter}');
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('runs its action again once it is no longer pending', async () => {
+    const onClick = vi.fn();
+    render(
+      <Button pending={false} onClick={onClick}>
+        Connect Jira
+      </Button>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Connect Jira' }));
+
+    expect(screen.getByRole('button', { name: 'Connect Jira' })).not.toHaveAttribute('aria-disabled');
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it('has no accessibility violations while pending', async () => {
+    const { container } = render(
+      <Button variant="primary" pending>
+        Connect Jira
+      </Button>,
+    );
+    await expectNoAxeViolations(container);
   });
 
   it('has no accessibility violations as an icon button with a label', async () => {

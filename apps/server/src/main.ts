@@ -1,9 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createOsKeychain, createServer } from '@devhub/core';
+import {
+  createFileSettingsStore,
+  createMemoryKeychain,
+  createOsKeychain,
+  createServer,
+  settingsFilePath,
+} from '@devhub/core';
 import { forgetTokenSettings, loadConfig, readEnvFile, repoEnvFile } from './config.ts';
 import { createSessionToken, removeRuntimeFile, writeRuntimeFile } from './runtime-file.ts';
+import { trustSystemCertificates } from './system-certificates.ts';
 import { tokenNotices } from './token-notices.ts';
 import { serveWeb } from './web.ts';
 
@@ -15,14 +22,21 @@ const config = loadConfig(envFile === undefined ? {} : { envFile: envFile.text }
 forgetTokenSettings();
 const token = createSessionToken();
 const serveWebApp = process.argv.includes('--serve-web');
+trustSystemCertificates();
 
 const app = await createServer({
   token,
   port: config.port,
   version: packageJson.version,
-  keychain: createOsKeychain(),
+  // Memory only when DEVHUB_KEYCHAIN=memory, which the e2e run sets.
+  keychain: config.keychain === 'memory' ? createMemoryKeychain() : createOsKeychain(),
   // Empty unless the user turned on DEVHUB_TOKENS_FROM_ENV.
   envTokens: config.tokens.env,
+  settings: createFileSettingsStore(config.home, {
+    onUnreadable: () => {
+      app.log.warn(`${settingsFilePath(config.home)} is not valid; DevHub ignores it until the next save.`);
+    },
+  }),
   logger: {
     level: config.logLevel,
     ...(config.pretty ? { transport: { target: 'pino-pretty', options: { ignore: 'pid,hostname' } } } : {}),
