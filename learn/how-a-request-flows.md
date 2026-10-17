@@ -65,6 +65,8 @@ export function useStatus() {
 
 The Settings screen (and the sidebar footer) calls `useStatus()` and renders one of its states: a skeleton while pending, a one-line error, or the Jira, GitHub and Slack rows with their pills. It never stores the result in `useState` or zustand; the query cache is the only copy.
 
+Writes take the same path the other way. Connecting Jira (spec 003) is a `useMutation` in the same `queries.ts` that calls `api.connectJira()`; its answer is the new saved connection, so it goes straight into the cache with `setQueryData`, and the status refetches. See `learn/connecting-jira.md`.
+
 ## Testing each layer
 
 | Layer    | Test                                                                                            |
