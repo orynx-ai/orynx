@@ -56,7 +56,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: Keep focus and scroll when a sync changes the cards, and move the search field into the toolbar under 768 px (AC-17, AC-18, AC-30, AC-32)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/tickets-board.tsx, tickets-board.test.tsx, ticket-card.tsx, tickets-toolbar.tsx, tickets-screen.tsx, tickets-screen.test.tsx, packages/app/src/shell/use-wide.ts, packages/app/src/test/setup.ts
-- [ ] Task 19: Show the sidebar's Tickets count with the hidden words " in your sprint", hidden at 0 and on the collapsed rail (AC-27)
+- [x] Task 19: Show the sidebar's Tickets count with the hidden words " in your sprint", hidden at 0 and on the collapsed rail (AC-27)
       Check: pnpm test packages/app/src/shell; pnpm gate style-policy
       Files: packages/app/src/shell/sidebar.tsx, sidebar.test.tsx, packages/app/src/features/tickets/queries.ts
 - [ ] Task 20: Update `docs/architecture.md` (the tickets route, the sprint reads), add `learn/the-tickets-board.md` (how the sprint is found, the columns and In review, the cache part), and put 019 "New ticket" on the roadmap (Q5). Add an e2e run of Tickets with Jira not connected: no layout shift and no axe violations at 360 and 1280 px

@@ -3,6 +3,7 @@ import { Link, useLinkProps } from '@tanstack/react-router';
 import { History, House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucide-react';
 import { Button, Kbd, Splitter, cn } from '@devhub/ui';
 import { useInboxCount } from '../features/home/queries.ts';
+import { useTicketsCount } from '../features/tickets/queries.ts';
 import { SidebarSessions } from '../features/sessions/components/sidebar-sessions.tsx';
 import { usePlatform } from '../platform.tsx';
 import { clampSidebarWidth, sidebarWidthLimits, useUiStore } from '../stores/ui-store.ts';
@@ -33,6 +34,7 @@ export function Sidebar() {
   // Only the router's href (hash or path, per host); the click is handled below.
   const { href: homeHref } = useLinkProps({ to: '/' });
   const needYou = useInboxCount();
+  const inSprint = useTicketsCount();
 
   return (
     <nav
@@ -127,7 +129,16 @@ export function Sidebar() {
             ? {}
             : { count: { value: needYou, spoken: `${String(needYou)} ${needYou === 1 ? 'needs' : 'need'} you` } })}
         />
-        <NavItem to="/tickets" icon={<SquareKanban aria-hidden />} label="Tickets" collapsed={collapsed} />
+        <NavItem
+          to="/tickets"
+          icon={<SquareKanban aria-hidden />}
+          label="Tickets"
+          collapsed={collapsed}
+          // Spec 008, Q6: your tickets in the sprint, Done included, as the design draws "9".
+          {...(inSprint === undefined
+            ? {}
+            : { count: { value: inSprint, spoken: `${String(inSprint)} in your sprint` } })}
+        />
         <NavItem to="/settings" icon={<Settings aria-hidden />} label="Settings" collapsed={collapsed} />
         {/* Narrow windows have no session rows, so the full list gets a place of its own. */}
         <NavItem
