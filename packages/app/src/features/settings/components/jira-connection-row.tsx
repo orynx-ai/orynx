@@ -1,13 +1,14 @@
 import { useId, useRef, useState } from 'react';
 import type { IntegrationStatus } from '@devhub/contracts';
 import { Button } from '@devhub/ui';
-import { useJiraConnection } from '../queries.ts';
+import { useJiraChangeRunning, useJiraConnection } from '../queries.ts';
 import { ConnectionRow } from './connection-row.tsx';
 import { JiraConnectionForm } from './jira-connection-form.tsx';
 
 /** The Jira row: Connect or Manage opens the form inside the row (spec 003, Q3). */
 export function JiraConnectionRow({ status }: { status: IntegrationStatus | undefined }) {
   const connection = useJiraConnection();
+  const changing = useJiraChangeRunning();
   const [open, setOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const toggle = useRef<HTMLButtonElement>(null);
@@ -35,8 +36,12 @@ export function JiraConnectionRow({ status }: { status: IntegrationStatus | unde
           ref={toggle}
           size="sm"
           aria-expanded={open}
+          // Closing the form can't stop a Connect or Disconnect on its way. aria-disabled, not
+          // disabled, so focus can land here the moment the change finishes.
+          aria-disabled={changing || undefined}
           aria-controls={open && connection.data ? formId : undefined}
           onClick={() => {
+            if (changing) return;
             if (open) close();
             else {
               setAnnouncement('');
@@ -48,7 +53,7 @@ export function JiraConnectionRow({ status }: { status: IntegrationStatus | unde
         </Button>
       }
     >
-      {open && connection.isError ? (
+      {open && connection.isLoadingError ? (
         <p role="alert" className="m-0 text-small text-danger sm:ps-14">
           Could not reach the DevHub server. Check that DevHub is still running in your terminal, then reload the page.
         </p>

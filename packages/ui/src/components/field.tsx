@@ -40,7 +40,9 @@ export function Field({ label, help, error, id, className, children }: FieldProp
   const madeUpId = useId();
   const controlId = id ?? `${madeUpId}-control`;
   const messageId = `${controlId}-message`;
-  const message = error ?? help;
+  // `error={failed && message}` must not mark the field invalid when there is nothing to say.
+  const hasError = error !== undefined && error !== null && error !== false && error !== '';
+  const message = hasError ? error : help;
 
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
@@ -51,7 +53,7 @@ export function Field({ label, help, error, id, className, children }: FieldProp
         value={{
           id: controlId,
           describedBy: message === undefined ? undefined : messageId,
-          invalid: error !== undefined,
+          invalid: hasError,
         }}
       >
         {children}

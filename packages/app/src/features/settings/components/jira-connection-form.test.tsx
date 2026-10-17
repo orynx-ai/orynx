@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
@@ -169,6 +169,43 @@ describe('Jira connection form', () => {
     await user.type(within(form).getByLabelText('API token'), '{Enter}');
 
     expect(calls).toBe(1);
+  });
+
+  it('AC-13: two presses before the page can show it waits still send one request', async () => {
+    const sent = jiraServer();
+    const { user, form } = await openForm();
+    await user.type(within(form).getByLabelText('Jira site'), 'your-team');
+    await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
+    await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
+
+    // Back to back, with no render between them: faster than any person, so the guard can't lean on the button.
+    const connect = within(form).getByRole('button', { name: 'Connect Jira' });
+    fireEvent.click(connect);
+    fireEvent.click(connect);
+
+    expect(await screen.findByText('Jira is connected.')).toBeInTheDocument();
+    expect(sent).toHaveLength(1);
+  });
+
+  it("AC-13: while Jira is checked, Cancel and Close can't close the form", async () => {
+    server.use(
+      http.put(apiUrl(apiRoutes.jiraConnection), async () => {
+        await delay('infinite');
+        return HttpResponse.json(makeJiraConnection({ saved: savedJira }));
+      }),
+    );
+    const { user, form } = await openForm();
+    await user.type(within(form).getByLabelText('Jira site'), 'your-team');
+    await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
+    await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
+    await user.click(within(form).getByRole('button', { name: 'Connect Jira' }));
+    const cancel = within(form).getByRole('button', { name: 'Cancel' });
+    await expect.poll(() => cancel.getAttribute('aria-disabled')).toBe('true');
+
+    await user.click(cancel);
+    await user.click(within(await jiraRow()).getByRole('button', { name: 'Close' }));
+
+    expect(screen.getByRole('form', { name: 'Jira connection' })).toBeVisible();
   });
 
   it('AC-16: has no accessibility violations with the form open and showing errors', async () => {

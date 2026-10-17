@@ -54,6 +54,37 @@ describe('Field', () => {
     expect(screen.getByRole('link', { name: 'Create an API token' })).toHaveFocus();
   });
 
+  it.each([null, false, ''])('treats an error of %j as no error, so `error={failed && message}` is safe', (error) => {
+    render(
+      <Field label="Email" help="The email you sign in to Jira with." error={error}>
+        <Input type="email" />
+      </Field>,
+    );
+
+    const input = screen.getByRole('textbox', { name: 'Email' });
+    expect(input).not.toHaveAttribute('aria-invalid');
+    expect(input).toHaveAccessibleDescription('The email you sign in to Jira with.');
+  });
+
+  it('keeps a link that the error carries reachable', () => {
+    render(
+      <Field
+        label="API token"
+        error={
+          <>
+            Jira didn&apos;t accept this email and API token.{' '}
+            <a href="https://id.atlassian.com/">Create an API token</a>
+          </>
+        }
+      >
+        <Input type="password" />
+      </Field>,
+    );
+
+    expect(screen.getByLabelText('API token')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('link', { name: 'Create an API token' })).toBeVisible();
+  });
+
   it('gives its input the id the field was given', () => {
     render(
       <Field id="jira-site" label="Jira site">

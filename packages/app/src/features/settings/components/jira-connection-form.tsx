@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import type { ApiRequestError } from '@devhub/api-client';
@@ -62,15 +62,26 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
     }
   }, [confirming]);
 
-  const submit = form.handleSubmit((values) => {
-    connect.mutate(values, {
-      onSuccess: onConnected,
-      onError: (error) => {
-        const field = fieldFor[error.code];
-        if (field !== undefined) form.setError(field, { message: error.message }, { shouldFocus: true });
-      },
-    });
-  });
+  // A second submit while the first is on its way sends nothing, even before the button shows it waits.
+  const sending = useRef(false);
+  function submit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (sending.current) return;
+    sending.current = true;
+    const done = () => {
+      sending.current = false;
+    };
+    void form.handleSubmit((values) => {
+      connect.mutate(values, {
+        onSuccess: onConnected,
+        onError: (error) => {
+          const field = fieldFor[error.code];
+          if (field !== undefined) form.setError(field, { message: error.message }, { shouldFocus: true });
+        },
+        onSettled: done,
+      });
+    }, done)(event);
+  }
   const formError =
     disconnect.error?.message ??
     (connect.error && fieldFor[connect.error.code] === undefined ? connect.error.message : undefined);
@@ -97,13 +108,7 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
   );
 
   return (
-    <form
-      id={id}
-      aria-label="Jira connection"
-      noValidate
-      onSubmit={(event) => void submit(event)}
-      className="flex flex-col gap-4"
-    >
+    <form id={id} aria-label="Jira connection" noValidate onSubmit={submit} className="flex flex-col gap-4">
       <Field
         label="Jira site"
         help="The address you open Jira at, like your-team.atlassian.net."
@@ -130,8 +135,9 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
           )
         }
       >
-        {/* Browsers ignore autocomplete="off" on a password and offer to save it as a sign-in; they
-            never save a one-time code, and the two attributes keep 1Password and LastPass away too. */}
+        {/* Browsers ignore autocomplete="off" on a password and offer to save it as a sign-in. Chrome
+            never saves a one-time code (Safari and Firefox: check by hand), and the two attributes keep
+            1Password and LastPass away too. */}
         <Input
           type="password"
           autoComplete="one-time-code"
@@ -186,10 +192,17 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" variant="primary" pending={connect.isPending || form.formState.isSubmitting}>
+          <Button type="submit" variant="primary" pending={connect.isPending}>
             Connect Jira
           </Button>
-          <Button variant="ghost" onClick={onCancel}>
+          {/* Once the check is on its way, closing the form can't stop it from saving. */}
+          <Button
+            variant="ghost"
+            aria-disabled={connect.isPending || undefined}
+            onClick={() => {
+              if (!connect.isPending) onCancel();
+            }}
+          >
             Cancel
           </Button>
           {saved === null ? null : (
