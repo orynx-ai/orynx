@@ -52,7 +52,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 16: WorkItemCard loading form, the same size as a card (Q4a, AC-26)
       Check: pnpm test packages/ui/src/components/work-item-card.test.tsx
       Files: packages/ui/src/components/work-item-card.tsx, work-item-card.stories.tsx, work-item-card.test.tsx
-- [ ] Task 17: Add `AttentionList` and `AttentionRow`: source mark with its hidden name, title link and sub line, reason pill, Home's ghost action with a chevron; the pill moves under the sub line when the row is under 480 px; a loading form (Q3a, Q4a, Q4b, AC-18, AC-19, AC-26)
+- [x] Task 17: Add `AttentionList` and `AttentionRow`: source mark with its hidden name, title link and sub line, reason pill, Home's ghost action with a chevron; the pill moves under the sub line when the row is under 480 px; a loading form (Q3a, Q4a, Q4b, AC-18, AC-19, AC-26)
       Check: pnpm test packages/ui/src/components/attention-row.test.tsx
       Files: packages/ui/src/components/attention-row.tsx, attention-row.stories.tsx, attention-row.test.tsx, packages/ui/src/index.ts
 - [ ] Task 18: Add `FileList`: a list of 40 px buttons with the path (only the folder part is cut), counts in `success` and `danger` read as "68 lines added, 9 lines removed", `aria-current` on the shown file; a loading form (Q3b, Q5b, Q4a, AC-20, AC-21, AC-26)

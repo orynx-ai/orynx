@@ -6,6 +6,16 @@ export {
   type ActivityStepState,
 } from './components/activity-step.tsx';
 export { AgentChip, type AgentChipProps } from './components/agent-chip.tsx';
+export {
+  AttentionAction,
+  AttentionList,
+  AttentionRow,
+  AttentionRowSkeleton,
+  AttentionTitle,
+  type AttentionActionProps,
+  type AttentionRowProps,
+  type AttentionTitleProps,
+} from './components/attention-row.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
 export {
   Breadcrumb,
