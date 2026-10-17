@@ -12,15 +12,22 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'status.changed':
       // Connecting or disconnecting a tool also changes its saved settings (specs 003 and 004), and which
       // tools the inbox shows (spec 007).
-      return [queryKeys.status, queryKeys.jiraConnection, queryKeys.githubConnection, queryKeys.inbox];
+      return [
+        queryKeys.status,
+        queryKeys.jiraConnection,
+        queryKeys.githubConnection,
+        queryKeys.inbox,
+        queryKeys.tickets,
+      ];
     case 'sessions.changed':
-      // A session waiting for approval is a row on Home (spec 007).
-      return [queryKeys.sessions, queryKeys.inbox];
+      // A session waiting for approval is a row on Home (spec 007), and a ticket's agent chip (spec 008).
+      return [queryKeys.sessions, queryKeys.inbox, queryKeys.tickets];
     case 'settings.changed':
       // The inbox rules apply when the server reads the list (spec 007).
       return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];
     case 'inbox.changed':
-      return [queryKeys.inbox];
+      // A sync ended: Tickets' sprint syncs with the inbox (spec 008).
+      return [queryKeys.inbox, queryKeys.tickets];
   }
 }
 

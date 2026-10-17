@@ -14,6 +14,7 @@ import { SessionScreen } from './features/sessions/session-screen.tsx';
 import { SessionsScreen } from './features/sessions/sessions-screen.tsx';
 import { SettingsScreen } from './features/settings/settings-screen.tsx';
 import { SettingsTabSchema } from './features/settings/tabs.ts';
+import { TicketsSearchSchema } from './features/tickets/filters.ts';
 import { TicketsScreen } from './features/tickets/tickets-screen.tsx';
 import { AppShell } from './shell/app-shell.tsx';
 
@@ -29,7 +30,13 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 
 const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomeScreen });
 
-const ticketsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/tickets', component: TicketsScreen });
+const ticketsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/tickets',
+  // The filters: `/tickets?assignee=anyone&due=week&type=bug`; the defaults have none (spec 008, Q3e).
+  validateSearch: (search) => TicketsSearchSchema.parse(search),
+  component: TicketsScreen,
+});
 
 const sessionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sessions', component: SessionsScreen });
 
