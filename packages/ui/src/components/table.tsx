@@ -23,7 +23,8 @@ export function Table({ caption, className, children, ...props }: TableProps) {
       tabIndex={0}
       aria-labelledby={captionId}
       data-slot="table-container"
-      className="w-full overflow-x-auto"
+      // Relative, so hidden text inside (a header read only by screen readers) is clipped here, not by the page.
+      className="relative w-full overflow-x-auto"
     >
       <table
         data-slot="table"
@@ -68,7 +69,11 @@ export function TableHead({ className, scope = 'col', ...props }: ComponentProps
 
 export function TableCell({ className, ...props }: ComponentProps<'td'>) {
   return (
-    <td data-slot="table-cell" className={cn('px-3 py-2.5 align-middle first:ps-4 last:pe-4', className)} {...props} />
+    <td
+      data-slot="table-cell"
+      className={cn('px-3 py-2.5 align-middle whitespace-nowrap first:ps-4 last:pe-4', className)}
+      {...props}
+    />
   );
 }
 

@@ -51,7 +51,8 @@ export function TicketsList({ shown, sprintName, filtered, onlyMine, now }: Tick
               <TableCell>
                 <WorkItemKey>{ticket.key}</WorkItemKey>
               </TableCell>
-              <TableCell>
+              {/* The title is the one cell that wraps; keys, dates and chips stay on one line, as shadcn's table keeps them. */}
+              <TableCell className="whitespace-normal">
                 <TicketTitleLink ticket={ticket} />
               </TableCell>
               <TableCell>

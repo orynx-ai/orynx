@@ -19,7 +19,8 @@ export function Board({ className, children, ...props }: BoardProps) {
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling box must take focus to scroll by keyboard (axe: scrollable-region-focusable)
       tabIndex={0}
       data-slot="board"
-      className={cn('overflow-x-auto pb-2', className)}
+      // Relative, so hidden text on a card (a due date's spoken form) is clipped here, not by the page.
+      className={cn('relative overflow-x-auto pb-2', className)}
       {...props}
     >
       <div className="flex items-start gap-3">{children}</div>
