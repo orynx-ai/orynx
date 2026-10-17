@@ -25,7 +25,7 @@ function lines(count: number, what: 'added' | 'removed'): string {
 }
 
 /** The counts as a screen reader hears them: "68 lines added, 9 lines removed" (spec 006 Q5b). */
-function spokenCounts({ added, removed }: ChangedFile): string {
+export function spokenCounts(added: number, removed: number): string {
   return [added > 0 ? lines(added, 'added') : null, removed > 0 ? lines(removed, 'removed') : null]
     .filter((part) => part !== null)
     .join(', ');
@@ -55,7 +55,7 @@ export function FileList({ files, current, onSelect, className, ...props }: File
     >
       {files.map((file) => {
         const { folder, name } = splitPath(file.path);
-        const spoken = spokenCounts(file);
+        const spoken = spokenCounts(file.added, file.removed);
         return (
           <li key={file.path} className="flex">
             <button

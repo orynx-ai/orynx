@@ -58,7 +58,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 18: Add `FileList`: a list of 40 px buttons with the path (only the folder part is cut), counts in `success` and `danger` read as "68 lines added, 9 lines removed", `aria-current` on the shown file; a loading form (Q3b, Q5b, Q4a, AC-20, AC-21, AC-26)
       Check: pnpm test packages/ui/src/components/file-list.test.tsx
       Files: packages/ui/src/components/file-list.tsx, file-list.stories.tsx, file-list.test.tsx, packages/ui/src/index.ts
-- [ ] Task 19: Add `DiffView` from shadcn's `code-block` without Shiki (Q6b): a region named "Changes in <file>", the header with path and counts, numbered lines with their sign on the add and remove washes; long lines scroll inside it; copying takes only the code (Q5c, AC-22, AC-23)
+- [x] Task 19: Add `DiffView` from shadcn's `code-block` without Shiki (Q6b): a region named "Changes in <file>", the header with path and counts, numbered lines with their sign on the add and remove washes; long lines scroll inside it; copying takes only the code (Q5c, AC-22, AC-23)
       Check: pnpm test packages/ui/src/components/diff-view.test.tsx
       Files: packages/ui/src/components/diff-view.tsx, diff-view.stories.tsx, diff-view.test.tsx, packages/ui/src/index.ts
 - [ ] Task 20: DiffView hunk rows (`@@ … @@` on `bg-sidebar`; removed lines keep their old number) and its loading form (Q4c, Q4a, AC-22, AC-26)

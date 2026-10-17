@@ -43,6 +43,7 @@ export {
   type ComposerTextareaProps,
 } from './components/composer.tsx';
 export { ContextChip, ContextList, type ContextChipProps, type ContextListProps } from './components/context-chip.tsx';
+export { DiffView, type DiffLine, type DiffLineKind, type DiffViewProps } from './components/diff-view.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
 export { Input } from './components/input.tsx';
