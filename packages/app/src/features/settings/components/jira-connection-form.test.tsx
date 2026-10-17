@@ -57,7 +57,7 @@ describe('Jira connection form', () => {
     const token = within(form).getByLabelText('API token');
     await expect.poll(() => token.getAttribute('aria-invalid')).toBe('true');
     expect(token).toHaveAccessibleDescription(
-      "Jira didn't accept this email and API token. Check both, or create a new token. Create an API token",
+      "Jira didn't accept this email and API token. Check both, or create a new token.",
     );
     expect(within(form).getByRole('link', { name: 'Create an API token' })).toBeVisible();
     expect(token).toHaveFocus();
@@ -93,7 +93,7 @@ describe('Jira connection form', () => {
 
     const token = within(form).getByLabelText('API token');
     await expect.poll(() => token.getAttribute('aria-invalid')).toBe('true');
-    expect(token).toHaveAccessibleDescription('Paste your Jira API token. Create an API token');
+    expect(token).toHaveAccessibleDescription('Paste your Jira API token.');
     expect(within(form).queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -110,9 +110,7 @@ describe('Jira connection form', () => {
     expect(within(form).getByLabelText('Email')).toHaveAccessibleDescription(
       'Enter the email you sign in to Jira with.',
     );
-    expect(within(form).getByLabelText('API token')).toHaveAccessibleDescription(
-      'Paste your Jira API token. Create an API token',
-    );
+    expect(within(form).getByLabelText('API token')).toHaveAccessibleDescription('Paste your Jira API token.');
     expect(sent).toEqual([]);
   });
 
@@ -130,7 +128,7 @@ describe('Jira connection form', () => {
       'Use your Jira Cloud address, like your-team.atlassian.net.',
     );
     expect(within(form).getByLabelText('API token')).toHaveAccessibleDescription(
-      'Paste the token without spaces or line breaks. Create an API token',
+      'Paste the token without spaces or line breaks.',
     );
     expect(sent).toEqual([]);
   });

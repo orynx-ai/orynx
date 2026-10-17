@@ -47,9 +47,13 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
   });
   const { errors } = form.formState;
 
+  // Straight to the element: react-hook-form's setFocus waits a tick, and focus could then land in
+  // Jira site after the person has started typing elsewhere.
+  const siteInput = useRef<HTMLInputElement | null>(null);
+  const site = form.register('site');
   useEffect(() => {
-    form.setFocus('site');
-  }, [form]);
+    siteInput.current?.focus();
+  }, []);
 
   // Focus moves into the confirm step when it opens, and back to Disconnect Jira when it is cancelled.
   const confirmShown = useRef(false);
@@ -93,20 +97,6 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
         ? 'Leave empty to use DEVHUB_JIRA_API_TOKEN from .env.'
         : 'Create one in your Atlassian account settings.';
 
-  const tokenLink = (
-    <a
-      href={apiTokensUrl}
-      rel="noreferrer"
-      className="text-info underline"
-      onClick={(event) => {
-        event.preventDefault();
-        platform.openExternal(apiTokensUrl);
-      }}
-    >
-      Create an API token
-    </a>
-  );
-
   return (
     <form id={id} aria-label="Jira connection" noValidate onSubmit={submit} className="flex flex-col gap-4">
       <Field
@@ -114,38 +104,46 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
         help="The address you open Jira at, like your-team.atlassian.net."
         error={errors.site?.message}
       >
-        <Input inputMode="url" autoCapitalize="none" spellCheck={false} {...form.register('site')} />
+        <Input
+          inputMode="url"
+          autoCapitalize="none"
+          spellCheck={false}
+          {...site}
+          ref={(element) => {
+            site.ref(element);
+            siteInput.current = element;
+          }}
+        />
       </Field>
       <Field label="Email" help="The email you sign in to Jira with." error={errors.email?.message}>
         <Input type="email" autoComplete="email" {...form.register('email')} />
       </Field>
-      <Field
-        label="API token"
-        help={
-          <>
-            {tokenLead} {tokenLink}
-          </>
-        }
-        // A refused token's message says to create a new one, so the link stays with it.
-        error={
-          errors.apiToken?.message === undefined ? undefined : (
-            <>
-              {errors.apiToken.message} {tokenLink}
-            </>
-          )
-        }
-      >
-        {/* Browsers ignore autocomplete="off" on a password and offer to save it as a sign-in. Chrome
-            never saves a one-time code (Safari and Firefox: check by hand), and the two attributes keep
-            1Password and LastPass away too. */}
-        <Input
-          type="password"
-          autoComplete="one-time-code"
-          data-1p-ignore
-          data-lpignore="true"
-          {...form.register('apiToken')}
-        />
-      </Field>
+      <div className="flex flex-col gap-1.5">
+        <Field label="API token" help={tokenLead} error={errors.apiToken?.message}>
+          {/* Browsers ignore autocomplete="off" on a password and offer to save it as a sign-in. Chrome
+              never saves a one-time code (Safari and Firefox: check by hand), and the two attributes keep
+              1Password and LastPass away too. */}
+          <Input
+            type="password"
+            autoComplete="one-time-code"
+            data-1p-ignore
+            data-lpignore="true"
+            {...form.register('apiToken')}
+          />
+        </Field>
+        {/* On a line of its own, so it stays whatever the field says, and no message gains a link it doesn't mean. */}
+        <a
+          href={apiTokensUrl}
+          rel="noreferrer"
+          className="self-start text-small text-info underline"
+          onClick={(event) => {
+            event.preventDefault();
+            platform.openExternal(apiTokensUrl);
+          }}
+        >
+          Create an API token
+        </a>
+      </div>
       {formError === undefined ? null : (
         <p role="alert" className="m-0 text-small text-danger">
           {formError}
@@ -180,8 +178,9 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
             <Button
               variant="ghost"
               // Once Disconnect is on its way, Cancel can't stop it.
-              disabled={disconnect.isPending}
+              aria-disabled={disconnect.isPending || undefined}
               onClick={() => {
+                if (disconnect.isPending) return;
                 setConfirming(false);
                 disconnect.reset();
               }}

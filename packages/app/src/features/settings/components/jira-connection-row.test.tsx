@@ -82,7 +82,7 @@ describe('Jira connection row', () => {
     expect(within(form).getByLabelText('Email')).toHaveValue('dev@example.com');
     expect(within(form).getByLabelText('API token')).toHaveValue('');
     expect(within(form).getByLabelText('API token')).toHaveAccessibleDescription(
-      'Leave empty to keep the saved token. Create an API token',
+      'Leave empty to keep the saved token.',
     );
 
     await user.clear(within(form).getByLabelText('Email'));
@@ -144,7 +144,7 @@ describe('Jira connection row', () => {
     const { user, form } = await openForm();
 
     expect(within(form).getByLabelText('API token')).toHaveAccessibleDescription(
-      'Leave empty to use DEVHUB_JIRA_API_TOKEN from .env. Create an API token',
+      'Leave empty to use DEVHUB_JIRA_API_TOKEN from .env.',
     );
     await user.type(within(form).getByLabelText('Jira site'), 'your-team');
     await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
@@ -198,6 +198,9 @@ describe('Jira connection row', () => {
     await user.click(within(form).getByRole('button', { name: 'Disconnect Jira' }));
     await user.click(within(form).getByRole('button', { name: 'Disconnect' }));
 
-    await expect.poll(() => within(form).getByRole('button', { name: 'Cancel' }).hasAttribute('disabled')).toBe(true);
+    const cancel = within(form).getByRole('button', { name: 'Cancel' });
+    await expect.poll(() => cancel.getAttribute('aria-disabled')).toBe('true');
+    await user.click(cancel);
+    expect(within(form).getByRole('group', { name: 'Disconnect Jira?' })).toBeVisible();
   });
 });
