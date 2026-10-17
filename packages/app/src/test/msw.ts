@@ -31,4 +31,6 @@ export const server = setupServer(
   http.get(apiUrl(apiRoutes.jiraConnection), () => HttpResponse.json(makeJiraConnection())),
   http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(makeGitHubConnection())),
   http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences())),
+  http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: [] })),
+  http.get(apiUrl(apiRoutes.jiraProjects), () => HttpResponse.json({ projects: [] })),
 );

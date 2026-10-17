@@ -35,12 +35,12 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: `Select` in `@devhub/ui`: a native `<select>` styled like `Input` (40 px, `border-control`, the same focus ring, works inside `Field`), with stories (default, disabled, invalid, long list) and a test; design-map row (AC-5, AC-19)
       Check: pnpm test packages/ui/src/components/select.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/select.tsx, select.stories.tsx, select.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 12: The Repositories tab: the intro line, Add local folder, folder rows (name, `~` path in mono, Jira pill, Remove), the empty text, the loading chrome, and an optimistic Remove with focus moving on, a spoken "Removed …" and a rollback on failure (AC-1, AC-4, AC-11, AC-14, AC-15, AC-16)
+- [x] Task 12: The Repositories tab: the intro line, Add local folder, folder rows (name, `~` path in mono, Jira pill, Remove), the empty text, the loading chrome, and an optimistic Remove with focus moving on, a spoken "Removed …" and a rollback on failure (AC-1, AC-4, AC-11, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy component-coverage
       Files: packages/app/src/features/settings/tabs.ts, settings-screen.tsx, queries.ts, components/repositories-panel.tsx (+test), components/repository-row.tsx (+test)
-- [ ] Task 13: The add-folder form: react-hook-form and zod (path required, starting with / or ~), the Jira project select (connected, not connected, list failed), server errors under Folder, Add folder and Cancel, Escape, and focus on open and close (AC-5, AC-6, AC-7, AC-8, AC-9, AC-10)
+- [x] Task 13: The add-folder form: react-hook-form and zod (path required, starting with / or ~), the Jira project select (connected, not connected, list failed), server errors under Folder, Add folder and Cancel, Escape, and focus on open and close (AC-5, AC-6, AC-7, AC-8, AC-9, AC-10)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy component-coverage
-      Files: packages/app/src/features/settings/schemas.ts, queries.ts, components/add-folder-form.tsx (+test), components/repositories-panel.tsx
+      Files: packages/app/src/features/settings/schemas.ts, queries.ts, components/add-folder-form.tsx (+test), components/repositories-panel.tsx. Built in one commit with Task 12: the Add local folder button is the form's toggle and the place focus returns to
 - [ ] Task 14: e2e on the real server: the five tabs and their addresses with reload, at 360 px the opened tab scrolled fully into the tab list, CLS 0 on each new tab, keyboard through every control, adding and removing a temporary git folder with Jira not connected, a second page following along, and axe at 360 and 1280 px in light and dark. Then the browser check by hand (AC-1, AC-15, AC-17, AC-19, AC-20)
       Check: pnpm test:e2e e2e/settings.spec.ts
       Files: e2e/settings.spec.ts

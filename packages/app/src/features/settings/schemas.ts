@@ -5,6 +5,9 @@ import {
   JiraApiTokenOrBlankSchema,
   JiraApiTokenSchema,
   JiraConnectionRequestSchema,
+  JiraProjectKeySchema,
+  RepositoryPathSchema,
+  type AddRepositoryRequestSchema,
   type GitHubCredentials,
   type GitHubMethod,
   type JiraCredentials,
@@ -44,3 +47,21 @@ export function githubFormSchema(tokenRequired: boolean): z.ZodType<GitHubCreden
     z.object({ method: z.literal('token'), token: tokenRequired ? GitHubTokenSchema : GitHubTokenOrBlankSchema }),
   ]);
 }
+
+/** What the add-folder form holds while a person types; "" in the select means no Jira project. */
+export interface AddFolderFormValues {
+  path: string;
+  jiraProject: string;
+}
+
+/** The contract's request, so the form and the server refuse the same paths (spec 005, Q8e). */
+export const addFolderFormSchema: z.ZodType<
+  z.output<typeof AddRepositoryRequestSchema>,
+  AddFolderFormValues
+> = z.object({
+  path: RepositoryPathSchema,
+  jiraProject: z
+    .string()
+    .transform((key) => (key === '' ? null : key))
+    .pipe(JiraProjectKeySchema.nullable()),
+});

@@ -2,8 +2,10 @@ import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/
 import {
   githubConnectionQueryOptions,
   jiraConnectionQueryOptions,
+  jiraProjectsQueryOptions,
   preferencesQueryOptions,
   queryKeys,
+  repositoriesQueryOptions,
   statusQueryOptions,
   type ApiRequestError,
 } from '@devhub/api-client';
@@ -14,6 +16,10 @@ import type {
   JiraConnectionRequest,
   Preferences,
   PreferencesChange,
+  AddRepositoryRequest,
+  Repository,
+  RepositoryId,
+  RepositoryList,
 } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
@@ -143,6 +149,64 @@ export function useChangePreferences() {
       // Only after the last of several quick changes, so an early answer can't undo a later one on screen.
       if (queryClient.isMutating({ mutationKey: queryKeys.preferences }) === 1) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.preferences });
+      }
+    },
+  });
+}
+
+/** Settings › Repositories. Kept fresh by `settings.changed` events, not polling. */
+export function useRepositories() {
+  const api = useApi();
+  return useQuery(repositoriesQueryOptions(api));
+}
+
+/** The projects the saved Jira connection can see, asked only while the add-folder form is open and Jira is connected. */
+export function useJiraProjects(enabled: boolean) {
+  const api = useApi();
+  return useQuery({ ...jiraProjectsQueryOptions(api), enabled });
+}
+
+/** Checks the folder on disk, then saves it. Fails with folder_rejected and the message for the Folder field. */
+export function useAddRepository() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<Repository, ApiRequestError, AddRepositoryRequest>({
+    mutationKey: queryKeys.repositories,
+    mutationFn: (request) => api.addRepository(request),
+    onSuccess: (folder) => {
+      // The row shows at once; settings.changed then refetches the list to confirm it.
+      queryClient.setQueryData<RepositoryList>(queryKeys.repositories, (old) =>
+        old && !old.repositories.some((other) => other.id === folder.id)
+          ? { repositories: [...old.repositories, folder] }
+          : old,
+      );
+    },
+  });
+}
+
+/** Forgets a folder, taking its row away at once (spec 005, AC-11). A failed save puts the row back. */
+export function useRemoveRepository() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: queryKeys.repositories,
+    mutationFn: (id: RepositoryId) => api.removeRepository(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.repositories });
+      const before = queryClient.getQueryData<RepositoryList>(queryKeys.repositories);
+      if (before) {
+        queryClient.setQueryData<RepositoryList>(queryKeys.repositories, {
+          repositories: before.repositories.filter((folder) => folder.id !== id),
+        });
+      }
+      return { before };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.before) queryClient.setQueryData(queryKeys.repositories, context.before);
+    },
+    onSettled: async () => {
+      if (queryClient.isMutating({ mutationKey: queryKeys.repositories }) === 1) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.repositories });
       }
     },
   });

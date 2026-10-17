@@ -6,6 +6,7 @@ import { PageBar, PageBody, PageBreadcrumb } from '../../shell/page-frame.tsx';
 import { AppearancePanel } from './components/appearance-panel.tsx';
 import { CodingAgentPanel } from './components/coding-agent-panel.tsx';
 import { InboxRulesPanel } from './components/inbox-rules-panel.tsx';
+import { RepositoriesPanel } from './components/repositories-panel.tsx';
 import { ConnectionsPanel } from './components/connections-panel.tsx';
 import { SettingsTabSchema, settingsTabLabels } from './tabs.ts';
 
@@ -53,6 +54,9 @@ export function SettingsScreen() {
           </TabsContent>
           <TabsContent value="coding-agent" className="pt-6">
             <CodingAgentPanel />
+          </TabsContent>
+          <TabsContent value="repositories" className="pt-6">
+            <RepositoriesPanel />
           </TabsContent>
           <TabsContent value="inbox-rules" className="pt-6">
             <InboxRulesPanel />
