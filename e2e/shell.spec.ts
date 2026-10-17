@@ -81,6 +81,37 @@ test.describe('wide window', () => {
     expect(await layoutShiftScore(page)).toBe(0);
   });
 
+  test('Given the expanded sidebar, when I drag its edge, then it resizes between 260 and 400 px and keeps the width', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    const navWidth = async () => Math.round((await nav.boundingBox())?.width ?? 0);
+    const handle = nav.getByRole('separator', { name: 'Resize sidebar' });
+    expect(await navWidth()).toBe(260);
+
+    const box = await handle.boundingBox();
+    if (box === null) throw new Error('the resize handle is not on screen');
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + box.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 80, y, { steps: 4 });
+    expect(await navWidth()).toBe(340);
+    await page.mouse.move(box.x + box.width / 2 + 600, y, { steps: 4 });
+    await page.mouse.up();
+    expect(await navWidth()).toBe(400);
+    await page.mouse.move(box.x + box.width / 2 - 600, y);
+    expect(await navWidth()).toBe(400);
+
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'What should we build today?' })).toBeVisible();
+    expect(await navWidth()).toBe(400);
+    expect(await layoutShiftScore(page)).toBe(0);
+
+    await handle.dblclick();
+    expect(await navWidth()).toBe(260);
+  });
+
   test('Given a wide window, when I open DevHub, then the footer says whether Claude is connected', async ({
     page,
   }) => {

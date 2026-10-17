@@ -46,7 +46,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: Sidebar 260 px by default, resizable to 400 px, remembered (AC-21, AC-22, AC-23, AC-24)
       Check: pnpm test packages/app/src/shell; pnpm gate style-policy; checked in a real browser at 1280 px, light and dark
       Files: packages/app/src/stores/ui-store.ts, packages/app/src/shell/sidebar.tsx, packages/app/src/shell/sidebar.test.tsx
-- [ ] Task 16: e2e: drag the handle in Chromium, clamp at 400 px, keep the width across a reload with no layout shift (AC-21, AC-23)
+- [x] Task 16: e2e: drag the handle in Chromium, clamp at 400 px, keep the width across a reload with no layout shift (AC-21, AC-23)
       Check: pnpm test:e2e
       Files: e2e/shell.spec.ts
 - [ ] Task 17: STOP and run /review
