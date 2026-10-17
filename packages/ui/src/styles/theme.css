@@ -100,6 +100,8 @@
 @layer base {
   html {
     background: var(--bg-canvas);
+    /* The 56 px page bar stays at the top: whatever gets focus or is linked to stops below it. */
+    scroll-padding-top: calc(var(--spacing) * 14);
   }
 
   body {
