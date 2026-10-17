@@ -176,6 +176,20 @@ describe('inbox rules', () => {
     ]);
   });
 
+  it('AC-12: of two sessions waiting on one ticket, the one that has waited longest takes its row, in any order', () => {
+    const older = makeSessionSummary({ id: 'older', state: 'needs_you', updatedAt: '2026-10-17T09:00:00.000Z' });
+    const newer = makeSessionSummary({ id: 'newer', state: 'needs_you', updatedAt: '2026-10-17T09:30:00.000Z' });
+
+    for (const sessions of [
+      [older, newer],
+      [newer, older],
+    ]) {
+      expect(items({ jira: [issue()], sessions }).map((row) => row.target)).toEqual([
+        { kind: 'session', sessionId: 'older' },
+      ]);
+    }
+  });
+
   it('AC-12: a waiting session with no row to take over gets its own, in its ticket’s or pull request’s tab', () => {
     const rows = items({
       sessions: [

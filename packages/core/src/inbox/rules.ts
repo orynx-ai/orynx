@@ -92,10 +92,14 @@ export function inboxItems(sources: InboxSources, rules: InboxRules): InboxItem[
   }
 
   if (rules.session_waiting) {
-    for (const session of sources.sessions) {
-      if (session.state !== 'needs_you') continue;
+    // Longest wait first, so when two sessions wait on one ticket, the same one takes its row every time.
+    const waiting = sources.sessions
+      .filter((session) => session.state === 'needs_you')
+      .sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt) || a.id.localeCompare(b.id));
+    for (const session of waiting) {
       // A session on an assigned ticket takes over that ticket's row, keeping its title and sub line.
       const ticket = session.source?.kind === 'jira' ? rows.get(`jira:${session.source.key}`) : undefined;
+      if (ticket?.reason.kind === 'approval') continue;
       if (ticket === undefined) {
         rows.set(`session:${session.id}`, sessionRow(session));
       } else {

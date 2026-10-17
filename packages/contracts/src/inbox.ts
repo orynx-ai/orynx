@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { jiraCloudHost } from './jira.ts';
 import { SessionSourceSchema } from './session.ts';
 
 /**
@@ -49,9 +50,18 @@ export const InboxReasonSchema = z.discriminatedUnion('kind', [
 ]);
 export type InboxReason = z.infer<typeof InboxReasonSchema>;
 
-/** Where a row's title and action go: out to Jira or GitHub (https only), or to a session inside DevHub. */
+/** A link to an issue on a Jira Cloud site, as spec 003 allows it: https, and that host only. */
+export const JiraLinkSchema = z.url({ protocol: /^https$/, hostname: jiraCloudHost });
+
+/** A link to a pull request on github.com: https, and that host only. */
+export const GitHubLinkSchema = z.url({ protocol: /^https$/, hostname: /^github\.com$/ });
+
+/**
+ * Where a row's title and action go: out to Jira or GitHub (https, and only their hosts, so a cached or
+ * forged row can't send the person anywhere else), or to a session inside DevHub.
+ */
 export const InboxTargetSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('external'), url: z.url({ protocol: /^https$/ }) }),
+  z.object({ kind: z.literal('external'), url: z.union([JiraLinkSchema, GitHubLinkSchema]) }),
   z.object({ kind: z.literal('session'), sessionId: z.string().min(1) }),
 ]);
 export type InboxTarget = z.infer<typeof InboxTargetSchema>;

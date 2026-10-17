@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { tokenOrBlankSchema, tokenSchema } from './token.ts';
 
 /** A Jira Cloud address, the only kind DevHub sends a token to (spec 003, Q2). */
-const cloudHost = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.atlassian\.net$/;
+/** A Jira Cloud site's host, such as `your-team.atlassian.net`. */
+export const jiraCloudHost = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.atlassian\.net$/;
 const httpScheme = /^https?:\/\//;
 
 /** `your-team`, `your-team.atlassian.net` or any link on it → `your-team.atlassian.net`. */
@@ -21,7 +22,7 @@ export const JiraSiteSchema = z
   .toLowerCase()
   .min(1, 'Enter the address you open Jira at.')
   .transform(hostOf)
-  .pipe(z.string().regex(cloudHost, 'Use your Jira Cloud address, like your-team.atlassian.net.'));
+  .pipe(z.string().regex(jiraCloudHost, 'Use your Jira Cloud address, like your-team.atlassian.net.'));
 
 const emailMessage = 'Enter the email you sign in to Jira with.';
 
@@ -45,7 +46,7 @@ export type JiraConnectionRequest = z.input<typeof JiraConnectionRequestSchema>;
 export type JiraCredentials = z.output<typeof JiraConnectionRequestSchema>;
 
 export const JiraSavedConnectionSchema = z.object({
-  site: z.string().regex(cloudHost),
+  site: z.string().regex(jiraCloudHost),
   email: z.email(),
 });
 export type JiraSavedConnection = z.infer<typeof JiraSavedConnectionSchema>;

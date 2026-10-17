@@ -37,8 +37,19 @@ describe('InboxSchema', () => {
     expect(InboxItemSchema.parse(row).target).toEqual({ kind: 'session', sessionId: 'session-1' });
   });
 
-  it('links out only to https addresses, so a row can never carry a script or a plain-http link', () => {
-    for (const url of ['javascript:alert(1)', 'http://github.com/acme/web-app/pull/1', 'not a link']) {
+  it('links out only to https on github.com or a Jira Cloud site, so a row can never send you elsewhere', () => {
+    for (const url of ['https://github.com/acme/web-app/pull/1', 'https://your-team.atlassian.net/browse/PROJ-1']) {
+      expect(InboxItemSchema.safeParse({ ...makeInboxItem(), target: { kind: 'external', url } }).success).toBe(true);
+    }
+    for (const url of [
+      'javascript:alert(1)',
+      'http://github.com/acme/web-app/pull/1',
+      'not a link',
+      'https://github.com@evil.example/acme/web-app/pull/1',
+      'https:evil.example',
+      'https://github.com.evil.example/pull/1',
+      'https://atlassian.net.evil.example/browse/PROJ-1',
+    ]) {
       expect(InboxItemSchema.safeParse({ ...makeInboxItem(), target: { kind: 'external', url } }).success).toBe(false);
     }
   });
