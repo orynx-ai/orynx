@@ -4,6 +4,7 @@ export { createMemorySessionStore, type SessionStore } from './sessions/session-
 export {
   createFileSettingsStore,
   createMemorySettingsStore,
+  settingsFilePath,
   type Settings,
   type SettingsStore,
 } from './settings/settings-store.ts';

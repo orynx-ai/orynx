@@ -8,7 +8,7 @@ import { z } from 'zod';
  */
 
 /** What to check. `site` is a bare host that the contract has already limited to atlassian.net. */
-export interface JiraCredentials {
+export interface JiraCheckRequest {
   site: string;
   email: string;
   apiToken: string;
@@ -32,7 +32,7 @@ export type JiraCheck = { ok: true } | { ok: false; problem: JiraProblem };
 export interface JiraClient {
   readonly timeoutMs: number;
   /** Asks Jira who these credentials belong to (`GET /rest/api/3/myself`). */
-  check(credentials: JiraCredentials): Promise<JiraCheck>;
+  check(request: JiraCheckRequest): Promise<JiraCheck>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -55,14 +55,14 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
     async check({ site, email, apiToken }) {
       // Loaded on the first call, so starting DevHub never pays for it.
       const sdk = await import('jira.js/core');
-      const client = sdk.createClient({
-        host: `https://${site}`,
-        auth: { type: 'basic', email, apiToken },
-        // A page that isn't Jira's answer is an error, and the library writes nothing to the terminal.
-        onSchemaMismatch: 'throw',
-        ...(fetch ? { fetch } : {}),
-      });
       try {
+        const client = sdk.createClient({
+          host: `https://${site}`,
+          auth: { type: 'basic', email, apiToken },
+          // A page that isn't Jira's answer is an error, and the library writes nothing to the terminal.
+          onSchemaMismatch: 'throw',
+          ...(fetch ? { fetch } : {}),
+        });
         await client.sendRequest({
           url: '/rest/api/3/myself',
           method: 'GET',

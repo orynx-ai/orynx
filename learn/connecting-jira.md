@@ -37,7 +37,7 @@ form (react-hook-form + the contract's schema)
 | Any other status (429, 5xx, a plain 403)                        | `jira_error`     | 502 `integration_unreachable` | Jira site                 |
 | The keychain is locked or missing                               |                  | 503 `keychain_unavailable`    | one line over the buttons |
 
-The terminal gets one warn line per failed check with the problem, for example `{ kind: 'unreachable', code: 'ENOTFOUND' }`. A code is kept only when it looks like one, so a token can never pass for it.
+The terminal gets one warn line per failed check with the problem, for example `{ kind: 'unreachable', code: 'ENOTFOUND' }`, and one per keychain failure with spec 002's safe reason (`{ kind: 'keychain_unavailable', reason: 'Error (GenericFailure)' }`). A code is kept only when it looks like one, so a token can never pass for it. Anything unexpected while the status line is worked out (an unreadable `settings.json`) is logged and makes the row say **Error**; it never breaks `GET /api/status`.
 
 ## The status line
 
@@ -50,9 +50,10 @@ The terminal gets one warn line per failed check with the problem, for example `
 ## Keeping the token in its place
 
 - `client.ts` hands jira.js the email and token, and jira.js builds the `Authorization: Basic base64(email:token)` header. No error from jira.js leaves `client.ts`, so nothing that held the request reaches a log or a response.
-- As a second guard, the Fastify logger redacts `authorization` headers up to three levels deep (`create-server.ts`).
+- As a second guard, the Fastify logger redacts `authorization`, `proxy-authorization`, `cookie` and `x-devhub-token` headers up to four levels deep (`create-server.ts`).
+- The token field asks browsers and password managers not to save it (`autoComplete="one-time-code"`, `data-1p-ignore`, `data-lpignore`), and the mutation that carries it keeps nothing in the cache (`gcTime: 0`).
 - `no-token-leaks.test.ts` runs the real hub at trace level through connect, refusal, an unreachable site, status and disconnect. It finds neither the token nor its base64 value in any log line, response, event or `settings.json`.
-- `settings.json` holds the site and email only. It is mode 0600 in a 0700 folder, and is written through a temporary file and a rename, so a crash never leaves half a file. A broken file counts as empty (with a warn line) until the next save.
+- `settings.json` holds the site and email only. It is mode 0600 (the folder is created 0700), and is written through a temporary file and a rename, so a crash never leaves half a file. A broken file counts as empty (with a warn line) until the next save.
 
 ## Why only `jira.js/core`
 

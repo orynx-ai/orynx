@@ -63,7 +63,7 @@ Any other write: stop and ask.
 - `map.ts` and `rules.ts` are pure: test them fully with plain data, including the edge cases from the spec (high-priority bug, unresolved comments, 2 h Slack wait).
 - `client.ts` is tested with MSW faking the tool's HTTP API (`packages/core/src/test/fake-jira.ts` shows how; start MSW per file, never globally, because the event stream test opens a real socket). Never `vi.mock` the SDK wrapper or any of our modules.
 - Every integration needs a leak test like `integrations/jira/no-token-leaks.test.ts`: the real hub at trace level, searched for the token and the header value built from it.
-- Fake tokens must not look real (the secrets gate refuses them): `fake-token-for-tests`, not `ATATT3x…`.
+- Fake tokens must not look real: `fake-token-for-tests`, never a real prefix such as `ATATT`. The secrets gate refuses `ATATT` with 20 or more characters after it.
 - Route tests use `app.inject()` with MSW for the outside API and a temp `DEVHUB_HOME`.
 
 ## Don't

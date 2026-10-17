@@ -32,7 +32,7 @@ describe('Jira client', () => {
   });
 
   it('AC-4: Jira refuses a wrong token with 401', async () => {
-    const check = await client.check({ ...credentials, apiToken: 'ATATT3xWrongToken' });
+    const check = await client.check({ ...credentials, apiToken: 'fake-wrong-token' });
     expect(check).toEqual({ ok: false, problem: { kind: 'rejected' } });
     expectNoSecret(check);
   });
@@ -101,7 +101,7 @@ describe('Jira client', () => {
   it.each([
     ['UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY'],
     ['ENOTFOUND', 'ENOTFOUND'],
-    ['ATATT3xFfGF0goodToken', undefined],
+    ['fake-good-token', undefined],
   ])('AC-5: keeps the network error code %s for the terminal only when it looks like a code', async (code, kept) => {
     // MSW can't fail a request with a code, so this one stands in for fetch, the network itself.
     const failing = createJiraClient({

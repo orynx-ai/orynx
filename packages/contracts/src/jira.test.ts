@@ -7,7 +7,7 @@ function firstMessage(result: { success: boolean; error?: { issues: { message: s
   return result.error?.issues[0]?.message;
 }
 
-const request = { site: 'your-team.atlassian.net', email: 'dev@example.com', apiToken: 'ATATT3xFfGF0abc' };
+const request = { site: 'your-team.atlassian.net', email: 'dev@example.com', apiToken: 'fake-token-abc' };
 
 describe('JiraSiteSchema', () => {
   it.each([
@@ -48,7 +48,7 @@ describe('JiraConnectionRequestSchema', () => {
       JiraConnectionRequestSchema.parse({
         site: ' your-team ',
         email: ' dev@example.com ',
-        apiToken: ' ATATT3xFfGF0abc\n',
+        apiToken: ' fake-token-abc\n',
       }),
     ).toEqual(request);
   });
@@ -60,7 +60,7 @@ describe('JiraConnectionRequestSchema', () => {
   });
 
   it('AC-7: refuses a token with a space or line break inside', () => {
-    for (const apiToken of ['ATATT3x FfGF0', 'ATATT3x\nFfGF0']) {
+    for (const apiToken of ['fake FfGF0', 'fake\nFfGF0']) {
       expect(firstMessage(JiraConnectionRequestSchema.safeParse({ ...request, apiToken }))).toBe(
         'Paste the token without spaces or line breaks.',
       );

@@ -78,7 +78,7 @@ describe("Jira's status line", () => {
   });
 
   it('AC-9: says why when Jira no longer accepts the token', async () => {
-    const { connection } = setup({ keychain: createMemoryKeychain({ jira: 'ATATT3xRevokedToken' }) });
+    const { connection } = setup({ keychain: createMemoryKeychain({ jira: 'fake-revoked-token' }) });
 
     expect(await connection.status()).toEqual({
       state: 'error',
@@ -202,14 +202,46 @@ describe("Jira's status line", () => {
         { once: true },
       ),
     );
-    const { connection } = setup({ keychain: createMemoryKeychain({ jira: 'ATATT3xOldToken' }) });
+    const { connection } = setup({ keychain: createMemoryKeychain({ jira: 'fake-old-token' }) });
 
     const oldCheck = connection.status();
     await delay(20);
     await connection.connect({ ...saved, apiToken: goodToken });
     answerOldCheck();
-    await oldCheck;
 
+    expect(await oldCheck).toEqual(connected);
     expect(await connection.status()).toEqual(connected);
+  });
+
+  it("never breaks GET /api/status: a settings file that can't be read makes Jira's line an error", async () => {
+    const failure = Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' });
+    const onError = vi.fn();
+    const connection = createJiraConnection({
+      settings: { read: () => Promise.reject(failure), update: () => Promise.reject(failure) },
+      tokens: createTokenStore({ keychain: createMemoryKeychain(), events: createEventBus() }),
+      jira: createJiraClient({ timeoutMs: 200 }),
+      events: createEventBus(),
+      envToken: false,
+      onError,
+    });
+
+    expect(await connection.status()).toEqual({ state: 'error', detail: null });
+    expect(onError).toHaveBeenCalledWith(failure);
+  });
+
+  it("AC-9: tells the terminal why the keychain can't be reached, with a reason safe to log", async () => {
+    const onProblem = vi.fn();
+    const connection = createJiraConnection({
+      settings: createMemorySettingsStore({ jira: saved }),
+      tokens: createTokenStore({ keychain: createUnreachableKeychain(), events: createEventBus() }),
+      jira: createJiraClient({ timeoutMs: 200 }),
+      events: createEventBus(),
+      envToken: false,
+      onProblem,
+    });
+
+    await connection.status();
+
+    expect(onProblem).toHaveBeenCalledWith({ kind: 'keychain_unavailable', reason: 'Error' });
   });
 });

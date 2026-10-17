@@ -65,7 +65,7 @@ describe('Jira connection', () => {
   it('AC-4: saves nothing when Jira refuses the token', async () => {
     const { connection, keychain, settings, seen } = setup();
 
-    const error = await failure(connection.connect({ ...saved, apiToken: 'ATATT3xWrongToken' }));
+    const error = await failure(connection.connect({ ...saved, apiToken: 'fake-wrong-token' }));
 
     expect(error.code).toBe('integration_rejected');
     expect(error.message).toBe("Jira didn't accept this email and API token. Check both, or create a new token.");
@@ -80,7 +80,7 @@ describe('Jira connection', () => {
       settings: { jira: saved },
     });
 
-    await failure(connection.connect({ ...saved, email: 'other@example.com', apiToken: 'ATATT3xWrongToken' }));
+    await failure(connection.connect({ ...saved, email: 'other@example.com', apiToken: 'fake-wrong-token' }));
 
     expect(await keychain.get('jira')).toBe(goodToken);
     expect(await settings.read()).toEqual({ jira: saved });
@@ -132,6 +132,14 @@ describe('Jira connection', () => {
     expect(error.code).toBe('keychain_unavailable');
     expect(error.message).toBe(keychainUnavailableMessage);
     expect(await settings.read()).toEqual({});
+  });
+
+  it("AC-8: tells the terminal why the keychain can't be reached", async () => {
+    const { connection, onProblem } = setup({ keychain: createUnreachableKeychain() });
+
+    await failure(connection.connect({ ...saved, apiToken: goodToken }));
+
+    expect(onProblem).toHaveBeenCalledWith({ kind: 'keychain_unavailable', reason: 'Error' });
   });
 
   it('AC-10: with the token left out, checks the saved token and saves the new email', async () => {

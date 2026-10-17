@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createFileSettingsStore, createMemoryKeychain, createOsKeychain, createServer } from '@devhub/core';
+import {
+  createFileSettingsStore,
+  createMemoryKeychain,
+  createOsKeychain,
+  createServer,
+  settingsFilePath,
+} from '@devhub/core';
 import { forgetTokenSettings, loadConfig, readEnvFile, repoEnvFile } from './config.ts';
 import { createSessionToken, removeRuntimeFile, writeRuntimeFile } from './runtime-file.ts';
 import { trustSystemCertificates } from './system-certificates.ts';
@@ -28,7 +34,7 @@ const app = await createServer({
   envTokens: config.tokens.env,
   settings: createFileSettingsStore(config.home, {
     onUnreadable: () => {
-      app.log.warn(`${config.home}/settings.json is not valid JSON; DevHub ignores it until the next save.`);
+      app.log.warn(`${settingsFilePath(config.home)} is not valid; DevHub ignores it until the next save.`);
     },
   }),
   logger: {

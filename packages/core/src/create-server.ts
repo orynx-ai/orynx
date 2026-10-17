@@ -71,14 +71,12 @@ function withTokenRedaction(logger: CoreOptions['logger']): NonNullable<FastifyS
     // A second guard behind client.ts, which never logs a request: an Authorization header holds a
     // Jira token in base64, wherever a log line might carry one (spec 003).
     redact: {
-      paths: [
-        'headers.authorization',
-        'headers.Authorization',
-        '*.headers.authorization',
-        '*.headers.Authorization',
-        '*.*.headers.authorization',
-        '*.*.headers.Authorization',
-      ],
+      paths: ['authorization', 'Authorization', 'proxy-authorization', 'cookie', 'x-devhub-token'].flatMap((name) => [
+        `headers["${name}"]`,
+        `*.headers["${name}"]`,
+        `*.*.headers["${name}"]`,
+        `*.*.*.headers["${name}"]`,
+      ]),
       censor: '[redacted]',
     },
     serializers: {
@@ -116,7 +114,13 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     events,
     envToken: options.envTokens?.jira !== undefined,
     onProblem: (problem) => {
-      app.log.warn({ jira: problem }, 'Jira did not accept the check');
+      app.log.warn(
+        { jira: problem },
+        problem.kind === 'keychain_unavailable' ? 'The keychain could not be reached' : 'Jira did not accept the check',
+      );
+    },
+    onError: (error) => {
+      app.log.error(error, "Jira's status line failed");
     },
   });
   const status = createStatusService({

@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 /** A site, email and token Jira Cloud accepts in these tests. */
 export const jiraSite = 'your-team.atlassian.net';
 export const jiraEmail = 'dev@example.com';
-export const goodToken = 'ATATT3xFfGF0goodToken';
+export const goodToken = 'fake-good-token';
 /** What `Authorization: Basic …` carries for the good email and token; it must never be logged either. */
 export const goodBasicValue = Buffer.from(`${jiraEmail}:${goodToken}`).toString('base64');
 

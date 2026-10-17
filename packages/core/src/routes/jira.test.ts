@@ -103,7 +103,7 @@ describe('/api/jira/connection', () => {
       'Use your Jira Cloud address, like your-team.atlassian.net.',
     ],
     ['an email that is not one', { ...body, email: 'dev' }, 'Enter the email you sign in to Jira with.'],
-    ['a token with a space', { ...body, apiToken: 'ATATT3x Ff' }, 'Paste the token without spaces or line breaks.'],
+    ['a token with a space', { ...body, apiToken: 'fake Ff' }, 'Paste the token without spaces or line breaks.'],
   ])('AC-7: PUT refuses %s with bad_request and never calls Jira', async (_case, payload, message) => {
     const calls = jiraCalls();
     const { app } = await server();
@@ -124,7 +124,7 @@ describe('/api/jira/connection', () => {
       method: 'PUT',
       url: apiRoutes.jiraConnection,
       headers,
-      payload: { ...body, apiToken: 'ATATT3xWrongToken' },
+      payload: { ...body, apiToken: 'fake-wrong-token' },
     });
 
     expect(res.statusCode).toBe(422);
@@ -175,7 +175,7 @@ describe('/api/jira/connection', () => {
 
   it('AC-9: the status checks a saved connection with Jira when DevHub starts', async () => {
     const { app } = await server({
-      keychain: createMemoryKeychain({ jira: 'ATATT3xRevokedToken' }),
+      keychain: createMemoryKeychain({ jira: 'fake-revoked-token' }),
       settings: createMemorySettingsStore({ jira: saved }),
     });
 
