@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: ChoiceGroup and ChoiceCard in `@devhub/ui`: a fieldset named by its legend, native radios, title and detail, help or an error tied to the group (AC-2, AC-18, AC-19)
       Check: pnpm test packages/ui; pnpm gate component-coverage; pnpm gate style-policy; pnpm gate boundaries
       Files: packages/ui/src/components/choice-group.tsx, packages/ui/src/components/choice-group.test.tsx, packages/ui/src/components/choice-group.stories.tsx, packages/ui/src/components/choice-card.tsx, packages/ui/src/components/choice-card.test.tsx, packages/ui/src/components/choice-card.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 3: Settings › Appearance uses ChoiceGroup and ChoiceCard, with no visible change (Q4 d)
+- [x] Task 3: Settings › Appearance uses ChoiceGroup and ChoiceCard, with no visible change (Q4 d)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy
       Files: packages/app/src/features/settings/components/appearance-panel.tsx, packages/app/src/features/settings/components/appearance-panel.test.tsx
 - [ ] Task 4: gh runner: find gh on the search path without running it; `gh auth token --hostname github.com` within 5 s; missing, signed out, failed, too slow; a fake gh for tests (AC-4, AC-17, AC-20)
