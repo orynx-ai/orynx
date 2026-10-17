@@ -280,3 +280,12 @@ export function useRemoveRepository() {
     },
   });
 }
+
+/**
+ * Clear cache (spec 007, Q7): the server empties `cache.db`, says `inbox.changed` and syncs again, so
+ * nothing here touches the cached list.
+ */
+export function useClearInboxCache() {
+  const api = useApi();
+  return useMutation({ mutationKey: [...queryKeys.inbox, 'clear'], mutationFn: () => api.clearInboxCache() });
+}

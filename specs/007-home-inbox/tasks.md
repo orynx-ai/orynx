@@ -43,7 +43,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 13: Show the sidebar's Home count, with the hidden words " need you", hidden at 0 and on the collapsed rail. `inbox.changed`, `settings.changed` and `status.changed` refresh it (moved here from task 11, because the count is the first thing on screen that reads the inbox) (AC-15, AC-16, AC-32)
       Check: pnpm test packages/app/src/shell packages/app/src/live-updates.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/app/src/shell/sidebar.tsx, sidebar.test.tsx, packages/app/src/features/home/queries.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx, packages/app/src/test/msw.ts
-- [ ] Task 14: Add Clear cache at the bottom of Settings › Inbox rules, with its line and "Cache cleared." for screen readers (AC-31, Q7)
+- [x] Task 14: Add Clear cache at the bottom of Settings › Inbox rules, with its line and "Cache cleared." for screen readers (AC-31, Q7)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy
       Files: packages/app/src/features/settings/components/inbox-rules-panel.tsx, inbox-rules-panel.test.tsx
 - [ ] Task 15: Update `docs/architecture.md` (the cache is decided, the inbox routes, `autoSync`) and add `learn/the-inbox.md`: how a sync runs, where the cache lives, and why the words are written in the browser
