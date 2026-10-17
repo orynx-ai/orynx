@@ -41,7 +41,7 @@ DEVHUB_GITHUB_TOKEN=…
 DEVHUB_SLACK_USER_TOKEN=…
 ```
 
-- `apps/server/src/config.ts` reads `.env` with `node:util` `parseEnv`. A variable set in the shell wins over the file, and an empty value counts as not set. Only when the switch is on does it pass the tokens to `createServer({ envTokens })`.
+- `apps/server/src/config.ts` reads `.env` with `node:util` `parseEnv`. One setting never comes from it: gh's search path is the shell's `PATH` only, so a file can't decide which program DevHub starts. A variable set in the shell wins over the file, and an empty value counts as not set. Only when the switch is on does it pass the tokens to `createServer({ envTokens })`.
 - Once read, `forgetTokenSettings()` deletes the three token settings from the server's own environment, so no child process (git and gh today, Claude later) inherits a token. gh gets the server's environment with those settings gone; DevHub asks it for GitHub's token only when you chose the gh way (`learn/connecting-github.md`). Turbo does not pass them through either, so under `pnpm dev` a token set in the shell never reaches the server, Vite or Storybook: there, tokens come only from `.env`. `pnpm start` runs the server outside turbo, so a shell token does reach it.
 - `apps/web/vite.config.ts` reads the same `.env` for `DEVHUB_PORT`, `DEVHUB_WEB_PORT` and `DEVHUB_HOME`, so in `pnpm dev` the proxy and the token in the page follow the server.
 - The keychain's token wins over the `.env` one. DevHub never writes `.env`, so saving a token always goes to the keychain.
