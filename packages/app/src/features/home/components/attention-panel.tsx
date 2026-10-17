@@ -1,9 +1,10 @@
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import type { InboxTarget } from '@devhub/contracts';
+import { defaultPreferences, type Inbox, type InboxRules, type InboxTarget } from '@devhub/contracts';
 import {
   AttentionAction,
   AttentionList,
   AttentionRow,
+  AttentionRowSkeleton,
   AttentionTitle,
   Button,
   EmptyState,
@@ -14,9 +15,9 @@ import {
   TabsTrigger,
 } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
-import { countKey, homeTabLabels, homeTabs, itemsInTab, type HomeTab } from '../inbox-tabs.ts';
-import { actionLabel, reasonPill, subLine, tabCounts } from '../inbox-words.ts';
-import { useInbox, type HomeItem } from '../queries.ts';
+import { countKey, homeTabLabels, homeTabs, itemsInTab, tabTools, type HomeTab } from '../inbox-tabs.ts';
+import { actionLabel, emptyText, reasonPill, subLine, tabCounts, toolLine, type ToolLine } from '../inbox-words.ts';
+import { useInbox, useInboxRules, type HomeItem } from '../queries.ts';
 import { useNow } from '../use-now.ts';
 
 const panelTitle = 'Needs your attention';
@@ -28,13 +29,31 @@ const panelTitle = 'Needs your attention';
  */
 export function AttentionPanel() {
   const inbox = useInbox();
+  const rules = useInboxRules().data;
   const { inbox: inAddress } = useSearch({ from: '/' });
   const navigate = useNavigate();
   const now = useNow();
   const tab: HomeTab = inAddress ?? 'all';
+  const { data } = inbox;
 
-  const tools = inbox.data?.tools;
-  if (tools?.jira.state === 'not_connected' && tools.github.state === 'not_connected') {
+  if (data === undefined && inbox.isError) {
+    return (
+      <Panel title={panelTitle}>
+        <EmptyState
+          title="Couldn't load the list"
+          action={
+            <Button size="sm" pending={inbox.isFetching} onClick={() => void inbox.refetch()}>
+              Try again
+            </Button>
+          }
+        >
+          <span>Check that DevHub is still running, then try again.</span>
+        </EmptyState>
+      </Panel>
+    );
+  }
+
+  if (data?.tools.jira.state === 'not_connected' && data.tools.github.state === 'not_connected') {
     return (
       <Panel title={panelTitle}>
         <EmptyState
@@ -53,8 +72,7 @@ export function AttentionPanel() {
     );
   }
 
-  const items = inbox.data?.items ?? [];
-  const counts = inbox.data === undefined ? undefined : tabCounts(items);
+  const counts = data === undefined ? undefined : tabCounts(data.items);
 
   return (
     <Panel title={panelTitle} meta="Sorted by how long it has waited">
@@ -68,7 +86,14 @@ export function AttentionPanel() {
       >
         <TabsList aria-label="Filter by source">
           {homeTabs.map((value) => (
-            <TabsTrigger key={value} value={value} {...(counts ? { count: counts[countKey(value)] } : {})}>
+            <TabsTrigger
+              key={value}
+              value={value}
+              // A tab still waiting for its rows has no count yet (AC-20).
+              {...(data === undefined || counts === undefined || loading(value, data)
+                ? {}
+                : { count: counts[countKey(value)] })}
+            >
               {homeTabLabels[value]}
             </TabsTrigger>
           ))}
@@ -76,15 +101,107 @@ export function AttentionPanel() {
         {homeTabs.map((value) => (
           // Tab goes from the selected tab straight to the first row (AC-14, AC-33).
           <TabsContent key={value} value={value} tabIndex={-1}>
-            <AttentionList>
-              {itemsInTab(items, value).map((item) => (
-                <Row key={item.id} item={item} now={now} />
-              ))}
-            </AttentionList>
+            {data === undefined || loading(value, data) ? (
+              <LoadingRows />
+            ) : (
+              <TabBody tab={value} inbox={data} rules={rules ?? defaultPreferences.inboxRules} now={now} />
+            )}
           </TabsContent>
         ))}
       </Tabs>
     </Panel>
+  );
+}
+
+/** A tab waits for its rows while every connected tool it reads is on its first sync (AC-20). */
+function loading(tab: HomeTab, inbox: Inbox): boolean {
+  const states = tabTools[tab].map((tool) => inbox.tools[tool].state).filter((state) => state !== 'not_connected');
+  return states.length > 0 && states.every((state) => state === 'syncing') && itemsInTab(inbox.items, tab).length === 0;
+}
+
+/** Rows the same size as real ones, so nothing moves when they arrive. */
+function LoadingRows() {
+  return (
+    <AttentionList aria-busy="true">
+      {homeLoadingRows.map((key) => (
+        <AttentionRowSkeleton key={key} />
+      ))}
+    </AttentionList>
+  );
+}
+
+const homeLoadingRows = ['first', 'second', 'third', 'fourth', 'fifth'];
+
+function TabBody({
+  tab,
+  inbox,
+  rules,
+  now,
+}: {
+  tab: HomeTab;
+  inbox: Inbox & { items: HomeItem[] };
+  rules: InboxRules;
+  now: Date;
+}) {
+  const rows = itemsInTab(inbox.items, tab);
+  const lines = tabTools[tab].flatMap((tool) => {
+    const state = inbox.tools[tool];
+    // All says nothing of a tool that isn't connected, so someone who doesn't use it isn't nagged (Q5a).
+    if (tab === 'all' && state.state === 'not_connected') return [];
+    const line = toolLine(tool, state, now);
+    return line === null ? [] : [{ tool, line }];
+  });
+  const connected = tabTools[tab].some((tool) => inbox.tools[tool].state !== 'not_connected');
+
+  return (
+    <>
+      {lines.map(({ tool, line }) => (
+        <ToolNote key={tool} line={line} />
+      ))}
+      {rows.length > 0 ? (
+        <AttentionList>
+          {rows.map((item) => (
+            <Row key={item.id} item={item} now={now} />
+          ))}
+        </AttentionList>
+      ) : connected ? (
+        <NothingHere tab={tab} rules={rules} />
+      ) : null}
+    </>
+  );
+}
+
+/** One quiet line for a tool that isn't connected or whose last sync failed, above its rows (Q5). */
+function ToolNote({ line }: { line: ToolLine }) {
+  return (
+    <p className="m-0 px-4 pt-3 text-small text-muted-foreground last:pb-3">
+      {line.message}
+      {line.action === null ? null : (
+        <>
+          {' '}
+          <Link to="/settings/$tab" params={{ tab: line.action.tab }} className="text-info underline">
+            {line.action.text}
+          </Link>
+          .
+        </>
+      )}
+    </p>
+  );
+}
+
+/** A tab with no rows: what shows up here, or that its rules are off (Q8b). */
+function NothingHere({ tab, rules }: { tab: HomeTab; rules: InboxRules }) {
+  const text = emptyText(countKey(tab), rules);
+  return (
+    <EmptyState title={text.title}>
+      {text.rulesOff ? (
+        <Link to="/settings/$tab" params={{ tab: 'inbox-rules' }} className="text-info underline">
+          {text.line}
+        </Link>
+      ) : (
+        <span>{text.line}</span>
+      )}
+    </EmptyState>
   );
 }
 

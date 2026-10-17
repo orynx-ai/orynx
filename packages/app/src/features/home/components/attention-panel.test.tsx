@@ -1,8 +1,8 @@
 import { act, screen, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiRoutes, type InboxItem } from '@devhub/contracts';
-import { makeInbox, makeInboxItem } from '@devhub/contracts/testing';
+import { apiRoutes, type Inbox, type InboxItem } from '@devhub/contracts';
+import { makeInbox, makeInboxItem, makePreferences } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -46,15 +46,23 @@ const approval = makeInboxItem({
 });
 const everyRow = [review, ticket, comments, checks, approval];
 
-function inboxWith(items: InboxItem[]) {
-  server.use(http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json(makeInbox({ items }))));
+function inboxWith(items: InboxItem[], overrides: Partial<Inbox> = {}) {
+  server.use(http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json(makeInbox({ items, ...overrides }))));
 }
+
+function rulesOff(...rules: (keyof ReturnType<typeof makePreferences>['inboxRules'])[]) {
+  const inboxRules = Object.fromEntries(rules.map((rule) => [rule, false]));
+  server.use(http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences({ inboxRules }))));
+}
+
+const synced = { state: 'synced', at: '2026-10-17T11:58:00.000Z' } as const;
 
 async function openHome(route = '/') {
   const rendered = await renderApp({ route });
   const panel = screen.getByRole('region', { name: 'Needs your attention' });
-  const list = await within(panel).findByRole('list');
-  return { ...rendered, panel, list };
+  // Loading rows are hidden from screen readers, so the first row found is a real one.
+  await within(panel).findAllByRole('listitem');
+  return { ...rendered, panel, list: within(panel).getByRole('list') };
 }
 
 /** The row whose title link has this name. */
@@ -221,5 +229,194 @@ describe('AttentionPanel', () => {
     const { panel } = await openHome('/?inbox=slack');
 
     expect(within(panel).getByRole('tab', { name: 'All 5' })).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+describe('AttentionPanel states', () => {
+  /** Home on a tab, once the panel has something other than loading rows in it. */
+  async function openTab(route: string, settled: string) {
+    const rendered = await renderApp({ route });
+    const panel = screen.getByRole('region', { name: 'Needs your attention' });
+    await within(panel).findByText(settled);
+    return { ...rendered, panel };
+  }
+
+  /** The sentence a link sits in, whole. */
+  function sentenceOf(link: HTMLElement) {
+    return link.closest('p')?.textContent;
+  }
+
+  it('AC-20: shows the tabs without counts and 5 loading rows while the first sync runs', async () => {
+    inboxWith([], { tools: { jira: { state: 'syncing' }, github: { state: 'syncing' } }, syncedAt: null });
+    await renderApp();
+    const panel = screen.getByRole('region', { name: 'Needs your attention' });
+
+    const list = await within(panel).findByRole('list');
+    expect(list).toHaveAttribute('aria-busy', 'true');
+    expect(within(list).getAllByRole('listitem', { hidden: true })).toHaveLength(5);
+    expect(within(panel).getByText('Sorted by how long it has waited')).toBeVisible();
+    expect(
+      within(panel)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['All', 'Jira', 'Pull requests']);
+  });
+
+  it('AC-20: shows the same loading rows while the list is on its way', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.inbox), async () => {
+        await delay('infinite');
+        return HttpResponse.json(makeInbox());
+      }),
+    );
+    await renderApp();
+    const panel = screen.getByRole('region', { name: 'Needs your attention' });
+
+    expect(within(panel).getByRole('list')).toHaveAttribute('aria-busy', 'true');
+    expect(within(panel).getAllByRole('listitem', { hidden: true })).toHaveLength(5);
+    expect(within(panel).getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('AC-20: loads only the tab whose tool is still on its first sync, and leaves out its count', async () => {
+    inboxWith([review], { tools: { jira: { state: 'syncing' }, github: synced }, syncedAt: null });
+    const { user, panel } = await openTab('/', review.title);
+
+    expect(
+      within(panel)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['All 1', 'Jira', 'Pull requests 1']);
+
+    await user.click(within(panel).getByRole('tab', { name: 'Jira' }));
+    expect(within(panel).getByRole('list')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('AC-22: says nothing needs you on each tab, in its own words, when nothing matches', async () => {
+    inboxWith([]);
+    const { user, panel } = await openTab('/', 'Nothing needs you');
+
+    expect(
+      within(panel).getByText('Tickets assigned to you and pull requests waiting on you show up here.'),
+    ).toBeVisible();
+    expect(
+      within(panel)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['All 0', 'Jira 0', 'Pull requests 0']);
+
+    await user.click(within(panel).getByRole('tab', { name: 'Jira 0' }));
+    expect(within(panel).getByText('No Jira tickets need you')).toBeVisible();
+    expect(within(panel).getByText("Tickets assigned to you that aren't done show up here.")).toBeVisible();
+
+    await user.click(within(panel).getByRole('tab', { name: 'Pull requests 0' }));
+    expect(within(panel).getByText('No pull requests need you')).toBeVisible();
+    expect(
+      within(panel).getByText(
+        'Review requests, and your pull requests with failing checks or unresolved comments, show up here.',
+      ),
+    ).toBeVisible();
+  });
+
+  it("AC-23: says GitHub is not connected on its own tab only, and links to Settings' Connections", async () => {
+    inboxWith([ticket], { tools: { jira: synced, github: { state: 'not_connected' } } });
+    const { user, history, panel } = await openTab('/', ticket.title);
+
+    expect(within(panel).queryByText(/GitHub is not connected/)).not.toBeInTheDocument();
+
+    await user.click(within(panel).getByRole('tab', { name: 'Pull requests 0' }));
+    const connect = within(panel).getByRole('link', { name: 'Connect it in Settings' });
+    expect(sentenceOf(connect)).toBe('GitHub is not connected. Connect it in Settings.');
+    expect(within(panel).queryByText('No pull requests need you')).not.toBeInTheDocument();
+
+    await user.click(connect);
+    expect(history.location.pathname).toBe('/settings/connections');
+  });
+
+  it("AC-24: keeps GitHub's last rows under a line that says it didn't answer, on its tab and on All", async () => {
+    inboxWith([review, ticket], {
+      tools: {
+        jira: synced,
+        github: { state: 'failed', problem: { kind: 'no_answer' }, lastSyncedAt: '2026-10-17T11:48:00.000Z' },
+      },
+    });
+    const { user, panel } = await openTab('/', review.title);
+    const line = "GitHub didn't answer. These are from 12 min ago.";
+
+    expect(within(panel).getByText(line)).toBeVisible();
+    expect(within(panel).getByRole('link', { name: ticket.title })).toBeVisible();
+
+    await user.click(within(panel).getByRole('tab', { name: 'Pull requests 1' }));
+    expect(within(panel).getByText(line)).toBeVisible();
+    expect(within(panel).getByRole('link', { name: review.title })).toBeVisible();
+
+    await user.click(within(panel).getByRole('tab', { name: 'Jira 1' }));
+    expect(within(panel).queryByText(line)).not.toBeInTheDocument();
+  });
+
+  it("AC-25: keeps Jira's last rows under a line that says it refused the token, with a link to Connections", async () => {
+    inboxWith([ticket], {
+      tools: {
+        jira: { state: 'failed', problem: { kind: 'rejected' }, lastSyncedAt: '2026-10-17T11:00:00.000Z' },
+        github: synced,
+      },
+    });
+    const { user, history, panel } = await openTab('/?inbox=jira', ticket.title);
+
+    const reconnect = within(panel).getByRole('link', { name: 'Reconnect it in Settings' });
+    expect(sentenceOf(reconnect)).toBe('Jira refused the saved token. Reconnect it in Settings.');
+
+    await user.click(reconnect);
+    expect(history.location.pathname).toBe('/settings/connections');
+  });
+
+  it('AC-25: says Jira wants a sign-in on the web first', async () => {
+    inboxWith([], {
+      tools: {
+        jira: {
+          state: 'failed',
+          problem: { kind: 'sign_in_needed', site: 'acme.atlassian.net' },
+          lastSyncedAt: null,
+        },
+        github: synced,
+      },
+    });
+    const { panel } = await openTab('/?inbox=jira', 'No Jira tickets need you');
+
+    expect(
+      within(panel).getByText(
+        'Jira wants you to sign in on the web first. Sign in at acme.atlassian.net, then press Refresh.',
+      ),
+    ).toBeVisible();
+  });
+
+  it('AC-26: says when a tab is empty because its rules are off, with a link to Inbox rules', async () => {
+    inboxWith([]);
+    rulesOff('jira_assigned');
+    const { user, history, panel } = await openTab('/?inbox=jira', 'The Jira rule is off');
+
+    await user.click(within(panel).getByRole('link', { name: 'Turn them on in Settings › Inbox rules.' }));
+
+    expect(history.location.pathname).toBe('/settings/inbox-rules');
+  });
+
+  it('AC-26: says when every rule is off', async () => {
+    inboxWith([]);
+    rulesOff('jira_assigned', 'review_requested', 'checks_failing', 'unresolved_comments', 'session_waiting');
+    const { panel } = await openTab('/', 'Every inbox rule is off');
+
+    expect(within(panel).getByRole('link', { name: 'Turn some on in Settings › Inbox rules.' })).toBeVisible();
+  });
+
+  it("AC-27: says the list couldn't load, keeps the rest of Home, and tries again", async () => {
+    server.use(http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json({ error: 'down' }, { status: 500 })));
+    const { user, panel } = await openTab('/', "Couldn't load the list");
+
+    expect(within(panel).getByText('Check that DevHub is still running, then try again.')).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'What should we build today?' })).toBeVisible();
+
+    inboxWith([review]);
+    await user.click(within(panel).getByRole('button', { name: 'Try again' }));
+
+    expect(await within(panel).findByRole('link', { name: review.title })).toBeVisible();
   });
 });

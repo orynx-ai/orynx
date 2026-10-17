@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Inbox, InboxItem, InboxSource } from '@devhub/contracts';
-import { inboxQueryOptions } from '@devhub/api-client';
+import { inboxQueryOptions, preferencesQueryOptions } from '@devhub/api-client';
 import { useApi } from '../../api.tsx';
 
 /** A row Home can draw: one that leads with its tool's mark. */
@@ -24,4 +24,10 @@ export function useInbox() {
 export function useInboxCount(): number | undefined {
   const api = useApi();
   return useQuery({ ...inboxQueryOptions(api), select: (inbox) => drawable(inbox).items.length }).data;
+}
+
+/** Settings › Inbox rules, to say why a tab is empty. Kept fresh by `settings.changed`. */
+export function useInboxRules() {
+  const api = useApi();
+  return useQuery({ ...preferencesQueryOptions(api), select: (preferences) => preferences.inboxRules });
 }

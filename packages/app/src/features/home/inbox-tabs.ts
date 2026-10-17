@@ -18,7 +18,14 @@ export const homeTabLabels: Record<HomeTab, string> = { all: 'All', jira: 'Jira'
 
 const inboxTabs: Record<Exclude<HomeTab, 'all'>, InboxTab> = { jira: 'jira', 'pull-requests': 'pull_requests' };
 
-/** The tab's own key in `tabCounts`. */
+/** The tools whose rows a tab shows. */
+export const tabTools: Record<HomeTab, readonly ('jira' | 'github')[]> = {
+  all: ['jira', 'github'],
+  jira: ['jira'],
+  'pull-requests': ['github'],
+};
+
+/** The tab's own key in `tabCounts` and `emptyText`. */
 export function countKey(tab: HomeTab): 'all' | InboxTab {
   return tab === 'all' ? 'all' : inboxTabs[tab];
 }
