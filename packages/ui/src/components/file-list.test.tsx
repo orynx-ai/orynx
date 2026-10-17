@@ -25,17 +25,16 @@ describe('FileList', () => {
     const list = screen.getByRole('list', { name: 'Changed files' });
     const buttons = within(list).getAllByRole('button');
     expect(buttons.map((button) => button.textContent)).toEqual([
-      'src/content/ContentList.tsx+68−9',
-      'src/content/api/contentApi.ts+31−2',
-      'src/content/useSelection.ts+1−1',
-      'src/content/__tests__/bulkArchive.test.ts+21',
+      'src/content/ContentList.tsx +68−968 lines added, 9 lines removed',
+      'src/content/api/contentApi.ts +31−231 lines added, 2 lines removed',
+      'src/content/useSelection.ts +1−11 line added, 1 line removed',
+      'src/content/__tests__/bulkArchive.test.ts +2121 lines added',
     ]);
-    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
-      'src/content/ContentList.tsx 68 lines added, 9 lines removed',
-      'src/content/api/contentApi.ts 31 lines added, 2 lines removed',
-      'src/content/useSelection.ts 1 line added, 1 line removed',
-      'src/content/__tests__/bulkArchive.test.ts 21 lines added',
-    ]);
+    // Each is named by its path and its counts as words; the drawn "+68 −9" isn't read out.
+    expect(buttons[0]).toHaveAccessibleName('src/content/ContentList.tsx 68 lines added, 9 lines removed');
+    expect(buttons[1]).toHaveAccessibleName('src/content/api/contentApi.ts 31 lines added, 2 lines removed');
+    expect(buttons[2]).toHaveAccessibleName('src/content/useSelection.ts 1 line added, 1 line removed');
+    expect(buttons[3]).toHaveAccessibleName('src/content/__tests__/bulkArchive.test.ts 21 lines added');
     expect(
       screen.getByRole('button', { name: 'src/content/ContentList.tsx 68 lines added, 9 lines removed' }),
     ).toHaveAttribute('aria-current', 'true');

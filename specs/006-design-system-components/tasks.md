@@ -70,7 +70,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 22: Mark every new part built in the design-map Components table, with its props (AC-28)
       Check: pnpm gate specs; pnpm exec prettier --check docs/design-map.md
       Files: docs/design-map.md
-- [ ] Task 23: Open every new story in a real browser at 360 and 1280 px, in light and dark: run axe, measure sizes, wraps and sideways scroll, Tab through; fix what turns up, then run the full check (AC-27, AC-28)
+- [x] Task 23: Open every new story in a real browser at 360 and 1280 px, in light and dark: run axe, measure sizes, wraps and sideways scroll, Tab through; fix what turns up, then run the full check (AC-27, AC-28)
       Check: Storybook (pnpm storybook) with axe in the browser, no violations; pnpm verify; pnpm test:coverage at 90% or more
       Files: whichever stories or parts the check shows need fixing
 - [ ] Task 24: STOP and run /review

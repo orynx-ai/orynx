@@ -61,8 +61,6 @@ export function FileList({ files, current, onSelect, className, ...props }: File
             <button
               type="button"
               title={file.path}
-              // The path as shown, then the counts as words; the drawn "+68 −9" isn't read out.
-              aria-label={spoken ? `${file.path} ${spoken}` : file.path}
               aria-current={file.path === current ? 'true' : undefined}
               onClick={() => {
                 onSelect(file.path);
@@ -74,10 +72,13 @@ export function FileList({ files, current, onSelect, className, ...props }: File
                 {/* Never shrinks, so the folder gives way first; cut only when the name alone is too wide. */}
                 <span className="max-w-full shrink-0 truncate">{name}</span>
               </span>
+              {/* Named by its content: the path, then the counts as words. The drawn "+68 −9" isn't read
+                  out, and the spaces keep the words apart (flex layout ignores them). */}{' '}
               <span aria-hidden className="flex shrink-0 gap-2">
                 {file.added > 0 ? <span className="text-success">+{file.added}</span> : null}
                 {file.removed > 0 ? <span className="text-danger">−{file.removed}</span> : null}
               </span>
+              {spoken ? <span className="sr-only">{spoken}</span> : null}
             </button>
           </li>
         );

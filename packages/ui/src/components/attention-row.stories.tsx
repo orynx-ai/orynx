@@ -81,15 +81,7 @@ export const LongText: Story = {
   },
 };
 /** Under 480 px the reason pill moves under the sub line, and the action stays at the end. */
-export const Narrow: Story = {
-  decorators: [
-    (Story) => (
-      <div className="max-w-sm">
-        <Story />
-      </div>
-    ),
-  ],
-};
+export const Narrow: Story = { args: { className: 'max-w-sm' } };
 /** Loading: rows the same size as real ones. */
 export const Loading: Story = {
   render: () => (
