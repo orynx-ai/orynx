@@ -9,9 +9,11 @@ import { createGhCli, type GhCli } from './integrations/github/gh.ts';
 import { createJiraClient } from './integrations/jira/client.ts';
 import { createJiraConnection } from './integrations/jira/connection.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
+import { createPreferencesService } from './preferences/preferences-service.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
 import { jiraRoutes } from './routes/jira.ts';
+import { preferencesRoutes } from './routes/preferences.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
 import { statusRoutes } from './routes/status.ts';
 import type { Keychain } from './secrets/keychain.ts';
@@ -191,6 +193,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(sessionsRoutes, { sessions: options.sessions ?? createMemorySessionStore() });
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
+      await api.register(preferencesRoutes, { preferences: createPreferencesService({ settings, events }) });
       await api.register(eventsRoutes, {
         events,
         ...(options.eventsKeepAliveMs === undefined ? {} : { keepAliveMs: options.eventsKeepAliveMs }),

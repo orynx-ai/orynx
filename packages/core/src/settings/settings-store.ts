@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { GitHubSavedConnectionSchema, JiraSavedConnectionSchema } from '@devhub/contracts';
+import { GitHubSavedConnectionSchema, JiraSavedConnectionSchema, PermissionModeSchema } from '@devhub/contracts';
 
 /**
  * Everything in `<DEVHUB_HOME>/settings.json`. Never a token: tokens live in the keychain (spec 002).
@@ -13,10 +13,26 @@ const SettingsSchema = z.looseObject({
   jira: JiraSavedConnectionSchema.optional(),
   /** The way GitHub accepted: the gh login or a token in the keychain (spec 004). */
   github: GitHubSavedConnectionSchema.optional(),
+  /**
+   * Settings › Coding agent (spec 005). A value this version can't read counts as never chosen, so one
+   * bad key can't make DevHub forget the Jira and GitHub settings next to it.
+   */
+  agent: z
+    .looseObject({ permissionMode: PermissionModeSchema.optional().catch(undefined) })
+    .optional()
+    .catch(undefined),
+  /**
+   * Settings › Inbox rules (spec 005): only the rules the person changed. Rule names this version doesn't
+   * know are kept, so a newer DevHub's rules survive.
+   */
+  inbox: z
+    .looseObject({ rules: z.record(z.string(), z.boolean()).optional().catch(undefined) })
+    .optional()
+    .catch(undefined),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
-/** The settings DevHub keeps between runs. Spec 005 adds its own keys to the same store. */
+/** The settings DevHub keeps between runs: the connections (specs 003, 004) and Settings' own values (spec 005). */
 export interface SettingsStore {
   read(): Promise<Settings>;
   /** Applies `change` to the latest settings and saves the result. Changes run one at a time. */

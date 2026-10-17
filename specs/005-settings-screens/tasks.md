@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Contracts for preferences: the permission mode, the five inbox rules and their defaults, the PATCH body, the `settings.changed` event and the `/api/preferences` path. The agent adapter takes `PermissionMode` from contracts (AC-2, AC-12)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/preferences.ts, preferences.test.ts, events.ts, routes.ts, index.ts, testing.ts; packages/core/src/agents/agent-adapter.ts
-- [ ] Task 2: Core preferences: settings.json keys, a service that reads with defaults and saves a partial change, and GET/PATCH `/api/preferences`, which publishes `settings.changed` and keeps every other key (AC-3, AC-13, AC-17, AC-18)
+- [x] Task 2: Core preferences: settings.json keys, a service that reads with defaults and saves a partial change, and GET/PATCH `/api/preferences`, which publishes `settings.changed` and keeps every other key (AC-3, AC-13, AC-17, AC-18)
       Check: pnpm test packages/core/src/preferences packages/core/src/routes/preferences.test.ts packages/core/src/settings; pnpm gate learn-freshness
       Files: packages/core/src/settings/settings-store.ts, packages/core/src/preferences/preferences-service.ts (+test), packages/core/src/routes/preferences.ts (+test), packages/core/src/create-server.ts
 - [ ] Task 3: api-client preferences (get, update, queryOptions), and `settings.changed` refreshing them in live updates (AC-17)

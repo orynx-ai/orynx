@@ -95,6 +95,16 @@ describe('file settings store', () => {
     expect(await createFileSettingsStore(home).read()).toEqual({});
   });
 
+  it("AC-18: a Settings value it can't read counts as never chosen, and Jira's settings stay", async () => {
+    await mkdir(home, { recursive: true });
+    await writeFile(
+      settingsFilePath(home),
+      JSON.stringify({ jira, agent: { permissionMode: 'yolo' }, inbox: { rules: { checks_failing: 'no' } } }),
+    );
+
+    expect(await createFileSettingsStore(home).read()).toEqual({ jira, agent: {}, inbox: {} });
+  });
+
   it('a failed change leaves the file as it was and later changes still run', async () => {
     const store = createFileSettingsStore(home);
     await store.update(() => ({ jira }));
