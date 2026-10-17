@@ -85,7 +85,7 @@ Tasks 22 to 29 come from the amendment of 17 Oct 2026 (Q9, Q10): search, filters
 - [x] Task 26: Order the list newest wait first, with the order menu in the panel's head (AC-1, AC-39, Q10d)
       Check: pnpm test packages/app/src/features/home; pnpm gate style-policy
       Files: packages/app/src/features/home/components/attention-panel.tsx, attention-panel.test.tsx, components/order-menu.tsx, e2e/home-inbox.spec.ts
-- [ ] Task 27: The toolbar: the search box on the left and the tab's filter menus on the right, no matches with Clear search and filters, and filters dropped when the tab changes (AC-35, AC-36, AC-37, AC-38, AC-42, AC-45)
+- [x] Task 27: The toolbar: the search box on the left and the tab's filter menus on the right, no matches with Clear search and filters, and filters dropped when the tab changes (AC-35, AC-36, AC-37, AC-38, AC-42, AC-45)
       Check: pnpm test packages/app/src/features/home; pnpm gate style-policy component-coverage
       Files: packages/app/src/features/home/components/inbox-toolbar.tsx, inbox-toolbar.test.tsx, attention-panel.tsx, attention-panel.test.tsx
 - [ ] Task 28: Pages of 16 with the pager, back to page 1 on any change, the last page when a sync shortens the list, and focus on the first row after paging (AC-40, AC-41, AC-44)

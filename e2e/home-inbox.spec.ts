@@ -139,20 +139,20 @@ test('Given Jira and GitHub are connected, when Home opens, then their rows show
   await expect(page.getByText('Synced just now')).toBeVisible();
 });
 
-test('Given Home with rows, when I go through it with Tab, then it stops on Refresh, the order, the selected tab, then each title and action, each with the focus ring', async ({
+test('Given Home with rows, when I go through it with Tab, then it stops on Refresh, the order, the selected tab, the search box, the filter, then each title and action, each with the focus ring', async ({
   page,
 }) => {
   await openHome(page);
   await page.getByRole('button', { name: 'Refresh' }).focus();
 
   const stops: { name: string; ring: boolean }[] = [];
-  for (let stop = 0; stop < 6; stop += 1) {
+  for (let stop = 0; stop < 8; stop += 1) {
     stops.push(
       await page.evaluate(() => {
         const focused = document.activeElement;
         const style = focused === null ? null : getComputedStyle(focused);
         return {
-          name: focused?.textContent ?? '',
+          name: focused?.getAttribute('aria-label') ?? focused?.textContent ?? '',
           ring: style !== null && style.outlineStyle === 'solid' && style.outlineWidth === '2px',
         };
       }),
@@ -162,8 +162,10 @@ test('Given Home with rows, when I go through it with Tab, then it stops on Refr
 
   expect(stops).toEqual([
     { name: 'Refresh', ring: true },
-    { name: 'Newest first', ring: true },
+    { name: 'Order: Newest first', ring: true },
     { name: 'All 14', ring: true },
+    { name: 'Search', ring: true },
+    { name: 'Reason', ring: true },
     { name: 'Fix timezone shift in event cards', ring: true },
     { name: 'Open', ring: true },
     { name: 'Lazy-load the people directory', ring: true },

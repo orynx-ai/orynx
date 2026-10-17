@@ -202,7 +202,7 @@ describe('AttentionPanel', () => {
     ).toEqual([approval.title, ticket.title]);
   });
 
-  it('AC-14: a reload stays on the tab in the address, and Tab goes from the selected tab into the list', async () => {
+  it("AC-14, AC-45: a reload stays on the tab in the address, and Tab goes from the selected tab into the tab's panel", async () => {
     const { user, panel } = await openHome('/?inbox=pull-requests');
     const selected = within(panel).getByRole('tab', { name: 'Pull requests 3' });
 
@@ -214,7 +214,7 @@ describe('AttentionPanel', () => {
     });
     await user.tab();
 
-    expect(screen.getByRole('link', { name: checks.title })).toHaveFocus();
+    expect(within(panel).getByRole('searchbox', { name: 'Search pull requests' })).toHaveFocus();
   });
 
   it('AC-14: going back to All takes the tab out of the address', async () => {
@@ -491,28 +491,26 @@ describe('AttentionPanel when a sync changes the rows', () => {
     inboxWith([review, ticket]);
     const { user } = await openHome('/?sort=longest');
     focusOn(screen.getByRole('link', { name: ticket.title }));
-    await user.tab({ shift: true });
-    await user.tab({ shift: true });
-    await user.tab({ shift: true });
-    const outside = document.activeElement;
-    expect(outside).toHaveAttribute('role', 'tab');
+    const search = screen.getByRole('searchbox', { name: 'Search' });
+    await user.click(search);
 
     await syncTo([review]);
 
-    expect(outside).toHaveFocus();
+    expect(search).toHaveFocus();
   });
 
-  it('AC-33: goes from the selected tab through each row, title then action', async () => {
+  it('AC-33, AC-45: goes from the selected tab through the toolbar, then each row, title then action', async () => {
     inboxWith([review, ticket]);
     const { user, panel } = await openHome('/?sort=longest');
     focusOn(within(panel).getByRole('tab', { name: 'All 2' }));
 
     const stops: (string | null)[] = [];
-    for (let stop = 0; stop < 4; stop += 1) {
+    for (let stop = 0; stop < 6; stop += 1) {
       await user.tab();
-      stops.push(document.activeElement?.textContent ?? null);
+      const focused = document.activeElement;
+      stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent ?? null);
     }
 
-    expect(stops).toEqual([review.title, 'Review', ticket.title, 'Open']);
+    expect(stops).toEqual(['Search', 'Reason', review.title, 'Review', ticket.title, 'Open']);
   });
 });

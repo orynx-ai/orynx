@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type FocusEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, type FocusEvent } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { defaultPreferences, type Inbox, type InboxRules, type InboxTarget } from '@devhub/contracts';
 import {
@@ -18,9 +18,18 @@ import {
 import { usePlatform } from '../../../platform.tsx';
 import { countKey, homeTabLabels, homeTabs, itemsInTab, tabTools, type HomeTab } from '../inbox-tabs.ts';
 import { actionLabel, emptyText, reasonPill, subLine, tabCounts, toolLine, type ToolLine } from '../inbox-words.ts';
-import { matchingRows, searchFor, searchForTab, viewOf, type HomeView } from '../inbox-view.ts';
+import {
+  defaultView,
+  filterMenus,
+  matchingRows,
+  searchFor,
+  searchForTab,
+  viewOf,
+  type HomeView,
+} from '../inbox-view.ts';
 import { useInbox, useInboxRules, type HomeItem } from '../queries.ts';
 import { useNow } from '../use-now.ts';
+import { InboxToolbar } from './inbox-toolbar.tsx';
 import { OrderMenu } from './order-menu.tsx';
 
 const panelTitle = 'Needs your attention';
@@ -115,20 +124,82 @@ export function AttentionPanel() {
         {homeTabs.map((value) => (
           // Tab goes from the selected tab straight to the first row (AC-14, AC-33).
           <TabsContent key={value} value={value} tabIndex={-1}>
-            {data === undefined || loading(value, data) ? (
-              <LoadingRows />
-            ) : (
-              <TabBody
-                view={{ ...view, tab: value }}
-                inbox={data}
-                rules={rules ?? defaultPreferences.inboxRules}
-                now={now}
-              />
-            )}
+            <TabView
+              view={{ ...view, tab: value }}
+              inbox={data}
+              rules={rules ?? defaultPreferences.inboxRules}
+              now={now}
+              onViewChange={(next, { replace = false } = {}) => {
+                void navigate({ to: '/', search: searchFor(next), replace, resetScroll: false });
+              }}
+            />
           </TabsContent>
         ))}
       </Tabs>
     </Panel>
+  );
+}
+
+/**
+ * One tab's panel: the toolbar while the tab has a tool connected, then its rows, or its loading rows. A
+ * search or a tick goes back to the first page; typing replaces the address instead of adding to Back.
+ */
+function TabView({
+  view,
+  inbox,
+  rules,
+  now,
+  onViewChange,
+}: {
+  view: HomeView;
+  inbox: (Inbox & { items: HomeItem[] }) | undefined;
+  rules: InboxRules;
+  now: Date;
+  onViewChange: (view: HomeView, how?: { replace?: boolean }) => void;
+}) {
+  const { tab } = view;
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const focusSearch = useRef(false);
+
+  // After Clear search and filters, focus goes back to the search box once the address is clear (AC-38).
+  useEffect(() => {
+    if (!focusSearch.current || view.query !== '') return;
+    focusSearch.current = false;
+    searchRef.current?.focus();
+  });
+
+  const connected = inbox === undefined || tabTools[tab].some((tool) => inbox.tools[tool].state !== 'not_connected');
+  return (
+    <>
+      {connected ? (
+        <InboxToolbar
+          tab={tab}
+          query={view.query}
+          menus={filterMenus(inbox?.items ?? [], tab, view.filters)}
+          searchRef={searchRef}
+          onQueryChange={(query) => {
+            onViewChange({ ...view, query, page: 1 }, { replace: true });
+          }}
+          onFilterChange={(key, ticked) => {
+            onViewChange({ ...view, filters: { ...view.filters, [key]: ticked }, page: 1 });
+          }}
+        />
+      ) : null}
+      {inbox === undefined || loading(tab, inbox) ? (
+        <LoadingRows />
+      ) : (
+        <TabBody
+          view={view}
+          inbox={inbox}
+          rules={rules}
+          now={now}
+          onClear={() => {
+            focusSearch.current = true;
+            onViewChange({ ...view, query: '', filters: defaultView.filters, page: 1 });
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -156,14 +227,17 @@ function TabBody({
   inbox,
   rules,
   now,
+  onClear,
 }: {
   view: HomeView;
   inbox: Inbox & { items: HomeItem[] };
   rules: InboxRules;
   now: Date;
+  onClear: () => void;
 }) {
   const { tab } = view;
   const rows = matchingRows(inbox.items, view);
+  const anyRows = itemsInTab(inbox.items, tab).length > 0;
   const lines = tabTools[tab].flatMap((tool) => {
     const state = inbox.tools[tool];
     // All says nothing of a tool that isn't connected, so someone who doesn't use it isn't nagged (Q5a).
@@ -185,10 +259,28 @@ function TabBody({
             <Row key={item.id} item={item} now={now} />
           ))}
         </AttentionList>
+      ) : anyRows ? (
+        <NoMatches onClear={onClear} />
       ) : connected ? (
         <NothingHere tab={tab} rules={rules} />
       ) : null}
     </div>
+  );
+}
+
+/** The tab has rows, but the search and filters let none through (AC-38, Q10e). */
+function NoMatches({ onClear }: { onClear: () => void }) {
+  return (
+    <EmptyState
+      title="No matches"
+      action={
+        <Button size="sm" onClick={onClear}>
+          Clear search and filters
+        </Button>
+      }
+    >
+      <span>Nothing in this tab matches your search and filters.</span>
+    </EmptyState>
   );
 }
 
