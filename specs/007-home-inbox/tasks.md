@@ -34,15 +34,15 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 10: The host opens `<DEVHUB_HOME>/cache.db` and turns `autoSync` on. Add a leak test: the real hub at trace level through a sync, with no token in the log or the cache and no description or comment text in the cache (AC-28)
       Check: pnpm test apps/server packages/core/src/inbox/no-leaks.test.ts; pnpm gate secrets env-policy
       Files: apps/server/src/main.ts, packages/core/src/inbox/no-leaks.test.ts
-- [ ] Task 11: Add `inbox()`, `refreshInbox()` and `clearInboxCache()` to the api-client with their query options. `inbox.changed`, `settings.changed` and `status.changed` refresh the inbox (AC-15, AC-16)
-      Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx
-      Files: packages/api-client/src/endpoints/inbox.ts, inbox.test.ts, client.ts, queries.ts, index.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx
+- [x] Task 11: Add `inbox()`, `refreshInbox()` and `clearInboxCache()` to the api-client with their query options (AC-16, AC-17, AC-27, AC-31)
+      Check: pnpm test packages/api-client
+      Files: packages/api-client/src/endpoints/inbox.ts, inbox.test.ts, client.ts, queries.ts, index.ts
 - [ ] Task 12: Write Home's words as pure functions: each pill's text, spoken text and tone, the waits, each sub line, each action and its link, the sync line and each tool's line (AC-5, AC-13, Q2, Q5, Q6, Q8)
       Check: pnpm test packages/app/src/features/home
       Files: packages/app/src/features/home/inbox-words.ts, inbox-words.test.ts
-- [ ] Task 13: Show the sidebar's Home count, with the hidden words " need you", hidden at 0 and on the collapsed rail (AC-32)
-      Check: pnpm test packages/app/src/shell; pnpm gate style-policy component-coverage
-      Files: packages/app/src/shell/sidebar.tsx, sidebar.test.tsx, packages/app/src/features/home/queries.ts
+- [ ] Task 13: Show the sidebar's Home count, with the hidden words " need you", hidden at 0 and on the collapsed rail. `inbox.changed`, `settings.changed` and `status.changed` refresh it (moved here from task 11, because the count is the first thing on screen that reads the inbox) (AC-15, AC-16, AC-32)
+      Check: pnpm test packages/app/src/shell packages/app/src/live-updates.test.tsx; pnpm gate style-policy component-coverage
+      Files: packages/app/src/shell/sidebar.tsx, sidebar.test.tsx, packages/app/src/features/home/queries.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx, packages/app/src/test/msw.ts
 - [ ] Task 14: Add Clear cache at the bottom of Settings › Inbox rules, with its line and "Cache cleared." for screen readers (AC-31, Q7)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy
       Files: packages/app/src/features/settings/components/inbox-rules-panel.tsx, inbox-rules-panel.test.tsx

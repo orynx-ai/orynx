@@ -3,6 +3,7 @@ export { ApiRequestError } from './errors.ts';
 export { parseServerEvent, subscribeToEvents, type EventSourceConstructor, type EventSourceLike } from './events.ts';
 export {
   githubConnectionQueryOptions,
+  inboxQueryOptions,
   jiraConnectionQueryOptions,
   jiraProjectsQueryOptions,
   preferencesQueryOptions,

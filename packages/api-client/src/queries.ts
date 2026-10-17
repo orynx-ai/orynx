@@ -12,6 +12,7 @@ export const queryKeys = {
   githubConnection: ['github', 'connection'] as const,
   preferences: ['preferences'] as const,
   repositories: ['repositories'] as const,
+  inbox: ['inbox'] as const,
 };
 
 export function statusQueryOptions(api: ApiClient) {
@@ -76,5 +77,15 @@ export function jiraProjectsQueryOptions(api: ApiClient) {
     staleTime: 0,
     gcTime: 0,
     retry: false,
+  });
+}
+
+export function inboxQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.inbox,
+    queryFn: () => api.inbox(),
+    // Freshness comes from the event stream (inbox.changed, settings.changed, status.changed), not from
+    // polling: the server syncs on its own every 2 minutes while a page is open.
+    staleTime: Infinity,
   });
 }
