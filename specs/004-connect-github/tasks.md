@@ -29,7 +29,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Routes `GET`, `PUT` and `DELETE /api/github/connection`, error codes to HTTP, `createServer` takes `gh` (none by default), the status service uses GitHub's line (AC-1, AC-3, AC-9, AC-11, AC-16, AC-20)
       Check: pnpm test packages/core; pnpm typecheck
       Files: packages/core/src/routes/github.ts, packages/core/src/routes/github.test.ts, packages/core/src/routes/jira.ts, packages/core/src/status/status-service.ts, packages/core/src/create-server.ts, packages/core/src/index.ts, packages/core/src/test/fake-gh.ts and packages/core/src/test/fake-gh/gh (found while building: macOS checks each new program the first time it runs, one at a time, so a fresh fake gh per test timed out under a parallel run; each test folder now links to one shared script)
-- [ ] Task 10: Leak test at trace level: the gh token and a pasted token, and their `authorization` header, appear nowhere; gh's output is never logged (AC-17)
+- [x] Task 10: Leak test at trace level: the gh token and a pasted token, and their `authorization` header, appear nowhere; gh's output is never logged (AC-17)
       Check: pnpm test packages/core; pnpm gate secrets
       Files: packages/core/src/integrations/github/no-token-leaks.test.ts
 - [ ] Task 11: Server host: gh's search path from the built-in `PATH`, the real gh runner in `main.ts`, and a fake signed-out gh first on PATH in Playwright's server (AC-20)
