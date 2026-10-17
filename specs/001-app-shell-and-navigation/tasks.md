@@ -43,7 +43,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: `Splitter` in `@devhub/ui`: a keyboard and pointer resize handle (window-splitter pattern) (AC-21, AC-22, AC-23)
       Check: pnpm test packages/ui; pnpm gate component-coverage; pnpm gate style-policy
       Files: packages/ui/src/components/splitter.tsx, packages/ui/src/components/splitter.stories.tsx, packages/ui/src/components/splitter.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 15: Sidebar 260 px by default, resizable to 400 px, remembered (AC-21, AC-22, AC-23, AC-24)
+- [x] Task 15: Sidebar 260 px by default, resizable to 400 px, remembered (AC-21, AC-22, AC-23, AC-24)
       Check: pnpm test packages/app/src/shell; pnpm gate style-policy; checked in a real browser at 1280 px, light and dark
       Files: packages/app/src/stores/ui-store.ts, packages/app/src/shell/sidebar.tsx, packages/app/src/shell/sidebar.test.tsx
 - [ ] Task 16: e2e: drag the handle in Chromium, clamp at 400 px, keep the width across a reload with no layout shift (AC-21, AC-23)

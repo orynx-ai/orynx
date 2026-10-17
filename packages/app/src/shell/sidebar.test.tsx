@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { useUiStore } from '../stores/ui-store.ts';
 import { renderApp } from '../test/render.tsx';
 
 function mainNav() {
@@ -96,5 +97,41 @@ describe('Sidebar', () => {
     await user.click(within(mainNav()).getByRole('link', { name: 'Sessions' }));
 
     expect(history.location.pathname).toBe('/sessions');
+  });
+
+  it('AC-22: resizes from the keyboard in 16 px steps and remembers the width', async () => {
+    const { user } = await renderApp();
+    const nav = mainNav();
+    const handle = within(nav).getByRole('separator', { name: 'Resize sidebar' });
+    expect(handle).toHaveAttribute('aria-valuenow', '260');
+    expect(handle).toHaveAttribute('aria-controls', nav.id);
+
+    handle.focus();
+    await user.keyboard('{ArrowRight}{ArrowRight}');
+
+    expect(handle).toHaveAttribute('aria-valuenow', '292');
+    expect(nav.style.getPropertyValue('--sidebar-width')).toBe('292px');
+    expect(JSON.parse(localStorage.getItem('devhub.ui') ?? '{}')).toMatchObject({ state: { sidebarWidth: 292 } });
+  });
+
+  it('AC-23: keeps a remembered width within 260–400 px', async () => {
+    localStorage.setItem(
+      'devhub.ui',
+      JSON.stringify({ state: { sidebarCollapsed: false, sidebarWidth: 999 }, version: 0 }),
+    );
+    await useUiStore.persist.rehydrate();
+    await renderApp();
+
+    expect(within(mainNav()).getByRole('separator', { name: 'Resize sidebar' })).toHaveAttribute(
+      'aria-valuenow',
+      '400',
+    );
+  });
+
+  it('AC-24: has no resize handle while collapsed', async () => {
+    const { user } = await renderApp();
+    await user.click(within(mainNav()).getByRole('button', { name: 'Collapse sidebar' }));
+
+    expect(within(mainNav()).queryByRole('separator')).toBeNull();
   });
 });

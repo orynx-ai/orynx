@@ -1,10 +1,10 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Link, useLinkProps } from '@tanstack/react-router';
 import { History, House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucide-react';
-import { Button, Kbd, cn } from '@devhub/ui';
+import { Button, Kbd, Splitter, cn } from '@devhub/ui';
 import { SidebarSessions } from '../features/sessions/components/sidebar-sessions.tsx';
 import { usePlatform } from '../platform.tsx';
-import { useUiStore } from '../stores/ui-store.ts';
+import { clampSidebarWidth, sidebarWidthLimits, useUiStore } from '../stores/ui-store.ts';
 import { newTaskShortcut, searchShortcutLabel } from './shortcuts.ts';
 import { SidebarFooter } from './sidebar-footer.tsx';
 import { useNewTask } from './use-shortcuts.ts';
@@ -14,13 +14,16 @@ import { useNewTask } from './use-shortcuts.ts';
  * Under 768 px it is a compact bar above the content (spec 001, Q3): the logo with New task
  * and Search as icon buttons, then the places in one row, with Sessions linking to the full
  * list. It is never fixed to the viewport height.
- * 288 px wide, not the design system's 248–260: the footer's longest line ("Claude not
- * connected · runs locally") needs it, and the screens render the sidebar at 283 px.
- * The width stays fixed, so nothing shifts when the status arrives.
+ * From 768 px it is 260 px wide by default and the user can drag its edge out to 400 px
+ * (spec 001, Q10). The width is a remembered preference, so the first paint already uses it.
  */
+const sidebarId = 'sidebar';
+
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const width = useUiStore((state) => clampSidebarWidth(state.sidebarWidth));
+  const setWidth = useUiStore((state) => state.setSidebarWidth);
   const platform = usePlatform();
   const newTask = newTaskShortcut(platform);
   const startNewTask = useNewTask();
@@ -30,10 +33,13 @@ export function Sidebar() {
 
   return (
     <nav
+      id={sidebarId}
       aria-label="Main"
+      style={{ '--sidebar-width': `${String(width)}px` } as CSSProperties}
       className={cn(
         'flex flex-wrap items-center gap-2 border-b border-border bg-sidebar p-3 md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:gap-4 md:border-r md:border-b-0',
-        collapsed ? 'md:w-16' : 'md:w-72',
+        'md:relative',
+        collapsed ? 'md:w-16' : 'md:w-(--sidebar-width)',
       )}
     >
       <div
@@ -125,6 +131,20 @@ export function Sidebar() {
       {collapsed ? null : <SidebarSessions className="hidden flex-col gap-0.5 md:flex" />}
 
       <SidebarFooter collapsed={collapsed} />
+
+      {collapsed ? null : (
+        <Splitter
+          aria-label="Resize sidebar"
+          aria-controls={sidebarId}
+          value={width}
+          min={sidebarWidthLimits.min}
+          max={sidebarWidthLimits.max}
+          defaultValue={sidebarWidthLimits.initial}
+          onValueChange={setWidth}
+          // Over the sidebar's right border; narrow windows stack the sidebar, so there is nothing to resize.
+          className="absolute inset-y-0 -right-1.5 z-10 max-md:hidden"
+        />
+      )}
     </nav>
   );
 }
