@@ -73,5 +73,14 @@ export { Splitter, type SplitterProps } from './components/splitter.tsx';
 export { StatusIcon, type StatusIconProps, type StatusIconStatus } from './components/status-icon.tsx';
 export { Stepper, type StepperProps } from './components/stepper.tsx';
 export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsTriggerProps } from './components/tabs.tsx';
+export {
+  WorkItemBuild,
+  WorkItemCard,
+  WorkItemTitle,
+  type WorkItemBuildProps,
+  type WorkItemCardProps,
+  type WorkItemPriorityLevel,
+  type WorkItemTitleProps,
+} from './components/work-item-card.tsx';
 export { bundledFontFaces } from './fonts.ts';
 export { cn } from './lib/cn.ts';

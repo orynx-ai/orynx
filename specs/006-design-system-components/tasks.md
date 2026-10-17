@@ -46,7 +46,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 14: Add `AgentChip`: a 24 px link with a 32 px hit area, in the sidebar's words and colours for each session state (Q2b, Q3d, AC-15)
       Check: pnpm test packages/ui/src/components/agent-chip.test.tsx
       Files: packages/ui/src/components/agent-chip.tsx, agent-chip.stories.tsx, agent-chip.test.tsx, packages/ui/src/index.ts
-- [ ] Task 15: Add `WorkItemCard`: key, type (Bug in `danger`), avatar, a title link clamped to two lines, priority bars and word, a due date (warning when soon) with 16 px icons, and an AgentChip or a "Build … with Claude" icon button; the card isn't one big link (Q2c, AC-15, AC-16, AC-17)
+- [x] Task 15: Add `WorkItemCard`: key, type (Bug in `danger`), avatar, a title link clamped to two lines, priority bars and word, a due date (warning when soon) with 16 px icons, and an AgentChip or a "Build … with Claude" icon button; the card isn't one big link (Q2c, AC-15, AC-16, AC-17)
       Check: pnpm test packages/ui/src/components/work-item-card.test.tsx
       Files: packages/ui/src/components/work-item-card.tsx, work-item-card.stories.tsx, work-item-card.test.tsx, packages/ui/src/index.ts
 - [ ] Task 16: WorkItemCard loading form, the same size as a card (Q4a, AC-26)
