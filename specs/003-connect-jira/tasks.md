@@ -26,7 +26,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: Jira's status line: keychain read only once a site and email are saved, a check at most every 2 minutes, shared in-flight check, last result while re-checking (AC-1, AC-9)
       Check: pnpm test packages/core/src/integrations/jira; pnpm typecheck
       Files: packages/core/src/integrations/jira/connection.ts, packages/core/src/integrations/jira/connection-status.test.ts
-- [ ] Task 9: Routes `GET`, `PUT` and `DELETE /api/jira/connection`, error codes to HTTP, `createServer` takes the settings store, and the status service uses Jira's line (AC-3, AC-7, AC-8, AC-11, AC-14)
+- [x] Task 9: Routes `GET`, `PUT` and `DELETE /api/jira/connection`, error codes to HTTP, `createServer` takes the settings store, and the status service uses Jira's line (AC-3, AC-7, AC-8, AC-11, AC-14)
       Check: pnpm test packages/core; pnpm typecheck
       Files: packages/core/src/routes/jira.ts, packages/core/src/routes/jira.test.ts, packages/core/src/status/status-service.ts, packages/core/src/create-server.ts, packages/core/src/create-server.test.ts
 - [ ] Task 10: Pino redacts `authorization` headers; leak test at trace level for the token and its base64 Basic value (AC-15)
