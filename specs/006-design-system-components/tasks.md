@@ -28,7 +28,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 8: Add `Menu` from shadcn's `dropdown-menu`: items with an icon, a description or mono path, a chevron, section labels, separators, a foot line and link items; arrow keys, typeahead, Enter, Esc and focus back on the trigger (AC-5, AC-6)
       Check: pnpm test packages/ui/src/components/menu.test.tsx
       Files: packages/ui/src/components/menu.tsx, menu.stories.tsx, menu.test.tsx, packages/ui/src/test/setup.ts (browser stand-ins only if jsdom needs them), packages/ui/src/index.ts
-- [ ] Task 9: Add `Picker` (the 32 px button that opens a menu) and radio items with an `info` check; the menu stays inside the window (AC-4, AC-7)
+- [x] Task 9: Add `Picker` (the 32 px button that opens a menu) and radio items with an `info` check; the menu stays inside the window (AC-4, AC-7)
       Check: pnpm test packages/ui/src/components/picker.test.tsx packages/ui/src/components/menu.test.tsx
       Files: packages/ui/src/components/picker.tsx, picker.stories.tsx, picker.test.tsx, packages/ui/src/components/menu.tsx, menu.stories.tsx, menu.test.tsx, packages/ui/src/index.ts
 - [ ] Task 10: Add `Composer` from AI Elements' Prompt Input pattern (shadcn's `input-group`) in its "task" look: hidden label, placeholder, a bar for + and the pickers, round primary Send; Enter sends, Shift+Enter adds a line, Enter while composing doesn't send (AC-8, AC-9)

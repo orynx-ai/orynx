@@ -1,5 +1,5 @@
 import { createContext, useContext, useId, useState, type ComponentProps, type ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import { DropdownMenu as MenuPrimitive, Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 
@@ -91,16 +91,39 @@ export function MenuContent({
 export const menuItemClass =
   'relative flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5 text-start text-foreground no-underline select-none data-disabled:cursor-not-allowed data-disabled:opacity-45 data-highlighted:bg-subtle [&_svg:not([class*=text-])]:text-muted-foreground';
 
-export type MenuItemProps = ComponentProps<typeof MenuPrimitive.Item> & {
+interface ItemContentProps {
   /** A lucide icon before the words. */
   icon?: ReactNode;
   /** One line under the item's name, cut off with an ellipsis. */
   description?: ReactNode;
   /** A folder path under the item's name, in mono, cut off with an ellipsis. */
   path?: ReactNode;
-  /** Shows a chevron: picking the item leads on to more choices. */
-  leadsOn?: boolean;
-};
+}
+
+/** The icon, then the name with its description or path under it. */
+function ItemBody({ icon, description, path, children }: ItemContentProps & { children: ReactNode }) {
+  return (
+    <>
+      {icon}
+      <span className="flex min-w-0 flex-1 flex-col">
+        {children}
+        {description ? <span className="truncate text-small text-muted-foreground">{description}</span> : null}
+        {path ? <span className="truncate font-mono text-code text-muted-foreground">{path}</span> : null}
+      </span>
+    </>
+  );
+}
+
+/** Typeahead matches the item's name, not its description or path. */
+function nameOf(children: ReactNode, textValue: string | undefined): string | undefined {
+  return textValue ?? (typeof children === 'string' ? children : undefined);
+}
+
+export type MenuItemProps = ComponentProps<typeof MenuPrimitive.Item> &
+  ItemContentProps & {
+    /** Shows a chevron: picking the item leads on to more choices. */
+    leadsOn?: boolean;
+  };
 
 /**
  * One choice. Use `asChild` with a link when it goes somewhere ("Manage folders"); the icon and
@@ -120,8 +143,7 @@ export function MenuItem({
   const chevron = leadsOn ? <ChevronRight aria-hidden className="ms-auto" /> : null;
   const itemProps = {
     'data-slot': 'menu-item',
-    // Typeahead matches the item's name, not its description or path.
-    textValue: textValue ?? (typeof children === 'string' ? children : undefined),
+    textValue: nameOf(children, textValue),
     className: cn(menuItemClass, className),
     ...props,
   };
@@ -138,14 +160,45 @@ export function MenuItem({
   }
   return (
     <MenuPrimitive.Item {...itemProps}>
-      {icon}
-      <span className="flex min-w-0 flex-1 flex-col">
+      <ItemBody icon={icon} description={description} path={path}>
         {children}
-        {description ? <span className="truncate text-small text-muted-foreground">{description}</span> : null}
-        {path ? <span className="truncate font-mono text-code text-muted-foreground">{path}</span> : null}
-      </span>
+      </ItemBody>
       {chevron}
     </MenuPrimitive.Item>
+  );
+}
+
+/** A set of choices where one is picked, such as the folder a session works in. */
+export function MenuRadioGroup(props: ComponentProps<typeof MenuPrimitive.RadioGroup>) {
+  return <MenuPrimitive.RadioGroup data-slot="menu-radio-group" {...props} />;
+}
+
+export type MenuRadioItemProps = ComponentProps<typeof MenuPrimitive.RadioItem> & ItemContentProps;
+
+/** One choice in a MenuRadioGroup. The picked one is announced as checked and shows an `info` check. */
+export function MenuRadioItem({
+  icon,
+  description,
+  path,
+  textValue,
+  className,
+  children,
+  ...props
+}: MenuRadioItemProps) {
+  return (
+    <MenuPrimitive.RadioItem
+      data-slot="menu-radio-item"
+      textValue={nameOf(children, textValue)}
+      className={cn(menuItemClass, className)}
+      {...props}
+    >
+      <ItemBody icon={icon} description={description} path={path}>
+        {children}
+      </ItemBody>
+      <MenuPrimitive.ItemIndicator className="ms-auto inline-flex">
+        <Check aria-hidden className="text-info" />
+      </MenuPrimitive.ItemIndicator>
+    </MenuPrimitive.RadioItem>
   );
 }
 
