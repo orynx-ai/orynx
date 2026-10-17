@@ -8,6 +8,7 @@ export const githubToken = 'fake-github-token-for-tests';
 /** The account both good tokens belong to. */
 export const githubLogin = 'octocat';
 export const userUrl = 'https://api.github.com/user';
+export const graphqlUrl = 'https://api.github.com/graphql';
 
 export interface AcceptingUserOptions {
   /** Tokens GitHub accepts; the pasted one and the one the fake gh hands out by default. */
@@ -54,4 +55,99 @@ export function useFakeGitHub() {
     server.close();
   });
   return server;
+}
+
+export interface FakePull {
+  owner?: string;
+  repository?: string;
+  number: number;
+  title?: string;
+  createdAt?: string;
+  author?: { login: string; name?: string | null } | null;
+  /** Review requests on its timeline, oldest first: who was asked and when. */
+  requests?: readonly { login: string | null; at: string }[];
+  /** The latest commit's combined check state, such as SUCCESS, FAILURE, ERROR or PENDING; null for none. */
+  checks?: string | null;
+  /** The latest commit's checks and statuses. */
+  contexts?: readonly (
+    | { type: 'CheckRun'; conclusion: string | null; completedAt: string | null }
+    | { type: 'StatusContext'; state: string; createdAt: string }
+  )[];
+  /** Review threads: resolved or not, and who wrote the last comment when. */
+  threads?: readonly { resolved: boolean; lastBy: string | null; at: string }[];
+}
+
+/** One pull request as the inbox's GraphQL query gets it back. */
+export function pullNode(pull: FakePull) {
+  const owner = pull.owner ?? 'acme';
+  const repository = pull.repository ?? 'web-app';
+  const author = pull.author === undefined ? { login: 'priya-s', name: 'Priya Sharma' } : pull.author;
+  return {
+    id: `PR_${owner}_${repository}_${String(pull.number)}`,
+    number: pull.number,
+    title: pull.title ?? `Pull request ${String(pull.number)}`,
+    url: `https://github.com/${owner}/${repository}/pull/${String(pull.number)}`,
+    createdAt: pull.createdAt ?? '2026-10-10T09:00:00Z',
+    author,
+    repository: { name: repository, nameWithOwner: `${owner}/${repository}` },
+    timelineItems: {
+      nodes: (pull.requests ?? []).map((request) => ({
+        createdAt: request.at,
+        requestedReviewer: request.login === null ? { slug: 'web-team' } : { login: request.login },
+      })),
+    },
+    commits: {
+      nodes: [
+        {
+          commit: {
+            statusCheckRollup:
+              pull.checks === undefined || pull.checks === null
+                ? null
+                : {
+                    state: pull.checks,
+                    contexts: {
+                      nodes: (pull.contexts ?? []).map(({ type, ...context }) => ({ __typename: type, ...context })),
+                    },
+                  },
+          },
+        },
+      ],
+    },
+    reviewThreads: {
+      nodes: (pull.threads ?? []).map((thread) => ({
+        isResolved: thread.resolved,
+        comments: {
+          nodes: [{ createdAt: thread.at, author: thread.lastBy === null ? null : { login: thread.lastBy } }],
+        },
+      })),
+    },
+  };
+}
+
+/**
+ * GitHub's GraphQL API answering the inbox's query for a good token: who you are, the pull requests that
+ * ask for your review, and your own.
+ */
+export function acceptingInboxQuery({
+  login = githubLogin,
+  reviews = [],
+  mine = [],
+  tokens = [githubToken, ghToken],
+}: { login?: string; reviews?: readonly FakePull[]; mine?: readonly FakePull[]; tokens?: readonly string[] } = {}) {
+  return http.post(graphqlUrl, ({ request }) => {
+    const sent = request.headers.get('authorization');
+    if (!tokens.some((token) => sent === `token ${token}`)) {
+      return HttpResponse.json(
+        { message: 'Bad credentials', documentation_url: 'https://docs.github.com/graphql', status: '401' },
+        { status: 401 },
+      );
+    }
+    return HttpResponse.json({
+      data: {
+        viewer: { login },
+        reviews: { nodes: reviews.map(pullNode) },
+        mine: { nodes: mine.map(pullNode) },
+      },
+    });
+  });
 }
