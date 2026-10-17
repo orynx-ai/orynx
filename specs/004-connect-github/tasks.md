@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Settings › Appearance uses ChoiceGroup and ChoiceCard, with no visible change (Q4 d)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy
       Files: packages/app/src/features/settings/components/appearance-panel.tsx, packages/app/src/features/settings/components/appearance-panel.test.tsx
-- [ ] Task 4: gh runner: find gh on the search path without running it; `gh auth token --hostname github.com` within 5 s; missing, signed out, failed, too slow; a fake gh for tests (AC-4, AC-17, AC-20)
+- [x] Task 4: gh runner: find gh on the search path without running it; `gh auth token --hostname github.com` within 5 s; missing, signed out, failed, too slow; a fake gh for tests (AC-4, AC-17, AC-20)
       Check: pnpm test packages/core/src/integrations/github; pnpm typecheck
       Files: packages/core/src/integrations/github/gh.ts, packages/core/src/integrations/github/gh.test.ts, packages/core/src/test/fake-gh.ts
 - [ ] Task 5: GitHub client over `@octokit/rest`: `GET /user` for the login and scopes, 10 s, every failure a fixed problem, nothing from octokit escapes; Q6 (c) messages by problem and way (AC-6, AC-7, AC-8, AC-17)
