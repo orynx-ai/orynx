@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from '@devhub/core';
 import { loadConfig, readEnvFile, repoEnvFile } from './config.ts';
 import { createSessionToken, removeRuntimeFile, writeRuntimeFile } from './runtime-file.ts';
+import { tokenNotices } from './token-notices.ts';
 import { serveWeb } from './web.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -32,6 +33,7 @@ if (serveWebApp) {
 await app.listen({ host: '127.0.0.1', port: config.port });
 await writeRuntimeFile(config.home, { port: config.port, token, pid: process.pid });
 
+for (const notice of tokenNotices(config.tokens, envFile)) app.log[notice.level](notice.message);
 app.log.info(
   serveWebApp
     ? `DevHub is running at http://127.0.0.1:${String(config.port)}`
