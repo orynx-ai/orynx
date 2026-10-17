@@ -6,6 +6,9 @@ import { registerLocalOnly } from './plugins/local-only.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
 import { statusRoutes } from './routes/status.ts';
+import type { Keychain } from './secrets/keychain.ts';
+import { createMemoryKeychain } from './secrets/memory-keychain.ts';
+import { createTokenStore, type EnvTokens, type TokenStore } from './secrets/token-store.ts';
 import { createMemorySessionStore, type SessionStore } from './sessions/session-store.ts';
 import { readGitUserName } from './status/git-user-name.ts';
 import { createStatusService } from './status/status-service.ts';
@@ -26,6 +29,17 @@ export interface CoreOptions {
   sessions?: SessionStore;
   /** Who is using DevHub; the name from `git config --global user.name` by default. */
   userName?: () => Promise<string | null>;
+  /** Where tokens are saved. Hosts pass `createOsKeychain()`; tests get an empty in-memory keychain. */
+  keychain?: Keychain;
+  /** Tokens from `.env`, passed only when the user turned on DEVHUB_TOKENS_FROM_ENV. */
+  envTokens?: EnvTokens;
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Jira, GitHub and Slack tokens (spec 002). Routes read them here; a token never leaves core. */
+    tokens: TokenStore;
+  }
 }
 
 const tokenInUrl = new RegExp(`([?&]${tokenQueryParam}=)[^&#]*`, 'g');
@@ -59,6 +73,15 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   registerLocalOnly(app, { token: options.token, port: options.port });
 
   const events = options.events ?? createEventBus();
+  // Nothing reads the keychain here: the first read happens when a route needs a token.
+  app.decorate(
+    'tokens',
+    createTokenStore({
+      keychain: options.keychain ?? createMemoryKeychain(),
+      events,
+      ...(options.envTokens === undefined ? {} : { envTokens: options.envTokens }),
+    }),
+  );
   const status = createStatusService({
     version: options.version,
     userName: options.userName ?? readGitUserName,

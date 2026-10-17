@@ -17,7 +17,7 @@ A session is one piece of work Claude does for the user: one task, one repo, one
 3. **Always ask, whatever the mode:** commands that touch the network, delete outside the worktree, or push to git.
 4. **The PR is always the user's click.** DevHub pushes the branch and opens the PR only after Create pull request. Claude never pushes or opens a PR by itself.
 5. **The brief is exactly the chips.** What goes to Claude is the composer text plus every context chip (ticket, PR diff, Slack thread, files). Slack data goes only when the user added that thread.
-6. **Credentials.** The Claude login is handled by the Claude Agent SDK. DevHub never sees or stores it.
+6. **Credentials.** The Claude login is handled by the Claude Agent SDK. DevHub never sees or stores it. Any command Claude runs as `node` (tests, scripts) can read DevHub's "DevHub" keychain items without a macOS prompt, so the runtime must keep Claude's commands away from them, and never pass DevHub's own environment to the SDK. Decide how in spec 010 (`learn/tokens-and-keychain.md`).
 7. **Stop** works at any step. The worktree keeps the changes. Discard deletes the worktree and branch after a confirm step in the page (never a browser dialog).
 
 ## The adapter interface

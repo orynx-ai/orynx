@@ -26,6 +26,13 @@ export default defineConfig({
     url: `http://127.0.0.1:${String(port)}/`,
     reuseExistingServer: false,
     timeout: 180_000,
-    env: { DEVHUB_PORT: String(port), DEVHUB_HOME: home, LOG_LEVEL: 'warn', NODE_ENV: 'production' },
+    // The shell beats the repo's .env, so a developer's .env tokens never reach the e2e server.
+    env: {
+      DEVHUB_PORT: String(port),
+      DEVHUB_HOME: home,
+      LOG_LEVEL: 'warn',
+      NODE_ENV: 'production',
+      DEVHUB_TOKENS_FROM_ENV: 'false',
+    },
   },
 });

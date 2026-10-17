@@ -21,6 +21,7 @@
     "test:changed": "vitest run --changed origin/main",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:keychain": "vitest run --config packages/core/vitest.keychain.config.ts",
     "storybook": "pnpm --filter @devhub/ui storybook",
     "gates": "node --disable-warning=ExperimentalWarning scripts/run-gates.ts",
     "gates:test": "node --disable-warning=ExperimentalWarning --test \"scripts/**/*.test.ts\"",

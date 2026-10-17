@@ -1,15 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer } from '@devhub/core';
-import { loadConfig } from './config.ts';
+import { createOsKeychain, createServer } from '@devhub/core';
+import { forgetTokenSettings, loadConfig, readEnvFile, repoEnvFile } from './config.ts';
 import { createSessionToken, removeRuntimeFile, writeRuntimeFile } from './runtime-file.ts';
+import { tokenNotices } from './token-notices.ts';
 import { serveWeb } from './web.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')) as { version: string };
 
-const config = loadConfig();
+const envFile = readEnvFile(repoEnvFile);
+const config = loadConfig(envFile === undefined ? {} : { envFile: envFile.text });
+forgetTokenSettings();
 const token = createSessionToken();
 const serveWebApp = process.argv.includes('--serve-web');
 
@@ -17,6 +20,9 @@ const app = await createServer({
   token,
   port: config.port,
   version: packageJson.version,
+  keychain: createOsKeychain(),
+  // Empty unless the user turned on DEVHUB_TOKENS_FROM_ENV.
+  envTokens: config.tokens.env,
   logger: {
     level: config.logLevel,
     ...(config.pretty ? { transport: { target: 'pino-pretty', options: { ignore: 'pid,hostname' } } } : {}),
@@ -31,6 +37,7 @@ if (serveWebApp) {
 await app.listen({ host: '127.0.0.1', port: config.port });
 await writeRuntimeFile(config.home, { port: config.port, token, pid: process.pid });
 
+for (const notice of tokenNotices(config.tokens, envFile)) app.log[notice.level](notice.message);
 app.log.info(
   serveWebApp
     ? `DevHub is running at http://127.0.0.1:${String(config.port)}`

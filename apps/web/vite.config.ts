@@ -1,15 +1,30 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseEnv } from 'node:util';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
-const serverPort = Number(process.env['DEVHUB_PORT'] ?? 4317);
-const webPort = Number(process.env['DEVHUB_WEB_PORT'] ?? 4318);
-// An empty DEVHUB_HOME (the blank line in .env.example) means the default folder.
-const devhubHomeSetting = process.env['DEVHUB_HOME'] ?? '';
-const devhubHome = devhubHomeSetting === '' ? join(homedir(), '.devhub') : devhubHomeSetting;
+// The same settings the server reads (apps/server/src/config.ts): the shell first, then the
+// repo-root .env. An empty value, like the blank lines in .env.example, counts as not set.
+// Only these three are kept from the file, so a token in .env never stays in Vite's memory.
+type DevSetting = 'DEVHUB_PORT' | 'DEVHUB_WEB_PORT' | 'DEVHUB_HOME';
+const repoEnvFile = fileURLToPath(new URL('../../.env', import.meta.url));
+function readDevSettings(): Record<DevSetting, string | undefined> {
+  const all = existsSync(repoEnvFile) ? parseEnv(readFileSync(repoEnvFile, 'utf8')) : {};
+  return { DEVHUB_PORT: all['DEVHUB_PORT'], DEVHUB_WEB_PORT: all['DEVHUB_WEB_PORT'], DEVHUB_HOME: all['DEVHUB_HOME'] };
+}
+const fromFile = readDevSettings();
+function setting(shell: string | undefined, key: DevSetting): string | undefined {
+  const value = shell === undefined || shell === '' ? fromFile[key] : shell;
+  return value === '' ? undefined : value;
+}
+
+const serverPort = Number(setting(process.env['DEVHUB_PORT'], 'DEVHUB_PORT') ?? 4317);
+const webPort = Number(setting(process.env['DEVHUB_WEB_PORT'], 'DEVHUB_WEB_PORT') ?? 4318);
+const devhubHome = setting(process.env['DEVHUB_HOME'], 'DEVHUB_HOME') ?? join(homedir(), '.devhub');
 
 /**
  * In `pnpm dev`, Vite serves index.html, so this plugin does what the server does in

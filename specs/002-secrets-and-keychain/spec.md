@@ -1,0 +1,86 @@
+# Secrets and keychain
+
+Status: approved
+Roadmap: Phase 1 — Foundation
+
+## Assumptions
+
+Correct these now, or the work goes ahead on them.
+
+- **Server only, as the roadmap says.** 002 builds the place tokens live and nothing a person clicks. Specs 003 (Jira), 004 (GitHub) and 016 (Slack) add the forms that save a token, and they call this store.
+- **The library is `@napi-rs/keyring`.** `docs/architecture.md` already lists it as planned. It ships prebuilt binaries for macOS, Windows and Linux, so nobody needs build tools. It goes into `@devhub/core` only, through `pnpm add`, so the browser packages never load it.
+- **One token per tool.** Keychain entries use the service name `DevHub` and the tool as the account: `jira`, `github`, `slack`. In Keychain Access they show up as "DevHub". Two Jira sites at once is out of scope.
+- **The store has three actions, and all of them live in `@devhub/core`:** read a token (it says whether the token came from the keychain or from `.env`), save a token (always to the keychain), and delete a token. Deleting a token that isn't there is not an error.
+- **A token is 1–4096 characters with no spaces or line breaks.** The store refuses anything else, so a pasted line break never ends up in the keychain.
+- **The keychain is read every time a token is needed**, with no copy kept in memory. A change made in Keychain Access counts at once, without a restart.
+- **Saving or deleting a token publishes `status.changed`**, so an open Settings page refetches.
+- **A keychain that can't be reached** (locked, access refused, or Linux with no Secret Service) gives the error code `keychain_unavailable`. It never breaks `GET /api/status` or any other route.
+- **Nothing reads the keychain when DevHub starts.** Starting DevHub, the e2e run and Ubuntu CI never touch it. The first read happens when a tool needs its token (spec 003).
+- **Tests never touch the real keychain.** Core takes its store from the host. Core tests pass an in-memory store, and the thin `@napi-rs/keyring` adapter is tested with that library faked, because the OS keychain is an outside service (`.claude/skills/honest-tests/SKILL.md`). Q5 asks about one opt-in real check.
+- **DevHub starts reading `.env`.** Today nothing loads `.env`, although `.env.example` tells people to copy it. The server will load the `.env` at the repo root (next to `.env.example`) with Node's built-in `process.loadEnvFile`, so no new dependency. A missing file is fine, and a variable already set in the shell wins over the file. This also makes the existing settings (`DEVHUB_PORT`, `DEVHUB_HOME`, `LOG_LEVEL`) work from `.env`.
+- **Only `apps/server/src/config.ts` reads the switch and the tokens from the environment** (CLAUDE.md rule 9). It hands them to core as options, and each key is listed in `.env.example` with an empty value.
+- **The switch takes `true` or `false` only.** Any other value stops the server with the existing "DevHub settings are not valid" message.
+- **Tokens never leave the store's callers.** No token appears in a log line (at any level), an error message, an API response, an event or a session log. A test checks each of these.
+- **macOS may ask once.** The first time a new Node binary reads the "DevHub" item (for example after `nvm` installs a new Node), macOS asks "node wants to use your confidential information stored in "DevHub" in your keychain". Choosing Always Allow stops it from asking again. A `learn/` page explains this.
+
+Decided during review (17 Oct 2026):
+
+- **Tokens stay out of child processes.** Once read, the three token settings are deleted from the server's own environment, and turbo no longer passes them through, so git, Vite and later Claude never inherit one.
+- **Vite reads the same `.env`** for the ports and `DEVHUB_HOME`, so `pnpm dev` follows the server. An empty value counts as not set everywhere, in the shell too.
+- **The `chmod 600` line shows whenever a readable `.env` holds a token**, switch on or off.
+- **A keychain failure keeps a reason that is safe to log** (the error's name and code), never its message.
+- **The e2e server sets `DEVHUB_TOKENS_FROM_ENV=false`**, so a developer's `.env` tokens never reach it.
+
+## Goal
+
+When I connect Jira, GitHub or Slack, my token goes into my computer's keychain and nowhere else: not a file, not the browser, not a log. If my keychain can't be used, I can choose to keep tokens in a `.env` file instead, and DevHub tells me when it is doing that.
+
+## Acceptance criteria
+
+The hub is `@devhub/core`, running inside `apps/server`.
+
+| ID    | Given                                                                                    | When                                                                    | Then                                                                                                                                                                          |
+| ----- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-1  | The keychain can be reached                                                              | The hub saves a Jira token                                              | The keychain holds it under service `DevHub`, account `jira`. No file under `DEVHUB_HOME` or the repo contains it                                                             |
+| AC-2  | A Jira token is saved                                                                    | The hub reads the Jira token                                            | It gets the same token, marked as coming from the keychain                                                                                                                    |
+| AC-3  | A Jira token is saved                                                                    | The hub deletes it, then reads it                                       | The read finds no token. Deleting it again is not an error                                                                                                                    |
+| AC-4  | The event stream is open                                                                 | The hub saves or deletes a token                                        | The stream sends `status.changed`                                                                                                                                             |
+| AC-5  | A token that is empty, contains a space or line break, or is longer than 4096 characters | The hub saves it                                                        | The hub refuses it with a `bad_request` error and the keychain is unchanged                                                                                                   |
+| AC-6  | The keychain is locked, refuses access, or does not exist                                | The hub reads, saves or deletes a token                                 | It gets a `keychain_unavailable` error with the wording from Q4, and the message contains no token. `GET /api/status` still answers 200                                       |
+| AC-7  | `DEVHUB_TOKENS_FROM_ENV` is off and `DEVHUB_GITHUB_TOKEN` is set                         | The server starts, then the hub reads the GitHub token                  | The read finds no token, and the terminal shows the "set but not used" line from Q4 once                                                                                      |
+| AC-8  | The switch is on, the keychain has no Jira token, and `.env` has `DEVHUB_JIRA_API_TOKEN` | The hub reads the Jira token                                            | It gets the `.env` token, marked as coming from `.env`                                                                                                                        |
+| AC-9  | The switch is on, and both the keychain and `.env` have a Jira token                     | The hub reads the Jira token                                            | The keychain's token wins                                                                                                                                                     |
+| AC-10 | The switch is on and the keychain can't be reached                                       | The hub reads a token that `.env` has, then saves a token               | The read gets the `.env` token with no error. The save fails with `keychain_unavailable`, and `.env` is unchanged                                                             |
+| AC-11 | The switch is on                                                                         | The server starts                                                       | The terminal says once that tokens come from the keychain first, then `.env` (Q4). If `.env` holds a token and other users can read the file, it also prints the `chmod` line |
+| AC-12 | `.env` at the repo root sets `DEVHUB_PORT=4320`                                          | I run `pnpm start`, then again with `DEVHUB_PORT=4321` set in the shell | The first run listens on 4320 and the second on 4321. With no `.env`, every setting keeps its default, as today                                                               |
+| AC-13 | `.env` sets `DEVHUB_TOKENS_FROM_ENV=maybe`                                               | The server starts                                                       | It stops with "DevHub settings are not valid" and names the key                                                                                                               |
+| AC-14 | A token is saved, `LOG_LEVEL=trace`, and the event stream is open                        | The hub saves, reads, deletes and fails, and serves `/api/status`       | The token appears in no log line, response body, event or error message                                                                                                       |
+
+## Out of scope
+
+- The Connect forms, the Connections rows and Disconnect (specs 003, 004 and 016).
+- The Settings callout "Tokens live in your OS keychain…" (Q6).
+- "Clear cache" (Q3).
+- DevHub writing to `.env`, or copying `.env` tokens into the keychain.
+- Several accounts for one tool, such as two Jira sites.
+- Settings that are not secret, such as the Jira site address and email (specs 003 and 005).
+- Claude's login, which the Agent SDK owns.
+- A master password, or encrypting `.env`.
+- Testing on Windows and Linux. The library supports them, but we check macOS by hand, and Ubuntu CI covers the keychain-unavailable path.
+
+## Open questions
+
+The work is not done until every question has an answer. Write the date with each answer.
+
+| #   | Who decides       | Question                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Answer                                                                                                                                                                                          |
+| --- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1  | Product           | **How is the `.env` fallback turned on?** The product spec says `.env` is "a fallback the user opts into" but not how. Recommended: one switch, `DEVHUB_TOKENS_FROM_ENV=true`, and the tokens `DEVHUB_JIRA_API_TOKEN`, `DEVHUB_GITHUB_TOKEN` and `DEVHUB_SLACK_USER_TOKEN`, all in the repo-root `.env`. That file is already ignored by git and blocked by the secrets gate and the pre-commit hook. Off by default                                                                                                                                                   | `DEVHUB_TOKENS_FROM_ENV=true` plus `DEVHUB_JIRA_API_TOKEN`, `DEVHUB_GITHUB_TOKEN`, `DEVHUB_SLACK_USER_TOKEN` in the repo-root `.env`; off by default. Recommended answer accepted (17 Oct 2026) |
+| Q2  | Product           | **Which token wins, and may DevHub write `.env`?** Recommended: the keychain first, then `.env` (only when the Q1 switch is on). DevHub only reads `.env` and never writes it, so a token saved from a Connect form always goes to the keychain. If the keychain can't be reached, saving fails and the message points to `.env`                                                                                                                                                                                                                                       | Keychain first, then `.env` when the switch is on; DevHub never writes `.env`. Recommended answer accepted (17 Oct 2026)                                                                        |
+| Q3  | Product           | **"Clear cache" has nothing to clear yet.** The cache (`~/.devhub/cache.db`) arrives with spec 007, and no screen design shows the button. Recommended: move "Clear cache" to 007 and decide there where the button goes. It removes only the cache file, never tokens, sessions or worktrees. The other choice is a `POST /api/cache/clear` endpoint now, with no button                                                                                                                                                                                              | "Clear cache" moves to spec 007; it will remove only the cache file. Recommended answer accepted (17 Oct 2026)                                                                                  |
+| Q4  | Product           | **Wording nobody has given.** Recommended: (a) switch on, at start: "Tokens: OS keychain first, then .env (DEVHUB_TOKENS_FROM_ENV is on)." (b) a token set with the switch off: "DEVHUB_GITHUB_TOKEN is set but not used. To use tokens from .env, set DEVHUB_TOKENS_FROM_ENV=true." (c) loose file permissions: ".env holds tokens and other users on this computer can read it. Run: chmod 600 .env" (d) the `keychain_unavailable` message, which 003 will show: "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example)." | Wordings (a)–(d) as proposed. Recommended answer accepted (17 Oct 2026)                                                                                                                         |
+| Q5  | Product, Security | **May the real keychain be touched once?** The fakes prove the logic, not that `@napi-rs/keyring` works on your Mac. Recommended: one opt-in check, `pnpm test:keychain`, that saves, reads and deletes one item under the service "DevHub test". It never runs in `pnpm verify` or CI, and I run it once after you say yes. macOS may ask for access; choose Always Allow                                                                                                                                                                                             | Yes: build `pnpm test:keychain` (never in verify or CI). It runs against the real keychain only after the user says so in the conversation. Recommended answer accepted (17 Oct 2026)           |
+| Q6  | Product, Design   | **Settings would be wrong with the switch on.** The callout says "Tokens live in your OS keychain", even when tokens come from `.env`. Fixing it needs new wording, and a loading state that doesn't shift while the status arrives. Recommended: fix it in spec 005 (Settings screens), so 002 stays server only. Until then, the terminal line (Q4a) says the switch is on                                                                                                                                                                                           | Fix the callout in spec 005; 002 stays server only. Recommended answer accepted (17 Oct 2026)                                                                                                   |
+
+## Design
+
+none — server only (roadmap 002). The Settings callout in `docs/design/screens/settings.html` stays as it is (Q6).
