@@ -1,4 +1,10 @@
-import type { IntegrationStatus, JiraConnection, JiraCredentials, JiraSavedConnection } from '@devhub/contracts';
+import type {
+  IntegrationStatus,
+  JiraConnection,
+  JiraCredentials,
+  JiraProject,
+  JiraSavedConnection,
+} from '@devhub/contracts';
 import type { EventBus } from '../../events/event-bus.ts';
 import { TokenStoreError, type TokenSource, type TokenStore } from '../../secrets/token-store.ts';
 import type { SettingsStore } from '../../settings/settings-store.ts';
@@ -24,6 +30,11 @@ export interface JiraConnectionService {
   /** Removes the keychain token, the site and the email. */
   disconnect(): Promise<void>;
   /**
+   * The projects the saved connection can see, for Settings › Repositories (spec 005). Asks Jira each
+   * time; a failure is a {@link JiraConnectionError} in spec 003's words.
+   */
+  projects(): Promise<JiraProject[]>;
+  /**
    * Jira's line in GET /api/status. Reads the keychain only once a site and email are saved, and
    * asks Jira at most once every 2 minutes.
    */
@@ -46,6 +57,7 @@ export interface JiraConnectionOptions {
 }
 
 const notConnected: IntegrationStatus = { state: 'not_connected', detail: null };
+const missingToken = 'The saved API token is missing from your keychain. Connect again.';
 
 /** Spec 003 Q5(d): the row line for a working connection, by where the token came from. */
 function connectedVia(source: TokenSource, site: string): IntegrationStatus {
@@ -97,9 +109,7 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
       reportKeychain(error);
       return { state: 'error', detail: error.message };
     }
-    if (stored === null) {
-      return { state: 'error', detail: 'The saved API token is missing from your keychain. Connect again.' };
-    }
+    if (stored === null) return { state: 'error', detail: missingToken };
     const check = await jira.check({ ...saved, apiToken: stored.token });
     if (check.ok) return connectedVia(stored.source, saved.site);
     options.onProblem?.(check.problem);
@@ -142,6 +152,19 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
       await settings.update(({ jira: _, ...rest }) => rest);
       checked.forget();
       events.publish({ type: 'status.changed' });
+    },
+
+    async projects() {
+      const saved = (await settings.read()).jira;
+      if (saved === undefined) {
+        throw new JiraConnectionError('bad_request', 'Connect Jira in Connections to pick a project.');
+      }
+      const stored = await fromTokenStore(() => tokens.read('jira'));
+      if (stored === null) throw new JiraConnectionError('integration_rejected', missingToken);
+      const answer = await jira.projects({ ...saved, apiToken: stored.token });
+      if (answer.ok) return answer.projects;
+      options.onProblem?.(answer.problem);
+      throw new JiraConnectionError(codeFor(answer.problem), describeJiraProblem(answer.problem, saved.site));
     },
 
     async status() {

@@ -1,6 +1,6 @@
 import type { FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { apiPaths, JiraConnectionRequestSchema, JiraConnectionSchema } from '@devhub/contracts';
+import { apiPaths, JiraConnectionRequestSchema, JiraConnectionSchema, JiraProjectListSchema } from '@devhub/contracts';
 import type { JiraConnectionService } from '../integrations/jira/connection.ts';
 
 /** Settings › Connections › Jira. A failure is a ConnectionError, which the /api error handler answers. */
@@ -17,6 +17,11 @@ export const jiraRoutes: FastifyPluginCallbackZod<{ jira: JiraConnectionService 
     await jira.disconnect();
     return reply.code(204).send();
   });
+
+  // Settings › Repositories asks for these when its form opens (spec 005).
+  app.get(apiPaths.jiraProjects, { schema: { response: { 200: JiraProjectListSchema } } }, async () => ({
+    projects: await jira.projects(),
+  }));
 
   done();
 };

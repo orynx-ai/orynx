@@ -58,3 +58,14 @@ export const JiraConnectionSchema = z.object({
   envToken: z.boolean(),
 });
 export type JiraConnection = z.infer<typeof JiraConnectionSchema>;
+
+/** A Jira project key as Jira makes them: a capital letter, then capitals, digits or underscores. */
+export const JiraProjectKeySchema = z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/, 'Pick a Jira project.');
+
+/** A project the saved Jira connection can see, for Settings › Repositories (spec 005). */
+export const JiraProjectSchema = z.object({ key: JiraProjectKeySchema, name: z.string() });
+export type JiraProject = z.infer<typeof JiraProjectSchema>;
+
+/** GET /api/jira/projects: every project the connection can see, by key, at most 1000. */
+export const JiraProjectListSchema = z.object({ projects: z.array(JiraProjectSchema) });
+export type JiraProjectList = z.infer<typeof JiraProjectListSchema>;

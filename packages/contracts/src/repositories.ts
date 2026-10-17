@@ -1,10 +1,8 @@
 import { z } from 'zod';
+import { JiraProjectKeySchema } from './jira.ts';
 
 /** Settings › Repositories holds at most this many folders (spec 005). */
 export const maxRepositories = 100;
-
-/** A Jira project key as Jira makes them: a capital letter, then capitals, digits or underscores. */
-export const JiraProjectKeySchema = z.string().regex(/^[A-Z][A-Z0-9_]{0,99}$/, 'Pick a Jira project.');
 
 /** The random id DevHub gives a folder when it's added, so a path never has to travel in a URL. */
 export const RepositoryIdSchema = z.string().regex(/^[0-9a-f]{16}$/);

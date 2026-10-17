@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { JiraConnectionRequestSchema, JiraConnectionSchema, JiraSiteSchema } from './index.ts';
+import {
+  apiRoutes,
+  JiraConnectionRequestSchema,
+  JiraConnectionSchema,
+  JiraProjectListSchema,
+  JiraSiteSchema,
+} from './index.ts';
 import { makeJiraConnection } from './testing.ts';
 
 /** The first message zod gives for a value, the one a form shows under the field. */
@@ -93,5 +99,22 @@ describe('JiraConnectionSchema', () => {
       site: 'your-team.atlassian.net',
       email: 'dev@example.com',
     });
+  });
+});
+
+describe('JiraProjectListSchema', () => {
+  it('AC-5: lists projects by key and name', () => {
+    const list = {
+      projects: [
+        { key: 'MOB', name: 'Mobile' },
+        { key: 'PROJ', name: 'Intranet' },
+      ],
+    };
+    expect(JiraProjectListSchema.parse(list)).toEqual(list);
+    expect(apiRoutes.jiraProjects).toBe('/api/jira/projects');
+  });
+
+  it('refuses a key Jira would never make', () => {
+    expect(JiraProjectListSchema.safeParse({ projects: [{ key: 'proj', name: 'Intranet' }] }).success).toBe(false);
   });
 });
