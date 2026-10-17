@@ -32,7 +32,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: Write the filters as pure functions: Assigned to me, Due this week, Bugs only, the search text, grouping into columns, and reading and writing them as the address's search params (Q3) (AC-7, AC-8, AC-9, AC-10)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/filters.ts, filters.test.ts
-- [ ] Task 11: Add `SearchField` to `@devhub/ui`: an Input with the search icon and an `aria-label`, in 40 px and 32 px sizes (Q10c)
+- [x] Task 11: Add `SearchField` to `@devhub/ui`: an Input with the search icon and an `aria-label`, in 40 px and 32 px sizes (Q10c)
       Check: pnpm test packages/ui; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/search-field.tsx, search-field.stories.tsx, search-field.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 12: Add `Board` and `BoardColumn` to `@devhub/ui`: a named, focusable region that scrolls its columns sideways, and a column with its status icon, heading, count, cards or empty text, and a loading form (Q10a, Q10d) (AC-20, AC-30, AC-31)
