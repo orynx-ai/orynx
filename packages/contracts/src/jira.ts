@@ -34,17 +34,19 @@ export const JiraApiTokenSchema = z
   .max(4096, 'A token has no spaces or line breaks and is at most 4096 characters.')
   .regex(/^\S*$/, 'Paste the token without spaces or line breaks.');
 
+/** A token field that may be left empty: empty means keep the saved token, or use the `.env` one. */
+export const JiraApiTokenOrBlankSchema = z
+  .string()
+  .trim()
+  .transform((token) => (token === '' ? undefined : token))
+  .pipe(JiraApiTokenSchema.optional());
+
 /** PUT /api/jira/connection: check these with Jira, then save them. */
 export const JiraConnectionRequestSchema = z.object({
   site: JiraSiteSchema,
   email: JiraEmailSchema,
   /** Empty or left out: keep the saved token, or use DEVHUB_JIRA_API_TOKEN from `.env`. */
-  apiToken: z
-    .string()
-    .trim()
-    .transform((token) => (token === '' ? undefined : token))
-    .pipe(JiraApiTokenSchema.optional())
-    .optional(),
+  apiToken: JiraApiTokenOrBlankSchema.optional(),
 });
 /** What the page sends. */
 export type JiraConnectionRequest = z.input<typeof JiraConnectionRequestSchema>;
