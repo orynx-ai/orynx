@@ -35,15 +35,15 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: Server host: `DEVHUB_KEYCHAIN=os|memory`, the settings file under `DEVHUB_HOME`, the OS's certificates trusted at start (as `--use-system-ca` does), e2e uses the memory keychain (AC-18)
       Check: pnpm test apps/server; pnpm gate env-policy; pnpm build; pnpm exec playwright test e2e/smoke.spec.ts
       Files: apps/server/src/config.ts, apps/server/src/config.test.ts, apps/server/src/main.ts, apps/server/src/system-certificates.ts, apps/server/src/system-certificates.test.ts, packages/core/src/index.ts, .env.example, playwright.config.ts, turbo.json
-- [ ] Task 12: API client: Jira connection get, save and delete, parsed with the contracts; query key; `status.changed` also refreshes it (AC-3, AC-10, AC-11, AC-14)
-      Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx; pnpm typecheck
-      Files: packages/api-client/src/endpoints/jira.ts, packages/api-client/src/jira.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/app/src/live-updates.tsx, packages/app/src/live-updates.test.tsx
+- [x] Task 12: API client: Jira connection get, save and delete, parsed with the contracts; query key (AC-3, AC-10, AC-11). Task 14 makes `status.changed` refresh it, where a test can see it
+      Check: pnpm test packages/api-client; pnpm typecheck
+      Files: packages/api-client/src/endpoints/jira.ts, packages/api-client/src/jira.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts
 - [ ] Task 13: The Connect form in the Jira row: Connect and Close, fields, client errors, server errors on the right field, busy button, "Jira is connected." (AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-13, AC-16)
       Check: pnpm test packages/app/src/features/settings; pnpm gate design-source; pnpm gate style-policy; pnpm lint
       Files: packages/app/src/features/settings/components/jira-connection-form.tsx, packages/app/src/features/settings/components/jira-connection-form.test.tsx, packages/app/src/features/settings/components/connections-panel.tsx, packages/app/src/features/settings/components/connections-panel.test.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/test/msw.ts
 - [ ] Task 14: Manage, the `.env` help, and Disconnect with its confirm step; a second tab follows (AC-10, AC-11, AC-12, AC-14)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy; pnpm lint
-      Files: packages/app/src/features/settings/components/jira-connection-form.tsx, packages/app/src/features/settings/components/jira-connection-form.test.tsx, packages/app/src/features/settings/components/connections-panel.tsx, packages/app/src/features/settings/queries.ts
+      Files: packages/app/src/features/settings/components/jira-connection-form.tsx, packages/app/src/features/settings/components/jira-connection-form.test.tsx, packages/app/src/features/settings/components/connections-panel.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/live-updates.tsx
 - [ ] Task 15: e2e: the form at 360 and 1280 px in light and dark, client errors, Cancel returns focus, no layout shift, memory keychain (AC-2, AC-7, AC-16, AC-17, AC-18)
       Check: pnpm build; pnpm exec playwright test e2e/connect-jira.spec.ts; open Settings in `pnpm dev` at 360 and 1280 px, light and dark
       Files: e2e/connect-jira.spec.ts

@@ -1,5 +1,14 @@
 import axios, { type AxiosInstance } from 'axios';
-import { tokenHeader, type ServerEvent, type SessionList, type SessionListQuery, type Status } from '@devhub/contracts';
+import {
+  tokenHeader,
+  type JiraConnection,
+  type JiraConnectionRequest,
+  type ServerEvent,
+  type SessionList,
+  type SessionListQuery,
+  type Status,
+} from '@devhub/contracts';
+import { deleteJiraConnection, getJiraConnection, putJiraConnection } from './endpoints/jira.ts';
 import { getSessions } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
 import { toApiRequestError } from './errors.ts';
@@ -20,6 +29,11 @@ export interface ApiClient {
   status(): Promise<Status>;
   /** Sessions with the newest activity first; leave `limit` out for all of them. */
   sessions(query?: SessionListQuery): Promise<SessionList>;
+  /** The saved Jira site and email, and whether `.env` holds a Jira token. */
+  jiraConnection(): Promise<JiraConnection>;
+  /** Checks with Jira, then saves; rejects with integration_rejected, integration_unreachable or keychain_unavailable. */
+  connectJira(request: JiraConnectionRequest): Promise<JiraConnection>;
+  disconnectJira(): Promise<void>;
   /** Opens the live event stream; returns a function that closes it. */
   subscribe(onEvent: (event: ServerEvent) => void, onError?: () => void): () => void;
 }
@@ -41,6 +55,11 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     http,
     status: () => getStatus(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sessions: (query) => getSessions(http, query).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    jiraConnection: () => getJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    connectJira: (request) =>
+      putJiraConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    disconnectJira: () =>
+      deleteJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     subscribe: (onEvent, onError) =>
       subscribeToEvents({
         baseURL: options.baseURL,
