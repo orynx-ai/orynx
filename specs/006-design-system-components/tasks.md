@@ -22,7 +22,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 6: Add `Chip` (the quick start from AI Elements' Suggestion pattern): a 32 px filter toggle that says whether it's pressed, or a quick-start link through `asChild` (Q1b, AC-25)
       Check: pnpm test packages/ui/src/components/chip.test.tsx
       Files: packages/ui/src/components/chip.tsx, chip.stories.tsx, chip.test.tsx, packages/ui/src/index.ts
-- [ ] Task 7: Add `Panel`: a bordered surface with an optional head (heading and meta line) around a list (Q1b, AC-25)
+- [x] Task 7: Add `Panel`: a bordered surface with an optional head (heading and meta line) around a list (Q1b, AC-25)
       Check: pnpm test packages/ui/src/components/panel.test.tsx
       Files: packages/ui/src/components/panel.tsx, panel.stories.tsx, panel.test.tsx, packages/ui/src/index.ts
 - [ ] Task 8: Add `Menu` from shadcn's `dropdown-menu`: items with an icon, a description or mono path, a chevron, section labels, separators, a foot line and link items; arrow keys, typeahead, Enter, Esc and focus back on the trigger (AC-5, AC-6)
