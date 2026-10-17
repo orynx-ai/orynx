@@ -1,6 +1,15 @@
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { goodBasicValue, goodToken, jiraEmail, jiraSite, myselfUrl, useFakeJira } from '../../test/fake-jira.ts';
+import {
+  acceptingProjectSearch,
+  goodBasicValue,
+  goodToken,
+  jiraEmail,
+  jiraSite,
+  myselfUrl,
+  projectSearchUrl,
+  useFakeJira,
+} from '../../test/fake-jira.ts';
 import { createJiraClient, type JiraCheck } from './client.ts';
 
 const jira = useFakeJira();
@@ -113,5 +122,99 @@ describe('Jira client', () => {
 
   it('waits 10 seconds by default', () => {
     expect(createJiraClient().timeoutMs).toBe(10_000);
+  });
+});
+
+describe('Jira client: projects', () => {
+  const twoHundredAndFive = Array.from({ length: 205 }, (_, index) => ({
+    key: `P${String(index).padStart(3, '0')}`,
+    name: `Project ${String(index)}`,
+  }));
+
+  it('AC-5: reads every page of the projects the token can see, 100 at a time, in key order', async () => {
+    jira.use(acceptingProjectSearch(twoHundredAndFive));
+    const urls: URL[] = [];
+    jira.events.on('request:start', ({ request }) => {
+      urls.push(new URL(request.url));
+    });
+
+    const answer = await client.projects(credentials);
+
+    expect(answer).toEqual({ ok: true, projects: twoHundredAndFive });
+    expect(urls.map((url) => [url.searchParams.get('startAt'), url.searchParams.get('maxResults')])).toEqual([
+      ['0', '100'],
+      ['100', '100'],
+      ['200', '100'],
+    ]);
+    expect(urls.every((url) => url.searchParams.get('orderBy') === 'key')).toBe(true);
+    jira.events.removeAllListeners();
+  });
+
+  it('AC-5: moves on by what Jira sent, when Jira sends fewer per page than asked for', async () => {
+    jira.use(acceptingProjectSearch(twoHundredAndFive, { pageCap: 50 }));
+
+    expect(await client.projects(credentials)).toEqual({ ok: true, projects: twoHundredAndFive });
+  });
+
+  it('stops at 1000 projects', async () => {
+    const many = Array.from({ length: 1500 }, (_, index) => ({ key: `K${String(index)}`, name: `K ${String(index)}` }));
+    jira.use(acceptingProjectSearch(many));
+
+    const answer = await client.projects(credentials);
+
+    expect(answer.ok && answer.projects.length).toBe(1000);
+  });
+
+  it('leaves out a project whose key DevHub could not save', async () => {
+    jira.use(
+      acceptingProjectSearch([
+        { key: 'PROJ', name: 'Intranet' },
+        { key: 'old-key', name: 'Legacy' },
+      ]),
+    );
+
+    expect(await client.projects(credentials)).toEqual({ ok: true, projects: [{ key: 'PROJ', name: 'Intranet' }] });
+  });
+
+  it('AC-9: says Jira refused the token, without the token', async () => {
+    jira.use(acceptingProjectSearch(twoHundredAndFive));
+
+    const answer = await client.projects({ ...credentials, apiToken: 'fake-wrong-token' });
+
+    expect(answer).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(answer)).not.toContain('fake-wrong-token');
+  });
+
+  it("AC-9: says Jira didn't answer in time", async () => {
+    jira.use(
+      http.get(projectSearchUrl(), async () => {
+        await delay(1000);
+        return HttpResponse.json({ values: [], isLast: true });
+      }),
+    );
+
+    expect(await client.projects(credentials)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+
+  it('AC-9: gives the whole list one wait, so slow pages add up to a timeout the page can still show', async () => {
+    // Each page alone is quicker than the 200 ms wait; the two together are not.
+    jira.use(
+      http.get(projectSearchUrl(), async ({ request }) => {
+        await delay(120);
+        const startAt = Number(new URL(request.url).searchParams.get('startAt'));
+        return HttpResponse.json({ values: [{ key: `P${String(startAt)}`, name: 'Slow' }], isLast: startAt > 0 });
+      }),
+    );
+
+    expect(await client.projects(credentials)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+
+  it("AC-9: says Jira can't be reached", async () => {
+    jira.use(http.get(projectSearchUrl(), () => HttpResponse.error()));
+
+    expect(await client.projects(credentials)).toEqual({
+      ok: false,
+      problem: { kind: 'unreachable', code: undefined },
+    });
   });
 });

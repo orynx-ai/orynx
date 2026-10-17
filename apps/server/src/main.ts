@@ -35,6 +35,8 @@ const app = await createServer({
   envTokens: config.tokens.env,
   // gh from the PATH of the terminal that started DevHub. The e2e run puts a fake one first.
   gh: createGhCli({ searchPath: config.ghSearchPath }),
+  // Settings › Repositories never adds DevHub's own folder (spec 005).
+  dataDir: config.home,
   settings: createFileSettingsStore(config.home, {
     onUnreadable: () => {
       app.log.warn(`${settingsFilePath(config.home)} is not valid; DevHub ignores it until the next save.`);

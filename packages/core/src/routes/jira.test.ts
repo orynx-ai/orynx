@@ -5,6 +5,7 @@ import {
   apiRoutes,
   ApiErrorSchema,
   JiraConnectionSchema,
+  JiraProjectListSchema,
   StatusSchema,
   tokenHeader,
   type ServerEvent,
@@ -14,7 +15,15 @@ import { createEventBus } from '../events/event-bus.ts';
 import type { Keychain } from '../secrets/keychain.ts';
 import { createMemoryKeychain, createUnreachableKeychain } from '../secrets/memory-keychain.ts';
 import { createMemorySettingsStore } from '../settings/settings-store.ts';
-import { goodToken, jiraEmail, jiraSite, myselfUrl, useFakeJira } from '../test/fake-jira.ts';
+import {
+  acceptingProjectSearch,
+  goodToken,
+  jiraEmail,
+  jiraSite,
+  myselfUrl,
+  projectSearchUrl,
+  useFakeJira,
+} from '../test/fake-jira.ts';
 
 const jira = useFakeJira();
 const token = 'test-token-0123456789';
@@ -183,5 +192,53 @@ describe('/api/jira/connection', () => {
       state: 'error',
       detail: "Jira didn't accept this email and API token. Check both, or create a new token.",
     });
+  });
+});
+
+describe('/api/jira/projects', () => {
+  const projects = [{ key: 'PROJ', name: 'Intranet' }];
+
+  async function connectedServer() {
+    const keychain = createMemoryKeychain();
+    await keychain.set('jira', goodToken);
+    return server({ keychain, settings: createMemorySettingsStore({ jira: saved }) });
+  }
+
+  it('answers 401 without the session token', async () => {
+    const { app } = await server();
+    const res = await app.inject({ method: 'GET', url: apiRoutes.jiraProjects, headers: { host: headers.host } });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('AC-5: lists the projects the saved connection can see', async () => {
+    jira.use(acceptingProjectSearch(projects));
+    const { app } = await connectedServer();
+
+    const res = await app.inject({ method: 'GET', url: apiRoutes.jiraProjects, headers });
+
+    expect(res.statusCode).toBe(200);
+    expect(JiraProjectListSchema.parse(res.json())).toEqual({ projects });
+  });
+
+  it('AC-8: answers 400 when Jira is not connected', async () => {
+    const { app } = await server();
+
+    const res = await app.inject({ method: 'GET', url: apiRoutes.jiraProjects, headers });
+
+    expect(res.statusCode).toBe(400);
+    expect(ApiErrorSchema.parse(res.json())).toEqual({
+      code: 'bad_request',
+      message: 'Connect Jira in Connections to pick a project.',
+    });
+  });
+
+  it('AC-9: answers 502 when Jira cannot be reached', async () => {
+    jira.use(http.get(projectSearchUrl(), () => HttpResponse.error()));
+    const { app } = await connectedServer();
+
+    const res = await app.inject({ method: 'GET', url: apiRoutes.jiraProjects, headers });
+
+    expect(res.statusCode).toBe(502);
+    expect(ApiErrorSchema.parse(res.json()).code).toBe('integration_unreachable');
   });
 });

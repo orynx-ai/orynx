@@ -1,5 +1,6 @@
 import type * as JiraCore from 'jira.js/core';
 import { z } from 'zod';
+import { JiraProjectKeySchema, type JiraProject } from '@devhub/contracts';
 
 /**
  * The only file in DevHub that talks to Jira (integration-adapter skill). The token goes into the
@@ -29,10 +30,18 @@ export type JiraProblem =
 
 export type JiraCheck = { ok: true } | { ok: false; problem: JiraProblem };
 
+export type JiraProjects = { ok: true; projects: JiraProject[] } | { ok: false; problem: JiraProblem };
+
 export interface JiraClient {
   readonly timeoutMs: number;
   /** Asks Jira who these credentials belong to (`GET /rest/api/3/myself`). */
   check(request: JiraCheckRequest): Promise<JiraCheck>;
+  /**
+   * The projects these credentials can see, by key (`GET /rest/api/3/project/search`, 100 a page, at
+   * most 1000). The whole list shares one timeout, so the answer always comes before the page's own
+   * 20-second wait gives up (spec 005).
+   */
+  projects(request: JiraCheckRequest): Promise<JiraProjects>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -46,33 +55,75 @@ export interface JiraClientOptions {
 
 const MyselfSchema = z.object({ accountId: z.string().min(1) });
 
+const ProjectPageSchema = z.object({
+  values: z.array(z.object({ key: z.string(), name: z.string() })),
+  isLast: z.boolean().optional(),
+});
+
+const projectsPerPage = 100;
+const mostProjects = 1000;
+
 // Codes such as "ENOTFOUND" or "UNABLE_TO_GET_ISSUER_CERT_LOCALLY". Anything else is dropped.
 const errorCode = /^[A-Z][A-Z0-9_]{0,63}$/;
 
 export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOptions = {}): JiraClient {
+  /** Runs `work` with a client for these credentials; any failure comes back as a problem, never the error. */
+  async function withJira<T>(
+    { site, email, apiToken }: JiraCheckRequest,
+    work: (client: JiraCore.Client) => Promise<T>,
+  ): Promise<{ ok: true; value: T } | { ok: false; problem: JiraProblem }> {
+    // Loaded on the first call, so starting DevHub never pays for it.
+    const sdk = await import('jira.js/core');
+    try {
+      const client = sdk.createClient({
+        host: `https://${site}`,
+        auth: { type: 'basic', email, apiToken },
+        // A page that isn't Jira's answer is an error, and the library writes nothing to the terminal.
+        onSchemaMismatch: 'throw',
+        ...(fetch ? { fetch } : {}),
+      });
+      return { ok: true, value: await work(client) };
+    } catch (error) {
+      return { ok: false, problem: problemOf(sdk, error) };
+    }
+  }
+
   return {
     timeoutMs,
-    async check({ site, email, apiToken }) {
-      // Loaded on the first call, so starting DevHub never pays for it.
-      const sdk = await import('jira.js/core');
-      try {
-        const client = sdk.createClient({
-          host: `https://${site}`,
-          auth: { type: 'basic', email, apiToken },
-          // A page that isn't Jira's answer is an error, and the library writes nothing to the terminal.
-          onSchemaMismatch: 'throw',
-          ...(fetch ? { fetch } : {}),
-        });
-        await client.sendRequest({
+
+    async check(request) {
+      const answer = await withJira(request, (client) =>
+        client.sendRequest({
           url: '/rest/api/3/myself',
           method: 'GET',
           schema: MyselfSchema,
           signal: AbortSignal.timeout(timeoutMs),
-        });
-        return { ok: true };
-      } catch (error) {
-        return { ok: false, problem: problemOf(sdk, error) };
-      }
+        }),
+      );
+      return answer.ok ? { ok: true } : answer;
+    },
+
+    async projects(request) {
+      const answer = await withJira(request, async (client) => {
+        const signal = AbortSignal.timeout(timeoutMs);
+        const projects: JiraProject[] = [];
+        // Jira may send fewer than asked for, so each page starts where the last one ended.
+        for (let startAt = 0; startAt < mostProjects;) {
+          const page = await client.sendRequest({
+            url: '/rest/api/3/project/search',
+            method: 'GET',
+            searchParams: { startAt, maxResults: projectsPerPage, orderBy: 'key' },
+            schema: ProjectPageSchema,
+            signal,
+          });
+          // A key DevHub couldn't save in Settings is left out rather than failing the whole list.
+          projects.push(...page.values.filter((project) => JiraProjectKeySchema.safeParse(project.key).success));
+          if (page.isLast !== false || page.values.length === 0) break;
+          startAt += page.values.length;
+        }
+        return projects.slice(0, mostProjects);
+      });
+      return answer.ok ? { ok: true, projects: answer.value } : answer;
     },
   };
 }

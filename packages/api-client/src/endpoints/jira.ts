@@ -1,5 +1,12 @@
 import type { AxiosInstance } from 'axios';
-import { apiRoutes, JiraConnectionSchema, type JiraConnection, type JiraConnectionRequest } from '@devhub/contracts';
+import {
+  apiRoutes,
+  JiraConnectionSchema,
+  JiraProjectListSchema,
+  type JiraConnection,
+  type JiraConnectionRequest,
+  type JiraProjectList,
+} from '@devhub/contracts';
 
 export async function getJiraConnection(http: AxiosInstance): Promise<JiraConnection> {
   const res = await http.get<unknown>(apiRoutes.jiraConnection);
@@ -14,4 +21,10 @@ export async function putJiraConnection(http: AxiosInstance, request: JiraConnec
 
 export async function deleteJiraConnection(http: AxiosInstance): Promise<void> {
   await http.delete(apiRoutes.jiraConnection);
+}
+
+/** The projects the saved connection can see; the server asks Jira each time. */
+export async function getJiraProjects(http: AxiosInstance): Promise<JiraProjectList> {
+  const res = await http.get<unknown>(apiRoutes.jiraProjects);
+  return JiraProjectListSchema.parse(res.data);
 }

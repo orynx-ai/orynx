@@ -95,6 +95,20 @@ describe('file settings store', () => {
     expect(await createFileSettingsStore(home).read()).toEqual({});
   });
 
+  it("AC-18: keeps Settings values it can't read as they were written, next to Jira's settings", async () => {
+    const written = {
+      jira,
+      agent: { permissionMode: 'yolo' },
+      inbox: { rules: { checks_failing: 'no' } },
+      repositories: [{ path: 42 }, { id: '00000000000000aa', path: '/Users/dev/code/app', jiraProject: 'PROJ' }],
+    };
+    await mkdir(home, { recursive: true });
+    await writeFile(settingsFilePath(home), JSON.stringify(written));
+
+    // The services decide what they can use; the store loses nothing a newer DevHub wrote.
+    expect(await createFileSettingsStore(home).read()).toEqual(written);
+  });
+
   it('a failed change leaves the file as it was and later changes still run', async () => {
     const store = createFileSettingsStore(home);
     await store.update(() => ({ jira }));

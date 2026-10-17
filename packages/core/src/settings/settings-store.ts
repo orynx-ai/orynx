@@ -2,7 +2,23 @@ import { randomBytes } from 'node:crypto';
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { GitHubSavedConnectionSchema, JiraSavedConnectionSchema } from '@devhub/contracts';
+import {
+  GitHubSavedConnectionSchema,
+  JiraProjectKeySchema,
+  JiraSavedConnectionSchema,
+  RepositoryIdSchema,
+} from '@devhub/contracts';
+
+/** One folder in Settings › Repositories as settings.json keeps it; the name and `~` path are worked out on read. */
+export const SavedRepositorySchema = z.looseObject({
+  id: RepositoryIdSchema,
+  path: z.string(),
+  jiraProject: JiraProjectKeySchema.nullable(),
+});
+export type SavedRepository = z.infer<typeof SavedRepositorySchema>;
+
+/** A JSON object as it was written, whatever keys and values it holds. */
+const WrittenObjectSchema = z.record(z.string(), z.unknown());
 
 /**
  * Everything in `<DEVHUB_HOME>/settings.json`. Never a token: tokens live in the keychain (spec 002).
@@ -13,10 +29,19 @@ const SettingsSchema = z.looseObject({
   jira: JiraSavedConnectionSchema.optional(),
   /** The way GitHub accepted: the gh login or a token in the keychain (spec 004). */
   github: GitHubSavedConnectionSchema.optional(),
+  /**
+   * Settings' own values (spec 005): Coding agent, Inbox rules (only the rules the person changed) and
+   * Repositories, kept as written. The services take what they can read and keep the rest through every
+   * save, so a value from a newer DevHub survives, and one bad value can't make DevHub forget the Jira
+   * and GitHub settings next to it.
+   */
+  agent: WrittenObjectSchema.optional().catch(undefined),
+  inbox: WrittenObjectSchema.optional().catch(undefined),
+  repositories: z.array(z.unknown()).optional().catch(undefined),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
-/** The settings DevHub keeps between runs. Spec 005 adds its own keys to the same store. */
+/** The settings DevHub keeps between runs: the connections (specs 003, 004) and Settings' own values (spec 005). */
 export interface SettingsStore {
   read(): Promise<Settings>;
   /** Applies `change` to the latest settings and saves the result. Changes run one at a time. */

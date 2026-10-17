@@ -7,9 +7,10 @@
  * work only inside the session worktree, never push or open a PR on its own, and ask
  * before network calls, pushes and deletes outside the worktree whatever the mode.
  */
-import type { SessionState, SessionStep } from '@devhub/contracts';
+import type { PermissionMode, SessionState, SessionStep } from '@devhub/contracts';
 
-export type PermissionMode = 'ask_everything' | 'edit_freely_ask_commands' | 'edit_and_run_allowed';
+/** Saved in Settings › Coding agent (spec 005); the schema lives in contracts. */
+export type { PermissionMode };
 
 export interface AgentPermissions {
   mode: PermissionMode;

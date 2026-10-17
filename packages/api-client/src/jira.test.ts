@@ -3,7 +3,13 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { apiRoutes, tokenHeader } from '@devhub/contracts';
 import { makeJiraConnection } from '@devhub/contracts/testing';
-import { ApiRequestError, createApiClient, jiraConnectionQueryOptions, queryKeys } from './index.ts';
+import {
+  ApiRequestError,
+  createApiClient,
+  jiraConnectionQueryOptions,
+  jiraProjectsQueryOptions,
+  queryKeys,
+} from './index.ts';
 
 const baseURL = 'http://127.0.0.1:4317';
 const connectionUrl = `${baseURL}${apiRoutes.jiraConnection}`;
@@ -106,5 +112,34 @@ describe('Jira connection endpoints', () => {
     const options = jiraConnectionQueryOptions(api);
     expect(options.queryKey).toEqual(queryKeys.jiraConnection);
     expect(options.staleTime).toBe(Infinity);
+  });
+});
+
+describe('Jira projects endpoint', () => {
+  it('AC-5: reads the projects the saved connection can see', async () => {
+    const projects = [{ key: 'PROJ', name: 'Intranet' }];
+    server.use(http.get(`${baseURL}${apiRoutes.jiraProjects}`, () => HttpResponse.json({ projects })));
+
+    expect(await api.jiraProjects()).toEqual({ projects });
+  });
+
+  it('AC-9: rejects with the code the server sends when Jira fails', async () => {
+    server.use(
+      http.get(`${baseURL}${apiRoutes.jiraProjects}`, () =>
+        HttpResponse.json(
+          { code: 'integration_unreachable', message: "Can't reach your-team.atlassian.net." },
+          { status: 502 },
+        ),
+      ),
+    );
+
+    await expect(api.jiraProjects()).rejects.toMatchObject({ code: 'integration_unreachable' });
+  });
+
+  it('keeps the list only while the form shows it, and asks Jira again every time', () => {
+    const options = jiraProjectsQueryOptions(api);
+    expect(options.queryKey).toEqual(queryKeys.jiraProjects);
+    expect(options.gcTime).toBe(0);
+    expect(options.staleTime).toBe(0);
   });
 });

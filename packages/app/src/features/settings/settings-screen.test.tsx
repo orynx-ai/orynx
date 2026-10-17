@@ -10,6 +10,34 @@ describe('SettingsScreen', () => {
     expect(history.location.pathname).toBe('/settings/connections');
   });
 
+  it('AC-1: has the five tabs in the product spec order, each at its own address', async () => {
+    const { user, history } = await renderApp({ route: '/settings/connections' });
+
+    const tabs = within(await screen.findByRole('tablist', { name: 'Settings sections' })).getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      'Connections',
+      'Coding agent',
+      'Repositories',
+      'Inbox rules',
+      'Appearance',
+    ]);
+
+    for (const [name, path] of [
+      ['Coding agent', '/settings/coding-agent'],
+      ['Repositories', '/settings/repositories'],
+      ['Inbox rules', '/settings/inbox-rules'],
+    ] as const) {
+      await user.click(screen.getByRole('tab', { name }));
+      expect(history.location.pathname).toBe(path);
+    }
+  });
+
+  it('AC-1: opens straight on a tab from its address', async () => {
+    await renderApp({ route: '/settings/repositories' });
+
+    expect(await screen.findByRole('tab', { name: 'Repositories' })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('says that everything stays on this computer', async () => {
     await renderApp({ route: '/settings/connections' });
     expect(await screen.findByText('Everything stays on this computer')).toBeVisible();
@@ -36,7 +64,7 @@ describe('SettingsScreen', () => {
     connections.focus();
 
     await user.keyboard('{ArrowRight}');
-    expect(screen.getByRole('tab', { name: 'Appearance' })).toHaveFocus();
+    expect(screen.getByRole('tab', { name: 'Coding agent' })).toHaveFocus();
 
     await user.keyboard('{ArrowLeft}');
     expect(screen.getByRole('tab', { name: 'Connections' })).toHaveFocus();

@@ -6,7 +6,15 @@ import type { Keychain } from '../../secrets/keychain.ts';
 import { createMemoryKeychain, createUnreachableKeychain } from '../../secrets/memory-keychain.ts';
 import { createTokenStore, keychainUnavailableMessage, type EnvTokens } from '../../secrets/token-store.ts';
 import { createMemorySettingsStore, type Settings } from '../../settings/settings-store.ts';
-import { goodToken, jiraEmail, jiraSite, myselfUrl, useFakeJira } from '../../test/fake-jira.ts';
+import {
+  acceptingProjectSearch,
+  goodToken,
+  jiraEmail,
+  jiraSite,
+  myselfUrl,
+  projectSearchUrl,
+  useFakeJira,
+} from '../../test/fake-jira.ts';
 import { createJiraClient } from './client.ts';
 import { createJiraConnection, JiraConnectionError } from './connection.ts';
 
@@ -202,5 +210,75 @@ describe('Jira connection', () => {
 
     expect(await keychain.get('jira')).toBeNull();
     expect(await settings.read()).toEqual({ jira: saved });
+  });
+});
+
+describe('Jira connection: projects', () => {
+  const projects = [
+    { key: 'MOB', name: 'Mobile' },
+    { key: 'PROJ', name: 'Intranet' },
+  ];
+
+  async function connected(options: Parameters<typeof setup>[0] = {}) {
+    const keychain = options.keychain ?? createMemoryKeychain();
+    await keychain.set('jira', goodToken);
+    return setup({ ...options, keychain, settings: { jira: saved, ...options.settings } });
+  }
+
+  it('AC-5: lists the projects the saved connection can see', async () => {
+    jira.use(acceptingProjectSearch(projects));
+    const { connection } = await connected();
+
+    expect(await connection.projects()).toEqual(projects);
+  });
+
+  it('AC-8: asks for a connection first when Jira is not connected', async () => {
+    const { connection } = setup();
+
+    const error = await failure(connection.projects());
+
+    expect(error.code).toBe('bad_request');
+    expect(error.message).toBe('Connect Jira in Connections to pick a project.');
+  });
+
+  it("AC-9: says Jira refused, in spec 003's words, and tells the terminal", async () => {
+    jira.use(acceptingProjectSearch(projects));
+    const keychain = createMemoryKeychain();
+    await keychain.set('jira', 'fake-old-token');
+    const { connection, onProblem } = setup({ keychain, settings: { jira: saved } });
+
+    const error = await failure(connection.projects());
+
+    expect(error.code).toBe('integration_rejected');
+    expect(error.message).toBe("Jira didn't accept this email and API token. Check both, or create a new token.");
+    expect(onProblem).toHaveBeenCalledWith({ kind: 'rejected' });
+  });
+
+  it("AC-9: says Jira can't be reached", async () => {
+    jira.use(http.get(projectSearchUrl(), () => HttpResponse.error()));
+    const { connection } = await connected();
+
+    const error = await failure(connection.projects());
+
+    expect(error.code).toBe('integration_unreachable');
+    expect(error.message).toBe(`Can't reach ${jiraSite}. Check your network or VPN, then try again.`);
+  });
+
+  it('AC-9: says the saved token is gone from the keychain', async () => {
+    const { connection } = setup({ settings: { jira: saved } });
+
+    const error = await failure(connection.projects());
+
+    expect(error.code).toBe('integration_rejected');
+    expect(error.message).toBe('The saved API token is missing from your keychain. Connect again.');
+  });
+
+  it("AC-9: says the keychain can't be reached", async () => {
+    const { connection } = setup({ keychain: createUnreachableKeychain(), settings: { jira: saved } });
+
+    const error = await failure(connection.projects());
+
+    expect(error.code).toBe('keychain_unavailable');
+    expect(error.message).toBe(keychainUnavailableMessage);
   });
 });

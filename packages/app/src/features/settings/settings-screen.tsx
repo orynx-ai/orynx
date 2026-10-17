@@ -1,9 +1,12 @@
-// Design: docs/design/screens/settings.html — page bar, title, local-first callout, tabs and the connection list
+// Design: docs/design/screens/settings.html — page bar, title, local-first callout, tabs, the connection list, and the Coding agent (modes), Repositories and Inbox rules tabs
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { Lock } from 'lucide-react';
 import { Callout, Tabs, TabsContent, TabsList, TabsTrigger } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb } from '../../shell/page-frame.tsx';
 import { AppearancePanel } from './components/appearance-panel.tsx';
+import { CodingAgentPanel } from './components/coding-agent-panel.tsx';
+import { InboxRulesPanel } from './components/inbox-rules-panel.tsx';
+import { RepositoriesPanel } from './components/repositories-panel.tsx';
 import { ConnectionsPanel } from './components/connections-panel.tsx';
 import { SettingsTabSchema, settingsTabLabels } from './tabs.ts';
 
@@ -48,6 +51,15 @@ export function SettingsScreen() {
           </TabsList>
           <TabsContent value="connections" className="pt-6">
             <ConnectionsPanel />
+          </TabsContent>
+          <TabsContent value="coding-agent" className="pt-6">
+            <CodingAgentPanel />
+          </TabsContent>
+          <TabsContent value="repositories" className="pt-6">
+            <RepositoriesPanel />
+          </TabsContent>
+          <TabsContent value="inbox-rules" className="pt-6">
+            <InboxRulesPanel />
           </TabsContent>
           <TabsContent value="appearance" className="pt-6">
             <AppearancePanel />

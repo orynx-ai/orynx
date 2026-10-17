@@ -10,7 +10,7 @@ A session is one piece of work Claude does for the user: one task, one repo, one
 ## Safety rules (from the spec, all mandatory)
 
 1. **Worktree only.** Each session runs in its own git worktree under `~/.devhub/worktrees/`, on a branch named after the ticket (`feat/PROJ-1423`). Claude's working folder is that worktree. It must never edit the user's main checkout.
-2. **Permission modes** (Settings › Coding agent):
+2. **Permission modes** (Settings › Coding agent, saved since spec 005 as `agent.permissionMode` in `settings.json`; read it through `createPreferencesService().read()`, never the file):
    - Ask before everything: every file edit and every command needs a click.
    - Edit files freely, ask before commands (default, recommended): edits stay in the worktree; commands ask.
    - Edit files and run allowed commands: commands on the allow list run; anything else asks. "Always allow" adds to the list.

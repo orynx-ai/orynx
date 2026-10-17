@@ -82,6 +82,14 @@
   --color-github: var(--source-github);
   --color-slack: var(--source-slack);
   --color-slack-subtle: var(--source-slack-subtle);
+
+  /* Brand logos (SourceMark only): each company's own colours. */
+  --color-brand-jira: var(--brand-jira);
+  --color-brand-jira-deep: var(--brand-jira-deep);
+  --color-brand-slack-red: var(--brand-slack-red);
+  --color-brand-slack-blue: var(--brand-slack-blue);
+  --color-brand-slack-green: var(--brand-slack-green);
+  --color-brand-slack-yellow: var(--brand-slack-yellow);
 }
 
 /* The one shadow: menus, popovers and the composer. */

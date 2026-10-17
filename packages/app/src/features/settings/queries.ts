@@ -1,16 +1,26 @@
-import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   githubConnectionQueryOptions,
   jiraConnectionQueryOptions,
+  jiraProjectsQueryOptions,
+  preferencesQueryOptions,
   queryKeys,
+  repositoriesQueryOptions,
   statusQueryOptions,
   type ApiRequestError,
 } from '@devhub/api-client';
+import { InboxRuleIdSchema } from '@devhub/contracts';
 import type {
   GitHubConnection,
   GitHubConnectionRequest,
   JiraConnection,
   JiraConnectionRequest,
+  Preferences,
+  PreferencesChange,
+  AddRepositoryRequest,
+  Repository,
+  RepositoryId,
+  RepositoryList,
 } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
@@ -101,4 +111,172 @@ export function useConnectionChangeRunning(): boolean {
   const jira = useIsMutating({ mutationKey: queryKeys.jiraConnection });
   const github = useIsMutating({ mutationKey: queryKeys.githubConnection });
   return jira + github > 0;
+}
+
+/** Settings › Coding agent and Inbox rules. Kept fresh by `settings.changed` events, not polling. */
+export function usePreferences() {
+  const api = useApi();
+  return useQuery(preferencesQueryOptions(api));
+}
+
+function withChange(preferences: Preferences, change: PreferencesChange): Preferences {
+  return {
+    permissionMode: change.permissionMode ?? preferences.permissionMode,
+    inboxRules: { ...preferences.inboxRules, ...change.inboxRules },
+  };
+}
+
+/**
+ * Takes back one failed change and nothing else: each value it set goes back to the saved one, unless a
+ * later change has set it again since. Other changes on their way stay on screen.
+ */
+function withoutChange(current: Preferences, change: PreferencesChange, saved: Preferences): Preferences {
+  const inboxRules = { ...current.inboxRules };
+  for (const rule of InboxRuleIdSchema.options) {
+    const set = change.inboxRules?.[rule];
+    if (set !== undefined && inboxRules[rule] === set) inboxRules[rule] = saved.inboxRules[rule];
+  }
+  const modeStillSet = change.permissionMode !== undefined && current.permissionMode === change.permissionMode;
+  return { permissionMode: modeStillSet ? saved.permissionMode : current.permissionMode, inboxRules };
+}
+
+interface PreferencesChangeContext {
+  /**
+   * What the server holds: the preferences from before the first change still on its way, moved
+   * forward each time one of those changes is saved.
+   */
+  saved: Preferences | undefined;
+}
+
+function isChangeContext(context: unknown): context is PreferencesChangeContext {
+  return typeof context === 'object' && context !== null && 'saved' in context;
+}
+
+/** The contexts of the preference changes still on their way, earliest first. */
+function pendingChanges(queryClient: QueryClient): PreferencesChangeContext[] {
+  return queryClient
+    .getMutationCache()
+    .findAll({ mutationKey: queryKeys.preferences, exact: true, status: 'pending' })
+    .map((mutation) => mutation.state.context)
+    .filter(isChangeContext);
+}
+
+/**
+ * Saves one change, showing it at once (spec 005: "the control shows the new value straight away"). A
+ * failed save takes back only its own change.
+ */
+export function useChangePreferences() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<Preferences, ApiRequestError, PreferencesChange, PreferencesChangeContext>({
+    mutationKey: queryKeys.preferences,
+    mutationFn: (change) => api.changePreferences(change),
+    onMutate: async (change) => {
+      // A refetch already on its way would land on top of the new value.
+      await queryClient.cancelQueries({ queryKey: queryKeys.preferences });
+      const current = queryClient.getQueryData<Preferences>(queryKeys.preferences);
+      // The screen already shows earlier changes still on their way; the server holds what came before them.
+      const earliest = pendingChanges(queryClient)[0];
+      if (current) queryClient.setQueryData(queryKeys.preferences, withChange(current, change));
+      return { saved: earliest?.saved ?? current };
+    },
+    onSuccess: (answer) => {
+      // The server holds this answer now: a later change that fails goes back to it, not to older values.
+      for (const context of pendingChanges(queryClient)) context.saved = answer;
+    },
+    onError: (_error, change, context) => {
+      const saved = context?.saved;
+      if (saved === undefined) return;
+      queryClient.setQueryData<Preferences>(
+        queryKeys.preferences,
+        (current) => current && withoutChange(current, change, saved),
+      );
+    },
+    onSettled: () => {
+      refetchAfterLast(queryClient, queryKeys.preferences);
+    },
+  });
+}
+
+/**
+ * Refetches only after the last of several quick changes to the same data, so an early answer (or an
+ * early settings.changed) can't undo a later change on screen. Live updates hold back for the same reason.
+ * Not awaited: the caller's own onSuccess, such as closing the add-folder form, shouldn't wait for it.
+ */
+function refetchAfterLast(queryClient: QueryClient, key: readonly string[]): void {
+  if (queryClient.isMutating({ mutationKey: key }) === 1) void queryClient.invalidateQueries({ queryKey: key });
+}
+
+/** Settings › Repositories. Kept fresh by `settings.changed` events, not polling. */
+export function useRepositories() {
+  const api = useApi();
+  return useQuery(repositoriesQueryOptions(api));
+}
+
+/** The projects the saved Jira connection can see, asked only while the add-folder form is open and Jira is connected. */
+export function useJiraProjects(enabled: boolean) {
+  const api = useApi();
+  return useQuery({ ...jiraProjectsQueryOptions(api), enabled });
+}
+
+/** Adding has its own key under repositories, so the panel can tell an add is on its way. */
+const addRepositoryKey = [...queryKeys.repositories, 'add'] as const;
+
+/** Checks the folder on disk, then saves it. Fails with folder_rejected and the message for the Folder field. */
+export function useAddRepository() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<Repository, ApiRequestError, AddRepositoryRequest>({
+    mutationKey: addRepositoryKey,
+    mutationFn: (request) => api.addRepository(request),
+    onSuccess: (folder) => {
+      // The row shows at once; settings.changed then refetches the list to confirm it.
+      queryClient.setQueryData<RepositoryList>(queryKeys.repositories, (old) =>
+        old && !old.repositories.some((other) => other.id === folder.id)
+          ? { repositories: [...old.repositories, folder] }
+          : old,
+      );
+    },
+    onSettled: () => {
+      refetchAfterLast(queryClient, queryKeys.repositories);
+    },
+  });
+}
+
+/** Whether a folder is being added right now; closing the form then would hide the server's answer. */
+export function useAddingRepository(): boolean {
+  return useIsMutating({ mutationKey: addRepositoryKey }) > 0;
+}
+
+/** Forgets a folder, taking its row away at once (spec 005, AC-11). A failed save puts back that row alone. */
+export function useRemoveRepository() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: [...queryKeys.repositories, 'remove'],
+    mutationFn: (id: RepositoryId) => api.removeRepository(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.repositories });
+      const before = queryClient.getQueryData<RepositoryList>(queryKeys.repositories)?.repositories ?? [];
+      const index = before.findIndex((folder) => folder.id === id);
+      queryClient.setQueryData<RepositoryList>(
+        queryKeys.repositories,
+        (current) => current && { repositories: current.repositories.filter((folder) => folder.id !== id) },
+      );
+      return { removed: before[index], index };
+    },
+    onError: (_error, _id, context) => {
+      if (context?.removed === undefined) return;
+      const { removed, index } = context;
+      queryClient.setQueryData<RepositoryList>(queryKeys.repositories, (current) => {
+        if (current === undefined || current.repositories.some((folder) => folder.id === removed.id)) return current;
+        const repositories = [...current.repositories];
+        repositories.splice(Math.min(index, repositories.length), 0, removed);
+        return { repositories };
+      });
+    },
+    onSettled: () => {
+      refetchAfterLast(queryClient, queryKeys.repositories);
+    },
+  });
 }
