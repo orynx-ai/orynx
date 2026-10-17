@@ -58,11 +58,6 @@ export function useDisconnectJira() {
   });
 }
 
-/** Whether Jira is being connected or disconnected right now. */
-export function useJiraChangeRunning(): boolean {
-  return useIsMutating({ mutationKey: queryKeys.jiraConnection }) > 0;
-}
-
 /** The saved way of connecting GitHub, whether `.env` holds a GitHub token, and whether gh was found. */
 export function useGitHubConnection() {
   const api = useApi();
@@ -101,7 +96,9 @@ export function useDisconnectGitHub() {
   });
 }
 
-/** Whether GitHub is being connected or disconnected right now. */
-export function useGitHubChangeRunning(): boolean {
-  return useIsMutating({ mutationKey: queryKeys.githubConnection }) > 0;
+/** Whether any tool is being connected or disconnected right now. */
+export function useConnectionChangeRunning(): boolean {
+  const jira = useIsMutating({ mutationKey: queryKeys.jiraConnection });
+  const github = useIsMutating({ mutationKey: queryKeys.githubConnection });
+  return jira + github > 0;
 }

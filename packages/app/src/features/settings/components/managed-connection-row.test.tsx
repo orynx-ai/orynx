@@ -1,54 +1,63 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ManagedConnectionRow, type ManagedConnectionRowProps } from './managed-connection-row.tsx';
 
 const connected = { state: 'connected', detail: 'Signed in as octocat with the gh command-line tool' } as const;
+
+/** Holds which form is open, the way the Connections panel does. */
+function Panel(props: Omit<ManagedConnectionRowProps, 'open' | 'onOpenChange'>) {
+  const [open, setOpen] = useState(false);
+  return (
+    <ul>
+      <ManagedConnectionRow {...props} open={open} onOpenChange={setOpen} />
+    </ul>
+  );
+}
 
 /** A row whose form has a Finish and a Cancel button, the way a real form closes itself. */
 function renderRow(props: Partial<ManagedConnectionRowProps> = {}) {
   const announce = vi.fn();
   const user = userEvent.setup();
   render(
-    <ul>
-      <ManagedConnectionRow
-        id="github"
-        name="GitHub"
-        howToConnect="Reuses your gh command-line login, or a personal access token."
-        status={{ state: 'not_connected', detail: null }}
-        configured={false}
-        changing={false}
-        loadFailed={false}
-        announce={announce}
-        form={({ id, close }) => (
-          <form id={id} aria-label="GitHub connection">
-            <button
-              type="button"
-              onClick={() => {
-                close('GitHub is connected.');
-              }}
-            >
-              Finish
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                close();
-              }}
-            >
-              Cancel
-            </button>
-          </form>
-        )}
-        {...props}
-      />
-    </ul>,
+    <Panel
+      id="github"
+      name="GitHub"
+      howToConnect="Reuses your gh command-line login, or a personal access token."
+      status={{ state: 'not_connected', detail: null }}
+      configured={false}
+      changing={false}
+      loadFailed={false}
+      announce={announce}
+      form={({ id, close }) => (
+        <form id={id} aria-label="GitHub connection">
+          <button
+            type="button"
+            onClick={() => {
+              close('GitHub is connected.');
+            }}
+          >
+            Finish
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              close();
+            }}
+          >
+            Cancel
+          </button>
+        </form>
+      )}
+      {...props}
+    />,
   );
   return { announce, user };
 }
 
 describe('ManagedConnectionRow', () => {
-  it('AC-1: offers Connect while nothing is set up, and Manage once it is', () => {
+  it('AC-1: offers Connect while nothing is set up', () => {
     renderRow();
     expect(screen.getByRole('button', { name: 'Connect' })).toHaveAttribute('aria-expanded', 'false');
   });

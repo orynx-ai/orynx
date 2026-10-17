@@ -1,24 +1,22 @@
 import type { IntegrationStatus } from '@devhub/contracts';
-import { useJiraChangeRunning, useJiraConnection } from '../queries.ts';
+import { useConnectionChangeRunning, useJiraConnection } from '../queries.ts';
 import { JiraConnectionForm } from './jira-connection-form.tsx';
-import { ManagedConnectionRow } from './managed-connection-row.tsx';
+import { ManagedConnectionRow, type RowControls } from './managed-connection-row.tsx';
 
-export interface JiraConnectionRowProps {
+export interface JiraConnectionRowProps extends RowControls {
   status: IntegrationStatus | undefined;
-  /** Says a message politely, through the Connections panel's live region. */
-  announce: (message: string) => void;
 }
 
 /** The Jira row: Connect or Manage opens the form inside the row (spec 003, Q3). */
-export function JiraConnectionRow({ status, announce }: JiraConnectionRowProps) {
+export function JiraConnectionRow({ status, ...controls }: JiraConnectionRowProps) {
   const connection = useJiraConnection();
-  const changing = useJiraChangeRunning();
+  const changing = useConnectionChangeRunning();
 
   // Until the saved settings arrive, the status says whether anything is set up.
   const configured = connection.data
     ? connection.data.saved !== null
     : (status?.state ?? 'not_connected') !== 'not_connected';
-  const saved = connection.data;
+  const loaded = connection.data;
 
   return (
     <ManagedConnectionRow
@@ -29,13 +27,13 @@ export function JiraConnectionRow({ status, announce }: JiraConnectionRowProps) 
       configured={configured}
       changing={changing}
       loadFailed={connection.isLoadingError}
-      announce={announce}
+      {...controls}
       form={
-        saved
+        loaded
           ? ({ id, close }) => (
               <JiraConnectionForm
                 id={id}
-                connection={saved}
+                connection={loaded}
                 onConnected={() => {
                   close('Jira is connected.');
                 }}

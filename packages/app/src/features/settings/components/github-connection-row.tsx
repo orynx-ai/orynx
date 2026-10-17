@@ -1,24 +1,22 @@
 import type { IntegrationStatus } from '@devhub/contracts';
-import { useGitHubChangeRunning, useGitHubConnection } from '../queries.ts';
+import { useConnectionChangeRunning, useGitHubConnection } from '../queries.ts';
 import { GitHubConnectionForm } from './github-connection-form.tsx';
-import { ManagedConnectionRow } from './managed-connection-row.tsx';
+import { ManagedConnectionRow, type RowControls } from './managed-connection-row.tsx';
 
-export interface GitHubConnectionRowProps {
+export interface GitHubConnectionRowProps extends RowControls {
   status: IntegrationStatus | undefined;
-  /** Says a message politely, through the Connections panel's live region. */
-  announce: (message: string) => void;
 }
 
 /** The GitHub row: Connect or Manage opens the form inside the row (spec 004, Q4). */
-export function GitHubConnectionRow({ status, announce }: GitHubConnectionRowProps) {
+export function GitHubConnectionRow({ status, ...controls }: GitHubConnectionRowProps) {
   const connection = useGitHubConnection();
-  const changing = useGitHubChangeRunning();
+  const changing = useConnectionChangeRunning();
 
   // Until the saved way arrives, the status says whether anything is set up.
   const configured = connection.data
     ? connection.data.saved !== null
     : (status?.state ?? 'not_connected') !== 'not_connected';
-  const saved = connection.data;
+  const loaded = connection.data;
 
   return (
     <ManagedConnectionRow
@@ -29,13 +27,13 @@ export function GitHubConnectionRow({ status, announce }: GitHubConnectionRowPro
       configured={configured}
       changing={changing}
       loadFailed={connection.isLoadingError}
-      announce={announce}
+      {...controls}
       form={
-        saved
+        loaded
           ? ({ id, close }) => (
               <GitHubConnectionForm
                 id={id}
-                connection={saved}
+                connection={loaded}
                 onConnected={() => {
                   close('GitHub is connected.');
                 }}

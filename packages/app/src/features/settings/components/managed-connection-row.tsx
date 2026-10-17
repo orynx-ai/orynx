@@ -8,17 +8,28 @@ export interface FormControls {
   id: string;
   /** Closes the form, says `announcement` if given, and puts focus back on the row's button. */
   close: (announcement?: string) => void;
+  /** Says a message politely, for news that focus can't carry. */
+  announce: (message: string) => void;
 }
 
-export interface ManagedConnectionRowProps extends Omit<ConnectionRowProps, 'action' | 'children'> {
+/**
+ * What the Connections panel hands each row: only one form is open at a time, so the page never has two
+ * primary buttons, and one live region says what happened.
+ */
+export interface RowControls {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Says a message politely; the Connections panel owns the one live region. */
+  announce: (message: string) => void;
+}
+
+export interface ManagedConnectionRowProps extends Omit<ConnectionRowProps, 'action' | 'children'>, RowControls {
   /** Something is saved, so the button reads Manage instead of Connect. */
   configured: boolean;
-  /** A Connect or Disconnect is on its way. */
+  /** A Connect or Disconnect is on its way, for this tool or another. */
   changing: boolean;
   /** The saved settings the form starts from could not be loaded. */
   loadFailed: boolean;
-  /** Says a message politely; the Connections panel owns the one live region. */
-  announce: (message: string) => void;
   /** The form, once the saved settings it starts from have arrived. */
   form: ((controls: FormControls) => ReactNode) | undefined;
 }
@@ -31,18 +42,19 @@ export function ManagedConnectionRow({
   configured,
   changing,
   loadFailed,
+  open,
+  onOpenChange,
   announce,
   form,
   ...row
 }: ManagedConnectionRowProps) {
-  const [open, setOpen] = useState(false);
   // The button itself, kept through a callback ref: the form is drawn by calling `form`, and a
   // `close` that read a ref object could not be handed to it during render.
   const [toggle, setToggle] = useState<HTMLButtonElement | null>(null);
   const formId = useId();
 
   function close(message?: string) {
-    setOpen(false);
+    onOpenChange(false);
     if (message !== undefined) announce(message);
     toggle?.focus();
   }
@@ -55,8 +67,8 @@ export function ManagedConnectionRow({
           ref={setToggle}
           size="sm"
           aria-expanded={open}
-          // Closing the form can't stop a Connect or Disconnect on its way. aria-disabled, not
-          // disabled, so focus can land here the moment the change finishes.
+          // Closing the form can't stop a Connect or Disconnect on its way, and opening another would
+          // close it. aria-disabled, not disabled, so focus can land here the moment the change finishes.
           aria-disabled={changing || undefined}
           aria-controls={open && form ? formId : undefined}
           onClick={() => {
@@ -64,7 +76,7 @@ export function ManagedConnectionRow({
             if (open) close();
             else {
               announce('');
-              setOpen(true);
+              onOpenChange(true);
             }
           }}
         >
@@ -77,7 +89,7 @@ export function ManagedConnectionRow({
           Could not reach the DevHub server. Check that DevHub is still running in your terminal, then reload the page.
         </p>
       ) : null}
-      {open && form ? <div className="sm:ps-14">{form({ id: formId, close })}</div> : null}
+      {open && form ? <div className="sm:ps-14">{form({ id: formId, close, announce })}</div> : null}
     </ConnectionRow>
   );
 }
