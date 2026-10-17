@@ -59,9 +59,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 19: Show the sidebar's Tickets count with the hidden words " in your sprint", hidden at 0 and on the collapsed rail (AC-27)
       Check: pnpm test packages/app/src/shell; pnpm gate style-policy
       Files: packages/app/src/shell/sidebar.tsx, sidebar.test.tsx, packages/app/src/features/tickets/queries.ts
-- [ ] Task 20: Update `docs/architecture.md` (the tickets route, the sprint reads), add `learn/the-tickets-board.md` (how the sprint is found, the columns and In review, the cache part), and put 019 "New ticket" on the roadmap (Q5). Add an e2e run of Tickets with Jira not connected: no layout shift and no axe violations at 360 and 1280 px
+- [x] Task 20: Update `docs/architecture.md` (the tickets route, the sprint reads), add `learn/the-tickets-board.md` (how the sprint is found, the columns and In review, the cache part), and put 019 "New ticket" on the roadmap (Q5). Add an e2e run of Tickets with Jira not connected: no layout shift and no axe violations at 360 and 1280 px
       Check: pnpm gate learn-freshness specs; pnpm exec prettier --check docs learn; pnpm test:e2e e2e/tickets.spec.ts
-      Files: docs/architecture.md, learn/the-tickets-board.md, docs/product/roadmap.md, e2e/tickets.spec.ts
+      Files: docs/architecture.md, learn/the-tickets-board.md, docs/product/roadmap.md, e2e/tickets.spec.ts, and the learn pages whose sources this spec changed: the-inbox.md, live-updates.md, connecting-jira.md, how-a-request-flows.md, local-security.md, tokens-and-keychain.md
 - [ ] Task 21: Open Tickets in a real browser at 360 and 1280 px, light and dark, in each state, from a seeded scratch `DEVHUB_HOME`: compare with the design, run axe, check for sideways scroll and movement while loading, and Tab through. Fix what turns up, then run the full check (AC-32)
       Check: pnpm dev in a browser; pnpm verify; pnpm test:coverage at 90% or more
       Files: whichever the check shows need fixing

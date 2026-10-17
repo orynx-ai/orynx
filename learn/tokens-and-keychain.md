@@ -6,7 +6,7 @@ DevHub calls Jira, GitHub and Slack with the developer's own tokens. A token is 
 
 ## The store
 
-`createServer()` gives the hub one store, `app.tokens` (`packages/core/src/secrets/token-store.ts`). Routes use it; nothing outside `@devhub/core` ever holds a token. The inbox's sync (spec 007) reads tokens the same way, through each connection's `credentials()`, holds them only for that sync's requests, and writes none to `cache.db`.
+`createServer()` gives the hub one store, `app.tokens` (`packages/core/src/secrets/token-store.ts`). Routes use it; nothing outside `@devhub/core` ever holds a token. The inbox's sync (spec 007) reads tokens the same way, through each connection's `credentials()`, holds them only for that sync's requests, and writes none to `cache.db`. Tickets' sprint (spec 008) is read in that same sync with the same credentials, and its leak test checks the sprint's part of `cache.db` too.
 
 | Call                             | What it does                                                                                                                                |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
