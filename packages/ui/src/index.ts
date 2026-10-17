@@ -1,3 +1,10 @@
+export {
+  ActivityList,
+  ActivityStep,
+  type ActivityListProps,
+  type ActivityStepProps,
+  type ActivityStepState,
+} from './components/activity-step.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
 export {
   Breadcrumb,

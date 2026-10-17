@@ -16,7 +16,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 4: Add `StatusIcon`: four 20 px shapes for to do, in progress, in review and done (Q1b, AC-25)
       Check: pnpm test packages/ui/src/components/status-icon.test.tsx
       Files: packages/ui/src/components/status-icon.tsx, status-icon.stories.tsx, status-icon.test.tsx, packages/ui/src/index.ts
-- [ ] Task 5: Add `ActivityStep` from shadcn's `trace` (AI Elements' Task pattern): a 24 px dot with its icon, a title and a detail line, as done, waiting or plain (Q1b, AC-25)
+- [x] Task 5: Add `ActivityStep` from shadcn's `trace` (AI Elements' Task pattern): a 24 px dot with its icon, a title and a detail line, as done, waiting or plain (Q1b, AC-25)
       Check: pnpm test packages/ui/src/components/activity-step.test.tsx
       Files: packages/ui/src/components/activity-step.tsx, activity-step.stories.tsx, activity-step.test.tsx, packages/ui/src/index.ts
 - [ ] Task 6: Add `Chip` (the quick start from AI Elements' Suggestion pattern): a 32 px filter toggle that says whether it's pressed, or a quick-start link through `asChild` (Q1b, AC-25)
