@@ -71,6 +71,7 @@ export {
 } from './components/menu.tsx';
 export { Panel, type PanelProps } from './components/panel.tsx';
 export { Picker, type PickerProps } from './components/picker.tsx';
+export { SearchField, type SearchFieldProps } from './components/search-field.tsx';
 export { Pill, type PillProps, type PillTone } from './components/pill.tsx';
 export { ResumeBanner, type ResumeBannerProps } from './components/resume-banner.tsx';
 export {

@@ -70,7 +70,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 
 Tasks 22 to 29 come from the amendment of 17 Oct 2026 (Q9, Q10): search, filters, order and pages.
 
-- [ ] Task 22: Add `SearchField` to `@devhub/ui` from the design system's `dh-search`: a magnifier inside a 32 px search input, with an `aria-label`, a story and a test (Q10b)
+- [x] Task 22: Add `SearchField` to `@devhub/ui` from the design system's `dh-search`: a magnifier inside a 32 px search input, with an `aria-label`, a story and a test (Q10b)
       Check: pnpm test packages/ui/src/components/search-field.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/search-field.tsx, search-field.test.tsx, search-field.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 23: Give `Menu` a checkbox item (`MenuCheckboxItem`), as `MenuRadioItem` is built, with a story and a test (Q10c)
