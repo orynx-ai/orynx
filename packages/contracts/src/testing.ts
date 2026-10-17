@@ -5,6 +5,7 @@
 import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
 import { defaultPreferences, PreferencesSchema, type InboxRules, type Preferences } from './preferences.ts';
+import { RepositorySchema, type Repository } from './repositories.ts';
 import { SessionListSchema, SessionSummarySchema, type SessionList, type SessionSummary } from './session.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 
@@ -75,5 +76,17 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
   return PreferencesSchema.parse({
     permissionMode: overrides.permissionMode ?? defaultPreferences.permissionMode,
     inboxRules: { ...defaultPreferences.inboxRules, ...overrides.inboxRules },
+  });
+}
+
+/** A folder in Settings › Repositories, under a home folder of /Users/dev, unless the override says otherwise. */
+export function makeRepository(overrides: Partial<Repository> = {}): Repository {
+  return RepositorySchema.parse({
+    id: '0123456789abcdef',
+    path: '/Users/dev/code/intranet-web',
+    name: 'intranet-web',
+    displayPath: '~/code/intranet-web',
+    jiraProject: 'PROJ',
+    ...overrides,
   });
 }

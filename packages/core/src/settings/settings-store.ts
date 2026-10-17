@@ -2,7 +2,20 @@ import { randomBytes } from 'node:crypto';
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { GitHubSavedConnectionSchema, JiraSavedConnectionSchema, PermissionModeSchema } from '@devhub/contracts';
+import {
+  GitHubSavedConnectionSchema,
+  JiraProjectKeySchema,
+  JiraSavedConnectionSchema,
+  PermissionModeSchema,
+  RepositoryIdSchema,
+} from '@devhub/contracts';
+
+/** One folder in Settings › Repositories as settings.json keeps it; the name and `~` path are worked out on read. */
+const SavedRepositorySchema = z.looseObject({
+  id: RepositoryIdSchema,
+  path: z.string(),
+  jiraProject: JiraProjectKeySchema.nullable(),
+});
 
 /**
  * Everything in `<DEVHUB_HOME>/settings.json`. Never a token: tokens live in the keychain (spec 002).
@@ -27,6 +40,17 @@ const SettingsSchema = z.looseObject({
    */
   inbox: z
     .looseObject({ rules: z.record(z.string(), z.boolean()).optional().catch(undefined) })
+    .optional()
+    .catch(undefined),
+  /** Settings › Repositories (spec 005), in the order they were added. A folder this version can't read is skipped. */
+  repositories: z
+    .array(z.unknown())
+    .transform((items) =>
+      items.flatMap((item) => {
+        const folder = SavedRepositorySchema.safeParse(item);
+        return folder.success ? [folder.data] : [];
+      }),
+    )
     .optional()
     .catch(undefined),
 });

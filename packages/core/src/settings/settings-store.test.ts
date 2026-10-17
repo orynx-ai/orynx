@@ -105,6 +105,14 @@ describe('file settings store', () => {
     expect(await createFileSettingsStore(home).read()).toEqual({ jira, agent: {}, inbox: {} });
   });
 
+  it("skips a saved folder it can't read, and keeps the good ones", async () => {
+    const good = { id: '00000000000000aa', path: '/Users/dev/code/app', jiraProject: 'PROJ' };
+    await mkdir(home, { recursive: true });
+    await writeFile(settingsFilePath(home), JSON.stringify({ jira, repositories: [{ path: 42 }, good] }));
+
+    expect(await createFileSettingsStore(home).read()).toEqual({ jira, repositories: [good] });
+  });
+
   it('a failed change leaves the file as it was and later changes still run', async () => {
     const store = createFileSettingsStore(home);
     await store.update(() => ({ jira }));

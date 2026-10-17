@@ -1,3 +1,5 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { apiPrefix, tokenQueryParam, type ApiError } from '@devhub/contracts';
@@ -10,10 +12,12 @@ import { createJiraClient } from './integrations/jira/client.ts';
 import { createJiraConnection } from './integrations/jira/connection.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
+import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
+import { repositoriesRoutes } from './routes/repositories.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
 import { statusRoutes } from './routes/status.ts';
 import type { Keychain } from './secrets/keychain.ts';
@@ -51,6 +55,10 @@ export interface CoreOptions {
    * fake gh. Left out, gh is never found, so no test can start the real one (spec 004, AC-20).
    */
   gh?: GhCli;
+  /** The person's home folder, which Settings › Repositories shows as `~`. The OS's by default. */
+  userHome?: string;
+  /** DEVHUB_HOME, which Settings › Repositories never adds. `~/.devhub` by default. */
+  dataDir?: string;
 }
 
 /** The HTTP status for each error a connection route can answer with. */
@@ -177,6 +185,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
           const body: ApiError = { code: 'bad_request', message: error.message };
           return reply.code(400).send(body);
         }
+        if (error instanceof FolderRejectedError) {
+          const body: ApiError = { code: error.code, message: error.message };
+          return reply.code(422).send(body);
+        }
         if (error instanceof ConnectionError) {
           const body: ApiError = { code: error.code, message: error.message };
           return reply.code(statusFor[error.code]).send(body);
@@ -194,6 +206,14 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
       await api.register(preferencesRoutes, { preferences: createPreferencesService({ settings, events }) });
+      await api.register(repositoriesRoutes, {
+        repositories: createRepositoryService({
+          settings,
+          events,
+          home: options.userHome ?? homedir(),
+          devhubHome: options.dataDir ?? join(homedir(), '.devhub'),
+        }),
+      });
       await api.register(eventsRoutes, {
         events,
         ...(options.eventsKeepAliveMs === undefined ? {} : { keepAliveMs: options.eventsKeepAliveMs }),

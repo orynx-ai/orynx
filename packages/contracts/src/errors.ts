@@ -11,6 +11,8 @@ export const ApiErrorCodeSchema = z.enum([
   'integration_rejected',
   /** The tool can't be reached at that address: no such site, the network, a timeout or the tool's own error (spec 003). */
   'integration_unreachable',
+  /** The folder can't be added to Settings › Repositories: nothing there, not a git repository, already listed (spec 005). */
+  'folder_rejected',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;

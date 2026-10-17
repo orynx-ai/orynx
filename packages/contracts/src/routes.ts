@@ -9,6 +9,8 @@ export const apiPaths = {
   jiraConnection: '/jira/connection',
   githubConnection: '/github/connection',
   preferences: '/preferences',
+  repositories: '/repositories',
+  repository: '/repositories/:id',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -21,6 +23,8 @@ export const apiRoutes = {
   jiraConnection: `${apiPrefix}${apiPaths.jiraConnection}`,
   githubConnection: `${apiPrefix}${apiPaths.githubConnection}`,
   preferences: `${apiPrefix}${apiPaths.preferences}`,
+  repositories: `${apiPrefix}${apiPaths.repositories}`,
+  repository: `${apiPrefix}${apiPaths.repository}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];
