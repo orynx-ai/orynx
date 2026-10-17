@@ -2,14 +2,15 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from '@devhub/core';
-import { loadConfig } from './config.ts';
+import { loadConfig, readEnvFile, repoEnvFile } from './config.ts';
 import { createSessionToken, removeRuntimeFile, writeRuntimeFile } from './runtime-file.ts';
 import { serveWeb } from './web.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')) as { version: string };
 
-const config = loadConfig();
+const envFile = readEnvFile(repoEnvFile);
+const config = loadConfig(envFile === undefined ? {} : { envFile: envFile.text });
 const token = createSessionToken();
 const serveWebApp = process.argv.includes('--serve-web');
 

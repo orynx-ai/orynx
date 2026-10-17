@@ -2,7 +2,17 @@
   "$schema": "https://turborepo.com/schema.json",
   "ui": "stream",
   "globalDependencies": ["tsconfig.base.json"],
-  "globalPassThroughEnv": ["DEVHUB_PORT", "DEVHUB_WEB_PORT", "DEVHUB_HOME", "LOG_LEVEL", "NODE_ENV"],
+  "globalPassThroughEnv": [
+    "DEVHUB_PORT",
+    "DEVHUB_WEB_PORT",
+    "DEVHUB_HOME",
+    "LOG_LEVEL",
+    "NODE_ENV",
+    "DEVHUB_TOKENS_FROM_ENV",
+    "DEVHUB_JIRA_API_TOKEN",
+    "DEVHUB_GITHUB_TOKEN",
+    "DEVHUB_SLACK_USER_TOKEN"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

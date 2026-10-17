@@ -17,9 +17,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Opt-in real keychain check, `pnpm test:keychain`, left out of `pnpm test` and CI (AC-1, AC-2, AC-3 on the real keychain)
       Check: pnpm test packages/core (the real check does not run); pnpm exec vitest list --config packages/core/vitest.keychain.config.ts; pnpm typecheck. Not yet run against the real keychain: waiting for the user's yes
       Files: packages/core/src/secrets/os-keychain.real.test.ts, packages/core/vitest.config.ts, packages/core/vitest.keychain.config.ts, package.json
-- [ ] Task 6: Server config reads the repo-root `.env` (shell wins), the switch and the three token keys (AC-12, AC-13)
+- [x] Task 6: Server config reads the repo-root `.env` (shell wins), the switch and the three token keys (AC-7, AC-8, AC-12, AC-13)
       Check: pnpm test apps/server/src/config.test.ts; pnpm gate env-policy; pnpm typecheck
-      Files: apps/server/src/config.ts, apps/server/src/config.test.ts, apps/server/src/main.ts, .env.example, turbo.json
+      Files: apps/server/src/config.ts, apps/server/src/config.test.ts, apps/server/src/main.ts, packages/core/src/index.ts, .env.example, turbo.json
 - [ ] Task 7: Start-up notices with the Q4 wording: switch on, "set but not used", `chmod 600 .env` (AC-7, AC-11)
       Check: pnpm test apps/server/src/token-notices.test.ts; pnpm typecheck
       Files: apps/server/src/token-notices.ts, apps/server/src/token-notices.test.ts, apps/server/src/main.ts
