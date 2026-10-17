@@ -73,6 +73,7 @@ export { Panel, type PanelProps } from './components/panel.tsx';
 export { Picker, type PickerProps } from './components/picker.tsx';
 export { Pill, type PillProps, type PillTone } from './components/pill.tsx';
 export { Select } from './components/select.tsx';
+export { ResumeBanner, type ResumeBannerProps } from './components/resume-banner.tsx';
 export {
   SegmentedControl,
   SegmentedControlItem,
