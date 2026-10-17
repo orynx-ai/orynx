@@ -1,6 +1,12 @@
 export { createServer, redactToken, type CoreOptions } from './create-server.ts';
 export { createEventBus, type EventBus, type EventListener } from './events/event-bus.ts';
 export { createMemorySessionStore, type SessionStore } from './sessions/session-store.ts';
+export {
+  createFileSettingsStore,
+  createMemorySettingsStore,
+  type Settings,
+  type SettingsStore,
+} from './settings/settings-store.ts';
 export type { Keychain } from './secrets/keychain.ts';
 export { createOsKeychain } from './secrets/os-keychain.ts';
 export type { EnvTokens, StoredToken, TokenSource, TokenStore } from './secrets/token-store.ts';

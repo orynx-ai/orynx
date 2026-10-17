@@ -14,9 +14,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Input and Field in `@devhub/ui`: 40 px, label, help, error state wired with `aria-invalid` and `aria-describedby` (AC-2, AC-7, AC-16, AC-17)
       Check: pnpm test packages/ui; pnpm gate component-coverage; pnpm gate style-policy; pnpm gate boundaries
       Files: packages/ui/src/components/input.tsx, packages/ui/src/components/input.test.tsx, packages/ui/src/components/input.stories.tsx, packages/ui/src/components/field.tsx, packages/ui/src/components/field.test.tsx, packages/ui/src/components/field.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 5: Settings file store: `<DEVHUB_HOME>/settings.json`, mode 600, atomic writes in one queue; `createServer` option with an in-memory default (AC-3)
+- [x] Task 5: Settings file store: `<DEVHUB_HOME>/settings.json`, mode 600, atomic writes in one queue, and an in-memory store for tests (AC-3). `createServer` takes it in task 9, where the routes first use it
       Check: pnpm test packages/core/src/settings; pnpm typecheck
-      Files: packages/core/src/settings/settings-store.ts, packages/core/src/settings/settings-store.test.ts, packages/core/src/create-server.ts, packages/core/src/index.ts
+      Files: packages/core/src/settings/settings-store.ts, packages/core/src/settings/settings-store.test.ts, packages/core/src/index.ts
 - [ ] Task 6: Jira client over jira.js: check email and token with `/myself`, 10 s timeout, every failure becomes a fixed outcome, nothing from jira.js's errors escapes (AC-4, AC-5, AC-6, AC-15)
       Check: pnpm test packages/core/src/integrations/jira; pnpm typecheck; pnpm gate boundaries
       Files: packages/core/src/integrations/jira/client.ts, packages/core/src/integrations/jira/client.test.ts, packages/core/src/test/msw.ts, packages/core/package.json, packages/core/vitest.config.ts, pnpm-lock.yaml (via pnpm add)
@@ -26,7 +26,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 8: Jira's status line: keychain read only once a site and email are saved, a check at most every 2 minutes, shared in-flight check, last result while re-checking (AC-1, AC-9)
       Check: pnpm test packages/core/src/integrations/jira; pnpm typecheck
       Files: packages/core/src/integrations/jira/connection.ts, packages/core/src/integrations/jira/connection-status.test.ts
-- [ ] Task 9: Routes `GET`, `PUT` and `DELETE /api/jira/connection`, error codes to HTTP, and the status service uses Jira's line (AC-3, AC-7, AC-8, AC-11, AC-14)
+- [ ] Task 9: Routes `GET`, `PUT` and `DELETE /api/jira/connection`, error codes to HTTP, `createServer` takes the settings store, and the status service uses Jira's line (AC-3, AC-7, AC-8, AC-11, AC-14)
       Check: pnpm test packages/core; pnpm typecheck
       Files: packages/core/src/routes/jira.ts, packages/core/src/routes/jira.test.ts, packages/core/src/status/status-service.ts, packages/core/src/create-server.ts, packages/core/src/create-server.test.ts
 - [ ] Task 10: Pino redacts `authorization` headers; leak test at trace level for the token and its base64 Basic value (AC-15)
