@@ -50,5 +50,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: Docs: what settings.json holds (architecture), a learn page on how the settings save and how a folder is checked, the agent-runtime skill (the mode lives in Settings › Coding agent), and the comment in `tabs.ts`
       Check: pnpm gate learn-freshness handbook-size; pnpm format:check
       Files: docs/architecture.md, learn/settings-and-folders.md, .claude/skills/agent-runtime/SKILL.md; the learn pages whose sources changed (how-a-request-flows, local-security, connecting-github, tokens-and-keychain)
-- [ ] Task 17: STOP and run /review
+- [x] Task 17: STOP and run /review (passed 17 Oct 2026 at xhigh, two rounds. Round one: code, security and design reviews; 0 critical, 12 important fixed (folders compared by disk identity, settings.json keeps what it can't read, Jira paging and one deadline, each failed change undoes only itself, no refetch over a pending change, form can't close mid-add, failed Remove refocuses and announces nothing, names never cut off, list frame while loading, tab scrolls into view on every change). Round two: the code re-check found 2 important (overlapping removals, a Back e2e check that didn't test the fix), both fixed. Left as suggestions: 8, none blocking)
       Check: the review stamp matches the branch (pnpm review:stamp verify)
