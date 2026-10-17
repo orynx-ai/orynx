@@ -46,6 +46,7 @@ export { ContextChip, ContextList, type ContextChipProps, type ContextListProps 
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
 export { Input } from './components/input.tsx';
+export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from './components/file-list.tsx';
 export { Kbd } from './components/kbd.tsx';
 export {
   Menu,
