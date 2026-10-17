@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: GitHub connection contracts: the request (`gh`, or `token` with an optional token), the saved method, the answer with `envToken` and `ghFound`, the path, a test builder (AC-9, AC-12, AC-14)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/github.ts, packages/contracts/src/github.test.ts, packages/contracts/src/token.ts (the token rule, shared with Jira), packages/contracts/src/jira.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
-- [ ] Task 2: ChoiceGroup and ChoiceCard in `@devhub/ui`: a fieldset named by its legend, native radios, title and detail, help or an error tied to the group (AC-2, AC-18, AC-19)
+- [x] Task 2: ChoiceGroup and ChoiceCard in `@devhub/ui`: a fieldset named by its legend, native radios, title and detail, help or an error tied to the group (AC-2, AC-18, AC-19)
       Check: pnpm test packages/ui; pnpm gate component-coverage; pnpm gate style-policy; pnpm gate boundaries
       Files: packages/ui/src/components/choice-group.tsx, packages/ui/src/components/choice-group.test.tsx, packages/ui/src/components/choice-group.stories.tsx, packages/ui/src/components/choice-card.tsx, packages/ui/src/components/choice-card.test.tsx, packages/ui/src/components/choice-card.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 3: Settings › Appearance uses ChoiceGroup and ChoiceCard, with no visible change (Q4 d)
