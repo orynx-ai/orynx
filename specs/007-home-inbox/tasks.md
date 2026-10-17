@@ -37,7 +37,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 11: Add `inbox()`, `refreshInbox()` and `clearInboxCache()` to the api-client with their query options (AC-16, AC-17, AC-27, AC-31)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/inbox.ts, inbox.test.ts, client.ts, queries.ts, index.ts
-- [ ] Task 12: Write Home's words as pure functions: each pill's text, spoken text and tone, the waits, each sub line, each action and its link, the sync line and each tool's line (AC-5, AC-13, Q2, Q5, Q6, Q8)
+- [x] Task 12: Write Home's words as pure functions: each pill's text, spoken text and tone, the waits, each sub line, each action and its link, the sync line and each tool's line (AC-5, AC-13, Q2, Q5, Q6, Q8)
       Check: pnpm test packages/app/src/features/home
       Files: packages/app/src/features/home/inbox-words.ts, inbox-words.test.ts
 - [ ] Task 13: Show the sidebar's Home count, with the hidden words " need you", hidden at 0 and on the collapsed rail. `inbox.changed`, `settings.changed` and `status.changed` refresh it (moved here from task 11, because the count is the first thing on screen that reads the inbox) (AC-15, AC-16, AC-32)
