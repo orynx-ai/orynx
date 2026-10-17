@@ -25,7 +25,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 7: Add `Panel`: a bordered surface with an optional head (heading and meta line) around a list (Q1b, AC-25)
       Check: pnpm test packages/ui/src/components/panel.test.tsx
       Files: packages/ui/src/components/panel.tsx, panel.stories.tsx, panel.test.tsx, packages/ui/src/index.ts
-- [ ] Task 8: Add `Menu` from shadcn's `dropdown-menu`: items with an icon, a description or mono path, a chevron, section labels, separators, a foot line and link items; arrow keys, typeahead, Enter, Esc and focus back on the trigger (AC-5, AC-6)
+- [x] Task 8: Add `Menu` from shadcn's `dropdown-menu`: items with an icon, a description or mono path, a chevron, section labels, separators, a foot line and link items; arrow keys, typeahead, Enter, Esc and focus back on the trigger (AC-5, AC-6)
       Check: pnpm test packages/ui/src/components/menu.test.tsx
       Files: packages/ui/src/components/menu.tsx, menu.stories.tsx, menu.test.tsx, packages/ui/src/test/setup.ts (browser stand-ins only if jsdom needs them), packages/ui/src/index.ts
 - [ ] Task 9: Add `Picker` (the 32 px button that opens a menu) and radio items with an `info` check; the menu stays inside the window (AC-4, AC-7)

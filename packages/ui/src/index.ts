@@ -24,6 +24,17 @@ export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
 export { Input } from './components/input.tsx';
 export { Kbd } from './components/kbd.tsx';
+export {
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
+  MenuTrigger,
+  type MenuContentProps,
+  type MenuItemProps,
+  type MenuProps,
+} from './components/menu.tsx';
 export { Panel, type PanelProps } from './components/panel.tsx';
 export { Pill, type PillProps, type PillTone } from './components/pill.tsx';
 export { Select } from './components/select.tsx';
