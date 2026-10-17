@@ -1,28 +1,17 @@
-import type {
-  ApiErrorCode,
-  IntegrationStatus,
-  JiraConnection,
-  JiraCredentials,
-  JiraSavedConnection,
-} from '@devhub/contracts';
+import type { IntegrationStatus, JiraConnection, JiraCredentials, JiraSavedConnection } from '@devhub/contracts';
 import type { EventBus } from '../../events/event-bus.ts';
 import { TokenStoreError, type TokenSource, type TokenStore } from '../../secrets/token-store.ts';
 import type { SettingsStore } from '../../settings/settings-store.ts';
 import { createCheckedStatus } from '../checked-status.ts';
+import { ConnectionError, type KeychainProblem } from '../connection-error.ts';
 import type { JiraClient, JiraProblem } from './client.ts';
 import { describeJiraProblem } from './problems.ts';
 
-/** Why connecting or disconnecting failed. The message is safe to show and never holds a token. */
-export class JiraConnectionError extends Error {
-  readonly code: Extract<
-    ApiErrorCode,
-    'bad_request' | 'integration_rejected' | 'integration_unreachable' | 'keychain_unavailable'
-  >;
-
-  constructor(code: JiraConnectionError['code'], message: string) {
-    super(message);
+/** Why connecting or disconnecting Jira failed. The message is safe to show and never holds a token. */
+export class JiraConnectionError extends ConnectionError {
+  constructor(code: ConnectionError['code'], message: string) {
+    super(code, message);
     this.name = 'JiraConnectionError';
-    this.code = code;
   }
 }
 
@@ -54,12 +43,6 @@ export interface JiraConnectionOptions {
   onError?: (error: unknown) => void;
   /** The clock, in milliseconds. */
   now?: () => number;
-}
-
-/** The keychain couldn't be reached. `reason` is its error's name and code, safe to log (spec 002). */
-export interface KeychainProblem {
-  kind: 'keychain_unavailable';
-  reason: string | undefined;
 }
 
 const notConnected: IntegrationStatus = { state: 'not_connected', detail: null };

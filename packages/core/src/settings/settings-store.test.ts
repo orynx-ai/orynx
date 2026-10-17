@@ -31,6 +31,16 @@ describe('file settings store', () => {
     expect(await createFileSettingsStore(home).read()).toEqual({ jira });
   });
 
+  it('AC-3, AC-5: keeps the way GitHub was connected next to Jira, and never a token', async () => {
+    const store = createFileSettingsStore(home);
+
+    await store.update((settings) => ({ ...settings, jira }));
+    await store.update((settings) => ({ ...settings, github: { method: 'gh' } }));
+
+    expect(JSON.parse(await readFile(settingsFilePath(home), 'utf8'))).toEqual({ jira, github: { method: 'gh' } });
+    await expect(store.update((settings) => ({ ...settings, github: { method: 'oauth' } as never }))).rejects.toThrow();
+  });
+
   it('writes through a temporary file and leaves none behind', async () => {
     const store = createFileSettingsStore(home);
 

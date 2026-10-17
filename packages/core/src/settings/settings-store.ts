@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { JiraSavedConnectionSchema } from '@devhub/contracts';
+import { GitHubSavedConnectionSchema, JiraSavedConnectionSchema } from '@devhub/contracts';
 
 /**
  * Everything in `<DEVHUB_HOME>/settings.json`. Never a token: tokens live in the keychain (spec 002).
@@ -11,6 +11,8 @@ import { JiraSavedConnectionSchema } from '@devhub/contracts';
 const SettingsSchema = z.looseObject({
   /** The Jira site and email that Jira accepted (spec 003). */
   jira: JiraSavedConnectionSchema.optional(),
+  /** The way GitHub accepted: the gh login or a token in the keychain (spec 004). */
+  github: GitHubSavedConnectionSchema.optional(),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 
