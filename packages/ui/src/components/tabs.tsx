@@ -21,10 +21,16 @@ export function Tabs({ ref, value, ...props }: ComponentProps<typeof TabsPrimiti
   const root = useRef<HTMLDivElement | null>(null);
 
   // Whenever the picked tab changes, by a click, an arrow key, the address or Back, it is shown in full
-  // in a tab list that scrolls sideways (Settings at 360 px).
+  // in a tab list that scrolls sideways (Settings at 360 px). On the next frame: on Back, TanStack
+  // Router puts every scrolled element back where it was after this render, the tab list included.
   useEffect(() => {
-    const picked = root.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-    if (picked) scrollIntoList(picked);
+    const frame = requestAnimationFrame(() => {
+      const picked = root.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (picked) scrollIntoList(picked);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
   }, [value]);
 
   return (

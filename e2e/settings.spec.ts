@@ -122,9 +122,10 @@ test('AC-20: Given a narrow window, when Settings opens on its last tab, then th
   expect(tabBox.x).toBeGreaterThanOrEqual(listBox.x);
   expect(tabBox.x + tabBox.width).toBeLessThanOrEqual(listBox.x + listBox.width + 0.5);
 
-  // Back to the first tab without a click on it, as the Back button or a link does.
+  // Back to the first tab without a click on it, in the same page, as the Back button does.
   await page.goto('/settings/connections');
-  await page.goto('/settings/appearance');
+  await page.getByRole('tab', { name: 'Appearance' }).click();
+  await expect(page).toHaveURL('/settings/appearance');
   await page.goBack();
   const first = page.getByRole('tab', { name: 'Connections' });
   await expect(first).toHaveAttribute('aria-selected', 'true');

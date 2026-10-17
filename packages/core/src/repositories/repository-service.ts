@@ -106,7 +106,8 @@ export function createRepositoryService(options: RepositoryServiceOptions): Repo
         if (readable(written).some((other) => other.path === folder.path || sameFolder.has(other.id))) {
           throw new FolderRejectedError('This folder is already in the list.');
         }
-        if (written.length >= maxRepositories) {
+        // Only the folders this version can show count, so the limit never asks to remove one nobody sees.
+        if (readable(written).length >= maxRepositories) {
           throw new FolderRejectedError(`DevHub holds at most ${String(maxRepositories)} folders. Remove one first.`);
         }
         return { ...current, repositories: [...written, folder] };

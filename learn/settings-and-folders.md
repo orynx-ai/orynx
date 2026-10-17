@@ -34,9 +34,9 @@ click a mode ─▶ useChangePreferences().mutate({ permissionMode })
               every open tab: LiveUpdates invalidates preferences and repositories
 ```
 
-- **Instant, then confirmed.** The control moves before the server answers (spec 005: "the control shows the new value straight away"). If the save fails, `onError` takes back that change alone: each value it set goes back to what the server holds (the value from before the first change still on its way), unless a later change has set it again. `SaveError` says so under the group until the next change.
+- **Instant, then confirmed.** The control moves before the server answers (spec 005: "the control shows the new value straight away"). If the save fails, `onError` takes back that change alone: each value it set goes back to what the server holds (the value from before the first change still on its way, moved forward each time one of them is saved), unless a later change has set it again. `SaveError` says so under the group until the next change.
 - **Quick changes don't undo each other.** Each PATCH carries only what changed (`{ inboxRules: { checks_failing: false } }`), and the server applies changes one at a time. The client refetches only when the last pending change settles (`refetchAfterLast`), and `LiveUpdates` ignores `settings.changed` for data with a change still on its way, so neither an early answer nor an early event can flip a later change back on screen.
-- **Remove works the same way.** `useRemoveRepository()` takes the row away at once and moves focus to the next row's Remove (or to Add local folder). "Removed intranet-web." is said in the panel's polite live region once the server agrees. A failure puts back that row alone, at its place, and focus returns to its Remove. A held-down Enter removes one folder, not one after another.
+- **Remove works the same way.** `useRemoveRepository()` takes the row away at once and moves focus to the next row's Remove (or to Add local folder). "Removed intranet-web." is said in the panel's polite live region once the server agrees. Each removal keeps its own outcome, so two quick removals each get theirs. A failure puts back that row alone, at its place, and focus returns to its Remove unless you've moved on. A held-down Enter removes one folder, not one after another.
 - **Add waits for the server**, because only the server can look at the disk. The new row goes into the cache from the answer, and the list refetches after. While a folder is on its way, Add local folder can't close the form, so the answer always has a place to show.
 
 ## How a folder is checked
@@ -51,7 +51,7 @@ click a mode ─▶ useChangePreferences().mutate({ permissionMode })
 6. Holds `.git` (a folder in a clone, a file in a worktree): accepted, saved as the real path.
 7. Otherwise DevHub walks up the parents. A `.git` above means "inside the repository at ~/code/x", which names the folder to add instead. No `.git` anywhere means "not a git repository".
 
-The duplicate check and the 100-folder limit run inside `settings.update`, so two tabs adding the same folder at once can't both win. Duplicates are found by identity on disk too, so a symlink or a second spelling of a folder already in the list counts as the same folder.
+The same-path check and the 100-folder limit run inside `settings.update`, so two tabs adding the same folder at once can't both win. Duplicates are also found by identity on disk, so a symlink or a second spelling of a folder already in the list counts as the same folder; that comparison runs just before the save, so two tabs adding one folder under two spellings in the same instant could both succeed.
 
 The form checks the first two cases itself with `RepositoryPathSchema`, the same schema the route validates with. The server's answer for the rest is `422 folder_rejected`, and the form puts its message under Folder.
 

@@ -116,6 +116,56 @@ describe('RepositoriesPanel', () => {
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 
+  it('AC-11, AC-14: with two quick removals, a failed first one still brings its row back and says so', async () => {
+    listing(() => [intranet, mobile]);
+    server.use(
+      http.delete(apiUrl(apiRoutes.repository), async ({ params }) => {
+        await delay(30);
+        return params['id'] === intranet.id
+          ? HttpResponse.json({ code: 'internal', message: 'Something went wrong.' }, { status: 500 })
+          : new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await renderApp({ route: '/settings/repositories' });
+    await folderList();
+
+    await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
+    await user.click(screen.getByRole('button', { name: 'Remove mobile' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save that change.");
+    expect(await screen.findByText('~/code/intranet-web')).toBeVisible();
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('Removed mobile.');
+    });
+  });
+
+  it('AC-11: with two quick removals, each one is said once the server agrees', async () => {
+    listing(() => [intranet, mobile]);
+    const said: string[] = [];
+    server.use(
+      http.delete(apiUrl(apiRoutes.repository), async ({ params }) => {
+        await delay(params['id'] === intranet.id ? 10 : 60);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await renderApp({ route: '/settings/repositories' });
+    await folderList();
+    const status = screen.getByRole('status');
+    const watcher = new MutationObserver(() => {
+      if (status.textContent) said.push(status.textContent);
+    });
+    watcher.observe(status, { childList: true, characterData: true, subtree: true });
+
+    await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
+    await user.click(screen.getByRole('button', { name: 'Remove mobile' }));
+
+    // Each removal is said, in whichever order the answers come back.
+    await waitFor(() => {
+      expect([...new Set(said)].sort()).toEqual(['Removed intranet-web.', 'Removed mobile.']);
+    });
+    watcher.disconnect();
+  });
+
   it('AC-11: holding Enter on Remove removes one folder, not one after another', async () => {
     listing(() => [intranet, mobile]);
     const removed: string[] = [];

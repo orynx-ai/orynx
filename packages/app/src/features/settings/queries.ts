@@ -141,8 +141,24 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
 }
 
 interface PreferencesChangeContext {
-  /** What the server holds: the preferences from before the first change still on its way. */
+  /**
+   * What the server holds: the preferences from before the first change still on its way, moved
+   * forward each time one of those changes is saved.
+   */
   saved: Preferences | undefined;
+}
+
+function isChangeContext(context: unknown): context is PreferencesChangeContext {
+  return typeof context === 'object' && context !== null && 'saved' in context;
+}
+
+/** The contexts of the preference changes still on their way, earliest first. */
+function pendingChanges(queryClient: QueryClient): PreferencesChangeContext[] {
+  return queryClient
+    .getMutationCache()
+    .findAll({ mutationKey: queryKeys.preferences, exact: true, status: 'pending' })
+    .map((mutation) => mutation.state.context)
+    .filter(isChangeContext);
 }
 
 /**
@@ -160,13 +176,13 @@ export function useChangePreferences() {
       await queryClient.cancelQueries({ queryKey: queryKeys.preferences });
       const current = queryClient.getQueryData<Preferences>(queryKeys.preferences);
       // The screen already shows earlier changes still on their way; the server holds what came before them.
-      const earliest = queryClient
-        .getMutationCache()
-        .findAll({ mutationKey: queryKeys.preferences, status: 'pending' })
-        .map((mutation) => mutation.state.context as PreferencesChangeContext | undefined)
-        .find((context) => context !== undefined);
+      const earliest = pendingChanges(queryClient)[0];
       if (current) queryClient.setQueryData(queryKeys.preferences, withChange(current, change));
       return { saved: earliest?.saved ?? current };
+    },
+    onSuccess: (answer) => {
+      // The server holds this answer now: a later change that fails goes back to it, not to older values.
+      for (const context of pendingChanges(queryClient)) context.saved = answer;
     },
     onError: (_error, change, context) => {
       const saved = context?.saved;

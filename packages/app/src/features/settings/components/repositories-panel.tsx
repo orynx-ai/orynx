@@ -21,15 +21,19 @@ export function RepositoriesPanel() {
   // Kept through a callback ref, so closing the form can hand focus back to it.
   const [addButton, setAddButton] = useState<HTMLButtonElement | null>(null);
   const removeButtons = useRef(new Map<string, HTMLButtonElement>());
-  // A folder whose removal failed: its row comes back, and focus returns to its Remove once it has.
-  const [refocus, setRefocus] = useState<string | null>(null);
+  // Each removal keeps its own outcome, so a second quick Remove can't swallow the first one's answer.
+  const [removeFailed, setRemoveFailed] = useState(false);
+  // A folder whose removal failed: its row comes back, and focus returns to its Remove once it has,
+  // unless the person has moved on from where removing put focus.
+  const [refocus, setRefocus] = useState<{ id: string; from: Element | null } | null>(null);
   const formId = useId();
 
   useEffect(() => {
     if (refocus === null) return;
-    const button = removeButtons.current.get(refocus);
+    const button = removeButtons.current.get(refocus.id);
     if (button === undefined) return;
-    button.focus();
+    const focused = document.activeElement;
+    if (focused === refocus.from || focused === null || focused === document.body) button.focus();
     setRefocus(null);
   }, [refocus, repositories.data]);
 
@@ -43,16 +47,19 @@ export function RepositoriesPanel() {
 
   function removeFolder(folder: Repository, next: Repository | undefined) {
     // Focus moves on before the row goes, so it never falls back to the page.
-    (next === undefined ? addButton : removeButtons.current.get(next.id))?.focus();
+    const target = next === undefined ? addButton : (removeButtons.current.get(next.id) ?? null);
+    target?.focus();
     setAnnouncement('');
-    remove.mutate(folder.id, {
-      onSuccess: () => {
+    setRemoveFailed(false);
+    remove.mutateAsync(folder.id).then(
+      () => {
         setAnnouncement(`Removed ${folder.name}.`);
       },
-      onError: () => {
-        setRefocus(folder.id);
+      () => {
+        setRemoveFailed(true);
+        setRefocus({ id: folder.id, from: target });
       },
-    });
+    );
   }
 
   return (
@@ -107,7 +114,7 @@ export function RepositoriesPanel() {
           ))}
         </ul>
       )}
-      {remove.isError ? <SaveError /> : null}
+      {removeFailed ? <SaveError /> : null}
       <p role="status" className="sr-only">
         {announcement}
       </p>
