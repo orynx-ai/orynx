@@ -50,6 +50,8 @@ export function useFakeGitHub() {
   });
   afterEach(() => {
     server.resetHandlers();
+    // A listener a failed test left behind must not count another test's requests.
+    server.events.removeAllListeners();
   });
   afterAll(() => {
     server.close();
@@ -68,6 +70,8 @@ export interface FakePull {
   requests?: readonly { login: string | null; at: string }[];
   /** The latest commit's combined check state, such as SUCCESS, FAILURE, ERROR or PENDING; null for none. */
   checks?: string | null;
+  /** When the latest commit was made. */
+  committedAt?: string;
   /** The latest commit's checks and statuses. */
   contexts?: readonly (
     | { type: 'CheckRun'; conclusion: string | null; completedAt: string | null }
@@ -100,6 +104,7 @@ export function pullNode(pull: FakePull) {
       nodes: [
         {
           commit: {
+            ...(pull.committedAt === undefined ? {} : { committedDate: pull.committedAt }),
             statusCheckRollup:
               pull.checks === undefined || pull.checks === null
                 ? null

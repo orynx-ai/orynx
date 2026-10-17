@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { InboxProblem } from '@devhub/contracts';
+import { GitHubLinkSchema, type InboxProblem } from '@devhub/contracts';
 import type { GitHubProblem, GitHubPull } from './client.ts';
 
 /**
@@ -13,7 +13,7 @@ export const PullRequestRecordSchema = z.object({
   repository: z.string().min(1),
   number: z.int().positive(),
   title: z.string().min(1),
-  url: z.url({ protocol: /^https$/ }),
+  url: GitHubLinkSchema,
   /** The author's GitHub name, else their login; null when GitHub names nobody. */
   author: z.string().min(1).nullable(),
   mine: z.boolean(),
@@ -58,7 +58,7 @@ function base(
   mine: boolean,
 ): Omit<PullRequestRecord, 'reviewRequestedAt' | 'checksFailedAt' | 'unresolved'> | null {
   const title = pull.title.trim();
-  if (!pull.url.startsWith('https://github.com/')) return null;
+  if (!GitHubLinkSchema.safeParse(pull.url).success) return null;
   return {
     id: `${pull.repository.nameWithOwner}#${String(pull.number)}`,
     repository: pull.repository.name,
@@ -76,7 +76,8 @@ function reviewRequestedAt(pull: GitHubPull, login: string): string | null {
 }
 
 function checksFailedAt(pull: GitHubPull): string | null {
-  const rollup = pull.commits?.nodes.at(-1)?.commit.statusCheckRollup;
+  const commit = pull.commits?.nodes.at(-1)?.commit;
+  const rollup = commit?.statusCheckRollup;
   if (rollup === null || rollup === undefined || !failedRollups.has(rollup.state)) return null;
   const failedAt = rollup.contexts.nodes.map((context) => {
     if (context === null) return null;
@@ -85,7 +86,8 @@ function checksFailedAt(pull: GitHubPull): string | null {
     }
     return failedStatuses.has(context.state) ? isoTime(context.createdAt) : null;
   });
-  return earliest(failedAt) ?? isoTime(pull.createdAt);
+  // No failing check among the first 100 says when: the latest commit's own time is the closest.
+  return earliest(failedAt) ?? isoTime(commit?.committedDate) ?? isoTime(pull.createdAt);
 }
 
 function unresolved(pull: GitHubPull, login: string): PullRequestRecord['unresolved'] {

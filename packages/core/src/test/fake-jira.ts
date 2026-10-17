@@ -137,6 +137,8 @@ export function useFakeJira() {
   });
   afterEach(() => {
     server.resetHandlers();
+    // A listener a failed test left behind must not count another test's requests.
+    server.events.removeAllListeners();
   });
   afterAll(() => {
     server.close();

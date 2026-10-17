@@ -79,6 +79,7 @@ const PullSchema = z.object({
   commits: nodes(
     z.object({
       commit: z.object({
+        committedDate: z.string().optional(),
         statusCheckRollup: z.object({ state: z.string(), contexts: nodes(ContextSchema) }).nullish(),
       }),
     }),
@@ -107,6 +108,15 @@ const GraphqlFailureSchema = z.object({
 
 const searchFilters = 'is:pr is:open draft:false archived:false';
 
+/**
+ * GitHub prices a query by the most nodes it could return: each connection's limit times the limits
+ * above it, over 100. Here: 100 + 100 for the two searches, 100 × 20 timeline events, 100 commits,
+ * 100 × 100 check contexts and 100 × 20 review threads with their last comment (2,000), about 24 points.
+ * At one sync every 2 minutes that's about 720 of the 5,000 points an hour, which gh and other tools on
+ * the same account share. Raise a limit only with that sum in mind.
+ */
+const threadsPerPull = 20;
+
 const inboxQuery = `
   query DevHubInbox($reviews: String!, $mine: String!) {
     viewer { login }
@@ -131,6 +141,7 @@ const inboxQuery = `
           commits(last: 1) {
             nodes {
               commit {
+                committedDate
                 statusCheckRollup {
                   state
                   contexts(first: 100) {
@@ -144,7 +155,7 @@ const inboxQuery = `
               }
             }
           }
-          reviewThreads(first: 100) {
+          reviewThreads(first: ${String(threadsPerPull)}) {
             nodes { isResolved comments(last: 1) { nodes { createdAt author { login } } } }
           }
         }

@@ -95,10 +95,14 @@ describe('GitHub map', () => {
     ).toEqual([]);
   });
 
-  it('AC-9: failing checks with no time GitHub gives count from when the pull request was opened', () => {
-    const [record] = records({ mine: [{ number: 1, checks: 'ERROR', createdAt: '2026-10-11T08:00:00Z' }] });
+  it('AC-9: failing checks with no time of their own count from the latest commit, else from when the pull request opened', () => {
+    const [fromCommit] = records({
+      mine: [{ number: 1, checks: 'ERROR', createdAt: '2026-09-20T08:00:00Z', committedAt: '2026-10-16T08:00:00Z' }],
+    });
+    const [fromOpening] = records({ mine: [{ number: 2, checks: 'ERROR', createdAt: '2026-10-11T08:00:00Z' }] });
 
-    expect(record?.checksFailedAt).toBe('2026-10-11T08:00:00.000Z');
+    expect(fromCommit?.checksFailedAt).toBe('2026-10-16T08:00:00.000Z');
+    expect(fromOpening?.checksFailedAt).toBe('2026-10-11T08:00:00.000Z');
   });
 
   it('AC-10: counts unresolved threads whose last comment isn’t yours, since the oldest of those comments', () => {
@@ -127,6 +131,18 @@ describe('GitHub map', () => {
         mine: [
           { number: 1, checks: 'SUCCESS', threads: [{ resolved: true, lastBy: 'a', at: '2026-10-12T10:00:00Z' }] },
         ],
+      }),
+    ).toEqual([]);
+  });
+
+  it('keeps no pull request whose link points anywhere but github.com', () => {
+    const pull = pullNode({ number: 9, requests: [{ login: githubLogin, at: '2026-10-14T09:00:00Z' }] });
+
+    expect(
+      githubRecords({
+        login: githubLogin,
+        reviews: githubPulls([{ ...pull, url: 'https://github.com@evil.example/acme/web-app/pull/9' }]),
+        mine: [],
       }),
     ).toEqual([]);
   });
