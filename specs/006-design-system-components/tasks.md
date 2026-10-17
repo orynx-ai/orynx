@@ -61,7 +61,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 19: Add `DiffView` from shadcn's `code-block` without Shiki (Q6b): a region named "Changes in <file>", the header with path and counts, numbered lines with their sign on the add and remove washes; long lines scroll inside it; copying takes only the code (Q5c, AC-22, AC-23)
       Check: pnpm test packages/ui/src/components/diff-view.test.tsx
       Files: packages/ui/src/components/diff-view.tsx, diff-view.stories.tsx, diff-view.test.tsx, packages/ui/src/index.ts
-- [ ] Task 20: DiffView hunk rows (`@@ … @@` on `bg-sidebar`; removed lines keep their old number) and its loading form (Q4c, Q4a, AC-22, AC-26)
+- [x] Task 20: DiffView hunk rows (`@@ … @@` on `bg-sidebar`; removed lines keep their old number) and its loading form (Q4c, Q4a, AC-22, AC-26)
       Check: pnpm test packages/ui/src/components/diff-view.test.tsx
       Files: packages/ui/src/components/diff-view.tsx, diff-view.stories.tsx, diff-view.test.tsx
 - [ ] Task 21: Add `ResumeBanner`: one link to the session on `warning-subtle`, with the "!" icon, the title, a detail line cut on one line, and "Review" drawn as a small secondary button (AC-24)

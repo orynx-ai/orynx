@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
-import { DiffView, type DiffLine } from './diff-view.tsx';
+import { DiffView, DiffViewSkeleton, type DiffLine } from './diff-view.tsx';
 
 const lines: DiffLine[] = [
   { kind: 'context', number: 41, text: 'export function ContentList({ items }: Props) {' },
@@ -46,5 +46,39 @@ describe('DiffView', () => {
 
     const scroller = screen.getByRole('region', { name: 'Changes in ContentList.tsx' }).querySelector('pre');
     expect(scroller).toHaveAttribute('tabindex', '0');
+  });
+
+  it('AC-22: marks the gap between hunks with the hunk header, which is not counted', () => {
+    render(
+      <DiffView
+        path="src/content/ContentList.tsx"
+        lines={[
+          { kind: 'hunk', text: '@@ -40,3 +40,3 @@' },
+          { kind: 'removed', number: 42, text: '  const [rows] = useState(items);' },
+          { kind: 'added', number: 42, text: '  const { selected } = useSelection(items);' },
+          { kind: 'hunk', text: '@@ -90,2 +90,3 @@ export function ContentList' },
+          { kind: 'added', number: 91, text: '  <ArchiveButton onClick={archive} />' },
+        ]}
+      />,
+    );
+
+    const region = screen.getByRole('region', { name: 'Changes in ContentList.tsx' });
+    const rows = [...(region.querySelector('code')?.children ?? [])].map((row) => row.textContent);
+    expect(rows).toEqual([
+      '@@ -40,3 +40,3 @@',
+      '42−  const [rows] = useState(items);',
+      '42+  const { selected } = useSelection(items);',
+      '@@ -90,2 +90,3 @@ export function ContentList',
+      '91+  <ArchiveButton onClick={archive} />',
+    ]);
+    expect(within(region).getByText('2 lines added, 1 line removed')).toBeInTheDocument();
+  });
+
+  it('AC-26: the loading form holds the diff’s place without being read out', async () => {
+    const { container } = render(<DiffViewSkeleton lines={6} />);
+
+    expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
+    expect(container).toHaveTextContent('');
+    await expectNoAxeViolations(container);
   });
 });

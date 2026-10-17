@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { DiffView, type DiffLine } from './diff-view.tsx';
+import { DiffView, DiffViewSkeleton, type DiffLine } from './diff-view.tsx';
 
 const lines: DiffLine[] = [
   { kind: 'context', number: 41, text: 'export function ContentList({ items }: Props) {' },
@@ -58,4 +58,26 @@ export const NewFile: Story = {
       { kind: 'added', number: 3, text: "describe('bulk archive', () => {" },
     ],
   },
+};
+/** Two hunks: the header of each marks the gap; removed lines keep their old number. */
+export const Hunks: Story = {
+  args: {
+    lines: [
+      { kind: 'hunk', text: '@@ -40,4 +40,6 @@ export function ContentList({ items }: Props) {' },
+      ...lines,
+      { kind: 'hunk', text: '@@ -88,3 +92,4 @@ export function ContentList({ items }: Props) {' },
+      { kind: 'context', number: 92, text: '      <Toolbar>' },
+      { kind: 'added', number: 93, text: '        <ArchiveButton disabled={selected.size === 0} onClick={archive} />' },
+      { kind: 'context', number: 94, text: '      </Toolbar>' },
+    ],
+  },
+};
+/** Loading: shown here above the real diff, with the same number of lines. */
+export const Loading: Story = {
+  render: (args) => (
+    <div className="flex flex-col gap-3">
+      <DiffViewSkeleton lines={args.lines.length} />
+      <DiffView {...args} />
+    </div>
+  ),
 };
