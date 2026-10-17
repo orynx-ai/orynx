@@ -64,6 +64,7 @@ octokit reports a failed fetch as status 500 with no `response`, so `client.ts` 
 
 - `client.ts` hands octokit the token and names `https://api.github.com` itself, and octokit sends `Authorization: token …`. Redirects are refused, so the header can't follow one to another host. No octokit error leaves `client.ts`, and octokit's own logger is silenced, so it never writes a request to the terminal.
 - `gh.ts` is the only file that sees gh's output. A failure keeps only the exit code.
+- `settings.json` gets only `{ "github": { "method": … } }` from GitHub. Each save changes its own key and keeps the rest: Jira's site and email, and Settings' own values (spec 005).
 - The Fastify logger's `authorization` redaction is the second guard, as for Jira.
 - `no-token-leaks.test.ts` runs the real hub at trace level through both ways, every kind of failure, status and disconnect, and finds neither token nor gh's output in any log line, response, event or `settings.json`.
 

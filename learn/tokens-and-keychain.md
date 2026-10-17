@@ -62,3 +62,4 @@ Since spec 003, `/api/status` reads the Jira token once a site and email are sav
 
 - the e2e run sets `DEVHUB_KEYCHAIN=memory` (`apps/server/src/config.ts`), and the server keeps tokens in memory, so it never reads a developer's real "DevHub" items (it already sets `DEVHUB_TOKENS_FROM_ENV=false`, so `.env` tokens never reach it either);
 - the Fastify logger redacts `authorization`, `proxy-authorization`, `cookie` and `x-devhub-token` headers, in either casing and up to five levels deep, wherever a log line carries one (`packages/core/src/create-server.ts`), behind `client.ts`, which never lets an HTTP client's error out. See `learn/connecting-jira.md`.
+- the options `createServer()` gained for Settings › Repositories (spec 005), `userHome` and `dataDir`, are folder paths; no token travels with them, and the folder check reads the disk without touching the keychain.

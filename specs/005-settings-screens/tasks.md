@@ -47,8 +47,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: Asked by the user on 2026-10-17: draw Jira, GitHub and Slack with their own logos in their official colours (brand tokens approved by the user), in `SourceMark`, with the design system and design map updated
       Check: pnpm test packages/ui/src/components/source-mark.test.tsx; pnpm gate style-policy; the Connections list checked by eye in light and dark
       Files: packages/ui/src/components/source-mark.tsx (+test), packages/ui/src/styles/tokens.css, packages/ui/src/styles/theme.css, docs/design/design-system.md, docs/design-map.md
-- [ ] Task 16: Docs: what settings.json holds (architecture), a learn page on how the settings save and how a folder is checked, the agent-runtime skill (the mode lives in Settings › Coding agent), and the comment in `tabs.ts`
+- [x] Task 16: Docs: what settings.json holds (architecture), a learn page on how the settings save and how a folder is checked, the agent-runtime skill (the mode lives in Settings › Coding agent), and the comment in `tabs.ts`
       Check: pnpm gate learn-freshness handbook-size; pnpm format:check
-      Files: docs/architecture.md, learn/settings-and-folders.md, .claude/skills/agent-runtime/SKILL.md
+      Files: docs/architecture.md, learn/settings-and-folders.md, .claude/skills/agent-runtime/SKILL.md; the learn pages whose sources changed (how-a-request-flows, local-security, connecting-github, tokens-and-keychain)
 - [ ] Task 17: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
