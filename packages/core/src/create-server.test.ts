@@ -10,7 +10,7 @@ const host = `127.0.0.1:${String(port)}`;
 let app: FastifyInstance | undefined;
 
 async function server(): Promise<FastifyInstance> {
-  app = await createServer({ token, port, version: '1.2.3' });
+  app = await createServer({ token, port, version: '1.2.3', userName: () => Promise.resolve(null) });
   return app;
 }
 
@@ -47,7 +47,62 @@ describe('GET /api/status', () => {
   });
 });
 
+describe('GET /api/status user', () => {
+  it('AC-16: names the user, and asks for the name only once', async () => {
+    let asked = 0;
+    app = await createServer({
+      token,
+      port,
+      version: '1.2.3',
+      userName: () => {
+        asked += 1;
+        return Promise.resolve('Ada Lovelace');
+      },
+    });
+    const request = { method: 'GET', url: apiRoutes.status, headers: { host, [tokenHeader]: token } } as const;
+
+    const first = StatusSchema.parse((await app.inject(request)).json());
+    await app.inject(request);
+
+    expect(first.user).toEqual({ name: 'Ada Lovelace' });
+    expect(asked).toBe(1);
+  });
+
+  it('AC-16: says null instead of failing when the name lookup throws', async () => {
+    app = await createServer({ token, port, version: '1.2.3', userName: () => Promise.reject(new Error('no git')) });
+    const res = await app.inject({ method: 'GET', url: apiRoutes.status, headers: { host, [tokenHeader]: token } });
+
+    expect(res.statusCode).toBe(200);
+    expect(StatusSchema.parse(res.json()).user).toEqual({ name: null });
+  });
+
+  it('AC-16: says null when nobody is known', async () => {
+    app = await createServer({ token, port, version: '1.2.3', userName: () => Promise.resolve(null) });
+    const res = await app.inject({ method: 'GET', url: apiRoutes.status, headers: { host, [tokenHeader]: token } });
+
+    expect(StatusSchema.parse(res.json()).user).toEqual({ name: null });
+  });
+});
+
 describe('local-only security', () => {
+  it.each(['/%61pi/status', '/%61pi/sessions', '/%61%70%69/status', '/api/%73essions'])(
+    'rejects %s without the token: an encoded path routes to /api too',
+    async (url) => {
+      const res = await (await server()).inject({ method: 'GET', url, headers: { host } });
+
+      expect(res.statusCode).toBe(401);
+      expect(ApiErrorSchema.parse(res.json()).code).toBe('unauthorized');
+    },
+  );
+
+  it('still answers an encoded /api path that carries the token', async () => {
+    const res = await (
+      await server()
+    ).inject({ method: 'GET', url: '/%61pi/status', headers: { host, [tokenHeader]: token } });
+
+    expect(res.statusCode).toBe(200);
+  });
+
   it('rejects a request without the token with 401 and says to reload', async () => {
     const res = await (await server()).inject({ method: 'GET', url: apiRoutes.status, headers: { host } });
 

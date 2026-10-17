@@ -46,12 +46,16 @@ export function registerLocalOnly(app: FastifyInstance, options: LocalOnlyOption
     }
 
     const url = new URL(request.url, 'http://127.0.0.1');
-    if (url.pathname !== apiPrefix && !url.pathname.startsWith(`${apiPrefix}/`)) return;
+    // Decide on the path the router uses, not the raw URL: the router decodes `/%61pi/status`
+    // to /api/status, so a raw-URL check alone would let an encoded path skip the token.
+    const paths = [url.pathname, decodedPath(url.pathname), request.routeOptions.url];
+    if (!paths.some(isApiPath)) return;
 
     const header = request.headers[tokenHeader];
     const fromHeader = typeof header === 'string' ? header : undefined;
-    const fromQuery =
-      url.pathname === apiRoutes.events ? (url.searchParams.get(tokenQueryParam) ?? undefined) : undefined;
+    const fromQuery = paths.includes(apiRoutes.events)
+      ? (url.searchParams.get(tokenQueryParam) ?? undefined)
+      : undefined;
 
     if (!tokenMatches(fromHeader ?? fromQuery)) {
       const body: ApiError = {
@@ -61,4 +65,17 @@ export function registerLocalOnly(app: FastifyInstance, options: LocalOnlyOption
       return reply.code(401).send(body);
     }
   });
+}
+
+function isApiPath(path: string | undefined): boolean {
+  return path === apiPrefix || (path?.startsWith(`${apiPrefix}/`) ?? false);
+}
+
+/** The path as the router sees it; a malformed escape stays as it is (the router answers 400). */
+function decodedPath(pathname: string): string {
+  try {
+    return decodeURI(pathname);
+  } catch {
+    return pathname;
+  }
 }

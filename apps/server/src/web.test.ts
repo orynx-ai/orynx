@@ -17,7 +17,7 @@ beforeEach(async () => {
   await mkdir(join(dist, 'assets'));
   await writeFile(join(dist, 'index.html'), `<html><head>${tokenMetaPlaceholder}</head><body></body></html>`);
   await writeFile(join(dist, 'assets', 'app.js'), 'console.log("devhub")');
-  app = await createServer({ token, port: 4317, version: 'test' });
+  app = await createServer({ token, port: 4317, version: 'test', userName: () => Promise.resolve(null) });
   await serveWeb(app, { distDir: dist, token });
 });
 

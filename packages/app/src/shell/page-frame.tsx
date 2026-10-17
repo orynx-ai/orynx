@@ -76,7 +76,10 @@ function CrumbItem({ crumb, first }: { crumb: Crumb; first: boolean }) {
           <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
         ) : (
           <BreadcrumbLink asChild>
-            <Link to={crumb.to}>{crumb.label}</Link>
+            {/* Exact, so a parent place is never marked current next to the page itself. */}
+            <Link to={crumb.to} activeOptions={{ exact: true }}>
+              {crumb.label}
+            </Link>
           </BreadcrumbLink>
         )}
       </BreadcrumbItem>

@@ -8,6 +8,8 @@ describe('PageBar and PageBreadcrumb', () => {
     const crumbs = await screen.findByRole('navigation', { name: 'Breadcrumb' });
 
     expect(within(crumbs).getByText('Appearance')).toHaveAttribute('aria-current', 'page');
+    // Only the last crumb is the current page; the place it sits under is a plain link.
+    expect(within(crumbs).getByRole('link', { name: 'Settings' })).not.toHaveAttribute('aria-current');
     await user.click(within(crumbs).getByRole('link', { name: 'Settings' }));
 
     expect(history.location.pathname).toBe('/settings/connections');

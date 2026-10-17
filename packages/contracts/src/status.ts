@@ -20,9 +20,17 @@ export const AgentStatusSchema = z.object({
 });
 export type AgentStatus = z.infer<typeof AgentStatusSchema>;
 
+/** The person using DevHub, for the sidebar footer. */
+export const UserSchema = z.object({
+  /** From `git config user.name` until a connection gives a better one; null when nobody is known. */
+  name: z.string().regex(/\S/, 'a name needs at least one visible character').nullable(),
+});
+export type User = z.infer<typeof UserSchema>;
+
 /** GET /api/status: what the hub is connected to right now. */
 export const StatusSchema = z.object({
   version: z.string(),
+  user: UserSchema,
   agent: AgentStatusSchema,
   integrations: z.object({
     jira: IntegrationStatusSchema,

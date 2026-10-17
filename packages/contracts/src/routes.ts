@@ -4,6 +4,7 @@ export const apiPrefix = '/api';
 /** Paths relative to {@link apiPrefix}. The server registers these inside its /api plugin. */
 export const apiPaths = {
   status: '/status',
+  sessions: '/sessions',
   events: '/events',
 } as const;
 
@@ -12,6 +13,7 @@ type ApiPaths = typeof apiPaths;
 /** Full paths the browser calls. */
 export const apiRoutes = {
   status: `${apiPrefix}${apiPaths.status}`,
+  sessions: `${apiPrefix}${apiPaths.sessions}`,
   events: `${apiPrefix}${apiPaths.events}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 

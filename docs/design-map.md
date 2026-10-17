@@ -68,6 +68,8 @@ Why there is no `accent`: in shadcn, `accent` means the grey hover surface, but 
 | Callout (`dh-callout--warning/info`)                                                                                         | `<Callout tone title>`                                                 | built                                 |
 | SourceMark (`dh-source--jira/github/slack`)                                                                                  | `<SourceMark source>`                                                  | built                                 |
 | SidebarNav, PageHeader (`dh-sidebar`, `dh-pagebar`, `dh-toolbar`, `dh-pagebody`)                                             | `packages/app/src/shell/*`                                             | built (app chrome, not ui)            |
+| SidebarNav session (`dh-session`, `dh-session-icon--wait/run/done`)                                                          | `<SessionItem title source state asChild>`, `sessionStateLabels`       | built                                 |
+| Resize handle (no `dh-` class; sidebar resizing decided in spec 001 Q10)                                                     | `<Splitter value min max onValueChange defaultValue step aria-label>`  | built                                 |
 | SegmentedControl, Stepper, Input, Menu, Composer, WorkItemCard, AttentionRow, FileList, DiffView, Choice card, Resume banner | —                                                                      | build in the spec that first needs it |
 
 ## Icons
