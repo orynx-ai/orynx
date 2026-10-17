@@ -5,6 +5,7 @@ export {
   type ActivityStepProps,
   type ActivityStepState,
 } from './components/activity-step.tsx';
+export { AgentChip, type AgentChipProps } from './components/agent-chip.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
 export {
   Breadcrumb,
