@@ -11,6 +11,81 @@ export const goodBasicValue = Buffer.from(`${jiraEmail}:${goodToken}`).toString(
 
 export const myselfUrl = (site: string = jiraSite) => `https://${site}/rest/api/3/myself`;
 export const projectSearchUrl = (site: string = jiraSite) => `https://${site}/rest/api/3/project/search`;
+export const issueSearchUrl = (site: string = jiraSite) => `https://${site}/rest/api/3/search/jql`;
+export const prioritySearchUrl = (site: string = jiraSite) => `https://${site}/rest/api/3/priority/search`;
+
+/** Jira's default priorities, highest first, as a fresh Jira Cloud site lists them. */
+export const defaultPriorities = [
+  { id: '1', name: 'Highest' },
+  { id: '2', name: 'High' },
+  { id: '3', name: 'Medium' },
+  { id: '4', name: 'Low' },
+  { id: '5', name: 'Lowest' },
+] as const;
+
+export interface FakeIssue {
+  key: string;
+  summary?: string;
+  status?: string;
+  /** Jira's status category key: `new` (To Do), `indeterminate` (In Progress) or `done`. */
+  category?: 'new' | 'indeterminate' | 'done' | 'undefined';
+  type?: string;
+  /** A priority id from {@link defaultPriorities}, or null for none. */
+  priority?: string | null;
+  duedate?: string | null;
+  created?: string;
+  /** As Jira writes it, with a `+0000` offset; left out when Jira doesn't say. */
+  statuscategorychangedate?: string;
+}
+
+/** One issue as `search/jql` returns it, with every field the inbox asks for. */
+export function jiraIssue(issue: FakeIssue) {
+  const priority = issue.priority === undefined ? '3' : issue.priority;
+  return {
+    id: String(10_000 + issue.key.length),
+    key: issue.key,
+    fields: {
+      summary: issue.summary ?? `Summary of ${issue.key}`,
+      status: {
+        name: issue.status ?? 'In Progress',
+        statusCategory: { id: 4, key: issue.category ?? 'indeterminate', name: 'In Progress' },
+      },
+      issuetype: { id: '10001', name: issue.type ?? 'Task' },
+      priority:
+        priority === null ? null : { id: priority, name: defaultPriorities.find((p) => p.id === priority)?.name },
+      duedate: issue.duedate ?? null,
+      created: issue.created ?? '2026-10-01T09:00:00.000+0000',
+      ...(issue.statuscategorychangedate === undefined
+        ? {}
+        : { statuscategorychangedate: issue.statuscategorychangedate }),
+    },
+  };
+}
+
+/** Jira's enhanced search (`POST /rest/api/3/search/jql`) for the good credentials, answering with `issues`. */
+export function acceptingIssueSearch(issues: readonly FakeIssue[], { site = jiraSite }: { site?: string } = {}) {
+  return http.post(issueSearchUrl(site), ({ request }) => {
+    if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+    return HttpResponse.json({ issues: issues.map(jiraIssue), isLast: true });
+  });
+}
+
+/** Jira's priority list, highest first, for the good credentials. */
+export function acceptingPrioritySearch(
+  priorities: readonly { id: string; name: string }[] = defaultPriorities,
+  { site = jiraSite }: { site?: string } = {},
+) {
+  return http.get(prioritySearchUrl(site), ({ request }) => {
+    if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+    return HttpResponse.json({
+      startAt: 0,
+      maxResults: 50,
+      total: priorities.length,
+      isLast: true,
+      values: priorities,
+    });
+  });
+}
 
 const refused = () =>
   HttpResponse.json(

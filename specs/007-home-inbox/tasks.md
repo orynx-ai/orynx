@@ -10,7 +10,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 2: Add the cache with better-sqlite3 and drizzle-orm: records per tool as checked JSON, each tool's last sync and problem, emptying, forgetting a tool, and a damaged or older file deleted and made again (AC-28, AC-29, AC-30, AC-31)
       Check: pnpm test packages/core/src/inbox/inbox-cache.test.ts; pnpm gate boundaries
       Files: packages/core/package.json, pnpm-workspace.yaml, pnpm-lock.yaml (through pnpm add), packages/core/src/inbox/inbox-cache.ts, inbox-cache.test.ts
-- [ ] Task 3: Read Jira's assigned, unfinished issues (`search/jql`) and its priority order in `client.ts`, and map them to records by status category in `map.ts` (AC-2, AC-4, AC-5)
+- [x] Task 3: Read Jira's assigned, unfinished issues (`search/jql`) and its priority order in `client.ts`, and map them to records by status category in `map.ts` (AC-2, AC-4, AC-5)
       Check: pnpm test packages/core/src/integrations/jira
       Files: packages/core/src/integrations/jira/client.ts, client.test.ts, map.ts, map.test.ts, packages/core/src/test/fake-jira.ts
 - [ ] Task 4: Read GitHub's review requests and your own pull requests in one GraphQL query in `client.ts`, and map them to records in `map.ts`: request time, failing checks and when they failed, unresolved threads whose last comment isn't yours (AC-6, AC-8, AC-9, AC-10)
