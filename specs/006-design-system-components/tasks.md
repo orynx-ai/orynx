@@ -4,10 +4,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 Every task below that adds a part also exports it from `packages/ui/src/index.ts` and adds its story and test. Its Check always includes `pnpm gate style-policy component-coverage boundaries` and `pnpm typecheck`; only the part's own test is named.
 
-- [ ] Task 1: Add `Skeleton`, a plain `bg-subtle` block with no animation that loading forms are built from (Q4a, AC-26)
+- [ ] Task 1: Add `Skeleton` from shadcn's `skeleton`: a plain `bg-subtle` block with no animation that loading forms are built from (Q4a, AC-26)
       Check: pnpm test packages/ui/src/components/skeleton.test.tsx
       Files: packages/ui/src/components/skeleton.tsx, skeleton.stories.tsx, skeleton.test.tsx, packages/ui/src/index.ts
-- [ ] Task 2: Add `SegmentedControl`: a named group of 32 px toggle buttons with an icon and a word, one always pressed (AC-1, AC-2)
+- [ ] Task 2: Add `SegmentedControl` from shadcn's `toggle-group`: a named group of 32 px toggle buttons with an icon and a word, one always pressed (AC-1, AC-2)
       Check: pnpm test packages/ui/src/components/segmented-control.test.tsx
       Files: packages/ui/src/components/segmented-control.tsx, segmented-control.stories.tsx, segmented-control.test.tsx, packages/ui/src/index.ts
 - [ ] Task 3: Add `Stepper`: an ordered list of done, current and to-do steps, with ", done" for screen readers and `aria-current="step"` (AC-3)
@@ -16,28 +16,28 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [ ] Task 4: Add `StatusIcon`: four 20 px shapes for to do, in progress, in review and done (Q1b, AC-25)
       Check: pnpm test packages/ui/src/components/status-icon.test.tsx
       Files: packages/ui/src/components/status-icon.tsx, status-icon.stories.tsx, status-icon.test.tsx, packages/ui/src/index.ts
-- [ ] Task 5: Add `ActivityStep`: a 24 px dot with its icon, a title and a detail line, as done, waiting or plain (Q1b, AC-25)
+- [ ] Task 5: Add `ActivityStep` from shadcn's `trace` (AI Elements' Task pattern): a 24 px dot with its icon, a title and a detail line, as done, waiting or plain (Q1b, AC-25)
       Check: pnpm test packages/ui/src/components/activity-step.test.tsx
       Files: packages/ui/src/components/activity-step.tsx, activity-step.stories.tsx, activity-step.test.tsx, packages/ui/src/index.ts
-- [ ] Task 6: Add `Chip`: a 32 px filter toggle that says whether it's pressed, or a quick-start link through `asChild` (Q1b, AC-25)
+- [ ] Task 6: Add `Chip` (the quick start from AI Elements' Suggestion pattern): a 32 px filter toggle that says whether it's pressed, or a quick-start link through `asChild` (Q1b, AC-25)
       Check: pnpm test packages/ui/src/components/chip.test.tsx
       Files: packages/ui/src/components/chip.tsx, chip.stories.tsx, chip.test.tsx, packages/ui/src/index.ts
 - [ ] Task 7: Add `Panel`: a bordered surface with an optional head (heading and meta line) around a list (Q1b, AC-25)
       Check: pnpm test packages/ui/src/components/panel.test.tsx
       Files: packages/ui/src/components/panel.tsx, panel.stories.tsx, panel.test.tsx, packages/ui/src/index.ts
-- [ ] Task 8: Add `Menu` on Radix's dropdown menu: items with an icon, a description or mono path, a chevron, section labels, separators, a foot line and link items; arrow keys, typeahead, Enter, Esc and focus back on the trigger (AC-5, AC-6)
+- [ ] Task 8: Add `Menu` from shadcn's `dropdown-menu`: items with an icon, a description or mono path, a chevron, section labels, separators, a foot line and link items; arrow keys, typeahead, Enter, Esc and focus back on the trigger (AC-5, AC-6)
       Check: pnpm test packages/ui/src/components/menu.test.tsx
       Files: packages/ui/src/components/menu.tsx, menu.stories.tsx, menu.test.tsx, packages/ui/src/test/setup.ts (browser stand-ins only if jsdom needs them), packages/ui/src/index.ts
 - [ ] Task 9: Add `Picker` (the 32 px button that opens a menu) and radio items with an `info` check; the menu stays inside the window (AC-4, AC-7)
       Check: pnpm test packages/ui/src/components/picker.test.tsx packages/ui/src/components/menu.test.tsx
       Files: packages/ui/src/components/picker.tsx, picker.stories.tsx, picker.test.tsx, packages/ui/src/components/menu.tsx, menu.stories.tsx, menu.test.tsx, packages/ui/src/index.ts
-- [ ] Task 10: Add `Composer` in its "task" look: hidden label, placeholder, a bar for + and the pickers, round primary Send; Enter sends, Shift+Enter adds a line, Enter while composing doesn't send (AC-8, AC-9)
+- [ ] Task 10: Add `Composer` from AI Elements' Prompt Input pattern (shadcn's `input-group`) in its "task" look: hidden label, placeholder, a bar for + and the pickers, round primary Send; Enter sends, Shift+Enter adds a line, Enter while composing doesn't send (AC-8, AC-9)
       Check: pnpm test packages/ui/src/components/composer.test.tsx
       Files: packages/ui/src/components/composer.tsx, composer.stories.tsx, composer.test.tsx, packages/ui/src/index.ts
 - [ ] Task 11: Composer sending states and height: Send unavailable when there's nothing to send, its spinner while sending; the text box grows to 8 lines, then scrolls (AC-10, AC-11)
       Check: pnpm test packages/ui/src/components/composer.test.tsx
       Files: packages/ui/src/components/composer.tsx, composer.stories.tsx, composer.test.tsx
-- [ ] Task 12: Add `ContextChip` and the Composer's "Context for Claude" list: mark or icon, text cut at 300 px with a tooltip, "Remove PROJ-1423" with a 32 px hit area, and focus to the next chip or the text box after removing (AC-12, AC-13)
+- [ ] Task 12: Add `ContextChip` from shadcn's `attachment`, and the Composer's "Context for Claude" list: mark or icon, text cut at 300 px with a tooltip, "Remove PROJ-1423" with a 32 px hit area, and focus to the next chip or the text box after removing (AC-12, AC-13)
       Check: pnpm test packages/ui/src/components/context-chip.test.tsx packages/ui/src/components/composer.test.tsx
       Files: packages/ui/src/components/context-chip.tsx, context-chip.stories.tsx, context-chip.test.tsx, packages/ui/src/components/composer.tsx, composer.stories.tsx, composer.test.tsx, packages/ui/src/index.ts
 - [ ] Task 13: Composer "follow-up" look: no shadow, no pickers, one line, the hint, a secondary Send (AC-14)
@@ -58,7 +58,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [ ] Task 18: Add `FileList`: a list of 40 px buttons with the path (only the folder part is cut), counts in `success` and `danger` read as "68 lines added, 9 lines removed", `aria-current` on the shown file; a loading form (Q3b, Q5b, Q4a, AC-20, AC-21, AC-26)
       Check: pnpm test packages/ui/src/components/file-list.test.tsx
       Files: packages/ui/src/components/file-list.tsx, file-list.stories.tsx, file-list.test.tsx, packages/ui/src/index.ts
-- [ ] Task 19: Add `DiffView`: a region named "Changes in <file>", the header with path and counts, numbered lines with their sign on the add and remove washes; long lines scroll inside it; copying takes only the code (Q5c, AC-22, AC-23)
+- [ ] Task 19: Add `DiffView` from shadcn's `code-block` without Shiki (Q6b): a region named "Changes in <file>", the header with path and counts, numbered lines with their sign on the add and remove washes; long lines scroll inside it; copying takes only the code (Q5c, AC-22, AC-23)
       Check: pnpm test packages/ui/src/components/diff-view.test.tsx
       Files: packages/ui/src/components/diff-view.tsx, diff-view.stories.tsx, diff-view.test.tsx, packages/ui/src/index.ts
 - [ ] Task 20: DiffView hunk rows (`@@ … @@` on `bg-sidebar`; removed lines keep their old number) and its loading form (Q4c, Q4a, AC-22, AC-26)
