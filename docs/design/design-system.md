@@ -1,6 +1,8 @@
 # DevHub Design System
 
-The look, rules and building blocks for DevHub, the local-first developer workspace. Version 1, October 2026.
+The look, rules and building blocks for DevHub, the local-first developer workspace. Version 1.1, October 2026.
+
+**1.1 (17 Oct 2026):** type, icons and control sizes follow the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`): 16px body, two weights (400 and 500), 20px icons, 40px controls, a 56px page bar and a 300px sidebar. Colours, tokens.css and the components themselves are unchanged. The screens in `docs/design/screens/` were drawn at the 1.0 sizes; read their sizes through this page.
 
 Contents: 1. Brand guide · 2. Tokens · 3. Components · 4. CSS (tokens.css and components.css)
 
@@ -45,7 +47,8 @@ Neutrals are a warm stone grey, biased toward yellow so the app feels calm rathe
 ### Type
 
 - **Geist** for the interface, **Geist Mono** for keys, branches, paths and diffs, **Newsreader** for the single greeting on Home. The serif appears once per screen at most.
-- Sizes: `title-lg` 20, `title` 15, `body` 14, `small` 13, `label` 12. Nothing smaller than 12px.
+- Sizes: `display` 40, `title-lg` 20, `title` 18, `body` 16, `small` 14, `label` 12, `code` 14. Nothing smaller than 12px. Each size has its own line height (section 2).
+- Two weights: 400 for text and 500 for emphasis. Never 600 or 700.
 - Sentence case everywhere. Ticket keys and branch names keep their own case.
 
 ### Space and shape
@@ -58,14 +61,14 @@ Neutrals are a warm stone grey, biased toward yellow so the app feels calm rathe
 
 - Text contrast 4.5:1 (checked for every text/background pair above in both themes); control borders, icons and focus rings 3:1.
 - Focus is a 2px `accent` outline with 2px offset on every interactive element. Never remove it.
-- Hit targets are at least 30px tall in dense rows and 36px elsewhere.
+- Hit targets are at least 32px tall in dense rows and 40px elsewhere.
 - Use real elements: `<nav>`, `<a href>`, `<button>`, `role="tablist"`/`role="tab"`/`aria-selected`, `aria-current="page"` in nav and breadcrumbs, `aria-label` on icon-only buttons.
 - Live agent output is in a region with `aria-live="polite"`; approval prompts use `role="alert"`.
 - Respect `prefers-reduced-motion`.
 
 ### Iconography
 
-Outline icons, 16px, 1.75px stroke, round caps, drawn in `currentColor` so they follow the text token (the `.dh-icon` class). Lucide's set matches this style. An icon never stands alone without a label or an `aria-label`.
+Outline icons, 20px, 1.75px stroke, round caps, drawn in `currentColor` so they follow the text token (the `.dh-icon` class). Lucide's set matches this style. An icon never stands alone without a label or an `aria-label`.
 
 ### Writing
 
@@ -123,14 +126,14 @@ Every text/background pair passes WCAG AA (4.5:1) in both themes; control border
 
 | Style | Family | Size / line height | Weight | Use for |
 | --- | --- | --- | --- | --- |
-| `display` | serif | 32px / 40px | 400 | One greeting per screen, on Home only. |
-| `title-lg` | sans | 20px / 28px | 600 | Page title under the breadcrumb. |
-| `title` | sans | 15px / 22px | 600 | Section and panel headings. |
-| `body` | sans | 14px / 20px | 400 | Default text. |
-| `body-strong` | sans | 14px / 20px | 500 | Card titles, nav labels, buttons. |
-| `small` | sans | 13px / 18px | 400 | Meta lines and helper text. |
-| `label` | sans | 12px / 16px | 500 | Pills, counts, sidebar section labels. Smallest size allowed. |
-| `code` | mono | 12px / 20px | 400 | Branch names, ticket keys, file paths, diffs. |
+| `display` | serif | 40px / 48px | 400 | One greeting per screen, on Home only. |
+| `title-lg` | sans | 20px / 28px | 500 | Page title under the breadcrumb. |
+| `title` | sans | 18px / 28px | 500 | Section and panel headings. |
+| `body` | sans | 16px / 24px | 400 | Default text: nav, rows, buttons, body. |
+| `body-strong` | sans | 16px / 24px | 500 | Card titles, nav labels, buttons. |
+| `small` | sans | 14px / 20px | 400 | Meta lines, helper text, a row's second line, sidebar section labels. |
+| `label` | sans | 12px / 16px | 500 | Pills, counts, keyboard hints. Smallest size allowed. |
+| `code` | mono | 14px / 20px | 400 | Branch names, ticket keys, file paths, diffs. |
 
 ### Spacing
 
@@ -139,10 +142,10 @@ Every text/background pair passes WCAG AA (4.5:1) in both themes; control border
 | `--space-1` | 4px | Icon to label inside a pill. |
 | `--space-2` | 8px | Gap between buttons; icon to label. |
 | `--space-3` | 12px | Card inner padding; gap between cards in a column. |
-| `--space-4` | 16px | Panel padding; gap between sections in a panel. |
-| `--space-6` | 24px | Content gutter; gap between page sections. |
-| `--space-8` | 32px | Page padding on wide screens. |
-| `--space-12` | 48px | Space above the Home greeting. |
+| `--space-4` | 16px | Panel padding; gap between sections in a panel; the page gutter under 768px. |
+| `--space-6` | 24px | Gap between page sections; space above the page column. |
+| `--space-8` | 32px | Space below the page column. |
+| `--space-12` | 48px | Space above the Home greeting; the page gutter from 768px. |
 
 ### Radius
 
@@ -169,7 +172,8 @@ Components are plain HTML with `dh-` CSS classes (section 4). Put `class="dh-roo
 
 The always-visible list of places in the app, the agent sessions you have open, and who is signed in.
 
-- `<nav aria-label="Main">` on `bg-sidebar`, 248–260px wide. Top: logo, collapse button, then New task (⌘N) and Search (⌘K).
+- `<nav aria-label="Main">` on `bg-sidebar`, 300px wide by default. The person can drag its right edge, or use the arrow keys on it, to resize it between 260 and 400px. Top: logo, collapse button, then New task (⌘N) and Search (⌘K).
+- Places, New task and Search are 40px rows.
 - Places are `<a class="dh-nav-item">` with an icon and label; the current one has `aria-current="page"`. Counts sit in `.dh-nav-count` (filled ink on the current place) with hidden words for screen readers ("14 need you").
 - Sessions are two-line `.dh-session` links: title on top, ticket key and state below. State is told three ways: an icon shape (! waiting, arc working, check done), its word ("Needs you", "Working", "Done, ready for PR") and its colour. Keep the 5 most recent; "View all" leads to the full list.
 - The footer is the signed-in person with the agent's connection state; it links to Settings.
@@ -179,8 +183,8 @@ The always-visible list of places in the app, the agent sessions you have open, 
 
 ```html
 <div class="dh-root" style="display:flex;background:var(--bg-canvas)">
-  <nav class="dh-sidebar" aria-label="Main" style="width:260px;min-height:580px">
-    <div class="dh-sidebar-head"><span aria-hidden="true" style="width:26px;height:26px;border-radius:6px;background:var(--primary);color:var(--on-primary);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px">D</span><span style="font-weight:600;font-size:15px">DevHub</span><button class="dh-btn dh-btn--ghost dh-btn--icon dh-btn--sm" type="button" aria-label="Collapse sidebar" style="margin-left:auto"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg></button></div>
+  <nav class="dh-sidebar" aria-label="Main" style="width:300px;min-height:580px">
+    <div class="dh-sidebar-head"><span aria-hidden="true" style="width:32px;height:32px;border-radius:6px;background:var(--primary);color:var(--on-primary);display:flex;align-items:center;justify-content:center;font-weight:500;font-size:16px">D</span><span style="font-weight:500;font-size:18px;line-height:28px">DevHub</span><button class="dh-btn dh-btn--ghost dh-btn--icon dh-btn--sm" type="button" aria-label="Collapse sidebar" style="margin-left:auto"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg></button></div>
     <div style="display:flex;flex-direction:column;gap:6px">
       <a class="dh-btn dh-btn--secondary" href="#" style="justify-content:flex-start"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>New task<kbd class="dh-kbd">⌘N</kbd></a>
       <button class="dh-sidebar-search" type="button"><svg class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Search<kbd class="dh-kbd">⌘K</kbd></button>
@@ -207,9 +211,11 @@ The always-visible list of places in the app, the agent sessions you have open, 
 
 ### PageHeader
 
-The same frame on every screen: a 52px page bar with the breadcrumb on the left and page actions on the right, an optional 48px toolbar for filters, then the page body.
+The same frame on every screen: a 56px page bar with the breadcrumb on the left and page actions on the right, an optional 56px toolbar for filters, then the page body.
 
-- `.dh-main` > `header.dh-pagebar` > breadcrumb, `.dh-pagebar-meta`, `.dh-pagebar-actions`. Then `.dh-toolbar` (filters and counts), then `.dh-pagebody`.
+- `.dh-main` > `header.dh-pagebar` > breadcrumb, `.dh-pagebar-meta`, `.dh-pagebar-actions`. Then `.dh-toolbar` (filters and counts), then `.dh-pagebody` > `.dh-pagebody-col`.
+- The page bar is one line at every width: a long breadcrumb is cut first, and under 768px the meta hides.
+- The gutter (16px, 48px from 768px) sits on `.dh-pagebody` and the width on `.dh-pagebody-col`, centred: 960px by default, 720px (`--narrow`) for sparse pages such as Home, or `--full` only for a board or table that 960px would squeeze. No other widths.
 - Both bars are separated by a `border-default` hairline, not by colour or shadow.
 - The page's single primary button, if any, lives in the page bar actions.
 
@@ -227,7 +233,7 @@ The same frame on every screen: a 52px page bar with the breadcrumb on the left 
   <div class="dh-toolbar">
     <button class="dh-chip" type="button" aria-pressed="true" style="background:var(--accent-subtle);color:var(--accent-text);border-color:var(--accent)">Assigned to me</button>
     <button class="dh-chip" type="button" aria-pressed="false">Due this week</button>
-    <span style="margin-left:auto;font-size:13px;color:var(--text-secondary)">9 tickets</span>
+    <span style="margin-left:auto;font-size:14px;color:var(--text-secondary)">9 tickets</span>
   </div>
 </div>
 ```
@@ -240,7 +246,7 @@ Shows where the current page sits under a sidebar place, and gives a one-click w
 
 - `<nav aria-label="Breadcrumb">` with an ordered list. The first item is the sidebar place.
 - The last item is the current page: plain text with `aria-current="page"`, not a link.
-- At most three items. Sits above the page title, in `small` size.
+- At most three items, on one line in `body` size; the current page is `body-strong`. Only the last item shrinks: a long one is cut with an ellipsis and keeps its full text in `title`.
 
 <details><summary>Example markup</summary>
 
@@ -265,7 +271,7 @@ Switches between different content inside one page, such as Activity, Changes an
 - Markup: a `role="tablist"` with an `aria-label`, each tab a `<button role="tab">` with `aria-selected`; panels are `role="tabpanel"` with `aria-labelledby`.
 - Keyboard: arrow keys move between tabs (roving `tabindex`: the selected tab is `0`, others `-1`).
 - The selected tab gets `text-primary` and a 2px `accent` underline. Unselected tabs use `text-secondary` (4.5:1).
-- Counts go in `.dh-count` after the label. Keep to 2–5 tabs; scrolls sideways on narrow screens.
+- Tabs are 48px tall. Counts go in `.dh-count` after the label. Keep to 2–5 tabs; scrolls sideways on narrow screens.
 - For Board/List views of the same items, use SegmentedControl instead.
 
 <details><summary>Example markup</summary>
@@ -337,7 +343,7 @@ Triggers an action; one `primary` button per view, everything else `secondary` o
 - **ghost** (`dh-btn--ghost`): low-emphasis actions in toolbars and dialogs.
 - **danger** (`dh-btn--danger`): destructive and irreversible. Pair with a confirm step in the page, never a browser dialog.
 - **icon** (`dh-btn--icon`): square; must have `aria-label`.
-- Sizes: default 36px; `dh-btn--sm` 30px for cards and dense rows.
+- Sizes: default 40px; `dh-btn--sm` 32px for cards and dense rows.
 
 Label with the action ("Create pull request"), sentence case. Use `<a class="dh-btn">` when it navigates, `<button>` when it acts.
 
@@ -534,7 +540,7 @@ One inbox item: where it comes from, what it is, why it needs you, and the one t
 
 Fills an empty list, column or panel with what would appear there and how it gets there.
 
-- One short title in `text-primary`, one line in `text-secondary`. A dashed `border-default` outline.
+- One short title in `text-primary`, one line in `text-secondary`, as plain centred text: no outline, no icon, no card.
 - With active filters, say so and offer to clear them: "No bugs due this week. Clear filters".
 
 <details><summary>Example markup</summary>
@@ -606,7 +612,7 @@ The files an agent changed, with +/− counts; picking one shows its diff next t
 
 Shows the agent's code changes as they happen.
 
-- Mono 12/20. Added lines on `success-subtle` with a `+`, removed on `danger-subtle` with a `−`: the sign carries the meaning, colour backs it up.
+- Mono 14/20. Added lines on `success-subtle` with a `+`, removed on `danger-subtle` with a `−`: the sign carries the meaning, colour backs it up.
 - File header shows the path and +/− counts. Wide lines scroll inside the diff, never the page.
 - Mark the container as a `region` with an `aria-label` naming the file.
 
@@ -688,21 +694,21 @@ Shows the agent's code changes as they happen.
 ### components.css
 
 ```css
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap");
 
 /* DevHub components. Every color, radius and space comes from tokens.css. */
 
-.dh-root { font-family: var(--font-sans); font-size: 14px; line-height: 20px; color: var(--text-primary); background: var(--bg-canvas); -webkit-font-smoothing: antialiased; }
+.dh-root { font-family: var(--font-sans); font-size: 16px; line-height: 24px; color: var(--text-primary); background: var(--bg-canvas); -webkit-font-smoothing: antialiased; }
 .dh-root *, .dh-root *::before, .dh-root *::after { box-sizing: border-box; }
 .dh-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.dh-icon { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
-.dh-mono { font-family: var(--font-mono); font-size: 12px; }
+.dh-icon { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.dh-mono { font-family: var(--font-mono); font-size: 14px; }
 
 /* Focus: one ring for everything */
 .dh-root :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Button */
-.dh-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: 36px; padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid transparent; font: inherit; font-weight: 500; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.dh-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: 40px; padding: 0 16px; border-radius: var(--radius-sm); border: 1px solid transparent; font: inherit; font-weight: 500; cursor: pointer; text-decoration: none; white-space: nowrap; }
 .dh-btn--primary { background: var(--primary); color: var(--on-primary); }
 .dh-btn--primary:hover { opacity: .88; }
 .dh-btn--secondary { background: var(--bg-raised); color: var(--text-primary); border-color: var(--border-control); }
@@ -710,22 +716,23 @@ Shows the agent's code changes as they happen.
 .dh-btn--ghost { background: transparent; color: var(--text-primary); }
 .dh-btn--ghost:hover { background: var(--bg-subtle); }
 .dh-btn--danger { background: var(--danger); color: var(--on-danger); }
-.dh-btn--sm { height: 30px; padding: 0 10px; font-size: 13px; }
-.dh-btn--icon { width: 36px; padding: 0; }
-.dh-btn--icon.dh-btn--sm { width: 30px; }
+.dh-btn--sm { height: 32px; padding: 0 12px; font-size: 14px; }
+.dh-btn--icon { width: 40px; padding: 0; }
+.dh-btn--icon.dh-btn--sm { width: 32px; }
 .dh-btn[disabled], .dh-btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
 
 /* Breadcrumb */
-.dh-breadcrumb ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); list-style: none; margin: 0; padding: 0; font-size: 13px; color: var(--text-secondary); }
-.dh-breadcrumb li { display: inline-flex; align-items: center; gap: var(--space-1); }
+.dh-breadcrumb ol { display: flex; align-items: center; gap: var(--space-1); min-width: 0; list-style: none; margin: 0; padding: 0; color: var(--text-secondary); }
+.dh-breadcrumb li { display: inline-flex; align-items: center; gap: var(--space-1); flex-shrink: 0; white-space: nowrap; }
+.dh-breadcrumb li:last-child { flex-shrink: 1; min-width: 0; }
 .dh-breadcrumb li + li::before { content: "/"; color: var(--text-secondary); padding: 0 var(--space-1); }
 .dh-breadcrumb a { color: var(--text-secondary); text-decoration: none; border-radius: 4px; padding: 2px 4px; }
 .dh-breadcrumb a:hover { color: var(--text-primary); background: var(--bg-subtle); }
-.dh-breadcrumb [aria-current="page"] { color: var(--text-primary); font-weight: 500; padding: 2px 4px; }
+.dh-breadcrumb [aria-current="page"] { color: var(--text-primary); font-weight: 500; padding: 2px 4px; overflow: hidden; text-overflow: ellipsis; }
 
 /* Tabs: underline, for switching content inside a page */
-.dh-tabs { display: flex; gap: var(--space-4); border-bottom: 1px solid var(--border-default); overflow-x: auto; }
-.dh-tab { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 2px; border: 0; background: none; font: inherit; font-weight: 500; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+.dh-tabs { display: flex; gap: var(--space-6); border-bottom: 1px solid var(--border-default); overflow-x: auto; }
+.dh-tab { position: relative; display: inline-flex; align-items: center; gap: var(--space-2); height: 48px; padding: 0 2px; border: 0; background: none; font: inherit; font-weight: 500; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
 .dh-tab:hover { color: var(--text-primary); }
 .dh-tab[aria-selected="true"] { color: var(--text-primary); }
 .dh-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
@@ -733,14 +740,14 @@ Shows the agent's code changes as they happen.
 
 /* Segmented control: for switching a view of the same content (Board / List) */
 .dh-segmented { display: inline-flex; padding: 3px; gap: 2px; background: var(--bg-subtle); border-radius: var(--radius-sm); }
-.dh-segment { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; font: inherit; font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; }
+.dh-segment { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 4px; background: transparent; font: inherit; font-size: 14px; font-weight: 500; color: var(--text-secondary); cursor: pointer; }
 .dh-segment[aria-pressed="true"], .dh-segment[aria-selected="true"] { background: var(--bg-raised); color: var(--text-primary); box-shadow: 0 0 0 1px var(--border-default); }
 
 /* Sidebar nav */
 .dh-sidebar { display: flex; flex-direction: column; gap: var(--space-4); background: var(--bg-sidebar); padding: var(--space-3); }
 .dh-nav { display: flex; flex-direction: column; gap: 2px; }
-.dh-nav-label { font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--text-secondary); padding: var(--space-2) 10px 4px; }
-.dh-nav-item { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 10px; border-radius: var(--radius-sm); color: var(--text-secondary); text-decoration: none; font-weight: 500; }
+.dh-nav-label { font-size: 14px; line-height: 20px; color: var(--text-secondary); padding: var(--space-2) 10px 4px; }
+.dh-nav-item { display: flex; align-items: center; gap: var(--space-3); min-height: 40px; padding: 0 12px; border-radius: var(--radius-sm); color: var(--text-secondary); text-decoration: none; font-weight: 500; }
 .dh-nav-item:hover { background: var(--bg-subtle); color: var(--text-primary); }
 .dh-nav-item[aria-current="page"] { background: var(--bg-subtle); color: var(--text-primary); }
 .dh-nav-item[aria-current="page"] .dh-icon { color: var(--accent); }
@@ -748,36 +755,36 @@ Shows the agent's code changes as they happen.
 .dh-nav-item .dh-nav-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 /* Pills and chips */
-.dh-pill { display: inline-flex; align-items: center; gap: var(--space-1); height: 22px; padding: 0 8px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; white-space: nowrap; background: var(--bg-subtle); color: var(--text-secondary); }
+.dh-pill { display: inline-flex; align-items: center; gap: var(--space-1); height: 24px; padding: 0 8px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; white-space: nowrap; background: var(--bg-subtle); color: var(--text-secondary); }
 .dh-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .dh-pill--plain::before { display: none; }
 .dh-pill--info { background: var(--accent-subtle); color: var(--accent-text); }
 .dh-pill--success { background: var(--success-subtle); color: var(--success); }
 .dh-pill--warning { background: var(--warning-subtle); color: var(--warning); }
 .dh-pill--danger { background: var(--danger-subtle); color: var(--danger); }
-.dh-source { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text-secondary); }
-.dh-source-mark { width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+.dh-source { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+.dh-source-mark { width: 20px; height: 20px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; }
 .dh-source--jira .dh-source-mark { background: var(--accent-subtle); color: var(--source-jira); }
 .dh-source--github .dh-source-mark { background: var(--bg-subtle); color: var(--source-github); }
 .dh-source--slack .dh-source-mark { background: var(--source-slack-subtle); color: var(--source-slack); }
-.dh-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: var(--radius-full); border: 1px solid var(--border-default); background: var(--bg-raised); font: inherit; font-size: 13px; color: var(--text-primary); cursor: pointer; }
+.dh-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: var(--radius-full); border: 1px solid var(--border-default); background: var(--bg-raised); font: inherit; font-size: 14px; color: var(--text-primary); cursor: pointer; }
 .dh-chip:hover { background: var(--bg-subtle); }
 
 /* Avatar */
-.dh-avatar { width: 24px; height: 24px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; background: var(--bg-subtle); color: var(--text-primary); border: 1px solid var(--border-default); flex-shrink: 0; }
+.dh-avatar { width: 28px; height: 28px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; background: var(--bg-subtle); color: var(--text-primary); border: 1px solid var(--border-default); flex-shrink: 0; }
 
 /* Card: one work item on a board or in a list */
 .dh-card { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-default); }
 .dh-card:hover { border-color: var(--border-control); }
 .dh-card-top { display: flex; align-items: center; gap: var(--space-2); }
-.dh-card-key { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.dh-card-key { font-family: var(--font-mono); font-size: 14px; color: var(--text-secondary); }
 .dh-card-title { font-weight: 500; color: var(--text-primary); text-decoration: none; }
 .dh-card-title:hover { text-decoration: underline; }
-.dh-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 12px; color: var(--text-secondary); }
+.dh-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 14px; color: var(--text-secondary); }
 
 /* Board column */
 .dh-column { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.dh-column-head { display: flex; align-items: center; gap: var(--space-2); height: 32px; padding: 0 4px; font-weight: 600; }
+.dh-column-head { display: flex; align-items: center; gap: var(--space-2); height: 32px; padding: 0 4px; font-weight: 500; }
 .dh-column-head .dh-count { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
 
 /* List row: attention items */
@@ -786,46 +793,46 @@ Shows the agent's code changes as they happen.
 .dh-row + .dh-row { border-top: 1px solid var(--border-default); }
 .dh-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
 .dh-row-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); text-decoration: none; }
-.dh-row-sub { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-row-sub { font-size: 14px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Input */
 .dh-field { display: flex; flex-direction: column; gap: 6px; }
-.dh-field-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
-.dh-field-help { font-size: 13px; color: var(--text-secondary); }
-.dh-input { height: 36px; width: 100%; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-control); background: var(--bg-raised); color: var(--text-primary); font: inherit; }
+.dh-field-label { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+.dh-field-help { font-size: 14px; color: var(--text-secondary); }
+.dh-input { height: 40px; width: 100%; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-control); background: var(--bg-raised); color: var(--text-primary); font: inherit; }
 .dh-input::placeholder { color: var(--text-placeholder); }
 .dh-search { position: relative; display: flex; align-items: center; }
-.dh-search .dh-icon { position: absolute; left: 10px; color: var(--text-secondary); pointer-events: none; }
-.dh-search .dh-input { padding-left: 32px; }
+.dh-search .dh-icon { position: absolute; left: 12px; color: var(--text-secondary); pointer-events: none; }
+.dh-search .dh-input { padding-left: 40px; }
 
 /* Composer: the one place to ask the agent */
 .dh-composer { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--bg-raised); border: 1px solid var(--border-default); box-shadow: var(--shadow-overlay); }
-.dh-composer textarea { border: 0; outline: none; resize: none; background: transparent; color: var(--text-primary); font: inherit; font-size: 15px; line-height: 22px; min-height: 48px; padding: 4px; }
+.dh-composer textarea { border: 0; outline: none; resize: none; background: transparent; color: var(--text-primary); font: inherit; font-size: 16px; line-height: 24px; min-height: 48px; padding: 4px; }
 .dh-composer textarea::placeholder { color: var(--text-placeholder); }
 .dh-composer:focus-within { border-color: var(--accent); }
 .dh-composer-bar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
-.dh-composer-bar .dh-send { margin-left: auto; width: 34px; height: 34px; padding: 0; border-radius: var(--radius-full); }
-.dh-picker { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-raised); font: inherit; font-size: 13px; font-weight: 500; color: var(--text-primary); cursor: pointer; }
+.dh-composer-bar .dh-send { margin-left: auto; width: 36px; height: 36px; padding: 0; border-radius: var(--radius-full); }
+.dh-picker { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-raised); font: inherit; font-size: 14px; font-weight: 500; color: var(--text-primary); cursor: pointer; }
 .dh-picker:hover { background: var(--bg-subtle); }
 
 /* Menu */
 .dh-menu { display: flex; flex-direction: column; min-width: 260px; padding: 6px; border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-default); box-shadow: var(--shadow-overlay); }
-.dh-menu-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); padding: 6px 8px 4px; }
-.dh-menu-item { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: none; font: inherit; color: var(--text-primary); text-align: left; cursor: pointer; width: 100%; }
+.dh-menu-label { font-size: 14px; line-height: 20px; color: var(--text-secondary); padding: 6px 8px 4px; }
+.dh-menu-item { display: flex; align-items: center; gap: var(--space-3); min-height: 40px; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: none; font: inherit; color: var(--text-primary); text-align: left; cursor: pointer; width: 100%; }
 .dh-menu-item:hover, .dh-menu-item:focus-visible { background: var(--bg-subtle); }
-.dh-menu-item small { display: block; font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); }
+.dh-menu-item small { display: block; font-size: 14px; color: var(--text-secondary); font-family: var(--font-mono); }
 .dh-menu-sep { height: 1px; background: var(--border-default); margin: 6px 0; }
 
 /* Callout: inline approval or notice */
 .dh-callout { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--bg-raised); }
 .dh-callout--warning { background: var(--warning-subtle); border-color: transparent; }
 .dh-callout--info { background: var(--accent-subtle); border-color: transparent; color: var(--accent-text); }
-.dh-callout-title { font-weight: 600; color: var(--text-primary); }
+.dh-callout-title { font-weight: 500; color: var(--text-primary); }
 .dh-callout--info .dh-callout-title { color: var(--accent-text); }
-.dh-callout code { font-family: var(--font-mono); font-size: 12px; background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 6px 8px; color: var(--text-primary); }
+.dh-callout code { font-family: var(--font-mono); font-size: 14px; background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 6px 8px; color: var(--text-primary); }
 
 /* Diff */
-.dh-diff { font-family: var(--font-mono); font-size: 12px; line-height: 20px; overflow-x: auto; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); }
+.dh-diff { font-family: var(--font-mono); font-size: 14px; line-height: 20px; overflow-x: auto; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); }
 .dh-diff-file { display: flex; align-items: center; gap: var(--space-2); padding: 8px 12px; border-bottom: 1px solid var(--border-default); background: var(--bg-sidebar); font-family: var(--font-mono); }
 .dh-diff-line { display: grid; grid-template-columns: 44px 18px 1fr; white-space: pre; color: var(--text-primary); }
 .dh-diff-line > span:first-child { text-align: right; padding-right: 8px; color: var(--text-secondary); user-select: none; }
@@ -835,12 +842,12 @@ Shows the agent's code changes as they happen.
 .dh-diff-line--del > span:nth-child(2) { color: var(--danger); }
 
 /* Activity step (agent timeline) */
-.dh-step { display: grid; grid-template-columns: 22px 1fr; gap: 10px; }
-.dh-step-dot { width: 22px; height: 22px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; background: var(--bg-subtle); color: var(--text-secondary); }
+.dh-step { display: grid; grid-template-columns: 24px 1fr; gap: var(--space-3); }
+.dh-step-dot { width: 24px; height: 24px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; background: var(--bg-subtle); color: var(--text-secondary); }
 .dh-step--done .dh-step-dot { background: var(--success-subtle); color: var(--success); }
 .dh-step--wait .dh-step-dot { background: var(--warning-subtle); color: var(--warning); }
 .dh-step-title { font-weight: 500; }
-.dh-step-detail { font-size: 13px; color: var(--text-secondary); }
+.dh-step-detail { font-size: 14px; color: var(--text-secondary); }
 
 /* Skip link: first focusable element on every screen */
 .dh-root { position: relative; }
@@ -848,62 +855,61 @@ Shows the agent's code changes as they happen.
 .dh-skip:focus { top: 8px; }
 
 /* Keyboard hint */
-.dh-kbd { margin-left: auto; font-family: var(--font-mono); font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--text-secondary); }
+.dh-kbd { margin-left: auto; font-family: var(--font-mono); font-size: 12px; line-height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--text-secondary); }
 
 /* Sidebar search and footer */
-.dh-sidebar-search { display: flex; align-items: center; gap: var(--space-2); width: 100%; height: 34px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--text-secondary); font: inherit; cursor: pointer; }
+.dh-sidebar-search { display: flex; align-items: center; gap: var(--space-2); width: 100%; height: 40px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--text-secondary); font: inherit; cursor: pointer; }
 .dh-sidebar-search:hover { border-color: var(--border-control); color: var(--text-primary); }
 .dh-sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: var(--space-3); border-top: 1px solid var(--border-default); }
-.dh-agent-status { display: flex; align-items: center; gap: var(--space-2); min-height: 30px; padding: 0 10px; font-size: 13px; color: var(--text-secondary); }
+.dh-agent-status { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; padding: 0 10px; font-size: 14px; color: var(--text-secondary); }
 .dh-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
 
 /* Sidebar v2: header, counts, sessions, user */
 .dh-sidebar-head { display: flex; align-items: center; gap: 10px; padding: 2px 2px 2px 6px; }
 .dh-nav-count { margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; border-radius: var(--radius-full); border: 1px solid var(--border-default); background: var(--bg-canvas); font-size: 12px; font-weight: 500; line-height: 18px; text-align: center; color: var(--text-secondary); }
 .dh-nav-item[aria-current="page"] .dh-nav-count { background: var(--primary); border-color: transparent; color: var(--on-primary); }
-.dh-nav-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 10px 4px; font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--text-secondary); }
+.dh-nav-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 12px 4px; font-size: 14px; line-height: 20px; color: var(--text-secondary); }
 .dh-nav-head a { margin-left: auto; color: var(--text-secondary); text-decoration: none; border-radius: 4px; padding: 0 4px; }
 .dh-nav-head a:hover { color: var(--text-primary); background: var(--bg-subtle); }
-.dh-session { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; }
+.dh-session { display: flex; align-items: flex-start; gap: var(--space-3); padding: 8px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; }
 .dh-session:hover { background: var(--bg-subtle); }
 .dh-session[aria-current="page"] { background: var(--bg-raised); box-shadow: 0 0 0 1px var(--border-default); }
-.dh-session-icon { width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.dh-session-icon .dh-icon { width: 12px; height: 12px; stroke-width: 2.25; }
+.dh-session-icon { width: 24px; height: 24px; margin-top: 1px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dh-session-icon .dh-icon { width: 14px; height: 14px; stroke-width: 2; }
 .dh-session-icon--wait { background: var(--warning-subtle); color: var(--warning); }
 .dh-session-icon--run { background: var(--accent-subtle); color: var(--accent-text); }
 .dh-session-icon--done { background: var(--success-subtle); color: var(--success); }
 .dh-session-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .dh-session-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dh-session-sub { display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 16px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; }
-.dh-session-sub .dh-mono { font-size: 11px; }
+.dh-session-sub { display: flex; align-items: center; gap: 4px; font-size: 14px; line-height: 20px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; }
 .dh-state--wait { color: var(--warning); font-weight: 500; }
 .dh-state--run { color: var(--accent-text); font-weight: 500; }
 .dh-state--done { color: var(--success); font-weight: 500; }
-.dh-user { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; }
+.dh-user { display: flex; align-items: center; gap: var(--space-3); padding: 8px 10px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; }
 .dh-user:hover { background: var(--bg-subtle); }
-.dh-user .dh-avatar { width: 28px; height: 28px; font-size: 12px; }
+.dh-user .dh-avatar { width: 36px; height: 36px; font-size: 12px; }
 
 /* Resume banner: a session waiting on you */
 .dh-resume { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 14px; border-radius: var(--radius-md); background: var(--warning-subtle); color: var(--text-primary); text-decoration: none; }
 .dh-resume:hover { outline: 1px solid var(--warning); }
 .dh-resume-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.dh-resume-text span:last-child { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-resume-text span:last-child { font-size: 14px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Stepper: where a session is in its flow */
-.dh-stepper { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.dh-stepper { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; list-style: none; margin: 0; padding: 0; font-size: 14px; }
 .dh-stepper li { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
 .dh-stepper li + li::before { content: ""; width: 20px; height: 1px; margin-right: 2px; background: var(--border-control); }
-.dh-step-num { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; border: 1px solid var(--border-control); color: var(--text-secondary); }
+.dh-step-num { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; border: 1px solid var(--border-control); color: var(--text-secondary); }
 .dh-stepper [data-state="done"] .dh-step-num { background: var(--success-subtle); border-color: transparent; color: var(--success); }
 .dh-stepper [data-state="current"] { color: var(--text-primary); font-weight: 500; }
 .dh-stepper [data-state="current"] .dh-step-num { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 
 /* Empty state */
-.dh-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: var(--space-4) var(--space-2); border: 1px dashed var(--border-default); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); text-align: center; }
+.dh-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: var(--space-8) var(--space-4); color: var(--text-secondary); text-align: center; }
 
 /* File list (changed files) */
 .dh-filelist { display: flex; flex-direction: column; border: 1px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden; }
-.dh-file { display: flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 12px; border: 0; border-left: 2px solid transparent; background: var(--bg-raised); font: inherit; font-size: 12px; color: var(--text-primary); text-align: left; cursor: pointer; }
+.dh-file { display: flex; align-items: center; gap: var(--space-2); min-height: 40px; padding: 0 12px; border: 0; border-left: 2px solid transparent; background: var(--bg-raised); font: inherit; font-size: 14px; color: var(--text-primary); text-align: left; cursor: pointer; }
 .dh-file + .dh-file { border-top: 1px solid var(--border-default); }
 .dh-file:hover { background: var(--bg-subtle); }
 .dh-file[aria-current="true"] { background: var(--accent-subtle); border-left-color: var(--accent); }
@@ -916,11 +922,16 @@ Shows the agent's code changes as they happen.
 
 /* Page frame: every screen = page bar + optional toolbar + body */
 .dh-main { display: flex; flex-direction: column; min-width: 0; background: var(--bg-canvas); }
-.dh-pagebar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-height: 52px; padding: 6px 24px; border-bottom: 1px solid var(--border-default); }
-.dh-pagebar-actions { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-.dh-pagebar-meta { font-size: 13px; color: var(--text-secondary); }
-.dh-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: 48px; padding: 6px 24px; border-bottom: 1px solid var(--border-default); }
-.dh-pagebody { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-6); min-width: 0; }
+.dh-pagebar { display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: 8px 16px; border-bottom: 1px solid var(--border-default); }
+.dh-pagebar-actions { margin-left: auto; display: flex; flex-shrink: 0; align-items: center; gap: var(--space-2); }
+.dh-pagebar-meta { flex-shrink: 0; font-size: 14px; color: var(--text-secondary); }
+.dh-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: 56px; padding: 8px 16px; border-bottom: 1px solid var(--border-default); }
+.dh-pagebody { padding: 0 16px; min-width: 0; }
+.dh-pagebody-col { display: flex; flex-direction: column; gap: var(--space-6); width: 100%; max-width: 960px; min-width: 0; margin: 0 auto; padding: var(--space-6) 0 var(--space-8); }
+.dh-pagebody-col--narrow { max-width: 720px; }
+.dh-pagebody-col--full { max-width: none; }
+@media (max-width: 767px) { .dh-pagebar-meta { display: none; } }
+@media (min-width: 768px) { .dh-pagebar, .dh-toolbar, .dh-pagebody { padding-left: 48px; padding-right: 48px; } }
 
 /* Panel: a bordered surface holding a list */
 .dh-panel { border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); overflow: hidden; }
@@ -929,7 +940,7 @@ Shows the agent's code changes as they happen.
 .dh-panel .dh-row { border-radius: 0; padding: 10px 16px; }
 
 /* Status icons: shape carries the state (Linear-style) */
-.dh-status-icon { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; }
+.dh-status-icon { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; }
 .dh-status--todo { color: var(--text-secondary); }
 .dh-status--doing { color: var(--warning); }
 .dh-status--review { color: var(--accent); }
@@ -940,29 +951,29 @@ Shows the agent's code changes as they happen.
 .dh-card-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .dh-card-meta { gap: 10px; min-height: 24px; }
 .dh-meta-item { display: inline-flex; align-items: center; gap: 4px; }
-.dh-meta-item .dh-icon { width: 14px; height: 14px; }
+.dh-meta-item .dh-icon { width: 16px; height: 16px; }
 .dh-meta-item--soon { color: var(--warning); font-weight: 500; }
 .dh-prio { display: inline-flex; align-items: center; gap: 4px; }
-.dh-prio svg { width: 14px; height: 14px; }
+.dh-prio svg { width: 16px; height: 16px; }
 .dh-prio rect { fill: var(--border-control); opacity: .35; }
 .dh-prio--high rect, .dh-prio--med rect:nth-child(-n+2), .dh-prio--low rect:first-child { fill: var(--text-primary); opacity: 1; }
 .dh-tag { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
 .dh-tag--bug { color: var(--danger); }
-.dh-agent-chip { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; margin-left: auto; border-radius: var(--radius-full); font-size: 12px; font-weight: 500; text-decoration: none; background: var(--warning-subtle); color: var(--warning); }
+.dh-agent-chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; margin-left: auto; border-radius: var(--radius-full); font-size: 12px; font-weight: 500; text-decoration: none; background: var(--warning-subtle); color: var(--warning); }
 .dh-card-action { margin-left: auto; color: var(--text-secondary); }
 .dh-card-action:hover { color: var(--accent); }
 .dh-column-head .dh-btn { margin-left: auto; color: var(--text-secondary); }
 
 /* Composer context: what the + button adds */
 .dh-context-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 2px 0; }
-.dh-context { display: inline-flex; align-items: center; gap: 6px; max-width: 300px; height: 28px; padding: 0 2px 0 6px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-sidebar); font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.dh-context { display: inline-flex; align-items: center; gap: 6px; max-width: 300px; height: 32px; padding: 0 4px 0 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-sidebar); font-size: 14px; font-weight: 500; color: var(--text-primary); }
 .dh-context-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.dh-context-remove { width: 22px; height: 22px; flex-shrink: 0; border: 0; border-radius: 4px; background: none; color: var(--text-secondary); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.dh-context-remove { width: 24px; height: 24px; flex-shrink: 0; border: 0; border-radius: 4px; background: none; color: var(--text-secondary); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .dh-context-remove:hover { background: var(--bg-subtle); color: var(--text-primary); }
-.dh-menu-head { display: flex; align-items: center; gap: 6px; padding: 2px 2px 6px; font-weight: 600; }
-.dh-menu-item .dh-desc { display: block; font-size: 12px; line-height: 16px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dh-menu-head { display: flex; align-items: center; gap: 6px; padding: 2px 2px 6px; font-weight: 500; }
+.dh-menu-item .dh-desc { display: block; font-size: 14px; line-height: 20px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dh-menu-item .dh-menu-text { flex: 1; min-width: 0; }
-.dh-menu-foot { padding: 6px 8px 2px; font-size: 12px; color: var(--text-secondary); border-top: 1px solid var(--border-default); margin-top: 4px; }
+.dh-menu-foot { padding: 6px 8px 2px; font-size: 14px; color: var(--text-secondary); border-top: 1px solid var(--border-default); margin-top: 4px; }
 
 @media (prefers-reduced-motion: reduce) { .dh-root * { transition: none !important; animation: none !important; } }
 ```
