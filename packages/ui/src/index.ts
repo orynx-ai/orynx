@@ -20,6 +20,15 @@ export { Checkbox, type CheckboxProps } from './components/checkbox.tsx';
 export { Chip, FilterChip, type ChipProps, type FilterChipProps } from './components/chip.tsx';
 export { ChoiceCard, type ChoiceCardProps } from './components/choice-card.tsx';
 export { ChoiceGroup, type ChoiceGroupProps } from './components/choice-group.tsx';
+export {
+  Composer,
+  ComposerBar,
+  ComposerSend,
+  ComposerTextarea,
+  type ComposerProps,
+  type ComposerSendProps,
+  type ComposerTextareaProps,
+} from './components/composer.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
 export { Input } from './components/input.tsx';

@@ -31,7 +31,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 9: Add `Picker` (the 32 px button that opens a menu) and radio items with an `info` check; the menu stays inside the window (AC-4, AC-7)
       Check: pnpm test packages/ui/src/components/picker.test.tsx packages/ui/src/components/menu.test.tsx
       Files: packages/ui/src/components/picker.tsx, picker.stories.tsx, picker.test.tsx, packages/ui/src/components/menu.tsx, menu.stories.tsx, menu.test.tsx, packages/ui/src/index.ts
-- [ ] Task 10: Add `Composer` from AI Elements' Prompt Input pattern (shadcn's `input-group`) in its "task" look: hidden label, placeholder, a bar for + and the pickers, round primary Send; Enter sends, Shift+Enter adds a line, Enter while composing doesn't send (AC-8, AC-9)
+- [x] Task 10: Add `Composer` from AI Elements' Prompt Input pattern (shadcn's `input-group`) in its "task" look: hidden label, placeholder, a bar for + and the pickers, round primary Send; Enter sends, Shift+Enter adds a line, Enter while composing doesn't send (AC-8, AC-9)
       Check: pnpm test packages/ui/src/components/composer.test.tsx
       Files: packages/ui/src/components/composer.tsx, composer.stories.tsx, composer.test.tsx, packages/ui/src/index.ts
 - [ ] Task 11: Composer sending states and height: Send unavailable when there's nothing to send, its spinner while sending; the text box grows to 8 lines, then scrolls (AC-10, AC-11)
