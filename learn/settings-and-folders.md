@@ -39,6 +39,10 @@ click a mode ─▶ useChangePreferences().mutate({ permissionMode })
 - **Remove works the same way.** `useRemoveRepository()` takes the row away at once and moves focus to the next row's Remove (or to Add local folder). "Removed intranet-web." is said in the panel's polite live region once the server agrees. Each removal keeps its own outcome, so two quick removals each get theirs. A failure puts back that row alone, at its place, and focus returns to its Remove unless you've moved on. A held-down Enter removes one folder, not one after another.
 - **Add waits for the server**, because only the server can look at the disk. The new row goes into the cache from the answer, and the list refetches after. While a folder is on its way, Add local folder can't close the form, so the answer always has a place to show.
 
+## Clear cache
+
+The Inbox rules tab ends with Clear cache (spec 002 Q3, spec 007 Q7): a line on what the cache is for and a small secondary button. `useClearInboxCache()` sends `DELETE /api/inbox/cache`; the server empties `cache.db` (never tokens, settings, sessions or worktrees), says `inbox.changed` and syncs again, so the mutation touches no cached query. The button shows its spinner while the request is on its way, a screen reader then hears "Cache cleared." from a status region that is there from the start, and a failure says so under the button. See `learn/the-inbox.md`.
+
 ## How a folder is checked
 
 `folder-check.ts` takes the typed path and uses the file system only. It never runs git or a script in the folder, because a repository's own config can make git run commands.

@@ -46,7 +46,7 @@ Tasks 1 to 15 need nothing from 006. Tasks 16 to 21 wait until 006 merges.
 - [x] Task 14: Add Clear cache at the bottom of Settings › Inbox rules, with its line and "Cache cleared." for screen readers (AC-31, Q7)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy
       Files: packages/app/src/features/settings/components/inbox-rules-panel.tsx, inbox-rules-panel.test.tsx
-- [ ] Task 15: Update `docs/architecture.md` (the cache is decided, the inbox routes, `autoSync`) and add `learn/the-inbox.md`: how a sync runs, where the cache lives, and why the words are written in the browser
+- [x] Task 15: Update `docs/architecture.md` (the cache is decided, the inbox routes, `autoSync`) and add `learn/the-inbox.md`: how a sync runs, where the cache lives, and why the words are written in the browser
       Check: pnpm gate learn-freshness specs; pnpm exec prettier --check docs learn
       Files: docs/architecture.md, learn/the-inbox.md
 - [ ] Task 16: WAIT for 006 to merge. Then move this branch onto `main` and run the full check

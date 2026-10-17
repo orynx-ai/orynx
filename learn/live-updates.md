@@ -21,15 +21,15 @@ service in core ──publish(event)──▶ event bus ──▶ GET /api/event
 
 ## 1. The event union
 
-`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed`, `sessions.changed` and `settings.changed` (a value in Settings › Coding agent, Repositories or Inbox rules was saved, spec 005). Every new kind of change adds a member here first, so the server and the page agree on the payload.
+`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed`, `sessions.changed`, `settings.changed` (a value in Settings › Coding agent, Repositories or Inbox rules was saved, spec 005) and `inbox.changed` (a sync ended, the cache was cleared or a tool's rows went, spec 007). Every new kind of change adds a member here first, so the server and the page agree on the payload.
 
 ## 2. The event bus
 
-`packages/core/src/events/event-bus.ts` exports `createEventBus()`: `publish(event)` sends an event to every subscriber, and `subscribe(fn)` returns an unsubscribe function. Services publish; they never know who is listening.
+`packages/core/src/events/event-bus.ts` exports `createEventBus()`: `publish(event)` sends an event to every subscriber, and `subscribe(fn)` returns an unsubscribe function. Services publish; they never know who is listening. The stream subscribes with `{ page: true }`, so `pageCount()` says how many pages are open apart from the hub's own listeners; the inbox syncs on its own only while one is (spec 007).
 
 ## 3. The stream
 
-`packages/core/src/routes/events.ts` serves `GET /api/events` as `text/event-stream`. On connect it sends `hello`, then forwards every bus event as a `data:` line of JSON. When the browser disconnects, the route unsubscribes from the bus so nothing leaks. Because `EventSource` cannot send headers, this one route accepts the session token as `?token=` (see `learn/local-security.md`).
+`packages/core/src/routes/events.ts` serves `GET /api/events` as `text/event-stream`. On connect it sends `hello`, then forwards every bus event as a `data:` line of JSON. It subscribes as a page. When the browser disconnects, the route unsubscribes from the bus so nothing leaks. Because `EventSource` cannot send headers, this one route accepts the session token as `?token=` (see `learn/local-security.md`).
 
 ## 4. The client
 
@@ -45,12 +45,16 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'hello':
       return [];
     case 'status.changed':
-      // Connecting or disconnecting a tool also changes its saved settings (specs 003 and 004).
-      return [queryKeys.status, queryKeys.jiraConnection, queryKeys.githubConnection];
+      // Connecting or disconnecting a tool also changes its saved settings (specs 003 and 004), and which
+      // tools the inbox shows (spec 007).
+      return [queryKeys.status, queryKeys.jiraConnection, queryKeys.githubConnection, queryKeys.inbox];
     case 'sessions.changed':
       return [queryKeys.sessions]; // the sidebar's 5 and the full list both start with this key
     case 'settings.changed':
-      return [queryKeys.preferences, queryKeys.repositories];
+      // The inbox rules apply when the server reads the list (spec 007).
+      return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];
+    case 'inbox.changed':
+      return [queryKeys.inbox];
   }
 }
 ```

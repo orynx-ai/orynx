@@ -52,6 +52,10 @@ The terminal gets one warn line per failed check with the problem, for example `
 
 When the add-folder form opens, `GET /api/jira/projects` asks `connection.projects()`, which reads the saved site, email and token and calls `client.projects()`: `GET /rest/api/3/project/search`, 100 a page in key order, at most 1000, all within one 10-second wait, so the answer comes before the page's own 20-second wait gives up (spec 005). Nothing is cached; the form drops the list when it closes. Not connected answers `bad_request` ("Connect Jira in Connections to pick a project."); every other failure is one of the answers above, in the same words. A project whose key DevHub couldn't save is left out instead of failing the list.
 
+## Your issues, for Home (spec 007)
+
+The inbox's sync asks `connection.credentials()` for the saved site, email and token. It reads settings and the keychain and never asks Jira; it answers null when Jira isn't connected, a `rejected` problem when the token is missing from the keychain, and spec 002's keychain words when the keychain can't be reached. Then `client.assigned()` makes one `POST /rest/api/3/search/jql` for your unfinished issues, plus the priority order when one of them is a bug, within one 10-second wait. The answer's problems are the ones above; `map.ts` turns them into the inbox's (a refused token, a sign-in on the web, or no answer). See `learn/the-inbox.md`.
+
 ## Keeping the token in its place
 
 - `client.ts` hands jira.js the email and token, and jira.js builds the `Authorization: Basic base64(email:token)` header. No error from jira.js leaves `client.ts`, so nothing that held the request reaches a log or a response.
