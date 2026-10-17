@@ -1,8 +1,8 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import type { Repository } from '@devhub/contracts';
 import { Button, EmptyState } from '@devhub/ui';
-import { useRemoveRepository, useRepositories } from '../queries.ts';
+import { useAddingRepository, useRemoveRepository, useRepositories } from '../queries.ts';
 import { AddFolderForm } from './add-folder-form.tsx';
 import { RepositoryRow } from './repository-row.tsx';
 import { SaveError } from './save-error.tsx';
@@ -15,12 +15,23 @@ import { ServerUnreachable } from './server-unreachable.tsx';
 export function RepositoriesPanel() {
   const repositories = useRepositories();
   const remove = useRemoveRepository();
+  const adding = useAddingRepository();
   const [formOpen, setFormOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   // Kept through a callback ref, so closing the form can hand focus back to it.
   const [addButton, setAddButton] = useState<HTMLButtonElement | null>(null);
   const removeButtons = useRef(new Map<string, HTMLButtonElement>());
+  // A folder whose removal failed: its row comes back, and focus returns to its Remove once it has.
+  const [refocus, setRefocus] = useState<string | null>(null);
   const formId = useId();
+
+  useEffect(() => {
+    if (refocus === null) return;
+    const button = removeButtons.current.get(refocus);
+    if (button === undefined) return;
+    button.focus();
+    setRefocus(null);
+  }, [refocus, repositories.data]);
 
   if (repositories.data === undefined && repositories.isError) return <ServerUnreachable />;
   const folders = repositories.data?.repositories;
@@ -33,8 +44,15 @@ export function RepositoriesPanel() {
   function removeFolder(folder: Repository, next: Repository | undefined) {
     // Focus moves on before the row goes, so it never falls back to the page.
     (next === undefined ? addButton : removeButtons.current.get(next.id))?.focus();
-    setAnnouncement(`Removed ${folder.name}.`);
-    remove.mutate(folder.id);
+    setAnnouncement('');
+    remove.mutate(folder.id, {
+      onSuccess: () => {
+        setAnnouncement(`Removed ${folder.name}.`);
+      },
+      onError: () => {
+        setRefocus(folder.id);
+      },
+    });
   }
 
   return (
@@ -49,7 +67,10 @@ export function RepositoriesPanel() {
           size="sm"
           aria-expanded={formOpen}
           aria-controls={formOpen ? formId : undefined}
+          // While a folder is on its way, closing the form would hide the server's answer.
+          aria-disabled={adding || undefined}
           onClick={() => {
+            if (adding) return;
             setAnnouncement('');
             setFormOpen((open) => !open);
           }}
@@ -59,7 +80,10 @@ export function RepositoriesPanel() {
         </Button>
       </div>
       {formOpen ? <AddFolderForm id={formId} onAdded={closeForm} onCancel={closeForm} /> : null}
-      {folders === undefined ? null : folders.length === 0 ? (
+      {folders === undefined ? (
+        // While the folders load: the list's frame, one row tall, so the tab doesn't open on a blank.
+        <div aria-hidden className="h-14 rounded-md border border-border bg-raised" />
+      ) : folders.length === 0 ? (
         <EmptyState title="No folders yet">
           <span>Add a folder so Claude can work on its code.</span>
         </EmptyState>

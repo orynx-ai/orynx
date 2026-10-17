@@ -228,6 +228,27 @@ describe('AddFolderForm', () => {
     expect(screen.getByRole('button', { name: 'Add local folder' })).toHaveFocus();
   });
 
+  it('AC-7: Add local folder keeps the form open while the folder is on its way, so its answer still shows', async () => {
+    jira({ connected: false });
+    server.use(
+      http.post(apiUrl(apiRoutes.repositories), async () => {
+        await delay(100);
+        return HttpResponse.json({ code: 'folder_rejected', message: 'Nothing is at this path.' }, { status: 422 });
+      }),
+    );
+    const { user, form } = await openForm();
+    const folder = within(form).getByRole('textbox', { name: 'Folder' });
+    await user.type(folder, '~/nope');
+
+    await user.click(within(form).getByRole('button', { name: 'Add folder' }));
+    await user.click(screen.getByRole('button', { name: 'Add local folder' }));
+
+    await waitFor(() => {
+      expect(folder).toHaveAccessibleDescription('Nothing is at this path.');
+    });
+    expect(screen.getByRole('form', { name: 'Add a folder' })).toBeVisible();
+  });
+
   it('a second press while the folder is on its way sends nothing more', async () => {
     jira({ connected: false });
     const sent: unknown[] = [];

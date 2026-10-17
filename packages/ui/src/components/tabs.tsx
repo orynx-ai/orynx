@@ -2,13 +2,43 @@ import { useEffect, useRef, type ComponentProps } from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 
+/** Scrolls the tab list sideways, and only it, until `tab` is fully in view. */
+function scrollIntoList(tab: HTMLElement): void {
+  const list = tab.parentElement;
+  if (list === null) return;
+  const tabBox = tab.getBoundingClientRect();
+  const listBox = list.getBoundingClientRect();
+  if (tabBox.left < listBox.left) list.scrollLeft -= listBox.left - tabBox.left;
+  else if (tabBox.right > listBox.right) list.scrollLeft += tabBox.right - listBox.right;
+}
+
 /**
  * Design system: Tabs (`dh-tabs`). For different content inside one page. Radix gives the
  * roles, aria-selected and arrow-key movement (roving tabindex). For two views of the same
  * items (Board / List) use a segmented control instead.
  */
-export function Tabs(props: ComponentProps<typeof TabsPrimitive.Root>) {
-  return <TabsPrimitive.Root {...props} />;
+export function Tabs({ ref, value, ...props }: ComponentProps<typeof TabsPrimitive.Root>) {
+  const root = useRef<HTMLDivElement | null>(null);
+
+  // Whenever the picked tab changes, by a click, an arrow key, the address or Back, it is shown in full
+  // in a tab list that scrolls sideways (Settings at 360 px).
+  useEffect(() => {
+    const picked = root.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    if (picked) scrollIntoList(picked);
+  }, [value]);
+
+  return (
+    <TabsPrimitive.Root
+      ref={(element) => {
+        root.current = element;
+        if (typeof ref === 'function') return ref(element);
+        if (ref) ref.current = element;
+        return undefined;
+      }}
+      {...(value === undefined ? {} : { value })}
+      {...props}
+    />
+  );
 }
 
 export function TabsList({ className, ...props }: ComponentProps<typeof TabsPrimitive.List>) {
@@ -22,33 +52,9 @@ export type TabsTriggerProps = ComponentProps<typeof TabsPrimitive.Trigger> & {
   count?: number;
 };
 
-/** Scrolls the tab list sideways, and only it, until `tab` is fully in view. */
-function scrollIntoList(tab: HTMLElement): void {
-  const list = tab.parentElement;
-  if (list === null) return;
-  const tabBox = tab.getBoundingClientRect();
-  const listBox = list.getBoundingClientRect();
-  if (tabBox.left < listBox.left) list.scrollLeft -= listBox.left - tabBox.left;
-  else if (tabBox.right > listBox.right) list.scrollLeft += tabBox.right - listBox.right;
-}
-
-export function TabsTrigger({ className, count, children, ref, ...props }: TabsTriggerProps) {
-  const tab = useRef<HTMLButtonElement | null>(null);
-
-  // A page opened on a tab past the edge of a narrow window (Settings › Appearance at 360 px) shows it.
-  // Later a click or an arrow key brings the tab into view by itself.
-  useEffect(() => {
-    if (tab.current?.getAttribute('aria-selected') === 'true') scrollIntoList(tab.current);
-  }, []);
-
+export function TabsTrigger({ className, count, children, ...props }: TabsTriggerProps) {
   return (
     <TabsPrimitive.Trigger
-      ref={(element) => {
-        tab.current = element;
-        if (typeof ref === 'function') return ref(element);
-        if (ref) ref.current = element;
-        return undefined;
-      }}
       className={cn(
         // The list scrolls sideways, which clips anything outside it, so the focus ring is drawn inside the tab.
         'relative inline-flex h-12 cursor-pointer items-center gap-2 border-0 bg-transparent px-0.5 font-medium whitespace-nowrap text-muted-foreground hover:text-foreground focus-visible:-outline-offset-2 aria-selected:text-foreground',

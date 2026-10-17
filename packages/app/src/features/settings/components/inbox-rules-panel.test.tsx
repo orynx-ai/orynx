@@ -84,6 +84,29 @@ describe('InboxRulesPanel', () => {
     expect(review).toHaveFocus();
   });
 
+  it('AC-14: when the server stops answering and changes to two rules both fail, both rules come back', async () => {
+    const { user } = await openTab();
+    // From here on nothing answers, so no refetch can put things right afterwards.
+    server.use(
+      http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.error()),
+      http.patch(apiUrl(apiRoutes.preferences), async () => {
+        await delay(30);
+        return HttpResponse.error();
+      }),
+    );
+    const failing = screen.getByRole('checkbox', { name: 'My pull requests with failing checks' });
+    const review = screen.getByRole('checkbox', { name: 'Pull requests waiting for my review' });
+
+    await user.click(failing);
+    await user.click(review);
+
+    await screen.findByRole('alert');
+    await waitFor(() => {
+      expect(failing).toBeChecked();
+      expect(review).toBeChecked();
+    });
+  });
+
   it('AC-15: draws the same rows while the preferences load, unchecked and unusable', async () => {
     server.use(
       http.get(apiUrl(apiRoutes.preferences), async () => {

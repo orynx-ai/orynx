@@ -27,7 +27,12 @@ export function LiveUpdates() {
   useEffect(
     () =>
       api.subscribe((event) => {
-        for (const queryKey of keysFor(event)) void queryClient.invalidateQueries({ queryKey });
+        for (const queryKey of keysFor(event)) {
+          // A Settings change on its way refetches when it settles (queries.ts); refetching now could read
+          // the server before that change is written and flip the control back for a moment.
+          if (event.type === 'settings.changed' && queryClient.isMutating({ mutationKey: queryKey }) > 0) continue;
+          void queryClient.invalidateQueries({ queryKey });
+        }
       }),
     [api, queryClient],
   );

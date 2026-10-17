@@ -40,7 +40,16 @@ export function CodingAgentPanel() {
     <div className="flex flex-col gap-2">
       <ChoiceGroup
         legend="What Claude can do without asking"
-        help="Commands that reach the network, delete outside the session's folder or push to git always ask, whatever you pick. Claude never pushes code or opens a pull request by itself."
+        help={
+          // Two lines, as the spec words them (Q8b).
+          <>
+            <span className="block">
+              Commands that reach the network, delete outside the session&apos;s folder or push to git always ask,
+              whatever you pick.
+            </span>{' '}
+            <span className="block">Claude never pushes code or opens a pull request by itself.</span>
+          </>
+        }
       >
         {modes.map((mode) => (
           <ChoiceCard

@@ -69,10 +69,11 @@ describe('RepositoriesPanel', () => {
 
     expect(screen.queryByText('~/code/intranet-web')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Remove mobile' })).toHaveFocus();
-    expect(screen.getByRole('status')).toHaveTextContent('Removed intranet-web.');
+    // Said once the server has forgotten it, so a failed removal never claims it happened.
     await waitFor(() => {
-      expect(removed).toBe(intranet.id);
+      expect(screen.getByRole('status')).toHaveTextContent('Removed intranet-web.');
     });
+    expect(removed).toBe(intranet.id);
   });
 
   it('AC-11: moves focus to Add local folder when the last folder goes', async () => {
@@ -109,6 +110,32 @@ describe('RepositoriesPanel', () => {
       "Couldn't save that change. Check that DevHub is still running, then try again.",
     );
     expect(screen.getByText('~/code/intranet-web')).toBeVisible();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Remove intranet-web' })).toHaveFocus();
+    });
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it('AC-11: holding Enter on Remove removes one folder, not one after another', async () => {
+    listing(() => [intranet, mobile]);
+    const removed: string[] = [];
+    server.use(
+      http.delete(apiUrl(apiRoutes.repository), async ({ params }) => {
+        removed.push(String(params['id']));
+        await delay(20);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await renderApp({ route: '/settings/repositories' });
+    await folderList();
+    screen.getByRole('button', { name: 'Remove intranet-web' }).focus();
+
+    await user.keyboard('{Enter>3/}');
+
+    await waitFor(() => {
+      expect(removed).toEqual([intranet.id]);
+    });
+    expect(screen.getByRole('button', { name: 'Remove mobile' })).toBeVisible();
   });
 
   it('AC-15: keeps the intro line and Add local folder in place while the folders load', async () => {

@@ -1,4 +1,5 @@
 import type { Ref } from 'react';
+import { Folder } from 'lucide-react';
 import type { Repository } from '@devhub/contracts';
 import { Button, Pill } from '@devhub/ui';
 
@@ -10,21 +11,31 @@ export interface RepositoryRowProps {
 }
 
 /**
- * One folder in Settings › Repositories: its name, its path with `~`, its Jira project and Remove. On a
- * narrow row the path wraps under the name.
+ * One folder in Settings › Repositories: its name, its path with `~`, its Jira project and Remove. The
+ * name is never cut off; on a narrow row the path wraps under it.
  */
 export function RepositoryRow({ folder, onRemove, removeRef }: RepositoryRowProps) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
-      {/* The design's 100 px name column; on a phone the name has the line to itself. */}
-      <span className="max-w-full truncate font-medium sm:w-25" title={folder.name}>
+      <span className="flex min-w-0 items-center gap-2 font-medium wrap-anywhere sm:min-w-25">
+        <Folder aria-hidden className="text-muted-foreground" />
         {folder.name}
       </span>
-      <span className="min-w-0 grow basis-50 font-mono text-small break-all text-muted-foreground">
+      <span className="min-w-0 grow basis-50 font-mono text-code wrap-anywhere text-muted-foreground">
         {folder.displayPath}
       </span>
       {folder.jiraProject === null ? null : <Pill plain>Jira {folder.jiraProject}</Pill>}
-      <Button ref={removeRef} variant="ghost" size="sm" aria-label={`Remove ${folder.name}`} onClick={onRemove}>
+      <Button
+        ref={removeRef}
+        variant="ghost"
+        size="sm"
+        aria-label={`Remove ${folder.name}`}
+        // Removing moves focus to the next row's Remove, so a held-down Enter would remove one after another.
+        onKeyDown={(event) => {
+          if (event.repeat) event.preventDefault();
+        }}
+        onClick={onRemove}
+      >
         Remove
       </Button>
     </li>

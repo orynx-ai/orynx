@@ -1,4 +1,4 @@
-import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   githubConnectionQueryOptions,
   jiraConnectionQueryOptions,
@@ -9,6 +9,7 @@ import {
   statusQueryOptions,
   type ApiRequestError,
 } from '@devhub/api-client';
+import { InboxRuleIdSchema } from '@devhub/contracts';
 import type {
   GitHubConnection,
   GitHubConnectionRequest,
@@ -126,32 +127,68 @@ function withChange(preferences: Preferences, change: PreferencesChange): Prefer
 }
 
 /**
+ * Takes back one failed change and nothing else: each value it set goes back to the saved one, unless a
+ * later change has set it again since. Other changes on their way stay on screen.
+ */
+function withoutChange(current: Preferences, change: PreferencesChange, saved: Preferences): Preferences {
+  const inboxRules = { ...current.inboxRules };
+  for (const rule of InboxRuleIdSchema.options) {
+    const set = change.inboxRules?.[rule];
+    if (set !== undefined && inboxRules[rule] === set) inboxRules[rule] = saved.inboxRules[rule];
+  }
+  const modeStillSet = change.permissionMode !== undefined && current.permissionMode === change.permissionMode;
+  return { permissionMode: modeStillSet ? saved.permissionMode : current.permissionMode, inboxRules };
+}
+
+interface PreferencesChangeContext {
+  /** What the server holds: the preferences from before the first change still on its way. */
+  saved: Preferences | undefined;
+}
+
+/**
  * Saves one change, showing it at once (spec 005: "the control shows the new value straight away"). A
- * failed save puts back what was there before.
+ * failed save takes back only its own change.
  */
 export function useChangePreferences() {
   const api = useApi();
   const queryClient = useQueryClient();
-  return useMutation<Preferences, ApiRequestError, PreferencesChange, { before: Preferences | undefined }>({
+  return useMutation<Preferences, ApiRequestError, PreferencesChange, PreferencesChangeContext>({
     mutationKey: queryKeys.preferences,
     mutationFn: (change) => api.changePreferences(change),
     onMutate: async (change) => {
       // A refetch already on its way would land on top of the new value.
       await queryClient.cancelQueries({ queryKey: queryKeys.preferences });
-      const before = queryClient.getQueryData<Preferences>(queryKeys.preferences);
-      if (before) queryClient.setQueryData(queryKeys.preferences, withChange(before, change));
-      return { before };
+      const current = queryClient.getQueryData<Preferences>(queryKeys.preferences);
+      // The screen already shows earlier changes still on their way; the server holds what came before them.
+      const earliest = queryClient
+        .getMutationCache()
+        .findAll({ mutationKey: queryKeys.preferences, status: 'pending' })
+        .map((mutation) => mutation.state.context as PreferencesChangeContext | undefined)
+        .find((context) => context !== undefined);
+      if (current) queryClient.setQueryData(queryKeys.preferences, withChange(current, change));
+      return { saved: earliest?.saved ?? current };
     },
-    onError: (_error, _change, context) => {
-      if (context?.before) queryClient.setQueryData(queryKeys.preferences, context.before);
+    onError: (_error, change, context) => {
+      const saved = context?.saved;
+      if (saved === undefined) return;
+      queryClient.setQueryData<Preferences>(
+        queryKeys.preferences,
+        (current) => current && withoutChange(current, change, saved),
+      );
     },
-    onSettled: async () => {
-      // Only after the last of several quick changes, so an early answer can't undo a later one on screen.
-      if (queryClient.isMutating({ mutationKey: queryKeys.preferences }) === 1) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.preferences });
-      }
+    onSettled: () => {
+      refetchAfterLast(queryClient, queryKeys.preferences);
     },
   });
+}
+
+/**
+ * Refetches only after the last of several quick changes to the same data, so an early answer (or an
+ * early settings.changed) can't undo a later change on screen. Live updates hold back for the same reason.
+ * Not awaited: the caller's own onSuccess, such as closing the add-folder form, shouldn't wait for it.
+ */
+function refetchAfterLast(queryClient: QueryClient, key: readonly string[]): void {
+  if (queryClient.isMutating({ mutationKey: key }) === 1) void queryClient.invalidateQueries({ queryKey: key });
 }
 
 /** Settings › Repositories. Kept fresh by `settings.changed` events, not polling. */
@@ -166,12 +203,15 @@ export function useJiraProjects(enabled: boolean) {
   return useQuery({ ...jiraProjectsQueryOptions(api), enabled });
 }
 
+/** Adding has its own key under repositories, so the panel can tell an add is on its way. */
+const addRepositoryKey = [...queryKeys.repositories, 'add'] as const;
+
 /** Checks the folder on disk, then saves it. Fails with folder_rejected and the message for the Folder field. */
 export function useAddRepository() {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation<Repository, ApiRequestError, AddRepositoryRequest>({
-    mutationKey: queryKeys.repositories,
+    mutationKey: addRepositoryKey,
     mutationFn: (request) => api.addRepository(request),
     onSuccess: (folder) => {
       // The row shows at once; settings.changed then refetches the list to confirm it.
@@ -181,33 +221,46 @@ export function useAddRepository() {
           : old,
       );
     },
+    onSettled: () => {
+      refetchAfterLast(queryClient, queryKeys.repositories);
+    },
   });
 }
 
-/** Forgets a folder, taking its row away at once (spec 005, AC-11). A failed save puts the row back. */
+/** Whether a folder is being added right now; closing the form then would hide the server's answer. */
+export function useAddingRepository(): boolean {
+  return useIsMutating({ mutationKey: addRepositoryKey }) > 0;
+}
+
+/** Forgets a folder, taking its row away at once (spec 005, AC-11). A failed save puts back that row alone. */
 export function useRemoveRepository() {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationKey: queryKeys.repositories,
+    mutationKey: [...queryKeys.repositories, 'remove'],
     mutationFn: (id: RepositoryId) => api.removeRepository(id),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.repositories });
-      const before = queryClient.getQueryData<RepositoryList>(queryKeys.repositories);
-      if (before) {
-        queryClient.setQueryData<RepositoryList>(queryKeys.repositories, {
-          repositories: before.repositories.filter((folder) => folder.id !== id),
-        });
-      }
-      return { before };
+      const before = queryClient.getQueryData<RepositoryList>(queryKeys.repositories)?.repositories ?? [];
+      const index = before.findIndex((folder) => folder.id === id);
+      queryClient.setQueryData<RepositoryList>(
+        queryKeys.repositories,
+        (current) => current && { repositories: current.repositories.filter((folder) => folder.id !== id) },
+      );
+      return { removed: before[index], index };
     },
     onError: (_error, _id, context) => {
-      if (context?.before) queryClient.setQueryData(queryKeys.repositories, context.before);
+      if (context?.removed === undefined) return;
+      const { removed, index } = context;
+      queryClient.setQueryData<RepositoryList>(queryKeys.repositories, (current) => {
+        if (current === undefined || current.repositories.some((folder) => folder.id === removed.id)) return current;
+        const repositories = [...current.repositories];
+        repositories.splice(Math.min(index, repositories.length), 0, removed);
+        return { repositories };
+      });
     },
-    onSettled: async () => {
-      if (queryClient.isMutating({ mutationKey: queryKeys.repositories }) === 1) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.repositories });
-      }
+    onSettled: () => {
+      refetchAfterLast(queryClient, queryKeys.repositories);
     },
   });
 }

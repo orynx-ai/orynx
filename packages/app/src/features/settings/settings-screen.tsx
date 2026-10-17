@@ -1,4 +1,4 @@
-// Design: docs/design/screens/settings.html — page bar, title, local-first callout, tabs and the connection list
+// Design: docs/design/screens/settings.html — page bar, title, local-first callout, tabs, the connection list, and the Coding agent (modes), Repositories and Inbox rules tabs
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { Lock } from 'lucide-react';
 import { Callout, Tabs, TabsContent, TabsList, TabsTrigger } from '@devhub/ui';
