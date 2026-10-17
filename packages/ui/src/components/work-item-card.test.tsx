@@ -85,7 +85,7 @@ describe('WorkItemCard', () => {
     expect(screen.getAllByRole('link')).toHaveLength(2);
   });
 
-  it('AC-26: the loading form holds a card’s place without being read out', async () => {
+  it('AC-26: the loading form is hidden from screen readers (its size is checked in the browser)', async () => {
     const { container } = render(
       <section aria-label="To do" aria-busy>
         <WorkItemCardSkeleton />

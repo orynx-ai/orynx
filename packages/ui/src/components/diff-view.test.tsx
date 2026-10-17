@@ -41,7 +41,7 @@ describe('DiffView', () => {
     ]);
   });
 
-  it('AC-23: the code can be scrolled sideways from the keyboard', () => {
+  it('AC-23: the code takes keyboard focus, so a wide diff can be scrolled with the keys', () => {
     render(<DiffView path="src/content/ContentList.tsx" lines={lines} />);
 
     const scroller = screen.getByRole('region', { name: 'Changes in ContentList.tsx' }).querySelector('pre');
@@ -74,7 +74,7 @@ describe('DiffView', () => {
     expect(within(region).getByText('2 lines added, 1 line removed')).toBeInTheDocument();
   });
 
-  it('AC-26: the loading form holds the diff’s place without being read out', async () => {
+  it('AC-26: the loading form is hidden from screen readers (its size is checked in the browser)', async () => {
     const { container } = render(<DiffViewSkeleton lines={6} />);
 
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');

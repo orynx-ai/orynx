@@ -31,10 +31,14 @@ export function spokenCounts(added: number, removed: number): string {
     .join(', ');
 }
 
-/** Splits a path into its folder part, which may be cut off, and its file name, which stays whole. */
+/**
+ * Splits a path into its folder part, which may be cut off, and its file name, which stays whole.
+ * The last "/" goes with the name, so a cut path reads "src/cont…/ContentList.tsx".
+ */
 function splitPath(path: string): { folder: string; name: string } {
   const slash = path.lastIndexOf('/');
-  return { folder: path.slice(0, slash + 1), name: path.slice(slash + 1) };
+  if (slash === -1) return { folder: '', name: path };
+  return { folder: path.slice(0, slash), name: path.slice(slash) };
 }
 
 /**
@@ -60,20 +64,21 @@ export function FileList({ files, current, onSelect, className, ...props }: File
           <li key={file.path} className="flex">
             <button
               type="button"
-              title={file.path}
               aria-current={file.path === current ? 'true' : undefined}
               onClick={() => {
                 onSelect(file.path);
               }}
               className="flex min-h-10 w-full min-w-0 cursor-pointer items-center gap-2 border-0 border-s-2 border-transparent bg-raised px-3 text-start text-small text-foreground hover:bg-subtle focus-visible:-outline-offset-2 aria-current:border-info aria-current:bg-info-subtle"
             >
-              <span className="flex min-w-0 flex-1 font-mono text-code">
+              {/* Named by its content: the whole path, then the counts as words. The drawn path and counts
+                  aren't read out (the two path parts would read with a gap between them), and the
+                  spaces keep the words apart; flex layout ignores them. */}
+              <span className="sr-only">{file.path}</span>{' '}
+              <span aria-hidden title={file.path} className="flex min-w-0 flex-1 font-mono text-code">
                 <span className="min-w-0 truncate">{folder}</span>
                 {/* Never shrinks, so the folder gives way first; cut only when the name alone is too wide. */}
                 <span className="max-w-full shrink-0 truncate">{name}</span>
               </span>
-              {/* Named by its content: the path, then the counts as words. The drawn "+68 −9" isn't read
-                  out, and the spaces keep the words apart (flex layout ignores them). */}{' '}
               <span aria-hidden className="flex shrink-0 gap-2">
                 {file.added > 0 ? <span className="text-success">+{file.added}</span> : null}
                 {file.removed > 0 ? <span className="text-danger">−{file.removed}</span> : null}
@@ -88,8 +93,8 @@ export function FileList({ files, current, onSelect, className, ...props }: File
 }
 
 /**
- * The list's loading form (spec 006 Q4a): `rows` 40 px rows in the same frame, so nothing moves
- * when the files arrive. Hidden from screen readers.
+ * The list's loading form (spec 006 Q4a): `rows` rows built like the real ones (a divider, then a
+ * 40 px row) in the same frame, so nothing moves when the files arrive. Hidden from screen readers.
  */
 export function FileListSkeleton({
   rows = 4,
@@ -104,9 +109,11 @@ export function FileListSkeleton({
       {...props}
     >
       {Array.from({ length: rows }, (_, row) => (
-        <div key={row} className="flex h-10 items-center gap-2 border-s-2 border-transparent bg-raised px-3">
-          <Skeleton className="h-3.5 flex-1" />
-          <Skeleton className="h-3.5 w-14" />
+        <div key={row} className="flex">
+          <div className="flex h-10 w-full items-center gap-2 border-s-2 border-s-transparent bg-raised px-3">
+            <Skeleton className="h-3.5 flex-1" />
+            <Skeleton className="h-3.5 w-14" />
+          </div>
         </div>
       ))}
     </div>

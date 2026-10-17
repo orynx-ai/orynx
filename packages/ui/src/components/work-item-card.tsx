@@ -102,7 +102,8 @@ export function WorkItemCard({
           ) : null}
         </div>
         {title}
-        <div className="flex min-h-6 flex-wrap items-center gap-2.5 text-small text-muted-foreground">
+        {/* 32 px, the Build button's height, so a card is as tall with an agent chip as without. */}
+        <div className="flex min-h-8 flex-wrap items-center gap-2.5 text-small text-muted-foreground">
           {priority ? <Priority level={priority.level} label={priority.label} /> : null}
           {due ? (
             <span className={cn('inline-flex items-center gap-1', due.soon && 'font-medium text-warning')}>
@@ -119,7 +120,8 @@ export function WorkItemCard({
 
 /**
  * A card's loading form (spec 006 Q4a): the same frame, rows and gaps as a card with a two-line
- * title, the usual length at a board column's width, so nothing moves when tickets arrive. Hidden
+ * title, the usual length at a board column's width, so nothing moves when tickets arrive, whether
+ * they show an agent chip or the Build button. Hidden
  * from screen readers; mark the column around it `aria-busy`.
  */
 export function WorkItemCardSkeleton({ className, ...props }: Omit<ComponentProps<'div'>, 'children'>) {
@@ -140,7 +142,7 @@ export function WorkItemCardSkeleton({ className, ...props }: Omit<ComponentProp
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-3/5" />
       </div>
-      <div className="flex min-h-6 items-center gap-2.5">
+      <div className="flex min-h-8 items-center gap-2.5">
         <Skeleton className="h-4 w-14" />
         <Skeleton className="h-4 w-12" />
         <Skeleton className="ms-auto h-6 w-20 rounded-full" />

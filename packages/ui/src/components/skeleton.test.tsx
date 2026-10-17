@@ -4,7 +4,7 @@ import { expectNoAxeViolations } from '../testing.ts';
 import { Skeleton } from './skeleton.tsx';
 
 describe('Skeleton', () => {
-  it('AC-26: stands in for content without being read out', async () => {
+  it('AC-26: is hidden from screen readers; the region around it says it is busy', async () => {
     const { container } = render(
       <section aria-label="Tickets" aria-busy>
         <Skeleton className="h-6 w-24" />

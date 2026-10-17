@@ -76,7 +76,7 @@ describe('AttentionRow', () => {
     expect(screen.getByRole('link', { name: 'Can you confirm the archive API returns 207?' })).toHaveFocus();
   });
 
-  it('AC-26: the loading rows hold the list’s place without being read out', async () => {
+  it('AC-26: the loading rows are hidden from screen readers (their size is checked in the browser)', async () => {
     const { container } = render(
       <AttentionList aria-label="Needs your attention" aria-busy>
         <AttentionRowSkeleton />
