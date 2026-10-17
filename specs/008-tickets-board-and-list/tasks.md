@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: Add the tickets contract: the ticket (key, title, link, status, column, type, bug, priority and level, due day, assignee, session), the sprint, Jira's sprint state, whether more were left, the path and test builders (AC-1, AC-2, AC-26)
+- [x] Task 1: Add the tickets contract: the ticket (key, title, link, status, column, type, bug, priority and level, due day, assignee, session), the sprint, Jira's sprint state, whether more were left, the path and test builders (AC-1, AC-2, AC-26)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/tickets.ts, tickets.test.ts, routes.ts, events.ts, index.ts, testing.ts
 - [ ] Task 2: Read who you are, find the sprint field by its type, read your issues in open sprints with it, and read a board's columns and project in Jira's `client.ts` (AC-1, AC-3, AC-4, AC-5)
