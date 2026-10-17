@@ -11,9 +11,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: A keychain that can't be reached: fixed Q4(d) message, reads fall back to `.env`, saves fail, no token in any error (AC-6, AC-10, AC-14)
       Check: pnpm test packages/core/src/secrets; pnpm typecheck
       Files: packages/core/src/secrets/token-store.ts, packages/core/src/secrets/memory-keychain.ts, packages/core/src/secrets/token-store.test.ts
-- [ ] Task 4: OS keychain adapter over `@napi-rs/keyring`, loaded on first use, service `DevHub` (AC-1, AC-6)
+- [x] Task 4: OS keychain adapter over `@napi-rs/keyring`, loaded on first use, service `DevHub` (AC-1, AC-6)
       Check: pnpm test packages/core/src/secrets; pnpm typecheck; pnpm gate boundaries
-      Files: packages/core/src/secrets/os-keychain.ts, packages/core/src/secrets/os-keychain.test.ts, packages/core/package.json, apps/server/package.json, pnpm-lock.yaml (via pnpm add)
+      Files: packages/core/src/secrets/os-keychain.ts, packages/core/src/secrets/os-keychain.test.ts, packages/core/src/secrets/os-keychain-load.test.ts, packages/core/src/secrets/no-real-keychain.test.ts, packages/core/src/test/no-real-keychain.ts, packages/core/vitest.config.ts, apps/server/vitest.config.ts, packages/core/package.json, apps/server/package.json, pnpm-lock.yaml (via pnpm add)
 - [ ] Task 5: Opt-in real keychain check, `pnpm test:keychain`, left out of `pnpm test` and CI (AC-1, AC-2, AC-3 on the real keychain)
       Check: pnpm test packages/core (the real check does not run); pnpm typecheck; run pnpm test:keychain only after the user says yes
       Files: packages/core/src/secrets/os-keychain.real.test.ts, packages/core/vitest.config.ts, packages/core/vitest.keychain.config.ts, package.json
