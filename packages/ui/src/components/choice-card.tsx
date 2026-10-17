@@ -39,7 +39,9 @@ export function ChoiceCard({ title, detail, className, id, ...props }: ChoiceCar
         {...props}
       />
       <span className="flex min-w-0 flex-col gap-1">
-        <span id={titleId}>{title}</span>
+        <span id={titleId} className="font-medium">
+          {title}
+        </span>
         {hasDetail ? (
           <span id={detailId} className="text-small text-muted-foreground">
             {detail}
