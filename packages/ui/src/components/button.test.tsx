@@ -37,6 +37,19 @@ describe('Button', () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it('passes its action to the element it renders with asChild', async () => {
+    const onClick = vi.fn();
+    render(
+      <Button asChild onClick={onClick}>
+        <a href="#settings">Open settings</a>
+      </Button>,
+    );
+
+    await userEvent.click(screen.getByRole('link', { name: 'Open settings' }));
+
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
   it('renders a link with button styles when asChild is set', () => {
     render(
       <Button asChild variant="primary">

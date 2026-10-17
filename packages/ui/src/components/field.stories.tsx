@@ -48,7 +48,7 @@ export const LongError: Story = {
   args: {
     label: 'API token',
     error: "Jira didn't accept this email and API token. Check both, or create a new token.",
-    children: <Input type="password" autoComplete="off" defaultValue="ATATT3xFfGF0" />,
+    children: <Input type="password" autoComplete="off" defaultValue="fake-token" />,
   },
 };
 export const WithoutHelp: Story = { args: { help: undefined } };

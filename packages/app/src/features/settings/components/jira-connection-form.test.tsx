@@ -25,7 +25,8 @@ describe('Jira connection form', () => {
       'The email you sign in to Jira with.',
     );
     expect(within(form).getByLabelText('API token')).toHaveAttribute('type', 'password');
-    expect(within(form).getByLabelText('API token')).toHaveAttribute('autocomplete', 'off');
+    // Browsers ignore "off" on a password and offer to save it as a sign-in; they never save a one-time code.
+    expect(within(form).getByLabelText('API token')).toHaveAttribute('autocomplete', 'one-time-code');
     expect(within(form).getByRole('link', { name: 'Create an API token' })).toHaveAttribute(
       'href',
       'https://id.atlassian.com/manage-profile/security/api-tokens',
@@ -56,8 +57,9 @@ describe('Jira connection form', () => {
     const token = within(form).getByLabelText('API token');
     await expect.poll(() => token.getAttribute('aria-invalid')).toBe('true');
     expect(token).toHaveAccessibleDescription(
-      "Jira didn't accept this email and API token. Check both, or create a new token.",
+      "Jira didn't accept this email and API token. Check both, or create a new token. Create an API token",
     );
+    expect(within(form).getByRole('link', { name: 'Create an API token' })).toBeVisible();
     expect(token).toHaveFocus();
     expect(within(form).getByLabelText('Jira site')).toHaveValue('your-team');
     expect(within(form).getByLabelText('Email')).toHaveValue('dev@example.com');
@@ -80,6 +82,21 @@ describe('Jira connection form', () => {
     expect(site).toHaveAccessibleDescription("There's no Jira at nobody.atlassian.net. Check the address.");
   });
 
+  it('puts "Paste your Jira API token." under API token when the server has no token after all', async () => {
+    failingJiraSave(400, { code: 'bad_request', message: 'Paste your Jira API token.' });
+    const { user, form } = await openForm();
+
+    await user.type(within(form).getByLabelText('Jira site'), 'your-team');
+    await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
+    await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
+    await user.click(within(form).getByRole('button', { name: 'Connect Jira' }));
+
+    const token = within(form).getByLabelText('API token');
+    await expect.poll(() => token.getAttribute('aria-invalid')).toBe('true');
+    expect(token).toHaveAccessibleDescription('Paste your Jira API token. Create an API token');
+    expect(within(form).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('AC-7: says what each empty field needs, focuses the first, and sends nothing', async () => {
     const sent = jiraServer();
     const { user, form } = await openForm();
@@ -93,7 +110,9 @@ describe('Jira connection form', () => {
     expect(within(form).getByLabelText('Email')).toHaveAccessibleDescription(
       'Enter the email you sign in to Jira with.',
     );
-    expect(within(form).getByLabelText('API token')).toHaveAccessibleDescription('Paste your Jira API token.');
+    expect(within(form).getByLabelText('API token')).toHaveAccessibleDescription(
+      'Paste your Jira API token. Create an API token',
+    );
     expect(sent).toEqual([]);
   });
 
@@ -111,7 +130,7 @@ describe('Jira connection form', () => {
       'Use your Jira Cloud address, like your-team.atlassian.net.',
     );
     expect(within(form).getByLabelText('API token')).toHaveAccessibleDescription(
-      'Paste the token without spaces or line breaks.',
+      'Paste the token without spaces or line breaks. Create an API token',
     );
     expect(sent).toEqual([]);
   });

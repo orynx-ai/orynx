@@ -54,7 +54,12 @@ export function Button({
 }: ButtonProps) {
   if (asChild) {
     return (
-      <Slot.Root data-slot="button" className={cn(buttonVariants({ variant, size }), className)} {...props}>
+      <Slot.Root
+        data-slot="button"
+        className={cn(buttonVariants({ variant, size }), className)}
+        {...(onClick === undefined ? {} : { onClick })}
+        {...props}
+      >
         {children}
       </Slot.Root>
     );

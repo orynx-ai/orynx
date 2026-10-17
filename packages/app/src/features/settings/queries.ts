@@ -21,6 +21,8 @@ export function useConnectJira() {
   const queryClient = useQueryClient();
   return useMutation<JiraConnection, ApiRequestError, JiraConnectionRequest>({
     mutationFn: (request) => api.connectJira(request),
+    // The request holds the typed token: drop it from the mutation cache as soon as nothing shows it.
+    gcTime: 0,
     onSuccess: async (connection) => {
       // The answer is the new value, so the row reads "Manage" at once; the status line refetches.
       queryClient.setQueryData(queryKeys.jiraConnection, connection);

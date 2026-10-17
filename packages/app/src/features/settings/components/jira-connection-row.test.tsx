@@ -1,5 +1,5 @@
 import { screen, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeJiraConnection, makeStatus } from '@devhub/contracts/testing';
@@ -173,5 +173,31 @@ describe('Jira connection row', () => {
     const row = await jiraRow();
     expect(await within(row).findByText('Connected')).toBeVisible();
     expect(await within(row).findByRole('button', { name: 'Manage' })).toBeVisible();
+  });
+
+  it("says the DevHub server can't be reached when the Jira settings don't load, and points at no missing form", async () => {
+    server.use(http.get(apiUrl(apiRoutes.jiraConnection), () => HttpResponse.error()));
+    const { user } = await renderApp({ route: '/settings/connections' });
+    const row = await jiraRow();
+
+    await user.click(within(row).getByRole('button', { name: 'Connect' }));
+
+    expect(await within(row).findByRole('alert')).toHaveTextContent('Could not reach the DevHub server.');
+    expect(within(row).getByRole('button', { name: 'Close' })).not.toHaveAttribute('aria-controls');
+  });
+
+  it('AC-11: once Disconnect is on its way, Cancel in the confirm step waits', async () => {
+    const { user, form } = await openManage();
+    server.use(
+      http.delete(apiUrl(apiRoutes.jiraConnection), async () => {
+        await delay('infinite');
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await user.click(within(form).getByRole('button', { name: 'Disconnect Jira' }));
+    await user.click(within(form).getByRole('button', { name: 'Disconnect' }));
+
+    await expect.poll(() => within(form).getByRole('button', { name: 'Cancel' }).hasAttribute('disabled')).toBe(true);
   });
 });

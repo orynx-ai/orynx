@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import type { ApiRequestError } from '@devhub/api-client';
 import type { JiraConnection, JiraCredentials } from '@devhub/contracts';
 import { Button, Field, Input } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
@@ -8,6 +9,17 @@ import { useConnectJira, useDisconnectJira } from '../queries.ts';
 import { jiraFormSchema, type JiraFormValues } from '../schemas.ts';
 
 const apiTokensUrl = 'https://id.atlassian.com/manage-profile/security/api-tokens';
+
+const tokenRequired = jiraFormSchema(true);
+const tokenOptional = jiraFormSchema(false);
+
+/** Where each server answer belongs; anything else goes in one line above the buttons. */
+const fieldFor: Partial<Record<ApiRequestError['code'], keyof JiraFormValues>> = {
+  integration_rejected: 'apiToken',
+  integration_unreachable: 'site',
+  // The only one the form can't catch itself: no token given, and none saved after all.
+  bad_request: 'apiToken',
+};
 
 export interface JiraConnectionFormProps {
   id: string;
@@ -30,7 +42,7 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
   const confirmLineId = useId();
   const { saved, envToken } = connection;
   const form = useForm<JiraFormValues, unknown, JiraCredentials>({
-    resolver: zodResolver(jiraFormSchema(saved === null && !envToken)),
+    resolver: zodResolver(saved === null && !envToken ? tokenRequired : tokenOptional),
     defaultValues: { site: saved?.site ?? '', email: saved?.email ?? '', apiToken: '' },
   });
   const { errors } = form.formState;
@@ -54,19 +66,14 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
     connect.mutate(values, {
       onSuccess: onConnected,
       onError: (error) => {
-        // A refused token belongs to API token, an address that doesn't answer to Jira site.
-        if (error.code === 'integration_rejected') {
-          form.setError('apiToken', { message: error.message }, { shouldFocus: true });
-        } else if (error.code === 'integration_unreachable') {
-          form.setError('site', { message: error.message }, { shouldFocus: true });
-        }
+        const field = fieldFor[error.code];
+        if (field !== undefined) form.setError(field, { message: error.message }, { shouldFocus: true });
       },
     });
   });
-  const fieldCodes = ['integration_rejected', 'integration_unreachable'];
   const formError =
     disconnect.error?.message ??
-    (connect.error && !fieldCodes.includes(connect.error.code) ? connect.error.message : undefined);
+    (connect.error && fieldFor[connect.error.code] === undefined ? connect.error.message : undefined);
 
   const tokenLead =
     saved !== null
@@ -75,13 +82,27 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
         ? 'Leave empty to use DEVHUB_JIRA_API_TOKEN from .env.'
         : 'Create one in your Atlassian account settings.';
 
+  const tokenLink = (
+    <a
+      href={apiTokensUrl}
+      rel="noreferrer"
+      className="text-info underline"
+      onClick={(event) => {
+        event.preventDefault();
+        platform.openExternal(apiTokensUrl);
+      }}
+    >
+      Create an API token
+    </a>
+  );
+
   return (
     <form
       id={id}
       aria-label="Jira connection"
       noValidate
       onSubmit={(event) => void submit(event)}
-      className="flex max-w-md flex-col gap-4"
+      className="flex flex-col gap-4"
     >
       <Field
         label="Jira site"
@@ -97,22 +118,27 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
         label="API token"
         help={
           <>
-            {tokenLead}{' '}
-            <a
-              href={apiTokensUrl}
-              className="text-info underline"
-              onClick={(event: MouseEvent<HTMLAnchorElement>) => {
-                event.preventDefault();
-                platform.openExternal(apiTokensUrl);
-              }}
-            >
-              Create an API token
-            </a>
+            {tokenLead} {tokenLink}
           </>
         }
-        error={errors.apiToken?.message}
+        // A refused token's message says to create a new one, so the link stays with it.
+        error={
+          errors.apiToken?.message === undefined ? undefined : (
+            <>
+              {errors.apiToken.message} {tokenLink}
+            </>
+          )
+        }
       >
-        <Input type="password" autoComplete="off" {...form.register('apiToken')} />
+        {/* Browsers ignore autocomplete="off" on a password and offer to save it as a sign-in; they
+            never save a one-time code, and the two attributes keep 1Password and LastPass away too. */}
+        <Input
+          type="password"
+          autoComplete="one-time-code"
+          data-1p-ignore
+          data-lpignore="true"
+          {...form.register('apiToken')}
+        />
       </Field>
       {formError === undefined ? null : (
         <p role="alert" className="m-0 text-small text-danger">
@@ -147,6 +173,8 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
             </Button>
             <Button
               variant="ghost"
+              // Once Disconnect is on its way, Cancel can't stop it.
+              disabled={disconnect.isPending}
               onClick={() => {
                 setConfirming(false);
                 disconnect.reset();
@@ -158,7 +186,7 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" variant="primary" pending={connect.isPending}>
+          <Button type="submit" variant="primary" pending={connect.isPending || form.formState.isSubmitting}>
             Connect Jira
           </Button>
           <Button variant="ghost" onClick={onCancel}>

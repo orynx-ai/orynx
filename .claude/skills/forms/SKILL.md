@@ -54,7 +54,7 @@ const { errors } = form.formState;
 ## Rules
 
 - Error messages say what to do, in the design system's voice ("Enter the address you open Jira at."), not "Invalid".
-- Secrets (API tokens) use `type="password"` and `autoComplete="off"`, are never echoed back, and are never logged.
+- Secrets (API tokens) use `type="password"` with `autoComplete="one-time-code"`, `data-1p-ignore` and `data-lpignore="true"`: browsers ignore `"off"` on a password and offer to save it as a sign-in. Secrets are never echoed back, never logged, and their mutation has `gcTime: 0`.
 - `Enter` submits; a composer uses `Shift+Enter` for a new line.
 - Buttons say what happens: "Connect Jira", "Add folder", never "Submit".
 

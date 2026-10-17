@@ -20,8 +20,11 @@ export interface FieldProps {
   label: string;
   /** One line under the control. It may hold a link, such as "Create an API token". */
   help?: ReactNode;
-  /** Says what to do ("Enter the address you open Jira at."). It replaces the help line. */
-  error?: string | undefined;
+  /**
+   * Says what to do ("Enter the address you open Jira at."). It replaces the help line, and may carry
+   * the help line's link when the message points to it ("create a new token").
+   */
+  error?: ReactNode;
   /** Id for the control; one is made up when left out. */
   id?: string;
   className?: string;

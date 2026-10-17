@@ -35,7 +35,7 @@ export function JiraConnectionRow({ status }: { status: IntegrationStatus | unde
           ref={toggle}
           size="sm"
           aria-expanded={open}
-          aria-controls={open ? formId : undefined}
+          aria-controls={open && connection.data ? formId : undefined}
           onClick={() => {
             if (open) close();
             else {
@@ -48,6 +48,11 @@ export function JiraConnectionRow({ status }: { status: IntegrationStatus | unde
         </Button>
       }
     >
+      {open && connection.isError ? (
+        <p role="alert" className="m-0 text-small text-danger sm:ps-14">
+          Could not reach the DevHub server. Check that DevHub is still running in your terminal, then reload the page.
+        </p>
+      ) : null}
       {open && connection.data ? (
         <div className="sm:ps-14">
           <JiraConnectionForm
