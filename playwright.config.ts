@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { accessSync, constants, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
@@ -6,6 +6,24 @@ import { defineConfig, devices } from '@playwright/test';
 // The e2e run gets its own port and data folder, so it never touches the real ~/.devhub.
 const port = 4399;
 const home = mkdtempSync(join(tmpdir(), 'devhub-e2e-'));
+
+// The e2e server must find this fake gh, never your real one (spec 004, AC-20). Stop the run rather than
+// let it fall back to the real gh: on Windows (DevHub looks for gh.exe), when the fake can't run, or when
+// a folder pnpm puts ahead of it on PATH holds a gh of its own.
+const fakeGh = join(import.meta.dirname, 'e2e', 'fake-gh');
+if (process.platform === 'win32') {
+  throw new Error('The e2e run fakes gh with a shell script (e2e/fake-gh/gh): run it on macOS or Linux.');
+}
+try {
+  accessSync(join(fakeGh, 'gh'), constants.X_OK);
+} catch {
+  throw new Error('e2e/fake-gh/gh must be executable (chmod +x), or the e2e run could start your real gh.');
+}
+for (const bin of ['node_modules/.bin', 'apps/server/node_modules/.bin']) {
+  if (existsSync(join(import.meta.dirname, bin, 'gh'))) {
+    throw new Error(`${bin}/gh would run before the fake gh in the e2e run.`);
+  }
+}
 
 export default defineConfig({
   testDir: 'e2e',
@@ -37,7 +55,7 @@ export default defineConfig({
       DEVHUB_KEYCHAIN: 'memory',
       // A fake gh, always signed out, comes first on the server's PATH: the e2e run never reads your
       // real gh login, and a press of Connect GitHub never reaches github.com (spec 004, AC-20).
-      PATH: `${join(import.meta.dirname, 'e2e', 'fake-gh')}${delimiter}${process.env['PATH'] ?? ''}`,
+      PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
     },
   },
 });

@@ -20,6 +20,9 @@ const EnvSchema = z.object({
   DEVHUB_KEYCHAIN: z.enum(['os', 'memory']).default('os'),
 });
 
+/** Settings read from the shell only, never from `.env`: a file must not decide which program DevHub starts. */
+const ShellSchema = z.object({ PATH: z.string().default('') });
+
 /** Which setting holds each tool's token when the `.env` fallback is on (spec 002, Q1). */
 export const tokenKeys = {
   jira: 'DEVHUB_JIRA_API_TOKEN',
@@ -116,7 +119,6 @@ export function loadConfig({
     pretty: settings.NODE_ENV === 'development',
     keychain: settings.DEVHUB_KEYCHAIN,
     tokens: { fromEnv, env: tokens, ignored },
-    // Only the shell's: a PATH in .env would let a file decide which program DevHub starts.
-    ghSearchPath: env['PATH'] ?? '',
+    ghSearchPath: ShellSchema.parse(env).PATH,
   };
 }
