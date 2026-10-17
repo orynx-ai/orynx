@@ -44,8 +44,11 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: e2e on the real server: the five tabs and their addresses with reload, at 360 px the opened tab scrolled fully into the tab list, CLS 0 on each new tab, keyboard through every control, adding and removing a temporary git folder with Jira not connected, a second page following along, and axe at 360 and 1280 px in light and dark. Then the browser check by hand (AC-1, AC-15, AC-17, AC-19, AC-20)
       Check: pnpm test:e2e e2e/settings.spec.ts
       Files: e2e/settings.spec.ts
-- [ ] Task 15: Docs: what settings.json holds (architecture), a learn page on how the settings save and how a folder is checked, the agent-runtime skill (the mode lives in Settings › Coding agent), and the comment in `tabs.ts`
+- [x] Task 15: Asked by the user on 2026-10-17: draw Jira, GitHub and Slack with their own logos in their official colours (brand tokens approved by the user), in `SourceMark`, with the design system and design map updated
+      Check: pnpm test packages/ui/src/components/source-mark.test.tsx; pnpm gate style-policy; the Connections list checked by eye in light and dark
+      Files: packages/ui/src/components/source-mark.tsx (+test), packages/ui/src/styles/tokens.css, packages/ui/src/styles/theme.css, docs/design/design-system.md, docs/design-map.md
+- [ ] Task 16: Docs: what settings.json holds (architecture), a learn page on how the settings save and how a folder is checked, the agent-runtime skill (the mode lives in Settings › Coding agent), and the comment in `tabs.ts`
       Check: pnpm gate learn-freshness handbook-size; pnpm format:check
       Files: docs/architecture.md, learn/settings-and-folders.md, .claude/skills/agent-runtime/SKILL.md
-- [ ] Task 16: STOP and run /review
+- [ ] Task 17: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)

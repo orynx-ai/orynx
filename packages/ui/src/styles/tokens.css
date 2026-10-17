@@ -47,4 +47,8 @@
   --font-sans: Geist, "Helvetica Neue", Arial, sans-serif;
   --font-serif: Newsreader, Georgia, "Times New Roman", serif;
   --font-mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
+  /* Brand logos in each company's own colours, the same in both themes (the user's call, 2026-10-17).
+     GitHub's mark takes --source-github: black on light, white on dark, as GitHub draws it. */
+  --brand-jira: #2684ff; --brand-jira-deep: #0052cc;
+  --brand-slack-red: #e01e5a; --brand-slack-blue: #36c5f0; --brand-slack-green: #2eb67d; --brand-slack-yellow: #ecb22e;
 }

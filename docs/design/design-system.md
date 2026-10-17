@@ -117,6 +117,8 @@ Every text/background pair passes WCAG AA (4.5:1) in both themes; control border
 | `--source-github` | same as `--text-primary` | same as `--text-primary` | GitHub source mark. Always shown with a repo name. |
 | `--source-slack` | `#7b3f8c` | `#d6a3e4` | Slack source mark. Always shown with a channel name. |
 | `--source-slack-subtle` | `#f5edf7` | `#2b1d31` | Background behind the Slack mark. |
+| `--brand-jira` / `--brand-jira-deep` | `#2684ff` / `#0052cc` | same | Jira's logo in its own blues: the top piece light, the two below shaded from deep into light. Logos only (decided 17 Oct 2026). |
+| `--brand-slack-red` / `-blue` / `-green` / `-yellow` | `#e01e5a` / `#36c5f0` / `#2eb67d` / `#ecb22e` | same | Slack's logo in its four colours. Logos only (decided 17 Oct 2026). |
 
 ### Typography
 
@@ -455,7 +457,7 @@ A short status label: a dot plus a word, so state never depends on colour alone.
 
 - Neutral (no modifier): To do, Backlog. `--warning`: In progress, waiting on you. `--info`: In review. `--success`: Done, passing. `--danger`: failing, bug.
 - `dh-pill--plain` drops the dot for non-status tags.
-- Source marks (`dh-source--jira|github|slack`) always show the source name next to the mark.
+- Source marks (`dh-source--jira|github|slack`) always show the source name next to the mark. Since 17 Oct 2026 the mark is each tool's own logo in its own colours (Jira's blues, GitHub's Invertocat in `--source-github`, Slack's four colours), on a `bg-subtle` tile at the large size; the letters in the markup below stand in for the logos.
 
 <details><summary>Example markup</summary>
 
