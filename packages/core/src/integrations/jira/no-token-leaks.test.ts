@@ -10,7 +10,15 @@ import { createServer } from '../../create-server.ts';
 import { createEventBus } from '../../events/event-bus.ts';
 import { createMemoryKeychain } from '../../secrets/memory-keychain.ts';
 import { createFileSettingsStore, settingsFilePath } from '../../settings/settings-store.ts';
-import { goodBasicValue, goodToken, jiraEmail, myselfUrl, useFakeJira } from '../../test/fake-jira.ts';
+import {
+  acceptingProjectSearch,
+  goodBasicValue,
+  goodToken,
+  jiraEmail,
+  myselfUrl,
+  projectSearchUrl,
+  useFakeJira,
+} from '../../test/fake-jira.ts';
 
 const jira = useFakeJira();
 const sessionToken = 'leaks-session-token-0123456789';
@@ -80,6 +88,21 @@ describe('Jira tokens never leave core', () => {
     expect(settingsWhileConnected).toContain(site);
     await call('GET', apiRoutes.status);
     await call('GET', connection);
+    // Settings › Repositories reads the projects with the same token (spec 005): found, refused, unreachable.
+    jira.use(acceptingProjectSearch([{ key: 'PROJ', name: 'Intranet' }]));
+    expect((await call('GET', apiRoutes.jiraProjects)).statusCode).toBe(200);
+    jira.use(
+      http.get(
+        projectSearchUrl(),
+        () => HttpResponse.json({}, { status: 401, headers: { 'X-Seraph-LoginReason': 'AUTHENTICATED_FAILED' } }),
+        {
+          once: true,
+        },
+      ),
+    );
+    expect((await call('GET', apiRoutes.jiraProjects)).statusCode).toBe(422);
+    jira.use(http.get(projectSearchUrl(), () => HttpResponse.error(), { once: true }));
+    expect((await call('GET', apiRoutes.jiraProjects)).statusCode).toBe(502);
     await call('DELETE', connection);
 
     const everything = [...log, ...bodies, JSON.stringify(events), settingsWhileConnected].join('\n');

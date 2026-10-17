@@ -150,6 +150,12 @@ describe('Jira client: projects', () => {
     jira.events.removeAllListeners();
   });
 
+  it('AC-5: moves on by what Jira sent, when Jira sends fewer per page than asked for', async () => {
+    jira.use(acceptingProjectSearch(twoHundredAndFive, { pageCap: 50 }));
+
+    expect(await client.projects(credentials)).toEqual({ ok: true, projects: twoHundredAndFive });
+  });
+
   it('stops at 1000 projects', async () => {
     const many = Array.from({ length: 1500 }, (_, index) => ({ key: `K${String(index)}`, name: `K ${String(index)}` }));
     jira.use(acceptingProjectSearch(many));
@@ -184,6 +190,19 @@ describe('Jira client: projects', () => {
       http.get(projectSearchUrl(), async () => {
         await delay(1000);
         return HttpResponse.json({ values: [], isLast: true });
+      }),
+    );
+
+    expect(await client.projects(credentials)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+
+  it('AC-9: gives the whole list one wait, so slow pages add up to a timeout the page can still show', async () => {
+    // Each page alone is quicker than the 200 ms wait; the two together are not.
+    jira.use(
+      http.get(projectSearchUrl(), async ({ request }) => {
+        await delay(120);
+        const startAt = Number(new URL(request.url).searchParams.get('startAt'));
+        return HttpResponse.json({ values: [{ key: `P${String(startAt)}`, name: 'Slow' }], isLast: startAt > 0 });
       }),
     );
 

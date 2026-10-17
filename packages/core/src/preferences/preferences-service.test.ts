@@ -53,6 +53,21 @@ describe('preferences service', () => {
     expect(await settings.read()).toMatchObject({ jira, github: { method: 'gh' } });
   });
 
+  it("treats a mode or rule it can't read as never chosen, and keeps it through this version's saves", async () => {
+    const { preferences, settings } = service({
+      agent: { permissionMode: 'yolo', model: 'newer' },
+      inbox: { rules: { checks_failing: 'no', slack_no_reply: false } },
+    });
+
+    expect(await preferences.read()).toEqual(defaultPreferences);
+    await preferences.change({ inboxRules: { review_requested: false } });
+
+    expect(await settings.read()).toMatchObject({
+      agent: { permissionMode: 'yolo', model: 'newer' },
+      inbox: { rules: { checks_failing: 'no', slack_no_reply: false, review_requested: false } },
+    });
+  });
+
   it("keeps a rule a newer DevHub saved, without reporting it, so it survives this version's saves", async () => {
     const { preferences, settings } = service({ inbox: { rules: { slack_no_reply: false } } });
 

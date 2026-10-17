@@ -113,6 +113,17 @@ describe('repository service', () => {
     expect(await repositories.list()).toHaveLength(1);
   });
 
+  it('AC-7: refuses a folder already in the list under another spelling of its path', async () => {
+    // Saved under a second spelling of the same folder, as macOS can reach one through /System/Volumes/Data.
+    const { repositories } = service({
+      repositories: [{ id: '00000000000000aa', path: join(home, 'app-link'), jiraProject: null }],
+    });
+
+    expect(await refusal(repositories.add({ path: '~/code/app', jiraProject: null }))).toBe(
+      'This folder is already in the list.',
+    );
+  });
+
   it('AC-7: refuses a 101st folder', async () => {
     const full = Array.from({ length: 100 }, (_, index) => ({
       id: index.toString(16).padStart(16, '0'),
@@ -144,6 +155,18 @@ describe('repository service', () => {
     await repositories.remove('0123456789abcdef');
 
     expect(seen).toEqual([]);
+  });
+
+  it('lists only the folders it can read, and keeps the others through later saves', async () => {
+    const unreadable = { path: 42, from: 'a newer DevHub' };
+    const good = { id: '00000000000000aa', path: join(home, 'code', 'mobile'), jiraProject: 'MOB' };
+    const { repositories, settings } = service({ repositories: [unreadable, good] });
+
+    expect((await repositories.list()).map((folder) => folder.id)).toEqual([good.id]);
+    const added = await repositories.add({ path: '~/code/app', jiraProject: null });
+    await repositories.remove(good.id);
+
+    expect((await settings.read()).repositories).toEqual([unreadable, { id: added.id, path: app, jiraProject: null }]);
   });
 
   it('AC-18: leaves the Jira and GitHub settings as they were', async () => {

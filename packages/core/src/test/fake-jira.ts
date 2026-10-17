@@ -28,14 +28,18 @@ export function acceptingMyself(site: string = jiraSite) {
 
 /**
  * Jira's paged project search as Atlassian answers it, for the good credentials: `startAt` and
- * `maxResults` pick the page, and `isLast` says whether more follow.
+ * `maxResults` pick the page, and `isLast` says whether more follow. Jira may send fewer than asked for:
+ * `pageCap` is the most it sends in one page.
  */
-export function acceptingProjectSearch(projects: readonly { key: string; name: string }[], site: string = jiraSite) {
+export function acceptingProjectSearch(
+  projects: readonly { key: string; name: string }[],
+  { site = jiraSite, pageCap = 100 }: { site?: string; pageCap?: number } = {},
+) {
   return http.get(projectSearchUrl(site), ({ request }) => {
     if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
     const params = new URL(request.url).searchParams;
     const startAt = Number(params.get('startAt') ?? 0);
-    const maxResults = Number(params.get('maxResults') ?? 50);
+    const maxResults = Math.min(Number(params.get('maxResults') ?? 50), pageCap);
     const values = projects.slice(startAt, startAt + maxResults);
     return HttpResponse.json({
       startAt,

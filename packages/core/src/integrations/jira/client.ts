@@ -38,7 +38,8 @@ export interface JiraClient {
   check(request: JiraCheckRequest): Promise<JiraCheck>;
   /**
    * The projects these credentials can see, by key (`GET /rest/api/3/project/search`, 100 a page, at
-   * most 1000). Each page gets the whole timeout (spec 005).
+   * most 1000). The whole list shares one timeout, so the answer always comes before the page's own
+   * 20-second wait gives up (spec 005).
    */
   projects(request: JiraCheckRequest): Promise<JiraProjects>;
 }
@@ -104,18 +105,21 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
 
     async projects(request) {
       const answer = await withJira(request, async (client) => {
+        const signal = AbortSignal.timeout(timeoutMs);
         const projects: JiraProject[] = [];
-        for (let startAt = 0; startAt < mostProjects; startAt += projectsPerPage) {
+        // Jira may send fewer than asked for, so each page starts where the last one ended.
+        for (let startAt = 0; startAt < mostProjects;) {
           const page = await client.sendRequest({
             url: '/rest/api/3/project/search',
             method: 'GET',
             searchParams: { startAt, maxResults: projectsPerPage, orderBy: 'key' },
             schema: ProjectPageSchema,
-            signal: AbortSignal.timeout(timeoutMs),
+            signal,
           });
           // A key DevHub couldn't save in Settings is left out rather than failing the whole list.
           projects.push(...page.values.filter((project) => JiraProjectKeySchema.safeParse(project.key).success));
           if (page.isLast !== false || page.values.length === 0) break;
+          startAt += page.values.length;
         }
         return projects.slice(0, mostProjects);
       });

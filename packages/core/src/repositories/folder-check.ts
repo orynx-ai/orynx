@@ -16,7 +16,8 @@ export type FolderProblem =
   /** DevHub's own folder holds the session worktrees; Claude never works on them as a repository. */
   | { kind: 'inside_devhub' };
 
-export type FolderCheck = { ok: true; path: string } | { ok: false; problem: FolderProblem };
+/** `identity` tells the same folder apart from its other spellings (see {@link folderIdentity}). */
+export type FolderCheck = { ok: true; path: string; identity: string } | { ok: false; problem: FolderProblem };
 
 export interface FolderCheckOptions {
   /** The person's home folder, for `~`. */
@@ -31,17 +32,35 @@ function errorCode(error: unknown): string | undefined {
   return error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : undefined;
 }
 
-/** The real path, or the path as given when it doesn't exist yet. */
-async function realOrSame(path: string): Promise<string> {
+/** Codes that mean the path leads to no folder: nothing there, a file midway, a symlink loop, a name too long. */
+const leadsNowhere = new Set(['ENOENT', 'ENOTDIR', 'ELOOP', 'ENAMETOOLONG', 'EINVAL']);
+
+/**
+ * A folder's identity on disk (device and inode), or null when nothing is there. macOS reaches each
+ * folder under /private also through /System/Volumes/Data, and realpath keeps whichever spelling it
+ * was given, so comparing path text can't tell that two spellings are one folder.
+ */
+export async function folderIdentity(path: string): Promise<string | null> {
   try {
-    return await realpath(path);
+    const { dev, ino } = await stat(path);
+    return `${String(dev)}:${String(ino)}`;
   } catch {
-    return resolve(path);
+    return null;
   }
 }
 
 function isWithin(path: string, folder: string): boolean {
   return path === folder || path.startsWith(folder.endsWith(sep) ? folder : folder + sep);
+}
+
+/** Whether `path` is the folder `folder` names, or anything inside it, under any spelling. */
+async function isInside(path: string, folder: string): Promise<boolean> {
+  const target = await folderIdentity(folder);
+  if (target === null) return isWithin(path, resolve(folder));
+  for (let current = path; ; current = dirname(current)) {
+    if ((await folderIdentity(current)) === target) return true;
+    if (dirname(current) === current) return false;
+  }
 }
 
 /** Whether `folder` holds `.git`: a folder in a plain clone, a file in a worktree. */
@@ -50,7 +69,8 @@ async function hasGit(folder: string): Promise<boolean> {
     await lstat(join(folder, '.git'));
     return true;
   } catch (error) {
-    if (errorCode(error) === 'ENOENT' || errorCode(error) === 'ENOTDIR') return false;
+    const code = errorCode(error);
+    if (code !== undefined && leadsNowhere.has(code)) return false;
     throw error;
   }
 }
@@ -68,21 +88,24 @@ export async function checkFolder(typed: string, { home, devhubHome }: FolderChe
   if (!isAbsolute(expanded)) return { ok: false, problem: { kind: 'not_full_path' } };
 
   let path: string;
+  let isFolder: boolean;
   try {
     path = await realpath(resolve(expanded));
+    isFolder = (await stat(path)).isDirectory();
   } catch (error) {
     const code = errorCode(error);
-    if (code === 'ENOENT' || code === 'ENOTDIR') return { ok: false, problem: { kind: 'missing' } };
+    if (code !== undefined && leadsNowhere.has(code)) return { ok: false, problem: { kind: 'missing' } };
     if (code === 'EACCES' || code === 'EPERM') return { ok: false, problem: { kind: 'unreadable' } };
     throw error;
   }
 
-  if (!(await stat(path)).isDirectory()) return { ok: false, problem: { kind: 'file' } };
-  if (isWithin(path, await realOrSame(devhubHome))) return { ok: false, problem: { kind: 'inside_devhub' } };
+  if (!isFolder) return { ok: false, problem: { kind: 'file' } };
+  if (await isInside(path, devhubHome)) return { ok: false, problem: { kind: 'inside_devhub' } };
 
   try {
     await access(path, constants.R_OK | constants.X_OK);
-    if (await hasGit(path)) return { ok: true, path };
+    const identity = await folderIdentity(path);
+    if (identity !== null && (await hasGit(path))) return { ok: true, path, identity };
   } catch {
     return { ok: false, problem: { kind: 'unreadable' } };
   }

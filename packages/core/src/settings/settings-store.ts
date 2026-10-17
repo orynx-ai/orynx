@@ -6,16 +6,19 @@ import {
   GitHubSavedConnectionSchema,
   JiraProjectKeySchema,
   JiraSavedConnectionSchema,
-  PermissionModeSchema,
   RepositoryIdSchema,
 } from '@devhub/contracts';
 
 /** One folder in Settings › Repositories as settings.json keeps it; the name and `~` path are worked out on read. */
-const SavedRepositorySchema = z.looseObject({
+export const SavedRepositorySchema = z.looseObject({
   id: RepositoryIdSchema,
   path: z.string(),
   jiraProject: JiraProjectKeySchema.nullable(),
 });
+export type SavedRepository = z.infer<typeof SavedRepositorySchema>;
+
+/** A JSON object as it was written, whatever keys and values it holds. */
+const WrittenObjectSchema = z.record(z.string(), z.unknown());
 
 /**
  * Everything in `<DEVHUB_HOME>/settings.json`. Never a token: tokens live in the keychain (spec 002).
@@ -27,32 +30,14 @@ const SettingsSchema = z.looseObject({
   /** The way GitHub accepted: the gh login or a token in the keychain (spec 004). */
   github: GitHubSavedConnectionSchema.optional(),
   /**
-   * Settings › Coding agent (spec 005). A value this version can't read counts as never chosen, so one
-   * bad key can't make DevHub forget the Jira and GitHub settings next to it.
+   * Settings' own values (spec 005): Coding agent, Inbox rules (only the rules the person changed) and
+   * Repositories, kept as written. The services take what they can read and keep the rest through every
+   * save, so a value from a newer DevHub survives, and one bad value can't make DevHub forget the Jira
+   * and GitHub settings next to it.
    */
-  agent: z
-    .looseObject({ permissionMode: PermissionModeSchema.optional().catch(undefined) })
-    .optional()
-    .catch(undefined),
-  /**
-   * Settings › Inbox rules (spec 005): only the rules the person changed. Rule names this version doesn't
-   * know are kept, so a newer DevHub's rules survive.
-   */
-  inbox: z
-    .looseObject({ rules: z.record(z.string(), z.boolean()).optional().catch(undefined) })
-    .optional()
-    .catch(undefined),
-  /** Settings › Repositories (spec 005), in the order they were added. A folder this version can't read is skipped. */
-  repositories: z
-    .array(z.unknown())
-    .transform((items) =>
-      items.flatMap((item) => {
-        const folder = SavedRepositorySchema.safeParse(item);
-        return folder.success ? [folder.data] : [];
-      }),
-    )
-    .optional()
-    .catch(undefined),
+  agent: WrittenObjectSchema.optional().catch(undefined),
+  inbox: WrittenObjectSchema.optional().catch(undefined),
+  repositories: z.array(z.unknown()).optional().catch(undefined),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

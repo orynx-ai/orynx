@@ -10,8 +10,8 @@ import {
 } from '@devhub/contracts';
 import type { z } from 'zod';
 import type { EventBus } from '../events/event-bus.ts';
-import type { Settings, SettingsStore } from '../settings/settings-store.ts';
-import { checkFolder, displayPath, type FolderProblem } from './folder-check.ts';
+import { SavedRepositorySchema, type SavedRepository, type SettingsStore } from '../settings/settings-store.ts';
+import { checkFolder, displayPath, folderIdentity, type FolderProblem } from './folder-check.ts';
 
 /** Why a folder wasn't added. The message goes under the Folder field as it is (spec 005, Q8e). */
 export class FolderRejectedError extends Error {
@@ -41,7 +41,13 @@ export interface RepositoryServiceOptions {
   devhubHome: string;
 }
 
-type SavedRepository = NonNullable<Settings['repositories']>[number];
+/** The folders this version can read; the others stay in settings.json untouched. */
+function readable(written: readonly unknown[] = []): SavedRepository[] {
+  return written.flatMap((item) => {
+    const folder = SavedRepositorySchema.safeParse(item);
+    return folder.success ? [folder.data] : [];
+  });
+}
 
 function describe(problem: FolderProblem, home: string): string {
   switch (problem.kind) {
@@ -82,7 +88,7 @@ export function createRepositoryService(options: RepositoryServiceOptions): Repo
 
   return {
     async list() {
-      return Promise.all(((await settings.read()).repositories ?? []).map(shown));
+      return Promise.all(readable((await settings.read()).repositories).map(shown));
     },
 
     async add({ path, jiraProject }) {
@@ -90,16 +96,20 @@ export function createRepositoryService(options: RepositoryServiceOptions): Repo
       if (!check.ok) throw new FolderRejectedError(describe(check.problem, await home()));
 
       const folder: SavedRepository = { id: randomBytes(8).toString('hex'), path: check.path, jiraProject };
+      // The same folder may be saved under another spelling of its path, so compare identities on disk.
+      const before = readable((await settings.read()).repositories);
+      const identities = await Promise.all(before.map((other) => folderIdentity(other.path)));
+      const sameFolder = new Set(before.filter((_, index) => identities[index] === check.identity).map((o) => o.id));
       // Inside the change, so two tabs adding the same folder at once can't both win.
       await settings.update((current) => {
-        const saved = current.repositories ?? [];
-        if (saved.some((other) => other.path === folder.path)) {
+        const written = current.repositories ?? [];
+        if (readable(written).some((other) => other.path === folder.path || sameFolder.has(other.id))) {
           throw new FolderRejectedError('This folder is already in the list.');
         }
-        if (saved.length >= maxRepositories) {
+        if (written.length >= maxRepositories) {
           throw new FolderRejectedError(`DevHub holds at most ${String(maxRepositories)} folders. Remove one first.`);
         }
-        return { ...current, repositories: [...saved, folder] };
+        return { ...current, repositories: [...written, folder] };
       });
       events.publish({ type: 'settings.changed' });
       return shown(folder);
@@ -108,9 +118,9 @@ export function createRepositoryService(options: RepositoryServiceOptions): Repo
     async remove(id) {
       const outcome = { removed: false };
       await settings.update((current) => {
-        const saved = current.repositories ?? [];
-        const left = saved.filter((folder) => folder.id !== id);
-        outcome.removed = left.length < saved.length;
+        const written = current.repositories ?? [];
+        const left = written.filter((item) => SavedRepositorySchema.safeParse(item).data?.id !== id);
+        outcome.removed = left.length < written.length;
         return outcome.removed ? { ...current, repositories: left } : current;
       });
       if (outcome.removed) events.publish({ type: 'settings.changed' });

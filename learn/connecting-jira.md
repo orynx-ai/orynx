@@ -50,7 +50,7 @@ The terminal gets one warn line per failed check with the problem, for example `
 
 ## Your projects, for Settings › Repositories
 
-When the add-folder form opens, `GET /api/jira/projects` asks `connection.projects()`, which reads the saved site, email and token and calls `client.projects()`: `GET /rest/api/3/project/search`, 100 a page in key order, at most 1000, each page with the full 10-second wait (spec 005). Nothing is cached; the form drops the list when it closes. Not connected answers `bad_request` ("Connect Jira in Connections to pick a project."); every other failure is one of the answers above, in the same words. A project whose key DevHub couldn't save is left out instead of failing the list.
+When the add-folder form opens, `GET /api/jira/projects` asks `connection.projects()`, which reads the saved site, email and token and calls `client.projects()`: `GET /rest/api/3/project/search`, 100 a page in key order, at most 1000, all within one 10-second wait, so the answer comes before the page's own 20-second wait gives up (spec 005). Nothing is cached; the form drops the list when it closes. Not connected answers `bad_request` ("Connect Jira in Connections to pick a project."); every other failure is one of the answers above, in the same words. A project whose key DevHub couldn't save is left out instead of failing the list.
 
 ## Keeping the token in its place
 

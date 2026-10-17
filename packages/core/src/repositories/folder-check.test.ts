@@ -1,8 +1,9 @@
+import { existsSync, realpathSync } from 'node:fs';
 import { chmod, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { checkFolder, displayPath } from './folder-check.ts';
+import { checkFolder, displayPath, folderIdentity } from './folder-check.ts';
 
 let root: string;
 let home: string;
@@ -36,17 +37,17 @@ function check(typed: string) {
 
 describe('checkFolder', () => {
   it("AC-6: accepts a repository's top folder, typed with ~ or in full, and answers with its real path", async () => {
-    expect(await check('~/code/app')).toEqual({ ok: true, path: repo });
-    expect(await check(`${repo}/`)).toEqual({ ok: true, path: repo });
-    expect(await check(`  ${home}/code/app/../app  `)).toEqual({ ok: true, path: repo });
+    expect(await check('~/code/app')).toEqual({ ok: true, path: repo, identity: await folderIdentity(repo) });
+    expect(await check(`${repo}/`)).toMatchObject({ ok: true, path: repo });
+    expect(await check(`  ${home}/code/app/../app  `)).toMatchObject({ ok: true, path: repo });
   });
 
-  it('AC-6: follows a symlink to the folder it points at', async () => {
-    expect(await check('~/link')).toEqual({ ok: true, path: repo });
+  it('AC-6: follows a symlink to the folder it points at, which keeps its own identity', async () => {
+    expect(await check('~/link')).toEqual({ ok: true, path: repo, identity: await folderIdentity(repo) });
   });
 
   it('AC-6: accepts a git worktree, whose .git is a file', async () => {
-    expect(await check('~/code/worktree')).toEqual({ ok: true, path: join(home, 'code', 'worktree') });
+    expect(await check('~/code/worktree')).toMatchObject({ ok: true, path: join(home, 'code', 'worktree') });
   });
 
   it('AC-7: refuses an empty field', async () => {
@@ -80,6 +81,26 @@ describe('checkFolder', () => {
     for (const typed of ['~/.devhub', '~/.devhub/worktrees/session-1']) {
       expect(await check(typed), typed).toEqual({ ok: false, problem: { kind: 'inside_devhub' } });
     }
+  });
+
+  // macOS reaches every folder under /private also through /System/Volumes/Data, and realpath keeps
+  // whichever spelling it was given. Only the folder's identity on disk tells the two apart.
+  it.runIf(process.platform === 'darwin' && existsSync(`/System/Volumes/Data${realpathSync(tmpdir())}`))(
+    "AC-7: knows DevHub's folder by its identity on disk, not by how its path is spelled",
+    async () => {
+      expect(await check(`/System/Volumes/Data${devhubHome}/worktrees/session-1`)).toEqual({
+        ok: false,
+        problem: { kind: 'inside_devhub' },
+      });
+    },
+  );
+
+  it('AC-7: says nothing is there for a symlink loop or a name too long for the disk', async () => {
+    await symlink(join(home, 'loop-b'), join(home, 'loop-a'));
+    await symlink(join(home, 'loop-a'), join(home, 'loop-b'));
+
+    expect(await check('~/loop-a')).toEqual({ ok: false, problem: { kind: 'missing' } });
+    expect(await check(`~/${'a'.repeat(300)}`)).toEqual({ ok: false, problem: { kind: 'missing' } });
   });
 
   it.skipIf(process.getuid?.() === 0)("AC-7: says when DevHub can't read the folder", async () => {

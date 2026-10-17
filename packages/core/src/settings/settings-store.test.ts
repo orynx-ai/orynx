@@ -95,22 +95,18 @@ describe('file settings store', () => {
     expect(await createFileSettingsStore(home).read()).toEqual({});
   });
 
-  it("AC-18: a Settings value it can't read counts as never chosen, and Jira's settings stay", async () => {
+  it("AC-18: keeps Settings values it can't read as they were written, next to Jira's settings", async () => {
+    const written = {
+      jira,
+      agent: { permissionMode: 'yolo' },
+      inbox: { rules: { checks_failing: 'no' } },
+      repositories: [{ path: 42 }, { id: '00000000000000aa', path: '/Users/dev/code/app', jiraProject: 'PROJ' }],
+    };
     await mkdir(home, { recursive: true });
-    await writeFile(
-      settingsFilePath(home),
-      JSON.stringify({ jira, agent: { permissionMode: 'yolo' }, inbox: { rules: { checks_failing: 'no' } } }),
-    );
+    await writeFile(settingsFilePath(home), JSON.stringify(written));
 
-    expect(await createFileSettingsStore(home).read()).toEqual({ jira, agent: {}, inbox: {} });
-  });
-
-  it("skips a saved folder it can't read, and keeps the good ones", async () => {
-    const good = { id: '00000000000000aa', path: '/Users/dev/code/app', jiraProject: 'PROJ' };
-    await mkdir(home, { recursive: true });
-    await writeFile(settingsFilePath(home), JSON.stringify({ jira, repositories: [{ path: 42 }, good] }));
-
-    expect(await createFileSettingsStore(home).read()).toEqual({ jira, repositories: [good] });
+    // The services decide what they can use; the store loses nothing a newer DevHub wrote.
+    expect(await createFileSettingsStore(home).read()).toEqual(written);
   });
 
   it('a failed change leaves the file as it was and later changes still run', async () => {
