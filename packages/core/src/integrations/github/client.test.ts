@@ -1,0 +1,122 @@
+import { delay, http, HttpResponse } from 'msw';
+import { describe, expect, it } from 'vitest';
+import { githubLogin, githubToken, userUrl, useFakeGitHub } from '../../test/fake-github.ts';
+import { createGitHubClient, type GitHubCheck } from './client.ts';
+
+const github = useFakeGitHub();
+const client = createGitHubClient({ timeoutMs: 200 });
+
+function answerUser(response: () => Response | Promise<Response>) {
+  github.use(http.get(userUrl, response));
+}
+
+/** No outcome may carry the token (AC-17). */
+function expectNoSecret(check: GitHubCheck) {
+  expect(JSON.stringify(check)).not.toContain(githubToken);
+}
+
+describe('GitHub client', () => {
+  it('AC-3, AC-5: GitHub names the account and its scopes for a good token, sent only to api.github.com', async () => {
+    const seen: Request[] = [];
+    github.events.on('request:start', ({ request }) => {
+      seen.push(request.clone());
+    });
+
+    expect(await client.check(githubToken)).toEqual({ ok: true, login: githubLogin, scopes: ['repo', 'read:org'] });
+    expect(seen.map((request) => request.url)).toEqual([userUrl]);
+    expect(seen[0]?.headers.get('authorization')).toBe(`token ${githubToken}`);
+    github.events.removeAllListeners();
+  });
+
+  it('AC-7: a fine-grained token sends no scopes, so they are unknown', async () => {
+    answerUser(() => HttpResponse.json({ login: githubLogin }));
+    expect(await client.check(githubToken)).toEqual({ ok: true, login: githubLogin, scopes: null });
+  });
+
+  it('AC-7: a classic token with no scopes at all', async () => {
+    answerUser(() => HttpResponse.json({ login: githubLogin }, { headers: { 'X-OAuth-Scopes': '' } }));
+    expect(await client.check(githubToken)).toEqual({ ok: true, login: githubLogin, scopes: [] });
+  });
+
+  it('AC-6: GitHub refuses a wrong token with 401', async () => {
+    const check = await client.check('fake-wrong-token');
+    expect(check).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expectNoSecret(check);
+  });
+
+  it('AC-6: a 403 that is not the rate limit is a refused token', async () => {
+    answerUser(() => HttpResponse.json({ message: 'Forbidden' }, { status: 403 }));
+    expect(await client.check(githubToken)).toEqual({ ok: false, problem: { kind: 'rejected' } });
+  });
+
+  it.each([403, 429])('AC-8: the rate limit is used up (%i), and resets at the time GitHub gives', async (status) => {
+    answerUser(() =>
+      HttpResponse.json(
+        { message: 'API rate limit exceeded' },
+        { status, headers: { 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '1792234500' } },
+      ),
+    );
+    expect(await client.check(githubToken)).toEqual({
+      ok: false,
+      problem: { kind: 'rate_limited', resetAt: 1_792_234_500_000 },
+    });
+  });
+
+  it('AC-8: a secondary rate limit says how many seconds to wait instead', async () => {
+    const at = createGitHubClient({ now: () => 1_792_234_000_000 });
+    answerUser(() => HttpResponse.json({ message: 'Slow down' }, { status: 429, headers: { 'Retry-After': '60' } }));
+    expect(await at.check(githubToken)).toEqual({
+      ok: false,
+      problem: { kind: 'rate_limited', resetAt: 1_792_234_060_000 },
+    });
+  });
+
+  it('AC-8: a 429 that says nothing about when it resets', async () => {
+    answerUser(() => HttpResponse.json({ message: 'Slow down' }, { status: 429 }));
+    expect(await client.check(githubToken)).toEqual({ ok: false, problem: { kind: 'rate_limited', resetAt: null } });
+  });
+
+  it.each([500, 502, 503])('AC-8: GitHub answers with an error (%i)', async (status) => {
+    answerUser(() => HttpResponse.json({ message: 'Unicorn' }, { status }));
+    expect(await client.check(githubToken)).toEqual({ ok: false, problem: { kind: 'github_error', status } });
+  });
+
+  it("AC-8: github.com can't be reached", async () => {
+    answerUser(() => HttpResponse.error());
+    const check = await client.check(githubToken);
+    expect(check).toEqual({ ok: false, problem: { kind: 'unreachable', code: undefined } });
+    expectNoSecret(check);
+  });
+
+  it('AC-8: something answers, but not as GitHub does, such as a network login page', async () => {
+    answerUser(() => HttpResponse.html('<html><body>Sign in to the Wi-Fi</body></html>'));
+    expect(await client.check(githubToken)).toEqual({ ok: false, problem: { kind: 'unreachable', code: undefined } });
+  });
+
+  it("AC-8: github.com doesn't answer in time", async () => {
+    answerUser(async () => {
+      await delay('infinite');
+      return HttpResponse.json({});
+    });
+    expect(await client.check(githubToken)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+
+  it.each([
+    ['UNABLE_TO_GET_ISSUER_CERT_LOCALLY', 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY'],
+    ['ENOTFOUND', 'ENOTFOUND'],
+    [githubToken, undefined],
+  ])('AC-8: keeps the network error code %s for the terminal only when it looks like a code', async (code, kept) => {
+    // MSW can't fail a request with a code, so this one stands in for fetch, the network itself.
+    const failing = createGitHubClient({
+      fetch: () =>
+        Promise.reject(new TypeError('fetch failed', { cause: Object.assign(new Error('connect failed'), { code }) })),
+    });
+    const check = await failing.check(githubToken);
+    expect(check).toEqual({ ok: false, problem: { kind: 'unreachable', code: kept } });
+    expectNoSecret(check);
+  });
+
+  it('waits 10 seconds by default', () => {
+    expect(createGitHubClient().timeoutMs).toBe(10_000);
+  });
+});
