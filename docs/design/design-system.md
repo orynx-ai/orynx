@@ -2,7 +2,9 @@
 
 The look, rules and building blocks for DevHub, the local-first developer workspace. Version 1.1, October 2026.
 
-**1.1 (17 Oct 2026):** type, icons and control sizes follow the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`): 16px body, two weights (400 and 500), 20px icons, 40px controls, a 56px page bar and a 300px sidebar. Colours, tokens.css and the components themselves are unchanged. The screens in `docs/design/screens/` were drawn at the 1.0 sizes; read their sizes through this page.
+**1.1 (17 Oct 2026):** type, icons and control sizes follow the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`): 16px body, two weights (400 and 500), 20px icons, 40px controls, a 56px page bar and a 300px sidebar. Colours and tokens.css are unchanged. Three components changed shape: EmptyState lost its dashed outline, PageHeader keeps the page bar on one line over a column of three widths, and Breadcrumb moved to `body` size on one line. The screens in `docs/design/screens/` were drawn at the 1.0 sizes; read their sizes through this page.
+
+**Provisional until spec 006 builds them:** sizes for components not built yet were scaled from 1.0, not chosen by a person: Input 40px (search inset 40px), menu rows 40px with 14px descriptions, the Composer's send button 36px, SegmentedControl segments, pickers, toolbar filter chips and context chips 32px, the context chip's remove button and the agent chip 24px (under the 32px hit-target minimum), nav counts 20px, Stepper and activity dots 24px, status icons 20px, and meta and priority icons 16px (a second icon size). The nav and menu section labels also moved from 12px/500 to 14px/400. Confirm each when its component is built.
 
 Contents: 1. Brand guide · 2. Tokens · 3. Components · 4. CSS (tokens.css and components.css)
 
@@ -722,13 +724,14 @@ Shows the agent's code changes as they happen.
 .dh-btn[disabled], .dh-btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
 
 /* Breadcrumb */
+.dh-breadcrumb { min-width: 0; }
 .dh-breadcrumb ol { display: flex; align-items: center; gap: var(--space-1); min-width: 0; list-style: none; margin: 0; padding: 0; color: var(--text-secondary); }
 .dh-breadcrumb li { display: inline-flex; align-items: center; gap: var(--space-1); flex-shrink: 0; white-space: nowrap; }
 .dh-breadcrumb li:last-child { flex-shrink: 1; min-width: 0; }
 .dh-breadcrumb li + li::before { content: "/"; color: var(--text-secondary); padding: 0 var(--space-1); }
-.dh-breadcrumb a { color: var(--text-secondary); text-decoration: none; border-radius: 4px; padding: 2px 4px; }
+.dh-breadcrumb a { color: var(--text-secondary); text-decoration: none; border-radius: 4px; padding: 4px; }
 .dh-breadcrumb a:hover { color: var(--text-primary); background: var(--bg-subtle); }
-.dh-breadcrumb [aria-current="page"] { color: var(--text-primary); font-weight: 500; padding: 2px 4px; overflow: hidden; text-overflow: ellipsis; }
+.dh-breadcrumb [aria-current="page"] { color: var(--text-primary); font-weight: 500; padding: 4px; overflow: hidden; text-overflow: ellipsis; }
 
 /* Tabs: underline, for switching content inside a page */
 .dh-tabs { display: flex; gap: var(--space-6); border-bottom: 1px solid var(--border-default); overflow-x: auto; }
@@ -869,7 +872,7 @@ Shows the agent's code changes as they happen.
 .dh-nav-count { margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; border-radius: var(--radius-full); border: 1px solid var(--border-default); background: var(--bg-canvas); font-size: 12px; font-weight: 500; line-height: 18px; text-align: center; color: var(--text-secondary); }
 .dh-nav-item[aria-current="page"] .dh-nav-count { background: var(--primary); border-color: transparent; color: var(--on-primary); }
 .dh-nav-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 12px 4px; font-size: 14px; line-height: 20px; color: var(--text-secondary); }
-.dh-nav-head a { margin-left: auto; color: var(--text-secondary); text-decoration: none; border-radius: 4px; padding: 0 4px; }
+.dh-nav-head a { margin: -6px 0 -6px auto; color: var(--text-secondary); text-decoration: none; border-radius: 4px; padding: 6px 4px; }
 .dh-nav-head a:hover { color: var(--text-primary); background: var(--bg-subtle); }
 .dh-session { display: flex; align-items: flex-start; gap: var(--space-3); padding: 8px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; }
 .dh-session:hover { background: var(--bg-subtle); }
