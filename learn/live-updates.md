@@ -21,7 +21,7 @@ service in core ──publish(event)──▶ event bus ──▶ GET /api/event
 
 ## 1. The event union
 
-`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed` and `sessions.changed`. Every new kind of change adds a member here first, so the server and the page agree on the payload.
+`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed`, `sessions.changed` and `settings.changed` (a value in Settings › Coding agent, Repositories or Inbox rules was saved, spec 005). Every new kind of change adds a member here first, so the server and the page agree on the payload.
 
 ## 2. The event bus
 
@@ -49,6 +49,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       return [queryKeys.status, queryKeys.jiraConnection, queryKeys.githubConnection];
     case 'sessions.changed':
       return [queryKeys.sessions]; // the sidebar's 5 and the full list both start with this key
+    case 'settings.changed':
+      return [queryKeys.preferences];
   }
 }
 ```

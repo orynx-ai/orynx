@@ -15,8 +15,7 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'sessions.changed':
       return [queryKeys.sessions];
     case 'settings.changed':
-      // No query holds Settings' own values yet.
-      return [];
+      return [queryKeys.preferences];
   }
 }
 

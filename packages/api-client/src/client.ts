@@ -5,6 +5,8 @@ import {
   type GitHubConnectionRequest,
   type JiraConnection,
   type JiraConnectionRequest,
+  type Preferences,
+  type PreferencesChange,
   type ServerEvent,
   type SessionList,
   type SessionListQuery,
@@ -12,6 +14,7 @@ import {
 } from '@devhub/contracts';
 import { deleteGitHubConnection, getGitHubConnection, putGitHubConnection } from './endpoints/github.ts';
 import { deleteJiraConnection, getJiraConnection, putJiraConnection } from './endpoints/jira.ts';
+import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
 import { getSessions } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
 import { toApiRequestError } from './errors.ts';
@@ -42,6 +45,10 @@ export interface ApiClient {
   /** Gets a token the way asked, checks it with GitHub, then saves; rejects like {@link connectJira}. */
   connectGitHub(request: GitHubConnectionRequest): Promise<GitHubConnection>;
   disconnectGitHub(): Promise<void>;
+  /** Settings › Coding agent and Inbox rules, with the default for anything never chosen. */
+  preferences(): Promise<Preferences>;
+  /** Saves one change and returns every preference. */
+  changePreferences(change: PreferencesChange): Promise<Preferences>;
   /** Opens the live event stream; returns a function that closes it. */
   subscribe(onEvent: (event: ServerEvent) => void, onError?: () => void): () => void;
 }
@@ -76,6 +83,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       putGitHubConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     disconnectGitHub: () =>
       deleteGitHubConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    preferences: () => getPreferences(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    changePreferences: (change) =>
+      patchPreferences(http, change).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     subscribe: (onEvent, onError) =>
       subscribeToEvents({
         baseURL: options.baseURL,

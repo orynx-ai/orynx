@@ -9,6 +9,7 @@ export const queryKeys = {
   sessions: ['sessions'] as const,
   jiraConnection: ['jira', 'connection'] as const,
   githubConnection: ['github', 'connection'] as const,
+  preferences: ['preferences'] as const,
 };
 
 export function statusQueryOptions(api: ApiClient) {
@@ -43,6 +44,15 @@ export function githubConnectionQueryOptions(api: ApiClient) {
     queryKey: queryKeys.githubConnection,
     queryFn: () => api.githubConnection(),
     // Connect and Disconnect publish status.changed, which refreshes this too.
+    staleTime: Infinity,
+  });
+}
+
+export function preferencesQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.preferences,
+    queryFn: () => api.preferences(),
+    // Every save publishes settings.changed, which refreshes this in every open tab.
     staleTime: Infinity,
   });
 }

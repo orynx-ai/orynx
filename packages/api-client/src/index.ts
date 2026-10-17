@@ -4,6 +4,7 @@ export { parseServerEvent, subscribeToEvents, type EventSourceConstructor, type 
 export {
   githubConnectionQueryOptions,
   jiraConnectionQueryOptions,
+  preferencesQueryOptions,
   queryKeys,
   sessionsQueryOptions,
   statusQueryOptions,

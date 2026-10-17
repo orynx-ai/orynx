@@ -8,15 +8,15 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Core preferences: settings.json keys, a service that reads with defaults and saves a partial change, and GET/PATCH `/api/preferences`, which publishes `settings.changed` and keeps every other key (AC-3, AC-13, AC-17, AC-18)
       Check: pnpm test packages/core/src/preferences packages/core/src/routes/preferences.test.ts packages/core/src/settings; pnpm gate learn-freshness
       Files: packages/core/src/settings/settings-store.ts, packages/core/src/preferences/preferences-service.ts (+test), packages/core/src/routes/preferences.ts (+test), packages/core/src/create-server.ts
-- [ ] Task 3: api-client preferences (get, update, queryOptions), and `settings.changed` refreshing them in live updates (AC-17)
+- [x] Task 3: api-client preferences (get, update, queryOptions), and `settings.changed` refreshing them in live updates. The app-level test of that refresh comes with the first tab that shows them, in Task 5 (AC-17)
       Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx; pnpm gate learn-freshness
-      Files: packages/api-client/src/endpoints/preferences.ts, client.ts, queries.ts, preferences.test.ts; packages/app/src/live-updates.tsx (+test); learn/live-updates.md
+      Files: packages/api-client/src/endpoints/preferences.ts, client.ts, queries.ts, index.ts, preferences.test.ts; packages/app/src/live-updates.tsx; learn/live-updates.md
 - [ ] Task 4: `Checkbox` in `@devhub/ui`: a native checkbox at 20 px with a `border-control` outline, `info` when checked, and a label filling a 48 px row, with stories (unchecked, checked, disabled, long label) and a test; design-map row (AC-12, AC-19)
       Check: pnpm test packages/ui/src/components/checkbox.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/checkbox.tsx, checkbox.stories.tsx, checkbox.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 5: The Coding agent tab: legend, three choices with their lines, the two footnotes, the loading chrome, an optimistic save, and on failure a rollback with a line under the group (AC-1, AC-2, AC-3, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/settings; pnpm gate design-source style-policy component-coverage
-      Files: packages/app/src/features/settings/tabs.ts, settings-screen.tsx (+test), queries.ts, components/coding-agent-panel.tsx (+test), components/save-error.tsx (+test)
+      Files: packages/app/src/features/settings/tabs.ts, settings-screen.tsx (+test), queries.ts, components/coding-agent-panel.tsx (+test), components/save-error.tsx (+test), packages/app/src/test/msw.ts, packages/app/src/live-updates.test.tsx
 - [ ] Task 6: The Inbox rules tab: the intro line, five checkbox rows, the loading chrome, an optimistic save, and on failure a rollback with the save-error line (AC-1, AC-12, AC-13, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/settings; pnpm gate style-policy component-coverage
       Files: packages/app/src/features/settings/tabs.ts, settings-screen.tsx, components/inbox-rules-panel.tsx (+test)
