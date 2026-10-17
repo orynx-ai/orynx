@@ -26,9 +26,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: Add `tickets()` and its query options to the api-client, and a default "Jira not connected" answer for the app's tests (AC-21, AC-25)
       Check: pnpm test packages/api-client packages/app
       Files: packages/api-client/src/endpoints/tickets.ts, tickets.test.ts, client.ts, queries.ts, index.ts, packages/app/src/test/msw.ts
-- [ ] Task 9: Move Home's calendar helpers to one shared file, and write Tickets' words as pure functions: each due date and its spoken form and `soon` (Q7b), the sprint meta (Q9a), the count, the columns and their empty texts, the avatars, and the no-sprint, can't-load and too-many lines (Q9) (AC-2, AC-6, AC-14, AC-15, AC-16, AC-22, AC-25, AC-26)
+- [x] Task 9: Move Home's calendar helpers to one shared file, and write Tickets' words as pure functions: each due date and its spoken form and `soon` (Q7b), the sprint meta (Q9a), the count, the columns and their empty texts, the avatars, and the no-sprint, can't-load and too-many lines (Q9) (AC-2, AC-6, AC-14, AC-15, AC-16, AC-22, AC-25, AC-26)
       Check: pnpm test packages/app/src/words packages/app/src/features/home packages/app/src/features/tickets
-      Files: packages/app/src/words/calendar.ts, calendar.test.ts, packages/app/src/features/home/inbox-words.ts, packages/app/src/features/tickets/ticket-words.ts, ticket-words.test.ts
+      Files: packages/app/src/words/calendar.ts, calendar.test.ts, tool-line.ts, packages/app/src/features/home/inbox-words.ts, packages/app/src/features/tickets/ticket-words.ts, ticket-words.test.ts
 - [ ] Task 10: Write the filters as pure functions: Assigned to me, Due this week, Bugs only, the search text, grouping into columns, and reading and writing them as the address's search params (Q3) (AC-7, AC-8, AC-9, AC-10)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/filters.ts, filters.test.ts

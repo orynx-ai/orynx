@@ -1,49 +1,16 @@
-import type { Inbox, InboxItem, InboxRules, InboxTab, InboxToolState } from '@devhub/contracts';
+import type { Inbox, InboxItem, InboxRules, InboxTab } from '@devhub/contracts';
 import type { PillTone } from '@devhub/ui';
 import { personName } from '../../shell/person-name.ts';
+import { calendarDay, day, daysUntil, minute, months, plural, weekdays } from '../../words/calendar.ts';
+import { waitText } from '../../words/tool-line.ts';
+
+// Moved to `words/` so Tickets writes them the same way (spec 008); Home's own importers keep these.
+export { toolLine, waitText, type ToolLine } from '../../words/tool-line.ts';
 
 /**
  * Every word Home's "Needs your attention" list shows (spec 007, Q2, Q5, Q6, Q8). The server sends data;
  * these turn it into words with the laptop's clock, so a wait moves on each minute without a request.
  */
-
-const minute = 60_000;
-const hour = 60 * minute;
-const day = 24 * hour;
-
-const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const months = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
-
-function plural(count: number, unit: string): string {
-  return `${String(count)} ${unit}${count === 1 ? '' : 's'}`;
-}
-
-/** Q2c: "12 min", "3 h" or "9 d", never weeks; at least a minute. The spoken form says the words. */
-export function waitText(ms: number): { short: string; spoken: string } {
-  if (ms < hour) {
-    const minutes = Math.max(1, Math.floor(ms / minute));
-    return { short: `${String(minutes)} min`, spoken: plural(minutes, 'minute') };
-  }
-  if (ms < day) {
-    const hours = Math.floor(ms / hour);
-    return { short: `${String(hours)} h`, spoken: plural(hours, 'hour') };
-  }
-  const days = Math.floor(ms / day);
-  return { short: `${String(days)} d`, spoken: plural(days, 'day') };
-}
 
 export interface ReasonPill {
   text: string;
@@ -57,18 +24,6 @@ function withWait(label: string, waited: number, tone: PillTone): ReasonPill {
   return { text: `${label} · ${wait.short}`, spoken: `${label}, ${wait.spoken}`, tone };
 }
 
-/** `on` (YYYY-MM-DD) as midnight on the laptop's calendar. */
-function dueDate(on: string): Date {
-  const [year = 0, month = 1, date = 1] = on.split('-').map(Number);
-  return new Date(year, month - 1, date);
-}
-
-/** Whole calendar days from today to `on`; negative when it's past. Rounded, so a clock change doesn't count. */
-function daysUntil(on: string, now: Date): number {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.round((dueDate(on).getTime() - today.getTime()) / day);
-}
-
 /** Q2e: a due date is its own reason, with no wait. */
 function duePill(on: string, highPriorityBug: boolean, now: Date): ReasonPill {
   const days = daysUntil(on, now);
@@ -76,7 +31,7 @@ function duePill(on: string, highPriorityBug: boolean, now: Date): ReasonPill {
     const late = -days;
     return { text: `Overdue · ${String(late)} d`, spoken: `Overdue by ${plural(late, 'day')}`, tone: 'danger' };
   }
-  const due = dueDate(on);
+  const due = calendarDay(on);
   if (days > 6) {
     // Due later is neutral, whatever the issue (Q2e).
     const month = months[due.getMonth()] ?? '';
@@ -163,55 +118,6 @@ export function syncLine(inbox: Inbox, now: Date): string | null {
   if (connected.length === 0) return null;
   if (inbox.syncedAt !== null) return `Synced ${agoText(now.getTime() - Date.parse(inbox.syncedAt))}`;
   return connected.every((tool) => tool.state === 'syncing') ? 'Syncing' : null;
-}
-
-export interface ToolLine {
-  message: string;
-  /** A link after the message, to a Settings tab; the screen ends it with a full stop. */
-  action: { text: string; tab: 'connections' } | null;
-}
-
-const toolNames = { jira: 'Jira', github: 'GitHub' } as const;
-
-function clock(iso: string): string {
-  const time = new Date(iso);
-  return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
-}
-
-/** Q5: one quiet line for a tool that isn't connected or whose last sync failed; null otherwise. */
-export function toolLine(tool: keyof typeof toolNames, state: InboxToolState, now: Date): ToolLine | null {
-  const name = toolNames[tool];
-  if (state.state === 'not_connected') {
-    return { message: `${name} is not connected.`, action: { text: 'Connect it in Settings', tab: 'connections' } };
-  }
-  if (state.state !== 'failed') return null;
-  // Only a tool that may still be fine says how old its rows are; a refused token says what to do.
-  const age =
-    state.lastSyncedAt === null
-      ? ''
-      : ` These are from ${waitText(Math.max(minute, now.getTime() - Date.parse(state.lastSyncedAt))).short} ago.`;
-  const { problem } = state;
-  switch (problem.kind) {
-    case 'no_answer':
-      return { message: `${name} didn't answer.${age}`, action: null };
-    case 'rate_limited':
-      return {
-        message: `${name}'s rate limit is used up${problem.until === null ? '' : ` until ${clock(problem.until)}`}.${age}`,
-        action: null,
-      };
-    case 'rejected':
-      return {
-        message: `${name} refused the saved token.`,
-        action: { text: 'Reconnect it in Settings', tab: 'connections' },
-      };
-    case 'sign_in_needed':
-      return {
-        message: `${name} wants you to sign in on the web first. Sign in at ${problem.site}, then press Refresh.`,
-        action: null,
-      };
-    case 'other':
-      return { message: problem.message, action: null };
-  }
 }
 
 export interface EmptyText {
