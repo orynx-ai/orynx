@@ -1,6 +1,7 @@
 export { createServer, redactToken, type CoreOptions } from './create-server.ts';
 export { createEventBus, type EventBus, type EventListener } from './events/event-bus.ts';
 export { createGhCli, type GhCli } from './integrations/github/gh.ts';
+export { cacheFilePath, openInboxCache, type InboxCache } from './inbox/inbox-cache.ts';
 export { createMemorySessionStore, type SessionStore } from './sessions/session-store.ts';
 export {
   createFileSettingsStore,
