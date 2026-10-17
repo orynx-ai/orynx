@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: Add the `integration_rejected` and `integration_unreachable` error codes (AC-4, AC-5)
+- [x] Task 1: Add the `integration_rejected` and `integration_unreachable` error codes (AC-4, AC-5)
       Check: pnpm test packages/contracts packages/api-client; pnpm typecheck
       Files: packages/contracts/src/errors.ts, packages/contracts/src/errors.test.ts
 - [ ] Task 2: Jira connection contracts: site rule (atlassian.net only, forgiving input), request with optional token, response with `envToken`, paths, test builder (AC-7, AC-10, AC-12)
