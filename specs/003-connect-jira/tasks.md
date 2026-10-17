@@ -23,7 +23,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Jira connection service: connect checks then saves, disconnect removes all three, read never touches the keychain, `.env` token, `status.changed` (AC-3, AC-4, AC-8, AC-10, AC-11, AC-12)
       Check: pnpm test packages/core/src/integrations/jira; pnpm typecheck
       Files: packages/core/src/integrations/jira/connection.ts, packages/core/src/integrations/jira/connection.test.ts
-- [ ] Task 8: Jira's status line: keychain read only once a site and email are saved, a check at most every 2 minutes, shared in-flight check, last result while re-checking (AC-1, AC-9)
+- [x] Task 8: Jira's status line: keychain read only once a site and email are saved, a check at most every 2 minutes, shared in-flight check, last result while re-checking (AC-1, AC-9)
       Check: pnpm test packages/core/src/integrations/jira; pnpm typecheck
       Files: packages/core/src/integrations/jira/connection.ts, packages/core/src/integrations/jira/connection-status.test.ts
 - [ ] Task 9: Routes `GET`, `PUT` and `DELETE /api/jira/connection`, error codes to HTTP, `createServer` takes the settings store, and the status service uses Jira's line (AC-3, AC-7, AC-8, AC-11, AC-14)
