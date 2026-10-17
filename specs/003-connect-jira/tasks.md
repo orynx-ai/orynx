@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Jira client over jira.js: check email and token with `/myself`, 10 s timeout, every failure becomes a fixed outcome, nothing from jira.js's errors escapes (AC-4, AC-5, AC-6, AC-15)
       Check: pnpm test packages/core/src/integrations/jira; pnpm typecheck; pnpm gate boundaries
       Files: packages/core/src/integrations/jira/client.ts, packages/core/src/integrations/jira/client.test.ts, packages/core/src/integrations/jira/problems.ts, packages/core/src/integrations/jira/problems.test.ts, packages/core/src/test/fake-jira.ts, packages/core/package.json, apps/server/package.json, pnpm-lock.yaml (via pnpm add)
-- [ ] Task 7: Jira connection service: connect checks then saves, disconnect removes all three, read never touches the keychain, `.env` token, `status.changed` (AC-3, AC-4, AC-8, AC-10, AC-11, AC-12)
+- [x] Task 7: Jira connection service: connect checks then saves, disconnect removes all three, read never touches the keychain, `.env` token, `status.changed` (AC-3, AC-4, AC-8, AC-10, AC-11, AC-12)
       Check: pnpm test packages/core/src/integrations/jira; pnpm typecheck
       Files: packages/core/src/integrations/jira/connection.ts, packages/core/src/integrations/jira/connection.test.ts
 - [ ] Task 8: Jira's status line: keychain read only once a site and email are saved, a check at most every 2 minutes, shared in-flight check, last result while re-checking (AC-1, AC-9)
