@@ -103,15 +103,15 @@ describe('Sidebar', () => {
     const { user } = await renderApp();
     const nav = mainNav();
     const handle = within(nav).getByRole('separator', { name: 'Resize sidebar' });
-    expect(handle).toHaveAttribute('aria-valuenow', '260');
+    expect(handle).toHaveAttribute('aria-valuenow', '300');
     expect(handle).toHaveAttribute('aria-controls', nav.id);
 
     handle.focus();
     await user.keyboard('{ArrowRight}{ArrowRight}');
 
-    expect(handle).toHaveAttribute('aria-valuenow', '292');
-    expect(nav.style.getPropertyValue('--sidebar-width')).toBe('292px');
-    expect(JSON.parse(localStorage.getItem('devhub.ui') ?? '{}')).toMatchObject({ state: { sidebarWidth: 292 } });
+    expect(handle).toHaveAttribute('aria-valuenow', '332');
+    expect(nav.style.getPropertyValue('--sidebar-width')).toBe('332px');
+    expect(JSON.parse(localStorage.getItem('devhub.ui') ?? '{}')).toMatchObject({ state: { sidebarWidth: 332 } });
   });
 
   it('AC-23: keeps a remembered width within 260–400 px', async () => {

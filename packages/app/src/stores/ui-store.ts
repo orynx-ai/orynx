@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-/** The expanded sidebar's width in px: 260 by default, resizable up to 400 (spec 001, Q10). */
-export const sidebarWidthLimits = { min: 260, max: 400, initial: 260 } as const;
+/** The expanded sidebar's width in px: 300 by default, resizable from 260 to 400 (spec 001, Q10). */
+export const sidebarWidthLimits = { min: 260, max: 400, initial: 300 } as const;
 
 /** Keeps a width, including one read back from storage, inside the limits. */
 export function clampSidebarWidth(width: number): number {
