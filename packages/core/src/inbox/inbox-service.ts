@@ -9,6 +9,7 @@ import { jiraAccount, type JiraSyncCredentials } from '../integrations/jira/conn
 import { JiraIssueRecordSchema, jiraInboxProblem, jiraRecords } from '../integrations/jira/map.ts';
 import type { SessionStore } from '../sessions/session-store.ts';
 import type { Settings, SettingsStore } from '../settings/settings-store.ts';
+import type { SprintSyncOutcome } from '../tickets/tickets-service.ts';
 import type { CachedTool, CacheRecord, InboxCache, InboxTool } from './inbox-cache.ts';
 import { inboxItems } from './rules.ts';
 import { toolState } from './tool-state.ts';
@@ -47,6 +48,11 @@ export interface InboxServiceOptions {
   };
   jira: JiraClient;
   github: GitHubClient;
+  /**
+   * Tickets' sprint (spec 008), read side by side with the tools in each sync. It has its own part of the
+   * cache, so it never changes Home's lines or "Synced" time, and it goes when Jira does.
+   */
+  sprint?: { sync(): Promise<SprintSyncOutcome>; forget(): void };
   sessions: SessionStore;
   preferences: { read(): Promise<Preferences> };
   events: EventBus;
@@ -140,8 +146,16 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     );
   }
 
+  async function syncSprint(): Promise<void> {
+    if (options.sprint === undefined) return;
+    // A sprint a disconnected Jira left behind goes, as a tool's rows do.
+    if ((await options.sprint.sync()) === 'not_connected' && cache.tool('jira_sprint') !== null) {
+      options.sprint.forget();
+    }
+  }
+
   async function run(): Promise<void> {
-    const outcomes = await Promise.allSettled([syncJira(), syncGitHub()]);
+    const [outcomes] = await Promise.all([Promise.allSettled([syncJira(), syncGitHub()]), syncSprint()]);
     const ended = outcomes.map((outcome, index): Outcome => {
       const tool = syncedTools[index] ?? 'jira';
       if (outcome.status === 'rejected') {
@@ -232,6 +246,7 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
 
     forget(tool) {
       cache.forget(tool);
+      if (tool === 'jira') options.sprint?.forget();
       events.publish({ type: 'inbox.changed' });
     },
   };

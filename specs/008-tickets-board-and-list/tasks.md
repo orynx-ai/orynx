@@ -17,9 +17,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Add the tickets service: sync the sprint into its own cache part with its last sync and problem, write only while the same account is connected, and read it back with each ticket's newest session joined (AC-12, AC-19, AC-22, AC-23, AC-24, AC-26)
       Check: pnpm test packages/core/src/tickets
       Files: packages/core/src/tickets/tickets-service.ts, tickets-service.test.ts, packages/core/src/inbox/inbox-cache.ts, tool-state.ts, inbox-service.ts
-- [ ] Task 6: Sync the sprint side by side with Jira's issues and GitHub in the inbox's `run()`, and let a disconnect, Clear cache and a sync that finds Jira gone take the sprint too (AC-17, AC-29)
+- [x] Task 6: Sync the sprint side by side with Jira's issues and GitHub in the inbox's `run()`, and let a disconnect, Clear cache and a sync that finds Jira gone take the sprint too (AC-17, AC-29)
       Check: pnpm test packages/core/src/inbox packages/core/src/tickets
-      Files: packages/core/src/inbox/inbox-service.ts, inbox-service.test.ts, inbox-schedule.test.ts
+      Files: packages/core/src/inbox/inbox-service.ts, inbox-service.test.ts
 - [ ] Task 7: Add `GET /api/tickets` and wire the tickets service into `createServer`. The leak test also checks the sprint part (AC-1, AC-21, AC-28)
       Check: pnpm test packages/core/src/routes/tickets.test.ts packages/core/src/inbox/no-leaks.test.ts; pnpm typecheck
       Files: packages/core/src/routes/tickets.ts, tickets.test.ts, packages/core/src/create-server.ts, packages/core/src/index.ts, packages/core/src/inbox/no-leaks.test.ts
