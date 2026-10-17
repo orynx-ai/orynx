@@ -41,7 +41,7 @@ click a mode ─▶ useChangePreferences().mutate({ permissionMode })
 
 ## Clear cache
 
-The Inbox rules tab ends with Clear cache (spec 002 Q3, spec 007 Q7): a line on what the cache is for and a small secondary button. `useClearInboxCache()` sends `DELETE /api/inbox/cache`; the server empties `cache.db` (never tokens, settings, sessions or worktrees), says `inbox.changed` and syncs again, so the mutation touches no cached query. The button shows its spinner while the request is on its way, a screen reader then hears "Cache cleared." from a status region that is there from the start, and a failure says so under the button. See `learn/the-inbox.md`.
+The Inbox rules tab ends with Clear cache (spec 002 Q3, spec 007 Q7): a line on what the cache is for and a small secondary button. `useClearInboxCache()` sends `DELETE /api/inbox/cache`; the server empties `cache.db` (never tokens, settings, sessions or worktrees), says `inbox.changed` and syncs again, so the mutation touches no cached query. The button is described by the line above it (`aria-describedby`), shows its spinner while the request is on its way, and a screen reader then hears "Cache cleared." from a status region that is there from the start; a failure says so under the button. See `learn/the-inbox.md`.
 
 ## How a folder is checked
 

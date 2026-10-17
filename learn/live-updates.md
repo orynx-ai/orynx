@@ -49,7 +49,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // tools the inbox shows (spec 007).
       return [queryKeys.status, queryKeys.jiraConnection, queryKeys.githubConnection, queryKeys.inbox];
     case 'sessions.changed':
-      return [queryKeys.sessions]; // the sidebar's 5 and the full list both start with this key
+      // A session waiting for approval is a row on Home (spec 007).
+      return [queryKeys.sessions, queryKeys.inbox];
     case 'settings.changed':
       // The inbox rules apply when the server reads the list (spec 007).
       return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];

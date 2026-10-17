@@ -62,7 +62,7 @@ octokit reports a failed fetch as status 500 with no `response`, so `client.ts` 
 
 ## Your pull requests, for Home (spec 007)
 
-The inbox's sync asks `connection.credentials()` for a token: gh's for the gh way (running gh, never asking GitHub), the saved one for the token way. Null means GitHub isn't connected; a token missing from the keychain is a `rejected` problem; a signed-out gh or a locked keychain keeps the words from specs 002 and 004. Then `client.inbox()` sends one GraphQL query to `api.github.com/graphql` with the same octokit settings as Connect (no redirects, 10 seconds, the token in the header only). GraphQL's own `RATE_LIMITED` error reads as a rate limit with GitHub's reset time. See `learn/the-inbox.md`.
+The inbox's sync asks `connection.credentials()` for a token: gh's for the gh way (running gh, never asking GitHub), the saved one for the token way. Null means GitHub isn't connected; a token missing from the keychain is a `rejected` problem; a signed-out gh or a locked keychain keeps the words from specs 002 and 004. Then `client.inbox()` sends one GraphQL query to `api.github.com/graphql` with the same octokit settings as Connect (no redirects, 10 seconds, the token in the header only). GraphQL's own `RATE_LIMITED` error reads as a rate limit with GitHub's reset time. The query's limits keep it to about 24 points a sync, because GitHub prices by the most nodes a query could return; the sum sits next to the query. A pull request's link must be https on github.com, or it isn't kept. See `learn/the-inbox.md`.
 
 ## Keeping the token in its place
 
