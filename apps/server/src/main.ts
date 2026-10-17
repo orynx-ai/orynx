@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createServer } from '@devhub/core';
+import { createOsKeychain, createServer } from '@devhub/core';
 import { loadConfig, readEnvFile, repoEnvFile } from './config.ts';
 import { createSessionToken, removeRuntimeFile, writeRuntimeFile } from './runtime-file.ts';
 import { tokenNotices } from './token-notices.ts';
@@ -19,6 +19,8 @@ const app = await createServer({
   token,
   port: config.port,
   version: packageJson.version,
+  keychain: createOsKeychain(),
+  ...(config.tokens.fromEnv ? { envTokens: config.tokens.env } : {}),
   logger: {
     level: config.logLevel,
     ...(config.pretty ? { transport: { target: 'pino-pretty', options: { ignore: 'pid,hostname' } } } : {}),

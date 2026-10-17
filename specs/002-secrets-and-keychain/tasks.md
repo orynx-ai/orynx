@@ -23,8 +23,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Start-up notices with the Q4 wording: switch on, "set but not used", `chmod 600 .env` (AC-7, AC-11)
       Check: pnpm test apps/server/src/token-notices.test.ts; pnpm typecheck
       Files: apps/server/src/token-notices.ts, apps/server/src/token-notices.test.ts, apps/server/src/main.ts
-- [ ] Task 8: Wire the store into `createServer` as `app.tokens`; `main.ts` passes the OS keychain; nothing reads it at start (AC-1, AC-14)
-      Check: pnpm test packages/core apps/server; pnpm build; pnpm exec playwright test e2e/smoke.spec.ts
+- [x] Task 8: Wire the store into `createServer` as `app.tokens`; `main.ts` passes the OS keychain; nothing reads it at start (AC-1, AC-6, AC-14)
+      Check: pnpm test packages/core apps/server; pnpm build; pnpm exec playwright test e2e/
       Files: packages/core/src/create-server.ts, packages/core/src/secrets/tokens-in-server.test.ts, packages/core/src/index.ts, apps/server/src/main.ts
 - [ ] Task 9: Docs: a `learn/` page on tokens and the keychain, architecture, local-security and the integration-adapter skill
       Check: pnpm gate learn-freshness; pnpm gate handbook-size; pnpm format:check
