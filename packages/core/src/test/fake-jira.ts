@@ -28,7 +28,8 @@ export interface FakeSprint {
   id: number;
   name?: string;
   state?: 'active' | 'future' | 'closed';
-  boardId?: number;
+  /** Null for a sprint Jira gives no board. */
+  boardId?: number | null;
   /** As Jira writes it; null for a sprint with no end date. */
   endDate?: string | null;
 }
@@ -39,7 +40,7 @@ export function jiraSprint(sprint: FakeSprint) {
     id: sprint.id,
     name: sprint.name ?? `Sprint ${String(sprint.id)}`,
     state: sprint.state ?? 'active',
-    boardId: sprint.boardId ?? 7,
+    ...(sprint.boardId === null ? {} : { boardId: sprint.boardId ?? 7 }),
     goal: '',
     startDate: '2026-10-10T09:00:00.000Z',
     ...(sprint.endDate === null ? {} : { endDate: sprint.endDate ?? '2026-10-24T17:00:00.000Z' }),

@@ -14,6 +14,9 @@ import { InboxProblemSchema, type InboxProblem } from '@devhub/contracts';
 
 export type InboxTool = 'jira' | 'github';
 
+/** A part of the cache with its own records and last sync: a tool's inbox, or Tickets' sprint (spec 008). */
+export type CachePart = InboxTool | 'jira_sprint';
+
 /** Goes up whenever the tables or a record's shape change, so an older file is made again. */
 const version = 1;
 
@@ -67,16 +70,16 @@ export interface CacheRecord {
 
 export interface InboxCache {
   /** The tool's records and last sync, or null when it never synced. */
-  tool(tool: InboxTool): CachedTool | null;
+  tool(tool: CachePart): CachedTool | null;
   /** A good sync: the tool's records are replaced and its problem cleared. */
-  synced(tool: InboxTool, sync: { connection: string; at: string; records: readonly CacheRecord[] }): void;
+  synced(tool: CachePart, sync: { connection: string; at: string; records: readonly CacheRecord[] }): void;
   /** A failed sync: the last good records stay, unless they belong to another connection. */
-  failed(tool: InboxTool, sync: { connection: string; problem: InboxProblem }): void;
+  failed(tool: CachePart, sync: { connection: string; problem: InboxProblem }): void;
   /** When every connected tool last answered in the same sync. */
   syncedAt(): string | null;
   setSyncedAt(at: string): void;
   /** Disconnect: the tool's records and sync go. */
-  forget(tool: InboxTool): void;
+  forget(tool: CachePart): void;
   /** Clear cache: everything goes. */
   clear(): void;
   close(): void;
@@ -202,7 +205,7 @@ export function openInboxCache(path: string, options: InboxCacheOptions = {}): I
     }
   }
 
-  function saveTool(tool: InboxTool, row: Omit<typeof tools.$inferInsert, 'tool'>): void {
+  function saveTool(tool: CachePart, row: Omit<typeof tools.$inferInsert, 'tool'>): void {
     db.insert(tools)
       .values({ tool, ...row })
       .onConflictDoUpdate({ target: tools.tool, set: row })

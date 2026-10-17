@@ -6,8 +6,14 @@ import { boardLayout, columnOf, pickSprint, priorityLevel, sprintRecord, SprintR
 const site = 'your-team.atlassian.net';
 
 function ref(sprint: FakeSprint): JiraSprintRef {
-  const { id, name, state, boardId, endDate } = jiraSprint(sprint);
-  return { id, name, state, boardId, endDate: endDate ?? null };
+  const made = jiraSprint(sprint);
+  return {
+    id: made.id,
+    name: made.name,
+    state: made.state,
+    boardId: 'boardId' in made ? made.boardId : null,
+    endDate: made.endDate ?? null,
+  };
 }
 
 /** An issue in the sprint as the client hands it over. */

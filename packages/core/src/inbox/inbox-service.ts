@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { Inbox, InboxProblem, InboxToolState, Preferences } from '@devhub/contracts';
+import type { Inbox, InboxProblem, Preferences } from '@devhub/contracts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { GitHubClient } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
@@ -11,6 +11,7 @@ import type { SessionStore } from '../sessions/session-store.ts';
 import type { Settings, SettingsStore } from '../settings/settings-store.ts';
 import type { CachedTool, CacheRecord, InboxCache, InboxTool } from './inbox-cache.ts';
 import { inboxItems } from './rules.ts';
+import { toolState } from './tool-state.ts';
 
 /**
  * Home's "Needs your attention" list (spec 007). Reading answers from the cache at once and applies the
@@ -62,27 +63,10 @@ type Outcome = 'answered' | 'failed' | 'not_connected';
 
 const syncedTools = ['jira', 'github'] as const satisfies readonly InboxTool[];
 
-/**
- * What a tool's line says when its sync broke in DevHub itself (a cache it can't write, say): the words
- * the /api error handler already uses, because the cause is in the terminal, not in the tool.
- */
-const brokenHere: InboxProblem = {
-  kind: 'other',
-  message: 'Something went wrong in the local server. See the terminal for details.',
-};
-
 /** The account a tool is connected as, from the saved settings; null when it isn't connected. */
 function accountOf(settings: Settings, tool: InboxTool): string | null {
   if (tool === 'jira') return settings.jira === undefined ? null : jiraAccount(settings.jira);
   return settings.github?.method ?? null;
-}
-
-function stateOf(cached: CachedTool | null, broken: boolean): InboxToolState {
-  if (broken) return { state: 'failed', problem: brokenHere, lastSyncedAt: cached?.syncedAt ?? null };
-  if (cached === null) return { state: 'syncing' };
-  if (cached.problem !== null) return { state: 'failed', problem: cached.problem, lastSyncedAt: cached.syncedAt };
-  // No time and no problem this version can read: nothing to show yet, as before a first sync.
-  return cached.syncedAt === null ? { state: 'syncing' } : { state: 'synced', at: cached.syncedAt };
 }
 
 /** Records that still read as the schema says; one from an older shape is left out rather than failing. */
@@ -224,8 +208,8 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
       return {
         items,
         tools: {
-          jira: jira === 'not_connected' ? { state: 'not_connected' } : stateOf(jira, broken.has('jira')),
-          github: github === 'not_connected' ? { state: 'not_connected' } : stateOf(github, broken.has('github')),
+          jira: jira === 'not_connected' ? { state: 'not_connected' } : toolState(jira, broken.has('jira')),
+          github: github === 'not_connected' ? { state: 'not_connected' } : toolState(github, broken.has('github')),
         },
         syncedAt: anyConnected ? cache.syncedAt() : null,
       };
