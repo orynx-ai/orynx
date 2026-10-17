@@ -23,8 +23,10 @@ export { ChoiceGroup, type ChoiceGroupProps } from './components/choice-group.ts
 export {
   Composer,
   ComposerBar,
+  ComposerHint,
   ComposerSend,
   ComposerTextarea,
+  type ComposerLook,
   type ComposerProps,
   type ComposerSendProps,
   type ComposerTextareaProps,

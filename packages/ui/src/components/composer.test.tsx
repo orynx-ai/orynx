@@ -5,7 +5,7 @@ import { Folder, Plus } from 'lucide-react';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Button } from './button.tsx';
-import { Composer, ComposerBar, ComposerSend, ComposerTextarea } from './composer.tsx';
+import { Composer, ComposerBar, ComposerHint, ComposerSend, ComposerTextarea } from './composer.tsx';
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './menu.tsx';
 import { Picker } from './picker.tsx';
 
@@ -171,5 +171,28 @@ describe('Composer', () => {
     Object.defineProperty(box, 'scrollHeight', { configurable: true, value: 600 });
     await user.type(box, 'b');
     expect(box.style.height).toBe('200px');
+  });
+
+  it('AC-14: the follow-up box has one line, the hint and Send, and no pickers', async () => {
+    const user = userEvent.setup();
+    const onSend = vi.fn();
+    const { container } = render(
+      <Composer look="follow-up" onSubmit={sentText(onSend)}>
+        <ComposerTextarea name="task" label="Message Claude" placeholder="Ask Claude to change something" />
+        <ComposerBar>
+          <ComposerHint>Enter to send · Shift+Enter for a new line</ComposerHint>
+          <ComposerSend label="Send message" />
+        </ComposerBar>
+      </Composer>,
+    );
+
+    const box = screen.getByRole('textbox', { name: 'Message Claude' });
+    expect(box).toHaveAttribute('rows', '1');
+    expect(screen.getByText('Enter to send · Shift+Enter for a new line')).toBeVisible();
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    await expectNoAxeViolations(container);
+
+    await user.type(box, 'Use the shared toast{Enter}');
+    expect(onSend).toHaveBeenCalledWith('Use the shared toast');
   });
 });

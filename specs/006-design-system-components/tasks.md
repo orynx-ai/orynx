@@ -40,7 +40,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 12: Add `ContextChip` from shadcn's `attachment`, and the Composer's "Context for Claude" list: mark or icon, text cut at 300 px with a tooltip, "Remove PROJ-1423" with a 32 px hit area, and focus to the next chip or the text box after removing (AC-12, AC-13)
       Check: pnpm test packages/ui/src/components/context-chip.test.tsx packages/ui/src/components/composer.test.tsx
       Files: packages/ui/src/components/context-chip.tsx, context-chip.stories.tsx, context-chip.test.tsx, packages/ui/src/components/composer.tsx, composer.stories.tsx, composer.test.tsx, packages/ui/src/index.ts
-- [ ] Task 13: Composer "follow-up" look: no shadow, no pickers, one line, the hint, a secondary Send (AC-14)
+- [x] Task 13: Composer "follow-up" look: no shadow, no pickers, one line, the hint, a secondary Send (AC-14)
       Check: pnpm test packages/ui/src/components/composer.test.tsx
       Files: packages/ui/src/components/composer.tsx, composer.stories.tsx, composer.test.tsx
 - [ ] Task 14: Add `AgentChip`: a 24 px link with a 32 px hit area, in the sidebar's words and colours for each session state (Q2b, Q3d, AC-15)

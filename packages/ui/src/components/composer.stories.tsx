@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { FileText, Folder, Plus } from 'lucide-react';
 import { Button } from './button.tsx';
-import { Composer, ComposerBar, ComposerSend, ComposerTextarea } from './composer.tsx';
+import { Composer, ComposerBar, ComposerHint, ComposerSend, ComposerTextarea } from './composer.tsx';
 import { ContextChip, ContextList } from './context-chip.tsx';
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './menu.tsx';
 import { Picker } from './picker.tsx';
@@ -85,5 +85,20 @@ export const LongText: Story = {
       {...args}
       text={Array.from({ length: 12 }, (_, line) => `Line ${String(line + 1)} of the brief`).join('\n')}
     />
+  ),
+};
+
+/** The Session screen's follow-up box: one line, the keys, and a secondary Send. */
+export const FollowUp: Story = {
+  render: (args) => (
+    <div className="rounded-md border border-border bg-sidebar p-4">
+      <Composer {...args} look="follow-up">
+        <ComposerTextarea name="message" label="Message Claude" placeholder="Ask Claude to change something" />
+        <ComposerBar>
+          <ComposerHint>Enter to send · Shift+Enter for a new line</ComposerHint>
+          <ComposerSend label="Send message" />
+        </ComposerBar>
+      </Composer>
+    </div>
   ),
 };
