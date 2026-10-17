@@ -17,7 +17,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: GitHub client over `@octokit/rest`: `GET /user` for the login and scopes, 10 s, every failure a fixed problem, nothing from octokit escapes; Q6 (c) messages by problem and way (AC-6, AC-7, AC-8, AC-17)
       Check: pnpm test packages/core/src/integrations/github; pnpm typecheck; pnpm gate boundaries
       Files: packages/core/src/integrations/github/client.ts, packages/core/src/integrations/github/client.test.ts, packages/core/src/integrations/github/problems.ts, packages/core/src/integrations/github/problems.test.ts, packages/core/src/test/fake-github.ts, packages/core/package.json, apps/server/package.json (the server bundles core but not npm packages), pnpm-lock.yaml (via pnpm add). `@octokit/rest` loads in about 0.2 s. A 429 with no reset time says "Try again in a minute.", which Q6 didn't word
-- [ ] Task 6: Move Jira's 2-minute shared status check into `integrations/checked-status.ts`, with no change in behaviour
+- [x] Task 6: Move Jira's 2-minute shared status check into `integrations/checked-status.ts`, with no change in behaviour
       Check: pnpm test packages/core/src/integrations; pnpm typecheck
       Files: packages/core/src/integrations/checked-status.ts, packages/core/src/integrations/checked-status.test.ts, packages/core/src/integrations/jira/connection.ts
 - [ ] Task 7: GitHub connection service: connect checks then saves both ways, `repo` scope check, picking gh deletes a saved token, disconnect leaves gh alone, read never runs gh, `.env` token, `status.changed` (AC-3, AC-4, AC-5, AC-6, AC-7, AC-10, AC-12, AC-13, AC-14)
