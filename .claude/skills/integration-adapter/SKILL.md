@@ -19,12 +19,18 @@ packages/core/src/integrations/<tool>/
 └── *.test.ts
 ```
 
-Jira (spec 003) is the worked example: read `packages/core/src/integrations/jira/` and `learn/connecting-jira.md` before building GitHub or Slack.
+Jira (spec 003) and GitHub (spec 004) are the worked examples: read `packages/core/src/integrations/jira/`, `packages/core/src/integrations/github/`, `learn/connecting-jira.md` and `learn/connecting-github.md` before building Slack.
+
+Shared by every tool, never copied:
+
+- `integrations/connection-error.ts`: `ConnectionError`, the one error a connection route throws; the /api error handler answers with its code.
+- `integrations/checked-status.ts`: the status line's "at most every 2 minutes, one shared check, the last answer while re-checking".
+- `packages/app/src/features/settings/components/managed-connection-row.tsx`: the row whose Connect, Manage and Close button opens the tool's form; the Connections panel owns the one live region.
 
 | Tool   | SDK (planned, see `docs/architecture.md`) | Connects with                                                |
 | ------ | ----------------------------------------- | ------------------------------------------------------------ |
 | Jira   | `jira.js`                                 | site + email + personal API token                            |
-| GitHub | `@octokit/rest`                           | the `gh` CLI login, or a personal access token               |
+| GitHub | `@octokit/rest` (decided, spec 004)       | the `gh` CLI login, or a personal access token               |
 | Slack  | `@slack/web-api`                          | user token (`search:read`, `channels:history`, `im:history`) |
 
 Adding the SDK is part of that integration's spec. Any other library: stop and ask.
@@ -62,6 +68,7 @@ Any other write: stop and ask.
 
 - `map.ts` and `rules.ts` are pure: test them fully with plain data, including the edge cases from the spec (high-priority bug, unresolved comments, 2 h Slack wait).
 - `client.ts` is tested with MSW faking the tool's HTTP API (`packages/core/src/test/fake-jira.ts` shows how; start MSW per file, never globally, because the event stream test opens a real socket). Never `vi.mock` the SDK wrapper or any of our modules.
+- An outside program, such as gh, is faked the honest way: a real executable that DevHub finds and starts. Use `packages/core/src/test/fake-gh.ts` (a folder per test with a symlink to one shared script; a fresh script per test is slow on macOS, which checks each new program once, one at a time). `createServer()` without a `gh` never finds one.
 - Every integration needs a leak test like `integrations/jira/no-token-leaks.test.ts`: the real hub at trace level, searched for the token and the header value built from it.
 - Fake tokens must not look real: `fake-token-for-tests`, never a real prefix such as `ATATT`. The secrets gate refuses `ATATT` with 20 or more characters after it.
 - Route tests use `app.inject()` with MSW for the outside API and a temp `DEVHUB_HOME`.

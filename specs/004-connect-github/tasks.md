@@ -50,9 +50,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: e2e: the GitHub form at 360 and 1280 px in light and dark, axe, no layout shift, arrow keys and Cancel, token-way errors, and the fake signed-out gh (AC-2, AC-4, AC-18, AC-19, AC-20)
       Check: pnpm build; pnpm exec playwright test e2e/connect-github.spec.ts e2e/connect-jira.spec.ts; open Settings in `pnpm dev` at 360 and 1280 px, light and dark
       Files: e2e/connect-github.spec.ts. Looked at in a real browser at 360 and 1280 px, light and dark, with the form open, the gh error and the token error
-- [ ] Task 17: Docs: a `learn/` page on connecting GitHub; architecture, integration-adapter skill, design map, roadmap (Q1)
+- [x] Task 17: Docs: a `learn/` page on connecting GitHub; architecture, integration-adapter skill, design map, roadmap (Q1)
       Check: pnpm gate learn-freshness; pnpm gate handbook-size; pnpm format:check
-      Files: learn/connecting-github.md, docs/architecture.md, .claude/skills/integration-adapter/SKILL.md, docs/product/roadmap.md, README.md
+      Files: learn/connecting-github.md, learn/connecting-jira.md, learn/live-updates.md, learn/how-a-request-flows.md, learn/local-security.md, learn/tokens-and-keychain.md, docs/architecture.md, .claude/skills/integration-adapter/SKILL.md, .claude/skills/forms/SKILL.md, docs/product/roadmap.md, README.md
 - [ ] Task 18: By hand (Q7): you connect your real GitHub in `pnpm dev`, the gh way; record what happened
       Check: the GitHub row says Connected and names your account
       Files: specs/004-connect-github/tasks.md

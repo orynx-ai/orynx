@@ -1,8 +1,8 @@
-<!-- learn-sources: packages/contracts/src/jira.ts packages/core/src/integrations/jira/client.ts packages/core/src/integrations/jira/connection.ts packages/core/src/integrations/jira/problems.ts packages/core/src/routes/jira.ts packages/core/src/settings/settings-store.ts apps/server/src/system-certificates.ts apps/server/src/config.ts packages/app/src/features/settings/components/jira-connection-form.tsx packages/app/src/features/settings/components/jira-connection-row.tsx -->
+<!-- learn-sources: packages/contracts/src/jira.ts packages/contracts/src/token.ts packages/core/src/integrations/jira/client.ts packages/core/src/integrations/jira/connection.ts packages/core/src/integrations/jira/problems.ts packages/core/src/integrations/checked-status.ts packages/core/src/integrations/connection-error.ts packages/core/src/routes/jira.ts packages/core/src/settings/settings-store.ts apps/server/src/system-certificates.ts apps/server/src/config.ts packages/app/src/features/settings/components/jira-connection-form.tsx packages/app/src/features/settings/components/jira-connection-row.tsx packages/app/src/features/settings/components/managed-connection-row.tsx -->
 
 # Connecting Jira: from the form to "Connected"
 
-Settings › Connections › Jira takes three things: the site you open Jira at, the email you sign in with, and a personal API token. DevHub checks them with Jira before it keeps anything. Spec 003 built it; GitHub (spec 004) follows the same shape.
+Settings › Connections › Jira takes three things: the site you open Jira at, the email you sign in with, and a personal API token. DevHub checks them with Jira before it keeps anything. Spec 003 built it; GitHub (spec 004) follows the same shape and shares its status check, its error and its row (`learn/connecting-github.md`).
 
 ## The path of one Connect
 
@@ -12,13 +12,13 @@ form (react-hook-form + the contract's schema)
        └─ routes/jira.ts ─ connection.connect()
             ├─ token: the one typed, else the saved one (keychain, then .env)
             ├─ client.check() ─ GET https://<site>/rest/api/3/myself (Basic auth, 10 s)
-            ├─ Jira said no? → JiraConnectionError, nothing saved
+            ├─ Jira said no? → JiraConnectionError (a ConnectionError), nothing saved
             ├─ app.tokens.save('jira', token)      → OS keychain
             ├─ settings.update({ jira: { site, email } }) → <DEVHUB_HOME>/settings.json
             └─ status.changed → every open page refetches /api/status and the Jira settings
 ```
 
-- **One schema, both sides.** `JiraConnectionRequestSchema` in `@devhub/contracts` trims every field, turns `your-team` or a pasted link into `your-team.atlassian.net`, and refuses anything else. The form validates with it, so a mistake shows before anything is sent. The server validates with the same schema and answers `bad_request` without calling Jira.
+- **One schema, both sides.** `JiraConnectionRequestSchema` in `@devhub/contracts` trims every field (the token rule itself is shared with GitHub, in `token.ts`), turns `your-team` or a pasted link into `your-team.atlassian.net`, and refuses anything else. The form validates with it, so a mistake shows before anything is sent. The server validates with the same schema and answers `bad_request` without calling Jira.
 - **Only `*.atlassian.net`.** The email and token go to whatever site is typed, so a typo such as `atlasian.net` would hand them to a stranger. Only Jira Cloud addresses are accepted (spec 003, Q2). Custom domains wait until someone needs one.
 - **Check first, then save.** The token is saved before the site and email, because the keychain is the step that fails (locked or unreachable), and then nothing has changed. A refusal from Jira leaves an existing connection exactly as it was.
 - **Where messages go.** Each error takes its field's help line, so the field doesn't grow at desktop width. The "Create an API token" link sits on its own line under API token, so it stays whatever the field says, and no message gains a link it doesn't mean ("sign in on the web first" has none). On a 360 px phone, Jira's longer answers wrap one or two lines more than the help.
@@ -46,16 +46,17 @@ The terminal gets one warn line per failed check with the problem, for example `
 
 - No site and email saved: **Not connected**, and the keychain is never read. A fresh DevHub, CI and the e2e run never touch it.
 - Saved: DevHub reads the token and asks Jira. "Personal API token for your-team.atlassian.net" (or "API token from .env for …") when Jira accepts. Otherwise the row says **Error** with the reason, such as "The saved API token is missing from your keychain. Connect again."
-- Jira is asked at most once every 2 minutes, and requests that arrive together share one check. After the first check, status answers at once with the last result and re-checks behind it; if the answer changed, it publishes `status.changed`. Connect and Disconnect set the answer themselves, so nothing waits for Jira twice, and a check that was already running when either happened hands everyone waiting the newer answer.
+- Jira is asked at most once every 2 minutes, and requests that arrive together share one check (`integrations/checked-status.ts`, which GitHub uses too). After the first check, status answers at once with the last result and re-checks behind it; if the answer changed, it publishes `status.changed`. Connect and Disconnect set the answer themselves, so nothing waits for Jira twice, and a check that was already running when either happened hands everyone waiting the newer answer.
 
 ## Keeping the token in its place
 
 - `client.ts` hands jira.js the email and token, and jira.js builds the `Authorization: Basic base64(email:token)` header. No error from jira.js leaves `client.ts`, so nothing that held the request reaches a log or a response.
 - As a second guard, the Fastify logger redacts `authorization`, `proxy-authorization`, `cookie` and `x-devhub-token` headers up to four levels deep (`create-server.ts`).
+- The row's Connect, Manage and Close button is `ManagedConnectionRow`, shared with GitHub. "Jira is connected." is said through the Connections panel's one polite live region, so two rows never give the page two.
 - While a Connect or Disconnect is on its way, the form's Cancel and the row's Close do nothing (they stay focusable), and a second submit sends nothing, so the change always finishes where the person can see it.
 - The token field asks browsers and password managers not to save it (`autoComplete="one-time-code"`, `data-1p-ignore`, `data-lpignore`), and the mutation that carries it keeps nothing in the cache (`gcTime: 0`).
 - `no-token-leaks.test.ts` runs the real hub at trace level through connect, refusal, an unreachable site, status and disconnect. It finds neither the token nor its base64 value in any log line, response, event or `settings.json`.
-- `settings.json` holds the site and email only. It is mode 0600 (the folder is created 0700), and is written through a temporary file and a rename, so a crash never leaves half a file. A broken file counts as empty (with a warn line) until the next save.
+- `settings.json` holds the site and email, and GitHub's way of connecting (spec 004), never a token. It is mode 0600 (the folder is created 0700), and is written through a temporary file and a rename, so a crash never leaves half a file. A broken file counts as empty (with a warn line) until the next save.
 
 ## Why only `jira.js/core`
 
