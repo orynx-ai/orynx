@@ -33,6 +33,7 @@ export {
 export { Skeleton, type SkeletonProps } from './components/skeleton.tsx';
 export { SourceMark, type Source, type SourceMarkProps } from './components/source-mark.tsx';
 export { Splitter, type SplitterProps } from './components/splitter.tsx';
+export { Stepper, type StepperProps } from './components/stepper.tsx';
 export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsTriggerProps } from './components/tabs.tsx';
 export { bundledFontFaces } from './fonts.ts';
 export { cn } from './lib/cn.ts';

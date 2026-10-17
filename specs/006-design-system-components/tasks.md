@@ -10,7 +10,7 @@ Every task below that adds a part also exports it from `packages/ui/src/index.ts
 - [x] Task 2: Add `SegmentedControl` from shadcn's `toggle` (its `toggle-group` makes single-choice options radios): a named group of 32 px toggle buttons with an icon and a word, one always pressed (AC-1, AC-2)
       Check: pnpm test packages/ui/src/components/segmented-control.test.tsx
       Files: packages/ui/src/components/segmented-control.tsx, segmented-control.stories.tsx, segmented-control.test.tsx, packages/ui/src/index.ts
-- [ ] Task 3: Add `Stepper`: an ordered list of done, current and to-do steps, with ", done" for screen readers and `aria-current="step"` (AC-3)
+- [x] Task 3: Add `Stepper`: an ordered list of done, current and to-do steps, with ", done" for screen readers and `aria-current="step"` (AC-3)
       Check: pnpm test packages/ui/src/components/stepper.test.tsx
       Files: packages/ui/src/components/stepper.tsx, stepper.stories.tsx, stepper.test.tsx, packages/ui/src/index.ts
 - [ ] Task 4: Add `StatusIcon`: four 20 px shapes for to do, in progress, in review and done (Q1b, AC-25)
