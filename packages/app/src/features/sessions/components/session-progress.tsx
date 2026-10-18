@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import {
   AlertCircleIcon,
   Cancel01Icon,
@@ -27,6 +27,7 @@ import {
 import { durationText } from '../../../words/duration.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { problemWords, stepWords } from '../step-words.ts';
+import { ApprovalCallout } from './approval-callout.tsx';
 
 const steps = ['Plan', 'Build', 'Test', 'Review', 'Pull request'] as const;
 const stepIndex: Record<SessionStep, number> = { plan: 0, build: 1, test: 2, review: 3, pull_request: 4 };
@@ -90,9 +91,12 @@ function WorkedFor({ session }: { session: Session }) {
  */
 export function SessionProgress({ session }: { session: Session }) {
   const problem = session.problem === null ? null : problemWords(session.problem, session);
+  // Focus comes here once you've answered the last call waiting for you (spec 012, AC-18).
+  const pane = useRef<HTMLElement>(null);
   return (
-    <Panel title="Claude's progress" actions={<WorkedFor session={session} />}>
+    <Panel ref={pane} tabIndex={-1} title="Claude's progress" actions={<WorkedFor session={session} />}>
       <div className="flex flex-col gap-4 p-4">
+        <ApprovalCallout session={session} afterAll={pane} />
         {problem === null ? null : (
           <Callout tone="danger" role="alert" title={problem.title}>
             <span>{withCode(problem.line)}</span>
