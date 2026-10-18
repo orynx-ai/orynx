@@ -29,9 +29,17 @@ const axePath = createRequire(new URL('../packages/ui/package.json', import.meta
 
 const jiraLink = 'https://your-team.atlassian.net/browse/PROJ-1423';
 
-async function answerSearch(page: Page) {
+/** Answers the page's search with these, plus `more` tickets that also match "archive", enough to scroll. */
+async function answerSearch(page: Page, more = 0) {
   const index = makeSearchIndex({
     tickets: [
+      ...Array.from({ length: more }, (_, n) =>
+        makeSearchTicket({
+          key: `PROJ-${String(1600 + n)}`,
+          title: `Archive backlog item ${String(n + 1)}`,
+          status: 'To Do',
+        }),
+      ),
       makeSearchTicket({ key: 'PROJ-1423', title: 'Add bulk archive', status: 'In Progress' }),
       makeSearchTicket({
         key: 'PROJ-1377',
@@ -40,7 +48,17 @@ async function answerSearch(page: Page) {
         target: { kind: 'external', url: 'https://your-team.atlassian.net/browse/PROJ-1377' },
       }),
     ],
-    pullRequests: [makeSearchPullRequest()],
+    pullRequests: [
+      makeSearchPullRequest(),
+      // A long repository name, which must give way to the title at 360 px rather than widen the results.
+      makeSearchPullRequest({
+        id: 'acme/frontend-intranet-application/12345',
+        repository: 'frontend-intranet-application',
+        number: 12345,
+        title: 'Archive the old intranet pages',
+        url: 'https://github.com/acme/frontend-intranet-application/pull/12345',
+      }),
+    ],
     sessions: [makeSessionSummary({ id: 'session-1', title: 'Archive old sites', state: 'needs_you', source: null })],
   });
   await page.route('**/api/search', (route) => route.fulfill({ json: index }));
@@ -119,7 +137,7 @@ test('AC-1, AC-6, AC-11, AC-12: Given tickets to find, when I press the search k
   await expect(searchBox(page)).toBeFocused();
   await page.keyboard.type('archive');
 
-  await expect(page.getByRole('option')).toHaveCount(3);
+  await expect(page.getByRole('option')).toHaveCount(4);
   await expect(await activeResult(page)).toHaveAccessibleName(
     namedInOrder('PROJ-1423', 'Add bulk archive', 'In Progress'),
   );
@@ -127,6 +145,7 @@ test('AC-1, AC-6, AC-11, AC-12: Given tickets to find, when I press the search k
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('ArrowDown');
   await expect(await activeResult(page)).toHaveAccessibleName(namedInOrder('Archive old sites', 'Needs you'));
+  await page.keyboard.press('ArrowUp');
   await page.keyboard.press('ArrowUp');
   await page.keyboard.press('ArrowUp');
   await expect(await activeResult(page)).toHaveAccessibleName(
@@ -159,17 +178,19 @@ test('AC-4, AC-19: Given search opened from the sidebar, when I press Esc, then 
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
-  test(`AC-29: Given results in ${colorScheme}, when axe checks the page, then it finds no violations, nothing moves as search opens, and the page never scrolls sideways`, async ({
+  test(`AC-29: Given more results than a short window holds, in ${colorScheme}, when axe checks the page, then it finds no violations, nothing moves as search opens, and the page never scrolls sideways`, async ({
     page,
   }) => {
-    await answerSearch(page);
+    // Enough results to scroll in a short window: a scrolling box the keyboard can't reach fails axe.
+    await answerSearch(page, 6);
     await page.emulateMedia({ colorScheme });
+    await page.setViewportSize({ width: page.viewportSize()?.width ?? 1280, height: 500 });
     await page.goto('/');
     await expect(searchButton(page)).toBeVisible();
 
     await searchButton(page).click();
     await searchBox(page).fill('archive');
-    await expect(page.getByRole('option')).toHaveCount(3);
+    await expect(page.getByRole('option')).toHaveCount(8);
 
     expect(await layoutShiftScore(page)).toBeLessThan(0.01);
     expect(await axeViolations(page)).toEqual([]);
