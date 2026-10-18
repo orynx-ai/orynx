@@ -57,7 +57,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: Add `getSession`, `startSession`, `stopSession`, `discardSession` and `sessionQueryOptions` to the api-client, and `recent` on the list (AC-1, AC-9, AC-10)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/sessions.ts, sessions.test.ts, client.ts, queries.ts, index.ts
-- [ ] Task 19: Add Button's quiet danger look (ghost, danger text, as `session.html` draws Discard changes) and Callout's `danger` tone (Q9f, existing tokens only), each with stories, tests and design-map rows (AC-10, AC-13, AC-19)
+- [x] Task 19: Add Button's quiet danger look (ghost, danger text, as `session.html` draws Discard changes) and Callout's `danger` tone (Q9f, existing tokens only), each with stories, tests and design-map rows (AC-10, AC-13, AC-19)
       Check: pnpm test packages/ui/src/components/button.test.tsx packages/ui/src/components/callout.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/button.tsx, button.stories.tsx, button.test.tsx, callout.tsx, callout.stories.tsx, callout.test.tsx, docs/design-map.md
 - [ ] Task 20: Add the words: "4 min 12 s", "Started 4 min ago" (Home's `agoText` moves to `words/`), a clock that ticks each second, and each step's title and detail from Q10a (AC-4, AC-8, Q10a, Q10g)

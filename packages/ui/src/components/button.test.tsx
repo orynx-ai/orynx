@@ -133,6 +133,19 @@ describe('Button', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('AC-10 (spec 011): the quiet danger look is a real button, for a destructive action that asks first', async () => {
+    const onClick = vi.fn();
+    const user = userEvent.setup();
+    const { container } = render(
+      <Button variant="danger-ghost" size="sm" onClick={onClick}>
+        Discard changes
+      </Button>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Discard changes' }));
+    expect(onClick).toHaveBeenCalledOnce();
+    await expectNoAxeViolations(container);
+  });
+
   it('has no accessibility violations as an icon button with a label', async () => {
     const { container } = render(<Button size="icon" aria-label="Refresh" />);
     await expectNoAxeViolations(container);
