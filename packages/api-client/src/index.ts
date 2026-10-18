@@ -21,4 +21,5 @@ export {
   sessionsQueryOptions,
   statusQueryOptions,
   ticketsQueryOptions,
+  ticketsSprintsQueryOptions,
 } from './queries.ts';

@@ -14,6 +14,8 @@ export const queryKeys = {
   repositories: ['repositories'] as const,
   inbox: ['inbox'] as const,
   tickets: ['tickets'] as const,
+  /** Not under `tickets`, so a sync's inbox.changed never asks Jira for a project's sprints again. */
+  ticketsSprints: ['jira', 'sprints'] as const,
   claudeLogin: ['claude', 'login'] as const,
   search: ['search'] as const,
 };
@@ -152,6 +154,18 @@ export function inboxQueryOptions(api: ApiClient) {
     // Freshness comes from the event stream (inbox.changed, settings.changed, status.changed), not from
     // polling: the server syncs on its own every 2 minutes while a page is open.
     staleTime: Infinity,
+  });
+}
+
+/**
+ * A project's open sprints, for Tickets' Sprint menu (spec 020): asked of Jira when the menu needs them,
+ * and kept for a minute, so opening the menu again doesn't ask again.
+ */
+export function ticketsSprintsQueryOptions(api: ApiClient, project: string) {
+  return queryOptions({
+    queryKey: [...queryKeys.ticketsSprints, project] as const,
+    queryFn: () => api.ticketsSprints(project),
+    staleTime: 60_000,
   });
 }
 

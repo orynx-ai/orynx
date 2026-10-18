@@ -28,7 +28,9 @@ import {
   type StartSessionAnswer,
   type StartSessionRequest,
   type Status,
+  type OpenSprints,
   type Tickets,
+  type TicketsChoice,
 } from '@devhub/contracts';
 import { getClaudeLogin, postClaudeLoginCheck } from './endpoints/claude.ts';
 import { deleteGitHubConnection, getGitHubConnection, putGitHubConnection } from './endpoints/github.ts';
@@ -55,7 +57,7 @@ import {
   postSessionStop,
 } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
-import { getTickets } from './endpoints/tickets.ts';
+import { getTickets, getTicketsSprints, putTicketsChoice } from './endpoints/tickets.ts';
 import { toApiRequestError } from './errors.ts';
 import { subscribeToEvents, type EventSourceConstructor } from './events.ts';
 
@@ -126,6 +128,10 @@ export interface ApiClient {
   clearInboxCache(): Promise<void>;
   /** Tickets' sprint and its tickets, from the server's cache (spec 008). It syncs with the inbox. */
   tickets(): Promise<Tickets>;
+  /** A project's open sprints for Tickets' Sprint menu (spec 020), asked of Jira now. */
+  ticketsSprints(project: string): Promise<OpenSprints>;
+  /** Saves which sprint Tickets shows (spec 020). */
+  chooseTicketsSprint(choice: TicketsChoice): Promise<void>;
   /** Claude Code's login on this computer, as the server last checked it (spec 010). */
   claudeLogin(): Promise<ClaudeLogin>;
   /** Check again: the server asks Claude Code now, or shares a check that's running. */
@@ -196,6 +202,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     refreshInbox: () => postInboxRefresh(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     tickets: () => getTickets(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    ticketsSprints: (project) =>
+      getTicketsSprints(http, project).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    chooseTicketsSprint: (choice) =>
+      putTicketsChoice(http, choice).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     claudeLogin: () => getClaudeLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkClaudeLogin: () =>
       postClaudeLoginCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
