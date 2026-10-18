@@ -94,9 +94,17 @@ export {
   type SegmentedControlItemProps,
   type SegmentedControlProps,
 } from './components/segmented-control.tsx';
+export {
+  SearchGroup,
+  SearchResult,
+  SearchResultSkeleton,
+  type SearchGroupProps,
+  type SearchResultProps,
+} from './components/search-result.tsx';
 export { Select } from './components/select.tsx';
 export {
   SessionItem,
+  SessionStateIcon,
   sessionStateLabels,
   type SessionItemProps,
   type SessionItemState,

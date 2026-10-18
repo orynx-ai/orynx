@@ -77,6 +77,15 @@ const icons: Record<SessionItemState, ReactNode> = {
   stopped: <Icon icon={StopIcon} className={glyph} />,
 };
 
+/** The state's 24 px circle with its glyph, as the sidebar draws it. For the eye only: say the state in words too. */
+export function SessionStateIcon({ state, className }: { state: SessionItemState; className?: string }) {
+  return (
+    <span aria-hidden className={cn(iconVariants({ state }), className)}>
+      {icons[state]}
+    </span>
+  );
+}
+
 export type SessionItemProps = Omit<ComponentProps<'a'>, 'title'> & {
   title: string;
   /** What the session was started from, for example `PROJ-1423` or `PR #2836`. */
@@ -110,9 +119,7 @@ export function SessionItem({
       {...props}
     >
       <Slot.Slottable>{children}</Slot.Slottable>
-      <span aria-hidden className={iconVariants({ state })}>
-        {icons[state]}
-      </span>
+      <SessionStateIcon state={state} />
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         {/* The spaces keep the link's name readable ("Add bulk archive PROJ-1423 Needs you"); flex drops them visually.
             The tooltip shows a title the row cuts short; the link's name still comes from the text. */}
