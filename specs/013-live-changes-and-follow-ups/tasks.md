@@ -12,7 +12,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Add the follow-up contracts: `SendMessageRequestSchema` (trimmed, 1 to 10,000 characters), the `sent` or `cannot_send` answer with its reasons (`too_many`, `discarded`, `never_started`, `newer_session`), and the path (AC-11, AC-14, AC-15)
       Check: pnpm test packages/contracts/src/session.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/testing.ts
-- [ ] Task 4: Add the changes contracts: `SessionChangesSchema` (why there are none, files with counts, binary and renamed-from, how many more, totals), `DiffLineSchema` with the `hunk` kind, `FileDiffSchema` (lines, binary, renamed-from, cut short), both paths, the `session.files.changed` event with only the id, and the builders (AC-2, AC-3, AC-5, AC-6, AC-23)
+- [x] Task 4: Add the changes contracts: `SessionChangesSchema` (why there are none, files with counts, binary and renamed-from, how many more, totals), `DiffLineSchema` with the `hunk` kind, `FileDiffSchema` (lines, binary, renamed-from, cut short), both paths, the `session.files.changed` event with only the id, and the builders (AC-2, AC-3, AC-5, AC-6, AC-23)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/changes.ts, packages/contracts/src/changes.test.ts, packages/contracts/src/events.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
 - [ ] Task 5: Add `editor` (`vscode` or `cursor`, `vscode` by default, so saved settings without it still read) to the preferences and an `editor` change, with the builders (AC-20, AC-26, Q9)

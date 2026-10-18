@@ -28,6 +28,9 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'session.changed':
       // One session's steps changed: only its Session screen refetches (spec 011, AC-4).
       return [sessionQueryKey(event.sessionId)];
+    case 'session.files.changed':
+      // Nothing reads a session's changes until the Changes tab asks for them (spec 013, task 19).
+      return [];
     case 'settings.changed':
       // The inbox rules apply when the server reads the list (spec 007).
       return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];
