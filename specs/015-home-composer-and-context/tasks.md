@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Widen the `brief` step to `{ key | null, message, pullRequests, files }` with defaults, so a `session.json` saved with `{ kind: 'brief', key }` still reads (AC-24)
       Check: pnpm test packages/contracts/src/session.test.ts packages/core/src/sessions/file-session-store.test.ts
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/core/src/sessions/file-session-store.test.ts
-- [ ] Task 3: Name a session with no ticket, as tables: the title from the message's first line (80 characters, cut on a word, "…"), and the branch slug (five words, ASCII letters, digits and hyphens, at most 40 characters, `task` when nothing is left, accents dropped) (AC-4, Q8a, Q8b)
+- [x] Task 3: Name a session with no ticket, as tables: the title from the message's first line (80 characters, cut on a word, "…"), and the branch slug (five words, ASCII letters, digits and hyphens, at most 40 characters, `task` when nothing is left, accents dropped) (AC-4, Q8a, Q8b)
       Check: pnpm test packages/core/src/sessions/composer-names.test.ts
       Files: packages/core/src/sessions/composer-names.ts, packages/core/src/sessions/composer-names.test.ts
 - [ ] Task 4: Write the composer's brief: `composerBrief()` with the message, then the ticket (summary, type, description, the last 20 comments, linked issues), each pull request (title, branches, description, failing checks, unresolved comments, the diff to 2,000 lines then counts, or "too large" with counts) and each file under its name. `sessionNote()` without a ticket says "Do what the user asks in the brief." (AC-20, Q3, Q4, Q8c)
