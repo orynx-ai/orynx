@@ -41,7 +41,17 @@ function fromSettings(settings: Settings): Preferences {
     if (typeof on === 'boolean') inboxRules[rule] = on;
   }
   const mode = PermissionModeSchema.safeParse(settings.agent?.['permissionMode']);
-  return { permissionMode: mode.success ? mode.data : defaultPreferences.permissionMode, inboxRules };
+  return {
+    permissionMode: mode.success ? mode.data : defaultPreferences.permissionMode,
+    inboxRules,
+    allowedCommands: writtenCommands(settings),
+  };
+}
+
+/** The allow list as written (spec 012): its non-empty strings, or none when it isn't a list. */
+function writtenCommands(settings: Settings): string[] {
+  const list = settings.agent?.['allowedCommands'];
+  return Array.isArray(list) ? list.filter((entry): entry is string => typeof entry === 'string' && entry !== '') : [];
 }
 
 /** The change on top of what was written, keeping every key this version doesn't know. */

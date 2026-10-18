@@ -116,6 +116,7 @@ export interface PreferencesOverrides {
   permissionMode?: Preferences['permissionMode'];
   /** Override some rules and keep the others on. */
   inboxRules?: Partial<InboxRules>;
+  allowedCommands?: string[];
 }
 
 /** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
@@ -123,6 +124,7 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
   return PreferencesSchema.parse({
     permissionMode: overrides.permissionMode ?? defaultPreferences.permissionMode,
     inboxRules: { ...defaultPreferences.inboxRules, ...overrides.inboxRules },
+    allowedCommands: overrides.allowedCommands ?? [],
   });
 }
 

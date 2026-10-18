@@ -96,6 +96,7 @@ describe('/api/preferences', () => {
     expect(PreferencesSchema.parse(res.json())).toEqual({
       permissionMode: 'edit_and_run_allowed',
       inboxRules: { ...defaultPreferences.inboxRules, unresolved_comments: false },
+      allowedCommands: [],
     });
   });
 
