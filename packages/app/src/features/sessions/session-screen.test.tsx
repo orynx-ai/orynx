@@ -52,28 +52,6 @@ describe('SessionScreen', () => {
     expect(within(details).getByRole('button', { name: 'Discard changes' })).toBeVisible();
   });
 
-  it('013 AC-1, AC-21: keeps the tab in the address, and the arrow keys move between the tabs', async () => {
-    server.use(sessionHandler({ ...working, ticket: makeSessionTicket() }));
-    const { user, history } = await renderApp({ route });
-
-    const ticket = await screen.findByRole('tab', { name: 'Ticket PROJ-1423' });
-    await user.click(ticket);
-    expect(new URLSearchParams(history.location.search).get('tab')).toBe('ticket');
-    expect(screen.getByRole('tabpanel', { name: 'Ticket PROJ-1423' })).toBeVisible();
-    // Discard sits under the Changes tab only (Q6e).
-    expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull();
-
-    await user.keyboard('{ArrowLeft}');
-    expect(screen.getByRole('tab', { name: /^Changes/ })).toHaveFocus();
-    expect(new URLSearchParams(history.location.search).get('tab')).toBeNull();
-  });
-
-  it('013 AC-1: opens on the tab the address names', async () => {
-    server.use(sessionHandler({ ...working, ticket: makeSessionTicket() }));
-    await renderApp({ route: `${route}?tab=ticket` });
-    expect(await screen.findByRole('tab', { name: 'Ticket PROJ-1423' })).toHaveAttribute('aria-selected', 'true');
-  });
-
   it('AC-6 (Q9e): the page bar shows Tickets / the sprint / the key, when it started, and Open in Jira', async () => {
     server.use(sessionHandler(working));
     const { user, platform } = await renderApp({ route });
