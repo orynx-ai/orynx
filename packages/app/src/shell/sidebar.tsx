@@ -143,9 +143,10 @@ export function Sidebar() {
       </div>
 
       {/* The rail has no room for session rows; "View all" is one click away once expanded. */}
-      {/* The part that gives way in a short window. Its 4 px inset leaves room for the rows' focus ring. */}
+      {/* The part that gives way in a short window. Its inset leaves room for the focus rings: 4 px for the rows,
+          10 px on top for View all, whose hit area reaches 6 px above its heading. */}
       {collapsed ? null : (
-        <SidebarSessions className="hidden flex-col gap-0.5 md:-m-1 md:flex md:min-h-0 md:overflow-y-auto md:p-1" />
+        <SidebarSessions className="hidden flex-col gap-0.5 md:-mx-1 md:-mt-2.5 md:-mb-1 md:flex md:min-h-0 md:overflow-y-auto md:px-1 md:pt-2.5 md:pb-1" />
       )}
 
       <SidebarFooter collapsed={collapsed} />
@@ -193,7 +194,8 @@ function NavItem({
   return (
     <Link
       to={to}
-      activeOptions={{ exact }}
+      // A place is its path: Home stays current with its tab, search or page in the address.
+      activeOptions={{ exact, includeSearch: false }}
       title={collapsed ? label : undefined}
       className={cn(
         'group flex min-h-10 items-center gap-3 rounded-sm px-3 font-medium text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:text-foreground',
