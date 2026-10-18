@@ -62,7 +62,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 20: Build the folder picker: "Repository" with the folders under "On this computer" (name and path), the picked one checked, Add local folder (020's dialog, then the new folder picked) and Manage folders. It follows the ticket until you pick, and reads "Add a folder" or "Choose folder" when it must (AC-16 to AC-18)
       Check: pnpm test packages/app/src/features/home/components/folder-picker.test.tsx
       Files: packages/app/src/features/home/components/folder-picker.tsx, packages/app/src/features/home/components/folder-picker.test.tsx
-- [ ] Task 21: Build the agent picker: Claude checked, with "Connected · runs locally" or "Signed out" and the link to Settings › Coding agent, and a dot that isn't the only sign (AC-19, Q10)
+- [x] Task 21: Build the agent picker: Claude checked, with "Connected · runs locally" or "Signed out" and the link to Settings › Coding agent, and a dot that isn't the only sign (AC-19, Q10)
       Check: pnpm test packages/app/src/features/home/components/agent-picker.test.tsx
       Files: packages/app/src/features/home/components/agent-picker.tsx, packages/app/src/features/home/components/agent-picker.test.tsx
 - [ ] Task 22: Build + Add context: the kinds (no Slack, Q12), the Jira and Pull request lists from the search index with their checks, the typed-key row, the loading, empty and not-connected states, Git repository setting the folder, and File through the computer's dialog with its limits. A pick returns focus to the text box (AC-6 to AC-13, AC-32)

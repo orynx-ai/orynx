@@ -26,6 +26,7 @@ import {
   type SettingsLink,
 } from '../composer-words.ts';
 import { useStartFromComposer } from '../queries.ts';
+import { AgentPicker } from './agent-picker.tsx';
 import { FolderPicker } from './folder-picker.tsx';
 import { composerFormSchema, type ComposerFormValues } from '../schemas.ts';
 import { useComposerStore } from '../store.ts';
@@ -158,6 +159,7 @@ export function HomeComposer() {
         />
         <ComposerBar>
           <FolderPicker />
+          <AgentPicker />
           <ComposerSend label={start.isPending ? composerWords.sending : composerWords.send} />
         </ComposerBar>
       </Composer>
