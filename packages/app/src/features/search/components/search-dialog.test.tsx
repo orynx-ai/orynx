@@ -1,5 +1,5 @@
 import { screen, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type SearchIndex } from '@devhub/contracts';
 import {
@@ -55,6 +55,7 @@ function searchBox() {
 
 describe('Search dialog', () => {
   it('AC-5: before anything is typed it shows the hint line and no results', async () => {
+    holding();
     const { user } = await renderApp();
 
     await openSearch(user);
@@ -62,7 +63,9 @@ describe('Search dialog', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Search' });
     expect(searchBox()).toHaveAttribute('placeholder', 'Search tickets, pull requests and sessions');
     expect(
-      within(dialog).getByText('Find a ticket by key or title, a pull request by number or repository, or a session.'),
+      await within(dialog).findByText(
+        'Find a ticket by key or title, a pull request by number or repository, or a session.',
+      ),
     ).toBeVisible();
     expect(within(dialog).queryByRole('listbox')).not.toBeInTheDocument();
   });
@@ -79,6 +82,7 @@ describe('Search dialog', () => {
   });
 
   it('AC-20: Tab stays inside the dialog', async () => {
+    holding();
     const { user } = await renderApp();
     await openSearch(user);
     await screen.findByRole('dialog', { name: 'Search' });
@@ -170,5 +174,119 @@ describe('Search dialog', () => {
     await user.keyboard('{Enter}');
 
     expect(history.location.pathname).toBe('/sessions/session-1');
+  });
+
+  it('AC-22: with nothing connected and no sessions it says there’s nothing to search, and links to Connections', async () => {
+    const { user, history } = await renderApp({ route: '/tickets' });
+    await openSearch(user);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Search' });
+    expect(await within(dialog).findByText('Nothing to search yet')).toBeVisible();
+    expect(within(dialog).getByText('Connect Jira or GitHub to search your tickets and pull requests.')).toBeVisible();
+    expect(searchBox()).toBeVisible();
+
+    await user.click(within(dialog).getByRole('link', { name: 'Open Settings' }));
+
+    expect(history.location.pathname).toBe('/settings/connections');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('AC-23: while the list is on its way, typing shows loading rows and no words', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.search), async () => {
+        await delay('infinite');
+        return HttpResponse.json(held);
+      }),
+    );
+    const { user } = await renderApp();
+    await openSearch(user);
+
+    await user.type(await screen.findByRole('combobox'), 'archive');
+
+    const dialog = screen.getByRole('dialog', { name: 'Search' });
+    // The loading rows are for the eye only; the region around them says it's busy.
+    expect(dialog.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(within(dialog).queryByRole('listbox')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('No matches')).not.toBeInTheDocument();
+  });
+
+  it('AC-24: a tool still on its first sync says so under the results', async () => {
+    holding(
+      makeSearchIndex({
+        pullRequests: [makeSearchPullRequest()],
+        tools: { jira: { state: 'syncing' }, github: { state: 'synced', at: '2026-10-18T09:00:00.000Z' } },
+      }),
+    );
+    const { user } = await renderApp();
+    await openSearch(user);
+
+    await user.type(await screen.findByRole('combobox'), 'web-app');
+
+    expect(await screen.findByRole('option', { name: /web-app #2841/ })).toBeVisible();
+    expect(screen.getByText('Jira is still syncing. Its tickets appear when it ends.')).toBeVisible();
+    expect(screen.queryByText(/GitHub is still syncing/)).not.toBeInTheDocument();
+  });
+
+  it('AC-24: says it for GitHub too', async () => {
+    holding(
+      makeSearchIndex({
+        tickets: [makeSearchTicket()],
+        tools: { jira: { state: 'synced', at: '2026-10-18T09:00:00.000Z' }, github: { state: 'syncing' } },
+      }),
+    );
+    const { user } = await renderApp();
+    await openSearch(user);
+
+    await user.type(await screen.findByRole('combobox'), 'archive');
+
+    expect(await screen.findByText('GitHub is still syncing. Its pull requests appear when it ends.')).toBeVisible();
+  });
+
+  it('AC-21: text that matches nothing says so, and DevHub asks nothing more', async () => {
+    const asked = holding();
+    const { user } = await renderApp();
+    await openSearch(user);
+
+    await user.type(await screen.findByRole('combobox'), 'PROJ-9999');
+
+    expect(await screen.findByText('No matches')).toBeVisible();
+    expect(screen.getByText('Try a key like PROJ-1423 or a repo name.')).toBeVisible();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(asked()).toBe(1);
+  });
+
+  it('AC-25: a server that doesn’t answer says so, and Try again asks once more', async () => {
+    server.use(http.get(apiUrl(apiRoutes.search), () => HttpResponse.error()));
+    const { user } = await renderApp();
+    await openSearch(user);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Search' });
+    expect(await within(dialog).findByText("Couldn't load search")).toBeVisible();
+
+    holding();
+    await user.click(within(dialog).getByRole('button', { name: 'Try again' }));
+    await user.type(searchBox(), 'archive');
+
+    expect(await within(dialog).findByRole('listbox')).toBeVisible();
+    expect(within(dialog).queryByText("Couldn't load search")).not.toBeInTheDocument();
+  });
+
+  it('AC-27: a tool whose last sync failed is still searched, with no error in the dialog', async () => {
+    holding(
+      makeSearchIndex({
+        pullRequests: [makeSearchPullRequest()],
+        tools: {
+          jira: { state: 'synced', at: '2026-10-18T09:00:00.000Z' },
+          github: { state: 'failed', problem: { kind: 'no_answer' }, lastSyncedAt: '2026-10-18T08:00:00.000Z' },
+        },
+      }),
+    );
+    const { user } = await renderApp();
+    await openSearch(user);
+
+    await user.type(await screen.findByRole('combobox'), '2841');
+
+    expect(await screen.findByRole('option', { name: /web-app #2841/ })).toBeVisible();
+    expect(within(screen.getByRole('dialog', { name: 'Search' })).queryByText(/GitHub/)).not.toBeInTheDocument();
   });
 });
