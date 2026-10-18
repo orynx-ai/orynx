@@ -21,6 +21,9 @@ export type {
   AgentBrief,
   AgentEvent,
   AgentPermissions,
+  AgentProblemKind,
+  AgentRefusal,
+  AgentWork,
   ApprovalDecision,
   PermissionMode,
 } from './agents/agent-adapter.ts';

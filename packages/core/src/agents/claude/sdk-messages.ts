@@ -1,7 +1,7 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { isAbsolute, relative } from 'node:path';
 import { z } from 'zod';
-import type { ClaudeWork } from '../../sessions/progress.ts';
+import type { AgentProblemKind, AgentWork } from '../agent-adapter.ts';
 
 /**
  * Reads the messages the Claude Agent SDK streams during a session (spec 011) into what the session
@@ -10,12 +10,12 @@ import type { ClaudeWork } from '../../sessions/progress.ts';
  * file except its final summary: a problem carries only a code that is safe to log (AC-21).
  */
 
-export type ProblemKind = 'login' | 'limit' | 'other';
+export type ProblemKind = AgentProblemKind;
 
 export type ReadMessage =
   /** How much Claude Code loaded is logged by count, so a surprise (an MCP server, a plugin) shows without names. */
   | { type: 'started'; claudeSessionId: string; loaded: { tools: number; mcpServers: number; plugins: number } }
-  | { type: 'work'; work: ClaudeWork }
+  | { type: 'work'; work: AgentWork }
   | { type: 'problem'; kind: ProblemKind; code: string };
 
 const InitSchema = z.object({
@@ -91,7 +91,7 @@ export function createMessageReader(worktree: string): (message: SDKMessage) => 
     return inside === '' || inside.startsWith('..') || isAbsolute(inside) ? path : inside;
   }
 
-  function workOf(name: string, input: unknown): ClaudeWork | null {
+  function workOf(name: string, input: unknown): AgentWork | null {
     switch (name) {
       case 'Read': {
         const read = PathInputSchema.safeParse(input);

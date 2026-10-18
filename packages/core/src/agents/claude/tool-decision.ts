@@ -1,6 +1,7 @@
 import { lstat, readlink, realpath } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { PermissionMode } from '@devhub/contracts';
+import type { AgentRefusal } from '../agent-adapter.ts';
 
 /**
  * What Claude may do in a session before approvals exist (spec 011, Q6): read, search, plan and edit
@@ -15,12 +16,7 @@ export const sessionTools = ['Read', 'Glob', 'Grep', 'Edit', 'Write', 'NotebookE
 type SessionTool = (typeof sessionTools)[number];
 
 /** A refused call the session shows as a step (Q10a). */
-export interface ToolRefusal {
-  access: 'read' | 'edit';
-  reason: 'outside_worktree' | 'ask_everything';
-  /** As Claude asked for it: relative to the worktree when it's inside, otherwise absolute. */
-  path: string;
-}
+export type ToolRefusal = AgentRefusal;
 
 export type ToolDecision =
   | { behavior: 'allow' }

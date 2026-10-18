@@ -1,5 +1,5 @@
 import type { SessionActivity, SessionActivityState, SessionStep } from '@devhub/contracts';
-import type { ToolRefusal } from '../agents/claude/tool-decision.ts';
+import type { AgentWork } from '../agents/agent-adapter.ts';
 
 /**
  * "Claude's progress" and the stepper (spec 011, AC-4, AC-7). Claude's tool calls arrive one by one; the
@@ -8,15 +8,7 @@ import type { ToolRefusal } from '../agents/claude/tool-decision.ts';
  */
 
 /** One piece of Claude's work, as the SDK reader sees it once a tool call has succeeded or been refused. */
-export type ClaudeWork =
-  /** A read (with its file) or a search (no single file). */
-  | { kind: 'explore'; file: string | null }
-  /** Claude's to-do list, which is its plan. */
-  | { kind: 'plan'; items: readonly string[] }
-  | { kind: 'edit'; file: string }
-  | { kind: 'refused'; refusal: ToolRefusal }
-  /** Claude ended its turn, with its own summary. */
-  | { kind: 'finished'; summary: string };
+export type ClaudeWork = AgentWork;
 
 type WithoutPlace<T> = T extends unknown ? Omit<T, 'id' | 'state'> : never;
 /** A step before it has its place in the list. */
