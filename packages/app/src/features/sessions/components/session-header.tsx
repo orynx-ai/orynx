@@ -5,6 +5,7 @@ import type { Session, SessionState } from '@devhub/contracts';
 import { Button, Icon, Pill, Skeleton, sessionStateLabels, type PillTone } from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
 import { needsApprovalLabel } from '../approval-words.ts';
+import { CreatePullRequest } from './create-pull-request.tsx';
 
 /** The state pill's colour, as the sidebar colours each state (Q10b). */
 const stateTones: Record<SessionState, PillTone> = {
@@ -14,6 +15,15 @@ const stateTones: Record<SessionState, PillTone> = {
   pr_open: 'neutral',
   stopped: 'neutral',
 };
+
+/**
+ * Create pull request shows once Claude isn't working, while the worktree is there and no pull request is open
+ * (spec 014, Q2): Done, or Stopped after Stop, an error or Orynx closing.
+ */
+function canCreatePullRequest(session: Session): boolean {
+  const working = session.state === 'working' || session.state === 'needs_you';
+  return !working && session.pullRequest === null && session.discardedAt === null && session.worktreePath !== null;
+}
 
 /**
  * The Session screen's title row (`session.html`): the title, the state, the branch and where Claude works,
@@ -47,6 +57,14 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
           <span>in {session.folder.name} · separate worktree, your main checkout is untouched</span>
         </div>
       </div>
+      {canCreatePullRequest(session) ? (
+        <CreatePullRequest
+          session={session}
+          onOpened={() => {
+            title.current?.focus();
+          }}
+        />
+      ) : null}
       {working ? (
         <Button
           variant="secondary"

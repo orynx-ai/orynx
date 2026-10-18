@@ -62,6 +62,14 @@ describe('why there can’t be a pull request (spec 014, Q11c)', () => {
     expect(cannotOpenWords(reason)).toEqual({ line, settings: false });
   });
 
+  it('says when Orynx’s server didn’t answer the draft or the press, with Try again', () => {
+    expect(pullRequestWords).toMatchObject({
+      draftFailed: "Couldn't get a draft.",
+      tryAgain: 'Try again',
+      createFailed: "Couldn't create the pull request. Try again.",
+    });
+  });
+
   it('AC-7: asks you to connect GitHub, with Settings linked', () => {
     expect(cannotOpenWords('not_connected')).toEqual({ line: 'Connect GitHub to open pull requests.', settings: true });
     expect(pullRequestWords.openSettings).toBe('Open Settings');

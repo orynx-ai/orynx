@@ -26,6 +26,10 @@ export const pullRequestWords = {
   openSettings: 'Open Settings',
   authorize: 'Authorize',
   commitMessage: 'Commit message',
+  // Not in Q11: the local server didn't answer the draft, or the press.
+  draftFailed: "Couldn't get a draft.",
+  tryAgain: 'Try again',
+  createFailed: "Couldn't create the pull request. Try again.",
   nothingNew: 'Nothing new to push: GitHub already has everything in the worktree.',
 } as const;
 
