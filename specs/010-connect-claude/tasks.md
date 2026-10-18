@@ -17,7 +17,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Let `createCheckedStatus` hold any answer, and add `checkNow()`, which shares a check that's already running. Jira and GitHub behave as before (AC-7, AC-9)
       Check: pnpm test packages/core/src/integrations
       Files: packages/core/src/integrations/checked-status.ts, checked-status.test.ts, jira/connection.ts, github/connection.ts
-- [ ] Task 6: Add Claude's login check: at most every 2 minutes, Check again at once, `status.changed` when the answer changes, and a log line with only the problem's kind and exit code (AC-5, AC-6, AC-9, AC-11)
+- [x] Task 6: Add Claude's login check: at most every 2 minutes, Check again at once, `status.changed` when the answer changes, and a log line with only the problem's kind and exit code (AC-5, AC-6, AC-9, AC-11)
       Check: pnpm test packages/core/src/agents/claude
       Files: packages/core/src/agents/claude/claude-login.ts, claude-login.test.ts
 - [ ] Task 7: Add `GET /api/claude/login` and `POST /api/claude/login/check`, take `claudeCode` in `createServer`, and answer the status line's `connected` from the same check. With no program, nothing starts and Claude is not connected (AC-1, AC-4, AC-5, AC-12)
