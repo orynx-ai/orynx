@@ -60,7 +60,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 19: Add `sendMessage`, `sessionChanges` and `sessionDiff` to the api-client with their query options (keys under the sessions key, `staleTime: 0`), and map `session.files.changed` to that session's changes keys only (AC-2, AC-18)
       Check: pnpm test packages/api-client; the event's refetch is proven through the Changes tab in task 23, the first screen that reads changes
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/sessions.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/app/src/live-updates.tsx, packages/app/src/live-updates.test.tsx
-- [ ] Task 20: Give `FileList` a `maxRows` option that scrolls inside its box past that many rows, with a story and a test (Q6c)
+- [x] Task 20: Give `FileList` a `maxRows` option that scrolls inside its box past that many rows, with a story and a test (Q6c)
       Check: pnpm test packages/ui/src/components/file-list.test.tsx; pnpm storybook (no axe violations)
       Files: packages/ui/src/components/file-list.tsx, packages/ui/src/components/file-list.stories.tsx, packages/ui/src/components/file-list.test.tsx, docs/design-map.md
 - [ ] Task 21: Add the `Markdown` component and its parser for what `adf-markdown.ts` writes (headings, paragraphs, bold, italic, inline code, links, lists, task lists, code blocks, quotes, rules): only `http` and `https` links through `onOpenLink`, raw HTML as text, wide blocks scrolling in their box, the five sizes and two weights; a story per block and a test (AC-9, AC-10, Q8)

@@ -43,6 +43,25 @@ describe('FileList', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('013 Q6c: a list that scrolls past 8 files still lets you reach and pick each one with the keyboard', async () => {
+    const many: ChangedFile[] = Array.from({ length: 20 }, (_, n) => ({
+      path: `src/many/file-${String(n + 1).padStart(2, '0')}.ts`,
+      added: 1,
+      removed: 0,
+    }));
+    const onSelect = vi.fn();
+    const { container } = render(<FileList aria-label="Changed files" files={many} maxRows={8} onSelect={onSelect} />);
+    const user = userEvent.setup();
+    const buttons = within(screen.getByRole('list', { name: 'Changed files' })).getAllByRole('button');
+    expect(buttons).toHaveLength(20);
+    for (let n = 0; n < 20; n++) await user.tab();
+    expect(buttons[19]).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(onSelect).toHaveBeenCalledWith('src/many/file-20.ts');
+    // The height, 8 rows and their dividers, is checked in the browser.
+    await expectNoAxeViolations(container);
+  });
+
   it('AC-21: picking a file tells the screen, and the list waits for the screen to show it', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
