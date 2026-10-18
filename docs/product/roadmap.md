@@ -41,6 +41,7 @@ On 2026-10-17 the user set the order after 004: Settings (005) and the design-sy
 | 017 | `017-polish-dark-mode-a11y`       | Full dark-mode and accessibility pass across every screen, reduced motion, contrast check                                                                                                                                                     | all four                                              |
 | 018 | `018-install-guide`               | Install guide for any team: clone, connect, first session                                                                                                                                                                                     | none (docs)                                           |
 | 019 | `019-new-ticket`                  | The column + and the New ticket form (title, type, priority), created in Jira in that column's status and added to the sprint: DevHub's first write to Jira (moved from 008, spec 008 Q5)                                                     | none — stop and ask for a design                      |
+| 020 | `020-fix-a-failing-check`         | "Fix" on a pull request whose checks fail: a session on the PR's own branch, with the failing check's log in the brief, started from Home's failing-check row (moved from 011, spec 011 Q12)                                                  | `home.html` (failing-check row)                       |
 
 ## The session lifecycle
 
