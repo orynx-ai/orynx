@@ -90,9 +90,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 29: e2e: the folder menu and each reason Build can't start, a Jira failure after start, Home's Build and Open, the keyboard path, and axe at 360 and 1280 px in light and dark (AC-11, AC-12, AC-13, AC-15, AC-18, AC-19)
       Check: pnpm test:e2e e2e/sessions.spec.ts
       Files: e2e/sessions.spec.ts, e2e/fake-tools/preload.ts, e2e/fake-tools/config.ts (`brokenIssues`: an issue the fake Jira won't give). Three sessions at once (Q11) stays with the session service's tests: it would need three fakes held open on the shared hub
-- [ ] Task 30: Docs: a `learn/` page on sessions and worktrees, agent-runtime rules 1, 6 and the adapter as 011 built them (Q7, Q8), the roadmap's 011 and 012 lines, and the pages whose sources changed
+- [x] Task 30: Docs: a `learn/` page on sessions and worktrees, agent-runtime rules 1, 6 and the adapter as 011 built them (Q7, Q8), the roadmap's 011 and 012 lines, and the pages whose sources changed
       Check: pnpm gate learn-freshness handbook-size specs
-      Files: learn/sessions-and-worktrees.md, .claude/skills/agent-runtime/SKILL.md, docs/product/roadmap.md, learn/live-updates.md, learn/local-security.md, learn/tokens-and-keychain.md, learn/checking-claude.md, learn/how-a-request-flows.md, learn/the-inbox.md
+      Files: learn/sessions-and-worktrees.md, .claude/skills/agent-runtime/SKILL.md, docs/product/roadmap.md, learn/checking-claude.md, learn/tokens-and-keychain.md, learn/connecting-github.md, learn/connecting-jira.md, learn/how-a-request-flows.md, learn/live-updates.md, learn/local-security.md, learn/search.md, learn/the-inbox.md, learn/the-tickets-board.md
 - [ ] Task 31: Open the Session screen in a real browser (`pnpm dev`, own `DEVHUB_HOME`) at 360 and 1280 px, light and dark, in each state through `page.route`: loading, Working, Done, Stopped, couldn't start, discarded. Measure CLS while it loads, and tick each check here (AC-16, AC-19)
       Check: screenshots in the scratchpad, CLS 0, no axe violations
       Files: specs/011-sessions-and-worktrees/tasks.md
