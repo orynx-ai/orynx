@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { PlusSignIcon } from '@hugeicons/core-free-icons';
 import type { Repository } from '@devhub/contracts';
 import { Button, Icon, EmptyState } from '@devhub/ui';
@@ -7,6 +7,11 @@ import { AddFolderForm } from './add-folder-form.tsx';
 import { RepositoryRow } from './repository-row.tsx';
 import { SaveError } from './save-error.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
+
+/** One sentence for the live region; an object, so two equal sentences stay apart. */
+interface Sentence {
+  text: string;
+}
 
 /**
  * Settings › Repositories: the folders on this computer Claude may work in, each with the Jira project
@@ -17,9 +22,10 @@ export function RepositoriesPanel() {
   const remove = useRemoveRepository();
   const adding = useAddingRepository();
   const [formOpen, setFormOpen] = useState(false);
-  // One line per removal the server agreed to, until the add form opens. A new Remove press doesn't
-  // empty it: landing in the same render as an earlier answer, it would wipe that line before it's said.
-  const [announcements, setAnnouncements] = useState<readonly string[]>([]);
+  // What the live region says. A sentence leaves only once it has been on screen, so answers that land
+  // together, or one that lands as the next Remove is pressed, are all heard.
+  const [sentences, setSentences] = useState<readonly Sentence[]>([]);
+  const shown = useRef<readonly Sentence[]>([]);
   // Kept through a callback ref, so closing the form can hand focus back to it.
   const [addButton, setAddButton] = useState<HTMLButtonElement | null>(null);
   const removeButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -29,6 +35,10 @@ export function RepositoriesPanel() {
   // unless the person has moved on from where removing put focus.
   const [refocus, setRefocus] = useState<{ id: string; from: Element | null } | null>(null);
   const formId = useId();
+
+  useLayoutEffect(() => {
+    shown.current = sentences;
+  }, [sentences]);
 
   useEffect(() => {
     if (refocus === null) return;
@@ -42,6 +52,14 @@ export function RepositoriesPanel() {
   if (repositories.data === undefined && repositories.isError) return <ServerUnreachable />;
   const folders = repositories.data?.repositories;
 
+  function unshown(list: readonly Sentence[]) {
+    return list.filter((sentence) => !shown.current.includes(sentence));
+  }
+
+  function announce(text: string) {
+    setSentences((list) => [...unshown(list), { text }]);
+  }
+
   function closeForm() {
     setFormOpen(false);
     addButton?.focus();
@@ -51,11 +69,11 @@ export function RepositoriesPanel() {
     // Focus moves on before the row goes, so it never falls back to the page.
     const target = next === undefined ? addButton : (removeButtons.current.get(next.id) ?? null);
     target?.focus();
+    setSentences(unshown);
     setRemoveFailed(false);
     remove.mutateAsync(folder.id).then(
       () => {
-        // Added to what's there, not in place of it: two answers that land together must both be said.
-        setAnnouncements((said) => [...said, `Removed ${folder.name}.`]);
+        announce(`Removed ${folder.name}.`);
       },
       () => {
         setRemoveFailed(true);
@@ -80,7 +98,7 @@ export function RepositoriesPanel() {
           aria-disabled={adding || undefined}
           onClick={() => {
             if (adding) return;
-            setAnnouncements([]);
+            setSentences(unshown);
             setFormOpen((open) => !open);
           }}
         >
@@ -117,15 +135,9 @@ export function RepositoriesPanel() {
         </ul>
       )}
       {removeFailed ? <SaveError /> : null}
-      {/* Not atomic, so a screen reader reads each new line rather than everything again. */}
-      <div role="status" aria-atomic="false" className="sr-only">
-        {announcements.map((line, index) => (
-          // The lines only grow until the next action empties them, so the index names each one.
-          <p key={index} className="m-0">
-            {line}
-          </p>
-        ))}
-      </div>
+      <p role="status" className="sr-only">
+        {sentences.map((sentence) => sentence.text).join(' ')}
+      </p>
     </div>
   );
 }

@@ -7,6 +7,7 @@ export * from './jira.ts';
 export * from './preferences.ts';
 export * from './repositories.ts';
 export * from './routes.ts';
+export * from './search.ts';
 export * from './session.ts';
 export * from './status.ts';
 export * from './tickets.ts';

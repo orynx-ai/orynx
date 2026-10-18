@@ -15,6 +15,7 @@ export const queryKeys = {
   inbox: ['inbox'] as const,
   tickets: ['tickets'] as const,
   claudeLogin: ['claude', 'login'] as const,
+  search: ['search'] as const,
 };
 
 export function statusQueryOptions(api: ApiClient) {
@@ -107,6 +108,16 @@ export function claudeLoginQueryOptions(api: ApiClient) {
     queryKey: queryKeys.claudeLogin,
     queryFn: () => api.claudeLogin(),
     // Freshness comes from the event stream (status.changed when the server's check finds a change).
+    staleTime: Infinity,
+  });
+}
+
+export function searchQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.search,
+    queryFn: () => api.search(),
+    // Freshness comes from the event stream (inbox.changed when a sync ends, sessions.changed, status.changed),
+    // not from polling, and typing never asks again: the browser matches (spec 009).
     staleTime: Infinity,
   });
 }

@@ -1,4 +1,4 @@
-import type { InboxProblem, SessionSummary, Ticket, Tickets } from '@devhub/contracts';
+import type { InboxProblem, Tickets } from '@devhub/contracts';
 import type { CachedTool, InboxCache } from '../inbox/inbox-cache.ts';
 import { toolState } from '../inbox/tool-state.ts';
 import type { JiraClient } from '../integrations/jira/client.ts';
@@ -12,6 +12,7 @@ import {
   type BoardLayout,
 } from '../integrations/jira/sprint-map.ts';
 import type { SessionStore } from '../sessions/session-store.ts';
+import { sessionsByTicket } from '../sessions/ticket-sessions.ts';
 import type { SettingsStore } from '../settings/settings-store.ts';
 
 /**
@@ -49,23 +50,6 @@ export interface TicketsServiceOptions {
 
 const part = 'jira_sprint';
 const nothing: Omit<Tickets, 'jira'> = { sprint: null, tickets: [], truncated: false };
-
-/** The newest session on each ticket, unless that one was stopped (Q4c). */
-function sessionsByTicket(sessions: readonly SessionSummary[]): Map<string, Ticket['session']> {
-  const newest = new Map<string, SessionSummary>();
-  for (const session of sessions) {
-    if (session.source?.kind !== 'jira') continue;
-    const seen = newest.get(session.source.key);
-    if (seen === undefined || Date.parse(session.updatedAt) > Date.parse(seen.updatedAt)) {
-      newest.set(session.source.key, session);
-    }
-  }
-  const joined = new Map<string, Ticket['session']>();
-  for (const [key, session] of newest) {
-    if (session.state !== 'stopped') joined.set(key, { id: session.id, state: session.state });
-  }
-  return joined;
-}
 
 export function createTicketsService(options: TicketsServiceOptions): TicketsService {
   const { cache, settings, connection, jira } = options;

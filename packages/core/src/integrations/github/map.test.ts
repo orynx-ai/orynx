@@ -38,6 +38,7 @@ describe('GitHub map', () => {
       url: 'https://github.com/acme/web-app/pull/2841',
       author: 'Priya Sharma',
       mine: false,
+      openedAt: '2026-10-10T09:00:00.000Z',
       reviewRequestedAt: '2026-10-15T11:00:00.000Z',
       checksFailedAt: null,
       unresolved: null,
@@ -91,8 +92,8 @@ describe('GitHub map', () => {
           { number: 2, checks: 'PENDING' },
           { number: 3, checks: null },
         ],
-      }),
-    ).toEqual([]);
+      }).map((record) => record.checksFailedAt),
+    ).toEqual([null, null, null]);
   });
 
   it('AC-9: failing checks with no time of their own count from the latest commit, else from when the pull request opened', () => {
@@ -125,14 +126,39 @@ describe('GitHub map', () => {
     expect(record?.unresolved).toEqual({ count: 3, since: '2026-10-15T10:00:00.000Z' });
   });
 
-  it('keeps nothing about your pull requests that need nothing from you', () => {
-    expect(
-      records({
-        mine: [
-          { number: 1, checks: 'SUCCESS', threads: [{ resolved: true, lastBy: 'a', at: '2026-10-12T10:00:00Z' }] },
-        ],
+  it('AC-18: keeps your open pull request that needs nothing from you, so search can find it (Q1c)', () => {
+    const kept = records({
+      mine: [
+        {
+          number: 1,
+          title: 'Tidy the settings page',
+          createdAt: '2026-10-16T08:00:00Z',
+          checks: 'SUCCESS',
+          threads: [{ resolved: true, lastBy: 'a', at: '2026-10-12T10:00:00Z' }],
+        },
+      ],
+    });
+
+    expect(kept).toEqual([
+      expect.objectContaining({
+        id: 'acme/web-app#1',
+        title: 'Tidy the settings page',
+        mine: true,
+        openedAt: '2026-10-16T08:00:00.000Z',
+        reviewRequestedAt: null,
+        checksFailedAt: null,
+        unresolved: null,
       }),
-    ).toEqual([]);
+    ]);
+  });
+
+  it('AC-18: reads a pull request cached before DevHub kept when it was opened, with no time', () => {
+    const [record] = records({
+      reviews: [{ number: 1, requests: [{ login: githubLogin, at: '2026-10-14T09:00:00Z' }] }],
+    });
+    const { openedAt: _openedAt, ...older } = record ?? {};
+
+    expect(PullRequestRecordSchema.parse(older).openedAt).toBeNull();
   });
 
   it('keeps no pull request whose link points anywhere but github.com', () => {

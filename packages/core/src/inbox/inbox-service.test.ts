@@ -442,6 +442,77 @@ describe('inbox service', () => {
     await inbox.idle();
   });
 
+  describe('records for search (spec 009)', () => {
+    it('AC-17, AC-18: holds what the last sync kept, whatever the inbox rules say, quiet pull requests too', async () => {
+      outside.use(
+        acceptingIssueSearch([issue]),
+        acceptingInboxQuery({ reviews: [review], mine: [{ number: 2836, title: 'Tidy the settings page' }] }),
+      );
+      const { inbox, preferences } = setup({ settings: bothConnected });
+      await inbox.sync();
+      const asked = requests();
+
+      await preferences.change({
+        inboxRules: {
+          jira_assigned: false,
+          review_requested: false,
+          checks_failing: false,
+          unresolved_comments: false,
+        },
+      });
+      const found = await inbox.records();
+
+      expect((await inbox.read()).items).toEqual([]);
+      expect(found.jira.map((record) => record.key)).toEqual(['PROJ-1423']);
+      expect(found.github.map((record) => [record.id, record.mine]).sort()).toEqual([
+        ['acme/web-app#2836', true],
+        ['acme/web-app#2841', false],
+      ]);
+      expect(found.tools).toEqual({
+        jira: { state: 'synced', at: '2026-10-17T10:00:00.000Z' },
+        github: { state: 'synced', at: '2026-10-17T10:00:00.000Z' },
+      });
+      expect(asked()).toEqual([]);
+    });
+
+    it('AC-22, AC-24: a tool not connected, or still on its first sync, has no records and says where it stands', async () => {
+      const { inbox } = setup({ settings: jiraConnected });
+
+      expect(await inbox.records()).toEqual({
+        jira: [],
+        github: [],
+        tools: { jira: { state: 'syncing' }, github: { state: 'not_connected' } },
+      });
+    });
+
+    it('AC-27: a tool whose last sync failed keeps its last records', async () => {
+      outside.use(acceptingInboxQuery({ reviews: [review] }));
+      const { inbox } = setup({ settings: githubConnected });
+      await inbox.sync();
+
+      outside.use(http.post(graphqlUrl, () => HttpResponse.json({ message: 'Server Error' }, { status: 502 })));
+      await inbox.sync();
+      const found = await inbox.records();
+
+      expect(found.github.map((record) => record.id)).toEqual(['acme/web-app#2841']);
+      expect(found.tools.github).toEqual({
+        state: 'failed',
+        problem: { kind: 'no_answer' },
+        lastSyncedAt: '2026-10-17T10:00:00.000Z',
+      });
+    });
+
+    it('AC-17: a tool disconnected since its last sync shows none of its records', async () => {
+      outside.use(acceptingInboxQuery({ reviews: [review] }));
+      const { inbox, settings } = setup({ settings: githubConnected });
+      await inbox.sync();
+
+      await settings.update(() => ({}));
+
+      expect((await inbox.records()).github).toEqual([]);
+    });
+  });
+
   describe('with Tickets’ sprint (spec 008)', () => {
     it('AC-17: a sync reads the sprint beside the tools, and each tells open pages when it ends', async () => {
       outside.use(acceptingIssueSearch([issue]));

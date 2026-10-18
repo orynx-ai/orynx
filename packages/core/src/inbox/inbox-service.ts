@@ -3,10 +3,20 @@ import type { Inbox, InboxProblem, Preferences } from '@devhub/contracts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { GitHubClient } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
-import { githubInboxProblem, githubRecords, PullRequestRecordSchema } from '../integrations/github/map.ts';
+import {
+  githubInboxProblem,
+  githubRecords,
+  PullRequestRecordSchema,
+  type PullRequestRecord,
+} from '../integrations/github/map.ts';
 import type { JiraClient } from '../integrations/jira/client.ts';
 import { jiraAccount, type JiraSyncCredentials } from '../integrations/jira/connection.ts';
-import { JiraIssueRecordSchema, jiraInboxProblem, jiraRecords } from '../integrations/jira/map.ts';
+import {
+  JiraIssueRecordSchema,
+  jiraInboxProblem,
+  jiraRecords,
+  type JiraIssueRecord,
+} from '../integrations/jira/map.ts';
 import type { SessionStore } from '../sessions/session-store.ts';
 import type { Settings, SettingsStore } from '../settings/settings-store.ts';
 import type { SprintSyncOutcome } from '../tickets/tickets-service.ts';
@@ -22,6 +32,8 @@ import { toolState } from './tool-state.ts';
 export interface InboxService {
   /** The rows the rules let through, longest wait first, and where each tool stands. Asks no tool. */
   read(): Promise<Inbox>;
+  /** What the last sync kept for each connected tool, with no inbox rules, for search (spec 009). Asks no tool. */
+  records(): Promise<InboxRecords>;
   /** Asks every connected tool now. A call while a sync runs waits for that one (Refresh). */
   sync(): Promise<void>;
   /**
@@ -35,6 +47,13 @@ export interface InboxService {
   clear(): Promise<void>;
   /** Disconnect: the tool's rows go and open pages are told. */
   forget(tool: InboxTool): void;
+}
+
+/** Each connected tool's records from its last sync, and where each tool stands. */
+export interface InboxRecords {
+  jira: JiraIssueRecord[];
+  github: PullRequestRecord[];
+  tools: Inbox['tools'];
 }
 
 export interface InboxServiceOptions {
@@ -234,33 +253,33 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     return sync();
   }
 
+  async function connectedRecords(): Promise<InboxRecords> {
+    const saved = await settings.read();
+    const jira = cachedFor(saved, 'jira');
+    const github = cachedFor(saved, 'github');
+    return {
+      jira: jira === 'not_connected' ? [] : records(jira, JiraIssueRecordSchema),
+      github: github === 'not_connected' ? [] : records(github, PullRequestRecordSchema),
+      tools: {
+        jira: jira === 'not_connected' ? { state: 'not_connected' } : toolState(jira, broken.has('jira')),
+        github: github === 'not_connected' ? { state: 'not_connected' } : toolState(github, broken.has('github')),
+      },
+    };
+  }
+
   return {
     async read() {
-      const [saved, sessions, preferences] = await Promise.all([
-        settings.read(),
+      const [found, sessions, preferences] = await Promise.all([
+        connectedRecords(),
         options.sessions.list(),
         options.preferences.read(),
       ]);
-      const jira = cachedFor(saved, 'jira');
-      const github = cachedFor(saved, 'github');
-      const items = inboxItems(
-        {
-          jira: jira === 'not_connected' ? [] : records(jira, JiraIssueRecordSchema),
-          github: github === 'not_connected' ? [] : records(github, PullRequestRecordSchema),
-          sessions,
-        },
-        preferences.inboxRules,
-      );
-      const anyConnected = jira !== 'not_connected' || github !== 'not_connected';
-      return {
-        items,
-        tools: {
-          jira: jira === 'not_connected' ? { state: 'not_connected' } : toolState(jira, broken.has('jira')),
-          github: github === 'not_connected' ? { state: 'not_connected' } : toolState(github, broken.has('github')),
-        },
-        syncedAt: anyConnected ? cache.syncedAt() : null,
-      };
+      const items = inboxItems({ jira: found.jira, github: found.github, sessions }, preferences.inboxRules);
+      const anyConnected = found.tools.jira.state !== 'not_connected' || found.tools.github.state !== 'not_connected';
+      return { items, tools: found.tools, syncedAt: anyConnected ? cache.syncedAt() : null };
     },
+
+    records: connectedRecords,
 
     sync,
 

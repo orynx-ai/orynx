@@ -1,5 +1,6 @@
 import { Outlet } from '@tanstack/react-router';
 import { Button, Callout, cn } from '@devhub/ui';
+import { SearchDialog } from '../features/search/components/search-dialog.tsx';
 import { usePlatform } from '../platform.tsx';
 import { useConnectionStore } from '../stores/connection-store.ts';
 import { focusMainContent, mainContentId } from './main-content.ts';
@@ -29,6 +30,7 @@ export function AppShell() {
         <StaleBanner />
         <Outlet />
       </main>
+      <SearchDialog />
     </div>
   );
 }

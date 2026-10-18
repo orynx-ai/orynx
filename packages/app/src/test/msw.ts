@@ -6,6 +6,7 @@ import {
   makeInbox,
   makeJiraConnection,
   makePreferences,
+  makeSearchIndex,
   makeSessionList,
   makeStatus,
   makeTickets,
@@ -47,4 +48,9 @@ export const server = setupServer(
   // Claude Code isn't signed in, as the default status says.
   http.get(apiUrl(apiRoutes.claudeLogin), () => HttpResponse.json({ state: 'signed_out' })),
   http.post(apiUrl(apiRoutes.claudeLoginCheck), () => HttpResponse.json({ state: 'signed_out' })),
+  http.get(apiUrl(apiRoutes.search), () =>
+    HttpResponse.json(
+      makeSearchIndex({ tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } } }),
+    ),
+  ),
 );

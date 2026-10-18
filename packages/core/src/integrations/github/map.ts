@@ -4,7 +4,8 @@ import type { GitHubProblem, GitHubPull } from './client.ts';
 
 /**
  * A pull request the inbox keeps in the cache (spec 007), with the facts its rules need: titles and
- * metadata only, never a comment's text. Kept only when one of the facts says it needs you.
+ * metadata only, never a comment's text. Every open one the sync reads is kept, so search finds your
+ * own quiet pull requests too (spec 009, Q1c); the rules decide which ones need you.
  */
 export const PullRequestRecordSchema = z.object({
   /** `owner/repository#number`, unique on github.com. */
@@ -17,6 +18,8 @@ export const PullRequestRecordSchema = z.object({
   /** The author's GitHub name, else their login; null when GitHub names nobody. */
   author: z.string().min(1).nullable(),
   mine: z.boolean(),
+  /** When it was opened, for search's newest-first order; null in a record cached before DevHub kept it. */
+  openedAt: z.iso.datetime().nullable().default(null),
   /** When your review was last asked for by name; null when it isn't. */
   reviewRequestedAt: z.iso.datetime().nullable(),
   /** When the first failing check on the latest commit finished; null when the checks aren't failing. */
@@ -67,6 +70,7 @@ function base(
     url: pull.url,
     author: authorOf(pull.author),
     mine,
+    openedAt: isoTime(pull.createdAt),
   };
 }
 
@@ -102,8 +106,8 @@ function unresolved(pull: GitHubPull, login: string): PullRequestRecord['unresol
 }
 
 /**
- * The inbox's records from one answer: each review request to you, and each of your pull requests with
- * failing checks or unresolved comments. A pull request that needs nothing from you isn't kept.
+ * The inbox's records from one answer: each review request to you, and each of your open pull requests,
+ * with its failing checks and unresolved comments when it has them.
  */
 export function githubRecords(answer: {
   login: string;
@@ -124,13 +128,12 @@ export function githubRecords(answer: {
   for (const pull of answer.mine) {
     const facts = base(pull, true);
     if (facts === null) continue;
-    const record = {
+    kept.set(facts.id, {
       ...facts,
       reviewRequestedAt: null,
       checksFailedAt: checksFailedAt(pull),
       unresolved: unresolved(pull, answer.login),
-    };
-    if (record.checksFailedAt !== null || record.unresolved !== null) kept.set(record.id, record);
+    });
   }
   return [...kept.values()];
 }

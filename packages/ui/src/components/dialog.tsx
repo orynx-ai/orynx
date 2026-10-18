@@ -1,0 +1,79 @@
+import { useRef, type ComponentProps } from 'react';
+import { Dialog as DialogPrimitive } from 'radix-ui';
+import { cn } from '../lib/cn.ts';
+
+export type DialogProps = ComponentProps<typeof DialogPrimitive.Root>;
+
+/**
+ * A dialog over the page, such as ⌘K search (spec 009, Q3a). From shadcn's `dialog` (Radix underneath):
+ * focus moves in and stays in, Esc or a click outside closes it, and focus goes back to what had it
+ * before, a trigger or a field the person was typing in.
+ */
+export function Dialog(props: DialogProps) {
+  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
+}
+
+export function DialogTrigger(props: ComponentProps<typeof DialogPrimitive.Trigger>) {
+  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
+}
+
+/** Names the dialog. Every dialog has one; hide it with `sr-only` when the dialog's own content says enough. */
+export function DialogTitle({ className, ...props }: ComponentProps<typeof DialogPrimitive.Title>) {
+  return (
+    <DialogPrimitive.Title data-slot="dialog-title" className={cn('text-title font-medium', className)} {...props} />
+  );
+}
+
+export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content>;
+
+/**
+ * The dialog itself, in a portal: `bg-raised`, a hairline, `radius-lg` (the design system's radius for
+ * dialogs) and the one shadow. It is the narrow page measure wide (720 px), 80 px from the top of the
+ * window and as tall as its content, up to the window's height less 80 px above and below. Under 768 px
+ * it fills the width with the 16 px gutter, 16 px from the top. Past its height it doesn't scroll: give
+ * the part that should scroll `min-h-0 overflow-y-auto`.
+ *
+ * There's no dimmed backdrop, because the design system has no token for one, and no scroll lock, so
+ * the page behind never jumps. It fades in with the shared `animate-fade-in`, unless the person asks for
+ * reduced motion.
+ */
+export function DialogContent({
+  className,
+  children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
+  ...props
+}: DialogContentProps) {
+  // Radix gives focus back to a trigger only. Opened by a key (⌘K) there is none, so remember what had it.
+  const returnFocusTo = useRef<HTMLElement | null>(null);
+  return (
+    <DialogPrimitive.Portal>
+      {/* Lays the dialog out over the window; clicks pass through it, so a click beside the dialog closes it. */}
+      <div className="pointer-events-none fixed inset-0 z-50 flex items-start justify-center p-4 md:py-20">
+        <DialogPrimitive.Content
+          data-slot="dialog"
+          // Nothing describes it unless the caller says so; Radix would otherwise warn.
+          aria-describedby={undefined}
+          onOpenAutoFocus={(event) => {
+            returnFocusTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            onOpenAutoFocus?.(event);
+          }}
+          onCloseAutoFocus={(event) => {
+            onCloseAutoFocus?.(event);
+            const target = returnFocusTo.current;
+            if (event.defaultPrevented || target?.isConnected !== true) return;
+            event.preventDefault();
+            target.focus();
+          }}
+          className={cn(
+            'pointer-events-auto flex max-h-full w-full max-w-180 flex-col overflow-hidden rounded-lg border border-border bg-raised text-body text-foreground shadow-overlay outline-none motion-safe:animate-fade-in max-md:max-w-none',
+            className,
+          )}
+          {...props}
+        >
+          {children}
+        </DialogPrimitive.Content>
+      </div>
+    </DialogPrimitive.Portal>
+  );
+}

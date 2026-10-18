@@ -53,11 +53,26 @@ const outside = setupServer(
       ...thread,
       comments: { nodes: thread.comments.nodes.map((comment) => ({ ...comment, body: commentText })) },
     }));
+    // Your own quiet pull request, which the cache keeps for search (spec 009, Q1c).
+    const quiet = pullNode({
+      number: 2850,
+      checks: 'SUCCESS',
+      threads: [{ resolved: true, lastBy: 'priya-s', at: '2026-10-16T11:00:00Z' }],
+    });
+    const quietThreads = quiet.reviewThreads.nodes.map((thread) => ({
+      ...thread,
+      comments: { nodes: thread.comments.nodes.map((comment) => ({ ...comment, body: commentText })) },
+    }));
     return HttpResponse.json({
       data: {
         viewer: { login: 'octocat' },
         reviews: { nodes: [] },
-        mine: { nodes: [{ ...pull, body: description, reviewThreads: { nodes: threads } }] },
+        mine: {
+          nodes: [
+            { ...pull, body: description, reviewThreads: { nodes: threads } },
+            { ...quiet, body: description, reviewThreads: { nodes: quietThreads } },
+          ],
+        },
       },
     });
   }),
@@ -81,7 +96,7 @@ afterEach(async () => {
 });
 
 describe('the inbox never leaks', () => {
-  it('AC-28: a sync writes no token to the log, and no token, description or comment text to cache.db', async () => {
+  it('AC-28: a sync writes no token to the log, and no token, description or comment text to cache.db or search', async () => {
     home = await mkdtemp(join(tmpdir(), 'devhub-inbox-leaks-'));
     const settings = createFileSettingsStore(home);
     await settings.update(() => ({ jira: { site: jiraSite, email: jiraEmail }, github: { method: 'token' } }));
@@ -134,10 +149,14 @@ describe('the inbox never leaks', () => {
       if (read === undefined) throw new Error('No server');
       return read;
     });
+    // Search (spec 009) reads the same cache and sessions.
+    const search = await app.inject({ method: 'GET', url: apiRoutes.search, headers });
     await app.close();
     app = undefined;
 
     expect(inbox.json<{ items: unknown[] }>().items).toHaveLength(2);
+    expect(search.json<{ tickets: unknown[] }>().tickets).toHaveLength(2);
+    expect(search.json<{ pullRequests: unknown[] }>().pullRequests).toHaveLength(2);
     expect(tickets.json<{ tickets: unknown[] }>().tickets).toHaveLength(1);
     const cache = (await readFile(cacheFilePath(home))).toString('latin1');
     expect(cache).toContain('Add bulk archive to the content list');
@@ -146,11 +165,14 @@ describe('the inbox never leaks', () => {
       expect(log.join('')).not.toContain(secret);
       expect(cache).not.toContain(secret);
       expect(tickets.body).not.toContain(secret);
+      expect(search.body).not.toContain(secret);
     }
     expect(cache).not.toContain(description);
     expect(cache).not.toContain(commentText);
     expect(tickets.body).not.toContain(description);
     expect(tickets.body).not.toContain(commentText);
+    expect(search.body).not.toContain(description);
+    expect(search.body).not.toContain(commentText);
   });
 
   it('AC-28: failed syncs log what went wrong, never a token, an error body or a header', async () => {
@@ -209,6 +231,7 @@ describe('the inbox never leaks', () => {
 
       await app.inject({ method: 'POST', url: apiRoutes.inboxRefresh, headers });
       const inbox = await app.inject({ method: 'GET', url: apiRoutes.inbox, headers });
+      const search = await app.inject({ method: 'GET', url: apiRoutes.search, headers });
       // The sprint's own pass ends after Home's rows; closing waits for it.
       await app.close();
       const tickets = await (async () => {
@@ -238,6 +261,7 @@ describe('the inbox never leaks', () => {
         expect(log.join('')).not.toContain(secret);
         expect(inbox.body).not.toContain(secret);
         expect(tickets.body).not.toContain(secret);
+        expect(search.body).not.toContain(secret);
         expect(cache).not.toContain(secret);
       }
     }

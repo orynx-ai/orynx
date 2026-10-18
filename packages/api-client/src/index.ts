@@ -10,6 +10,7 @@ export {
   preferencesQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
+  searchQueryOptions,
   sessionsQueryOptions,
   statusQueryOptions,
   ticketsQueryOptions,

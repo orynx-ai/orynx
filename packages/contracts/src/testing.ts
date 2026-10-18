@@ -8,6 +8,14 @@ import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbo
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
 import { defaultPreferences, PreferencesSchema, type InboxRules, type Preferences } from './preferences.ts';
 import { RepositorySchema, type Repository } from './repositories.ts';
+import {
+  SearchIndexSchema,
+  SearchPullRequestSchema,
+  SearchTicketSchema,
+  type SearchIndex,
+  type SearchPullRequest,
+  type SearchTicket,
+} from './search.ts';
 import { SessionListSchema, SessionSummarySchema, type SessionList, type SessionSummary } from './session.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 import { TicketSchema, TicketsSchema, type Ticket, type Tickets } from './tickets.ts';
@@ -163,6 +171,42 @@ export function makeTickets(overrides: Partial<Tickets> = {}): Tickets {
     sprint: { id: 42, name: 'Sprint 42', endsAt: '2026-10-24T17:00:00.000Z', projectKey: 'PROJ' },
     tickets: [],
     truncated: false,
+    ...overrides,
+  });
+}
+
+/** A ticket search finds: the design's PROJ-1423 "Add bulk archive", opening in Jira, unless the override says otherwise. */
+export function makeSearchTicket(overrides: Partial<SearchTicket> = {}): SearchTicket {
+  return SearchTicketSchema.parse({
+    key: 'PROJ-1423',
+    title: 'Add bulk archive',
+    status: 'In Progress',
+    target: { kind: 'external', url: 'https://your-team.atlassian.net/browse/PROJ-1423' },
+    ...overrides,
+  });
+}
+
+/** A pull request search finds: web-app #2841 "Lazy-load the people directory", unless the override says otherwise. */
+export function makeSearchPullRequest(overrides: Partial<SearchPullRequest> = {}): SearchPullRequest {
+  return SearchPullRequestSchema.parse({
+    id: 'acme/web-app#2841',
+    repository: 'web-app',
+    number: 2841,
+    title: 'Lazy-load the people directory',
+    author: 'Priya Shah',
+    url: 'https://github.com/acme/web-app/pull/2841',
+    ...overrides,
+  });
+}
+
+/** Nothing to find, with both tools synced at 09:00 on 18 Oct 2026, unless the override says otherwise. */
+export function makeSearchIndex(overrides: Partial<SearchIndex> = {}): SearchIndex {
+  const synced = { state: 'synced', at: '2026-10-18T09:00:00.000Z' } as const;
+  return SearchIndexSchema.parse({
+    tickets: [],
+    pullRequests: [],
+    sessions: [],
+    tools: { jira: synced, github: synced },
     ...overrides,
   });
 }

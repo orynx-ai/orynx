@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
+import { useSearchStore } from '../features/search/store.ts';
 import { useTicketsStore } from '../features/tickets/store.ts';
 import { useConnectionStore } from '../stores/connection-store.ts';
 import { useThemeStore } from '../stores/theme-store.ts';
@@ -39,6 +40,7 @@ afterEach(() => {
   useThemeStore.setState(useThemeStore.getInitialState());
   useConnectionStore.setState(useConnectionStore.getInitialState());
   useTicketsStore.setState(useTicketsStore.getInitialState());
+  useSearchStore.setState(useSearchStore.getInitialState());
   FakeEventSource.instances = [];
 });
 

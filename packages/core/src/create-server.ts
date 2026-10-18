@@ -25,9 +25,11 @@ import { inboxRoutes } from './routes/inbox.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
+import { searchRoutes } from './routes/search.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
 import { ticketsRoutes } from './routes/tickets.ts';
 import { statusRoutes } from './routes/status.ts';
+import { createSearchService } from './search/search-service.ts';
 import type { Keychain } from './secrets/keychain.ts';
 import { createMemoryKeychain } from './secrets/memory-keychain.ts';
 import { createTokenStore, type EnvTokens, type TokenStore } from './secrets/token-store.ts';
@@ -295,6 +297,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(preferencesRoutes, { preferences });
       await api.register(inboxRoutes, { inbox });
       await api.register(ticketsRoutes, { tickets });
+      await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });
       await api.register(repositoriesRoutes, {
         repositories: createRepositoryService({
           settings,

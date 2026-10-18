@@ -53,6 +53,14 @@ export {
   type DiffLineKind,
   type DiffViewProps,
 } from './components/diff-view.tsx';
+export {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+  type DialogContentProps,
+  type DialogProps,
+} from './components/dialog.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
 export { Icon, type IconProps, type IconSvgElement } from './components/icon.tsx';
@@ -87,9 +95,23 @@ export {
   type SegmentedControlItemProps,
   type SegmentedControlProps,
 } from './components/segmented-control.tsx';
+export {
+  SearchPalette,
+  type SearchPaletteGroup,
+  type SearchPaletteItem,
+  type SearchPaletteProps,
+} from './components/search-palette.tsx';
+export {
+  SearchGroup,
+  SearchResult,
+  SearchResultSkeleton,
+  type SearchGroupProps,
+  type SearchResultProps,
+} from './components/search-result.tsx';
 export { Select } from './components/select.tsx';
 export {
   SessionItem,
+  SessionStateIcon,
   sessionStateLabels,
   type SessionItemProps,
   type SessionItemState,

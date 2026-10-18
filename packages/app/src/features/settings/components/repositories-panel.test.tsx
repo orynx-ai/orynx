@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type Repository } from '@devhub/contracts';
@@ -22,6 +22,37 @@ function listing(folders: () => Repository[]) {
 
 function folderList() {
   return screen.findByRole('list', { name: 'Folders' });
+}
+
+/** An answer the server holds back until the test lets it go. */
+function heldAnswer() {
+  let release: () => void = () => undefined;
+  const answered = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { answered, release };
+}
+
+/** Resolves `count` microtasks from now: after the promise callbacks already queued, before any task. */
+async function microtasksLater(count: number) {
+  for (let left = count; left > 0; left -= 1) await Promise.resolve();
+}
+
+/** Everything the live region says from now on, as a screen reader hears it, change by change. */
+function listen(region: HTMLElement) {
+  const said: string[] = [];
+  // Read each change from its record, with the text it replaced: by the time the observer runs, the
+  // region may already hold a later sentence.
+  new MutationObserver((records) => {
+    for (const record of records) {
+      const texts =
+        record.type === 'characterData'
+          ? [record.oldValue, record.target.textContent]
+          : [...record.addedNodes].map((node) => node.textContent);
+      for (const text of texts) if (text) said.push(text);
+    }
+  }).observe(region, { childList: true, characterData: true, characterDataOldValue: true, subtree: true });
+  return said;
 }
 
 describe('RepositoriesPanel', () => {
@@ -120,13 +151,10 @@ describe('RepositoriesPanel', () => {
     listing(() => [intranet, mobile]);
     // Both answers wait for both presses: on a slow run a 30 ms answer could beat the second press,
     // which starts a new change and so clears the first one's error.
-    let release: () => void = () => undefined;
-    const released = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const { answered, release } = heldAnswer();
     server.use(
       http.delete(apiUrl(apiRoutes.repository), async ({ params }) => {
-        await released;
+        await answered;
         return params['id'] === intranet.id
           ? HttpResponse.json({ code: 'internal', message: 'Something went wrong.' }, { status: 500 })
           : new HttpResponse(null, { status: 204 });
@@ -146,71 +174,58 @@ describe('RepositoriesPanel', () => {
     });
   });
 
-  it('AC-11: with two quick removals, each one is said once the server agrees', async () => {
+  it('AC-11: with two quick removals whose answers land together, a screen reader hears both', async () => {
     listing(() => [intranet, mobile]);
-    const said: string[] = [];
-    server.use(
-      http.delete(apiUrl(apiRoutes.repository), async ({ params }) => {
-        await delay(params['id'] === intranet.id ? 10 : 60);
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-    const { user } = await renderApp({ route: '/settings/repositories' });
-    await folderList();
-    const status = screen.getByRole('status');
-    // Read each change from its record, with the text it replaced: on a slow run both answers can land
-    // before the callback, and by then the live region holds only the last one.
-    const watcher = new MutationObserver((records) => {
-      for (const record of records) {
-        const texts =
-          record.type === 'characterData'
-            ? [record.oldValue, record.target.textContent]
-            : [...record.addedNodes].map((node) => node.textContent);
-        for (const text of texts) if (text) said.push(text);
-      }
-    });
-    watcher.observe(status, { childList: true, characterData: true, characterDataOldValue: true, subtree: true });
-
-    await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
-    await user.click(screen.getByRole('button', { name: 'Remove mobile' }));
-
-    // Each removal is said, in whichever order the answers come back.
-    await waitFor(() => {
-      expect([...new Set(said)].sort()).toEqual(['Removed intranet-web.', 'Removed mobile.']);
-    });
-    watcher.disconnect();
-  });
-
-  it('AC-11: two removals the server answers at the same moment are both said', async () => {
-    listing(() => [intranet, mobile]);
-    let release: () => void = () => undefined;
-    const released = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    let waiting = 0;
+    // Both answers wait for the same moment, so the page draws them in one go.
+    const { answered, release } = heldAnswer();
     server.use(
       http.delete(apiUrl(apiRoutes.repository), async () => {
-        waiting += 1;
-        await released;
+        await answered;
         return new HttpResponse(null, { status: 204 });
       }),
     );
     const { user } = await renderApp({ route: '/settings/repositories' });
     await folderList();
+    const said = listen(screen.getByRole('status'));
 
     await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
     await user.click(screen.getByRole('button', { name: 'Remove mobile' }));
-    await waitFor(() => {
-      expect(waiting).toBe(2);
-    });
-    // Both answers land together, so React draws them in one go.
     release();
 
-    const status = screen.getByRole('status');
     await waitFor(() => {
-      expect(status).toHaveTextContent('Removed intranet-web.');
+      expect(said.join(' ')).toContain('Removed intranet-web.');
+      expect(said.join(' ')).toContain('Removed mobile.');
     });
-    expect(status).toHaveTextContent('Removed mobile.');
+  });
+
+  it('AC-11: a removal whose answer lands as the next Remove is pressed is still heard', async () => {
+    listing(() => [intranet, mobile]);
+    const { answered, release } = heldAnswer();
+    server.use(
+      http.delete(apiUrl(apiRoutes.repository), async ({ params }) => {
+        if (params['id'] === intranet.id) await answered;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user, queryClient } = await renderApp({ route: '/settings/repositories' });
+    await folderList();
+    const said = listen(screen.getByRole('status'));
+
+    await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
+    const removeMobile = screen.getByRole('button', { name: 'Remove mobile' });
+    // Press Remove mobile just after the first answer is in, before the page has drawn it: a few
+    // microtasks on, while React draws only in a later task.
+    const stop = queryClient.getMutationCache().subscribe((event) => {
+      if (event.type !== 'updated' || event.action.type !== 'success') return;
+      stop();
+      void microtasksLater(10).then(() => fireEvent.click(removeMobile));
+    });
+    release();
+
+    await waitFor(() => {
+      expect(said.join(' ')).toContain('Removed intranet-web.');
+      expect(said.join(' ')).toContain('Removed mobile.');
+    });
   });
 
   it('AC-11: holding Enter on Remove removes one folder, not one after another', async () => {

@@ -14,6 +14,7 @@ import {
   type Repository,
   type RepositoryId,
   type RepositoryList,
+  type SearchIndex,
   type ServerEvent,
   type SessionList,
   type SessionListQuery,
@@ -26,6 +27,7 @@ import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.
 import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnection } from './endpoints/jira.ts';
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
 import { deleteRepository, getRepositories, postRepository } from './endpoints/repositories.ts';
+import { getSearch } from './endpoints/search.ts';
 import { getSessions } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
 import { getTickets } from './endpoints/tickets.ts';
@@ -81,6 +83,8 @@ export interface ApiClient {
   claudeLogin(): Promise<ClaudeLogin>;
   /** Check again: the server asks Claude Code now, or shares a check that's running. */
   checkClaudeLogin(): Promise<ClaudeLogin>;
+  /** Everything ⌘K search can find, from the server's cache and sessions (spec 009). */
+  search(): Promise<SearchIndex>;
   /** Opens the live event stream; returns a function that closes it. */
   subscribe(onEvent: (event: ServerEvent) => void, onError?: () => void): () => void;
 }
@@ -131,6 +135,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     claudeLogin: () => getClaudeLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkClaudeLogin: () =>
       postClaudeLoginCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    search: () => getSearch(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     subscribe: (onEvent, onError) =>
       subscribeToEvents({
         baseURL: options.baseURL,

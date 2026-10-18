@@ -291,8 +291,11 @@ test('AC-34, AC-45: Given the toolbar and the pager, when axe checks Home and th
     page.evaluate(async (context) => {
       const target = document.querySelector(context);
       if (target === null) throw new Error(`Nothing matches ${context}`);
-      // The menu fades in (PR #12's one quiet motion); mid-fade colours aren't the page's real ones.
-      await Promise.all(document.getAnimations().map((animation) => animation.finished));
+      // axe reads colours as drawn, so a menu still fading in would fail on contrast: let it settle first.
+      const moving = target
+        .getAnimations({ subtree: true })
+        .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity);
+      await Promise.allSettled(moving.map((animation) => animation.finished));
       const results = await window.axe.run(target, { resultTypes: ['violations'] });
       return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
     }, selector);
