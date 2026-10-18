@@ -55,6 +55,34 @@ describe('agentEnvironment', () => {
     expect(agentEnvironment({ [name]: 'fake-value-for-tests' })).toEqual({});
   });
 
+  it.each([
+    // What a Claude Code session sets for the programs it starts. Orynx started from a Claude Code
+    // terminal has them, but the programs Orynx starts aren't part of that session.
+    'CLAUDE_CODE_SESSION_ID',
+    'CLAUDE_CODE_SESSION_ATTENDED',
+    'CLAUDE_CODE_SESSION_ACCESS_TOKEN',
+    'CLAUDE_CODE_MESSAGING_SOCKET',
+    'CLAUDE_CODE_MESSAGING_TOKEN',
+    'CLAUDE_CODE_CHILD_SESSION',
+    'CLAUDE_CODE_ENTRYPOINT',
+    'CLAUDE_CODE_EXECPATH',
+    'CLAUDE_CODE_SSE_PORT',
+    'CLAUDE_PID',
+    'CLAUDE_EFFORT',
+    'CLAUDE_PROJECT_DIR',
+    'CLAUDE_ENV_FILE',
+    'CLAUDE_PLUGIN_ROOT',
+  ])('AC-10: keeps out %s, which belongs to the Claude Code session that started Orynx', (name) => {
+    expect(agentEnvironment({ [name]: 'fake-value-for-tests' })).toEqual({});
+  });
+
+  it.each(['CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_MAX_OUTPUT_TOKENS'])(
+    'AC-10: still lets your own Claude Code setting %s through',
+    (name) => {
+      expect(agentEnvironment({ [name]: '1' })).toEqual({ [name]: '1' });
+    },
+  );
+
   it('AC-10: keeps the allowed variables of a whole environment and drops the rest', () => {
     expect(
       agentEnvironment({
