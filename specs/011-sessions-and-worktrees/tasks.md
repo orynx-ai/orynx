@@ -60,7 +60,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 19: Add Button's quiet danger look (ghost, danger text, as `session.html` draws Discard changes) and Callout's `danger` tone (Q9f, existing tokens only), each with stories, tests and design-map rows (AC-10, AC-13, AC-19)
       Check: pnpm test packages/ui/src/components/button.test.tsx packages/ui/src/components/callout.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/button.tsx, button.stories.tsx, button.test.tsx, callout.tsx, callout.stories.tsx, callout.test.tsx, docs/design-map.md
-- [ ] Task 20: Add the words: "4 min 12 s", "Started 4 min ago" (Home's `agoText` moves to `words/`), a clock that ticks each second, and each step's title and detail from Q10a (AC-4, AC-8, Q10a, Q10g)
+- [x] Task 20: Add the words: "4 min 12 s", "Started 4 min ago" (Home's `agoText` moves to `words/`), a clock that ticks each second, and each step's title and detail from Q10a (AC-4, AC-8, Q10a, Q10g)
       Check: pnpm test packages/app/src/words packages/app/src/features/sessions/step-words.test.ts packages/app/src/features/home
       Files: packages/app/src/words/duration.ts, duration.test.ts, ago.ts, ago.test.ts, use-now.ts, packages/app/src/features/sessions/step-words.ts, step-words.test.ts, packages/app/src/features/home/inbox-words.ts
 - [ ] Task 21: Read a session from `GET /api/sessions/:id`, refresh it on `session.changed`, and show the sidebar's `recent` sessions (AC-4, AC-17)
