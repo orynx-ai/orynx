@@ -69,6 +69,8 @@ export interface SessionRecords extends SessionStore {
   update(id: string, change: (current: StoredSession) => StoredSession): Promise<StoredSession | null>;
   /** Saves exactly what Claude was sent (Q5). */
   writeBrief(id: string, text: string): Promise<void>;
+  /** What Claude was sent at the start; null when nothing was (spec 013, AC-9). */
+  readBrief(id: string): Promise<string | null>;
 }
 
 export function listedSession(session: Session): ListedSession {
@@ -79,6 +81,7 @@ export function listedSession(session: Session): ListedSession {
 /** Sessions held in memory: `sessions` are list-only summaries, as tests of Tickets and the inbox give them. */
 export function createMemorySessionStore(sessions: readonly SessionSummary[] = []): SessionRecords {
   const records = new Map<string, StoredSession>();
+  const briefs = new Map<string, string>();
   return {
     list: () => Promise.resolve([...sessions, ...[...records.values()].map((record) => listedSession(record.session))]),
     get: (id) => Promise.resolve(records.get(id) ?? null),
@@ -93,7 +96,11 @@ export function createMemorySessionStore(sessions: readonly SessionSummary[] = [
       records.set(id, next);
       return Promise.resolve(next);
     },
-    writeBrief: () => Promise.resolve(),
+    writeBrief(id, text) {
+      briefs.set(id, text);
+      return Promise.resolve();
+    },
+    readBrief: (id) => Promise.resolve(briefs.get(id) ?? null),
   };
 }
 

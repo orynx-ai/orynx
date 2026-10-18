@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { briefText, sessionNote, ticketBrief } from './brief.ts';
+import { briefText, sessionNote, ticketBrief, ticketFromBrief } from './brief.ts';
 
 const issue = {
   key: 'PROJ-1423',
@@ -71,5 +71,29 @@ describe('the note added to Claude Code’s system prompt', () => {
         "When you're done, summarise what you changed in a few sentences. " +
         'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
     );
+  });
+});
+
+describe('ticketFromBrief (spec 013)', () => {
+  it('AC-9: reads the type and description back from a brief saved before spec 013 kept the ticket', () => {
+    const issue = {
+      key: 'PROJ-1423',
+      summary: 'Add bulk archive',
+      type: 'Story',
+      description: 'Content managers…\n\n- one',
+    };
+    expect(ticketFromBrief(briefText(ticketBrief(issue)))).toEqual({
+      type: 'Story',
+      description: 'Content managers…\n\n- one',
+    });
+  });
+
+  it('AC-9: reads no type and no description as none', () => {
+    const issue = { key: 'PROJ-1423', summary: 'Fix (again): the toolbar', type: null, description: null };
+    expect(ticketFromBrief(briefText(ticketBrief(issue)))).toEqual({ type: null, description: null });
+  });
+
+  it('reads nothing from a brief that isn’t a ticket’s', () => {
+    expect(ticketFromBrief('Fix the toolbar')).toBeNull();
   });
 });

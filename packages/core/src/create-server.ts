@@ -2,7 +2,7 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
-import { apiPrefix, tokenQueryParam, type ApiError } from '@devhub/contracts';
+import { apiPrefix, tokenQueryParam, type ApiError, type TicketColumn } from '@devhub/contracts';
 import { createClaudeCode, type ClaudeCode } from './agents/claude/claude-code.ts';
 import { createClaudeLogin } from './agents/claude/claude-login.ts';
 import { createEventBus, type EventBus } from './events/event-bus.ts';
@@ -280,11 +280,27 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     connection: jira,
     jira: jiraClient,
     describeTicket: async (key) => {
+      // A status with no name is left out: the Ticket tab can't word it (spec 013).
+      const status = (name: string, column: TicketColumn) => (name === '' ? null : { name, column });
       const sprint = await tickets.read();
       const ticket = sprint.tickets.find((candidate) => candidate.key === key);
-      if (ticket !== undefined) return { title: ticket.title, sprint: sprint.sprint?.name ?? null };
+      if (ticket !== undefined) {
+        return {
+          title: ticket.title,
+          sprint: sprint.sprint?.name ?? null,
+          status: status(ticket.status, ticket.column),
+          dueDate: ticket.dueDate,
+        };
+      }
       const assigned = (await inbox.records()).jira.find((record) => record.key === key);
-      return assigned === undefined ? null : { title: assigned.summary, sprint: null };
+      return assigned === undefined
+        ? null
+        : {
+            title: assigned.summary,
+            sprint: null,
+            status: status(assigned.status, assigned.category),
+            dueDate: assigned.dueDate,
+          };
     },
     preferences,
     worktrees: { env: options.gitEnvironment ?? {}, root: join(devhubHome, 'worktrees') },

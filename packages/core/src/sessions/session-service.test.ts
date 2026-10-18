@@ -66,7 +66,12 @@ interface SetUpOptions {
   later?: (readonly FakeTurn[])[];
   /** The clock, when a test needs it to move. */
   now?: () => number;
-  cached?: { title: string; sprint: string | null } | null;
+  cached?: {
+    title: string;
+    sprint: string | null;
+    status?: { name: string; column: 'to_do' | 'in_progress' | 'in_review' | 'done' } | null;
+    dueDate?: string | null;
+  } | null;
   /** Build the server without Claude Code. */
   noClaude?: boolean;
   mode?: PermissionMode;
@@ -134,7 +139,7 @@ async function setUp({
     claude,
     connection,
     jira: createJiraClient({ timeoutMs: 500 }),
-    describeTicket: () => Promise.resolve(cached),
+    describeTicket: () => Promise.resolve(cached === null ? null : { status: null, dueDate: null, ...cached }),
     preferences: createPreferencesService({
       // The settings file, slow to answer when the test says so.
       settings: {
@@ -1142,5 +1147,79 @@ describe('follow-ups (spec 013)', () => {
   it('answers not found for a session it has never heard of', async () => {
     const { service } = await setUp();
     expect(await service.send('ffffffffffffffff', 'More')).toEqual({ result: 'not_found' });
+  });
+});
+
+describe('the session detail (spec 013)', () => {
+  const id = '0000000000000001';
+
+  it('AC-9: keeps the ticket as Claude got it, with its status and due date from the cache', async () => {
+    const { service, records } = await setUp({
+      cached: {
+        title: 'Add bulk archive',
+        sprint: 'Sprint 42',
+        status: { name: 'In progress', column: 'in_progress' },
+        dueDate: '2026-10-16',
+      },
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect((await service.get(id))?.ticket).toEqual({
+      type: 'Story',
+      description: expect.stringContaining('Checkbox on each row') as unknown,
+      status: { name: 'In progress', column: 'in_progress' },
+      dueDate: '2026-10-16',
+    });
+    expect((await records.get(id))?.session.ticket).toMatchObject({ status: null, dueDate: null });
+  });
+
+  it('AC-9: leaves out the status and due date when the cache doesn’t have the ticket', async () => {
+    const { service, records } = await setUp({ cached: null });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect((await service.get(id))?.ticket).toMatchObject({ type: 'Story', status: null, dueDate: null });
+  });
+
+  it('AC-9: reads the ticket back from brief.md for a session saved before spec 013', async () => {
+    const { service, records } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await records.update(id, (record) => ({ ...record, session: { ...record.session, ticket: null } }));
+    expect((await service.get(id))?.ticket).toMatchObject({
+      type: 'Story',
+      description: expect.stringContaining('Checkbox on each row') as unknown,
+    });
+  });
+
+  it('AC-14: says the follow-up box is open, or why not', async () => {
+    const done = await setUp();
+    await done.service.start({ ticketKey: 'PROJ-1423' });
+    await settled(done.records);
+    expect((await done.service.get(id))?.followUp).toEqual({ kind: 'open' });
+    await done.service.discard(id);
+    expect((await done.service.get(id))?.followUp).toEqual({ kind: 'discarded' });
+
+    const neverStarted = await setUp({ noClaude: true });
+    await neverStarted.service.start({ ticketKey: 'PROJ-1423' });
+    await settled(neverStarted.records);
+    expect((await neverStarted.service.get(id))?.followUp).toEqual({ kind: 'never_started' });
+
+    const newer = await setUp({ script: [{ tool: 'Read', input: { file_path: 'README.md' } }, { hang: true }] });
+    await newer.service.start({ ticketKey: 'PROJ-1423' });
+    await reached(newer.records, 'explore');
+    await newer.service.stop(id);
+    await newer.service.start({ ticketKey: 'PROJ-1423' });
+    expect((await newer.service.get(id))?.followUp).toEqual({ kind: 'newer_session', sessionId: '0000000000000002' });
+    expect((await newer.service.get('0000000000000002'))?.followUp).toEqual({ kind: 'open' });
+    await newer.service.close();
+  });
+
+  it('AC-20: gives the worktree’s path once it’s made, and none once the changes are discarded', async () => {
+    const { service, records, home } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect((await service.get(id))?.worktreePath).toBe(join(home, 'worktrees', id));
+    await service.discard(id);
+    expect((await service.get(id))?.worktreePath).toBeNull();
   });
 });

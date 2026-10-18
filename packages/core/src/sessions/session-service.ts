@@ -7,6 +7,8 @@ import type {
   SendMessageAnswer,
   Session,
   SessionApproval,
+  SessionFollowUp,
+  SessionTicket,
   StartSessionAnswer,
   StartSessionRequest,
 } from '@devhub/contracts';
@@ -14,7 +16,7 @@ import type { AgentAdapter, AgentBrief, AgentEvent } from '../agents/agent-adapt
 import type { EventBus } from '../events/event-bus.ts';
 import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
-import { briefText, sessionNote, ticketBrief } from './brief.ts';
+import { briefText, sessionNote, ticketBrief, ticketFromBrief } from './brief.ts';
 import {
   addStep,
   addWaiting,
@@ -92,8 +94,16 @@ export interface SessionServiceOptions {
   claude: { connected(): Promise<boolean> };
   connection: { credentials(): Promise<JiraSyncCredentials | null> };
   jira: JiraClient;
-  /** What the cache already knows about a ticket, for the title and breadcrumb before Jira answers. */
-  describeTicket: (key: string) => Promise<{ title: string; sprint: string | null } | null>;
+  /**
+   * What the cache already knows about a ticket: the title and breadcrumb before Jira answers (spec 011), and
+   * its status and due date now, for the Ticket tab (spec 013).
+   */
+  describeTicket: (key: string) => Promise<{
+    title: string;
+    sprint: string | null;
+    status: SessionTicket['status'];
+    dueDate: string | null;
+  } | null>;
   preferences: {
     read(): Promise<{ permissionMode: PermissionMode; allowedCommands: readonly string[] }>;
     /** Saves Always allow's entry to the list (spec 012, AC-5). */
@@ -471,7 +481,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const { issue } = answer;
     await change(id, (current) => ({
       ...current,
-      session: { ...current.session, title: issue.summary.trim() === '' ? current.session.title : issue.summary },
+      session: {
+        ...current.session,
+        title: issue.summary.trim() === '' ? current.session.title : issue.summary,
+        // The Ticket tab shows the ticket as Claude got it (spec 013, Q7); its status and due date are read live.
+        ticket: { type: issue.type, description: issue.description, status: null, dueDate: null },
+      },
     }));
 
     const prepared = await worktrees.prepare(record.repository.path, key, signal);
@@ -683,6 +698,18 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return live[0]?.id ?? null;
   }
 
+  /** Whether the follow-up box takes a message, or why not (spec 013, AC-14). */
+  async function followUpOf(record: StoredSession): Promise<SessionFollowUp> {
+    const { session } = record;
+    if (session.discardedAt !== null) return { kind: 'discarded' };
+    if (record.claudeSessionId === null && !isWorking(session)) return { kind: 'never_started' };
+    if (session.source?.kind === 'jira') {
+      const live = await liveSessionOn(session.source.key);
+      if (live !== null && live !== session.id) return { kind: 'newer_session', sessionId: live };
+    }
+    return { kind: 'open' };
+  }
+
   async function workingCount(): Promise<number> {
     return (await records.list()).filter((session) => session.state === 'working' || session.state === 'needs_you')
       .length;
@@ -790,7 +817,21 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     },
 
     async get(id) {
-      return (await records.get(id))?.session ?? null;
+      const record = await records.get(id);
+      if (record === null) return null;
+      const { session } = record;
+      const key = session.source?.kind === 'jira' ? session.source.key : null;
+      const [saved, known, followUp] = await Promise.all([
+        // A session saved before spec 013 kept only its brief.
+        session.ticket ?? records.readBrief(id).then((brief) => (brief === null ? null : ticketFromBrief(brief))),
+        key === null ? null : describeTicket(key),
+        followUpOf(record),
+      ]);
+      const ticket: SessionTicket | null =
+        saved === null ? null : { ...saved, status: known?.status ?? null, dueDate: known?.dueDate ?? null };
+      // There's a worktree to open from when it's made until the changes are discarded (spec 013, Q9).
+      const made = session.branch !== null && session.discardedAt === null;
+      return { ...session, ticket, followUp, worktreePath: made ? record.worktree : null };
     },
 
     async stop(id) {

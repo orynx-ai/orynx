@@ -195,6 +195,43 @@ describe('the file session store', () => {
     expect(read?.approvalLog).toEqual([]);
   });
 
+  it('013: reads a session saved by spec 012, with its working time from when it started to when it ended', async () => {
+    const folder = join(sessionsFolder(home), '0123456789abcdef');
+    await mkdir(folder, { recursive: true });
+    const {
+      startCommit: _commit,
+      session,
+      ...older
+    } = record({
+      state: 'done',
+      startedAt: '2026-10-16T09:56:00.000Z',
+      endedAt: '2026-10-16T10:00:12.000Z',
+    });
+    const { ticket: _t, followUp: _f, worktreePath: _w, workedMs: _m, runStartedAt: _r, ...olderSession } = session;
+    await writeFile(join(folder, 'session.json'), JSON.stringify({ ...older, session: olderSession }));
+
+    const read = await (await openFileSessionStore(home, { now })).get('0123456789abcdef');
+    expect(read?.session).toMatchObject({
+      ticket: null,
+      followUp: { kind: 'open' },
+      worktreePath: null,
+      workedMs: 252_000,
+      runStartedAt: null,
+    });
+    expect(read?.startCommit).toBeNull();
+  });
+
+  it('013 AC-9: reads a session’s brief back, and nothing for one it has none for', async () => {
+    const store = await openFileSessionStore(home, { now });
+    await store.create(record());
+    expect(await store.readBrief('0123456789abcdef')).toBeNull();
+    await store.writeBrief('0123456789abcdef', 'Jira ticket PROJ-1423 (Story): Add bulk archive\n\nNo description.');
+    expect(await store.readBrief('0123456789abcdef')).toBe(
+      'Jira ticket PROJ-1423 (Story): Add bulk archive\n\nNo description.',
+    );
+    expect(await store.readBrief('../../etc')).toBeNull();
+  });
+
   it('skips a session it can’t read, and anything that isn’t a session’s folder', async () => {
     const store = await openFileSessionStore(home, { now });
     await store.create(record());
