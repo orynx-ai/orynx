@@ -17,7 +17,8 @@ export function RepositoriesPanel() {
   const remove = useRemoveRepository();
   const adding = useAddingRepository();
   const [formOpen, setFormOpen] = useState(false);
-  // What the live region says since your last action: one line per removal the server agreed to.
+  // One line per removal the server agreed to, until the add form opens. A new Remove press doesn't
+  // empty it: landing in the same render as an earlier answer, it would wipe that line before it's said.
   const [announcements, setAnnouncements] = useState<readonly string[]>([]);
   // Kept through a callback ref, so closing the form can hand focus back to it.
   const [addButton, setAddButton] = useState<HTMLButtonElement | null>(null);
@@ -50,7 +51,6 @@ export function RepositoriesPanel() {
     // Focus moves on before the row goes, so it never falls back to the page.
     const target = next === undefined ? addButton : (removeButtons.current.get(next.id) ?? null);
     target?.focus();
-    setAnnouncements([]);
     setRemoveFailed(false);
     remove.mutateAsync(folder.id).then(
       () => {
