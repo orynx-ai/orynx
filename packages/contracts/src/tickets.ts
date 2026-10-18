@@ -29,8 +29,14 @@ export const TicketSchema = z.object({
   type: z.string().min(1),
   /** The type is named "Bug", in any case (spec 007, Q2f): drawn in `danger`, and what Type: Bug keeps. */
   bug: z.boolean(),
-  /** The priority's own name ("Highest", "P2") and its bars; null when the issue has none. */
-  priority: z.object({ name: z.string().min(1), level: PriorityLevelSchema }).nullable(),
+  /**
+   * The priority's own name ("Highest", "P2"), its bars, and its place in the site's list, highest first (spec
+   * 020: Priority's filter lists them so); null when the issue has none. `rank` is left out when the site's list
+   * doesn't hold it, or the sprint was kept before spec 020.
+   */
+  priority: z
+    .object({ name: z.string().min(1), level: PriorityLevelSchema, rank: z.int().nonnegative().optional() })
+    .nullable(),
   /** A calendar day: the app works out "Due Tue" or "Overdue" in the laptop's calendar. */
   dueDate: z.iso.date().nullable(),
   /** Jira's display name, and whether it's you; null when nobody is assigned. */

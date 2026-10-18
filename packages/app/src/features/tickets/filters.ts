@@ -54,13 +54,20 @@ export const defaultFilters: TicketFilters = {
 export type FilterKey = keyof AddressFilters;
 export const filterKeys: readonly FilterKey[] = ['assignee', 'status', 'type', 'priority', 'due'];
 
-/** A comma list's values, each once. */
+/**
+ * A comma list's values, each once. A value's own comma is written `%2C` (and its `%` as `%25`), so a person
+ * named "Doe, Jane" stays one value; every other character is left as it reads.
+ */
 function commaList(raw: string | undefined): string[] {
   const values = (raw ?? '')
     .split(',')
-    .map((value) => value.trim())
+    .map((value) => value.replace(/%(2C|25)/gi, (code) => (code.toUpperCase() === '%2C' ? ',' : '%')).trim())
     .filter((value) => value !== '');
   return [...new Set(values)];
+}
+
+function commaJoin(values: readonly string[]): string {
+  return values.map((value) => value.replaceAll('%', '%25').replaceAll(',', '%2C')).join(',');
 }
 
 export function filtersFromSearch(search: TicketsSearch): AddressFilters {
@@ -80,9 +87,9 @@ export function filtersFromSearch(search: TicketsSearch): AddressFilters {
 export function searchFromFilters(filters: AddressFilters): TicketsSearch {
   const isDefaultAssignee = filters.assignee.length === 1 && filters.assignee[0] === 'me';
   const search: TicketsSearch = {};
-  if (!isDefaultAssignee) search.assignee = filters.assignee.length === 0 ? 'anyone' : filters.assignee.join(',');
+  if (!isDefaultAssignee) search.assignee = filters.assignee.length === 0 ? 'anyone' : commaJoin(filters.assignee);
   for (const key of ['status', 'type', 'priority', 'due'] as const) {
-    if (filters[key].length > 0) search[key] = filters[key].join(',');
+    if (filters[key].length > 0) search[key] = commaJoin(filters[key]);
   }
   return search;
 }
@@ -167,7 +174,13 @@ export function filterOptions(
     ...new Map(
       tickets
         .flatMap((ticket) => (ticket.priority === null ? [] : [ticket.priority]))
-        .sort((a, b) => levelOrder[a.level] - levelOrder[b.level] || a.name.localeCompare(b.name))
+        // The site's order (Highest before High, which share a level), then by level for one it doesn't hold.
+        .sort(
+          (a, b) =>
+            (a.rank ?? Infinity) - (b.rank ?? Infinity) ||
+            levelOrder[a.level] - levelOrder[b.level] ||
+            a.name.localeCompare(b.name),
+        )
         .map((priority) => [priority.name, priority]),
     ).keys(),
   ];

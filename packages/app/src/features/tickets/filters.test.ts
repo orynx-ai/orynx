@@ -110,6 +110,14 @@ describe('Tickets’ filters (spec 020)', () => {
     });
   });
 
+  it('AC-31: a value holding a comma, such as a person named "Doe, Jane", stays one value in the address', () => {
+    const ticked = { ...filtersFromSearch({}), assignee: ['Doe, Jane', 'me'], status: ['100% done'] };
+    const search = searchFromFilters(ticked);
+
+    expect(search).toEqual({ assignee: 'Doe%2C Jane,me', status: '100%25 done' });
+    expect(filtersFromSearch(search)).toEqual(ticked);
+  });
+
   it('AC-32: spec 008’s addresses still work', () => {
     expect(filtersFromSearch(TicketsSearchSchema.parse({ assignee: 'anyone', due: 'week', type: 'bug' }))).toEqual({
       assignee: [],
@@ -127,7 +135,7 @@ describe('Tickets’ filters (spec 020)', () => {
         status: 'Done',
         column: 'done',
         type: 'Task',
-        priority: { name: 'Low', level: 'low' },
+        priority: { name: 'Low', level: 'low', rank: 3 },
       }),
       makeTicket({
         key: 'PROJ-2',
@@ -140,7 +148,7 @@ describe('Tickets’ filters (spec 020)', () => {
         key: 'PROJ-3',
         status: 'Code Review',
         column: 'in_review',
-        priority: { name: 'Highest', level: 'high' },
+        priority: { name: 'Highest', level: 'high', rank: 0 },
       }),
       theirs,
     ];
@@ -150,7 +158,8 @@ describe('Tickets’ filters (spec 020)', () => {
     expect(labels('assignee')).toEqual(['Me', 'Unassigned', 'Priya Shah', 'Sam Lee']);
     expect(labels('status')).toEqual(['To Do', 'In Progress', 'Code Review', 'Done', 'Blocked']);
     expect(labels('type')).toEqual(['Bug', 'Story', 'Task']);
-    expect(labels('priority')).toEqual(['High', 'Highest', 'Low']);
+    // The site's order, highest first, not A to Z: Highest and High share a level (spec 020).
+    expect(labels('priority')).toEqual(['Highest', 'High', 'Low']);
     expect(labels('due')).toEqual(['Overdue', 'This week', 'No due date']);
   });
 });

@@ -297,7 +297,7 @@ export function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     column: 'in_progress',
     type: 'Story',
     bug: false,
-    priority: { name: 'High', level: 'high' },
+    priority: { name: 'High', level: 'high', rank: 1 },
     dueDate: '2026-10-23',
     assignee: { name: 'Rakesh Dhariwal', mine: true },
     session: null,

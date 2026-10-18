@@ -102,6 +102,12 @@ export function priorityLevel(id: string, order: readonly string[]): PriorityLev
   return 'medium';
 }
 
+/** The priority's place in the site's list, highest first, so Priority's filter lists them so (spec 020). */
+function rankIn(id: string, order: readonly string[]): { rank?: number } {
+  const at = order.indexOf(id);
+  return at === -1 ? {} : { rank: at };
+}
+
 /** Q9a: the project the sprint's tickets belong to, or null when they span more than one, or there are none. */
 function projectOf(keys: readonly string[]): string | null {
   const projects = new Set(keys.map((key) => key.slice(0, key.lastIndexOf('-'))));
@@ -146,7 +152,11 @@ export function sprintRecord(input: SprintRecordInput): SprintRecord {
         type,
         bug: type.toLowerCase() === 'bug',
         priority: fields.priority
-          ? { name: fields.priority.name, level: priorityLevel(fields.priority.id, input.priorityOrder) }
+          ? {
+              name: fields.priority.name,
+              level: priorityLevel(fields.priority.id, input.priorityOrder),
+              ...rankIn(fields.priority.id, input.priorityOrder),
+            }
           : null,
         dueDate: dueDate.success ? dueDate.data : null,
         assignee:

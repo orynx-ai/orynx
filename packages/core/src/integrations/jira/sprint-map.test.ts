@@ -199,7 +199,8 @@ describe('sprintRecord', () => {
           column: 'to_do',
           type: 'Bug',
           bug: true,
-          priority: { name: 'High', level: 'high' },
+          // Second in the site's list: its rank orders Priority's filter (spec 020).
+          priority: { name: 'High', level: 'high', rank: 1 },
           dueDate: '2026-10-19',
           assignee: { name: 'Dev Example', mine: true },
         },
