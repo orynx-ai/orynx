@@ -69,9 +69,16 @@ function output(behaviour: FakeClaudeBehaviour): { stdout: string; script: strin
 /** The one fake program every test folder links to. */
 const sharedClaude = join(import.meta.dirname, 'fake-claude', 'claude');
 
+/** For a Claude Code that is never found, so never runs anywhere. */
+export const unusedWorkFolder = '/nonexistent/orynx-claude-check';
+
 export interface FakeClaudeFolder {
   /** The fake program, to pass as the program DevHub runs. */
   program: string;
+  /** A folder that doesn't exist yet, inside this test's own temp folder, for the check to run in. */
+  workFolder: string;
+  /** The folder the last run started in, with symlinks resolved. Null when it never ran. */
+  lastWorkFolder(): Promise<string | null>;
   /** Says how the fake behaves from its next run on. */
   install(behaviour: FakeClaudeBehaviour): Promise<void>;
   /** The arguments of each run so far, one array per run. Empty when it never ran. */
@@ -100,6 +107,11 @@ export function useFakeClaudeFolder(): () => Promise<FakeClaudeFolder> {
     const program = join(dir, 'claude');
     return {
       program,
+      workFolder: join(dir, 'work', 'claude-check'),
+      async lastWorkFolder() {
+        const text = await readFile(join(dir, 'pwd.log'), 'utf8').catch(() => null);
+        return text === null ? null : text.trim();
+      },
       async install(behaviour) {
         const { stdout, script } = output(behaviour);
         await writeFile(join(dir, 'stdout.txt'), stdout);

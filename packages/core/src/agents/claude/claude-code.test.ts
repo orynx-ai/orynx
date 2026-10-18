@@ -1,8 +1,14 @@
 import { constants } from 'node:fs';
-import { access, chmod, stat, writeFile } from 'node:fs/promises';
+import { access, chmod, realpath, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { authStatus, claudeEmail, claudeOrganisation, useFakeClaudeFolder } from '../../test/fake-claude.ts';
+import {
+  authStatus,
+  claudeEmail,
+  claudeOrganisation,
+  unusedWorkFolder,
+  useFakeClaudeFolder,
+} from '../../test/fake-claude.ts';
 import { createClaudeCode, findSdkClaudeCode } from './claude-code.ts';
 
 describe('findSdkClaudeCode', () => {
@@ -34,7 +40,7 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     const folder = await fakeClaudeFolder();
     await folder.install({ kind: 'signed_in' });
 
-    await createClaudeCode({ program: folder.program, env: shell }).authStatus();
+    await createClaudeCode({ program: folder.program, env: shell, workFolder: folder.workFolder }).authStatus();
 
     expect(await folder.runs()).toEqual([['auth', 'status', '--json']]);
   });
@@ -43,7 +49,9 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     const folder = await fakeClaudeFolder();
     await folder.install({ kind: 'signed_in' });
 
-    expect(await createClaudeCode({ program: folder.program, env: shell }).authStatus()).toEqual({
+    expect(
+      await createClaudeCode({ program: folder.program, env: shell, workFolder: folder.workFolder }).authStatus(),
+    ).toEqual({
       ok: true,
       login: { state: 'signed_in', method: 'claude_ai', email: claudeEmail, organisation: claudeOrganisation },
     });
@@ -53,7 +61,9 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     const folder = await fakeClaudeFolder();
     await folder.install({ kind: 'signed_out' });
 
-    expect(await createClaudeCode({ program: folder.program, env: shell }).authStatus()).toEqual({
+    expect(
+      await createClaudeCode({ program: folder.program, env: shell, workFolder: folder.workFolder }).authStatus(),
+    ).toEqual({
       ok: true,
       login: { state: 'signed_out' },
     });
@@ -71,7 +81,7 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
       NODE_OPTIONS: '--require ./steal.js',
     };
 
-    await createClaudeCode({ program: folder.program, env }).authStatus();
+    await createClaudeCode({ program: folder.program, env, workFolder: folder.workFolder }).authStatus();
 
     expect(await folder.lastEnvironment()).toEqual({
       ...shell,
@@ -81,8 +91,34 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     });
   });
 
+  it('runs in its own folder, made so only you can open it, never a shared one whose .claude settings anyone could plant', async () => {
+    const folder = await fakeClaudeFolder();
+    await folder.install({ kind: 'signed_in' });
+
+    await createClaudeCode({ program: folder.program, env: shell, workFolder: folder.workFolder }).authStatus();
+
+    expect(await folder.lastWorkFolder()).toBe(await realpath(folder.workFolder));
+    expect((await stat(folder.workFolder)).mode & 0o777).toBe(0o700);
+  });
+
+  it('AC-6: a work folder that cannot be made is a failed check, and nothing runs', async () => {
+    const folder = await fakeClaudeFolder();
+    await folder.install({ kind: 'signed_in' });
+    // A file where the folder should be.
+    await writeFile(join(folder.program, '..', 'blocked'), '');
+
+    expect(
+      await createClaudeCode({
+        program: folder.program,
+        env: shell,
+        workFolder: join(folder.program, '..', 'blocked', 'claude-check'),
+      }).authStatus(),
+    ).toEqual({ ok: false, problem: { kind: 'failed', exitCode: null } });
+    expect(await folder.runs()).toEqual([]);
+  });
+
   it('AC-6, AC-12: finds no program when none was given, and starts nothing', async () => {
-    const claude = createClaudeCode({ program: null, env: shell });
+    const claude = createClaudeCode({ program: null, env: shell, workFolder: unusedWorkFolder });
 
     expect(await claude.find()).toBeNull();
     expect(await claude.authStatus()).toEqual({ ok: false, problem: { kind: 'missing' } });
@@ -95,7 +131,7 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     await chmod(notRunnable, 0o644);
 
     for (const program of [folder.program, join(folder.program, '..'), notRunnable, 'claude']) {
-      expect(await createClaudeCode({ program, env: shell }).authStatus()).toEqual({
+      expect(await createClaudeCode({ program, env: shell, workFolder: folder.workFolder }).authStatus()).toEqual({
         ok: false,
         problem: { kind: 'missing' },
       });
@@ -107,7 +143,9 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     const folder = await fakeClaudeFolder();
     await folder.install({ kind: 'crashes', exitCode: 3, stderr: 'Segmentation fault' });
 
-    expect(await createClaudeCode({ program: folder.program, env: shell }).authStatus()).toEqual({
+    expect(
+      await createClaudeCode({ program: folder.program, env: shell, workFolder: folder.workFolder }).authStatus(),
+    ).toEqual({
       ok: false,
       problem: { kind: 'failed', exitCode: 3 },
     });
@@ -117,7 +155,9 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     const folder = await fakeClaudeFolder();
     await folder.install({ kind: 'killed' });
 
-    expect(await createClaudeCode({ program: folder.program, env: shell }).authStatus()).toEqual({
+    expect(
+      await createClaudeCode({ program: folder.program, env: shell, workFolder: folder.workFolder }).authStatus(),
+    ).toEqual({
       ok: false,
       problem: { kind: 'failed', exitCode: null },
     });
@@ -131,7 +171,9 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
       exitCode: 1,
     });
 
-    expect(await createClaudeCode({ program: folder.program, env: shell }).authStatus()).toEqual({
+    expect(
+      await createClaudeCode({ program: folder.program, env: shell, workFolder: folder.workFolder }).authStatus(),
+    ).toEqual({
       ok: false,
       problem: { kind: 'failed', exitCode: 1 },
     });
@@ -141,7 +183,9 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     const folder = await fakeClaudeFolder();
     await folder.install({ kind: 'prints', stdout: authStatus({ loggedIn: 'yes' }), exitCode: 0 });
 
-    expect(await createClaudeCode({ program: folder.program, env: shell }).authStatus()).toEqual({
+    expect(
+      await createClaudeCode({ program: folder.program, env: shell, workFolder: folder.workFolder }).authStatus(),
+    ).toEqual({
       ok: false,
       problem: { kind: 'unreadable' },
     });
@@ -151,7 +195,9 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     const folder = await fakeClaudeFolder();
     await folder.install({ kind: 'prints', stdout: 'x'.repeat(200 * 1024), exitCode: 0 });
 
-    expect(await createClaudeCode({ program: folder.program, env: shell }).authStatus()).toEqual({
+    expect(
+      await createClaudeCode({ program: folder.program, env: shell, workFolder: folder.workFolder }).authStatus(),
+    ).toEqual({
       ok: false,
       problem: { kind: 'unreadable' },
     });
@@ -162,7 +208,14 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     await folder.install({ kind: 'slow' });
     const started = Date.now();
 
-    expect(await createClaudeCode({ program: folder.program, env: shell, timeoutMs: 300 }).authStatus()).toEqual({
+    expect(
+      await createClaudeCode({
+        program: folder.program,
+        env: shell,
+        workFolder: folder.workFolder,
+        timeoutMs: 300,
+      }).authStatus(),
+    ).toEqual({
       ok: false,
       problem: { kind: 'timeout' },
     });
@@ -170,6 +223,6 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
   });
 
   it('AC-6: waits 10 seconds by default', () => {
-    expect(createClaudeCode({ program: null, env: shell }).timeoutMs).toBe(10_000);
+    expect(createClaudeCode({ program: null, env: shell, workFolder: unusedWorkFolder }).timeoutMs).toBe(10_000);
   });
 });

@@ -60,7 +60,12 @@ describe.skipIf(process.platform === 'win32')("Claude Code's login stays out of 
       userName: () => Promise.resolve(null),
       keychain,
       settings: createFileSettingsStore(home),
-      claudeCode: createClaudeCode({ program: folder.program, env: { PATH: '/usr/bin:/bin' }, timeoutMs: 300 }),
+      claudeCode: createClaudeCode({
+        program: folder.program,
+        env: { PATH: '/usr/bin:/bin' },
+        workFolder: folder.workFolder,
+        timeoutMs: 300,
+      }),
       logger: {
         level: 'trace',
         stream: new Writable({

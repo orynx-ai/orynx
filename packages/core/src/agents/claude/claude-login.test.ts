@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ServerEvent } from '@devhub/contracts';
 import { createEventBus } from '../../events/event-bus.ts';
-import { claudeEmail, claudeOrganisation, useFakeClaudeFolder } from '../../test/fake-claude.ts';
+import { claudeEmail, claudeOrganisation, unusedWorkFolder, useFakeClaudeFolder } from '../../test/fake-claude.ts';
 import { createClaudeCode, type ClaudeCodeProblem } from './claude-code.ts';
 import { createClaudeLogin } from './claude-login.ts';
 
@@ -17,7 +17,11 @@ async function setup() {
   const problems: ClaudeCodeProblem[] = [];
   let now = 1_000_000;
   const login = createClaudeLogin({
-    claudeCode: createClaudeCode({ program: folder.program, env: { PATH: '/usr/bin:/bin' } }),
+    claudeCode: createClaudeCode({
+      program: folder.program,
+      env: { PATH: '/usr/bin:/bin' },
+      workFolder: folder.workFolder,
+    }),
     events,
     now: () => now,
     onProblem: (problem) => problems.push(problem),
@@ -108,7 +112,10 @@ describe.skipIf(process.platform === 'win32')("Claude's login check", () => {
 
   it('AC-12: with no program it is not connected and starts nothing', async () => {
     const events = createEventBus();
-    const login = createClaudeLogin({ claudeCode: createClaudeCode({ program: null, env: {} }), events });
+    const login = createClaudeLogin({
+      claudeCode: createClaudeCode({ program: null, env: {}, workFolder: unusedWorkFolder }),
+      events,
+    });
 
     expect(await login.read()).toEqual({ state: 'error' });
     expect(await login.connected()).toBe(false);

@@ -10,7 +10,7 @@ There is nothing to connect for Claude. Claude Code owns the login ("Already don
 GET /api/status or GET /api/claude/login        (or POST /api/claude/login/check: Check again)
   └─ claude-login.ts        the last answer, if it's under 2 minutes old; else one check, shared
        └─ claude-code.ts    <the SDK's claude> auth status --json
-            │                 the short environment, in the temp folder, 10 s at most
+            │                 the short environment, in <DEVHUB_HOME>/claude-check, 10 s at most
             └─ map.ts       its JSON → signed in (how, email, organisation) · signed out
                             anything else → a problem: missing · failed (exit code) · unreadable · timeout
   ← the card's login; the footer's `connected`; status.changed when the answer changed
@@ -27,7 +27,7 @@ GET /api/status or GET /api/claude/login        (or POST /api/claude/login/check
 - **Exactly `auth status --json`.** It reads the login on this computer and prints JSON. It sends no prompt and uses no quota. It exits 0 when signed in and 1 when signed out, and prints the JSON either way.
 - **The short environment** (`agents/agent-environment.ts`): `HOME`, `USER`, `LOGNAME`, `PATH`, `SHELL`, `TMPDIR`, `LANG`, `LC_*`, Claude's own settings (`CLAUDE_*`, `ANTHROPIC_*`), the cloud logins Claude Code can use (`AWS_*`, `GOOGLE_*`, `CLOUD_ML_REGION`), and proxy and certificate settings. It's an allow list, so no `DEVHUB_*` variable, `.env` token or session token gets through unless someone adds it to the list. Of `CLAUDE_*`, the variables a Claude Code session sets for the programs it starts (`CLAUDE_CODE_SESSION_*`, `CLAUDE_CODE_MESSAGING_*`, `CLAUDE_PID` and a few more) stay out: when you start Orynx from a Claude Code terminal, what Orynx starts isn't part of that session. `apps/server/src/config.ts` builds it from the shell's environment, never from `.env`. Under `pnpm dev`, turbo hands the server only the variables in `turbo.json`'s `globalPassThroughEnv`, so every name on the allow list, and `DEVHUB_CLAUDE_CODE`, is listed there too: change both together.
 - **`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`.** Otherwise the pinned build's `auth status` records an analytics event, and DevHub checks every 2 minutes.
-- **The temp folder as its working folder,** so no repository's `.claude` settings change the answer.
+- **Its own working folder,** `<DEVHUB_HOME>/claude-check`, made with mode 0700, so no repository's `.claude` settings change the answer. Never a shared folder such as `/tmp`, where another account on the computer could leave `.claude/settings.json` (an `apiKeyHelper`, say) and make the card say the wrong login.
 
 ## Reading the answer
 

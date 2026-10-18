@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   cacheFilePath,
+  claudeWorkFolder,
   createClaudeCode,
   createFileSettingsStore,
   createGhCli,
@@ -59,6 +60,7 @@ const app = await createServer({
   claudeCode: createClaudeCode({
     program: config.claudeCode ?? findSdkClaudeCode(),
     env: config.agentEnvironment,
+    workFolder: claudeWorkFolder(config.home),
   }),
   // Settings › Repositories never adds DevHub's own folder (spec 005).
   dataDir: config.home,

@@ -32,7 +32,11 @@ async function server(behaviour: FakeClaudeBehaviour) {
     version: '1.2.3',
     events,
     userName: () => Promise.resolve(null),
-    claudeCode: createClaudeCode({ program: folder.program, env: { PATH: '/usr/bin:/bin' } }),
+    claudeCode: createClaudeCode({
+      program: folder.program,
+      env: { PATH: '/usr/bin:/bin' },
+      workFolder: folder.workFolder,
+    }),
   });
   return { app, seen, folder };
 }

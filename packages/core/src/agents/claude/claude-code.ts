@@ -1,8 +1,7 @@
 import { execFile } from 'node:child_process';
-import { access, constants, stat } from 'node:fs/promises';
+import { access, constants, mkdir, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { isAbsolute } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import type { ClaudeLogin } from '@devhub/contracts';
 import { agentEnvironment } from '../agent-environment.ts';
 import { readAuthStatus } from './map.ts';
@@ -42,6 +41,12 @@ export interface ClaudeCodeOptions {
   program: string | null;
   /** The host's environment. Only {@link agentEnvironment}'s allow list of it reaches the program. */
   env: Readonly<Record<string, string | undefined>>;
+  /**
+   * Where the check runs: a folder only you can open, made with mode 0700 when it's missing. Never a
+   * shared one such as `/tmp`, where another account could leave `.claude` settings that change the
+   * answer. The host passes {@link claudeWorkFolder}.
+   */
+  workFolder: string;
   /** How long the check may take; 10 seconds by default (spec 010). */
   timeoutMs?: number;
 }
@@ -86,7 +91,12 @@ async function isProgram(path: string): Promise<boolean> {
   }
 }
 
-export function createClaudeCode({ program, env, timeoutMs = 10_000 }: ClaudeCodeOptions): ClaudeCode {
+/** `<DEVHUB_HOME>/claude-check`: Orynx's own folder for the login check to run in. */
+export function claudeWorkFolder(home: string): string {
+  return join(home, 'claude-check');
+}
+
+export function createClaudeCode({ program, env, workFolder, timeoutMs = 10_000 }: ClaudeCodeOptions): ClaudeCode {
   // The check needs no analytics, and nothing else Claude Code would send on its own, so it sends none.
   const programEnv = { ...agentEnvironment(env), CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' };
 
@@ -106,8 +116,8 @@ export function createClaudeCode({ program, env, timeoutMs = 10_000 }: ClaudeCod
         ['auth', 'status', '--json'],
         {
           env: programEnv,
-          // Not DevHub's folder: Claude Code would read that folder's own .claude settings.
-          cwd: tmpdir(),
+          // Not DevHub's folder or a repository's: Claude Code reads the .claude settings where it runs.
+          cwd: workFolder,
           // SIGKILL, so a program stuck on a prompt can't keep the check waiting. An answer is under 1 KB.
           timeout: timeoutMs,
           killSignal: 'SIGKILL',
@@ -145,7 +155,13 @@ export function createClaudeCode({ program, env, timeoutMs = 10_000 }: ClaudeCod
     find,
     async authStatus() {
       const path = await find();
-      return path === null ? { ok: false, problem: { kind: 'missing' } } : run(path);
+      if (path === null) return { ok: false, problem: { kind: 'missing' } };
+      try {
+        await mkdir(workFolder, { recursive: true, mode: 0o700 });
+      } catch {
+        return { ok: false, problem: { kind: 'failed', exitCode: null } };
+      }
+      return run(path);
     },
   };
 }

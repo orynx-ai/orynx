@@ -1,4 +1,4 @@
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
@@ -193,7 +193,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     },
   });
   const claude = createClaudeLogin({
-    claudeCode: options.claudeCode ?? createClaudeCode({ program: null, env: {} }),
+    // No program, so the folder is never made and nothing runs.
+    claudeCode: options.claudeCode ?? createClaudeCode({ program: null, env: {}, workFolder: tmpdir() }),
     events,
     // Which of the four it was, and the exit code: never the output, the email or the organisation (AC-6).
     onProblem: (problem) => {

@@ -2,8 +2,9 @@
 # A stand-in for Claude Code, for tests only (see ../fake-claude.ts). Each test folder holds a symlink
 # to this one file, so macOS checks a new program once per run instead of once per test, and a
 # behaviour.sh that says what to do. Every run appends its arguments to runs.log and writes the
-# environment it got to env.log, in that folder.
+# environment it got to env.log and the folder it ran in to pwd.log, in that folder.
 here=$(dirname "$0")
 echo "$*" >> "$here/runs.log"
 env > "$here/env.log"
+pwd -P > "$here/pwd.log"
 . "$here/behaviour.sh"
