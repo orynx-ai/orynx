@@ -1,6 +1,7 @@
 import type * as JiraCore from 'jira.js/core';
 import { z } from 'zod';
 import { JiraProjectKeySchema, type JiraProject } from '@devhub/contracts';
+import { adfToMarkdown } from './adf-markdown.ts';
 
 /**
  * The only file in DevHub that talks to Jira (integration-adapter skill). The token goes into the
@@ -77,6 +78,16 @@ export interface JiraBoardColumn {
 /** Null columns: the board is gone, or hidden from these credentials. */
 export type JiraBoardColumns = { ok: true; columns: JiraBoardColumn[] | null } | { ok: false; problem: JiraProblem };
 
+/** One issue as a session's brief needs it (spec 011): its description is Markdown, or null when it has none. */
+export interface JiraIssueDetail {
+  key: string;
+  summary: string;
+  type: string | null;
+  description: string | null;
+}
+
+export type JiraIssue = { ok: true; issue: JiraIssueDetail } | { ok: false; problem: JiraProblem };
+
 export interface JiraClient {
   readonly timeoutMs: number;
   /** Asks Jira who these credentials belong to (`GET /rest/api/3/myself`). */
@@ -111,6 +122,11 @@ export interface JiraClient {
    * name their statuses by id only, so this says which column is the first in progress (spec 008, Q2).
    */
   statusCategories(request: JiraCheckRequest): Promise<JiraStatusCategories>;
+  /**
+   * One issue's summary, type and description (`GET /rest/api/3/issue/{key}`), for a session's brief
+   * (spec 011). The only read that asks for a description; it's never cached or logged.
+   */
+  issue(request: JiraCheckRequest, key: string): Promise<JiraIssue>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -187,6 +203,17 @@ const SprintIssueSchema = z.object({
     assignee: z.object({ accountId: z.string(), displayName: z.string().nullish() }).nullish(),
   }),
 });
+
+const IssueDetailSchema = z.object({
+  key: z.string(),
+  fields: z.object({
+    summary: z.string().nullish(),
+    issuetype: z.object({ name: z.string() }).nullish(),
+    // Atlassian's document format; adf-markdown.ts reads it without trusting its shape.
+    description: z.unknown(),
+  }),
+});
+const issueFields = ['summary', 'issuetype', 'description'];
 
 // Each issue is checked on its own, so one odd issue is left out instead of failing the whole read.
 const IssueSearchSchema = z.object({ issues: z.array(z.unknown()) });
@@ -422,6 +449,29 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
         return { issues, truncated, priorityOrder: priorities.values.map((priority) => priority.id) };
       });
       return answer.ok ? { ok: true, ...answer.value } : answer;
+    },
+
+    async issue(request, key) {
+      const answer = await withJira(request, (client) =>
+        client.sendRequest({
+          url: `/rest/api/3/issue/${encodeURIComponent(key)}`,
+          method: 'GET',
+          searchParams: { fields: issueFields.join(',') },
+          schema: IssueDetailSchema,
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+      if (!answer.ok) return answer;
+      const { fields } = answer.value;
+      return {
+        ok: true,
+        issue: {
+          key: answer.value.key,
+          summary: fields.summary ?? '',
+          type: fields.issuetype?.name ?? null,
+          description: adfToMarkdown(fields.description),
+        },
+      };
     },
 
     async statusCategories(request) {

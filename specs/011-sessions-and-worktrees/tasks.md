@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Pass `AWS_*` only when `CLAUDE_CODE_USE_BEDROCK` is set and `GOOGLE_*` only when `CLAUDE_CODE_USE_VERTEX` is, and add `gitEnvironment()`: the short list plus `SSH_AUTH_SOCK` and `GIT_TERMINAL_PROMPT=0` (AC-20, Q8b, Q8d)
       Check: pnpm test packages/core/src/agents/agent-environment.test.ts
       Files: packages/core/src/agents/agent-environment.ts, agent-environment.test.ts
-- [ ] Task 3: Read one Jira issue (summary, type, description) and turn its description from Jira's document format into Markdown: paragraphs, headings, lists, code, links, mentions, and the text of anything else (AC-3, AC-13)
+- [x] Task 3: Read one Jira issue (summary, type, description) and turn its description from Jira's document format into Markdown: paragraphs, headings, lists, code, links, mentions, and the text of anything else (AC-3, AC-13)
       Check: pnpm test packages/core/src/integrations/jira
       Files: packages/core/src/integrations/jira/client.ts, client.test.ts, adf-markdown.ts, adf-markdown.test.ts, packages/core/src/test/fake-jira.ts
 - [ ] Task 4: Build the brief and the note Q5 gives, word for word, with "No description." when there is none (AC-3, Q5)

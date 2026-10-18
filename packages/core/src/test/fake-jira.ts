@@ -18,6 +18,8 @@ export const boardConfigurationUrl = (boardId: number, site: string = jiraSite) 
   `https://${site}/rest/agile/1.0/board/${String(boardId)}/configuration`;
 
 /** The account /myself answers with for the good credentials. */
+export const issueUrl = (key: string, site: string = jiraSite) => `https://${site}/rest/api/3/issue/${key}`;
+
 export const myAccountId = '5b10ac8d82e05b22cc7d4ef5';
 
 /** The sprint field's id on these tests' site. A site names the field as it likes; its type is fixed. */
@@ -275,6 +277,64 @@ const refused = () =>
     { errorMessages: ['Client must be authenticated to access this resource.'] },
     { status: 401, headers: { 'X-Seraph-LoginReason': 'AUTHENTICATED_FAILED' } },
   );
+
+/** One issue as `GET /rest/api/3/issue/{key}` answers it, with a description in Atlassian's document format. */
+export interface FakeIssueDetail {
+  key: string;
+  summary?: string;
+  type?: string;
+  /** The description as Jira stores it; null for none. */
+  description?: unknown;
+}
+
+/** A description of two paragraphs and a list, as Jira's editor saves it. */
+export const designDescription = {
+  type: 'doc',
+  version: 1,
+  content: [
+    {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Content managers need to archive many items at once.' }],
+    },
+    {
+      type: 'bulletList',
+      content: [
+        {
+          type: 'listItem',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Checkbox on each row' }] }],
+        },
+        {
+          type: 'listItem',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Partial failures show which items failed' }] },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+/** Jira's single issue for the good credentials; any other key is 404, as Jira answers a key it hides. */
+export function acceptingIssue(issue: FakeIssueDetail, { site = jiraSite }: { site?: string } = {}) {
+  return http.get(`https://${site}/rest/api/3/issue/:key`, ({ request, params }) => {
+    if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+    if (params['key'] !== issue.key) {
+      return HttpResponse.json(
+        { errorMessages: ['Issue does not exist or you do not have permission to see it.'] },
+        { status: 404 },
+      );
+    }
+    return HttpResponse.json({
+      id: '10423',
+      key: issue.key,
+      fields: {
+        summary: issue.summary ?? `Summary of ${issue.key}`,
+        issuetype: { id: '10001', name: issue.type ?? 'Story' },
+        description: issue.description === undefined ? designDescription : issue.description,
+      },
+    });
+  });
+}
 
 /** Jira's /myself as Atlassian answers it: the user for good credentials, 401 otherwise. */
 export function acceptingMyself(site: string = jiraSite) {
