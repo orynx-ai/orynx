@@ -88,6 +88,18 @@ export interface JiraIssueDetail {
 
 export type JiraIssue = { ok: true; issue: JiraIssueDetail } | { ok: false; problem: JiraProblem };
 
+/** Who the credentials belong to, for "Assigned to you" on a sprint Tickets reads by its id (spec 020). */
+export type JiraAccount = { ok: true; accountId: string } | { ok: false; problem: JiraProblem };
+
+/** A sprint as the Agile API's board and sprint reads give it, with only what Tickets uses (spec 020). */
+export type JiraBoardSprint = z.infer<typeof BoardSprintSchema>;
+
+/** A project's active then future sprints, each once (spec 020, AC-26). */
+export type JiraProjectSprints = { ok: true; sprints: JiraBoardSprint[] } | { ok: false; problem: JiraProblem };
+
+/** One sprint by its id; null when it's gone or hidden from these credentials. */
+export type JiraSprint = { ok: true; sprint: JiraBoardSprint | null } | { ok: false; problem: JiraProblem };
+
 export interface JiraClient {
   readonly timeoutMs: number;
   /** Asks Jira who these credentials belong to (`GET /rest/api/3/myself`). */
@@ -127,6 +139,17 @@ export interface JiraClient {
    * (spec 011). The only read that asks for a description; it's never cached or logged.
    */
   issue(request: JiraCheckRequest, key: string): Promise<JiraIssue>;
+  /** Who these credentials belong to (`GET /rest/api/3/myself`), for a sprint Tickets reads by its id (spec 020). */
+  account(request: JiraCheckRequest): Promise<JiraAccount>;
+  /**
+   * A project's active sprints, then its future ones (spec 020, AC-26): its Scrum boards
+   * (`/rest/agile/1.0/board?projectKeyOrId=`, at most 10), then each board's open sprints
+   * (`/rest/agile/1.0/board/{id}/sprint?state=active,future`, at most 50 each). A sprint on two boards shows
+   * once; a board that's gone or hidden is skipped. Active ones end soonest first, future ones start soonest.
+   */
+  projectSprints(request: JiraCheckRequest, projectKey: string): Promise<JiraProjectSprints>;
+  /** One sprint (`/rest/agile/1.0/sprint/{id}`), for the sprint Tickets holds (spec 020). */
+  sprint(request: JiraCheckRequest, sprintId: number): Promise<JiraSprint>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -203,6 +226,50 @@ const SprintIssueSchema = z.object({
     assignee: z.object({ accountId: z.string(), displayName: z.string().nullish() }).nullish(),
   }),
 });
+
+const nullableText = z
+  .string()
+  .nullish()
+  .transform((text) => text ?? null);
+
+const BoardSprintSchema = z.object({
+  id: z.int().positive(),
+  name: z.string().min(1),
+  state: z.enum(['active', 'future', 'closed']),
+  boardId: z
+    .int()
+    .positive()
+    .nullish()
+    .transform((boardId) => boardId ?? null),
+  startDate: nullableText,
+  endDate: nullableText,
+});
+
+/** The Agile API names a sprint's board `originBoardId`; the sprint field names it `boardId`. */
+function boardSprint(found: unknown): JiraBoardSprint | null {
+  if (typeof found !== 'object' || found === null) return null;
+  const { originBoardId, ...rest } = found as Record<string, unknown>;
+  const parsed = BoardSprintSchema.safeParse({ boardId: originBoardId, ...rest });
+  return parsed.success ? parsed.data : null;
+}
+
+const BoardPageSchema = z.object({ values: z.array(z.object({ id: z.int().positive() })) });
+const SprintPageSchema = z.object({ values: z.array(z.unknown()) });
+const mostBoards = 10;
+const mostSprintsPerBoard = 50;
+
+/** When two sprints tie, one with no date comes last. */
+function timeOf(date: string | null): number {
+  const at = date === null ? Number.NaN : Date.parse(date);
+  return Number.isNaN(at) ? Number.POSITIVE_INFINITY : at;
+}
+
+/** Active sprints ending soonest, then future ones starting soonest, then by id. */
+function inSprintOrder(a: JiraBoardSprint, b: JiraBoardSprint): number {
+  if (a.state !== b.state) return a.state === 'active' ? -1 : b.state === 'active' ? 1 : 0;
+  const when = a.state === 'active' ? timeOf(a.endDate) - timeOf(b.endDate) : timeOf(a.startDate) - timeOf(b.startDate);
+  return when || a.id - b.id;
+}
 
 const IssueDetailSchema = z.object({
   key: z.string(),
@@ -472,6 +539,78 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
           description: adfToMarkdown(fields.description),
         },
       };
+    },
+
+    async account(request) {
+      const answer = await withJira(request, (client) =>
+        client.sendRequest({
+          url: '/rest/api/3/myself',
+          method: 'GET',
+          schema: MyselfSchema,
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+      return answer.ok ? { ok: true, accountId: answer.value.accountId } : answer;
+    },
+
+    async projectSprints(request, projectKey) {
+      const answer = await withJira(request, async (client, sdk) => {
+        // The boards and their sprints share one wait, like the project list.
+        const signal = AbortSignal.timeout(timeoutMs);
+        const boards = await client.sendRequest({
+          url: '/rest/agile/1.0/board',
+          method: 'GET',
+          searchParams: { projectKeyOrId: projectKey, type: 'scrum', maxResults: mostBoards },
+          schema: BoardPageSchema,
+          signal,
+        });
+        // Side by side, so ten boards cost one wait, not ten.
+        const pages = await Promise.all(
+          boards.values.slice(0, mostBoards).map(async (board) => {
+            try {
+              const page = await client.sendRequest({
+                url: `/rest/agile/1.0/board/${String(board.id)}/sprint`,
+                method: 'GET',
+                searchParams: { state: 'active,future', maxResults: mostSprintsPerBoard },
+                schema: SprintPageSchema,
+                signal,
+              });
+              return page.values;
+            } catch (error) {
+              // A board that's gone or hidden from you, or that keeps no sprints, is skipped.
+              if (sdk.isNotFoundError(error) || sdk.isForbiddenError(error)) return [];
+              if (sdk.isApiError(error) && error.status === 400) return [];
+              throw error;
+            }
+          }),
+        );
+        const sprints = new Map<number, JiraBoardSprint>();
+        for (const found of pages.flat()) {
+          const sprint = boardSprint(found);
+          if (sprint !== null && sprint.state !== 'closed' && !sprints.has(sprint.id)) sprints.set(sprint.id, sprint);
+        }
+        return [...sprints.values()].sort(inSprintOrder);
+      });
+      return answer.ok ? { ok: true, sprints: answer.value } : answer;
+    },
+
+    async sprint(request, sprintId) {
+      const answer = await withJira(request, async (client, sdk) => {
+        try {
+          const found = await client.sendRequest({
+            url: `/rest/agile/1.0/sprint/${String(sprintId)}`,
+            method: 'GET',
+            schema: z.unknown(),
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+          return boardSprint(found);
+        } catch (error) {
+          // A sprint that's gone or hidden from you is an answer: Tickets says it has no sprint.
+          if (sdk.isNotFoundError(error) || sdk.isForbiddenError(error)) return null;
+          throw error;
+        }
+      });
+      return answer.ok ? { ok: true, sprint: answer.value } : answer;
     },
 
     async statusCategories(request) {
