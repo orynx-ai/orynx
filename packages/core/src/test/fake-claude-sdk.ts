@@ -80,7 +80,11 @@ function textOf(message: SDKUserMessage): string {
 
 type CanUseToolOptions = Parameters<NonNullable<Options['canUseTool']>>[2];
 
-export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
+/**
+ * Each run plays `script`, unless `later` holds a script for it: the second run plays `later[0]`, and so on,
+ * as a follow-up resumes Claude Code for another turn (spec 013).
+ */
+export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly FakeTurn[])[]): FakeClaudeSdk {
   const fake: FakeClaudeSdk = {
     runs: [],
     ignoreInterrupt: false,
@@ -101,6 +105,7 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
         closes: 0,
       };
       fake.runs.push(run);
+      const script = fake.runs.length === 1 ? first : (later[fake.runs.length - 2] ?? first);
       let endNow: () => void = () => undefined;
       // Ending the process ends the stream, wherever Claude Code was.
       const ended = new Promise<IteratorReturnResult<undefined>>((resolve) => {

@@ -49,5 +49,7 @@ export function sessionNote(branch: string, commands: boolean): string {
     'If the repository has a CLAUDE.md, read it first.',
     "Don't push, open pull requests or change git settings.",
     ...ending,
+    // Claude can't ask mid-task: it asks in its summary, and you answer in the follow-up box (spec 013, Q2a).
+    'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
   ].join(' ');
 }

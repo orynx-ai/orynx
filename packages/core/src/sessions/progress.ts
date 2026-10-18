@@ -95,6 +95,14 @@ function adding(files: readonly string[], file: string | null): string[] {
   return file === null || files.includes(file) ? [...files] : [...files, file];
 }
 
+/**
+ * A follow-up starts Claude again (spec 013, Q3a): after Review the stepper goes back to Build, the one time it
+ * moves backwards. From there it moves on as before.
+ */
+export function resumeProgress(progress: Progress): Progress {
+  return progress.step === 'review' ? { ...progress, step: 'build' } : progress;
+}
+
 export function addWork(progress: Progress, work: ClaudeWork): Progress {
   const running = progress.activities.at(-1)?.state === 'running' ? progress.activities.at(-1) : undefined;
   switch (work.kind) {
