@@ -22,7 +22,7 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 6: Add `search()` and `searchQueryOptions` to the api-client, with an MSW test and a bad-shape test (AC-23, AC-25)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/search.ts, search.test.ts, client.ts, queries.ts, index.ts
-- [ ] Task 7: Add `Dialog` to `@devhub/ui` from shadcn's dialog. It's 720 px wide (`max-w-180`), 80 px from the top, and under 768 px full width less 16 px each side, 16 px from the top. It uses `bg-raised`, `border-default`, `rounded-lg` and `shadow-overlay`, with no backdrop, no close button, no scroll lock, and a 150 ms fade under `motion-safe` (AC-19, AC-20, AC-30, Q3a)
+- [x] Task 7: Add `Dialog` to `@devhub/ui` from shadcn's dialog. It's 720 px wide (`max-w-180`), 80 px from the top, and under 768 px full width less 16 px each side, 16 px from the top. It uses `bg-raised`, `border-default`, `rounded-lg` and `shadow-overlay`, with no backdrop, no close button, no scroll lock, and a 150 ms fade under `motion-safe` (AC-19, AC-20, AC-30, Q3a)
       Check: pnpm test packages/ui/src/components/dialog.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/dialog.tsx, dialog.test.tsx, dialog.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 8: Add `SearchResult` and `SearchGroup` to `@devhub/ui`. A result is one 40 px option row: a lead mark, a mono code, a cut title and muted meta at the right, which drops under 480 px; the active row is `bg-subtle`. A group has a label with an optional "6 of 23". Add a loading row the same size (AC-6, AC-8, AC-9, AC-10, AC-23, Q3c, Q3e)

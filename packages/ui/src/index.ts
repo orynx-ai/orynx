@@ -52,6 +52,14 @@ export {
   type DiffLineKind,
   type DiffViewProps,
 } from './components/diff-view.tsx';
+export {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+  type DialogContentProps,
+  type DialogProps,
+} from './components/dialog.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
 export { Icon, type IconProps, type IconSvgElement } from './components/icon.tsx';
