@@ -20,6 +20,7 @@ import type {
   Preferences,
   PreferencesChange,
   AddRepositoryRequest,
+  FolderPick,
   Repository,
   RepositoryId,
   RepositoryList,
@@ -312,6 +313,15 @@ export function useEditRepository() {
       refetchAfterLast(queryClient, queryKeys.repositories);
     },
   });
+}
+
+/**
+ * Choose folder (spec 020): the server opens the computer's folder picker and answers the path picked, null
+ * on Cancel, or fails with picker_unavailable where none can open. It saves nothing.
+ */
+export function useChooseFolder() {
+  const api = useApi();
+  return useMutation<FolderPick, ApiRequestError>({ mutationFn: () => api.pickFolder() });
 }
 
 /** Forgets a folder, taking its row away at once (spec 005, AC-11). A failed save puts back that row alone. */

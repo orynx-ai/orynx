@@ -2,9 +2,16 @@ import { useId, useRef, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import type { AddRepositoryRequestSchema, JiraProject, Repository } from '@devhub/contracts';
-import { Button, Dialog, DialogContent, DialogTitle, Field, Input, Select } from '@devhub/ui';
+import { Folder01Icon } from '@hugeicons/core-free-icons';
+import { Button, Dialog, DialogContent, DialogTitle, Field, Icon, Input, Select } from '@devhub/ui';
 import type { z } from 'zod';
-import { useAddRepository, useEditRepository, useJiraConnection, useJiraProjects } from '../queries.ts';
+import {
+  useAddRepository,
+  useChooseFolder,
+  useEditRepository,
+  useJiraConnection,
+  useJiraProjects,
+} from '../queries.ts';
 import { addFolderFormSchema, type AddFolderFormValues } from '../schemas.ts';
 
 /**
@@ -117,6 +124,17 @@ function FolderForm({
   const { errors } = form.formState;
   const save = task.kind === 'edit' ? edit : add;
   const options = projectOptions(projects.data?.projects, picked);
+  const choose = useChooseFolder();
+
+  function chooseFolder() {
+    choose.mutate(undefined, {
+      onSuccess: ({ path }) => {
+        // Cancel in the picker leaves the field as it was (AC-35).
+        if (path === null) return;
+        form.setValue('path', path, { shouldDirty: true, shouldValidate: errors.path !== undefined });
+      },
+    });
+  }
 
   // A second submit while the first is on its way sends nothing, even before the button shows it waits.
   const sending = useRef(false);
@@ -155,14 +173,27 @@ function FolderForm({
         help="The folder's full path, for example ~/code/intranet-web."
         error={errors.path?.message}
       >
-        <Input
-          autoCapitalize="none"
-          autoComplete="off"
-          spellCheck={false}
-          className="font-mono"
-          {...form.register('path')}
-        />
+        <div className="flex flex-wrap gap-2">
+          <Input
+            autoCapitalize="none"
+            autoComplete="off"
+            spellCheck={false}
+            className="min-w-0 flex-1 basis-60 font-mono"
+            {...form.register('path')}
+          />
+          {/* The computer's own picker, through the server: a page never learns a folder's full path (AC-35). */}
+          <Button variant="secondary" pending={choose.isPending} onClick={chooseFolder}>
+            <Icon icon={Folder01Icon} aria-hidden />
+            Choose folder
+          </Button>
+        </div>
       </Field>
+      {choose.error === null ? null : (
+        // No picker here, or the server out of reach: the path can still be typed (AC-36).
+        <p role="status" className="m-0 -mt-2 text-small text-muted-foreground">
+          {choose.error.message}
+        </p>
+      )}
       <Field label="Jira project" help={projectHelp}>
         <Select disabled={options.length === 0} {...form.register('jiraProject')}>
           <option value="">No Jira project</option>

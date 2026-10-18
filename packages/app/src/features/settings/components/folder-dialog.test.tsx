@@ -392,3 +392,66 @@ describe('FolderDialog: Edit and Duplicate (spec 020)', () => {
     expect(save.adds).toEqual([{ path: '~/code/intranet-web', jiraProject: 'MOB' }]);
   });
 });
+
+describe('FolderDialog: Choose folder (spec 020)', () => {
+  it('AC-35: fills Folder with the folder picked in the computer’s picker, and keeps focus on Choose folder', async () => {
+    jira({ connected: false });
+    const save = savingServer();
+    server.use(http.post(apiUrl(apiRoutes.folderPicker), () => HttpResponse.json({ path: '~/code/intranet-web' })));
+    const { user, form } = await openForm();
+
+    const choose = within(form).getByRole('button', { name: 'Choose folder' });
+    await user.click(choose);
+
+    await waitFor(() => {
+      expect(within(form).getByRole('textbox', { name: 'Folder' })).toHaveValue('~/code/intranet-web');
+    });
+    expect(choose).toHaveFocus();
+    await user.click(within(form).getByRole('button', { name: 'Add folder' }));
+    await waitFor(() => {
+      expect(save.sent).toEqual([{ path: '~/code/intranet-web', jiraProject: null }]);
+    });
+  });
+
+  it('AC-35: Cancel in the picker leaves Folder as it was', async () => {
+    jira({ connected: false });
+    server.use(http.post(apiUrl(apiRoutes.folderPicker), () => HttpResponse.json({ path: null })));
+    const { user, form } = await openForm();
+    const folder = within(form).getByRole('textbox', { name: 'Folder' });
+    await user.type(folder, '~/code/typed');
+
+    await user.click(within(form).getByRole('button', { name: 'Choose folder' }));
+
+    await waitFor(() => {
+      expect(within(form).getByRole('button', { name: 'Choose folder' })).not.toHaveAttribute('aria-disabled');
+    });
+    expect(folder).toHaveValue('~/code/typed');
+  });
+
+  it('AC-36: where no picker can open, says to type the path, and the typed path still saves', async () => {
+    jira({ connected: false });
+    const save = savingServer();
+    server.use(
+      http.post(apiUrl(apiRoutes.folderPicker), () =>
+        HttpResponse.json(
+          {
+            code: 'picker_unavailable',
+            message: "Orynx can't open a folder picker on this computer. Type the folder's path instead.",
+          },
+          { status: 503 },
+        ),
+      ),
+    );
+    const { user, form } = await openForm();
+
+    await user.click(within(form).getByRole('button', { name: 'Choose folder' }));
+
+    expect(await within(form).findByRole('status')).toHaveTextContent(
+      "Orynx can't open a folder picker on this computer. Type the folder's path instead.",
+    );
+    await user.type(within(form).getByRole('textbox', { name: 'Folder' }), '~/code/intranet-web{Enter}');
+    await waitFor(() => {
+      expect(save.sent).toEqual([{ path: '~/code/intranet-web', jiraProject: null }]);
+    });
+  });
+});

@@ -58,7 +58,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12a: `POST /api/folder-picker` opens the OS folder picker (osascript, zenity or kdialog, PowerShell) and answers the path, null on Cancel, or `picker_unavailable` (AC-35, AC-36)
       Check: pnpm test packages/contracts packages/core/src/folder-picker packages/core/src/routes/folder-picker.test.ts packages/api-client
       Files: packages/contracts/src/repositories.ts, errors.ts, routes.ts, packages/core/src/folder-picker/*, packages/core/src/routes/folder-picker.ts, packages/core/src/create-server.ts, packages/api-client/src/endpoints/repositories.ts, client.ts
-- [ ] Task 12b: Choose folder in the folder dialog fills Folder from the picker (AC-35, AC-36)
+- [x] Task 12b: Choose folder in the folder dialog fills Folder from the picker (AC-35, AC-36)
       Check: pnpm test packages/app/src/features/settings
       Files: packages/app/src/features/settings/components/folder-dialog.tsx (+ test), queries.ts
 - [ ] Task 12c: `Combobox` in `@devhub/ui`: a Select-like field opening a searchable listbox in a popover (AC-37)
