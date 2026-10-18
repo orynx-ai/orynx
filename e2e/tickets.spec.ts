@@ -166,7 +166,8 @@ test.describe('the Project and Sprint pickers (spec 020)', () => {
     expect((await project.boundingBox())?.width).toBe((await sprint.boundingBox())?.width);
 
     await project.click();
-    const list = page.getByRole('listbox', { name: 'Search projects' }).locator('xpath=..');
+    // The popover the list opens in: its search box over the listbox, and the loading and no-match lines.
+    const list = page.locator('[data-slot="combobox-list"]');
     await expect(page.getByRole('option', { name: 'PTX · Project 20' })).toBeAttached();
     // Measured once its grow-in has ended.
     await settled(page);

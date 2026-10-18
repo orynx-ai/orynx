@@ -213,60 +213,60 @@ export function Combobox({
               )}
             />
           </div>
-          {/* The listbox holds options alone (ARIA), so the no-match line and the loading rows sit beside it. */}
-          <div ref={list} className="flex min-h-0 flex-col overflow-y-auto">
-            <div
-              id={listboxId}
-              role="listbox"
-              aria-label={searchLabel}
-              aria-busy={loading || undefined}
-              className="flex flex-col"
-            >
-              {shown.map((option, index) => {
-                const selected = option.value === value;
-                return (
-                  // The keyboard reaches options from the search box (↓ ↑ Enter, aria-activedescendant), as
-                  // ARIA's combobox pattern asks, so an option takes no focus or keys of its own.
-                  // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus -- see above
-                  <div
-                    key={option.value}
-                    id={`${optionId}-${String(index)}`}
-                    role="option"
-                    aria-selected={selected}
-                    data-highlighted={index === active ? '' : undefined}
-                    className={cn(menuItemClass, small && 'min-h-8 py-1')}
-                    onPointerMove={() => {
-                      if (index !== active) setMoved(index);
-                    }}
-                    // Keeps focus in the search box, so the list stays open until the click picks.
-                    onPointerDown={(event) => {
-                      event.preventDefault();
-                    }}
-                    onClick={() => {
-                      pick(option);
-                    }}
-                  >
-                    <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                    {selected ? <Icon icon={Tick02Icon} aria-hidden className="shrink-0" /> : null}
-                  </div>
-                );
-              })}
-            </div>
-            {shown.length === 0 && !loading ? (
-              <p className="m-0 px-3 py-2 text-small text-muted-foreground">{emptyText}</p>
-            ) : null}
-            {loading ? (
-              // Rows the size of real ones, so the list doesn't jump when the options arrive.
-              <div role="status" className="flex flex-col">
-                <span className="sr-only">Loading</span>
-                {[0, 1].map((row) => (
-                  <span key={row} aria-hidden className={cn('flex items-center px-3', small ? 'h-8' : 'h-10')}>
-                    <Skeleton className="h-3.5 w-3/4" />
-                  </span>
-                ))}
-              </div>
-            ) : null}
+          {/* The listbox holds options alone (ARIA) and scrolls them, so the no-match line and the loading rows
+              sit under it. */}
+          <div
+            ref={list}
+            id={listboxId}
+            role="listbox"
+            aria-label={searchLabel}
+            aria-busy={loading || undefined}
+            className="flex min-h-0 flex-col overflow-y-auto"
+          >
+            {shown.map((option, index) => {
+              const selected = option.value === value;
+              return (
+                // The keyboard reaches options from the search box (↓ ↑ Enter, aria-activedescendant), as
+                // ARIA's combobox pattern asks, so an option takes no focus or keys of its own.
+                // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/interactive-supports-focus -- see above
+                <div
+                  key={option.value}
+                  id={`${optionId}-${String(index)}`}
+                  role="option"
+                  aria-selected={selected}
+                  data-highlighted={index === active ? '' : undefined}
+                  className={cn(menuItemClass, small && 'min-h-8 py-1')}
+                  onPointerMove={() => {
+                    if (index !== active) setMoved(index);
+                  }}
+                  // Keeps focus in the search box, so the list stays open until the click picks.
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                  }}
+                  onClick={() => {
+                    pick(option);
+                  }}
+                >
+                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  {selected ? <Icon icon={Tick02Icon} aria-hidden className="shrink-0" /> : null}
+                </div>
+              );
+            })}
           </div>
+          {shown.length === 0 && !loading ? (
+            <p className="m-0 px-3 py-2 text-small text-muted-foreground">{emptyText}</p>
+          ) : null}
+          {loading ? (
+            // Rows the size of real ones, so the list doesn't jump when the options arrive.
+            <div role="status" className="flex shrink-0 flex-col">
+              <span className="sr-only">Loading</span>
+              {[0, 1].map((row) => (
+                <span key={row} aria-hidden className={cn('flex items-center px-3', small ? 'h-8' : 'h-10')}>
+                  <Skeleton className="h-3.5 w-3/4" />
+                </span>
+              ))}
+            </div>
+          ) : null}
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
