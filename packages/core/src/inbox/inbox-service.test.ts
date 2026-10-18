@@ -443,16 +443,58 @@ describe('inbox service', () => {
   });
 
   describe('with Tickets’ sprint (spec 008)', () => {
-    it('AC-17: a sync reads the sprint side by side with the tools, and tells open pages once', async () => {
+    it('AC-17: a sync reads the sprint beside the tools, and each tells open pages when it ends', async () => {
       outside.use(acceptingIssueSearch([issue]));
       acceptingSprint();
       const { inbox, tickets, seen } = setup({ settings: jiraConnected, sprint: true });
 
       await inbox.sync();
+      await inbox.idle();
 
       expect((await tickets.read()).tickets.map((ticket) => ticket.key)).toEqual(['PROJ-1423']);
       expect((await inbox.read()).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
-      expect(seen).toEqual([{ type: 'inbox.changed' }]);
+      expect(seen).toEqual([{ type: 'inbox.changed' }, { type: 'inbox.changed' }]);
+    });
+
+    it('AC-17: Home’s rows and Refresh never wait for a slow sprint', async () => {
+      outside.use(acceptingIssueSearch([issue]));
+      acceptingSprint();
+      outside.use(
+        http.get(myselfUrl(), async () => {
+          await delay(150);
+          return HttpResponse.json({ accountId: '5b10ac8d82e05b22cc7d4ef5', displayName: 'Dev Example' });
+        }),
+      );
+      const { inbox, tickets } = setup({ settings: jiraConnected, sprint: true });
+
+      await inbox.sync();
+
+      expect((await inbox.read()).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
+      expect((await tickets.read()).jira).toEqual({ state: 'syncing' });
+      await inbox.idle();
+      expect((await tickets.read()).tickets).toHaveLength(1);
+    });
+
+    it('a sync while the sprint is still on its way reads the sprint once more after it', async () => {
+      outside.use(acceptingIssueSearch([issue]));
+      acceptingSprint();
+      let reads = 0;
+      outside.use(
+        http.get(myselfUrl(), async () => {
+          reads += 1;
+          await delay(50);
+          return HttpResponse.json({ accountId: '5b10ac8d82e05b22cc7d4ef5', displayName: 'Dev Example' });
+        }),
+      );
+      const { inbox } = setup({ settings: jiraConnected, sprint: true });
+
+      await inbox.sync();
+      await inbox.sync();
+      await inbox.sync();
+      await inbox.idle();
+
+      // The second and third syncs ask for one more pass, not one each.
+      expect(reads).toBe(2);
     });
 
     it('AC-23: a sprint read that fails leaves Home’s Jira line and its sync time alone', async () => {
@@ -463,6 +505,7 @@ describe('inbox service', () => {
       const { inbox, tickets } = setup({ settings: jiraConnected, sprint: true });
 
       await inbox.sync();
+      await inbox.idle();
 
       expect((await tickets.read()).jira).toMatchObject({ state: 'failed', problem: { kind: 'no_answer' } });
       const read = await inbox.read();
@@ -475,6 +518,7 @@ describe('inbox service', () => {
       acceptingSprint();
       const { inbox, cache } = setup({ settings: jiraConnected, sprint: true });
       await inbox.sync();
+      await inbox.idle();
       expect(cache.tool('jira_sprint')).not.toBeNull();
 
       inbox.forget('jira');
@@ -487,10 +531,12 @@ describe('inbox service', () => {
       acceptingSprint();
       const { inbox, tickets, cache } = setup({ settings: jiraConnected, sprint: true });
       await inbox.sync();
+      await inbox.idle();
 
       await inbox.clear();
       expect(cache.tool('jira_sprint')).toBeNull();
 
+      await vi.waitFor(() => { expect(cache.tool('jira_sprint')).not.toBeNull(); });
       await inbox.idle();
       expect((await tickets.read()).tickets).toHaveLength(1);
     });
@@ -499,11 +545,15 @@ describe('inbox service', () => {
       outside.use(acceptingIssueSearch([issue]));
       acceptingSprint();
       const cache = openInboxCache(':memory:');
-      await setup({ settings: jiraConnected, cache, sprint: true }).inbox.sync();
+      const first = setup({ settings: jiraConnected, cache, sprint: true }).inbox;
+      await first.sync();
+      await first.idle();
       expect(cache.tool('jira_sprint')).not.toBeNull();
       const asked = requests();
 
-      await setup({ cache, sprint: true }).inbox.sync();
+      const second = setup({ cache, sprint: true }).inbox;
+      await second.sync();
+      await second.idle();
 
       expect(cache.tool('jira_sprint')).toBeNull();
       expect(asked()).toEqual([]);

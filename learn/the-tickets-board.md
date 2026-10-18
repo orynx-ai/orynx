@@ -7,7 +7,7 @@ Spec 008 lays your current Jira sprint out as four columns, or as a list. Three 
 ## The path
 
 ```
-inbox-service.sync()  ──▶ tickets-service.sync()           side by side with Jira's issues and GitHub
+inbox-service.sync()  ──▶ tickets-service.sync()           beside Jira's issues and GitHub, on its own
                               │
           jira connection.credentials()
           client.mySprints()        /myself, /field, search/jql: you, the sprint field, your open sprints
@@ -32,6 +32,8 @@ A site has a sprint per team board, and DevHub has no setting naming yours. So i
 Jira has three status categories (To do, In progress, Done), but the design has a fourth column, In review. Matching a status called "Review" by its name would break on the first team that calls it "QA" or "Klar". So the board's own configuration decides. To do and Done follow the category. Among In progress statuses, those in the board's first column that holds any In progress status go to In progress, and those in a later column go to In review. The board names statuses by id only, so DevHub also reads every status's category from `/rest/api/3/status` (any user may). It keeps that list between syncs and asks again only when the board shows a status it doesn't know. A board that's gone or hidden from you (404, or a plain 403) isn't a failure: every In progress ticket is In progress, and In review stays empty.
 
 ## The cache
+
+The link isn't cached: `read()` builds each ticket's link from the saved site, so a `cache.db` someone else wrote can't point a title anywhere else. The record is checked against the contract before it's written, so one bad field fails the sync and keeps the last good sprint.
 
 The sprint is one JSON record in `cache.db`, in its own part (`jira_sprint`), next to Home's tools: the sprint's name, end and project, and its tickets in rank order, with titles and metadata only. No description or comment is ever asked for, and `sprintRecord()` copies only the fields it names, so one a proxy sent anyway never lands (`inbox/no-leaks.test.ts`). Each ticket's session isn't kept: `read()` joins the newest session on each ticket from the session store, unless that one was stopped. The part keeps its own last sync and problem, so a failed sprint read shows 007's quiet line on Tickets and leaves Home alone. Disconnecting Jira and Clear cache take it away.
 

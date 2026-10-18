@@ -29,7 +29,7 @@ export interface InboxService {
    * state, so another one follows it. Resolves when that one has ended.
    */
   syncAfterChange(): Promise<void>;
-  /** Resolves once no sync is running, so the host can close the cache after the last write. */
+  /** Resolves once no sync is running, the sprint's included, so the host can close the cache after the last write. */
   idle(): Promise<void>;
   /** Clear cache: everything goes, open pages are told, and a sync starts. */
   clear(): Promise<void>;
@@ -49,8 +49,9 @@ export interface InboxServiceOptions {
   jira: JiraClient;
   github: GitHubClient;
   /**
-   * Tickets' sprint (spec 008), read side by side with the tools in each sync. It has its own part of the
-   * cache, so it never changes Home's lines or "Synced" time, and it goes when Jira does.
+   * Tickets' sprint (spec 008), read beside the tools in each sync but on its own: Home's rows and Refresh
+   * never wait for it, and it tells open pages itself when it ends. It has its own part of the cache, so it
+   * never changes Home's lines or "Synced" time, and it goes when Jira does.
    */
   sprint?: { sync(): Promise<SprintSyncOutcome>; forget(): void };
   sessions: SessionStore;
@@ -89,6 +90,9 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
   let running: Promise<void> | undefined;
   /** A change came while a sync was running, so another pass follows it. */
   let again = false;
+  /** Tickets' sprint pass, which runs on its own beside the tools (spec 008). */
+  let sprintRunning: Promise<void> | undefined;
+  let sprintAgain = false;
   /** Tools whose last sync threw in DevHub itself; cleared by their next sync that ends normally. */
   const broken = new Set<InboxTool>();
 
@@ -146,16 +150,45 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     );
   }
 
-  async function syncSprint(): Promise<void> {
-    if (options.sprint === undefined) return;
-    // A sprint a disconnected Jira left behind goes, as a tool's rows do.
-    if ((await options.sprint.sync()) === 'not_connected' && cache.tool('jira_sprint') !== null) {
-      options.sprint.forget();
+  async function sprintPass(sprint: NonNullable<InboxServiceOptions['sprint']>): Promise<void> {
+    try {
+      // A sprint a disconnected Jira left behind goes, as a tool's rows do.
+      if ((await sprint.sync()) === 'not_connected' && cache.tool('jira_sprint') !== null) sprint.forget();
+    } catch (error) {
+      // Never Home's problem: the sprint keeps its own line, and the terminal says what happened.
+      options.onError?.(error);
     }
+    events.publish({ type: 'inbox.changed' });
+  }
+
+  /** Read through a call: a sync can set it while a sprint pass awaits, which narrowing can't see. */
+  function anotherSprintAsked(): boolean {
+    return sprintAgain;
+  }
+
+  /** Starts the sprint's pass, or asks the running one for one more pass after it (it read the old state). */
+  function syncSprint(): void {
+    const { sprint } = options;
+    if (sprint === undefined) return;
+    if (sprintRunning !== undefined) {
+      sprintAgain = true;
+      return;
+    }
+    sprintRunning = (async () => {
+      try {
+        do {
+          sprintAgain = false;
+          await sprintPass(sprint);
+        } while (anotherSprintAsked());
+      } finally {
+        sprintRunning = undefined;
+      }
+    })();
   }
 
   async function run(): Promise<void> {
-    const [outcomes] = await Promise.all([Promise.allSettled([syncJira(), syncGitHub()]), syncSprint()]);
+    syncSprint();
+    const outcomes = await Promise.allSettled([syncJira(), syncGitHub()]);
     const ended = outcomes.map((outcome, index): Outcome => {
       const tool = syncedTools[index] ?? 'jira';
       if (outcome.status === 'rejected') {
@@ -234,7 +267,10 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     syncAfterChange,
 
     idle() {
-      return (running ?? Promise.resolve()).catch(() => undefined);
+      // The sprint's pass too, so the host closes the cache only after its last write.
+      return Promise.all(
+        [running, sprintRunning].map((pass) => (pass ?? Promise.resolve()).catch(() => undefined)),
+      ).then(() => undefined);
     },
 
     clear() {

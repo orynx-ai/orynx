@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { apiRoutes, TicketsSchema, tokenHeader } from '@devhub/contracts';
 import { makeSessionSummary } from '@devhub/contracts/testing';
@@ -112,7 +112,12 @@ describe('/api/tickets', () => {
 
     await app.inject({ method: 'POST', url: apiRoutes.inboxRefresh, headers });
 
-    const tickets = await readTickets(app);
+    // Refresh answers when Home's rows are in; the sprint follows on its own.
+    const tickets = await vi.waitFor(async () => {
+      const read = await readTickets(app);
+      expect(read.sprint).not.toBeNull();
+      return read;
+    });
     expect(tickets.sprint).toMatchObject({ name: 'Sprint 42', projectKey: 'PROJ' });
     expect(tickets.tickets).toMatchObject([
       {
@@ -130,6 +135,7 @@ describe('/api/tickets', () => {
     acceptingSprint([{ key: 'PROJ-1423', priority: null }]);
     const first = await server({ settings, cache: openInboxCache(cacheFilePath(folder)) });
     await first.inject({ method: 'POST', url: apiRoutes.inboxRefresh, headers });
+    // Closing waits for the sprint's pass to end before the cache closes.
     await first.close();
     outside.resetHandlers();
 
