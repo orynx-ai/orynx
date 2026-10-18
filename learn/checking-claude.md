@@ -47,12 +47,12 @@ A failed check is the card's **Error**, never a failed request, and the rest of 
 WARN  Claude Code's login check failed   claude: { kind: "failed", exitCode: 3 }
 ```
 
-| `kind`       | What happened                                                                             |
-| ------------ | ----------------------------------------------------------------------------------------- |
-| `missing`    | No program at the path, or one that can't be run (the SDK has no build for this platform) |
-| `failed`     | It exited with an error, or ended by a signal (`exitCode: null`), and printed no answer   |
-| `unreadable` | It exited 0 but printed something that isn't the expected JSON, or more than 64 KB        |
-| `timeout`    | It ran longer than 10 seconds and was stopped                                             |
+| `kind`       | What happened                                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `missing`    | No program at the path, or one the system can't start: not runnable, no `#!` line, another processor's build, or no SDK build for this platform |
+| `failed`     | It exited with an error and printed no answer, or ended by a signal or its work folder couldn't be made (`exitCode: null`)                      |
+| `unreadable` | It exited 0 but printed something that isn't the expected JSON, or more than 64 KB                                                              |
+| `timeout`    | It ran longer than 10 seconds and was stopped                                                                                                   |
 
 If the card says Not signed in while `claude` works in your terminal, the two may not share a login: check that `CLAUDE_CONFIG_DIR` is the same in the terminal that started DevHub, then press Check again.
 
