@@ -166,7 +166,7 @@ test('AC-1, AC-2, AC-18: the Changes tab lists Claude’s edit as it lands, in e
   context,
 }) => {
   await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Build CHG-1 with Claude' }).click();
+  await page.getByRole('button', { name: 'Ship CHG-1' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   seen.working = page.url();
   const other = await context.newPage();
@@ -290,7 +290,7 @@ test('AC-11, AC-12, AC-18: after Done, a follow-up carries on where Claude left 
   context,
 }) => {
   await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Build CHG-2 with Claude' }).click();
+  await page.getByRole('button', { name: 'Ship CHG-2' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   seen.done = page.url();
   await expect(page.getByRole('main').getByText('Done, ready for PR')).toBeVisible({ timeout: 15_000 });
@@ -338,7 +338,7 @@ test('AC-11, AC-12, AC-18: after Done, a follow-up carries on where Claude left 
 
 test('AC-13: after Stop, a follow-up carries on as well', async ({ page }) => {
   await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Build CHG-3 with Claude' }).click();
+  await page.getByRole('button', { name: 'Ship CHG-3' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   await expect(progressOf(page).getByText('Editing files')).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Stop Claude' }).click();
