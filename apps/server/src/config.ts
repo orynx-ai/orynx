@@ -1,11 +1,11 @@
 import { readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { z } from 'zod';
 import type { IntegrationId } from '@devhub/contracts';
-import type { EnvTokens } from '@devhub/core';
+import { agentEnvironment, type EnvTokens } from '@devhub/core';
 
 /** The only place that reads process.env (CLAUDE.md rule 9). Every key is in .env.example. */
 const EnvSchema = z.object({
@@ -21,7 +21,10 @@ const EnvSchema = z.object({
 });
 
 /** Settings read from the shell only, never from `.env`: a file must not decide which program DevHub starts. */
-const ShellSchema = z.object({ PATH: z.string().default('') });
+const ShellSchema = z.object({
+  PATH: z.string().default(''),
+  DEVHUB_CLAUDE_CODE: z.string().refine(isAbsolute, 'must be the full path of the program').optional(),
+});
 
 /** Which setting holds each tool's token when the `.env` fallback is on (spec 002, Q1). */
 export const tokenKeys = {
@@ -48,6 +51,13 @@ export interface ServerConfig {
   };
   /** Where to look for GitHub's gh (spec 004): the shell's PATH, never one written in `.env`. */
   ghSearchPath: string;
+  /**
+   * DEVHUB_CLAUDE_CODE from the shell, never from `.env`: the Claude Code to run for the login check
+   * instead of the SDK's own (spec 010, Q10). The e2e run sets it to a fake. Null runs the SDK's.
+   */
+  claudeCode: string | null;
+  /** The part of the shell's environment Claude Code may see (spec 010, AC-10). Nothing from `.env`. */
+  agentEnvironment: Record<string, string>;
 }
 
 /** The `.env` next to `.env.example` at the repo root. The same path from `src/` (dev) and `dist/` (start). */
@@ -98,8 +108,10 @@ export function loadConfig({
   envFile,
 }: { env?: NodeJS.ProcessEnv; envFile?: string } = {}): ServerConfig {
   const parsed = EnvSchema.safeParse({ ...withoutEmpty(parseEnv(envFile ?? '')), ...withoutEmpty(env) });
-  if (!parsed.success) {
-    const problems = parsed.error.issues.map((issue) => `  ${issue.path.join('.')}: ${issue.message}`).join('\n');
+  const shell = ShellSchema.safeParse(withoutEmpty(env));
+  if (!parsed.success || !shell.success) {
+    const issues = [...(parsed.error?.issues ?? []), ...(shell.error?.issues ?? [])];
+    const problems = issues.map((issue) => `  ${issue.path.join('.')}: ${issue.message}`).join('\n');
     throw new Error(`Orynx settings are not valid (see .env.example):\n${problems}`);
   }
   const settings = parsed.data;
@@ -119,6 +131,8 @@ export function loadConfig({
     pretty: settings.NODE_ENV === 'development',
     keychain: settings.DEVHUB_KEYCHAIN,
     tokens: { fromEnv, env: tokens, ignored },
-    ghSearchPath: ShellSchema.parse(env).PATH,
+    ghSearchPath: shell.data.PATH,
+    claudeCode: shell.data.DEVHUB_CLAUDE_CODE ?? null,
+    agentEnvironment: agentEnvironment(env),
   };
 }

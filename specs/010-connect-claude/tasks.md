@@ -26,9 +26,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: Prove no email, organisation or program output reaches the log at `LOG_LEVEL=trace` or the event stream, signed in, signed out and failing, and that `settings.json` and the keychain don't change (AC-11)
       Check: pnpm test packages/core/src/agents/claude/no-leaks.test.ts
       Files: packages/core/src/agents/claude/no-leaks.test.ts
-- [ ] Task 9: Pass the SDK's program from `apps/server`, add `DEVHUB_CLAUDE_CODE` (an absolute path, empty for the SDK's own) to `config.ts` and `.env.example`, and point the e2e run at `e2e/fake-claude/claude`, which reads its answer from a file the test writes (AC-12, Q10)
+- [x] Task 9: Pass the SDK's program from `apps/server`, add `DEVHUB_CLAUDE_CODE` (an absolute path, empty for the SDK's own, read from the shell only like `PATH`) to `config.ts` and `.env.example`, and point the e2e run at `e2e/fake-claude/claude`. The first hub's fake is always signed out; the second's answers what a spec writes into its `CLAUDE_CONFIG_DIR` (AC-12, Q10)
       Check: pnpm test apps/server; pnpm gate env-policy
-      Files: apps/server/src/config.ts, config.test.ts, main.ts, .env.example, playwright.config.ts, e2e/fake-claude/claude, e2e/fake-claude/answer.ts
+      Files: apps/server/src/config.ts, config.test.ts, main.ts, .env.example, playwright.config.ts, e2e/fake-claude/claude, e2e/fake-claude/config.ts
 - [ ] Task 10: Add `claudeLogin()`, `checkClaudeLogin()` and their query options to the api-client, refresh the login on `status.changed`, and give the app's tests a default "signed out" answer (AC-5)
       Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx
       Files: packages/api-client/src/endpoints/claude.ts, claude.test.ts, client.ts, queries.ts, index.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx, packages/app/src/test/msw.ts

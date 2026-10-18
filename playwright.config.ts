@@ -2,6 +2,7 @@ import { accessSync, constants, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
+import { fakeClaude, fakeClaudeDir } from './e2e/fake-claude/config.ts';
 import { fakeToolsHubPort } from './e2e/fake-tools/config.ts';
 
 // The e2e run gets its own port and data folder, so it never touches the real ~/.devhub.
@@ -25,6 +26,14 @@ for (const bin of ['node_modules/.bin', 'apps/server/node_modules/.bin']) {
   if (existsSync(join(import.meta.dirname, bin, 'gh'))) {
     throw new Error(`${bin}/gh would run before the fake gh in the e2e run.`);
   }
+}
+
+// The same for Claude Code (spec 010, AC-12): every hub runs this fake through DEVHUB_CLAUDE_CODE, never
+// the one in the Agent SDK, which would read your real Claude login.
+try {
+  accessSync(fakeClaude, constants.X_OK);
+} catch {
+  throw new Error('e2e/fake-claude/claude must be executable (chmod +x), or the e2e run could not check Claude.');
 }
 
 export default defineConfig({
@@ -59,6 +68,8 @@ export default defineConfig({
         // A fake gh, always signed out, comes first on the server's PATH: the e2e run never reads your
         // real gh login, and a press of Connect GitHub never reaches github.com (spec 004, AC-20).
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
+        // Always signed out: this hub's fake Claude Code gets no answer folder.
+        DEVHUB_CLAUDE_CODE: fakeClaude,
       },
     },
     {
@@ -76,6 +87,10 @@ export default defineConfig({
         DEVHUB_TOKENS_FROM_ENV: 'false',
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
+        // This hub's fake Claude Code answers what coding-agent.spec.ts writes into its folder.
+        DEVHUB_CLAUDE_CODE: fakeClaude,
+        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
+        CLAUDE_CONFIG_DIR: fakeClaudeDir,
       },
     },
   ],
