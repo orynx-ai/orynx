@@ -54,7 +54,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 17: Add the routes `POST /api/sessions/:id/messages`, `GET /api/sessions/:id/changes` and `GET /api/sessions/:id/changes/diff?path=` (404 for an unknown session or an unlisted path), wire the changes reader into `createServer()`, and extend the leak test at `LOG_LEVEL=trace` to messages and diffs (AC-15, AC-23, AC-24)
       Check: pnpm test packages/core/src/routes/sessions.test.ts packages/core/src/create-server.test.ts packages/core/src/sessions/no-leaks.test.ts
       Files: packages/core/src/routes/sessions.ts, packages/core/src/routes/sessions.test.ts, packages/core/src/create-server.ts, packages/core/src/create-server.test.ts, packages/core/src/sessions/no-leaks.test.ts
-- [ ] Task 18: Teach the e2e fake Claude Code: `--resume` plays a follow-up script that edits a second file and finishes, an unknown id exits before `init`, a message that arrives mid-run is folded in and reported consumed, and a "(slow)" ticket keeps working long enough to send one (AC-25)
+- [x] Task 18: Teach the e2e fake Claude Code: `--resume` plays a follow-up script that edits a second file and finishes, an unknown id exits before `init`, a message that arrives mid-run is folded in and reported consumed, and a "(slow)" ticket keeps working long enough to send one (AC-25)
       Check: pnpm test:e2e e2e/sessions.spec.ts e2e/approvals.spec.ts (still pass)
       Files: e2e/fake-claude/session.ts, learn/sessions-and-worktrees.md
 - [ ] Task 19: Add `sendMessage`, `sessionChanges` and `sessionDiff` to the api-client with their query options (keys under the sessions key, `staleTime: 0`), and map `session.files.changed` to that session's changes keys only (AC-2, AC-18)
