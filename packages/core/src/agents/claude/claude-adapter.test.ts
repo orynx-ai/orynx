@@ -496,10 +496,108 @@ describe('the Claude adapter', () => {
     ]);
   });
 
-  it('answers follow-ups with an error until spec 013', async () => {
+  it('013 AC-12: a message sent while Claude works reaches it as the next thing to read, with an id of its own', async () => {
+    const { sdk, adapter } = setUp([
+      { tool: 'Read', input: { file_path: 'src/a.ts' } },
+      { waitForMessage: true },
+      { tool: 'Edit', input: { file_path: join(worktree, 'src', 'a.ts'), old_string: '1', new_string: '2' } },
+      { finish: 'Used the existing hook.' },
+    ]);
+    const { id, events, ended } = await watch(adapter);
+    await vi.waitFor(() => {
+      expect(works(events)).toContainEqual({ kind: 'explore', file: 'src/a.ts' });
+    });
+
+    expect(await adapter.sendMessage(id, 'Use the existing useSelection hook instead')).toBe(true);
+    await ended();
+
+    expect(sdk.runs[0]?.messages[1]).toEqual({
+      text: 'Use the existing useSelection hook instead',
+      uuid: expect.stringMatching(/^[0-9a-f-]{36}$/) as unknown,
+      priority: 'next',
+    });
+    expect(works(events).filter((work) => work.kind === 'finished')).toEqual([
+      { kind: 'finished', summary: 'Used the existing hook.' },
+    ]);
+  });
+
+  it('013 AC-12: Claude finishes only once it has answered a message that came too late for its turn', async () => {
+    const { adapter } = setUp([
+      { tool: 'Read', input: { file_path: 'src/a.ts' } },
+      { waitForMessage: true },
+      { finish: 'The first part.' },
+      { tool: 'Edit', input: { file_path: join(worktree, 'src', 'a.ts'), old_string: '1', new_string: '2' } },
+      { finish: 'And the part you asked for.' },
+    ]);
+    const { id, events, ended } = await watch(adapter);
+    await vi.waitFor(() => {
+      expect(works(events)).toHaveLength(1);
+    });
+    await adapter.sendMessage(id, 'Also change a to 2');
+    await ended();
+    expect(works(events)).toEqual([
+      { kind: 'explore', file: 'src/a.ts' },
+      { kind: 'edit', file: 'src/a.ts' },
+      { kind: 'finished', summary: 'And the part you asked for.' },
+    ]);
+  });
+
+  it('013: a message answers false once Claude’s input is over, or in a session it never started', async () => {
     const { adapter } = setUp([{ finish: 'Done.' }]);
     const { id } = await runToEnd(adapter);
-    await expect(adapter.sendMessage(id, 'More')).rejects.toThrow(/013/);
+    expect(await adapter.sendMessage(id, 'More')).toBe(false);
+    expect(await adapter.sendMessage('never-started', 'More')).toBe(false);
+  });
+
+  it('013 AC-17: Stop ends Claude Code at once while it holds a message it hasn’t read, so it never acts on it', async () => {
+    const { sdk, adapter } = setUp(
+      [{ tool: 'Read', input: { file_path: 'src/a.ts' } }, { waitForMessage: true }, { hang: true }],
+      { stopGraceMs: 60_000 },
+    );
+    sdk.ignoreInterrupt = true;
+    const { id, events, ended } = await watch(adapter);
+    await vi.waitFor(() => {
+      expect(works(events)).toHaveLength(1);
+    });
+    await adapter.sendMessage(id, 'Use the hook');
+    await vi.waitFor(() => {
+      expect(sdk.runs[0]?.messages).toHaveLength(2);
+    });
+
+    const started = Date.now();
+    await adapter.stop(id);
+    await ended();
+    expect(Date.now() - started).toBeLessThan(5_000);
+    expect(sdk.runs[0]).toMatchObject({ interrupts: 1, closes: 1 });
+  });
+
+  it('013 AC-17: once you press Stop, every call Claude asks for is refused', async () => {
+    let letGo: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      letGo = resolve;
+    });
+    const { sdk, adapter } = setUp([
+      { tool: 'Read', input: { file_path: 'src/a.ts' } },
+      { gate },
+      { tool: 'Edit', input: { file_path: join(worktree, 'src', 'a.ts'), old_string: '1', new_string: '2' } },
+      { finish: 'Done.' },
+    ]);
+    sdk.ignoreInterrupt = true;
+    const { id, events, ended } = await watch(adapter);
+    await vi.waitFor(() => {
+      expect(works(events)).toHaveLength(1);
+    });
+
+    const stopping = adapter.stop(id);
+    letGo();
+    await stopping;
+    await ended();
+
+    expect(sdk.runs[0]?.decisions.map((decision) => [decision.tool, decision.result.behavior])).toEqual([
+      ['Read', 'allow'],
+      ['Edit', 'deny'],
+    ]);
+    expect(works(events).some((work) => work.kind === 'edit')).toBe(false);
   });
 
   it('stopping a session that has ended, or one it never started, is fine', async () => {

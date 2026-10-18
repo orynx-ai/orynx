@@ -44,7 +44,7 @@ Today a session runs once. Claude's input closes when it finishes, and the scree
    - `fileDiff()` reads one file. It answers only for a path that's in the current list.
 4. **Talking to Claude** (tasks 11 to 13).
    - The adapter's prompt becomes a queue. `sendMessage()` pushes a user message with its own uuid and `priority: 'next'`. It answers false once the input is over.
-   - A success `result` counts as finished only when `queued_turn_count` is 0 and every uuid Orynx sent is in `consumed_user_message_uuids` (spec 013 Q1, AC-12). Otherwise Claude still has a message to answer and stays Working.
+   - A success `result` counts as finished only when `queued_turn_count` is 0 and every uuid Orynx sent is in `user_message_uuids` (spec 013 Q1, AC-12). Otherwise Claude still has a message to answer and stays Working.
    - Once Stop is pressed, `canUseTool` refuses every call. If a sent message is still unconsumed after the interrupt, the process is closed at once rather than after the 5-second grace period, so Claude never acts on it (AC-17).
    - `startSession` takes `{ resume }`. A resumed run counts as the `resume` problem (AC-16) in two cases: it ends before Claude Code's `init`, or its `init` names a different session id (so Claude Code started afresh).
    - The message reader says when an edit's or a command's result arrives, which becomes the `files_changed` event.

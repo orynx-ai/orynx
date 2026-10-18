@@ -107,7 +107,11 @@ export interface AgentAdapter {
   onEvent(sessionId: string, handler: (event: AgentEvent) => void): () => void;
   /** Answers a waiting call; false when no such call is waiting (answered already, or never asked). */
   respond(sessionId: string, approvalId: string, decision: ApprovalDecision): Promise<boolean>;
-  sendMessage(sessionId: string, text: string): Promise<void>;
+  /**
+   * Gives a running agent your message, read after its current step (spec 013, AC-12). False when it can't take
+   * one: it has finished, is stopping, or was never started. Then the session resumes it instead.
+   */
+  sendMessage(sessionId: string, text: string): Promise<boolean>;
   /** Asks the agent to stop, and ends its program if it hasn't stopped soon after; resolves once it has ended. */
   stop(sessionId: string): Promise<void>;
 }

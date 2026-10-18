@@ -124,10 +124,18 @@ describe('createMessageReader', () => {
     expect(read(text)).toEqual([]);
   });
 
-  it('AC-8: turns a finished turn into finished, with Claude’s summary', () => {
+  it('AC-8: says a turn ended, with Claude’s summary', () => {
     const read = createMessageReader(worktree);
     expect(read(success('Added row selection and a toolbar button.'))).toEqual([
-      { type: 'work', work: { kind: 'finished', summary: 'Added row selection and a toolbar button.' } },
+      { type: 'turn_ended', summary: 'Added row selection and a toolbar button.', queued: 0, took: null },
+    ]);
+  });
+
+  it('013 AC-12: says which of your messages the turn took and how many still wait, so the adapter knows if Claude is done', () => {
+    const read = createMessageReader(worktree);
+    const took = ['5f0c1d2e-0000-4000-8000-000000000001'];
+    expect(read(success('First part.', { user_message_uuids: took, queued_turn_count: 1 }))).toEqual([
+      { type: 'turn_ended', summary: 'First part.', queued: 1, took },
     ]);
   });
 

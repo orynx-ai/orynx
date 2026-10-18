@@ -16,6 +16,12 @@ export type ReadMessage =
   /** How much Claude Code loaded is logged by count, so a surprise (an MCP server, a plugin) shows without names. */
   | { type: 'started'; claudeSessionId: string; loaded: { tools: number; mcpServers: number; plugins: number } }
   | { type: 'work'; work: AgentWork }
+  /**
+   * A turn ended well (spec 013): Claude's summary, how many of your messages still wait (`queued_turn_count`),
+   * and the ids of those the turn took (`user_message_uuids`, null from a Claude Code too old to say). The
+   * adapter decides from these whether Claude has finished.
+   */
+  | { type: 'turn_ended'; summary: string; queued: number; took: readonly string[] | null }
   | { type: 'problem'; kind: ProblemKind; code: string };
 
 const InitSchema = z.object({
@@ -44,6 +50,8 @@ const ResultSchema = z.object({
   result: z.string().optional(),
   api_error_status: z.number().nullish(),
   startup_failure_reason: z.string().optional(),
+  user_message_uuids: z.array(z.string()).optional(),
+  queued_turn_count: z.number().int().nonnegative().optional(),
 });
 
 const PathInputSchema = z.object({ file_path: z.string() });
@@ -152,7 +160,9 @@ export function createMessageReader(
     if (result.success) {
       const { subtype, is_error, api_error_status, startup_failure_reason } = result.data;
       if (subtype === 'success' && !is_error) {
-        return failed ? [] : [{ type: 'work', work: { kind: 'finished', summary: result.data.result ?? '' } }];
+        if (failed) return [];
+        const { result: summary = '', queued_turn_count: queued = 0, user_message_uuids: took = null } = result.data;
+        return [{ type: 'turn_ended', summary, queued, took }];
       }
       if (typeof api_error_status === 'number') {
         return problem(statusKind(api_error_status), `api_${String(api_error_status)}`);
