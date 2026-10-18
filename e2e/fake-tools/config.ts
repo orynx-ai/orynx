@@ -17,6 +17,12 @@ export const sessionsHubPort = 4396;
  */
 export const approvalsHubPort = 4394;
 
+/**
+ * The fifth, for live changes and follow-ups (spec 013): its sessions resume the fake Claude Code and write into
+ * their worktrees, and its folder is mapped to its own project, so Build never offers the other specs' folders.
+ */
+export const changesHubPort = 4392;
+
 /** Where a spec tells a hub's fakes what Jira and GitHub hold, with `PUT /tools`: the port below the hub's. */
 export function controlPortFor(hubPort: number): number {
   return hubPort - 1;

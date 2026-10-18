@@ -1,0 +1,261 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { expect, test, type Page } from '@playwright/test';
+import { answerClaudeAs, fakeClaudeDirFor } from './fake-claude/config.ts';
+import { changesHubPort, controlPortFor, type FakeTools } from './fake-tools/config.ts';
+
+// Spec 013 on its own hub (playwright.config.ts): its sessions resume Claude Code and write into worktrees the
+// other specs never see.
+test.use({ baseURL: `http://127.0.0.1:${String(changesHubPort)}` });
+test.describe.configure({ mode: 'serial' });
+
+const tools: FakeTools = {
+  sprint: true,
+  issues: [
+    // The fake Claude Code edits `src/archive.ts`, then keeps working until it's stopped.
+    {
+      key: 'CHG-1',
+      summary: 'Add bulk archive to the content list (waits)',
+      status: 'In Progress',
+      category: 'indeterminate',
+      duedate: '2030-01-15',
+    },
+  ],
+  reviews: [],
+  mine: [],
+};
+
+/** The session the tests share, once the first has started it. */
+const seen: { working?: string } = {};
+
+/** A real repository in a temporary folder, with a bare origin, and git that reads none of your settings. */
+function makeRepository() {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'devhub-e2e-changes-repo-')));
+  const env = {
+    PATH: process.env['PATH'] ?? '/usr/bin:/bin',
+    HOME: root,
+    GIT_CONFIG_NOSYSTEM: '1',
+    GIT_AUTHOR_NAME: 'Test',
+    GIT_AUTHOR_EMAIL: 'test@example.com',
+    GIT_COMMITTER_NAME: 'Test',
+    GIT_COMMITTER_EMAIL: 'test@example.com',
+  };
+  writeFileSync(join(root, '.gitconfig'), '[init]\n\tdefaultBranch = main\n');
+  const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, env, encoding: 'utf8' }).trim();
+  const origin = join(root, 'origin.git');
+  const seed = join(root, 'seed');
+  const clone = join(root, 'web-app');
+  git(root, 'init', '--bare', origin);
+  git(root, 'clone', origin, seed);
+  writeFileSync(join(seed, 'README.md'), '# web-app\n');
+  git(seed, 'add', '.');
+  git(seed, 'commit', '-m', 'first');
+  git(seed, 'push', 'origin', 'main');
+  git(root, 'clone', origin, clone);
+  return { root, clone, git };
+}
+
+const repository = makeRepository();
+
+/** Sends a request to the hub with the page's token, as the page does. */
+async function api(page: Page, method: string, path: string, body?: unknown) {
+  return page.evaluate(
+    async ({ method, path, body }) => {
+      const token = document.querySelector('meta[name="devhub-token"]')?.getAttribute('content') ?? '';
+      const answer = await fetch(path, {
+        method,
+        headers: { 'x-devhub-token': token, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      if (!answer.ok) throw new Error(`${method} ${path} answered ${String(answer.status)}`);
+      return answer.status === 204 ? null : ((await answer.json()) as unknown);
+    },
+    { method, path, body },
+  );
+}
+
+function connectionRow(page: Page, tool: string) {
+  return page.getByRole('list', { name: 'Connections' }).getByRole('listitem').filter({ hasText: tool });
+}
+
+/** The worktree git keeps for a branch, or undefined when there's none. */
+function worktreeOf(branch: string): string | undefined {
+  const blocks = repository.git(repository.clone, 'worktree', 'list', '--porcelain').split('\n\n');
+  const block = blocks.find((one) => one.includes(`branch refs/heads/${branch}`));
+  return block
+    ?.split('\n')
+    .find((line) => line.startsWith('worktree '))
+    ?.slice('worktree '.length);
+}
+
+/** Everything a read could disturb in a worktree: what git says, and its index's bytes and time. */
+function untouched(worktree: string) {
+  const index = repository.git(worktree, 'rev-parse', '--path-format=absolute', '--git-path', 'index');
+  return {
+    status: repository.git(worktree, 'status', '--porcelain=v1', '--untracked-files=all'),
+    index: readFileSync(index).toString('base64'),
+    indexTime: statSync(index).mtimeMs,
+  };
+}
+
+const changedFiles = (page: Page) => page.getByRole('list', { name: 'Changed files' });
+
+/**
+ * The folder an Open in link opens, as a real path: the hub names the worktree under its own home's path, which
+ * on macOS can be `/var` for git's `/private/var`.
+ */
+async function opensFolder(page: Page, label: 'Open in VS Code' | 'Open in Cursor'): Promise<string> {
+  const link = page.getByRole('link', { name: label });
+  const scheme = label === 'Open in VS Code' ? 'vscode' : 'cursor';
+  await expect(link).toHaveAttribute('href', new RegExp(`^${scheme}://file/`));
+  const href = (await link.getAttribute('href')) ?? '';
+  return realpathSync(decodeURIComponent(href.slice(`${scheme}://file`.length)));
+}
+
+test.beforeAll(async ({ browser }, testInfo) => {
+  test.skip((testInfo.project.use.viewport?.width ?? 0) < 768, 'the sessions share one hub and one repository');
+  const page = await browser.newPage({ baseURL: `http://127.0.0.1:${String(changesHubPort)}` });
+  await page.goto('/settings/connections');
+  const answer = await page.request.put(`http://127.0.0.1:${String(controlPortFor(changesHubPort))}/tools`, {
+    data: tools,
+  });
+  expect(answer.status()).toBe(204);
+
+  await connectionRow(page, 'Jira').getByRole('button', { name: 'Connect' }).click();
+  const jira = page.getByRole('form', { name: 'Jira connection' });
+  await jira.getByRole('textbox', { name: 'Jira site' }).fill('your-team.atlassian.net');
+  await jira.getByRole('textbox', { name: 'Email' }).fill('dev@example.com');
+  await jira.getByLabel('API token', { exact: true }).fill('fake-good-token');
+  await jira.getByRole('button', { name: 'Connect Jira' }).click();
+  await expect(connectionRow(page, 'Jira').getByText('Connected', { exact: true })).toBeVisible();
+
+  await answerClaudeAs('signed_in', fakeClaudeDirFor(changesHubPort));
+  await api(page, 'POST', '/api/claude/login/check');
+  await api(page, 'POST', '/api/repositories', { path: repository.clone, jiraProject: 'CHG' });
+  await api(page, 'POST', '/api/inbox/refresh');
+  await page.close();
+});
+
+test.afterAll(() => {
+  rmSync(repository.root, { recursive: true, force: true });
+});
+
+test('AC-1, AC-2, AC-18: the Changes tab lists Claude’s edit as it lands, in every open tab', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/tickets');
+  await page.getByRole('button', { name: 'Build CHG-1 with Claude' }).click();
+  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  seen.working = page.url();
+  const other = await context.newPage();
+  await other.goto(page.url());
+
+  const tabs = page.getByRole('tablist', { name: 'Session details' });
+  await expect(tabs.getByRole('tab', { name: 'Ticket CHG-1' })).toHaveAttribute('aria-selected', 'false');
+  for (const tab of [page, other]) {
+    await expect(changedFiles(tab).getByRole('button', { name: /^src\/archive\.ts/ })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(tab.getByRole('tab', { name: 'Changes 1' })).toHaveAttribute('aria-selected', 'true');
+    await expect(tab.getByText('in 1 file · updates live as Claude edits')).toBeVisible();
+    const diff = tab.getByRole('region', { name: 'Changes in archive.ts' });
+    await expect(diff.getByText('export const archive = true;')).toBeVisible();
+  }
+  await expect(page.getByRole('main').getByText('Working', { exact: true })).toBeVisible();
+  expect(await opensFolder(page, 'Open in VS Code')).toBe(worktreeOf('feat/CHG-1'));
+
+  await page.getByRole('button', { name: 'Stop Claude' }).click();
+  await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('in 1 file', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Discard changes' })).toBeVisible();
+  await other.close();
+});
+
+test('AC-3, AC-4: picking a file shows its diff, a reload keeps it, and reading never touches the worktree', async ({
+  page,
+}) => {
+  const worktree = worktreeOf('feat/CHG-1') ?? '';
+  // You change a file yourself, as in your editor.
+  writeFileSync(join(worktree, 'README.md'), '# web-app\n\nArchive many items at once.\n');
+  const before = untouched(worktree);
+  await page.goto(seen.working ?? '');
+
+  await changedFiles(page)
+    .getByRole('button', { name: /^README\.md/ })
+    .click();
+
+  const diff = page.getByRole('region', { name: 'Changes in README.md' });
+  await expect(diff.getByText('Archive many items at once.')).toBeVisible();
+  await expect(page).toHaveURL(/[?&]file=README\.md/);
+  await page.reload();
+  await expect(changedFiles(page).getByRole('button', { name: /^README\.md/ })).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByRole('region', { name: 'Changes in README.md' })).toBeVisible();
+  expect(untouched(worktree)).toEqual(before);
+});
+
+test('AC-9: the Ticket tab shows the ticket as Claude got it, and the address keeps the tab', async ({ page }) => {
+  await page.goto(seen.working ?? '');
+
+  await page.getByRole('tab', { name: 'Ticket CHG-1' }).click();
+
+  const panel = page.getByRole('tabpanel', { name: 'Ticket CHG-1' });
+  await expect(panel.getByText('Story', { exact: true })).toBeVisible();
+  await expect(panel.getByText('In Progress', { exact: true })).toBeVisible();
+  await expect(panel.getByText('Due 15 Jan 2030')).toBeVisible();
+  await expect(panel.getByText('Content managers need to archive many items at once.')).toBeVisible();
+  await expect(panel.getByRole('listitem').filter({ hasText: 'Checkbox on each row' })).toBeVisible();
+  await expect(panel.getByRole('link', { name: 'Open in Jira' })).toHaveAttribute(
+    'href',
+    'https://your-team.atlassian.net/browse/CHG-1',
+  );
+  await expect(panel.getByText("Claude's brief")).toBeVisible();
+  await expect(page).toHaveURL(/[?&]tab=ticket/);
+  await page.reload();
+  await expect(page.getByRole('tab', { name: 'Ticket CHG-1' })).toHaveAttribute('aria-selected', 'true');
+});
+
+test('AC-20, AC-26: picking Cursor in Settings turns Open in VS Code into Open in Cursor, in every open tab', async ({
+  page,
+  context,
+}) => {
+  await page.goto(seen.working ?? '');
+  const worktree = worktreeOf('feat/CHG-1') ?? '';
+  expect(await opensFolder(page, 'Open in VS Code')).toBe(worktree);
+  const settings = await context.newPage();
+  await settings.goto('/settings/coding-agent');
+  const editor = settings.getByRole('radiogroup', { name: 'Editor' });
+  await expect(editor.getByRole('radio', { name: 'VS Code' })).toBeChecked();
+
+  // The arrow keys move between the choices, and each saves as it's picked.
+  await editor.getByRole('radio', { name: 'VS Code' }).focus();
+  await settings.keyboard.press('ArrowDown');
+
+  await expect(editor.getByRole('radio', { name: 'Cursor' })).toBeChecked();
+  expect(await opensFolder(page, 'Open in Cursor')).toBe(worktree);
+  await settings.reload();
+  await expect(editor.getByRole('radio', { name: 'Cursor' })).toBeChecked();
+  await editor.getByRole('radio', { name: 'VS Code' }).click();
+  await expect(editor.getByRole('radio', { name: 'VS Code' })).toBeChecked();
+  expect(await opensFolder(page, 'Open in VS Code')).toBe(worktree);
+  await settings.close();
+});
+
+test('AC-6: once discarded, the Changes tab says the changes are gone, with no Open in or Discard', async ({
+  page,
+}) => {
+  await page.goto(seen.working ?? '');
+  await page.getByRole('button', { name: 'Discard changes' }).click();
+  await page
+    .getByRole('dialog', { name: "Discard Claude's changes?" })
+    .getByRole('button', { name: 'Discard changes' })
+    .click();
+
+  await expect(page.getByText('The changes are gone')).toBeVisible();
+  await expect(page.getByText('The worktree and feat/CHG-1 were deleted.')).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Open in (VS Code|Cursor)$/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Discard changes' })).toHaveCount(0);
+  expect(worktreeOf('feat/CHG-1')).toBeUndefined();
+});
