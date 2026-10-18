@@ -123,4 +123,5 @@ none — the user's feedback, 18 Oct 2026, has no screen design. It reuses `docs
 - Tickets' Project and Sprint pickers are both 192 × 32 px; both lists are 256 px wide and at most 360 px tall, in 14 px rows (32 px, or 44 px for a sprint with its dates); the Sprint menu's loading rows match a sprint's.
 - The folder dialog's actions sit at its end, Cancel first. Home's rows end in Ship and Open in Jira, or Open in GitHub, each with its tooltip.
 - `pnpm verify` passes: 12 gates and 2,152 tests, with coverage at or above 90%.
+- After `/review` (18 Oct 2026), again in headless Chromium at 360 and 1280 px, light and dark: axe finds nothing in Tickets' Project list while it loads, with no match, and loaded, nor in the Sprint menu while it loads (the review found `aria-required-children` in all three); a folder's More actions keeps to the row's end at 360 px, with no sideways scroll.
 - `pnpm test:e2e`: every test passes but one known on `main` since spec 011 (`shell.spec.ts`, the long session title at 360 px, which fakes `/api/sessions` but not `/api/sessions/:id`). The Tickets list's axe failure, also known on `main`, is gone: Ship's name holds its words now.

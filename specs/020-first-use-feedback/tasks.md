@@ -109,5 +109,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 22: Browser check of every changed screen at 360 and 1280 px, light and dark, with CLS and axe; record it in the spec (AC-34)
       Check: pnpm verify
       Files: specs/020-first-use-feedback/spec.md
-- [ ] Task 23: STOP and run /review
+- [x] Task 23: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
