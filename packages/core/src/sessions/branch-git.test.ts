@@ -131,3 +131,70 @@ describe('what the worktree holds (spec 014)', () => {
     expect(await repos.git(worktree, 'status', '--porcelain')).toBe(status);
   });
 });
+
+/** Gives git the name and email the commit is made with, as your ~/.gitconfig would. */
+async function withIdentity(repos: { root: string }) {
+  await writeFile(
+    join(repos.root, '.gitconfig'),
+    '[init]\n\tdefaultBranch = main\n[user]\n\tname = Rakesh D\n\temail = you@company.com\n',
+  );
+}
+
+/** A hook that writes `marker` into the folder above the repositories when it runs. */
+async function hook(folder: string, name: string, marker: string) {
+  await mkdir(folder, { recursive: true });
+  await writeFile(join(folder, name), `#!/bin/sh\ntouch "${marker}"\n`, { mode: 0o755 });
+}
+
+describe('committing (spec 014, Q6)', () => {
+  it('AC-5: commits every file not committed yet in one commit, with your identity and the message as given', async () => {
+    const { repos, worktree, git } = await setUp();
+    await withIdentity(repos);
+    await writeFile(join(worktree, 'README.md'), '# web-app\nchanged\n');
+    await writeFile(join(worktree, 'new.ts'), 'new\n');
+    const message = 'PROJ-1423: Add bulk archive\n\nCo-Authored-By: Claude <noreply@anthropic.com>';
+    const committed = await git.commit(worktree, message);
+    expect(committed).toEqual({ ok: true, files: 2, head: await repos.git(worktree, 'rev-parse', 'HEAD') });
+    expect(await repos.git(worktree, 'log', '-1', '--format=%an <%ae>%n%B')).toBe(
+      `Rakesh D <you@company.com>\n${message}`,
+    );
+    expect(await repos.git(worktree, 'status', '--porcelain')).toBe('');
+  });
+
+  it("AC-5: makes no commit when there's nothing to commit", async () => {
+    const { repos, worktree, git } = await setUp();
+    await withIdentity(repos);
+    const head = await repos.git(worktree, 'rev-parse', 'HEAD');
+    expect(await git.commit(worktree, 'Nothing')).toEqual({ ok: true, files: 0, head });
+  });
+
+  it('AC-8: says git has no name and email for you, rather than make one up', async () => {
+    const { worktree, git } = await setUp();
+    await writeFile(join(worktree, 'new.ts'), 'new\n');
+    expect(await git.commit(worktree, 'PROJ-1423: Add bulk archive')).toEqual({ ok: false, problem: 'no_identity' });
+  });
+
+  it("AC-8: says signing failed when your git settings sign and the signature can't be made", async () => {
+    const { repos, worktree, git } = await setUp();
+    await withIdentity(repos);
+    await repos.git(repos.clone, 'config', 'commit.gpgsign', 'true');
+    await repos.git(repos.clone, 'config', 'gpg.program', 'false');
+    await writeFile(join(worktree, 'new.ts'), 'new\n');
+    expect(await git.commit(worktree, 'PROJ-1423: Add bulk archive')).toEqual({ ok: false, problem: 'signing' });
+  });
+
+  it("AC-12: runs none of the repository's hooks, in .git/hooks or where core.hooksPath points inside the worktree", async () => {
+    const { repos, worktree, git } = await setUp();
+    await withIdentity(repos);
+    const marker = join(repos.root, 'a-hook-ran');
+    for (const name of ['pre-commit', 'commit-msg', 'post-commit']) {
+      await hook(join(repos.clone, '.git', 'hooks'), name, marker);
+      await hook(join(worktree, '.husky'), name, marker);
+    }
+    await repos.git(repos.clone, 'config', 'core.hooksPath', '.husky');
+    await writeFile(join(worktree, 'new.ts'), 'new\n');
+    // The three hooks under .husky are new files too.
+    expect(await git.commit(worktree, 'PROJ-1423: Add bulk archive')).toMatchObject({ ok: true, files: 4 });
+    await expect(readFile(marker)).rejects.toThrow();
+  });
+});

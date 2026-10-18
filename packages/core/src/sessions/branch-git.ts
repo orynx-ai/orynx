@@ -15,6 +15,11 @@ import { githubRepository } from './github-remote.ts';
 export type OriginProblem = 'missing' | 'no_origin' | 'not_github' | 'git';
 export type Origin = { ok: true; repository: string } | { ok: false; problem: OriginProblem };
 
+/** git has no name and email for you, signing the commit failed, or the commit failed another way (Q6). */
+export type CommitProblem = 'no_identity' | 'signing' | 'commit_failed';
+/** `files` is how many Orynx committed; 0, and no commit, when everything was committed already. */
+export type Committed = { ok: true; files: number; head: string } | { ok: false; problem: CommitProblem };
+
 export interface BranchGit {
   /** The github.com repository `origin` names, as configured or as git expands it (AC-2, AC-7). */
   origin(worktree: string): Promise<Origin>;
@@ -30,6 +35,11 @@ export interface BranchGit {
   template(worktree: string): Promise<string | null>;
   /** The commit the worktree is on. */
   head(worktree: string): Promise<string>;
+  /**
+   * Commits everything not committed yet (`add -A`, so ignored files stay out) in one commit with `message`, made
+   * with your git name, email and signing (Q6). git never makes up a name: without one it's `no_identity`.
+   */
+  commit(worktree: string, message: string): Promise<Committed>;
 }
 
 export interface BranchGitOptions {
@@ -37,6 +47,18 @@ export interface BranchGitOptions {
   env: Readonly<Record<string, string>>;
   /** How long one read may take; 10 seconds. */
   timeoutMs?: number;
+  /** How long a commit may take, signing included; 60 seconds. */
+  commitTimeoutMs?: number;
+}
+
+/** git's words when it has no name or email to commit with, in English (`LC_ALL=C`). */
+const noIdentity = /please tell me who you are|empty ident name|unable to auto-detect email|no email was given/i;
+/** git's words when a signature couldn't be made, by gpg, ssh or x509. */
+const signingFailed = /failed to sign|signing failed|gpg failed|error: load key|ssh-keygen/i;
+
+/** The words a git failure carries, read only to name the problem, then dropped. */
+function wordsOf(error: unknown): string {
+  return error instanceof Error ? error.message : '';
 }
 
 /** Where GitHub looks for a pull request template, in its order. */
@@ -54,16 +76,16 @@ function lines(output: string): string[] {
   return output.split('\n').filter((line) => line !== '');
 }
 
-export function createBranchGit({ env, timeoutMs = 10_000 }: BranchGitOptions): BranchGit {
-  function git(worktree: string): SimpleGit {
+export function createBranchGit({ env, timeoutMs = 10_000, commitTimeoutMs = 60_000 }: BranchGitOptions): BranchGit {
+  function git(worktree: string, config: readonly string[] = [], limitMs = timeoutMs): SimpleGit {
     return simpleGit({
       baseDir: worktree,
       // A diff rewrites the index when a file's times changed and its text didn't, unless told not to (spec 013).
-      config: ['core.hooksPath=/dev/null', 'diff.autoRefreshIndex=false'],
+      config: ['core.hooksPath=/dev/null', 'diff.autoRefreshIndex=false', ...config],
       unsafe: { allowUnsafeHooksPath: true },
       allowEnvironment: ['GIT_TERMINAL_PROMPT'],
-      abort: AbortSignal.timeout(timeoutMs),
-      // git's own words in English, so a failure can be told apart (task 9).
+      abort: AbortSignal.timeout(limitMs),
+      // git's own words in English, so a failure can be told apart.
     }).env({ ...env, LC_ALL: 'C' });
   }
 
@@ -169,6 +191,29 @@ export function createBranchGit({ env, timeoutMs = 10_000 }: BranchGitOptions): 
 
     async head(worktree) {
       return (await read(worktree, ['rev-parse', 'HEAD'])).trim();
+    },
+
+    async commit(worktree, message) {
+      try {
+        await git(worktree).raw(['add', '-A']);
+        const staged = paths(await git(worktree).raw(['diff', '--cached', '--name-only', '-z', '--no-ext-diff']));
+        if (staged.length > 0) {
+          // Your own name only: never one git makes up from this computer's name (Q6).
+          await git(worktree, ['user.useConfigOnly=true'], commitTimeoutMs).raw([
+            'commit',
+            '--no-verify',
+            '--quiet',
+            '-m',
+            message,
+          ]);
+        }
+        return { ok: true, files: staged.length, head: (await read(worktree, ['rev-parse', 'HEAD'])).trim() };
+      } catch (error) {
+        const words = wordsOf(error);
+        if (noIdentity.test(words)) return { ok: false, problem: 'no_identity' };
+        if (signingFailed.test(words)) return { ok: false, problem: 'signing' };
+        return { ok: false, problem: 'commit_failed' };
+      }
     },
   };
 }
