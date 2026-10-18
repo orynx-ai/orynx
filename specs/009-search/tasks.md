@@ -55,8 +55,9 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 17: Built in task 4, because 008 merged first. Add the sprint's tickets: the sprint in Jira's rank order, then the other assigned issues by key, each ticket once. `inbox.changed` already covers the sprint's sync (AC-16, Q1d)
       Check: pnpm test packages/core/src/search packages/core/src/routes/search.test.ts
       Files: packages/core/src/search/search-service.ts, search-service.test.ts, packages/core/src/create-server.ts
-- [ ] Task 18: Open search in a real browser at 360 and 1280 px, light and dark, in each state. Compare with Q3, run axe, check for sideways scroll and layout shift as it opens, and try ⌘K over a text field. Fix what turns up, then run the full check (AC-29, AC-30)
+- [x] Task 18: Open search in a real browser at 360 and 1280 px, light and dark, in each state. Compare with Q3, run axe, check for sideways scroll and layout shift as it opens, and try ⌘K over a text field. Fix what turns up, then run the full check (AC-29, AC-30)
       Check: pnpm dev in a browser; pnpm verify; pnpm test:coverage at 90% or more
       Files: whichever the check shows need fixing
+      Found: every state at 360 and 1280 px, light and dark, had no axe violations, no sideways scroll and no layout shift. The fixes it needed came earlier, in task 14's e2e (results named by their own words; the hidden comma kept inside the title). Moved onto main with the Orynx brand (PR #12) on 18 Oct 2026 before it ran.
 - [ ] Task 19: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
