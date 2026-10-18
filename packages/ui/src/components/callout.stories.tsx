@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { SquareLock02Icon } from '@hugeicons/core-free-icons';
 import { Button } from './button.tsx';
-import { Callout } from './callout.tsx';
+import { Callout, CalloutCode } from './callout.tsx';
 import { Icon } from './icon.tsx';
 
 const meta = { title: 'Components/Callout', component: Callout, args: { title: 'Notice' } } satisfies Meta<
@@ -16,17 +16,37 @@ export const Approval: Story = {
     tone: 'warning',
     role: 'alert',
     title: 'Claude wants to run a command',
+    children: <CalloutCode>npm test -- content-list</CalloutCode>,
+    // As session.html draws them: no answer looks like the expected one (spec 012, Q5).
+    actions: (
+      <>
+        <Button size="sm">Allow once</Button>
+        <Button size="sm">Always allow npm test</Button>
+        <Button size="sm" variant="ghost">
+          Deny
+        </Button>
+      </>
+    ),
+  },
+};
+
+/** A command that wraps and runs past 12 lines: it scrolls inside its box (spec 012, Q8a). */
+export const LongCommand: Story = {
+  args: {
+    tone: 'warning',
+    role: 'alert',
+    title: 'Claude wants to run a command',
     children: (
-      <code className="rounded-sm border border-border bg-raised px-2 py-1.5 font-mono text-code text-foreground">
-        npm test -- content-list
-      </code>
+      <CalloutCode>
+        {[
+          'pnpm --filter @devhub/app exec vitest run src/features/sessions/components/approval-callout.test.tsx --reporter=verbose --coverage.enabled=false',
+          ...Array.from({ length: 20 }, (_, line) => `echo "line ${String(line + 2)}"`),
+        ].join('\n')}
+      </CalloutCode>
     ),
     actions: (
       <>
-        <Button size="sm" variant="primary">
-          Allow once
-        </Button>
-        <Button size="sm">Always allow npm test</Button>
+        <Button size="sm">Allow once</Button>
         <Button size="sm" variant="ghost">
           Deny
         </Button>

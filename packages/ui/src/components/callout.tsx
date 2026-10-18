@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
 
@@ -40,5 +40,40 @@ export function Callout({ tone, title, icon, actions, className, children, ...pr
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
     </div>
+  );
+}
+
+export type CalloutCodeProps = Omit<ComponentProps<'pre'>, 'children'> & {
+  /** Exactly what will run or change, as given: spacing and line breaks are kept. */
+  children: string;
+};
+
+/**
+ * The exact thing an approval is about, such as the command that will run (`dh-callout code`, spec 012
+ * Q8a). Long lines wrap; past 12 lines the box scrolls, and can then be reached with Tab to scroll it.
+ */
+export function CalloutCode({ className, children, ...props }: CalloutCodeProps) {
+  const box = useRef<HTMLPreElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+
+  useLayoutEffect(() => {
+    const element = box.current;
+    if (element !== null) setScrolls(element.scrollHeight > element.clientHeight);
+  }, [children]);
+
+  return (
+    <pre
+      ref={box}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling box must take focus to scroll by keyboard (axe: scrollable-region-focusable); one that fits stays out of the Tab order
+      tabIndex={scrolls ? 0 : undefined}
+      className={cn(
+        // 12 lines of 20 px, and 6 px above and below.
+        'm-0 max-h-63 overflow-y-auto rounded-sm border border-border bg-raised px-2 py-1.5 font-mono text-code wrap-anywhere whitespace-pre-wrap text-foreground',
+        className,
+      )}
+      {...props}
+    >
+      <code>{children}</code>
+    </pre>
   );
 }

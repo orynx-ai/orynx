@@ -47,7 +47,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: Add `respondToApproval` to the api-client, parsed with the contract, with its MSW test (AC-2)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/endpoints/sessions.test.ts, packages/api-client/src/client.ts, packages/api-client/src/index.ts
-- [ ] Task 16: Give `Callout` a `code` block for the command: mono, wrapped, scrolling inside its box past 12 lines, with a story per state and a test (AC-1, AC-19, Q8a)
+- [x] Task 16: Give `Callout` a `code` block for the command: mono, wrapped, scrolling inside its box past 12 lines, with a story per state and a test (AC-1, AC-19, Q8a)
       Check: pnpm test packages/ui/src/components/callout.test.tsx; pnpm storybook (no axe violations)
       Files: packages/ui/src/components/callout.tsx, packages/ui/src/components/callout.stories.tsx, packages/ui/src/components/callout.test.tsx, docs/design-map.md
 - [ ] Task 17: Add the words: step words for `waiting`, `command`, `denied`, `no_commands` and the new refusals, the callout's titles, why-lines and errors, the "Needs your approval" pill (Q8a–Q8e)
