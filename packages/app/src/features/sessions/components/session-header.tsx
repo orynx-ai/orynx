@@ -1,10 +1,12 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { StopIcon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon, StopIcon } from '@hugeicons/core-free-icons';
 import type { Session, SessionState } from '@devhub/contracts';
 import { Button, Icon, Pill, Skeleton, sessionStateLabels, type PillTone } from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
+import { usePlatform } from '../../../platform.tsx';
 import { needsApprovalLabel } from '../approval-words.ts';
+import { openPullRequestLabel } from '../pull-request-words.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
 import { PushChanges } from './push-changes.tsx';
 
@@ -35,9 +37,20 @@ function canPush(session: Session): boolean {
 /**
  * The Session screen's title row (`session.html`): the title, the state, the branch and where Claude works,
  * with Stop Claude while it works (AC-9). Stop keeps focus while it runs; once the session has stopped, the
- * title takes focus, because the button is gone.
+ * title takes focus, because the button is gone. Once Claude is done, Create pull request; once the pull request
+ * is open, Open PR and Push changes, with no primary button (spec 014, Q10e).
  */
 export function SessionHeader({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
+  const platform = usePlatform();
+  // Once you've created the pull request, focus goes to Open PR, now or as soon as it shows (spec 014, AC-4).
+  const justOpened = useRef(false);
+  const openPullRequest = useRef<HTMLAnchorElement>(null);
+  const { pullRequest } = session;
+  useEffect(() => {
+    if (pullRequest === null || !justOpened.current) return;
+    justOpened.current = false;
+    openPullRequest.current?.focus();
+  }, [pullRequest]);
   const api = useApi();
   const stop = useMutation({ mutationFn: () => api.stopSession(session.id) });
   const working = session.state === 'working' || session.state === 'needs_you';
@@ -64,16 +77,32 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
           <span>in {session.folder.name} · separate worktree, your main checkout is untouched</span>
         </div>
       </div>
-      {canCreatePullRequest(session) ? (
-        <CreatePullRequest
-          session={session}
-          onOpened={() => {
-            title.current?.focus();
-          }}
-        />
-      ) : null}
-      {session.pullRequest !== null && canPush(session) ? (
-        <PushChanges session={session} repository={session.pullRequest.repository} />
+      <CreatePullRequest
+        session={session}
+        show={canCreatePullRequest(session)}
+        onOpened={() => {
+          if (openPullRequest.current === null) justOpened.current = true;
+          else openPullRequest.current.focus();
+        }}
+      />
+      {pullRequest === null ? null : (
+        <Button asChild variant="secondary">
+          <a
+            ref={openPullRequest}
+            href={pullRequest.url}
+            rel="noreferrer"
+            onClick={(event) => {
+              event.preventDefault();
+              platform.openExternal(pullRequest.url);
+            }}
+          >
+            {openPullRequestLabel(pullRequest.number)}
+            <Icon icon={ArrowUpRight01Icon} aria-hidden />
+          </a>
+        </Button>
+      )}
+      {pullRequest !== null && canPush(session) ? (
+        <PushChanges session={session} repository={pullRequest.repository} />
       ) : null}
       {working ? (
         <Button

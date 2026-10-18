@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type KeyboardEvent, type SubmitEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { GitPullRequestIcon } from '@hugeicons/core-free-icons';
 import { Link } from '@tanstack/react-router';
@@ -210,8 +210,20 @@ function NoPullRequest({
  * Opening it asks Claude for a draft, which changes nothing (AC-14); Create in the dialog commits, pushes and
  * opens the pull request, and only that press does (AC-4). Closing keeps your edits while the page is open (Q10h).
  */
-export function CreatePullRequest({ session, onOpened }: { session: Session; onOpened: () => void }) {
+export function CreatePullRequest({
+  session,
+  show,
+  onOpened,
+}: {
+  session: Session;
+  /** Whether the title row offers it (Q2). An open dialog stays until it closes itself, even once the PR shows. */
+  show: boolean;
+  /** Called once the dialog has closed after the pull request opened, so focus can move on (AC-4). */
+  onOpened: () => void;
+}) {
   const [open, setOpen] = useState(false);
+  /** The dialog is closing because the pull request opened. */
+  const created = useRef(false);
   const describedBy = useId();
   const run = runOf(session);
   const kept = usePullRequestDrafts((state) => state.drafts[session.id]);
@@ -219,7 +231,8 @@ export function CreatePullRequest({ session, onOpened }: { session: Session; onO
   const forget = usePullRequestDrafts((state) => state.forget);
   const drafting = useDraftPullRequest(session.id);
   const create = useCreatePullRequest(session.id);
-  const current = kept?.run === run ? kept : undefined;
+  // While the dialog is open it keeps the draft it opened with, even as the session moves on underneath.
+  const current = kept !== undefined && (kept.run === run || open) ? kept : undefined;
 
   function askForDraft() {
     drafting.mutate(undefined, {
@@ -245,8 +258,8 @@ export function CreatePullRequest({ session, onOpened }: { session: Session; onO
       onSuccess: (answer) => {
         if (answer.result !== 'opened') return;
         forget(session.id);
+        created.current = true;
         setOpen(false);
-        onOpened();
       },
     });
   }
@@ -283,15 +296,28 @@ export function CreatePullRequest({ session, onOpened }: { session: Session; onO
     body = <Drafting onCancel={cancel} />;
   }
 
+  if (!show && !open) return null;
   return (
     <Dialog open={open} onOpenChange={openChange}>
-      <DialogTrigger asChild>
-        <Button variant="primary">
-          <Icon icon={GitPullRequestIcon} aria-hidden />
-          {pullRequestWords.create}
-        </Button>
-      </DialogTrigger>
-      <DialogContent aria-describedby={describedBy} className="gap-4 p-6">
+      {show ? (
+        <DialogTrigger asChild>
+          <Button variant="primary">
+            <Icon icon={GitPullRequestIcon} aria-hidden />
+            {pullRequestWords.create}
+          </Button>
+        </DialogTrigger>
+      ) : null}
+      <DialogContent
+        aria-describedby={describedBy}
+        className="gap-4 p-6"
+        onCloseAutoFocus={(event) => {
+          if (!created.current) return;
+          // Not back to Create pull request, which goes: on to Open PR, once the dialog has let focus go.
+          created.current = false;
+          event.preventDefault();
+          onOpened();
+        }}
+      >
         <div className="flex flex-col gap-1">
           <DialogTitle>{pullRequestWords.create}</DialogTitle>
           <p id={describedBy} className="m-0 font-mono text-code text-muted-foreground">

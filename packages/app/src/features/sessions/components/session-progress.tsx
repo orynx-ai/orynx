@@ -25,6 +25,7 @@ import {
   Stepper,
   type ActivityStepState,
 } from '@devhub/ui';
+import { usePlatform } from '../../../platform.tsx';
 import { durationText } from '../../../words/duration.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { problemWords, stepWords } from '../step-words.ts';
@@ -80,6 +81,35 @@ function look(activity: SessionActivity): { state: ActivityStepState | undefined
   return { state: undefined, icon: <Icon icon={kindIcons[activity.kind]} /> };
 }
 
+/** A pull request's step, with its number as a link to it on GitHub, opened outside Orynx (spec 014, Q10f). */
+function PullRequestTitle({ title, number, url }: { title: string; number: number; url: string }) {
+  const platform = usePlatform();
+  const mark = `#${String(number)}`;
+  const at = title.indexOf(mark);
+  return (
+    <>
+      {title.slice(0, at)}
+      <a
+        href={url}
+        rel="noreferrer"
+        className="text-info underline"
+        onClick={(event) => {
+          event.preventDefault();
+          platform.openExternal(url);
+        }}
+      >
+        {mark}
+      </a>
+      {title.slice(at + mark.length)}
+    </>
+  );
+}
+
+function titleOf(activity: SessionActivity, title: string): ReactNode {
+  if (activity.kind !== 'pull_request' && activity.kind !== 'pushed') return title;
+  return <PullRequestTitle title={title} number={activity.number} url={activity.url} />;
+}
+
 /** A line that holds a command in backticks, with the command shown as code. */
 function withCode(line: string): ReactNode[] {
   return line.split('`').map((part, index) => (index % 2 === 1 ? <code key={part}>{part}</code> : part));
@@ -126,7 +156,13 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
             const words = stepWords(activity);
             const { state, icon } = look(activity);
             return (
-              <ActivityStep key={activity.id} state={state} icon={icon} title={words.title} detail={words.detail} />
+              <ActivityStep
+                key={activity.id}
+                state={state}
+                icon={icon}
+                title={titleOf(activity, words.title)}
+                detail={words.detail}
+              />
             );
           })}
         </ActivityList>

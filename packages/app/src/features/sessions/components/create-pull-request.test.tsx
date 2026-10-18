@@ -3,6 +3,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { apiRoutes, type CreatePullRequestAnswer, type PullRequestDraftAnswer, type Session } from '@devhub/contracts';
 import { makePullRequestDraft, makeSession, makeSessionPullRequest } from '@devhub/contracts/testing';
+import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 import { initialPullRequestDrafts, usePullRequestDrafts } from '../store.ts';
@@ -273,5 +274,103 @@ describe('Create pull request (spec 014)', () => {
     await user.click(within(dialog()).getByRole('button', { name: 'Try again' }));
     expect(await within(dialog()).findByRole('textbox', { name: 'Title' })).toBeVisible();
     expect(sent.drafts).toBe(1);
+  });
+});
+
+describe('once the pull request is open (spec 014, Q7)', () => {
+  const url = 'https://github.com/acme/web-app/pull/2841';
+  const pr = `#${String(2841)}`;
+  const opened = makeSession({
+    ...done,
+    state: 'pr_open',
+    step: 'pull_request',
+    pullRequest: makeSessionPullRequest(),
+    activities: [
+      { id: 'step-1', state: 'done', kind: 'finished', summary: 'Added row selection.' },
+      {
+        id: 'step-2',
+        state: 'done',
+        kind: 'pull_request',
+        number: 2841,
+        url,
+        files: 4,
+        branch: 'feat/PROJ-1423',
+        linked: false,
+      },
+    ],
+  });
+
+  it('AC-4, AC-16: the title row has Open PR, which opens GitHub outside Orynx, and the step links the PR too', async () => {
+    serve(opened);
+    const { user, platform } = await renderApp({ route });
+    const openPr = await screen.findByRole('link', { name: `Open PR ${pr}` });
+    expect(openPr).toHaveAttribute('href', url);
+    await user.click(openPr);
+    expect(platform.openExternal).toHaveBeenCalledWith(url);
+
+    expect(screen.getByText(`Opened pull request`, { exact: false })).toBeVisible();
+    const stepLink = screen.getByRole('link', { name: pr });
+    expect(stepLink).toHaveAttribute('href', url);
+    await user.click(stepLink);
+    expect(platform.openExternal).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Committed 4 files and pushed feat/PROJ-1423')).toBeVisible();
+  });
+
+  it('AC-18, AC-20: Open PR stays after Discard, without Push changes', async () => {
+    serve(makeSession({ ...opened, state: 'stopped', discardedAt: '2026-10-18T10:00:00.000Z', worktreePath: null }));
+    await renderApp({ route });
+    expect(await screen.findByRole('link', { name: `Open PR ${pr}` })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Push changes' })).toBeNull();
+  });
+
+  it('AC-4: when the session says PR open before Create answers, the dialog waits for the answer, then focus moves on', async () => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      sessionHandler(done),
+      http.post(apiUrl(apiRoutes.sessionPullRequestDraft), () => HttpResponse.json(makePullRequestDraft())),
+    );
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('button', { name: 'Create pull request' }));
+    await within(dialog()).findByRole('textbox', { name: 'Title' });
+    server.use(
+      sessionHandler(opened),
+      http.post(apiUrl(apiRoutes.sessionPullRequest), async () => {
+        await held;
+        return HttpResponse.json({ result: 'opened', number: 2841, url, linked: false });
+      }),
+    );
+    await user.click(within(dialog()).getByRole('button', { name: 'Create pull request' }));
+    FakeEventSource.latest().emit({ type: 'session.changed', sessionId: id });
+    await screen.findByRole('link', { name: `Open PR ${pr}`, hidden: true });
+    // The title row no longer offers Create, but the dialog stays, busy, until the answer comes.
+    expect(within(dialog()).getByRole('button', { name: /Creating…/ })).toBeVisible();
+
+    release();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: `Open PR ${pr}` })).toHaveFocus();
+    });
+  });
+
+  it('AC-4: once the pull request opens, focus moves to Open PR', async () => {
+    serve(done);
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('button', { name: 'Create pull request' }));
+    await within(dialog()).findByRole('textbox', { name: 'Title' });
+    // The server opens it, then says the session changed.
+    serve(opened);
+    await user.click(within(dialog()).getByRole('button', { name: 'Create pull request' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    FakeEventSource.latest().emit({ type: 'session.changed', sessionId: id });
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: `Open PR ${pr}` })).toHaveFocus();
+    });
   });
 });
