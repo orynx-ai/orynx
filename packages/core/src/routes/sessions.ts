@@ -3,8 +3,14 @@ import { z } from 'zod';
 import {
   ApiErrorSchema,
   apiPaths,
+  CreatePullRequestAnswerSchema,
+  CreatePullRequestRequestSchema,
   FileDiffQuerySchema,
   FileDiffSchema,
+  PullRequestDraftAnswerSchema,
+  PushAnswerSchema,
+  PushDraftAnswerSchema,
+  PushRequestSchema,
   RespondToApprovalRequestSchema,
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
@@ -161,6 +167,44 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
       }
       return diff;
     },
+  );
+
+  // Create pull request and Push changes (spec 014): a draft changes nothing; the others only on your press.
+  app.post(
+    apiPaths.sessionPullRequestDraft,
+    { schema: { params: SessionParamsSchema, response: { 200: PullRequestDraftAnswerSchema, 404: ApiErrorSchema } } },
+    async (request, reply) => (await service.draftPullRequest(request.params.id)) ?? reply.code(404).send(notFound),
+  );
+
+  app.post(
+    apiPaths.sessionPullRequest,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        body: CreatePullRequestRequestSchema,
+        response: { 200: CreatePullRequestAnswerSchema, 404: ApiErrorSchema },
+      },
+    },
+    async (request, reply) =>
+      (await service.createPullRequest(request.params.id, request.body)) ?? reply.code(404).send(notFound),
+  );
+
+  app.post(
+    apiPaths.sessionPushDraft,
+    { schema: { params: SessionParamsSchema, response: { 200: PushDraftAnswerSchema, 404: ApiErrorSchema } } },
+    async (request, reply) => (await service.draftPush(request.params.id)) ?? reply.code(404).send(notFound),
+  );
+
+  app.post(
+    apiPaths.sessionPush,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        body: PushRequestSchema,
+        response: { 200: PushAnswerSchema, 404: ApiErrorSchema },
+      },
+    },
+    async (request, reply) => (await service.push(request.params.id, request.body)) ?? reply.code(404).send(notFound),
   );
 
   app.post(

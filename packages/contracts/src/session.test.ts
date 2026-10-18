@@ -284,6 +284,66 @@ describe('a session in spec 013', () => {
   });
 });
 
+describe('a session in spec 014', () => {
+  const pullRequest = {
+    number: 2841,
+    url: 'https://github.com/acme/web-app/pull/2841',
+    repository: 'acme/web-app',
+    openedAt: '2026-10-16T10:30:00.000Z',
+  };
+
+  it('AC-4, AC-20: carries its pull request once one is open', () => {
+    const session = makeSession({ state: 'pr_open', step: 'pull_request', pullRequest });
+    expect(SessionSchema.parse(session).pullRequest).toEqual(pullRequest);
+  });
+
+  it("AC-16: keeps only a pull request's link that is https on github.com", () => {
+    for (const url of [
+      'http://github.com/acme/web-app/pull/2841',
+      'https://github.com.evil.example/acme/web-app/pull/2841',
+      'https://gist.github.com/acme/2841',
+      'javascript:alert(1)',
+    ]) {
+      const session = { ...makeSession(), pullRequest: { ...pullRequest, url } };
+      expect(SessionSchema.safeParse(session).success, url).toBe(false);
+    }
+  });
+
+  it('names the repository as owner/name, and the number as a positive whole number', () => {
+    for (const repository of ['acme', 'acme/web-app/extra', '-acme/web-app', 'acme/', 'acme/web app']) {
+      const session = { ...makeSession(), pullRequest: { ...pullRequest, repository } };
+      expect(SessionSchema.safeParse(session).success, repository).toBe(false);
+    }
+    expect(SessionSchema.safeParse({ ...makeSession(), pullRequest: { ...pullRequest, number: 0 } }).success).toBe(
+      false,
+    );
+  });
+
+  it('AC-4, AC-11, AC-17: holds the steps for a pull request opened or linked, and changes pushed to it', () => {
+    const activities: SessionActivity[] = [
+      {
+        id: 'a1',
+        state: 'done',
+        kind: 'pull_request',
+        number: 2841,
+        url: pullRequest.url,
+        files: 4,
+        branch: 'feat/PROJ-1423',
+        linked: false,
+      },
+      { id: 'a2', state: 'done', kind: 'pushed', number: 2841, url: pullRequest.url, files: 2 },
+    ];
+    expect(SessionSchema.parse(makeSession({ activities })).activities).toEqual(activities);
+    const badLink = { ...makeSession(), activities: [{ ...activities[1], url: 'https://example.com/pull/2841' }] };
+    expect(SessionSchema.safeParse(badLink).success).toBe(false);
+  });
+
+  it('a session saved before spec 014 reads with no pull request', () => {
+    const { pullRequest: _pullRequest, ...older } = makeSession();
+    expect(SessionSchema.parse(older).pullRequest).toBeNull();
+  });
+});
+
 describe('answering an approval', () => {
   it('AC-2, AC-3, AC-5: takes Allow once, Always allow or Deny', () => {
     for (const decision of ['allow_once', 'always_allow', 'deny'] as const) {

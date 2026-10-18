@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { calendarDay, daysUntil, months, plural, weekdays } from './calendar.ts';
+import { calendarDay, clockText, daysUntil, months, plural, weekdays } from './calendar.ts';
 
 // Saturday 17 Oct 2026, 10:00 on the laptop's calendar.
 const now = new Date(2026, 9, 17, 10, 0);
 
 describe('calendar words', () => {
+  it('writes a time on the laptop’s clock as hours and minutes', () => {
+    const at = new Date(2026, 9, 17, 9, 5);
+    expect(clockText(at.toISOString())).toBe('09:05');
+  });
+
   it('reads a calendar day as midnight on the laptop’s calendar', () => {
     expect(calendarDay('2026-10-20')).toEqual(new Date(2026, 9, 20));
   });

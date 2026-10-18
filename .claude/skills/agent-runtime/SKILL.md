@@ -39,10 +39,11 @@ export interface AgentAdapter {
   respond(sessionId: string, approvalId: string, decision: 'allow' | 'deny' | 'always'): Promise<boolean>; // false: not waiting
   sendMessage(sessionId: string, text: string): Promise<boolean>; // false: finished or stopping, so resume instead
   stop(sessionId: string): Promise<void>;
+  write(prompt: string, instructions: string, options?: { timeoutMs?: number }): Promise<AgentWritten>; // text, no tools (spec 014)
 }
 ```
 
-The Claude implementation is `packages/core/src/agents/claude/claude-adapter.ts` (spec 011) over `@anthropic-ai/claude-agent-sdk` (pinned; it runs the Claude Code the SDK ships, found with `findSdkClaudeCode()`, never a `claude` on the PATH). `startSession` takes a fourth argument, the note for Claude Code's system prompt. `respond` came with spec 012; `sendMessage` and `resuming` with spec 013. Every SDK option is set on purpose, because the defaults load every settings file:
+The Claude implementation is `packages/core/src/agents/claude/claude-adapter.ts` (spec 011) over `@anthropic-ai/claude-agent-sdk` (pinned; it runs the Claude Code the SDK ships, found with `findSdkClaudeCode()`, never a `claude` on the PATH). `startSession` takes a fourth argument, the note for Claude Code's system prompt. `respond` came with spec 012; `sendMessage` and `resuming` with spec 013; `write` with spec 014: a query with `tools: []`, a `canUseTool` that refuses everything, `maxTurns: 1`, `persistSession: false`, an empty temporary folder as its `cwd` and the instructions as its whole system prompt, for a pull request's draft or a commit message. Every SDK option is set on purpose, because the defaults load every settings file:
 
 - `settingSources: []`, `settings: { disableAllHooks: true }`, `strictMcpConfig: true`, `mcpServers: {}`: no hooks, plugins, MCP servers or allow rules from `~/.claude` or the repository.
 - `tools` (`sessionTools` in `tool-decision.ts`, without `Bash` when there's no sandbox), `sandbox` (`sandbox.ts`), `permissionMode: 'default'` and `canUseTool` from the tool decision: paths stay inside the worktree, symlinks followed, never its `.git`; a call is allowed, asked or refused, one at a time in the order Claude Code asked.
@@ -53,9 +54,18 @@ The Claude implementation is `packages/core/src/agents/claude/claude-adapter.ts`
 
 Worktrees come from `packages/core/src/sessions/worktrees.ts` (`simple-git`, hooks off, no prompts), and `session-service.ts` runs a session from the ticket to Claude's last step. Tests fake `query()` at the SDK's boundary with `test/fake-claude-sdk.ts`; the e2e run's fake Claude Code plays a session over the SDK's stream protocol (`e2e/fake-claude/session.ts`).
 
+## Create pull request (spec 014)
+
+Rule 4 lives in `packages/core/src/sessions/pull-requests.ts`, wired into `session-service.ts`:
+
+- `draft()` reads only: `branch-git.ts`'s reads, 013's change reader and Claude's `write()`. Opening the dialog changes nothing.
+- `create()` and `push()` run only from their routes, one at a time for each session, and nothing calls them on its own: not Claude finishing, a follow-up or a restart. A new file that looks like a secret (`secret-files.ts`) stops the commit first.
+- `branch-git.ts` commits with your git identity (`user.useConfigOnly=true`, so never a made-up one) and signing, pushes `refs/heads/<branch>` to the same name on `origin` without force, with hooks off and `LC_ALL=C`, and drops git's words once it has named the problem, because they can hold the remote's address with a password.
+- The PR opens through `client.ts` with the GitHub connection's token; one GitHub already has from the branch is linked as it is. Discard waits for a push under way.
+
 ## Session states
 
-States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `working`, `needs_you`, `done`, `pr_open`, `stopped`. Each is shown with an icon, a word and a colour (spec table "Session states"). Never colour alone.
+States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `working`, `needs_you`, `done`, `pr_open`, `stopped`. Once a session has a `pullRequest`, Claude finishing a follow-up leaves it `pr_open`, not `done`. Each is shown with an icon, a word and a colour (spec table "Session states"). Never colour alone.
 
 ## Approvals
 

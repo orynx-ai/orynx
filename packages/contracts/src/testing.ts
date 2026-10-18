@@ -15,6 +15,13 @@ import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
 import { defaultPreferences, PreferencesSchema, type InboxRules, type Preferences } from './preferences.ts';
+import {
+  DraftedPullRequestSchema,
+  DraftedPushSchema,
+  type DraftedPullRequest,
+  type DraftedPush,
+  type PullRequestDraft,
+} from './pull-requests.ts';
 import { RepositorySchema, type Repository } from './repositories.ts';
 import {
   SearchIndexSchema,
@@ -30,11 +37,13 @@ import {
   SessionApprovalSchema,
   SessionSchema,
   SessionSummarySchema,
+  SessionPullRequestSchema,
   SessionTicketSchema,
   type ComposerStart,
   type Session,
   type SessionApproval,
   type SessionList,
+  type SessionPullRequest,
   type SessionSummary,
   type SessionTicket,
 } from './session.ts';
@@ -133,6 +142,49 @@ export function makeSessionTicket(overrides: Partial<SessionTicket> = {}): Sessi
       '- Unit tests for the new API call',
     status: { name: 'In progress', column: 'in_progress' },
     dueDate: '2026-10-16',
+    ...overrides,
+  });
+}
+
+/** The pull request Orynx opened for PROJ-1423 (spec 014): acme/web-app#2841. */
+export function makeSessionPullRequest(overrides: Partial<SessionPullRequest> = {}): SessionPullRequest {
+  return SessionPullRequestSchema.parse({
+    number: 2841,
+    url: 'https://github.com/acme/web-app/pull/2841',
+    repository: 'acme/web-app',
+    openedAt: '2026-10-16T10:30:00.000Z',
+    ...overrides,
+  });
+}
+
+/** Claude's draft for PROJ-1423 (spec 014): 4 files to commit, feat/PROJ-1423 into acme/web-app's main. */
+export function makePullRequestDraft(overrides: Partial<PullRequestDraft> = {}): DraftedPullRequest {
+  return DraftedPullRequestSchema.parse({
+    result: 'draft',
+    title: 'PROJ-1423: Add bulk archive to the content list',
+    body:
+      '## What changed\n\n- A checkbox on each row of the content list, and select all\n' +
+      '- Archive selected in the toolbar, which reports the items that failed\n\n' +
+      '## How it was checked\n\n`npm test -- content-list` passes.\n\n' +
+      'Jira: [PROJ-1423](https://your-team.atlassian.net/browse/PROJ-1423)',
+    byClaude: true,
+    files: 4,
+    branch: 'feat/PROJ-1423',
+    repository: 'acme/web-app',
+    base: 'main',
+    ...overrides,
+  });
+}
+
+/** Claude's commit message for changes after review (spec 014, Q7): 2 files to commit, to pull request 2841. */
+export function makePushDraft(overrides: Partial<Omit<DraftedPush, 'result'>> = {}): DraftedPush {
+  return DraftedPushSchema.parse({
+    result: 'draft',
+    message: 'Use the existing useSelection hook in the content list',
+    byClaude: true,
+    files: 2,
+    branch: 'feat/PROJ-1423',
+    number: 2841,
     ...overrides,
   });
 }

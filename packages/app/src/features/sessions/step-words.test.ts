@@ -235,3 +235,50 @@ describe('your message (spec 013, Q10e)', () => {
     expect(step({ kind: 'message', state: 'done', text: 'One\nTwo\nThree' }).detail).toBe('One\nTwo\nThree');
   });
 });
+
+describe('the pull request (spec 014, Q11e)', () => {
+  const number = 2841;
+  const url = `https://github.com/acme/web-app/pull/${String(number)}`;
+  const pr = `#${String(number)}`;
+
+  it('AC-4: says Orynx opened the pull request, with what it committed and pushed', () => {
+    const opened = {
+      kind: 'pull_request',
+      state: 'done',
+      number,
+      url,
+      branch: 'feat/PROJ-1423',
+      linked: false,
+    } as const;
+    expect(step({ ...opened, files: 4 })).toEqual({
+      title: `Opened pull request ${pr}`,
+      detail: 'Committed 4 files and pushed feat/PROJ-1423',
+    });
+    expect(step({ ...opened, files: 1 }).detail).toBe('Committed 1 file and pushed feat/PROJ-1423');
+    // Claude had committed everything, so Orynx only pushed.
+    expect(step({ ...opened, files: 0 }).detail).toBe('Pushed feat/PROJ-1423');
+  });
+
+  it('AC-11: says Orynx linked the pull request GitHub already had', () => {
+    const linked = {
+      kind: 'pull_request',
+      state: 'done',
+      number,
+      url,
+      branch: 'feat/PROJ-1423',
+      linked: true,
+    } as const;
+    expect(step({ ...linked, files: 0 })).toEqual({
+      title: `Linked pull request ${pr}`,
+      detail: 'Pushed feat/PROJ-1423',
+    });
+  });
+
+  it('AC-17: says Orynx pushed changes to the pull request, with the files it committed', () => {
+    expect(step({ kind: 'pushed', state: 'done', number, url, files: 2 })).toEqual({
+      title: `Pushed changes to ${pr}`,
+      detail: 'Committed 2 files',
+    });
+    expect(step({ kind: 'pushed', state: 'done', number, url, files: 0 }).detail).toBeNull();
+  });
+});

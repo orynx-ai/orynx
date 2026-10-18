@@ -82,6 +82,7 @@ export { FilterMenu, type FilterMenuOption, type FilterMenuProps } from './compo
 export { Icon, type IconProps, type IconSvgElement } from './components/icon.tsx';
 export { IconButton, type IconButtonProps } from './components/icon-button.tsx';
 export { Input } from './components/input.tsx';
+export { Textarea } from './components/textarea.tsx';
 export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from './components/file-list.tsx';
 export { Kbd } from './components/kbd.tsx';
 export { Markdown, type MarkdownProps } from './components/markdown.tsx';

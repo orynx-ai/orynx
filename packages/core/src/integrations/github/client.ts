@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GitHubLinkSchema } from '@devhub/contracts';
 
 /**
  * The only file in DevHub that talks to GitHub (integration-adapter skill). The token goes into the
@@ -59,6 +60,32 @@ export type GitHubPullDiffAnswer =
   | { ok: true; diff: { kind: 'text'; text: string } | { kind: 'too_large' } }
   | { ok: false; problem: GitHubPullProblem };
 
+/**
+ * Why GitHub didn't open a pull request (spec 014): it already has an open one from this branch, there's nothing
+ * between the base and the branch, the token isn't authorized for the organisation's single sign-on (with
+ * GitHub's own link, https on github.com only), or the account can't open pull requests there (a 403, or the 404
+ * GitHub gives for a repository it hides), on top of the problems every call has.
+ */
+export type GitHubOpenProblem =
+  GitHubProblem | { kind: 'exists' } | { kind: 'no_commits' } | { kind: 'sso'; url: string } | { kind: 'forbidden' };
+
+/** A pull request's number and its page on github.com. */
+export interface GitHubPullLink {
+  number: number;
+  url: string;
+}
+
+/** Where a pull request goes: `owner/name`, from `head` into `base`. */
+export interface GitHubPullTarget {
+  repository: string;
+  head: string;
+  base: string;
+}
+
+export type GitHubOpened = ({ ok: true } & GitHubPullLink) | { ok: false; problem: GitHubOpenProblem };
+export type GitHubFound = { ok: true; pull: GitHubPullLink | null } | { ok: false; problem: GitHubOpenProblem };
+export type GitHubDefaultBranch = { ok: true; branch: string } | { ok: false; problem: GitHubOpenProblem };
+
 export interface GitHubClient {
   readonly timeoutMs: number;
   /** Asks GitHub who this token belongs to (`GET /user`). */
@@ -76,6 +103,12 @@ export interface GitHubClient {
   pullContext(token: string, pull: GitHubPullRef): Promise<GitHubPullContextAnswer>;
   /** The pull request's diff (`GET /repos/{o}/{r}/pulls/{n}` as `diff`), for the composer's brief (spec 015). */
   pullDiff(token: string, pull: GitHubPullRef): Promise<GitHubPullDiffAnswer>;
+  /** Opens a pull request (`POST /repos/{owner}/{repo}/pulls`), only on your press (spec 014). */
+  openPull(token: string, pull: GitHubPullTarget & { title: string; body: string }): Promise<GitHubOpened>;
+  /** The open pull request from `head` in the repository, if GitHub has one (AC-11). */
+  findOpenPull(token: string, pull: Omit<GitHubPullTarget, 'base'>): Promise<GitHubFound>;
+  /** The repository's default branch, for a session whose base wasn't on origin. */
+  defaultBranch(token: string, repository: string): Promise<GitHubDefaultBranch>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -129,6 +162,17 @@ const PullSchema = z.object({
     }),
   ).optional(),
 });
+
+/** A pull request as GitHub's REST API gives it back: kept only with a link that is https on github.com. */
+const RestPullSchema = z.object({ number: z.int().positive(), html_url: GitHubLinkSchema });
+
+const RepositorySchema = z.object({ default_branch: z.string().min(1) });
+
+/** What a 422 holds: GitHub's own reasons, read only to tell "already exists" and "no commits" apart. */
+const ValidationSchema = z.object({ errors: z.array(z.object({ message: z.string().optional() })).optional() });
+
+/** GitHub's single sign-on header: `required; url=https://github.com/orgs/acme/sso?authorization_request=…`. */
+const ssoLink = /url=(\S+)/;
 
 const InboxDataSchema = z.object({
   viewer: z.object({ login: z.string() }),
@@ -352,7 +396,7 @@ const quiet = { debug: ignore, info: ignore, warn: ignore, error: ignore };
  */
 const FailureSchema = z.object({
   status: z.number().optional(),
-  response: z.object({ headers: z.record(z.string(), z.unknown()) }).optional(),
+  response: z.object({ headers: z.record(z.string(), z.unknown()), data: z.unknown().optional() }).optional(),
   cause: z.unknown(),
 });
 type Failure = z.infer<typeof FailureSchema>;
@@ -383,6 +427,38 @@ export function createGitHubClient({
       problem: problemOf(failure.success ? failure.data : { cause: undefined }, signal.aborted, now),
     };
   }
+
+  /** A pull request call's failure: GitHub's reasons for a 403, 404 and 422 first, then the usual problems. */
+  function openFailed(error: unknown, signal: AbortSignal): { ok: false; problem: GitHubOpenProblem } {
+    const failure = FailureSchema.safeParse(error);
+    const known = failure.success ? failure.data : { cause: undefined };
+    const usual = problemOf(known, signal.aborted, now);
+    const { status, response } = known;
+    if (usual.kind === 'rate_limited' || response === undefined) return { ok: false, problem: usual };
+    if (status === 403) {
+      const header = response.headers['x-github-sso'];
+      const url = typeof header === 'string' ? ssoLink.exec(header)?.[1] : undefined;
+      if (url !== undefined && GitHubLinkSchema.safeParse(url).success)
+        return { ok: false, problem: { kind: 'sso', url } };
+      return { ok: false, problem: { kind: 'forbidden' } };
+    }
+    if (status === 404) return { ok: false, problem: { kind: 'forbidden' } };
+    if (status === 422) {
+      const reasons = (ValidationSchema.safeParse(response.data).data?.errors ?? []).map((one) => one.message ?? '');
+      if (reasons.some((reason) => /already exists/i.test(reason))) return { ok: false, problem: { kind: 'exists' } };
+      if (reasons.some((reason) => /no commits between/i.test(reason)))
+        return { ok: false, problem: { kind: 'no_commits' } };
+    }
+    return { ok: false, problem: usual };
+  }
+
+  /** `acme/web-app` as octokit's route parameters. */
+  function partsOf(repository: string): { owner: string; repo: string } {
+    const [owner = '', repo = ''] = repository.split('/');
+    return { owner, repo };
+  }
+
+  const notGitHub = { ok: false, problem: { kind: 'unreachable', code: undefined } } as const;
 
   return {
     timeoutMs,
@@ -470,6 +546,57 @@ export function createGitHubClient({
         if (failure.success && failure.data.status === 406) return { ok: true, diff: { kind: 'too_large' } };
         if (failure.success && failure.data.status === 404) return { ok: false, problem: { kind: 'not_found' } };
         return failed(error, signal);
+      }
+    },
+
+    async openPull(token, { repository, head, base, title, body }) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const answer = await octokit.request('POST /repos/{owner}/{repo}/pulls', {
+          ...partsOf(repository),
+          head,
+          base,
+          title,
+          body,
+        });
+        const pull = RestPullSchema.safeParse(answer.data);
+        return pull.success ? { ok: true, number: pull.data.number, url: pull.data.html_url } : notGitHub;
+      } catch (error) {
+        return openFailed(error, signal);
+      }
+    },
+
+    async findOpenPull(token, { repository, head }) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const parts = partsOf(repository);
+        const answer = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
+          ...parts,
+          head: `${parts.owner}:${head}`,
+          state: 'open',
+          per_page: 1,
+        });
+        const found = z.array(z.unknown()).safeParse(answer.data);
+        if (!found.success) return notGitHub;
+        if (found.data.length === 0) return { ok: true, pull: null };
+        const pull = RestPullSchema.safeParse(found.data[0]);
+        return pull.success ? { ok: true, pull: { number: pull.data.number, url: pull.data.html_url } } : notGitHub;
+      } catch (error) {
+        return openFailed(error, signal);
+      }
+    },
+
+    async defaultBranch(token, repository) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const answer = await octokit.request('GET /repos/{owner}/{repo}', partsOf(repository));
+        const found = RepositorySchema.safeParse(answer.data);
+        return found.success ? { ok: true, branch: found.data.default_branch } : notGitHub;
+      } catch (error) {
+        return openFailed(error, signal);
       }
     },
   };

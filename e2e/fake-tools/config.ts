@@ -1,5 +1,5 @@
 import type { FakeIssue } from '../../packages/core/src/test/fake-jira.ts';
-import type { FakePull } from '../../packages/core/src/test/fake-github.ts';
+import type { FakeOpenedPull, FakePull } from '../../packages/core/src/test/fake-github.ts';
 
 /**
  * The second e2e hub: the real server as `pnpm start` builds it, with Jira and GitHub faked inside its
@@ -24,6 +24,12 @@ export const approvalsHubPort = 4394;
 export const changesHubPort = 4392;
 
 /**
+ * The sixth, for Create pull request (spec 014): its folder's origin reads as github.com, its git has a name of
+ * its own (HOME is a folder of the run's), and its fake GitHub opens pull requests.
+ */
+export const pullRequestsHubPort = 4390;
+
+/**
  * The seventh, for Home's composer (spec 015): its sessions start from your words and chips, and its fakes give
  * pull requests' details and diffs. 014's hub takes 4390.
  */
@@ -45,6 +51,8 @@ export interface FakeTools {
   sprint?: boolean;
   /** Issues whose own page Jira won't give (a 404), so a session on one couldn't start (spec 011, AC-13). */
   brokenIssues?: string[];
+  /** The pull requests GitHub has (spec 014): it opens more into this list, which `GET /tools` gives back. */
+  pulls?: FakeOpenedPull[];
   /** Pull requests whose details and diff GitHub gives the composer, in acme/web-app (spec 015). */
   pullRequests?: { number: number; title: string; body?: string; diff: string }[];
 }

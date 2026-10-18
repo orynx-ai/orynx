@@ -82,3 +82,32 @@ export function useSendMessage(sessionId: string) {
   const api = useApi();
   return useMutation({ mutationFn: (text: string) => api.sendMessage(sessionId, text) });
 }
+
+/** Claude's draft of the pull request (spec 014): asked on opening the dialog, never cached, since each asks Claude. */
+export function useDraftPullRequest(sessionId: string) {
+  const api = useApi();
+  return useMutation({ mutationFn: () => api.draftPullRequest(sessionId) });
+}
+
+/**
+ * Create pull request (spec 014): commits, pushes and opens it on your press. The session changes on the server,
+ * which says so with `sessions.changed` and `session.changed`, so nothing here touches the cache.
+ */
+export function useCreatePullRequest(sessionId: string) {
+  const api = useApi();
+  return useMutation({
+    mutationFn: (request: { title: string; body: string }) => api.createPullRequest(sessionId, request),
+  });
+}
+
+/** Claude's commit message for what's new since the last push (spec 014, Q7): asked on opening, never cached. */
+export function useDraftPush(sessionId: string) {
+  const api = useApi();
+  return useMutation({ mutationFn: () => api.draftPush(sessionId) });
+}
+
+/** Push changes (spec 014, Q7), on your press; the server's events refresh the session. */
+export function usePushChanges(sessionId: string) {
+  const api = useApi();
+  return useMutation({ mutationFn: (message: string) => api.pushChanges(sessionId, message) });
+}

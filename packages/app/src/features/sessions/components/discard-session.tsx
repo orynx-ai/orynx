@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import type { Session } from '@devhub/contracts';
 import { Button, Dialog, DialogContent, DialogTitle, DialogTrigger } from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
+import { discardKeepsPullRequest } from '../pull-request-words.ts';
 
 /**
  * Discard changes (AC-10): the quiet danger button `session.html` draws, under Claude's progress until the
@@ -55,6 +56,8 @@ export function DiscardSession({ session, title }: { session: Session; title: Re
           <DialogTitle>Discard Claude&apos;s changes?</DialogTitle>
           <p id={describedBy} className="m-0 text-muted-foreground">
             This deletes the worktree and the branch {session.branch}. The changes can&apos;t be brought back.
+            {/* Discard deletes only what's on this computer (spec 014, AC-18). */}
+            {session.pullRequest === null ? null : ` ${discardKeepsPullRequest(session.pullRequest.number)}`}
           </p>
           {discard.isError ? (
             <p role="alert" className="m-0 text-small text-danger">

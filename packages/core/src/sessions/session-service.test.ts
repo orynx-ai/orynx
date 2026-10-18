@@ -5,6 +5,7 @@ import { createServer as createNetServer, type Server } from 'node:net';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { PermissionMode, ServerEvent } from '@devhub/contracts';
+import { makeSessionPullRequest } from '@devhub/contracts/testing';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { createClaudeAdapter } from '../agents/claude/claude-adapter.ts';
 import { sandboxSettings } from '../agents/claude/sandbox.ts';
@@ -24,6 +25,13 @@ import { createMemorySettingsStore } from '../settings/settings-store.ts';
 import { useFakeClaudeFolder } from '../test/fake-claude.ts';
 import { fakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
 import { acceptingIssue, goodToken, issueUrl, jiraEmail, jiraSite } from '../test/fake-jira.ts';
+import {
+  acceptingPulls,
+  acceptingRepository,
+  githubToken,
+  pullsUrl,
+  type FakeOpenedPull,
+} from '../test/fake-github.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
@@ -88,6 +96,8 @@ interface SetUpOptions {
   preferencesGate?: Promise<void>;
   /** Holds every save of the settings until it resolves, as a slow disk would. */
   saveGate?: Promise<void>;
+  /** How long the GitHub client waits for GitHub (spec 014). */
+  githubTimeoutMs?: number;
 }
 
 async function setUp({
@@ -104,6 +114,7 @@ async function setUp({
   savesFail = false,
   preferencesGate,
   saveGate,
+  githubTimeoutMs = 500,
 }: SetUpOptions = {}) {
   const repos = await repositories();
   const home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-home-')));
@@ -114,10 +125,19 @@ async function setUp({
 
   const settings = createMemorySettingsStore({
     jira: { site: jiraSite, email: jiraEmail },
+    github: { method: 'token' },
     agent: { permissionMode: mode, allowedCommands },
   });
-  const tokens = createTokenStore({ keychain: createMemoryKeychain({ jira: goodToken }), events });
+  const tokens = createTokenStore({ keychain: createMemoryKeychain({ jira: goodToken, github: githubToken }), events });
   const connection = createJiraConnection({ settings, tokens, jira: createJiraClient(), events, envToken: false });
+  const githubConnection = createGitHubConnection({
+    settings,
+    tokens,
+    github: createGitHubClient({ timeoutMs: 500 }),
+    gh: createGhCli({ searchPath: '' }),
+    events,
+    envToken: false,
+  });
   const folders = createRepositoryService({ settings, events, home: repos.root, devhubHome: home });
   const added = [];
   if (folder) added.push(await folders.add({ path: repos.clone, jiraProject: 'PROJ' }));
@@ -176,6 +196,8 @@ async function setUp({
     }),
     worktrees: { env: gitEnvironment(repos.env), root: join(home, 'worktrees'), fetchTimeoutMs: 2_000 },
     changes: createChangesReader({ env: gitEnvironment(repos.env) }),
+    github: githubConnection,
+    githubClient: createGitHubClient({ timeoutMs: githubTimeoutMs }),
     stepEventMs: 250,
     adapter: noClaude
       ? null
@@ -1267,5 +1289,162 @@ describe('the session detail (spec 013)', () => {
     expect((await service.get(id))?.worktreePath).toBe(join(home, 'worktrees', id));
     await service.discard(id);
     expect((await service.get(id))?.worktreePath).toBeNull();
+  });
+});
+
+describe('the pull request (spec 014)', () => {
+  const id = '0000000000000001';
+  const asked = { title: 'PROJ-1423: Add bulk archive to the content list', body: 'What changed.' };
+
+  /** origin reads as github.com, a push goes to the bare repository, and git has your name. */
+  async function onGitHub(repos: Awaited<ReturnType<typeof setUp>>['repos']) {
+    await repos.git(repos.clone, 'remote', 'set-url', 'origin', 'git@github.com:acme/web-app.git');
+    await repos.git(repos.clone, 'config', `url.${repos.origin}.pushInsteadOf`, 'git@github.com:acme/web-app.git');
+    await writeFile(
+      join(repos.root, '.gitconfig'),
+      '[init]\n\tdefaultBranch = main\n[user]\n\tname = Rakesh D\n\temail = you@company.com\n',
+    );
+  }
+
+  it('AC-2, AC-4: drafts and creates the pull request: PR open, heard by the lists and the Session screen', async () => {
+    const { service, records, repos, home, heard, reports } = await setUp({
+      script: [edit('src/a.ts'), { finish: 'Added row selection.' }],
+      later: [[{ finish: 'Add bulk archive\n\nRow selection.' }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await onGitHub(repos);
+    await writeFile(join(home, 'worktrees', id, 'README.md'), '# web-app\n\nBulk archive.\n');
+    const opened: FakeOpenedPull[] = [];
+    jira.use(...acceptingPulls({ opened }), acceptingRepository());
+
+    expect(await service.draftPullRequest(id)).toMatchObject({
+      result: 'draft',
+      title: 'PROJ-1423: Add bulk archive',
+      byClaude: true,
+      files: 1,
+      repository: 'acme/web-app',
+      base: 'main',
+    });
+    heard.length = 0;
+    expect(await service.createPullRequest(id, asked)).toMatchObject({ result: 'opened', number: 2841 });
+    expect(await service.get(id)).toMatchObject({
+      state: 'pr_open',
+      step: 'pull_request',
+      pullRequest: { number: 2841, repository: 'acme/web-app' },
+    });
+    expect(heard).toContainEqual({ type: 'sessions.changed' });
+    expect(heard).toContainEqual({ type: 'session.changed', sessionId: id });
+    expect(reports).toContainEqual({
+      what: 'pull_request',
+      session: id,
+      ticket: 'PROJ-1423',
+      step: 'create',
+      outcome: 'opened',
+      number: 2841,
+    });
+  });
+
+  it('AC-19: a follow-up once the pull request is open ends PR open, not Done', async () => {
+    const { service, records } = await setUp({
+      script: [edit('src/a.ts'), { finish: 'First.' }],
+      later: [[edit('src/b.ts'), { finish: 'Used the existing hook.' }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await records.update(id, (current) => ({
+      ...current,
+      session: {
+        ...current.session,
+        state: 'pr_open',
+        step: 'pull_request',
+        pullRequest: makeSessionPullRequest(),
+      },
+    }));
+
+    expect(await service.send(id, 'Use the existing useSelection hook instead')).toEqual({ result: 'sent' });
+    expect((await records.get(id))?.session).toMatchObject({ state: 'working', step: 'build' });
+    expect((await settled(records)).session).toMatchObject({ state: 'pr_open', step: 'review' });
+  });
+
+  it('AC-14: Claude finishing, and a follow-up finishing, push nothing', async () => {
+    const { service, records, repos } = await setUp({
+      script: [edit('src/a.ts'), { finish: 'First.' }],
+      later: [[{ finish: 'Again.' }]],
+    });
+    await onGitHub(repos);
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await service.send(id, 'Carry on');
+    await settled(records);
+    expect(await repos.git(repos.origin, 'branch', '--list', 'feat/*')).toBe('');
+  });
+
+  it('AC-18: Discard waits for a push under way, then deletes only the worktree and the local branch', async () => {
+    const { service, records, repos, home } = await setUp({
+      script: [edit('src/a.ts'), { finish: 'First.' }],
+      // GitHub is held longer than a discard that didn't wait would take.
+      githubTimeoutMs: 10_000,
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await onGitHub(repos);
+    await writeFile(join(home, 'worktrees', id, 'README.md'), 'changed\n');
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    jira.use(
+      acceptingRepository(),
+      http.post(pullsUrl, async () => {
+        await held;
+        return HttpResponse.json(
+          { number: 2841, html_url: 'https://github.com/acme/web-app/pull/2841' },
+          { status: 201 },
+        );
+      }),
+    );
+
+    const order: string[] = [];
+    const creating = service.createPullRequest(id, asked).then((answer) => {
+      order.push('created');
+      return answer;
+    });
+    // Until git has pushed and GitHub is asked.
+    for (let tries = 0; tries < 500; tries++) {
+      if ((await repos.git(repos.origin, 'branch', '--list', 'feat/*')) !== '') break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    const discarding = service.discard(id).then((answer) => {
+      order.push('discarded');
+      return answer;
+    });
+    // Long enough for a discard that didn't wait to delete the worktree and finish.
+    await Promise.race([discarding, new Promise((resolve) => setTimeout(resolve, 1_500))]);
+    expect(order).toEqual([]);
+    release();
+    expect(await creating).toMatchObject({ result: 'opened' });
+    expect(await discarding).toBe('discarded');
+    expect(order).toEqual(['created', 'discarded']);
+    const discarded = await service.get(id);
+    expect(discarded).toMatchObject({ state: 'stopped', pullRequest: { number: 2841 } });
+    expect(discarded?.discardedAt).not.toBeNull();
+    expect(await repos.git(repos.origin, 'branch', '--list', 'feat/*')).toContain('feat/PROJ-1423');
+    expect(await repos.git(repos.clone, 'branch', '--list', 'feat/*')).toBe('');
+  });
+
+  it('AC-20: a PR-open session is still PR open, with its link, after Orynx restarts', async () => {
+    const { service, records, home } = await setUp({ script: [edit('src/a.ts'), { finish: 'First.' }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await records.update(id, (current) => ({
+      ...current,
+      session: { ...current.session, state: 'pr_open', step: 'pull_request', pullRequest: makeSessionPullRequest() },
+    }));
+    const reopened = await openFileSessionStore(home);
+    expect((await reopened.get(id))?.session).toMatchObject({
+      state: 'pr_open',
+      pullRequest: { number: 2841, url: 'https://github.com/acme/web-app/pull/2841' },
+    });
   });
 });

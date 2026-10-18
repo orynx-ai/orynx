@@ -24,6 +24,7 @@ function record(overrides: Partial<StoredSession['session']> = {}, id = '0123456
     worktree: join(home, 'worktrees', id),
     startCommit: null,
     claudeSessionId: null,
+    pushedCommit: null,
     approvalLog: [],
   };
 }
@@ -241,6 +242,18 @@ describe('the file session store', () => {
       pullRequests: [],
       files: [],
     });
+  });
+
+  it('014: reads a session saved by spec 013, with no pull request and nothing pushed', async () => {
+    const folder = join(sessionsFolder(home), '0123456789abcdef');
+    await mkdir(folder, { recursive: true });
+    const { pushedCommit: _pushed, session, ...older } = record({ state: 'done' });
+    const { pullRequest: _pullRequest, ...olderSession } = session;
+    await writeFile(join(folder, 'session.json'), JSON.stringify({ ...older, session: olderSession }));
+
+    const read = await (await openFileSessionStore(home, { now })).get('0123456789abcdef');
+    expect(read?.session.pullRequest).toBeNull();
+    expect(read?.pushedCommit).toBeNull();
   });
 
   it('013 AC-9: reads a session’s brief back, and nothing for one it has none for', async () => {

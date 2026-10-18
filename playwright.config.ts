@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, mkdtempSync } from 'node:fs';
+import { accessSync, constants, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
@@ -8,6 +8,7 @@ import {
   changesHubPort,
   composerHubPort,
   fakeToolsHubPort,
+  pullRequestsHubPort,
   sessionsHubPort,
 } from './e2e/fake-tools/config.ts';
 
@@ -19,6 +20,14 @@ const sessionsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-sessions-'));
 const approvalsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-approvals-'));
 const changesHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-changes-'));
 const composerHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-composer-'));
+const pullRequestsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-'));
+// The pull requests hub's git commits with a name of its own, and never reads your ~/.gitconfig: your
+// name, your signing (which could ask for a passphrase) or your aliases (spec 014).
+const pullRequestsGitHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-git-'));
+writeFileSync(
+  join(pullRequestsGitHome, '.gitconfig'),
+  '[init]\n\tdefaultBranch = main\n[user]\n\tname = Orynx e2e\n\temail = e2e@example.com\n',
+);
 
 // The e2e server must find this fake gh, never your real one (spec 004, AC-20). Stop the run rather than
 // let it fall back to the real gh: on Windows (DevHub looks for gh.exe), when the fake can't run, or when
@@ -168,6 +177,28 @@ export default defineConfig({
         DEVHUB_SANDBOX: 'assume',
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(changesHubPort),
+      },
+    },
+    {
+      // Create pull request (spec 014) on a hub of its own: its sessions commit and push, to a bare repository
+      // standing in for github.com, and its fake GitHub opens pull requests.
+      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
+      url: `http://127.0.0.1:${String(pullRequestsHubPort)}/`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        DEVHUB_PORT: String(pullRequestsHubPort),
+        DEVHUB_HOME: pullRequestsHome,
+        HOME: pullRequestsGitHome,
+        LOG_LEVEL: 'warn',
+        NODE_ENV: 'production',
+        DEVHUB_TOKENS_FROM_ENV: 'false',
+        DEVHUB_KEYCHAIN: 'memory',
+        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
+        DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_SANDBOX: 'assume',
+        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
+        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(pullRequestsHubPort),
       },
     },
     {
