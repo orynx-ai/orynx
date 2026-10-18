@@ -1,78 +1,99 @@
 import { screen, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeSession } from '@devhub/contracts/testing';
 import { apiUrl, server, sessionHandler } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
 
-const sessions = [
-  makeSession({ id: 'session-1', title: 'Add bulk archive', source: { kind: 'jira', key: 'PROJ-1423' } }),
-  makeSession({ id: 'session-2', title: 'Fix timezone shift', source: { kind: 'pull_request', number: 2836 } }),
-  makeSession({ id: 'session-3', title: 'Tidy the README', source: null }),
-];
+const id = '0123456789abcdef';
+const route = `/sessions/${id}`;
+// Four minutes after the session started.
+const now = new Date('2026-10-16T10:00:00.000Z');
+
+const working = makeSession({
+  id,
+  title: 'Add bulk archive to the content list',
+  state: 'working',
+  source: { kind: 'jira', key: 'PROJ-1423' },
+  folder: { name: 'web-app', displayPath: '~/code/web-app' },
+  branch: 'feat/PROJ-1423',
+  startedAt: '2026-10-16T09:56:00.000Z',
+  sprint: 'Sprint 42',
+  jiraUrl: 'https://your-team.atlassian.net/browse/PROJ-1423',
+});
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'], now });
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function pageBar() {
   return screen.getByRole('banner');
 }
 
 describe('SessionScreen', () => {
-  it('Q8: shows Sessions / the title, with the ticket key beside it', async () => {
-    server.use(sessionHandler(...sessions));
-    await renderApp({ route: '/sessions/session-1' });
+  it('AC-6 (Q9e): the page bar shows Tickets / the sprint / the key, when it started, and Open in Jira', async () => {
+    server.use(sessionHandler(working));
+    const { user, platform } = await renderApp({ route });
 
     const crumbs = within(pageBar()).getByRole('navigation', { name: 'Breadcrumb' });
-    expect(await within(crumbs).findByText('Add bulk archive')).toHaveAttribute('aria-current', 'page');
+    expect(await within(crumbs).findByText('PROJ-1423')).toHaveAttribute('aria-current', 'page');
+    expect(within(crumbs).getByRole('link', { name: 'Tickets' })).toHaveAttribute('href', '/tickets');
+    expect(within(crumbs).getByRole('link', { name: 'Sprint 42' })).toHaveAttribute('href', '/tickets');
+    expect(within(pageBar()).getByText('Started 4 min ago')).toBeVisible();
+
+    const jira = within(pageBar()).getByRole('link', { name: 'Open in Jira' });
+    expect(jira).toHaveAttribute('href', 'https://your-team.atlassian.net/browse/PROJ-1423');
+    await user.click(jira);
+    expect(platform.openExternal).toHaveBeenCalledWith('https://your-team.atlassian.net/browse/PROJ-1423');
+  });
+
+  it('Q9e: says Sessions / the key when the ticket wasn’t in a sprint', async () => {
+    server.use(sessionHandler({ ...working, sprint: null }));
+    await renderApp({ route });
+    const crumbs = within(pageBar()).getByRole('navigation', { name: 'Breadcrumb' });
+    expect(await within(crumbs).findByText('PROJ-1423')).toBeVisible();
     expect(within(crumbs).getByRole('link', { name: 'Sessions' })).toHaveAttribute('href', '/sessions');
-    expect(within(pageBar()).getByText('PROJ-1423')).toBeVisible();
   });
 
-  it('Q8: names a pull request source as PR #<number>', async () => {
-    server.use(sessionHandler(...sessions));
-    await renderApp({ route: '/sessions/session-2' });
-
-    expect(await within(pageBar()).findByText('PR #2836')).toBeVisible();
-  });
-
-  it('shows no source when the session has none', async () => {
-    server.use(sessionHandler(...sessions));
-    await renderApp({ route: '/sessions/session-3' });
-
-    expect(await within(pageBar()).findByText('Tidy the README')).toBeVisible();
-    expect(within(pageBar()).queryByText(/PROJ-|PR #/)).toBeNull();
-  });
-
-  it('Q8: shows only the Sessions crumb while the session loads', async () => {
+  it('AC-16: shows the page bar and skeletons in the page’s shape while the session loads', async () => {
     server.use(
       http.get(apiUrl(apiRoutes.session), async () => {
         await delay('infinite');
         return HttpResponse.json({});
       }),
     );
-    await renderApp({ route: '/sessions/session-1' });
+    await renderApp({ route });
 
     const crumbs = within(pageBar()).getByRole('navigation', { name: 'Breadcrumb' });
     expect(within(crumbs).getByRole('link', { name: 'Sessions' })).toBeVisible();
-    expect(within(crumbs).queryByText('Add bulk archive')).toBeNull();
+    expect(screen.getByRole('main').querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
   });
 
-  it('says the page does not exist for an unknown session', async () => {
-    server.use(sessionHandler(...sessions));
-    await renderApp({ route: '/sessions/nope' });
-
+  it('AC-17: says the page does not exist for an unknown session', async () => {
+    server.use(sessionHandler(working));
+    await renderApp({ route: '/sessions/fedcba9876543210' });
     expect(await screen.findByText('This page does not exist')).toBeVisible();
   });
 
-  it("says the session couldn't load", async () => {
-    server.use(http.get(apiUrl(apiRoutes.session), () => HttpResponse.json({}, { status: 500 })));
-    await renderApp({ route: '/sessions/session-1' });
+  it('AC-17: says the session couldn’t load, and tries again on request', async () => {
+    let fail = true;
+    server.use(
+      http.get(apiUrl(apiRoutes.session), () =>
+        fail ? HttpResponse.json({}, { status: 500 }) : HttpResponse.json(working),
+      ),
+    );
+    const { user } = await renderApp({ route });
 
     expect(await within(screen.getByRole('main')).findByText("Couldn't load sessions")).toBeVisible();
-  });
-
-  it('names the page after the session with a level-one heading', async () => {
-    server.use(sessionHandler(...sessions));
-    await renderApp({ route: '/sessions/session-1' });
-    expect(await screen.findByRole('heading', { level: 1, name: 'Add bulk archive' })).toBeInTheDocument();
+    fail = false;
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Add bulk archive to the content list' }),
+    ).toBeVisible();
   });
 });
