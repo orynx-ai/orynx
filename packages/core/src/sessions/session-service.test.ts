@@ -373,9 +373,13 @@ describe('running a session', () => {
       script: [{ tool: 'Write', input: { file_path: 'a.ts', content: 'x' } }, { finish: 'Wrote it.' }],
     });
     await service.start({ ticketKey: 'PROJ-1423' });
-    await vi.waitFor(() => {
-      expect(sdk.runs[0]?.waiting).toBe(1);
-    });
+    // From the start: the worktree comes first, which takes longer than an answer does under pnpm verify.
+    await vi.waitFor(
+      () => {
+        expect(sdk.runs[0]?.waiting).toBe(1);
+      },
+      { timeout: 10_000 },
+    );
     await expect(readFile(join(home, 'worktrees', '0000000000000001', 'a.ts'))).rejects.toThrow();
     expect(await service.stop('0000000000000001')).toBe('stopped');
     expect(sdk.runs[0]?.decisions[0]?.result.behavior).toBe('deny');
