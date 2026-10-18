@@ -16,7 +16,7 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 4: Add the search service. Tickets come by key, each with its newest session or its Jira link. Pull requests come newest first, linking to their main page. Sessions come newest first. Each tool's state is included (AC-6, AC-8, AC-9, AC-13, AC-17, AC-18, AC-24, AC-27)
       Check: pnpm test packages/core/src/search
       Files: packages/core/src/search/search-service.ts, search-service.test.ts
-- [ ] Task 5: Add `GET /api/search` and wire it into `createServer`. Test the token and Host checks, and extend the leak test: no token, description or comment text (AC-28)
+- [x] Task 5: Add `GET /api/search` and wire it into `createServer`. Test the token and Host checks, and extend the leak test: no token, description or comment text (AC-28)
       Check: pnpm test packages/core/src/routes/search.test.ts packages/core/src/inbox/no-leaks.test.ts; pnpm typecheck; pnpm gate boundaries
       Files: packages/core/src/routes/search.ts, search.test.ts, packages/core/src/create-server.ts, packages/core/src/inbox/no-leaks.test.ts
 - [ ] Task 6: Add `search()` and `searchQueryOptions` to the api-client, with an MSW test and a bad-shape test (AC-23, AC-25)
