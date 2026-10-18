@@ -281,7 +281,10 @@ test('AC-15, AC-18: Home opens a live session, and Ship, Stop and Discard all wo
   await api(await page.goto('/').then(() => page), 'POST', '/api/inbox/refresh');
   const panel = page.getByRole('region', { name: 'Needs your attention' });
   const live = panel.getByRole('listitem').filter({ hasText: 'Add bulk archive to the content list' });
-  await expect(live.getByRole('link', { name: 'Open' })).toHaveAttribute('href', new URL(seen.done ?? '').pathname);
+  await expect(live.getByRole('link', { name: /^Open session: / })).toHaveAttribute(
+    'href',
+    new URL(seen.done ?? '').pathname,
+  );
 
   const build = panel.getByRole('button', { name: 'Ship PROJ-1428' });
   await build.focus();

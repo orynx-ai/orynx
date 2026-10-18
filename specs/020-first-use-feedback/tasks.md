@@ -43,7 +43,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: "Ship" starts Claude on Tickets' cards and list (`ShipWithClaude`, renamed from `BuildWithClaude`) (AC-16). Done with task 3, since the card's rename broke the app's tests
       Check: pnpm test packages/app/src/features/sessions packages/app/src/features/tickets; pnpm exec playwright test e2e/sessions.spec.ts e2e/approvals.spec.ts
       Files: packages/app/src/features/sessions/components/ship-with-claude.tsx (+ test), tickets components and tests, e2e specs that press Build
-- [ ] Task 10: Home's rows end in icon buttons: Ship and Open in Jira, Open in GitHub, Open session (AC-14, AC-15)
+- [x] Task 10: Home's rows end in icon buttons: Ship and Open in Jira, Open in GitHub, Open session (AC-14, AC-15)
       Check: pnpm test packages/app/src/features/home packages/ui/src/components/attention-row.test.tsx; pnpm exec playwright test e2e/home-inbox.spec.ts
       Files: packages/app/src/features/home/components/attention-panel.tsx, inbox-words.ts and tests, packages/ui/src/components/attention-row.tsx (+ story, test), e2e/home-inbox.spec.ts
 

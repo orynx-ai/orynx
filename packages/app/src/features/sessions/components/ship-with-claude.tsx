@@ -1,8 +1,19 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { SparklesIcon } from '@hugeicons/core-free-icons';
 import { Link, useNavigate } from '@tanstack/react-router';
 import type { CannotStartReason, StartSessionAnswer } from '@devhub/contracts';
-import { AttentionAction, Button, Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger, WorkItemShip } from '@devhub/ui';
+import {
+  Button,
+  Icon,
+  IconButton,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuLabel,
+  MenuTrigger,
+  WorkItemShip,
+} from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
 import { useRepositories, useStatus } from '../../settings/queries.ts';
 import { useSessions } from '../queries.ts';
@@ -100,11 +111,10 @@ export function ShipWithClaude({ ticketKey, look }: { ticketKey: string; look: S
         Ship
       </Button>
     ) : (
-      <AttentionAction asChild aria-disabled={start.isPending || undefined}>
-        <button type="button" aria-label={name}>
-          Ship
-        </button>
-      </AttentionAction>
+      // A Home row's icon, beside Open in Jira (spec 020).
+      <IconButton variant="ghost" size="sm" label="Ship" aria-label={name} pending={start.isPending}>
+        <Icon icon={SparklesIcon} aria-hidden />
+      </IconButton>
     );
 
   return (

@@ -1,14 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, type FocusEvent, type MouseEvent, type RefObject } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { defaultPreferences, type Inbox, type InboxRules, type InboxTarget } from '@devhub/contracts';
+import { ArrowRight01Icon, LinkSquare02Icon } from '@hugeicons/core-free-icons';
 import {
-  AttentionAction,
+  AttentionActions,
   AttentionList,
   AttentionRow,
   AttentionRowSkeleton,
   AttentionTitle,
   Button,
   EmptyState,
+  Icon,
+  IconButton,
   Pagination,
   Panel,
   Tabs,
@@ -18,7 +21,7 @@ import {
 } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { countKey, homeTabLabels, homeTabs, itemsInTab, tabTools, type HomeTab } from '../inbox-tabs.ts';
-import { actionLabel, emptyText, reasonPill, subLine, tabCounts, toolLine, type ToolLine } from '../inbox-words.ts';
+import { emptyText, reasonPill, rowActions, subLine, tabCounts, toolLine, type ToolLine } from '../inbox-words.ts';
 import { defaultView, filterMenus, searchFor, showView, searchForTab, viewOf, type HomeView } from '../inbox-view.ts';
 import { useInbox, useInboxRules, type HomeItem } from '../queries.ts';
 import { useNow } from '../use-now.ts';
@@ -434,11 +437,7 @@ function Row({ item, now }: { item: HomeItem; now: Date }) {
   return (
     <AttentionRow
       source={item.source}
-      title={
-        <TargetLink target={item.target} look="title" title={item.title}>
-          {item.title}
-        </TargetLink>
-      }
+      title={<TargetLink target={item.target} title={item.title} />}
       sub={subLine(item)}
       reason={
         <>
@@ -447,48 +446,59 @@ function Row({ item, now }: { item: HomeItem; now: Date }) {
         </>
       }
       reasonTone={pill.tone}
-      action={
-        item.subject.kind === 'issue' && actionLabel(item) === 'Ship' ? (
-          <ShipWithClaude ticketKey={item.subject.key} look="row" />
-        ) : (
-          <TargetLink target={item.target} look="action">
-            {actionLabel(item)}
-          </TargetLink>
-        )
-      }
+      action={<RowActionButtons item={item} />}
     />
   );
 }
 
-/**
- * A row's title or action. Both go to the same place (006 AC-18): out to Jira or GitHub in a new tab, or to
- * the session inside DevHub.
- */
-function TargetLink({
-  target,
-  look,
-  title,
-  children,
-}: {
-  target: InboxTarget;
-  look: 'title' | 'action';
-  /** The whole title, for when the row cuts it off. */
-  title?: string;
-  children: string;
-}) {
+/** Spec 020: the row's actions as icon buttons, each with its words in a tooltip (Ship, then Open in …). */
+function RowActionButtons({ item }: { item: HomeItem }) {
   const platform = usePlatform();
-  const Part = look === 'title' ? AttentionTitle : AttentionAction;
+  const { ship, open } = rowActions(item);
+  return (
+    <AttentionActions>
+      {ship === null ? null : <ShipWithClaude ticketKey={ship} look="row" />}
+      {open.kind === 'session' ? (
+        <IconButton asChild variant="ghost" size="sm" label={open.label} aria-label={open.name}>
+          <Link to="/sessions/$sessionId" params={{ sessionId: open.sessionId }}>
+            <Icon icon={ArrowRight01Icon} aria-hidden />
+          </Link>
+        </IconButton>
+      ) : (
+        <IconButton asChild variant="ghost" size="sm" label={open.label} aria-label={open.name}>
+          <a
+            href={open.url}
+            rel="noreferrer"
+            onClick={(event) => {
+              event.preventDefault();
+              platform.openExternal(open.url);
+            }}
+          >
+            <Icon icon={LinkSquare02Icon} aria-hidden />
+          </a>
+        </IconButton>
+      )}
+    </AttentionActions>
+  );
+}
+
+/**
+ * A row's title: out to Jira or GitHub in a new tab, or to the session inside Orynx, as its Open icon goes
+ * (006 AC-18).
+ */
+function TargetLink({ target, title }: { target: InboxTarget; title: string }) {
+  const platform = usePlatform();
   if (target.kind === 'session') {
     return (
-      <Part asChild title={title}>
+      <AttentionTitle asChild title={title}>
         <Link to="/sessions/$sessionId" params={{ sessionId: target.sessionId }}>
-          {children}
+          {title}
         </Link>
-      </Part>
+      </AttentionTitle>
     );
   }
   return (
-    <Part
+    <AttentionTitle
       href={target.url}
       rel="noreferrer"
       title={title}
@@ -499,7 +509,7 @@ function TargetLink({
         platform.openExternal(target.url);
       }}
     >
-      {children}
-    </Part>
+      {title}
+    </AttentionTitle>
   );
 }

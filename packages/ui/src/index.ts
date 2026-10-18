@@ -7,12 +7,12 @@ export {
 } from './components/activity-step.tsx';
 export { AgentChip, type AgentChipProps } from './components/agent-chip.tsx';
 export {
-  AttentionAction,
+  AttentionActions,
   AttentionList,
   AttentionRow,
   AttentionRowSkeleton,
   AttentionTitle,
-  type AttentionActionProps,
+  type AttentionActionsProps,
   type AttentionRowProps,
   type AttentionTitleProps,
 } from './components/attention-row.tsx';

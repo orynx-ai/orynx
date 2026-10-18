@@ -1,8 +1,7 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { ArrowRight01Icon, ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
 import { Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
-import { buttonVariants } from './button.tsx';
 import { Pill, type PillTone } from './pill.tsx';
 import { Skeleton } from './skeleton.tsx';
 import { SourceMark, type Source } from './source-mark.tsx';
@@ -33,13 +32,13 @@ export type AttentionRowProps = Omit<ComponentProps<'li'>, 'title'> & {
   /** Why it needs you, always with the wait: "No reply · 3 h". */
   reason: ReactNode;
   reasonTone?: PillTone | undefined;
-  /** The one thing to do next: `<AttentionAction>`. */
+  /** What you can do from here: `<AttentionActions>` around icon buttons (spec 020). */
   action?: ReactNode;
 };
 
 /**
  * Design system: AttentionRow (`dh-row`). One inbox item: where it comes from, what it is, why it
- * needs you, and the one thing to do next. At least 56 px tall; the title and sub line stay on one
+ * needs you, and what you can do from here. At least 56 px tall; the title and sub line stay on one
  * line each, cut off with an ellipsis. `bg-subtle` on hover.
  */
 export function AttentionRow({
@@ -114,32 +113,20 @@ export function AttentionTitle({
   );
 }
 
-export type AttentionActionProps = Omit<ComponentProps<'a'>, 'children'> & {
-  /** Render the child link (the router's) with the action's look and chevron. */
-  asChild?: boolean;
-  /** The action in a word: "Review", "Reply", "Open", "Fix", "Build". */
-  children: ReactNode;
-};
+export type AttentionActionsProps = ComponentProps<'div'>;
 
 /**
- * The row's one action: a small ghost button with a chevron, at least 96 px wide and right-aligned,
- * as Home draws it (spec 006 Q3a). It goes somewhere, so it's a link.
+ * The row's actions at its end (spec 020): icon buttons (`IconButton`), each with its words in a tooltip,
+ * such as Ship then Open in Jira. Always as wide as two, so the reason pills line up down the list
+ * whether a row has one action or two.
  */
-export function AttentionAction({ asChild = false, className, children, ...props }: AttentionActionProps) {
-  const look = cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'min-w-24 shrink-0 justify-end', className);
-  if (asChild) {
-    return (
-      <Slot.Root data-slot="attention-action" className={look} {...props}>
-        <Slot.Slottable>{children}</Slot.Slottable>
-        <Icon icon={ArrowRight01Icon} aria-hidden />
-      </Slot.Root>
-    );
-  }
+export function AttentionActions({ className, ...props }: AttentionActionsProps) {
   return (
-    <a data-slot="attention-action" className={look} {...props}>
-      {children}
-      <Icon icon={ArrowRight01Icon} aria-hidden />
-    </a>
+    <div
+      data-slot="attention-actions"
+      className={cn('flex min-w-17 shrink-0 items-center justify-end gap-1', className)}
+      {...props}
+    />
   );
 }
 
@@ -162,7 +149,7 @@ export function AttentionRowSkeleton({ className, ...props }: Omit<ComponentProp
       <span className={cn('flex', reasonClass)}>
         <Skeleton className="h-6 w-28" />
       </span>
-      <Skeleton className="h-8 w-24" />
+      <Skeleton className="h-8 w-17" />
     </li>
   );
 }

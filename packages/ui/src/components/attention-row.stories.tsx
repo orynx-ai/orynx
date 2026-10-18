@@ -1,12 +1,26 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { LinkSquare02Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import {
-  AttentionAction,
+  AttentionActions,
   AttentionList,
   AttentionRow,
   AttentionRowSkeleton,
   AttentionTitle,
 } from './attention-row.tsx';
+import { Icon } from './icon.tsx';
+import { IconButton } from './icon-button.tsx';
 import { Panel } from './panel.tsx';
+
+/** An icon link out to the tool, as Home draws it (spec 020). */
+function OpenIn({ href, label, name }: { href: string; label: string; name: string }) {
+  return (
+    <IconButton asChild variant="ghost" size="sm" label={label} aria-label={name}>
+      <a href={href}>
+        <Icon icon={LinkSquare02Icon} aria-hidden />
+      </a>
+    </IconButton>
+  );
+}
 
 const meta = {
   title: 'Components/AttentionRow',
@@ -17,7 +31,11 @@ const meta = {
     sub: 'web-app #2841 · by Priya S.',
     reason: 'Review requested · 2 d',
     reasonTone: 'warning',
-    action: <AttentionAction href="#pr-2841">Review</AttentionAction>,
+    action: (
+      <AttentionActions>
+        <OpenIn href="#pr-2841" label="Open in GitHub" name="Open web-app #2841 in GitHub" />
+      </AttentionActions>
+    ),
   },
   decorators: [
     (Story) => (
@@ -59,7 +77,11 @@ export const Inbox: Story = {
         }
         sub="Neha K. in #web-platform"
         reason="No reply · 3 h"
-        action={<AttentionAction href="#slack">Reply</AttentionAction>}
+        action={
+          <AttentionActions>
+            <OpenIn href="#slack" label="Open in Slack" name="Open Neha K.'s message in Slack" />
+          </AttentionActions>
+        }
       />
       <AttentionRow
         source="jira"
@@ -67,7 +89,14 @@ export const Inbox: Story = {
         sub="PROJ-1377 · Bug · High"
         reason="Due Fri"
         reasonTone="danger"
-        action={<AttentionAction href="#build">Build</AttentionAction>}
+        action={
+          <AttentionActions>
+            <IconButton variant="ghost" size="sm" label="Ship" aria-label="Ship PROJ-1377">
+              <Icon icon={SparklesIcon} aria-hidden />
+            </IconButton>
+            <OpenIn href="#ticket" label="Open in Jira" name="Open PROJ-1377 in Jira" />
+          </AttentionActions>
+        }
       />
       <AttentionRow
         source="github"
@@ -75,7 +104,11 @@ export const Inbox: Story = {
         sub="web-app #2836 · yours"
         reason="Checks failing"
         reasonTone="danger"
-        action={<AttentionAction href="#fix">Fix</AttentionAction>}
+        action={
+          <AttentionActions>
+            <OpenIn href="#checks" label="Open in GitHub" name="Open web-app #2836 in GitHub" />
+          </AttentionActions>
+        }
       />
     </>
   ),

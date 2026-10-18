@@ -193,7 +193,7 @@ test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it
     { name: 'Search', ring: true },
     { name: 'Reason', ring: true },
     { name: 'Fix timezone shift in event cards', ring: true },
-    { name: 'Open', ring: true },
+    { name: 'Open web-app #2836 in GitHub', ring: true },
     { name: 'Lazy-load the people directory', ring: true },
   ]);
 });

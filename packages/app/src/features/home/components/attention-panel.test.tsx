@@ -131,7 +131,7 @@ describe('AttentionPanel', () => {
     expect(platform.openExternal).toHaveBeenCalledWith('https://acme.atlassian.net/browse/PROJ-1423');
   });
 
-  it('AC-15 (spec 011): an assigned issue’s action is Ship, which starts Claude on it and opens the session', async () => {
+  it('AC-14 (spec 020), AC-15 (spec 011): an assigned issue has the Ship icon, which starts Claude on it and opens the session', async () => {
     const asked: unknown[] = [];
     server.use(
       http.get(apiUrl(apiRoutes.status), () =>
@@ -146,32 +146,39 @@ describe('AttentionPanel', () => {
       }),
     );
     const { user, history } = await openHome();
-    const build = rowOf('Add bulk archive to the content list').getByRole('button', {
-      name: 'Ship PROJ-1423',
-    });
-    expect(build).toHaveTextContent('Ship');
+    const row = rowOf('Add bulk archive to the content list');
+    const ship = row.getByRole('button', { name: 'Ship PROJ-1423' });
+    await user.hover(ship);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Ship');
+    expect(row.getByRole('link', { name: 'Open PROJ-1423 in Jira' })).toHaveAttribute(
+      'href',
+      'https://acme.atlassian.net/browse/PROJ-1423',
+    );
 
-    await user.click(build);
+    await user.click(ship);
 
     expect(asked).toEqual([{ ticketKey: 'PROJ-1423' }]);
     expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
   });
 
-  it('AC-15 (spec 011): an issue with a live session says Open and opens the session', async () => {
+  it('AC-15: an issue with a live session has only Open session, which opens the session', async () => {
     inboxWith([{ ...ticket, target: { kind: 'session', sessionId: '0123456789abcdef' } }]);
     await openHome();
     const row = rowOf('Add bulk archive to the content list');
-    expect(row.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/sessions/0123456789abcdef');
+    expect(row.getByRole('link', { name: 'Open session: Add bulk archive to the content list' })).toHaveAttribute(
+      'href',
+      '/sessions/0123456789abcdef',
+    );
     expect(row.queryByRole('button', { name: /^Ship / })).toBeNull();
   });
 
-  it("AC-6: shows a review request with its author, and Review opens the pull request's Files tab", async () => {
+  it("AC-6, AC-15 (spec 020): shows a review request with its author, and Open in GitHub opens the pull request's Files tab", async () => {
     const { user, platform } = await openHome();
     const row = rowOf('Lazy-load the people directory');
 
     expect(row.getByText('web-app #2841 · by Priya S.')).toBeVisible();
     expect(row.getByText('Review requested · 2 d')).toBeVisible();
-    const action = row.getByRole('link', { name: 'Review' });
+    const action = row.getByRole('link', { name: 'Open web-app #2841 in GitHub' });
     expect(action).toHaveAttribute('href', 'https://github.com/acme/web-app/pull/2841/files');
 
     await user.click(action);
@@ -179,31 +186,31 @@ describe('AttentionPanel', () => {
     expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/web-app/pull/2841/files');
   });
 
-  it("AC-9: shows your pull request's failing checks, and Open goes to its Checks tab", async () => {
+  it("AC-9: shows your pull request's failing checks, and Open in GitHub goes to its Checks tab", async () => {
     const { user, platform } = await openHome();
     const row = rowOf('Fix timezone shift in event cards');
 
     expect(row.getByText('web-app #2836 · your pull request')).toBeVisible();
     expect(row.getByText('Checks failing · 3 h')).toBeVisible();
 
-    await user.click(row.getByRole('link', { name: 'Open' }));
+    await user.click(row.getByRole('link', { name: 'Open web-app #2836 in GitHub' }));
 
     expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/web-app/pull/2836/checks');
   });
 
-  it('AC-10: shows the unresolved comments on your pull request, and Open goes to the pull request', async () => {
+  it('AC-10: shows the unresolved comments on your pull request, and Open in GitHub goes to the pull request', async () => {
     const { user, platform } = await openHome();
     const row = rowOf('Return 207 for partial archive failures');
 
     expect(row.getByText('api #77 · your pull request')).toBeVisible();
     expect(row.getByText('2 unresolved comments · 1 d')).toBeVisible();
 
-    await user.click(row.getByRole('link', { name: 'Open' }));
+    await user.click(row.getByRole('link', { name: 'Open api #77 in GitHub' }));
 
     expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/api/pull/77');
   });
 
-  it("AC-12: shows a session waiting on your ticket in the ticket's row, and Open goes to the session in DevHub", async () => {
+  it("AC-12: shows a session waiting on your ticket in the ticket's row, and Open session goes to the session in Orynx", async () => {
     const { user, history, platform } = await openHome();
     const row = rowOf('Search returns archived sites for guest users');
 
@@ -211,7 +218,7 @@ describe('AttentionPanel', () => {
     expect(row.getByText('PROJ-1500 · In progress')).toBeVisible();
     expect(row.getByText('Approve command · 5 min')).toBeVisible();
 
-    await user.click(row.getByRole('link', { name: 'Open' }));
+    await user.click(row.getByRole('link', { name: 'Open session: Search returns archived sites for guest users' }));
 
     expect(history.location.pathname).toBe('/sessions/session-1');
     expect(platform.openExternal).not.toHaveBeenCalled();
@@ -545,7 +552,14 @@ describe('AttentionPanel when a sync changes the rows', () => {
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent ?? null);
     }
 
-    expect(stops).toEqual(['Search', 'Reason', review.title, 'Review', ticket.title, 'Ship PROJ-1423']);
+    expect(stops).toEqual([
+      'Search',
+      'Reason',
+      review.title,
+      'Open web-app #2841 in GitHub',
+      ticket.title,
+      'Ship PROJ-1423',
+    ]);
   });
 });
 
