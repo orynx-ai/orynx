@@ -9,7 +9,7 @@ import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-
 import { agoText } from '../../words/ago.ts';
 import { useNow } from '../../words/use-now.ts';
 import { NotFoundScreen } from '../not-found/not-found-screen.tsx';
-import { DiscardSession } from './components/discard-session.tsx';
+import { ChangesPanel } from './components/changes-panel.tsx';
 import { SessionHeader, SessionHeaderSkeleton } from './components/session-header.tsx';
 import { SessionProgress, SessionProgressSkeleton, SessionStepper } from './components/session-progress.tsx';
 import { SessionsLoadError } from './components/sessions-load-error.tsx';
@@ -91,7 +91,7 @@ export function SessionScreen() {
         <SessionHeader session={found} title={title} />
         <SessionStepper session={found} />
         <SessionProgress session={found} />
-        <DiscardSession session={found} title={title} />
+        <ChangesPanel session={found} title={title} />
       </PageBody>
     </>
   );
