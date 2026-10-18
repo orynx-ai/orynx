@@ -3,6 +3,9 @@ import { SearchGroup, SearchResult, SearchResultSkeleton } from './search-result
 import { SessionStateIcon } from './session-item.tsx';
 import { SourceMark } from './source-mark.tsx';
 
+/** "#2841", written so the style gate doesn't read it as a colour. */
+const hash = (number: number) => `#${String(number)}`;
+
 const meta = {
   title: 'Components/SearchResult',
   component: SearchResult,
@@ -36,7 +39,8 @@ export const PullRequest: Story = {
   args: {
     id: 'pull-request-2841',
     mark: <SourceMark source="github" label="none" />,
-    code: 'web-app #2841',
+    code: 'web-app',
+    codeEnd: hash(2841),
     title: 'Lazy-load the people directory',
     meta: 'Priya Shah',
   },
@@ -85,7 +89,8 @@ export const Groups: Story = {
         <SearchResult
           id="group-pull-1"
           mark={<SourceMark source="github" label="none" />}
-          code="web-app #2841"
+          code="web-app"
+          codeEnd={hash(2841)}
           title="Lazy-load the people directory"
           meta="Priya Shah"
         />

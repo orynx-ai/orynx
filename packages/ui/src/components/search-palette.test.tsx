@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { SearchPalette, type SearchPaletteGroup } from './search-palette.tsx';
 import { SourceMark } from './source-mark.tsx';
+
+/** "#2841", written so the style gate doesn't read it as a colour. */
+const hash = (number: number) => `#${String(number)}`;
 
 const label = 'Search tickets, pull requests and sessions';
 
@@ -31,7 +34,8 @@ const everything: SearchPaletteGroup[] = [
       {
         id: 'pull:acme/web-app/2841',
         mark: <SourceMark source="github" label="none" />,
-        code: 'web-app #2841',
+        code: 'web-app',
+        codeEnd: hash(2841),
         title: 'Lazy-load the people directory',
         meta: 'Priya Shah',
       },
@@ -152,6 +156,17 @@ describe('SearchPalette', () => {
     expect(onPick).not.toHaveBeenCalled();
   });
 
+  it('AC-12: Enter that ends a Japanese or Chinese composition picks nothing', async () => {
+    const user = userEvent.setup();
+    const onPick = vi.fn();
+    render(<Search onPick={onPick} />);
+    await user.type(box(), 'a');
+
+    fireEvent.keyDown(box(), { key: 'Enter', isComposing: true });
+
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
   it('AC-26: when the results change, the active one stays while it’s there, else the first is active', async () => {
     const user = userEvent.setup();
     const { rerender } = render(<Search />);
@@ -167,6 +182,38 @@ describe('SearchPalette', () => {
 
     rerender(<Search groups={[{ ...tickets, items: [newTicket] }, pulls]} />);
     expect(active()).toHaveAccessibleName('PROJ-1500, Archive old sites, To Do');
+  });
+
+  it('AC-26: the first result, active after typing, stays active when a sync puts a new one ahead of it', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Search />);
+    await user.type(box(), 'a');
+    expect(active()).toHaveAccessibleName('PROJ-1423, Add bulk archive, To Do');
+
+    const [tickets, pulls] = everything;
+    if (tickets === undefined || pulls === undefined) throw new Error('No groups');
+    rerender(
+      <Search groups={[{ ...tickets, items: [ticket('PROJ-1500', 'Archive old sites'), ...tickets.items] }, pulls]} />,
+    );
+
+    expect(active()).toHaveAccessibleName('PROJ-1423, Add bulk archive, To Do');
+  });
+
+  it('AC-26: once the active result has gone, it doesn’t take the highlight back when it returns', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Search />);
+    await user.type(box(), 'a');
+    await user.keyboard('{ArrowDown}');
+    const [tickets, pulls] = everything;
+    if (tickets === undefined || pulls === undefined) throw new Error('No groups');
+    const [first] = tickets.items;
+    if (first === undefined) throw new Error('No tickets');
+
+    rerender(<Search groups={[{ ...tickets, items: [first] }, pulls]} />);
+    expect(active()).toHaveAccessibleName('PROJ-1423, Add bulk archive, To Do');
+    rerender(<Search groups={everything} />);
+
+    expect(active()).toHaveAccessibleName('PROJ-1423, Add bulk archive, To Do');
   });
 
   it('AC-10: a screen reader hears the count once typing pauses', () => {

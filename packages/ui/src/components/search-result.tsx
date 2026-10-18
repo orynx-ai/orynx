@@ -27,11 +27,14 @@ export function SearchGroup({ label, className, children, ...props }: SearchGrou
 }
 
 /**
- * A 40 px row, as Menu's items are. Under 480 px of its own width the meta leaves the eye, so the key and
- * title keep their room; a screen reader still hears it.
+ * A 40 px row, drawn as Menu's items are: the active one takes `bg-subtle` and Menu's 4 px ink bar at its
+ * start, the mark you can see in both themes (the Orynx look, 18 Oct 2026). Under 480 px of its own width
+ * the meta leaves the eye, so the key and title keep their room; a screen reader still hears it.
  */
-const rowClass =
-  'relative @container flex min-h-10 cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5 text-foreground select-none';
+const rowClass = cn(
+  '@container relative flex min-h-10 cursor-pointer items-center gap-3 rounded-sm px-3 py-1.5 text-foreground select-none aria-selected:bg-subtle',
+  'before:absolute before:inset-y-1.5 before:start-0 before:w-1 before:rounded-full before:bg-primary before:opacity-0 aria-selected:before:opacity-100 motion-safe:before:transition-opacity',
+);
 
 export type SearchResultProps = Omit<ComponentProps<'div'>, 'title' | 'children'> & {
   /** Unique on the page: the search box points at the active result by it. */
@@ -40,8 +43,10 @@ export type SearchResultProps = Omit<ComponentProps<'div'>, 'title' | 'children'
   active?: boolean;
   /** What leads the row: a `SourceMark` with `label="none"`, or a session's `SessionStateIcon`. */
   mark: ReactNode;
-  /** The key or "web-app #2841", in mono. */
-  code?: ReactNode;
+  /** The key or the repository, in mono. It gives way after the title, cut off with an ellipsis. */
+  code?: string | undefined;
+  /** The end of the code that is never cut off, such as a pull request's "#2841". */
+  codeEnd?: string | undefined;
   /** One line, cut off with an ellipsis; the tooltip shows it whole. */
   title: string;
   /** The status, author or state, quiet, at the end. */
@@ -52,14 +57,24 @@ export type SearchResultProps = Omit<ComponentProps<'div'>, 'title' | 'children'
  * One search result (spec 009, Q3c): an option in a listbox, drawn like Menu's 40 px items. It's named by
  * its own words, with a pause between them for screen readers: "PROJ-1423, Add bulk archive, In Progress".
  */
-export function SearchResult({ id, active = false, mark, code, title, meta, className, ...props }: SearchResultProps) {
+export function SearchResult({
+  id,
+  active = false,
+  mark,
+  code,
+  codeEnd,
+  title,
+  meta,
+  className,
+  ...props
+}: SearchResultProps) {
   return (
     <div
       id={id}
       role="option"
       aria-selected={active}
       data-slot="search-result"
-      className={cn(rowClass, active && 'bg-subtle', className)}
+      className={cn(rowClass, className)}
       {...props}
     >
       <span aria-hidden className="flex size-6 shrink-0 items-center justify-center">
@@ -68,9 +83,25 @@ export function SearchResult({ id, active = false, mark, code, title, meta, clas
       {/* The spaces and hidden commas give screen readers "PROJ-1423, Add bulk archive, In Progress"; flex drops them visually. */}
       {code ? (
         <>
-          <span className="shrink-0 font-mono text-code text-muted-foreground">
-            {code}
-            <span className="sr-only">,</span>
+          {/* It gives way after the title, so a long repository never pushes the title out at 360 px; the
+              number after it stays whole. relative keeps each hidden comma inside the box that cuts it off. */}
+          <span
+            className="flex max-w-1/2 min-w-0 shrink gap-1 font-mono text-code text-muted-foreground"
+            title={codeEnd === undefined ? code : `${code} ${codeEnd}`}
+          >
+            <span className="relative min-w-0 truncate">
+              {code}
+              {codeEnd === undefined ? <span className="sr-only">,</span> : null}
+            </span>
+            {codeEnd === undefined ? null : (
+              <>
+                {' '}
+                <span className="relative shrink-0">
+                  {codeEnd}
+                  <span className="sr-only">,</span>
+                </span>
+              </>
+            )}
           </span>{' '}
         </>
       ) : null}

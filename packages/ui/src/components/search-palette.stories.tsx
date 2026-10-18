@@ -7,6 +7,9 @@ import { SearchResultSkeleton } from './search-result.tsx';
 import { SessionStateIcon } from './session-item.tsx';
 import { SourceMark } from './source-mark.tsx';
 
+/** "#2841", written so the style gate doesn't read it as a colour. */
+const hash = (number: number) => `#${String(number)}`;
+
 const label = 'Search tickets, pull requests and sessions';
 
 const results: SearchPaletteGroup[] = [
@@ -37,7 +40,8 @@ const results: SearchPaletteGroup[] = [
       {
         id: 'pull:acme/web-app/2841',
         mark: <SourceMark source="github" label="none" />,
-        code: 'web-app #2841',
+        code: 'web-app',
+        codeEnd: hash(2841),
         title: 'Lazy-load the people directory',
         meta: 'Priya Shah',
       },
@@ -121,6 +125,39 @@ export const Loading: Story = {
   },
 };
 
+/** Nothing connected and no sessions: what would appear, and the way to Connections. */
+export const NothingToSearch: Story = {
+  args: {
+    children: (
+      <EmptyState title="Nothing to search yet" action={<Button size="sm">Open Settings</Button>}>
+        <span>Connect Jira or GitHub to search your tickets and pull requests.</span>
+      </EmptyState>
+    ),
+  },
+};
+
+/** More results than the box holds: the results scroll, the head stays, and the foot line stays in view. */
+export const Scrolls: Story = {
+  args: {
+    query: 'archive',
+    note: 'GitHub is still syncing. Its pull requests appear when it ends.',
+    groups: [
+      {
+        id: 'tickets',
+        label: 'Tickets · 6 of 23',
+        items: Array.from({ length: 6 }, (_, index) => ({
+          id: `ticket:PROJ-${String(1500 + index)}`,
+          mark: <SourceMark source="jira" label="none" />,
+          code: `PROJ-${String(1500 + index)}`,
+          title: `Archive backlog item ${String(index + 1)}`,
+          meta: 'To Do',
+        })),
+      },
+      ...results.slice(2),
+    ],
+  },
+};
+
 /** Nothing matches. */
 export const NoMatches: Story = {
   args: {
@@ -134,7 +171,7 @@ export const NoMatches: Story = {
 };
 
 /** The local server didn't answer. */
-export const Error: Story = {
+export const CouldNotLoad: Story = {
   args: {
     query: 'archive',
     children: <EmptyState title="Couldn't load search" action={<Button size="sm">Try again</Button>} />,

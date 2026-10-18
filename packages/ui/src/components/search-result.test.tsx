@@ -79,6 +79,30 @@ describe('SearchResult', () => {
     expect(onPick).toHaveBeenCalledOnce();
   });
 
+  it('AC-8, AC-29: a long repository keeps its whole name, shows whole in a tooltip, and never cuts the number', () => {
+    render(
+      <div role="listbox" aria-label="Results">
+        <SearchResult
+          id="pull-request-12345"
+          mark={<SourceMark source="github" label="none" />}
+          code="frontend-intranet-application"
+          codeEnd="#12345"
+          title="Lazy-load the people directory"
+          meta="Priya Shah"
+        />
+      </div>,
+    );
+
+    const option = screen.getByRole('option');
+    expect(option).toHaveAccessibleName(
+      'frontend-intranet-application #12345, Lazy-load the people directory, Priya Shah',
+    );
+    // Cut off on screen, the repository shows whole in the tooltip, and the number is never cut. The e2e run
+    // checks the row fits at 360 px.
+    expect(within(option).getByTitle('frontend-intranet-application #12345')).toBeVisible();
+    expect(within(option).getByText('#12345')).toBeVisible();
+  });
+
   it('AC-23: a loading row holds a result’s place and is hidden from screen readers', () => {
     const { container } = render(
       <div aria-busy="true">

@@ -8,7 +8,8 @@ export interface SearchPaletteItem {
   id: string;
   /** For the eye only: a screen reader hears the code, title and meta. */
   mark: ReactNode;
-  code?: ReactNode;
+  code?: string | undefined;
+  codeEnd?: string | undefined;
   title: string;
   meta?: ReactNode;
 }
@@ -31,7 +32,7 @@ export interface SearchPaletteProps {
   onPick: (id: string) => void;
   /** What a screen reader hears once typing pauses, such as "25 results". */
   status?: string | undefined;
-  /** One quiet line under the results, such as a tool still on its first sync. */
+  /** One quiet line in a foot under the results, such as a tool still on its first sync. */
   note?: ReactNode;
   /** Marks the body as loading, while it shows loading rows. */
   busy?: boolean;
@@ -47,7 +48,7 @@ const statusPause = 500;
  * ⌘K search's body (spec 009, Q3b to Q3d): a 40 px search box over a hairline, then the results in their
  * groups. The box is a combobox: ↓ and ↑ move the active result across groups and stop at the ends,
  * Enter picks it, and focus never leaves the box. Typing makes the first result active; when the results
- * change under it, the active one stays while it's there. Put it in a `DialogContent`: the body scrolls
+ * change under it, the active one stays while it's there, and the first takes over when it goes. Put it in a `DialogContent`: the body scrolls
  * inside it while the box stays put.
  */
 export function SearchPalette({
@@ -68,6 +69,9 @@ export function SearchPalette({
   const items = groups.flatMap((group) => group.items);
   const [chosen, setChosen] = useState<string | null>(null);
   const activeId = items.some((item) => item.id === chosen) ? chosen : (items[0]?.id ?? null);
+  // Remember the row that's really active, the first one included, so a result a sync puts ahead of it
+  // doesn't take the highlight, and one that went and came back doesn't take it back (AC-26).
+  if (activeId !== chosen) setChosen(activeId);
   const spoken = useSpokenAfterPause(status ?? '');
 
   const activeDomId = activeId === null ? undefined : domId(activeId);
@@ -77,6 +81,8 @@ export function SearchPalette({
   }, [activeDomId]);
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // Enter that ends a Japanese or Chinese composition only confirms the text.
+    if (event.nativeEvent.isComposing) return;
     const at = items.findIndex((item) => item.id === activeId);
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
@@ -110,7 +116,12 @@ export function SearchPalette({
           spellCheck={false}
         />
       </div>
-      <div aria-busy={busy || undefined} className="min-h-0 overflow-y-auto p-1.5">
+      <div
+        aria-busy={busy || undefined}
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling box must take focus to scroll by keyboard (axe: scrollable-region-focusable); the arrow keys in the search box still move the active result
+        tabIndex={0}
+        className="min-h-0 overflow-y-auto p-1.5"
+      >
         {open ? (
           <div role="listbox" id={listboxId} aria-label={label} className="flex flex-col gap-1">
             {groups.map((group) => (
@@ -122,6 +133,7 @@ export function SearchPalette({
                     active={item.id === activeId}
                     mark={item.mark}
                     code={item.code}
+                    codeEnd={item.codeEnd}
                     title={item.title}
                     meta={item.meta}
                     // Keep focus in the box; the click itself picks.
@@ -142,8 +154,9 @@ export function SearchPalette({
         ) : (
           children
         )}
-        {note ? <p className="px-2 pt-2 pb-1 text-small text-muted-foreground">{note}</p> : null}
       </div>
+      {/* A foot under the results, as Menu's is, so the line shows however far they scroll. */}
+      {note ? <p className="border-t border-border px-3 py-2 text-small text-muted-foreground">{note}</p> : null}
       <div role="status" className="sr-only">
         {spoken}
       </div>

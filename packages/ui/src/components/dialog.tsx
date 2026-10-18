@@ -34,7 +34,8 @@ export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content>;
  * the part that should scroll `min-h-0 overflow-y-auto`.
  *
  * There's no dimmed backdrop, because the design system has no token for one, and no scroll lock, so
- * the page behind never jumps. It fades in over 150 ms unless the person asks for reduced motion.
+ * the page behind never jumps. It fades in with the shared `animate-fade-in`, unless the person asks for
+ * reduced motion.
  */
 export function DialogContent({
   className,
@@ -65,7 +66,7 @@ export function DialogContent({
             target.focus();
           }}
           className={cn(
-            'pointer-events-auto flex max-h-full w-full max-w-180 flex-col overflow-hidden rounded-lg border border-border bg-raised text-body text-foreground shadow-overlay outline-none motion-safe:transition-opacity motion-safe:duration-150 starting:opacity-0',
+            'pointer-events-auto flex max-h-full w-full max-w-180 flex-col overflow-hidden rounded-lg border border-border bg-raised text-body text-foreground shadow-overlay outline-none motion-safe:animate-fade-in max-md:max-w-none',
             className,
           )}
           {...props}
