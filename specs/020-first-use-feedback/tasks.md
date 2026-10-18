@@ -64,7 +64,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12c: `Combobox` in `@devhub/ui`: a Select-like field opening a searchable listbox in a popover (AC-37)
       Check: pnpm test packages/ui/src/components/combobox.test.tsx; pnpm gate component-coverage style-policy icon-buttons
       Files: packages/ui/src/components/combobox.tsx (+ story, test), packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 12d: The folder dialog's Jira project field is a Combobox (AC-37)
+- [x] Task 12d: The folder dialog's Jira project field is a Combobox (AC-37)
       Check: pnpm test packages/app/src/features/settings; pnpm exec playwright test e2e/settings.spec.ts
       Files: packages/app/src/features/settings/components/folder-dialog.tsx (+ test), e2e/settings.spec.ts
 - [ ] Task 13: Ship's menu ends in Add local folder, which opens the dialog with the ticket's project and starts Claude in the new folder (AC-22 to AC-24)

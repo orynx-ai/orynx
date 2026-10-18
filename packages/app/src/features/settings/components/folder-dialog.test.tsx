@@ -5,6 +5,7 @@ import { apiRoutes, type AddRepositoryRequest, type Repository, type UpdateRepos
 import { makeJiraConnection, makeRepository } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
+import type { UserEvent } from '@testing-library/user-event';
 
 const projects = [
   { key: 'MOB', name: 'Mobile' },
@@ -45,6 +46,21 @@ function jira({ connected = true, list = true }: { connected?: boolean; list?: b
   );
 }
 
+/** Picks a Jira project in the dialog's searchable field (spec 020, AC-37), typing part of it first. */
+async function pickProject(user: UserEvent, dialog: HTMLElement, search: string, option: string) {
+  await user.click(within(dialog).getByRole('button', { name: 'Jira project' }));
+  await user.keyboard(search);
+  await user.click(await screen.findByRole('option', { name: option }));
+}
+
+/** The options the Jira project field lists when opened, then closed again with Escape. */
+async function listedProjects(user: UserEvent, dialog: HTMLElement) {
+  await user.click(within(dialog).getByRole('button', { name: 'Jira project' }));
+  const names = screen.getAllByRole('option').map((option) => option.textContent);
+  await user.keyboard('{Escape}');
+  return names;
+}
+
 /** Settings › Repositories with the Add a folder dialog open (spec 020: a dialog, no longer a form under the button). */
 async function openForm() {
   const rendered = await renderApp({ route: '/settings/repositories' });
@@ -56,21 +72,18 @@ async function openForm() {
 describe('FolderDialog: Add a folder', () => {
   it('AC-5, AC-19 (spec 020): opens a dialog with Folder focused and my Jira projects listed, "No Jira project" picked', async () => {
     jira();
-    const { form } = await openForm();
+    const { user, form } = await openForm();
 
     expect(within(form).getByRole('textbox', { name: 'Folder' })).toHaveFocus();
     expect(within(form).getByRole('textbox', { name: 'Folder' })).toHaveAccessibleDescription(
       "The folder's full path, for example ~/code/intranet-web.",
     );
-    const select = within(form).getByRole('combobox', { name: 'Jira project' });
+    const select = within(form).getByRole('button', { name: 'Jira project' });
     await waitFor(() => {
-      expect(
-        within(select)
-          .getAllByRole('option')
-          .map((option) => option.textContent),
-      ).toEqual(['No Jira project', 'MOB · Mobile', 'PROJ · Intranet']);
+      expect(select).toBeEnabled();
     });
-    expect(select).toHaveValue('');
+    expect(await listedProjects(user, form)).toEqual(['No Jira project', 'MOB · Mobile', 'PROJ · Intranet']);
+    expect(select).toHaveTextContent('No Jira project');
     expect(select).toHaveAccessibleDescription('Tickets from this project open in this folder.');
     expect(within(form).getByRole('button', { name: 'Add folder' })).toBeEnabled();
     expect(within(form).getByRole('button', { name: 'Cancel' })).toBeEnabled();
@@ -85,13 +98,12 @@ describe('FolderDialog: Add a folder', () => {
     jira();
     const save = savingServer();
     const { user, form } = await openForm();
-    const select = within(form).getByRole('combobox', { name: 'Jira project' });
     await waitFor(() => {
-      expect(select).toBeEnabled();
+      expect(within(form).getByRole('button', { name: 'Jira project' })).toBeEnabled();
     });
 
     await user.type(within(form).getByRole('textbox', { name: 'Folder' }), '~/code/intranet-web');
-    await user.selectOptions(select, 'PROJ');
+    await pickProject(user, form, 'intra', 'PROJ · Intranet');
     await user.click(within(form).getByRole('button', { name: 'Add folder' }));
 
     expect(await screen.findByText('~/code/intranet-web')).toBeVisible();
@@ -174,7 +186,7 @@ describe('FolderDialog: Add a folder', () => {
     jira({ connected: false });
     const save = savingServer();
     const { user, form } = await openForm();
-    const select = within(form).getByRole('combobox', { name: 'Jira project' });
+    const select = within(form).getByRole('button', { name: 'Jira project' });
 
     expect(select).toBeDisabled();
     expect(select).toHaveAccessibleDescription('Connect Jira in Connections to pick a project.');
@@ -186,22 +198,20 @@ describe('FolderDialog: Add a folder', () => {
     expect(screen.queryByText(/^Jira /)).not.toBeInTheDocument();
   });
 
-  it("AC-9: when the projects don't load, offers only No Jira project, says so, and still adds", async () => {
+  it("AC-9: when the projects don't load, keeps No Jira project, says so, and still adds", async () => {
     jira({ list: false });
     const save = savingServer();
     const { user, form } = await openForm();
-    const select = within(form).getByRole('combobox', { name: 'Jira project' });
+    const select = within(form).getByRole('button', { name: 'Jira project' });
 
     await waitFor(() => {
       expect(select).toHaveAccessibleDescription(
         "Your Jira projects didn't load. Add the folder without one, or try again later.",
       );
     });
-    expect(
-      within(select)
-        .getAllByRole('option')
-        .map((option) => option.textContent),
-    ).toEqual(['No Jira project']);
+    // Nothing to pick but No Jira project, so the field stays as it is.
+    expect(select).toHaveTextContent('No Jira project');
+    expect(select).toBeDisabled();
     await user.type(within(form).getByRole('textbox', { name: 'Folder' }), '~/code/intranet-web');
     await user.click(within(form).getByRole('button', { name: 'Add folder' }));
 
@@ -317,10 +327,11 @@ describe('FolderDialog: Edit and Duplicate (spec 020)', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Edit intranet-web' });
     expect(within(dialog).getByRole('textbox', { name: 'Folder' })).toHaveValue('~/code/intranet-web');
     expect(within(dialog).getByRole('textbox', { name: 'Folder' })).toHaveFocus();
-    const select = within(dialog).getByRole('combobox', { name: 'Jira project' });
-    expect(select).toHaveValue('PROJ');
-    await within(select).findByRole('option', { name: 'MOB · Mobile' });
-    await user.selectOptions(select, 'MOB');
+    // The project's name comes with the list; until then the field shows its key.
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Jira project' })).toHaveTextContent('PROJ · Intranet');
+    });
+    await pickProject(user, dialog, 'mob', 'MOB · Mobile');
     await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
 
     expect(await screen.findByText('Jira MOB')).toBeVisible();
@@ -368,7 +379,7 @@ describe('FolderDialog: Edit and Duplicate (spec 020)', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Edit intranet-web' });
-    expect(within(dialog).getByRole('combobox', { name: 'Jira project' })).toHaveValue('PROJ');
+    expect(within(dialog).getByRole('button', { name: 'Jira project' })).toHaveTextContent('PROJ');
   });
 
   it('AC-21: Duplicate opens filled in with the folder’s path and project, and adds another entry', async () => {
@@ -380,10 +391,11 @@ describe('FolderDialog: Edit and Duplicate (spec 020)', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'Duplicate intranet-web' });
     expect(within(dialog).getByRole('textbox', { name: 'Folder' })).toHaveValue('~/code/intranet-web');
-    const select = within(dialog).getByRole('combobox', { name: 'Jira project' });
-    expect(select).toHaveValue('PROJ');
-    await within(select).findByRole('option', { name: 'MOB · Mobile' });
-    await user.selectOptions(select, 'MOB');
+    // The project's name comes with the list; until then the field shows its key.
+    await waitFor(() => {
+      expect(within(dialog).getByRole('button', { name: 'Jira project' })).toHaveTextContent('PROJ · Intranet');
+    });
+    await pickProject(user, dialog, 'mob', 'MOB · Mobile');
     await user.click(within(dialog).getByRole('button', { name: 'Add folder' }));
 
     await waitFor(() => {

@@ -234,7 +234,7 @@ test('AC-6, AC-8, AC-11, AC-17: Given two pages on Repositories, when I add a fo
     const form = page.getByRole('dialog', { name: 'Add a folder' });
     await expect(form.getByRole('textbox', { name: 'Folder' })).toBeFocused();
     // The e2e run never connects Jira.
-    const project = form.getByRole('combobox', { name: 'Jira project' });
+    const project = form.getByRole('button', { name: 'Jira project' });
     await expect(project).toBeDisabled();
     await expect(form.getByText('Connect Jira in Connections to pick a project.')).toBeVisible();
 

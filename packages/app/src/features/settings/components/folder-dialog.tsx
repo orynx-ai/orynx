@@ -1,9 +1,9 @@
 import { useId, useRef, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import type { AddRepositoryRequestSchema, JiraProject, Repository } from '@devhub/contracts';
 import { Folder01Icon } from '@hugeicons/core-free-icons';
-import { Button, Dialog, DialogContent, DialogTitle, Field, Icon, Input, Select } from '@devhub/ui';
+import { Button, Combobox, Dialog, DialogContent, DialogTitle, Field, Icon, Input } from '@devhub/ui';
 import type { z } from 'zod';
 import {
   useAddRepository,
@@ -195,14 +195,29 @@ function FolderForm({
         </p>
       )}
       <Field label="Jira project" help={projectHelp}>
-        <Select disabled={options.length === 0} {...form.register('jiraProject')}>
-          <option value="">No Jira project</option>
-          {options.map((project) => (
-            <option key={project.key} value={project.key}>
-              {project.name === '' ? project.key : `${project.key} · ${project.name}`}
-            </option>
-          ))}
-        </Select>
+        {/* Searchable, so a long list of projects is a few keys away (the user's ask, spec 020, AC-37). */}
+        <Controller
+          control={form.control}
+          name="jiraProject"
+          render={({ field }) => (
+            <Combobox
+              ref={field.ref}
+              options={[
+                { value: '', label: 'No Jira project' },
+                ...options.map((project) => ({
+                  value: project.key,
+                  label: project.name === '' ? project.key : `${project.key} · ${project.name}`,
+                })),
+              ]}
+              value={field.value}
+              onValueChange={field.onChange}
+              onBlur={field.onBlur}
+              searchLabel="Search Jira projects"
+              emptyText="No projects match"
+              disabled={options.length === 0}
+            />
+          )}
+        />
       </Field>
       {formError === undefined ? null : (
         <p role="alert" className="m-0 text-small text-danger">
