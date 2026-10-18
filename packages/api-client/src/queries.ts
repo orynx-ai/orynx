@@ -140,7 +140,7 @@ export function jiraProjectsQueryOptions(api: ApiClient) {
   return queryOptions({
     queryKey: queryKeys.jiraProjects,
     queryFn: () => api.jiraProjects(),
-    // Asked each time the add-folder form opens and dropped when it closes (spec 005): nothing is cached.
+    // Asked each time the folder dialog or Tickets' Project picker opens (specs 005, 020): nothing is cached.
     staleTime: 0,
     gcTime: 0,
     retry: false,

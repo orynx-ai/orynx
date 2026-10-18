@@ -39,7 +39,9 @@ export function SprintPickers({
   loading?: boolean;
 }) {
   const jira = useJiraConnection();
-  const projects = useJiraProjects(jira.data !== undefined && jira.data.saved !== null);
+  // Jira's project list is asked for once someone opens Project, not on every visit to Tickets.
+  const [looked, setLooked] = useState(false);
+  const projects = useJiraProjects(looked && jira.data !== undefined && jira.data.saved !== null);
   const choose = useChooseTicketsSprint();
   // Whose sprints the Sprint menu lists: the picked project, or Your sprint's own.
   const project = choice.projectKey ?? sprint?.projectKey ?? null;
@@ -63,6 +65,9 @@ export function SprintPickers({
         // Compact, at most 360 px tall: the user's call for this toolbar (spec 020, AC-40).
         size="sm"
         loading={projects.isPending && projects.fetchStatus !== 'idle'}
+        onOpenChange={(open) => {
+          if (open) setLooked(true);
+        }}
       >
         <Picker className={pickerWidth}>
           <span className="text-muted-foreground">Project</span> {choice.projectKey ?? yourSprintText}

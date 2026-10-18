@@ -179,10 +179,10 @@ describe('Jira connection', () => {
     expect(error.message).toBe('Paste your Jira API token.');
   });
 
-  it('AC-11: disconnecting removes the token, the site and the email, and says so on the stream', async () => {
+  it('AC-11: disconnecting removes the token, the site, the email and the Tickets choice (spec 020), and says so', async () => {
     const { connection, keychain, settings, seen } = setup({
       keychain: createMemoryKeychain({ jira: goodToken }),
-      settings: { jira: saved },
+      settings: { jira: saved, tickets: { projectKey: 'WEB', sprintId: null } },
     });
 
     await connection.disconnect();

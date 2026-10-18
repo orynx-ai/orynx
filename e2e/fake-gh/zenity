@@ -1,0 +1,5 @@
+#!/bin/sh
+# A stand-in for the computer's folder picker, for the e2e run only (spec 020): every hub finds it before
+# the real one on its PATH, so no test can open a dialog on the screen. It answers as Cancel does.
+echo 'User canceled. (-128)' >&2
+exit 1

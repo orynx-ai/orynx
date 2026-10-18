@@ -41,6 +41,8 @@ export interface ComboboxProps {
   children?: ReactElement;
   /** The default field's own name, when it isn't inside a `<Field>`. */
   'aria-label'?: string;
+  /** Told when the list opens or closes, such as to ask for options only once someone looks. */
+  onOpenChange?: (open: boolean) => void;
   /** For react-hook-form's `Controller`: called when the field loses focus with the list closed. */
   onBlur?: () => void;
   ref?: Ref<HTMLButtonElement>;
@@ -75,6 +77,7 @@ export function Combobox({
   loading = false,
   children,
   'aria-label': ariaLabel,
+  onOpenChange,
   onBlur,
   ref,
 }: ComboboxProps) {
@@ -91,6 +94,7 @@ export function Combobox({
 
   function changeOpen(next: boolean) {
     setOpen(next);
+    onOpenChange?.(next);
     if (!next) return;
     setQuery('');
     // The list opens on the option already picked, so Enter keeps it.
@@ -161,6 +165,8 @@ export function Combobox({
       <Popover.Portal>
         <Popover.Content
           data-slot="combobox-list"
+          // Radix draws it as a dialog, which needs a name: the search it holds.
+          aria-label={searchLabel}
           align={align}
           sideOffset={4}
           collisionPadding={16}

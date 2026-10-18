@@ -59,16 +59,14 @@ describe('folder picker (spec 020)', () => {
     });
   });
 
-  it('AC-35: on Windows, opens PowerShell’s folder dialog', async () => {
+  it('AC-36: Windows has no picker yet, since a folder’s path in Orynx starts with / or ~', async () => {
     const folder = await fakePicker();
-    await folder.install(['powershell.exe'], { kind: 'picks', stdout: 'C:\\Users\\dev\\code\\app\r\n' });
+    await folder.install(['powershell.exe'], { kind: 'picks', stdout: 'C:\\Users\\dev\\code\\app' });
 
-    const outcome = await createFolderPicker({ searchPath: folder.dir, platform: 'win32' }).pick();
-
-    // A Windows path isn't absolute to the macOS or Linux machine running this test, so the answer depends
-    // on where it runs; what matters here is that PowerShell ran with the dialog.
-    expect(outcome.kind).toBe(process.platform === 'win32' ? 'picked' : 'unavailable');
-    expect((await folder.runs())[0]).toMatch(/^powershell\.exe -NoProfile -STA -Command .*FolderBrowserDialog/);
+    expect(await createFolderPicker({ searchPath: folder.dir, platform: 'win32' }).pick()).toEqual({
+      kind: 'unavailable',
+    });
+    expect(await folder.runs()).toEqual([]);
   });
 
   it('AC-36: with no picker installed, or on another OS, no picker can open and nothing runs', async () => {

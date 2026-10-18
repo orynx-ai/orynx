@@ -37,14 +37,11 @@ interface Picker {
   cancelled: (exitCode: number | null, stderr: string) => boolean;
 }
 
-// PowerShell's folder dialog needs a single-threaded apartment; Cancel exits 1, as the other pickers do.
-const windowsScript = [
-  'Add-Type -AssemblyName System.Windows.Forms',
-  '$dialog = New-Object System.Windows.Forms.FolderBrowserDialog',
-  "if ($dialog.ShowDialog() -eq 'OK') { $dialog.SelectedPath } else { exit 1 }",
-].join('; ');
-
-/** Each OS's pickers, in the order they're tried. A quiet exit 1 is a Cancel; one with words is a failure. */
+/**
+ * Each OS's pickers, in the order they're tried. A quiet exit 1 is a Cancel; one with words is a failure.
+ * Windows has none yet: a folder's path in Orynx starts with / or ~ (RepositoryPathSchema), which a Windows
+ * path never does.
+ */
 const pickers: Partial<Record<NodeJS.Platform, readonly Picker[]>> = {
   // AppleScript says "User canceled. (-128)" when the person presses Cancel.
   darwin: [
@@ -57,13 +54,6 @@ const pickers: Partial<Record<NodeJS.Platform, readonly Picker[]>> = {
   linux: [
     { program: 'zenity', args: ['--file-selection', '--directory'], cancelled: quietExitOne },
     { program: 'kdialog', args: ['--getexistingdirectory'], cancelled: quietExitOne },
-  ],
-  win32: [
-    {
-      program: 'powershell.exe',
-      args: ['-NoProfile', '-STA', '-Command', windowsScript],
-      cancelled: quietExitOne,
-    },
   ],
 };
 

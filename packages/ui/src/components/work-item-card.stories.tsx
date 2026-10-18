@@ -38,7 +38,7 @@ export const Working: Story = {
     action: <AgentChip state="working" href="#session" />,
   },
 };
-/** No session yet: the quiet "Build with Claude" button. */
+/** No session yet: the quiet "Ship" button. */
 export const BugToBuild: Story = {
   args: {
     itemKey: 'PROJ-1377',

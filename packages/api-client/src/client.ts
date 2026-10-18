@@ -114,9 +114,9 @@ export interface ApiClient {
   repositories(): Promise<RepositoryList>;
   /** Checks the folder on disk, then saves it; rejects with folder_rejected and the message for the Folder field. */
   addRepository(request: AddRepositoryRequest): Promise<Repository>;
-  /** Forgets the folder; nothing on disk changes. */
   /** Changes a folder's path or Jira project in place (spec 020); rejects with folder_rejected or not_found. */
   editRepository(id: RepositoryId, request: UpdateRepositoryRequest): Promise<Repository>;
+  /** Forgets the folder; nothing on disk changes. */
   removeRepository(id: RepositoryId): Promise<void>;
   /** Opens the computer's folder picker (spec 020); rejects with picker_unavailable where none can open. */
   pickFolder(): Promise<FolderPick>;

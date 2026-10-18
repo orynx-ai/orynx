@@ -153,6 +153,7 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
   ): Promise<{ accountId: string; sprint: JiraSprintRef | null } | InboxProblem> {
     const { request, site } = credentials;
     if (choice.projectKey === null || choice.sprintId === 'none') {
+      // No sprint never comes here (syncWithoutSprint reads it); the check only narrows the sprint's type.
       const mine = await jira.mySprints(request);
       if (!mine.ok) return jiraInboxProblem(mine.problem, site);
       return { accountId: mine.accountId, sprint: pickSprint(mine.issues) };

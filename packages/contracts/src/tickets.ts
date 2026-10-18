@@ -27,7 +27,7 @@ export const TicketSchema = z.object({
   column: TicketColumnSchema,
   /** The type's own name: "Story", "Bug", "Sub-task". */
   type: z.string().min(1),
-  /** The type is named "Bug", in any case (spec 007, Q2f): drawn in `danger`, and what Bugs only keeps. */
+  /** The type is named "Bug", in any case (spec 007, Q2f): drawn in `danger`, and what Type: Bug keeps. */
   bug: z.boolean(),
   /** The priority's own name ("Highest", "P2") and its bars; null when the issue has none. */
   priority: z.object({ name: z.string().min(1), level: PriorityLevelSchema }).nullable(),

@@ -165,7 +165,8 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
 
     async disconnect() {
       await fromTokenStore(() => tokens.remove('jira'));
-      await settings.update(({ jira: _, ...rest }) => rest);
+      // The Tickets choice names this site's projects and sprints, so it goes too (spec 020).
+      await settings.update(({ jira: _, tickets: __, ...rest }) => rest);
       checked.forget();
       events.publish({ type: 'status.changed' });
     },

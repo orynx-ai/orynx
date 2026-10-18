@@ -253,7 +253,7 @@ export function useChangePreferences() {
 /**
  * Refetches only after the last of several quick changes to the same data, so an early answer (or an
  * early settings.changed) can't undo a later change on screen. Live updates hold back for the same reason.
- * Not awaited: the caller's own onSuccess, such as closing the add-folder form, shouldn't wait for it.
+ * Not awaited: the caller's own onSuccess, such as closing the folder dialog, shouldn't wait for it.
  */
 function refetchAfterLast(queryClient: QueryClient, key: readonly string[]): void {
   if (queryClient.isMutating({ mutationKey: key }) === 1) void queryClient.invalidateQueries({ queryKey: key });
@@ -265,7 +265,7 @@ export function useRepositories() {
   return useQuery(repositoriesQueryOptions(api));
 }
 
-/** The projects the saved Jira connection can see, asked only while the add-folder form is open and Jira is connected. */
+/** The projects the saved Jira connection can see, asked only while the folder dialog or Project picker is open and Jira is connected. */
 export function useJiraProjects(enabled: boolean) {
   const api = useApi();
   return useQuery({ ...jiraProjectsQueryOptions(api), enabled });
