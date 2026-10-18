@@ -21,7 +21,7 @@ service in core ──publish(event)──▶ event bus ──▶ GET /api/event
 
 ## 1. The event union
 
-`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed`, `sessions.changed`, `settings.changed` (a value in Settings › Coding agent, Repositories or Inbox rules was saved, spec 005) and `inbox.changed` (a sync ended, the cache was cleared or a tool's rows went, spec 007). Tickets' sprint syncs with the inbox (spec 008), so `inbox.changed` refreshes it too, with no event of its own. Every new kind of change adds a member here first, so the server and the page agree on the payload.
+`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed`, `sessions.changed`, `settings.changed` (a value in Settings › Coding agent, Repositories or Inbox rules was saved, spec 005) and `inbox.changed` (a sync ended, the cache was cleared or a tool's rows went, spec 007). Tickets' sprint syncs with the inbox (spec 008), so `inbox.changed` refreshes it too, with no event of its own. ⌘K search (spec 009) reads the same cache and the sessions, so `inbox.changed`, `status.changed` and `sessions.changed` refresh it, and `settings.changed` doesn't: the inbox rules never hide anything from search. Every new kind of change adds a member here first, so the server and the page agree on the payload.
 
 ## 2. The event bus
 
@@ -53,16 +53,18 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
         queryKeys.githubConnection,
         queryKeys.inbox,
         queryKeys.tickets,
+        queryKeys.search,
       ];
     case 'sessions.changed':
-      // A session waiting for approval is a row on Home (spec 007), and a ticket's agent chip (spec 008).
-      return [queryKeys.sessions, queryKeys.inbox, queryKeys.tickets];
+      // A session waiting for approval is a row on Home (spec 007), a ticket's agent chip (spec 008), and a
+      // search result (spec 009).
+      return [queryKeys.sessions, queryKeys.inbox, queryKeys.tickets, queryKeys.search];
     case 'settings.changed':
       // The inbox rules apply when the server reads the list (spec 007).
       return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];
     case 'inbox.changed':
-      // A sync ended: Tickets' sprint syncs with the inbox (spec 008).
-      return [queryKeys.inbox, queryKeys.tickets];
+      // A sync ended: Tickets' sprint syncs with the inbox (spec 008), and search reads both (spec 009).
+      return [queryKeys.inbox, queryKeys.tickets, queryKeys.search];
   }
 }
 ```
