@@ -5,8 +5,14 @@
 import { createServer } from 'node:http';
 import { setupServer } from 'msw/node';
 import {
+  acceptingBoardConfiguration,
+  acceptingFieldList,
   acceptingIssue,
   acceptingIssueSearch,
+  acceptingMySprintSearch,
+  acceptingSprintIssueSearch,
+  acceptingStatusList,
+  designBoardColumns,
   acceptingMyself,
   acceptingPrioritySearch,
   acceptingProjectSearch,
@@ -18,8 +24,23 @@ let tools: FakeTools = { issues: [], reviews: [], mine: [] };
 // Each hub's own control port, so two hubs with these fakes can run side by side.
 const controlPort = controlPortFor(Number(process.env['DEVHUB_PORT']));
 
+/** Sprint 42 on board 7, holding every issue, for a spec that asks for a board. */
+function sprintHandlers() {
+  if (tools.sprint !== true) return [];
+  const inSprint = tools.issues.map((issue) => ({ ...issue, sprints: [{ id: 42, name: 'Sprint 42', boardId: 7 }] }));
+  return [
+    acceptingFieldList(),
+    // These answer only their own searches, so they go before the inbox's.
+    acceptingMySprintSearch(inSprint),
+    acceptingSprintIssueSearch(42, inSprint),
+    acceptingBoardConfiguration(7, designBoardColumns),
+    acceptingStatusList(),
+  ];
+}
+
 function handlers() {
   return [
+    ...sprintHandlers(),
     acceptingMyself(),
     acceptingProjectSearch([]),
     acceptingPrioritySearch(),

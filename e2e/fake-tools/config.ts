@@ -23,4 +23,6 @@ export interface FakeTools {
   issues: FakeIssue[];
   reviews: FakePull[];
   mine: FakePull[];
+  /** Put your issues in Sprint 42, so Tickets has a board (spec 011's e2e). Off by default. */
+  sprint?: boolean;
 }
