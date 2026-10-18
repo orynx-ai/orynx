@@ -91,7 +91,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 17c: Compact Project and Sprint lists: `size="sm"` on Menu and Combobox (AC-40)
       Check: pnpm test packages/ui packages/app/src/features/tickets; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/menu.tsx, combobox.tsx and their stories and tests, docs/design-map.md, packages/app/src/features/tickets/components/sprint-pickers.tsx
-- [ ] Task 18: `FilterMenu` in `@devhub/ui` (Home's filter picker, moved there), and Home uses it (AC-30)
+- [x] Task 18: `FilterMenu` in `@devhub/ui` (Home's filter picker, moved there), and Home uses it (AC-30)
       Check: pnpm test packages/ui/src/components/filter-menu.test.tsx packages/app/src/features/home
       Files: packages/ui/src/components/filter-menu.tsx (+ story, test), packages/ui/src/index.ts, docs/design-map.md, packages/app/src/features/home/components/inbox-toolbar.tsx
 - [ ] Task 19: Tickets' five filters: the model, the address (spec 008's addresses still work), the toolbar, Clear filters (AC-30 to AC-33)

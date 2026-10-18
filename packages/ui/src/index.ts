@@ -65,6 +65,7 @@ export {
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { ExternalLink, type ExternalLinkProps } from './components/external-link.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
+export { FilterMenu, type FilterMenuOption, type FilterMenuProps } from './components/filter-menu.tsx';
 export { Icon, type IconProps, type IconSvgElement } from './components/icon.tsx';
 export { IconButton, type IconButtonProps } from './components/icon-button.tsx';
 export { Input } from './components/input.tsx';
