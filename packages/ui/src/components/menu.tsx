@@ -209,9 +209,10 @@ export function MenuRadioItem({
 export type MenuCheckboxItemProps = ComponentProps<typeof MenuPrimitive.CheckboxItem> & ItemContentProps;
 
 /**
- * One option that is ticked or not, such as a filter's value (spec 007 Q10c). Ticked ones are
- * announced as checked and show the same `info` check as a radio item. Ticking keeps the menu open,
- * so several can be ticked in a row; Esc, Tab or a click outside closes it.
+ * One option that is ticked or not, such as a filter's value (spec 007 Q10c, Q11c). Every option
+ * leads with a 16 px box, so a menu of them reads as tick-several; a ticked one is announced as
+ * checked and its box takes an `info` border and tick. Ticking keeps the menu open, so several can be
+ * ticked in a row; Esc, Tab or a click outside closes it.
  */
 export function MenuCheckboxItem({
   icon,
@@ -227,19 +228,24 @@ export function MenuCheckboxItem({
     <MenuPrimitive.CheckboxItem
       data-slot="menu-checkbox-item"
       textValue={nameOf(children, textValue)}
-      className={cn(menuItemClass, className)}
+      className={cn(menuItemClass, 'group', className)}
       onSelect={(event) => {
         onSelect?.(event);
         event.preventDefault();
       }}
       {...props}
     >
+      <span
+        aria-hidden
+        className="flex size-4 shrink-0 items-center justify-center rounded-xs border border-control group-data-[state=checked]:border-info"
+      >
+        <MenuPrimitive.ItemIndicator className="inline-flex">
+          <Check className="size-3.5 text-info" />
+        </MenuPrimitive.ItemIndicator>
+      </span>
       <ItemBody icon={icon} description={description} path={path}>
         {children}
       </ItemBody>
-      <MenuPrimitive.ItemIndicator className="ms-auto inline-flex">
-        <Check aria-hidden className="text-info" />
-      </MenuPrimitive.ItemIndicator>
     </MenuPrimitive.CheckboxItem>
   );
 }

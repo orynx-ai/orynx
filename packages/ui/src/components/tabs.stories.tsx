@@ -43,3 +43,25 @@ export const WithoutCounts: Story = {
     </Tabs>
   ),
 };
+
+/** Counts on their way: blank bubbles keep their room, so the tabs don't move when the numbers come. */
+export const CountsLoading: Story = {
+  render: () => (
+    <Tabs defaultValue="all">
+      <TabsList aria-label="Filter by source">
+        <TabsTrigger value="all" count={null}>
+          All
+        </TabsTrigger>
+        <TabsTrigger value="jira" count={null}>
+          Jira
+        </TabsTrigger>
+        <TabsTrigger value="prs" count={null}>
+          Pull requests
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="all">Loading.</TabsContent>
+      <TabsContent value="jira">Loading.</TabsContent>
+      <TabsContent value="prs">Loading.</TabsContent>
+    </Tabs>
+  ),
+};

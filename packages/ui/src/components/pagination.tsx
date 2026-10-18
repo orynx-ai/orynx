@@ -69,10 +69,10 @@ export type PaginationProps = Omit<ComponentProps<'nav'>, 'children'> & {
 
 /**
  * Pages of a long list (spec 007 Q10f; from shadcn's `pagination`, which the design system doesn't
- * draw). Previous, the page numbers and Next, centred; the current page in `bg-subtle` with
- * `aria-current="page"`, the sidebar's mark for the current place. The pages are links, so the page
- * can live in the address. Under 480 px of its own width, Previous and Next keep only their arrows
- * and fewer numbers show. Nothing shows for a single page.
+ * draw). Previous, the page numbers and Next, centred; the current page carries the tabs' selection
+ * mark (Q11a) and `aria-current="page"`. The pages are links, so the page can live in the address.
+ * Under 480 px of its own width, Previous and Next keep only their arrows and fewer numbers show.
+ * Nothing shows for a single page.
  */
 export function Pagination({ page, pageCount, pageLink, className, ...props }: PaginationProps) {
   if (pageCount <= 1) return null;
@@ -83,7 +83,8 @@ export function Pagination({ page, pageCount, pageLink, className, ...props }: P
       className={cn('@container flex w-full justify-center', className)}
       {...props}
     >
-      <ul className="m-0 flex list-none items-center gap-1 p-0">
+      {/* Under 480 px nine 32 px stops only fit side by side. */}
+      <ul className="m-0 flex list-none items-center gap-1 p-0 @max-[30rem]:gap-0">
         <li className="flex">
           <Step page={page > 1 ? page - 1 : null} pageLink={pageLink} label="Previous page">
             <ChevronLeft aria-hidden />
@@ -106,8 +107,10 @@ export function Pagination({ page, pageCount, pageLink, className, ...props }: P
                 aria-current={item.page === page ? 'page' : undefined}
                 className={cn(
                   buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-                  'text-small',
-                  item.page === page && 'bg-subtle',
+                  'relative text-small text-muted-foreground hover:text-foreground',
+                  // The tabs' selection mark: the number in full colour over an info underline (spec 007 Q11a).
+                  item.page === page &&
+                    'text-foreground after:absolute after:inset-x-1.5 after:bottom-0 after:h-0.5 after:rounded-full after:bg-info',
                 )}
               >
                 {pageLink(item.page, String(item.page))}
