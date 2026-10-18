@@ -19,7 +19,12 @@ import {
   type SearchIndex,
   type ServerEvent,
   type ApprovalDecision,
+  type CreatePullRequestAnswer,
+  type CreatePullRequestRequest,
   type FileDiff,
+  type PullRequestDraftAnswer,
+  type PushAnswer,
+  type PushDraftAnswer,
   type SendMessageAnswer,
   type Session,
   type SessionChanges,
@@ -51,6 +56,10 @@ import {
   getSessionChanges,
   getSessions,
   postApproval,
+  postPullRequest,
+  postPullRequestDraft,
+  postPush,
+  postPushDraft,
   postSession,
   postSessionDiscard,
   postSessionMessage,
@@ -94,6 +103,14 @@ export interface ApiClient {
   sessionChanges(id: string): Promise<SessionChanges>;
   /** One changed file's diff; rejects with not_found for a path that isn't among the changes. */
   sessionDiff(id: string, path: string): Promise<FileDiff>;
+  /** Claude's draft of the pull request, or why there can't be one (spec 014). Each call asks Claude. */
+  draftPullRequest(id: string): Promise<PullRequestDraftAnswer>;
+  /** Commits, pushes and opens the pull request as you left it: opened, cannot, or failed with why (spec 014). */
+  createPullRequest(id: string, request: CreatePullRequestRequest): Promise<CreatePullRequestAnswer>;
+  /** Claude's commit message for what's new since the last push, nothing new, or why not (spec 014, Q7). */
+  draftPush(id: string): Promise<PushDraftAnswer>;
+  /** Commits what's new and pushes it to the pull request with your message (spec 014, Q7). */
+  pushChanges(id: string, message: string): Promise<PushAnswer>;
   /** The saved Jira site and email, and whether `.env` holds a Jira token. */
   jiraConnection(): Promise<JiraConnection>;
   /** Checks with Jira, then saves; rejects with integration_rejected, integration_unreachable or keychain_unavailable. */
@@ -175,6 +192,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       getSessionChanges(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sessionDiff: (id, path) =>
       getFileDiff(http, id, path).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    draftPullRequest: (id) =>
+      postPullRequestDraft(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    createPullRequest: (id, request) =>
+      postPullRequest(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    draftPush: (id) => postPushDraft(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    pushChanges: (id, message) =>
+      postPush(http, id, message).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     jiraConnection: () => getJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     connectJira: (request) =>
       putJiraConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
