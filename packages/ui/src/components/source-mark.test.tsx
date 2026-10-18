@@ -73,12 +73,22 @@ describe('SourceMark', () => {
     expect(container.firstElementChild).toHaveClass('text-github');
   });
 
+  it("AC-24 (spec 015, Q15b): draws Orynx's own mark, in the text colour, for a session with no ticket", () => {
+    const { container } = render(<SourceMark source="orynx" label="hidden" />);
+
+    expect(screen.getByText('Orynx')).toHaveClass('sr-only');
+    expect(logo(container)).toHaveAttribute('fill', 'currentColor');
+    expect(logo(container)).toHaveClass('size-4');
+    expect(logo(container).parentElement).toHaveClass('text-foreground', 'size-5');
+  });
+
   it('has no accessibility violations at either size, with or without the name', async () => {
     const { container } = render(
       <>
         <SourceMark source="jira" />
         <SourceMark source="github" size="lg" label="hidden" />
         <SourceMark source="slack" size="lg" label="none" />
+        <SourceMark source="orynx" label="hidden" />
       </>,
     );
 

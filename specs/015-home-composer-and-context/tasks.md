@@ -38,9 +38,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: Let the api-client send the composer's start: `postSession()` takes the union and parses `context_failed` (AC-4, AC-21)
       Check: pnpm test packages/api-client/src/sessions.test.ts
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/sessions.test.ts
-- [ ] Task 13: Give a session with no ticket Orynx's mark: SourceMark's `orynx` source with `BrandMark` at the same size, taken by AttentionRow and SessionItem. A story and a test for each (AC-24, Q15b)
-      Check: pnpm test packages/ui/src/components/source-mark.test.tsx packages/ui/src/components/attention-row.test.tsx packages/ui/src/components/session-item.test.tsx; pnpm gate component-coverage
-      Files: packages/ui/src/components/source-mark.tsx, packages/ui/src/components/source-mark.stories.tsx, packages/ui/src/components/source-mark.test.tsx, packages/ui/src/components/attention-row.tsx, packages/ui/src/components/session-item.tsx
+- [x] Task 13: Give a session with no ticket Orynx's mark: SourceMark's `orynx` source with `BrandMark` in the logo's square, in the text colour, which AttentionRow takes. The sidebar's SessionItem draws no marks, so it needs none. A story and tests (AC-24, Q15b)
+      Check: pnpm test packages/ui/src/components/source-mark.test.tsx packages/ui/src/components/attention-row.test.tsx; pnpm gate component-coverage
+      Files: packages/ui/src/components/source-mark.tsx, packages/ui/src/components/source-mark.stories.tsx, packages/ui/src/components/source-mark.test.tsx, packages/ui/src/components/attention-row.test.tsx
 - [ ] Task 14: Add `ContextPicker` to `@devhub/ui`, the kinds view: the + button ("Add context") and a Radix Popover whose first view is a `role="menu"` list with arrow keys, rows that lead on, the label and the foot. Esc closes it and returns focus to +. At most the window's width less 32 px. Stories and a test (AC-6, AC-30, Q15c)
       Check: pnpm test packages/ui/src/components/context-picker.test.tsx; pnpm gate component-coverage; pnpm gate style-policy
       Files: packages/ui/src/components/context-picker.tsx, packages/ui/src/components/context-picker.stories.tsx, packages/ui/src/components/context-picker.test.tsx, packages/ui/src/index.ts, docs/design-map.md

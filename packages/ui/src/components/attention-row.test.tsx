@@ -92,6 +92,23 @@ describe('AttentionRow', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('AC-24 (spec 015): a Claude session with no ticket leads with Orynx’s mark, named for screen readers', async () => {
+    const { container } = render(
+      <AttentionList aria-label="Needs your attention">
+        <AttentionRow
+          source="orynx"
+          title={
+            <AttentionTitle href="/sessions/0123456789abcdef">Add a CSV export to the reports page</AttentionTitle>
+          }
+          sub="web-app"
+          reason="Approve command · 5 min"
+        />
+      </AttentionList>,
+    );
+    expect(screen.getByText('Orynx')).toHaveClass('sr-only');
+    await expectNoAxeViolations(container);
+  });
+
   it('a title that opens outside Orynx shows the arrow and keeps its name', async () => {
     const { container } = render(
       <AttentionList aria-label="Needs your attention">
