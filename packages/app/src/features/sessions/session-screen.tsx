@@ -38,7 +38,8 @@ function OpenInJira({ url }: { url: string }) {
           platform.openExternal(url);
         }}
       >
-        Open in Jira
+        {/* Under 768 px only the arrow shows, so the breadcrumb keeps room for the ticket's key. */}
+        <span className="max-md:sr-only">Open in Jira</span>
         <Icon icon={ArrowUpRight01Icon} aria-hidden />
       </a>
     </Button>
