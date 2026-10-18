@@ -134,6 +134,8 @@ describe('Push changes (spec 014, Q11f)', () => {
       `Orynx pushes feat/PROJ-1423, which updates pull request ${pr}.`,
     );
     expect(pullRequestWords.nothingNew).toBe('Nothing new to push: GitHub already has everything in the worktree.');
+    expect(pullRequestWords.draftingMessage).toBe('Claude is drafting the commit message…');
+    expect(pullRequestWords.pushFailed).toBe("Couldn't push the changes. Try again.");
   });
 
   it('AC-17: says why it can’t push', () => {

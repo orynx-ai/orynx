@@ -6,6 +6,7 @@ import { Button, Icon, Pill, Skeleton, sessionStateLabels, type PillTone } from 
 import { useApi } from '../../../api.tsx';
 import { needsApprovalLabel } from '../approval-words.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
+import { PushChanges } from './push-changes.tsx';
 
 /** The state pill's colour, as the sidebar colours each state (Q10b). */
 const stateTones: Record<SessionState, PillTone> = {
@@ -23,6 +24,12 @@ const stateTones: Record<SessionState, PillTone> = {
 function canCreatePullRequest(session: Session): boolean {
   const working = session.state === 'working' || session.state === 'needs_you';
   return !working && session.pullRequest === null && session.discardedAt === null && session.worktreePath !== null;
+}
+
+/** Push changes shows once a pull request is open, whenever Claude isn't working and the worktree is there (Q7). */
+function canPush(session: Session): boolean {
+  const working = session.state === 'working' || session.state === 'needs_you';
+  return !working && session.discardedAt === null && session.worktreePath !== null;
 }
 
 /**
@@ -64,6 +71,9 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
             title.current?.focus();
           }}
         />
+      ) : null}
+      {session.pullRequest !== null && canPush(session) ? (
+        <PushChanges session={session} repository={session.pullRequest.repository} />
       ) : null}
       {working ? (
         <Button

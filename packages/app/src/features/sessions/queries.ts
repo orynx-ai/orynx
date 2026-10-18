@@ -99,3 +99,15 @@ export function useCreatePullRequest(sessionId: string) {
     mutationFn: (request: { title: string; body: string }) => api.createPullRequest(sessionId, request),
   });
 }
+
+/** Claude's commit message for what's new since the last push (spec 014, Q7): asked on opening, never cached. */
+export function useDraftPush(sessionId: string) {
+  const api = useApi();
+  return useMutation({ mutationFn: () => api.draftPush(sessionId) });
+}
+
+/** Push changes (spec 014, Q7), on your press; the server's events refresh the session. */
+export function usePushChanges(sessionId: string) {
+  const api = useApi();
+  return useMutation({ mutationFn: (message: string) => api.pushChanges(sessionId, message) });
+}

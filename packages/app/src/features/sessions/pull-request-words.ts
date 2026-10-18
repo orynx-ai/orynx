@@ -31,6 +31,9 @@ export const pullRequestWords = {
   tryAgain: 'Try again',
   createFailed: "Couldn't create the pull request. Try again.",
   nothingNew: 'Nothing new to push: GitHub already has everything in the worktree.',
+  // Not in Q11: Push changes while Claude drafts its message, and when the press didn't reach the server.
+  draftingMessage: 'Claude is drafting the commit message…',
+  pushFailed: "Couldn't push the changes. Try again.",
 } as const;
 
 /** "Open PR #2841" (Q11a). */
