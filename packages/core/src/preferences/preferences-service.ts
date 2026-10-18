@@ -61,6 +61,12 @@ function applied(current: Settings, change: PreferencesChange): Settings {
   if (change.inboxRules !== undefined) {
     next.inbox = { ...current.inbox, rules: { ...writtenRules(current), ...change.inboxRules } };
   }
+  if (change.allowCommand !== undefined || change.disallowCommand !== undefined) {
+    // One entry at a time (spec 012): taken off wherever it is, added once at the end.
+    const list = writtenCommands(current).filter((entry) => entry !== change.disallowCommand);
+    if (change.allowCommand !== undefined && !list.includes(change.allowCommand)) list.push(change.allowCommand);
+    next.agent = { ...next.agent, allowedCommands: list };
+  }
   return next;
 }
 
