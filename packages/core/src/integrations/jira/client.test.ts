@@ -358,9 +358,29 @@ describe('Jira client: your sprints (spec 008)', () => {
       ],
     });
     expect(bodies).toEqual([
-      { jql: 'assignee = currentUser() AND sprint in openSprints()', fields: [sprintFieldId], maxResults: 100 },
+      {
+        jql: 'assignee = currentUser() AND sprint in openSprints() AND sprint not in futureSprints()',
+        fields: [sprintFieldId],
+        maxResults: 100,
+      },
     ]);
     jira.events.removeAllListeners();
+  });
+
+  it('asks who you are and for the field list side by side, so a slow Jira costs one wait, not two', async () => {
+    const started: string[] = [];
+    const answer = (url: string) => async () => {
+      started.push(url);
+      // Neither answers until both have been asked.
+      while (started.length < 2) await delay(5);
+      return url === myselfUrl()
+        ? HttpResponse.json({ accountId: myAccountId, displayName: 'Dev Example', active: true })
+        : HttpResponse.json([]);
+    };
+    jira.use(http.get(myselfUrl(), answer(myselfUrl())), http.get(fieldListUrl(), answer(fieldListUrl())));
+
+    expect(await client.mySprints(credentials)).toEqual({ ok: true, accountId: myAccountId, issues: [] });
+    expect([...started].sort()).toEqual([fieldListUrl(), myselfUrl()].sort());
   });
 
   it('AC-22: a site without Jira Software has no sprint field, so it asks for no issues', async () => {

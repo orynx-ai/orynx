@@ -205,7 +205,9 @@ const assignedJql = 'assignee = currentUser() AND statusCategory != Done ORDER B
 const assignedFields = ['summary', 'status', 'issuetype', 'priority', 'duedate', 'created', 'statuscategorychangedate'];
 const mostAssigned = 100;
 
-const mySprintsJql = 'assignee = currentUser() AND sprint in openSprints()';
+// Active sprints only: an issue sits in one open sprint at a time, so this leaves out the future ones,
+// which would otherwise use up the 100 issues read.
+const mySprintsJql = 'assignee = currentUser() AND sprint in openSprints() AND sprint not in futureSprints()';
 const mostMySprintIssues = 100;
 
 const sprintFields = ['summary', 'status', 'issuetype', 'priority', 'duedate', 'assignee'];
@@ -311,13 +313,11 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
       const answer = await withJira(request, async (client) => {
         // The three requests share one wait, like the project list.
         const signal = AbortSignal.timeout(timeoutMs);
-        const me = await client.sendRequest({ url: '/rest/api/3/myself', method: 'GET', schema: MyselfSchema, signal });
-        const fields = await client.sendRequest({
-          url: '/rest/api/3/field',
-          method: 'GET',
-          schema: FieldListSchema,
-          signal,
-        });
+        // Side by side, so a slow Jira costs one wait, not two.
+        const [me, fields] = await Promise.all([
+          client.sendRequest({ url: '/rest/api/3/myself', method: 'GET', schema: MyselfSchema, signal }),
+          client.sendRequest({ url: '/rest/api/3/field', method: 'GET', schema: FieldListSchema, signal }),
+        ]);
         const sprintField = fields.find((field) => field.schema?.custom === sprintFieldType)?.id;
         if (sprintField === undefined) return { accountId: me.accountId, issues: [] };
         const page = await client.sendRequest({

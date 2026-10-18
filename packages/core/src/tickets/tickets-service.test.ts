@@ -27,6 +27,7 @@ import {
   fieldListUrl,
   goodToken,
   jiraEmail,
+  jiraIssue,
   jiraSite,
   myselfUrl,
   statusListUrl,
@@ -283,6 +284,10 @@ describe('tickets service', () => {
     outside.use(acceptingBoardConfiguration(7, [...designBoardColumns, { name: 'QA', statusIds: ['10009'] }]));
     await tickets.sync();
     expect(asked().filter((url) => url === statusListUrl())).toHaveLength(2);
+
+    // 10009 isn't in the status list either: it was asked about, so the list isn't read again for it.
+    await tickets.sync();
+    expect(asked().filter((url) => url === statusListUrl())).toHaveLength(2);
   });
 
   it('AC-23: a status list that fails fails the sync, so no ticket lands in the wrong column', async () => {
@@ -328,14 +333,72 @@ describe('tickets service', () => {
     expect(cache.tool('jira_sprint')).toBeNull();
   });
 
-  it('forgets the sprint', async () => {
+  it('forgets the sprint, and the status list with it', async () => {
     acceptingSprint();
+    const asked = requests();
     const { tickets, cache } = setup({ settings: jiraConnected });
     await tickets.sync();
 
     tickets.forget();
 
     expect(cache.tool('jira_sprint')).toBeNull();
+    await tickets.sync();
+    expect(asked().filter((url) => url === statusListUrl())).toHaveLength(2);
+  });
+
+  it('builds each ticket’s link from the saved site, never from the cache', async () => {
+    acceptingSprint();
+    const { tickets, cache } = setup({ settings: jiraConnected });
+    await tickets.sync();
+    // A cache someone else wrote, pointing a title at a lookalike site.
+    const stored = cache.tool('jira_sprint');
+    const record = stored?.records[0] as { tickets: Record<string, unknown>[] };
+    cache.synced('jira_sprint', {
+      connection: stored?.connection ?? '',
+      at: '2026-10-17T10:00:00.000Z',
+      records: [
+        {
+          id: 'sprint',
+          data: {
+            ...record,
+            tickets: record.tickets.map((ticket) => ({ ...ticket, url: 'https://evil-team.atlassian.net/x' })),
+          },
+        },
+      ],
+    });
+
+    const read = await tickets.read();
+
+    expect(read.tickets.map((ticket) => ticket.url)).toEqual([
+      'https://your-team.atlassian.net/browse/PROJ-1377',
+      'https://your-team.atlassian.net/browse/PROJ-1423',
+      'https://your-team.atlassian.net/browse/PROJ-1350',
+    ]);
+  });
+
+  it('a sprint that would break the contract fails the sync and keeps the last good one', async () => {
+    acceptingSprint();
+    const { tickets, errors } = setup({ settings: jiraConnected });
+    await tickets.sync();
+    // A priority with no name: Jira sends it, but a ticket can't have one.
+    outside.use(
+      http.post('https://your-team.atlassian.net/rest/api/3/search/jql', async ({ request }) => {
+        const body = (await request.clone().json()) as { jql?: string };
+        if (body.jql?.startsWith('sprint = 42 ') !== true) return undefined;
+        const issue = jiraIssue({ key: 'PROJ-1', priority: null });
+        return HttpResponse.json({
+          issues: [{ ...issue, fields: { ...issue.fields, priority: { id: '2', name: '' } } }],
+          isLast: true,
+        });
+      }),
+    );
+
+    expect(await tickets.sync()).toBe('failed');
+
+    const read = await tickets.read();
+    expect(read.jira).toMatchObject({ state: 'failed', problem: { kind: 'other' } });
+    expect(read.tickets).toHaveLength(3);
+    expect(errors).toHaveLength(1);
   });
 
   it('says so in its line when the sync breaks in DevHub itself, such as a cache it can’t write', async () => {

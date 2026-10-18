@@ -3,8 +3,6 @@ import { jiraIssue, jiraSprint, myAccountId, type FakeIssue, type FakeSprint } f
 import type { JiraBoardColumn, JiraSprintIssue, JiraSprintRef } from './client.ts';
 import { boardLayout, columnOf, pickSprint, priorityLevel, sprintRecord, SprintRecordSchema } from './sprint-map.ts';
 
-const site = 'your-team.atlassian.net';
-
 function ref(sprint: FakeSprint): JiraSprintRef {
   const made = jiraSprint(sprint);
   return {
@@ -161,7 +159,6 @@ describe('sprintRecord', () => {
 
   function record(issues: FakeIssue[], options: { truncated?: boolean } = {}) {
     return sprintRecord({
-      site,
       accountId: myAccountId,
       sprint,
       issues: issues.map(issue),
@@ -171,7 +168,7 @@ describe('sprintRecord', () => {
     });
   }
 
-  it('AC-1: the sprint and its tickets in rank order, each with what a card shows', () => {
+  it('AC-1: the sprint and its tickets in rank order, each with what a card shows, and no link: Tickets builds it from the saved site', () => {
     const kept = record([
       {
         key: 'PROJ-1377',
@@ -198,7 +195,6 @@ describe('sprintRecord', () => {
         {
           key: 'PROJ-1377',
           title: 'Search returns archived sites for guest users',
-          url: 'https://your-team.atlassian.net/browse/PROJ-1377',
           status: 'In Progress',
           column: 'to_do',
           type: 'Bug',
@@ -210,7 +206,6 @@ describe('sprintRecord', () => {
         {
           key: 'PROJ-1350',
           title: 'Migrate feed cards',
-          url: 'https://your-team.atlassian.net/browse/PROJ-1350',
           status: 'Code Review',
           column: 'in_review',
           type: 'Task',
@@ -232,7 +227,7 @@ describe('sprintRecord', () => {
     expect(kept.tickets.map((ticket) => ticket.assignee)).toEqual([{ name: 'Priya Shah', mine: false }, null]);
   });
 
-  it('AC-9: a type named bug in any case is a bug', () => {
+  it('AC-8: a type named bug in any case is a bug, for Bugs only', () => {
     expect(record([{ key: 'PROJ-1', type: 'BUG' }]).tickets[0]?.bug).toBe(true);
   });
 
@@ -262,7 +257,6 @@ describe('sprintRecord', () => {
     } as JiraSprintIssue;
 
     const kept = sprintRecord({
-      site,
       accountId: myAccountId,
       sprint,
       issues: [withText],

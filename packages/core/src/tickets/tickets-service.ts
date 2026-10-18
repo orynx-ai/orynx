@@ -77,7 +77,7 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
    * columns name statuses by id only, and categories rarely change, so the list is asked for again only
    * when the board shows a status this doesn't know.
    */
-  let known: { connection: string; categories: ReadonlyMap<string, string> } | undefined;
+  let known: { connection: string; categories: ReadonlyMap<string, string>; asked: ReadonlySet<string> } | undefined;
 
   async function stillConnected(account: string): Promise<boolean> {
     const saved = await settings.read();
@@ -107,11 +107,14 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     columns: Parameters<typeof boardLayout>[0],
   ): Promise<BoardLayout | InboxProblem> {
     const ids = columns.flatMap((column) => column.statusIds);
-    const reuse = known?.connection === credentials.connection ? known.categories : undefined;
-    if (reuse !== undefined && ids.every((id) => reuse.has(id))) return boardLayout(columns, reuse);
+    const reuse = known?.connection === credentials.connection ? known : undefined;
+    // A status the list didn't have when it was last read isn't a reason to read it again every sync.
+    if (reuse !== undefined && ids.every((id) => reuse.categories.has(id) || reuse.asked.has(id))) {
+      return boardLayout(columns, reuse.categories);
+    }
     const answer = await jira.statusCategories(credentials.request);
     if (!answer.ok) return jiraInboxProblem(answer.problem, credentials.site);
-    known = { connection: credentials.connection, categories: answer.categories };
+    known = { connection: credentials.connection, categories: answer.categories, asked: new Set(ids) };
     return boardLayout(columns, answer.categories);
   }
 
@@ -135,17 +138,20 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     if (!issues.ok) return fail(account, jiraInboxProblem(issues.problem, site));
     const layout = board.columns === null ? null : await layoutOf(credentials, board.columns);
     if (layout !== null && 'kind' in layout) return fail(account, layout);
+    // Checked before it's written: a sprint that would break the contract fails the sync, loudly, and keeps the
+    // last good one, rather than vanishing at the next read.
     return keep(
       account,
-      sprintRecord({
-        site,
-        accountId: mine.accountId,
-        sprint,
-        issues: issues.issues,
-        layout,
-        priorityOrder: issues.priorityOrder,
-        truncated: issues.truncated,
-      }),
+      SprintRecordSchema.parse(
+        sprintRecord({
+          accountId: mine.accountId,
+          sprint,
+          issues: issues.issues,
+          layout,
+          priorityOrder: issues.priorityOrder,
+          truncated: issues.truncated,
+        }),
+      ),
     );
   }
 
@@ -153,6 +159,7 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     async read() {
       const [saved, sessions] = await Promise.all([settings.read(), options.sessions.list()]);
       if (saved.jira === undefined) return { jira: { state: 'not_connected' }, ...nothing };
+      const { site } = saved.jira;
       const stored = cache.tool(part);
       // Rows from another account never show: they go at its next sync.
       const cached: CachedTool | null = stored?.connection === jiraAccount(saved.jira) ? stored : null;
@@ -163,7 +170,11 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
       return {
         jira: jiraState,
         sprint: record.data.sprint,
-        tickets: record.data.tickets.map((ticket) => ({ ...ticket, session: joined.get(ticket.key) ?? null })),
+        tickets: record.data.tickets.map((ticket) => ({
+          ...ticket,
+          url: `https://${site}/browse/${ticket.key}`,
+          session: joined.get(ticket.key) ?? null,
+        })),
         truncated: record.data.truncated,
       };
     },
@@ -182,6 +193,7 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
 
     forget() {
       cache.forget(part);
+      known = undefined;
     },
   };
 }

@@ -12,9 +12,10 @@ import { isoTime } from './map.ts';
 
 /**
  * Tickets' sprint (spec 008) as the cache keeps it: titles and metadata only, never a description or a
- * comment. Each ticket's session is joined when Tickets reads, so it isn't kept here.
+ * comment. Each ticket's session and link are added when Tickets reads: the link from the saved site, so a
+ * cache someone else wrote can't point a title anywhere else.
  */
-export const TicketRecordSchema = TicketSchema.omit({ session: true });
+export const TicketRecordSchema = TicketSchema.omit({ session: true, url: true });
 export type TicketRecord = z.infer<typeof TicketRecordSchema>;
 
 export const SprintRecordSchema = z.object({
@@ -107,7 +108,6 @@ function projectOf(keys: readonly string[]): string | null {
 }
 
 export interface SprintRecordInput {
-  site: string;
   /** Who the saved credentials belong to, for "Assigned to you". */
   accountId: string;
   sprint: JiraSprintRef;
@@ -138,7 +138,6 @@ export function sprintRecord(input: SprintRecordInput): SprintRecord {
       {
         key,
         title: summary === '' ? key : summary,
-        url: `https://${input.site}/browse/${key}`,
         status: fields.status.name,
         column: columnOf({ id: fields.status.id, category: fields.status.statusCategory.key }, input.layout),
         type,
