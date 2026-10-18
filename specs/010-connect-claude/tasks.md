@@ -44,9 +44,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: e2e: the footer and the card signed out, sign in with the fake, then Check again turns this tab and a second tab to Active and connected with no reload. Keyboard path, and axe at 360 and 1280 px in light and dark (AC-1, AC-4, AC-5, AC-13, AC-14)
       Check: pnpm test:e2e e2e/coding-agent.spec.ts
       Files: e2e/coding-agent.spec.ts
-- [ ] Task 15: Docs: move agent-runtime rule 6 to 011 (Q1), add a `learn/` page on how DevHub checks Claude, and bring the pages whose sources changed up to date
+- [x] Task 15: Docs: move agent-runtime rule 6 to 011 (Q1), add a `learn/` page on how DevHub checks Claude, and bring the pages whose sources changed up to date
       Check: pnpm gate learn-freshness handbook-size
-      Files: .claude/skills/agent-runtime/SKILL.md, learn/checking-claude.md, learn/tokens-and-keychain.md, learn/live-updates.md, learn/local-security.md
+      Files: .claude/skills/agent-runtime/SKILL.md, learn/checking-claude.md, learn/tokens-and-keychain.md, learn/live-updates.md, learn/local-security.md, learn/connecting-github.md, learn/connecting-jira.md, learn/how-a-request-flows.md, learn/settings-and-folders.md, learn/the-inbox.md
 - [ ] Task 16: Open the Coding agent tab in a real browser (`pnpm dev`, own `DEVHUB_HOME`) at 360 and 1280 px, light and dark, in each state through `page.route`. Measure CLS while it loads, and tick each check in this file. Then ask the user to check their real login and the signed-out card (Q7)
       Check: screenshots in the scratchpad, CLS 0 for the Active answer, the user's word for Q7
       Files: specs/010-connect-claude/tasks.md

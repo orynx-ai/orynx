@@ -29,7 +29,7 @@ form (react-hook-form + the contract's schema)
 
 ## Finding gh
 
-- `apps/server/src/config.ts` hands core the shell's `PATH` as gh's search path, never a `PATH` written in `.env`, so a file can't decide which program DevHub starts.
+- `apps/server/src/config.ts` hands core the shell's `PATH` as gh's search path, never a `PATH` written in `.env`, so a file can't decide which program DevHub starts. `DEVHUB_CLAUDE_CODE` follows the same rule (`learn/checking-claude.md`).
 - `gh.ts` looks through that path for an executable `gh` (`gh.exe` on Windows) without running it, skipping relative folders such as `.`, as gh's own lookup does. That is how the form knows to pick gh, and how `GET /api/github/connection` says `ghFound`.
 - gh runs only on Connect with the gh way, or when the status check needs a token for a saved gh connection. It gets 5 seconds, then SIGKILL. Its output must be one token on one line; anything else is "failed". stderr is read only to tell "no oauth token found" (signed out) from other failures, and only the exit code is kept.
 - gh must be the real program, or a wrapper that ends with `exec gh …`: the time limit stops the program DevHub started, so a wrapper that starts gh as a child of its own would leave that child running.
@@ -58,7 +58,7 @@ octokit reports a failed fetch as status 500 with no `response`, so `client.ts` 
 
 - No way saved: **Not connected**. gh never runs and the keychain is never read.
 - Saved: DevHub gets the token the saved way, asks GitHub, and names the account: "Signed in as octocat with the gh command-line tool", "Personal access token for octocat", or "Token from .env for octocat". Otherwise the row says **Error** with the reason, such as "The saved token is missing from your keychain. Connect again."
-- GitHub is asked at most once every 2 minutes through `integrations/checked-status.ts`, the same code as Jira's: one check shared by everyone asking, the last answer while a re-check runs, and `status.changed` when the line changes. Jira and GitHub run side by side, so the first `/api/status` waits for the slower one.
+- GitHub is asked at most once every 2 minutes through `integrations/checked-status.ts`, the same code as Jira's and Claude's login check (spec 010): one check shared by everyone asking, the last answer while a re-check runs, and `status.changed` when the line changes. Jira and GitHub run side by side, so the first `/api/status` waits for the slower one.
 
 ## Your pull requests, for Home (spec 007)
 
@@ -77,4 +77,4 @@ The inbox's sync asks `connection.credentials()` for a token: gh's for the gh wa
 - `packages/core/src/test/fake-github.ts` starts MSW as `api.github.com` for one test file, accepting two fake tokens for `octocat`.
 - `packages/core/src/test/fake-gh.ts` gives each test a folder with a `gh` that DevHub finds and runs like the real one. Each `gh` is a symlink to one shared script, `fake-gh/gh`, which reads what to do from `behaviour.sh` in the folder and logs its arguments. macOS checks every new program the first time it runs, one at a time, about 0.2 s each: with a fresh script per test, a parallel run made gh wait past its timeout.
 - `createServer()` without a `gh` gets one with an empty search path, so no core test can start your real gh.
-- The e2e run puts `e2e/fake-gh/` first on the server's `PATH` (`playwright.config.ts`), for both of its hubs. That gh is always signed out, so the e2e run never reads your gh login, and a press of Connect GitHub never reaches github.com. The second hub, which Home's spec uses, connects GitHub the token way instead, against GitHub faked inside its process (`e2e/fake-tools/preload.ts`). The config refuses to start the run if the fake can't run (Windows, or no executable bit) or a `node_modules/.bin/gh` would come before it, rather than fall back to your real gh.
+- The e2e run puts `e2e/fake-gh/` first on the server's `PATH` (`playwright.config.ts`), for both of its hubs, and names a fake Claude Code the same way with `DEVHUB_CLAUDE_CODE`. That gh is always signed out, so the e2e run never reads your gh login, and a press of Connect GitHub never reaches github.com. The second hub, which Home's spec uses, connects GitHub the token way instead, against GitHub faked inside its process (`e2e/fake-tools/preload.ts`). The config refuses to start the run if the fake can't run (Windows, or no executable bit) or a `node_modules/.bin/gh` would come before it, rather than fall back to your real gh.

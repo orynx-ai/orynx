@@ -2,7 +2,7 @@
 
 # Settings: how a change saves, and how a folder is checked
 
-Spec 005 added three Settings tabs: Coding agent (what Claude may do without asking), Repositories (the folders Claude may work in, each with a Jira project) and Inbox rules (what counts as "needs you" on Home). None of them has a Save button. A change saves the moment you make it.
+Spec 005 added three Settings tabs: Coding agent (what Claude may do without asking; spec 010 put the Claude and "More agents" cards above the modes, `learn/checking-claude.md`), Repositories (the folders Claude may work in, each with a Jira project) and Inbox rules (what counts as "needs you" on Home). None of them has a Save button. A change saves the moment you make it.
 
 ## Where it lives
 
