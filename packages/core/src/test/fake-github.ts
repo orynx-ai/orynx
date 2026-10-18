@@ -156,3 +156,97 @@ export function acceptingInboxQuery({
     });
   });
 }
+
+/** A pull request GitHub holds, as the fake opens and lists them (spec 014). */
+export interface FakeOpenedPull {
+  owner: string;
+  repository: string;
+  number: number;
+  head: string;
+  base: string;
+  title: string;
+  body: string;
+}
+
+export const pullsUrl = 'https://api.github.com/repos/:owner/:repo/pulls';
+export const repositoryUrl = 'https://api.github.com/repos/:owner/:repo';
+
+function refused(request: Request, tokens: readonly string[]) {
+  const sent = request.headers.get('authorization');
+  return tokens.some((token) => sent === `token ${token}`)
+    ? null
+    : HttpResponse.json({ message: 'Bad credentials', status: '401' }, { status: 401 });
+}
+
+/**
+ * GitHub's pull requests on any repository, as its REST API answers them: `POST …/pulls` opens one (and a second
+ * from the same head is "already exists", as GitHub says it), `GET …/pulls?head=owner:branch&state=open` lists the
+ * open ones from a branch. `opened` holds every pull request the fake has, oldest first, for a test to read.
+ */
+export function acceptingPulls({
+  opened = [],
+  firstNumber = 2841,
+  tokens = [githubToken, ghToken],
+}: { opened?: FakeOpenedPull[]; firstNumber?: number; tokens?: readonly string[] } = {}) {
+  return [
+    http.post(pullsUrl, async ({ request, params }) => {
+      const no = refused(request, tokens);
+      if (no !== null) return no;
+      const owner = String(params['owner']);
+      const repository = String(params['repo']);
+      const sent = (await request.json()) as { title: string; body: string; head: string; base: string };
+      if (opened.some((pull) => pull.owner === owner && pull.repository === repository && pull.head === sent.head)) {
+        return HttpResponse.json(
+          {
+            message: 'Validation Failed',
+            errors: [
+              {
+                resource: 'PullRequest',
+                code: 'custom',
+                message: `A pull request already exists for ${owner}:${sent.head}.`,
+              },
+            ],
+          },
+          { status: 422 },
+        );
+      }
+      const pull = { owner, repository, number: firstNumber + opened.length, ...sent };
+      opened.push(pull);
+      return HttpResponse.json(
+        { number: pull.number, html_url: `https://github.com/${owner}/${repository}/pull/${String(pull.number)}` },
+        { status: 201 },
+      );
+    }),
+    http.get(pullsUrl, ({ request, params }) => {
+      const no = refused(request, tokens);
+      if (no !== null) return no;
+      const owner = String(params['owner']);
+      const repository = String(params['repo']);
+      const head = new URL(request.url).searchParams.get('head') ?? '';
+      const found = opened.filter(
+        (pull) => pull.owner === owner && pull.repository === repository && `${owner}:${pull.head}` === head,
+      );
+      return HttpResponse.json(
+        found.map((pull) => ({
+          number: pull.number,
+          html_url: `https://github.com/${owner}/${repository}/pull/${String(pull.number)}`,
+        })),
+      );
+    }),
+  ];
+}
+
+/** GitHub's `GET /repos/{owner}/{repo}`, naming its default branch. */
+export function acceptingRepository({
+  defaultBranch = 'main',
+  tokens = [githubToken, ghToken],
+}: { defaultBranch?: string; tokens?: readonly string[] } = {}) {
+  return http.get(repositoryUrl, ({ request, params }) => {
+    const no = refused(request, tokens);
+    if (no !== null) return no;
+    return HttpResponse.json({
+      full_name: `${String(params['owner'])}/${String(params['repo'])}`,
+      default_branch: defaultBranch,
+    });
+  });
+}
