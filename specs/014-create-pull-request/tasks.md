@@ -83,7 +83,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 27: e2e after the PR: Push changes updates the branch, and a follow-up on a PR-open session ends PR open. Discard keeps the PR. Then the keyboard path, and axe at 360 and 1280 px in light and dark (AC-17, AC-18, AC-19, AC-21, AC-22)
       Check: pnpm test:e2e e2e/pull-requests.spec.ts
       Files: e2e/pull-requests.spec.ts
-- [ ] Task 28: Docs. `learn/sessions-and-worktrees.md` gets the PR, the push, the draft call and why hooks stay off. `learn/connecting-github.md` gets what Orynx writes. agent-runtime gets the PR section and `write()`. `docs/architecture.md` gets the routes, git now committing and pushing, and GitHub's writes. The roadmap gets its 014 line and a new 021 line, "After the merge" (Q8)
+- [x] Task 28: Docs. `learn/sessions-and-worktrees.md` gets the PR, the push, the draft call and why hooks stay off. `learn/connecting-github.md` gets what Orynx writes. agent-runtime gets the PR section and `write()`. `docs/architecture.md` gets the routes, git now committing and pushing, and GitHub's writes. The roadmap gets its 014 line and a new 021 line, "After the merge" (Q8)
       Check: pnpm gate learn-freshness; pnpm gate handbook-size; pnpm gate specs
       Files: learn/sessions-and-worktrees.md, learn/connecting-github.md, .claude/skills/agent-runtime/SKILL.md, docs/architecture.md, docs/product/roadmap.md
 - [ ] Task 29: Open the Session screen in a real browser (`pnpm dev`, own `DEVHUB_HOME`) at 360 and 1280 px, light and dark, in each state through `page.route`: the title row before and after the PR, the dialog drafting, drafted, creating, failed and unable, the fallback, and Push changes. Measure CLS, and tick each check here (AC-22, AC-23)
