@@ -16,7 +16,6 @@ const results: SearchPaletteGroup[] = [
     items: [
       {
         id: 'ticket:PROJ-1423',
-        label: 'PROJ-1423, Add bulk archive, In Progress',
         mark: <SourceMark source="jira" label="none" />,
         code: 'PROJ-1423',
         title: 'Add bulk archive',
@@ -24,7 +23,6 @@ const results: SearchPaletteGroup[] = [
       },
       {
         id: 'ticket:PROJ-1377',
-        label: 'PROJ-1377, Search returns archived sites for guest users, To Do',
         mark: <SourceMark source="jira" label="none" />,
         code: 'PROJ-1377',
         title: 'Search returns archived sites for guest users',
@@ -38,7 +36,6 @@ const results: SearchPaletteGroup[] = [
     items: [
       {
         id: 'pull:acme/web-app/2841',
-        label: 'web-app #2841, Lazy-load the people directory, Priya Shah',
         mark: <SourceMark source="github" label="none" />,
         code: 'web-app #2841',
         title: 'Lazy-load the people directory',
@@ -52,7 +49,6 @@ const results: SearchPaletteGroup[] = [
     items: [
       {
         id: 'session:1',
-        label: 'Add bulk archive, PROJ-1423, Needs you',
         mark: <SessionStateIcon state="needs_you" />,
         code: 'PROJ-1423',
         title: 'Add bulk archive',

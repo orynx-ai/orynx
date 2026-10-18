@@ -102,11 +102,10 @@ describe('Search dialog', () => {
 
     const results = await screen.findByRole('listbox');
     expect(within(results).getByRole('group', { name: 'Tickets' })).toBeVisible();
-    expect(
-      within(results)
-        .getAllByRole('option')
-        .map((option) => option.getAttribute('aria-label')),
-    ).toEqual(['PROJ-1423, Add bulk archive, In Progress', 'PROJ-1377, Fix archive search, To Do']);
+    const options = within(results).getAllByRole('option');
+    expect(options).toHaveLength(2);
+    expect(options[0]).toHaveAccessibleName('PROJ-1423, Add bulk archive, In Progress');
+    expect(options[1]).toHaveAccessibleName('PROJ-1377, Fix archive search, To Do');
     expect(within(results).getByRole('option', { name: /PROJ-1423/ })).toHaveAttribute('aria-selected', 'true');
 
     await user.clear(searchBox());
@@ -118,7 +117,7 @@ describe('Search dialog', () => {
 
     await user.clear(searchBox());
     await user.type(searchBox(), 'needs you');
-    expect(screen.getByRole('option')).toHaveAccessibleName('Tidy the settings page, PROJ-1500, Needs you');
+    expect(screen.getByRole('option')).toHaveAccessibleName('PROJ-1500, Tidy the settings page, Needs you');
     expect(asked()).toBe(1);
   });
 

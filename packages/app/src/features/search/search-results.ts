@@ -115,38 +115,29 @@ export function resultCount(groups: readonly SearchGroupResult[]): string {
 }
 
 export interface HitText {
-  /** The key or "web-app #2841", in mono. */
+  /** The key or "web-app #2841", in mono; empty for a session started from neither. */
   code: string;
   title: string;
   /** The status, author or state; null when there's none. */
   meta: string | null;
-  /** What a screen reader hears for the row, in order. */
-  label: string;
 }
 
-/** A result's words (Q3c): ticket key, title and status; repository and number, title and author; title, source and state. */
+/** A result's words (Q3c): ticket key, title and status; repository and number, title and author; source, title and state. */
 export function hitText(hit: SearchHit): HitText {
   switch (hit.kind) {
     case 'ticket': {
       const { key, title, status } = hit.ticket;
-      const meta = status === '' ? null : status;
-      return { code: key, title, meta, label: [key, title, meta].filter((part) => part !== null).join(', ') };
+      return { code: key, title, meta: status === '' ? null : status };
     }
     case 'pull_request': {
       const { repository, number, title, author } = hit.pullRequest;
-      const code = `${repository} ${hash(number)}`;
-      return { code, title, meta: author, label: [code, title, author].filter((part) => part !== null).join(', ') };
+      return { code: `${repository} ${hash(number)}`, title, meta: author };
     }
-    case 'session': {
-      const { title, state } = hit.session;
-      const source = sessionSource(hit.session);
-      const meta = sessionStateLabels[state];
+    case 'session':
       return {
-        code: source ?? '',
-        title,
-        meta,
-        label: [title, source, meta].filter((part) => part !== null).join(', '),
+        code: sessionSource(hit.session) ?? '',
+        title: hit.session.title,
+        meta: sessionStateLabels[hit.session.state],
       };
-    }
   }
 }

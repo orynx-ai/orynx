@@ -26,9 +26,12 @@ export function SearchGroup({ label, className, children, ...props }: SearchGrou
   );
 }
 
-/** A 40 px row, as Menu's items are. Under 480 px of its own width the meta drops, so the key and title keep their room. */
+/**
+ * A 40 px row, as Menu's items are. Under 480 px of its own width the meta leaves the eye, so the key and
+ * title keep their room; a screen reader still hears it.
+ */
 const rowClass =
-  '@container flex min-h-10 cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5 text-foreground select-none';
+  'relative @container flex min-h-10 cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5 text-foreground select-none';
 
 export type SearchResultProps = Omit<ComponentProps<'div'>, 'title' | 'children'> & {
   /** Unique on the page: the search box points at the active result by it. */
@@ -46,8 +49,8 @@ export type SearchResultProps = Omit<ComponentProps<'div'>, 'title' | 'children'
 };
 
 /**
- * One search result (spec 009, Q3c): an option in a listbox, drawn like Menu's 40 px items. Name it
- * with an `aria-label` that reads in order, such as "PROJ-1423, Add bulk archive, In Progress".
+ * One search result (spec 009, Q3c): an option in a listbox, drawn like Menu's 40 px items. It's named by
+ * its own words, with a pause between them for screen readers: "PROJ-1423, Add bulk archive, In Progress".
  */
 export function SearchResult({ id, active = false, mark, code, title, meta, className, ...props }: SearchResultProps) {
   return (
@@ -59,12 +62,30 @@ export function SearchResult({ id, active = false, mark, code, title, meta, clas
       className={cn(rowClass, active && 'bg-subtle', className)}
       {...props}
     >
-      <span className="flex size-6 shrink-0 items-center justify-center">{mark}</span>
-      {code ? <span className="shrink-0 font-mono text-code text-muted-foreground">{code}</span> : null}
-      <span className="min-w-0 flex-1 truncate" title={title}>
-        {title}
+      <span aria-hidden className="flex size-6 shrink-0 items-center justify-center">
+        {mark}
       </span>
-      {meta ? <span className="shrink-0 text-small text-muted-foreground @max-[30rem]:hidden">{meta}</span> : null}
+      {/* The spaces and hidden commas give screen readers "PROJ-1423, Add bulk archive, In Progress"; flex drops them visually. */}
+      {code ? (
+        <>
+          <span className="shrink-0 font-mono text-code text-muted-foreground">
+            {code}
+            <span className="sr-only">,</span>
+          </span>{' '}
+        </>
+      ) : null}
+      {/* relative: the hidden comma is placed in the title's box, which cuts it off with the title; placed in
+          the row's, it would sit past the whole title and widen the scrolling results (spec 008, task 21). */}
+      <span className="relative min-w-0 flex-1 truncate" title={title}>
+        {title}
+        {meta ? <span className="sr-only">,</span> : null}
+      </span>
+      {meta ? (
+        <>
+          {' '}
+          <span className="shrink-0 text-small text-muted-foreground @max-[30rem]:sr-only">{meta}</span>
+        </>
+      ) : null}
     </div>
   );
 }

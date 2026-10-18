@@ -86,7 +86,6 @@ function SearchBody() {
       const text = hitText(hit);
       return {
         id: hit.id,
-        label: text.label,
         mark: mark(hit),
         code: text.code,
         title: text.title,

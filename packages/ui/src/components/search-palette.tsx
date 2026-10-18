@@ -6,8 +6,7 @@ import { SearchField } from './search-field.tsx';
 export interface SearchPaletteItem {
   /** Unique among all the groups. */
   id: string;
-  /** What a screen reader hears for it, in order: "PROJ-1423, Add bulk archive, In Progress". */
-  label: string;
+  /** For the eye only: a screen reader hears the code, title and meta. */
   mark: ReactNode;
   code?: ReactNode;
   title: string;
@@ -120,7 +119,6 @@ export function SearchPalette({
                   <SearchResult
                     key={item.id}
                     id={domId(item.id)}
-                    aria-label={item.label}
                     active={item.id === activeId}
                     mark={item.mark}
                     code={item.code}

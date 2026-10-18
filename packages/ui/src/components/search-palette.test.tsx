@@ -11,7 +11,6 @@ const label = 'Search tickets, pull requests and sessions';
 function ticket(key: string, title: string) {
   return {
     id: `ticket:${key}`,
-    label: `${key}, ${title}, To Do`,
     mark: <SourceMark source="jira" label="none" />,
     code: key,
     title,
@@ -31,7 +30,6 @@ const everything: SearchPaletteGroup[] = [
     items: [
       {
         id: 'pull:acme/web-app/2841',
-        label: 'web-app #2841, Lazy-load the people directory, Priya Shah',
         mark: <SourceMark source="github" label="none" />,
         code: 'web-app #2841',
         title: 'Lazy-load the people directory',
@@ -60,7 +58,7 @@ function Search({
       : groups
           .map((group) => ({
             ...group,
-            items: group.items.filter((item) => item.label.toLowerCase().includes(query.toLowerCase())),
+            items: group.items.filter((item) => `${item.id} ${item.title}`.toLowerCase().includes(query.toLowerCase())),
           }))
           .filter((group) => group.items.length > 0);
   return (
@@ -105,11 +103,10 @@ describe('SearchPalette', () => {
 
     const results = screen.getByRole('listbox', { name: label });
     expect(within(results).getByRole('group', { name: 'Tickets' })).toBeVisible();
-    expect(
-      within(results)
-        .getAllByRole('option')
-        .map((option) => option.getAttribute('aria-label')),
-    ).toEqual(['PROJ-1423, Add bulk archive, To Do', 'PROJ-1377, Fix archive search, To Do']);
+    const options = within(results).getAllByRole('option');
+    expect(options).toHaveLength(2);
+    expect(options[0]).toHaveAccessibleName('PROJ-1423, Add bulk archive, To Do');
+    expect(options[1]).toHaveAccessibleName('PROJ-1377, Fix archive search, To Do');
     expect(box()).toHaveAttribute('aria-expanded', 'true');
     expect(active()).toHaveAccessibleName('PROJ-1423, Add bulk archive, To Do');
     expect(active()).toHaveAttribute('aria-selected', 'true');

@@ -8,7 +8,6 @@ const meta = {
   component: SearchResult,
   args: {
     id: 'ticket-PROJ-1423',
-    'aria-label': 'PROJ-1423, Add bulk archive, In Progress',
     mark: <SourceMark source="jira" label="none" />,
     code: 'PROJ-1423',
     title: 'Add bulk archive',
@@ -36,7 +35,6 @@ export const Active: Story = { args: { active: true } };
 export const PullRequest: Story = {
   args: {
     id: 'pull-request-2841',
-    'aria-label': 'web-app #2841, Lazy-load the people directory, Priya Shah',
     mark: <SourceMark source="github" label="none" />,
     code: 'web-app #2841',
     title: 'Lazy-load the people directory',
@@ -48,7 +46,6 @@ export const PullRequest: Story = {
 export const Session: Story = {
   args: {
     id: 'session-1',
-    'aria-label': 'Add bulk archive, PROJ-1423, Needs you',
     mark: <SessionStateIcon state="needs_you" />,
     code: 'PROJ-1423',
     title: 'Add bulk archive',
@@ -71,7 +68,6 @@ export const Groups: Story = {
         <SearchResult
           id="group-ticket-1"
           active
-          aria-label="PROJ-1423, Add bulk archive, In Progress"
           mark={<SourceMark source="jira" label="none" />}
           code="PROJ-1423"
           title="Add bulk archive"
@@ -79,7 +75,6 @@ export const Groups: Story = {
         />
         <SearchResult
           id="group-ticket-2"
-          aria-label="PROJ-1377, Search returns archived sites, To Do"
           mark={<SourceMark source="jira" label="none" />}
           code="PROJ-1377"
           title="Search returns archived sites"
@@ -89,7 +84,6 @@ export const Groups: Story = {
       <SearchGroup label="Pull requests">
         <SearchResult
           id="group-pull-1"
-          aria-label="web-app #2841, Lazy-load the people directory, Priya Shah"
           mark={<SourceMark source="github" label="none" />}
           code="web-app #2841"
           title="Lazy-load the people directory"

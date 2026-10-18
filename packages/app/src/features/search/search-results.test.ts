@@ -116,7 +116,7 @@ describe('search results', () => {
     expect(resultCount(searchResults(lots, 'zzz'))).toBe('No results');
   });
 
-  it('AC-11, AC-12, AC-14: writes each result’s key, title, quiet meta and what a screen reader hears', () => {
+  it('AC-11, AC-12, AC-14: writes each result’s key, title and quiet meta', () => {
     const [tickets, pulls, sessions] = searchResults(index, 'archive');
 
     expect(tickets?.hits.map(hitText)).toEqual([
@@ -124,22 +124,18 @@ describe('search results', () => {
         code: 'PROJ-1423',
         title: 'Add bulk archive',
         meta: 'In Progress',
-        label: 'PROJ-1423, Add bulk archive, In Progress',
       },
     ]);
-    expect(pulls?.hits.map(hitText)).toEqual([
-      { code: 'api #977', title: 'Speed up archive', meta: null, label: 'api #977, Speed up archive' },
-    ]);
+    expect(pulls?.hits.map(hitText)).toEqual([{ code: 'api #977', title: 'Speed up archive', meta: null }]);
     expect(sessions?.hits.map(hitText)).toEqual([
       {
         code: 'PROJ-1423',
         title: 'Add bulk archive',
         meta: 'Needs you',
-        label: 'Add bulk archive, PROJ-1423, Needs you',
       },
     ]);
     expect(searchResults(index, 'tidy')[0]?.hits.map(hitText)).toEqual([
-      { code: 'PR #2836', title: 'Tidy tests', meta: 'Working', label: 'Tidy tests, PR #2836, Working' },
+      { code: 'PR #2836', title: 'Tidy tests', meta: 'Working' },
     ]);
   });
 });

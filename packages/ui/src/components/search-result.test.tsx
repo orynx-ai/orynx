@@ -13,7 +13,6 @@ function Results({ onPick = () => undefined }: { onPick?: () => void }) {
         <SearchResult
           id="ticket-PROJ-1423"
           active
-          aria-label="PROJ-1423, Add bulk archive, In Progress"
           mark={<SourceMark source="jira" label="none" />}
           code="PROJ-1423"
           title="Add bulk archive"
@@ -22,7 +21,6 @@ function Results({ onPick = () => undefined }: { onPick?: () => void }) {
         />
         <SearchResult
           id="ticket-PROJ-1377"
-          aria-label="PROJ-1377, Search returns archived sites, To Do"
           mark={<SourceMark source="jira" label="none" />}
           code="PROJ-1377"
           title="Search returns archived sites"
@@ -32,7 +30,6 @@ function Results({ onPick = () => undefined }: { onPick?: () => void }) {
       <SearchGroup label="Sessions">
         <SearchResult
           id="session-1"
-          aria-label="Add bulk archive, PROJ-1423, Needs you"
           mark={<SessionStateIcon state="needs_you" />}
           code="PROJ-1423"
           title="Add bulk archive"
@@ -49,22 +46,23 @@ describe('SearchResult', () => {
 
     const tickets = screen.getByRole('group', { name: 'Tickets · 6 of 23' });
     const options = within(tickets).getAllByRole('option');
-    expect(options.map((option) => option.getAttribute('aria-label'))).toEqual([
-      'PROJ-1423, Add bulk archive, In Progress',
-      'PROJ-1377, Search returns archived sites, To Do',
-    ]);
+    expect(options).toHaveLength(2);
+    expect(options[0]).toHaveAccessibleName('PROJ-1423, Add bulk archive, In Progress');
+    expect(options[1]).toHaveAccessibleName('PROJ-1377, Search returns archived sites, To Do');
     const first = screen.getByRole('option', { name: 'PROJ-1423, Add bulk archive, In Progress' });
     expect(within(first).getByText('PROJ-1423')).toBeVisible();
     expect(within(first).getByText('Add bulk archive')).toHaveAttribute('title', 'Add bulk archive');
     expect(within(first).getByText('In Progress')).toBeVisible();
-    expect(within(screen.getByRole('group', { name: 'Sessions' })).getByRole('option')).toBeVisible();
+    expect(within(screen.getByRole('group', { name: 'Sessions' })).getByRole('option')).toHaveAccessibleName(
+      'PROJ-1423, Add bulk archive, Needs you',
+    );
     await expectNoAxeViolations(container);
   });
 
   it('AC-11: marks the result the arrow keys are on as selected, and only that one', () => {
     render(<Results />);
 
-    expect(screen.getByRole('option', { name: /PROJ-1423, Add bulk archive/ })).toHaveAttribute(
+    expect(screen.getByRole('option', { name: 'PROJ-1423, Add bulk archive, In Progress' })).toHaveAttribute(
       'aria-selected',
       'true',
     );
@@ -76,7 +74,7 @@ describe('SearchResult', () => {
     const onPick = vi.fn();
     render(<Results onPick={onPick} />);
 
-    await user.click(screen.getByRole('option', { name: /PROJ-1423, Add bulk archive/ }));
+    await user.click(screen.getByRole('option', { name: 'PROJ-1423, Add bulk archive, In Progress' }));
 
     expect(onPick).toHaveBeenCalledOnce();
   });
