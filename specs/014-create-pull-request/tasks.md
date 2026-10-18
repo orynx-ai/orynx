@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Read a GitHub repository from a remote's address, as a table: https, `git@github.com:`, `ssh://`, with and without `.git` or a trailing slash, any case in the host, a user name and password dropped. GitHub Enterprise, GitLab, an SSH host alias and a local path aren't on github.com (AC-2, AC-7)
       Check: pnpm test packages/core/src/sessions/github-remote.test.ts
       Files: packages/core/src/sessions/github-remote.ts, packages/core/src/sessions/github-remote.test.ts
-- [ ] Task 5: Tell a secret-looking file by its name, as a table: `.env` and `.env.*` (not `.env.example`), `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, in any folder; `src/keys.ts` and `docs/env.md` aren't (AC-8, Q6)
+- [x] Task 5: Tell a secret-looking file by its name, as a table: `.env` and `.env.*` (not `.env.example`), `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, in any folder; `src/keys.ts` and `docs/env.md` aren't (AC-8, Q6)
       Check: pnpm test packages/core/src/sessions/secret-files.test.ts
       Files: packages/core/src/sessions/secret-files.ts, packages/core/src/sessions/secret-files.test.ts
 - [ ] Task 6: Write and read the draft's text, as tables: the prompt from Q4's inputs (2,000 diff lines then counts only, the template cut at 10,000 characters, the base's last 20 subjects), Claude's answer read as title then description (a `#`, quotes, no blank line, an empty title), the key put in front, the Jira line added once, the fallback from the ticket and Claude's last summary, a commit message's `Co-Authored-By` trailer, and the push draft's prompt (AC-3, AC-5, AC-6, AC-15, Q5)
