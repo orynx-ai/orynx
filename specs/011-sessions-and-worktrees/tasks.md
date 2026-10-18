@@ -66,10 +66,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 21: Read a session from `GET /api/sessions/:id`, refresh it on `session.changed`, and show the sidebar's `recent` sessions (AC-4, AC-17)
       Check: pnpm test packages/app/src/live-updates.test.tsx packages/app/src/features/sessions
       Files: packages/app/src/features/sessions/queries.ts, components/sidebar-sessions.tsx, sidebar-sessions.test.tsx, packages/app/src/live-updates.tsx, live-updates.test.tsx, packages/app/src/test/msw.ts
-- [ ] Task 22: Add `BuildWithClaude`: start at once with one folder, open the "Start in" menu with several, show Q10d's reasons with their links, keep the button pending (spinner, focus kept) while it starts, and open the session (also an existing one) (AC-1, AC-11, AC-12, AC-18, Q10c, Q10d)
+- [x] Task 22: Add `BuildWithClaude`: start at once with one folder, open the "Start in" menu with several, show Q10d's reasons with their links, keep the button pending (spinner, focus kept) while it starts, and open the session (also an existing one) (AC-1, AC-11, AC-12, AC-18, Q10c, Q10d)
       Check: pnpm test packages/app/src/features/sessions/components/build-with-claude.test.tsx
-      Files: packages/app/src/features/sessions/components/build-with-claude.tsx, build-with-claude.test.tsx, packages/app/src/features/sessions/queries.ts
-- [ ] Task 23: Put Build with Claude on Tickets' cards (the sparkle) and in the list's last column, for tickets without a live session (AC-1, AC-18)
+      Files: packages/app/src/features/sessions/components/build-with-claude.tsx, build-with-claude.test.tsx, packages/app/src/features/tickets/components/ticket-card.tsx, ticket-card.test.tsx (the only test helper renders the whole app, so the card's sparkle comes with this task and is how its tests press Build)
+- [ ] Task 23: Put Build with Claude in the Tickets list's last column, for tickets without a live session, as task 22 put it on the cards (AC-1, AC-18)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/ticket-card.tsx, ticket-card.test.tsx, tickets-list.tsx, tickets-list.test.tsx
 - [ ] Task 24: Home's assigned-issue rows say "Build" and start a session, or "Open" for a live session (AC-15)

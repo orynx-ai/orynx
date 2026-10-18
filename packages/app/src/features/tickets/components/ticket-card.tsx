@@ -4,6 +4,7 @@ import type { Ticket } from '@devhub/contracts';
 import { AgentChip, WorkItemCard, WorkItemTitle } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { assigneeAvatar, dueText } from '../ticket-words.ts';
+import { BuildWithClaude } from '../../sessions/components/build-with-claude.tsx';
 
 /**
  * A ticket's title as a link (Q4a): to its session inside DevHub when it has one, otherwise to the issue in
@@ -74,8 +75,14 @@ export function TicketCard({ ticket, now }: { ticket: Ticket; now: Date }) {
       priority={ticket.priority === null ? undefined : { level: ticket.priority.level, label: ticket.priority.name }}
       due={due ?? undefined}
       title={<TicketTitleLink ticket={ticket} />}
-      // No "Build with Claude" until 011 can start a session (Q4b).
-      action={<TicketAgentChip ticket={ticket} />}
+      // A ticket with a live session shows its chip; one without, Build with Claude (spec 011).
+      action={
+        ticket.session === null ? (
+          <BuildWithClaude ticketKey={ticket.key} look="sparkle" />
+        ) : (
+          <TicketAgentChip ticket={ticket} />
+        )
+      }
     />
   );
 }

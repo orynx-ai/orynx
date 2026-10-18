@@ -49,7 +49,7 @@ describe('TicketCard', () => {
     expect(history.location.pathname).toBe('/sessions/session-1423');
   });
 
-  it('AC-13: a ticket with no session opens in Jira, and has no Build button until 011', async () => {
+  it('AC-13: a ticket with no session opens in Jira, and has Build with Claude (spec 011, AC-1)', async () => {
     server.use(ticketsHandler());
     const { user, platform } = await renderApp({ route: '/tickets' });
 
@@ -59,7 +59,7 @@ describe('TicketCard', () => {
     await user.click(title);
 
     expect(platform.openExternal).toHaveBeenCalledWith('https://your-team.atlassian.net/browse/PROJ-1377');
-    expect(screen.queryByRole('button', { name: /with Claude/ })).toBeNull();
+    expect(within(card).getByRole('button', { name: 'Build PROJ-1377 with Claude' })).toBeVisible();
   });
 
   it('AC-6: an overdue ticket that isn’t Done says so', async () => {
