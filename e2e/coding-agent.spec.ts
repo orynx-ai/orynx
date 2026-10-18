@@ -26,6 +26,8 @@ const notSignedIn =
   "Claude Code isn't signed in on this computer. Run claude in a terminal and sign in with your company login, then check again.";
 
 async function axeViolations(page: Page): Promise<string[]> {
+  // Controls fade between looks (PR #12's one quiet motion); mid-fade colours aren't the page's real ones.
+  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)));
   await page.addScriptTag({ path: axePath });
   return page.evaluate(async () => {
     const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
@@ -92,11 +94,13 @@ test.describe('the first hub, whose Claude Code is never signed in', () => {
     await expect(page.getByRole('tab', { name: 'Coding agent' })).toBeFocused();
     await expect(page).toHaveURL(/\/settings\/coding-agent$/);
     expect(await focusOutline(page)).not.toBe('none');
+    // The card's first answer comes before Check again is there to reach, as a person would see.
+    const check = claudeCard(page).getByRole('button', { name: 'Check again' });
+    await expect(check).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('tabpanel', { name: 'Coding agent' })).toBeFocused();
     expect(await focusOutline(page)).not.toBe('none');
     await page.keyboard.press('Tab');
-    const check = claudeCard(page).getByRole('button', { name: 'Check again' });
     await expect(check).toBeFocused();
     expect(await focusOutline(page)).not.toBe('none');
 
@@ -186,8 +190,13 @@ test.describe('the second hub, whose Claude Code answers what this file writes',
     }
 
     await answerClaudeAs('signed_in');
-    await claudeCard(page).getByRole('button', { name: 'Check again' }).click();
+    // From the keyboard, so the real browser shows where focus goes once the button has gone.
+    await claudeCard(page).getByRole('button', { name: 'Check again' }).focus();
+    await page.keyboard.press('Enter');
 
+    await expect(claudeCard(page).getByText('Signed in as you@company.com · Company')).toBeFocused({
+      timeout: 2000,
+    });
     for (const tab of [page, other]) {
       await expect(claudeCard(tab).getByText('Active')).toBeVisible({ timeout: 2000 });
       await expect(claudeCard(tab).getByText('Signed in as you@company.com · Company')).toBeVisible({
