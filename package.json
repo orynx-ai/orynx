@@ -12,7 +12,7 @@
     "build": "turbo run build",
     "start": "turbo run build --filter=@devhub/server... --filter=@devhub/web && pnpm --filter @devhub/server start",
     "typecheck": "turbo run typecheck && tsc -p tsconfig.json",
-    "lint": "eslint .",
+    "lint": "node --disable-warning=ExperimentalWarning scripts/lint.ts",
     "lint:fix": "pnpm lint --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
