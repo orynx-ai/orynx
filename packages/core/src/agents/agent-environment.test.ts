@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { agentEnvironment } from './agent-environment.ts';
+import { agentEnvironment, gitEnvironment } from './agent-environment.ts';
 
 describe('agentEnvironment', () => {
   it.each([
@@ -16,10 +16,6 @@ describe('agentEnvironment', () => {
     ['CLAUDE_CODE_USE_BEDROCK', '1'],
     ['ANTHROPIC_API_KEY', 'fake-key-for-tests'],
     ['ANTHROPIC_BASE_URL', 'https://gateway.example'],
-    ['AWS_PROFILE', 'work'],
-    ['AWS_REGION', 'eu-west-1'],
-    ['GOOGLE_APPLICATION_CREDENTIALS', '/Users/you/gcloud.json'],
-    ['CLOUD_ML_REGION', 'europe-west1'],
     ['HTTPS_PROXY', 'http://proxy:8080'],
     ['https_proxy', 'http://proxy:8080'],
     ['HTTP_PROXY', 'http://proxy:8080'],
@@ -96,7 +92,73 @@ describe('agentEnvironment', () => {
     ).toEqual({ HOME: '/Users/you', PATH: '/usr/bin', CLAUDE_CONFIG_DIR: '/tmp/empty-claude' });
   });
 
+  it.each(['1', 'true', 'TRUE', 'yes', 'on'])(
+    'AC-20: lets the AWS_* login through when CLAUDE_CODE_USE_BEDROCK is %s',
+    (flag) => {
+      expect(agentEnvironment({ CLAUDE_CODE_USE_BEDROCK: flag, AWS_PROFILE: 'work', AWS_REGION: 'eu-west-1' })).toEqual(
+        { CLAUDE_CODE_USE_BEDROCK: flag, AWS_PROFILE: 'work', AWS_REGION: 'eu-west-1' },
+      );
+    },
+  );
+
+  it.each([undefined, '', '0', 'false', 'no'])(
+    'AC-20 (Q8b): keeps the AWS_* login out when CLAUDE_CODE_USE_BEDROCK is %s, so commands never inherit it',
+    (flag) => {
+      expect(
+        agentEnvironment({
+          CLAUDE_CODE_USE_BEDROCK: flag,
+          AWS_ACCESS_KEY_ID: 'fake-key-for-tests',
+          AWS_PROFILE: 'work',
+        }),
+      ).toEqual(flag === undefined ? {} : { CLAUDE_CODE_USE_BEDROCK: flag });
+    },
+  );
+
+  it('AC-20: lets the GOOGLE_* login and its region through when CLAUDE_CODE_USE_VERTEX is set', () => {
+    const vertex = {
+      CLAUDE_CODE_USE_VERTEX: '1',
+      GOOGLE_APPLICATION_CREDENTIALS: '/Users/you/gcloud.json',
+      CLOUD_ML_REGION: 'europe-west1',
+    };
+    expect(agentEnvironment(vertex)).toEqual(vertex);
+  });
+
+  it('AC-20 (Q8b): keeps the GOOGLE_* login and its region out without CLAUDE_CODE_USE_VERTEX', () => {
+    expect(
+      agentEnvironment({ GOOGLE_APPLICATION_CREDENTIALS: '/Users/you/gcloud.json', CLOUD_ML_REGION: 'europe-west1' }),
+    ).toEqual({});
+  });
+
+  it('AC-20 (Q8b): Bedrock lets in only AWS_*, and Vertex only GOOGLE_*', () => {
+    expect(
+      agentEnvironment({ CLAUDE_CODE_USE_BEDROCK: '1', AWS_PROFILE: 'work', GOOGLE_CLOUD_PROJECT: 'mine' }),
+    ).toEqual({ CLAUDE_CODE_USE_BEDROCK: '1', AWS_PROFILE: 'work' });
+  });
+
   it('leaves out a variable that is listed but has no value', () => {
     expect(agentEnvironment({ HOME: undefined })).toEqual({});
+  });
+});
+
+describe('gitEnvironment', () => {
+  it('AC-20 (Q8d): gives git the short list, your SSH agent, and no password prompts', () => {
+    expect(
+      gitEnvironment({
+        HOME: '/Users/you',
+        PATH: '/usr/bin',
+        SSH_AUTH_SOCK: '/private/tmp/ssh-agent.sock',
+        DEVHUB_GITHUB_TOKEN: 'fake-token-for-tests',
+        GIT_DIR: '/somewhere/else',
+      }),
+    ).toEqual({
+      HOME: '/Users/you',
+      PATH: '/usr/bin',
+      SSH_AUTH_SOCK: '/private/tmp/ssh-agent.sock',
+      GIT_TERMINAL_PROMPT: '0',
+    });
+  });
+
+  it('AC-20: never asks for a password, even when the shell says it may', () => {
+    expect(gitEnvironment({ GIT_TERMINAL_PROMPT: '1' })).toEqual({ GIT_TERMINAL_PROMPT: '0' });
   });
 });

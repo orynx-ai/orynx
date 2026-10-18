@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Add the session contracts: `SessionSchema` with its structured steps, problem and `discardedAt`, `recent` on the list query, the start request and its three answers, the stop, discard and detail paths, the `session.changed` event, and test builders (AC-1, AC-11, AC-12, AC-17)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/session.ts, session.test.ts, events.ts, routes.ts, testing.ts, jira.ts (`JiraLinkSchema` moves here, so `session.ts` can use it without a cycle through `inbox.ts`), inbox.ts, tickets.ts, search.ts, packages/app/src/live-updates.tsx
-- [ ] Task 2: Pass `AWS_*` only when `CLAUDE_CODE_USE_BEDROCK` is set and `GOOGLE_*` only when `CLAUDE_CODE_USE_VERTEX` is, and add `gitEnvironment()`: the short list plus `SSH_AUTH_SOCK` and `GIT_TERMINAL_PROMPT=0` (AC-20, Q8b, Q8d)
+- [x] Task 2: Pass `AWS_*` only when `CLAUDE_CODE_USE_BEDROCK` is set and `GOOGLE_*` only when `CLAUDE_CODE_USE_VERTEX` is, and add `gitEnvironment()`: the short list plus `SSH_AUTH_SOCK` and `GIT_TERMINAL_PROMPT=0` (AC-20, Q8b, Q8d)
       Check: pnpm test packages/core/src/agents/agent-environment.test.ts
       Files: packages/core/src/agents/agent-environment.ts, agent-environment.test.ts
 - [ ] Task 3: Read one Jira issue (summary, type, description) and turn its description from Jira's document format into Markdown: paragraphs, headings, lists, code, links, mentions, and the text of anything else (AC-3, AC-13)
