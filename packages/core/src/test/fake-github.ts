@@ -257,3 +257,46 @@ export function acceptingPullContext(
     });
   });
 }
+
+/** The REST address of one pull request. */
+export function pullUrl(owner: string, repository: string, number: number): string {
+  return `https://api.github.com/repos/${owner}/${repository}/pulls/${String(number)}`;
+}
+
+/**
+ * GitHub's REST API giving these pull requests' diffs (spec 015) for a good token that asks for the diff media
+ * type. `tooLarge` answers 406, as GitHub does past its own limit.
+ */
+export function acceptingPullDiff(
+  pulls: readonly { owner?: string; repository?: string; number: number; diff?: string; tooLarge?: boolean }[],
+  { tokens = [githubToken, ghToken] }: { tokens?: readonly string[] } = {},
+) {
+  return http.get('https://api.github.com/repos/:owner/:repository/pulls/:number', ({ request, params }) => {
+    if (!tokens.some((token) => request.headers.get('authorization') === `token ${token}`)) {
+      return HttpResponse.json({ message: 'Bad credentials', status: '401' }, { status: 401 });
+    }
+    const pull = pulls.find(
+      (candidate) =>
+        (candidate.owner ?? 'acme') === params['owner'] &&
+        (candidate.repository ?? 'web-app') === params['repository'] &&
+        String(candidate.number) === params['number'],
+    );
+    if (pull === undefined) return HttpResponse.json({ message: 'Not Found', status: '404' }, { status: 404 });
+    if (!(request.headers.get('accept') ?? '').includes('diff')) {
+      return HttpResponse.json({ message: 'Ask for the diff media type', status: '415' }, { status: 415 });
+    }
+    if (pull.tooLarge === true) {
+      return HttpResponse.json(
+        {
+          message: 'Sorry, the diff exceeded the maximum number of lines (20000)',
+          errors: [{ resource: 'PullRequest', field: 'diff', code: 'too_large' }],
+          status: '406',
+        },
+        { status: 406 },
+      );
+    }
+    return new HttpResponse(pull.diff ?? '', {
+      headers: { 'content-type': 'application/vnd.github.diff; charset=utf-8' },
+    });
+  });
+}

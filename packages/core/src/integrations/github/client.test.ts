@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   acceptingInboxQuery,
   acceptingPullContext,
+  acceptingPullDiff,
   githubLogin,
   githubToken,
   graphqlUrl,
   pullNode,
+  pullUrl,
   userUrl,
   useFakeGitHub,
 } from '../../test/fake-github.ts';
@@ -375,5 +377,39 @@ describe('GitHub client: a pull request for the composer (spec 015)', () => {
       }),
     );
     expect(await client.pullContext(githubToken, pull)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+});
+
+describe('GitHub client: a pull request’s diff for the composer (spec 015)', () => {
+  const pull = { owner: 'acme', name: 'web-app', number: 2836 };
+  const diff =
+    'diff --git a/src/people.ts b/src/people.ts\n--- a/src/people.ts\n+++ b/src/people.ts\n@@ -1 +1 @@\n-const page = 20;\n+const page = 50;\n';
+
+  it('AC-20 (Q4): reads the unified diff from api.github.com, asking for the diff media type', async () => {
+    const seen: Request[] = [];
+    github.events.on('request:start', ({ request }) => {
+      seen.push(request.clone());
+    });
+    github.use(acceptingPullDiff([{ number: 2836, diff }]));
+
+    expect(await client.pullDiff(githubToken, pull)).toEqual({ ok: true, diff: { kind: 'text', text: diff } });
+    expect(seen[0]?.url).toBe(pullUrl('acme', 'web-app', 2836));
+    expect(seen[0]?.headers.get('accept')).toContain('diff');
+  });
+
+  it('AC-20 (Q4): a diff GitHub finds too large is said, so the brief can give counts instead', async () => {
+    github.use(acceptingPullDiff([{ number: 2836, tooLarge: true }]));
+    expect(await client.pullDiff(githubToken, pull)).toEqual({ ok: true, diff: { kind: 'too_large' } });
+  });
+
+  it('AC-21: a missing pull request is not found, and a refused token never shows in the answer', async () => {
+    github.use(acceptingPullDiff([{ number: 2836, diff }]));
+    expect(await client.pullDiff(githubToken, { ...pull, number: 9 })).toEqual({
+      ok: false,
+      problem: { kind: 'not_found' },
+    });
+    const refused = await client.pullDiff('fake-wrong-token-for-tests', pull);
+    expect(refused).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(refused)).not.toContain('fake-wrong-token-for-tests');
   });
 });

@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Let the GitHub client read a pull request's context: `pullContext()`, one GraphQL query for the title, body, base and head refs, failed check contexts (name, conclusion) and unresolved review threads (author, path, line, body). It also reads the first 100 changed files with their counts. Missing or hidden (single sign-on included) is `not_found`, and refused, rate limit and timeout are told apart, never with the token. An MSW handler in `fake-github.ts` answers only this query (AC-20, AC-21, Q4)
       Check: pnpm test packages/core/src/integrations/github
       Files: packages/core/src/integrations/github/client.ts, packages/core/src/integrations/github/client.test.ts, packages/core/src/test/fake-github.ts
-- [ ] Task 7: Let the GitHub client read a pull request's diff: `pullDiff()` through REST with the diff media type, and a 406 answered as `too_large` with GraphQL's file counts (AC-20, Q4)
+- [x] Task 7: Let the GitHub client read a pull request's diff: `pullDiff()` through REST with the diff media type, and a 406 answered as `too_large` with GraphQL's file counts (AC-20, Q4)
       Check: pnpm test packages/core/src/integrations/github/client.test.ts
       Files: packages/core/src/integrations/github/client.ts, packages/core/src/integrations/github/client.test.ts, packages/core/src/test/fake-github.ts
 - [ ] Task 8: Read every chip at once: `context-reader.ts` takes the Jira and GitHub credentials, reads each chip, and gives the brief's chips in the order they came, or the first chip that failed with `not_connected`, `not_found`, `unreachable` or `other`. Files pass through unread (AC-20, AC-21)

@@ -54,6 +54,11 @@ export type GitHubPullProblem = GitHubProblem | { kind: 'not_found' };
 
 export type GitHubPullContextAnswer = { ok: true; pull: GitHubPullContext } | { ok: false; problem: GitHubPullProblem };
 
+/** A pull request's unified diff, or `too_large` when GitHub won't send it whole (spec 015, Q4). */
+export type GitHubPullDiffAnswer =
+  | { ok: true; diff: { kind: 'text'; text: string } | { kind: 'too_large' } }
+  | { ok: false; problem: GitHubPullProblem };
+
 export interface GitHubClient {
   readonly timeoutMs: number;
   /** Asks GitHub who this token belongs to (`GET /user`). */
@@ -69,6 +74,8 @@ export interface GitHubClient {
    * the head commit's failed checks, its unresolved review threads and its changed files.
    */
   pullContext(token: string, pull: GitHubPullRef): Promise<GitHubPullContextAnswer>;
+  /** The pull request's diff (`GET /repos/{o}/{r}/pulls/{n}` as `diff`), for the composer's brief (spec 015). */
+  pullDiff(token: string, pull: GitHubPullRef): Promise<GitHubPullDiffAnswer>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -439,6 +446,30 @@ export function createGitHubClient({
           return { ok: false, problem: { kind: 'not_found' } };
         }
         return { ok: false, problem: { kind: 'github_error', status: 200 } };
+      }
+    },
+
+    async pullDiff(token, { owner, name, number }) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const answer = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+          owner,
+          repo: name,
+          pull_number: number,
+          mediaType: { format: 'diff' },
+        });
+        // Asked for as a diff, the body is text, whatever octokit's types say.
+        const text: unknown = answer.data;
+        return typeof text === 'string'
+          ? { ok: true, diff: { kind: 'text', text } }
+          : { ok: false, problem: { kind: 'unreachable', code: undefined } };
+      } catch (error) {
+        const failure = FailureSchema.safeParse(error);
+        // GitHub refuses a diff past its own limit with 406; a missing or hidden pull request is 404.
+        if (failure.success && failure.data.status === 406) return { ok: true, diff: { kind: 'too_large' } };
+        if (failure.success && failure.data.status === 404) return { ok: false, problem: { kind: 'not_found' } };
+        return failed(error, signal);
       }
     },
   };
