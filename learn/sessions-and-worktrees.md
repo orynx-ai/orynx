@@ -69,7 +69,7 @@ A failure stops the session with a problem the Session screen says in the danger
 
 ## Stop, Discard, and a restart
 
-- **Stop** aborts git when the worktree is still being made, and interrupts Claude. An interrupted turn still ends with a failed result, which isn't a problem after Stop. If Claude Code hasn't ended 5 seconds later, its process is closed. The worktree keeps its changes, and the last step is "You stopped Claude".
+- **Stop** aborts git when the worktree is still being made, and interrupts Claude. Stop that comes just before Claude starts means Claude never starts, and Stop that comes while Claude Code is starting, when there was no Claude yet to stop, has the run stop it as soon as it has started. An interrupted turn still ends with a failed result, which isn't a problem after Stop. If Claude Code hasn't ended 5 seconds later, its process is closed. The worktree keeps its changes, and the last step is "You stopped Claude".
 - **Discard** stops a working session first, then `git worktree remove --force --force` and `git branch -D`, after a confirm step in the page. A worktree you deleted yourself is pruned. When the repository itself is gone, only the worktree folder is deleted, and only inside `<DEVHUB_HOME>/worktrees`. The session stays, Stopped, and leaves the sidebar 7 days later (`GET /api/sessions?recent=true`).
 - **A restart.** Claude Code runs as a child of the server, so closing Orynx ends it: `close()` stops every working session as "Orynx closed while Claude was working". Opening the store does the same for a session a crash left Working.
 
