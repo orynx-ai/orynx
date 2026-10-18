@@ -3,6 +3,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type ClaudeLogin } from '@devhub/contracts';
 import { makeClaudeSignedIn, makeStatus } from '@devhub/contracts/testing';
+import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -124,6 +125,36 @@ describe('ClaudeCard', () => {
     });
     expect(button).toHaveFocus();
     expect(checks).toBe(1);
+  });
+
+  it('AC-6: Check again that never reaches the server shows Error, and focus stays on the button', async () => {
+    server.use(http.post(apiUrl(apiRoutes.claudeLoginCheck), () => HttpResponse.error()));
+    const { card, user } = await openCard();
+    const button = await within(card).findByRole('button', { name: 'Check again' });
+
+    await user.click(button);
+
+    expect(await within(card).findByText('Error')).toBeVisible();
+    expect(within(card).getByText(checkFailed)).toBeVisible();
+    expect(button).toHaveFocus();
+  });
+
+  it("AC-6: a newer answer from the server replaces a failed Check again's Error", async () => {
+    let signedIn = false;
+    server.use(
+      http.post(apiUrl(apiRoutes.claudeLoginCheck), () => HttpResponse.error()),
+      http.get(apiUrl(apiRoutes.claudeLogin), () =>
+        HttpResponse.json(signedIn ? makeClaudeSignedIn() : { state: 'signed_out' }),
+      ),
+    );
+    const { card, user } = await openCard();
+    await user.click(await within(card).findByRole('button', { name: 'Check again' }));
+    await within(card).findByText('Error');
+
+    signedIn = true;
+    FakeEventSource.latest().emit({ type: 'status.changed' });
+
+    expect(await within(card).findByText('Active')).toBeVisible();
   });
 
   it('AC-5: Check again that finds a login shows Active, the footer says connected, and focus lands on the account', async () => {

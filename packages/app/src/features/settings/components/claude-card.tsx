@@ -49,8 +49,12 @@ const notReadyLines: Record<'signed_out' | 'error', ReactNode> = {
 export function ClaudeCard() {
   const login = useClaudeLogin();
   const check = useCheckClaudeLogin();
-  // A server that doesn't answer is a check that couldn't run, as far as this card can tell.
-  const state: ClaudeLogin['state'] | null = login.data?.state ?? (login.isError ? 'error' : null);
+  // A server that doesn't answer is a check that couldn't run, as far as this card can tell. A failed
+  // Check again stands until the next press, or until a newer answer arrives from the server.
+  const checkFailed = check.isError && check.submittedAt >= login.dataUpdatedAt;
+  const state: ClaudeLogin['state'] | null = checkFailed
+    ? 'error'
+    : (login.data?.state ?? (login.isError ? 'error' : null));
   const notReady = state === 'signed_out' || state === 'error';
 
   const lineRef = useRef<HTMLParagraphElement>(null);
