@@ -223,9 +223,13 @@ describe.skipIf(process.platform === 'win32')('POST /api/sessions/:id/approvals/
 
   it('012 AC-20: without the sandbox, Claude gets no commands, and the session says so', async () => {
     const { sdk, session } = await hub({ script: [{ finish: 'Done.' }], sandbox: false });
-    await vi.waitFor(async () => {
-      expect((await session()).state).toBe('done');
-    });
+    // From the start: the worktree comes first, which takes longer than an answer does (as in `waiting`).
+    await vi.waitFor(
+      async () => {
+        expect((await session()).state).toBe('done');
+      },
+      { timeout: 10_000 },
+    );
     expect(sdk.runs[0]?.options.tools).toEqual([...sessionToolsWithoutCommands]);
     expect(sdk.runs[0]?.options).not.toHaveProperty('sandbox');
     expect((await session()).activities).toContainEqual(expect.objectContaining({ kind: 'no_commands' }) as unknown);
