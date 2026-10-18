@@ -63,7 +63,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 20: Add the words: "4 min 12 s", "Started 4 min ago" (Home's `agoText` moves to `words/`), a clock that ticks each second, and each step's title and detail from Q10a (AC-4, AC-8, Q10a, Q10g)
       Check: pnpm test packages/app/src/words packages/app/src/features/sessions/step-words.test.ts packages/app/src/features/home
       Files: packages/app/src/words/duration.ts, duration.test.ts, ago.ts, ago.test.ts, use-now.ts, packages/app/src/features/sessions/step-words.ts, step-words.test.ts, packages/app/src/features/home/inbox-words.ts
-- [ ] Task 21: Read a session from `GET /api/sessions/:id`, refresh it on `session.changed`, and show the sidebar's `recent` sessions (AC-4, AC-17)
+- [x] Task 21: Read a session from `GET /api/sessions/:id`, refresh it on `session.changed`, and show the sidebar's `recent` sessions (AC-4, AC-17)
       Check: pnpm test packages/app/src/live-updates.test.tsx packages/app/src/features/sessions
       Files: packages/app/src/features/sessions/queries.ts, components/sidebar-sessions.tsx, sidebar-sessions.test.tsx, packages/app/src/live-updates.tsx, live-updates.test.tsx, packages/app/src/test/msw.ts
 - [ ] Task 22: Add `BuildWithClaude`: start at once with one folder, open the "Start in" menu with several, show Q10d's reasons with their links, keep the button pending (spinner, focus kept) while it starts, and open the session (also an existing one) (AC-1, AC-11, AC-12, AC-18, Q10c, Q10d)

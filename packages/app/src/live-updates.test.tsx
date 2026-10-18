@@ -9,6 +9,7 @@ import {
   makePreferences,
   makeSearchIndex,
   makeSearchTicket,
+  makeSession,
   makeStatus,
 } from '@devhub/contracts/testing';
 import type { PermissionMode } from '@devhub/contracts';
@@ -130,6 +131,26 @@ describe('LiveUpdates', () => {
       expect(screen.getByRole('combobox')).toHaveValue('archive');
     },
   );
+
+  it('AC-4 (spec 011): refreshes only the session whose steps changed', async () => {
+    const asked: string[] = [];
+    server.use(
+      http.get(apiUrl(apiRoutes.session), ({ params }) => {
+        asked.push(String(params['id']));
+        return HttpResponse.json(makeSession({ id: String(params['id']), title: 'Add bulk archive' }));
+      }),
+    );
+    await renderApp({ route: '/sessions/0123456789abcdef' });
+    await screen.findByRole('heading', { level: 1, name: 'Add bulk archive' });
+    expect(asked).toEqual(['0123456789abcdef']);
+
+    FakeEventSource.latest().emit({ type: 'session.changed', sessionId: 'fedcba9876543210' });
+    FakeEventSource.latest().emit({ type: 'session.changed', sessionId: '0123456789abcdef' });
+
+    await waitFor(() => {
+      expect(asked).toEqual(['0123456789abcdef', '0123456789abcdef']);
+    });
+  });
 
   it('closes the stream when the app goes away', async () => {
     const { unmount } = await renderApp();

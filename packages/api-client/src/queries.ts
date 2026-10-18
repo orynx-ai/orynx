@@ -37,12 +37,16 @@ export function sessionsQueryOptions(api: ApiClient, query: SessionListQuery = {
 }
 
 /**
- * One session (spec 011). Its key starts with the lists' key, so `sessions.changed` refreshes it too, and
+ * One session's key, and its query (spec 011). Its key starts with the lists' key, so `sessions.changed` refreshes it too, and
  * `session.changed` refreshes only this one.
  */
+export function sessionQueryKey(id: string) {
+  return [...queryKeys.sessions, 'detail', id] as const;
+}
+
 export function sessionQueryOptions(api: ApiClient, id: string) {
   return queryOptions({
-    queryKey: [...queryKeys.sessions, 'detail', id] as const,
+    queryKey: sessionQueryKey(id),
     queryFn: () => api.session(id),
     // Freshness comes from the event stream (session.changed, sessions.changed), not from polling.
     staleTime: Infinity,

@@ -11,6 +11,7 @@ export {
   queryKeys,
   repositoriesQueryOptions,
   searchQueryOptions,
+  sessionQueryKey,
   sessionQueryOptions,
   sessionsQueryOptions,
   statusQueryOptions,
