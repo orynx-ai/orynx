@@ -27,7 +27,8 @@ export default defineConfig(
   {
     languageOptions: {
       parserOptions: {
-        project: ['./tsconfig.json', './packages/*/tsconfig.json', './apps/*/tsconfig.json'],
+        // Opens only the tsconfig each file belongs to, so a shard of `pnpm lint` holds just its own programs.
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
