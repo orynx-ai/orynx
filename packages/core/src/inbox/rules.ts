@@ -1,6 +1,7 @@
 import type { InboxItem, InboxReason, InboxRules, SessionSummary } from '@devhub/contracts';
 import type { PullRequestRecord } from '../integrations/github/map.ts';
 import type { JiraIssueRecord } from '../integrations/jira/map.ts';
+import { sessionsByTicket } from '../sessions/ticket-sessions.ts';
 
 /**
  * "What counts as needs you" (product spec, Home): pure functions from what the last sync kept, the inbox
@@ -110,6 +111,14 @@ export function inboxItems(sources: InboxSources, rules: InboxRules): InboxItem[
           target: { kind: 'session', sessionId: session.id },
         });
       }
+    }
+  }
+
+  // An issue with a live session opens that session, so Home says Open instead of Build (spec 011, AC-15).
+  for (const [key, session] of sessionsByTicket(sources.sessions)) {
+    const row = rows.get(`jira:${key}`);
+    if (session !== null && row?.target.kind === 'external') {
+      rows.set(row.id, { ...row, target: { kind: 'session', sessionId: session.id } });
     }
   }
 

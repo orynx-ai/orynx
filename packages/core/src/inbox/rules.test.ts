@@ -219,6 +219,29 @@ describe('inbox rules', () => {
     ]);
   });
 
+  it('AC-15 (spec 011): an assigned issue with a live session opens that session instead of Jira', () => {
+    const working = makeSessionSummary({
+      id: 'session-1',
+      state: 'working',
+      source: { kind: 'jira', key: 'PROJ-1423' },
+    });
+    expect(items({ jira: [issue()], sessions: [working] })).toEqual([
+      expect.objectContaining({ id: 'jira:PROJ-1423', target: { kind: 'session', sessionId: 'session-1' } }) as unknown,
+    ]);
+  });
+
+  it('AC-15 (spec 011): a stopped session leaves the issue opening in Jira, so Build can start a new one', () => {
+    const stopped = makeSessionSummary({
+      id: 'session-1',
+      state: 'stopped',
+      source: { kind: 'jira', key: 'PROJ-1423' },
+    });
+    expect(items({ jira: [issue()], sessions: [stopped] })[0]?.target).toEqual({
+      kind: 'external',
+      url: 'https://your-team.atlassian.net/browse/PROJ-1423',
+    });
+  });
+
   it('AC-18: your open pull request that needs nothing from you, kept for search, has no row on Home (Q1c)', () => {
     expect(items({ github: [mine()] })).toEqual([]);
   });
