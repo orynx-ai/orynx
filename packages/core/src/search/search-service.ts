@@ -10,7 +10,7 @@ import type {
 import type { InboxRecords } from '../inbox/inbox-service.ts';
 import type { PullRequestRecord } from '../integrations/github/map.ts';
 import type { JiraIssueRecord } from '../integrations/jira/map.ts';
-import { listSessions, type SessionStore } from '../sessions/session-store.ts';
+import type { SessionStore } from '../sessions/session-store.ts';
 import { sessionsByTicket } from '../sessions/ticket-sessions.ts';
 
 /**
@@ -88,7 +88,7 @@ export function createSearchService(options: SearchServiceOptions): SearchServic
       const [records, sprint, sessions] = await Promise.all([
         options.inbox.records(),
         options.tickets.read(),
-        listSessions(options.sessions),
+        options.sessions.list(),
       ]);
       return searchIndex({
         assigned: records.jira,
