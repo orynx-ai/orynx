@@ -329,6 +329,8 @@ describe('running a session', () => {
       { id: 'step-6', state: 'done', kind: 'finished', summary: 'Added a toolbar button.' },
     ]);
     expect(record.claudeSessionId).toBe('b2c7e0f4-0000-4000-8000-000000000001');
+    // The Changes tab compares the worktree with this commit (spec 013, AC-4).
+    expect(record.startCommit).toBe(await repos.git(repos.clone, 'rev-parse', 'origin/main'));
 
     const worktree = join(home, 'worktrees', '0000000000000001');
     expect(await repos.git(worktree, 'branch', '--show-current')).toBe('feat/PROJ-1423');

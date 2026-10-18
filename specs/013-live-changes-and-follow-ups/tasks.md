@@ -21,7 +21,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Read and save `agent.editor` in the preferences service: keep every other setting, say `settings.changed`, and read a `settings.json` without it as VS Code (AC-26)
       Check: pnpm test packages/core/src/preferences; pnpm test packages/core/src/routes/preferences.test.ts
       Files: packages/core/src/preferences/preferences-service.ts, packages/core/src/preferences/preferences-service.test.ts, packages/core/src/routes/preferences.test.ts
-- [ ] Task 7: Record the commit a worktree starts from (`git rev-parse HEAD` in the new worktree) and keep it with the session as `startCommit` (null for older sessions) (AC-4)
+- [x] Task 7: Record the commit a worktree starts from (`git rev-parse HEAD` in the new worktree) and keep it with the session as `startCommit` (null for older sessions) (AC-4)
       Check: pnpm test packages/core/src/sessions/worktrees.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/worktrees.ts, packages/core/src/sessions/worktrees.test.ts, packages/core/src/sessions/session-store.ts, packages/core/src/sessions/session-service.ts
 - [ ] Task 8: Parse git's unified diff into `DiffLine`s, as a table: hunk headers, numbers on both sides, "No newline at end of file", a new and a deleted file, a rename's first line, binary, and the cut after 2,000 lines (AC-3, AC-5, Q5)

@@ -27,7 +27,8 @@ export type WorktreeProblem =
   | { kind: 'stopped' };
 
 export type Prepared = { ok: true; plan: WorktreePlan } | { ok: false; problem: WorktreeProblem };
-export type Made = { ok: true; fetched: boolean } | { ok: false; problem: WorktreeProblem };
+/** `startCommit` is what the new branch starts from: the Changes tab compares the worktree with it (spec 013, AC-4). */
+export type Made = { ok: true; fetched: boolean; startCommit: string } | { ok: false; problem: WorktreeProblem };
 export type Removed = { ok: true } | { ok: false; problem: WorktreeProblem };
 
 export interface Worktrees {
@@ -134,7 +135,8 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
       }
       try {
         await git(repo, signal).raw(['worktree', 'add', '--no-track', '-b', plan.branch, path, plan.base]);
-        return { ok: true, fetched };
+        const startCommit = (await git(path, signal).raw(['rev-parse', 'HEAD'])).trim();
+        return { ok: true, fetched, startCommit };
       } catch {
         return { ok: false, problem: signal?.aborted ? { kind: 'stopped' } : { kind: 'git', step: 'add' } };
       }

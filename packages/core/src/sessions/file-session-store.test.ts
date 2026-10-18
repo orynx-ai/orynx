@@ -22,6 +22,7 @@ function record(overrides: Partial<StoredSession['session']> = {}, id = '0123456
     session: makeSession({ id, ...overrides }),
     repository: { id: '00000000000000aa', path: '/Users/you/code/web-app' },
     worktree: join(home, 'worktrees', id),
+    startCommit: null,
     claudeSessionId: null,
     approvalLog: [],
   };

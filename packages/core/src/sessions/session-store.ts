@@ -37,6 +37,15 @@ export const StoredSessionSchema = z.object({
   repository: z.object({ id: RepositoryIdSchema, path: z.string().min(1) }),
   /** `<DEVHUB_HOME>/worktrees/<id>`; null before Orynx gets as far as making it. */
   worktree: z.string().min(1).nullable(),
+  /**
+   * The commit the branch started from, which the Changes tab compares the worktree with (spec 013, AC-4).
+   * Null before the worktree is made, and for a session made before spec 013.
+   */
+  startCommit: z
+    .string()
+    .regex(/^[0-9a-f]{40}([0-9a-f]{24})?$/)
+    .nullable()
+    .default(null),
   /** Claude Code's own session id, which a follow-up resumes (spec 013). */
   claudeSessionId: z.string().min(1).nullable(),
   /** Every call that asked, in order (spec 012). A session saved before spec 012 has none. */

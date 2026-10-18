@@ -34,6 +34,7 @@ async function serverWith(...sessions: Partial<Session>[]): Promise<{ app: Fasti
       repository: { id: '00000000000000aa', path: '/nowhere/web-app' },
       // No worktree was made, so Discard has nothing on disk to delete.
       worktree: null,
+      startCommit: null,
       claudeSessionId: null,
       approvalLog: [],
     });

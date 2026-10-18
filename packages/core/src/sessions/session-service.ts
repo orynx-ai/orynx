@@ -414,11 +414,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     });
     const stepId = withStep?.session.activities.at(-1)?.id ?? '';
     const made = await worktrees.make(record.repository.path, record.worktree, plan, signal);
-    await change(id, (current) =>
-      withProgress(current, (progress) =>
+    await change(id, (current) => ({
+      ...withProgress(current, (progress) =>
         replaceStep(progress, stepId, { ...making, fetched: made.ok && made.fetched }),
       ),
-    );
+      startCommit: made.ok ? made.startCommit : current.startCommit,
+    }));
     if (!made.ok) return worktreeFailure(id, made.problem);
     if (stopping(run)) return;
 
@@ -559,6 +560,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
+      startCommit: null,
       claudeSessionId: null,
       approvalLog: [],
     };
