@@ -1,0 +1,17 @@
+name: Set up pnpm and install
+description: |
+  The steps every CI job shares after checkout: pnpm from package.json, Node from .nvmrc with
+  the pnpm store cached, then a frozen install. A local action cannot run before checkout, so
+  each job checks out first.
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
+    - name: Install
+      shell: bash
+      run: pnpm install --frozen-lockfile
