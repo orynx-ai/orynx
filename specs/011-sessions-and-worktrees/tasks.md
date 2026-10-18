@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Fold Claude's activity into steps: explore, plan, edit and refused groups, with the latest one running until another kind starts, and the stepper rule (Plan until the first edit, Build after it, Review when finished, never backwards) (AC-4, AC-7, AC-8, Q9b)
       Check: pnpm test packages/core/src/sessions/progress.test.ts
       Files: packages/core/src/sessions/progress.ts, progress.test.ts
-- [ ] Task 7: Read the SDK's messages into activity: tool uses by kind with paths relative to the worktree, `TodoWrite` items, the result's summary, and errors sorted into login, limit and other, from fixtures typed with the SDK's own types (AC-4, AC-8, AC-13)
+- [x] Task 7: Read the SDK's messages into activity: tool uses by kind with paths relative to the worktree, `TodoWrite` items, the result's summary, and errors sorted into login, limit and other, from fixtures typed with the SDK's own types (AC-4, AC-8, AC-13)
       Check: pnpm test packages/core/src/agents/claude/sdk-messages.test.ts
       Files: packages/core/src/agents/claude/sdk-messages.ts, sdk-messages.test.ts
 - [ ] Task 8: Add `simple-git` and make a worktree: find the default branch, fetch it (20 s, no prompts, the last fetched one when that fails), take the first free `feat/<KEY>`, `-2`, `-3`…, and add the worktree. Tests use temporary repositories with a bare `origin`. Mark `simple-git` decided in `docs/architecture.md` (AC-2, Q1, Q2)
