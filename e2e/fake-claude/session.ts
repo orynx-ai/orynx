@@ -5,6 +5,10 @@
 // reaches Claude and never runs a command: an allowed command is only written down, in `ran.txt` in its
 // working folder, which is the session's worktree. Run by Node directly, which strips the types.
 //
+// Spec 014: a run with no tools that isn't saved (`--tools=` and `--no-session-persistence`) is Orynx asking for
+// text: a pull request's title and description, or with "Changed files since the last push" in it, a commit
+// message. "(no draft)" in the ticket's title makes it fail as a signed-out Claude Code would.
+//
 // Spec 013: a message that comes while it works waits, and is taken into the turn after its next tool call;
 // each result says which messages its turn took and how many still wait. `--resume` with its own session id
 // plays a follow-up (it writes the message it got into `src/follow-up.ts` and finishes); any other id exits
@@ -27,6 +31,8 @@ function option(name: string): string | null {
 const resumed = option('--resume');
 const stepMs = 400;
 const tools = option('--tools') ?? '';
+/** Orynx asking for text alone (spec 014): no tools, and nothing saved. */
+const writing = tools === '' && process.argv.includes('--no-session-persistence');
 
 let count = 0;
 const nextId = (prefix: string) => {
@@ -297,6 +303,34 @@ async function followUp(asked: string): Promise<void> {
   await answerTheRest();
 }
 
+/** Orynx asks for text alone (spec 014): a pull request's draft, or a commit message for Push changes. */
+async function write(asked: string): Promise<void> {
+  send({
+    type: 'system',
+    subtype: 'init',
+    session_id: sessionId,
+    uuid: nextId('uuid'),
+    cwd: process.cwd(),
+    tools: [],
+    mcp_servers: [],
+    plugins: [],
+    model: 'fake',
+    permissionMode: 'default',
+    apiKeySource: 'none',
+  });
+  await pause(stepMs);
+  if (asked.includes('(no draft)')) {
+    send({ type: 'assistant', parent_tool_use_id: null, error: 'authentication_failed', message: { content: [] } });
+    return;
+  }
+  sendResult(
+    asked.includes('Changed files since the last push')
+      ? 'Use the existing useSelection hook'
+      : 'Add bulk archive to the content list\n\n## What changed\n\n- Row selection and Archive selected.\n\n' +
+          '## How it was checked\n\n`npm test -- content-list` passes.',
+  );
+}
+
 // Claude Code can't resume a conversation it doesn't have: it says so and exits before it starts.
 if (resumed !== null && resumed !== sessionId) {
   process.stderr.write(`No conversation found with session ID: ${resumed}\n`);
@@ -357,7 +391,7 @@ input.on('line', (line) => {
     playing = true;
     if (typeof uuid === 'string') taken.push(uuid);
     const text = typeof content === 'string' ? content : JSON.stringify(content);
-    void (resumed === null ? play(text) : followUp(text));
+    void (writing ? write(text) : resumed === null ? play(text) : followUp(text));
   }
 });
 input.on('close', () => {
