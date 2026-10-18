@@ -421,3 +421,53 @@ describe('POST /api/sessions/:id/messages (spec 013)', () => {
     expect(missing.statusCode).toBe(404);
   });
 });
+
+describe('Create pull request and Push changes (spec 014)', () => {
+  const draftOf = (id: string) => apiRoutes.sessionPullRequestDraft.replace(':id', id);
+  const createOf = (id: string) => apiRoutes.sessionPullRequest.replace(':id', id);
+  const pushDraftOf = (id: string) => apiRoutes.sessionPushDraft.replace(':id', id);
+  const pushOf = (id: string) => apiRoutes.sessionPush.replace(':id', id);
+  const asked = { title: 'PROJ-1423: Add bulk archive', body: 'What changed.' };
+
+  it("AC-7, AC-17: say why there's no pull request to draft, create or push to, for a session with no worktree", async () => {
+    const { app } = await serverWith({ id: 'never', state: 'stopped', branch: null });
+    const answers = await Promise.all([
+      app.inject({ method: 'POST', url: draftOf('never'), headers }),
+      app.inject({ method: 'POST', url: createOf('never'), headers, payload: asked }),
+      app.inject({ method: 'POST', url: pushDraftOf('never'), headers }),
+      app.inject({ method: 'POST', url: pushOf('never'), headers, payload: { message: 'More' } }),
+    ]);
+    expect(answers.map((res) => res.statusCode)).toEqual([200, 200, 200, 200]);
+    expect(answers.map((res) => res.json<unknown>())).toEqual([
+      { result: 'cannot', reason: 'no_worktree' },
+      { result: 'cannot', reason: 'no_worktree' },
+      { result: 'cannot', reason: 'no_pull_request' },
+      { result: 'cannot', reason: 'no_pull_request' },
+    ]);
+  });
+
+  it('Q11d: refuses an empty title or commit message, and one too long, before anything happens', async () => {
+    const { app } = await serverWith({ id: 'done', state: 'done' });
+    const bad = await Promise.all([
+      app.inject({ method: 'POST', url: createOf('done'), headers, payload: { title: '  ', body: '' } }),
+      app.inject({ method: 'POST', url: createOf('done'), headers, payload: { title: 'x'.repeat(257), body: '' } }),
+      app.inject({ method: 'POST', url: createOf('done'), headers, payload: { title: 'T', body: 'x'.repeat(65_537) } }),
+      app.inject({ method: 'POST', url: pushOf('done'), headers, payload: { message: '' } }),
+    ]);
+    expect(bad.map((res) => res.statusCode)).toEqual([400, 400, 400, 400]);
+  });
+
+  it('answer 404 for a session it doesn’t have', async () => {
+    const { app } = await serverWith();
+    const answers = await Promise.all([
+      app.inject({ method: 'POST', url: draftOf('nope'), headers }),
+      app.inject({ method: 'POST', url: createOf('nope'), headers, payload: asked }),
+      app.inject({ method: 'POST', url: pushDraftOf('nope'), headers }),
+      app.inject({ method: 'POST', url: pushOf('nope'), headers, payload: { message: 'More' } }),
+    ]);
+    for (const res of answers) {
+      expect(res.statusCode).toBe(404);
+      expect(ApiErrorSchema.parse(res.json()).code).toBe('not_found');
+    }
+  });
+});

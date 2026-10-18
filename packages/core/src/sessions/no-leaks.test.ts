@@ -15,6 +15,8 @@ import type { Keychain } from '../secrets/keychain.ts';
 import { createFileSettingsStore, settingsFilePath } from '../settings/settings-store.ts';
 import { claudeEmail, claudeOrganisation, useFakeClaudeFolder } from '../test/fake-claude.ts';
 import { fakeClaudeSdk, type FakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
+import { http, HttpResponse } from 'msw';
+import { acceptingPulls, acceptingRepository, pullsUrl, type FakeOpenedPull } from '../test/fake-github.ts';
 import { acceptingIssue, goodToken, jiraEmail, jiraSite, useFakeJira } from '../test/fake-jira.ts';
 import { gitSearchPath, useTestRepositories } from '../test/git-repository.ts';
 import { openFileSessionStore } from './file-session-store.ts';
@@ -330,5 +332,137 @@ describe.skipIf(process.platform === 'win32')('spec 013 stays out of the log and
     for (const secret of [followUp, secretFile, secretLine, summary]) expect(told).not.toContain(secret);
     expect(told).toContain('You sent Claude a follow-up');
     expect(sdk.runs[1]?.prompts).toEqual([followUp]);
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('spec 014 stays out of the log and the event stream', () => {
+  it('AC-24: the title, description, commit message, remote address, a path, a line and the token never leak', async () => {
+    const leaks = {
+      title: 'fake-pr-title-for-leaks',
+      body: 'fake-pr-body-for-leaks',
+      message: 'fake-commit-message-for-leaks',
+      draftedTitle: 'fake-drafted-title-for-leaks',
+      draftedBody: 'fake-drafted-body-for-leaks',
+      draftedMessage: 'fake-drafted-message-for-leaks',
+      password: 'fake-remote-password-for-leaks',
+      path: 'fake-pr-path-for-leaks.ts',
+      line: 'fake-pr-line-for-leaks',
+      github: 'fake-github-token-for-leaks',
+    };
+    const repos = await repositories();
+    home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-leaks-014-')));
+    const folder = await fakeClaudeFolder();
+    await folder.install({ kind: 'signed_in' });
+    jira.use(acceptingIssue({ key: 'PROJ-1', summary: 'Work on PROJ-1' }));
+    // origin holds a password, as an https remote can; the push goes to the bare repository standing in for it.
+    const address = `https://octocat:${leaks.password}@github.com/acme/web-app.git`;
+    await repos.git(repos.clone, 'remote', 'set-url', 'origin', address);
+    await repos.git(repos.clone, 'config', `url.${repos.origin}.pushInsteadOf`, address);
+    await writeFile(
+      join(repos.root, '.gitconfig'),
+      '[init]\n\tdefaultBranch = main\n[user]\n\tname = Rakesh D\n\temail = you@company.com\n',
+    );
+    const opened: FakeOpenedPull[] = [];
+    jira.use(...acceptingPulls({ opened, tokens: [leaks.github] }), acceptingRepository({ tokens: [leaks.github] }));
+    // GitHub refuses the first press, so a failure is logged too.
+    jira.use(http.post(pullsUrl, () => HttpResponse.json({ message: 'Forbidden' }, { status: 403 }), { once: true }));
+
+    const log: string[] = [];
+    const bus = createEventBus();
+    const events: ServerEvent[] = [];
+    bus.subscribe((event) => events.push(event));
+    const settings = createFileSettingsStore(home);
+    await settings.update(() => ({ jira: { site: jiraSite, email: jiraEmail }, github: { method: 'token' } }));
+    const keychain: Keychain = {
+      get: (account) => Promise.resolve(account === 'jira' ? goodToken : account === 'github' ? leaks.github : null),
+      set: () => Promise.resolve(),
+      delete: () => Promise.resolve(),
+    };
+    const sdk = fakeClaudeSdk(
+      [{ finish: summary }],
+      [{ finish: `${leaks.draftedTitle}\n\n${leaks.draftedBody}` }],
+      [{ finish: leaks.draftedMessage }],
+    );
+    const shell = { HOME: repos.root, PATH: gitSearchPath };
+    app = await createServer({
+      token: sessionToken,
+      port,
+      version: 'test',
+      events: bus,
+      userName: () => Promise.resolve(null),
+      keychain,
+      settings,
+      dataDir: home,
+      userHome: repos.root,
+      sessions: await openFileSessionStore(home),
+      claudeCode: createClaudeCode({
+        program: folder.program,
+        env: { PATH: '/usr/bin:/bin' },
+        workFolder: folder.workFolder,
+      }),
+      agent: { query: sdk.query, program: '/opt/claude/claude', env: agentEnvironment(shell) },
+      gitEnvironment: gitEnvironment({ ...repos.env, ...shell }),
+      logger: {
+        level: 'trace',
+        stream: new Writable({
+          write(chunk: Buffer, _encoding, done) {
+            log.push(chunk.toString());
+            done();
+          },
+        }),
+      },
+    });
+    const hub = app;
+    await hub.inject({
+      method: 'POST',
+      url: apiRoutes.repositories,
+      headers,
+      payload: { path: repos.clone, jiraProject: 'PROJ' },
+    });
+    const started = await hub.inject({
+      method: 'POST',
+      url: apiRoutes.sessions,
+      headers,
+      payload: { ticketKey: 'PROJ-1' },
+    });
+    const id = started.json<{ sessionId: string }>().sessionId;
+    const stateOf = async () =>
+      (await hub.inject({ method: 'GET', url: apiRoutes.session.replace(':id', id), headers })).json<{
+        state: string;
+      }>().state;
+    await until(async () => (await stateOf()) === 'done');
+    await writeFile(join(home, 'worktrees', id, leaks.path), `${leaks.line}\n`);
+
+    const post = (url: string, payload?: object) =>
+      hub.inject({
+        method: 'POST',
+        url: url.replace(':id', id),
+        headers,
+        ...(payload === undefined ? {} : { payload }),
+      });
+    expect((await post(apiRoutes.sessionPullRequestDraft)).json()).toMatchObject({
+      title: `PROJ-1: ${leaks.draftedTitle}`,
+    });
+    const pr = { title: leaks.title, body: leaks.body };
+    expect((await post(apiRoutes.sessionPullRequest, pr)).json()).toEqual({
+      result: 'failed',
+      problem: { kind: 'github_forbidden' },
+    });
+    expect((await post(apiRoutes.sessionPullRequest, pr)).json()).toMatchObject({ result: 'opened', number: 2841 });
+    await writeFile(join(home, 'worktrees', id, leaks.path), `${leaks.line}\n${leaks.line}\n`);
+    expect((await post(apiRoutes.sessionPushDraft)).json()).toMatchObject({ message: leaks.draftedMessage });
+    expect((await post(apiRoutes.sessionPush, { message: leaks.message })).json()).toEqual({
+      result: 'pushed',
+      files: 1,
+    });
+    await hub.close();
+
+    expect(opened.map((pull) => pull.title)).toEqual([leaks.title]);
+    const told = log.join('') + JSON.stringify(events);
+    for (const leak of Object.values(leaks)) expect(told).not.toContain(leak);
+    expect(told).not.toContain('octocat:');
+    expect(told).toContain('Create pull request ended');
+    expect(told).toContain('Push changes ended');
+    expect(told).toContain('"outcome":"forbidden"');
   });
 });
