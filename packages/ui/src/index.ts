@@ -18,6 +18,7 @@ export {
 } from './components/attention-row.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
 export { Board, BoardColumn, type BoardColumnProps, type BoardProps } from './components/board.tsx';
+export { BrandMark, type BrandMarkProps } from './components/brand-mark.tsx';
 export {
   Breadcrumb,
   BreadcrumbItem,

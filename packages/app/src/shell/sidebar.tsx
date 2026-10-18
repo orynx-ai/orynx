@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Link, useLinkProps } from '@tanstack/react-router';
 import { History, House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucide-react';
-import { Button, Kbd, Splitter, cn } from '@devhub/ui';
+import { BrandMark, Button, Kbd, Splitter, cn } from '@devhub/ui';
 import { useInboxCount } from '../features/home/queries.ts';
 import { useTicketsCount } from '../features/tickets/queries.ts';
 import { SidebarSessions } from '../features/sessions/components/sidebar-sessions.tsx';
@@ -56,13 +56,10 @@ export function Sidebar() {
           collapsed && 'md:flex-col md:gap-2 md:px-0',
         )}
       >
-        <span
-          aria-hidden
-          className="flex size-8 shrink-0 items-center justify-center rounded-sm bg-primary font-medium text-primary-foreground"
-        >
-          D
+        <span className="flex min-h-8 items-center gap-2">
+          <BrandMark />
+          <span className={cn('text-title font-medium', collapsed && 'md:sr-only')}>Orynx</span>
         </span>
-        <span className={cn('text-title font-medium', collapsed && 'md:sr-only')}>DevHub</span>
         <Button
           variant="ghost"
           size="icon-sm"

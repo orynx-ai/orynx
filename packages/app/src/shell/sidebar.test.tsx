@@ -66,6 +66,17 @@ describe('Sidebar', () => {
     );
   });
 
+  it('names the product Orynx next to its mark, and keeps the name for screen readers when collapsed', async () => {
+    const { user } = await renderApp();
+    const name = within(mainNav()).getByText('Orynx');
+
+    expect(name).toBeVisible();
+    expect(name.previousElementSibling).toHaveAttribute('aria-hidden', 'true');
+
+    await user.click(within(mainNav()).getByRole('button', { name: 'Collapse sidebar' }));
+    expect(within(mainNav()).getByText('Orynx')).toHaveClass('md:sr-only');
+  });
+
   it('AC-7: keeps Search reachable but inactive until search ships', async () => {
     const { user } = await renderApp({ route: '/tickets' });
     const search = within(mainNav()).getByRole('button', { name: /Search/ });
