@@ -13,7 +13,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: The ui's own icon buttons get tooltips: Composer's Send, a context chip's Remove, Pagination's arrows; the card's Build becomes `WorkItemShip` ("Ship PROJ-1423", tooltip "Ship") (AC-11, AC-16)
       Check: pnpm test packages/ui
       Files: packages/ui/src/components/{composer,context-chip,pagination,work-item-card}.tsx and their tests and stories
-- [ ] Task 4: `pnpm gate icon-buttons` (failing from the start), CLAUDE.md rule 7, `pnpm agent-rules` (AC-12)
+- [x] Task 4: `pnpm gate icon-buttons` (failing from the start), CLAUDE.md rule 7, `pnpm agent-rules` (AC-12)
       Check: pnpm gates:test; pnpm gate icon-buttons handbook-size agent-rules
       Files: scripts/lib/policies/icon-buttons.ts, scripts/gates/icon-buttons.ts, scripts/gates/icon-buttons.test.ts, scripts/run-gates.ts, CLAUDE.md, AGENTS.md, .github/copilot-instructions.md, .cursor/rules/00-core.mdc
 

@@ -5,6 +5,7 @@ import componentCoverage from './component-coverage.ts';
 import designSource from './design-source.ts';
 import envPolicy from './env-policy.ts';
 import handbookSize from './handbook-size.ts';
+import iconButtons from './icon-buttons.ts';
 import learnFreshness from './learn-freshness.ts';
 import reviewStamp from './review-stamp.ts';
 import secrets from './secrets.ts';
@@ -20,6 +21,7 @@ export const gates: readonly Gate[] = [
   envPolicy,
   testPolicy,
   designSource,
+  iconButtons,
   agentRules,
   handbookSize,
   secrets,

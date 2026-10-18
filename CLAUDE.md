@@ -39,8 +39,8 @@ Trunk is `main`. One branch per spec: `feat/<NNN-slug>`. Work in this order: `/s
    Checked by: `pnpm gate component-coverage` · Guide: `.claude/skills/add-ui-component/SKILL.md`
 6. **Say where the design came from.** Every `*-screen.tsx` starts with `// Design: docs/design/screens/<file> — <part>` or `// Design: none — <reason>`.
    Checked by: `pnpm gate design-source` (also a hook) · Guide: `.claude/skills/build-a-screen/SKILL.md`
-7. **Accessible by default.** Use real elements, give icon-only buttons an `aria-label`, put `aria-current` in nav, use `role="alert"` for approvals and never remove the focus ring. Stories must have no axe violations.
-   Checked by: Storybook a11y (`test: "error"`) · Guide: `docs/design/design-system.md` (Accessibility rules)
+7. **Accessible by default.** Use real elements, draw icon-only buttons with `IconButton` (its `label` is the tooltip and the name) and put any other icon-only control in a `Tooltip`, put `aria-current` in nav, use `role="alert"` for approvals and never remove the focus ring. Stories must have no axe violations.
+   Checked by: Storybook a11y (`test: "error"`), `pnpm gate icon-buttons` · Guide: `docs/design/design-system.md` (Accessibility rules)
 8. **Honest tests.** Test real components the way a person uses them: by role, label or visible text. Never `vi.mock` your own code or `@devhub/*`. Fake only the network (MSW), the clock and outside services. No `data-testid`. Coverage stays at or above 90%.
    Checked by: `pnpm gate test-policy`, vitest thresholds · Guide: `.claude/skills/honest-tests/SKILL.md`
 9. **Config through one door.** Only `apps/*/src/config.ts` reads `process.env`, validated with zod, and every key is listed in `.env.example`.
