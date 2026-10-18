@@ -87,9 +87,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 28: e2e: Build on a card, watch the fake run's steps arrive in this tab and a second one, finish at Review, then start another, stop it and discard it. The repository's own checkout stays as it was (AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, AC-9, AC-10, AC-22)
       Check: pnpm test:e2e e2e/sessions.spec.ts
       Files: e2e/sessions.spec.ts, e2e/fake-tools/preload.ts, e2e/fake-tools/config.ts (a `sprint` switch puts the fake Jira's issues in Sprint 42, so Tickets has a board)
-- [ ] Task 29: e2e: the folder menu and each reason Build can't start, a Jira failure after start, Home's Build and Open, the keyboard path, and axe at 360 and 1280 px in light and dark (AC-11, AC-12, AC-13, AC-15, AC-18, AC-19)
+- [x] Task 29: e2e: the folder menu and each reason Build can't start, a Jira failure after start, Home's Build and Open, the keyboard path, and axe at 360 and 1280 px in light and dark (AC-11, AC-12, AC-13, AC-15, AC-18, AC-19)
       Check: pnpm test:e2e e2e/sessions.spec.ts
-      Files: e2e/sessions.spec.ts
+      Files: e2e/sessions.spec.ts, e2e/fake-tools/preload.ts, e2e/fake-tools/config.ts (`brokenIssues`: an issue the fake Jira won't give). Three sessions at once (Q11) stays with the session service's tests: it would need three fakes held open on the shared hub
 - [ ] Task 30: Docs: a `learn/` page on sessions and worktrees, agent-runtime rules 1, 6 and the adapter as 011 built them (Q7, Q8), the roadmap's 011 and 012 lines, and the pages whose sources changed
       Check: pnpm gate learn-freshness handbook-size specs
       Files: learn/sessions-and-worktrees.md, .claude/skills/agent-runtime/SKILL.md, docs/product/roadmap.md, learn/live-updates.md, learn/local-security.md, learn/tokens-and-keychain.md, learn/checking-claude.md, learn/how-a-request-flows.md, learn/the-inbox.md

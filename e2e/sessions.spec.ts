@@ -2,9 +2,23 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
 import { answerClaudeAs, fakeClaudeDirFor } from './fake-claude/config.ts';
 import { controlPortFor, sessionsHubPort, type FakeTools } from './fake-tools/config.ts';
+
+declare global {
+  interface Window {
+    axe: {
+      run: (
+        context: Element,
+        options: object,
+      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
+    };
+  }
+}
+
+const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Spec 011 on its own hub (playwright.config.ts): its sessions and worktrees never reach the other specs.
 test.use({ baseURL: `http://127.0.0.1:${String(sessionsHubPort)}` });
@@ -21,10 +35,20 @@ const tools: FakeTools = {
     },
     // The fake Claude Code keeps working, until it's stopped, on a brief that says "(waits)".
     { key: 'PROJ-1424', summary: 'Archive old events (waits)', status: 'To Do', category: 'new' },
+    { key: 'PROJ-1425', summary: 'Speed up the site picker', status: 'To Do', category: 'new' },
+    { key: 'PROJ-1426', summary: 'Let admins pin a site to the top', status: 'To Do', category: 'new' },
+    { key: 'PROJ-1427', summary: 'Name the export after its site', status: 'To Do', category: 'new' },
+    { key: 'PROJ-1428', summary: 'Remember the last tab on profiles (waits)', status: 'To Do', category: 'new' },
+    // A project with no folder in Settings › Repositories.
+    { key: 'MOB-1', summary: 'Fix the mobile header', status: 'To Do', category: 'new' },
   ],
   reviews: [],
   mine: [],
+  brokenIssues: ['PROJ-1427'],
 };
+
+/** The sessions the tests start, by what they show, for the checks at the end. */
+const seen: { done?: string; discarded?: string; failed?: string } = {};
 
 /** A real repository in a temporary folder, with a bare origin, and git that reads none of your settings. */
 function makeRepository() {
@@ -66,6 +90,7 @@ async function api(page: Page, method: string, path: string, body?: unknown) {
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
       if (!answer.ok) throw new Error(`${method} ${path} answered ${String(answer.status)}`);
+      return answer.status === 204 ? null : ((await answer.json()) as unknown);
     },
     { method, path, body },
   );
@@ -122,6 +147,7 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8: Build on a card starts Claude, and eve
   await page.getByRole('button', { name: 'Build PROJ-1423 with Claude' }).click();
 
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  seen.done = page.url();
   await expect(page.getByRole('heading', { level: 1, name: 'Add bulk archive to the content list' })).toBeVisible();
   // A second tab, open while Claude works, follows the same steps with no reload.
   const other = await context.newPage();
@@ -158,6 +184,7 @@ test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its bran
   await page.goto('/tickets');
   await page.getByRole('button', { name: 'Build PROJ-1424 with Claude' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  seen.discarded = page.url();
   const progress = page.getByRole('region', { name: "Claude's progress" });
   await expect(progress.getByText('Editing files')).toBeVisible({ timeout: 15_000 });
 
@@ -178,4 +205,140 @@ test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its bran
   await expect(progress.getByText('The worktree and feat/PROJ-1424 are deleted.')).toBeVisible();
   expect(worktrees()).not.toContain(kept);
   expect(repository.git(repository.clone, 'branch', '--list', 'feat/PROJ-1424')).toBe('');
+});
+
+test('AC-11, AC-18: with two folders, Build asks which with the keyboard, and starts in the one picked', async ({
+  page,
+}) => {
+  const mobile = join(repository.root, 'mobile');
+  repository.git(repository.root, 'clone', join(repository.root, 'origin.git'), mobile);
+  await page.goto('/tickets');
+  const added = (await api(page, 'POST', '/api/repositories', { path: mobile, jiraProject: 'PROJ' })) as { id: string };
+
+  const build = page.getByRole('button', { name: 'Build PROJ-1425 with Claude' });
+  await build.focus();
+  await page.keyboard.press('Enter');
+  const menu = page.getByRole('menu', { name: 'Start in' });
+  await expect(menu.getByRole('menuitem')).toHaveCount(2);
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('menuitem', { name: /mobile/ })).toBeFocused();
+  await page.keyboard.press('Enter');
+
+  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  await expect(
+    page.getByRole('main').getByText('in mobile · separate worktree, your main checkout is untouched'),
+  ).toBeVisible();
+  await expect(page.getByRole('region', { name: "Claude's progress" }).getByText('Finished')).toBeVisible({
+    timeout: 15_000,
+  });
+  const inMobile = repository.git(mobile, 'worktree', 'list', '--porcelain');
+  expect(inMobile).toContain('branch refs/heads/feat/PROJ-1425');
+  await api(page, 'DELETE', `/api/repositories/${added.id}`);
+});
+
+test('AC-12 (Q4): Build says why it can’t start, and links to the fix', async ({ page }) => {
+  await page.goto('/tickets');
+
+  const mob = page.getByRole('button', { name: 'Build MOB-1 with Claude' });
+  await mob.click();
+  const noFolder = page.getByRole('menu', { name: 'Build MOB-1 with Claude' });
+  await expect(noFolder.getByText('No folder is set for MOB.')).toBeVisible();
+  await expect(noFolder.getByRole('menuitem', { name: 'Open Settings › Repositories' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(mob).toBeFocused();
+
+  await answerClaudeAs('signed_out', fakeClaudeDirFor(sessionsHubPort));
+  await api(page, 'POST', '/api/claude/login/check');
+  await page.reload();
+  await page.getByRole('button', { name: 'Build PROJ-1426 with Claude' }).click();
+  const signedOut = page.getByRole('menu', { name: 'Build PROJ-1426 with Claude' });
+  await expect(signedOut.getByText("Claude Code isn't signed in.")).toBeVisible();
+  await signedOut.getByRole('menuitem', { name: 'Open Settings › Coding agent' }).click();
+  await expect(page).toHaveURL(/\/settings\/coding-agent$/);
+
+  await answerClaudeAs('signed_in', fakeClaudeDirFor(sessionsHubPort));
+  await api(page, 'POST', '/api/claude/login/check');
+});
+
+test('AC-13: when Jira won’t give the ticket, the session says it couldn’t start, and why', async ({ page }) => {
+  await page.goto('/tickets');
+  await page.getByRole('button', { name: 'Build PROJ-1427 with Claude' }).click();
+  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  seen.failed = page.url();
+
+  const alert = page.getByRole('region', { name: "Claude's progress" }).getByRole('alert');
+  await expect(alert).toContainText("Claude couldn't start");
+  await expect(alert).toContainText(
+    "Orynx couldn't read PROJ-1427 from Jira. Check Settings › Connections, then start again.",
+  );
+  await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible();
+});
+
+test('AC-15, AC-18: Home opens a live session, and Build, Stop and Discard all work from the keyboard', async ({
+  page,
+}) => {
+  await api(await page.goto('/').then(() => page), 'POST', '/api/inbox/refresh');
+  const panel = page.getByRole('region', { name: 'Needs your attention' });
+  const live = panel.getByRole('listitem').filter({ hasText: 'Add bulk archive to the content list' });
+  await expect(live.getByRole('link', { name: 'Open' })).toHaveAttribute('href', new URL(seen.done ?? '').pathname);
+
+  const build = panel.getByRole('button', { name: 'Build PROJ-1428 with Claude' });
+  await build.focus();
+  await page.keyboard.press('Enter');
+  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  await expect(page.getByRole('region', { name: "Claude's progress" }).getByText('Editing files')).toBeVisible({
+    timeout: 15_000,
+  });
+
+  const stop = page.getByRole('button', { name: 'Stop Claude' });
+  await stop.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { level: 1 })).toBeFocused({ timeout: 10_000 });
+
+  const discard = page.getByRole('button', { name: 'Discard changes' });
+  await discard.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: "Discard Claude's changes?" });
+  await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(discard).toBeFocused();
+});
+
+test('AC-19: each session state has no axe violations, at 1280 and 360 px, in light and dark', async ({ page }) => {
+  const check = async (selector = 'body') => {
+    await page.addScriptTag({ path: axePath });
+    return page.evaluate(async (context) => {
+      const target = document.querySelector(context);
+      if (target === null) throw new Error(`Nothing matches ${context}`);
+      // axe reads colours as drawn, so anything still fading in must settle first.
+      const moving = document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity);
+      await Promise.allSettled(moving.map((animation) => animation.finished));
+      const results = await window.axe.run(target, { resultTypes: ['violations'] });
+      return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
+    }, selector);
+  };
+  for (const url of [seen.done, seen.discarded, seen.failed]) {
+    if (url === undefined) throw new Error('A session the earlier tests start is missing');
+    for (const width of [1280, 360]) {
+      for (const colorScheme of ['light', 'dark'] as const) {
+        await page.setViewportSize({ width, height: 800 });
+        await page.emulateMedia({ colorScheme });
+        await page.goto(url);
+        await expect(page.getByRole('region', { name: "Claude's progress" })).toBeVisible();
+        expect(await check(), `${url} at ${String(width)} px, ${colorScheme}`).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      }
+    }
+  }
+
+  // An open menu hides the rest of the page from screen readers, so it is checked on its own.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/tickets');
+  await page.getByRole('button', { name: 'Build MOB-1 with Claude' }).click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  expect(await check('[role="menu"]')).toEqual([]);
 });

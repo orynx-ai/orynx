@@ -47,11 +47,13 @@ function handlers() {
     acceptingIssueSearch(tools.issues),
     // A session reads its ticket on its own (spec 011).
     acceptingIssue(
-      tools.issues.map((issue) => ({
-        key: issue.key,
-        summary: issue.summary ?? `Summary of ${issue.key}`,
-        type: issue.type ?? 'Story',
-      })),
+      tools.issues
+        .filter((issue) => tools.brokenIssues?.includes(issue.key) !== true)
+        .map((issue) => ({
+          key: issue.key,
+          summary: issue.summary ?? `Summary of ${issue.key}`,
+          type: issue.type ?? 'Story',
+        })),
     ),
     acceptingUser(),
     acceptingInboxQuery({ reviews: tools.reviews, mine: tools.mine }),

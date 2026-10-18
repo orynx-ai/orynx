@@ -25,4 +25,6 @@ export interface FakeTools {
   mine: FakePull[];
   /** Put your issues in Sprint 42, so Tickets has a board (spec 011's e2e). Off by default. */
   sprint?: boolean;
+  /** Issues whose own page Jira won't give (a 404), so a session on one couldn't start (spec 011, AC-13). */
+  brokenIssues?: string[];
 }
