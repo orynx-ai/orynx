@@ -2,6 +2,7 @@
 import { PageBar, PageBody, PageBreadcrumb } from '../../shell/page-frame.tsx';
 import { AttentionPanel } from './components/attention-panel.tsx';
 import { HomeComposer } from './components/home-composer.tsx';
+import { WaitingBanner } from './components/waiting-banner.tsx';
 import { SyncStatus } from './components/sync-status.tsx';
 
 /**
@@ -14,6 +15,7 @@ export function HomeScreen() {
     <>
       <PageBar breadcrumb={<PageBreadcrumb crumbs={[{ label: 'Home' }]} />} actions={<SyncStatus />} />
       <PageBody width="narrow">
+        <WaitingBanner />
         {/* 48 px above the greeting (design system, --space-12): the body's 24 px plus 24 px here. */}
         <h1 className="m-0 mt-6 text-center font-serif text-display font-normal">What should we build today?</h1>
         <HomeComposer />

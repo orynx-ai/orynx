@@ -167,8 +167,11 @@ describe('Sidebar sessions, 16 at a time (spec 020)', () => {
     let pages = 0;
     server.use(
       http.get(apiUrl(apiRoutes.sessions), async ({ request }) => {
-        pages += 1;
-        if (pages === 2) await new Promise<void>((resolve) => (release = resolve));
+        // Only the sidebar asks a page at a time; Home's waiting banner asks for the whole list (spec 015).
+        if (new URL(request.url).searchParams.has('limit')) {
+          pages += 1;
+          if (pages === 2) await new Promise<void>((resolve) => (release = resolve));
+        }
         return HttpResponse.json(sessionsPage(forty, request.url));
       }),
     );

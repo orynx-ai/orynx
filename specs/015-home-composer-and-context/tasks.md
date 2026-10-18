@@ -71,7 +71,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 23: Turn a pasted key or PR link into its chip, and remove a chip with the keyboard so that focus moves on and the removal is announced (AC-14, AC-15)
       Check: pnpm test packages/app/src/features/home/components/home-composer.test.tsx
       Files: packages/app/src/features/home/components/home-composer.tsx, packages/app/src/features/home/components/home-composer.test.tsx
-- [ ] Task 24: Build the waiting banner: the session waiting longest, its key and title, what it wants to run or edit, "· 2 more waiting", Review opening it, shown only once the list has loaded, and gone within 2 seconds of the last answer (AC-25 to AC-27, Q11)
+- [x] Task 24: Build the waiting banner: the session waiting longest, its key and title, what it wants to run or edit, "· 2 more waiting", Review opening it, shown only once the list has loaded, and gone within 2 seconds of the last answer (AC-25 to AC-27, Q11)
       Check: pnpm test packages/app/src/features/home/components/waiting-banner.test.tsx
       Files: packages/app/src/features/home/components/waiting-banner.tsx, packages/app/src/features/home/components/waiting-banner.test.tsx
 - [ ] Task 25: Lay out Home: the banner, greeting, composer, quick starts (Pick up a ticket, Review a pull request with focus on its tab) and the attention list, with the `Design:` note updated. ⌘N focuses the composer (AC-1, AC-2, AC-28, AC-29, AC-33)
