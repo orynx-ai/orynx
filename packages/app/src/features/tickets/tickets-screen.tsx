@@ -163,7 +163,7 @@ export function TicketsScreen() {
         options={options}
         count={loading ? undefined : shown.length}
         assigneeRef={assignee}
-        pickers={<SprintPickers choice={choice} sprint={sprint} />}
+        pickers={<SprintPickers choice={choice} sprint={sprint} loading={loading} />}
         {...(wide ? {} : { search: searchField })}
       />
       <PageBody width="full">

@@ -18,6 +18,9 @@ import { useNow } from '../../../words/use-now.ts';
 import { useChooseTicketsSprint, useTicketsSprints } from '../queries.ts';
 import { noOpenSprintsText, noSprintName, openSprintLine, yourSprintText } from '../ticket-words.ts';
 
+/** Both pickers the same width, so neither moves the filters beside them when its words change (spec 020). */
+const pickerWidth = 'w-48 justify-between';
+
 /**
  * Tickets' Project and Sprint pickers (spec 020). Project searches the Jira projects you can see, with Your
  * sprint first (AC-38); picking one shows its current sprint. Sprint lists that project's active then future
@@ -25,7 +28,16 @@ import { noOpenSprintsText, noSprintName, openSprintLine, yourSprintText } from 
  * project when its board has one. No sprint ends the list (AC-39): the picked project's tickets in no sprint,
  * or with Your sprint, your own.
  */
-export function SprintPickers({ choice, sprint }: { choice: TicketsChoice; sprint: Sprint | null }) {
+export function SprintPickers({
+  choice,
+  sprint,
+  loading = false,
+}: {
+  choice: TicketsChoice;
+  sprint: Sprint | null;
+  /** The sprint is on its way, so Sprint shows a bar where its name goes. */
+  loading?: boolean;
+}) {
   const jira = useJiraConnection();
   const projects = useJiraProjects(jira.data !== undefined && jira.data.saved !== null);
   const choose = useChooseTicketsSprint();
@@ -50,15 +62,16 @@ export function SprintPickers({ choice, sprint }: { choice: TicketsChoice; sprin
         emptyText="No projects match"
         // Compact, at most 360 px tall: the user's call for this toolbar (spec 020, AC-40).
         size="sm"
+        loading={projects.isPending && projects.fetchStatus !== 'idle'}
       >
-        <Picker>
+        <Picker className={pickerWidth}>
           <span className="text-muted-foreground">Project</span> {choice.projectKey ?? yourSprintText}
         </Picker>
       </Combobox>
       <SprintMenu
         project={project}
         current={choice.sprintId ?? sprint?.id ?? null}
-        name={choice.sprintId === 'none' ? noSprintName : (sprint?.name ?? null)}
+        name={choice.sprintId === 'none' ? noSprintName : (sprint?.name ?? (loading ? null : '–'))}
         onPick={(sprintId) => {
           // No sprint keeps Your sprint's "yours"; a sprint belongs to the project listed.
           if (sprintId === 'none') choose.mutate({ projectKey: choice.projectKey, sprintId });
@@ -87,16 +100,29 @@ function SprintMenu({
   return (
     <Menu open={open} onOpenChange={setOpen}>
       <MenuTrigger asChild>
-        <Picker>
-          <span className="text-muted-foreground">Sprint</span> {name ?? '–'}
+        <Picker className={pickerWidth}>
+          <span className="text-muted-foreground">Sprint</span>{' '}
+          {name ?? (
+            // While the sprint loads: a bar where its name goes, the picker as wide as ever.
+            <Skeleton className="inline-block h-3.5 w-16 align-middle" />
+          )}
         </Picker>
       </MenuTrigger>
       <MenuContent heading="Sprint" align="start" size="sm">
         {project === null ? null : sprints.isPending ? (
-          <div role="status" className="flex flex-col gap-1 p-1.5">
+          // Two rows the size of a sprint's (its name over its dates), so the list doesn't jump when they arrive.
+          <div role="status" className="flex flex-col">
             <span className="sr-only">Loading sprints</span>
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
+            {[0, 1].map((row) => (
+              <span key={row} aria-hidden className="flex flex-col px-3 py-1">
+                <span className="flex h-5 items-center">
+                  <Skeleton className="h-3.5 w-24" />
+                </span>
+                <span className="flex h-4 items-center">
+                  <Skeleton className="h-3 w-32" />
+                </span>
+              </span>
+            ))}
           </div>
         ) : sprints.isError ? (
           <>

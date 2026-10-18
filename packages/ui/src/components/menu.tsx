@@ -46,7 +46,7 @@ export type MenuContentProps = ComponentProps<typeof MenuPrimitive.Content> & {
   foot?: ReactNode;
   /**
    * `sm`, the user's call for Tickets' toolbar lists (18 Oct 2026, spec 020): 32 px rows in `text-small`,
-   * descriptions in `text-label`, at least 224 px wide and at most 360 px tall.
+   * descriptions in `text-label`, 256 px wide whatever it holds, and at most 360 px tall.
    */
   size?: MenuSize;
 };
@@ -93,7 +93,7 @@ export function MenuContent({
         className={cn(
           'z-50 flex max-h-(--radix-dropdown-menu-content-available-height) max-w-(--radix-dropdown-menu-content-available-width) min-w-65 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-y-auto rounded-md border border-border bg-raised p-1.5 text-body text-foreground shadow-overlay',
           'motion-safe:data-[state=closed]:animate-menu-out motion-safe:data-[state=open]:animate-menu-in',
-          size === 'sm' && 'max-h-90 min-w-56 p-1 text-small',
+          size === 'sm' && 'max-h-90 w-64 min-w-0 p-1 text-small',
           className,
         )}
         {...props}

@@ -5,6 +5,7 @@ import { cn } from '../lib/cn.ts';
 import { useFieldControl } from './field.tsx';
 import { Icon } from './icon.tsx';
 import { menuItemClass } from './menu.tsx';
+import { Skeleton } from './skeleton.tsx';
 
 export interface ComboboxOption {
   value: string;
@@ -27,10 +28,12 @@ export interface ComboboxProps {
   /** Where the list lines up with the field: `start` under a form field, `end` under a toolbar picker. */
   align?: 'start' | 'end';
   /**
-   * `sm`, as Menu's (spec 020): 32 px rows and search box in `text-small`, at least 224 px wide and at most
-   * 360 px tall, for a toolbar's picker.
+   * `sm`, as Menu's (spec 020): 32 px rows and search box in `text-small`, 256 px wide and at most 360 px
+   * tall, for a toolbar's picker.
    */
   size?: 'default' | 'sm';
+  /** The options are still on their way: two loading rows the size of real ones follow those already here. */
+  loading?: boolean;
   /**
    * A trigger of the caller's own, such as a `<Picker>` in a toolbar; it must pass on its props and ref.
    * Left out, the field is drawn like `Select` and takes its label, help and error from a `<Field>`.
@@ -69,6 +72,7 @@ export function Combobox({
   disabled = false,
   align = 'start',
   size = 'default',
+  loading = false,
   children,
   'aria-label': ariaLabel,
   onBlur,
@@ -163,13 +167,17 @@ export function Combobox({
           className={cn(
             'z-50 flex max-h-(--radix-popover-content-available-height) w-(--radix-popover-trigger-width) min-w-65 origin-(--radix-popover-content-transform-origin) flex-col rounded-md border border-border bg-raised p-1.5 text-body text-foreground shadow-overlay',
             'motion-safe:data-[state=closed]:animate-menu-out motion-safe:data-[state=open]:animate-menu-in',
+            small && 'max-h-90 w-64 min-w-0 p-1 text-small',
           )}
         >
-          <div className="relative flex items-center pb-1.5">
+          <div className={cn('relative flex items-center', small ? 'pb-1' : 'pb-1.5')}>
             <Icon
               icon={Search01Icon}
               aria-hidden
-              className="pointer-events-none absolute start-3 text-muted-foreground"
+              className={cn(
+                'pointer-events-none absolute text-muted-foreground',
+                small ? 'start-2.5 size-4' : 'start-3',
+              )}
             />
             <input
               type="search"
@@ -201,7 +209,7 @@ export function Combobox({
             aria-label={searchLabel}
             className="flex min-h-0 flex-col overflow-y-auto"
           >
-            {shown.length === 0 ? (
+            {shown.length === 0 && !loading ? (
               <p className="m-0 px-3 py-2 text-small text-muted-foreground">{emptyText}</p>
             ) : (
               shown.map((option, index) => {
@@ -234,6 +242,17 @@ export function Combobox({
                 );
               })
             )}
+            {loading ? (
+              // Rows the size of real ones, so the list doesn't jump when the options arrive.
+              <div role="status" className="flex flex-col">
+                <span className="sr-only">Loading</span>
+                {[0, 1].map((row) => (
+                  <span key={row} aria-hidden className={cn('flex items-center px-3', small ? 'h-8' : 'h-10')}>
+                    <Skeleton className="h-3.5 w-3/4" />
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </Popover.Content>
       </Popover.Portal>
