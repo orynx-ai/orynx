@@ -32,8 +32,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: Add `claudeLogin()`, `checkClaudeLogin()` and their query options to the api-client, and give the app's tests a default "signed out" answer. Refreshing the login on `status.changed` moves to task 12, where the card can show it (AC-5)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/claude.ts, claude.test.ts, client.ts, queries.ts, index.ts, packages/app/src/test/msw.ts
-- [ ] Task 11: Add `Card` to `@devhub/ui` with plain, `selected` (2 px `info` border, no wash) and `placeholder` (dashed, `bg-sidebar`) looks, a story for each, a test and its design-map row (AC-14, AC-15, Q4)
-      Check: pnpm test packages/ui/src/components/card.test.tsx; pnpm gate component-coverage style-policy; Storybook a11y
+- [x] Task 11: Add `Card` to `@devhub/ui` with plain, `selected` (2 px `info` border, no wash) and `placeholder` (dashed, `bg-sidebar`) looks, a story for each, a test and its design-map row (AC-14, AC-15, Q4)
+      Check: pnpm test packages/ui/src/components/card.test.tsx; pnpm gate component-coverage style-policy; Storybook a11y in task 16's browser check
       Files: packages/ui/src/components/card.tsx, card.stories.tsx, card.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 12: Add `ClaudeCard`: skeletons while loading, Active with the account line for each way of signing in, Not signed in and Error with Check again, which says "Checking…", stays focused and starts one check. `status.changed` refreshes it (AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, Q3, Q5, Q6)
       Check: pnpm test packages/app/src/features/settings/components/claude-card.test.tsx packages/app/src/live-updates.test.tsx
