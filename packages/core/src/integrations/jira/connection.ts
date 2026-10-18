@@ -131,6 +131,7 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
     keyOf: jiraAccount,
     check: checkNow,
     events,
+    forgotten: notConnected,
     now: options.now ?? Date.now,
     ...(options.onError === undefined ? {} : { onError: options.onError }),
   });

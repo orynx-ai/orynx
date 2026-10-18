@@ -14,9 +14,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Run `auth status --json` with the short environment, a 10-second timeout and a small output limit, and read the answer with zod into a login or a problem (missing, failed with its exit code, unreadable, timeout). Add the fake program, which writes down its arguments and environment (AC-3, AC-6, AC-10, AC-12)
       Check: pnpm test packages/core/src/agents/claude
       Files: packages/core/src/agents/claude/claude-code.ts, claude-code.test.ts, map.ts, map.test.ts, packages/core/src/test/fake-claude.ts, packages/core/src/test/fake-claude/claude
-- [ ] Task 5: Let `createCheckedStatus` hold any answer, and add `checkNow()`, which shares a check that's already running. Jira and GitHub behave as before (AC-7, AC-9)
+- [x] Task 5: Let `createCheckedStatus` hold any answer, and add `checkNow()`, which shares a check that's already running. Jira and GitHub behave as before (AC-7, AC-9)
       Check: pnpm test packages/core/src/integrations
-      Files: packages/core/src/integrations/checked-status.ts, checked-status.test.ts
+      Files: packages/core/src/integrations/checked-status.ts, checked-status.test.ts, jira/connection.ts, github/connection.ts
 - [ ] Task 6: Add Claude's login check: at most every 2 minutes, Check again at once, `status.changed` when the answer changes, and a log line with only the problem's kind and exit code (AC-5, AC-6, AC-9, AC-11)
       Check: pnpm test packages/core/src/agents/claude
       Files: packages/core/src/agents/claude/claude-login.ts, claude-login.test.ts

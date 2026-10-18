@@ -179,6 +179,7 @@ export function createGitHubConnection(options: GitHubConnectionOptions): GitHub
     keyOf: (saved) => saved.method,
     check: checkNow,
     events,
+    forgotten: notConnected,
     now: options.now ?? Date.now,
     ...(options.onError === undefined ? {} : { onError: options.onError }),
   });

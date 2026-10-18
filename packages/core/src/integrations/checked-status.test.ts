@@ -28,6 +28,7 @@ function setup() {
       return new Promise((resolve) => waiting.push(resolve));
     },
     events,
+    forgotten: { state: 'not_connected', detail: null },
     now: () => now,
     onError: (error) => errors.push(error),
   });
@@ -152,5 +153,80 @@ describe('checked status', () => {
 
     await expect.poll(() => errors).toEqual([new Error('broken check')]);
     expect(await checked.get({ account: 'a' })).toEqual(connected);
+  });
+});
+
+describe('checked status, checked now', () => {
+  it('Check again checks at once within the 2 minutes, and says when the answer changed', async () => {
+    const { checked, asked, seen, answer } = setup();
+    const first = checked.get({ account: 'a' });
+    await answer(failing);
+    await first;
+
+    const now = checked.checkNow({ account: 'a' });
+    await answer(connected);
+
+    expect(await now).toEqual(connected);
+    expect(await checked.get({ account: 'a' })).toEqual(connected);
+    expect(asked).toEqual(['a', 'a']);
+    expect(seen).toEqual([{ type: 'status.changed' }]);
+  });
+
+  it('AC-7: Check again shares a check that is already running, so a second press starts none', async () => {
+    const { checked, asked, answer } = setup();
+    const first = checked.get({ account: 'a' });
+
+    const presses = Promise.all([checked.checkNow({ account: 'a' }), checked.checkNow({ account: 'a' })]);
+    await answer(connected);
+
+    expect(await first).toEqual(connected);
+    expect(await presses).toEqual([connected, connected]);
+    expect(asked).toEqual(['a']);
+  });
+
+  it('starts the 2 minutes again from a Check again', async () => {
+    const { checked, asked, answer, later } = setup();
+    const first = checked.get({ account: 'a' });
+    await answer(connected);
+    await first;
+    later(twoMinutes - 1);
+
+    const now = checked.checkNow({ account: 'a' });
+    await answer(connected);
+    await now;
+    later(twoMinutes - 1);
+
+    expect(await checked.get({ account: 'a' })).toEqual(connected);
+    expect(asked).toEqual(['a', 'a']);
+  });
+});
+
+describe('checked status with an answer of its own shape', () => {
+  type Login = { state: 'signed_in'; email: string } | { state: 'signed_out' };
+
+  it('AC-9: compares answers by value, so an equal answer stays quiet and a new one says so', async () => {
+    const events = createEventBus();
+    const seen: ServerEvent[] = [];
+    events.subscribe((event) => seen.push(event));
+    let now = 0;
+    let next: Login = { state: 'signed_in', email: 'you@company.com' };
+    const checked = createCheckedStatus<undefined, Login>({
+      keyOf: () => 'claude',
+      // A fresh object each time, so only its value can make two answers the same.
+      check: () => Promise.resolve(structuredClone(next)),
+      events,
+      forgotten: { state: 'signed_out' },
+      now: () => now,
+    });
+
+    await checked.get(undefined);
+    await checked.checkNow(undefined);
+    expect(seen).toEqual([]);
+
+    next = { state: 'signed_out' };
+    now += twoMinutes;
+    await checked.get(undefined);
+    await expect.poll(() => seen).toEqual([{ type: 'status.changed' }]);
+    expect(await checked.get(undefined)).toEqual({ state: 'signed_out' });
   });
 });
