@@ -65,7 +65,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 21: Build the agent picker: Claude checked, with "Connected · runs locally" or "Signed out" and the link to Settings › Coding agent, and a dot that isn't the only sign (AC-19, Q10)
       Check: pnpm test packages/app/src/features/home/components/agent-picker.test.tsx
       Files: packages/app/src/features/home/components/agent-picker.tsx, packages/app/src/features/home/components/agent-picker.test.tsx
-- [ ] Task 22: Build + Add context: the kinds (no Slack, Q12), the Jira and Pull request lists from the search index with their checks, the typed-key row, the loading, empty and not-connected states, Git repository setting the folder, and File through the computer's dialog with its limits. A pick returns focus to the text box (AC-6 to AC-13, AC-32)
+- [x] Task 22: Build + Add context: the kinds (no Slack, Q12), the Jira and Pull request lists from the search index with their checks, the typed-key row, the loading, empty and not-connected states, Git repository setting the folder, and File through the computer's dialog with its limits. A pick returns focus to the text box (AC-6 to AC-13, AC-32)
       Check: pnpm test packages/app/src/features/home/components/add-context.test.tsx
       Files: packages/app/src/features/home/components/add-context.tsx, packages/app/src/features/home/components/add-context.test.tsx
 - [ ] Task 23: Turn a pasted key or PR link into its chip, and remove a chip with the keyboard so that focus moves on and the removal is announced (AC-14, AC-15)

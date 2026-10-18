@@ -28,7 +28,7 @@ export function chipFromPaste(pasted: string): ComposerChip | null {
 export function fileChipFrom(
   name: string,
   bytes: Uint8Array,
-): ComposerChip | Exclude<FileRefusal, { kind: 'too_many' }> {
+): Extract<ComposerChip, { kind: 'file' }> | Exclude<FileRefusal, { kind: 'too_many' }> {
   if (bytes.byteLength > composerLimits.fileBytes) return { kind: 'too_big', name };
   let text: string;
   try {

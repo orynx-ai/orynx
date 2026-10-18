@@ -26,6 +26,7 @@ import {
   type SettingsLink,
 } from '../composer-words.ts';
 import { useStartFromComposer } from '../queries.ts';
+import { AddContext } from './add-context.tsx';
 import { AgentPicker } from './agent-picker.tsx';
 import { FolderPicker } from './folder-picker.tsx';
 import { composerFormSchema, type ComposerFormValues } from '../schemas.ts';
@@ -81,6 +82,8 @@ export function HomeComposer() {
   const repositories = useRepositories();
   const start = useStartFromComposer();
   const [removed, setRemoved] = useState('');
+  // Why a file wasn't added (AC-12); it goes when the draft changes or another file is added.
+  const [refused, setRefused] = useState<string | null>(null);
   const box = useRef<HTMLTextAreaElement | null>(null);
 
   const form = useForm<ComposerFormValues, unknown, { message: string }>({
@@ -90,6 +93,7 @@ export function HomeComposer() {
   const field = form.register('message', {
     onChange: (event: { target: { value: string } }) => {
       setText(event.target.value);
+      setRefused(null);
       // What was said about the last try no longer fits once the draft changes.
       if (start.isError || start.data !== undefined) start.reset();
     },
@@ -102,11 +106,13 @@ export function HomeComposer() {
   const answered = start.data === undefined ? null : saidFor(start.data, start.variables.context);
   const tooLong = form.formState.errors.message?.message;
   const said: Said | null =
-    tooLong === undefined
-      ? start.isError
-        ? { line: composerWords.failed, link: null, session: null }
-        : answered
-      : { line: tooLong, link: null, session: null };
+    refused !== null
+      ? { line: refused, link: null, session: null }
+      : tooLong === undefined
+        ? start.isError
+          ? { line: composerWords.failed, link: null, session: null }
+          : answered
+        : { line: tooLong, link: null, session: null };
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -158,6 +164,12 @@ export function HomeComposer() {
           }}
         />
         <ComposerBar>
+          <AddContext
+            onPicked={() => {
+              box.current?.focus();
+            }}
+            onRefused={setRefused}
+          />
           <FolderPicker />
           <AgentPicker />
           <ComposerSend label={start.isPending ? composerWords.sending : composerWords.send} />
