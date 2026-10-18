@@ -872,6 +872,18 @@ describe('discarding a session', () => {
     expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toBe('');
   });
 
+  it('AC-6: says the files changed once the worktree is gone, so every Changes tab reads again', async () => {
+    const { service, records, heard } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    const before = heard.length;
+
+    await service.discard('0000000000000001');
+
+    expect(heard.slice(before)).toContainEqual({ type: 'session.files.changed', sessionId: '0000000000000001' });
+    expect(await service.changes('0000000000000001')).toEqual({ state: 'discarded' });
+  });
+
   it('AC-10: stops a working session first', async () => {
     const { service, records } = await setUp({ script: [{ hang: true }] });
     await service.start({ ticketKey: 'PROJ-1423' });

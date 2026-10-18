@@ -830,6 +830,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         session: { ...ended.session, state: 'stopped', discardedAt: new Date(now()).toISOString() },
       };
     });
+    // A stopped session's state doesn't change, so only this tells its Changes tab the files are gone (AC-6).
+    filesChanged(id);
     return 'discarded';
   }
 
