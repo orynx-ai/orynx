@@ -198,3 +198,97 @@ describe('committing (spec 014, Q6)', () => {
     await expect(readFile(marker)).rejects.toThrow();
   });
 });
+
+/** An `ssh` git runs for origin, as `core.sshCommand`: it prints `say` to stderr and fails, after `wait` seconds. */
+async function fakeSsh(
+  repos: { root: string; clone: string; git: (cwd: string, ...args: string[]) => Promise<string> },
+  say: string,
+  wait = 0,
+) {
+  const program = join(repos.root, 'fake-ssh');
+  await writeFile(program, `#!/bin/sh\nsleep ${String(wait)}\necho "${say}" >&2\nexit 255\n`, { mode: 0o755 });
+  await repos.git(repos.clone, 'config', 'core.sshCommand', program);
+  await repos.git(repos.clone, 'remote', 'set-url', 'origin', 'git@github.com:acme/web-app.git');
+}
+
+describe('pushing (spec 014, Q6)', () => {
+  it('AC-5: pushes the branch to origin under its own name, and changes nothing else there or in your checkout', async () => {
+    const { repos, worktree, git } = await setUp();
+    await withIdentity(repos);
+    const marker = join(repos.root, 'a-hook-ran');
+    await hook(join(repos.clone, '.git', 'hooks'), 'pre-push', marker);
+    await writeFile(join(worktree, 'new.ts'), 'new\n');
+    await git.commit(worktree, 'PROJ-1423: Add bulk archive');
+    const mainBefore = await repos.git(repos.origin, 'rev-parse', 'refs/heads/main');
+    const checkoutBefore = [
+      await repos.git(repos.clone, 'symbolic-ref', 'HEAD'),
+      await repos.git(repos.clone, 'status', '--porcelain'),
+    ];
+
+    const pushed = await git.push(worktree, 'feat/PROJ-1423');
+    const head = await repos.git(worktree, 'rev-parse', 'HEAD');
+    expect(pushed).toEqual({ ok: true, head, upToDate: false });
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/feat/PROJ-1423')).toBe(head);
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/main')).toBe(mainBefore);
+    expect([
+      await repos.git(repos.clone, 'symbolic-ref', 'HEAD'),
+      await repos.git(repos.clone, 'status', '--porcelain'),
+    ]).toEqual(checkoutBefore);
+    await expect(readFile(marker)).rejects.toThrow();
+  });
+
+  it('AC-10: says a push with nothing new is up to date', async () => {
+    const { repos, worktree, git } = await setUp();
+    await withIdentity(repos);
+    await writeFile(join(worktree, 'new.ts'), 'new\n');
+    await git.commit(worktree, 'PROJ-1423: Add bulk archive');
+    await git.push(worktree, 'feat/PROJ-1423');
+    expect(await git.push(worktree, 'feat/PROJ-1423')).toMatchObject({ ok: true, upToDate: true });
+  });
+
+  it("AC-9: never forces: a branch on origin with a commit the worktree doesn't have is rejected, and kept", async () => {
+    const { repos, worktree, git } = await setUp();
+    await withIdentity(repos);
+    // Someone else pushed to a branch of the same name.
+    const other = join(repos.root, 'other');
+    await repos.git(repos.root, 'clone', repos.origin, other);
+    await repos.git(other, 'checkout', '-b', 'feat/PROJ-1423');
+    await writeFile(join(other, 'theirs.ts'), 'theirs\n');
+    await repos.git(other, 'add', '.');
+    await repos.git(other, 'commit', '-m', 'Their commit');
+    await repos.git(other, 'push', 'origin', 'feat/PROJ-1423');
+    const theirs = await repos.git(other, 'rev-parse', 'HEAD');
+
+    await writeFile(join(worktree, 'new.ts'), 'new\n');
+    await git.commit(worktree, 'PROJ-1423: Add bulk archive');
+    expect(await git.push(worktree, 'feat/PROJ-1423')).toEqual({ ok: false, problem: 'rejected' });
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/feat/PROJ-1423')).toBe(theirs);
+  });
+
+  it("AC-9: says git couldn't sign in to origin", async () => {
+    const { repos, worktree, git } = await setUp();
+    await fakeSsh(repos, 'git@github.com: Permission denied (publickey).');
+    expect(await git.push(worktree, 'feat/PROJ-1423')).toEqual({ ok: false, problem: 'auth' });
+  });
+
+  it('AC-9: gives up on a push that takes too long', async () => {
+    const { repos, worktree } = await setUp();
+    await fakeSsh(repos, 'never', 5);
+    const quick = createBranchGit({ env: gitEnvironment(repos.env), pushTimeoutMs: 300 });
+    expect(await quick.push(worktree, 'feat/PROJ-1423')).toEqual({ ok: false, problem: 'timeout' });
+  });
+
+  it('AC-9, AC-24: says any other failure without git’s words, which can hold a password', async () => {
+    const { repos, worktree, git } = await setUp();
+    await repos.git(
+      repos.clone,
+      'remote',
+      'set-url',
+      'origin',
+      'https://octocat:fake-token-for-tests@127.0.0.1:1/acme/web-app.git',
+    );
+    const pushed = await git.push(worktree, 'feat/PROJ-1423');
+    expect(pushed).toEqual({ ok: false, problem: 'failed' });
+    expect(JSON.stringify(pushed)).not.toContain('fake-token-for-tests');
+  });
+});

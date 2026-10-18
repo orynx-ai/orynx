@@ -20,6 +20,13 @@ export type CommitProblem = 'no_identity' | 'signing' | 'commit_failed';
 /** `files` is how many Orynx committed; 0, and no commit, when everything was committed already. */
 export type Committed = { ok: true; files: number; head: string } | { ok: false; problem: CommitProblem };
 
+/**
+ * git couldn't sign in to origin, origin has commits the worktree doesn't (never forced), the push took too long,
+ * or it failed another way (Q6, Q11d).
+ */
+export type PushProblem = 'auth' | 'rejected' | 'timeout' | 'failed';
+export type Pushed = { ok: true; head: string; upToDate: boolean } | { ok: false; problem: PushProblem };
+
 export interface BranchGit {
   /** The github.com repository `origin` names, as configured or as git expands it (AC-2, AC-7). */
   origin(worktree: string): Promise<Origin>;
@@ -40,6 +47,11 @@ export interface BranchGit {
    * with your git name, email and signing (Q6). git never makes up a name: without one it's `no_identity`.
    */
   commit(worktree: string, message: string): Promise<Committed>;
+  /**
+   * Pushes `branch` to origin under the same name, and only it: never forced, so a branch on origin with commits
+   * the worktree doesn't have stays as it is (`rejected`). Your own git login signs in, never asking for a password.
+   */
+  push(worktree: string, branch: string): Promise<Pushed>;
 }
 
 export interface BranchGitOptions {
@@ -49,12 +61,20 @@ export interface BranchGitOptions {
   timeoutMs?: number;
   /** How long a commit may take, signing included; 60 seconds. */
   commitTimeoutMs?: number;
+  /** How long a push may take; 2 minutes. */
+  pushTimeoutMs?: number;
 }
 
 /** git's words when it has no name or email to commit with, in English (`LC_ALL=C`). */
 const noIdentity = /please tell me who you are|empty ident name|unable to auto-detect email|no email was given/i;
 /** git's words when a signature couldn't be made, by gpg, ssh or x509. */
 const signingFailed = /failed to sign|signing failed|gpg failed|error: load key|ssh-keygen/i;
+
+/** git's words when origin refused the push because it has commits this branch doesn't. */
+const rejected = /\[rejected\]|non-fast-forward|fetch first/i;
+/** git's words when it couldn't sign in to origin, or origin won't say the repository is there. */
+const notSignedIn =
+  /authentication failed|permission denied|could not read username|terminal prompts disabled|host key verification failed|repository not found|access denied|the requested url returned error: 403/i;
 
 /** The words a git failure carries, read only to name the problem, then dropped. */
 function wordsOf(error: unknown): string {
@@ -76,15 +96,24 @@ function lines(output: string): string[] {
   return output.split('\n').filter((line) => line !== '');
 }
 
-export function createBranchGit({ env, timeoutMs = 10_000, commitTimeoutMs = 60_000 }: BranchGitOptions): BranchGit {
-  function git(worktree: string, config: readonly string[] = [], limitMs = timeoutMs): SimpleGit {
+export function createBranchGit({
+  env,
+  timeoutMs = 10_000,
+  commitTimeoutMs = 60_000,
+  pushTimeoutMs = 120_000,
+}: BranchGitOptions): BranchGit {
+  function git(
+    worktree: string,
+    config: readonly string[] = [],
+    signal: AbortSignal = AbortSignal.timeout(timeoutMs),
+  ): SimpleGit {
     return simpleGit({
       baseDir: worktree,
       // A diff rewrites the index when a file's times changed and its text didn't, unless told not to (spec 013).
       config: ['core.hooksPath=/dev/null', 'diff.autoRefreshIndex=false', ...config],
       unsafe: { allowUnsafeHooksPath: true },
       allowEnvironment: ['GIT_TERMINAL_PROMPT'],
-      abort: AbortSignal.timeout(limitMs),
+      abort: signal,
       // git's own words in English, so a failure can be told apart.
     }).env({ ...env, LC_ALL: 'C' });
   }
@@ -199,7 +228,7 @@ export function createBranchGit({ env, timeoutMs = 10_000, commitTimeoutMs = 60_
         const staged = paths(await git(worktree).raw(['diff', '--cached', '--name-only', '-z', '--no-ext-diff']));
         if (staged.length > 0) {
           // Your own name only: never one git makes up from this computer's name (Q6).
-          await git(worktree, ['user.useConfigOnly=true'], commitTimeoutMs).raw([
+          await git(worktree, ['user.useConfigOnly=true'], AbortSignal.timeout(commitTimeoutMs)).raw([
             'commit',
             '--no-verify',
             '--quiet',
@@ -213,6 +242,29 @@ export function createBranchGit({ env, timeoutMs = 10_000, commitTimeoutMs = 60_
         if (noIdentity.test(words)) return { ok: false, problem: 'no_identity' };
         if (signingFailed.test(words)) return { ok: false, problem: 'signing' };
         return { ok: false, problem: 'commit_failed' };
+      }
+    },
+
+    async push(worktree, branch) {
+      const signal = AbortSignal.timeout(pushTimeoutMs);
+      const ref = `refs/heads/${branch}`;
+      try {
+        // The branch named on both sides, so nothing else on origin can change; no `--force`, ever.
+        const said = await git(worktree, [], signal).raw([
+          'push',
+          '--porcelain',
+          '--no-verify',
+          'origin',
+          `${ref}:${ref}`,
+        ]);
+        const head = (await read(worktree, ['rev-parse', 'HEAD'])).trim();
+        return { ok: true, head, upToDate: /^=\t/m.test(said) };
+      } catch (error) {
+        if (signal.aborted) return { ok: false, problem: 'timeout' };
+        const words = wordsOf(error);
+        if (rejected.test(words)) return { ok: false, problem: 'rejected' };
+        if (notSignedIn.test(words)) return { ok: false, problem: 'auth' };
+        return { ok: false, problem: 'failed' };
       }
     },
   };
