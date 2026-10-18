@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
-import { SessionItem, sessionStateLabels, type SessionItemState } from './session-item.tsx';
+import { SessionItem, SessionItemSkeleton, sessionStateLabels, type SessionItemState } from './session-item.tsx';
 
 const states = Object.keys(sessionStateLabels) as SessionItemState[];
 
@@ -65,6 +65,12 @@ describe('SessionItem', () => {
         ))}
       </nav>,
     );
+    await expectNoAxeViolations(container);
+  });
+
+  it('AC-2 (spec 020): its skeleton stays out of the accessibility tree', async () => {
+    const { container } = render(<SessionItemSkeleton />);
+    expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
     await expectNoAxeViolations(container);
   });
 });

@@ -114,6 +114,7 @@ export {
 export { Select } from './components/select.tsx';
 export {
   SessionItem,
+  SessionItemSkeleton,
   SessionStateIcon,
   sessionStateLabels,
   type SessionItemProps,

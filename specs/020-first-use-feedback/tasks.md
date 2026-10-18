@@ -28,7 +28,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: `GET /api/sessions` pages with `cursor` and answers `nextCursor`; a bad cursor answers 400 (AC-6)
       Check: pnpm test packages/contracts/src/session.test.ts packages/core/src/routes/sessions.test.ts packages/api-client/src/sessions.test.ts
       Files: packages/contracts/src/session.ts, testing.ts, packages/core/src/sessions/session-store.ts, packages/core/src/routes/sessions.ts, packages/api-client/src/endpoints/sessions.ts, queries.ts and their tests
-- [ ] Task 7: The sidebar lists every recent session, 16 at a time, loading the next page at the list's end, with skeleton rows and Try again (AC-1 to AC-5)
+- [x] Task 7: The sidebar lists every recent session, 16 at a time, loading the next page at the list's end, with skeleton rows and Try again (AC-1 to AC-5)
       Check: pnpm test packages/app/src/features/sessions
       Files: packages/app/src/features/sessions/components/sidebar-sessions.tsx, sidebar-sessions.test.tsx, queries.ts, packages/app/src/test/setup.ts
 

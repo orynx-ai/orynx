@@ -19,12 +19,25 @@ export function apiUrl(path: string): string {
   return new URL(path, testBaseURL).toString();
 }
 
-/** Answers GET /api/sessions with this list, keeping only the first `limit` the way the server does. */
+/**
+ * The page of this list (newest first) a GET /api/sessions request asks for, as the server pages it: from
+ * after the `cursor`'s row, at most `limit`, with the next page's cursor when more follow (spec 020).
+ */
+export function sessionsPage(list: SessionList, url: string): SessionList {
+  const params = new URL(url).searchParams;
+  const cursor = params.get('cursor');
+  const start = cursor === null ? 0 : list.sessions.findIndex((session) => cursor.endsWith(`.${session.id}`)) + 1;
+  const rest = list.sessions.slice(start);
+  const limit = params.get('limit') === null ? rest.length : Number(params.get('limit'));
+  const sessions = rest.slice(0, limit);
+  const last = sessions.at(-1);
+  const more = rest.length > limit && last !== undefined;
+  return { sessions, nextCursor: more ? `${String(Date.parse(last.updatedAt))}.${last.id}` : null };
+}
+
+/** Answers GET /api/sessions with this list, a page at a time as the server does. */
 export function sessionsHandler(list: SessionList) {
-  return http.get(apiUrl(apiRoutes.sessions), ({ request }) => {
-    const limit = new URL(request.url).searchParams.get('limit');
-    return HttpResponse.json({ sessions: limit === null ? list.sessions : list.sessions.slice(0, Number(limit)) });
-  });
+  return http.get(apiUrl(apiRoutes.sessions), ({ request }) => HttpResponse.json(sessionsPage(list, request.url)));
 }
 
 /** Answers GET /api/sessions/:id with one of these sessions, or 404 as the server does for any other id. */
