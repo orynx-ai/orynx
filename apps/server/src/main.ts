@@ -32,12 +32,12 @@ const cacheNotices: string[] = [];
 const cache = openInboxCache(cacheFilePath(config.home), {
   onReset: () => {
     cacheNotices.push(
-      `${cacheFilePath(config.home)} could not be read; DevHub made a new one and fills it on the next sync.`,
+      `${cacheFilePath(config.home)} could not be read; Orynx made a new one and fills it on the next sync.`,
     );
   },
   onUnusable: () => {
     cacheNotices.push(
-      `${cacheFilePath(config.home)} is not a file, so the inbox cache lives in memory until DevHub restarts. Move it away to keep the cache between runs.`,
+      `${cacheFilePath(config.home)} is not a file, so the inbox cache lives in memory until Orynx restarts. Move it away to keep the cache between runs.`,
     );
   },
 });
@@ -56,7 +56,7 @@ const app = await createServer({
   dataDir: config.home,
   settings: createFileSettingsStore(config.home, {
     onUnreadable: () => {
-      app.log.warn(`${settingsFilePath(config.home)} is not valid; DevHub ignores it until the next save.`);
+      app.log.warn(`${settingsFilePath(config.home)} is not valid; Orynx ignores it until the next save.`);
     },
   }),
   cache,
@@ -81,15 +81,15 @@ await writeRuntimeFile(config.home, { port: config.port, token, pid: process.pid
 for (const notice of tokenNotices(config.tokens, envFile)) app.log[notice.level](notice.message);
 app.log.info(
   serveWebApp
-    ? `DevHub is running at http://127.0.0.1:${String(config.port)}`
-    : `DevHub server is ready on 127.0.0.1:${String(config.port)}. Open the web app that "pnpm dev" started.`,
+    ? `Orynx is running at http://127.0.0.1:${String(config.port)}`
+    : `Orynx server is ready on 127.0.0.1:${String(config.port)}. Open the web app that "pnpm dev" started.`,
 );
 
 let stopping = false;
 async function stop(signal: string): Promise<void> {
   if (stopping) return;
   stopping = true;
-  app.log.info(`${signal}: stopping DevHub`);
+  app.log.info(`${signal}: stopping Orynx`);
   await removeRuntimeFile(config.home);
   await app.close();
   process.exit(0);

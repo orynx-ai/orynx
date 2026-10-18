@@ -1,7 +1,8 @@
 import type { ComponentProps } from 'react';
-import { Check } from 'lucide-react';
+import { Tick02Icon } from '@hugeicons/core-free-icons';
 import { cva } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
+import { Icon } from './icon.tsx';
 
 type StepState = 'done' | 'current' | 'todo';
 
@@ -50,7 +51,7 @@ export function Stepper({ steps, current, className, ...props }: StepperProps) {
           >
             {index > 0 ? <span aria-hidden className="me-0.5 h-px w-5 bg-control" /> : null}
             <span data-slot="stepper-mark" aria-hidden className={markVariants({ state })}>
-              {state === 'done' ? <Check className="size-3.5 stroke-2" /> : index + 1}
+              {state === 'done' ? <Icon icon={Tick02Icon} className="size-3.5 stroke-2" /> : index + 1}
             </span>
             {label}
             {state === 'done' ? <span className="sr-only">, done</span> : null}

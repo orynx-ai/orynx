@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { GitPullRequest, RefreshCw, Sparkles } from 'lucide-react';
+import { GitPullRequestIcon, Refresh04Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { Button } from './button.tsx';
+import { Icon } from './icon.tsx';
 
 const meta = {
   title: 'Components/Button',
@@ -26,7 +27,7 @@ export const WithIcon: Story = {
     variant: 'primary',
     children: (
       <>
-        <GitPullRequest aria-hidden />
+        <Icon icon={GitPullRequestIcon} aria-hidden />
         Create pull request
       </>
     ),
@@ -34,7 +35,7 @@ export const WithIcon: Story = {
 };
 
 export const IconOnly: Story = {
-  args: { size: 'icon', 'aria-label': 'Refresh', children: <RefreshCw aria-hidden /> },
+  args: { size: 'icon', 'aria-label': 'Refresh', children: <Icon icon={Refresh04Icon} aria-hidden /> },
 };
 
 export const SmallIconGhost: Story = {
@@ -42,7 +43,7 @@ export const SmallIconGhost: Story = {
     variant: 'ghost',
     size: 'icon-sm',
     'aria-label': 'Build PROJ-1377 with Claude',
-    children: <Sparkles aria-hidden />,
+    children: <Icon icon={SparklesIcon} aria-hidden />,
   },
 };
 

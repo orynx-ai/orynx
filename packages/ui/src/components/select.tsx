@@ -1,7 +1,8 @@
 import type { ComponentProps } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
 import { useFieldControl } from './field.tsx';
+import { Icon } from './icon.tsx';
 
 /**
  * A native `<select>` drawn like `Input`: 40 px, the `border-control` outline and the shared focus ring
@@ -15,7 +16,7 @@ export function Select({ className, children, ...props }: ComponentProps<'select
     <div className={cn('relative w-full min-w-0', className)}>
       <select
         data-slot="select"
-        className="h-10 w-full min-w-0 cursor-pointer appearance-none rounded-sm border border-control bg-raised ps-3 pe-10 text-body text-foreground disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:border-danger"
+        className="h-10 w-full min-w-0 cursor-pointer appearance-none rounded-sm border border-control bg-raised ps-3 pe-10 text-body text-foreground not-aria-invalid:enabled:hover:border-muted-foreground disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:border-danger"
         {...props}
         {...(field
           ? { id: field.id, 'aria-describedby': field.describedBy, 'aria-invalid': field.invalid || undefined }
@@ -23,7 +24,11 @@ export function Select({ className, children, ...props }: ComponentProps<'select
       >
         {children}
       </select>
-      <ChevronDown aria-hidden className="pointer-events-none absolute end-3 top-2.5 text-muted-foreground" />
+      <Icon
+        icon={ArrowDown01Icon}
+        aria-hidden
+        className="pointer-events-none absolute end-3 top-2.5 text-muted-foreground"
+      />
     </div>
   );
 }

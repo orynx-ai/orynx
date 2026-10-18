@@ -115,12 +115,12 @@ describe('ManagedConnectionRow', () => {
     expect(screen.queryByRole('form', { name: 'GitHub connection' })).not.toBeInTheDocument();
   });
 
-  it("says the DevHub server can't be reached when the saved settings never arrived", async () => {
+  it("says the Orynx server can't be reached when the saved settings never arrived", async () => {
     const { user } = renderRow({ loadFailed: true, form: undefined });
 
     await user.click(screen.getByRole('button', { name: 'Connect' }));
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Could not reach the DevHub server.');
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not reach the Orynx server.');
     expect(screen.getByRole('button', { name: 'Close' })).not.toHaveAttribute('aria-controls');
   });
 });

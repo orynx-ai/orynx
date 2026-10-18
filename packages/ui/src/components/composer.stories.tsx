@@ -1,12 +1,13 @@
 import type { ComponentProps } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { FileText, Folder, Plus } from 'lucide-react';
+import { File02Icon, Folder01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import { Button } from './button.tsx';
 import { Composer, ComposerBar, ComposerHint, ComposerSend, ComposerTextarea } from './composer.tsx';
 import { ContextChip, ContextList } from './context-chip.tsx';
 import { Menu, MenuContent, MenuItem, MenuRadioGroup, MenuRadioItem, MenuTrigger } from './menu.tsx';
 import { Picker } from './picker.tsx';
 import { SourceMark } from './source-mark.tsx';
+import { Icon } from './icon.tsx';
 
 const meta = {
   title: 'Components/Composer',
@@ -38,7 +39,7 @@ function HomeComposer({
       {withContext ? (
         <ContextList aria-label="Context for Claude">
           <ContextChip label="PROJ-1423" icon={<SourceMark source="jira" label="none" />} onRemove={() => undefined} />
-          <ContextChip label="bulk-archive-spec.pdf" icon={<FileText />} onRemove={() => undefined} />
+          <ContextChip label="bulk-archive-spec.pdf" icon={<Icon icon={File02Icon} />} onRemove={() => undefined} />
         </ContextList>
       ) : null}
       <ComposerTextarea
@@ -51,7 +52,7 @@ function HomeComposer({
         <Menu>
           <MenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label="Add context">
-              <Plus aria-hidden />
+              <Icon icon={PlusSignIcon} aria-hidden />
             </Button>
           </MenuTrigger>
           <MenuContent aria-label="Add context">
@@ -60,11 +61,11 @@ function HomeComposer({
         </Menu>
         <Menu>
           <MenuTrigger asChild>
-            <Picker icon={<Folder />}>web-app</Picker>
+            <Picker icon={<Icon icon={Folder01Icon} />}>web-app</Picker>
           </MenuTrigger>
           <MenuContent aria-label="Repository">
             <MenuRadioGroup value="web-app">
-              <MenuRadioItem value="web-app" icon={<Folder />} path="~/code/web-app">
+              <MenuRadioItem value="web-app" icon={<Icon icon={Folder01Icon} />} path="~/code/web-app">
                 web-app
               </MenuRadioItem>
             </MenuRadioGroup>

@@ -104,7 +104,7 @@ describe.skipIf(process.platform === 'win32')('GitHub connection', () => {
   it.each([
     [
       null,
-      "DevHub can't find the gh command. Install it from cli.github.com, or use a personal access token.",
+      "Orynx can't find the gh command. Install it from cli.github.com, or use a personal access token.",
       { kind: 'gh_missing' },
     ],
     [

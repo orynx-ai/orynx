@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Folder, GitBranch, Plus, Settings } from 'lucide-react';
+import { Folder01Icon, GitBranchIcon, PlusSignIcon, Settings02Icon } from '@hugeicons/core-free-icons';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Button } from './button.tsx';
 import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from './menu.tsx';
 import { Picker } from './picker.tsx';
+import { Icon } from './icon.tsx';
 
 function Folders({ onAdd = () => undefined }: { onAdd?: () => void }) {
   return (
@@ -20,20 +21,20 @@ function Folders({ onAdd = () => undefined }: { onAdd?: () => void }) {
           foot="Tip: you can also paste a Jira key or a pull request link into the box."
         >
           <MenuLabel>On this computer</MenuLabel>
-          <MenuItem icon={<Folder />} path="~/code/web-app">
+          <MenuItem icon={<Icon icon={Folder01Icon} />} path="~/code/web-app">
             web-app
           </MenuItem>
-          <MenuItem icon={<Folder />} path="~/code/api">
+          <MenuItem icon={<Icon icon={Folder01Icon} />} path="~/code/api">
             api
           </MenuItem>
-          <MenuItem icon={<GitBranch />} description="Pick a branch to start from" leadsOn>
+          <MenuItem icon={<Icon icon={GitBranchIcon} />} description="Pick a branch to start from" leadsOn>
             Branch
           </MenuItem>
           <MenuSeparator />
-          <MenuItem icon={<Plus />} onSelect={onAdd}>
+          <MenuItem icon={<Icon icon={PlusSignIcon} />} onSelect={onAdd}>
             Add local folder
           </MenuItem>
-          <MenuItem icon={<Settings />} asChild>
+          <MenuItem icon={<Icon icon={Settings02Icon} />} asChild>
             <a href="/settings/repositories">Manage folders</a>
           </MenuItem>
         </MenuContent>
@@ -154,9 +155,11 @@ describe('Menu', () => {
       return (
         <Menu>
           <MenuTrigger asChild>
-            <Picker>{ticked.length === 0 ? 'Reason' : `Reason · ${String(ticked.length)}`}</Picker>
+            <Picker variant="plain" count={ticked.length}>
+              Reason
+            </Picker>
           </MenuTrigger>
-          <MenuContent aria-label="Reason">
+          <MenuContent heading="Reason">
             {reasons.map((reason) => (
               <MenuCheckboxItem
                 key={reason}
@@ -180,6 +183,7 @@ describe('Menu', () => {
       await user.click(screen.getByRole('button', { name: 'Reason · 1' }));
 
       const menu = screen.getByRole('menu', { name: 'Reason' });
+      expect(within(menu).getByText('Reason')).toBeVisible();
       expect(screen.getByRole('menuitemcheckbox', { name: 'Checks failing' })).toHaveAttribute('aria-checked', 'true');
       expect(screen.getByRole('menuitemcheckbox', { name: 'Review requested' })).toHaveAttribute(
         'aria-checked',

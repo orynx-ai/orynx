@@ -1,6 +1,7 @@
 import type { ComponentProps, MouseEvent, ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { Cancel01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
+import { Icon } from './icon.tsx';
 
 export type ContextListProps = ComponentProps<'ul'> & {
   /** What the chips are, for screen readers: "Context for Claude". */
@@ -66,7 +67,7 @@ export function ContextChip({ label, icon, onRemove, className, ...props }: Cont
         }}
         className="relative inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-xs border-0 bg-transparent text-muted-foreground after:absolute after:-inset-1 hover:bg-subtle hover:text-foreground [&_svg]:size-3.5 [&_svg]:stroke-2"
       >
-        <X aria-hidden />
+        <Icon icon={Cancel01Icon} aria-hidden />
       </button>
     </li>
   );

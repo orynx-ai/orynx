@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Folder, Plus, Settings } from 'lucide-react';
+import { Folder01Icon, PlusSignIcon, Settings02Icon } from '@hugeicons/core-free-icons';
 import {
   Menu,
   MenuContent,
@@ -12,11 +12,12 @@ import {
   MenuTrigger,
 } from './menu.tsx';
 import { Picker } from './picker.tsx';
+import { Icon } from './icon.tsx';
 
 const meta = {
   title: 'Components/Picker',
   component: Picker,
-  args: { icon: <Folder />, children: 'web-app' },
+  args: { icon: <Icon icon={Folder01Icon} />, children: 'web-app' },
 } satisfies Meta<typeof Picker>;
 
 export default meta;
@@ -27,21 +28,21 @@ function RepositoryMenu({ defaultOpen = false }: { defaultOpen?: boolean }) {
   return (
     <Menu defaultOpen={defaultOpen} modal={false}>
       <MenuTrigger asChild>
-        <Picker icon={<Folder />}>{folder}</Picker>
+        <Picker icon={<Icon icon={Folder01Icon} />}>{folder}</Picker>
       </MenuTrigger>
       <MenuContent aria-label="Repository" className="w-75">
         <MenuLabel>On this computer</MenuLabel>
         <MenuRadioGroup value={folder} onValueChange={setFolder}>
-          <MenuRadioItem value="web-app" icon={<Folder />} path="~/code/web-app">
+          <MenuRadioItem value="web-app" icon={<Icon icon={Folder01Icon} />} path="~/code/web-app">
             web-app
           </MenuRadioItem>
-          <MenuRadioItem value="api" icon={<Folder />} path="~/code/api">
+          <MenuRadioItem value="api" icon={<Icon icon={Folder01Icon} />} path="~/code/api">
             api
           </MenuRadioItem>
         </MenuRadioGroup>
         <MenuSeparator />
-        <MenuItem icon={<Plus />}>Add local folder</MenuItem>
-        <MenuItem icon={<Settings />} asChild>
+        <MenuItem icon={<Icon icon={PlusSignIcon} />}>Add local folder</MenuItem>
+        <MenuItem icon={<Icon icon={Settings02Icon} />} asChild>
           <a href="#settings">Manage folders</a>
         </MenuItem>
       </MenuContent>
@@ -94,6 +95,22 @@ export const Disabled: Story = {
       </MenuTrigger>
       <MenuContent aria-label="Reason" />
     </Menu>
+  ),
+};
+
+/** Home's filters: plain pickers in a row, a filled ink count on the ones with ticks. */
+export const Filters: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-2">
+      <Picker variant="plain">Connections</Picker>
+      <Picker variant="plain" count={1}>
+        Status
+      </Picker>
+      <Picker variant="plain" count={12}>
+        Workspace
+      </Picker>
+      <Picker variant="plain">Type</Picker>
+    </div>
   ),
 };
 

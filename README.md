@@ -1,8 +1,10 @@
-# DevHub
+# Orynx
 
 One local workspace for the Jira tickets, GitHub pull requests and Slack messages that need you, plus a place to hand a ticket to Claude and watch it build the change in a separate git worktree, approving each risky step.
 
-Everything runs on your laptop. There is no DevHub cloud: tokens stay in your OS keychain and the cache is a local file.
+Everything runs on your laptop. There is no Orynx cloud: tokens stay in your OS keychain and the cache is a local file.
+
+Inside the repo the code name is DevHub: the `@devhub/*` packages, the `DEVHUB_*` settings, the `~/.devhub` folder and the keychain item keep that name, so saved tokens and settings carry over.
 
 ## Quick start
 
@@ -71,10 +73,10 @@ People still decide what to build, answer the spec's questions, design the scree
 ## Troubleshooting
 
 - **A port is taken.** Set `DEVHUB_PORT` (server) or `DEVHUB_WEB_PORT` (Vite) for one run, for example `DEVHUB_PORT=4417 pnpm dev`. Every setting is listed in `.env.example`.
-- **The page says "DevHub restarted".** The server makes a new session token on every start, so reload the page.
+- **The page says "Orynx restarted".** The server makes a new session token on every start, so reload the page.
 - **`pnpm exec playwright install` fails with `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`.** A proxy on your network re-signs TLS. Let Node trust the macOS keychain: `NODE_OPTIONS=--use-system-ca pnpm exec playwright install chromium`.
 - **Settings says "Can't reach your-team.atlassian.net".** Check the VPN first. The terminal's warn line names the cause; `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` means a proxy re-signs TLS with a root your OS doesn't trust either. See `learn/connecting-jira.md`.
-- **Settings says "DevHub can't find the gh command".** DevHub looks for gh on the PATH of the terminal that started it. Run `which gh` there, or connect with a personal access token. See `learn/connecting-github.md`.
+- **Settings says "Orynx can't find the gh command".** Orynx looks for gh on the PATH of the terminal that started it. Run `which gh` there, or connect with a personal access token. See `learn/connecting-github.md`.
 - **Trying things without touching your real data.** Point `DEVHUB_HOME` at a temporary folder: `DEVHUB_HOME=$(mktemp -d) pnpm dev`.
 
 ## Read next

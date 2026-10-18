@@ -9,7 +9,7 @@ import { failingGitHubSave, githubRow, githubServer } from '../../../test/github
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
-const newTokenUrl = 'https://github.com/settings/tokens/new?scopes=repo&description=DevHub';
+const newTokenUrl = 'https://github.com/settings/tokens/new?scopes=repo&description=Orynx';
 
 async function openForm(connection: GitHubConnection = makeGitHubConnection({ ghFound: true })) {
   const sent = githubServer({ connection });
@@ -34,10 +34,10 @@ describe('GitHub connection form', () => {
     expect(gh).toBeChecked();
     expect(gh).toHaveFocus();
     expect(gh).toHaveAccessibleDescription(
-      'DevHub asks the gh command-line tool for your token each time and keeps no copy.',
+      'Orynx asks the gh command-line tool for your token each time and keeps no copy.',
     );
     expect(within(ways).getByRole('radio', { name: 'Use a personal access token' })).toHaveAccessibleDescription(
-      'DevHub keeps the token in your keychain.',
+      'Orynx keeps the token in your keychain.',
     );
     expect(within(form).queryByLabelText('Personal access token')).not.toBeInTheDocument();
     expect(within(await githubRow()).getByRole('button', { name: 'Close' })).toHaveAttribute('aria-expanded', 'true');
@@ -168,7 +168,7 @@ describe('GitHub connection form', () => {
   });
 
   it("AC-10: says the keychain can't be reached in one line above the buttons", async () => {
-    const message = "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
+    const message = "Orynx can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
     const { user, form } = await openTokenWay();
     failingGitHubSave(503, { code: 'keychain_unavailable', message });
 

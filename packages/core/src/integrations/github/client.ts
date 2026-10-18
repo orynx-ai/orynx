@@ -212,7 +212,7 @@ export function createGitHubClient({
       // Said here, not left to octokit's default: the token goes to api.github.com and nowhere else,
       // and a redirect is a failure rather than a trip somewhere else with the header.
       baseUrl: 'https://api.github.com',
-      userAgent: 'DevHub',
+      userAgent: 'Orynx',
       log: quiet,
       request: { signal, redirect: 'error', ...(fetch ? { fetch } : {}) },
     });

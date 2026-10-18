@@ -99,7 +99,7 @@ describe.skipIf(process.platform === 'win32')('/api/github/connection', () => {
     expect(GitHubConnectionSchema.parse(read.json()).ghFound).toBe(false);
     expect(connect.statusCode).toBe(422);
     expect(ApiErrorSchema.parse(connect.json()).message).toBe(
-      "DevHub can't find the gh command. Install it from cli.github.com, or use a personal access token.",
+      "Orynx can't find the gh command. Install it from cli.github.com, or use a personal access token.",
     );
   });
 

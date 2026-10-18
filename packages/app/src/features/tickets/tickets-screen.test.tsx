@@ -258,7 +258,7 @@ describe('TicketsScreen', () => {
 
       expect(await screen.findByText("Couldn't load the sprint")).toBeVisible();
       expect(screen.getByRole('heading', { level: 1, name: 'Tickets' })).toBeInTheDocument();
-      expect(screen.getByText('Check that DevHub is still running, then try again.')).toBeVisible();
+      expect(screen.getByText('Check that Orynx is still running, then try again.')).toBeVisible();
       expect(screen.getByRole('navigation', { name: 'Main' })).toBeVisible();
 
       answer = 'up';

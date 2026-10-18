@@ -14,11 +14,11 @@ DevHub calls Jira, GitHub and Slack with the developer's own tokens. A token is 
 | `app.tokens.save('jira', token)` | Saves to the keychain only, then publishes `status.changed`. Refuses empty tokens, whitespace and more than 4096 characters (`bad_request`) |
 | `app.tokens.remove('jira')`      | Deletes the keychain's token (fine if there is none), then publishes `status.changed`                                                       |
 
-When the keychain is locked, refuses access or does not exist, every call fails with `TokenStoreError` code `keychain_unavailable` and one fixed message: "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example)." The keychain's own error is dropped, not kept as `cause`, because it could echo the token it was given, and errors end up in logs and responses. Only its name and code survive, in `error.reason` (for example "Error (ERR_MODULE_NOT_FOUND)"), so a log can still say what went wrong; a name or code that isn't a fixed word, and so could be a token, becomes "unknown". A read still succeeds when `.env` has that tool's token.
+When the keychain is locked, refuses access or does not exist, every call fails with `TokenStoreError` code `keychain_unavailable` and one fixed message: "Orynx can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example)." The keychain's own error is dropped, not kept as `cause`, because it could echo the token it was given, and errors end up in logs and responses. Only its name and code survive, in `error.reason` (for example "Error (ERR_MODULE_NOT_FOUND)"), so a log can still say what went wrong; a name or code that isn't a fixed word, and so could be a token, becomes "unknown". A read still succeeds when `.env` has that tool's token.
 
 ## The OS keychain
 
-`createOsKeychain()` (`packages/core/src/secrets/os-keychain.ts`) wraps `@napi-rs/keyring`: macOS Keychain, Windows Credential Manager, or the Secret Service on Linux. Items use the service **DevHub** and the tool as the account (`jira`, `github`, `slack`). On a Mac, open Keychain Access and search for "DevHub", or list an item's details (not its secret) with:
+`createOsKeychain()` (`packages/core/src/secrets/os-keychain.ts`) wraps `@napi-rs/keyring`: macOS Keychain, Windows Credential Manager, or the Secret Service on Linux. Items use the service **DevHub** (the code name: the product became Orynx on 18 Oct 2026, and the service kept its name so saved tokens stay readable) and the tool as the account (`jira`, `github`, `slack`). On a Mac, open Keychain Access and search for "DevHub", or list an item's details (not its secret) with:
 
 ```sh
 security find-generic-password -s DevHub -a jira

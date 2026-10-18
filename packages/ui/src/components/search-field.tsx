@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
-import { Search } from 'lucide-react';
+import { Search01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
+import { Icon } from './icon.tsx';
 import { Input } from './input.tsx';
 
 export type SearchFieldProps = Omit<ComponentProps<'input'>, 'type' | 'size'> & {
@@ -20,7 +21,7 @@ export type SearchFieldProps = Omit<ComponentProps<'input'>, 'type' | 'size'> & 
 export function SearchField({ size = 'default', className, ...props }: SearchFieldProps) {
   return (
     <div data-slot="search-field" className={cn('relative flex min-w-0 items-center', className)}>
-      <Search aria-hidden className="pointer-events-none absolute start-3 text-muted-foreground" />
+      <Icon icon={Search01Icon} className="pointer-events-none absolute start-3 text-muted-foreground" />
       <Input type="search" className={cn('ps-10', size === 'sm' && 'h-8 text-small')} {...props} />
     </div>
   );

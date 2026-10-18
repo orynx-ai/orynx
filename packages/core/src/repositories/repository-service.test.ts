@@ -94,7 +94,7 @@ describe('repository service', () => {
       'This folder is inside the repository at ~/code/app. Add that folder instead.',
     );
     expect(await refusal(repositories.add({ path: '~/.devhub/worktrees', jiraProject: null }))).toBe(
-      "This folder is inside DevHub's own folder.",
+      "This folder is inside Orynx's own folder.",
     );
     expect(await refusal(repositories.add({ path: `${home}/a\nb`, jiraProject: null }))).toBe(
       'Enter the full path, starting with / or ~.',
@@ -133,7 +133,7 @@ describe('repository service', () => {
     const { repositories } = service({ repositories: full });
 
     expect(await refusal(repositories.add({ path: '~/code/app', jiraProject: null }))).toBe(
-      'DevHub holds at most 100 folders. Remove one first.',
+      'Orynx holds at most 100 folders. Remove one first.',
     );
   });
 
@@ -158,7 +158,7 @@ describe('repository service', () => {
   });
 
   it('lists only the folders it can read, and keeps the others through later saves', async () => {
-    const unreadable = { path: 42, from: 'a newer DevHub' };
+    const unreadable = { path: 42, from: 'a newer Orynx' };
     const good = { id: '00000000000000aa', path: join(home, 'code', 'mobile'), jiraProject: 'MOB' };
     const { repositories, settings } = service({ repositories: [unreadable, good] });
 

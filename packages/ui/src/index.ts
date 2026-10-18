@@ -18,6 +18,7 @@ export {
 } from './components/attention-row.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
 export { Board, BoardColumn, type BoardColumnProps, type BoardProps } from './components/board.tsx';
+export { BrandMark, type BrandMarkProps } from './components/brand-mark.tsx';
 export {
   Breadcrumb,
   BreadcrumbItem,
@@ -53,6 +54,7 @@ export {
 } from './components/diff-view.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
+export { Icon, type IconProps, type IconSvgElement } from './components/icon.tsx';
 export { Input } from './components/input.tsx';
 export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from './components/file-list.tsx';
 export { Kbd } from './components/kbd.tsx';

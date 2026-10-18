@@ -100,7 +100,7 @@ describe('Jira connection row', () => {
 
     const confirm = within(form).getByRole('group', { name: 'Disconnect Jira?' });
     expect(confirm).toHaveAccessibleDescription(
-      'DevHub deletes the API token from your keychain and forgets the site and email.',
+      'Orynx deletes the API token from your keychain and forgets the site and email.',
     );
     expect(confirm).toHaveFocus();
     await user.click(within(confirm).getByRole('button', { name: 'Cancel' }));
@@ -125,7 +125,7 @@ describe('Jira connection row', () => {
   });
 
   it("AC-11: says why when Disconnect can't reach the keychain, and keeps the form", async () => {
-    const message = "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
+    const message = "Orynx can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
     const { user, form } = await openManage();
     server.use(
       http.delete(apiUrl(apiRoutes.jiraConnection), () =>
@@ -175,14 +175,14 @@ describe('Jira connection row', () => {
     expect(await within(row).findByRole('button', { name: 'Manage' })).toBeVisible();
   });
 
-  it("says the DevHub server can't be reached when the Jira settings don't load, and points at no missing form", async () => {
+  it("says the Orynx server can't be reached when the Jira settings don't load, and points at no missing form", async () => {
     server.use(http.get(apiUrl(apiRoutes.jiraConnection), () => HttpResponse.error()));
     const { user } = await renderApp({ route: '/settings/connections' });
     const row = await jiraRow();
 
     await user.click(within(row).getByRole('button', { name: 'Connect' }));
 
-    expect(await within(row).findByRole('alert')).toHaveTextContent('Could not reach the DevHub server.');
+    expect(await within(row).findByRole('alert')).toHaveTextContent('Could not reach the Orynx server.');
     expect(within(row).getByRole('button', { name: 'Close' })).not.toHaveAttribute('aria-controls');
   });
 

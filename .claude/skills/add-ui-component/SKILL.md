@@ -25,17 +25,17 @@ The config is `packages/ui/components.json`. The output lands in `packages/ui/sr
 
 shadcn output uses names this theme leaves out on purpose. Rewrite them (full table in `docs/design-map.md`):
 
-| shadcn writes                         | Rewrite to                                                          |
-| ------------------------------------- | ------------------------------------------------------------------- |
-| `bg-accent`, `focus:bg-accent`        | `bg-subtle`, `focus:bg-subtle`                                      |
-| `text-accent-foreground`              | `text-foreground`                                                   |
-| `bg-secondary`                        | `bg-raised` (with `border-control` for a secondary button)          |
-| `bg-destructive`, `text-destructive`  | `bg-danger`, `text-danger`                                          |
-| `text-sm`                             | `text-body` or `text-small` (match the design)                      |
-| `text-xs`                             | `text-label`                                                        |
-| `shadow-xs`, `shadow-sm`, `shadow-md` | nothing; only menus, popovers and the composer get `shadow-overlay` |
-| `rounded-md` on a button or input     | `rounded-sm` (6 px); cards and menus are `rounded-md` (10 px)       |
-| `size-4` on lucide icons              | remove it; the `.lucide` base style sets 20 px and 1.75 stroke      |
+| shadcn writes                         | Rewrite to                                                                 |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| `bg-accent`, `focus:bg-accent`        | `bg-subtle`, `focus:bg-subtle`                                             |
+| `text-accent-foreground`              | `text-foreground`                                                          |
+| `bg-secondary`                        | `bg-raised` (with `border-control` for a secondary button)                 |
+| `bg-destructive`, `text-destructive`  | `bg-danger`, `text-danger`                                                 |
+| `text-sm`                             | `text-body` or `text-small` (match the design)                             |
+| `text-xs`                             | `text-label`                                                               |
+| `shadow-xs`, `shadow-sm`, `shadow-md` | nothing; only menus, popovers and the composer get `shadow-overlay`        |
+| `rounded-md` on a button or input     | `rounded-sm` (6 px); cards and menus are `rounded-md` (10 px)              |
+| a lucide icon, or `size-4` on one     | `<Icon icon={…} />` with the Hugeicons match; it sets 20 px and the stroke |
 
 Then match the `dh-*` CSS for structure, at the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`): heights 40 px default and 32 px `sm`, `font-normal` or `font-medium` only.
 

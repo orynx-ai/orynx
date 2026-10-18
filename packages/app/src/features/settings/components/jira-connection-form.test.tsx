@@ -134,7 +134,7 @@ describe('Jira connection form', () => {
   });
 
   it("AC-8: says the keychain can't be reached in one line above the buttons", async () => {
-    const message = "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
+    const message = "Orynx can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
     failingJiraSave(503, { code: 'keychain_unavailable', message });
     const { user, form } = await openForm();
 

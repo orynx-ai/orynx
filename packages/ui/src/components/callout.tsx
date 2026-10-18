@@ -2,7 +2,8 @@ import type { ComponentProps, ReactNode } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
 
-const calloutVariants = cva('flex gap-3 rounded-md p-4', {
+// An alert or a notice fades in as it appears, so the change is seen.
+const calloutVariants = cva('flex gap-3 rounded-md p-4 motion-safe:animate-fade-in', {
   variants: {
     tone: {
       warning: 'bg-warning-subtle text-foreground',

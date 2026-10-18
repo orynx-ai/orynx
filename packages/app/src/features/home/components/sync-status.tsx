@@ -1,5 +1,5 @@
-import { RotateCw } from 'lucide-react';
-import { Button, cn } from '@devhub/ui';
+import { Rotate01Icon } from '@hugeicons/core-free-icons';
+import { Button, cn, Icon } from '@devhub/ui';
 import { syncLine } from '../inbox-words.ts';
 import { useInbox, useRefreshInbox } from '../queries.ts';
 import { useNow } from '../use-now.ts';
@@ -31,7 +31,7 @@ export function SyncStatus() {
           if (!syncing) refresh.mutate();
         }}
       >
-        <RotateCw aria-hidden className={cn(syncing && 'motion-safe:animate-spin')} />
+        <Icon icon={Rotate01Icon} aria-hidden className={cn(syncing && 'motion-safe:animate-spin')} />
         Refresh
       </Button>
     </>

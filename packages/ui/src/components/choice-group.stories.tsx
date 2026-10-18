@@ -8,14 +8,14 @@ const ways = (
       name="method"
       value="gh"
       title="Use my gh login"
-      detail="DevHub asks the gh command-line tool for your token each time and keeps no copy."
+      detail="Orynx asks the gh command-line tool for your token each time and keeps no copy."
       defaultChecked
     />
     <ChoiceCard
       name="method"
       value="token"
       title="Use a personal access token"
-      detail="DevHub keeps the token in your keychain."
+      detail="Orynx keeps the token in your keychain."
     />
   </>
 );

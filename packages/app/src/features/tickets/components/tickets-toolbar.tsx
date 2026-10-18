@@ -1,6 +1,6 @@
 import type { ReactNode, Ref } from 'react';
-import { Funnel } from 'lucide-react';
-import { Button, FilterChip } from '@devhub/ui';
+import { FilterIcon } from '@hugeicons/core-free-icons';
+import { Button, FilterChip, Icon } from '@devhub/ui';
 import { Toolbar } from '../../../shell/page-frame.tsx';
 import { hasExtraFilters, type AddressFilters, type TicketFilters } from '../filters.ts';
 import { ticketCount } from '../ticket-words.ts';
@@ -34,7 +34,7 @@ export function TicketsToolbar({
   return (
     <Toolbar role="group" aria-label="Filters">
       {search === undefined ? null : <div className="basis-full">{search}</div>}
-      <Funnel aria-hidden className="text-muted-foreground" />
+      <Icon icon={FilterIcon} aria-hidden className="text-muted-foreground" />
       <FilterChip
         ref={assignedToMeRef}
         pressed={mine}

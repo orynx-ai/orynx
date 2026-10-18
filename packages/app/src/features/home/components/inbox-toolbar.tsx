@@ -13,8 +13,9 @@ const searchLabels: Record<HomeTab, string> = {
 };
 
 /**
- * Under a tab: the search box on the left and the tab's filters on the right (spec 007, Q9a, Q10b, Q10c).
- * Under 768 px the box takes a line of its own and the filters wrap under it.
+ * Under a tab: the search box, then the tab's filters beside it (spec 007, Q9a, Q10b, Q10c; beside the
+ * box for the Orynx look, 18 Oct 2026). Under 768 px the box takes a line of its own and the filters
+ * wrap under it.
  */
 export function InboxToolbar({
   tab,
@@ -69,7 +70,7 @@ export function InboxToolbar({
       >
         <SearchField size="sm" aria-label={label} placeholder={label} className="w-full" ref={boxRef} {...field} />
       </form>
-      <div className="flex flex-wrap items-center gap-2 md:ms-auto">
+      <div className="flex flex-wrap items-center gap-1">
         {menus.map((menu) => (
           <FilterPicker
             key={menu.key}
@@ -84,16 +85,20 @@ export function InboxToolbar({
   );
 }
 
-/** One filter: a picker naming it, with how many are ticked, opening its options as checkboxes. */
+/**
+ * One filter: its name in a plain picker with how many are ticked, opening its options as checkboxes
+ * under the filter's name.
+ */
 function FilterPicker({ menu, onTickedChange }: { menu: FilterMenu; onTickedChange: (ticked: string[]) => void }) {
-  const count = menu.ticked.length;
   return (
     <Menu>
       {/* Nothing to offer while the tab has no rows (Q11b). Radix reads `disabled` on the trigger. */}
       <MenuTrigger asChild disabled={menu.options.length === 0}>
-        <Picker>{count === 0 ? menu.label : `${menu.label} · ${String(count)}`}</Picker>
+        <Picker variant="plain" count={menu.ticked.length}>
+          {menu.label}
+        </Picker>
       </MenuTrigger>
-      <MenuContent aria-label={menu.label}>
+      <MenuContent heading={menu.label}>
         {menu.options.map((option) => (
           <MenuCheckboxItem
             key={option.value}

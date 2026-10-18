@@ -13,7 +13,7 @@ export function Input({ className, ...props }: ComponentProps<'input'>) {
     <input
       data-slot="input"
       className={cn(
-        'h-10 w-full min-w-0 rounded-sm border border-control bg-raised px-3 text-body text-foreground placeholder:text-placeholder disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:border-danger',
+        'h-10 w-full min-w-0 rounded-sm border border-control bg-raised px-3 text-body text-foreground placeholder:text-placeholder not-aria-invalid:enabled:hover:border-muted-foreground disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:border-danger',
         className,
       )}
       {...props}

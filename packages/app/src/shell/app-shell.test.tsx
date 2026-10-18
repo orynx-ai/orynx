@@ -31,7 +31,7 @@ describe('AppShell', () => {
     const { user, platform } = await renderApp();
 
     const alert = await screen.findByRole('alert');
-    expect(within(alert).getByText('DevHub restarted')).toBeVisible();
+    expect(within(alert).getByText('Orynx restarted')).toBeVisible();
 
     await user.click(within(alert).getByRole('button', { name: 'Reload' }));
 

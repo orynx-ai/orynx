@@ -44,7 +44,7 @@ function StaleBanner() {
       <Callout
         tone="warning"
         role="alert"
-        title="DevHub restarted"
+        title="Orynx restarted"
         actions={
           <Button
             size="sm"

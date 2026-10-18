@@ -5,7 +5,7 @@
 export function SaveError() {
   return (
     <p role="alert" className="m-0 text-small text-danger">
-      Couldn&apos;t save that change. Check that DevHub is still running, then try again.
+      Couldn&apos;t save that change. Check that Orynx is still running, then try again.
     </p>
   );
 }

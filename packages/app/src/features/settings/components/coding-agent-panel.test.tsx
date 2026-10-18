@@ -8,7 +8,7 @@ import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
 const legend = 'What Claude can do without asking';
-const saveFailed = "Couldn't save that change. Check that DevHub is still running, then try again.";
+const saveFailed = "Couldn't save that change. Check that Orynx is still running, then try again.";
 
 /** Answers PATCH /api/preferences once `release` is called, and records what was sent. */
 function slowSave() {
@@ -143,7 +143,7 @@ describe('CodingAgentPanel', () => {
     );
     const { user } = await renderApp({ route: '/settings/coding-agent' });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the DevHub server');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the Orynx server');
 
     await user.click(screen.getByRole('tab', { name: 'Appearance' }));
     expect(await screen.findByRole('radio', { name: 'Dark' })).toBeEnabled();

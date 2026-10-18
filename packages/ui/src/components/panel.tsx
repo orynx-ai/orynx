@@ -6,6 +6,8 @@ export type PanelProps = Omit<ComponentProps<'section'>, 'title'> & {
   title?: string | undefined;
   /** One quiet line beside the heading: "Sorted by how long it has waited". */
   meta?: ReactNode;
+  /** Controls at the head's far end, such as the list's order picker. */
+  actions?: ReactNode;
   /** The heading's level in the page's outline. */
   headingLevel?: 2 | 3 | 4;
 };
@@ -17,7 +19,7 @@ export type PanelProps = Omit<ComponentProps<'section'>, 'title'> & {
  */
 const headings = { 2: 'h2', 3: 'h3', 4: 'h4' } as const;
 
-export function Panel({ title, meta, headingLevel = 2, className, children, ...props }: PanelProps) {
+export function Panel({ title, meta, actions, headingLevel = 2, className, children, ...props }: PanelProps) {
   const headingId = useId();
   const Heading = headings[headingLevel];
   const named = title !== undefined;
@@ -40,6 +42,7 @@ export function Panel({ title, meta, headingLevel = 2, className, children, ...p
             {title}
           </Heading>
           {meta ? <span className="text-small text-muted-foreground">{meta}</span> : null}
+          {actions ? <div className="ms-auto flex items-center gap-1">{actions}</div> : null}
         </div>
       ) : null}
       {children}

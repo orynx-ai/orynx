@@ -1,8 +1,9 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { Slot } from 'radix-ui';
 import { cva } from 'class-variance-authority';
-import { Check, GitBranch, Square } from 'lucide-react';
+import { GitBranchIcon, StopIcon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
+import { Icon } from './icon.tsx';
 
 export type SessionItemState = 'needs_you' | 'working' | 'done' | 'pr_open' | 'stopped';
 
@@ -71,9 +72,9 @@ const icons: Record<SessionItemState, ReactNode> = {
       <path d="M21 12a9 9 0 1 1-9-9" />
     </DesignGlyph>
   ),
-  done: <Check className={glyph} />,
-  pr_open: <GitBranch className={glyph} />,
-  stopped: <Square className={glyph} />,
+  done: <Icon icon={Tick02Icon} className={glyph} />,
+  pr_open: <Icon icon={GitBranchIcon} className={glyph} />,
+  stopped: <Icon icon={StopIcon} className={glyph} />,
 };
 
 export type SessionItemProps = Omit<ComponentProps<'a'>, 'title'> & {

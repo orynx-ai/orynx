@@ -1,11 +1,12 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { buttonVariants } from './button.tsx';
 import { Pill, type PillTone } from './pill.tsx';
 import { Skeleton } from './skeleton.tsx';
 import { SourceMark, type Source } from './source-mark.tsx';
+import { Icon } from './icon.tsx';
 
 /** The inbox list: rows split by a hairline. Inside a `Panel`, rows run to its edges. */
 export function AttentionList({ className, ...props }: ComponentProps<'ul'>) {
@@ -100,14 +101,14 @@ export function AttentionAction({ asChild = false, className, children, ...props
     return (
       <Slot.Root data-slot="attention-action" className={look} {...props}>
         <Slot.Slottable>{children}</Slot.Slottable>
-        <ChevronRight aria-hidden />
+        <Icon icon={ArrowRight01Icon} aria-hidden />
       </Slot.Root>
     );
   }
   return (
     <a data-slot="attention-action" className={look} {...props}>
       {children}
-      <ChevronRight aria-hidden />
+      <Icon icon={ArrowRight01Icon} aria-hidden />
     </a>
   );
 }

@@ -5,7 +5,7 @@ describe('ApiErrorSchema', () => {
   it("AC-6: accepts the error a route sends when the OS keychain can't be reached", () => {
     const body = {
       code: 'keychain_unavailable',
-      message: "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).",
+      message: "Orynx can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).",
     };
     expect(ApiErrorSchema.parse(body)).toEqual(body);
   });

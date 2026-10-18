@@ -1,7 +1,7 @@
 import type { Ref } from 'react';
-import { Folder } from 'lucide-react';
+import { Folder01Icon } from '@hugeicons/core-free-icons';
 import type { Repository } from '@devhub/contracts';
-import { Button, Pill } from '@devhub/ui';
+import { Button, Icon, Pill } from '@devhub/ui';
 
 export interface RepositoryRowProps {
   folder: Repository;
@@ -18,7 +18,7 @@ export function RepositoryRow({ folder, onRemove, removeRef }: RepositoryRowProp
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
       <span className="flex min-w-0 items-center gap-2 font-medium wrap-anywhere sm:min-w-25">
-        <Folder aria-hidden className="text-muted-foreground" />
+        <Icon icon={Folder01Icon} aria-hidden className="text-muted-foreground" />
         {folder.name}
       </span>
       <span className="min-w-0 grow basis-50 font-mono text-code wrap-anywhere text-muted-foreground">

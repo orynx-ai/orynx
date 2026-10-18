@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { CalendarDays, Kanban, List, Table } from 'lucide-react';
+import { Calendar03Icon, KanbanIcon, LayoutTable01Icon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
 import { SegmentedControl, SegmentedControlItem } from './segmented-control.tsx';
+import { Icon } from './icon.tsx';
 
 const meta = {
   title: 'Components/SegmentedControl',
@@ -11,11 +12,11 @@ const meta = {
     children: (
       <>
         <SegmentedControlItem value="board">
-          <Kanban aria-hidden />
+          <Icon icon={KanbanIcon} aria-hidden />
           Board
         </SegmentedControlItem>
         <SegmentedControlItem value="list">
-          <List aria-hidden />
+          <Icon icon={LeftToRightListBulletIcon} aria-hidden />
           List
         </SegmentedControlItem>
       </>
@@ -37,19 +38,19 @@ export const FourOptions: Story = {
     children: (
       <>
         <SegmentedControlItem value="board">
-          <Kanban aria-hidden />
+          <Icon icon={KanbanIcon} aria-hidden />
           Board
         </SegmentedControlItem>
         <SegmentedControlItem value="list">
-          <List aria-hidden />
+          <Icon icon={LeftToRightListBulletIcon} aria-hidden />
           List
         </SegmentedControlItem>
         <SegmentedControlItem value="table">
-          <Table aria-hidden />
+          <Icon icon={LayoutTable01Icon} aria-hidden />
           Table
         </SegmentedControlItem>
         <SegmentedControlItem value="calendar">
-          <CalendarDays aria-hidden />
+          <Icon icon={Calendar03Icon} aria-hidden />
           Calendar
         </SegmentedControlItem>
       </>

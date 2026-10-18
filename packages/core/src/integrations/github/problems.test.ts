@@ -5,7 +5,7 @@ describe('describeGitHubProblem', () => {
   it.each([
     [
       { kind: 'gh_missing' },
-      "DevHub can't find the gh command. Install it from cli.github.com, or use a personal access token.",
+      "Orynx can't find the gh command. Install it from cli.github.com, or use a personal access token.",
     ],
     [{ kind: 'gh_signed_out' }, "gh isn't signed in to github.com. Run gh auth login in a terminal, then try again."],
     [

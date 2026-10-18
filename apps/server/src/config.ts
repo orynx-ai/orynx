@@ -100,7 +100,7 @@ export function loadConfig({
   const parsed = EnvSchema.safeParse({ ...withoutEmpty(parseEnv(envFile ?? '')), ...withoutEmpty(env) });
   if (!parsed.success) {
     const problems = parsed.error.issues.map((issue) => `  ${issue.path.join('.')}: ${issue.message}`).join('\n');
-    throw new Error(`DevHub settings are not valid (see .env.example):\n${problems}`);
+    throw new Error(`Orynx settings are not valid (see .env.example):\n${problems}`);
   }
   const settings = parsed.data;
   const fromEnv = settings.DEVHUB_TOKENS_FROM_ENV === 'true';

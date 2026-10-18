@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Folder } from 'lucide-react';
+import { Folder01Icon } from '@hugeicons/core-free-icons';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Menu, MenuContent, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from './menu.tsx';
 import { Picker } from './picker.tsx';
+import { Icon } from './icon.tsx';
 
 function RepositoryPicker({ onPick }: { onPick?: (folder: string) => void }) {
   const [folder, setFolder] = useState('web-app');
   return (
     <Menu>
       <MenuTrigger asChild>
-        <Picker icon={<Folder />}>{folder}</Picker>
+        <Picker icon={<Icon icon={Folder01Icon} />}>{folder}</Picker>
       </MenuTrigger>
       <MenuContent aria-label="Repository">
         <MenuLabel>On this computer</MenuLabel>
@@ -23,10 +24,10 @@ function RepositoryPicker({ onPick }: { onPick?: (folder: string) => void }) {
             onPick?.(next);
           }}
         >
-          <MenuRadioItem value="web-app" icon={<Folder />} path="~/code/web-app">
+          <MenuRadioItem value="web-app" icon={<Icon icon={Folder01Icon} />} path="~/code/web-app">
             web-app
           </MenuRadioItem>
-          <MenuRadioItem value="api" icon={<Folder />} path="~/code/api">
+          <MenuRadioItem value="api" icon={<Icon icon={Folder01Icon} />} path="~/code/api">
             api
           </MenuRadioItem>
         </MenuRadioGroup>
@@ -82,6 +83,26 @@ describe('Picker', () => {
     expect(onPick).toHaveBeenCalledWith('api');
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'api' })).toHaveFocus();
+  });
+
+  it('shows how many options are picked in a bubble, which a screen reader hears after a middle dot', async () => {
+    const { container, rerender } = render(
+      <Picker variant="plain" count={2}>
+        Status
+      </Picker>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Status · 2' })).toBeVisible();
+    expect(screen.getByText('2')).toBeVisible();
+    await expectNoAxeViolations(container);
+
+    rerender(
+      <Picker variant="plain" count={0}>
+        Status
+      </Picker>,
+    );
+    expect(screen.getByRole('button', { name: 'Status' })).toBeVisible();
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
   });
 
   it('Q11b: a picker with nothing to offer is unavailable, out of the Tab order, and opens nothing', async () => {

@@ -46,18 +46,18 @@ Every route is `PageBar` → optional `Toolbar` → `PageBody` from `packages/ap
 
 ## 3. Size and density
 
-| Thing                                   | Size                                       |
-| --------------------------------------- | ------------------------------------------ |
-| Icons (`.lucide` base style)            | 20 px, 1.75 stroke. Never pass a size prop |
-| `Button` default / `sm`                 | 40 px / 32 px tall                         |
-| Sidebar rows (places, New task, Search) | 40 px                                      |
-| Page bar / Tabs                         | 56 px / 48 px                              |
-| Hit targets                             | 32 px in dense rows, 40 px elsewhere       |
+| Thing                                   | Size                                      |
+| --------------------------------------- | ----------------------------------------- |
+| Icons (`<Icon>`, Hugeicons)             | 20 px, 1.5 stroke. Never pass a size prop |
+| `Button` default / `sm`                 | 40 px / 32 px tall                        |
+| Sidebar rows (places, New task, Search) | 40 px                                     |
+| Page bar / Tabs                         | 56 px / 48 px                             |
+| Hit targets                             | 32 px in dense rows, 40 px elsewhere      |
 
 ## 4. Components and colour
 
 - Use the real `@devhub/ui` part, never a lookalike; if it is missing, follow `.claude/skills/add-ui-component/SKILL.md`. Never invent a prop or variant.
-- Colours, radii and shadows are tokens from `docs/design-map.md`. Indigo (`info`) only marks links, focus and the selected item.
+- Colours, radii and shadows are tokens from `docs/design-map.md`. The accent (`info`) is the brand's ink, never blue (18 Oct 2026); it only marks links, focus and the selected item.
 - **Selected items reuse the design system's marks, never a new one:** a place is `bg-subtle` with its icon in `text-info`, the open session row is `bg-raised` with a hairline, a tab has the `info` underline. All of them carry `aria-current` or `aria-selected`.
 - **Cards don't hold cards.** A bordered panel never contains another bordered or dashed box.
 - **The same name looks the same everywhere** (colour, weight, casing), and one concept has one word across the app.
@@ -78,15 +78,16 @@ Every route is `PageBar` → optional `Toolbar` → `PageBody` from `packages/ap
 
 ## 6. Focus, keyboard and motion
 
-- One focus ring everywhere (`:focus-visible` in `theme.css`); never remove or restyle it per component. Toggles never drop focus.
+- One focus ring everywhere (`:focus-visible` in `theme.css`), in ink; never remove or restyle it per component. Toggles never drop focus. The one exception is a menu row: Radix focuses the row under the pointer, so its focus mark is the 4 px ink bar on `bg-subtle` instead (the user's call, 18 Oct 2026).
 - Links navigate (`<a href>` / router `Link`), buttons act. Anything that goes somewhere is a link, a logo included.
 - Prefer logical classes in new code: `ms-*`, `me-*`, `ps-*`, `pe-*`, `start-*`, `end-*`, `text-start`.
-- Motion: 150–200 ms, colour and opacity first, never `transition-all`, and only under `motion-safe:`.
+- Motion: 150–200 ms, colour and opacity first, never `transition-all`, and only under `motion-safe:`. The shared motion lives in `theme.css`: every link, button, input, menu row and tab fades its colours over 150 ms, the focus ring settles in, menus grow out of their trigger (`animate-menu-in`, `animate-menu-out`), and a new tab panel or alert fades in (`animate-fade-in`). Use those; don't add a component's own.
 
 ## 7. Copy
 
 These rules are for new copy. Copy that a screen design or the spec gives word for word stays as given (the Home greeting "What should we build today?"); if it breaks a rule, raise it with a person instead of rewriting it.
 
+- The product is **Orynx** in every word the user sees, including errors and terminal lines. DevHub is only the code name for packages, settings and folders.
 - Sentence case everywhere. Speak to "you"; the product never says "we" or "I".
 - No "Please", "Sorry", "Oops", no exclamation marks. A full sentence ends with a period; a label does not.
 - Errors: "Couldn't load sessions" + **Try again** (never "Retry", "Something went wrong" or "[X] failed").

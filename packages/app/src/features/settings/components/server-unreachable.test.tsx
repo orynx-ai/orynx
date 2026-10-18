@@ -7,7 +7,7 @@ describe('ServerUnreachable', () => {
     render(<ServerUnreachable />);
 
     const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent('Could not reach the DevHub server');
-    expect(alert).toHaveTextContent('Check that DevHub is still running in your terminal, then reload the page.');
+    expect(alert).toHaveTextContent('Could not reach the Orynx server');
+    expect(alert).toHaveTextContent('Check that Orynx is still running in your terminal, then reload the page.');
   });
 });

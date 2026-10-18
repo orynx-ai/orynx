@@ -8,7 +8,7 @@ import { ChoiceGroup } from './choice-group.tsx';
 function Ways({ help, error }: { help?: string; error?: string | null }) {
   return (
     <ChoiceGroup legend="Connect with" help={help} error={error}>
-      <ChoiceCard name="method" value="gh" title="Use my gh login" detail="DevHub asks gh for your token each time." />
+      <ChoiceCard name="method" value="gh" title="Use my gh login" detail="Orynx asks gh for your token each time." />
       <ChoiceCard name="method" value="token" title="Use a personal access token" detail="Kept in your keychain." />
     </ChoiceGroup>
   );

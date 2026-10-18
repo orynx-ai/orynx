@@ -8,7 +8,7 @@ const meta = {
     name: 'method',
     value: 'gh',
     title: 'Use my gh login',
-    detail: 'DevHub asks the gh command-line tool for your token each time and keeps no copy.',
+    detail: 'Orynx asks the gh command-line tool for your token each time and keeps no copy.',
   },
   decorators: [
     (Story) => (
@@ -31,6 +31,6 @@ export const LongDetail: Story = {
   args: {
     title: 'Use a personal access token',
     detail:
-      'DevHub keeps the token in your keychain. Create a classic token with the repo scope, and authorize it for single sign-on if your company uses it.',
+      'Orynx keeps the token in your keychain. Create a classic token with the repo scope, and authorize it for single sign-on if your company uses it.',
   },
 };

@@ -36,7 +36,7 @@ click a mode ─▶ useChangePreferences().mutate({ permissionMode })
 
 - **Instant, then confirmed.** The control moves before the server answers (spec 005: "the control shows the new value straight away"). If the save fails, `onError` takes back that change alone: each value it set goes back to what the server holds (the value from before the first change still on its way, moved forward each time one of them is saved), unless a later change has set it again. `SaveError` says so under the group until the next change.
 - **Quick changes don't undo each other.** Each PATCH carries only what changed (`{ inboxRules: { checks_failing: false } }`), and the server applies changes one at a time. The client refetches only when the last pending change settles (`refetchAfterLast`), and `LiveUpdates` ignores `settings.changed` for data with a change still on its way, so neither an early answer nor an early event can flip a later change back on screen.
-- **Remove works the same way.** `useRemoveRepository()` takes the row away at once and moves focus to the next row's Remove (or to Add local folder). "Removed intranet-web." is said in the panel's polite live region once the server agrees. Each removal keeps its own outcome, so two quick removals each get theirs. A failure puts back that row alone, at its place, and focus returns to its Remove unless you've moved on. A held-down Enter removes one folder, not one after another.
+- **Remove works the same way.** `useRemoveRepository()` takes the row away at once and moves focus to the next row's Remove (or to Add local folder, whose plus is Hugeicons' `PlusSignIcon` through `<Icon>`, as every icon is since 18 Oct 2026). "Removed intranet-web." is said in the panel's polite live region once the server agrees. Each removal keeps its own outcome, so two quick removals each get theirs. A failure puts back that row alone, at its place, and focus returns to its Remove unless you've moved on. A held-down Enter removes one folder, not one after another.
 - **Add waits for the server**, because only the server can look at the disk. The new row goes into the cache from the answer, and the list refetches after. While a folder is on its way, Add local folder can't close the form, so the answer always has a place to show.
 
 ## Clear cache
@@ -51,7 +51,7 @@ The Inbox rules tab ends with Clear cache (spec 002 Q3, spec 007 Q7): a line on 
 2. `realpath` resolves `~`, `..` and symlinks. Nothing there, a file in the middle of the path, a symlink loop or a name too long for the disk: "Nothing is at this path."
 3. A file: "This is a file. Pick its folder."
 4. Inside DevHub's own folder, where the session worktrees live: refused. This compares the folders' identities on disk (device and inode) up the path, not their spelling: macOS reaches every folder under `/private` also through `/System/Volumes/Data/…`, and `realpath` keeps whichever spelling it was given.
-5. Can't read it: "DevHub can't read this folder."
+5. Can't read it: "Orynx can't read this folder."
 6. Holds `.git` (a folder in a clone, a file in a worktree): accepted, saved as the real path.
 7. Otherwise DevHub walks up the parents. A `.git` above means "inside the repository at ~/code/x", which names the folder to add instead. No `.git` anywhere means "not a git repository".
 

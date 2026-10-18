@@ -8,7 +8,7 @@ import { usePlatform } from '../../../platform.tsx';
 import { useConnectGitHub, useDisconnectGitHub } from '../queries.ts';
 import { githubFormSchema, type GitHubFormValues } from '../schemas.ts';
 
-const newTokenUrl = 'https://github.com/settings/tokens/new?scopes=repo&description=DevHub';
+const newTokenUrl = 'https://github.com/settings/tokens/new?scopes=repo&description=Orynx';
 
 const tokenRequired = githubFormSchema(true);
 const tokenOptional = githubFormSchema(false);
@@ -18,8 +18,8 @@ const tokenHelp =
 
 /** Spec 004 Q6 (e): what Disconnect does, for the way that is saved. */
 const disconnectLine: Record<GitHubMethod, string> = {
-  gh: 'DevHub stops using your gh login. gh stays signed in.',
-  token: 'DevHub deletes the token from your keychain.',
+  gh: 'Orynx stops using your gh login. gh stays signed in.',
+  token: 'Orynx deletes the token from your keychain.',
 };
 
 /**
@@ -161,10 +161,10 @@ export function GitHubConnectionForm({
           'gh',
           'Use my gh login',
           ghFound
-            ? 'DevHub asks the gh command-line tool for your token each time and keeps no copy.'
+            ? 'Orynx asks the gh command-line tool for your token each time and keeps no copy.'
             : "gh isn't installed on this computer.",
         )}
-        {choice('token', 'Use a personal access token', 'DevHub keeps the token in your keychain.')}
+        {choice('token', 'Use a personal access token', 'Orynx keeps the token in your keychain.')}
       </ChoiceGroup>
       {method === 'token' ? (
         <div className="flex flex-col gap-1.5">

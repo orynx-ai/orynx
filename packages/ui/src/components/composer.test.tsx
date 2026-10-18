@@ -1,13 +1,14 @@
 import type { ComponentProps } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Folder, Plus } from 'lucide-react';
+import { Folder01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Button } from './button.tsx';
 import { Composer, ComposerBar, ComposerHint, ComposerSend, ComposerTextarea } from './composer.tsx';
 import { Menu, MenuContent, MenuItem, MenuTrigger } from './menu.tsx';
 import { Picker } from './picker.tsx';
+import { Icon } from './icon.tsx';
 
 /** What a screen does with react-hook-form: read the text box when the form is sent. */
 function sentText(onSend: (text: string) => void): ComponentProps<'form'>['onSubmit'] {
@@ -38,14 +39,14 @@ function HomeComposer({
         <Menu>
           <MenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label="Add context">
-              <Plus aria-hidden />
+              <Icon icon={PlusSignIcon} aria-hidden />
             </Button>
           </MenuTrigger>
           <MenuContent aria-label="Add context">
             <MenuItem>Jira ticket</MenuItem>
           </MenuContent>
         </Menu>
-        <Picker icon={<Folder />}>web-app</Picker>
+        <Picker icon={<Icon icon={Folder01Icon} />}>web-app</Picker>
         <Picker icon={<span aria-hidden className="size-2 rounded-full bg-success" />}>Claude</Picker>
         <ComposerSend label="Send to Claude" />
       </ComposerBar>
