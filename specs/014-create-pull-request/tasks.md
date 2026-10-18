@@ -59,7 +59,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 19: Add `draftPullRequest`, `createPullRequest`, `draftPush` and `pushChanges` to the api-client, parsed with the contracts, as mutations (AC-2, AC-4, AC-17)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/sessions.test.ts, packages/api-client/src/client.ts, packages/api-client/src/index.ts
-- [ ] Task 20: Add `Textarea` to `@devhub/ui`: the `dh-input` look, 10 rows then scrolling inside, resizable in height, wired to `Field`'s label, help and error like `Input`, disabled and read-only. A story for each state, a test, and a row in `docs/design-map.md` (Q10b, AC-21, AC-22)
+- [x] Task 20: Add `Textarea` to `@devhub/ui`: the `dh-input` look, 10 rows then scrolling inside, resizable in height, wired to `Field`'s label, help and error like `Input`, disabled and read-only. A story for each state, a test, and a row in `docs/design-map.md` (Q10b, AC-21, AC-22)
       Check: pnpm test packages/ui/src/components/textarea.test.tsx; pnpm gate component-coverage; pnpm storybook (no axe violations)
       Files: packages/ui/src/components/textarea.tsx, packages/ui/src/components/textarea.stories.tsx, packages/ui/src/components/textarea.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 21: Add the words: Q11's buttons, the dialog's lines (with "1 changed file"), the cannot lines, each failure line (the rate limit's time in the app's clock words), the two steps, Push changes' lines, and Discard's extra line (Q11)
