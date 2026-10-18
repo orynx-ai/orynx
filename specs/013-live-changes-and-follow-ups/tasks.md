@@ -90,7 +90,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 28: e2e changes: the list grows while Claude works in a second tab too, picking a file shows its diff and a reload keeps it, the Ticket tab, Discard's empty state, and the button following Settings' editor (AC-1, AC-2, AC-3, AC-6, AC-9, AC-18, AC-20, AC-26)
       Check: pnpm test:e2e e2e/changes.spec.ts
       Files: e2e/changes.spec.ts, e2e/fake-tools/config.ts
-- [ ] Task 29: e2e follow-ups: after Done (Working, Build, a new Finished), while Claude works (folded in), after Stop, the box off after Discard, the keyboard path, and axe at 360 and 1280 px in light and dark (AC-11, AC-12, AC-13, AC-14, AC-21, AC-22)
+- [x] Task 29: e2e follow-ups: after Done (Working, Build, a new Finished), while Claude works (folded in), after Stop, the box off after Discard, the keyboard path, and axe at 360 and 1280 px in light and dark (AC-11, AC-12, AC-13, AC-14, AC-21, AC-22)
       Check: pnpm test:e2e e2e/changes.spec.ts
       Files: e2e/changes.spec.ts
 - [ ] Task 30: Docs: `learn/sessions-and-worktrees.md` (changes, follow-ups, resume, the queued-message rule), `learn/live-updates.md` (the new event), `learn/settings-and-folders.md` (the editor), agent-runtime's adapter section (`sendMessage`, resume, Stop refusing every call), the roadmap's 013 line, `docs/architecture.md` (the routes and the event)

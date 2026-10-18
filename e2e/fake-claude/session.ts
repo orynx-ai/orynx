@@ -7,9 +7,10 @@
 //
 // Spec 013: a message that comes while it works waits, and is taken into the turn after its next tool call;
 // each result says which messages its turn took and how many still wait. `--resume` with its own session id
-// plays a follow-up (it edits `src/follow-up.ts` and finishes); any other id exits before it starts, as Claude
-// Code does when it can't find the conversation. "(slow)" in the title makes it wait for a message after its
-// first read, so a test can send one while it works.
+// plays a follow-up (it writes the message it got into `src/follow-up.ts` and finishes); any other id exits
+// before it starts, as Claude Code does when it can't find the conversation. "(slow)" in the title makes it
+// wait for a message after its first read, and "(hold)" in a follow-up after its edit, so a test can send one
+// while it works.
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -17,10 +18,15 @@ import { createInterface } from 'node:readline';
 type Message = Record<string, unknown>;
 
 const sessionId = 'e2e00000-0000-4000-8000-000000000011';
-const resumeAt = process.argv.indexOf('--resume');
-const resumed = resumeAt === -1 ? null : (process.argv[resumeAt + 1] ?? '');
+/** An option's value: the SDK passes each as one argument, `--resume=<id>`. */
+function option(name: string): string | null {
+  const arg = process.argv.find((one) => one.startsWith(`${name}=`));
+  return arg === undefined ? null : arg.slice(name.length + 1);
+}
+
+const resumed = option('--resume');
 const stepMs = 400;
-const tools = (process.argv.find((arg) => arg.startsWith('--tools=')) ?? '--tools=').slice('--tools='.length);
+const tools = option('--tools') ?? '';
 
 let count = 0;
 const nextId = (prefix: string) => {
@@ -47,6 +53,8 @@ const pause = (ms: number) => Promise.race([new Promise((resolve) => setTimeout(
 /** Messages that came after the first and no turn has taken yet, and the ids the current turn took. */
 const queued: string[] = [];
 let taken: string[] = [];
+/** How many messages came after the first, taken or not. */
+let later = 0;
 let heard: () => void = () => undefined;
 /** Claude Code takes the queued messages into the turn between tool calls. */
 function fold(): void {
@@ -254,8 +262,11 @@ async function answerTheRest(): Promise<void> {
   }
 }
 
-/** A follow-up, resuming this session (spec 013): one more edit, then the finish. */
-async function followUp(): Promise<void> {
+/**
+ * A follow-up, resuming this session (spec 013): one more edit, which writes down the message exactly as it
+ * came, then the finish; with "(hold)", only once another message has come.
+ */
+async function followUp(asked: string): Promise<void> {
   send({
     type: 'system',
     subtype: 'init',
@@ -271,12 +282,15 @@ async function followUp(): Promise<void> {
   });
   await pause(stepMs);
   if (stopped) return;
-  const content = 'export const followedUp = true;\n';
+  const content = `export const asked = ${JSON.stringify(asked)};\n`;
   await call(
     'Write',
     { file_path: join(process.cwd(), 'src', 'follow-up.ts'), content },
     { path: join('src', 'follow-up.ts'), content },
   );
+  // A message may have come, and been taken, before the edit: then there's nothing to wait for.
+  if (asked.includes('(hold)') && later === 0) await aMessage();
+  fold();
   await pause(stepMs);
   if (isStopped()) return;
   sendResult('Did what you asked.');
@@ -336,12 +350,14 @@ input.on('line', (line) => {
     if (playing) {
       // Claude is working: the message waits for its next tool call.
       if (typeof uuid === 'string') queued.push(uuid);
+      later += 1;
       heard();
       return;
     }
     playing = true;
     if (typeof uuid === 'string') taken.push(uuid);
-    void (resumed === null ? play(typeof content === 'string' ? content : JSON.stringify(content)) : followUp());
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    void (resumed === null ? play(text) : followUp(text));
   }
 });
 input.on('close', () => {

@@ -1,10 +1,24 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { answerClaudeAs, fakeClaudeDirFor } from './fake-claude/config.ts';
 import { changesHubPort, controlPortFor, type FakeTools } from './fake-tools/config.ts';
+
+declare global {
+  interface Window {
+    axe: {
+      run: (
+        context: Element,
+        options: object,
+      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
+    };
+  }
+}
+
+const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Spec 013 on its own hub (playwright.config.ts): its sessions resume Claude Code and write into worktrees the
 // other specs never see.
@@ -22,13 +36,16 @@ const tools: FakeTools = {
       category: 'indeterminate',
       duedate: '2030-01-15',
     },
+    // Edits `src/archive.ts` and finishes; a follow-up writes down what it was asked in `src/follow-up.ts`.
+    { key: 'CHG-2', summary: 'Add bulk archive to the event list', status: 'To Do', category: 'new' },
+    { key: 'CHG-3', summary: 'Archive old events (waits)', status: 'To Do', category: 'new' },
   ],
   reviews: [],
   mine: [],
 };
 
-/** The session the tests share, once the first has started it. */
-const seen: { working?: string } = {};
+/** The sessions the tests share, once started: the one stopped and then discarded, and the one Done. */
+const seen: { working?: string; done?: string } = {};
 
 /** A real repository in a temporary folder, with a bare origin, and git that reads none of your settings. */
 function makeRepository() {
@@ -101,6 +118,8 @@ function untouched(worktree: string) {
 }
 
 const changedFiles = (page: Page) => page.getByRole('list', { name: 'Changed files' });
+const followUpBox = (page: Page) => page.getByRole('textbox', { name: 'Message Claude' });
+const progressOf = (page: Page) => page.getByRole('region', { name: "Claude's progress" });
 
 /**
  * The folder an Open in link opens, as a real path: the hub names the worktree under its own home's path, which
@@ -258,4 +277,157 @@ test('AC-6: once discarded, the Changes tab says the changes are gone, with no O
   await expect(page.getByRole('link', { name: /^Open in (VS Code|Cursor)$/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Discard changes' })).toHaveCount(0);
   expect(worktreeOf('feat/CHG-1')).toBeUndefined();
+});
+
+test('AC-14: once the changes are discarded, a line says why in place of the box', async ({ page }) => {
+  await page.goto(seen.working ?? '');
+  await expect(page.getByText("The changes were discarded, so Claude can't carry on.")).toBeVisible();
+  await expect(followUpBox(page)).toHaveCount(0);
+});
+
+test('AC-11, AC-12, AC-18: after Done, a follow-up carries on where Claude left off, in every open tab', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/tickets');
+  await page.getByRole('button', { name: 'Build CHG-2 with Claude' }).click();
+  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  seen.done = page.url();
+  await expect(page.getByRole('main').getByText('Done, ready for PR')).toBeVisible({ timeout: 15_000 });
+  const other = await context.newPage();
+  await other.goto(page.url());
+  await expect(followUpBox(other)).toBeVisible();
+  // "(hold)" keeps the fake Claude Code working, once it has made its edit, until another message comes.
+  const asked = 'Use the existing useSelection hook instead (hold)';
+
+  await followUpBox(page).fill(asked);
+  await followUpBox(page).press('Enter');
+
+  await expect(followUpBox(page)).toHaveValue('');
+  await expect(followUpBox(page)).toBeFocused();
+  for (const tab of [page, other]) {
+    await expect(progressOf(tab).getByText('You asked Claude')).toBeVisible();
+    await expect(progressOf(tab).getByText(asked)).toBeVisible();
+    await expect(tab.getByRole('main').getByText('Working', { exact: true })).toBeVisible();
+    await expect(tab.getByRole('list', { name: 'Session progress' }).getByText('Build')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+  }
+  // Each tab keeps its own unsent draft.
+  await followUpBox(other).fill('Half a thought');
+  await expect(followUpBox(page)).toHaveValue('');
+
+  // Sent while Claude works, a message shows at once and is taken into the same turn.
+  await followUpBox(page).fill('Name it useRowSelection');
+  await followUpBox(page).press('Enter');
+  await expect(progressOf(page).getByText('Name it useRowSelection')).toBeVisible();
+
+  await expect(progressOf(page).getByText('Finished')).toHaveCount(2, { timeout: 15_000 });
+  await expect(progressOf(page).getByText('Did what you asked.')).toBeVisible();
+  await expect(page.getByRole('main').getByText('Done, ready for PR')).toBeVisible();
+  await expect(followUpBox(other)).toHaveValue('Half a thought');
+  // Claude got exactly what was typed, and wrote in the same worktree.
+  const worktree = worktreeOf('feat/CHG-2') ?? '';
+  expect(readFileSync(join(worktree, 'src', 'follow-up.ts'), 'utf8')).toBe(
+    `export const asked = ${JSON.stringify(asked)};\n`,
+  );
+  await expect(changedFiles(page).getByRole('button', { name: /^src\/follow-up\.ts/ })).toBeVisible();
+  await other.close();
+});
+
+test('AC-13: after Stop, a follow-up carries on as well', async ({ page }) => {
+  await page.goto('/tickets');
+  await page.getByRole('button', { name: 'Build CHG-3 with Claude' }).click();
+  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  await expect(progressOf(page).getByText('Editing files')).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Stop Claude' }).click();
+  await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
+
+  await followUpBox(page).fill('Carry on, please');
+  await followUpBox(page).press('Enter');
+
+  await expect(progressOf(page).getByText('You asked Claude')).toBeVisible();
+  await expect(progressOf(page).getByText('Did what you asked.')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('main').getByText('Done, ready for PR')).toBeVisible();
+  expect(readFileSync(join(worktreeOf('feat/CHG-3') ?? '', 'src', 'follow-up.ts'), 'utf8')).toContain(
+    'Carry on, please',
+  );
+});
+
+test('AC-21: the box, the tabs and the file list all work from the keyboard, in the screen’s order', async ({
+  page,
+}) => {
+  await page.goto(seen.done ?? '');
+  const box = followUpBox(page);
+  await expect(changedFiles(page)).toBeVisible();
+  await box.focus();
+
+  await page.keyboard.type('First line');
+  await page.keyboard.press('Shift+Enter');
+  await page.keyboard.type('second line');
+  await expect(box).toHaveValue('First line\nsecond line');
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Delete');
+  await page.keyboard.press('Enter');
+  // An empty box sends nothing.
+  await expect(progressOf(page).getByText('You asked Claude')).toHaveCount(2);
+
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Send message' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  const changes = page.getByRole('tab', { name: /^Changes/ });
+  await expect(changes).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: 'Ticket CHG-2' })).toBeFocused();
+  await expect(page.getByRole('tab', { name: 'Ticket CHG-2' })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('ArrowLeft');
+  await expect(changes).toHaveAttribute('aria-selected', 'true');
+
+  const followed = changedFiles(page).getByRole('button', { name: /^src\/follow-up\.ts/ });
+  const archive = changedFiles(page).getByRole('button', { name: /^src\/archive\.ts/ });
+  await followed.focus();
+  await page.keyboard.press('Space');
+  await expect(followed).toHaveAttribute('aria-current', 'true');
+  await archive.focus();
+  await page.keyboard.press('Enter');
+  await expect(archive).toHaveAttribute('aria-current', 'true');
+});
+
+test('AC-22: the Session screen has no axe violations, at 1280 and 360 px, in light and dark', async ({ page }) => {
+  const check = async () => {
+    await page.addScriptTag({ path: axePath });
+    return page.evaluate(async () => {
+      // axe reads colours as drawn, so anything still fading in must settle first.
+      const moving = document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity);
+      await Promise.allSettled(moving.map((animation) => animation.finished));
+      const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
+      return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
+    });
+  };
+  const states = [
+    { name: 'Done, with its changes', url: seen.done, shows: (p: Page) => changedFiles(p) },
+    {
+      name: 'its Ticket tab',
+      url: `${seen.done ?? ''}?tab=ticket`,
+      shows: (p: Page) => p.getByText('Content managers need to archive many items at once.'),
+    },
+    { name: 'discarded', url: seen.working, shows: (p: Page) => p.getByText('The changes are gone') },
+  ];
+  for (const state of states) {
+    if (state.url === undefined) throw new Error('A session the earlier tests start is missing');
+    for (const width of [1280, 360]) {
+      for (const colorScheme of ['light', 'dark'] as const) {
+        await page.setViewportSize({ width, height: 800 });
+        await page.emulateMedia({ colorScheme });
+        await page.goto(state.url);
+        await expect(state.shows(page)).toBeVisible();
+        const where = `${state.name} at ${String(width)} px, ${colorScheme}`;
+        expect(await check(), where).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth), where).toBeLessThanOrEqual(width);
+      }
+    }
+  }
 });
