@@ -87,7 +87,11 @@ export function FileList({ files, current, onSelect, maxRows, className, ...prop
                 <span className="max-w-full shrink-0 truncate">{name}</span>
               </span>
               <span aria-hidden className="flex shrink-0 gap-2">
-                {file.added > 0 ? <span className="text-success">+{file.added}</span> : null}
+                {/* Green is 4.14:1 on the shown row's tint, so there the + count is in the text colour; the sign
+                    still says it (the user's call, spec 013, 18 Oct 2026). */}
+                {file.added > 0 ? (
+                  <span className={file.path === current ? 'text-foreground' : 'text-success'}>+{file.added}</span>
+                ) : null}
                 {file.removed > 0 ? <span className="text-danger">−{file.removed}</span> : null}
               </span>
               {spoken ? <span className="sr-only">{spoken}</span> : null}
