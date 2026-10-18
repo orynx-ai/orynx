@@ -12,6 +12,7 @@ import {
   fileRefusedLine,
   placeholderFor,
   removedLine,
+  shortFileName,
 } from './composer-words.ts';
 
 describe('the composer’s words (spec 015, Q13)', () => {
@@ -58,6 +59,14 @@ describe('the composer’s words (spec 015, Q13)', () => {
     expect(chipLabel({ kind: 'file', name: 'notes.md', text: '' })).toBe('notes.md');
     expect(composerWords.remove('PROJ-1423')).toBe('Remove PROJ-1423');
     expect(removedLine('notes.md')).toBe('notes.md removed');
+  });
+
+  it('Q15d: cuts a long file name in the middle, so its extension shows', () => {
+    expect(shortFileName('notes.md')).toBe('notes.md');
+    expect(shortFileName('release-notes-for-the-people-directory.md')).toBe('release-notes-f…directory.md');
+    expect(shortFileName('a-very-long-log-file-from-the-nightly-build.log')).toBe('a-very-long-log…ly-build.log');
+    expect(shortFileName('x'.repeat(40))).toHaveLength(28);
+    expect(chipLabel({ kind: 'file', name: 'release-notes-for-the-people-directory.md', text: '' })).toHaveLength(28);
   });
 
   it('AC-11, AC-12: says why a file or pull request wasn’t added', () => {

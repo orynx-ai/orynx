@@ -81,6 +81,17 @@ export function placeholderFor(ticketKey: string | null): string {
     : `What should Claude do with ${ticketKey}?`;
 }
 
+/** A file's name longer than this is cut in the middle, so its extension still shows (Q15d). */
+const mostFileNameCharacters = 28;
+
+/** `release-notes-for-the-people-directory.md` → `release-notes-f…directory.md`. */
+export function shortFileName(name: string): string {
+  if (name.length <= mostFileNameCharacters) return name;
+  // The last 12 characters keep the extension and a little of the name before it.
+  const tail = 12;
+  return `${name.slice(0, mostFileNameCharacters - tail - 1)}…${name.slice(-tail)}`;
+}
+
 /** How a chip reads: `PROJ-1423`, `web-app #2836`, `notes.md`. */
 export function chipLabel(chip: ComposerChip): string {
   switch (chip.kind) {
@@ -89,7 +100,7 @@ export function chipLabel(chip: ComposerChip): string {
     case 'pull_request':
       return `${chip.name} #${String(chip.number)}`;
     case 'file':
-      return chip.name;
+      return shortFileName(chip.name);
   }
 }
 
