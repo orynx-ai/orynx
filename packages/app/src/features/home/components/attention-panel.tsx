@@ -53,7 +53,7 @@ export function AttentionPanel() {
             </Button>
           }
         >
-          <span>Check that DevHub is still running, then try again.</span>
+          <span>Check that Orynx is still running, then try again.</span>
         </EmptyState>
       </Panel>
     );

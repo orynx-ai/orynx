@@ -415,7 +415,7 @@ describe('AttentionPanel states', () => {
     server.use(http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json({ error: 'down' }, { status: 500 })));
     const { user, panel } = await openTab('/', "Couldn't load the list");
 
-    expect(within(panel).getByText('Check that DevHub is still running, then try again.')).toBeVisible();
+    expect(within(panel).getByText('Check that Orynx is still running, then try again.')).toBeVisible();
     expect(screen.getByRole('heading', { level: 1, name: 'What should we build today?' })).toBeVisible();
 
     inboxWith([review]);
