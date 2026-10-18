@@ -17,6 +17,7 @@ export {
   sessionDiffQueryOptions,
   sessionQueryKey,
   sessionQueryOptions,
+  sessionPagesQueryOptions,
   sessionsQueryOptions,
   statusQueryOptions,
   ticketsQueryOptions,

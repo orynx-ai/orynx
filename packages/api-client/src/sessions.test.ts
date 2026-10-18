@@ -3,12 +3,14 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { apiRoutes, tokenHeader } from '@devhub/contracts';
 import { makeFileDiff, makeSession, makeSessionChanges, makeSessionList } from '@devhub/contracts/testing';
+import { InfiniteQueryObserver, QueryClient } from '@tanstack/react-query';
 import {
   ApiRequestError,
   createApiClient,
   queryKeys,
   sessionChangesQueryOptions,
   sessionDiffQueryOptions,
+  sessionPagesQueryOptions,
   sessionQueryKey,
   sessionQueryOptions,
   sessionsQueryOptions,
@@ -76,6 +78,40 @@ describe('sessionsQueryOptions', () => {
 
     expect(sessionsQueryOptions(api, { limit: 5 }).queryKey).toEqual([...queryKeys.sessions, { limit: 5 }]);
     expect(sessionsQueryOptions(api).queryKey).toEqual([...queryKeys.sessions, {}]);
+  });
+});
+
+describe('sessionPagesQueryOptions (spec 020)', () => {
+  it('AC-6: asks for the first page, then the next from its cursor, until a page says it is the last', async () => {
+    const asked: (string | null)[] = [];
+    server.use(
+      http.get(sessionsUrl, ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        const cursor = params.get('cursor');
+        asked.push(`${params.get('limit') ?? ''} ${params.get('recent') ?? ''} ${cursor ?? 'first'}`);
+        return HttpResponse.json(
+          cursor === null
+            ? { ...makeSessionList([{ title: 'Newest' }]), nextCursor: '1760608800000.session-1' }
+            : makeSessionList([{ title: 'Older' }]),
+        );
+      }),
+    );
+    const api = createApiClient({ baseURL, token: 't' });
+    const client = new QueryClient();
+    const options = sessionPagesQueryOptions(api, { limit: 16, recent: true });
+
+    const observer = new InfiniteQueryObserver(client, options);
+
+    await observer.refetch();
+    const result = await observer.fetchNextPage();
+
+    expect(options.queryKey).toEqual([...queryKeys.sessions, 'pages', { limit: 16, recent: true }]);
+    expect(result.data?.pages.flatMap((page) => page.sessions.map((session) => session.title))).toEqual([
+      'Newest',
+      'Older',
+    ]);
+    expect(asked).toEqual(['16 true first', '16 true 1760608800000.session-1']);
+    expect(result.hasNextPage).toBe(false);
   });
 });
 

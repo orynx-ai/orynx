@@ -4,6 +4,7 @@ import {
   RepositoryIdSchema,
   SessionSchema,
   type Session,
+  type SessionList,
   type SessionSummary,
 } from '@devhub/contracts';
 
@@ -110,18 +111,50 @@ export interface ListOptions {
   limit?: number | undefined;
   /** Leave out sessions discarded more than 7 days ago (product spec, "Cleaning up"). */
   recent?: boolean | undefined;
+  /** Start after the row this names: a page's `nextCursor` (spec 020). */
+  cursor?: string | undefined;
   now?: () => number;
 }
 
-/** Newest activity first, then at most `limit` of them, as summaries. */
+/** A row's place in the list: its activity time in milliseconds, then its id. */
+function cursorOf(session: SessionSummary): string {
+  return `${String(Date.parse(session.updatedAt))}.${session.id}`;
+}
+
+/** Newest activity first; two sessions active in the same millisecond keep one order, by id. */
+function newerFirst(a: SessionSummary, b: SessionSummary): number {
+  return Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
+}
+
+/**
+ * Newest activity first, as summaries: after `cursor` when one is given, then at most `limit` of them,
+ * with the cursor of the page after when more follow. The contract has already checked the cursor's shape.
+ */
 export async function listSessions(
   store: SessionStore,
-  { limit, recent = false, now = Date.now }: ListOptions = {},
-): Promise<SessionSummary[]> {
+  { limit, recent = false, cursor, now = Date.now }: ListOptions = {},
+): Promise<SessionList> {
   const cutoff = now() - keptInSidebar;
   const sorted = [...(await store.list())]
     .filter((session) => !recent || session.discardedAt == null || Date.parse(session.discardedAt) >= cutoff)
-    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-    .map(({ id, title, state, source, updatedAt }) => ({ id, title, state, source, updatedAt }));
-  return limit === undefined ? sorted : sorted.slice(0, limit);
+    .map(({ id, title, state, source, updatedAt }): SessionSummary => ({ id, title, state, source, updatedAt }))
+    .sort(newerFirst);
+  const start = cursor === undefined ? 0 : afterCursor(sorted, cursor);
+  const rest = sorted.slice(start);
+  if (limit === undefined || rest.length <= limit) return { sessions: rest, nextCursor: null };
+  const sessions = rest.slice(0, limit);
+  const last = sessions[sessions.length - 1];
+  return { sessions, nextCursor: last === undefined ? null : cursorOf(last) };
+}
+
+/** Where the rows after the cursor's row begin, wherever that row has moved to since. */
+function afterCursor(sorted: readonly SessionSummary[], cursor: string): number {
+  const dot = cursor.indexOf('.');
+  const at = Number(cursor.slice(0, dot));
+  const id = cursor.slice(dot + 1);
+  const index = sorted.findIndex((session) => {
+    const time = Date.parse(session.updatedAt);
+    return time < at || (time === at && session.id < id);
+  });
+  return index === -1 ? sorted.length : index;
 }

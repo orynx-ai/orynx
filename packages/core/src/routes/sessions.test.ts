@@ -96,7 +96,7 @@ describe('GET /api/sessions', () => {
     const res = await (await server()).inject({ method: 'GET', url: apiRoutes.sessions, headers });
 
     expect(res.statusCode).toBe(200);
-    expect(SessionListSchema.parse(res.json())).toEqual({ sessions: [] });
+    expect(SessionListSchema.parse(res.json())).toEqual({ sessions: [], nextCursor: null });
   });
 
   it('answers 400 with a reason for a limit that is not a positive number', async () => {
@@ -110,7 +110,79 @@ describe('GET /api/sessions', () => {
     app = await createServer({ token, port, version: '1.2.3' });
     const res = await app.inject({ method: 'GET', url: apiRoutes.sessions, headers });
 
-    expect(SessionListSchema.parse(res.json())).toEqual({ sessions: [] });
+    expect(SessionListSchema.parse(res.json())).toEqual({ sessions: [], nextCursor: null });
+  });
+});
+
+/** Forty sessions, `0000000000000001` the oldest and `0000000000000040` the newest, a minute apart. */
+const forty = Array.from({ length: 40 }, (_, index) => ({
+  id: String(index + 1).padStart(16, '0'),
+  title: `Session ${String(index + 1)}`,
+  updatedAt: new Date(Date.UTC(2026, 9, 16, 10, index)).toISOString(),
+}));
+
+/** One page of recent sessions, 16 at most, from where `cursor` says. */
+async function page(server: FastifyInstance, cursor: string | null) {
+  const query = `?recent=true&limit=16${cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`}`;
+  const res = await server.inject({ method: 'GET', url: `${apiRoutes.sessions}${query}`, headers });
+  expect(res.statusCode).toBe(200);
+  return SessionListSchema.parse(res.json());
+}
+
+describe('GET /api/sessions in pages (spec 020)', () => {
+  it('AC-6: pages of at most 16 hold every recent session once, newest first, and the last page says so', async () => {
+    const { app } = await serverWith(...forty);
+
+    const first = await page(app, null);
+    const second = await page(app, first.nextCursor);
+    const third = await page(app, second.nextCursor);
+
+    expect([first, second, third].map((answer) => answer.sessions.length)).toEqual([16, 16, 8]);
+    expect(third.nextCursor).toBeNull();
+    expect([...first.sessions, ...second.sessions, ...third.sessions].map((session) => session.title)).toEqual(
+      forty.map((session) => session.title).reverse(),
+    );
+  });
+
+  it('AC-3: a session that moves to the top between two pages is never listed twice, and none is skipped', async () => {
+    const { app, store } = await serverWith(...forty);
+    const first = await page(app, null);
+    // Session 20, due on the second page, gets new activity.
+    await store.update('0000000000000020', (record) => ({
+      ...record,
+      session: { ...record.session, updatedAt: '2026-10-16T12:00:00.000Z' },
+    }));
+
+    const second = await page(app, first.nextCursor);
+    const third = await page(app, second.nextCursor);
+
+    const titles = [...second.sessions, ...third.sessions].map((session) => session.title);
+    expect(titles).not.toContain('Session 20');
+    expect(titles).toHaveLength(23);
+    expect(new Set([...first.sessions.map((session) => session.title), ...titles]).size).toBe(39);
+  });
+
+  it('AC-6: answers a whole list with no cursor when no limit is asked', async () => {
+    const res = await (await server(seven)).inject({ method: 'GET', url: apiRoutes.sessions, headers });
+    expect(SessionListSchema.parse(res.json()).nextCursor).toBeNull();
+  });
+
+  it('AC-6: answers 400 for a cursor it can’t read', async () => {
+    const res = await (
+      await server(seven)
+    ).inject({
+      method: 'GET',
+      url: `${apiRoutes.sessions}?limit=16&cursor=yesterday`,
+      headers,
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(ApiErrorSchema.parse(res.json()).code).toBe('bad_request');
+  });
+
+  it('AC-6: a cursor past the oldest session answers an empty last page', async () => {
+    const { app } = await serverWith(...forty);
+    expect(await page(app, '1000.0000000000000000')).toEqual({ sessions: [], nextCursor: null });
   });
 });
 

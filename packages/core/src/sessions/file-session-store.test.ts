@@ -267,8 +267,8 @@ describe('listSessions', () => {
     );
 
     const recent = await listSessions(store, { recent: true, now });
-    expect(recent.map((session) => session.title).sort()).toEqual(['Discarded 6 days ago', 'Working']);
-    expect(await listSessions(store, { now })).toHaveLength(3);
+    expect(recent.sessions.map((session) => session.title).sort()).toEqual(['Discarded 6 days ago', 'Working']);
+    expect((await listSessions(store, { now })).sessions).toHaveLength(3);
   });
 
   it('AC-1: answers summaries only, newest first', async () => {
@@ -276,7 +276,8 @@ describe('listSessions', () => {
     await store.create(record({ title: 'Older', updatedAt: '2026-10-18T10:00:00.000Z' }, '0000000000000001'));
     await store.create(record({ title: 'Newer', updatedAt: '2026-10-18T11:00:00.000Z' }, '0000000000000002'));
     const listed = await listSessions(store, { limit: 1, now });
-    expect(listed).toEqual([
+    expect(listed.nextCursor).toBe(`${String(Date.parse('2026-10-18T11:00:00.000Z'))}.0000000000000002`);
+    expect(listed.sessions).toEqual([
       {
         id: '0000000000000002',
         title: 'Newer',
