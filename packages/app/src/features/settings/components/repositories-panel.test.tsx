@@ -118,9 +118,15 @@ describe('RepositoriesPanel', () => {
 
   it('AC-11, AC-14: with two quick removals, a failed first one still brings its row back and says so', async () => {
     listing(() => [intranet, mobile]);
+    // Both answers wait for both presses: on a slow run a 30 ms answer could beat the second press,
+    // which starts a new change and so clears the first one's error.
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     server.use(
       http.delete(apiUrl(apiRoutes.repository), async ({ params }) => {
-        await delay(30);
+        await released;
         return params['id'] === intranet.id
           ? HttpResponse.json({ code: 'internal', message: 'Something went wrong.' }, { status: 500 })
           : new HttpResponse(null, { status: 204 });
@@ -131,6 +137,7 @@ describe('RepositoriesPanel', () => {
 
     await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
     await user.click(screen.getByRole('button', { name: 'Remove mobile' }));
+    release();
 
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save that change.");
     expect(await screen.findByText('~/code/intranet-web')).toBeVisible();
