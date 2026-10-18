@@ -5,8 +5,11 @@
 export class FakeResizeObserver {
   static readonly instances = new Set<FakeResizeObserver>();
   private readonly watched = new Set<Element>();
+  private readonly callback: ResizeObserverCallback;
 
-  constructor(private readonly callback: ResizeObserverCallback) {}
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
 
   observe(target: Element) {
     this.watched.add(target);
