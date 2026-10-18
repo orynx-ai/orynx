@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { access, constants, mkdir, stat } from 'node:fs/promises';
+import { access, constants, mkdir, open, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { isAbsolute, join } from 'node:path';
 import type { ClaudeLogin } from '@devhub/contracts';
@@ -81,11 +81,28 @@ export function findSdkClaudeCode({ platform = process.platform, arch = process.
   return null;
 }
 
+/**
+ * How a program's first bytes look: `#!` for a script, or a build for Linux (ELF), macOS (Mach-O, or the
+ * universal form) or Windows (MZ). Linux hands any other runnable file to /bin/sh, which runs it as a script.
+ */
+const programHeaders = ['2321', '7f454c46', 'cffaedfe', 'cefaedfe', 'feedfacf', 'feedface', 'cafebabe', '4d5a'];
+
+async function startsLikeAProgram(path: string): Promise<boolean> {
+  const file = await open(path);
+  try {
+    const { buffer, bytesRead } = await file.read(Buffer.alloc(4), 0, 4, 0);
+    const head = buffer.subarray(0, bytesRead).toString('hex');
+    return programHeaders.some((header) => head.startsWith(header));
+  } finally {
+    await file.close();
+  }
+}
+
 async function isProgram(path: string): Promise<boolean> {
   try {
     if (!(await stat(path)).isFile()) return false;
     await access(path, constants.X_OK);
-    return true;
+    return await startsLikeAProgram(path);
   } catch {
     return false;
   }
@@ -149,8 +166,8 @@ export function createClaudeCode({ program, env, workFolder, timeoutMs = 10_000 
           },
         );
       } catch {
-        // Some files can't be started at all, such as one with no #! line or a build for another
-        // processor (ENOEXEC, EBADARCH): execFile throws those at once instead of calling back.
+        // Some programs can't be started at all, such as a build for another processor (ENOEXEC,
+        // EBADARCH on macOS): execFile throws those at once instead of calling back.
         fail({ kind: 'missing' });
       }
     });

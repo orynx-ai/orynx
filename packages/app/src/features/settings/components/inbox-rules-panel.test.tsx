@@ -136,6 +136,16 @@ describe('InboxRulesPanel', () => {
   });
 
   it('AC-19: Tab reaches each rule and Space flips it', async () => {
+    // The server keeps what it's sent. Unanswered, the save would fail and turn the rule back on (AC-14).
+    let saved = makePreferences();
+    server.use(
+      http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(saved)),
+      http.patch(apiUrl(apiRoutes.preferences), async ({ request }) => {
+        const change = (await request.json()) as PreferencesChange;
+        saved = makePreferences({ inboxRules: { ...saved.inboxRules, ...change.inboxRules } });
+        return HttpResponse.json(saved);
+      }),
+    );
     const { user } = await openTab();
     const first = screen.getByRole('checkbox', { name: "Jira tickets assigned to me that aren't done" });
     first.focus();
@@ -145,6 +155,10 @@ describe('InboxRulesPanel', () => {
 
     const second = screen.getByRole('checkbox', { name: 'Pull requests waiting for my review' });
     expect(second).toHaveFocus();
+    expect(second).not.toBeChecked();
+    await waitFor(() => {
+      expect(saved.inboxRules.review_requested).toBe(false);
+    });
     expect(second).not.toBeChecked();
   });
 

@@ -22,6 +22,8 @@ describe('findSdkClaudeCode', () => {
     );
     expect((await stat(program ?? '')).isFile()).toBe(true);
     await expect(access(program ?? '', constants.X_OK)).resolves.toBeUndefined();
+    // Its header passes the runner's check for this computer's builds (ELF, Mach-O or MZ).
+    expect(await createClaudeCode({ program, env: {}, workFolder: unusedWorkFolder }).find()).toBe(program);
   });
 
   it('Q2: finds nothing for a computer the SDK ships no Claude Code for', () => {
@@ -139,15 +141,18 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     expect(await folder.runs()).toEqual([]);
   });
 
-  it("AC-6: a runnable file the system can't start, such as one with no #! line, is missing, not a thrown error", async () => {
+  it('AC-6: a runnable file with no #! line is missing, and never reaches the shell', async () => {
     const folder = await fakeClaudeFolder();
     const notAProgram = join(folder.program, '..', 'not-a-program');
-    await writeFile(notAProgram, 'this is not a program\n');
+    // Linux runs a file it can't start through /bin/sh, which would run this line as a command.
+    const ran = join(folder.program, '..', 'ran');
+    await writeFile(notAProgram, `touch ${ran}\n`);
     await chmod(notAProgram, 0o755);
+    const claude = createClaudeCode({ program: notAProgram, env: shell, workFolder: folder.workFolder });
 
-    expect(
-      await createClaudeCode({ program: notAProgram, env: shell, workFolder: folder.workFolder }).authStatus(),
-    ).toEqual({ ok: false, problem: { kind: 'missing' } });
+    expect(await claude.find()).toBeNull();
+    expect(await claude.authStatus()).toEqual({ ok: false, problem: { kind: 'missing' } });
+    await expect(access(ran)).rejects.toThrow();
   });
 
   it('AC-6: a program that crashes is failed, with its exit code', async () => {
