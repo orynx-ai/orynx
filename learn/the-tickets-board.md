@@ -36,7 +36,7 @@ A site has a sprint per team board, so until you pick one, Orynx works out yours
 
 Two pickers open the toolbar (`sprint-pickers.tsx`):
 
-- **Project** is a `Combobox` from `@devhub/ui`: a field drawn like Select that opens a list with a search box. "Your sprint" comes first, then the Jira projects you can see ("WEB · Web app"), from the same `GET /api/jira/projects` that Settings › Repositories reads. Typing narrows the list by key or name.
+- **Project** is a `Combobox` from `@devhub/ui`: a field drawn like Select that opens a list with a search box. "Your sprint" comes first, then the Jira projects you can see ("WEB · Web app"), from the same `GET /api/jira/projects` that Settings › Repositories reads, asked only while the list is open. Typing narrows the list by key or name. The list opens on your pick and stays on it when the projects arrive after it opened, so Enter keeps it. A pick the server refuses puts the page back and shows spec 005's "Couldn't save that change." under the pickers. No sprint and a sprint share one page, so a pick that empties or fills it keeps focus on the picker.
 - **Sprint** is a `Menu`. It lists the project's active sprints, ending soonest first, then its future ones, starting soonest, each with a line from `openSprintLine()` ("Active · ends 24 Oct", "Future · starts 27 Oct"). It ends with "No sprint". With Your sprint, it lists the sprints of your sprint's project, when its board has one.
 - Both lists are compact (`size="sm"`): 32 px rows in `text-small`, at most 360 px tall, and a longer list scrolls inside them.
 
