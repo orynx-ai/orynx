@@ -106,7 +106,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 21: `learn/` pages, the design map, and the user's script for `docs/product/spec.md`
       Check: pnpm gate learn-freshness
       Files: learn/the-tickets-board.md, learn/settings-and-folders.md, learn/sessions-and-worktrees.md, learn/the-inbox.md, docs/design-map.md, specs/020-first-use-feedback/product-spec-edits.sh
-- [ ] Task 22: Browser check of every changed screen at 360 and 1280 px, light and dark, with CLS and axe; record it in the spec (AC-34)
+- [x] Task 22: Browser check of every changed screen at 360 and 1280 px, light and dark, with CLS and axe; record it in the spec (AC-34)
       Check: pnpm verify
       Files: specs/020-first-use-feedback/spec.md
 - [ ] Task 23: STOP and run /review

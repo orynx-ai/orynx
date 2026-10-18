@@ -128,6 +128,9 @@ test.describe('the first hub, whose Claude Code is never signed in', () => {
     const modes = page.getByRole('radiogroup', { name: 'What Claude can do without asking' });
     const button = card.getByRole('button', { name: 'Check again' });
     await expect(button).toBeVisible();
+    // Measured where the click leaves the page: at 360 px the button can start just below the fold, and the
+    // click scrolls it into view, which moves everything without anything changing size.
+    await button.scrollIntoViewIfNeeded();
     const idle = { card: await card.boundingBox(), modes: await modes.boundingBox() };
 
     await button.click();

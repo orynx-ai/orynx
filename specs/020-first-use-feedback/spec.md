@@ -113,3 +113,14 @@ The work is not done until every question has an answer. Write the date with eac
 ## Design
 
 none — the user's feedback, 18 Oct 2026, has no screen design. It reuses `docs/design/screens/tickets.html` (toolbar and pickers), `home.html` (attention rows), `settings.html` (Repositories rows) and the design system's Picker, Menu, Dialog and SessionItem. The tooltip's look is Q1.
+
+## Browser check
+
+18 Oct 2026, in a real browser (headless Chromium against `pnpm dev`, with `/api` answered by the page so every state shows), at 360 and 1280 px, light and dark:
+
+- Home, Settings › Repositories (with More actions open, and the Edit dialog), Tickets, and the collapsed rail with its Sessions tooltip: axe finds no violations, contrast included, and no page scrolls sideways.
+- Layout shift while each page loads: 0 on Settings and Tickets, under 0.001 on Home.
+- Tickets' Project and Sprint pickers are both 192 × 32 px; both lists are 256 px wide and at most 360 px tall, in 14 px rows (32 px, or 44 px for a sprint with its dates); the Sprint menu's loading rows match a sprint's.
+- The folder dialog's actions sit at its end, Cancel first. Home's rows end in Ship and Open in Jira, or Open in GitHub, each with its tooltip.
+- `pnpm verify` passes: 12 gates and 2,152 tests, with coverage at or above 90%.
+- `pnpm test:e2e`: every test passes but one known on `main` since spec 011 (`shell.spec.ts`, the long session title at 360 px, which fakes `/api/sessions` but not `/api/sessions/:id`). The Tickets list's axe failure, also known on `main`, is gone: Ship's name holds its words now.
