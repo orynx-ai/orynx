@@ -67,6 +67,7 @@ export { Icon, type IconProps, type IconSvgElement } from './components/icon.tsx
 export { Input } from './components/input.tsx';
 export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from './components/file-list.tsx';
 export { Kbd } from './components/kbd.tsx';
+export { Markdown, type MarkdownProps } from './components/markdown.tsx';
 export {
   Menu,
   MenuCheckboxItem,
