@@ -78,6 +78,11 @@ interface Running {
   parked: Map<string, (outcome: Outcome) => void>;
   /** Every tool call `canUseTool` was asked about, so the reader shows a command once (spec 012). */
   decided: Set<string>;
+  /**
+   * The decision before this one: calls are decided one at a time, in the order Claude Code asked, so
+   * calls asked together wait in that order whichever reads Settings faster (AC-10).
+   */
+  deciding: Promise<unknown>;
 }
 
 export function createClaudeAdapter({
@@ -159,8 +164,12 @@ export function createClaudeAdapter({
         // Claude Code's own output can hold the brief or file contents; it never reaches the log.
         stderr: () => undefined,
         async canUseTool(tool, input, { signal, toolUseID }): Promise<PermissionResult> {
-          sessions.get(id)?.decided.add(toolUseID);
-          const decision = await decideToolUse(tool, input, { worktree, home, ...(await permissions()) });
+          const current = sessions.get(id);
+          current?.decided.add(toolUseID);
+          const decide = async () => decideToolUse(tool, input, { worktree, home, ...(await permissions()) });
+          const turn = (current?.deciding ?? Promise.resolve()).then(decide);
+          if (current !== undefined) current.deciding = turn.catch(() => undefined);
+          const decision = await turn;
           if (decision.behavior === 'allow') {
             const command = input['command'];
             if (tool === 'Bash' && typeof command === 'string') {
@@ -203,6 +212,7 @@ export function createClaudeAdapter({
         stopping: false,
         parked: new Map(),
         decided: new Set(),
+        deciding: Promise.resolve(),
       };
       sessions.set(id, running);
       const read = createMessageReader(worktree, (toolUseId) => running.decided.has(toolUseId));

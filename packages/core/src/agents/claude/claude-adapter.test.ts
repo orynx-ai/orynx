@@ -328,6 +328,31 @@ describe('the Claude adapter', () => {
     expect(sdk.runs[0]?.decisions.map(({ result }) => result.behavior)).toEqual(['deny', 'allow']);
   });
 
+  it('AC-10: calls asked together wait in the order asked, even when reading Settings for the first is slower', async () => {
+    const { adapter } = setUp([
+      {
+        together: [
+          { tool: 'Bash', input: { command: 'npm test' } },
+          { tool: 'Bash', input: { command: 'npm run lint' } },
+        ],
+      },
+      { finish: 'Done.' },
+    ]);
+    let reads = 0;
+    const slowFirst = async (): Promise<AgentPermissions> => {
+      reads += 1;
+      if (reads === 1) await new Promise((resolve) => setTimeout(resolve, 50));
+      return { mode: 'edit_freely_ask_commands', allowedCommands: [] };
+    };
+    const session = await watch(adapter, slowFirst);
+    const [first, second] = await session.approvals(2);
+    expect([first?.ask, second?.ask].map((ask) => ask?.kind === 'command' && ask.command)).toEqual([
+      'npm test',
+      'npm run lint',
+    ]);
+    await adapter.stop(session.id);
+  });
+
   it('AC-12: Stop denies a waiting call, then stops Claude', async () => {
     const { sdk, adapter } = setUp([{ tool: 'Bash', input: npmTest }, { finish: 'never' }]);
     const session = await watch(adapter);
