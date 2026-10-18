@@ -494,3 +494,125 @@ describe('creating the pull request (spec 014)', () => {
     expect(await pulls.create('fedcba9876543210', asked)).toBeNull();
   });
 });
+
+describe('pushing changes to the pull request (spec 014, Q7)', () => {
+  const claudeMessage = '"Use the existing useSelection hook"\n\nAs the reviewer asked.';
+
+  /** A session whose pull request is open; creating it asks Claude nothing, so its first call is the push's draft. */
+  async function withPullRequestOpen(options: SetUpOptions = {}) {
+    const set = await readyToCreate({ draft: [{ finish: claudeMessage }], ...options });
+    const opened = await set.pulls.create(id, asked);
+    if (opened?.result !== 'opened') throw new Error('the pull request should open');
+    return set;
+  }
+
+  /** Claude carried on after a follow-up, and finished with this summary. */
+  async function followedUp(records: Awaited<ReturnType<typeof setUp>>['records'], summary: string) {
+    await records.update(id, (current) => ({
+      ...current,
+      session: {
+        ...current.session,
+        activities: [...current.session.activities, { id: 'step-9', state: 'done', kind: 'finished', summary }],
+      },
+    }));
+  }
+
+  it('AC-17: drafts a commit message from what changed since the push alone, with what will happen', async () => {
+    const { worktree, sdk, records, pulls } = await withPullRequestOpen();
+    await followedUp(records, 'Switched to the existing useSelection hook.');
+    await writeFile(join(worktree, 'select.ts'), 'export { useSelection as select } from "./hooks";\n');
+
+    expect(await pulls.draftPush(id)).toEqual({
+      result: 'draft',
+      message: 'Use the existing useSelection hook',
+      byClaude: true,
+      files: 1,
+      branch: 'feat/PROJ-1423',
+      number: 2841,
+    });
+    const [prompt = ''] = sdk.runs[0]?.prompts ?? [];
+    expect(prompt).toContain('Switched to the existing useSelection hook.');
+    expect(prompt).not.toContain('Added row selection.');
+    expect(prompt).toContain('- select.ts +1 −1');
+    expect(prompt).not.toContain('README.md');
+    expect(sdk.runs[0]?.options.tools).toEqual([]);
+  });
+
+  it("AC-17: says there's nothing new to push, and pushes nothing", async () => {
+    const { repos, pulls } = await withPullRequestOpen();
+    const pushed = await repos.git(repos.origin, 'rev-parse', 'refs/heads/feat/PROJ-1423');
+    expect(await pulls.draftPush(id)).toEqual({ result: 'nothing_new' });
+    expect(await pulls.push(id, { message: 'Anything' })).toEqual({ result: 'nothing_new' });
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/feat/PROJ-1423')).toBe(pushed);
+  });
+
+  it("AC-17: starts from the ticket's title when Claude can't draft the message", async () => {
+    const { worktree, pulls } = await withPullRequestOpen({
+      draft: [{ message: { type: 'assistant', error: 'rate_limit', message: { content: [] } } }],
+    });
+    await writeFile(join(worktree, 'select.ts'), 'changed\n');
+    expect(await pulls.draftPush(id)).toMatchObject({
+      message: 'PROJ-1423: Add bulk archive to the content list',
+      byClaude: false,
+    });
+  });
+
+  it('AC-17: commits and pushes to the same branch, so the pull request updates, and keeps the step', async () => {
+    const { repos, worktree, records, pulls, reports } = await withPullRequestOpen();
+    await writeFile(join(worktree, 'select.ts'), 'changed\n');
+    expect(await pulls.push(id, { message: 'Use the existing useSelection hook' })).toEqual({
+      result: 'pushed',
+      files: 1,
+    });
+    const head = await repos.git(worktree, 'rev-parse', 'HEAD');
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/feat/PROJ-1423')).toBe(head);
+    expect(await repos.git(worktree, 'log', '-1', '--format=%B')).toBe(
+      'Use the existing useSelection hook\n\nCo-Authored-By: Claude <noreply@anthropic.com>',
+    );
+    const saved = await records.get(id);
+    expect(saved?.session).toMatchObject({ state: 'pr_open', step: 'pull_request' });
+    expect(saved?.session.activities.at(-1)).toMatchObject({ kind: 'pushed', number: 2841, url: pullUrl, files: 1 });
+    expect(saved?.pushedCommit).toBe(head);
+    expect(reports.at(-1)).toEqual({
+      what: 'pull_request',
+      session: id,
+      ticket: 'PROJ-1423',
+      step: 'push',
+      outcome: 'pushed',
+      number: 2841,
+    });
+  });
+
+  it('AC-17: pushes what Claude committed itself, committing nothing more', async () => {
+    const { repos, worktree, records, pulls } = await withPullRequestOpen();
+    await writeFile(join(worktree, 'select.ts'), 'changed\n');
+    await repos.git(worktree, 'commit', '-am', 'Claude committed this');
+    expect(await pulls.draftPush(id)).toMatchObject({ result: 'draft', files: 0 });
+    expect(await pulls.push(id, { message: 'Unused' })).toEqual({ result: 'pushed', files: 0 });
+    expect(await repos.git(worktree, 'log', '-1', '--format=%s')).toBe('Claude committed this');
+    expect((await records.get(id))?.session.activities.at(-1)).toMatchObject({ kind: 'pushed', files: 0 });
+  });
+
+  it('AC-8, AC-17: a secret-looking file new since the push stops it', async () => {
+    const { worktree, pulls } = await withPullRequestOpen();
+    await writeFile(join(worktree, 'id_ed25519'), 'key\n');
+    expect(await pulls.push(id, { message: 'Add a key' })).toEqual({
+      result: 'failed',
+      problem: { kind: 'secret', path: 'id_ed25519' },
+    });
+  });
+
+  it("AC-17: says why it can't push", async () => {
+    const before = await readyToCreate();
+    expect(await before.pulls.draftPush(id)).toEqual({ result: 'cannot', reason: 'no_pull_request' });
+    expect(await before.pulls.push(id, { message: 'x' })).toEqual({ result: 'cannot', reason: 'no_pull_request' });
+    const opened = await withPullRequestOpen();
+    await opened.records.update(id, (current) => ({ ...current, session: { ...current.session, state: 'working' } }));
+    expect(await opened.pulls.draftPush(id)).toEqual({ result: 'cannot', reason: 'working' });
+    await rm(opened.worktree, { recursive: true, force: true });
+    await opened.records.update(id, (current) => ({ ...current, session: { ...current.session, state: 'pr_open' } }));
+    expect(await opened.pulls.push(id, { message: 'x' })).toEqual({ result: 'cannot', reason: 'missing' });
+    expect(await opened.pulls.draftPush('fedcba9876543210')).toBeNull();
+    expect(await opened.pulls.push('fedcba9876543210', { message: 'x' })).toBeNull();
+  });
+});

@@ -131,7 +131,7 @@ export type CannotPushReason = z.infer<typeof CannotPushReasonSchema>;
 export const DraftedPushSchema = z.object({
   result: z.literal('draft'),
   message: z.string().min(1).max(mostCommitMessageCharacters),
-  /** False when Claude couldn't answer, so the message is the pull request's title. */
+  /** False when Claude couldn't answer, so the message is the ticket's key and title. */
   byClaude: z.boolean(),
   /** How many uncommitted files Orynx commits; 0 when Claude committed them. */
   files: z.int().nonnegative(),

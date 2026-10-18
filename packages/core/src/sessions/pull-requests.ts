@@ -3,8 +3,13 @@ import type {
   CreatePullRequestAnswer,
   CreatePullRequestProblem,
   CreatePullRequestRequest,
+  CannotPushReason,
   FileDiff,
+  GitProblem,
   PullRequestDraftAnswer,
+  PushAnswer,
+  PushDraftAnswer,
+  PushRequest,
   Session,
 } from '@devhub/contracts';
 import type { AgentAdapter } from '../agents/agent-adapter.ts';
@@ -18,6 +23,9 @@ import {
   draftInstructions,
   draftPrompt,
   fallbackDraft,
+  pushInstructions,
+  pushPrompt,
+  readCommitMessage,
   readDraft,
   type DraftTicket,
 } from './pull-request-text.ts';
@@ -66,6 +74,10 @@ export interface PullRequests {
    * such session. A press that finds the pull request open already answers with it.
    */
   create(id: string, request: CreatePullRequestRequest): Promise<CreatePullRequestAnswer | null>;
+  /** Claude's commit message for what's new since the last push, or nothing new, or why Orynx can't push (Q7). */
+  draftPush(id: string): Promise<PushDraftAnswer | null>;
+  /** Commits what's new and pushes it to the pull request's branch, one at a time for each session (Q7). */
+  push(id: string, request: PushRequest): Promise<PushAnswer | null>;
 }
 
 /** Claude's draft reads at most this many lines of the diff, then counts only (Q4). */
@@ -106,18 +118,26 @@ function startOf(record: StoredSession): StartPoint | null {
 const cannot = (reason: CannotOpenReason) => ({ result: 'cannot', reason }) as const;
 const failed = (problem: CreatePullRequestProblem) => ({ result: 'failed', problem }) as const;
 
-const commitProblems: Record<CommitProblem, CreatePullRequestProblem> = {
+const commitProblems: Record<CommitProblem, GitProblem> = {
   no_identity: { kind: 'no_identity' },
   signing: { kind: 'signing' },
   commit_failed: { kind: 'commit_failed' },
 };
 
-const pushProblems: Record<PushProblem, CreatePullRequestProblem> = {
+const pushProblems: Record<PushProblem, GitProblem> = {
   auth: { kind: 'push_auth' },
   rejected: { kind: 'push_rejected' },
   timeout: { kind: 'push_failed' },
   failed: { kind: 'push_failed' },
 };
+
+/** Claude's "Finished" summaries since the pull request opened or was last pushed to. */
+function summariesSincePush(session: Session): string[] {
+  const last = session.activities.findLastIndex(
+    (activity) => activity.kind === 'pull_request' || activity.kind === 'pushed',
+  );
+  return summariesOf({ ...session, activities: session.activities.slice(last + 1) });
+}
 
 /** GitHub's refusal in the dialog's terms (Q11d). A refused token reads as a refusal: Settings says the rest. */
 function openProblem(problem: GitHubOpenProblem): CreatePullRequestProblem {
@@ -254,7 +274,91 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     create(id, request) {
       return oneAtATime(id, () => createNow(id, request));
     },
+
+    async draftPush(id) {
+      const record = await records.get(id);
+      if (record === null) return null;
+      const ready = await readyToPush(record);
+      if ('result' in ready) return ready;
+      const { worktree, since, uncommitted, number, branch } = ready;
+      const { session } = record;
+      const listed = await changes.list(worktree, since, editOrder(session));
+      const files = listed.ok ? listed.changes : { files: [], moreFiles: 0 };
+      const diffs = listed.ok ? await diffsFor(worktree, since, listed.changes).catch(() => []) : [];
+      const ticket = ticketOf(session);
+      const prompt = pushPrompt({ ticket, summaries: summariesSincePush(session), ...files, diffs });
+      const written = adapter === null ? null : await adapter.write(prompt, pushInstructions);
+      const message = written?.ok === true ? readCommitMessage(written.text) : null;
+      return {
+        result: 'draft',
+        message: message ?? fallbackDraft(ticket, []).title,
+        byClaude: message !== null,
+        files: uncommitted.length,
+        branch,
+        number,
+      };
+    },
+
+    push(id, request) {
+      return oneAtATime(id, () => pushNow(id, request));
+    },
   };
+
+  type ReadyToPush =
+    | { worktree: string; since: StartPoint; uncommitted: string[]; number: number; url: string; branch: string }
+    | { result: 'cannot'; reason: CannotPushReason }
+    | { result: 'nothing_new' };
+
+  /** What Push changes works from: the worktree, the last pushed commit and what's new since; or why it can't. */
+  async function readyToPush(record: StoredSession): Promise<ReadyToPush> {
+    const { session, worktree } = record;
+    const no = (reason: CannotPushReason) => ({ result: 'cannot', reason }) as const;
+    if (session.discardedAt !== null) return no('discarded');
+    if (isWorking(session)) return no('working');
+    if (session.pullRequest === null) return no('no_pull_request');
+    const since = record.pushedCommit === null ? startOf(record) : { commit: record.pushedCommit };
+    if (worktree === null || session.branch === null || since === null) return no('missing');
+    const origin = await git.origin(worktree);
+    if (!origin.ok) return no(origin.problem === 'git' ? 'missing' : origin.problem);
+    const read = await Promise.all([git.uncommitted(worktree), git.head(worktree)]).catch(() => null);
+    if (read === null) return no('missing');
+    const [uncommitted, head] = read;
+    if (uncommitted.length === 0 && 'commit' in since && head === since.commit) return { result: 'nothing_new' };
+    const { number, url } = session.pullRequest;
+    return { worktree, since, uncommitted, number, url, branch: session.branch };
+  }
+
+  async function pushNow(id: string, { message }: PushRequest): Promise<PushAnswer | null> {
+    const record = await records.get(id);
+    if (record === null) return null;
+    const ready = await readyToPush(record);
+    if ('result' in ready) return ready;
+    const { worktree, since, number, url, branch } = ready;
+    const ending = (answer: PushAnswer, outcome: string) => {
+      report(record, 'push', outcome, number);
+      return answer;
+    };
+    const secret = firstSecretFile(await git.newFiles(worktree, since).catch(() => []));
+    if (secret !== null) return ending({ result: 'failed', problem: { kind: 'secret', path: secret } }, 'secret');
+    const committed = await git.commit(worktree, commitMessage(message));
+    if (!committed.ok)
+      return ending({ result: 'failed', problem: commitProblems[committed.problem] }, committed.problem);
+    const pushed = await git.push(worktree, branch);
+    if (!pushed.ok)
+      return ending({ result: 'failed', problem: pushProblems[pushed.problem] }, `push_${pushed.problem}`);
+    await options.save(id, (current) => {
+      const { step, activities } = addPullRequestStep(
+        { step: current.session.step, activities: current.session.activities },
+        { kind: 'pushed', number, url, files: committed.files },
+      );
+      return {
+        ...current,
+        pushedCommit: pushed.head,
+        session: { ...current.session, state: 'pr_open', step, activities: [...activities] },
+      };
+    });
+    return ending({ result: 'pushed', files: committed.files }, 'pushed');
+  }
 
   async function createNow(
     id: string,
