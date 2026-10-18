@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { apiUrl, server } from '../../test/msw.ts';
+import { useUiStore } from '../../stores/ui-store.ts';
 import { renderApp } from '../../test/render.tsx';
 
 describe('SettingsScreen', () => {
@@ -39,6 +40,30 @@ describe('SettingsScreen', () => {
     await renderApp({ route: '/settings/repositories' });
 
     expect(await screen.findByRole('tab', { name: 'Repositories' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('AC-13 (spec 020): Hide this note closes the local-first note for good, with focus on the open tab', async () => {
+    const { user } = await renderApp({ route: '/settings/repositories' });
+    await screen.findByText('Everything stays on this computer');
+
+    await user.click(screen.getByRole('button', { name: 'Hide this note' }));
+
+    expect(screen.queryByText('Everything stays on this computer')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Repositories' })).toHaveFocus();
+    await user.click(screen.getByRole('tab', { name: 'Appearance' }));
+    expect(screen.queryByText('Everything stays on this computer')).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('devhub.ui') ?? '{}')).toMatchObject({
+      state: { localFirstNoteHidden: true },
+    });
+  });
+
+  it('AC-13 (spec 020): a note hidden before stays hidden after a reload', async () => {
+    localStorage.setItem('devhub.ui', JSON.stringify({ state: { localFirstNoteHidden: true }, version: 1 }));
+    await useUiStore.persist.rehydrate();
+    await renderApp({ route: '/settings' });
+
+    expect(await screen.findByRole('heading', { name: 'Settings' })).toBeVisible();
+    expect(screen.queryByText('Everything stays on this computer')).not.toBeInTheDocument();
   });
 
   it('says that everything stays on this computer', async () => {

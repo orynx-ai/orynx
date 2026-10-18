@@ -34,7 +34,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## E. The local-first note
 
-- [ ] Task 8: The note's Hide this note button, remembered in the ui store (AC-13)
+- [x] Task 8: The note's Hide this note button, remembered in the ui store (AC-13)
       Check: pnpm test packages/app/src/features/settings/settings-screen.test.tsx packages/ui/src/components/callout.test.tsx
       Files: packages/ui/src/components/callout.tsx (an `onClose` slot), its story and test, packages/app/src/stores/ui-store.ts, packages/app/src/features/settings/settings-screen.tsx, settings-screen.test.tsx
 

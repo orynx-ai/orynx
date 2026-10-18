@@ -64,6 +64,11 @@ export const Info: Story = {
   },
 };
 
+/** A notice the person may hide for good, as Settings' local-first note (spec 020). */
+export const Closable: Story = {
+  args: { ...Info.args, closeLabel: 'Hide this note', onClose: () => undefined },
+};
+
 /** A session that couldn't start, or stopped with an error (spec 011, Q9f). */
 export const Danger: Story = {
   args: {
