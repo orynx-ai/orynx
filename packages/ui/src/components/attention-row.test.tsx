@@ -64,6 +64,28 @@ describe('AttentionRow', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('a title that opens outside Orynx shows the arrow and keeps its name', async () => {
+    const { container } = render(
+      <AttentionList aria-label="Needs your attention">
+        <AttentionRow
+          source="github"
+          title={
+            <AttentionTitle external href="https://github.com/acme/web-app/pull/2841">
+              Lazy-load the people directory
+            </AttentionTitle>
+          }
+          sub="web-app #2841 · by Priya S."
+          reason="Review requested · 2 d"
+          reasonTone="warning"
+          action={<AttentionAction href="https://github.com/acme/web-app/pull/2841">Review</AttentionAction>}
+        />
+      </AttentionList>,
+    );
+    const link = screen.getByRole('link', { name: 'Lazy-load the people directory' });
+    expect(link.querySelector('svg')).not.toBeNull();
+    await expectNoAxeViolations(container);
+  });
+
   it('AC-18: Tab stops on the title, then on the action', async () => {
     const user = userEvent.setup();
     render(<Inbox />);

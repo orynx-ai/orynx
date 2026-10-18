@@ -3,7 +3,8 @@ import { Link } from '@tanstack/react-router';
 import type { Ticket } from '@devhub/contracts';
 import { AgentChip, WorkItemCard, WorkItemTitle } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
-import { assigneeAvatar, dueText } from '../ticket-words.ts';
+import { dueText } from '../../../words/due.ts';
+import { assigneeAvatar } from '../ticket-words.ts';
 import { BuildWithClaude } from '../../sessions/components/build-with-claude.tsx';
 
 /**
@@ -22,7 +23,9 @@ export function TicketTitleLink({ ticket }: { ticket: Ticket }) {
     );
   }
   return (
+    // It leaves Orynx, so it has the external link's arrow (the user's call, 18 Oct 2026).
     <WorkItemTitle
+      external
       href={ticket.url}
       rel="noreferrer"
       onClick={(event) => {

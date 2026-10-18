@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Ticket, TicketColumn } from '@devhub/contracts';
-import { columnOrder, dueText } from './ticket-words.ts';
+import { dueText } from '../../words/due.ts';
+import { columnOrder } from './ticket-words.ts';
 
 /**
  * Tickets' filters (spec 008, Q3). They live in the address, so a reload keeps them and 015's "Pick up a

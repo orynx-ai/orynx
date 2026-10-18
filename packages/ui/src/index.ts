@@ -62,11 +62,13 @@ export {
   type DialogProps,
 } from './components/dialog.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
+export { ExternalLink, type ExternalLinkProps } from './components/external-link.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
 export { Icon, type IconProps, type IconSvgElement } from './components/icon.tsx';
 export { Input } from './components/input.tsx';
 export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from './components/file-list.tsx';
 export { Kbd } from './components/kbd.tsx';
+export { Markdown, type MarkdownProps } from './components/markdown.tsx';
 export {
   Menu,
   MenuCheckboxItem,

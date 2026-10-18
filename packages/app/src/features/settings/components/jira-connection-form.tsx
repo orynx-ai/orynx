@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import type { ApiRequestError } from '@devhub/api-client';
 import type { JiraConnection, JiraCredentials } from '@devhub/contracts';
-import { Button, Field, Input } from '@devhub/ui';
+import { Button, ExternalLink, Field, Input } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { useConnectJira, useDisconnectJira } from '../queries.ts';
 import { jiraFormSchema, type JiraFormValues } from '../schemas.ts';
@@ -132,17 +132,15 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
           />
         </Field>
         {/* On a line of its own, so it stays whatever the field says, and no message gains a link it doesn't mean. */}
-        <a
+        <ExternalLink
           href={apiTokensUrl}
-          rel="noreferrer"
-          className="self-start text-small text-info underline"
-          onClick={(event) => {
-            event.preventDefault();
-            platform.openExternal(apiTokensUrl);
+          className="self-start"
+          onOpen={(href) => {
+            platform.openExternal(href);
           }}
         >
           Create an API token
-        </a>
+        </ExternalLink>
       </div>
       {formError === undefined ? null : (
         <p role="alert" className="m-0 text-small text-danger">

@@ -28,7 +28,11 @@ import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool
  * or Claude Code drops it (spec 012). The SDK holds the call meanwhile, with no time limit.
  *
  * The brief goes in as a stream that stays open until Claude finishes, because the SDK can interrupt
- * only a session with streaming input; follow-ups (spec 013) will use the same stream.
+ * only a session with streaming input. A follow-up sent while Claude works goes into the same stream, with an
+ * id of its own and `priority: 'next'`, so Claude reads it after its current step (spec 013, AC-12). Claude
+ * has finished only when a turn ends with no message of yours left: none queued in Claude Code, and every id
+ * Orynx sent among those the turns took. Stop refuses every call from then on, and when Claude Code still
+ * holds a message it hasn't read, ends it at once, so Claude never acts on that message (AC-17).
  */
 
 /** The part of the SDK's `Query` a session uses. The SDK's own `query()` gives more. */
@@ -71,6 +75,10 @@ interface Running {
   query: SessionQuery;
   /** Closes the prompt stream, so Claude Code exits once its turn is over. */
   endInput: () => void;
+  /** Puts a message in the prompt stream; false once the stream is closed. */
+  give: (message: SDKUserMessage) => boolean;
+  /** Messages Claude Code has been given and no turn has taken yet, by id (spec 013). */
+  unread: Set<string>;
   ended: Promise<void>;
   done: boolean;
   stopping: boolean;
@@ -132,15 +140,36 @@ export function createClaudeAdapter({
     id: 'claude',
     runsCommands: sandbox !== null,
 
-    startSession(brief, worktree, permissions, instructions) {
+    startSession(brief, worktree, permissions, instructions, resuming) {
+      const resume = resuming?.resume;
       const id = randomUUID();
-      let endInput: () => void = () => undefined;
-      const inputOver = new Promise<void>((resolve) => {
-        endInput = resolve;
-      });
+      // The prompt stream: the brief, then each follow-up as it's given, until the input is over.
+      const given: SDKUserMessage[] = [];
+      let over = false;
+      let wake: () => void = () => undefined;
+      const endInput = () => {
+        over = true;
+        wake();
+      };
+      const give = (message: SDKUserMessage) => {
+        if (over) return false;
+        given.push(message);
+        wake();
+        return true;
+      };
       async function* prompt(): AsyncGenerator<SDKUserMessage> {
         yield { type: 'user', message: { role: 'user', content: briefText(brief) }, parent_tool_use_id: null };
-        await inputOver;
+        for (;;) {
+          const next = given.shift();
+          if (next !== undefined) {
+            yield next;
+            continue;
+          }
+          if (over) return;
+          await new Promise<void>((resolve) => {
+            wake = resolve;
+          });
+        }
       }
 
       /** Events go through the map, because `canUseTool` is set up before the session is. */
@@ -158,6 +187,8 @@ export function createClaudeAdapter({
         ...(sandbox === null ? {} : { sandbox: sandbox(worktree) }),
         settingSources: [],
         settings: { disableAllHooks: true },
+        // A follow-up carries on Claude Code's own session, with its conversation (spec 013).
+        ...(resume === undefined ? {} : { resume }),
         strictMcpConfig: true,
         mcpServers: {},
         systemPrompt: { type: 'preset', preset: 'claude_code', append: instructions },
@@ -165,6 +196,10 @@ export function createClaudeAdapter({
         stderr: () => undefined,
         async canUseTool(tool, input, { signal, toolUseID }): Promise<PermissionResult> {
           const current = sessions.get(id);
+          // Once you've pressed Stop nothing more runs, whatever Claude Code still holds (spec 013, AC-17).
+          if (current?.stopping === true) {
+            return { behavior: 'deny', message: 'The user stopped the session.', interrupt: true };
+          }
           current?.decided.add(toolUseID);
           const decide = async () => decideToolUse(tool, input, { worktree, home, ...(await permissions()) });
           const turn = (current?.deciding ?? Promise.resolve()).then(decide);
@@ -207,6 +242,8 @@ export function createClaudeAdapter({
         waiting: [],
         query: query({ prompt: prompt(), options }),
         endInput,
+        give,
+        unread: new Set(),
         ended: Promise.resolve(),
         done: false,
         stopping: false,
@@ -218,10 +255,22 @@ export function createClaudeAdapter({
       const read = createMessageReader(worktree, (toolUseId) => running.decided.has(toolUseId));
       running.ended = (async () => {
         let failed = false;
+        let started = false;
+        /** Says Claude couldn't carry on a resumed session, once, and ends Claude Code before it does anything. */
+        const lostConversation = (code: 'no_conversation' | 'new_conversation') => {
+          failed = true;
+          emit(running, { type: 'problem', sessionId: id, kind: 'resume', code });
+          endInput();
+        };
         try {
           for await (const message of running.query) {
             for (const said of read(message)) {
-              if (said.type === 'started') {
+              if (said.type === 'started' && resume !== undefined && said.claudeSessionId !== resume) {
+                // Claude Code started a new conversation: Claude would work without its history.
+                lostConversation('new_conversation');
+                running.query.close();
+              } else if (said.type === 'started') {
+                started = true;
                 emit(running, {
                   type: 'started',
                   sessionId: id,
@@ -231,7 +280,20 @@ export function createClaudeAdapter({
                 if (sandbox === null) emit(running, { type: 'work', sessionId: id, work: { kind: 'no_commands' } });
               } else if (said.type === 'work') {
                 emit(running, { type: 'work', sessionId: id, work: said.work });
-                if (said.work.kind === 'finished') endInput();
+              } else if (said.type === 'files_changed') {
+                emit(running, { type: 'files_changed', sessionId: id });
+              } else if (said.type === 'turn_ended') {
+                // A Claude Code too old to say which messages it took is done when none are queued.
+                if (said.took === null && said.queued === 0) running.unread.clear();
+                for (const took of said.took ?? []) running.unread.delete(took);
+                if (said.queued === 0 && running.unread.size === 0) {
+                  emit(running, { type: 'work', sessionId: id, work: { kind: 'finished', summary: said.summary } });
+                  endInput();
+                }
+              } else if (failed) {
+                // Said already, once.
+              } else if (resume !== undefined && !started && said.kind === 'other') {
+                lostConversation('no_conversation');
               } else if (!running.stopping) {
                 // An interrupted turn ends with a failed result; after Stop that isn't a problem.
                 failed = true;
@@ -241,9 +303,12 @@ export function createClaudeAdapter({
             }
           }
         } catch {
-          // The process died: its message can hold anything, so only the fact is passed on.
-          if (!failed && !running.stopping)
-            emit(running, { type: 'problem', sessionId: id, kind: 'other', code: 'exited' });
+          // The process died: its message can hold anything, so only the fact is passed on. Before it started,
+          // a resumed Claude Code dies because it can't find the conversation.
+          if (!failed && !running.stopping) {
+            if (resume !== undefined && !started) lostConversation('no_conversation');
+            else emit(running, { type: 'problem', sessionId: id, kind: 'other', code: 'exited' });
+          }
         } finally {
           endInput();
           // Claude Code is gone, so nobody waits for these answers any more.
@@ -275,8 +340,20 @@ export function createClaudeAdapter({
       return Promise.resolve(settle(sessionId, running, approvalId, decision === 'deny' ? 'deny' : 'allow'));
     },
 
-    sendMessage() {
-      return Promise.reject(new Error('Follow-ups come with spec 013.'));
+    sendMessage(sessionId, text) {
+      const running = sessions.get(sessionId);
+      if (running === undefined || running.done || running.stopping) return Promise.resolve(false);
+      const uuid = randomUUID();
+      const message: SDKUserMessage = {
+        type: 'user',
+        message: { role: 'user', content: text },
+        parent_tool_use_id: null,
+        uuid,
+        priority: 'next',
+      };
+      if (!running.give(message)) return Promise.resolve(false);
+      running.unread.add(uuid);
+      return Promise.resolve(true);
     },
 
     async stop(sessionId) {
@@ -287,6 +364,12 @@ export function createClaudeAdapter({
       for (const approvalId of [...running.parked.keys()]) settle(sessionId, running, approvalId, 'stopped');
       await running.query.interrupt().catch(() => undefined);
       running.endInput();
+      // Claude Code would take a message it holds as its next turn: end it now rather than let that turn run.
+      if (running.unread.size > 0) {
+        running.query.close();
+        await running.ended;
+        return;
+      }
       let timer: NodeJS.Timeout | undefined;
       const late = new Promise<'late'>((resolve) => {
         timer = setTimeout(resolve, stopGraceMs, 'late');

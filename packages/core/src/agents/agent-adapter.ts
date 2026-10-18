@@ -68,7 +68,8 @@ export type AgentWork =
   | { kind: 'finished'; summary: string };
 
 /** Why a session stopped with an error: the login, a usage or capacity limit, or anything else. */
-export type AgentProblemKind = 'login' | 'limit' | 'other';
+/** `resume` is a follow-up the agent couldn't carry on: it no longer has the session's conversation (spec 013). */
+export type AgentProblemKind = 'login' | 'limit' | 'resume' | 'other';
 
 export type AgentEvent =
   /** The agent's own session began; `loaded` is logged by count only. */
@@ -81,6 +82,8 @@ export type AgentEvent =
   | { type: 'work'; sessionId: string; work: AgentWork }
   /** A call waits for your answer until `respond()`, Stop, or the agent drops it (spec 012). */
   | { type: 'approval'; sessionId: string; approvalId: string; ask: AgentAsk }
+  /** An edit or a command ended, so the worktree's files may have changed (spec 013, AC-2). */
+  | { type: 'files_changed'; sessionId: string }
   /** A waiting call ended: `allowed` only when you allowed it. Comes before the work it lets happen. */
   | { type: 'answered'; sessionId: string; approvalId: string; allowed: boolean }
   /** `code` is safe to log; it never holds the agent's own words. */
@@ -94,7 +97,9 @@ export interface AgentAdapter {
   readonly runsCommands: boolean;
   /**
    * Starts the agent in `worktreePath` with the brief. `instructions` go into the agent's system prompt
-   * (spec 011, Q5). Events that come before a handler is added are kept for the first one.
+   * (spec 011, Q5). With `resume`, the agent carries on its own earlier session, given as the `agentSessionId`
+   * it said when it started, and the brief is your follow-up (spec 013). Events that come before a handler is
+   * added are kept for the first one.
    */
   startSession(
     brief: AgentBrief,
@@ -102,12 +107,17 @@ export interface AgentAdapter {
     /** Read on every call, so a change in Settings applies from the agent's next call (spec 012, AC-11). */
     permissions: () => Promise<AgentPermissions>,
     instructions: string,
+    resuming?: { resume: string },
   ): Promise<string>;
   /** Returns a function that removes the handler. */
   onEvent(sessionId: string, handler: (event: AgentEvent) => void): () => void;
   /** Answers a waiting call; false when no such call is waiting (answered already, or never asked). */
   respond(sessionId: string, approvalId: string, decision: ApprovalDecision): Promise<boolean>;
-  sendMessage(sessionId: string, text: string): Promise<void>;
+  /**
+   * Gives a running agent your message, read after its current step (spec 013, AC-12). False when it can't take
+   * one: it has finished, is stopping, or was never started. Then the session resumes it instead.
+   */
+  sendMessage(sessionId: string, text: string): Promise<boolean>;
   /** Asks the agent to stop, and ends its program if it hasn't stopped soon after; resolves once it has ended. */
   stop(sessionId: string): Promise<void>;
 }

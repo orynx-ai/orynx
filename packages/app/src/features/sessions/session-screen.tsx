@@ -1,17 +1,23 @@
-// Design: docs/design/screens/session.html — page bar, title row with Stop Claude, stepper, Claude's progress with the approval callout (full width until 013), Discard changes
-import { useRef } from 'react';
+// Design: docs/design/screens/session.html — page bar, title row with Stop Claude, stepper, Claude's progress with the approval callout and the follow-up box, the Changes and Ticket tabs
+import { useRef, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
-import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
 import type { Session } from '@devhub/contracts';
-import { Button, Icon } from '@devhub/ui';
+import { ExternalLink } from '@devhub/ui';
 import { usePlatform } from '../../platform.tsx';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
 import { agoText } from '../../words/ago.ts';
 import { useNow } from '../../words/use-now.ts';
 import { NotFoundScreen } from '../not-found/not-found-screen.tsx';
-import { DiscardSession } from './components/discard-session.tsx';
+import { ChangesSkeleton } from './components/changes-panel.tsx';
+import { FollowUpBox } from './components/follow-up-box.tsx';
+import { SessionDetails } from './components/session-details.tsx';
 import { SessionHeader, SessionHeaderSkeleton } from './components/session-header.tsx';
-import { SessionProgress, SessionProgressSkeleton, SessionStepper } from './components/session-progress.tsx';
+import {
+  SessionProgress,
+  SessionProgressSkeleton,
+  SessionStepper,
+  SessionStepperSkeleton,
+} from './components/session-progress.tsx';
 import { SessionsLoadError } from './components/sessions-load-error.tsx';
 import { useSession } from './queries.ts';
 import { sourceLabel } from './source-label.ts';
@@ -29,24 +35,38 @@ function crumbsFor(session: Session): Crumb[] {
 function OpenInJira({ url }: { url: string }) {
   const platform = usePlatform();
   return (
-    <Button asChild variant="ghost" size="sm">
-      <a
-        href={url}
-        rel="noreferrer"
-        onClick={(event) => {
-          event.preventDefault();
-          platform.openExternal(url);
-        }}
-      >
-        {/* Under 768 px only the arrow shows, so the breadcrumb keeps room for the ticket's key. */}
-        <span className="max-md:sr-only">Open in Jira</span>
-        <Icon icon={ArrowUpRight01Icon} aria-hidden />
-      </a>
-    </Button>
+    // As tall as the bar's buttons, with their room around the text.
+    <ExternalLink
+      href={url}
+      size="body"
+      className="mx-0 min-h-8 px-2"
+      onOpen={(href) => {
+        platform.openExternal(href);
+      }}
+    >
+      {/* Under 768 px only the arrow shows, so the breadcrumb keeps room for the ticket's key. */}
+      <span className="max-md:sr-only">Open in Jira</span>
+    </ExternalLink>
   );
 }
 
-/** One Claude session (spec 011): where it is, what Claude has done, and Stop. */
+/**
+ * Claude's progress and the work beside it (spec 013, Q6): side by side when there's room, each its own height,
+ * the progress first when they stack. As `session.html` sizes them: 360 and 480 px to start, grown 2 to 3.
+ */
+function Panes({ progress, details }: { progress: ReactNode; details: ReactNode }) {
+  return (
+    // A container, so the loading form can tell side by side (896 px and up) from stacked.
+    <div className="@container flex flex-wrap items-start gap-5">
+      <div className="min-w-0 grow-2 basis-90">{progress}</div>
+      <section aria-label="Work details" className="min-w-0 grow-3 basis-120">
+        {details}
+      </section>
+    </div>
+  );
+}
+
+/** One Claude session (specs 011 to 013): where it is, what Claude has done and changed, and Stop. */
 export function SessionScreen() {
   const { sessionId } = useParams({ from: '/sessions/$sessionId' });
   const session = useSession(sessionId);
@@ -58,9 +78,20 @@ export function SessionScreen() {
     return (
       <>
         <PageBar breadcrumb={<PageBreadcrumb crumbs={[sessionsCrumb]} />} />
-        <PageBody aria-busy>
+        <PageBody width="full" aria-busy>
           <SessionHeaderSkeleton />
-          <SessionProgressSkeleton />
+          <SessionStepperSkeleton />
+          <Panes
+            progress={<SessionProgressSkeleton />}
+            details={
+              // The tabs' row, then the Changes tab's own loading form; only beside the progress. Stacked under
+              // it, the progress's real length would push it down, so the details appear once they've loaded.
+              <div aria-hidden className="flex flex-col gap-3 @max-4xl:hidden">
+                <div className="h-12 border-b border-border" />
+                <ChangesSkeleton />
+              </div>
+            }
+          />
         </PageBody>
       </>
     );
@@ -87,11 +118,13 @@ export function SessionScreen() {
         meta={`Started ${agoText(now.getTime() - Date.parse(found.startedAt))}`}
         {...(found.jiraUrl === null ? {} : { actions: <OpenInJira url={found.jiraUrl} /> })}
       />
-      <PageBody>
+      <PageBody width="full">
         <SessionHeader session={found} title={title} />
         <SessionStepper session={found} />
-        <SessionProgress session={found} />
-        <DiscardSession session={found} title={title} />
+        <Panes
+          progress={<SessionProgress session={found} footer={<FollowUpBox session={found} />} />}
+          details={<SessionDetails session={found} title={title} />}
+        />
       </PageBody>
     </>
   );

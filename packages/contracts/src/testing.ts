@@ -2,6 +2,14 @@
  * Test data builders. Each returns a value that passes its schema, so tests on both
  * sides of the wire use the same shapes. These are data, not mocks of our code.
  */
+import {
+  ChangedFileSchema,
+  FileDiffSchema,
+  SessionChangesSchema,
+  type ChangedFile,
+  type FileDiff,
+  type SessionChanges,
+} from './changes.ts';
 import { ClaudeSignedInSchema, type ClaudeSignedIn } from './claude.ts';
 import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
@@ -21,10 +29,12 @@ import {
   SessionApprovalSchema,
   SessionSchema,
   SessionSummarySchema,
+  SessionTicketSchema,
   type Session,
   type SessionApproval,
   type SessionList,
   type SessionSummary,
+  type SessionTicket,
 } from './session.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 import { TicketSchema, TicketsSchema, type Ticket, type Tickets } from './tickets.ts';
@@ -88,6 +98,80 @@ export function makeSession(overrides: Partial<Session> = {}): Session {
   });
 }
 
+/**
+ * The ticket on the Session screen's Ticket tab (spec 013): PROJ-1423 as `session.html` draws it, In progress
+ * and due on Friday 16 Oct 2026.
+ */
+export function makeSessionTicket(overrides: Partial<SessionTicket> = {}): SessionTicket {
+  return SessionTicketSchema.parse({
+    type: 'Story',
+    description:
+      'Content managers need to archive many items at once from the content list instead of one by one.\n\n' +
+      '### Acceptance criteria\n\n' +
+      '- Checkbox on each row, plus select all\n' +
+      '- Archive selected button in the toolbar\n' +
+      '- Partial failures show which items failed\n' +
+      '- Unit tests for the new API call',
+    status: { name: 'In progress', column: 'in_progress' },
+    dueDate: '2026-10-16',
+    ...overrides,
+  });
+}
+
+/** One changed file: the design's `ContentList.tsx`, +68 −9. */
+export function makeChangedFile(overrides: Partial<ChangedFile> = {}): ChangedFile {
+  return ChangedFileSchema.parse({
+    path: 'src/content/ContentList.tsx',
+    added: 68,
+    removed: 9,
+    binary: false,
+    renamedFrom: null,
+    ...overrides,
+  });
+}
+
+type ReadyChanges = Extract<SessionChanges, { state: 'ready' }>;
+
+/** The Changes tab as `session.html` draws it: 4 files, +142 −18. */
+export function makeSessionChanges(overrides: Partial<Omit<ReadyChanges, 'state'>> = {}): SessionChanges {
+  return SessionChangesSchema.parse({
+    state: 'ready',
+    files: [
+      makeChangedFile(),
+      makeChangedFile({ path: 'src/content/api/contentApi.ts', added: 31, removed: 2 }),
+      makeChangedFile({ path: 'src/content/useSelection.ts', added: 22, removed: 7 }),
+      makeChangedFile({ path: 'src/content/__tests__/bulkArchive.test.ts', added: 21, removed: 0 }),
+    ],
+    moreFiles: 0,
+    added: 142,
+    removed: 18,
+    ...overrides,
+  });
+}
+
+/** `ContentList.tsx`'s diff, as `session.html` draws its start, with a second hunk further down. */
+export function makeFileDiff(overrides: Partial<FileDiff> = {}): FileDiff {
+  return FileDiffSchema.parse({
+    path: 'src/content/ContentList.tsx',
+    lines: [
+      { kind: 'hunk', text: '@@ -40,6 +40,8 @@ import { Table } from "../ui";' },
+      { kind: 'context', number: 41, text: 'export function ContentList({ items }: Props) {' },
+      { kind: 'removed', number: 42, text: '  const [rows] = useState(items);' },
+      { kind: 'added', number: 42, text: '  const { selected, toggle, toggleAll } = useSelection(items);' },
+      { kind: 'added', number: 43, text: '  const archive = useBulkArchive();' },
+      { kind: 'context', number: 44, text: '' },
+      { kind: 'hunk', text: '@@ -52,3 +54,4 @@ export function ContentList({ items }: Props) {' },
+      { kind: 'removed', number: 52, text: '      <Row key={item.id} item={item} />' },
+      { kind: 'added', number: 54, text: '      <Row key={item.id} item={item}' },
+      { kind: 'added', number: 55, text: '        checked={selected.has(item.id)}' },
+    ],
+    binary: false,
+    renamedFrom: null,
+    cut: false,
+    ...overrides,
+  });
+}
+
 type CommandApproval = Extract<SessionApproval, { kind: 'command' }>;
 
 /** A command waiting for your answer (spec 012): the design's `npm test -- content-list`, with Always allow offered. */
@@ -138,6 +222,7 @@ export interface PreferencesOverrides {
   /** Override some rules and keep the others on. */
   inboxRules?: Partial<InboxRules>;
   allowedCommands?: string[];
+  editor?: Preferences['editor'];
 }
 
 /** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
@@ -146,6 +231,7 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
     permissionMode: overrides.permissionMode ?? defaultPreferences.permissionMode,
     inboxRules: { ...defaultPreferences.inboxRules, ...overrides.inboxRules },
     allowedCommands: overrides.allowedCommands ?? [],
+    editor: overrides.editor ?? defaultPreferences.editor,
   });
 }
 

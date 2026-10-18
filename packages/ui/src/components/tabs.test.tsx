@@ -28,6 +28,23 @@ describe('Tabs', () => {
     expect(screen.getByRole('tabpanel')).toHaveTextContent('Everything');
   });
 
+  it('013: shows a short name in the bubble, such as a ticket’s key, and is named with it', () => {
+    render(
+      <Tabs defaultValue="changes">
+        <TabsList aria-label="Session details">
+          <TabsTrigger value="changes" count={4}>
+            Changes
+          </TabsTrigger>
+          <TabsTrigger value="ticket" count="PROJ-1423">
+            Ticket
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+    expect(screen.getByRole('tab', { name: 'Ticket PROJ-1423' })).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Changes 4' })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('Q11d: keeps the room of a count still on its way, and says nothing of it', async () => {
     const { container } = render(
       <Tabs defaultValue="all">

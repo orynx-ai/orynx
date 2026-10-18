@@ -25,6 +25,7 @@ import { useTestRepositories } from '../test/git-repository.ts';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import type { SessionRecords } from './session-store.ts';
+import { createChangesReader } from './changes.ts';
 import { createSessionService, type SessionReport } from './session-service.ts';
 
 // Real git, a real Claude Code login check and a real Jira client behind a fake Jira: each test does a lot.
@@ -62,7 +63,16 @@ interface SetUpOptions {
   /** A folder for PROJ at all. */
   folder?: boolean;
   script?: readonly FakeTurn[];
-  cached?: { title: string; sprint: string | null } | null;
+  /** What Claude Code plays when a follow-up resumes it, run by run (spec 013). */
+  later?: (readonly FakeTurn[])[];
+  /** The clock, when a test needs it to move. */
+  now?: () => number;
+  cached?: {
+    title: string;
+    sprint: string | null;
+    status?: { name: string; column: 'to_do' | 'in_progress' | 'in_review' | 'done' } | null;
+    dueDate?: string | null;
+  } | null;
   /** Build the server without Claude Code. */
   noClaude?: boolean;
   mode?: PermissionMode;
@@ -81,6 +91,8 @@ async function setUp({
   moreFolders = 0,
   folder = true,
   script = [{ finish: 'Done.' }],
+  later = [],
+  now = () => clock,
   cached = { title: 'Add bulk archive', sprint: 'Sprint 42' },
   noClaude = false,
   mode = 'edit_freely_ask_commands',
@@ -118,8 +130,8 @@ async function setUp({
     events,
   });
 
-  const sdk = fakeClaudeSdk(script);
-  const records = await openFileSessionStore(home, { now: () => clock });
+  const sdk = fakeClaudeSdk(script, ...later);
+  const records = await openFileSessionStore(home, { now });
   const reports: SessionReport[] = [];
   let ids = 0;
   const service = createSessionService({
@@ -128,7 +140,7 @@ async function setUp({
     claude,
     connection,
     jira: createJiraClient({ timeoutMs: 500 }),
-    describeTicket: () => Promise.resolve(cached),
+    describeTicket: () => Promise.resolve(cached === null ? null : { status: null, dueDate: null, ...cached }),
     preferences: createPreferencesService({
       // The settings file, slow to answer when the test says so.
       settings: {
@@ -145,6 +157,7 @@ async function setUp({
       events,
     }),
     worktrees: { env: gitEnvironment(repos.env), root: join(home, 'worktrees'), fetchTimeoutMs: 2_000 },
+    changes: createChangesReader({ env: gitEnvironment(repos.env) }),
     stepEventMs: 250,
     adapter: noClaude
       ? null
@@ -158,7 +171,7 @@ async function setUp({
         }),
     events,
     onReport: (report) => reports.push(report),
-    now: () => clock,
+    now,
     newId: () => {
       ids += 1;
       return ids.toString(16).padStart(16, '0');
@@ -177,6 +190,15 @@ async function briefed(records: SessionRecords, id: string) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error('The session never sent its brief');
+}
+
+/** Until Claude Code has said its session id: before that, a stopped session never started (spec 013). */
+async function claudeStarted(records: SessionRecords, id: string) {
+  for (let tries = 0; tries < 500; tries++) {
+    if ((await records.get(id))?.claudeSessionId != null) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('Claude Code never started');
 }
 
 /** Waits until the session isn't Working or waiting for you any more. */
@@ -329,6 +351,8 @@ describe('running a session', () => {
       { id: 'step-6', state: 'done', kind: 'finished', summary: 'Added a toolbar button.' },
     ]);
     expect(record.claudeSessionId).toBe('b2c7e0f4-0000-4000-8000-000000000001');
+    // The Changes tab compares the worktree with this commit (spec 013, AC-4).
+    expect(record.startCommit).toBe(await repos.git(repos.clone, 'rev-parse', 'origin/main'));
 
     const worktree = join(home, 'worktrees', '0000000000000001');
     expect(await repos.git(worktree, 'branch', '--show-current')).toBe('feat/PROJ-1423');
@@ -857,6 +881,18 @@ describe('discarding a session', () => {
     expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toBe('');
   });
 
+  it('AC-6: says the files changed once the worktree is gone, so every Changes tab reads again', async () => {
+    const { service, records, heard } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    const before = heard.length;
+
+    await service.discard('0000000000000001');
+
+    expect(heard.slice(before)).toContainEqual({ type: 'session.files.changed', sessionId: '0000000000000001' });
+    expect(await service.changes('0000000000000001')).toEqual({ state: 'discarded' });
+  });
+
   it('AC-10: stops a working session first', async () => {
     const { service, records } = await setUp({ script: [{ hang: true }] });
     await service.start({ ticketKey: 'PROJ-1423' });
@@ -904,5 +940,310 @@ describe('closing the server', () => {
     expect(record?.session.state).toBe('stopped');
     expect(record && kinds(record)).toEqual(['worktree:done', 'brief:done', 'interrupted:done']);
     expect(sdk.runs[0]?.interrupts).toBe(1);
+  });
+});
+
+/** Waits until the session's steps include one of `kind`. */
+async function reached(records: SessionRecords, kind: string, id = '0000000000000001') {
+  for (let tries = 0; tries < 500; tries++) {
+    const record = await records.get(id);
+    if (record?.session.activities.some((activity) => activity.kind === kind) === true) return record;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`The session never reached ${kind}`);
+}
+
+const edit = (file: string): FakeTurn => ({ tool: 'Write', input: { file_path: file, content: 'x\n' } });
+
+describe('follow-ups (spec 013)', () => {
+  const id = '0000000000000001';
+
+  it('AC-12: a message sent while Claude works reaches it, shows as a step, and leaves the state and stepper as they were', async () => {
+    let letGo: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      letGo = resolve;
+    });
+    const { service, records, sdk } = await setUp({
+      script: [
+        { tool: 'Read', input: { file_path: 'README.md' } },
+        { waitForMessage: true },
+        { gate },
+        edit('src/a.ts'),
+        { finish: 'Used it.' },
+      ],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await reached(records, 'explore');
+
+    expect(await service.send(id, 'Use the existing useSelection hook instead')).toEqual({ result: 'sent' });
+    const sent = await records.get(id);
+    expect(sent?.session).toMatchObject({ state: 'working', step: 'plan' });
+    expect(sent?.session.activities.at(-1)).toMatchObject({
+      kind: 'message',
+      text: 'Use the existing useSelection hook instead',
+    });
+    letGo();
+
+    const done = await settled(records);
+    expect(kinds(done)).toEqual([
+      'worktree:done',
+      'brief:done',
+      'explore:done',
+      'message:done',
+      'edit:done',
+      'finished:done',
+    ]);
+    expect(sdk.runs).toHaveLength(1);
+    expect(sdk.runs[0]?.prompts.at(-1)).toBe('Use the existing useSelection hook instead');
+  });
+
+  it('AC-11: after Done, resumes Claude Code’s own session in the same worktree: Working, back to Build, then Done again', async () => {
+    const { service, records, sdk, home, heard } = await setUp({
+      script: [edit('src/a.ts'), { finish: 'First.' }],
+      later: [[edit('src/b.ts'), { finish: 'Used the existing hook.' }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const first = await settled(records);
+    expect(first.session).toMatchObject({ state: 'done', step: 'review' });
+    heard.length = 0;
+
+    expect(await service.send(id, 'Use the existing useSelection hook instead')).toEqual({ result: 'sent' });
+    const resumed = await records.get(id);
+    expect(resumed?.session).toMatchObject({ state: 'working', step: 'build', problem: null, endedAt: null });
+    expect(resumed?.session.runStartedAt).not.toBeNull();
+    expect(heard).toContainEqual({ type: 'sessions.changed' });
+
+    const again = await settled(records);
+    expect(again.session).toMatchObject({ state: 'done', step: 'review' });
+    expect(again.session.activities.slice(-3)).toEqual([
+      {
+        id: expect.any(String) as unknown,
+        state: 'done',
+        kind: 'message',
+        text: 'Use the existing useSelection hook instead',
+      },
+      { id: expect.any(String) as unknown, state: 'done', kind: 'edit', files: ['src/b.ts'] },
+      { id: expect.any(String) as unknown, state: 'done', kind: 'finished', summary: 'Used the existing hook.' },
+    ]);
+    expect(sdk.runs[1]?.options).toMatchObject({
+      resume: 'b2c7e0f4-0000-4000-8000-000000000001',
+      cwd: join(home, 'worktrees', id),
+    });
+    expect(sdk.runs[1]?.prompts).toEqual(['Use the existing useSelection hook instead']);
+  });
+
+  it('AC-13: carries on after you stopped Claude, and after it stopped with an error once it was working', async () => {
+    const stopped = await setUp({
+      script: [{ tool: 'Read', input: { file_path: 'README.md' } }, { hang: true }],
+      later: [[{ finish: 'Carried on.' }]],
+    });
+    await stopped.service.start({ ticketKey: 'PROJ-1423' });
+    await reached(stopped.records, 'explore');
+    await stopped.service.stop(id);
+    expect(await stopped.service.send(id, 'Carry on')).toEqual({ result: 'sent' });
+    expect((await settled(stopped.records)).session).toMatchObject({ state: 'done', problem: null });
+
+    const limited = await setUp({
+      script: [
+        { tool: 'Read', input: { file_path: 'README.md' } },
+        { message: { type: 'assistant', parent_tool_use_id: null, error: 'rate_limit', message: { content: [] } } },
+      ],
+      later: [[{ finish: 'Carried on.' }]],
+    });
+    await limited.service.start({ ticketKey: 'PROJ-1423' });
+    expect((await settled(limited.records)).session.problem).toEqual({ kind: 'limit', stage: 'working' });
+    expect(await limited.service.send(id, 'Try again')).toEqual({ result: 'sent' });
+    expect(await limited.records.get(id)).toMatchObject({ session: { problem: null } });
+    expect((await settled(limited.records)).session).toMatchObject({ state: 'done', problem: null });
+  });
+
+  it('AC-14: refuses when the changes were discarded, Claude never started, or the ticket has a newer live session', async () => {
+    const discarded = await setUp();
+    await discarded.service.start({ ticketKey: 'PROJ-1423' });
+    await settled(discarded.records);
+    await discarded.service.discard(id);
+    expect(await discarded.service.send(id, 'More')).toEqual({ result: 'cannot_send', reason: 'discarded' });
+
+    const neverStarted = await setUp({ noClaude: true });
+    await neverStarted.service.start({ ticketKey: 'PROJ-1423' });
+    await settled(neverStarted.records);
+    expect(await neverStarted.service.send(id, 'More')).toEqual({ result: 'cannot_send', reason: 'never_started' });
+
+    const newer = await setUp({ script: [{ tool: 'Read', input: { file_path: 'README.md' } }, { hang: true }] });
+    await newer.service.start({ ticketKey: 'PROJ-1423' });
+    await reached(newer.records, 'explore');
+    await newer.service.stop(id);
+    await newer.service.start({ ticketKey: 'PROJ-1423' });
+    expect(await newer.service.send(id, 'More')).toEqual({ result: 'cannot_send', reason: 'newer_session' });
+    await newer.service.close();
+  });
+
+  it('AC-15: refuses a follow-up that would make a fourth working session, and sends nothing', async () => {
+    const { service, records, sdk } = await setUp({ script: [{ hang: true }] });
+    jira.use(acceptingIssue([{ key: 'PROJ-1' }, { key: 'PROJ-2' }, { key: 'PROJ-3' }, { key: 'PROJ-4' }]));
+    const first = await service.start({ ticketKey: 'PROJ-1' });
+    // Stopped once Claude has started, so it has something to carry on.
+    await claudeStarted(records, id);
+    await service.stop(id);
+    for (const key of ['PROJ-2', 'PROJ-3', 'PROJ-4']) {
+      const started = await service.start({ ticketKey: key });
+      await briefed(records, started.result === 'started' ? started.sessionId : '');
+    }
+    expect(first).toMatchObject({ result: 'started' });
+    const runs = sdk.runs.length;
+    expect(await service.send(id, 'More')).toEqual({ result: 'cannot_send', reason: 'too_many' });
+    expect(sdk.runs).toHaveLength(runs);
+    await service.close();
+  });
+
+  it("AC-16: a follow-up Claude Code can't resume stops the session with the resume problem, keeping its steps", async () => {
+    const { service, records, sdk } = await setUp({ script: [edit('src/a.ts'), { finish: 'First.' }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    sdk.onResume = 'no_conversation';
+    expect(await service.send(id, 'More')).toEqual({ result: 'sent' });
+    const record = await settled(records);
+    expect(record.session).toMatchObject({ state: 'stopped', problem: { kind: 'resume', stage: 'working' } });
+    expect(kinds(record).slice(0, 4)).toEqual(['worktree:done', 'brief:done', 'edit:done', 'finished:done']);
+  });
+
+  it("Q3: adds up Claude's working time over each run, and counts nothing while it waits for you to follow up", async () => {
+    let time = clock;
+    let letGo: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      letGo = resolve;
+    });
+    const { service, records } = await setUp({
+      now: () => time,
+      script: [
+        { tool: 'Read', input: { file_path: 'README.md' } },
+        { waitForMessage: true },
+        { tool: 'Read', input: { file_path: 'README.md' } },
+        { finish: 'First.' },
+      ],
+      later: [[{ gate }, { finish: 'Second.' }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await reached(records, 'explore');
+    time += 60_000;
+    await service.send(id, 'Finish up');
+    expect((await settled(records)).session).toMatchObject({ workedMs: 60_000, runStartedAt: null });
+    time += 600_000;
+    await service.send(id, 'One more thing');
+    expect((await records.get(id))?.session.runStartedAt).toBe(new Date(time).toISOString());
+    time += 30_000;
+    letGo();
+    expect((await settled(records)).session).toMatchObject({ workedMs: 90_000, runStartedAt: null });
+  });
+
+  it('AC-2, AC-23: says the files changed at most once a second, with the session’s id only', async () => {
+    const { service, records, heard } = await setUp({
+      script: [edit('src/a.ts'), edit('src/b.ts'), edit('src/c.ts'), { finish: 'Done.' }],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await vi.waitFor(
+      () => {
+        expect(heard.filter((event) => event.type === 'session.files.changed')).toHaveLength(2);
+      },
+      { timeout: 3_000 },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 1_200));
+    expect(heard.filter((event) => event.type === 'session.files.changed')).toEqual([
+      { type: 'session.files.changed', sessionId: id },
+      { type: 'session.files.changed', sessionId: id },
+    ]);
+  });
+
+  it('AC-23: the terminal hears that a follow-up went, never what it said', async () => {
+    const { service, records, reports } = await setUp({
+      script: [{ finish: 'First.' }],
+      later: [[{ finish: 'Again.' }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await service.send(id, 'a secret plan for the toolbar');
+    await settled(records);
+    expect(reports).toContainEqual({ what: 'followed_up', session: id, ticket: 'PROJ-1423', resumed: true });
+    expect(JSON.stringify(reports)).not.toContain('secret plan');
+  });
+
+  it('answers not found for a session it has never heard of', async () => {
+    const { service } = await setUp();
+    expect(await service.send('ffffffffffffffff', 'More')).toEqual({ result: 'not_found' });
+  });
+});
+
+describe('the session detail (spec 013)', () => {
+  const id = '0000000000000001';
+
+  it('AC-9: keeps the ticket as Claude got it, with its status and due date from the cache', async () => {
+    const { service, records } = await setUp({
+      cached: {
+        title: 'Add bulk archive',
+        sprint: 'Sprint 42',
+        status: { name: 'In progress', column: 'in_progress' },
+        dueDate: '2026-10-16',
+      },
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect((await service.get(id))?.ticket).toEqual({
+      type: 'Story',
+      description: expect.stringContaining('Checkbox on each row') as unknown,
+      status: { name: 'In progress', column: 'in_progress' },
+      dueDate: '2026-10-16',
+    });
+    expect((await records.get(id))?.session.ticket).toMatchObject({ status: null, dueDate: null });
+  });
+
+  it('AC-9: leaves out the status and due date when the cache doesn’t have the ticket', async () => {
+    const { service, records } = await setUp({ cached: null });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect((await service.get(id))?.ticket).toMatchObject({ type: 'Story', status: null, dueDate: null });
+  });
+
+  it('AC-9: reads the ticket back from brief.md for a session saved before spec 013', async () => {
+    const { service, records } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await records.update(id, (record) => ({ ...record, session: { ...record.session, ticket: null } }));
+    expect((await service.get(id))?.ticket).toMatchObject({
+      type: 'Story',
+      description: expect.stringContaining('Checkbox on each row') as unknown,
+    });
+  });
+
+  it('AC-14: says the follow-up box is open, or why not', async () => {
+    const done = await setUp();
+    await done.service.start({ ticketKey: 'PROJ-1423' });
+    await settled(done.records);
+    expect((await done.service.get(id))?.followUp).toEqual({ kind: 'open' });
+    await done.service.discard(id);
+    expect((await done.service.get(id))?.followUp).toEqual({ kind: 'discarded' });
+
+    const neverStarted = await setUp({ noClaude: true });
+    await neverStarted.service.start({ ticketKey: 'PROJ-1423' });
+    await settled(neverStarted.records);
+    expect((await neverStarted.service.get(id))?.followUp).toEqual({ kind: 'never_started' });
+
+    const newer = await setUp({ script: [{ tool: 'Read', input: { file_path: 'README.md' } }, { hang: true }] });
+    await newer.service.start({ ticketKey: 'PROJ-1423' });
+    await reached(newer.records, 'explore');
+    await newer.service.stop(id);
+    await newer.service.start({ ticketKey: 'PROJ-1423' });
+    expect((await newer.service.get(id))?.followUp).toEqual({ kind: 'newer_session', sessionId: '0000000000000002' });
+    expect((await newer.service.get('0000000000000002'))?.followUp).toEqual({ kind: 'open' });
+    await newer.service.close();
+  });
+
+  it('AC-20: gives the worktree’s path once it’s made, and none once the changes are discarded', async () => {
+    const { service, records, home } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect((await service.get(id))?.worktreePath).toBe(join(home, 'worktrees', id));
+    await service.discard(id);
+    expect((await service.get(id))?.worktreePath).toBeNull();
   });
 });

@@ -1,0 +1,61 @@
+import type { Session } from '@devhub/contracts';
+import { Callout, ExternalLink, Markdown, Pill, SourceMark } from '@devhub/ui';
+import { usePlatform } from '../../../platform.tsx';
+import { duePill } from '../../../words/due.ts';
+import { statusTones } from '../../../words/status-tone.ts';
+import { useNow } from '../../../words/use-now.ts';
+import { briefNote, noDescription } from '../ticket-tab-words.ts';
+
+/**
+ * The Ticket tab (spec 013, Q7): the ticket as Claude got it, its description laid out, with its status and due
+ * date as the cache knows them now and Open in Jira, then what Claude was and wasn't sent. As `session.html`
+ * draws it, at most 640 px wide.
+ */
+export function TicketPanel({ session }: { session: Session }) {
+  const platform = usePlatform();
+  const now = useNow();
+  const key = session.source?.kind === 'jira' ? session.source.key : null;
+  const { ticket, jiraUrl } = session;
+  const due = ticket?.dueDate == null ? null : duePill(ticket.dueDate, ticket.status?.column === 'done', now);
+  const open = (url: string) => {
+    platform.openExternal(url);
+  };
+
+  return (
+    <div className="flex max-w-160 min-w-0 flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {key === null ? null : (
+          <span className="inline-flex items-center gap-1.5">
+            <SourceMark source="jira" label="hidden" />
+            <span className="font-mono text-code">{key}</span>
+          </span>
+        )}
+        {ticket?.type == null ? null : <span className="text-small text-muted-foreground">{ticket.type}</span>}
+        {ticket?.status == null ? null : <Pill tone={statusTones[ticket.status.column]}>{ticket.status.name}</Pill>}
+        {due === null ? null : (
+          <Pill plain>
+            <span aria-hidden>{due.text}</span>
+            <span className="sr-only">{due.spoken}</span>
+          </Pill>
+        )}
+        {jiraUrl === null ? null : (
+          <ExternalLink href={jiraUrl} onOpen={open} className="ms-auto">
+            Open in Jira
+          </ExternalLink>
+        )}
+      </div>
+      {ticket === null ? null : (
+        <>
+          {ticket.description === null ? (
+            <p className="m-0 text-muted-foreground">{noDescription}</p>
+          ) : (
+            <Markdown text={ticket.description} onOpenLink={open} />
+          )}
+          <Callout tone="info" title={briefNote.title}>
+            {briefNote.body}
+          </Callout>
+        </>
+      )}
+    </div>
+  );
+}

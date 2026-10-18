@@ -74,8 +74,11 @@ describe('createMessageReader', () => {
     read(toolUse('t3', 'NotebookEdit', { notebook_path: `${worktree}/n.ipynb`, new_source: 'x' }));
     expect([...read(toolResult('t1')), ...read(toolResult('t2')), ...read(toolResult('t3'))]).toEqual([
       { type: 'work', work: { kind: 'edit', file: 'src/a.ts' } },
+      { type: 'files_changed' },
       { type: 'work', work: { kind: 'edit', file: 'src/b.ts' } },
+      { type: 'files_changed' },
       { type: 'work', work: { kind: 'edit', file: 'n.ipynb' } },
+      { type: 'files_changed' },
     ]);
   });
 
@@ -103,13 +106,41 @@ describe('createMessageReader', () => {
   it('012 AC-2: shows a command Claude Code ran without asking Orynx, even one that failed', () => {
     const read = createMessageReader(worktree, () => false);
     read(toolUse('t1', 'Bash', { command: 'npm test' }));
-    expect(read(toolResult('t1', true))).toEqual([{ type: 'work', work: { kind: 'command', command: 'npm test' } }]);
+    expect(read(toolResult('t1', true))).toEqual([
+      { type: 'work', work: { kind: 'command', command: 'npm test' } },
+      { type: 'files_changed' },
+    ]);
   });
 
   it('012 AC-2: leaves out a command Orynx already showed when it decided about it', () => {
     const read = createMessageReader(worktree, (id) => id === 't1');
     read(toolUse('t1', 'Bash', { command: 'npm test' }));
-    expect(read(toolResult('t1'))).toEqual([]);
+    expect(read(toolResult('t1'))).toEqual([{ type: 'files_changed' }]);
+  });
+
+  it('013 AC-2: says files may have changed once a command ends, run or refused, since it can write anything', () => {
+    const read = createMessageReader(worktree, () => true);
+    read(toolUse('t1', 'Bash', { command: 'npx prettier --write .' }));
+    read(toolUse('t2', 'Bash', { command: 'git push' }));
+    expect([...read(toolResult('t1')), ...read(toolResult('t2', true))]).toEqual([
+      { type: 'files_changed' },
+      { type: 'files_changed' },
+    ]);
+  });
+
+  it('013 AC-2: says nothing changed for a read, a search, the plan, or an edit that failed', () => {
+    const read = createMessageReader(worktree);
+    read(toolUse('t1', 'Read', { file_path: 'src/a.ts' }));
+    read(toolUse('t2', 'Grep', { pattern: 'x' }));
+    read(toolUse('t3', 'TodoWrite', { todos: [{ content: 'x', status: 'pending', activeForm: 'x' }] }));
+    read(toolUse('t4', 'Edit', { file_path: 'src/a.ts', old_string: '1', new_string: '2' }));
+    const said = [
+      ...read(toolResult('t1')),
+      ...read(toolResult('t2')),
+      ...read(toolResult('t3')),
+      ...read(toolResult('t4', true)),
+    ];
+    expect(said.filter((one) => one.type === 'files_changed')).toEqual([]);
   });
 
   it('ignores a result for a call it never saw, and Claude’s text', () => {
@@ -124,10 +155,18 @@ describe('createMessageReader', () => {
     expect(read(text)).toEqual([]);
   });
 
-  it('AC-8: turns a finished turn into finished, with Claude’s summary', () => {
+  it('AC-8: says a turn ended, with Claude’s summary', () => {
     const read = createMessageReader(worktree);
     expect(read(success('Added row selection and a toolbar button.'))).toEqual([
-      { type: 'work', work: { kind: 'finished', summary: 'Added row selection and a toolbar button.' } },
+      { type: 'turn_ended', summary: 'Added row selection and a toolbar button.', queued: 0, took: null },
+    ]);
+  });
+
+  it('013 AC-12: says which of your messages the turn took and how many still wait, so the adapter knows if Claude is done', () => {
+    const read = createMessageReader(worktree);
+    const took = ['5f0c1d2e-0000-4000-8000-000000000001'];
+    expect(read(success('First part.', { user_message_uuids: took, queued_turn_count: 1 }))).toEqual([
+      { type: 'turn_ended', summary: 'First part.', queued: 1, took },
     ]);
   });
 

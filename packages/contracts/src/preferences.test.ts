@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   apiRoutes,
   defaultPreferences,
+  EditorSchema,
   InboxRuleIdSchema,
   PermissionModeSchema,
   PreferencesChangeSchema,
@@ -30,8 +31,15 @@ describe('PreferencesSchema', () => {
         session_waiting: true,
       },
       allowedCommands: [],
+      editor: 'vscode',
     });
     expect(PreferencesSchema.parse(defaultPreferences)).toEqual(defaultPreferences);
+  });
+
+  it('013 AC-20, AC-26: offers VS Code and Cursor as the editor, VS Code first', () => {
+    expect(EditorSchema.options).toEqual(['vscode', 'cursor']);
+    expect(PreferencesSchema.parse(makePreferences({ editor: 'cursor' })).editor).toBe('cursor');
+    expect(PreferencesSchema.safeParse({ ...defaultPreferences, editor: 'zed' }).success).toBe(false);
   });
 
   it('AC-15: lists the allowed commands as saved, and refuses an empty entry', () => {
@@ -76,6 +84,11 @@ describe('PreferencesChangeSchema', () => {
     const refused = PreferencesChangeSchema.safeParse({ allowCommand: 'git push' });
     expect(refused.success).toBe(false);
     expect(refused.error?.issues[0]?.message).toBe("git push always asks, so it can't go on the list.");
+  });
+
+  it('013 AC-26: takes the editor alone', () => {
+    expect(PreferencesChangeSchema.parse({ editor: 'cursor' })).toEqual({ editor: 'cursor' });
+    expect(PreferencesChangeSchema.safeParse({ editor: 'zed' }).success).toBe(false);
   });
 
   it('refuses an empty change, an unknown mode, an unknown rule and an unknown key', () => {

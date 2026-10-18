@@ -1,5 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ApiRequestError, sessionQueryKey, sessionsQueryOptions } from '@devhub/api-client';
+import {
+  ApiRequestError,
+  preferencesQueryOptions,
+  sessionChangesQueryOptions,
+  sessionDiffQueryOptions,
+  sessionQueryKey,
+  sessionsQueryOptions,
+} from '@devhub/api-client';
 import type { ApprovalDecision, Session, SessionListQuery } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
@@ -40,4 +47,31 @@ export function useRespondToApproval(sessionId: string) {
     mutationFn: ({ approvalId, decision }: { approvalId: string; decision: ApprovalDecision }) =>
       api.respondToApproval(sessionId, approvalId, decision),
   });
+}
+
+/** What changed in the session's worktree (spec 013): kept fresh by `session.files.changed` and window focus. */
+export function useSessionChanges(sessionId: string) {
+  const api = useApi();
+  return useQuery(sessionChangesQueryOptions(api, sessionId));
+}
+
+/** One changed file's diff; nothing is read until there's a file to show. */
+export function useSessionDiff(sessionId: string, path: string | null) {
+  const api = useApi();
+  return useQuery({ ...sessionDiffQueryOptions(api, sessionId, path ?? ''), enabled: path !== null });
+}
+
+/** The editor Open in uses, from Settings › Coding agent (spec 013, Q9). */
+export function useEditor() {
+  const api = useApi();
+  return useQuery({ ...preferencesQueryOptions(api), select: (preferences) => preferences.editor });
+}
+
+/**
+ * A follow-up (spec 013): the answer says sent, or why it can't go. The session changes on the server, which
+ * says so with `session.changed` and `sessions.changed`, so nothing here touches the cache.
+ */
+export function useSendMessage(sessionId: string) {
+  const api = useApi();
+  return useMutation({ mutationFn: (text: string) => api.sendMessage(sessionId, text) });
 }

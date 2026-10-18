@@ -1,5 +1,6 @@
 import {
   defaultPreferences,
+  EditorSchema,
   InboxRuleIdSchema,
   PermissionModeSchema,
   type InboxRules,
@@ -9,7 +10,7 @@ import {
 import type { EventBus } from '../events/event-bus.ts';
 import type { Settings, SettingsStore } from '../settings/settings-store.ts';
 
-/** Settings › Coding agent and Inbox rules (spec 005): saved as the person changes them. */
+/** Settings › Coding agent and Inbox rules (spec 005), and the editor (spec 013): saved as the person changes them. */
 export interface PreferencesService {
   /** The saved values, with the default for anything never chosen. */
   read(): Promise<Preferences>;
@@ -41,10 +42,12 @@ function fromSettings(settings: Settings): Preferences {
     if (typeof on === 'boolean') inboxRules[rule] = on;
   }
   const mode = PermissionModeSchema.safeParse(settings.agent?.['permissionMode']);
+  const editor = EditorSchema.safeParse(settings.agent?.['editor']);
   return {
     permissionMode: mode.success ? mode.data : defaultPreferences.permissionMode,
     inboxRules,
     allowedCommands: writtenCommands(settings),
+    editor: editor.success ? editor.data : defaultPreferences.editor,
   };
 }
 
@@ -58,6 +61,7 @@ function writtenCommands(settings: Settings): string[] {
 function applied(current: Settings, change: PreferencesChange): Settings {
   const next = { ...current };
   if (change.permissionMode !== undefined) next.agent = { ...current.agent, permissionMode: change.permissionMode };
+  if (change.editor !== undefined) next.agent = { ...next.agent, editor: change.editor };
   if (change.inboxRules !== undefined) {
     next.inbox = { ...current.inbox, rules: { ...writtenRules(current), ...change.inboxRules } };
   }

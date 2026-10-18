@@ -1,11 +1,18 @@
 import type { AxiosInstance } from 'axios';
 import {
   apiRoutes,
+  FileDiffSchema,
   RespondToApprovalRequestSchema,
+  SendMessageAnswerSchema,
+  SendMessageRequestSchema,
+  SessionChangesSchema,
   SessionListSchema,
   SessionSchema,
   StartSessionAnswerSchema,
   type ApprovalDecision,
+  type FileDiff,
+  type SendMessageAnswer,
+  type SessionChanges,
   type Session,
   type SessionList,
   type SessionListQuery,
@@ -48,4 +55,25 @@ export async function postApproval(
 ): Promise<void> {
   const path = pathFor(apiRoutes.sessionApproval, id).replace(':approvalId', encodeURIComponent(approvalId));
   await http.post(path, RespondToApprovalRequestSchema.parse({ decision }));
+}
+
+/** A follow-up (spec 013): exactly your text, which the server sends Claude, or why it can't. */
+export async function postSessionMessage(http: AxiosInstance, id: string, text: string): Promise<SendMessageAnswer> {
+  const res = await http.post<unknown>(
+    pathFor(apiRoutes.sessionMessages, id),
+    SendMessageRequestSchema.parse({ text }),
+  );
+  return SendMessageAnswerSchema.parse(res.data);
+}
+
+/** What changed in the session's worktree (spec 013). */
+export async function getSessionChanges(http: AxiosInstance, id: string): Promise<SessionChanges> {
+  const res = await http.get<unknown>(pathFor(apiRoutes.sessionChanges, id));
+  return SessionChangesSchema.parse(res.data);
+}
+
+/** One changed file's diff; the path goes in the query, which axios encodes. */
+export async function getFileDiff(http: AxiosInstance, id: string, path: string): Promise<FileDiff> {
+  const res = await http.get<unknown>(pathFor(apiRoutes.sessionChangesDiff, id), { params: { path } });
+  return FileDiffSchema.parse(res.data);
 }

@@ -37,6 +37,15 @@ export const StoredSessionSchema = z.object({
   repository: z.object({ id: RepositoryIdSchema, path: z.string().min(1) }),
   /** `<DEVHUB_HOME>/worktrees/<id>`; null before Orynx gets as far as making it. */
   worktree: z.string().min(1).nullable(),
+  /**
+   * The commit the branch started from, which the Changes tab compares the worktree with (spec 013, AC-4).
+   * Null before the worktree is made, and for a session made before spec 013.
+   */
+  startCommit: z
+    .string()
+    .regex(/^[0-9a-f]{40}([0-9a-f]{24})?$/)
+    .nullable()
+    .default(null),
   /** Claude Code's own session id, which a follow-up resumes (spec 013). */
   claudeSessionId: z.string().min(1).nullable(),
   /** Every call that asked, in order (spec 012). A session saved before spec 012 has none. */
@@ -60,6 +69,8 @@ export interface SessionRecords extends SessionStore {
   update(id: string, change: (current: StoredSession) => StoredSession): Promise<StoredSession | null>;
   /** Saves exactly what Claude was sent (Q5). */
   writeBrief(id: string, text: string): Promise<void>;
+  /** What Claude was sent at the start; null when nothing was (spec 013, AC-9). */
+  readBrief(id: string): Promise<string | null>;
 }
 
 export function listedSession(session: Session): ListedSession {
@@ -70,6 +81,7 @@ export function listedSession(session: Session): ListedSession {
 /** Sessions held in memory: `sessions` are list-only summaries, as tests of Tickets and the inbox give them. */
 export function createMemorySessionStore(sessions: readonly SessionSummary[] = []): SessionRecords {
   const records = new Map<string, StoredSession>();
+  const briefs = new Map<string, string>();
   return {
     list: () => Promise.resolve([...sessions, ...[...records.values()].map((record) => listedSession(record.session))]),
     get: (id) => Promise.resolve(records.get(id) ?? null),
@@ -84,7 +96,11 @@ export function createMemorySessionStore(sessions: readonly SessionSummary[] = [
       records.set(id, next);
       return Promise.resolve(next);
     },
-    writeBrief: () => Promise.resolve(),
+    writeBrief(id, text) {
+      briefs.set(id, text);
+      return Promise.resolve();
+    },
+    readBrief: (id) => Promise.resolve(briefs.get(id) ?? null),
   };
 }
 

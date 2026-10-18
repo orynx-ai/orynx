@@ -1,9 +1,16 @@
-// Stands in for a Claude Code session in the e2e run (specs 011 and 012): `claude` hands it every run the
+// Stands in for a Claude Code session in the e2e run (specs 011 to 013): `claude` hands it every run the
 // Agent SDK starts with `--input-format stream-json`. It speaks the SDK's protocol as the pinned version
 // (0.3.302) does, as far as a session needs: it answers `initialize` and `interrupt`, asks `can_use_tool`
 // before an edit or a command, and plays one scripted run, picked by words in the ticket's title. It never
 // reaches Claude and never runs a command: an allowed command is only written down, in `ran.txt` in its
 // working folder, which is the session's worktree. Run by Node directly, which strips the types.
+//
+// Spec 013: a message that comes while it works waits, and is taken into the turn after its next tool call;
+// each result says which messages its turn took and how many still wait. `--resume` with its own session id
+// plays a follow-up (it writes the message it got into `src/follow-up.ts` and finishes); any other id exits
+// before it starts, as Claude Code does when it can't find the conversation. "(slow)" in the title makes it
+// wait for a message after its first read, and "(hold)" in a follow-up after its edit, so a test can send one
+// while it works.
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -11,8 +18,15 @@ import { createInterface } from 'node:readline';
 type Message = Record<string, unknown>;
 
 const sessionId = 'e2e00000-0000-4000-8000-000000000011';
+/** An option's value: the SDK passes each as one argument, `--resume=<id>`. */
+function option(name: string): string | null {
+  const arg = process.argv.find((one) => one.startsWith(`${name}=`));
+  return arg === undefined ? null : arg.slice(name.length + 1);
+}
+
+const resumed = option('--resume');
 const stepMs = 400;
-const tools = (process.argv.find((arg) => arg.startsWith('--tools=')) ?? '--tools=').slice('--tools='.length);
+const tools = option('--tools') ?? '';
 
 let count = 0;
 const nextId = (prefix: string) => {
@@ -35,6 +49,27 @@ const inputEnd = new Promise<void>((resolve) => {
 });
 
 const pause = (ms: number) => Promise.race([new Promise((resolve) => setTimeout(resolve, ms)), interruption]);
+
+/** Messages that came after the first and no turn has taken yet, and the ids the current turn took. */
+const queued: string[] = [];
+let taken: string[] = [];
+/** How many messages came after the first, taken or not. */
+let later = 0;
+let heard: () => void = () => undefined;
+/** Claude Code takes the queued messages into the turn between tool calls. */
+function fold(): void {
+  taken.push(...queued.splice(0));
+}
+/** Waits until a message comes, or Stop. */
+function aMessage(): Promise<unknown> {
+  if (queued.length > 0) return Promise.resolve();
+  return Promise.race([
+    new Promise<void>((resolve) => {
+      heard = resolve;
+    }),
+    interruption,
+  ]);
+}
 
 /** Asks the SDK whether a tool may run, as Claude Code does in the default permission mode. */
 function ask(tool: string, input: Message, toolUseId: string): Promise<Message> {
@@ -78,6 +113,28 @@ async function call(tool: string, input: Message, effect?: Effect): Promise<void
   const id = nextId('toolu');
   const { allowed, said } = await decide(tool, input, id, effect);
   sendCall(tool, input, id, allowed, said);
+  fold();
+}
+
+/** A turn ends well: its summary, the messages it took, and how many still wait. */
+function sendResult(summary: string): void {
+  send({
+    type: 'result',
+    subtype: 'success',
+    is_error: false,
+    result: summary,
+    duration_ms: stepMs * 5,
+    duration_api_ms: 0,
+    num_turns: 1,
+    total_cost_usd: 0,
+    usage: { input_tokens: 0, output_tokens: 0 },
+    permission_denials: [],
+    user_message_uuids: taken,
+    queued_turn_count: queued.length,
+    session_id: sessionId,
+    uuid: nextId('uuid'),
+  });
+  taken = [];
 }
 
 /** Claude calls several tools in one message: it asks about all of them at once (spec 012, AC-10). */
@@ -118,6 +175,9 @@ function sendCall(tool: string, input: Message, id: string, allowed: boolean, sa
 }
 
 let stopped = false;
+let playing = false;
+/** Read through a call: Stop can come while a turn waits, which TypeScript can't see. */
+const isStopped = () => stopped;
 
 /** The commands a ticket's title asks the fake to run after its edit (spec 012). */
 function commandsFor(brief: string): (() => Promise<void>)[] {
@@ -176,6 +236,7 @@ async function play(brief: string): Promise<void> {
       ),
     ...commandsFor(brief),
   ];
+  if (brief.includes('(slow)')) steps.splice(1, 0, () => aMessage().then(() => undefined));
   for (const step of steps) {
     await pause(stepMs);
     if (stopped) return;
@@ -187,20 +248,59 @@ async function play(brief: string): Promise<void> {
   }
   await pause(stepMs);
   if (stopped) return;
+  sendResult('Added row selection and an Archive selected button.');
+  await answerTheRest();
+}
+
+/** A message still waiting when a turn ends gets a turn of its own, as Claude Code gives it. */
+async function answerTheRest(): Promise<void> {
+  while (queued.length > 0 && !isStopped()) {
+    fold();
+    await pause(stepMs);
+    if (isStopped()) return;
+    sendResult('Did what you asked.');
+  }
+}
+
+/**
+ * A follow-up, resuming this session (spec 013): one more edit, which writes down the message exactly as it
+ * came, then the finish; with "(hold)", only once another message has come.
+ */
+async function followUp(asked: string): Promise<void> {
   send({
-    type: 'result',
-    subtype: 'success',
-    is_error: false,
-    result: 'Added row selection and an Archive selected button.',
-    duration_ms: stepMs * 5,
-    duration_api_ms: 0,
-    num_turns: steps.length,
-    total_cost_usd: 0,
-    usage: { input_tokens: 0, output_tokens: 0 },
-    permission_denials: [],
+    type: 'system',
+    subtype: 'init',
     session_id: sessionId,
     uuid: nextId('uuid'),
+    cwd: process.cwd(),
+    tools: tools === '' ? [] : tools.split(','),
+    mcp_servers: [],
+    plugins: [],
+    model: 'fake',
+    permissionMode: 'default',
+    apiKeySource: 'none',
   });
+  await pause(stepMs);
+  if (stopped) return;
+  const content = `export const asked = ${JSON.stringify(asked)};\n`;
+  await call(
+    'Write',
+    { file_path: join(process.cwd(), 'src', 'follow-up.ts'), content },
+    { path: join('src', 'follow-up.ts'), content },
+  );
+  // A message may have come, and been taken, before the edit: then there's nothing to wait for.
+  if (asked.includes('(hold)') && later === 0) await aMessage();
+  fold();
+  await pause(stepMs);
+  if (isStopped()) return;
+  sendResult('Did what you asked.');
+  await answerTheRest();
+}
+
+// Claude Code can't resume a conversation it doesn't have: it says so and exits before it starts.
+if (resumed !== null && resumed !== sessionId) {
+  process.stderr.write(`No conversation found with session ID: ${resumed}\n`);
+  process.exit(1);
 }
 
 const input = createInterface({ input: process.stdin });
@@ -246,7 +346,18 @@ input.on('line', (line) => {
   }
   if (message['type'] === 'user') {
     const content = (message['message'] as Message | undefined)?.['content'];
-    void play(typeof content === 'string' ? content : JSON.stringify(content));
+    const uuid = message['uuid'];
+    if (playing) {
+      // Claude is working: the message waits for its next tool call.
+      if (typeof uuid === 'string') queued.push(uuid);
+      later += 1;
+      heard();
+      return;
+    }
+    playing = true;
+    if (typeof uuid === 'string') taken.push(uuid);
+    const text = typeof content === 'string' ? content : JSON.stringify(content);
+    void (resumed === null ? play(text) : followUp(text));
   }
 });
 input.on('close', () => {

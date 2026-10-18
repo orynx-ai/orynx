@@ -53,4 +53,17 @@ export const LongPaths: Story = {
     ),
   ],
 };
+/** More than 8 files (spec 013, Q6c): the list shows 8, and the rest scroll inside its box. */
+export const ManyFiles: Story = {
+  args: {
+    maxRows: 8,
+    files: Array.from({ length: 20 }, (_, n) => ({
+      path: `src/content/parts/part-${String(n + 1).padStart(2, '0')}.tsx`,
+      added: 3 + n,
+      removed: n % 3,
+    })),
+    current: 'src/content/parts/part-01.tsx',
+  },
+};
+
 export const Loading: Story = { render: () => <FileListSkeleton rows={4} /> };

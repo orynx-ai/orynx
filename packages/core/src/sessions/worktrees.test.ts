@@ -79,6 +79,14 @@ describe('preparing a worktree', () => {
 });
 
 describe('making a worktree', () => {
+  it('013 AC-4: says the commit the new branch starts from, which the Changes tab compares with', async () => {
+    const { repos, worktrees } = await setUp();
+    const newest = await repos.commitInOrigin('newer.txt');
+    const made = await worktrees.make(repos.clone, join(repos.worktrees, '0123456789abcdef'), plan);
+    expect(made.ok && made.startCommit).toBe(newest);
+    expect(newest).toMatch(/^[0-9a-f]{40}$/);
+  });
+
   it('AC-2: fetches the default branch first, then makes the branch from it in a new worktree', async () => {
     const { repos, worktrees } = await setUp();
     const newest = await repos.commitInOrigin('newer.txt');
@@ -90,7 +98,7 @@ describe('making a worktree', () => {
       remote: true,
     });
 
-    expect(made).toEqual({ ok: true, fetched: true });
+    expect(made).toEqual({ ok: true, fetched: true, startCommit: newest });
     expect(await repos.git(path, 'rev-parse', 'HEAD')).toBe(newest);
     expect(await repos.git(path, 'branch', '--show-current')).toBe('feat/PROJ-1423');
     expect(await exists(join(path, 'newer.txt'))).toBe(true);
@@ -142,7 +150,7 @@ describe('making a worktree', () => {
 
     expect(
       await worktrees.make(repos.clone, path, { branch: 'feat/PROJ-1423', base: 'origin/main', remote: true }),
-    ).toEqual({ ok: true, fetched: false });
+    ).toEqual({ ok: true, fetched: false, startCommit: known });
     expect(await repos.git(path, 'rev-parse', 'HEAD')).toBe(known);
   });
 
@@ -166,7 +174,7 @@ describe('making a worktree', () => {
         remote: true,
       });
 
-      expect(made).toEqual({ ok: true, fetched: false });
+      expect(made).toMatchObject({ ok: true, fetched: false });
       expect(Date.now() - started).toBeLessThan(5_000);
     });
   });
@@ -175,11 +183,13 @@ describe('making a worktree', () => {
     const { repos, worktrees } = await setUp();
     await repos.git(repos.clone, 'remote', 'remove', 'origin');
     const path = join(repos.worktrees, '0123456789abcdef');
+    const main = await repos.git(repos.clone, 'rev-parse', 'main');
     expect(await worktrees.make(repos.clone, path, { branch: 'feat/PROJ-1423', base: 'main', remote: false })).toEqual({
       ok: true,
       fetched: false,
+      startCommit: main,
     });
-    expect(await repos.git(path, 'rev-parse', 'HEAD')).toBe(await repos.git(repos.clone, 'rev-parse', 'main'));
+    expect(await repos.git(path, 'rev-parse', 'HEAD')).toBe(main);
   });
 
   it('AC-13: says git couldn’t make the worktree, without git’s own words', async () => {

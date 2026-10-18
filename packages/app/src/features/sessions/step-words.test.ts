@@ -195,4 +195,26 @@ describe('problemWords (Q10f)', () => {
   ] as const)('AC-13: says what to do about %s', (kind, line) => {
     expect(problemWords({ kind, stage: 'starting' }, session).line).toBe(line);
   });
+
+  it("013 AC-16, Q10d: says Claude couldn't carry on when Claude Code lost the conversation", () => {
+    expect(problemWords({ kind: 'resume', stage: 'working' }, session)).toEqual({
+      title: "Claude couldn't carry on",
+      line: "Claude Code no longer has this session's conversation. Start again from the ticket.",
+    });
+  });
+});
+
+describe('your message (spec 013, Q10e)', () => {
+  it('AC-11, AC-12: says you asked Claude, with your message', () => {
+    expect(step({ kind: 'message', state: 'done', text: 'Use the existing useSelection hook instead' })).toEqual({
+      title: 'You asked Claude',
+      detail: 'Use the existing useSelection hook instead',
+    });
+  });
+
+  it('AC-11: shows the first 3 lines of a longer message, then …', () => {
+    const text = 'First line\nSecond line\nThird line\nFourth line';
+    expect(step({ kind: 'message', state: 'done', text }).detail).toBe('First line\nSecond line\nThird line\n…');
+    expect(step({ kind: 'message', state: 'done', text: 'One\nTwo\nThree' }).detail).toBe('One\nTwo\nThree');
+  });
 });

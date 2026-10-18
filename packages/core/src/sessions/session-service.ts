@@ -2,18 +2,24 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type {
   ApprovalDecision,
+  FileDiff,
   PermissionMode,
   Repository,
+  SendMessageAnswer,
   Session,
   SessionApproval,
+  SessionChanges,
+  SessionFollowUp,
+  SessionTicket,
   StartSessionAnswer,
   StartSessionRequest,
 } from '@devhub/contracts';
-import type { AgentAdapter, AgentEvent } from '../agents/agent-adapter.ts';
+import type { AgentAdapter, AgentBrief, AgentEvent } from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
-import { briefText, sessionNote, ticketBrief } from './brief.ts';
+import { briefText, sessionNote, ticketBrief, ticketFromBrief } from './brief.ts';
+import type { ChangesReader, StartPoint } from './changes.ts';
 import {
   addStep,
   addWaiting,
@@ -21,6 +27,7 @@ import {
   endProgress,
   removeWaiting,
   replaceStep,
+  resumeProgress,
   type NewStep,
   type Progress,
 } from './progress.ts';
@@ -51,7 +58,12 @@ export type SessionReport =
       about: 'command' | 'edit';
       answer: ApprovalDecision | null;
       by: ApprovalEnd;
-    };
+    }
+  /** You sent a follow-up (spec 013): into the running Claude, or resuming it. Never its text (AC-23). */
+  | { what: 'followed_up'; session: string; ticket: string; resumed: boolean };
+
+/** The answer to `send()`: the follow-up's own answer, or no session with this id. */
+export type SendResult = SendMessageAnswer | { result: 'not_found' };
 
 /**
  * The answer to `respond()`: the call was answered; there's no such session or call; it was answered
@@ -69,6 +81,15 @@ export interface SessionService {
   discard(id: string): Promise<'discarded' | 'not_found' | 'failed'>;
   /** Your answer to a call waiting in this session (spec 012). The first answer counts. */
   respond(id: string, approvalId: string, decision: ApprovalDecision): Promise<RespondResult>;
+  /**
+   * A follow-up (spec 013, Q1): read by Claude after its current step while it works, or carried on in Claude
+   * Code's own session once it has finished or stopped. Sends one at a time for each session.
+   */
+  send(id: string, text: string): Promise<SendResult>;
+  /** What changed in the worktree (spec 013, Q4); null for no such session, `unreadable` when git failed. */
+  changes(id: string): Promise<SessionChanges | 'unreadable' | null>;
+  /** One changed file's diff; null for no such session or no such changed file (AC-24). */
+  fileDiff(id: string, path: string): Promise<FileDiff | 'unreadable' | null>;
   /** Stops every running session and waits for every change still being saved, for the server's shutdown. */
   close(): Promise<void>;
 }
@@ -80,14 +101,24 @@ export interface SessionServiceOptions {
   claude: { connected(): Promise<boolean> };
   connection: { credentials(): Promise<JiraSyncCredentials | null> };
   jira: JiraClient;
-  /** What the cache already knows about a ticket, for the title and breadcrumb before Jira answers. */
-  describeTicket: (key: string) => Promise<{ title: string; sprint: string | null } | null>;
+  /**
+   * What the cache already knows about a ticket: the title and breadcrumb before Jira answers (spec 011), and
+   * its status and due date now, for the Ticket tab (spec 013).
+   */
+  describeTicket: (key: string) => Promise<{
+    title: string;
+    sprint: string | null;
+    status: SessionTicket['status'];
+    dueDate: string | null;
+  } | null>;
   preferences: {
     read(): Promise<{ permissionMode: PermissionMode; allowedCommands: readonly string[] }>;
     /** Saves Always allow's entry to the list (spec 012, AC-5). */
     change(change: { allowCommand: string }): Promise<unknown>;
   };
   worktrees: WorktreesOptions;
+  /** Reads a worktree's changes for the Changes tab (spec 013). */
+  changes: ChangesReader;
   /** Null when the server was built without Claude Code: then no session can start (AC-22). */
   adapter: AgentAdapter | null;
   events: EventBus;
@@ -119,6 +150,23 @@ interface Run {
   /** The adapter's id for Claude's session, once it has started. */
   agentId: string | null;
   stopping: boolean;
+  /** The adapter's id once Claude has started; null when it never will. A follow-up waits for it (spec 013). */
+  started: Promise<string | null>;
+  markStarted: (agentId: string | null) => void;
+}
+
+function newRun(): Run {
+  let markStarted: (agentId: string | null) => void = () => undefined;
+  const started = new Promise<string | null>((resolve) => {
+    markStarted = resolve;
+  });
+  return { controller: new AbortController(), agentId: null, stopping: false, started, markStarted };
+}
+
+/** A run has ended: its time joins Claude's working time, and nothing runs now (spec 013, Q3). */
+function endRun(session: Session, at: number): Pick<Session, 'workedMs' | 'runStartedAt'> {
+  const since = session.runStartedAt === null ? at : Date.parse(session.runStartedAt);
+  return { workedMs: session.workedMs + Math.max(0, at - since), runStartedAt: null };
 }
 
 type ProblemKind = NonNullable<Session['problem']>['kind'];
@@ -176,6 +224,25 @@ function endApprovals(
   };
 }
 
+/**
+ * What the Changes tab compares the worktree with (spec 013, Q4): the commit the branch started from, or, for a
+ * session made before spec 013, the base its worktree step names. Null when no worktree was ever made.
+ */
+function startPointOf(record: StoredSession): StartPoint | null {
+  const { session } = record;
+  if (record.worktree === null || session.branch === null) return null;
+  // git couldn't make the worktree, so there's none to read.
+  if (session.problem?.kind === 'git' && session.problem.stage === 'starting') return null;
+  if (record.startCommit !== null) return { commit: record.startCommit };
+  const made = session.activities.find((activity) => activity.kind === 'worktree');
+  return made?.kind === 'worktree' ? { base: made.base } : null;
+}
+
+/** The files Claude edited, in the order it first did (Q5). */
+function editOrder(session: Session): string[] {
+  return session.activities.flatMap((activity) => (activity.kind === 'edit' ? activity.files : []));
+}
+
 function progressOf(session: Session): Progress {
   return { step: session.step, activities: session.activities };
 }
@@ -203,6 +270,34 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   const given = new Map<string, ApprovalDecision>();
   /** The calls an answer has been taken for, so a second answer, from another tab, is late. */
   const claimed = new Set<string>();
+  /** Follow-ups one at a time for each session (spec 013). */
+  const sending = new Map<string, Promise<unknown>>();
+  /** Stops and discards still under way: a follow-up waits for them, so it never undoes one (spec 013). */
+  const ending = new Map<string, Set<Promise<unknown>>>();
+  /** When the Claude Code each session last started has ended: a resume waits for it (spec 013). */
+  const agentEnded = new Map<string, Promise<void>>();
+  const fileTimers = new Map<string, { timer: NodeJS.Timeout; again: boolean }>();
+
+  /** `session.files.changed` at once, then at most once a second while Claude edits and runs commands (AC-2). */
+  function filesChanged(id: string) {
+    const waiting = fileTimers.get(id);
+    if (waiting !== undefined) {
+      waiting.again = true;
+      return;
+    }
+    events.publish({ type: 'session.files.changed', sessionId: id });
+    const entry = { again: false, timer: setTimeout(tick, 1_000) };
+    fileTimers.set(id, entry);
+    function tick() {
+      if (!entry.again) {
+        fileTimers.delete(id);
+        return;
+      }
+      entry.again = false;
+      events.publish({ type: 'session.files.changed', sessionId: id });
+      entry.timer = setTimeout(tick, 1_000);
+    }
+  }
 
   /** `session.changed` at once, then at most once every `stepEventMs` while steps keep coming. */
   function stepsChanged(id: string) {
@@ -292,6 +387,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
             state: 'stopped',
             problem: { kind, stage: claudeWorked(record.session) ? 'working' : 'starting' },
             endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
+            ...endRun(record.session, now()),
           },
         };
       },
@@ -327,7 +423,16 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
           change(id, (record) => {
             const next = withProgress(record, (progress) => addWork(progress, event.work));
             if (!finished) return next;
-            return { ...next, session: { ...next.session, state: 'done', endedAt: new Date(now()).toISOString() } };
+            const at = now();
+            return {
+              ...next,
+              session: {
+                ...next.session,
+                state: 'done',
+                endedAt: new Date(at).toISOString(),
+                ...endRun(next.session, at),
+              },
+            };
           }),
         );
         return;
@@ -376,6 +481,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         );
         return;
       }
+      case 'files_changed':
+        filesChanged(id);
+        return;
       case 'problem':
         track(fail(id, event.kind, event.code));
         return;
@@ -401,7 +509,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const { issue } = answer;
     await change(id, (current) => ({
       ...current,
-      session: { ...current.session, title: issue.summary.trim() === '' ? current.session.title : issue.summary },
+      session: {
+        ...current.session,
+        title: issue.summary.trim() === '' ? current.session.title : issue.summary,
+        // The Ticket tab shows the ticket as Claude got it (spec 013, Q7); its status and due date are read live.
+        ticket: { type: issue.type, description: issue.description, status: null, dueDate: null },
+      },
     }));
 
     const prepared = await worktrees.prepare(record.repository.path, key, signal);
@@ -414,11 +527,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     });
     const stepId = withStep?.session.activities.at(-1)?.id ?? '';
     const made = await worktrees.make(record.repository.path, record.worktree, plan, signal);
-    await change(id, (current) =>
-      withProgress(current, (progress) =>
+    await change(id, (current) => ({
+      ...withProgress(current, (progress) =>
         replaceStep(progress, stepId, { ...making, fetched: made.ok && made.fetched }),
       ),
-    );
+      startCommit: made.ok ? made.startCommit : current.startCommit,
+    }));
     if (!made.ok) return worktreeFailure(id, made.problem);
     if (stopping(run)) return;
 
@@ -427,6 +541,18 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     await change(id, (current) => withProgress(current, (progress) => addStep(progress, { kind: 'brief', key })));
     if (stopping(run)) return;
 
+    await startClaude(id, run, brief, record.worktree, plan.branch, null);
+  }
+
+  /** Starts Claude for a run, with the brief or, resuming its own session, your follow-up, and follows it. */
+  async function startClaude(
+    id: string,
+    run: Run,
+    brief: AgentBrief,
+    worktree: string,
+    branch: string,
+    resume: string | null,
+  ): Promise<void> {
     if (adapter === null) return fail(id, 'other', 'no_claude_code');
     // Settings are read before Claude starts, and again for each call it makes (spec 012, AC-11).
     const permissions = async () => {
@@ -436,11 +562,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     await permissions();
     // Stop can come while they're read: then Claude never starts.
     if (stopping(run)) return;
+    const note = sessionNote(branch, adapter.runsCommands);
     const agentId = await adapter.startSession(
       brief,
-      record.worktree,
+      worktree,
       permissions,
-      sessionNote(plan.branch, adapter.runsCommands),
+      note,
+      resume === null ? undefined : { resume },
     );
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.
@@ -448,16 +576,43 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       await adapter.stop(agentId);
       return;
     }
+    let ended: () => void = () => undefined;
+    agentEnded.set(
+      id,
+      new Promise<void>((resolve) => {
+        ended = resolve;
+      }),
+    );
     adapter.onEvent(agentId, (event) => {
       heard(id, run, event);
+      if (event.type === 'ended') ended();
     });
+    run.markStarted(agentId);
   }
 
   /**
    * Ends a working session with `last` (you stopped it, or Orynx closed): git and Claude are stopped first,
    * and nothing they say afterwards changes the session. A call still waiting ends `by` it (spec 012).
    */
-  async function halt(id: string, last: NewStep, by: Exclude<ApprovalEnd, 'you' | 'dropped'>): Promise<void> {
+  function halt(id: string, last: NewStep, by: Exclude<ApprovalEnd, 'you' | 'dropped'>): Promise<void> {
+    return whileEnding(id, haltNow(id, last, by));
+  }
+
+  /** Keeps `work` among this session's stops and discards under way until it's done: a discard holds a stop. */
+  async function whileEnding<T>(id: string, work: Promise<T>): Promise<T> {
+    const kept = work.catch(() => undefined);
+    const under = ending.get(id) ?? new Set<Promise<unknown>>();
+    under.add(kept);
+    ending.set(id, under);
+    try {
+      return await work;
+    } finally {
+      under.delete(kept);
+      if (under.size === 0 && ending.get(id) === under) ending.delete(id);
+    }
+  }
+
+  async function haltNow(id: string, last: NewStep, by: Exclude<ApprovalEnd, 'you' | 'dropped'>): Promise<void> {
     const run = runs.get(id);
     if (run !== undefined) {
       run.stopping = true;
@@ -476,6 +631,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
             ...ended.session,
             state: 'stopped',
             endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
+            ...endRun(record.session, now()),
           },
         };
       },
@@ -486,9 +642,77 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   }
 
   function begin(id: string) {
-    const started: Run = { controller: new AbortController(), agentId: null, stopping: false };
+    const started = newRun();
     runs.set(id, started);
-    track(run(id, started).catch(() => fail(id, 'other', 'unexpected')));
+    track(
+      run(id, started)
+        .catch(() => fail(id, 'other', 'unexpected'))
+        .finally(() => {
+          started.markStarted(null);
+        }),
+    );
+  }
+
+  /** Into the running Claude when it can take it, else resuming Claude Code's own session (spec 013, Q1). */
+  async function sendNow(id: string, text: string): Promise<SendResult> {
+    const record = await records.get(id);
+    if (record === null) return { result: 'not_found' };
+    const live = runs.get(id);
+    if (live !== undefined && !live.stopping) {
+      // Claude may still be setting up: the message waits for it to start.
+      const agentId = live.agentId ?? (await live.started);
+      if (agentId !== null && adapter !== null && !stopping(live) && (await adapter.sendMessage(agentId, text))) {
+        await change(id, (current) =>
+          withProgress(current, (progress) => addStep(progress, { kind: 'message', text })),
+        );
+        options.onReport?.({ what: 'followed_up', session: id, ticket: ticketOf(record), resumed: false });
+        return { result: 'sent' };
+      }
+    }
+    // Not working, or it finished as you sent this: once a stop and the last Claude Code have ended, carry on.
+    await Promise.all([...(ending.get(id) ?? [])]);
+    await agentEnded.get(id);
+    return resume(id, text);
+  }
+
+  async function resume(id: string, text: string): Promise<SendResult> {
+    const record = await records.get(id);
+    if (record === null) return { result: 'not_found' };
+    const { session } = record;
+    const cannot = (reason: Extract<SendMessageAnswer, { result: 'cannot_send' }>['reason']): SendResult => ({
+      result: 'cannot_send',
+      reason,
+    });
+    if (session.discardedAt !== null) return cannot('discarded');
+    const { claudeSessionId, worktree } = record;
+    const { branch } = session;
+    if (claudeSessionId === null || worktree === null || branch === null || adapter === null) {
+      return cannot('never_started');
+    }
+    const key = ticketOf(record);
+    const live = await liveSessionOn(key);
+    if (live !== null && live !== id) return cannot('newer_session');
+    if ((await workingCount()) >= mostWorking) return cannot('too_many');
+
+    const run = newRun();
+    runs.set(id, run);
+    const at = new Date(now()).toISOString();
+    await change(id, (current) => {
+      const next = withProgress(current, (progress) => addStep(resumeProgress(progress), { kind: 'message', text }));
+      return {
+        ...next,
+        session: { ...next.session, state: 'working', problem: null, endedAt: null, runStartedAt: at },
+      };
+    });
+    options.onReport?.({ what: 'followed_up', session: id, ticket: key, resumed: true });
+    track(
+      startClaude(id, run, { message: text, context: [] }, worktree, branch, claudeSessionId)
+        .catch(() => fail(id, 'other', 'unexpected'))
+        .finally(() => {
+          run.markStarted(null);
+        }),
+    );
+    return { result: 'sent' };
   }
   /** One start at a time per ticket, so two tabs pressing Build start one session. */
   const starting = new Map<string, Promise<unknown>>();
@@ -500,6 +724,18 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     );
     live.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
     return live[0]?.id ?? null;
+  }
+
+  /** Whether the follow-up box takes a message, or why not (spec 013, AC-14). */
+  async function followUpOf(record: StoredSession): Promise<SessionFollowUp> {
+    const { session } = record;
+    if (session.discardedAt !== null) return { kind: 'discarded' };
+    if (record.claudeSessionId === null && !isWorking(session)) return { kind: 'never_started' };
+    if (session.source?.kind === 'jira') {
+      const live = await liveSessionOn(session.source.key);
+      if (live !== null && live !== session.id) return { kind: 'newer_session', sessionId: live };
+    }
+    return { kind: 'open' };
   }
 
   async function workingCount(): Promise<number> {
@@ -551,9 +787,15 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         jiraUrl: await jiraLink(ticketKey),
         sprint: known?.sprint ?? null,
         approvals: [],
+        ticket: null,
+        followUp: { kind: 'open' },
+        worktreePath: null,
+        workedMs: 0,
+        runStartedAt: at,
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
+      startCommit: null,
       claudeSessionId: null,
       approvalLog: [],
     };
@@ -561,6 +803,36 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     events.publish({ type: 'sessions.changed' });
     begin(id);
     return { result: 'started', sessionId: id };
+  }
+
+  /** Stops the session if it's working, then deletes its worktree and branch (AC-10). */
+  async function discardNow(id: string): Promise<'discarded' | 'not_found' | 'failed'> {
+    const found = await records.get(id);
+    if (found === null) return 'not_found';
+    if (found.session.discardedAt !== null) return 'discarded';
+    if (isWorking(found.session)) await halt(id, { kind: 'stopped' }, 'discarded');
+    const record = (await records.get(id)) ?? found;
+    const { branch } = record.session;
+    if (record.worktree !== null) {
+      const removed = await worktrees.remove(record.repository.path, record.worktree, branch);
+      if (!removed.ok) {
+        report(record, 'git', 'remove');
+        return 'failed';
+      }
+    }
+    await change(id, (current) => {
+      const ended =
+        branch === null
+          ? current
+          : withProgress(current, (progress) => endProgress(progress, { kind: 'discarded', branch }));
+      return {
+        ...ended,
+        session: { ...ended.session, state: 'stopped', discardedAt: new Date(now()).toISOString() },
+      };
+    });
+    // A stopped session's state doesn't change, so only this tells its Changes tab the files are gone (AC-6).
+    filesChanged(id);
+    return 'discarded';
   }
 
   return {
@@ -575,7 +847,21 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     },
 
     async get(id) {
-      return (await records.get(id))?.session ?? null;
+      const record = await records.get(id);
+      if (record === null) return null;
+      const { session } = record;
+      const key = session.source?.kind === 'jira' ? session.source.key : null;
+      const [saved, known, followUp] = await Promise.all([
+        // A session saved before spec 013 kept only its brief.
+        session.ticket ?? records.readBrief(id).then((brief) => (brief === null ? null : ticketFromBrief(brief))),
+        key === null ? null : describeTicket(key),
+        followUpOf(record),
+      ]);
+      const ticket: SessionTicket | null =
+        saved === null ? null : { ...saved, status: known?.status ?? null, dueDate: known?.dueDate ?? null };
+      // There's a worktree to open from when it's made until the changes are discarded (spec 013, Q9).
+      const made = session.branch !== null && session.discardedAt === null;
+      return { ...session, ticket, followUp, worktreePath: made ? record.worktree : null };
     },
 
     async stop(id) {
@@ -585,33 +871,39 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return 'stopped';
     },
 
-    async discard(id) {
-      const found = await records.get(id);
-      if (found === null) return 'not_found';
-      if (found.session.discardedAt !== null) return 'discarded';
-      if (isWorking(found.session)) await halt(id, { kind: 'stopped' }, 'discarded');
-      const record = (await records.get(id)) ?? found;
-      const { branch } = record.session;
-      if (record.worktree !== null) {
-        const removed = await worktrees.remove(record.repository.path, record.worktree, branch);
-        if (!removed.ok) {
-          report(record, 'git', 'remove');
-          return 'failed';
-        }
-      }
-      await change(id, (current) => {
-        const ended =
-          branch === null
-            ? current
-            : withProgress(current, (progress) => endProgress(progress, { kind: 'discarded', branch }));
-        return {
-          ...ended,
-          session: { ...ended.session, state: 'stopped', discardedAt: new Date(now()).toISOString() },
-        };
-      });
-      return 'discarded';
+    discard(id) {
+      return whileEnding(id, discardNow(id));
     },
 
+    async changes(id) {
+      const record = await records.get(id);
+      if (record === null) return null;
+      if (record.session.discardedAt !== null) return { state: 'discarded' };
+      const start = startPointOf(record);
+      if (start === null || record.worktree === null) return { state: 'no_worktree' };
+      const listed = await options.changes.list(record.worktree, start, editOrder(record.session));
+      if (listed.ok) return listed.changes;
+      return listed.problem === 'missing' ? { state: 'missing' } : 'unreadable';
+    },
+
+    async fileDiff(id, path) {
+      const record = await records.get(id);
+      if (record?.session.discardedAt !== null) return null;
+      const start = startPointOf(record);
+      if (start === null || record.worktree === null) return null;
+      const read = await options.changes.fileDiff(record.worktree, start, path);
+      if (read.ok) return read.diff;
+      return read.problem === 'git' ? 'unreadable' : null;
+    },
+
+    send(id, text) {
+      const turn = (sending.get(id) ?? Promise.resolve()).then(() => sendNow(id, text));
+      sending.set(
+        id,
+        turn.catch(() => undefined),
+      );
+      return turn;
+    },
     async respond(id, approvalId, decision) {
       const record = await records.get(id);
       if (record === null) return 'not_found';
@@ -653,6 +945,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       while (inFlight.size > 0) await Promise.all(inFlight);
       for (const { timer } of stepTimers.values()) clearTimeout(timer);
       stepTimers.clear();
+      for (const { timer } of fileTimers.values()) clearTimeout(timer);
+      fileTimers.clear();
     },
   };
 }

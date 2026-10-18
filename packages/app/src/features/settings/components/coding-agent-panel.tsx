@@ -3,6 +3,7 @@ import { Card, ChoiceCard, ChoiceGroup } from '@devhub/ui';
 import { useChangePreferences, usePreferences } from '../queries.ts';
 import { AllowedCommands } from './allowed-commands.tsx';
 import { ClaudeCard } from './claude-card.tsx';
+import { EditorChoice } from './editor-choice.tsx';
 import { SaveError } from './save-error.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
 
@@ -27,8 +28,8 @@ const modes: readonly { value: PermissionMode; title: string; detail: string }[]
 ];
 
 /**
- * Settings › Coding agent: whether Claude is ready (spec 010), then what Claude may do without asking.
- * The modes are saved as you pick, and used once sessions run (specs 011 and 012).
+ * Settings › Coding agent: whether Claude is ready (spec 010), then what Claude may do without asking, and
+ * the editor a session opens in (spec 013). Each is saved as you pick, and used once sessions run.
  */
 export function CodingAgentPanel() {
   const preferences = usePreferences();
@@ -84,6 +85,7 @@ export function CodingAgentPanel() {
         {change.isError ? <SaveError /> : null}
       </div>
       <AllowedCommands />
+      <EditorChoice />
     </div>
   );
 }

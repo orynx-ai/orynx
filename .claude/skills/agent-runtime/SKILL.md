@@ -33,19 +33,23 @@ export interface AgentAdapter {
     worktreePath: string,
     permissions: () => Promise<AgentPermissions>, // read for every call
     instructions: string,
+    resuming?: { resume: string }, // carry on the agent's own earlier session (spec 013)
   ): Promise<string>; // sessionId
-  onEvent(sessionId: string, handler: (event: AgentEvent) => void): () => void; // started, work, approval, answered, problem, ended
+  onEvent(sessionId: string, handler: (event: AgentEvent) => void): () => void; // started, work, approval, answered, files_changed, problem, ended
   respond(sessionId: string, approvalId: string, decision: 'allow' | 'deny' | 'always'): Promise<boolean>; // false: not waiting
-  sendMessage(sessionId: string, text: string): Promise<void>;
+  sendMessage(sessionId: string, text: string): Promise<boolean>; // false: finished or stopping, so resume instead
   stop(sessionId: string): Promise<void>;
 }
 ```
 
-The Claude implementation is `packages/core/src/agents/claude/claude-adapter.ts` (spec 011) over `@anthropic-ai/claude-agent-sdk` (pinned; it runs the Claude Code the SDK ships, found with `findSdkClaudeCode()`, never a `claude` on the PATH). `startSession` takes a fourth argument, the note for Claude Code's system prompt. `respond` came with spec 012; `sendMessage` comes with spec 013 and rejects until then. Every SDK option is set on purpose, because the defaults load every settings file:
+The Claude implementation is `packages/core/src/agents/claude/claude-adapter.ts` (spec 011) over `@anthropic-ai/claude-agent-sdk` (pinned; it runs the Claude Code the SDK ships, found with `findSdkClaudeCode()`, never a `claude` on the PATH). `startSession` takes a fourth argument, the note for Claude Code's system prompt. `respond` came with spec 012; `sendMessage` and `resuming` with spec 013. Every SDK option is set on purpose, because the defaults load every settings file:
 
 - `settingSources: []`, `settings: { disableAllHooks: true }`, `strictMcpConfig: true`, `mcpServers: {}`: no hooks, plugins, MCP servers or allow rules from `~/.claude` or the repository.
 - `tools` (`sessionTools` in `tool-decision.ts`, without `Bash` when there's no sandbox), `sandbox` (`sandbox.ts`), `permissionMode: 'default'` and `canUseTool` from the tool decision: paths stay inside the worktree, symlinks followed, never its `.git`; a call is allowed, asked or refused, one at a time in the order Claude Code asked.
 - The prompt is a stream that stays open until Claude finishes, so Stop can interrupt it; an interrupted turn ends with a failed result, which isn't a problem after Stop.
+- **Follow-ups (spec 013).** `sendMessage` puts your text into that stream with its own `uuid` and `priority: 'next'`, so Claude reads it after its current tool call. A result is the end of one turn: Claude has finished only when `queued_turn_count` is 0 and every uuid sent is in the turns' `user_message_uuids`. After Done or Stop, the session starts the adapter again with `resuming: { resume: claudeSessionId }` (the SDK's `resume`, passed to Claude Code as `--resume=<id>`), in the same worktree; one that ends before `init`, or whose `init` names another session, is the `resume` problem.
+- **Stop refuses every call** from the moment you press it, whatever Claude Code still holds, and closes Claude Code at once when it holds a message it hasn't read, so Claude never acts on it.
+- **`files_changed`** goes out when an edit or a command ends; the session service turns it into `session.files.changed`, at most once a second, and the Changes tab reads the worktree again (read-only git, `packages/core/src/sessions/changes.ts`).
 
 Worktrees come from `packages/core/src/sessions/worktrees.ts` (`simple-git`, hooks off, no prompts), and `session-service.ts` runs a session from the ticket to Claude's last step. Tests fake `query()` at the SDK's boundary with `test/fake-claude-sdk.ts`; the e2e run's fake Claude Code plays a session over the SDK's stream protocol (`e2e/fake-claude/session.ts`).
 
@@ -63,10 +67,11 @@ States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `w
 
 ## Session data
 
-| Data                    | Where                                                                   |
-| ----------------------- | ----------------------------------------------------------------------- |
-| Brief, steps, approvals | `~/.devhub/sessions/<session>/` (`session.json`, `brief.md`), 0700/0600 |
-| Code changes            | `~/.devhub/worktrees/<session>` on `feat/<KEY>`                         |
+| Data                     | Where                                                                   |
+| ------------------------ | ----------------------------------------------------------------------- |
+| Brief, steps, approvals  | `~/.devhub/sessions/<session>/` (`session.json`, `brief.md`), 0700/0600 |
+| Code changes             | `~/.devhub/worktrees/<session>` on `feat/<KEY>`, from `startCommit`     |
+| Claude Code's transcript | `~/.claude/projects/`, Claude Code's own; a follow-up resumes it        |
 
 ## Testing
 

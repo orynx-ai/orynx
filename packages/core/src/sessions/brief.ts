@@ -49,5 +49,24 @@ export function sessionNote(branch: string, commands: boolean): string {
     'If the repository has a CLAUDE.md, read it first.',
     "Don't push, open pull requests or change git settings.",
     ...ending,
+    // Claude can't ask mid-task: it asks in its summary, and you answer in the follow-up box (spec 013, Q2a).
+    'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
   ].join(' ');
+}
+
+const briefTitle = /^Jira ticket [A-Z][A-Z0-9_]*-\d+(?: \(([^)\n]*)\))?: [^\n]*$/;
+
+/**
+ * The ticket's type and description, read back from a brief saved before spec 013 kept them with the session
+ * (spec 013, AC-9): the first line as `ticketBrief` writes it, then the description. Null for any other brief.
+ */
+export function ticketFromBrief(text: string): { type: string | null; description: string | null } | null {
+  const [first = '', ...rest] = text.split('\n\n');
+  const title = briefTitle.exec(first);
+  if (title === null) return null;
+  const description = rest.join('\n\n');
+  return {
+    type: title[1] ?? null,
+    description: description === '' || description === 'No description.' ? null : description,
+  };
 }

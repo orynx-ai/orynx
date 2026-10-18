@@ -51,6 +51,18 @@ export const BugToBuild: Story = {
   },
 };
 /** A title longer than two lines is cut off with an ellipsis. */
+/** A ticket with no session: its title opens it in Jira, with the external link's arrow. */
+export const OpensInJira: Story = {
+  args: {
+    title: (
+      <WorkItemTitle external href="https://your-team.atlassian.net/browse/PROJ-1423">
+        Add bulk archive to the content list, with a title long enough to need its second line
+      </WorkItemTitle>
+    ),
+    action: undefined,
+  },
+};
+
 export const LongTitle: Story = {
   args: {
     title: (

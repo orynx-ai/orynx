@@ -1,3 +1,4 @@
+export * from './changes.ts';
 export * from './claude.ts';
 export * from './commands.ts';
 export * from './errors.ts';

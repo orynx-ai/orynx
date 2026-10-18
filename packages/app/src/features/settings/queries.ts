@@ -154,6 +154,7 @@ function withChange(preferences: Preferences, change: PreferencesChange): Prefer
     permissionMode: change.permissionMode ?? preferences.permissionMode,
     inboxRules: { ...preferences.inboxRules, ...change.inboxRules },
     allowedCommands: withCommandChange(preferences.allowedCommands, change),
+    editor: change.editor ?? preferences.editor,
   };
 }
 
@@ -180,7 +181,13 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
       allowedCommands = [...allowedCommands.slice(0, at), back, ...allowedCommands.slice(at)];
     }
   }
-  return { permissionMode: modeStillSet ? saved.permissionMode : current.permissionMode, inboxRules, allowedCommands };
+  const editorStillSet = change.editor !== undefined && current.editor === change.editor;
+  return {
+    permissionMode: modeStillSet ? saved.permissionMode : current.permissionMode,
+    inboxRules,
+    allowedCommands,
+    editor: editorStillSet ? saved.editor : current.editor,
+  };
 }
 
 interface PreferencesChangeContext {

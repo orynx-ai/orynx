@@ -42,6 +42,13 @@ export const server = setupServer(
   http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(makeStatus())),
   sessionsHandler(makeSessionList([])),
   sessionHandler(),
+  // Nothing has changed in a session's worktree yet, and no file has a diff (spec 013).
+  http.get(apiUrl(apiRoutes.sessionChanges), () =>
+    HttpResponse.json({ state: 'ready', files: [], moreFiles: 0, added: 0, removed: 0 }),
+  ),
+  http.get(apiUrl(apiRoutes.sessionChangesDiff), () =>
+    HttpResponse.json({ code: 'not_found', message: 'That file isn’t among this session’s changes.' }, { status: 404 }),
+  ),
   http.get(apiUrl(apiRoutes.jiraConnection), () => HttpResponse.json(makeJiraConnection())),
   http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(makeGitHubConnection())),
   http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences())),

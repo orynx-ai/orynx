@@ -20,6 +20,21 @@ export interface FileSessionStoreOptions {
   now?: () => number;
 }
 
+/**
+ * A session saved before spec 013 has no working time of its own: it worked from when it started until it
+ * ended (Q3). Everything else spec 013 adds has a default in the schema.
+ */
+function withWorkedTime(saved: unknown): unknown {
+  if (typeof saved !== 'object' || saved === null || !('session' in saved)) return saved;
+  const { session } = saved;
+  if (typeof session !== 'object' || session === null || 'workedMs' in session) return saved;
+  const { startedAt, endedAt } = session as { startedAt?: unknown; endedAt?: unknown };
+  if (typeof startedAt !== 'string') return saved;
+  const until = typeof endedAt === 'string' ? Date.parse(endedAt) : Date.parse(startedAt);
+  const workedMs = Math.max(0, until - Date.parse(startedAt));
+  return { ...saved, session: { ...session, workedMs: Number.isFinite(workedMs) ? workedMs : 0 } };
+}
+
 function isMissing(error: unknown): boolean {
   return (error as NodeJS.ErrnoException).code === 'ENOENT';
 }
@@ -46,7 +61,9 @@ export async function openFileSessionStore(
   for (const name of names) {
     if (!SessionIdSchema.safeParse(name).success) continue;
     try {
-      const saved = StoredSessionSchema.safeParse(JSON.parse(await readFile(join(root, name, 'session.json'), 'utf8')));
+      const saved = StoredSessionSchema.safeParse(
+        withWorkedTime(JSON.parse(await readFile(join(root, name, 'session.json'), 'utf8'))),
+      );
       if (saved.success && saved.data.session.id === name) records.set(name, saved.data);
     } catch {
       // A session Orynx can't read stays on disk and out of the list.
@@ -128,5 +145,14 @@ export async function openFileSessionStore(
       inTurn(id, async () => {
         await writeAtomically(await folderFor(id), 'brief.md', text);
       }),
+    async readBrief(id) {
+      if (!known(id)) return null;
+      try {
+        return await readFile(join(root, id, 'brief.md'), 'utf8');
+      } catch (error) {
+        if (isMissing(error)) return null;
+        throw error;
+      }
+    },
   };
 }

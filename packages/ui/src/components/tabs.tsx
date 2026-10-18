@@ -56,10 +56,11 @@ export function TabsList({ className, ...props }: ComponentProps<typeof TabsPrim
 
 export type TabsTriggerProps = ComponentProps<typeof TabsPrimitive.Trigger> & {
   /**
-   * Shown after the label, e.g. the number of items in that tab. `null` while it's on its way: a blank
-   * bubble keeps its room, so the tabs don't move when it arrives (spec 007 Q11d).
+   * Shown after the label: the number of items in that tab, or a short name such as a ticket's key (spec 013,
+   * as `session.html` draws "Ticket PROJ-1423"). `null` while it's on its way: a blank bubble keeps its room,
+   * so the tabs don't move when it arrives (spec 007 Q11d).
    */
-  count?: number | null;
+  count?: number | string | null;
 };
 
 export function TabsTrigger({ className, count, children, ...props }: TabsTriggerProps) {
@@ -74,8 +75,8 @@ export function TabsTrigger({ className, count, children, ...props }: TabsTrigge
       {...props}
     >
       {children}
-      {typeof count === 'number' ? ' ' : null}
-      {typeof count === 'number' ? (
+      {count === null || count === undefined ? null : ' '}
+      {typeof count === 'number' || typeof count === 'string' ? (
         <span className="rounded-full bg-subtle px-1.5 text-label font-medium text-muted-foreground">{count}</span>
       ) : count === null ? (
         <Skeleton shape="circle" className="h-4 w-6" />

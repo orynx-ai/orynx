@@ -18,6 +18,11 @@ export type FileListProps = Omit<ComponentProps<'ul'>, 'onSelect'> & {
   current?: string | undefined;
   /** Called with a file's path when it's picked. The list marks it shown once `current` says so. */
   onSelect: (path: string) => void;
+  /**
+   * Shows this many rows, then scrolls inside its box (spec 013, Q6c). 8 is the one height a screen uses yet;
+   * add another with its class when one needs it.
+   */
+  maxRows?: 8 | undefined;
 };
 
 function lines(count: number, what: 'added' | 'removed'): string {
@@ -47,12 +52,14 @@ function splitPath(path: string): { folder: string; name: string } {
  * `info` edge and tint. The path is mono; when it's too long, only the folder part is cut off, so
  * the file name stays whole (spec 006 Q3b), and the full path shows on hover.
  */
-export function FileList({ files, current, onSelect, className, ...props }: FileListProps) {
+export function FileList({ files, current, onSelect, maxRows, className, ...props }: FileListProps) {
   return (
     <ul
       data-slot="file-list"
       className={cn(
         'm-0 flex list-none flex-col divide-y divide-border overflow-hidden rounded-md border border-border p-0',
+        // 8 rows of 40 px and their 7 dividers are 327 px; at 328 the next row's divider shows the list goes on.
+        maxRows === 8 && 'box-content max-h-82 overflow-y-auto',
         className,
       )}
       {...props}
@@ -80,7 +87,11 @@ export function FileList({ files, current, onSelect, className, ...props }: File
                 <span className="max-w-full shrink-0 truncate">{name}</span>
               </span>
               <span aria-hidden className="flex shrink-0 gap-2">
-                {file.added > 0 ? <span className="text-success">+{file.added}</span> : null}
+                {/* Green is 4.14:1 on the shown row's tint, so there the + count is in the text colour; the sign
+                    still says it (the user's call, spec 013, 18 Oct 2026). */}
+                {file.added > 0 ? (
+                  <span className={file.path === current ? 'text-foreground' : 'text-success'}>+{file.added}</span>
+                ) : null}
                 {file.removed > 0 ? <span className="text-danger">−{file.removed}</span> : null}
               </span>
               {spoken ? <span className="sr-only">{spoken}</span> : null}

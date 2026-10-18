@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import { ArrowRight01Icon, ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
 import { Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { buttonVariants } from './button.tsx';
@@ -70,17 +70,47 @@ export function AttentionRow({
 export type AttentionTitleProps = ComponentProps<'a'> & {
   /** Render the child link (the router's) with the title's look. */
   asChild?: boolean;
+  /**
+   * It opens outside Orynx, in Jira or GitHub: the arrow after it, and on hover the `bg-subtle` highlight with
+   * the underline, as every external link (the user's call, 18 Oct 2026).
+   */
+  external?: boolean;
 };
 
 /** The row's title: the link to the item, on one line, cut off with an ellipsis. */
-export function AttentionTitle({ asChild = false, className, ...props }: AttentionTitleProps) {
+export function AttentionTitle({
+  asChild = false,
+  external = false,
+  className,
+  children,
+  ...props
+}: AttentionTitleProps) {
+  if (external) {
+    return (
+      <a
+        data-slot="attention-title"
+        className={cn(
+          // As wide as its text, and never wider than the row, so a long title is cut off before its arrow.
+          'inline-flex w-fit max-w-full min-w-0 items-center gap-1 rounded-xs font-medium text-foreground no-underline hover:bg-subtle hover:underline',
+          className,
+        )}
+        {...props}
+      >
+        {/* Only the text is cut off; the arrow stays. */}
+        <span className="truncate">{children}</span>
+        <Icon icon={ArrowUpRight01Icon} aria-hidden className="size-3.5" />
+      </a>
+    );
+  }
   const Comp = asChild ? Slot.Root : 'a';
   return (
     <Comp
       data-slot="attention-title"
       className={cn('truncate font-medium text-foreground no-underline hover:underline', className)}
       {...props}
-    />
+    >
+      {children}
+    </Comp>
   );
 }
 

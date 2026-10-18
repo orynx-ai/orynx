@@ -97,6 +97,7 @@ describe('/api/preferences', () => {
       permissionMode: 'edit_and_run_allowed',
       inboxRules: { ...defaultPreferences.inboxRules, unresolved_comments: false },
       allowedCommands: [],
+      editor: 'vscode',
     });
   });
 
@@ -118,6 +119,21 @@ describe('/api/preferences', () => {
     });
     expect(PreferencesSchema.parse(removed.json()).allowedCommands).toEqual([]);
     expect(seen).toEqual([{ type: 'settings.changed' }, { type: 'settings.changed' }]);
+  });
+
+  it('013 AC-26: PATCH saves the editor and answers with it', async () => {
+    const { app, seen } = await server();
+    const changed = await app.inject({
+      method: 'PATCH',
+      url: apiRoutes.preferences,
+      headers,
+      payload: { editor: 'cursor' },
+    });
+    expect(changed.statusCode).toBe(200);
+    expect(PreferencesSchema.parse(changed.json()).editor).toBe('cursor');
+    const read = await app.inject({ method: 'GET', url: apiRoutes.preferences, headers });
+    expect(PreferencesSchema.parse(read.json()).editor).toBe('cursor');
+    expect(seen).toEqual([{ type: 'settings.changed' }]);
   });
 
   it('012 AC-15: PATCH refuses a command that always asks, or several at once, with bad_request and its line', async () => {

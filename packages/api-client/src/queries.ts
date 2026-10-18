@@ -44,6 +44,35 @@ export function sessionQueryKey(id: string) {
   return [...queryKeys.sessions, 'detail', id] as const;
 }
 
+/**
+ * A session's changes (spec 013): under the lists' key, so `sessions.changed` refreshes them, but not under the
+ * session's own, so its steps changing doesn't run git. `session.files.changed` refreshes them, diffs included.
+ */
+export function sessionChangesQueryKey(id: string) {
+  return [...queryKeys.sessions, 'changes', id] as const;
+}
+
+export function sessionDiffQueryKey(id: string, path: string) {
+  return [...sessionChangesQueryKey(id), 'diff', path] as const;
+}
+
+export function sessionChangesQueryOptions(api: ApiClient, id: string) {
+  return queryOptions({
+    queryKey: sessionChangesQueryKey(id),
+    queryFn: () => api.sessionChanges(id),
+    // Stale at once: coming back to the window refetches, so edits you made in your editor show (Q4).
+    staleTime: 0,
+  });
+}
+
+export function sessionDiffQueryOptions(api: ApiClient, id: string, path: string) {
+  return queryOptions({
+    queryKey: sessionDiffQueryKey(id, path),
+    queryFn: () => api.sessionDiff(id, path),
+    staleTime: 0,
+  });
+}
+
 export function sessionQueryOptions(api: ApiClient, id: string) {
   return queryOptions({
     queryKey: sessionQueryKey(id),

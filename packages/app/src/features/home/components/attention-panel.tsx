@@ -492,6 +492,8 @@ function TargetLink({
       href={target.url}
       rel="noreferrer"
       title={title}
+      // A title that leaves Orynx says so with the external link's arrow (the user's call, 18 Oct 2026).
+      {...(look === 'title' ? { external: true } : {})}
       onClick={(event) => {
         event.preventDefault();
         platform.openExternal(target.url);

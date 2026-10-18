@@ -15,6 +15,7 @@ import { SessionScreen } from './features/sessions/session-screen.tsx';
 import { SessionsScreen } from './features/sessions/sessions-screen.tsx';
 import { SettingsScreen } from './features/settings/settings-screen.tsx';
 import { SettingsTabSchema } from './features/settings/tabs.ts';
+import { SessionSearchSchema } from './features/sessions/session-search.ts';
 import { TicketsSearchSchema } from './features/tickets/filters.ts';
 import { TicketsScreen } from './features/tickets/tickets-screen.tsx';
 import { AppShell } from './shell/app-shell.tsx';
@@ -50,6 +51,8 @@ const sessionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/ses
 const sessionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/sessions/$sessionId',
+  // The tab and the changed file shown: `/sessions/<id>?tab=ticket`, `?file=src/a.ts` (spec 013).
+  validateSearch: (search) => SessionSearchSchema.parse(search),
   component: SessionScreen,
 });
 

@@ -6,6 +6,11 @@ import type { QueryFunction } from '../agents/claude/claude-adapter.ts';
  * service). It plays a script the way Claude Code would: it starts with the `init` message, asks
  * `canUseTool` about every tool call, sends the call and its result (an error when refused), and ends
  * the turn. It records what it was given, so a test can check the options and the prompt.
+ *
+ * It reads the prompt stream all the time, as Claude Code does (spec 013). A message that arrives while
+ * Claude works waits in a queue and is folded into the turn after Claude's next tool call. One still queued
+ * when the turn ends starts a turn of its own. Each result lists the ids of the messages its turn took
+ * (`user_message_uuids`) and how many still wait (`queued_turn_count`), as the pinned SDK's types say.
  */
 
 export type FakeTurn =
@@ -20,7 +25,11 @@ export type FakeTurn =
   /** Claude keeps working until it's interrupted (then the turn ends with a failed result) or closed. */
   | { hang: true }
   /** Claude Code's process dies. */
-  | { crash: string };
+  | { crash: string }
+  /** Claude waits until a message arrives in the prompt stream (spec 013). */
+  | { waitForMessage: true }
+  /** Claude waits until the test lets it go on. */
+  | { gate: Promise<unknown> };
 
 export interface FakeToolCall {
   tool: string;
@@ -31,6 +40,8 @@ export interface FakeRun {
   options: Options;
   /** The text of every user message the prompt stream gave. */
   prompts: string[];
+  /** Every user message the prompt stream gave, with its id and priority (spec 013). */
+  messages: { text: string; uuid: string | undefined; priority: SDKUserMessage['priority'] }[];
   /** What `canUseTool` answered, in the order it answered. */
   decisions: { tool: string; result: PermissionResult }[];
   /** How many `canUseTool` calls are waiting for an answer now. */
@@ -46,12 +57,20 @@ export interface FakeClaudeSdk {
   runs: FakeRun[];
   /** A hanging turn ignores `interrupt()`, so only `close()` ends it. */
   ignoreInterrupt: boolean;
+  /**
+   * What a resume finds (spec 013): the conversation (by default), none, so Claude Code exits before it starts,
+   * or a new one under another id, as Claude Code might when it can't find the old one.
+   */
+  onResume: 'resumes' | 'no_conversation' | 'starts_afresh';
 }
 
 const sessionFields = {
   session_id: 'b2c7e0f4-0000-4000-8000-000000000001',
   uuid: 'b2c7e0f4-0000-4000-8000-0000000000aa',
 };
+
+/** The id Claude Code gives the new conversation it starts when it can't resume the old one. */
+export const freshSessionId = 'b2c7e0f4-0000-4000-8000-0000000000ff';
 
 function textOf(message: SDKUserMessage): string {
   const content = message.message.content;
@@ -61,16 +80,22 @@ function textOf(message: SDKUserMessage): string {
 
 type CanUseToolOptions = Parameters<NonNullable<Options['canUseTool']>>[2];
 
-export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
+/**
+ * Each run plays `script`, unless `later` holds a script for it: the second run plays `later[0]`, and so on,
+ * as a follow-up resumes Claude Code for another turn (spec 013).
+ */
+export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly FakeTurn[])[]): FakeClaudeSdk {
   const fake: FakeClaudeSdk = {
     runs: [],
     ignoreInterrupt: false,
+    onResume: 'resumes',
     query: ({ prompt, options }) => {
       /** The calls waiting for `canUseTool`: Claude Code cancels them when it's interrupted. */
       const asking = new Set<AbortController>();
       const run: FakeRun = {
         options,
         prompts: [],
+        messages: [],
         decisions: [],
         waiting: 0,
         cancelAsks: () => {
@@ -80,6 +105,7 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
         closes: 0,
       };
       fake.runs.push(run);
+      const script = fake.runs.length === 1 ? first : (later[fake.runs.length - 2] ?? first);
       let endNow: () => void = () => undefined;
       // Ending the process ends the stream, wherever Claude Code was.
       const ended = new Promise<IteratorReturnResult<undefined>>((resolve) => {
@@ -96,6 +122,24 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
         };
       });
       let n = 0;
+
+      /** Messages that came after the first, not yet taken by a turn, and the ids the current turn took. */
+      const queued: { uuid: string | undefined }[] = [];
+      let taken: string[] = [];
+      let heard: () => void = () => undefined;
+      let inputEnded: () => void = () => undefined;
+      const inputEnd = new Promise<void>((resolve) => {
+        inputEnded = resolve;
+      });
+      function hear(message: SDKUserMessage) {
+        const text = textOf(message);
+        run.prompts.push(text);
+        run.messages.push({ text, uuid: message.uuid, priority: message.priority });
+      }
+      /** Claude Code folds the queued messages into the turn between tool calls. */
+      function fold() {
+        for (const message of queued.splice(0)) if (message.uuid !== undefined) taken.push(message.uuid);
+      }
 
       async function decide(call: FakeToolCall): Promise<{ id: string; result: PermissionResult }> {
         n += 1;
@@ -158,11 +202,29 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
       async function* play(): AsyncGenerator<SDKMessage> {
         const input = prompt[Symbol.asyncIterator]();
         const first = await input.next();
-        if (first.done !== true) run.prompts.push(textOf(first.value));
+        if (first.done !== true) {
+          hear(first.value);
+          if (first.value.uuid !== undefined) taken.push(first.value.uuid);
+        }
+        if (options.resume !== undefined && fake.onResume === 'no_conversation') {
+          throw new Error(`No conversation found with session ID: ${options.resume}`);
+        }
+        const afresh = options.resume !== undefined && fake.onResume === 'starts_afresh';
+        void (async () => {
+          for (;;) {
+            const next = await input.next();
+            if (next.done === true) break;
+            hear(next.value);
+            queued.push({ uuid: next.value.uuid });
+            heard();
+          }
+          inputEnded();
+        })();
         yield {
           type: 'system',
           subtype: 'init',
           ...sessionFields,
+          ...(afresh ? { session_id: freshSessionId } : {}),
           cwd: options.cwd,
           tools: Array.isArray(options.tools) ? options.tools : [],
           mcp_servers: [],
@@ -181,6 +243,7 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
               yield interruptedResult;
               break;
             }
+            fold();
           } else if ('finish' in turn) {
             yield {
               type: 'result',
@@ -188,8 +251,21 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
               is_error: false,
               result: turn.finish,
               num_turns: n,
+              user_message_uuids: taken,
+              queued_turn_count: queued.length,
               ...sessionFields,
             } as unknown as SDKMessage;
+            // A message still queued starts the next turn, which takes it.
+            taken = [];
+            fold();
+          } else if ('waitForMessage' in turn) {
+            if (queued.length === 0) {
+              await new Promise<void>((resolve) => {
+                heard = resolve;
+              });
+            }
+          } else if ('gate' in turn) {
+            await turn.gate;
           } else if ('message' in turn) {
             yield turn.message as SDKMessage;
           } else if ('hang' in turn) {
@@ -202,7 +278,7 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
           }
         }
         // Claude Code waits for more input until the prompt stream ends, then exits.
-        await input.next();
+        await inputEnd;
       }
 
       const stream = play();

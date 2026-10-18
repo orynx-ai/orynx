@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { InboxToolStateSchema } from './inbox.ts';
 import { JiraLinkSchema, JiraProjectKeySchema } from './jira.ts';
 import { SessionStateSchema } from './session.ts';
+import { TicketColumnSchema } from './ticket-column.ts';
 
 /**
  * Tickets: your current Jira sprint as a board or a list (spec 008). The server sends data, never words
@@ -9,12 +10,7 @@ import { SessionStateSchema } from './session.ts';
  * laptop's calendar, as Home does.
  */
 
-/**
- * The board's four columns. To do and Done follow Jira's status categories; an In progress status sits in
- * In review when the sprint's board puts it in a later in-progress column than the first (spec 008, Q2).
- */
-export const TicketColumnSchema = z.enum(['to_do', 'in_progress', 'in_review', 'done']);
-export type TicketColumn = z.infer<typeof TicketColumnSchema>;
+export { TicketColumnSchema, type TicketColumn } from './ticket-column.ts';
 
 /** How many of the card's three priority bars are filled, from the site's own priority order (Q7a). */
 export const PriorityLevelSchema = z.enum(['high', 'medium', 'low']);

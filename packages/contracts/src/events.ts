@@ -13,6 +13,11 @@ export const ServerEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('sessions.changed') }),
   /** A session's steps changed; refetch GET /api/sessions/:id for that session only (spec 011). */
   z.object({ type: z.literal('session.changed'), sessionId: z.string().min(1) }),
+  /**
+   * Files in a session's worktree may have changed: one of Claude's edits or commands ended (spec 013). Refetch
+   * that session's changes. It carries the id only, never a path.
+   */
+  z.object({ type: z.literal('session.files.changed'), sessionId: z.string().min(1) }),
   /** A setting from Settings › Coding agent, Repositories or Inbox rules was saved; refetch them (spec 005). */
   z.object({ type: z.literal('settings.changed') }),
   /**

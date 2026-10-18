@@ -14,7 +14,8 @@ import {
   WorkItemPriority,
 } from '@devhub/ui';
 import { inListOrder } from '../filters.ts';
-import { listCaption, listEmptyText, statusTones } from '../ticket-words.ts';
+import { statusTones } from '../../../words/status-tone.ts';
+import { listCaption, listEmptyText } from '../ticket-words.ts';
 import { dueLabel, TicketAgentChip, TicketTitleLink } from './ticket-card.tsx';
 import { BuildWithClaude } from '../../sessions/components/build-with-claude.tsx';
 

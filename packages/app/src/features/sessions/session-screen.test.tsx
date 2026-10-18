@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeSession } from '@devhub/contracts/testing';
+import { makeSession, makeSessionChanges, makeSessionTicket } from '@devhub/contracts/testing';
 import { apiUrl, server, sessionHandler } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
 
@@ -35,6 +35,23 @@ function pageBar() {
 }
 
 describe('SessionScreen', () => {
+  it('013 AC-1: puts Claude’s progress, with the follow-up box, beside the Changes and Ticket tabs, Changes open', async () => {
+    server.use(
+      sessionHandler({ ...working, ticket: makeSessionTicket() }),
+      http.get(apiUrl(apiRoutes.sessionChanges), () => HttpResponse.json(makeSessionChanges())),
+    );
+    await renderApp({ route });
+
+    const progress = await screen.findByRole('region', { name: "Claude's progress" });
+    expect(within(progress).getByRole('textbox', { name: 'Message Claude' })).toBeVisible();
+    const details = screen.getByRole('region', { name: 'Work details' });
+    const tabs = within(details).getByRole('tablist', { name: 'Session details' });
+    expect(await within(tabs).findByRole('tab', { name: 'Changes 4' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(tabs).getByRole('tab', { name: 'Ticket PROJ-1423' })).toHaveAttribute('aria-selected', 'false');
+    expect(within(details).getByRole('tabpanel', { name: 'Changes 4' })).toBeVisible();
+    expect(within(details).getByRole('button', { name: 'Discard changes' })).toBeVisible();
+  });
+
   it('AC-6 (Q9e): the page bar shows Tickets / the sprint / the key, when it started, and Open in Jira', async () => {
     server.use(sessionHandler(working));
     const { user, platform } = await renderApp({ route });
