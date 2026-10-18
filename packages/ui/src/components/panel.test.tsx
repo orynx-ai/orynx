@@ -20,6 +20,13 @@ describe('Panel', () => {
     await expectNoAxeViolations(container);
   });
 
+  it("keeps its controls at the head's far end, inside the region", () => {
+    render(<Panel title="Needs your attention" actions={<button type="button">Newest first</button>} />);
+
+    const region = screen.getByRole('region', { name: 'Needs your attention' });
+    expect(within(region).getByRole('button', { name: 'Newest first' }).parentElement).toHaveClass('ms-auto');
+  });
+
   it('takes the heading level the page needs', () => {
     render(<Panel title="Changed files" headingLevel={3} />);
 

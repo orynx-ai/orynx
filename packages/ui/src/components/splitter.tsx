@@ -125,7 +125,7 @@ export function Splitter({
     >
       <span
         aria-hidden
-        className="h-full w-0.5 group-hover:bg-info group-focus-visible:bg-info group-data-dragging:bg-info"
+        className="h-full w-0.5 group-hover:bg-info group-focus-visible:bg-info group-data-dragging:bg-info motion-safe:transition-colors"
       />
     </div>
   );

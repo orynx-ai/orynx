@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Picker } from './picker.tsx';
 import { Panel } from './panel.tsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs.tsx';
 
@@ -44,6 +45,19 @@ export const WithTabs: Story = {
     ),
   },
 };
+/** Home's head: the list's order picker at the far end, across from the heading. */
+export const WithActions: Story = {
+  args: {
+    meta: undefined,
+    actions: (
+      <Picker variant="plain" aria-label="Order: Newest first">
+        Newest first
+      </Picker>
+    ),
+    children: <p className="m-0 p-4">Rows go here.</p>,
+  },
+};
+
 export const HeadOnly: Story = { args: { meta: undefined, children: <p className="m-0 p-4">Rows go here.</p> } };
 /** No head: a plain surface around a table or list that names itself. */
 export const NoTitle: Story = {

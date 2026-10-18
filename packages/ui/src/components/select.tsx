@@ -15,7 +15,7 @@ export function Select({ className, children, ...props }: ComponentProps<'select
     <div className={cn('relative w-full min-w-0', className)}>
       <select
         data-slot="select"
-        className="h-10 w-full min-w-0 cursor-pointer appearance-none rounded-sm border border-control bg-raised ps-3 pe-10 text-body text-foreground disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:border-danger"
+        className="h-10 w-full min-w-0 cursor-pointer appearance-none rounded-sm border border-control bg-raised ps-3 pe-10 text-body text-foreground not-aria-invalid:enabled:hover:border-muted-foreground disabled:cursor-not-allowed disabled:opacity-45 aria-invalid:border-danger"
         {...props}
         {...(field
           ? { id: field.id, 'aria-describedby': field.describedBy, 'aria-invalid': field.invalid || undefined }

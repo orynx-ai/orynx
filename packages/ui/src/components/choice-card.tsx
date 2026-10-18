@@ -24,7 +24,7 @@ export function ChoiceCard({ title, detail, className, id, ...props }: ChoiceCar
     <label
       htmlFor={radioId}
       className={cn(
-        'flex min-h-14 cursor-pointer items-start gap-3 rounded-md border border-border bg-raised p-4 has-checked:border-info has-checked:bg-info-subtle',
+        'flex min-h-14 cursor-pointer items-start gap-3 rounded-md border border-border bg-raised p-4 has-checked:border-info has-checked:bg-info-subtle motion-safe:transition-colors',
         className,
       )}
     >

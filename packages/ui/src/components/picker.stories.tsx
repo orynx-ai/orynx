@@ -97,6 +97,22 @@ export const Disabled: Story = {
   ),
 };
 
+/** Home's filters: plain pickers in a row, a filled ink count on the ones with ticks. */
+export const Filters: Story = {
+  render: () => (
+    <div className="flex flex-wrap items-center gap-2">
+      <Picker variant="plain">Connections</Picker>
+      <Picker variant="plain" count={1}>
+        Status
+      </Picker>
+      <Picker variant="plain" count={12}>
+        Workspace
+      </Picker>
+      <Picker variant="plain">Type</Picker>
+    </div>
+  ),
+};
+
 /** Near the bottom of the window the menu opens above the picker, so it stays in view. */
 export const NearTheBottom: Story = {
   render: () => (

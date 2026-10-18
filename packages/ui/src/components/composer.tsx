@@ -50,7 +50,7 @@ export function Composer({ look = 'task', canSend = true, pending = false, class
       <form
         data-slot="composer"
         className={cn(
-          'flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-raised p-3 focus-within:border-info',
+          'flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-raised p-3 focus-within:border-info motion-safe:transition-colors',
           look === 'task' && 'shadow-overlay',
           'has-[textarea:focus-visible]:outline-2 has-[textarea:focus-visible]:outline-offset-2 has-[textarea:focus-visible]:outline-info',
           className,

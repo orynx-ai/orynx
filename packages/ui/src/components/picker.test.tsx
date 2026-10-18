@@ -84,6 +84,26 @@ describe('Picker', () => {
     expect(screen.getByRole('button', { name: 'api' })).toHaveFocus();
   });
 
+  it('shows how many options are picked in a bubble, which a screen reader hears after a middle dot', async () => {
+    const { container, rerender } = render(
+      <Picker variant="plain" count={2}>
+        Status
+      </Picker>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Status · 2' })).toBeVisible();
+    expect(screen.getByText('2')).toBeVisible();
+    await expectNoAxeViolations(container);
+
+    rerender(
+      <Picker variant="plain" count={0}>
+        Status
+      </Picker>,
+    );
+    expect(screen.getByRole('button', { name: 'Status' })).toBeVisible();
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+  });
+
   it('Q11b: a picker with nothing to offer is unavailable, out of the Tab order, and opens nothing', async () => {
     const user = userEvent.setup();
     render(

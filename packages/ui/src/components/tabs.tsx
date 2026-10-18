@@ -68,7 +68,7 @@ export function TabsTrigger({ className, count, children, ...props }: TabsTrigge
       className={cn(
         // The list scrolls sideways, which clips anything outside it, so the focus ring is drawn inside the tab.
         'relative inline-flex h-12 cursor-pointer items-center gap-2 border-0 bg-transparent px-0.5 font-medium whitespace-nowrap text-muted-foreground hover:text-foreground focus-visible:-outline-offset-2 aria-selected:text-foreground',
-        'after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-info after:opacity-0 aria-selected:after:opacity-100',
+        'after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-info after:opacity-0 aria-selected:after:opacity-100 motion-safe:after:transition-opacity',
         className,
       )}
       {...props}
@@ -84,7 +84,7 @@ export function TabsTrigger({ className, count, children, ...props }: TabsTrigge
   );
 }
 
-/** Radix makes the panel focusable, so it keeps the shared focus ring. */
-export function TabsContent(props: ComponentProps<typeof TabsPrimitive.Content>) {
-  return <TabsPrimitive.Content {...props} />;
+/** Radix makes the panel focusable, so it keeps the shared focus ring. A newly picked tab's panel fades in. */
+export function TabsContent({ className, ...props }: ComponentProps<typeof TabsPrimitive.Content>) {
+  return <TabsPrimitive.Content className={cn('motion-safe:animate-fade-in', className)} {...props} />;
 }

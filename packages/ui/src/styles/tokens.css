@@ -1,12 +1,14 @@
 /* DevHub design tokens, copied verbatim from docs/design/design-system.md (section 4, tokens.css).
-   Do not edit by hand: tokens come from the design system. If a value is wrong or missing, stop and ask. */
+   Do not edit by hand: tokens come from the design system. If a value is wrong or missing, stop and ask.
+   One change from that copy, the user's call for the Orynx brand (18 Oct 2026): no blue. --accent is the
+   brand's ink (the text colour), --accent-subtle a neutral wash one step past --bg-subtle, --accent-text ink. */
 /* DevHub — generated from tokens.json */
 :root, [data-theme="light"] {
   --bg-canvas: #fcfcfb; --bg-sidebar: #f6f5f2; --bg-subtle: #efeee9; --bg-raised: #ffffff;
   --border-default: #e6e4de; --border-control: #8b887f;
   --text-primary: #1c1b18; --text-secondary: #5f5c54; --text-placeholder: #6f6c63;
   --primary: #1c1b18; --on-primary: #ffffff;
-  --accent: #3b5bdb; --accent-subtle: #eef1fd; --accent-text: #2c45b0;
+  --accent: #1c1b18; --accent-subtle: #e6e4de; --accent-text: #1c1b18;
   --success: #2b7a4b; --success-subtle: #e9f5ee;
   --warning: #8f5a12; --warning-subtle: #fbf2e2;
   --danger: #b3372b; --danger-subtle: #fcebe8; --on-danger: #ffffff;
@@ -18,7 +20,7 @@
   --border-default: #2e2c28; --border-control: #706d65;
   --text-primary: #eceae4; --text-secondary: #aaa69c; --text-placeholder: #8e8a80;
   --primary: #eceae4; --on-primary: #1c1b18;
-  --accent: #8ea4ff; --accent-subtle: #1f2645; --accent-text: #b6c3ff;
+  --accent: #eceae4; --accent-subtle: #2e2c28; --accent-text: #eceae4;
   --success: #74cf98; --success-subtle: #15291d;
   --warning: #eab565; --warning-subtle: #2f2513;
   --danger: #ff9286; --danger-subtle: #361a16; --on-danger: #171614;
@@ -32,7 +34,7 @@
     --border-default: #2e2c28; --border-control: #706d65;
     --text-primary: #eceae4; --text-secondary: #aaa69c; --text-placeholder: #8e8a80;
     --primary: #eceae4; --on-primary: #1c1b18;
-    --accent: #8ea4ff; --accent-subtle: #1f2645; --accent-text: #b6c3ff;
+    --accent: #eceae4; --accent-subtle: #2e2c28; --accent-text: #eceae4;
     --success: #74cf98; --success-subtle: #15291d;
     --warning: #eab565; --warning-subtle: #2f2513;
     --danger: #ff9286; --danger-subtle: #361a16; --on-danger: #171614;

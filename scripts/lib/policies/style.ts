@@ -48,7 +48,7 @@ const SIZE_FIX: Readonly<Record<string, string>> = {
 };
 
 const OMITTED_FIX: Readonly<Record<string, string>> = {
-  accent: "subtle for the grey hover/selected surface (bg-subtle), or info for DevHub's indigo (text-info)",
+  accent: 'subtle for the grey hover/selected surface (bg-subtle), or info for the ink accent (text-info)',
   'accent-foreground': 'foreground (text-foreground)',
   secondary: 'raised (bg-raised) with border-control for a secondary button',
   'secondary-foreground': 'foreground (text-foreground)',

@@ -32,6 +32,11 @@ export function MenuTrigger(props: ComponentProps<typeof MenuPrimitive.Trigger>)
 }
 
 export type MenuContentProps = ComponentProps<typeof MenuPrimitive.Content> & {
+  /**
+   * The menu's name, shown at its top over a hairline, as a filter's options draw it ("Workspace").
+   * It also names the menu, in place of an `aria-label`.
+   */
+  heading?: string;
   /** One quiet line under the items ("Tip: …"). It also describes the menu, so screen readers hear it. */
   foot?: ReactNode;
 };
@@ -39,11 +44,13 @@ export type MenuContentProps = ComponentProps<typeof MenuPrimitive.Content> & {
 /**
  * The menu itself, in a portal: `bg-raised`, a hairline, `radius-md` and the one shadow. It opens
  * under its trigger, flips above when there's no room below, keeps 16 px from the window's edges,
- * and scrolls inside itself when it's taller than the window (spec 006 Q4e). No animation.
- * Give it an `aria-label` when the trigger's words don't name it ("Repository" for a picker).
+ * and scrolls inside itself when it's taller than the window (spec 006 Q4e). It grows out of its
+ * trigger in 150 ms and fades out in 100 ms (the user's call for the Orynx brand, 18 Oct 2026).
+ * Give it an `aria-label` or a `heading` when the trigger's words don't name it ("Repository" for a picker).
  */
 export function MenuContent({
   className,
+  heading,
   foot,
   align = 'start',
   sideOffset = 4,
@@ -54,6 +61,7 @@ export function MenuContent({
 }: MenuContentProps) {
   const setOpen = useContext(SetOpenContext);
   const footId = useId();
+  const headingId = useId();
   return (
     <MenuPrimitive.Portal>
       <MenuPrimitive.Content
@@ -61,8 +69,9 @@ export function MenuContent({
         align={align}
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
-        // Named by its own label when it has one, rather than by the trigger's words.
-        {...(props['aria-label'] === undefined ? {} : { 'aria-labelledby': undefined })}
+        // Named by its heading or its own label when it has one, rather than by the trigger's words.
+        {...(heading === undefined ? {} : { 'aria-labelledby': headingId })}
+        {...(props['aria-label'] === undefined || heading !== undefined ? {} : { 'aria-labelledby': undefined })}
         aria-describedby={foot ? footId : undefined}
         onKeyDown={(event) => {
           onKeyDown?.(event);
@@ -71,11 +80,21 @@ export function MenuContent({
           setOpen(false);
         }}
         className={cn(
-          'z-50 flex max-h-(--radix-dropdown-menu-content-available-height) max-w-(--radix-dropdown-menu-content-available-width) min-w-65 flex-col overflow-y-auto rounded-md border border-border bg-raised p-1.5 text-body text-foreground shadow-overlay',
+          'z-50 flex max-h-(--radix-dropdown-menu-content-available-height) max-w-(--radix-dropdown-menu-content-available-width) min-w-65 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-y-auto rounded-md border border-border bg-raised p-1.5 text-body text-foreground shadow-overlay',
+          'motion-safe:data-[state=closed]:animate-menu-out motion-safe:data-[state=open]:animate-menu-in',
           className,
         )}
         {...props}
       >
+        {heading === undefined ? null : (
+          // Stays at the top while the options scroll under it.
+          <div
+            id={headingId}
+            className="sticky -top-1.5 z-10 -mx-1.5 -mt-1.5 mb-1.5 border-b border-border bg-raised px-3.5 py-3 font-medium"
+          >
+            {heading}
+          </div>
+        )}
         {children}
         {foot ? (
           <div id={footId} className="mt-1 border-t border-border px-2 pt-1.5 pb-0.5 text-small text-muted-foreground">
@@ -88,12 +107,17 @@ export function MenuContent({
 }
 
 /**
- * 40 px rows, `bg-subtle` when hovered or reached by the keyboard. Icons take the words' colour, as
- * Home's repository menu draws them; pass a quieter icon (`text-muted-foreground`) where the design
- * does, as in the + menu. Only the chevron is quiet by default.
+ * 40 px rows. Hovered or reached by the keyboard, a row takes `bg-subtle` and a 4 px ink bar at its
+ * start, both fading in (the Orynx look, 18 Oct 2026). The bar is the row's focus mark in place of the
+ * ring: Radix focuses a row under the pointer, so the ring would also follow the mouse. The outline
+ * stays transparent, so forced-colours mode still draws it. Icons take the words' colour, as Home's
+ * repository menu draws them; pass a quieter icon (`text-muted-foreground`) where the design does, as
+ * in the + menu. Only the chevron is quiet by default.
  */
-const menuItemClass =
-  'relative flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5 text-start text-foreground no-underline select-none data-disabled:cursor-not-allowed data-disabled:opacity-45 data-highlighted:bg-subtle';
+const menuItemClass = cn(
+  'relative flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-sm px-3 py-1.5 text-start text-foreground no-underline outline-hidden select-none data-disabled:cursor-not-allowed data-disabled:opacity-45 data-highlighted:bg-subtle',
+  'before:absolute before:inset-y-1.5 before:start-0 before:w-1 before:rounded-full before:bg-primary before:opacity-0 data-highlighted:before:opacity-100 motion-safe:before:transition-opacity',
+);
 
 interface ItemContentProps {
   /** A lucide icon before the words. */
@@ -104,12 +128,18 @@ interface ItemContentProps {
   path?: ReactNode;
 }
 
-/** The icon, then the name with its description or path under it. */
-function ItemBody({ icon, description, path, children }: ItemContentProps & { children: ReactNode }) {
+/** The icon, then the name with its description or path under it. `className` sizes the words' column. */
+function ItemBody({
+  icon,
+  description,
+  path,
+  className,
+  children,
+}: ItemContentProps & { className?: string; children: ReactNode }) {
   return (
     <>
       {icon}
-      <span className="flex min-w-0 flex-1 flex-col">
+      <span className={cn('flex min-w-0 flex-1 flex-col', className)}>
         {children}
         {description ? <span className="truncate text-small text-muted-foreground">{description}</span> : null}
         {path ? <span className="truncate font-mono text-code text-muted-foreground">{path}</span> : null}
@@ -179,7 +209,7 @@ export function MenuRadioGroup(props: ComponentProps<typeof MenuPrimitive.RadioG
 
 export type MenuRadioItemProps = ComponentProps<typeof MenuPrimitive.RadioItem> & ItemContentProps;
 
-/** One choice in a MenuRadioGroup. The picked one is announced as checked and shows an `info` check. */
+/** One choice in a MenuRadioGroup. The picked one is announced as checked and shows an ink check. */
 export function MenuRadioItem({
   icon,
   description,
@@ -210,9 +240,10 @@ export type MenuCheckboxItemProps = ComponentProps<typeof MenuPrimitive.Checkbox
 
 /**
  * One option that is ticked or not, such as a filter's value (spec 007 Q10c, Q11c). Every option
- * leads with a 16 px box, so a menu of them reads as tick-several; a ticked one is announced as
- * checked and its box takes an `info` border and tick. Ticking keeps the menu open, so several can be
- * ticked in a row; Esc, Tab or a click outside closes it.
+ * leads with a 20 px box, so a menu of them reads as tick-several; a ticked one is announced as
+ * checked and its box fills with ink around the tick. The rows are 32 px, a dense list, and a long
+ * name wraps. Ticking keeps the menu open, so several can be ticked in a row; Esc, Tab or a click
+ * outside closes it.
  */
 export function MenuCheckboxItem({
   icon,
@@ -228,7 +259,7 @@ export function MenuCheckboxItem({
     <MenuPrimitive.CheckboxItem
       data-slot="menu-checkbox-item"
       textValue={nameOf(children, textValue)}
-      className={cn(menuItemClass, 'group', className)}
+      className={cn(menuItemClass, 'group min-h-8 py-1', className)}
       onSelect={(event) => {
         onSelect?.(event);
         event.preventDefault();
@@ -237,13 +268,13 @@ export function MenuCheckboxItem({
     >
       <span
         aria-hidden
-        className="flex size-4 shrink-0 items-center justify-center rounded-xs border border-control group-data-[state=checked]:border-info"
+        className="mt-0.5 flex size-5 shrink-0 items-center justify-center self-start rounded-sm border border-control bg-raised group-data-[state=checked]:border-primary group-data-[state=checked]:bg-primary motion-safe:transition-colors"
       >
-        <MenuPrimitive.ItemIndicator className="inline-flex">
-          <Check className="size-3.5 text-info" />
+        <MenuPrimitive.ItemIndicator className="inline-flex motion-safe:animate-fade-in">
+          <Check className="size-3.5 text-primary-foreground" />
         </MenuPrimitive.ItemIndicator>
       </span>
-      <ItemBody icon={icon} description={description} path={path}>
+      <ItemBody icon={icon} description={description} path={path} className="max-w-80 wrap-anywhere">
         {children}
       </ItemBody>
     </MenuPrimitive.CheckboxItem>

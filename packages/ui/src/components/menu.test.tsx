@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Folder, GitBranch, Plus, Settings } from 'lucide-react';
 import { describe, expect, it, vi } from 'vitest';
@@ -154,9 +154,11 @@ describe('Menu', () => {
       return (
         <Menu>
           <MenuTrigger asChild>
-            <Picker>{ticked.length === 0 ? 'Reason' : `Reason · ${String(ticked.length)}`}</Picker>
+            <Picker variant="plain" count={ticked.length}>
+              Reason
+            </Picker>
           </MenuTrigger>
-          <MenuContent aria-label="Reason">
+          <MenuContent heading="Reason">
             {reasons.map((reason) => (
               <MenuCheckboxItem
                 key={reason}
@@ -180,6 +182,7 @@ describe('Menu', () => {
       await user.click(screen.getByRole('button', { name: 'Reason · 1' }));
 
       const menu = screen.getByRole('menu', { name: 'Reason' });
+      expect(within(menu).getByText('Reason')).toBeVisible();
       expect(screen.getByRole('menuitemcheckbox', { name: 'Checks failing' })).toHaveAttribute('aria-checked', 'true');
       expect(screen.getByRole('menuitemcheckbox', { name: 'Review requested' })).toHaveAttribute(
         'aria-checked',

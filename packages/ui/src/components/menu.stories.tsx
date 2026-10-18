@@ -99,14 +99,22 @@ export const Folders: Story = {
 };
 
 function ReasonFilter() {
-  const reasons = ['Approve command', 'Checks failing', 'Review requested', 'Unresolved comments'];
+  const reasons = [
+    'Approve command',
+    'Checks failing',
+    'Review requested',
+    'Unresolved comments',
+    'A reason long enough to wrap onto a second line 1786112734553434343434',
+  ];
   const [ticked, setTicked] = useState<string[]>(['Checks failing', 'Review requested']);
   return (
     <Menu defaultOpen modal={false}>
       <MenuTrigger asChild>
-        <Picker>{ticked.length === 0 ? 'Reason' : `Reason · ${String(ticked.length)}`}</Picker>
+        <Picker variant="plain" count={ticked.length}>
+          Reason
+        </Picker>
       </MenuTrigger>
-      <MenuContent aria-label="Reason">
+      <MenuContent heading="Reason">
         {reasons.map((reason) => (
           <MenuCheckboxItem
             key={reason}
@@ -123,7 +131,10 @@ function ReasonFilter() {
   );
 }
 
-/** A filter on Home's toolbar: ticked options carry the check, and the menu stays open while you tick. */
+/**
+ * A filter on Home's toolbar: a plain picker with its count, opening a menu headed by the filter's
+ * name. Ticked boxes fill with ink, a long name wraps, and the menu stays open while you tick.
+ */
 export const Filter: Story = {
   render: () => (
     <div className="min-h-72">
