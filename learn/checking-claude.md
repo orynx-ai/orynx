@@ -1,4 +1,4 @@
-<!-- learn-sources: packages/contracts/src/claude.ts packages/core/src/agents/agent-environment.ts packages/core/src/agents/claude/claude-code.ts packages/core/src/agents/claude/map.ts packages/core/src/agents/claude/claude-login.ts packages/core/src/routes/claude.ts packages/core/src/test/fake-claude.ts apps/server/src/config.ts apps/server/src/main.ts e2e/fake-claude/claude e2e/fake-claude/config.ts packages/app/src/features/settings/components/claude-card.tsx -->
+<!-- learn-sources: packages/contracts/src/claude.ts packages/core/src/agents/agent-environment.ts packages/core/src/agents/claude/claude-code.ts packages/core/src/agents/claude/map.ts packages/core/src/agents/claude/claude-login.ts packages/core/src/routes/claude.ts packages/core/src/test/fake-claude.ts apps/server/src/config.ts apps/server/src/main.ts e2e/fake-claude/claude e2e/fake-claude/config.ts packages/app/src/features/settings/components/claude-card.tsx turbo.json -->
 
 # Checking Claude: the login Claude Code already has
 
@@ -25,7 +25,7 @@ GET /api/status or GET /api/claude/login        (or POST /api/claude/login/check
 ## What the program sees
 
 - **Exactly `auth status --json`.** It reads the login on this computer and prints JSON. It sends no prompt and uses no quota. It exits 0 when signed in and 1 when signed out, and prints the JSON either way.
-- **The short environment** (`agents/agent-environment.ts`): `HOME`, `USER`, `LOGNAME`, `PATH`, `SHELL`, `TMPDIR`, `LANG`, `LC_*`, Claude's own settings (`CLAUDE_*`, `ANTHROPIC_*`), the cloud logins Claude Code can use (`AWS_*`, `GOOGLE_*`, `CLOUD_ML_REGION`), and proxy and certificate settings. It's an allow list, so no `DEVHUB_*` variable, `.env` token or session token gets through unless someone adds it to the list. `apps/server/src/config.ts` builds it from the shell's environment, never from `.env`.
+- **The short environment** (`agents/agent-environment.ts`): `HOME`, `USER`, `LOGNAME`, `PATH`, `SHELL`, `TMPDIR`, `LANG`, `LC_*`, Claude's own settings (`CLAUDE_*`, `ANTHROPIC_*`), the cloud logins Claude Code can use (`AWS_*`, `GOOGLE_*`, `CLOUD_ML_REGION`), and proxy and certificate settings. It's an allow list, so no `DEVHUB_*` variable, `.env` token or session token gets through unless someone adds it to the list. `apps/server/src/config.ts` builds it from the shell's environment, never from `.env`. Under `pnpm dev`, turbo hands the server only the variables in `turbo.json`'s `globalPassThroughEnv`, so every name on the allow list, and `DEVHUB_CLAUDE_CODE`, is listed there too: change both together.
 - **`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`.** Otherwise the pinned build's `auth status` records an analytics event, and DevHub checks every 2 minutes.
 - **The temp folder as its working folder,** so no repository's `.claude` settings change the answer.
 

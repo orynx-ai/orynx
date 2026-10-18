@@ -9,7 +9,27 @@
     "LOG_LEVEL",
     "NODE_ENV",
     "DEVHUB_TOKENS_FROM_ENV",
-    "DEVHUB_KEYCHAIN"
+    "DEVHUB_KEYCHAIN",
+    "DEVHUB_CLAUDE_CODE",
+    "USER",
+    "LOGNAME",
+    "SHELL",
+    "TMPDIR",
+    "LANG",
+    "LC_*",
+    "CLAUDE_*",
+    "ANTHROPIC_*",
+    "AWS_*",
+    "GOOGLE_*",
+    "CLOUD_ML_REGION",
+    "HTTPS_PROXY",
+    "HTTP_PROXY",
+    "NO_PROXY",
+    "https_proxy",
+    "http_proxy",
+    "no_proxy",
+    "NODE_EXTRA_CA_CERTS",
+    "SSL_CERT_FILE"
   ],
   "tasks": {
     "build": {
