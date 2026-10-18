@@ -25,6 +25,9 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // A session waiting for approval is a row on Home (spec 007), a ticket's agent chip (spec 008), and a
       // search result (spec 009).
       return [queryKeys.sessions, queryKeys.inbox, queryKeys.tickets, queryKeys.search];
+    case 'session.changed':
+      // One session's steps; nothing reads them until the Session screen reads GET /api/sessions/:id (spec 011).
+      return [];
     case 'settings.changed':
       // The inbox rules apply when the server reads the list (spec 007).
       return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];

@@ -4,6 +4,12 @@ import { tokenOrBlankSchema, tokenSchema } from './token.ts';
 /** A Jira Cloud address, the only kind DevHub sends a token to (spec 003, Q2). */
 /** A Jira Cloud site's host, such as `your-team.atlassian.net`. */
 export const jiraCloudHost = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.atlassian\.net$/;
+
+/** A link to an issue on a Jira Cloud site, as spec 003 allows it: https, and that host only. */
+export const JiraLinkSchema = z.url({ protocol: /^https$/, hostname: jiraCloudHost });
+
+/** An issue's key, like `PROJ-1423`: its project's key, a dash and a number. */
+export const JiraIssueKeySchema = z.string().regex(/^[A-Z][A-Z0-9_]{0,99}-[1-9]\d{0,9}$/);
 const httpScheme = /^https?:\/\//;
 
 /** `your-team`, `your-team.atlassian.net` or any link on it → `your-team.atlassian.net`. */

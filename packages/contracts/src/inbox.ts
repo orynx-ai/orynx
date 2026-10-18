@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { jiraCloudHost } from './jira.ts';
+import { JiraLinkSchema } from './jira.ts';
 import { SessionSourceSchema } from './session.ts';
 
 /**
@@ -49,9 +49,6 @@ export const InboxReasonSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('status'), category: z.enum(['to_do', 'in_progress']) }),
 ]);
 export type InboxReason = z.infer<typeof InboxReasonSchema>;
-
-/** A link to an issue on a Jira Cloud site, as spec 003 allows it: https, and that host only. */
-export const JiraLinkSchema = z.url({ protocol: /^https$/, hostname: jiraCloudHost });
 
 /** A link to a pull request on github.com: https, and that host only. */
 export const GitHubLinkSchema = z.url({ protocol: /^https$/, hostname: /^github\.com$/ });
