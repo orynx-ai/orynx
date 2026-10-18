@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
+import { useComposerStore } from '../features/home/store.ts';
 import { useSearchStore } from '../features/search/store.ts';
 import { useTicketsStore } from '../features/tickets/store.ts';
 import { useConnectionStore } from '../stores/connection-store.ts';
@@ -57,6 +58,7 @@ afterEach(() => {
   useConnectionStore.setState(useConnectionStore.getInitialState());
   useTicketsStore.setState(useTicketsStore.getInitialState());
   useSearchStore.setState(useSearchStore.getInitialState());
+  useComposerStore.setState(useComposerStore.getInitialState());
   FakeEventSource.instances = [];
   FakeIntersectionObserver.instances = [];
 });

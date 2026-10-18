@@ -1,6 +1,7 @@
 // Design: docs/design/screens/home.html — page bar (Synced line and Refresh), greeting and the "Needs your attention" panel
 import { PageBar, PageBody, PageBreadcrumb } from '../../shell/page-frame.tsx';
 import { AttentionPanel } from './components/attention-panel.tsx';
+import { HomeComposer } from './components/home-composer.tsx';
 import { SyncStatus } from './components/sync-status.tsx';
 
 /**
@@ -15,6 +16,7 @@ export function HomeScreen() {
       <PageBody width="narrow">
         {/* 48 px above the greeting (design system, --space-12): the body's 24 px plus 24 px here. */}
         <h1 className="m-0 mt-6 text-center font-serif text-display font-normal">What should we build today?</h1>
+        <HomeComposer />
 
         <AttentionPanel />
       </PageBody>

@@ -19,8 +19,8 @@ interface ComposerState {
   addChip: (chip: ComposerChip) => Extract<AddChip, { ok: false }>['refusal'] | null;
   removeChip: (index: number) => void;
   pickFolder: (id: string) => void;
-  /** A task started in this folder: the draft goes, and the folder is remembered. */
-  sent: (folderId: string) => void;
+  /** A task started, in this folder if the page named one: the draft goes, and the folder is remembered. */
+  sent: (folderId: string | null) => void;
 }
 
 export const initialComposer: Pick<ComposerState, 'text' | 'chips' | 'picked' | 'lastUsed'> = {
@@ -50,7 +50,7 @@ export const useComposerStore = create<ComposerState>()(
         set({ picked: id });
       },
       sent: (folderId) => {
-        set({ text: '', chips: [], picked: null, lastUsed: folderId });
+        set((state) => ({ text: '', chips: [], picked: null, lastUsed: folderId ?? state.lastUsed }));
       },
     }),
     { name: 'devhub.home', partialize: (state) => ({ lastUsed: state.lastUsed }) },

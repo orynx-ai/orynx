@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Inbox, InboxItem, InboxSource } from '@devhub/contracts';
+import type { ComposerStart, Inbox, InboxItem, InboxSource } from '@devhub/contracts';
 import { inboxQueryOptions, preferencesQueryOptions, queryKeys } from '@devhub/api-client';
 import { useApi } from '../../api.tsx';
 
@@ -44,4 +44,10 @@ export function useRefreshInbox() {
     mutationFn: () => api.refreshInbox(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.inbox }),
   });
+}
+
+/** Send in Home's composer (spec 015): starts a session from your message and chips, or says why it can't. */
+export function useStartFromComposer() {
+  const api = useApi();
+  return useMutation({ mutationFn: (request: ComposerStart) => api.startSession(request) });
 }
