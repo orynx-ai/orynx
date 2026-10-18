@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Read one Jira issue (summary, type, description) and turn its description from Jira's document format into Markdown: paragraphs, headings, lists, code, links, mentions, and the text of anything else (AC-3, AC-13)
       Check: pnpm test packages/core/src/integrations/jira
       Files: packages/core/src/integrations/jira/client.ts, client.test.ts, adf-markdown.ts, adf-markdown.test.ts, packages/core/src/test/fake-jira.ts
-- [ ] Task 4: Build the brief and the note Q5 gives, word for word, with "No description." when there is none (AC-3, Q5)
+- [x] Task 4: Build the brief and the note Q5 gives, word for word, with "No description." when there is none (AC-3, Q5)
       Check: pnpm test packages/core/src/sessions/brief.test.ts
       Files: packages/core/src/sessions/brief.ts, brief.test.ts
 - [ ] Task 5: Decide each tool call as a table: Q6's tools only, every path inside the worktree after resolving symlinks, nothing under the worktree's `.git`, and every edit refused in Ask before everything, each with the reason Claude is told (AC-5, AC-6, Q6)
