@@ -29,15 +29,15 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Pass the SDK's program from `apps/server`, add `DEVHUB_CLAUDE_CODE` (an absolute path, empty for the SDK's own, read from the shell only like `PATH`) to `config.ts` and `.env.example`, and point the e2e run at `e2e/fake-claude/claude`. The first hub's fake is always signed out; the second's answers what a spec writes into its `CLAUDE_CONFIG_DIR` (AC-12, Q10)
       Check: pnpm test apps/server; pnpm gate env-policy
       Files: apps/server/src/config.ts, config.test.ts, main.ts, .env.example, playwright.config.ts, e2e/fake-claude/claude, e2e/fake-claude/config.ts
-- [ ] Task 10: Add `claudeLogin()`, `checkClaudeLogin()` and their query options to the api-client, refresh the login on `status.changed`, and give the app's tests a default "signed out" answer (AC-5)
-      Check: pnpm test packages/api-client packages/app/src/live-updates.test.tsx
-      Files: packages/api-client/src/endpoints/claude.ts, claude.test.ts, client.ts, queries.ts, index.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx, packages/app/src/test/msw.ts
+- [x] Task 10: Add `claudeLogin()`, `checkClaudeLogin()` and their query options to the api-client, and give the app's tests a default "signed out" answer. Refreshing the login on `status.changed` moves to task 12, where the card can show it (AC-5)
+      Check: pnpm test packages/api-client
+      Files: packages/api-client/src/endpoints/claude.ts, claude.test.ts, client.ts, queries.ts, index.ts, packages/app/src/test/msw.ts
 - [ ] Task 11: Add `Card` to `@devhub/ui` with plain, `selected` (2 px `info` border, no wash) and `placeholder` (dashed, `bg-sidebar`) looks, a story for each, a test and its design-map row (AC-14, AC-15, Q4)
       Check: pnpm test packages/ui/src/components/card.test.tsx; pnpm gate component-coverage style-policy; Storybook a11y
       Files: packages/ui/src/components/card.tsx, card.stories.tsx, card.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 12: Add `ClaudeCard`: skeletons while loading, Active with the account line for each way of signing in, Not signed in and Error with Check again, which says "Checking…", stays focused and starts one check (AC-2, AC-3, AC-4, AC-6, AC-7, AC-8, Q3, Q5, Q6)
-      Check: pnpm test packages/app/src/features/settings/components/claude-card.test.tsx
-      Files: packages/app/src/features/settings/components/claude-card.tsx, claude-card.test.tsx, packages/app/src/features/settings/queries.ts
+- [ ] Task 12: Add `ClaudeCard`: skeletons while loading, Active with the account line for each way of signing in, Not signed in and Error with Check again, which says "Checking…", stays focused and starts one check. `status.changed` refreshes it (AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, Q3, Q5, Q6)
+      Check: pnpm test packages/app/src/features/settings/components/claude-card.test.tsx packages/app/src/live-updates.test.tsx
+      Files: packages/app/src/features/settings/components/claude-card.tsx, claude-card.test.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx
 - [ ] Task 13: Put the Claude card and "More agents" in a row above the permission modes, side by side when there's room and stacked at 360 px, and prove the tab's keyboard path to Check again (AC-13, AC-14, AC-15)
       Check: pnpm test packages/app/src/features/settings
       Files: packages/app/src/features/settings/components/coding-agent-panel.tsx, coding-agent-panel.test.tsx, packages/app/src/features/settings/settings-screen.test.tsx
