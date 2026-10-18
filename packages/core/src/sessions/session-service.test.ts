@@ -72,6 +72,8 @@ interface SetUpOptions {
   savesFail?: boolean;
   /** Holds the read of the permission mode, the run's last step before Claude starts, until it resolves. */
   preferencesGate?: Promise<void>;
+  /** Holds every save of the settings until it resolves, as a slow disk would. */
+  saveGate?: Promise<void>;
 }
 
 async function setUp({
@@ -85,6 +87,7 @@ async function setUp({
   allowedCommands = [],
   savesFail = false,
   preferencesGate,
+  saveGate,
 }: SetUpOptions = {}) {
   const repos = await repositories();
   const home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-home-')));
@@ -133,7 +136,11 @@ async function setUp({
           await preferencesGate;
           return settings.read();
         },
-        update: (change) => (savesFail ? Promise.reject(new Error('disk full')) : settings.update(change)),
+        update: async (change) => {
+          await saveGate;
+          if (savesFail) throw new Error('disk full');
+          return settings.update(change);
+        },
       },
       events,
     }),
@@ -651,6 +658,29 @@ describe('approvals (spec 012)', () => {
     expect(await service.respond('0000000000000001', id, 'deny')).toBe('already_answered');
     expect(await service.respond('0000000000000001', 'no-such-call', 'deny')).toBe('not_found');
     expect(await service.respond('ffffffffffffffff', id, 'deny')).toBe('not_found');
+  });
+
+  it('AC-13: an Always allow still saving counts first; a Deny from another tab changes nothing', async () => {
+    let saved: () => void = () => undefined;
+    const saveGate = new Promise<void>((resolve) => {
+      saved = resolve;
+    });
+    const { service, records, settings } = await setUp({
+      mode: 'edit_and_run_allowed',
+      saveGate,
+      script: [{ tool: 'Bash', input: { command: 'npm run lint' } }, { finish: 'Linted.' }],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    const id = approval?.id ?? '';
+
+    const always = service.respond('0000000000000001', id, 'always_allow');
+    expect(await service.respond('0000000000000001', id, 'deny')).toBe('already_answered');
+    saved();
+    expect(await always).toBe('answered');
+
+    expect((await settings.read()).agent).toMatchObject({ allowedCommands: ['npm run lint'] });
+    expect((await settled(records)).approvalLog[0]).toMatchObject({ answer: 'always_allow', by: 'you' });
   });
 
   it('AC-10: calls asked together wait in the order asked, and the session is Needs you until both are answered', async () => {

@@ -201,6 +201,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   const stepTimers = new Map<string, { timer: NodeJS.Timeout; again: boolean }>();
   /** Your answers on their way to Claude, by approval id, so the log says what you answered. */
   const given = new Map<string, ApprovalDecision>();
+  /** The calls an answer has been taken for, so a second answer, from another tab, is late. */
+  const claimed = new Set<string>();
 
   /** `session.changed` at once, then at most once every `stepEventMs` while steps keep coming. */
   function stepsChanged(id: string) {
@@ -618,16 +620,19 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         return record.approvalLog.some((entry) => entry.id === approvalId) ? 'already_answered' : 'not_found';
       }
       const run = runs.get(id);
-      if (run?.agentId == null || adapter === null || given.has(approvalId)) return 'already_answered';
-      if (decision === 'always_allow') {
-        if (waiting.kind !== 'command' || waiting.alwaysAllow === null) return 'not_offered';
+      if (run?.agentId == null || adapter === null || claimed.has(approvalId)) return 'already_answered';
+      const entry = waiting.kind === 'command' ? waiting.alwaysAllow : null;
+      if (decision === 'always_allow' && entry === null) return 'not_offered';
+      // The first answer counts (AC-13): from here, before anything waits, any other answer to this call is late.
+      claimed.add(approvalId);
+      if (decision === 'always_allow' && entry !== null) {
         // The entry is saved first: if it can't be, nothing is decided and the call keeps waiting (AC-14).
         try {
-          await options.preferences.change({ allowCommand: waiting.alwaysAllow });
+          await options.preferences.change({ allowCommand: entry });
         } catch {
+          claimed.delete(approvalId);
           return 'not_saved';
         }
-        if (given.has(approvalId)) return 'already_answered';
       }
       given.set(approvalId, decision);
       const answered = await adapter.respond(
