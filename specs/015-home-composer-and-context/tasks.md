@@ -23,7 +23,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Let the GitHub client read a pull request's diff: `pullDiff()` through REST with the diff media type, and a 406 answered as `too_large` with GraphQL's file counts (AC-20, Q4)
       Check: pnpm test packages/core/src/integrations/github/client.test.ts
       Files: packages/core/src/integrations/github/client.ts, packages/core/src/integrations/github/client.test.ts, packages/core/src/test/fake-github.ts
-- [ ] Task 8: Read every chip at once: `context-reader.ts` takes the Jira and GitHub credentials, reads each chip, and gives the brief's chips in the order they came, or the first chip that failed with `not_connected`, `not_found`, `unreachable` or `other`. Files pass through unread (AC-20, AC-21)
+- [x] Task 8: Read every chip at once: `context-reader.ts` takes the Jira and GitHub credentials, reads each chip, and gives the brief's chips in the order they came, or the first chip that failed with `not_connected`, `not_found`, `unreachable` or `other`. Files pass through unread (AC-20, AC-21)
       Check: pnpm test packages/core/src/sessions/context-reader.test.ts
       Files: packages/core/src/sessions/context-reader.ts, packages/core/src/sessions/context-reader.test.ts
 - [ ] Task 9: Answer a composer start that can't happen, making nothing: a live session on the ticket (`existing`), signed out, three working, Q7's folder (`choose_folder`, `no_folder`), then a chip that failed (`context_failed`). No record, branch, worktree or event comes of any of them (AC-21, AC-22, AC-23)
