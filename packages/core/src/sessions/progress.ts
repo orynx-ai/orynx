@@ -97,10 +97,21 @@ function adding(files: readonly string[], file: string | null): string[] {
 
 /**
  * A follow-up starts Claude again (spec 013, Q3a): after Review the stepper goes back to Build, the one time it
- * moves backwards. From there it moves on as before.
+ * moves backwards, and so it does once the pull request is open (spec 014, AC-19). From there it moves on as before.
  */
 export function resumeProgress(progress: Progress): Progress {
-  return progress.step === 'review' ? { ...progress, step: 'build' } : progress;
+  return progress.step === 'review' || progress.step === 'pull_request' ? { ...progress, step: 'build' } : progress;
+}
+
+/**
+ * Orynx opened the pull request, or pushed changes to it, on your press (spec 014): a finished step of its own, and
+ * the stepper at Pull request, the last of the five.
+ */
+export function addPullRequestStep(
+  progress: Progress,
+  step: Extract<NewStep, { kind: 'pull_request' | 'pushed' }>,
+): Progress {
+  return { ...addStep(progress, step), step: 'pull_request' };
 }
 
 export function addWork(progress: Progress, work: ClaudeWork): Progress {

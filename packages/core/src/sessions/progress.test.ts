@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addPullRequestStep,
   addStep,
   addWaiting,
   addWork,
@@ -7,6 +8,7 @@ import {
   endProgress,
   removeWaiting,
   replaceStep,
+  resumeProgress,
   type ClaudeWork,
   type Progress,
 } from './progress.ts';
@@ -264,5 +266,49 @@ describe('commands and approvals (spec 012)', () => {
         last === null ? ['edit'] : ['edit', last.kind],
       );
     }
+  });
+});
+
+describe('the pull request (spec 014)', () => {
+  const url = 'https://github.com/acme/web-app/pull/2841';
+  const finished = fold([
+    { kind: 'edit', file: 'src/a.ts' },
+    { kind: 'finished', summary: 'Done.' },
+  ]);
+  const reviewed = { ...finished, step: 'review' as const };
+
+  it('AC-4: opening the pull request is a finished step, and moves the stepper to Pull request', () => {
+    const opened = addPullRequestStep(reviewed, {
+      kind: 'pull_request',
+      number: 2841,
+      url,
+      files: 4,
+      branch: 'feat/PROJ-1423',
+      linked: false,
+    });
+    expect(opened.step).toBe('pull_request');
+    expect(opened.activities.at(-1)).toEqual({
+      id: 'step-3',
+      state: 'done',
+      kind: 'pull_request',
+      number: 2841,
+      url,
+      files: 4,
+      branch: 'feat/PROJ-1423',
+      linked: false,
+    });
+  });
+
+  it('AC-17: pushing changes after a follow-up moves the stepper back up to Pull request', () => {
+    const building = { ...reviewed, step: 'build' as const };
+    const pushed = addPullRequestStep(building, { kind: 'pushed', number: 2841, url, files: 2 });
+    expect(pushed.step).toBe('pull_request');
+    expect(pushed.activities.at(-1)).toMatchObject({ kind: 'pushed', state: 'done', files: 2 });
+  });
+
+  it('AC-19: a follow-up once the pull request is open moves the stepper back to Build, as after Review', () => {
+    expect(resumeProgress({ ...reviewed, step: 'pull_request' }).step).toBe('build');
+    expect(resumeProgress(reviewed).step).toBe('build');
+    expect(resumeProgress({ ...reviewed, step: 'test' }).step).toBe('test');
   });
 });
