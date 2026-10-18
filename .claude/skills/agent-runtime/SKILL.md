@@ -17,7 +17,7 @@ A session is one piece of work Claude does for the user: one task, one repo, one
 3. **Always ask, whatever the mode:** commands that touch the network, delete outside the worktree, or push to git.
 4. **The PR is always the user's click.** DevHub pushes the branch and opens the PR only after Create pull request. Claude never pushes or opens a PR by itself.
 5. **The brief is exactly the chips.** What goes to Claude is the composer text plus every context chip (ticket, PR diff, Slack thread, files). Slack data goes only when the user added that thread.
-6. **Credentials.** The Claude login is handled by the Claude Agent SDK. DevHub never sees or stores it. Any command Claude runs as `node` (tests, scripts) can read DevHub's "DevHub" keychain items without a macOS prompt, so the runtime must keep Claude's commands away from them, and never pass DevHub's own environment to the SDK. Decide how in spec 010 (`learn/tokens-and-keychain.md`).
+6. **Credentials.** The Claude login is Claude Code's own. DevHub only checks it with `auth status --json` and never stores it (spec 010, `learn/checking-claude.md`). Claude Code gets only the allow-listed environment in `packages/core/src/agents/agent-environment.ts`, never DevHub's: start sessions with the same list. Any command Claude runs as `node` (tests, scripts) can read DevHub's "DevHub" keychain items without a macOS prompt, and any command can read `<DEVHUB_HOME>/runtime.json` and call `/api` with the session token (to approve its own request, say), so the runtime must keep Claude's commands away from both. Decide how in spec 011, where a session first runs (spec 010, Q1; `learn/tokens-and-keychain.md`). Also decide there, from spec 010's review: pass `AWS_*` only when `CLAUDE_CODE_USE_BEDROCK` is set and `GOOGLE_*` only when `CLAUDE_CODE_USE_VERTEX` is, so a session's commands don't inherit cloud credentials Claude isn't using; whether `CLAUDE_*` becomes an explicit list of Claude Code's documented settings; and whether gh and git get the short environment too.
 7. **Stop** works at any step. The worktree keeps the changes. Discard deletes the worktree and branch after a confirm step in the page (never a browser dialog).
 
 ## The adapter interface
@@ -35,7 +35,7 @@ export interface AgentAdapter {
 }
 ```
 
-The Claude implementation uses `@anthropic-ai/claude-agent-sdk` (planned, spec 010) and `simple-git` for worktrees (spec 011).
+The Claude implementation uses `@anthropic-ai/claude-agent-sdk` (decided in spec 010, pinned to one version; run the Claude Code it ships, found with `findSdkClaudeCode()`, never a `claude` on the PATH) and `simple-git` for worktrees (spec 011). Spec 010 added only the login check; the session methods come with spec 011.
 
 ## Session states
 

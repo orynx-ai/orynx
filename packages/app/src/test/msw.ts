@@ -45,6 +45,9 @@ export const server = setupServer(
   http.get(apiUrl(apiRoutes.tickets), () =>
     HttpResponse.json(makeTickets({ jira: { state: 'not_connected' }, sprint: null, tickets: [] })),
   ),
+  // Claude Code isn't signed in, as the default status says.
+  http.get(apiUrl(apiRoutes.claudeLogin), () => HttpResponse.json({ state: 'signed_out' })),
+  http.post(apiUrl(apiRoutes.claudeLoginCheck), () => HttpResponse.json({ state: 'signed_out' })),
   http.get(apiUrl(apiRoutes.search), () =>
     HttpResponse.json(
       makeSearchIndex({ tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } } }),

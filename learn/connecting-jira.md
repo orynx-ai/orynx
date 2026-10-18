@@ -46,7 +46,7 @@ The terminal gets one warn line per failed check with the problem, for example `
 
 - No site and email saved: **Not connected**, and the keychain is never read. A fresh DevHub, CI and the e2e run never touch it.
 - Saved: DevHub reads the token and asks Jira. "Personal API token for your-team.atlassian.net" (or "API token from .env for …") when Jira accepts. Otherwise the row says **Error** with the reason, such as "The saved API token is missing from your keychain. Connect again."
-- Jira is asked at most once every 2 minutes, and requests that arrive together share one check (`integrations/checked-status.ts`, which GitHub uses too). After the first check, status answers at once with the last result and re-checks behind it; if the answer changed, it publishes `status.changed`. Connect and Disconnect set the answer themselves, so nothing waits for Jira twice, and a check that was already running when either happened hands everyone waiting the newer answer.
+- Jira is asked at most once every 2 minutes, and requests that arrive together share one check (`integrations/checked-status.ts`, which GitHub and Claude's login check use too; it compares answers by value). After the first check, status answers at once with the last result and re-checks behind it; if the answer changed, it publishes `status.changed`. Connect and Disconnect set the answer themselves, so nothing waits for Jira twice, and a check that was already running when either happened hands everyone waiting the newer answer.
 
 ## Your projects, for Settings › Repositories
 

@@ -2,6 +2,7 @@
  * Test data builders. Each returns a value that passes its schema, so tests on both
  * sides of the wire use the same shapes. These are data, not mocks of our code.
  */
+import { ClaudeSignedInSchema, type ClaudeSignedIn } from './claude.ts';
 import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
@@ -34,6 +35,17 @@ export function makeStatus(overrides: StatusOverrides = {}): Status {
     user: { name: null, ...overrides.user },
     agent: { id: 'claude', connected: false, ...overrides.agent },
     integrations: { jira: notConnected, github: notConnected, slack: notConnected, ...overrides.integrations },
+  });
+}
+
+/** Claude Code signed in with a claude.ai company login, unless the override says otherwise. */
+export function makeClaudeSignedIn(overrides: Partial<Omit<ClaudeSignedIn, 'state'>> = {}): ClaudeSignedIn {
+  return ClaudeSignedInSchema.parse({
+    state: 'signed_in',
+    method: 'claude_ai',
+    email: 'you@company.com',
+    organisation: 'Company',
+    ...overrides,
   });
 }
 

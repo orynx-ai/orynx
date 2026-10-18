@@ -1,5 +1,8 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+import { apiRoutes } from '@devhub/contracts';
+import { apiUrl, server } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
 
 describe('SettingsScreen', () => {
@@ -56,6 +59,43 @@ describe('SettingsScreen', () => {
   it('falls back to Connections for an unknown tab', async () => {
     await renderApp({ route: '/settings/nope' });
     expect(await screen.findByRole('tab', { name: 'Connections' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('AC-13: arrow keys reach Coding agent and its address, Tab reaches Check again, and Enter and Space press it', async () => {
+    let checks = 0;
+    server.use(
+      http.post(apiUrl(apiRoutes.claudeLoginCheck), () => {
+        checks += 1;
+        return HttpResponse.json({ state: 'signed_out' });
+      }),
+    );
+    const { user, history } = await renderApp({ route: '/settings/connections' });
+    const connections = await screen.findByRole('tab', { name: 'Connections' });
+    connections.focus();
+
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: 'Coding agent' })).toHaveFocus();
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/settings/coding-agent');
+    });
+    const check = await screen.findByRole('button', { name: 'Check again' });
+
+    await user.tab();
+    expect(screen.getByRole('tabpanel', { name: 'Coding agent' })).toHaveFocus();
+    await user.tab();
+    expect(check).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(checks).toBe(1);
+    });
+    await waitFor(() => {
+      expect(check).toHaveAccessibleName('Check again');
+    });
+    await user.keyboard(' ');
+    await waitFor(() => {
+      expect(checks).toBe(2);
+    });
   });
 
   it('AC-18: arrow keys move between the tabs, and Tab leaves the list', async () => {

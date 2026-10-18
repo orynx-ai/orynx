@@ -16,6 +16,8 @@ export const apiPaths = {
   inboxRefresh: '/inbox/refresh',
   inboxCache: '/inbox/cache',
   tickets: '/tickets',
+  claudeLogin: '/claude/login',
+  claudeLoginCheck: '/claude/login/check',
   search: '/search',
 } as const;
 
@@ -36,6 +38,8 @@ export const apiRoutes = {
   inboxRefresh: `${apiPrefix}${apiPaths.inboxRefresh}`,
   inboxCache: `${apiPrefix}${apiPaths.inboxCache}`,
   tickets: `${apiPrefix}${apiPaths.tickets}`,
+  claudeLogin: `${apiPrefix}${apiPaths.claudeLogin}`,
+  claudeLoginCheck: `${apiPrefix}${apiPaths.claudeLoginCheck}`,
   search: `${apiPrefix}${apiPaths.search}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 

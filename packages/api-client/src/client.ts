@@ -2,6 +2,7 @@ import axios, { type AxiosInstance } from 'axios';
 import {
   tokenHeader,
   type AddRepositoryRequest,
+  type ClaudeLogin,
   type GitHubConnection,
   type GitHubConnectionRequest,
   type Inbox,
@@ -20,6 +21,7 @@ import {
   type Status,
   type Tickets,
 } from '@devhub/contracts';
+import { getClaudeLogin, postClaudeLoginCheck } from './endpoints/claude.ts';
 import { deleteGitHubConnection, getGitHubConnection, putGitHubConnection } from './endpoints/github.ts';
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
 import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnection } from './endpoints/jira.ts';
@@ -77,6 +79,10 @@ export interface ApiClient {
   clearInboxCache(): Promise<void>;
   /** Tickets' sprint and its tickets, from the server's cache (spec 008). It syncs with the inbox. */
   tickets(): Promise<Tickets>;
+  /** Claude Code's login on this computer, as the server last checked it (spec 010). */
+  claudeLogin(): Promise<ClaudeLogin>;
+  /** Check again: the server asks Claude Code now, or shares a check that's running. */
+  checkClaudeLogin(): Promise<ClaudeLogin>;
   /** Everything ⌘K search can find, from the server's cache and sessions (spec 009). */
   search(): Promise<SearchIndex>;
   /** Opens the live event stream; returns a function that closes it. */
@@ -126,6 +132,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     refreshInbox: () => postInboxRefresh(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     tickets: () => getTickets(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    claudeLogin: () => getClaudeLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    checkClaudeLogin: () =>
+      postClaudeLoginCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     search: () => getSearch(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     subscribe: (onEvent, onError) =>
       subscribeToEvents({

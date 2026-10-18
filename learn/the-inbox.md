@@ -69,7 +69,7 @@ Waits read in minutes, hours and days ("12 min", "3 h", "9 d"), with a spoken fo
 
 ## When it syncs
 
-`inbox-schedule.ts` runs only when the host passes `autoSync: true` (`apps/server` does): once at start, every 2 minutes while a page has the event stream open (the event bus counts pages apart from the hub's own listeners), and at once when `status.changed` shows a tool newly connected. It compares the saved connections one change at a time, in order. A tool that disconnects loses its rows from the cache, and any sync also forgets rows a disconnected tool left behind.
+`inbox-schedule.ts` runs only when the host passes `autoSync: true` (`apps/server` does): once at start, every 2 minutes while a page has the event stream open (the event bus counts pages apart from the hub's own listeners), and at once when `status.changed` shows a tool newly connected. Claude's login check (spec 010) publishes `status.changed` too, but changes no saved connection, so it starts no sync; the page only reads the cache again. It compares the saved connections one change at a time, in order. A tool that disconnects loses its rows from the cache, and any sync also forgets rows a disconnected tool left behind.
 
 With `autoSync` left off, only Refresh (`POST /api/inbox/refresh`, which answers when the sync has ended) and Clear cache (`DELETE /api/inbox/cache`) sync, so no test reaches Jira or GitHub by surprise.
 

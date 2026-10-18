@@ -1,6 +1,7 @@
 import type { PermissionMode } from '@devhub/contracts';
-import { ChoiceCard, ChoiceGroup } from '@devhub/ui';
+import { Card, ChoiceCard, ChoiceGroup } from '@devhub/ui';
 import { useChangePreferences, usePreferences } from '../queries.ts';
+import { ClaudeCard } from './claude-card.tsx';
 import { SaveError } from './save-error.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
 
@@ -25,8 +26,8 @@ const modes: readonly { value: PermissionMode; title: string; detail: string }[]
 ];
 
 /**
- * Settings › Coding agent: what Claude may do without asking. Saved as you pick; used once sessions run
- * (specs 011 and 012). The Claude card above the modes comes with spec 010 (spec 005, Q1).
+ * Settings › Coding agent: whether Claude is ready (spec 010), then what Claude may do without asking.
+ * The modes are saved as you pick, and used once sessions run (specs 011 and 012).
  */
 export function CodingAgentPanel() {
   const preferences = usePreferences();
@@ -37,36 +38,50 @@ export function CodingAgentPanel() {
   const picked = preferences.data?.permissionMode;
 
   return (
-    <div className="flex flex-col gap-2">
-      <ChoiceGroup
-        legend="What Claude can do without asking"
-        help={
-          // Two lines, as the spec words them (Q8b).
-          <>
-            <span className="block">
-              Commands that reach the network, delete outside the session&apos;s folder or push to git always ask,
-              whatever you pick.
-            </span>{' '}
-            <span className="block">Claude never pushes code or opens a pull request by itself.</span>
-          </>
-        }
-      >
-        {modes.map((mode) => (
-          <ChoiceCard
-            key={mode.value}
-            name="permission-mode"
-            value={mode.value}
-            title={mode.title}
-            detail={mode.detail}
-            checked={picked === mode.value}
-            disabled={picked === undefined}
-            onChange={() => {
-              change.mutate({ permissionMode: mode.value });
-            }}
-          />
-        ))}
-      </ChoiceGroup>
-      {change.isError ? <SaveError /> : null}
+    <div className="flex flex-col gap-5">
+      {/* Side by side once the tab is 512 px wide (the design's two 260 px columns, near enough), stacked
+          below that. The row stretches both cards to the taller one. */}
+      <div className="@container">
+        <div className="grid gap-3 @lg:grid-cols-2">
+          <ClaudeCard />
+          <Card title="More agents" look="placeholder">
+            <p className="m-0 text-small text-muted-foreground">
+              Coming later. Each agent plugs in through one small adapter.
+            </p>
+          </Card>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        <ChoiceGroup
+          legend="What Claude can do without asking"
+          help={
+            // Two lines, as the spec words them (Q8b).
+            <>
+              <span className="block">
+                Commands that reach the network, delete outside the session&apos;s folder or push to git always ask,
+                whatever you pick.
+              </span>{' '}
+              <span className="block">Claude never pushes code or opens a pull request by itself.</span>
+            </>
+          }
+        >
+          {modes.map((mode) => (
+            <ChoiceCard
+              key={mode.value}
+              name="permission-mode"
+              value={mode.value}
+              title={mode.title}
+              detail={mode.detail}
+              checked={picked === mode.value}
+              disabled={picked === undefined}
+              onChange={() => {
+                change.mutate({ permissionMode: mode.value });
+              }}
+            />
+          ))}
+        </ChoiceGroup>
+        {change.isError ? <SaveError /> : null}
+      </div>
     </div>
   );
 }

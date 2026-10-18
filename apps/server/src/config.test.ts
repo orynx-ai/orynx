@@ -18,7 +18,29 @@ describe('loadConfig', () => {
       keychain: 'os',
       tokens: { fromEnv: false, env: {}, ignored: [] },
       ghSearchPath: '',
+      claudeCode: null,
+      agentEnvironment: {},
     });
+  });
+
+  it('AC-12: runs the Claude Code a shell names with DEVHUB_CLAUDE_CODE, never one written in .env (Q10)', () => {
+    expect(loadConfig({ env: { DEVHUB_CLAUDE_CODE: '/tmp/fake-claude/claude' } }).claudeCode).toBe(
+      '/tmp/fake-claude/claude',
+    );
+    expect(loadConfig({ env: {}, envFile: 'DEVHUB_CLAUDE_CODE=/tmp/elsewhere/claude\n' }).claudeCode).toBeNull();
+    expect(loadConfig({ env: { DEVHUB_CLAUDE_CODE: '' } }).claudeCode).toBeNull();
+  });
+
+  it('AC-12: stops on a DEVHUB_CLAUDE_CODE that is not an absolute path, and names it', () => {
+    expect(() => loadConfig({ env: { DEVHUB_CLAUDE_CODE: 'claude' } })).toThrow(/DEVHUB_CLAUDE_CODE/);
+  });
+
+  it("AC-10: gives Claude Code only the allowed part of the shell's environment, never DevHub's settings", () => {
+    const config = loadConfig({
+      env: { HOME: '/Users/you', PATH: '/usr/bin', DEVHUB_GITHUB_TOKEN: githubToken, DEVHUB_PORT: '4400' },
+      envFile: 'ANTHROPIC_API_KEY=from-the-env-file\n',
+    });
+    expect(config.agentEnvironment).toEqual({ HOME: '/Users/you', PATH: '/usr/bin' });
   });
 
   it("AC-2: looks for gh on the shell's PATH, never on a PATH written in .env", () => {

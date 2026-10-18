@@ -1,5 +1,6 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
+  claudeLoginQueryOptions,
   githubConnectionQueryOptions,
   jiraConnectionQueryOptions,
   jiraProjectsQueryOptions,
@@ -11,6 +12,7 @@ import {
 } from '@devhub/api-client';
 import { InboxRuleIdSchema } from '@devhub/contracts';
 import type {
+  ClaudeLogin,
   GitHubConnection,
   GitHubConnectionRequest,
   JiraConnection,
@@ -28,6 +30,27 @@ import { useApi } from '../../api.tsx';
 export function useStatus() {
   const api = useApi();
   return useQuery(statusQueryOptions(api));
+}
+
+/** Claude Code's login, as the server last checked it (spec 010). Kept fresh by `status.changed`. */
+export function useClaudeLogin() {
+  const api = useApi();
+  return useQuery(claudeLoginQueryOptions(api));
+}
+
+/** Check again: the server asks Claude Code now, and the card shows what it found. */
+export function useCheckClaudeLogin() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<ClaudeLogin, ApiRequestError>({
+    mutationKey: queryKeys.claudeLogin,
+    mutationFn: () => api.checkClaudeLogin(),
+    onSuccess: async (login) => {
+      // The answer is the new login, so the card shows it at once; the footer's status line refetches.
+      queryClient.setQueryData(queryKeys.claudeLogin, login);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    },
+  });
 }
 
 /** The saved Jira site and email, and whether `.env` holds a Jira token. */

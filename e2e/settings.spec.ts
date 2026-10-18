@@ -142,8 +142,17 @@ for (const tab of ['coding-agent', 'repositories', 'inbox-rules'] as const) {
     // No live updates on this page: the other run's folders coming and going would move rows that this
     // test isn't about. It measures only the change from loading to loaded.
     await page.route('**/api/events**', (route) => route.abort());
+    // The Claude card's skeleton holds the Active card's place; Not signed in and Error grow it once,
+    // which spec 010 accepts (Q9). This hub's Claude is never signed in, so the card gets the usual answer.
+    await page.route('**/api/claude/login', (route) =>
+      route.fulfill({
+        json: { state: 'signed_in', method: 'claude_ai', email: 'you@company.com', organisation: 'Company' },
+      }),
+    );
     await page.goto(`/settings/${tab}`);
     await waitForTab(page, tab);
+    if (tab === 'coding-agent')
+      await expect(page.getByRole('group', { name: 'Claude' }).getByText('Active')).toBeVisible();
 
     expect(await layoutShiftScore(page)).toBe(0);
     expect(await horizontalOverflow(page)).toBe(0);

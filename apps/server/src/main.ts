@@ -3,11 +3,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   cacheFilePath,
+  claudeWorkFolder,
+  createClaudeCode,
   createFileSettingsStore,
   createGhCli,
   createMemoryKeychain,
   createOsKeychain,
   createServer,
+  findSdkClaudeCode,
   openInboxCache,
   settingsFilePath,
 } from '@devhub/core';
@@ -52,6 +55,13 @@ const app = await createServer({
   envTokens: config.tokens.env,
   // gh from the PATH of the terminal that started DevHub. The e2e run puts a fake one first.
   gh: createGhCli({ searchPath: config.ghSearchPath }),
+  // The Claude Code inside the Agent SDK, with only the allowed part of the shell's environment (spec 010).
+  // The e2e run names a fake with DEVHUB_CLAUDE_CODE.
+  claudeCode: createClaudeCode({
+    program: config.claudeCode ?? findSdkClaudeCode(),
+    env: config.agentEnvironment,
+    workFolder: claudeWorkFolder(config.home),
+  }),
   // Settings › Repositories never adds DevHub's own folder (spec 005).
   dataDir: config.home,
   settings: createFileSettingsStore(config.home, {
@@ -69,6 +79,9 @@ const app = await createServer({
 });
 
 for (const notice of cacheNotices) app.log.warn(notice);
+if (config.claudeCode !== null) {
+  app.log.warn(`DEVHUB_CLAUDE_CODE is set: Orynx checks the Claude login with ${config.claudeCode}.`);
+}
 
 if (serveWebApp) {
   await serveWeb(app, { distDir: join(here, '..', '..', 'web', 'dist'), token });

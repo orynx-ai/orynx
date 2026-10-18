@@ -14,6 +14,7 @@ export const queryKeys = {
   repositories: ['repositories'] as const,
   inbox: ['inbox'] as const,
   tickets: ['tickets'] as const,
+  claudeLogin: ['claude', 'login'] as const,
   search: ['search'] as const,
 };
 
@@ -98,6 +99,15 @@ export function ticketsQueryOptions(api: ApiClient) {
     queryFn: () => api.tickets(),
     // Freshness comes from the event stream (inbox.changed when a sync ends, status.changed, sessions.changed),
     // not from polling: the sprint syncs with the inbox every 2 minutes while a page is open.
+    staleTime: Infinity,
+  });
+}
+
+export function claudeLoginQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.claudeLogin,
+    queryFn: () => api.claudeLogin(),
+    // Freshness comes from the event stream (status.changed when the server's check finds a change).
     staleTime: Infinity,
   });
 }

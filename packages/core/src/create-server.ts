@@ -1,8 +1,10 @@
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { apiPrefix, tokenQueryParam, type ApiError } from '@devhub/contracts';
+import { createClaudeCode, type ClaudeCode } from './agents/claude/claude-code.ts';
+import { createClaudeLogin } from './agents/claude/claude-login.ts';
 import { createEventBus, type EventBus } from './events/event-bus.ts';
 import { ConnectionError } from './integrations/connection-error.ts';
 import { createGitHubClient } from './integrations/github/client.ts';
@@ -16,6 +18,7 @@ import { createInboxService } from './inbox/inbox-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
+import { claudeRoutes } from './routes/claude.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
 import { inboxRoutes } from './routes/inbox.ts';
@@ -63,6 +66,11 @@ export interface CoreOptions {
    * fake gh. Left out, gh is never found, so no test can start the real one (spec 004, AC-20).
    */
   gh?: GhCli;
+  /**
+   * Claude Code, for its login check (spec 010). Hosts pass the one in the Claude Agent SDK; tests pass a
+   * fake. Left out, no program is found, so no test can start the real one (AC-12).
+   */
+  claudeCode?: ClaudeCode;
   /** The person's home folder, which Settings › Repositories shows as `~`. The OS's by default. */
   userHome?: string;
   /** DEVHUB_HOME, which Settings › Repositories never adds. `~/.devhub` by default. */
@@ -186,6 +194,15 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       app.log.error(error, "GitHub's status line failed");
     },
   });
+  const claude = createClaudeLogin({
+    // No program, so the folder is never made and nothing runs.
+    claudeCode: options.claudeCode ?? createClaudeCode({ program: null, env: {}, workFolder: tmpdir() }),
+    events,
+    // Which of the four it was, and the exit code: never the output, the email or the organisation (AC-6).
+    onProblem: (problem) => {
+      app.log.warn({ claude: problem }, "Claude Code's login check failed");
+    },
+  });
   const sessions = options.sessions ?? createMemorySessionStore();
   const preferences = createPreferencesService({ settings, events });
   const cache = options.cache ?? openInboxCache(':memory:');
@@ -241,6 +258,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     userName: options.userName ?? readGitUserName,
     jira: () => jira.status(),
     github: () => github.status(),
+    claude: () => claude.connected(),
   });
 
   await app.register(
@@ -275,6 +293,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(sessionsRoutes, { sessions });
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
+      await api.register(claudeRoutes, { claude });
       await api.register(preferencesRoutes, { preferences });
       await api.register(inboxRoutes, { inbox });
       await api.register(ticketsRoutes, { tickets });
