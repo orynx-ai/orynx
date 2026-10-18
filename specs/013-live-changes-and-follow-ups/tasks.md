@@ -57,8 +57,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: Teach the e2e fake Claude Code: `--resume` plays a follow-up script that edits a second file and finishes, an unknown id exits before `init`, a message that arrives mid-run is folded in and reported consumed, and a "(slow)" ticket keeps working long enough to send one (AC-25)
       Check: pnpm test:e2e e2e/sessions.spec.ts e2e/approvals.spec.ts (still pass)
       Files: e2e/fake-claude/session.ts, learn/sessions-and-worktrees.md
-- [ ] Task 19: Add `sendMessage`, `sessionChanges` and `sessionDiff` to the api-client with their query options (keys under the sessions key, `staleTime: 0`), and map `session.files.changed` to that session's changes keys only (AC-2, AC-18)
-      Check: pnpm test packages/api-client; pnpm test packages/app/src/live-updates.test.tsx
+- [x] Task 19: Add `sendMessage`, `sessionChanges` and `sessionDiff` to the api-client with their query options (keys under the sessions key, `staleTime: 0`), and map `session.files.changed` to that session's changes keys only (AC-2, AC-18)
+      Check: pnpm test packages/api-client; the event's refetch is proven through the Changes tab in task 23, the first screen that reads changes
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/sessions.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/app/src/live-updates.tsx, packages/app/src/live-updates.test.tsx
 - [ ] Task 20: Give `FileList` a `maxRows` option that scrolls inside its box past that many rows, with a story and a test (Q6c)
       Check: pnpm test packages/ui/src/components/file-list.test.tsx; pnpm storybook (no axe violations)

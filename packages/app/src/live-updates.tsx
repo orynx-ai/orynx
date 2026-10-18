@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys, sessionQueryKey } from '@devhub/api-client';
+import { queryKeys, sessionChangesQueryKey, sessionQueryKey } from '@devhub/api-client';
 import type { ServerEvent } from '@devhub/contracts';
 import { useApi } from './api.tsx';
 
@@ -29,8 +29,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // One session's steps changed: only its Session screen refetches (spec 011, AC-4).
       return [sessionQueryKey(event.sessionId)];
     case 'session.files.changed':
-      // Nothing reads a session's changes until the Changes tab asks for them (spec 013, task 19).
-      return [];
+      // An edit or a command ended: that session's Changes tab, list and diff, reads again (spec 013, AC-2).
+      return [sessionChangesQueryKey(event.sessionId)];
     case 'settings.changed':
       // The inbox rules apply when the server reads the list (spec 007).
       return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];

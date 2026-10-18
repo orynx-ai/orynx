@@ -2,8 +2,17 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { apiRoutes, tokenHeader } from '@devhub/contracts';
-import { makeSession, makeSessionList } from '@devhub/contracts/testing';
-import { ApiRequestError, createApiClient, queryKeys, sessionQueryOptions, sessionsQueryOptions } from './index.ts';
+import { makeFileDiff, makeSession, makeSessionChanges, makeSessionList } from '@devhub/contracts/testing';
+import {
+  ApiRequestError,
+  createApiClient,
+  queryKeys,
+  sessionChangesQueryOptions,
+  sessionDiffQueryOptions,
+  sessionQueryKey,
+  sessionQueryOptions,
+  sessionsQueryOptions,
+} from './index.ts';
 
 const baseURL = 'http://127.0.0.1:4317';
 const sessionsUrl = `${baseURL}${apiRoutes.sessions}`;
@@ -211,5 +220,96 @@ describe('sessionQueryOptions', () => {
     );
     await createApiClient({ baseURL, token: 't' }).sessions({ limit: 5, recent: true });
     expect(recent).toBe('true');
+  });
+});
+
+const at = (route: string, id: string) => `${baseURL}${route.replace(':id', id)}`;
+
+describe('createApiClient().sendMessage() (spec 013)', () => {
+  it('AC-11: sends your text with the token, and answers sent', async () => {
+    let body: unknown = null;
+    let token: string | null = null;
+    server.use(
+      http.post(at(apiRoutes.sessionMessages, '0123456789abcdef'), async ({ request }) => {
+        token = request.headers.get(tokenHeader);
+        body = await request.json();
+        return HttpResponse.json({ result: 'sent' });
+      }),
+    );
+    const answer = await createApiClient({ baseURL, token: 'abc' }).sendMessage('0123456789abcdef', 'Use the hook');
+    expect(answer).toEqual({ result: 'sent' });
+    expect(body).toEqual({ text: 'Use the hook' });
+    expect(token).toBe('abc');
+  });
+
+  it("AC-14, AC-15: answers why a follow-up can't go", async () => {
+    server.use(
+      http.post(at(apiRoutes.sessionMessages, '0123456789abcdef'), () =>
+        HttpResponse.json({ result: 'cannot_send', reason: 'too_many' }),
+      ),
+    );
+    expect(await createApiClient({ baseURL, token: 'abc' }).sendMessage('0123456789abcdef', 'More')).toEqual({
+      result: 'cannot_send',
+      reason: 'too_many',
+    });
+  });
+});
+
+describe('createApiClient().sessionChanges() and sessionDiff() (spec 013)', () => {
+  it('AC-2: reads the changes, parsed by the contract', async () => {
+    server.use(
+      http.get(at(apiRoutes.sessionChanges, '0123456789abcdef'), () => HttpResponse.json(makeSessionChanges())),
+    );
+    expect(await createApiClient({ baseURL, token: 'abc' }).sessionChanges('0123456789abcdef')).toEqual(
+      makeSessionChanges(),
+    );
+  });
+
+  it('rejects changes that break the contract', async () => {
+    server.use(http.get(at(apiRoutes.sessionChanges, '0123456789abcdef'), () => HttpResponse.json({ state: 'lost' })));
+    await expect(createApiClient({ baseURL, token: 'abc' }).sessionChanges('0123456789abcdef')).rejects.toThrow();
+  });
+
+  it('AC-3: asks for one file’s diff by its path, sent safely in the query', async () => {
+    let path: string | null = null;
+    server.use(
+      http.get(at(apiRoutes.sessionChangesDiff, '0123456789abcdef'), ({ request }) => {
+        path = new URL(request.url).searchParams.get('path');
+        return HttpResponse.json(makeFileDiff());
+      }),
+    );
+    const diff = await createApiClient({ baseURL, token: 'abc' }).sessionDiff('0123456789abcdef', 'src/a & b?.ts');
+    expect(path).toBe('src/a & b?.ts');
+    expect(diff).toEqual(makeFileDiff());
+  });
+
+  it('AC-24: rejects with not_found for a path that isn’t among the changes', async () => {
+    server.use(
+      http.get(at(apiRoutes.sessionChangesDiff, '0123456789abcdef'), () =>
+        HttpResponse.json({ code: 'not_found', message: 'No.' }, { status: 404 }),
+      ),
+    );
+    await expect(
+      createApiClient({ baseURL, token: 'abc' }).sessionDiff('0123456789abcdef', '../x'),
+    ).rejects.toMatchObject({ code: 'not_found' });
+  });
+});
+
+describe('the changes’ query options (spec 013)', () => {
+  const api = createApiClient({ baseURL, token: 'abc' });
+
+  it('AC-2: keys the changes under the sessions key, apart from the session itself, with each diff under them', () => {
+    const changes = sessionChangesQueryOptions(api, '0123456789abcdef').queryKey;
+    const diff = sessionDiffQueryOptions(api, '0123456789abcdef', 'src/a.ts').queryKey;
+    expect(changes.slice(0, queryKeys.sessions.length)).toEqual([...queryKeys.sessions]);
+    expect(changes.slice(0, sessionQueryKey('0123456789abcdef').length)).not.toEqual([
+      ...sessionQueryKey('0123456789abcdef'),
+    ]);
+    expect(diff.slice(0, changes.length)).toEqual([...changes]);
+  });
+
+  it('AC-2: refetches whenever asked, so coming back to the window shows edits made outside Orynx', () => {
+    expect(sessionChangesQueryOptions(api, '0123456789abcdef').staleTime).toBe(0);
+    expect(sessionDiffQueryOptions(api, '0123456789abcdef', 'src/a.ts').staleTime).toBe(0);
   });
 });

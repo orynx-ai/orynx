@@ -17,7 +17,10 @@ import {
   type SearchIndex,
   type ServerEvent,
   type ApprovalDecision,
+  type FileDiff,
+  type SendMessageAnswer,
   type Session,
+  type SessionChanges,
   type SessionList,
   type SessionListQuery,
   type StartSessionAnswer,
@@ -33,11 +36,14 @@ import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
 import { deleteRepository, getRepositories, postRepository } from './endpoints/repositories.ts';
 import { getSearch } from './endpoints/search.ts';
 import {
+  getFileDiff,
   getSession,
+  getSessionChanges,
   getSessions,
   postApproval,
   postSession,
   postSessionDiscard,
+  postSessionMessage,
   postSessionStop,
 } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
@@ -72,6 +78,12 @@ export interface ApiClient {
    * first, and settings_unsaved when Always allow couldn't save the list.
    */
   respondToApproval(id: string, approvalId: string, decision: ApprovalDecision): Promise<void>;
+  /** A follow-up (spec 013): answers sent, or why it can't go. */
+  sendMessage(id: string, text: string): Promise<SendMessageAnswer>;
+  /** What changed in the session's worktree (spec 013). */
+  sessionChanges(id: string): Promise<SessionChanges>;
+  /** One changed file's diff; rejects with not_found for a path that isn't among the changes. */
+  sessionDiff(id: string, path: string): Promise<FileDiff>;
   /** The saved Jira site and email, and whether `.env` holds a Jira token. */
   jiraConnection(): Promise<JiraConnection>;
   /** Checks with Jira, then saves; rejects with integration_rejected, integration_unreachable or keychain_unavailable. */
@@ -139,6 +151,12 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       postSessionDiscard(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     respondToApproval: (id, approvalId, decision) =>
       postApproval(http, id, approvalId, decision).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    sendMessage: (id, text) =>
+      postSessionMessage(http, id, text).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    sessionChanges: (id) =>
+      getSessionChanges(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    sessionDiff: (id, path) =>
+      getFileDiff(http, id, path).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     jiraConnection: () => getJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     connectJira: (request) =>
       putJiraConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
