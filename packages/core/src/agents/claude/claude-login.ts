@@ -1,7 +1,7 @@
 import type { ClaudeLogin } from '@devhub/contracts';
 import type { EventBus } from '../../events/event-bus.ts';
 import { createCheckedStatus } from '../../integrations/checked-status.ts';
-import type { ClaudeCode, ClaudeCodeProblem } from './claude-code.ts';
+import type { ClaudeCode, ClaudeCodeAnswer, ClaudeCodeProblem } from './claude-code.ts';
 
 /**
  * Claude Code's login, which DevHub only checks (spec 010): there is nothing to connect or save. Asked
@@ -33,7 +33,10 @@ export function createClaudeLogin(options: ClaudeLoginOptions): ClaudeLoginServi
     // One login per computer, so one key.
     keyOf: () => 'claude',
     check: async () => {
-      const answer = await options.claudeCode.authStatus();
+      // A check that throws anyway is a failed one: the status line must still answer (AC-6).
+      const answer = await options.claudeCode
+        .authStatus()
+        .catch((): ClaudeCodeAnswer => ({ ok: false, problem: { kind: 'failed', exitCode: null } }));
       if (answer.ok) return answer.login;
       options.onProblem?.(answer.problem);
       return error;

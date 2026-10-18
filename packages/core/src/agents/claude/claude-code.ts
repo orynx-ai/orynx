@@ -111,42 +111,48 @@ export function createClaudeCode({ program, env, workFolder, timeoutMs = 10_000 
       const fail = (problem: ClaudeCodeProblem) => {
         resolve({ ok: false, problem });
       };
-      execFile(
-        path,
-        ['auth', 'status', '--json'],
-        {
-          env: programEnv,
-          // Not DevHub's folder or a repository's: Claude Code reads the .claude settings where it runs.
-          cwd: workFolder,
-          // SIGKILL, so a program stuck on a prompt can't keep the check waiting. An answer is under 1 KB.
-          timeout: timeoutMs,
-          killSignal: 'SIGKILL',
-          windowsHide: true,
-          maxBuffer: 64 * 1024,
-          encoding: 'utf8',
-        },
-        (error, stdout) => {
-          if (error === null) {
-            const login = readAuthStatus(stdout, 0);
-            if (login === null) fail({ kind: 'unreadable' });
-            else resolve({ ok: true, login });
-          } else if (error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
-            fail({ kind: 'unreadable' });
-          } else if (error.killed && error.signal === 'SIGKILL') {
-            fail({ kind: 'timeout' });
-          } else if (error.code === 'ENOENT' || error.code === 'EACCES') {
-            // The program went away, or stopped being runnable, after find() looked.
-            fail({ kind: 'missing' });
-          } else if (typeof error.code === 'number') {
-            // Signed out is exit 1 with the JSON; any other exit, or exit 1 without it, failed.
-            const login = readAuthStatus(stdout, error.code);
-            if (login === null) fail({ kind: 'failed', exitCode: error.code });
-            else resolve({ ok: true, login });
-          } else {
-            fail({ kind: 'failed', exitCode: null });
-          }
-        },
-      );
+      try {
+        execFile(
+          path,
+          ['auth', 'status', '--json'],
+          {
+            env: programEnv,
+            // Not DevHub's folder or a repository's: Claude Code reads the .claude settings where it runs.
+            cwd: workFolder,
+            // SIGKILL, so a program stuck on a prompt can't keep the check waiting. An answer is under 1 KB.
+            timeout: timeoutMs,
+            killSignal: 'SIGKILL',
+            windowsHide: true,
+            maxBuffer: 64 * 1024,
+            encoding: 'utf8',
+          },
+          (error, stdout) => {
+            if (error === null) {
+              const login = readAuthStatus(stdout, 0);
+              if (login === null) fail({ kind: 'unreadable' });
+              else resolve({ ok: true, login });
+            } else if (error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
+              fail({ kind: 'unreadable' });
+            } else if (error.killed && error.signal === 'SIGKILL') {
+              fail({ kind: 'timeout' });
+            } else if (error.code === 'ENOENT' || error.code === 'EACCES') {
+              // The program went away, or stopped being runnable, after find() looked.
+              fail({ kind: 'missing' });
+            } else if (typeof error.code === 'number') {
+              // Signed out is exit 1 with the JSON; any other exit, or exit 1 without it, failed.
+              const login = readAuthStatus(stdout, error.code);
+              if (login === null) fail({ kind: 'failed', exitCode: error.code });
+              else resolve({ ok: true, login });
+            } else {
+              fail({ kind: 'failed', exitCode: null });
+            }
+          },
+        );
+      } catch {
+        // Some files can't be started at all, such as one with no #! line or a build for another
+        // processor (ENOEXEC, EBADARCH): execFile throws those at once instead of calling back.
+        fail({ kind: 'missing' });
+      }
     });
   }
 

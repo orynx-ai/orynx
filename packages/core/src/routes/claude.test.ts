@@ -1,3 +1,5 @@
+import { chmod, mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { apiRoutes, ClaudeLoginSchema, StatusSchema, tokenHeader, type ServerEvent } from '@devhub/contracts';
@@ -104,6 +106,30 @@ describe.skipIf(process.platform === 'win32')('Claude login routes', () => {
     expect(seen).toEqual([{ type: 'status.changed' }]);
     expect((await readStatus(app)).agent.connected).toBe(true);
     expect(await folder.runs()).toHaveLength(2);
+  });
+
+  it("AC-6: a Claude Code the system can't start leaves the status line answering, with Claude not connected", async () => {
+    const folder = await fakeClaudeFolder();
+    const notAProgram = join(folder.workFolder, '..', 'not-a-program');
+    await mkdir(join(folder.workFolder, '..'), { recursive: true });
+    await writeFile(notAProgram, 'this is not a program\n');
+    await chmod(notAProgram, 0o755);
+    app = await createServer({
+      token,
+      port,
+      version: '1.2.3',
+      userName: () => Promise.resolve(null),
+      claudeCode: createClaudeCode({
+        program: notAProgram,
+        env: { PATH: '/usr/bin:/bin' },
+        workFolder: folder.workFolder,
+      }),
+    });
+
+    const status = await readStatus(app);
+    expect(status.agent.connected).toBe(false);
+    expect(status.integrations.jira.state).toBe('not_connected');
+    expect(await readLogin(app)).toEqual({ state: 'error' });
   });
 
   it('AC-12: a hub built with no program says Claude is not connected and starts nothing', async () => {

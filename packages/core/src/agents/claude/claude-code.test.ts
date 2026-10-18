@@ -139,6 +139,17 @@ describe.skipIf(process.platform === 'win32')('Claude Code runner', () => {
     expect(await folder.runs()).toEqual([]);
   });
 
+  it("AC-6: a runnable file the system can't start, such as one with no #! line, is missing, not a thrown error", async () => {
+    const folder = await fakeClaudeFolder();
+    const notAProgram = join(folder.program, '..', 'not-a-program');
+    await writeFile(notAProgram, 'this is not a program\n');
+    await chmod(notAProgram, 0o755);
+
+    expect(
+      await createClaudeCode({ program: notAProgram, env: shell, workFolder: folder.workFolder }).authStatus(),
+    ).toEqual({ ok: false, problem: { kind: 'missing' } });
+  });
+
   it('AC-6: a program that crashes is failed, with its exit code', async () => {
     const folder = await fakeClaudeFolder();
     await folder.install({ kind: 'crashes', exitCode: 3, stderr: 'Segmentation fault' });
