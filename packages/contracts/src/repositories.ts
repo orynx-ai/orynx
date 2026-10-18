@@ -44,3 +44,10 @@ export const AddRepositoryRequestSchema = z.object({
   jiraProject: JiraProjectKeySchema.nullable(),
 });
 export type AddRepositoryRequest = z.input<typeof AddRepositoryRequestSchema>;
+
+/**
+ * PATCH /api/repositories/:id: the folder's path and Jira project as the Edit dialog holds them (spec 020).
+ * The server checks the path as it checks a new folder.
+ */
+export const UpdateRepositoryRequestSchema = AddRepositoryRequestSchema;
+export type UpdateRepositoryRequest = z.input<typeof UpdateRepositoryRequestSchema>;

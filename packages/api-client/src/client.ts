@@ -14,6 +14,7 @@ import {
   type Repository,
   type RepositoryId,
   type RepositoryList,
+  type UpdateRepositoryRequest,
   type SearchIndex,
   type ServerEvent,
   type ApprovalDecision,
@@ -33,7 +34,7 @@ import { deleteGitHubConnection, getGitHubConnection, putGitHubConnection } from
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
 import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnection } from './endpoints/jira.ts';
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
-import { deleteRepository, getRepositories, postRepository } from './endpoints/repositories.ts';
+import { deleteRepository, getRepositories, patchRepository, postRepository } from './endpoints/repositories.ts';
 import { getSearch } from './endpoints/search.ts';
 import {
   getFileDiff,
@@ -105,6 +106,8 @@ export interface ApiClient {
   /** Checks the folder on disk, then saves it; rejects with folder_rejected and the message for the Folder field. */
   addRepository(request: AddRepositoryRequest): Promise<Repository>;
   /** Forgets the folder; nothing on disk changes. */
+  /** Changes a folder's path or Jira project in place (spec 020); rejects with folder_rejected or not_found. */
+  editRepository(id: RepositoryId, request: UpdateRepositoryRequest): Promise<Repository>;
   removeRepository(id: RepositoryId): Promise<void>;
   /** Home's "Needs your attention" list, from the server's cache. */
   inbox(): Promise<Inbox>;
@@ -175,6 +178,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     repositories: () => getRepositories(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     addRepository: (request) =>
       postRepository(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    editRepository: (id, request) =>
+      patchRepository(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     removeRepository: (id) =>
       deleteRepository(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     inbox: () => getInbox(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

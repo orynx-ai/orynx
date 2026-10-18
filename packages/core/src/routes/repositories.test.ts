@@ -68,6 +68,7 @@ describe('/api/repositories', () => {
     for (const [method, url] of [
       ['GET', apiRoutes.repositories],
       ['POST', apiRoutes.repositories],
+      ['PATCH', folderUrl('0123456789abcdef')],
       ['DELETE', folderUrl('0123456789abcdef')],
     ] as const) {
       const res = await app.inject({ method, url, headers: { host: headers.host } });
@@ -153,6 +154,83 @@ describe('/api/repositories', () => {
     const { app } = await server();
     const list = await app.inject({ method: 'GET', url: apiRoutes.repositories, headers });
     expect(RepositoryListSchema.parse(list.json())).toEqual({ repositories: [] });
+  });
+
+  it('AC-20 (spec 020): PATCH edits the folder in place, saves settings.json and says settings changed', async () => {
+    const { app, seen } = await server();
+    const added = RepositorySchema.parse(
+      (
+        await app.inject({
+          method: 'POST',
+          url: apiRoutes.repositories,
+          headers,
+          payload: { path: '~/code/app', jiraProject: 'PROJ' },
+        })
+      ).json(),
+    );
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: folderUrl(added.id),
+      headers,
+      payload: { path: '~/code/app', jiraProject: 'WEB' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(RepositorySchema.parse(res.json())).toEqual({ ...added, jiraProject: 'WEB' });
+    expect(JSON.parse(await readFile(settingsFilePath(dataDir), 'utf8'))).toEqual({
+      repositories: [{ id: added.id, path: join(home, 'code', 'app'), jiraProject: 'WEB' }],
+    });
+    expect(seen.filter((event) => event.type === 'settings.changed')).toHaveLength(2);
+  });
+
+  it('AC-20 (spec 020): PATCH answers 422 folder_rejected as POST does, and 404 for a folder no longer listed', async () => {
+    const { app } = await server();
+    const added = RepositorySchema.parse(
+      (
+        await app.inject({
+          method: 'POST',
+          url: apiRoutes.repositories,
+          headers,
+          payload: { path: '~/code/app', jiraProject: null },
+        })
+      ).json(),
+    );
+
+    const refused = await app.inject({
+      method: 'PATCH',
+      url: folderUrl(added.id),
+      headers,
+      payload: { path: '~/plain', jiraProject: null },
+    });
+    expect(refused.statusCode).toBe(422);
+    expect(ApiErrorSchema.parse(refused.json()).code).toBe('folder_rejected');
+
+    const gone = await app.inject({
+      method: 'PATCH',
+      url: folderUrl('00000000000000aa'),
+      headers,
+      payload: { path: '~/code/app', jiraProject: null },
+    });
+    expect(gone.statusCode).toBe(404);
+    expect(ApiErrorSchema.parse(gone.json()).code).toBe('not_found');
+  });
+
+  it('AC-21 (spec 020, Q3): POST lists the same folder again for another project, and refuses it for the same one', async () => {
+    const { app } = await server();
+    const add = (jiraProject: string) =>
+      app.inject({
+        method: 'POST',
+        url: apiRoutes.repositories,
+        headers,
+        payload: { path: '~/code/app', jiraProject },
+      });
+
+    expect((await add('PROJ')).statusCode).toBe(201);
+    expect((await add('WEB')).statusCode).toBe(201);
+    const twice = await add('WEB');
+    expect(twice.statusCode).toBe(422);
+    expect(ApiErrorSchema.parse(twice.json()).message).toBe('This folder is already in the list for WEB.');
   });
 
   it('DELETE refuses an id DevHub never makes with bad_request', async () => {

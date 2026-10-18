@@ -2,14 +2,16 @@ import type { FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
   AddRepositoryRequestSchema,
+  ApiErrorSchema,
   apiPaths,
   RepositoryIdSchema,
   RepositoryListSchema,
   RepositorySchema,
+  UpdateRepositoryRequestSchema,
 } from '@devhub/contracts';
 import type { RepositoryService } from '../repositories/repository-service.ts';
 
-/** Settings › Repositories (spec 005). A refused folder is a FolderRejectedError, which the /api error handler answers. */
+/** Settings › Repositories (spec 005; Edit from spec 020). A refused folder is a FolderRejectedError, which the /api error handler answers. */
 export const repositoriesRoutes: FastifyPluginCallbackZod<{ repositories: RepositoryService }> = (
   app,
   { repositories },
@@ -23,6 +25,21 @@ export const repositoriesRoutes: FastifyPluginCallbackZod<{ repositories: Reposi
     apiPaths.repositories,
     { schema: { body: AddRepositoryRequestSchema, response: { 201: RepositorySchema } } },
     async (request, reply) => reply.code(201).send(await repositories.add(request.body)),
+  );
+
+  app.patch(
+    apiPaths.repository,
+    {
+      schema: {
+        params: z.object({ id: RepositoryIdSchema }),
+        body: UpdateRepositoryRequestSchema,
+        response: { 200: RepositorySchema, 404: ApiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const edited = await repositories.update(request.params.id, request.body);
+      return edited ?? reply.code(404).send({ code: 'not_found', message: 'This folder is no longer in the list.' });
+    },
   );
 
   app.delete(
