@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Add the Push changes bodies: the draft answer (a message, `nothing_new` or `cannot`), `PushRequestSchema` (message trimmed to 1–256 characters), the answer (`pushed`, `nothing_new`, `cannot`, `failed`), and the paths (AC-17)
       Check: pnpm test packages/contracts/src/pull-requests.test.ts; pnpm typecheck
       Files: packages/contracts/src/pull-requests.ts, packages/contracts/src/pull-requests.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/testing.ts
-- [ ] Task 4: Read a GitHub repository from a remote's address, as a table: https, `git@github.com:`, `ssh://`, with and without `.git` or a trailing slash, any case in the host, a user name and password dropped. GitHub Enterprise, GitLab, an SSH host alias and a local path aren't on github.com (AC-2, AC-7)
+- [x] Task 4: Read a GitHub repository from a remote's address, as a table: https, `git@github.com:`, `ssh://`, with and without `.git` or a trailing slash, any case in the host, a user name and password dropped. GitHub Enterprise, GitLab, an SSH host alias and a local path aren't on github.com (AC-2, AC-7)
       Check: pnpm test packages/core/src/sessions/github-remote.test.ts
       Files: packages/core/src/sessions/github-remote.ts, packages/core/src/sessions/github-remote.test.ts
 - [ ] Task 5: Tell a secret-looking file by its name, as a table: `.env` and `.env.*` (not `.env.example`), `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, in any folder; `src/keys.ts` and `docs/env.md` aren't (AC-8, Q6)
