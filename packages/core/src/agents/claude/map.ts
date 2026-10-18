@@ -5,13 +5,17 @@ import type { ClaudeLogin } from '@devhub/contracts';
  * What `claude auth status --json` prints, as far as DevHub reads it. It isn't part of the SDK's typed
  * API (spec 010, Q2), so the SDK is pinned and every field is checked; the others are ignored.
  */
-const AuthStatusSchema = z.object({
-  loggedIn: z.boolean(),
-  authMethod: z.string(),
-  apiProvider: z.string(),
-  email: z.string().nullish(),
-  orgName: z.string().nullish(),
-});
+const AuthStatusSchema = z.discriminatedUnion('loggedIn', [
+  // Signed in must say how; signed out needs nothing else, so it reads even if a build leaves the rest out.
+  z.object({
+    loggedIn: z.literal(true),
+    authMethod: z.string(),
+    apiProvider: z.string(),
+    email: z.string().nullish(),
+    orgName: z.string().nullish(),
+  }),
+  z.object({ loggedIn: z.literal(false) }),
+]);
 
 function present(value: string | null | undefined): string | null {
   return value === undefined || value === null || value === '' ? null : value;

@@ -43,6 +43,15 @@ describe('readAuthStatus', () => {
     expect(read({ loggedIn: false, authMethod: 'none' }, 1)).toEqual({ state: 'signed_out' });
   });
 
+  it('AC-4: reads signed out from loggedIn alone, should a build leave the other fields out', () => {
+    expect(readAuthStatus('{"loggedIn":false}', 1)).toEqual({ state: 'signed_out' });
+  });
+
+  it('AC-6: a signed-in answer without its way of signing in is not read', () => {
+    expect(readAuthStatus('{"loggedIn":true,"apiProvider":"firstParty"}', 0)).toBeNull();
+    expect(readAuthStatus('{"loggedIn":true,"authMethod":"claude.ai"}', 0)).toBeNull();
+  });
+
   it('AC-6: an answer whose exit code disagrees with it is not read', () => {
     expect(read({ loggedIn: true }, 1)).toBeNull();
     expect(read({ loggedIn: false }, 0)).toBeNull();
