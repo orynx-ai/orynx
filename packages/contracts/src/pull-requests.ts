@@ -109,3 +109,57 @@ export const CreatePullRequestAnswerSchema = z.discriminatedUnion('result', [
 ]);
 export type CreatePullRequestAnswer = z.infer<typeof CreatePullRequestAnswerSchema>;
 export type CreatePullRequestProblem = Extract<CreatePullRequestAnswer, { result: 'failed' }>['problem'];
+
+/** A Push changes commit message holds at most this many characters, as a title does (Q7). */
+export const mostCommitMessageCharacters = mostPullRequestTitleCharacters;
+
+/**
+ * Why Orynx can't push changes now (Q7): there's no pull request yet, the folder has no `origin` or it isn't on
+ * github.com any more, the worktree is missing, Claude is working, or the changes were discarded.
+ */
+export const CannotPushReasonSchema = z.enum([
+  'no_pull_request',
+  'no_origin',
+  'not_github',
+  'missing',
+  'working',
+  'discarded',
+]);
+export type CannotPushReason = z.infer<typeof CannotPushReasonSchema>;
+
+/** What the Push changes dialog shows: Claude's commit message to edit, and what will happen. */
+export const DraftedPushSchema = z.object({
+  result: z.literal('draft'),
+  message: z.string().min(1).max(mostCommitMessageCharacters),
+  /** False when Claude couldn't answer, so the message is the pull request's title. */
+  byClaude: z.boolean(),
+  /** How many uncommitted files Orynx commits; 0 when Claude committed them. */
+  files: z.int().nonnegative(),
+  branch: z.string().min(1),
+  /** The pull request the push updates. */
+  number: z.int().positive(),
+});
+export type DraftedPush = z.infer<typeof DraftedPushSchema>;
+
+/** POST /api/sessions/:id/push/draft: a commit message, nothing new to push, or why Orynx can't push. */
+export const PushDraftAnswerSchema = z.discriminatedUnion('result', [
+  DraftedPushSchema,
+  z.object({ result: z.literal('nothing_new') }),
+  z.object({ result: z.literal('cannot'), reason: CannotPushReasonSchema }),
+]);
+export type PushDraftAnswer = z.infer<typeof PushDraftAnswerSchema>;
+
+/** POST /api/sessions/:id/push: the commit message as you left it. */
+export const PushRequestSchema = z.object({
+  message: z.string().trim().min(1).max(mostCommitMessageCharacters),
+});
+export type PushRequest = z.infer<typeof PushRequestSchema>;
+
+/** The answer to POST /api/sessions/:id/push. It never asks GitHub, so its only problems are git's. */
+export const PushAnswerSchema = z.discriminatedUnion('result', [
+  z.object({ result: z.literal('pushed'), files: z.int().nonnegative() }),
+  z.object({ result: z.literal('nothing_new') }),
+  z.object({ result: z.literal('cannot'), reason: CannotPushReasonSchema }),
+  z.object({ result: z.literal('failed'), problem: GitProblemSchema }),
+]);
+export type PushAnswer = z.infer<typeof PushAnswerSchema>;

@@ -6,8 +6,11 @@ import {
   mostPullRequestBodyCharacters,
   mostPullRequestTitleCharacters,
   PullRequestDraftAnswerSchema,
+  PushAnswerSchema,
+  PushDraftAnswerSchema,
+  PushRequestSchema,
 } from './index.ts';
-import { makePullRequestDraft } from './testing.ts';
+import { makePullRequestDraft, makePushDraft } from './testing.ts';
 
 describe('the draft (spec 014)', () => {
   it('AC-2: carries the title, the description and what will happen', () => {
@@ -119,5 +122,53 @@ describe('creating the pull request (spec 014)', () => {
   it('has its paths under the session', () => {
     expect(apiRoutes.sessionPullRequestDraft).toBe('/api/sessions/:id/pull-request/draft');
     expect(apiRoutes.sessionPullRequest).toBe('/api/sessions/:id/pull-request');
+  });
+});
+
+describe('pushing changes to the pull request (spec 014, Q7)', () => {
+  it("AC-17: drafts a commit message with what will happen, or says there's nothing new", () => {
+    const draft = makePushDraft();
+    expect(PushDraftAnswerSchema.parse(draft)).toEqual({
+      result: 'draft',
+      message: 'Use the existing useSelection hook in the content list',
+      byClaude: true,
+      files: 2,
+      branch: 'feat/PROJ-1423',
+      number: 2841,
+    });
+    expect(PushDraftAnswerSchema.parse({ result: 'nothing_new' })).toEqual({ result: 'nothing_new' });
+  });
+
+  it("AC-17: says why it can't push", () => {
+    for (const reason of ['no_pull_request', 'no_origin', 'not_github', 'missing', 'working', 'discarded'] as const) {
+      expect(PushDraftAnswerSchema.parse({ result: 'cannot', reason })).toEqual({ result: 'cannot', reason });
+    }
+  });
+
+  it('AC-17: takes the commit message, trimmed, from 1 to 256 characters', () => {
+    expect(PushRequestSchema.parse({ message: '  Use the existing hook ' })).toEqual({
+      message: 'Use the existing hook',
+    });
+    expect(PushRequestSchema.safeParse({ message: ' ' }).success).toBe(false);
+    expect(PushRequestSchema.safeParse({ message: 'x'.repeat(257) }).success).toBe(false);
+  });
+
+  it('AC-17: answers pushed with the files committed, nothing new, cannot, or a git problem', () => {
+    for (const answer of [
+      { result: 'pushed', files: 2 },
+      { result: 'nothing_new' },
+      { result: 'cannot', reason: 'no_pull_request' },
+      { result: 'failed', problem: { kind: 'push_rejected' } },
+      { result: 'failed', problem: { kind: 'secret', path: 'config/id_rsa' } },
+    ] as const) {
+      expect(PushAnswerSchema.parse(answer)).toEqual(answer);
+    }
+    // Push changes never asks GitHub, so it has no GitHub problem.
+    expect(PushAnswerSchema.safeParse({ result: 'failed', problem: { kind: 'github_forbidden' } }).success).toBe(false);
+  });
+
+  it('has its paths under the session', () => {
+    expect(apiRoutes.sessionPushDraft).toBe('/api/sessions/:id/push/draft');
+    expect(apiRoutes.sessionPush).toBe('/api/sessions/:id/push');
   });
 });

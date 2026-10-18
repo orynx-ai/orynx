@@ -15,7 +15,13 @@ import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
 import { defaultPreferences, PreferencesSchema, type InboxRules, type Preferences } from './preferences.ts';
-import { DraftedPullRequestSchema, type DraftedPullRequest, type PullRequestDraft } from './pull-requests.ts';
+import {
+  DraftedPullRequestSchema,
+  DraftedPushSchema,
+  type DraftedPullRequest,
+  type DraftedPush,
+  type PullRequestDraft,
+} from './pull-requests.ts';
 import { RepositorySchema, type Repository } from './repositories.ts';
 import {
   SearchIndexSchema,
@@ -154,6 +160,19 @@ export function makePullRequestDraft(overrides: Partial<PullRequestDraft> = {}):
     branch: 'feat/PROJ-1423',
     repository: 'acme/web-app',
     base: 'main',
+    ...overrides,
+  });
+}
+
+/** Claude's commit message for changes after review (spec 014, Q7): 2 files to commit, to pull request 2841. */
+export function makePushDraft(overrides: Partial<Omit<DraftedPush, 'result'>> = {}): DraftedPush {
+  return DraftedPushSchema.parse({
+    result: 'draft',
+    message: 'Use the existing useSelection hook in the content list',
+    byClaude: true,
+    files: 2,
+    branch: 'feat/PROJ-1423',
+    number: 2841,
     ...overrides,
   });
 }
