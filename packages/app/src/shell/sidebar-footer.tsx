@@ -19,7 +19,7 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
   const { text, dot } = status.isPending
     ? { text: 'Checking…', dot: 'text-muted-foreground' }
     : status.isError
-      ? { text: 'DevHub server not reachable', dot: 'text-danger' }
+      ? { text: 'Orynx server not reachable', dot: 'text-danger' }
       : status.data.agent.connected
         ? { text: 'Claude connected · runs locally', dot: 'text-success' }
         : { text: 'Claude not connected · runs locally', dot: 'text-muted-foreground' };

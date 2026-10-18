@@ -107,7 +107,7 @@ describe('RepositoriesPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't save that change. Check that DevHub is still running, then try again.",
+      "Couldn't save that change. Check that Orynx is still running, then try again.",
     );
     expect(screen.getByText('~/code/intranet-web')).toBeVisible();
     await waitFor(() => {
@@ -219,7 +219,7 @@ describe('RepositoriesPanel', () => {
     );
     await renderApp({ route: '/settings/repositories' });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the DevHub server');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the Orynx server');
   });
 
   it('AC-17: shows a folder another tab added', async () => {

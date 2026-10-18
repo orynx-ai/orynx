@@ -66,7 +66,7 @@ The inbox's sync asks `connection.credentials()` for a token: gh's for the gh wa
 
 ## Keeping the token in its place
 
-- `client.ts` hands octokit the token and names `https://api.github.com` itself, and octokit sends `Authorization: token …`. Redirects are refused, so the header can't follow one to another host. No octokit error leaves `client.ts`, and octokit's own logger is silenced, so it never writes a request to the terminal.
+- `client.ts` hands octokit the token and names `https://api.github.com` itself, and octokit sends `Authorization: token …`. Redirects are refused, so the header can't follow one to another host. No octokit error leaves `client.ts`, and octokit's own logger is silenced, so it never writes a request to the terminal. Every request names itself `Orynx` (the user agent), and the "Create a token" link names the new token Orynx too.
 - `gh.ts` is the only file that sees gh's output. A failure keeps only the exit code.
 - `settings.json` gets only `{ "github": { "method": … } }` from GitHub. Each save changes its own key and keeps the rest as written: Jira's site and email, and Settings' own values (spec 005), even ones this version can't read.
 - The Fastify logger's `authorization` redaction is the second guard, as for Jira.

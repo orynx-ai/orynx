@@ -39,6 +39,6 @@ export const Info: Story = {
     tone: 'info',
     icon: <Lock aria-hidden />,
     title: 'Everything stays on this computer',
-    children: <span>Tokens live in your OS keychain. DevHub talks only to Jira, GitHub, Slack and Claude.</span>,
+    children: <span>Tokens live in your OS keychain. Orynx talks only to Jira, GitHub, Slack and Claude.</span>,
   },
 };

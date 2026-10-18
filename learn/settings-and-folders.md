@@ -51,7 +51,7 @@ The Inbox rules tab ends with Clear cache (spec 002 Q3, spec 007 Q7): a line on 
 2. `realpath` resolves `~`, `..` and symlinks. Nothing there, a file in the middle of the path, a symlink loop or a name too long for the disk: "Nothing is at this path."
 3. A file: "This is a file. Pick its folder."
 4. Inside DevHub's own folder, where the session worktrees live: refused. This compares the folders' identities on disk (device and inode) up the path, not their spelling: macOS reaches every folder under `/private` also through `/System/Volumes/Data/…`, and `realpath` keeps whichever spelling it was given.
-5. Can't read it: "DevHub can't read this folder."
+5. Can't read it: "Orynx can't read this folder."
 6. Holds `.git` (a folder in a clone, a file in a worktree): accepted, saved as the real path.
 7. Otherwise DevHub walks up the parents. A `.git` above means "inside the repository at ~/code/x", which names the folder to add instead. No `.git` anywhere means "not a git repository".
 

@@ -47,7 +47,7 @@ describe('Sidebar footer', () => {
     server.use(http.get(apiUrl(apiRoutes.status), () => HttpResponse.error()));
     await renderApp();
 
-    expect(await within(mainNav()).findByText('DevHub server not reachable')).toBeVisible();
+    expect(await within(mainNav()).findByText('Orynx server not reachable')).toBeVisible();
   });
 
   it('AC-16: is not a current page on Settings, where the Settings place is', async () => {

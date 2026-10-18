@@ -78,7 +78,7 @@ describe('InboxRulesPanel', () => {
     await user.click(review);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't save that change. Check that DevHub is still running, then try again.",
+      "Couldn't save that change. Check that Orynx is still running, then try again.",
     );
     expect(review).toBeChecked();
     expect(review).toHaveFocus();
@@ -132,7 +132,7 @@ describe('InboxRulesPanel', () => {
     );
     await renderApp({ route: '/settings/inbox-rules' });
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the DevHub server');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the Orynx server');
   });
 
   it('AC-19: Tab reaches each rule and Space flips it', async () => {
@@ -160,13 +160,11 @@ describe('InboxRulesPanel', () => {
     const { user } = await openTab();
 
     expect(
-      screen.getByText(
-        'DevHub keeps a copy of your tickets and pull requests on this computer, so Home opens at once.',
-      ),
+      screen.getByText('Orynx keeps a copy of your tickets and pull requests on this computer, so Home opens at once.'),
     ).toBeVisible();
     const clear = screen.getByRole('button', { name: 'Clear cache' });
     expect(clear).toHaveAccessibleDescription(
-      'DevHub keeps a copy of your tickets and pull requests on this computer, so Home opens at once.',
+      'Orynx keeps a copy of your tickets and pull requests on this computer, so Home opens at once.',
     );
     await user.click(clear);
 
@@ -190,7 +188,7 @@ describe('InboxRulesPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Clear cache' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      "Couldn't clear the cache. Check that DevHub is still running, then try again.",
+      "Couldn't clear the cache. Check that Orynx is still running, then try again.",
     );
   });
 });

@@ -31,7 +31,7 @@ export function SettingsScreen() {
 
         <Callout tone="info" icon={<Lock aria-hidden />} title="Everything stays on this computer">
           <span>
-            Tokens live in your OS keychain and the cache is a local file. DevHub talks only to Jira, GitHub, Slack and
+            Tokens live in your OS keychain and the cache is a local file. Orynx talks only to Jira, GitHub, Slack and
             Claude.
           </span>
         </Callout>

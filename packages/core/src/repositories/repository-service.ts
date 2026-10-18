@@ -60,13 +60,13 @@ function describe(problem: FolderProblem, home: string): string {
     case 'file':
       return 'This is a file. Pick its folder.';
     case 'unreadable':
-      return "DevHub can't read this folder.";
+      return "Orynx can't read this folder.";
     case 'not_repository':
       return "This folder isn't a git repository. Claude works on a branch, so it needs one.";
     case 'inside_repository':
       return `This folder is inside the repository at ${displayPath(problem.top, home)}. Add that folder instead.`;
     case 'inside_devhub':
-      return "This folder is inside DevHub's own folder.";
+      return "This folder is inside Orynx's own folder.";
   }
 }
 
@@ -108,7 +108,7 @@ export function createRepositoryService(options: RepositoryServiceOptions): Repo
         }
         // Only the folders this version can show count, so the limit never asks to remove one nobody sees.
         if (readable(written).length >= maxRepositories) {
-          throw new FolderRejectedError(`DevHub holds at most ${String(maxRepositories)} folders. Remove one first.`);
+          throw new FolderRejectedError(`Orynx holds at most ${String(maxRepositories)} folders. Remove one first.`);
         }
         return { ...current, repositories: [...written, folder] };
       });

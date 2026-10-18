@@ -79,7 +79,7 @@ describe('ConnectionsPanel', () => {
     await renderApp({ route: '/settings/connections' });
 
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Could not reach the DevHub server');
+    expect(alert).toHaveTextContent('Could not reach the Orynx server');
   });
 
   it('opens one connection form at a time, so the page never has two primary buttons', async () => {

@@ -107,7 +107,7 @@ describe('token store', () => {
 });
 
 describe("token store when the keychain can't be reached", () => {
-  const message = "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
+  const message = "Orynx can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
 
   it('AC-6: reading, saving and deleting fail with keychain_unavailable and publish nothing', async () => {
     const { store, seen } = setup({ keychain: createUnreachableKeychain() });

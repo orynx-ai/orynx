@@ -15,7 +15,7 @@ function clock(at: number): string {
 export function describeGitHubProblem(problem: GitHubConnectProblem, method: GitHubMethod): string {
   switch (problem.kind) {
     case 'gh_missing':
-      return "DevHub can't find the gh command. Install it from cli.github.com, or use a personal access token.";
+      return "Orynx can't find the gh command. Install it from cli.github.com, or use a personal access token.";
     case 'gh_signed_out':
       return "gh isn't signed in to github.com. Run gh auth login in a terminal, then try again.";
     case 'gh_failed':

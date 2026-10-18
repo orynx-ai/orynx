@@ -109,7 +109,7 @@ describe('local-only security', () => {
     expect(res.statusCode).toBe(401);
     expect(ApiErrorSchema.parse(res.json())).toEqual({
       code: 'unauthorized',
-      message: 'DevHub restarted or this page is out of date. Reload the page.',
+      message: 'Orynx restarted or this page is out of date. Reload the page.',
     });
   });
 

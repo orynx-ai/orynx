@@ -116,8 +116,8 @@ describe('GitHub connection row', () => {
   });
 
   it.each([
-    ['gh', 'DevHub stops using your gh login. gh stays signed in.'],
-    ['token', 'DevHub deletes the token from your keychain.'],
+    ['gh', 'Orynx stops using your gh login. gh stays signed in.'],
+    ['token', 'Orynx deletes the token from your keychain.'],
   ] as const)('AC-13: Disconnect from the %s way asks first, and Cancel changes nothing', async (method, line) => {
     const { user, form, sent } = await openManage(method);
 
@@ -148,7 +148,7 @@ describe('GitHub connection row', () => {
   });
 
   it("AC-13: says why when Disconnect can't reach the keychain, and keeps the form", async () => {
-    const message = "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
+    const message = "Orynx can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
     const { user, form } = await openManage('token');
     server.use(
       http.delete(apiUrl(apiRoutes.githubConnection), () =>

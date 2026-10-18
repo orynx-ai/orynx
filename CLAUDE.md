@@ -1,6 +1,6 @@
 # DevHub — agent handbook
 
-DevHub is a local web app plus a small local server, both on the developer's laptop. It shows the Jira, GitHub and Slack work that needs you, and runs Claude on a ticket in a separate git worktree while you watch and approve. Read these before building anything:
+DevHub is a local web app plus a small local server, both on the developer's laptop. It shows the Jira, GitHub and Slack work that needs you, and runs Claude on a ticket in a separate git worktree while you watch and approve. People know it as **Orynx**: every word the user sees (screens, errors, terminal lines, the page title) says Orynx. DevHub stays the code name inside the repo: `@devhub/*` packages, `DEVHUB_*` settings, `~/.devhub` and the keychain item. Read these before building anything:
 
 - Product: `docs/product/spec.md` (what and why) · `docs/product/roadmap.md` (build order)
 - Design: `docs/design/design-system.md` (tokens, components, a11y) · `docs/design/screens/*.html|png` (the 4 screens) · `.claude/skills/clean-ui/SKILL.md` (layout, type scale, states, copy)

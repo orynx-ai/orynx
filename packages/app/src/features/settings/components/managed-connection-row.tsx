@@ -86,7 +86,7 @@ export function ManagedConnectionRow({
     >
       {open && loadFailed ? (
         <p role="alert" className="m-0 text-small text-danger sm:ps-14">
-          Could not reach the DevHub server. Check that DevHub is still running in your terminal, then reload the page.
+          Could not reach the Orynx server. Check that Orynx is still running in your terminal, then reload the page.
         </p>
       ) : null}
       {open && form ? <div className="sm:ps-14">{form({ id: formId, close, announce })}</div> : null}

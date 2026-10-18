@@ -161,7 +161,7 @@ describe('AddFolderForm', () => {
     await user.click(within(form).getByRole('button', { name: 'Add folder' }));
 
     expect(await within(form).findByRole('alert')).toHaveTextContent(
-      'Could not reach the DevHub server on this computer.',
+      'Could not reach the Orynx server on this computer.',
     );
   });
 

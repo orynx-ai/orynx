@@ -163,7 +163,7 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
             Disconnect Jira?
           </span>
           <span id={confirmLineId} className="text-small text-muted-foreground">
-            DevHub deletes the API token from your keychain and forgets the site and email.
+            Orynx deletes the API token from your keychain and forgets the site and email.
           </span>
           <div className="flex flex-wrap items-center gap-2 pt-2">
             <Button

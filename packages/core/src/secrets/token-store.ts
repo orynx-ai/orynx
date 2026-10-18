@@ -48,7 +48,7 @@ const validToken = new RegExp(`^\\S{1,${String(MAX_TOKEN_LENGTH)}}$`);
 
 /** Spec 002, Q4(d). Spec 003 shows it where a token is saved. */
 export const keychainUnavailableMessage =
-  "DevHub can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
+  "Orynx can't reach your OS keychain. Unlock it, or turn on the .env fallback (see .env.example).";
 
 /**
  * Runs a keychain call, turning any failure into `keychain_unavailable`. Only the keychain error's

@@ -102,7 +102,7 @@ describe('Jira connection endpoints', () => {
     });
   });
 
-  it("says the DevHub server can't be reached when a disconnect gets no answer", async () => {
+  it("says the Orynx server can't be reached when a disconnect gets no answer", async () => {
     server.use(http.delete(connectionUrl, () => HttpResponse.error()));
 
     expect(await api.disconnectJira().catch((e: unknown) => e)).toMatchObject({ code: 'network' });

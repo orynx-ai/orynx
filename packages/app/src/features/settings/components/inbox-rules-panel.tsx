@@ -55,7 +55,7 @@ export function InboxRulesPanel() {
       {/* Clear cache (spec 002 Q3, spec 007 Q7): only cache.db, never tokens, settings, sessions or worktrees. */}
       <div className="mt-4 flex flex-col items-start gap-2">
         <p id={cacheLineId} className="m-0 text-small text-muted-foreground">
-          DevHub keeps a copy of your tickets and pull requests on this computer, so Home opens at once.
+          Orynx keeps a copy of your tickets and pull requests on this computer, so Home opens at once.
         </p>
         <Button
           variant="secondary"
@@ -70,7 +70,7 @@ export function InboxRulesPanel() {
         </Button>
         {clear.isError ? (
           <p role="alert" className="m-0 text-small text-danger">
-            Couldn&apos;t clear the cache. Check that DevHub is still running, then try again.
+            Couldn&apos;t clear the cache. Check that Orynx is still running, then try again.
           </p>
         ) : null}
         <p role="status" className="sr-only">

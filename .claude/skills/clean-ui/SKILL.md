@@ -87,6 +87,7 @@ Every route is `PageBar` → optional `Toolbar` → `PageBody` from `packages/ap
 
 These rules are for new copy. Copy that a screen design or the spec gives word for word stays as given (the Home greeting "What should we build today?"); if it breaks a rule, raise it with a person instead of rewriting it.
 
+- The product is **Orynx** in every word the user sees, including errors and terminal lines. DevHub is only the code name for packages, settings and folders.
 - Sentence case everywhere. Speak to "you"; the product never says "we" or "I".
 - No "Please", "Sorry", "Oops", no exclamation marks. A full sentence ends with a period; a label does not.
 - Errors: "Couldn't load sessions" + **Try again** (never "Retry", "Something went wrong" or "[X] failed").

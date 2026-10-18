@@ -33,7 +33,7 @@ describe('loadConfig', () => {
 
   it('AC-18: stops on a keychain that is not os or memory, and names it', () => {
     expect(() => loadConfig({ env: { DEVHUB_KEYCHAIN: 'file' } })).toThrow(
-      /DevHub settings are not valid[\s\S]*DEVHUB_KEYCHAIN/,
+      /Orynx settings are not valid[\s\S]*DEVHUB_KEYCHAIN/,
     );
   });
 
@@ -61,7 +61,7 @@ describe('loadConfig', () => {
 
   it('AC-13: stops on a switch that is not true or false, and names it', () => {
     expect(() => loadConfig({ env: {}, envFile: 'DEVHUB_TOKENS_FROM_ENV=maybe\n' })).toThrow(
-      /DevHub settings are not valid[\s\S]*DEVHUB_TOKENS_FROM_ENV/,
+      /Orynx settings are not valid[\s\S]*DEVHUB_TOKENS_FROM_ENV/,
     );
   });
 

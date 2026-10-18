@@ -7,7 +7,7 @@ describe('SaveError', () => {
     render(<SaveError />);
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      "Couldn't save that change. Check that DevHub is still running, then try again.",
+      "Couldn't save that change. Check that Orynx is still running, then try again.",
     );
   });
 });

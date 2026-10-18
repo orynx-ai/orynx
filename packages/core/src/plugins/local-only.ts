@@ -40,7 +40,7 @@ export function registerLocalOnly(app: FastifyInstance, options: LocalOnlyOption
     if (!allowedHosts().has(request.headers.host ?? '')) {
       const body: ApiError = {
         code: 'forbidden_host',
-        message: 'DevHub only answers on 127.0.0.1 or localhost.',
+        message: 'Orynx only answers on 127.0.0.1 or localhost.',
       };
       return reply.code(403).send(body);
     }
@@ -60,7 +60,7 @@ export function registerLocalOnly(app: FastifyInstance, options: LocalOnlyOption
     if (!tokenMatches(fromHeader ?? fromQuery)) {
       const body: ApiError = {
         code: 'unauthorized',
-        message: 'DevHub restarted or this page is out of date. Reload the page.',
+        message: 'Orynx restarted or this page is out of date. Reload the page.',
       };
       return reply.code(401).send(body);
     }

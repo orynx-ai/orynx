@@ -65,7 +65,7 @@ describe('createApiClient().status()', () => {
 
     await expect(createApiClient({ baseURL, token: 't' }).status()).rejects.toMatchObject({
       code: 'internal',
-      message: 'The DevHub server sent data this page does not understand. Reload the page.',
+      message: 'The Orynx server sent data this page does not understand. Reload the page.',
     });
   });
 
@@ -75,7 +75,7 @@ describe('createApiClient().status()', () => {
     await expect(createApiClient({ baseURL, token: 't' }).status()).rejects.toMatchObject({
       code: 'internal',
       status: 502,
-      message: 'The DevHub server answered 502.',
+      message: 'The Orynx server answered 502.',
     });
   });
 });

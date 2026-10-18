@@ -85,7 +85,7 @@ describe('GitHub connection endpoints', () => {
     expect(await api.connectGitHub({ method: 'gh' }).catch((e: unknown) => e)).toMatchObject({ code: 'internal' });
   });
 
-  it("says the DevHub server can't be reached when a disconnect gets no answer", async () => {
+  it("says the Orynx server can't be reached when a disconnect gets no answer", async () => {
     server.use(http.delete(connectionUrl, () => HttpResponse.error()));
 
     expect(await api.disconnectGitHub().catch((e: unknown) => e)).toMatchObject({ code: 'network' });

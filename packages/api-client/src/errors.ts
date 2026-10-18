@@ -19,20 +19,20 @@ export function toApiRequestError(error: unknown): ApiRequestError {
   if (error instanceof ApiRequestError) return error;
   if (isAxiosError(error)) {
     if (!error.response) {
-      return new ApiRequestError('network', 'Could not reach the DevHub server on this computer.', null);
+      return new ApiRequestError('network', 'Could not reach the Orynx server on this computer.', null);
     }
     const body = ApiErrorSchema.safeParse(error.response.data);
     if (body.success) return new ApiRequestError(body.data.code, body.data.message, error.response.status);
     return new ApiRequestError(
       'internal',
-      `The DevHub server answered ${String(error.response.status)}.`,
+      `The Orynx server answered ${String(error.response.status)}.`,
       error.response.status,
     );
   }
   if (error instanceof Error && error.name === 'ZodError') {
     return new ApiRequestError(
       'internal',
-      'The DevHub server sent data this page does not understand. Reload the page.',
+      'The Orynx server sent data this page does not understand. Reload the page.',
       null,
     );
   }
