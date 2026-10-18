@@ -48,6 +48,8 @@ export function SprintPickers({ choice, sprint }: { choice: TicketsChoice; sprin
         }}
         searchLabel="Search projects"
         emptyText="No projects match"
+        // Compact, at most 360 px tall: the user's call for this toolbar (spec 020, AC-40).
+        size="sm"
       >
         <Picker>
           <span className="text-muted-foreground">Project</span> {choice.projectKey ?? yourSprintText}
@@ -89,12 +91,12 @@ function SprintMenu({
           <span className="text-muted-foreground">Sprint</span> {name ?? '–'}
         </Picker>
       </MenuTrigger>
-      <MenuContent heading="Sprint" align="start">
+      <MenuContent heading="Sprint" align="start" size="sm">
         {project === null ? null : sprints.isPending ? (
           <div role="status" className="flex flex-col gap-1 p-1.5">
             <span className="sr-only">Loading sprints</span>
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
           </div>
         ) : sprints.isError ? (
           <>

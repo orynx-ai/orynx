@@ -136,7 +136,7 @@ describe('Combobox', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
-  it('opens from a trigger of the caller’s own, such as a toolbar Picker, which shows it is open', async () => {
+  it('opens from a trigger of the caller’s own, such as a toolbar Picker, which shows it is open (compact: its size is checked in the browser)', async () => {
     const user = userEvent.setup();
     let picked = '';
     render(
@@ -149,6 +149,7 @@ describe('Combobox', () => {
         searchLabel="Search projects"
         emptyText="No projects match"
         align="end"
+        size="sm"
       >
         <Picker>Project: WEB</Picker>
       </Combobox>,

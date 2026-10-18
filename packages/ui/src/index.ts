@@ -82,6 +82,7 @@ export {
   MenuSeparator,
   MenuTrigger,
   type MenuCheckboxItemProps,
+  type MenuSize,
   type MenuContentProps,
   type MenuItemProps,
   type MenuProps,

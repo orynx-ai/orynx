@@ -27,6 +27,11 @@ export interface ComboboxProps {
   /** Where the list lines up with the field: `start` under a form field, `end` under a toolbar picker. */
   align?: 'start' | 'end';
   /**
+   * `sm`, as Menu's (spec 020): 32 px rows and search box in `text-small`, at least 224 px wide and at most
+   * 360 px tall, for a toolbar's picker.
+   */
+  size?: 'default' | 'sm';
+  /**
    * A trigger of the caller's own, such as a `<Picker>` in a toolbar; it must pass on its props and ref.
    * Left out, the field is drawn like `Select` and takes its label, help and error from a `<Field>`.
    */
@@ -63,6 +68,7 @@ export function Combobox({
   placeholder = '',
   disabled = false,
   align = 'start',
+  size = 'default',
   children,
   'aria-label': ariaLabel,
   onBlur,
@@ -76,6 +82,7 @@ export function Combobox({
   const optionId = useId();
   const list = useRef<HTMLDivElement>(null);
   const shown = matching(options, query);
+  const small = size === 'sm';
   const picked = options.find((option) => option.value === value);
 
   function changeOpen(next: boolean) {
@@ -181,7 +188,10 @@ export function Combobox({
                 setActive(0);
               }}
               onKeyDown={onSearchKeyDown}
-              className="h-10 w-full min-w-0 rounded-sm border border-control bg-raised ps-10 pe-3 text-body text-foreground placeholder:text-placeholder"
+              className={cn(
+                'w-full min-w-0 rounded-sm border border-control bg-raised pe-3 text-foreground placeholder:text-placeholder',
+                small ? 'h-8 ps-8 text-small' : 'h-10 ps-10 text-body',
+              )}
             />
           </div>
           <div
@@ -206,7 +216,7 @@ export function Combobox({
                     role="option"
                     aria-selected={selected}
                     data-highlighted={index === active ? '' : undefined}
-                    className={menuItemClass}
+                    className={cn(menuItemClass, small && 'min-h-8 py-1')}
                     onPointerMove={() => {
                       if (index !== active) setActive(index);
                     }}

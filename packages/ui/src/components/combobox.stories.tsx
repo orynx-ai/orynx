@@ -54,10 +54,11 @@ export const NothingPicked: Story = { render: () => <ProjectField start="" /> };
 /** Jira isn't connected, so there's nothing to pick. */
 export const Disabled: Story = { render: () => <ProjectField start="" disabled /> };
 
-/** Tickets' Project picker in its toolbar, opening the same list (spec 020, AC-38). */
+/** Tickets' Project picker in its toolbar, opening the same list, compact (spec 020, AC-38, AC-40). */
 export const FromAPicker: Story = {
   render: () => (
     <Combobox
+      size="sm"
       options={projects.slice(1)}
       value="WEB"
       onValueChange={() => undefined}
