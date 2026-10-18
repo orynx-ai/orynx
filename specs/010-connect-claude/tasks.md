@@ -51,5 +51,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
       Check: screenshots in the scratchpad, CLS 0 for the Active answer, the user's word for Q7
       Files: specs/010-connect-claude/tasks.md, turbo.json
       Done 18 Oct 2026. In headless Chromium against `pnpm dev` (own ports and `DEVHUB_HOME`, memory keychain, a probe as `DEVHUB_CLAUDE_CODE`): Active, Not signed in and Error at 1280 and 360 px, light and dark, had no axe violations and no sideways scroll, side by side with equal heights at 1280 px and stacked at 360 px. Loading then Active kept the card at 128 px with CLS 0. The `Card` stories had only axe's `region` rule, as the existing Pill story does. The probe got exactly `auth status --json`, `CLAUDE_CONFIG_DIR`, no `DEVHUB_*` variable and nonessential traffic off; it found that turbo dropped `DEVHUB_CLAUDE_CODE` and Claude's variables, now passed through `turbo.json`. Q7 with the real Claude Code: the user saw Active with their email and organisation and the footer connected; with an empty `CLAUDE_CONFIG_DIR` it answered `signed_out` in 0.4 s and never reached the real login.
-- [ ] Task 17: STOP and run /review
+- [x] Task 17: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)

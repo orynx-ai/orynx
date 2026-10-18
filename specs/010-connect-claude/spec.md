@@ -1,6 +1,6 @@
 # Connect Claude
 
-Status: approved
+Status: done
 Roadmap: Phase 3 — Claude sessions, built early (the user's call, 2026-10-17)
 
 ## Assumptions
