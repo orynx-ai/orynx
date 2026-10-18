@@ -41,7 +41,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: Run the session: read the issue, make the worktree, write the brief, start Claude and fold its activity into steps. Publish `sessions.changed` on state changes and `session.changed` at most every 250 ms. Failures (Jira, folder, git, login, limit, crash) become the session's problem, and the log names only their kind and exit code (AC-2, AC-3, AC-4, AC-8, AC-13)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/session-service.ts, session-service.test.ts
-- [ ] Task 14: Stop a session at any point (Stopping while git works keeps what was made), discard one (stopping it first, then the worktree and branch), and stop every running session when the server closes (AC-9, AC-10, AC-14)
+- [x] Task 14: Stop a session at any point (Stopping while git works keeps what was made), discard one (stopping it first, then the worktree and branch), and stop every running session when the server closes (AC-9, AC-10, AC-14)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/session-service.ts, session-service.test.ts
 - [ ] Task 15: Add `GET /api/sessions/:id`, `POST /api/sessions`, `/stop` and `/discard`, `recent` on the list, and `createServer({ claude, sessions })` with the file store under `dataDir`. Home's issue rows point at a live session. With no `query`, no session starts and nothing runs (AC-1, AC-15, AC-17, AC-22)

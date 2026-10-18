@@ -6,7 +6,7 @@ import type { EventBus } from '../events/event-bus.ts';
 import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { briefText, sessionNote, ticketBrief } from './brief.ts';
-import { addStep, addWork, endProgress, replaceStep, type Progress } from './progress.ts';
+import { addStep, addWork, endProgress, replaceStep, type NewStep, type Progress } from './progress.ts';
 import type { SessionRecords, StoredSession } from './session-store.ts';
 import { createWorktrees, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
 
@@ -25,6 +25,10 @@ export interface SessionService {
   start(request: StartSessionRequest): Promise<StartSessionAnswer>;
   /** The session as the Session screen shows it; null when there's none with this id. */
   get(id: string): Promise<Session | null>;
+  /** Stop Claude (AC-9). A session that isn't working stays as it is. */
+  stop(id: string): Promise<'stopped' | 'not_found'>;
+  /** Stops the session if it's working, then deletes its worktree and branch (AC-10). */
+  discard(id: string): Promise<'discarded' | 'not_found' | 'failed'>;
   /** Stops every running session and waits for every change still being saved, for the server's shutdown. */
   close(): Promise<void>;
 }
@@ -59,6 +63,10 @@ function projectOf(key: string): string {
 
 function isLive(session: { state: Session['state'] }): boolean {
   return session.state !== 'stopped';
+}
+
+function isWorking(session: { state: Session['state'] }): boolean {
+  return session.state === 'working' || session.state === 'needs_you';
 }
 
 /** A session that is setting up or running, and how to stop it. */
@@ -263,6 +271,32 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     });
   }
 
+  /**
+   * Ends a working session with `last` (you stopped it, or Orynx closed): git and Claude are stopped first,
+   * and nothing they say afterwards changes the session.
+   */
+  async function halt(id: string, last: NewStep): Promise<void> {
+    const run = runs.get(id);
+    if (run !== undefined) {
+      run.stopping = true;
+      runs.delete(id);
+      run.controller.abort();
+      if (run.agentId !== null && adapter !== null) await adapter.stop(run.agentId);
+    }
+    await change(id, (record) => {
+      if (!isWorking(record.session)) return record;
+      const ended = withProgress(record, (progress) => endProgress(progress, last));
+      return {
+        ...ended,
+        session: {
+          ...ended.session,
+          state: 'stopped',
+          endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
+        },
+      };
+    });
+  }
+
   function begin(id: string) {
     const started: Run = { controller: new AbortController(), agentId: null, stopping: false };
     runs.set(id, started);
@@ -354,7 +388,43 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return (await records.get(id))?.session ?? null;
     },
 
+    async stop(id) {
+      const record = await records.get(id);
+      if (record === null) return 'not_found';
+      if (isWorking(record.session)) await halt(id, { kind: 'stopped' });
+      return 'stopped';
+    },
+
+    async discard(id) {
+      const found = await records.get(id);
+      if (found === null) return 'not_found';
+      if (found.session.discardedAt !== null) return 'discarded';
+      if (isWorking(found.session)) await halt(id, { kind: 'stopped' });
+      const record = (await records.get(id)) ?? found;
+      const { branch } = record.session;
+      if (record.worktree !== null) {
+        const removed = await worktrees.remove(record.repository.path, record.worktree, branch);
+        if (!removed.ok) {
+          report(record, 'git', 'remove');
+          return 'failed';
+        }
+      }
+      await change(id, (current) => {
+        const ended =
+          branch === null
+            ? current
+            : withProgress(current, (progress) => endProgress(progress, { kind: 'discarded', branch }));
+        return {
+          ...ended,
+          session: { ...ended.session, state: 'stopped', discardedAt: new Date(now()).toISOString() },
+        };
+      });
+      return 'discarded';
+    },
+
     async close() {
+      // A session still working when Orynx closes was closed, not stopped by you (AC-14).
+      await Promise.all([...runs.keys()].map((id) => halt(id, { kind: 'interrupted' })));
       while (inFlight.size > 0) await Promise.all(inFlight);
       for (const { timer } of stepTimers.values()) clearTimeout(timer);
       stepTimers.clear();

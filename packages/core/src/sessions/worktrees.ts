@@ -44,7 +44,7 @@ export interface Worktrees {
    * already gone is fine. When the repository itself is gone, only the worktree folder is deleted, and
    * only when it's inside `root`.
    */
-  remove(repo: string, path: string, branch: string): Promise<Removed>;
+  remove(repo: string, path: string, branch: string | null): Promise<Removed>;
 }
 
 export interface WorktreesOptions {
@@ -155,8 +155,10 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
         }
         // A worktree folder you deleted yourself is still listed until it's pruned.
         await git(repo).raw(['worktree', 'prune']);
-        const branches = await git(repo).raw(['for-each-ref', '--format=%(refname)', `refs/heads/${branch}`]);
-        if (branches.trim() !== '') await git(repo).raw(['branch', '-D', branch]);
+        if (branch !== null) {
+          const branches = await git(repo).raw(['for-each-ref', '--format=%(refname)', `refs/heads/${branch}`]);
+          if (branches.trim() !== '') await git(repo).raw(['branch', '-D', branch]);
+        }
         return { ok: true };
       } catch {
         return { ok: false, problem: { kind: 'git', step: 'remove' } };

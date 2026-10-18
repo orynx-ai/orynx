@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createServer as createNetServer, type Server } from 'node:net';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ServerEvent } from '@devhub/contracts';
@@ -454,5 +455,135 @@ describe('running a session', () => {
         loaded: { tools: 7, mcpServers: 0, plugins: 0 },
       });
     });
+  });
+});
+
+/** Waits until a session's steps hold one of this kind. */
+async function hasStep(records: SessionRecords, kind: string, id = '0000000000000001') {
+  for (let tries = 0; tries < 500; tries++) {
+    const record = await records.get(id);
+    if (record?.session.activities.some((activity) => activity.kind === kind) === true) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`The session never had a ${kind} step`);
+}
+
+describe('stopping a session', () => {
+  it('AC-9: stops Claude while it works: Stopped, every step done, the worktree kept', async () => {
+    const { service, records, home, sdk, heard } = await setUp({
+      script: [{ tool: 'Read', input: { file_path: 'README.md' } }, { hang: true }],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await hasStep(records, 'explore');
+
+    expect(await service.stop('0000000000000001')).toBe('stopped');
+
+    const record = await records.get('0000000000000001');
+    expect(record?.session.state).toBe('stopped');
+    expect(record?.session.problem).toBeNull();
+    expect(record && kinds(record)).toEqual(['worktree:done', 'brief:done', 'explore:done', 'stopped:done']);
+    expect(sdk.runs[0]?.interrupts).toBe(1);
+    expect(await readFile(join(home, 'worktrees', '0000000000000001', 'README.md'), 'utf8')).toBe('# web-app\n');
+    expect(heard.filter((event) => event.type === 'sessions.changed').length).toBeGreaterThanOrEqual(2);
+  });
+
+  describe('while the worktree is being made', () => {
+    let silent: Server | undefined;
+    afterEach(() => {
+      silent?.close();
+    });
+
+    it('AC-9: stops git, keeps whatever was made, and never starts Claude', async () => {
+      const { service, records, repos, sdk } = await setUp();
+      silent = createNetServer(() => {
+        // Never answers, so the fetch waits.
+      });
+      await new Promise<void>((resolve) => silent?.listen(0, '127.0.0.1', resolve));
+      const address = silent.address();
+      const port = typeof address === 'object' && address !== null ? address.port : 0;
+      await repos.git(repos.clone, 'remote', 'set-url', 'origin', `http://127.0.0.1:${String(port)}/web-app.git`);
+
+      await service.start({ ticketKey: 'PROJ-1423' });
+      await hasStep(records, 'worktree');
+      const started = Date.now();
+      expect(await service.stop('0000000000000001')).toBe('stopped');
+      await service.close();
+
+      expect(Date.now() - started).toBeLessThan(5_000);
+      const record = await records.get('0000000000000001');
+      expect(record?.session.state).toBe('stopped');
+      expect(record && kinds(record)).toEqual(['worktree:done', 'stopped:done']);
+      expect(sdk.runs).toEqual([]);
+    });
+  });
+
+  it('AC-9: a session that isn’t working stays as it is, and an unknown one is not found', async () => {
+    const { service, records } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const done = await settled(records);
+    expect(await service.stop('0000000000000001')).toBe('stopped');
+    expect((await records.get('0000000000000001'))?.session).toEqual(done.session);
+    expect(await service.stop('fedcba9876543210')).toBe('not_found');
+  });
+});
+
+describe('discarding a session', () => {
+  it('AC-10: deletes a finished session’s worktree and branch, and keeps the session, Stopped', async () => {
+    const { service, records, repos, home } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+
+    expect(await service.discard('0000000000000001')).toBe('discarded');
+
+    const record = await records.get('0000000000000001');
+    expect(record?.session).toMatchObject({ state: 'stopped', discardedAt: '2026-10-18T09:56:00.000Z' });
+    expect(record?.session.activities.at(-1)).toMatchObject({ kind: 'discarded', branch: 'feat/PROJ-1423' });
+    await expect(readFile(join(home, 'worktrees', '0000000000000001', 'README.md'))).rejects.toThrow();
+    expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toBe('');
+  });
+
+  it('AC-10: stops a working session first', async () => {
+    const { service, records } = await setUp({ script: [{ hang: true }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await hasStep(records, 'brief');
+    expect(await service.discard('0000000000000001')).toBe('discarded');
+    const record = await records.get('0000000000000001');
+    expect(record && kinds(record)).toEqual(['worktree:done', 'brief:done', 'stopped:done', 'discarded:done']);
+  });
+
+  it('AC-10: discards a session that never got a worktree', async () => {
+    const { service, records } = await setUp();
+    jira.use(http.get(issueUrl('PROJ-1423'), () => HttpResponse.json({}, { status: 404 })));
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect(await service.discard('0000000000000001')).toBe('discarded');
+    expect((await records.get('0000000000000001'))?.session).toMatchObject({
+      discardedAt: '2026-10-18T09:56:00.000Z',
+      activities: [],
+    });
+  });
+
+  it('AC-10: discarding twice changes nothing, and an unknown session is not found', async () => {
+    const { service, records } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await service.discard('0000000000000001');
+    const once = await records.get('0000000000000001');
+    expect(await service.discard('0000000000000001')).toBe('discarded');
+    expect(await records.get('0000000000000001')).toEqual(once);
+    expect(await service.discard('fedcba9876543210')).toBe('not_found');
+  });
+});
+
+describe('closing the server', () => {
+  it('AC-14: stops every working session as closed, not as stopped by you', async () => {
+    const { service, records, sdk } = await setUp({ script: [{ hang: true }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await hasStep(records, 'brief');
+    await service.close();
+    const record = await records.get('0000000000000001');
+    expect(record?.session.state).toBe('stopped');
+    expect(record && kinds(record)).toEqual(['worktree:done', 'brief:done', 'interrupted:done']);
+    expect(sdk.runs[0]?.interrupts).toBe(1);
   });
 });
