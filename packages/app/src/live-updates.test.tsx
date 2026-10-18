@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeInbox, makeInboxItem, makePreferences, makeStatus } from '@devhub/contracts/testing';
+import { makeClaudeSignedIn, makeInbox, makeInboxItem, makePreferences, makeStatus } from '@devhub/contracts/testing';
 import type { PermissionMode } from '@devhub/contracts';
 import { FakeEventSource } from './test/fake-event-source.ts';
 import { apiUrl, server } from './test/msw.ts';
@@ -29,6 +29,23 @@ describe('LiveUpdates', () => {
     FakeEventSource.latest().emit({ type: 'status.changed' });
 
     expect(await within(nav).findByText('Claude connected · runs locally')).toBeVisible();
+  });
+
+  it("AC-5: refreshes the Claude card when another tab's Check again found a login", async () => {
+    let signedIn = false;
+    server.use(
+      http.get(apiUrl(apiRoutes.claudeLogin), () =>
+        HttpResponse.json(signedIn ? makeClaudeSignedIn() : { state: 'signed_out' }),
+      ),
+    );
+    await renderApp({ route: '/settings/coding-agent' });
+    const card = await screen.findByRole('group', { name: 'Claude' });
+    await within(card).findByText('Not signed in');
+
+    signedIn = true;
+    FakeEventSource.latest().emit({ type: 'status.changed' });
+
+    expect(await within(card).findByText('Active')).toBeVisible();
   });
 
   it('AC-17: refetches the preferences when another tab saved a change', async () => {
