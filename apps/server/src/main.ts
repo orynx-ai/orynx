@@ -78,7 +78,7 @@ const app = await createServer({
 
 for (const notice of cacheNotices) app.log.warn(notice);
 if (config.claudeCode !== null) {
-  app.log.warn(`DEVHUB_CLAUDE_CODE is set: DevHub checks the Claude login with ${config.claudeCode}.`);
+  app.log.warn(`DEVHUB_CLAUDE_CODE is set: Orynx checks the Claude login with ${config.claudeCode}.`);
 }
 
 if (serveWebApp) {

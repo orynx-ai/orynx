@@ -39,7 +39,7 @@ const notReadyLines: Record<'signed_out' | 'error', ReactNode> = {
       sign in with your company login, then check again.
     </>
   ),
-  error: "DevHub couldn't run Claude Code's login check. See the terminal for details.",
+  error: "Orynx couldn't run Claude Code's login check. See the terminal for details.",
 };
 
 /**

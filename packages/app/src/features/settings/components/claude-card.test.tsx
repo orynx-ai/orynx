@@ -9,7 +9,7 @@ import { renderApp } from '../../../test/render.tsx';
 const designLine = 'Uses your company Claude login through the Claude Agent SDK. No separate API key.';
 const notSignedIn =
   "Claude Code isn't signed in on this computer. Run claude in a terminal and sign in with your company login, then check again.";
-const checkFailed = "DevHub couldn't run Claude Code's login check. See the terminal for details.";
+const checkFailed = "Orynx couldn't run Claude Code's login check. See the terminal for details.";
 
 function answerLogin(login: ClaudeLogin) {
   server.use(http.get(apiUrl(apiRoutes.claudeLogin), () => HttpResponse.json(login)));
