@@ -1,4 +1,4 @@
-<!-- learn-sources: packages/core/src/plugins/local-only.ts apps/server/src/runtime-file.ts apps/web/vite.config.ts packages/api-client/src/client.ts packages/core/src/agents/agent-environment.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/sessions/worktrees.ts -->
+<!-- learn-sources: packages/core/src/plugins/local-only.ts apps/server/src/runtime-file.ts apps/web/vite.config.ts packages/api-client/src/client.ts packages/api-client/src/endpoints/repositories.ts packages/core/src/folder-picker/folder-picker.ts packages/core/src/routes/folder-picker.ts packages/core/src/create-server.ts packages/core/src/agents/agent-environment.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/sessions/worktrees.ts -->
 
 # Local security: why only this tab can call the server
 
@@ -16,7 +16,7 @@ That alone is not enough: a page on `evil.example` running in the developer's br
 2. The page receives the token in `<meta name="devhub-token">`:
    - `pnpm start`: the server injects it into `index.html` when it serves the page.
    - `pnpm dev`: Vite serves the page, so a small plugin in `apps/web/vite.config.ts` reads `runtime.json` and injects the same tag. Vite proxies `/api` to the server. It finds `DEVHUB_HOME` and the server's port the way the server does (the shell, then the repo-root `.env`), so it always reads the running server's file. From `.env` it keeps only those settings, never a token.
-3. `packages/api-client/src/client.ts` reads nothing from the page itself; the host passes the token to `createApiClient({ baseURL, token })`, and the axios instance sends it as `x-devhub-token` on every request (`status()`, `sessions()`, the Jira and GitHub connection calls, Settings' preferences and folders, the inbox, Tickets' sprint, search's index, Claude's login and Check again, one session and its start, stop and discard (`session()`, `startSession()`, `stopSession()`, `discardSession()`, spec 011), and every endpoint added after them share that one instance, which waits up to 20 s, longer than the server's slowest check). When the server answers 401 (for example after it restarted with a new token), `onUnauthorized` lets the host reload the page to pick up the new one.
+3. `packages/api-client/src/client.ts` reads nothing from the page itself; the host passes the token to `createApiClient({ baseURL, token })`, and the axios instance sends it as `x-devhub-token` on every request (`status()`, `sessions()`, the Jira and GitHub connection calls, Settings' preferences and folders, the inbox, Tickets' sprint, search's index, Claude's login and Check again, one session and its start, stop and discard (`session()`, `startSession()`, `stopSession()`, `discardSession()`, spec 011), and every endpoint added after them share that one instance, which waits up to 20 s, longer than the server's slowest check). Choose folder's request (spec 020) alone sets no time limit, because the server answers only once you've picked a folder or pressed Cancel. When the server answers 401 (for example after it restarted with a new token), `onUnauthorized` lets the host reload the page to pick up the new one.
 4. `EventSource` cannot set headers, so the event stream (`/api/events`) is the one route that accepts `?token=`.
 5. `packages/core/src/plugins/local-only.ts` compares the token in constant time and answers 401 when it is missing or wrong, with words the page can show: "Orynx restarted or this page is out of date. Reload the page."
 6. It decides whether a request is an `/api` request from the path the router matches, not only the raw URL. The router decodes `GET /%61pi/sessions` to `/api/sessions`, so a check on the raw text alone would let that request skip the token. The hook needs the token if the raw path, the decoded path or the matched route is under `/api`, and `create-server.test.ts` sends four such encodings.
@@ -45,6 +45,17 @@ In dev, Vite's own `server.allowedHosts` check protects port 4318 the same way, 
 ## Where tokens for Jira, GitHub and Slack live
 
 Not here. Those live in the OS keychain, are read only by `packages/core` (through `app.tokens`), and never reach the browser, a log line, an event or the inbox's `cache.db` (spec 007). The inbox routes (`/api/inbox`, its refresh and its cache) sit behind the same Host and session-token checks as every other `/api` route. See `learn/tokens-and-keychain.md`. The session token above only proves "this request came from DevHub's own page".
+
+## The folder picker (spec 020)
+
+`POST /api/folder-picker` is the one route that opens a window on the computer: Settings' Choose folder asks the server to open the OS's folder picker, because a browser never tells a page a folder's full path (`learn/settings-and-folders.md`). It's built to give a page that got past the checks above nothing to steer:
+
+- **Only on your click.** Nothing in the server calls it on its own; the page sends it only when Choose folder is pressed.
+- **Behind the same checks.** It's an `/api` route like any other, so the Host header and the session token are checked first.
+- **A fixed command.** The program and its arguments are written in `folder-picker.ts` (`osascript -e 'POSIX path of (choose folder)'`, `zenity` or `kdialog`). The request has no body, nothing the page sends reaches the command, and it runs through `execFile`, never a shell.
+- **Found where gh is found.** `apps/server` looks for the program on the shell's `PATH`, never one written in `.env`, and only in absolute folders. Core's `createServer()` uses an empty search path when the host passes no picker, so no core test can open a real picker.
+- **One at a time, and not forever.** A second request while it's open shares the first one's answer, and a picker left open 10 minutes is killed.
+- **It saves nothing.** The answer is a path for the Folder field. Saving the folder checks it on disk as a typed path is checked.
 
 ## What a Claude session can reach (specs 011 and 012)
 

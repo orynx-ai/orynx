@@ -1,13 +1,13 @@
-<!-- learn-sources: packages/contracts/src/session.ts packages/core/src/sessions/session-service.ts packages/core/src/sessions/worktrees.ts packages/core/src/sessions/file-session-store.ts packages/core/src/sessions/session-store.ts packages/core/src/sessions/progress.ts packages/core/src/sessions/brief.ts packages/core/src/agents/agent-adapter.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/agents/claude/command-decision.ts packages/core/src/agents/claude/edit-preview.ts packages/core/src/agents/claude/sandbox.ts packages/contracts/src/commands.ts packages/core/src/agents/claude/sdk-messages.ts packages/core/src/agents/agent-environment.ts packages/core/src/routes/sessions.ts apps/server/src/main.ts e2e/fake-claude/session.ts e2e/fake-claude/probe.ts packages/app/src/features/sessions/components/build-with-claude.tsx packages/app/src/features/sessions/step-words.ts packages/app/src/features/sessions/components/approval-callout.tsx packages/contracts/src/changes.ts packages/core/src/sessions/changes.ts packages/core/src/sessions/unified-diff.ts packages/app/src/features/sessions/components/changes-panel.tsx packages/app/src/features/sessions/components/follow-up-box.tsx packages/app/src/features/sessions/components/ticket-panel.tsx -->
+<!-- learn-sources: packages/contracts/src/session.ts packages/core/src/sessions/session-service.ts packages/core/src/sessions/worktrees.ts packages/core/src/sessions/file-session-store.ts packages/core/src/sessions/session-store.ts packages/core/src/sessions/progress.ts packages/core/src/sessions/brief.ts packages/core/src/agents/agent-adapter.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/agents/claude/command-decision.ts packages/core/src/agents/claude/edit-preview.ts packages/core/src/agents/claude/sandbox.ts packages/contracts/src/commands.ts packages/core/src/agents/claude/sdk-messages.ts packages/core/src/agents/agent-environment.ts packages/core/src/routes/sessions.ts apps/server/src/main.ts e2e/fake-claude/session.ts e2e/fake-claude/probe.ts packages/api-client/src/queries.ts packages/app/src/features/sessions/queries.ts packages/app/src/features/sessions/components/ship-with-claude.tsx packages/app/src/features/sessions/components/sidebar-sessions.tsx packages/app/src/shell/sidebar.tsx packages/app/src/features/sessions/step-words.ts packages/app/src/features/sessions/components/approval-callout.tsx packages/contracts/src/changes.ts packages/core/src/sessions/changes.ts packages/core/src/sessions/unified-diff.ts packages/app/src/features/sessions/components/changes-panel.tsx packages/app/src/features/sessions/components/follow-up-box.tsx packages/app/src/features/sessions/components/ticket-panel.tsx -->
 
 # Sessions and worktrees: Claude on a ticket, away from your checkout
 
-A session is Claude working on one ticket, in one folder, on its own branch. You press Build with Claude on a Tickets card or row, or Build on a Home row, and Orynx makes a branch and a git worktree for it under `<DEVHUB_HOME>/worktrees/`, so your checkout is never touched. You watch Claude's progress on the Session screen, read its changes as it makes them, write to it, and stop it or throw its work away. Spec 011 built it; spec 012 added the approvals and spec 013 the Changes and Ticket tabs and the follow-up box.
+A session is Claude working on one ticket, in one folder, on its own branch. You press Ship on a Tickets card or row, or on a Home row, and Orynx makes a branch and a git worktree for it under `<DEVHUB_HOME>/worktrees/`, so your checkout is never touched. You watch Claude's progress on the Session screen, read its changes as it makes them, write to it, and stop it or throw its work away. Spec 011 built it; spec 012 added the approvals and spec 013 the Changes and Ticket tabs and the follow-up box.
 
 ## The path of one session
 
 ```
-Build with Claude                                     (the page: build-with-claude.tsx)
+Ship                                                  (the page: ship-with-claude.tsx)
   └─ POST /api/sessions { ticketKey, repositoryId? }
        └─ session-service.ts start()  checks before anything exists:
             a live session on the ticket? → existing, the page opens it
@@ -34,6 +34,36 @@ Build with Claude                                     (the page: build-with-clau
 | Claude Code's own transcript | `~/.claude/projects/`, as for any Claude Code session; follow-ups (spec 013) resume it   |
 
 The id is 16 hex characters, so it is always a safe folder name. Every write goes to a temporary file that is renamed into place, one session's writes run in order, and the store keeps the sessions in memory, so a list never reads the disk. Nothing about a session goes into `settings.json` or `cache.db`.
+
+## Ship, and its menu
+
+"Ship" names the action that starts Claude on a ticket, everywhere (spec 020; spec 011 called it Build with Claude). It's one component, `ShipWithClaude`, drawn three ways: the sparkle `IconButton` on a Tickets card, "Ship" in the Tickets list, and a sparkle `IconButton` at the end of a Home row. Its name says which ticket ("Ship PROJ-1423"), and its tooltip says "Ship".
+
+The page decides from what it already holds (`GET /api/status`, the folders, the sessions), and the server checks again and has the last word. With Claude signed in, fewer than 3 sessions working and one folder for the ticket's project, a press starts Claude at once and opens the session (spec 020 Q2 kept that one click). Otherwise it opens a menu:
+
+- **Several folders:** "Start in" over the folders, then Add local folder.
+- **No folder:** "No folder is set for PROJ." then Add local folder.
+- **Signed out, three working, or a failed start:** why, and the link that fixes it when there is one.
+
+Add local folder (a + icon) opens Settings' folder dialog (`learn/settings-and-folders.md`) right there, with the ticket's project picked. It waits for the menu to close and let go of focus first. Once the folder is saved, Claude starts on the ticket in it at once (`start.mutate(folder.id)`), and the Session screen opens. Closing the dialog gives focus back to Ship.
+
+## Sessions in the sidebar (spec 020)
+
+The sidebar lists every recent session, newest activity first, 16 at a time, and loads the next 16 when the end of the list scrolls into view:
+
+```
+SidebarSessions ── useSessionPages({ limit: 16, recent: true })   an infinite query
+  GET /api/sessions?recent=true&limit=16              ← { sessions: [16], nextCursor: "1760781600000.3f9c…" }
+  the end of the list scrolls into view (IntersectionObserver on a 1 px marker)
+  GET /api/sessions?recent=true&limit=16&cursor=…     ← { sessions: [16], nextCursor }   … null on the last page
+```
+
+- **The cursor is the last row's place**, not a count: its activity time in milliseconds and its id (`SessionCursorSchema`). `listSessions()` in `session-store.ts` sorts newest first (by id when two share a millisecond) and starts after the row the cursor names, wherever that row has moved since. So a session that jumps to the top while you scroll is never listed twice. A cursor that doesn't fit the schema answers 400. Without `limit`, every session comes in one answer with `nextCursor: null`, as the Sessions page asks for them.
+- **`sessions.changed` refreshes every page loaded**, in order from the first (`sessionPagesQueryOptions` in `api-client`), so each cursor comes from fresh data and the pages already shown stay shown.
+- **While the next page loads,** two `SessionItemSkeleton` rows sit at the end, and a screen reader hears "Loading more sessions". A page that fails keeps the rows above it and shows spec 001's "Couldn't load sessions" with Try again under them. The marker is watched again after each page, so a short page whose end is still in view loads the next one too.
+- **The 7-day rule stays:** `recent=true` leaves out a session discarded more than 7 days ago, which the Sessions page (View all) still lists.
+- **The collapsed rail** has no room for rows, so it gets a Sessions place under Settings, as narrow windows have. Every rail icon, Sessions included, shows its name in a tooltip beside it.
+- **New task left the sidebar** in spec 020, since Home does the same job. ⌘N (Ctrl+N elsewhere) still opens Home with focus on its content, and the Home place carries that key in `aria-keyshortcuts`.
 
 ## The branch and the worktree
 
@@ -125,6 +155,8 @@ A failure stops the session with a problem the Session screen says in the danger
 - **A restart.** Claude Code runs as a child of the server, so closing Orynx ends it: `close()` stops every working session as "Orynx closed while Claude was working". Opening the store does the same for a session a crash left Working or waiting for you; its waiting calls are kept in the log, unanswered.
 
 ## Tests
+
+The sidebar's tests can't scroll in jsdom, so test setup installs `test/fake-intersection-observer.ts`, a stand-in for the browser feature: a test says when the marker is in view, and the real component loads the next page. `msw.ts` pages sessions as the server does.
 
 Core tests never run the real Claude Code. `test/fake-claude-sdk.ts` fakes `query()` at the SDK's boundary: it asks `canUseTool` about each scripted call as Claude Code does, and ends an interrupted turn with a failed result. Git runs for real, on temporary repositories with a bare `origin` (`test/git-repository.ts`) and none of your git settings.
 
