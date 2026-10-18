@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Add the Claude login contract: signed in (how, email, organisation), signed out or error, its two paths, and a test builder (AC-2, AC-3, AC-4, AC-6)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/claude.ts, claude.test.ts, routes.ts, index.ts, testing.ts
-- [ ] Task 2: Add the short environment the agent's programs get: the allow list from the spec's Assumptions, and never a `DEVHUB_*` variable (AC-10)
+- [x] Task 2: Add the short environment the agent's programs get: the allow list from the spec's Assumptions, and never a `DEVHUB_*` variable (AC-10)
       Check: pnpm test packages/core/src/agents
       Files: packages/core/src/agents/agent-environment.ts, agent-environment.test.ts
 - [ ] Task 3: Add `@anthropic-ai/claude-agent-sdk` at one exact version, and find the program in its platform package without running it. Name the SDK and its two peers in `docs/architecture.md` (Q2, Q8)
