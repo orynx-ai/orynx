@@ -41,7 +41,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: Add "More agents" beside the Claude card, side by side when there's room and stacked at 360 px, and prove the tab's keyboard path to Check again (AC-13, AC-14, AC-15)
       Check: pnpm test packages/app/src/features/settings
       Files: packages/app/src/features/settings/components/coding-agent-panel.tsx, coding-agent-panel.test.tsx, packages/app/src/features/settings/settings-screen.tsx, settings-screen.test.tsx
-- [ ] Task 14: e2e: the footer and the card signed out, sign in with the fake, then Check again turns this tab and a second tab to Active and connected with no reload. Keyboard path, and axe at 360 and 1280 px in light and dark (AC-1, AC-4, AC-5, AC-13, AC-14)
+- [x] Task 14: e2e: the footer and the card signed out, sign in with the fake, then Check again turns this tab and a second tab to Active and connected with no reload. Keyboard path, and axe at 360 and 1280 px in light and dark (AC-1, AC-4, AC-5, AC-13, AC-14)
       Check: pnpm test:e2e e2e/coding-agent.spec.ts
       Files: e2e/coding-agent.spec.ts
 - [ ] Task 15: Docs: move agent-runtime rule 6 to 011 (Q1), add a `learn/` page on how DevHub checks Claude, and bring the pages whose sources changed up to date
