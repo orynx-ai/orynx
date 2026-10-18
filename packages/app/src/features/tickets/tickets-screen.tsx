@@ -1,16 +1,17 @@
-// Design: docs/design/screens/tickets.html — page bar, filter toolbar, board and list
+// Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list
 import { useRef, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { KanbanIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
-import type { InboxToolState } from '@devhub/contracts';
+import { defaultTicketsChoice, type InboxToolState, type TicketsChoice } from '@devhub/contracts';
 import { Button, Icon, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
-import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
+import { PageBar, PageBody, PageBreadcrumb, Toolbar, type Crumb } from '../../shell/page-frame.tsx';
 import { useWide } from '../../shell/use-wide.ts';
 import { toolLine } from '../../words/tool-line.ts';
 import { useNow } from '../../words/use-now.ts';
 import { TicketsBoard, TicketsBoardSkeleton } from './components/tickets-board.tsx';
 import { TicketsList, TicketsListSkeleton } from './components/tickets-list.tsx';
+import { SprintPickers } from './components/sprint-pickers.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
 import {
   defaultFilters,
@@ -22,7 +23,14 @@ import {
 } from './filters.ts';
 import { useTickets } from './queries.ts';
 import { useTicketsStore } from './store.ts';
-import { noSprintText, pageHeading, sprintMeta, tooManyLine, unreachableText } from './ticket-words.ts';
+import {
+  noOpenSprintsText,
+  noSprintText,
+  pageHeading,
+  sprintMeta,
+  tooManyLine,
+  unreachableText,
+} from './ticket-words.ts';
 
 const ticketsCrumb: Crumb = { label: 'Tickets' };
 
@@ -53,10 +61,11 @@ export function TicketsScreen() {
   }
   if (data?.jira.state === 'not_connected') return <JiraNotConnected />;
 
-  // Loading until the first sync has read the sprint (Q8a); after that the cache always answers.
+  // Loading until the first sync has read the sprint (Q8a), or a new pick's (spec 020); after that the cache answers.
   const loading = data === undefined || data.jira.state === 'syncing';
   const sprint = data?.sprint ?? null;
-  if (!loading && sprint === null) return <NoSprint jira={data.jira} now={now} />;
+  const choice = data?.choice ?? defaultTicketsChoice;
+  if (!loading && sprint === null) return <NoSprint jira={data.jira} choice={choice} now={now} />;
 
   const filters = { ...filtersFromSearch(search), text };
   const all = data?.tickets ?? [];
@@ -139,6 +148,7 @@ export function TicketsScreen() {
         onClear={clearFilters}
         count={loading ? undefined : shown.length}
         assignedToMeRef={assignedToMe}
+        pickers={<SprintPickers choice={choice} sprint={sprint} />}
         {...(wide ? {} : { search: searchField })}
       />
       <PageBody width="full">
@@ -178,22 +188,30 @@ function Note({ message, action }: { message: string; action: { text: string; ta
   );
 }
 
-/** Q8c: Jira answered, and no active sprint holds a ticket of yours; or its sync failed before it said. */
-function NoSprint({ jira, now }: { jira: InboxToolState; now: Date }) {
+/**
+ * Q8c: Jira answered, and no active sprint holds a ticket of yours, or the picked project has no open sprint
+ * (spec 020, AC-28); or its sync failed before it said. The pickers stay, so another project is one pick away.
+ */
+function NoSprint({ jira, choice, now }: { jira: InboxToolState; choice: TicketsChoice; now: Date }) {
   const line = toolLine('jira', jira, now);
   // A sync that failed before Jira ever answered can't say whether there's a sprint.
   const answered = jira.state === 'synced' || (jira.state === 'failed' && jira.lastSyncedAt !== null);
   return (
     <>
       <PageBar breadcrumb={<PageBreadcrumb crumbs={[ticketsCrumb]} />} />
+      <Toolbar role="group" aria-label="Sprint">
+        <SprintPickers choice={choice} sprint={null} />
+      </Toolbar>
       <PageBody>
         <h1 className="sr-only">Tickets</h1>
         {line === null ? null : <Note message={line.message} action={line.action} />}
-        {answered ? (
+        {!answered ? null : choice.projectKey === null ? (
           <EmptyState title={noSprintText.title}>
             <span>{noSprintText.line}</span>
           </EmptyState>
-        ) : null}
+        ) : (
+          <EmptyState title={noOpenSprintsText(choice.projectKey)} />
+        )}
       </PageBody>
     </>
   );

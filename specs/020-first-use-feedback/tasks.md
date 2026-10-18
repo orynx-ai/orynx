@@ -82,7 +82,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: The api-client's sprints query and choice call (AC-26, AC-29)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/tickets.ts, client.ts, queries.ts, tickets.test.ts
-- [ ] Task 17: Tickets' Project picker (a Combobox) and Sprint picker (AC-25 to AC-29, AC-38)
+- [x] Task 17: Tickets' Project picker (a Combobox) and Sprint picker (AC-25 to AC-29, AC-38)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/sprint-pickers.tsx (+ test), tickets-screen.tsx, tickets-toolbar.tsx, queries.ts, ticket-words.ts and tests
 - [ ] Task 18: `FilterMenu` in `@devhub/ui` (Home's filter picker, moved there), and Home uses it (AC-30)

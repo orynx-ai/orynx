@@ -16,6 +16,8 @@ export interface TicketsToolbarProps {
   assignedToMeRef?: Ref<HTMLButtonElement>;
   /** Under 768 px, the search field, on its own line at the start (Q8g). */
   search?: ReactNode;
+  /** The Project and Sprint pickers, before the filters (spec 020). */
+  pickers?: ReactNode;
 }
 
 /**
@@ -29,11 +31,13 @@ export function TicketsToolbar({
   count,
   assignedToMeRef,
   search,
+  pickers,
 }: TicketsToolbarProps) {
   const { mine, dueThisWeek, bugsOnly } = filters;
   return (
     <Toolbar role="group" aria-label="Filters">
       {search === undefined ? null : <div className="basis-full">{search}</div>}
+      {pickers}
       <Icon icon={FilterIcon} aria-hidden className="text-muted-foreground" />
       <FilterChip
         ref={assignedToMeRef}

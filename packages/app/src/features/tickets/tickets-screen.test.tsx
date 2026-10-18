@@ -74,7 +74,7 @@ describe('TicketsScreen', () => {
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
 
-  it('AC-30: Tab goes through the search, Board / List, the filters, Clear filters, the board, then each card', async () => {
+  it('AC-30: Tab goes through the search, Board / List, Project and Sprint (spec 020), the filters, Clear filters, the board, then each card', async () => {
     server.use(ticketsHandler());
     const { user } = await renderApp({ route: '/tickets?type=bug' });
     await screen.findByText('1 ticket');
@@ -83,7 +83,7 @@ describe('TicketsScreen', () => {
       .focus();
     const stops: string[] = [];
 
-    for (let stop = 0; stop < 9; stop += 1) {
+    for (let stop = 0; stop < 11; stop += 1) {
       await user.tab();
       const focused = document.activeElement;
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent.trim() ?? '');
@@ -93,6 +93,8 @@ describe('TicketsScreen', () => {
       'Search tickets',
       'Board',
       'List',
+      'Project Your sprint',
+      'Sprint Sprint 42',
       'Assigned to me',
       'Due this week',
       'Bugs only',
