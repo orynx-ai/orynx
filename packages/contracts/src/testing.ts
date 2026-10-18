@@ -15,6 +15,7 @@ import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
 import { defaultPreferences, PreferencesSchema, type InboxRules, type Preferences } from './preferences.ts';
+import { DraftedPullRequestSchema, type DraftedPullRequest, type PullRequestDraft } from './pull-requests.ts';
 import { RepositorySchema, type Repository } from './repositories.ts';
 import {
   SearchIndexSchema,
@@ -134,6 +135,25 @@ export function makeSessionPullRequest(overrides: Partial<SessionPullRequest> = 
     url: 'https://github.com/acme/web-app/pull/2841',
     repository: 'acme/web-app',
     openedAt: '2026-10-16T10:30:00.000Z',
+    ...overrides,
+  });
+}
+
+/** Claude's draft for PROJ-1423 (spec 014): 4 files to commit, feat/PROJ-1423 into acme/web-app's main. */
+export function makePullRequestDraft(overrides: Partial<PullRequestDraft> = {}): DraftedPullRequest {
+  return DraftedPullRequestSchema.parse({
+    result: 'draft',
+    title: 'PROJ-1423: Add bulk archive to the content list',
+    body:
+      '## What changed\n\n- A checkbox on each row of the content list, and select all\n' +
+      '- Archive selected in the toolbar, which reports the items that failed\n\n' +
+      '## How it was checked\n\n`npm test -- content-list` passes.\n\n' +
+      'Jira: [PROJ-1423](https://your-team.atlassian.net/browse/PROJ-1423)',
+    byClaude: true,
+    files: 4,
+    branch: 'feat/PROJ-1423',
+    repository: 'acme/web-app',
+    base: 'main',
     ...overrides,
   });
 }
