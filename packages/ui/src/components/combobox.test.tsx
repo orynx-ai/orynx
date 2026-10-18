@@ -59,6 +59,8 @@ describe('Combobox', () => {
       within(list).getByRole('option', { name: 'PROJ · Intranet' }).id,
     );
     await expectNoAxeViolations(container);
+    // The list is in a portal, outside the container.
+    await expectNoAxeViolations(screen.getByRole('dialog', { name: 'Search Jira projects' }));
   });
 
   it('AC-37: typing narrows the list by words or value; ↓ then Enter picks and closes it, focus back on the field', async () => {
@@ -107,11 +109,45 @@ describe('Combobox', () => {
     await user.keyboard('zzz');
     expect(screen.getByText('No projects match')).toBeVisible();
     expect(screen.queryByRole('option')).not.toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole('dialog', { name: 'Search Jira projects' }));
     await user.keyboard('{Enter}{Escape}');
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('MOB');
     expect(field).toHaveFocus();
+  });
+
+  it('while options load, says so beside the list, and the pick stays highlighted once they arrive', async () => {
+    const user = userEvent.setup();
+    const opened: boolean[] = [];
+    function Loading({ options, loading }: { options: ComboboxOption[]; loading: boolean }) {
+      return (
+        <Combobox
+          options={options}
+          value="WEB"
+          onValueChange={() => undefined}
+          searchLabel="Search projects"
+          emptyText="No projects match"
+          loading={loading}
+          onOpenChange={(open) => opened.push(open)}
+          aria-label="Project"
+        />
+      );
+    }
+    const { rerender } = render(<Loading options={projects.slice(0, 1)} loading />);
+    await user.click(screen.getByRole('button', { name: 'Project' }));
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading');
+    expect(screen.getByRole('listbox')).toHaveAttribute('aria-busy', 'true');
+    await expectNoAxeViolations(screen.getByRole('dialog', { name: 'Search projects' }));
+
+    rerender(<Loading options={projects} loading={false} />);
+    const search = screen.getByRole('combobox', { name: 'Search projects' });
+    expect(search).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'WEB · Website' }).id);
+    expect(screen.getByRole('listbox')).not.toHaveAttribute('aria-busy');
+
+    await user.keyboard('{Enter}');
+    expect(opened).toEqual([true, false]);
   });
 
   it('opens a fresh search each time', async () => {

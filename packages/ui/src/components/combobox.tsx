@@ -43,6 +43,8 @@ export interface ComboboxProps {
   'aria-label'?: string;
   /** Told when the list opens or closes, such as to ask for options only once someone looks. */
   onOpenChange?: (open: boolean) => void;
+  /** For a story: open from the start. */
+  defaultOpen?: boolean;
   /** For react-hook-form's `Controller`: called when the field loses focus with the list closed. */
   onBlur?: () => void;
   ref?: Ref<HTMLButtonElement>;
@@ -78,17 +80,26 @@ export function Combobox({
   children,
   'aria-label': ariaLabel,
   onOpenChange,
+  defaultOpen = false,
   onBlur,
   ref,
 }: ComboboxProps) {
   const field = useFieldControl();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [query, setQuery] = useState('');
-  const [active, setActive] = useState(0);
+  // Null until the person moves or types: the option already picked, even when the options arrive after the
+  // list opened, so Enter keeps it.
+  const [moved, setMoved] = useState<number | null>(null);
   const listboxId = useId();
   const optionId = useId();
   const list = useRef<HTMLDivElement>(null);
   const shown = matching(options, query);
+  const active =
+    moved ??
+    Math.max(
+      0,
+      shown.findIndex((option) => option.value === value),
+    );
   const small = size === 'sm';
   const picked = options.find((option) => option.value === value);
 
@@ -97,23 +108,17 @@ export function Combobox({
     onOpenChange?.(next);
     if (!next) return;
     setQuery('');
-    // The list opens on the option already picked, so Enter keeps it.
-    setActive(
-      Math.max(
-        0,
-        options.findIndex((option) => option.value === value),
-      ),
-    );
+    setMoved(null);
   }
 
   function moveTo(index: number) {
-    setActive(index);
+    setMoved(index);
     list.current?.querySelector(`#${CSS.escape(`${optionId}-${String(index)}`)}`)?.scrollIntoView({ block: 'nearest' });
   }
 
   function pick(option: ComboboxOption) {
     onValueChange(option.value);
-    setOpen(false);
+    changeOpen(false);
   }
 
   function onSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -199,7 +204,7 @@ export function Combobox({
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);
-                setActive(0);
+                setMoved(0);
               }}
               onKeyDown={onSearchKeyDown}
               className={cn(
@@ -208,17 +213,16 @@ export function Combobox({
               )}
             />
           </div>
-          <div
-            ref={list}
-            id={listboxId}
-            role="listbox"
-            aria-label={searchLabel}
-            className="flex min-h-0 flex-col overflow-y-auto"
-          >
-            {shown.length === 0 && !loading ? (
-              <p className="m-0 px-3 py-2 text-small text-muted-foreground">{emptyText}</p>
-            ) : (
-              shown.map((option, index) => {
+          {/* The listbox holds options alone (ARIA), so the no-match line and the loading rows sit beside it. */}
+          <div ref={list} className="flex min-h-0 flex-col overflow-y-auto">
+            <div
+              id={listboxId}
+              role="listbox"
+              aria-label={searchLabel}
+              aria-busy={loading || undefined}
+              className="flex flex-col"
+            >
+              {shown.map((option, index) => {
                 const selected = option.value === value;
                 return (
                   // The keyboard reaches options from the search box (↓ ↑ Enter, aria-activedescendant), as
@@ -232,7 +236,7 @@ export function Combobox({
                     data-highlighted={index === active ? '' : undefined}
                     className={cn(menuItemClass, small && 'min-h-8 py-1')}
                     onPointerMove={() => {
-                      if (index !== active) setActive(index);
+                      if (index !== active) setMoved(index);
                     }}
                     // Keeps focus in the search box, so the list stays open until the click picks.
                     onPointerDown={(event) => {
@@ -246,8 +250,11 @@ export function Combobox({
                     {selected ? <Icon icon={Tick02Icon} aria-hidden className="shrink-0" /> : null}
                   </div>
                 );
-              })
-            )}
+              })}
+            </div>
+            {shown.length === 0 && !loading ? (
+              <p className="m-0 px-3 py-2 text-small text-muted-foreground">{emptyText}</p>
+            ) : null}
             {loading ? (
               // Rows the size of real ones, so the list doesn't jump when the options arrive.
               <div role="status" className="flex flex-col">

@@ -54,6 +54,54 @@ export const NothingPicked: Story = { render: () => <ProjectField start="" /> };
 /** Jira isn't connected, so there's nothing to pick. */
 export const Disabled: Story = { render: () => <ProjectField start="" disabled /> };
 
+/** The list open on the pick, so Storybook's axe check sees it. */
+export const Open: Story = {
+  render: () => (
+    <Combobox
+      defaultOpen
+      options={projects}
+      value="PROJ"
+      onValueChange={() => undefined}
+      searchLabel="Search Jira projects"
+      emptyText="No projects match"
+      aria-label="Jira project"
+    />
+  ),
+};
+
+/** The options are on their way: loading rows the size of real ones follow those already here. */
+export const Loading: Story = {
+  render: () => (
+    <Combobox
+      defaultOpen
+      size="sm"
+      options={projects.slice(0, 1)}
+      value=""
+      onValueChange={() => undefined}
+      searchLabel="Search projects"
+      emptyText="No projects match"
+      loading
+    >
+      <Picker>Project</Picker>
+    </Combobox>
+  ),
+};
+
+/** Nothing matches the search: one line under the search box, and no options. */
+export const NoMatch: Story = {
+  render: () => (
+    <Combobox
+      defaultOpen
+      options={[]}
+      value=""
+      onValueChange={() => undefined}
+      searchLabel="Search Jira projects"
+      emptyText="No projects match"
+      aria-label="Jira project"
+    />
+  ),
+};
+
 /** Tickets' Project picker in its toolbar, opening the same list, compact (spec 020, AC-38, AC-40). */
 export const FromAPicker: Story = {
   render: () => (
