@@ -7,7 +7,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: `Tooltip` in `@devhub/ui`: Radix Tooltip drawn like a menu (Q1), its own provider when none is above it, opens on rest and on focus, Escape closes (AC-9, AC-10)
       Check: pnpm test packages/ui/src/components/tooltip.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/tooltip.tsx, tooltip.stories.tsx, tooltip.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 2: `IconButton` in `@devhub/ui`: `label` is the tooltip and, unless `aria-label` says more, the name; Button's icon stories move to it (AC-9, AC-10)
+- [x] Task 2: `IconButton` in `@devhub/ui`: `label` is the tooltip and, unless `aria-label` says more, the name; Button's icon stories move to it (AC-9, AC-10)
       Check: pnpm test packages/ui/src/components/icon-button.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/icon-button.tsx, icon-button.stories.tsx, icon-button.test.tsx, button.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 3: The ui's own icon buttons get tooltips: Composer's Send, a context chip's Remove, Pagination's arrows; the card's Build becomes `WorkItemShip` ("Ship PROJ-1423", tooltip "Ship") (AC-11, AC-16)

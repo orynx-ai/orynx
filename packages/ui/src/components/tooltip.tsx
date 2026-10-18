@@ -26,7 +26,7 @@ export interface TooltipProps {
    */
   label: ReactNode;
   /** Where it opens; it moves to the other side when there's no room. */
-  side?: 'top' | 'right' | 'bottom' | 'left';
+  side?: 'top' | 'right' | 'bottom' | 'left' | undefined;
   /** For a story: open from the start. */
   defaultOpen?: boolean;
   /** The control. It must take a ref and pointer and focus handlers: a button, a link, or a component that passes them on. */
