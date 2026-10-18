@@ -59,6 +59,18 @@ describe('folder picker (spec 020)', () => {
     });
   });
 
+  it('AC-35: Cancel in zenity is a cancel even when GTK writes its own notes to stderr', async () => {
+    const folder = await fakePicker();
+    await folder.install(['zenity'], {
+      kind: 'cancels',
+      stderr: 'Gtk-Message: 10:00:00.000: GtkDialog mapped without a transient parent. This is discouraged.',
+    });
+
+    expect(await createFolderPicker({ searchPath: folder.dir, platform: 'linux' }).pick()).toEqual({
+      kind: 'cancelled',
+    });
+  });
+
   it('AC-36: Windows has no picker yet, since a folder’s path in Orynx starts with / or ~', async () => {
     const folder = await fakePicker();
     await folder.install(['powershell.exe'], { kind: 'picks', stdout: 'C:\\Users\\dev\\code\\app' });
@@ -109,6 +121,15 @@ describe('folder picker (spec 020)', () => {
   it('an answer that is no absolute path means the picker failed', async () => {
     const folder = await fakePicker();
     await folder.install(['osascript'], { kind: 'picks', stdout: 'code/app' });
+
+    expect(await createFolderPicker({ searchPath: folder.dir, platform: 'darwin' }).pick()).toEqual({
+      kind: 'unavailable',
+    });
+  });
+
+  it('a folder whose name holds a line break is never cut down to another folder', async () => {
+    const folder = await fakePicker();
+    await folder.install(['osascript'], { kind: 'picks', stdout: '/Users/dev/code\nother/\n' });
 
     expect(await createFolderPicker({ searchPath: folder.dir, platform: 'darwin' }).pick()).toEqual({
       kind: 'unavailable',

@@ -57,8 +57,12 @@ const pickers: Partial<Record<NodeJS.Platform, readonly Picker[]>> = {
   ],
 };
 
+/** GTK's own notes, such as zenity's "GtkDialog mapped without a transient parent", say nothing went wrong. */
+const gtkNote = /^Gtk-(?:Message|WARNING)\b/;
+
 function quietExitOne(exitCode: number | null, stderr: string): boolean {
-  return exitCode === 1 && stderr.trim() === '';
+  const said = stderr.split(/\r?\n/).filter((line) => line.trim() !== '' && !gtkNote.test(line));
+  return exitCode === 1 && said.length === 0;
 }
 
 async function isProgram(path: string): Promise<boolean> {
@@ -71,9 +75,13 @@ async function isProgram(path: string): Promise<boolean> {
   }
 }
 
-/** The picked folder as the picker printed it, without a trailing newline or slash; null when it's no path. */
+/**
+ * The picked folder as the picker printed it, without a trailing newline or slash; null when it's no path,
+ * or when a line break inside it would cut it down to another folder.
+ */
 function pathFrom(stdout: string): string | null {
-  const line = stdout.split(/\r?\n/)[0]?.trim() ?? '';
+  const line = stdout.replace(/\r?\n$/, '').trim();
+  if (/[\r\n]/.test(line)) return null;
   const path = line.length > 1 ? line.replace(/[\\/]+$/, '') : line;
   return isAbsolute(path) ? path : null;
 }

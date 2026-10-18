@@ -37,6 +37,8 @@ export function RepositoryRow({ folder, onEdit, onDuplicate, onDelete, moreRef }
             ref={moreRef}
             variant="ghost"
             size="sm"
+            // At the row's end even when a narrow window wraps it onto a line of its own.
+            className="ms-auto"
             label="More actions"
             aria-label={`More actions for ${folder.name}`}
           >
