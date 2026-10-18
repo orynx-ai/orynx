@@ -14,6 +14,7 @@ import {
   Icon,
   SourceMark,
 } from '@devhub/ui';
+import { newTaskTargetId } from '../../../shell/main-content.ts';
 import { useRepositories } from '../../settings/queries.ts';
 import { chipFromPaste, folderFor } from '../composer-rules.ts';
 import {
@@ -155,6 +156,7 @@ export function HomeComposer() {
           </ContextList>
         )}
         <ComposerTextarea
+          id={newTaskTargetId}
           label={composerWords.label}
           placeholder={placeholderFor(ticketKey)}
           readOnly={start.isPending}

@@ -74,7 +74,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 24: Build the waiting banner: the session waiting longest, its key and title, what it wants to run or edit, "· 2 more waiting", Review opening it, shown only once the list has loaded, and gone within 2 seconds of the last answer (AC-25 to AC-27, Q11)
       Check: pnpm test packages/app/src/features/home/components/waiting-banner.test.tsx
       Files: packages/app/src/features/home/components/waiting-banner.tsx, packages/app/src/features/home/components/waiting-banner.test.tsx
-- [ ] Task 25: Lay out Home: the banner, greeting, composer, quick starts (Pick up a ticket, Review a pull request with focus on its tab) and the attention list, with the `Design:` note updated. ⌘N focuses the composer (AC-1, AC-2, AC-28, AC-29, AC-33)
+- [x] Task 25: Lay out Home: the banner, greeting, composer, quick starts (Pick up a ticket, Review a pull request with focus on its tab) and the attention list, with the `Design:` note updated. ⌘N focuses the composer (AC-1, AC-2, AC-28, AC-29, AC-33)
       Check: pnpm test packages/app/src/features/home packages/app/src/shell; pnpm gate design-source
       Files: packages/app/src/features/home/home-screen.tsx, packages/app/src/features/home/home-screen.test.tsx, packages/app/src/features/home/components/quick-starts.tsx, packages/app/src/features/home/components/quick-starts.test.tsx, packages/app/src/shell/use-shortcuts.ts
 - [ ] Task 26: Show a session with no ticket: breadcrumb Sessions / its title, no Ticket tab, the brief step naming your message, pull requests and files, and Orynx's mark in the sidebar and the inbox row (AC-24)
