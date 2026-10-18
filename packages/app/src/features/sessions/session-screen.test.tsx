@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeSession } from '@devhub/contracts/testing';
+import { makeSession, makeSessionChanges, makeSessionTicket } from '@devhub/contracts/testing';
 import { apiUrl, server, sessionHandler } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
 
@@ -35,6 +35,45 @@ function pageBar() {
 }
 
 describe('SessionScreen', () => {
+  it('013 AC-1: puts Claude’s progress, with the follow-up box, beside the Changes and Ticket tabs, Changes open', async () => {
+    server.use(
+      sessionHandler({ ...working, ticket: makeSessionTicket() }),
+      http.get(apiUrl(apiRoutes.sessionChanges), () => HttpResponse.json(makeSessionChanges())),
+    );
+    await renderApp({ route });
+
+    const progress = await screen.findByRole('region', { name: "Claude's progress" });
+    expect(within(progress).getByRole('textbox', { name: 'Message Claude' })).toBeVisible();
+    const details = screen.getByRole('region', { name: 'Work details' });
+    const tabs = within(details).getByRole('tablist', { name: 'Session details' });
+    expect(await within(tabs).findByRole('tab', { name: 'Changes 4' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(tabs).getByRole('tab', { name: 'Ticket PROJ-1423' })).toHaveAttribute('aria-selected', 'false');
+    expect(within(details).getByRole('tabpanel', { name: 'Changes 4' })).toBeVisible();
+    expect(within(details).getByRole('button', { name: 'Discard changes' })).toBeVisible();
+  });
+
+  it('013 AC-1, AC-21: keeps the tab in the address, and the arrow keys move between the tabs', async () => {
+    server.use(sessionHandler({ ...working, ticket: makeSessionTicket() }));
+    const { user, history } = await renderApp({ route });
+
+    const ticket = await screen.findByRole('tab', { name: 'Ticket PROJ-1423' });
+    await user.click(ticket);
+    expect(new URLSearchParams(history.location.search).get('tab')).toBe('ticket');
+    expect(screen.getByRole('tabpanel', { name: 'Ticket PROJ-1423' })).toBeVisible();
+    // Discard sits under the Changes tab only (Q6e).
+    expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull();
+
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByRole('tab', { name: /^Changes/ })).toHaveFocus();
+    expect(new URLSearchParams(history.location.search).get('tab')).toBeNull();
+  });
+
+  it('013 AC-1: opens on the tab the address names', async () => {
+    server.use(sessionHandler({ ...working, ticket: makeSessionTicket() }));
+    await renderApp({ route: `${route}?tab=ticket` });
+    expect(await screen.findByRole('tab', { name: 'Ticket PROJ-1423' })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('AC-6 (Q9e): the page bar shows Tickets / the sprint / the key, when it started, and Open in Jira', async () => {
     server.use(sessionHandler(working));
     const { user, platform } = await renderApp({ route });

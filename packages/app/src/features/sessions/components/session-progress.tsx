@@ -82,25 +82,35 @@ function withCode(line: string): ReactNode[] {
   return line.split('`').map((part, index) => (index % 2 === 1 ? <code key={part}>{part}</code> : part));
 }
 
-/** How long Claude has worked: to now while it works, moving each second, and to its end once it ended. */
+/**
+ * How long Claude has worked, over its first run and every follow-up (spec 013, Q3): moving each second while
+ * a run goes on, and still while Claude waits for you to follow up.
+ */
 function WorkedFor({ session }: { session: Session }) {
-  const working = session.endedAt === null;
-  const now = useNow(working ? 1_000 : 60_000);
-  const end = session.endedAt === null ? now.getTime() : Date.parse(session.endedAt);
-  return <span className="text-small text-muted-foreground">{durationText(end - Date.parse(session.startedAt))}</span>;
+  const { runStartedAt } = session;
+  const now = useNow(runStartedAt === null ? 60_000 : 1_000);
+  const running = runStartedAt === null ? 0 : Math.max(0, now.getTime() - Date.parse(runStartedAt));
+  return <span className="text-small text-muted-foreground">{durationText(session.workedMs + running)}</span>;
 }
 
 /**
  * "Claude's progress" (`session.html`): why the session couldn't start when it couldn't, then each step
- * in its words, the latest one still running (AC-4, AC-13). Until spec 013 brings the changes beside it,
- * it takes the page's width (Q9a).
+ * in its words, the latest one still running (AC-4, AC-13), then the follow-up box (spec 013). The box sticks
+ * to the window's bottom while the pane is taller than the window (spec 013, Q6b).
  */
 export function SessionProgress({ session, footer }: { session: Session; footer?: ReactNode }) {
   const problem = session.problem === null ? null : problemWords(session.problem, session);
   // Focus comes here once you've answered the last call waiting for you (spec 012, AC-18).
   const pane = useRef<HTMLElement>(null);
   return (
-    <Panel ref={pane} tabIndex={-1} title="Claude's progress" actions={<WorkedFor session={session} />}>
+    <Panel
+      ref={pane}
+      tabIndex={-1}
+      title="Claude's progress"
+      actions={<WorkedFor session={session} />}
+      // Clipped without being a scroll box, so the box at its end can stick to the window.
+      className="overflow-clip"
+    >
       <div className="flex flex-col gap-4 p-4">
         <ApprovalCallout session={session} afterAll={pane} />
         {problem === null ? null : (
@@ -117,20 +127,29 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
             );
           })}
         </ActivityList>
-        {footer}
+        {footer === undefined ? null : (
+          // The steps pass under it, on the pane's own colour.
+          <div className="sticky bottom-0 -mx-4 -mb-4 bg-raised px-4 pt-2 pb-4">{footer}</div>
+        )}
       </div>
     </Panel>
   );
 }
 
-/** The stepper and the pane while the session loads: their shapes, so nothing moves when it arrives (AC-16). */
-export function SessionProgressSkeleton() {
+/** The stepper while the session loads: its shape, so nothing moves when it arrives (AC-16). */
+export function SessionStepperSkeleton() {
   return (
     // Hidden from screen readers, as every skeleton is; the page says it's busy.
-    <div aria-hidden className="flex flex-col gap-6">
-      <span className="flex h-6 items-center">
-        <Skeleton className="h-4 w-80 max-w-full" />
-      </span>
+    <span aria-hidden className="flex h-6 items-center">
+      <Skeleton className="h-4 w-80 max-w-full" />
+    </span>
+  );
+}
+
+/** The pane while the session loads: its shape, so nothing moves when it arrives (AC-16). */
+export function SessionProgressSkeleton() {
+  return (
+    <div aria-hidden>
       <Panel title="Claude's progress">
         <div className="flex flex-col gap-3.5 p-4">
           {[0, 1, 2].map((row) => (

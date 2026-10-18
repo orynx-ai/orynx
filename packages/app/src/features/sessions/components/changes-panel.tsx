@@ -56,7 +56,7 @@ function ShownDiff({ session, file, editor }: { session: Session; file: ChangedF
 }
 
 /** The loading form, in the final sizes: the summary line, four file rows and a diff (AC-8). */
-function ChangesSkeleton() {
+export function ChangesSkeleton() {
   return (
     <div aria-hidden className="flex flex-col gap-3">
       <span className="flex h-5 items-center">
@@ -139,14 +139,17 @@ export function ChangesPanel({ session, title }: { session: Session; title: RefO
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {body}
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {picked !== null && session.worktreePath !== null ? (
-          <Button asChild variant="ghost" size="sm">
-            <a href={editorLink(picked, session.worktreePath)}>{openInLabel(picked)}</a>
-          </Button>
-        ) : null}
-        <DiscardSession session={session} title={title} />
-      </div>
+      {/* With the changes, not before: the diff's real length would move them as it arrives. */}
+      {changes.isPending ? null : (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {picked !== null && session.worktreePath !== null ? (
+            <Button asChild variant="ghost" size="sm">
+              <a href={editorLink(picked, session.worktreePath)}>{openInLabel(picked)}</a>
+            </Button>
+          ) : null}
+          <DiscardSession session={session} title={title} />
+        </div>
+      )}
     </div>
   );
 }

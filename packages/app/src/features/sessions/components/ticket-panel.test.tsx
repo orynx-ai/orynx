@@ -6,8 +6,9 @@ import { renderApp } from '../../../test/render.tsx';
 
 const id = '0123456789abcdef';
 
-/** The Ticket tab's own region: until the tabs come (task 27) it sits on the screen under the changes. */
-const ticketTab = () => screen.getByRole('region', { name: 'Ticket PROJ-1423' });
+const route = `/sessions/${id}?tab=ticket`;
+/** The Ticket tab's panel, named by its tab. */
+const ticketTab = () => screen.getByRole('tabpanel', { name: 'Ticket PROJ-1423' });
 
 describe('TicketPanel', () => {
   it('AC-9: shows the ticket as Claude got it, with its status and due date, and Open in Jira', async () => {
@@ -15,8 +16,8 @@ describe('TicketPanel', () => {
     server.use(
       sessionHandler(makeSession({ id, title: 'Add bulk archive to the content list', ticket: makeSessionTicket() })),
     );
-    const { user, platform } = await renderApp({ route: `/sessions/${id}` });
-    const tab = await screen.findByRole('region', { name: 'Ticket PROJ-1423' });
+    const { user, platform } = await renderApp({ route });
+    const tab = await screen.findByRole('tabpanel', { name: 'Ticket PROJ-1423' });
 
     expect(within(tab).getByText('Jira')).toBeInTheDocument();
     expect(within(tab).getByText('PROJ-1423')).toBeVisible();
@@ -44,8 +45,8 @@ describe('TicketPanel', () => {
         makeSession({ id, ticket: makeSessionTicket({ description: null, status: null, dueDate: null }) }),
       ),
     );
-    await renderApp({ route: `/sessions/${id}` });
-    await screen.findByRole('region', { name: 'Ticket PROJ-1423' });
+    await renderApp({ route });
+    await screen.findByRole('tabpanel', { name: 'Ticket PROJ-1423' });
     expect(within(ticketTab()).getByText('This ticket has no description.')).toBeVisible();
     expect(within(ticketTab()).queryByText('In progress')).toBeNull();
     expect(within(ticketTab()).queryByText(/^Due /)).toBeNull();
@@ -60,8 +61,8 @@ describe('TicketPanel', () => {
         }),
       ),
     );
-    const { user, platform } = await renderApp({ route: `/sessions/${id}` });
-    await screen.findByRole('region', { name: 'Ticket PROJ-1423' });
+    const { user, platform } = await renderApp({ route });
+    await screen.findByRole('tabpanel', { name: 'Ticket PROJ-1423' });
     await user.click(within(ticketTab()).getByRole('link', { name: 'the design' }));
     expect(platform.openExternal).toHaveBeenCalledWith('https://figma.example.com/f');
   });

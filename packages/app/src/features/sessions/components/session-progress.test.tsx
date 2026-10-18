@@ -17,6 +17,8 @@ function session(overrides: Partial<Session> = {}): Session {
     state: 'working',
     step: 'build',
     startedAt: '2026-10-16T09:56:00.000Z',
+    // Its first run, from the start (spec 013, Q3).
+    runStartedAt: '2026-10-16T09:56:00.000Z',
     activities: [
       { id: 'step-1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true },
       { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423' },
@@ -121,6 +123,8 @@ describe('SessionProgress', () => {
           state: 'done',
           step: 'review',
           endedAt: '2026-10-16T09:59:30.000Z',
+          workedMs: 210_000,
+          runStartedAt: null,
           activities: [{ id: 'step-1', state: 'done', kind: 'finished', summary: 'Added an Archive selected button.' }],
         }),
       ),
@@ -174,6 +178,18 @@ describe('SessionProgress', () => {
     const alert = (await progress()).getByRole('alert');
     expect(alert).toHaveTextContent('Claude stopped with an error');
     expect(alert).toHaveTextContent("Claude's service is busy or your usage limit is reached. Try again later.");
+  });
+
+  it('013 Q3: adds the run Claude is on now to the time it worked before, and counts no time between runs', async () => {
+    server.use(
+      sessionHandler(
+        // Worked a minute before you followed up, then started again 12 seconds ago.
+        session({ workedMs: 60_000, runStartedAt: '2026-10-16T10:00:00.000Z' }),
+      ),
+    );
+    await renderApp({ route });
+    const pane = await progress();
+    expect(pane.getByText('1 min 12 s')).toBeVisible();
   });
 
   it('AC-14: a session Orynx closed on says so', async () => {
