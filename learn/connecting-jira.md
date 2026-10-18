@@ -60,6 +60,10 @@ The inbox's sync asks `connection.credentials()` for the saved site, email and t
 
 When Claude starts on a ticket, the session asks `connection.credentials()` the same way, then `client.issue(request, key)` makes one `GET /rest/api/3/issue/{key}` for the summary, type and description, within the same 10-second wait. The key has already passed `JiraIssueKeySchema` (`PROJ-1423`) in the start request. It's the only read that asks for a description, and the answer is never cached or logged; it goes into the brief. `adf-markdown.ts` turns the description from Jira's document format into Markdown, never throwing on a shape it doesn't know. A failure is one of the problems above, and the session stops with it. See `learn/sessions-and-worktrees.md`.
 
+## One issue, for the composer's brief (spec 015)
+
+A Jira ticket chip in Home's composer is read when you press Send, before the session exists. `context-reader.ts` asks `connection.credentials()` as a session does, then `client.issueContext(request, key)` makes one `GET /rest/api/3/issue/{key}` with `summary,issuetype,description,comment,issuelinks`. It keeps the last 20 comments, oldest first, each turned into Markdown by `adf-markdown.ts`, and each linked issue named by the link's own words from this issue's side ("blocks", "is cloned by"). An odd comment or link is left out rather than failing the ticket. A ticket Jira hides or doesn't have is `not_found`, and the composer says so under its box with nothing made. See `learn/composer-and-context.md`.
+
 ## Keeping the token in its place
 
 - `client.ts` hands jira.js the email and token, and jira.js builds the `Authorization: Basic base64(email:token)` header. No error from jira.js leaves `client.ts`, so nothing that held the request reaches a log or a response.
