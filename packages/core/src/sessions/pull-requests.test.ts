@@ -111,8 +111,9 @@ async function setUp({
   await records.writeBrief(id, brief);
 
   const events = createEventBus();
+  const settings = createMemorySettingsStore(connected ? { github: { method: 'token' } } : {});
   const connection = createGitHubConnection({
-    settings: createMemorySettingsStore(connected ? { github: { method: 'token' } } : {}),
+    settings,
     tokens: createTokenStore({ keychain: createMemoryKeychain({ github: githubToken }), events }),
     github: createGitHubClient({ timeoutMs: 500 }),
     gh: createGhCli({ searchPath: '' }),
@@ -135,7 +136,7 @@ async function setUp({
     changes: createChangesReader({ env }),
     adapter,
   });
-  return { repos, home, worktree, records, sdk, pulls, reports };
+  return { repos, home, worktree, records, sdk, pulls, reports, settings };
 }
 
 const hashOf = async (path: string) =>
@@ -213,45 +214,36 @@ describe('drafting the pull request (spec 014)', () => {
   });
 
   it("AC-7: says why there can't be a pull request, without asking Claude", async () => {
-    const cases: {
-      name: string;
-      options?: SetUpOptions;
-      before?: (s: Awaited<ReturnType<typeof setUp>>) => Promise<unknown>;
-      reason: string;
-    }[] = [
-      { name: 'GitHub not connected', options: { connected: false }, reason: 'not_connected' },
-      {
-        name: 'no origin',
-        before: (s) => s.repos.git(s.repos.clone, 'remote', 'remove', 'origin'),
-        reason: 'no_origin',
-      },
-      {
-        name: 'origin elsewhere',
-        before: (s) => s.repos.git(s.repos.clone, 'remote', 'set-url', 'origin', 'https://gitlab.com/acme/web-app.git'),
-        reason: 'not_github',
-      },
-      { name: 'no changes', reason: 'no_changes' },
-      { name: 'worktree gone', before: (s) => rm(s.worktree, { recursive: true, force: true }), reason: 'missing' },
-      { name: 'Claude working', options: { session: { state: 'working' } }, reason: 'working' },
-      {
-        name: 'discarded',
-        options: { session: { state: 'stopped', discardedAt: '2026-10-18T10:00:00.000Z' } },
-        reason: 'discarded',
-      },
-      {
-        name: 'a PR open',
-        options: { session: { state: 'pr_open', pullRequest: makeSessionPullRequest() } },
-        reason: 'opened',
-      },
-      { name: 'no worktree made', options: { session: { branch: null } }, reason: 'no_worktree' },
-    ];
-    for (const { name, options, before, reason } of cases) {
-      const set = await setUp(options);
-      if (reason !== 'no_changes') await writeFile(join(set.worktree, 'README.md'), 'changed\n').catch(() => undefined);
-      await before?.(set);
-      expect(await set.pulls.draft(id), name).toEqual({ result: 'cannot', reason });
-      expect(set.sdk.runs, name).toHaveLength(0);
+    // One worktree for every case, so the test stays quick when every file runs at once.
+    const { repos, worktree, records, sdk, pulls, settings } = await setUp();
+    const as = async (change: Partial<Session>) =>
+      records.update(id, (current) => ({ ...current, session: { ...current.session, ...change } }));
+    const expectCannot = async (name: string, reason: string) => {
+      expect(await pulls.draft(id), name).toEqual({ result: 'cannot', reason });
+    };
+
+    await expectCannot('no changes', 'no_changes');
+    await writeFile(join(worktree, 'README.md'), 'changed\n');
+    for (const [change, reason] of [
+      [{ state: 'working' }, 'working'],
+      [{ state: 'stopped', discardedAt: '2026-10-18T10:00:00.000Z' }, 'discarded'],
+      [{ state: 'pr_open', pullRequest: makeSessionPullRequest() }, 'opened'],
+      [{ branch: null }, 'no_worktree'],
+    ] as const) {
+      await as(change);
+      await expectCannot(reason, reason);
+      await as({ state: 'done', discardedAt: null, pullRequest: null, branch: 'feat/PROJ-1423' });
     }
+    await settings.update(() => ({}));
+    await expectCannot('GitHub not connected', 'not_connected');
+    await settings.update(() => ({ github: { method: 'token' } }));
+    await repos.git(repos.clone, 'remote', 'set-url', 'origin', 'https://gitlab.com/acme/web-app.git');
+    await expectCannot('origin elsewhere', 'not_github');
+    await repos.git(repos.clone, 'remote', 'remove', 'origin');
+    await expectCannot('no origin', 'no_origin');
+    await rm(worktree, { recursive: true, force: true });
+    await expectCannot('worktree gone', 'missing');
+    expect(sdk.runs).toHaveLength(0);
   });
 
   it("AC-14: changes nothing: not the session, not the worktree's index, not origin", async () => {
@@ -600,6 +592,16 @@ describe('pushing changes to the pull request (spec 014, Q7)', () => {
       result: 'failed',
       problem: { kind: 'secret', path: 'id_ed25519' },
     });
+  });
+
+  it("AC-8: commits nothing when the files new since the push can't be listed for the secret check", async () => {
+    const { repos, worktree, records, pulls } = await withPullRequestOpen();
+    await writeFile(join(worktree, 'select.ts'), 'changed\n');
+    // A commit git doesn't have, as a repository rewritten under Orynx would leave it.
+    await records.update(id, (current) => ({ ...current, pushedCommit: 'f'.repeat(40) }));
+    const head = await repos.git(worktree, 'rev-parse', 'HEAD');
+    expect(await pulls.push(id, { message: 'More' })).toEqual({ result: 'failed', problem: { kind: 'commit_failed' } });
+    expect(await repos.git(worktree, 'rev-parse', 'HEAD')).toBe(head);
   });
 
   it("AC-17: says why it can't push", async () => {

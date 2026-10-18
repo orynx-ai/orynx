@@ -338,7 +338,9 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       report(record, 'push', outcome, number);
       return answer;
     };
-    const secret = firstSecretFile(await git.newFiles(worktree, since).catch(() => []));
+    const added = await git.newFiles(worktree, since).catch(() => null);
+    if (added === null) return ending({ result: 'failed', problem: { kind: 'commit_failed' } }, 'secret_check');
+    const secret = firstSecretFile(added);
     if (secret !== null) return ending({ result: 'failed', problem: { kind: 'secret', path: secret } }, 'secret');
     const committed = await git.commit(worktree, commitMessage(message));
     if (!committed.ok)
@@ -390,8 +392,11 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       return answer;
     };
 
-    // A pushed secret can't be taken back, so a new one stops everything before git writes anything (Q6).
-    const secret = firstSecretFile(await git.newFiles(worktree, start).catch(() => []));
+    // A pushed secret can't be taken back, so a new one stops everything before git writes anything (Q6). When the
+    // new files can't be listed, nothing is committed either.
+    const added = await git.newFiles(worktree, start).catch(() => null);
+    if (added === null) return ending(failed({ kind: 'commit_failed' }), 'secret_check');
+    const secret = firstSecretFile(added);
     if (secret !== null) return ending(failed({ kind: 'secret', path: secret }), 'secret');
     const committed = await git.commit(worktree, commitMessage(title));
     if (!committed.ok) return ending(failed(commitProblems[committed.problem]), committed.problem);
