@@ -535,11 +535,14 @@ describe('approvals (spec 012)', () => {
       text: 'Run the content list tests',
     });
     expect(heard).toContainEqual({ type: 'sessions.changed' });
-    expect(reports).toContainEqual({
-      what: 'asked',
-      session: '0000000000000001',
-      ticket: 'PROJ-1423',
-      about: 'command',
+    // The terminal is told once the call is saved, so the report can come just after the saved call shows.
+    await vi.waitFor(() => {
+      expect(reports).toContainEqual({
+        what: 'asked',
+        session: '0000000000000001',
+        ticket: 'PROJ-1423',
+        about: 'command',
+      });
     });
     await service.stop('0000000000000001');
   });
