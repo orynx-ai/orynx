@@ -2,7 +2,7 @@ import type { Session, SessionActivity, SessionProblem } from '@devhub/contracts
 
 /**
  * The words for each step of "Claude's progress" and for a session that couldn't start (spec 011, Q10a and
- * Q10f; spec 013, Q10d and Q10e). The server sends what happened; these say it. A running step is in the present tense, a done one
+ * Q10f; spec 013, Q10d and Q10e; spec 014, Q11e). The server sends what happened; these say it. A running step is in the present tense, a done one
  * in the past.
  */
 
@@ -53,6 +53,16 @@ function waitingDetail(activity: Extract<SessionActivity, { kind: 'waiting' }>):
   return activity.text ?? 'Wants to run a command';
 }
 
+/** "4 files", "1 file". */
+function filesText(count: number): string {
+  return `${String(count)} ${count === 1 ? 'file' : 'files'}`;
+}
+
+/** What Orynx did before the pull request opened: committed, then pushed, or only pushed (spec 014, Q11e). */
+function pushedDetail(files: number, branch: string): string {
+  return files === 0 ? `Pushed ${branch}` : `Committed ${filesText(files)} and pushed ${branch}`;
+}
+
 export function stepWords(activity: SessionActivity): StepWords {
   const running = activity.state === 'running';
   switch (activity.kind) {
@@ -101,6 +111,16 @@ export function stepWords(activity: SessionActivity): StepWords {
       return { title: 'Finished', detail: activity.summary.trim() === '' ? null : activity.summary };
     case 'message':
       return { title: 'You asked Claude', detail: firstLines(activity.text) };
+    case 'pull_request':
+      return {
+        title: `${activity.linked ? 'Linked' : 'Opened'} pull request #${String(activity.number)}`,
+        detail: pushedDetail(activity.files, activity.branch),
+      };
+    case 'pushed':
+      return {
+        title: `Pushed changes to #${String(activity.number)}`,
+        detail: activity.files === 0 ? null : `Committed ${filesText(activity.files)}`,
+      };
     case 'stopped':
       return { title: 'You stopped Claude', detail: keepsChanges };
     case 'interrupted':

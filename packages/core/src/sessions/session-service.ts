@@ -792,6 +792,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         worktreePath: null,
         workedMs: 0,
         runStartedAt: at,
+        pullRequest: null,
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),

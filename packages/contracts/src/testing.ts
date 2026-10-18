@@ -29,10 +29,12 @@ import {
   SessionApprovalSchema,
   SessionSchema,
   SessionSummarySchema,
+  SessionPullRequestSchema,
   SessionTicketSchema,
   type Session,
   type SessionApproval,
   type SessionList,
+  type SessionPullRequest,
   type SessionSummary,
   type SessionTicket,
 } from './session.ts';
@@ -121,6 +123,17 @@ export function makeSessionTicket(overrides: Partial<SessionTicket> = {}): Sessi
       '- Unit tests for the new API call',
     status: { name: 'In progress', column: 'in_progress' },
     dueDate: '2026-10-16',
+    ...overrides,
+  });
+}
+
+/** The pull request Orynx opened for PROJ-1423 (spec 014): acme/web-app#2841. */
+export function makeSessionPullRequest(overrides: Partial<SessionPullRequest> = {}): SessionPullRequest {
+  return SessionPullRequestSchema.parse({
+    number: 2841,
+    url: 'https://github.com/acme/web-app/pull/2841',
+    repository: 'acme/web-app',
+    openedAt: '2026-10-16T10:30:00.000Z',
     ...overrides,
   });
 }
