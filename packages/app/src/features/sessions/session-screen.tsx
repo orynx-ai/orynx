@@ -1,4 +1,4 @@
-// Design: docs/design/screens/session.html — page bar, title row with Stop Claude, stepper, Claude's progress (full width until 013), Discard changes
+// Design: docs/design/screens/session.html — page bar, title row with Stop Claude, stepper, Claude's progress with the approval callout (full width until 013), Discard changes
 import { useRef } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons';

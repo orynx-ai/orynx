@@ -46,6 +46,15 @@ describe('SessionHeader', () => {
     expect(within(main).getByRole('button', { name: 'Stop Claude' })).toBeVisible();
   });
 
+  it('012 AC-1, Q8d: while a call waits, the pill says the session needs your approval, and Stop Claude stays', async () => {
+    server.use(sessionHandler({ ...working, state: 'needs_you' }));
+    await renderApp({ route });
+    await screen.findByRole('heading', { level: 1 });
+    const main = screen.getByRole('main');
+    expect(within(main).getByText('Needs your approval')).toBeVisible();
+    expect(within(main).getByRole('button', { name: 'Stop Claude' })).toBeVisible();
+  });
+
   it.each([
     ['done', 'Done, ready for PR'],
     ['stopped', 'Stopped'],

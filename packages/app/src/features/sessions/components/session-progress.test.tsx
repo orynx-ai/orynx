@@ -76,6 +76,44 @@ describe('SessionProgress', () => {
     expect(pane.getByText('4 min 12 s')).toBeVisible();
   });
 
+  it('012 AC-1, AC-10: a call waiting for you is a step in the amber look, with Claude’s line about it', async () => {
+    server.use(
+      sessionHandler(
+        session({
+          state: 'needs_you',
+          step: 'test',
+          activities: [
+            { id: 'step-1', state: 'done', kind: 'edit', files: ['src/ContentList.tsx'] },
+            {
+              id: 'step-2',
+              state: 'running',
+              kind: 'waiting',
+              approvalId: 'approval-1',
+              about: 'command',
+              text: 'Run the content list tests',
+            },
+          ],
+        }),
+      ),
+    );
+    await renderApp({ route });
+    const pane = await progress();
+    const items = within(pane.getByRole('list')).getAllByRole('listitem');
+    expect(items.at(-1)?.textContent).toBe('Waiting for your approval, needs youRun the content list tests');
+  });
+
+  it('012 AC-17: the stepper shows Test once Claude runs a command after building', async () => {
+    server.use(sessionHandler(session({ step: 'test' })));
+    await renderApp({ route });
+    const stepper = await screen.findByRole('list', { name: 'Session progress' });
+    expect(within(stepper).getByText('Test').closest('li')).toHaveAttribute('aria-current', 'step');
+    expect(
+      within(stepper)
+        .getAllByRole('listitem')
+        .map((step) => step.textContent),
+    ).toEqual(['Plan, done', 'Build, done', '3Test', '4Review', '5Pull request']);
+  });
+
   it('AC-8: a finished session shows Claude’s summary and how long it worked, the time stopped', async () => {
     server.use(
       sessionHandler(

@@ -1,6 +1,5 @@
 import { useRef, type ReactNode } from 'react';
 import {
-  AlertCircleIcon,
   Cancel01Icon,
   CheckListIcon,
   Delete02Icon,
@@ -44,7 +43,7 @@ const kindIcons = {
   plan: CheckListIcon,
   edit: PencilEdit01Icon,
   refused: Cancel01Icon,
-  waiting: AlertCircleIcon,
+  waiting: TerminalIcon,
   command: TerminalIcon,
   denied: Cancel01Icon,
   no_commands: TerminalIcon,
@@ -67,6 +66,10 @@ const plainKinds = new Set<SessionActivity['kind']>([
 function look(activity: SessionActivity): { state: ActivityStepState | undefined; icon: ReactNode } {
   if (activity.state === 'done' && !plainKinds.has(activity.kind)) {
     return { state: 'done', icon: <Icon icon={Tick02Icon} /> };
+  }
+  // A call waiting for you is amber, with the kind of work it waits to do (spec 012, as session.html draws it).
+  if (activity.kind === 'waiting') {
+    return { state: 'waiting', icon: <Icon icon={activity.about === 'edit' ? PencilEdit01Icon : TerminalIcon} /> };
   }
   return { state: undefined, icon: <Icon icon={kindIcons[activity.kind]} /> };
 }
