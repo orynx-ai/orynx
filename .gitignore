@@ -24,3 +24,6 @@ cache.db-*
 
 .DS_Store
 *.log
+
+# Vitest blob reports, one per package in CI, merged by `vitest --merge-reports`.
+.vitest/

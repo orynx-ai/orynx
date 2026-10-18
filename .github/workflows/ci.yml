@@ -12,26 +12,115 @@ concurrency:
 permissions:
   contents: read
 
+# Every job runs on its own runner at the same time. Unit tests run one job per workspace package,
+# each writing a vitest blob report; `unit-test-merge` joins them into one result and applies the
+# coverage thresholds. `ci-passed` is the one check a PR needs.
 jobs:
-  verify:
-    name: Gates, types, lint, tests, build
+  checks:
+    name: Gates and format
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
       - run: pnpm gates --ci
-      - run: pnpm typecheck
-      - run: pnpm lint
       - run: pnpm format:check
-      - run: pnpm test:coverage
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+
+  unit-test:
+    name: Unit tests (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      # One failing package must not cancel the others: the merge job reports every failure.
+      fail-fast: false
+      matrix:
+        include:
+          - { name: app, dir: packages/app }
+          - { name: ui, dir: packages/ui }
+          - { name: core, dir: packages/core }
+          - { name: contracts, dir: packages/contracts }
+          - { name: api-client, dir: packages/api-client }
+          - { name: server, dir: apps/server }
+          - { name: web, dir: apps/web }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      # Filter by folder, not --project: in vitest 5 a --project run records no coverage at all.
+      # One package covers a small part of the code, so the thresholds wait for the merge job.
+      - name: Test ${{ matrix.dir }}
+        run: >-
+          pnpm exec vitest run ${{ matrix.dir }}/
+          --reporter=default --reporter=blob --outputFile.blob=.vitest/blob/blob-${{ matrix.name }}.json
+          --coverage --coverage.reporter=json
+          --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
+          --coverage.thresholds.branches=0 --coverage.thresholds.statements=0
+      # Vitest writes the blob even when a test fails. No blob means the run died before the end.
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: vitest-blob-${{ matrix.name }}
+          path: .vitest/blob/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  unit-test-merge:
+    name: Unit tests merge + coverage
+    needs: unit-test
+    # Runs after failures too, so it can list every failing test in one place.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: vitest-blob-*
+          path: .vitest/blob/
+          merge-multiple: true
+      # A package left out of the matrix would lose its tests without a sound.
+      - name: Every package sent a report
+        run: |
+          missing=()
+          for config in packages/*/vitest.config.ts apps/*/vitest.config.ts; do
+            name=$(basename "$(dirname "$config")")
+            [ -f ".vitest/blob/blob-$name.json" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::No test report from ${missing[*]}. Its unit-test job died, or it is missing from the matrix in .github/workflows/ci.yml."
+            exit 1
+          fi
+      - name: Merge reports and check coverage
+        run: pnpm exec vitest --merge-reports --coverage
+
+  build:
+    name: Build and Storybook
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - run: pnpm build
       - run: pnpm --filter @devhub/ui build-storybook
 
@@ -41,12 +130,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
@@ -56,15 +140,16 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # The one required check. It needs every job directly, so a failed package job fails it even
+  # though the merge job ran. Add each new job here.
   ci-passed:
     name: CI passed
     if: always()
-    needs: [verify, e2e]
+    needs: [checks, typecheck, lint, unit-test, unit-test-merge, build, e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Every job succeeded
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
         run: |
-          if [ "${{ needs.verify.result }}" != "success" ] || [ "${{ needs.e2e.result }}" != "success" ]; then
-            echo "verify: ${{ needs.verify.result }}, e2e: ${{ needs.e2e.result }}"
-            exit 1
-          fi
+          echo "A required job did not succeed: ${{ join(needs.*.result, ', ') }}"
+          exit 1
