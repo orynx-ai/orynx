@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
@@ -89,6 +89,20 @@ describe('Sidebar', () => {
     await user.keyboard('{Escape}');
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(search).toHaveFocus();
+  });
+
+  it('AC-19 (spec 009): Search takes focus when clicked, so Esc gives it back even where a click doesn’t focus a button', async () => {
+    const { user } = await renderApp({ route: '/tickets' });
+    const search = within(mainNav()).getByRole('button', { name: /Search/ });
+    // Safari leaves focus where it was when a button is clicked; start from there.
+    screen.getByRole('main').focus();
+
+    // A click event alone, as Safari sends it: no focus on mouse down.
+    fireEvent.click(search);
+    await screen.findByRole('dialog', { name: 'Search' });
+    await user.keyboard('{Escape}');
+
     expect(search).toHaveFocus();
   });
 

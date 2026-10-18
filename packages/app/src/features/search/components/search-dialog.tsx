@@ -87,7 +87,8 @@ function SearchBody() {
       return {
         id: hit.id,
         mark: mark(hit),
-        code: text.code,
+        code: text.code === '' ? undefined : text.code,
+        codeEnd: text.codeEnd ?? undefined,
         title: text.title,
         meta: text.meta ?? undefined,
       };
@@ -119,6 +120,7 @@ function SearchBody() {
 
   /** What shows where the results would be, when there are none to show. */
   function body() {
+    // Try again puts a query that never answered back to pending, so the loading rows below show it working.
     if (data === undefined && index.isError) {
       return (
         <EmptyState
@@ -136,7 +138,17 @@ function SearchBody() {
         />
       );
     }
-    if (data !== undefined && nothingToSearch(data)) {
+    // The list is on its way: loading rows the size of a result, typed or not (AC-23).
+    if (data === undefined) {
+      return (
+        <>
+          <SearchResultSkeleton />
+          <SearchResultSkeleton />
+          <SearchResultSkeleton />
+        </>
+      );
+    }
+    if (nothingToSearch(data)) {
       return (
         <EmptyState
           title="Nothing to search yet"
@@ -159,20 +171,18 @@ function SearchBody() {
       );
     }
     if (!typed) return <p className="px-2 py-1.5 text-small text-muted-foreground">{hint}</p>;
-    if (data === undefined) {
-      return (
-        <>
-          <SearchResultSkeleton />
-          <SearchResultSkeleton />
-          <SearchResultSkeleton />
-        </>
-      );
-    }
     return (
       <EmptyState title="No matches">
         <span>Try a key like PROJ-1423 or a repo name.</span>
       </EmptyState>
     );
+  }
+
+  /** What a screen reader hears once typing pauses (Q5g), and the states it would otherwise miss. */
+  function spoken(): string | undefined {
+    if (data === undefined) return index.isError ? "Couldn't load search" : undefined;
+    if (nothingToSearch(data)) return 'Nothing to search yet';
+    return typed ? resultCount(found) : undefined;
   }
 
   const notes = data === undefined || nothingToSearch(data) ? [] : syncingLines(data);
@@ -185,8 +195,8 @@ function SearchBody() {
       }}
       groups={groups}
       onPick={open}
-      status={!typed || data === undefined ? undefined : resultCount(found)}
-      busy={typed && index.isPending}
+      status={spoken()}
+      busy={index.isPending}
       note={notes.length === 0 ? undefined : notes.join(' ')}
     >
       {body()}

@@ -172,6 +172,17 @@ describe('Search', () => {
     expect(await screen.findByRole('dialog', { name: 'Search' })).toBeVisible();
   });
 
+  it('AC-19: holding ⌘K down opens search once, rather than opening and closing it with each repeat', async () => {
+    await renderApp();
+
+    press(commandK);
+    await screen.findByRole('dialog', { name: 'Search' });
+    expect(press({ ...commandK, repeat: true }, searchBox())).toBe(false);
+    press({ ...commandK, repeat: true }, searchBox());
+
+    expect(screen.getByRole('dialog', { name: 'Search' })).toBeVisible();
+  });
+
   it('AC-1: leaves ⇧⌘K to the browser', async () => {
     await renderApp();
 

@@ -122,20 +122,24 @@ describe('search results', () => {
     expect(tickets?.hits.map(hitText)).toEqual([
       {
         code: 'PROJ-1423',
+        codeEnd: null,
         title: 'Add bulk archive',
         meta: 'In Progress',
       },
     ]);
-    expect(pulls?.hits.map(hitText)).toEqual([{ code: 'api #977', title: 'Speed up archive', meta: null }]);
+    expect(pulls?.hits.map(hitText)).toEqual([
+      { code: 'api', codeEnd: hash(977), title: 'Speed up archive', meta: null },
+    ]);
     expect(sessions?.hits.map(hitText)).toEqual([
       {
         code: 'PROJ-1423',
+        codeEnd: null,
         title: 'Add bulk archive',
         meta: 'Needs you',
       },
     ]);
     expect(searchResults(index, 'tidy')[0]?.hits.map(hitText)).toEqual([
-      { code: 'PR #2836', title: 'Tidy tests', meta: 'Working' },
+      { code: 'PR #2836', codeEnd: null, title: 'Tidy tests', meta: 'Working' },
     ]);
   });
 });

@@ -115,27 +115,30 @@ export function resultCount(groups: readonly SearchGroupResult[]): string {
 }
 
 export interface HitText {
-  /** The key or "web-app #2841", in mono; empty for a session started from neither. */
+  /** The key or the repository, in mono; empty for a session started from neither. */
   code: string;
+  /** A pull request's "#2841", which is never cut off; null for the others. */
+  codeEnd: string | null;
   title: string;
   /** The status, author or state; null when there's none. */
   meta: string | null;
 }
 
-/** A result's words (Q3c): ticket key, title and status; repository and number, title and author; source, title and state. */
+/** A result's words (Q3c): ticket key, title and status; repository, number, title and author; source, title and state. */
 export function hitText(hit: SearchHit): HitText {
   switch (hit.kind) {
     case 'ticket': {
       const { key, title, status } = hit.ticket;
-      return { code: key, title, meta: status === '' ? null : status };
+      return { code: key, codeEnd: null, title, meta: status === '' ? null : status };
     }
     case 'pull_request': {
       const { repository, number, title, author } = hit.pullRequest;
-      return { code: `${repository} ${hash(number)}`, title, meta: author };
+      return { code: repository, codeEnd: hash(number), title, meta: author };
     }
     case 'session':
       return {
         code: sessionSource(hit.session) ?? '',
+        codeEnd: null,
         title: hit.session.title,
         meta: sessionStateLabels[hit.session.state],
       };

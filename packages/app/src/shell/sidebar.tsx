@@ -116,7 +116,9 @@ export function Sidebar() {
           aria-haspopup="dialog"
           aria-keyshortcuts={search.ariaKeyShortcuts}
           title={collapsed ? 'Search' : undefined}
-          onClick={() => {
+          onClick={(event) => {
+            // Safari doesn't focus a clicked button; focus it, so closing search gives focus back here.
+            event.currentTarget.focus();
             openSearch(true);
           }}
           className={cn(

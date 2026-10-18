@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type SearchIndex } from '@devhub/contracts';
@@ -81,16 +81,19 @@ describe('Search dialog', () => {
     expect(searchBox()).toHaveValue('');
   });
 
-  it('AC-20: Tab stays inside the dialog', async () => {
+  it('AC-20: Tab stays inside the dialog: from the box to the results, which scroll by keyboard, and back', async () => {
     holding();
     const { user } = await renderApp();
     await openSearch(user);
-    await screen.findByRole('dialog', { name: 'Search' });
+    const dialog = await screen.findByRole('dialog', { name: 'Search' });
 
+    await user.tab();
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    expect(searchBox()).not.toHaveFocus();
     await user.tab();
     expect(searchBox()).toHaveFocus();
     await user.tab({ shift: true });
-    expect(searchBox()).toHaveFocus();
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
   });
 
   it('AC-6, AC-8, AC-9: results show in their groups as I type, from one request however much I type', async () => {
@@ -181,6 +184,10 @@ describe('Search dialog', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'Search' });
     expect(await within(dialog).findByText('Nothing to search yet')).toBeVisible();
+    // A screen reader hears it too, though nothing was typed.
+    await waitFor(() => {
+      expect(within(dialog).getByRole('status')).toHaveTextContent('Nothing to search yet');
+    });
     expect(within(dialog).getByText('Connect Jira or GitHub to search your tickets and pull requests.')).toBeVisible();
     expect(searchBox()).toBeVisible();
 
@@ -190,7 +197,7 @@ describe('Search dialog', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('AC-23: while the list is on its way, typing shows loading rows and no words', async () => {
+  it('AC-23: while the list is on its way, opening search shows loading rows and no words, and typing keeps them', async () => {
     server.use(
       http.get(apiUrl(apiRoutes.search), async () => {
         await delay('infinite');
@@ -200,10 +207,13 @@ describe('Search dialog', () => {
     const { user } = await renderApp();
     await openSearch(user);
 
-    await user.type(await screen.findByRole('combobox'), 'archive');
-
-    const dialog = screen.getByRole('dialog', { name: 'Search' });
+    const dialog = await screen.findByRole('dialog', { name: 'Search' });
     // The loading rows are for the eye only; the region around them says it's busy.
+    expect(dialog.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(within(dialog).queryByText(/Find a ticket by key or title/)).not.toBeInTheDocument();
+
+    await user.type(searchBox(), 'archive');
+
     expect(dialog.querySelector('[aria-busy="true"]')).not.toBeNull();
     expect(within(dialog).queryByRole('listbox')).not.toBeInTheDocument();
     expect(within(dialog).queryByText('No matches')).not.toBeInTheDocument();
@@ -261,13 +271,28 @@ describe('Search dialog', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'Search' });
     expect(await within(dialog).findByText("Couldn't load search")).toBeVisible();
+    await waitFor(() => {
+      expect(within(dialog).getByRole('status')).toHaveTextContent("Couldn't load search");
+    });
 
-    holding();
+    let answer: () => void = () => undefined;
+    server.use(
+      http.get(apiUrl(apiRoutes.search), async () => {
+        await new Promise<void>((resolve) => {
+          answer = resolve;
+        });
+        return HttpResponse.json(held);
+      }),
+    );
     await user.click(within(dialog).getByRole('button', { name: 'Try again' }));
+    // It shows it's working, with the loading rows, until the answer comes.
+    expect(dialog.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(within(dialog).queryByText("Couldn't load search", { ignore: '[role="status"]' })).not.toBeInTheDocument();
+    answer();
     await user.type(searchBox(), 'archive');
 
     expect(await within(dialog).findByRole('listbox')).toBeVisible();
-    expect(within(dialog).queryByText("Couldn't load search")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Couldn't load search", { ignore: '[role="status"]' })).not.toBeInTheDocument();
   });
 
   it('AC-27: a tool whose last sync failed is still searched, with no error in the dialog', async () => {

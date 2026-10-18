@@ -29,9 +29,10 @@ export function useGlobalShortcuts(): void {
         event.preventDefault();
         startNewTask();
       } else if (search.matches(event)) {
-        // ⌘K opens search, and closes it again when it's open (spec 009, Q2d).
+        // ⌘K opens search, and closes it again when it's open (spec 009, Q2d). A held key repeats; only
+        // the first press counts.
         event.preventDefault();
-        toggleSearch();
+        if (!event.repeat) toggleSearch();
       }
     };
     // Capture phase, so a widget that stops keydown propagation can never swallow the shortcut.
