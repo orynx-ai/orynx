@@ -36,6 +36,19 @@ export function sessionsQueryOptions(api: ApiClient, query: SessionListQuery = {
   });
 }
 
+/**
+ * One session (spec 011). Its key starts with the lists' key, so `sessions.changed` refreshes it too, and
+ * `session.changed` refreshes only this one.
+ */
+export function sessionQueryOptions(api: ApiClient, id: string) {
+  return queryOptions({
+    queryKey: [...queryKeys.sessions, 'detail', id] as const,
+    queryFn: () => api.session(id),
+    // Freshness comes from the event stream (session.changed, sessions.changed), not from polling.
+    staleTime: Infinity,
+  });
+}
+
 export function jiraConnectionQueryOptions(api: ApiClient) {
   return queryOptions({
     queryKey: queryKeys.jiraConnection,

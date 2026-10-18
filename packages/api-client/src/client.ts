@@ -16,8 +16,11 @@ import {
   type RepositoryList,
   type SearchIndex,
   type ServerEvent,
+  type Session,
   type SessionList,
   type SessionListQuery,
+  type StartSessionAnswer,
+  type StartSessionRequest,
   type Status,
   type Tickets,
 } from '@devhub/contracts';
@@ -28,7 +31,7 @@ import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnec
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
 import { deleteRepository, getRepositories, postRepository } from './endpoints/repositories.ts';
 import { getSearch } from './endpoints/search.ts';
-import { getSessions } from './endpoints/sessions.ts';
+import { getSession, getSessions, postSession, postSessionDiscard, postSessionStop } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
 import { getTickets } from './endpoints/tickets.ts';
 import { toApiRequestError } from './errors.ts';
@@ -49,6 +52,13 @@ export interface ApiClient {
   status(): Promise<Status>;
   /** Sessions with the newest activity first; leave `limit` out for all of them. */
   sessions(query?: SessionListQuery): Promise<SessionList>;
+  /** One session, as the Session screen shows it; rejects with not_found for an unknown id (spec 011). */
+  session(id: string): Promise<Session>;
+  /** Starts Claude on a ticket, or answers why it can't. */
+  startSession(request: StartSessionRequest): Promise<StartSessionAnswer>;
+  stopSession(id: string): Promise<void>;
+  /** Deletes the session's worktree and branch, stopping it first if it's working. */
+  discardSession(id: string): Promise<void>;
   /** The saved Jira site and email, and whether `.env` holds a Jira token. */
   jiraConnection(): Promise<JiraConnection>;
   /** Checks with Jira, then saves; rejects with integration_rejected, integration_unreachable or keychain_unavailable. */
@@ -108,6 +118,12 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     http,
     status: () => getStatus(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sessions: (query) => getSessions(http, query).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    session: (id) => getSession(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    startSession: (request) =>
+      postSession(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    stopSession: (id) => postSessionStop(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    discardSession: (id) =>
+      postSessionDiscard(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     jiraConnection: () => getJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     connectJira: (request) =>
       putJiraConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

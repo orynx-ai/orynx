@@ -54,9 +54,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
       Check: pnpm test apps/server; pnpm test:e2e e2e/smoke.spec.ts
       Files: apps/server/src/main.ts, config.ts, config.test.ts, packages/core/src/index.ts, e2e/fake-claude/claude, e2e/fake-claude/session.ts, e2e/fake-claude/config.ts, e2e/fake-tools/preload.ts, e2e/fake-tools/config.ts, playwright.config.ts, packages/core/src/test/fake-claude-sdk.ts, packages/core/src/agents/claude/claude-adapter.ts
       Done 18 Oct 2026. A probe standing in for Claude Code showed what the pinned SDK sends: `--output-format stream-json --input-format stream-json --permission-prompt-tool=stdio --tools=… --setting-sources= --strict-mcp-config --permission-mode=default --settings {"disableAllHooks":true}`, an environment of only what Orynx passed plus the SDK's own markers, then an `initialize` control request with the note and the brief as a user message. The SDK's code gives the rest: `control_response` with the `request_id`, `can_use_tool` with `tool_name` and `input`, and `interrupt`. The fake plays one run over that and the real SDK drives it. One finding: the SDK closes Claude Code's input only after a turn's result, so an interrupted turn ends with a failed result, and the adapter no longer counts that as a problem. Sessions run on a third e2e hub (4396) so they stay out of the other specs; the fakes' control port is now the hub's port minus one.
-- [ ] Task 18: Add `getSession`, `startSession`, `stopSession`, `discardSession` and `sessionQueryOptions` to the api-client, and `recent` on the list (AC-1, AC-9, AC-10)
+- [x] Task 18: Add `getSession`, `startSession`, `stopSession`, `discardSession` and `sessionQueryOptions` to the api-client, and `recent` on the list (AC-1, AC-9, AC-10)
       Check: pnpm test packages/api-client
-      Files: packages/api-client/src/endpoints/sessions.ts, sessions.test.ts, client.ts, queries.ts, index.ts, packages/app/src/test/msw.ts
+      Files: packages/api-client/src/endpoints/sessions.ts, sessions.test.ts, client.ts, queries.ts, index.ts
 - [ ] Task 19: Add Button's quiet danger look (ghost, danger text, as `session.html` draws Discard changes) and Callout's `danger` tone (Q9f, existing tokens only), each with stories, tests and design-map rows (AC-10, AC-13, AC-19)
       Check: pnpm test packages/ui/src/components/button.test.tsx packages/ui/src/components/callout.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/button.tsx, button.stories.tsx, button.test.tsx, callout.tsx, callout.stories.tsx, callout.test.tsx, docs/design-map.md
@@ -65,7 +65,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
       Files: packages/app/src/words/duration.ts, duration.test.ts, ago.ts, ago.test.ts, use-now.ts, packages/app/src/features/sessions/step-words.ts, step-words.test.ts, packages/app/src/features/home/inbox-words.ts
 - [ ] Task 21: Read a session from `GET /api/sessions/:id`, refresh it on `session.changed`, and show the sidebar's `recent` sessions (AC-4, AC-17)
       Check: pnpm test packages/app/src/live-updates.test.tsx packages/app/src/features/sessions
-      Files: packages/app/src/features/sessions/queries.ts, components/sidebar-sessions.tsx, sidebar-sessions.test.tsx, packages/app/src/live-updates.tsx, live-updates.test.tsx
+      Files: packages/app/src/features/sessions/queries.ts, components/sidebar-sessions.tsx, sidebar-sessions.test.tsx, packages/app/src/live-updates.tsx, live-updates.test.tsx, packages/app/src/test/msw.ts
 - [ ] Task 22: Add `BuildWithClaude`: start at once with one folder, open the "Start in" menu with several, show Q10d's reasons with their links, keep the button pending (spinner, focus kept) while it starts, and open the session (also an existing one) (AC-1, AC-11, AC-12, AC-18, Q10c, Q10d)
       Check: pnpm test packages/app/src/features/sessions/components/build-with-claude.test.tsx
       Files: packages/app/src/features/sessions/components/build-with-claude.tsx, build-with-claude.test.tsx, packages/app/src/features/sessions/queries.ts
