@@ -11,9 +11,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Add `@anthropic-ai/claude-agent-sdk` at one exact version, and find the program in its platform package without running it. Name the SDK and its two peers in `docs/architecture.md`. `apps/server` lists it too, because its bundle keeps npm packages external and looks from there (Q2, Q8)
       Check: pnpm test packages/core/src/agents/claude; pnpm gate boundaries
       Files: packages/core/package.json, apps/server/package.json, pnpm-lock.yaml, packages/core/src/agents/claude/claude-code.ts, claude-code.test.ts, docs/architecture.md
-- [ ] Task 4: Run `auth status --json` with the short environment, a 10-second timeout and a small output limit, and read the answer with zod into a login or a problem (missing, failed with its exit code, unreadable, timeout). Add the fake program, which writes down its arguments and environment (AC-3, AC-6, AC-10, AC-12)
+- [x] Task 4: Run `auth status --json` with the short environment, a 10-second timeout and a small output limit, and read the answer with zod into a login or a problem (missing, failed with its exit code, unreadable, timeout). Add the fake program, which writes down its arguments and environment (AC-3, AC-6, AC-10, AC-12)
       Check: pnpm test packages/core/src/agents/claude
-      Files: packages/core/src/agents/claude/claude-code.ts, claude-code.test.ts, packages/core/src/test/fake-claude.ts, packages/core/src/test/fake-claude/claude
+      Files: packages/core/src/agents/claude/claude-code.ts, claude-code.test.ts, map.ts, map.test.ts, packages/core/src/test/fake-claude.ts, packages/core/src/test/fake-claude/claude
 - [ ] Task 5: Let `createCheckedStatus` hold any answer, and add `checkNow()`, which shares a check that's already running. Jira and GitHub behave as before (AC-7, AC-9)
       Check: pnpm test packages/core/src/integrations
       Files: packages/core/src/integrations/checked-status.ts, checked-status.test.ts

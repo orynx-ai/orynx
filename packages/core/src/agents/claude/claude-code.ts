@@ -1,9 +1,50 @@
+import { execFile } from 'node:child_process';
+import { access, constants, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { isAbsolute } from 'node:path';
+import type { ClaudeLogin } from '@devhub/contracts';
+import { agentEnvironment } from '../agent-environment.ts';
+import { readAuthStatus } from './map.ts';
 
 /**
  * The only file in DevHub that starts Claude Code (spec 010): the copy that ships inside
- * `@anthropic-ai/claude-agent-sdk`, never a `claude` found on the PATH (Q2c).
+ * `@anthropic-ai/claude-agent-sdk`, never a `claude` found on the PATH (Q2c). It runs one read-only
+ * command, `auth status --json`, which reads the login on this computer and sends no prompt. Its
+ * output never leaves this file: a failure keeps only its kind and exit code (AC-6).
  */
+
+export type ClaudeCodeProblem =
+  /** No program at the path, or one that can't be run. */
+  | { kind: 'missing' }
+  /** It exited with an error and printed no answer DevHub can read. */
+  | { kind: 'failed'; exitCode: number | null }
+  /** It exited 0 but printed something that isn't the expected JSON. */
+  | { kind: 'unreadable' }
+  | { kind: 'timeout' };
+
+export type ClaudeCodeAnswer =
+  { ok: true; login: Exclude<ClaudeLogin, { state: 'error' }> } | { ok: false; problem: ClaudeCodeProblem };
+
+export interface ClaudeCode {
+  readonly timeoutMs: number;
+  /** The program, if it's there and can be run. It's never run to find out. */
+  find(): Promise<string | null>;
+  /** Runs `<program> auth status --json`. */
+  authStatus(): Promise<ClaudeCodeAnswer>;
+}
+
+export interface ClaudeCodeOptions {
+  /**
+   * The program to run, as an absolute path: the host passes the SDK's own ({@link findSdkClaudeCode})
+   * and the e2e run a fake. Null finds nothing, so nothing can start the real Claude Code by accident.
+   */
+  program: string | null;
+  /** The host's environment. Only {@link agentEnvironment}'s allow list of it reaches the program. */
+  env: Readonly<Record<string, string | undefined>>;
+  /** How long the check may take; 10 seconds by default (spec 010). */
+  timeoutMs?: number;
+}
 
 const sdkPackage = '@anthropic-ai/claude-agent-sdk';
 
@@ -33,4 +74,78 @@ export function findSdkClaudeCode({ platform = process.platform, arch = process.
     }
   }
   return null;
+}
+
+async function isProgram(path: string): Promise<boolean> {
+  try {
+    if (!(await stat(path)).isFile()) return false;
+    await access(path, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function createClaudeCode({ program, env, timeoutMs = 10_000 }: ClaudeCodeOptions): ClaudeCode {
+  // The check needs no analytics, and nothing else Claude Code would send on its own, so it sends none.
+  const programEnv = { ...agentEnvironment(env), CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' };
+
+  async function find(): Promise<string | null> {
+    // A relative path would be looked up from wherever DevHub runs.
+    if (program === null || !isAbsolute(program)) return null;
+    return (await isProgram(program)) ? program : null;
+  }
+
+  function run(path: string): Promise<ClaudeCodeAnswer> {
+    return new Promise((resolve) => {
+      const fail = (problem: ClaudeCodeProblem) => {
+        resolve({ ok: false, problem });
+      };
+      execFile(
+        path,
+        ['auth', 'status', '--json'],
+        {
+          env: programEnv,
+          // Not DevHub's folder: Claude Code would read that folder's own .claude settings.
+          cwd: tmpdir(),
+          // SIGKILL, so a program stuck on a prompt can't keep the check waiting. An answer is under 1 KB.
+          timeout: timeoutMs,
+          killSignal: 'SIGKILL',
+          windowsHide: true,
+          maxBuffer: 64 * 1024,
+          encoding: 'utf8',
+        },
+        (error, stdout) => {
+          if (error === null) {
+            const login = readAuthStatus(stdout, 0);
+            if (login === null) fail({ kind: 'unreadable' });
+            else resolve({ ok: true, login });
+          } else if (error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
+            fail({ kind: 'unreadable' });
+          } else if (error.killed && error.signal === 'SIGKILL') {
+            fail({ kind: 'timeout' });
+          } else if (error.code === 'ENOENT' || error.code === 'EACCES') {
+            // The program went away, or stopped being runnable, after find() looked.
+            fail({ kind: 'missing' });
+          } else if (typeof error.code === 'number') {
+            // Signed out is exit 1 with the JSON; any other exit, or exit 1 without it, failed.
+            const login = readAuthStatus(stdout, error.code);
+            if (login === null) fail({ kind: 'failed', exitCode: error.code });
+            else resolve({ ok: true, login });
+          } else {
+            fail({ kind: 'failed', exitCode: null });
+          }
+        },
+      );
+    });
+  }
+
+  return {
+    timeoutMs,
+    find,
+    async authStatus() {
+      const path = await find();
+      return path === null ? { ok: false, problem: { kind: 'missing' } } : run(path);
+    },
+  };
 }
