@@ -48,6 +48,16 @@ export {
 export { Combobox, type ComboboxOption, type ComboboxProps } from './components/combobox.tsx';
 export { ContextChip, ContextList, type ContextChipProps, type ContextListProps } from './components/context-chip.tsx';
 export {
+  ContextKindItem,
+  ContextPicker,
+  ContextPickerContent,
+  ContextPickerLabel,
+  ContextPickerTrigger,
+  type ContextKindItemProps,
+  type ContextPickerContentProps,
+  type ContextPickerTriggerProps,
+} from './components/context-picker.tsx';
+export {
   DiffView,
   DiffViewSkeleton,
   type DiffLine,
