@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Build the brief and the note Q5 gives, word for word, with "No description." when there is none (AC-3, Q5)
       Check: pnpm test packages/core/src/sessions/brief.test.ts
       Files: packages/core/src/sessions/brief.ts, brief.test.ts
-- [ ] Task 5: Decide each tool call as a table: Q6's tools only, every path inside the worktree after resolving symlinks, nothing under the worktree's `.git`, and every edit refused in Ask before everything, each with the reason Claude is told (AC-5, AC-6, Q6)
+- [x] Task 5: Decide each tool call as a table: Q6's tools only, every path inside the worktree after resolving symlinks, nothing under the worktree's `.git`, and every edit refused in Ask before everything, each with the reason Claude is told (AC-5, AC-6, Q6)
       Check: pnpm test packages/core/src/agents/claude/tool-decision.test.ts
       Files: packages/core/src/agents/claude/tool-decision.ts, tool-decision.test.ts
 - [ ] Task 6: Fold Claude's activity into steps: explore, plan, edit and refused groups, with the latest one running until another kind starts, and the stepper rule (Plan until the first edit, Build after it, Review when finished, never backwards) (AC-4, AC-7, AC-8, Q9b)
