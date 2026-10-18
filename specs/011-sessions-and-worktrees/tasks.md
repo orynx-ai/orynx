@@ -23,9 +23,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Read the SDK's messages into activity: tool uses by kind with paths relative to the worktree, `TodoWrite` items, the result's summary, and errors sorted into login, limit and other, from fixtures typed with the SDK's own types (AC-4, AC-8, AC-13)
       Check: pnpm test packages/core/src/agents/claude/sdk-messages.test.ts
       Files: packages/core/src/agents/claude/sdk-messages.ts, sdk-messages.test.ts
-- [ ] Task 8: Add `simple-git` and make a worktree: find the default branch, fetch it (20 s, no prompts, the last fetched one when that fails), take the first free `feat/<KEY>`, `-2`, `-3`…, and add the worktree. Tests use temporary repositories with a bare `origin`. Mark `simple-git` decided in `docs/architecture.md` (AC-2, Q1, Q2)
+- [x] Task 8: Add `simple-git` and make a worktree: find the default branch, fetch it (20 s, no prompts, the last fetched one when that fails), take the first free `feat/<KEY>`, `-2`, `-3`…, and add the worktree. Tests use temporary repositories with a bare `origin`. Mark `simple-git` decided in `docs/architecture.md` (AC-2, Q1, Q2)
       Check: pnpm test packages/core/src/sessions/worktrees.test.ts; pnpm gate boundaries
-      Files: packages/core/package.json, pnpm-lock.yaml, packages/core/src/sessions/worktrees.ts, worktrees.test.ts, packages/core/src/test/git-repository.ts, docs/architecture.md
+      Files: packages/core/package.json, apps/server/package.json, pnpm-lock.yaml, packages/core/src/sessions/worktrees.ts, worktrees.test.ts, packages/core/src/test/git-repository.ts, docs/architecture.md
 - [ ] Task 9: Remove a worktree and its branch, prune one that's already gone, and abort git when Stop comes during setup (AC-9, AC-10)
       Check: pnpm test packages/core/src/sessions/worktrees.test.ts
       Files: packages/core/src/sessions/worktrees.ts, worktrees.test.ts
