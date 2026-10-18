@@ -107,6 +107,33 @@ test.describe('the first hub, whose Claude Code is never signed in', () => {
     await expect(claudeCard(page).getByText('Not signed in')).toBeVisible();
   });
 
+  test('Given Check again is running, when I look at the tab, then the card and the modes below it stay where they were', async ({
+    page,
+  }) => {
+    // Hold the check open in the browser, so the busy look stays long enough to measure.
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(`**${apiRoutes.claudeLoginCheck}`, async (route) => {
+      await released;
+      await route.continue();
+    });
+    await page.goto('/settings/coding-agent');
+    const card = claudeCard(page);
+    const modes = page.getByRole('radiogroup', { name: 'What Claude can do without asking' });
+    const button = card.getByRole('button', { name: 'Check again' });
+    await expect(button).toBeVisible();
+    const idle = { card: await card.boundingBox(), modes: await modes.boundingBox() };
+
+    await button.click();
+    await expect(card.getByRole('button', { name: 'Checking…' })).toBeVisible();
+
+    expect(await card.boundingBox()).toEqual(idle.card);
+    expect(await modes.boundingBox()).toEqual(idle.modes);
+    release();
+  });
+
   for (const colorScheme of ['light', 'dark'] as const) {
     test(`Given Not signed in in ${colorScheme}, when axe checks the tab, then it finds no violations and the cards fit`, async ({
       page,

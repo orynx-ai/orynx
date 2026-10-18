@@ -85,7 +85,8 @@ export function ClaudeCard() {
       {notReady ? (
         <>
           <p className="m-0 text-small">{notReadyLines[state]}</p>
-          <div>
+          {/* A flex row, so the spinner coming in can't shift the label's baseline and grow the card (AC-7). */}
+          <div className="flex">
             <Button
               variant="secondary"
               size="sm"

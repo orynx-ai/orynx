@@ -51,7 +51,7 @@ export function Card({ title, aside, look, headingLevel = 2, className, children
         <Heading id={headingId} className="m-0 text-body font-medium">
           {title}
         </Heading>
-        {aside === undefined ? null : <div className="ml-auto flex items-center">{aside}</div>}
+        {aside === undefined ? null : <div className="ms-auto flex items-center">{aside}</div>}
       </div>
       {children}
     </div>
