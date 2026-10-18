@@ -17,7 +17,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Decide each tool call as a table: Q6's tools only, every path inside the worktree after resolving symlinks, nothing under the worktree's `.git`, and every edit refused in Ask before everything, each with the reason Claude is told (AC-5, AC-6, Q6)
       Check: pnpm test packages/core/src/agents/claude/tool-decision.test.ts
       Files: packages/core/src/agents/claude/tool-decision.ts, tool-decision.test.ts
-- [ ] Task 6: Fold Claude's activity into steps: explore, plan, edit and refused groups, with the latest one running until another kind starts, and the stepper rule (Plan until the first edit, Build after it, Review when finished, never backwards) (AC-4, AC-7, AC-8, Q9b)
+- [x] Task 6: Fold Claude's activity into steps: explore, plan, edit and refused groups, with the latest one running until another kind starts, and the stepper rule (Plan until the first edit, Build after it, Review when finished, never backwards) (AC-4, AC-7, AC-8, Q9b)
       Check: pnpm test packages/core/src/sessions/progress.test.ts
       Files: packages/core/src/sessions/progress.ts, progress.test.ts
 - [ ] Task 7: Read the SDK's messages into activity: tool uses by kind with paths relative to the worktree, `TodoWrite` items, the result's summary, and errors sorted into login, limit and other, from fixtures typed with the SDK's own types (AC-4, AC-8, AC-13)
