@@ -6,6 +6,7 @@ import {
   makeInbox,
   makeJiraConnection,
   makePreferences,
+  makeSearchIndex,
   makeSessionList,
   makeStatus,
   makeTickets,
@@ -43,5 +44,10 @@ export const server = setupServer(
   ),
   http.get(apiUrl(apiRoutes.tickets), () =>
     HttpResponse.json(makeTickets({ jira: { state: 'not_connected' }, sprint: null, tickets: [] })),
+  ),
+  http.get(apiUrl(apiRoutes.search), () =>
+    HttpResponse.json(
+      makeSearchIndex({ tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } } }),
+    ),
   ),
 );

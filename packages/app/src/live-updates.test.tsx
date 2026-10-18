@@ -2,7 +2,14 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeInbox, makeInboxItem, makePreferences, makeStatus } from '@devhub/contracts/testing';
+import {
+  makeInbox,
+  makeInboxItem,
+  makePreferences,
+  makeSearchIndex,
+  makeSearchTicket,
+  makeStatus,
+} from '@devhub/contracts/testing';
 import type { PermissionMode } from '@devhub/contracts';
 import { FakeEventSource } from './test/fake-event-source.ts';
 import { apiUrl, server } from './test/msw.ts';
@@ -71,6 +78,38 @@ describe('LiveUpdates', () => {
       FakeEventSource.latest().emit({ type });
 
       expect(await within(nav).findByRole('link', { name: 'Home, 2 need you' })).toBeVisible();
+    },
+  );
+
+  it.each(['inbox.changed', 'status.changed', 'sessions.changed'] as const)(
+    'AC-26 (spec 009): refreshes search’s results when the server says %s, keeping what was typed',
+    async (type) => {
+      let count = 1;
+      server.use(
+        http.get(apiUrl(apiRoutes.search), () =>
+          HttpResponse.json(
+            makeSearchIndex({
+              tickets: Array.from({ length: count }, (_, index) =>
+                makeSearchTicket({ key: `PROJ-${String(index + 1)}`, title: 'Archive it' }),
+              ),
+            }),
+          ),
+        ),
+      );
+      const { user } = await renderApp({ route: '/tickets' });
+      await user.click(
+        within(screen.getByRole('navigation', { name: 'Main' })).getByRole('button', { name: /Search/ }),
+      );
+      await user.type(await screen.findByRole('combobox'), 'archive');
+      expect(await screen.findAllByRole('option')).toHaveLength(1);
+
+      count = 2;
+      FakeEventSource.latest().emit({ type });
+
+      await waitFor(() => {
+        expect(screen.getAllByRole('option')).toHaveLength(2);
+      });
+      expect(screen.getByRole('combobox')).toHaveValue('archive');
     },
   );
 

@@ -18,16 +18,18 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
         queryKeys.githubConnection,
         queryKeys.inbox,
         queryKeys.tickets,
+        queryKeys.search,
       ];
     case 'sessions.changed':
-      // A session waiting for approval is a row on Home (spec 007), and a ticket's agent chip (spec 008).
-      return [queryKeys.sessions, queryKeys.inbox, queryKeys.tickets];
+      // A session waiting for approval is a row on Home (spec 007), a ticket's agent chip (spec 008), and a
+      // search result (spec 009).
+      return [queryKeys.sessions, queryKeys.inbox, queryKeys.tickets, queryKeys.search];
     case 'settings.changed':
       // The inbox rules apply when the server reads the list (spec 007).
       return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];
     case 'inbox.changed':
-      // A sync ended: Tickets' sprint syncs with the inbox (spec 008).
-      return [queryKeys.inbox, queryKeys.tickets];
+      // A sync ended: Tickets' sprint syncs with the inbox (spec 008), and search reads both (spec 009).
+      return [queryKeys.inbox, queryKeys.tickets, queryKeys.search];
   }
 }
 
