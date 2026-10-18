@@ -92,7 +92,7 @@ describe('SessionSchema', () => {
       step: 'build',
       activities: [
         { id: 'a1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true },
-        { id: 'a2', state: 'done', kind: 'brief', key: 'PROJ-1423' },
+        { id: 'a2', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
         { id: 'a3', state: 'done', kind: 'explore', files: ['src/content/ContentList.tsx', 'src/api/contentApi.ts'] },
         { id: 'a4', state: 'done', kind: 'plan', items: ['Row selection', 'A bulkArchive API call'] },
         { id: 'a5', state: 'done', kind: 'refused', access: 'edit', reason: 'outside_worktree', path: '/etc/hosts' },
@@ -460,6 +460,30 @@ describe("the composer's start (spec 015)", () => {
     expect(StartSessionRequestSchema.parse({ ticketKey: 'PROJ-1423' })).toEqual({ ticketKey: 'PROJ-1423' });
     expect('ticketKey' in StartSessionRequestSchema.parse(makeComposerStart())).toBe(false);
     expect(StartSessionRequestSchema.safeParse({ message: 'Fix it' }).success).toBe(false);
+  });
+
+  it('AC-24: a brief step names what Claude got: the ticket or none, your message, pull requests and files', () => {
+    const step = {
+      id: 'step-2',
+      state: 'done',
+      kind: 'brief',
+      key: null,
+      message: true,
+      pullRequests: ['web-app #2836'],
+      files: ['notes.md'],
+    };
+    expect(
+      SessionSchema.parse(makeSession({ source: null, activities: [step] as SessionActivity[] })).activities,
+    ).toEqual([step]);
+    expect(
+      SessionSchema.parse(
+        makeSession({
+          activities: [{ id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423' }] as SessionActivity[],
+        }),
+      ).activities,
+    ).toEqual([
+      { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
+    ]);
   });
 
   it('AC-21: answers which chip failed and how', () => {

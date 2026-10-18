@@ -21,7 +21,7 @@ function session(overrides: Partial<Session> = {}): Session {
     runStartedAt: '2026-10-16T09:56:00.000Z',
     activities: [
       { id: 'step-1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true },
-      { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423' },
+      { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
       {
         id: 'step-3',
         state: 'done',

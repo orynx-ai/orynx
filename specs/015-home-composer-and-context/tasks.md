@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Add the composer's start to the contracts: `ComposerStartSchema` (the message at most 10,000 characters, `repositoryId?`, at most 1 `jira`, 3 `pull_request` and 5 `file` chips, each file at most 100 KB in UTF-8, and an empty message only with a ticket), `StartSessionRequestSchema` as the union of Ship's body and it, and the `context_failed` answer with the chip's place and its problem (AC-4, AC-11, AC-12, AC-20, AC-21)
       Check: pnpm test packages/contracts/src/session.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/contracts/src/testing.ts
-- [ ] Task 2: Widen the `brief` step to `{ key | null, message, pullRequests, files }` with defaults, so a `session.json` saved with `{ kind: 'brief', key }` still reads (AC-24)
+- [x] Task 2: Widen the `brief` step to `{ key | null, message, pullRequests, files }` with defaults, so a `session.json` saved with `{ kind: 'brief', key }` still reads (AC-24)
       Check: pnpm test packages/contracts/src/session.test.ts packages/core/src/sessions/file-session-store.test.ts
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/core/src/sessions/file-session-store.test.ts
 - [ ] Task 3: Name a session with no ticket, as tables: the title from the message's first line (80 characters, cut on a word, "…"), and the branch slug (five words, ASCII letters, digits and hyphens, at most 40 characters, `task` when nothing is left, accents dropped) (AC-4, Q8a, Q8b)

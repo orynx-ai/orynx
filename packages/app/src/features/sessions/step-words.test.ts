@@ -30,7 +30,9 @@ describe('stepWords (Q10a)', () => {
   });
 
   it('AC-3: the brief', () => {
-    expect(step({ kind: 'brief', state: 'done', key: 'PROJ-1423' })).toEqual({
+    expect(
+      step({ kind: 'brief', state: 'done', key: 'PROJ-1423', message: false, pullRequests: [], files: [] }),
+    ).toEqual({
       title: 'Sent Claude the brief',
       detail: 'PROJ-1423 and its description',
     });

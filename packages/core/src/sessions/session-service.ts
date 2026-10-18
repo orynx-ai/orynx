@@ -538,7 +538,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     const brief = ticketBrief(issue);
     await records.writeBrief(id, briefText(brief));
-    await change(id, (current) => withProgress(current, (progress) => addStep(progress, { kind: 'brief', key })));
+    await change(id, (current) =>
+      withProgress(current, (progress) =>
+        addStep(progress, { kind: 'brief', key, message: false, pullRequests: [], files: [] }),
+      ),
+    );
     if (stopping(run)) return;
 
     await startClaude(id, run, brief, record.worktree, plan.branch, null);

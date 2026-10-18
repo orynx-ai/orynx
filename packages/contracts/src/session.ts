@@ -85,8 +85,18 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     base: z.string().min(1),
     fetched: z.boolean(),
   }),
-  /** Orynx sent Claude the brief: this ticket and its description (Q5). */
-  ActivityBaseSchema.extend({ kind: z.literal('brief'), key: JiraIssueKeySchema }),
+  /**
+   * Orynx sent Claude the brief (Q5): the ticket and its description, or none, then what the composer added
+   * (spec 015): whether you wrote a message, each pull request as its chip reads, and each file's name. A step
+   * saved before spec 015 is the ticket alone.
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('brief'),
+    key: JiraIssueKeySchema.nullable(),
+    message: z.boolean().default(false),
+    pullRequests: z.array(z.string().min(1)).default([]),
+    files: z.array(z.string().min(1)).default([]),
+  }),
   ActivityBaseSchema.extend({ kind: z.literal('explore'), files: FilesSchema }),
   /** The plan's items, from Claude's to-do list. */
   ActivityBaseSchema.extend({ kind: z.literal('plan'), items: z.array(z.string().min(1)) }),

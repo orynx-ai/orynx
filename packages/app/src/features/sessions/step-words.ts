@@ -64,7 +64,11 @@ export function stepWords(activity: SessionActivity): StepWords {
       };
     }
     case 'brief':
-      return { title: 'Sent Claude the brief', detail: `${activity.key} and its description` };
+      // Composer briefs are worded in full with the Session screen's no-ticket changes (spec 015, task 26).
+      return {
+        title: 'Sent Claude the brief',
+        detail: activity.key === null ? 'Your message' : `${activity.key} and its description`,
+      };
     case 'explore':
       return {
         title: running ? 'Exploring the code' : 'Explored the code',
