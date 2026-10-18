@@ -175,6 +175,68 @@ test.describe('wide window', () => {
   });
 });
 
+test.describe('every session and the rail (spec 020)', () => {
+  test.skip(({ viewport }) => (viewport?.width ?? 0) < 768, 'the sidebar lists sessions only from 768 px');
+
+  /** Forty sessions, "Session 1" the newest, paged by cursor as the server pages them. */
+  async function answerFortySessions(page: Page) {
+    const sessions = Array.from({ length: 40 }, (_, index) => ({
+      id: `session-${String(index + 1)}`,
+      title: `Session ${String(index + 1)}`,
+      state: 'done',
+      source: null,
+      updatedAt: new Date(Date.UTC(2026, 9, 18, 12, 0) - index * 60_000).toISOString(),
+    }));
+    await page.route(/\/api\/sessions(\?.*)?$/, (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      const cursor = params.get('cursor');
+      const start = cursor === null ? 0 : sessions.findIndex((session) => cursor.endsWith(`.${session.id}`)) + 1;
+      const limit = Number(params.get('limit') ?? sessions.length);
+      const page = sessions.slice(start, start + limit);
+      const last = page.at(-1);
+      const more = start + limit < sessions.length && last !== undefined;
+      return route.fulfill({
+        json: { sessions: page, nextCursor: more ? `${String(Date.parse(last.updatedAt))}.${last.id}` : null },
+      });
+    });
+  }
+
+  test('AC-1, AC-2: Given 40 sessions, when I scroll the sidebar’s list to its end, then 16 more load each time', async ({
+    page,
+  }) => {
+    await answerFortySessions(page);
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    await expect(nav.getByRole('link', { name: /^Session 16 / })).toBeVisible();
+    await expect(nav.getByRole('link', { name: /^Session 17 / })).toHaveCount(0);
+
+    await nav.getByRole('link', { name: /^Session 16 / }).scrollIntoViewIfNeeded();
+    await expect(nav.getByRole('link', { name: /^Session 32 / })).toBeAttached();
+    await nav.getByRole('link', { name: /^Session 32 / }).scrollIntoViewIfNeeded();
+    await expect(nav.getByRole('link', { name: /^Session 40 / })).toBeAttached();
+    expect(await layoutShiftScore(page)).toBe(0);
+  });
+
+  test('AC-7, AC-9: Given the collapsed rail, when I rest on Sessions, then its name shows in a tooltip inside the window, and it opens the list', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Collapse sidebar' }).click();
+    const sessions = page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Sessions' });
+
+    await sessions.hover();
+    const tooltip = page.getByRole('tooltip', { name: 'Sessions' });
+    await expect(tooltip).toBeAttached();
+    const shown = page.locator('[data-slot="tooltip"]');
+    await expect(shown).toBeVisible();
+    const box = await shown.boundingBox();
+    expect(box !== null && box.x >= 0 && box.x + box.width <= 1280).toBe(true);
+
+    await sessions.click();
+    await expect(page).toHaveURL(/\/sessions$/);
+  });
+});
+
 test.describe('narrow window', () => {
   test.skip(({ viewport }) => (viewport?.width ?? 0) >= 768, 'the compact bar exists only under 768 px');
 

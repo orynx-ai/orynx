@@ -100,7 +100,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## Finish
 
-- [ ] Task 20: e2e for the new flows: scrolling the sidebar's sessions, the folder dialog from Ship, picking a sprint, tooltips on hover and focus (AC-2, AC-7, AC-9, AC-10, AC-23, AC-26)
+- [x] Task 20: e2e for the new flows: scrolling the sidebar's sessions, the folder dialog from Ship, picking a sprint, tooltips on hover and focus (AC-2, AC-7, AC-9, AC-10, AC-23, AC-26)
       Check: pnpm test:e2e
       Files: e2e/shell.spec.ts, e2e/sessions.spec.ts, e2e/settings.spec.ts, e2e/tickets.spec.ts, e2e/fake-tools
 - [ ] Task 21: `learn/` pages, the design map, and the user's script for `docs/product/spec.md`

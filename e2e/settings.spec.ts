@@ -260,6 +260,45 @@ test('AC-6, AC-8, AC-11, AC-17: Given two pages on Repositories, when I add a fo
   }
 });
 
+test('AC-17, AC-20 (spec 020): Given a folder, when I choose Edit in its More actions, then the dialog opens filled in, and Escape gives focus back to More actions', async ({
+  page,
+}, testInfo) => {
+  const folders = makeFolders(`edit-${testInfo.project.name}`);
+  const name = `app-edit-${testInfo.project.name}`;
+  try {
+    await page.goto('/settings/repositories');
+    await waitForTab(page, 'repositories');
+    await page.getByRole('button', { name: 'Add local folder' }).click();
+    await page.getByRole('textbox', { name: 'Folder' }).fill(folders.repository);
+    await page.keyboard.press('Enter');
+    await expect(folderRow(page, name)).toBeVisible();
+
+    const more = folderRow(page, name).getByRole('button', { name: `More actions for ${name}` });
+    await more.click();
+    await expect(page.getByRole('menuitem', { name: /^Delete/ })).toContainText('The folder stays on disk.');
+    await page.getByRole('menuitem', { name: 'Edit' }).click();
+
+    const dialog = page.getByRole('dialog', { name: `Edit ${name}` });
+    await expect(dialog.getByRole('textbox', { name: 'Folder' })).toHaveValue(new RegExp(`${name}$`));
+    await expect(dialog.getByRole('textbox', { name: 'Folder' })).toBeFocused();
+    // The dialog's actions sit at its end, Cancel first (the user's call, 18 Oct 2026).
+    const cancel = await dialog.getByRole('button', { name: 'Cancel' }).boundingBox();
+    const save = await dialog.getByRole('button', { name: 'Save changes' }).boundingBox();
+    expect(cancel !== null && save !== null && cancel.x < save.x).toBe(true);
+    expect(await axeViolations(page)).toEqual([]);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(more).toBeFocused();
+
+    await more.click();
+    await page.getByRole('menuitem', { name: /^Delete/ }).click();
+    await expect(folderRow(page, name)).toHaveCount(0);
+  } finally {
+    folders.remove();
+  }
+});
+
 test('AC-7, AC-10: Given the Add a folder dialog, when the folder is not a repository, then Folder says so, and Escape closes the dialog', async ({
   page,
 }, testInfo) => {

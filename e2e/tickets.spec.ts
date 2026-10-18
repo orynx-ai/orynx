@@ -40,13 +40,20 @@ async function layoutShiftScore(page: Page): Promise<number> {
   );
 }
 
-/** The whole page, so page-level rules (one `h1`, landmarks) count too. */
-async function axeViolations(page: Page): Promise<string[]> {
+/**
+ * The whole page, so page-level rules (one `h1`, landmarks) count too. It waits for every colour fade and
+ * grow-in to end first, so axe never reads a colour half-drawn (see the e2e axe notes).
+ */
+async function axeViolations(page: Page, within?: string): Promise<string[]> {
+  await settled(page);
   await page.addScriptTag({ path: axePath });
-  return page.evaluate(async () => {
-    const results = await window.axe.run(document.documentElement, { resultTypes: ['violations'] });
+  return page.evaluate(async (selector) => {
+    // An open menu hides the page behind it from screen readers, so a check while one is open looks at it alone.
+    const context = selector === undefined ? document.documentElement : document.querySelector(selector);
+    if (context === null) throw new Error(`Nothing on the page matches ${String(selector)}`);
+    const results = await window.axe.run(context, { resultTypes: ['violations'] });
     return results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
-  });
+  }, within);
 }
 
 function horizontalOverflow(page: Page): Promise<number> {
@@ -124,4 +131,73 @@ for (const view of ['board', 'list'] as const) {
       expect(await horizontalOverflow(page)).toBe(0);
     });
   }
+}
+
+test.describe('the Project and Sprint pickers (spec 020)', () => {
+  test.skip(({ viewport }) => (viewport?.width ?? 0) < 768, 'measured once, at 1280 px');
+
+  test('AC-26, AC-38, AC-40: Given Tickets, when I open Project then Sprint, then both lists are 256 px, at most 360 px, in 14 px rows, and axe finds nothing', async ({
+    page,
+  }) => {
+    await answerSprint(page);
+    const projects = Array.from({ length: 20 }, (_, index) => ({
+      key: `P${String.fromCharCode(65 + index)}X`,
+      name: `Project ${String(index + 1)}`,
+    }));
+    const sprints = Array.from({ length: 12 }, (_, index) => ({
+      id: 43 + index,
+      name: `Sprint ${String(43 + index)}`,
+      state: index === 0 ? 'active' : 'future',
+      startsAt: '2026-10-27T09:00:00.000Z',
+      endsAt: index === 0 ? '2026-10-24T17:00:00.000Z' : null,
+    }));
+    await page.route('**/api/jira/connection', (route) =>
+      route.fulfill({
+        json: { saved: { site: 'your-team.atlassian.net', email: 'dev@example.com' }, envToken: false },
+      }),
+    );
+    await page.route('**/api/jira/projects', (route) => route.fulfill({ json: { projects } }));
+    await page.route('**/api/tickets/sprints**', (route) => route.fulfill({ json: { sprints } }));
+    await page.goto('/tickets');
+    await expect(page.getByText('PROJ-1423').first()).toBeVisible();
+
+    const project = page.getByRole('button', { name: /^Project / });
+    const sprint = page.getByRole('button', { name: /^Sprint / });
+    expect((await project.boundingBox())?.width).toBe((await sprint.boundingBox())?.width);
+
+    await project.click();
+    const list = page.getByRole('listbox', { name: 'Search projects' }).locator('xpath=..');
+    await expect(page.getByRole('option', { name: 'PTX · Project 20' })).toBeAttached();
+    // Measured once its grow-in has ended.
+    await settled(page);
+    const listBox = await list.boundingBox();
+    expect(listBox?.width).toBe(256);
+    expect(listBox?.height).toBeLessThanOrEqual(360);
+    expect((await page.getByRole('option', { name: 'PAX · Project 1' }).boundingBox())?.height).toBe(32);
+    expect(await axeViolations(page, '[data-slot="combobox-list"]')).toEqual([]);
+    await page.keyboard.press('Escape');
+
+    await sprint.click();
+    const menu = page.getByRole('menu', { name: 'Sprint' });
+    await expect(menu.getByRole('menuitemradio', { name: /Sprint 43/ })).toBeVisible();
+    await settled(page);
+    const menuBox = await menu.boundingBox();
+    expect(menuBox?.width).toBe(256);
+    expect(menuBox?.height).toBeLessThanOrEqual(360);
+    expect(
+      await menu.getByRole('menuitemradio', { name: /Sprint 43/ }).evaluate((item) => getComputedStyle(item).fontSize),
+    ).toBe('14px');
+    await settled(page);
+    expect(await axeViolations(page, '[data-slot="menu"]')).toEqual([]);
+  });
+});
+
+/** Waits for every finite animation to end, so axe never reads a list still fading in (e2e axe notes). */
+async function settled(page: Page) {
+  await page.evaluate(async () => {
+    const moving = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity);
+    await Promise.allSettled(moving.map((animation) => animation.finished));
+  });
 }
