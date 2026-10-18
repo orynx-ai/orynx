@@ -46,7 +46,7 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 14: Add an e2e run with Jira and GitHub faked: ⌘K, typing, the arrow keys, and Enter opening Jira in a new tab, then Esc giving focus back (AC-1, AC-6, AC-11, AC-12, AC-19)
       Check: pnpm test:e2e e2e/search.spec.ts
       Files: e2e/search.spec.ts
-- [ ] Task 15: Update `docs/architecture.md` (the search route, `Dialog`), `learn/the-inbox.md` (the cache keeps every open pull request), and add `learn/search.md`: what search reads, why matching runs in the browser, and how ⌘K is caught
+- [x] Task 15: Update `docs/architecture.md` (the search route, `Dialog`), `learn/the-inbox.md` (the cache keeps every open pull request), and add `learn/search.md`: what search reads, why matching runs in the browser, and how ⌘K is caught
       Check: pnpm gate learn-freshness specs; pnpm exec prettier --check docs learn
       Files: docs/architecture.md, learn/the-inbox.md, learn/search.md
 - [x] Task 16: WAIT for 008 to merge. Then move this branch onto `main`, take 008's `SearchField`, and run the full check
