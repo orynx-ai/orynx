@@ -27,6 +27,11 @@ export interface TicketsToolbarProps {
   search?: ReactNode;
   /** The Project and Sprint pickers, before the filters (spec 020). */
   pickers?: ReactNode;
+  /**
+   * No sprint to filter (Q8c, spec 020 AC-28): the pickers alone, so another project is one pick away. They
+   * stay the same elements either way, so a pick that empties or fills the page keeps focus where it was.
+   */
+  pickersOnly?: boolean;
 }
 
 const filterLabels: Record<FilterKey, string> = {
@@ -50,35 +55,40 @@ export function TicketsToolbar({
   assigneeRef,
   search,
   pickers,
+  pickersOnly = false,
 }: TicketsToolbarProps) {
   const { text: _, ...address } = filters;
   return (
-    <Toolbar role="group" aria-label="Filters">
-      {search === undefined ? null : <div className="basis-full">{search}</div>}
+    <Toolbar role="group" aria-label={pickersOnly ? 'Sprint' : 'Filters'}>
+      {search === undefined || pickersOnly ? null : <div className="basis-full">{search}</div>}
       {pickers}
-      <Icon icon={FilterIcon} aria-hidden className="text-muted-foreground" />
-      {filterKeys.map((key) => (
-        <FilterMenu
-          key={key}
-          {...(key === 'assignee' && assigneeRef !== undefined ? { ref: assigneeRef } : {})}
-          label={filterLabels[key]}
-          options={options[key]}
-          ticked={address[key]}
-          onTickedChange={(ticked) => {
-            onFiltersChange({ ...address, [key]: ticked });
-          }}
-        />
-      ))}
-      <span className="ms-auto flex items-center gap-2">
-        {hasExtraFilters(filters) ? (
-          <Button variant="ghost" size="sm" onClick={onClear}>
-            Clear filters
-          </Button>
-        ) : null}
-        <span role="status" className="text-small text-muted-foreground">
-          {count === undefined ? null : ticketCount(count)}
+      {pickersOnly ? null : <Icon icon={FilterIcon} aria-hidden className="text-muted-foreground" />}
+      {pickersOnly
+        ? null
+        : filterKeys.map((key) => (
+            <FilterMenu
+              key={key}
+              {...(key === 'assignee' && assigneeRef !== undefined ? { ref: assigneeRef } : {})}
+              label={filterLabels[key]}
+              options={options[key]}
+              ticked={address[key]}
+              onTickedChange={(ticked) => {
+                onFiltersChange({ ...address, [key]: ticked });
+              }}
+            />
+          ))}
+      {pickersOnly ? null : (
+        <span className="ms-auto flex items-center gap-2">
+          {hasExtraFilters(filters) ? (
+            <Button variant="ghost" size="sm" onClick={onClear}>
+              Clear filters
+            </Button>
+          ) : null}
+          <span role="status" className="text-small text-muted-foreground">
+            {count === undefined ? null : ticketCount(count)}
+          </span>
         </span>
-      </span>
+      )}
     </Toolbar>
   );
 }

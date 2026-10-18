@@ -1,8 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { apiRoutes, type Tickets, type TicketsChoice } from '@devhub/contracts';
+import { apiRoutes, TicketsChoiceSchema, type Tickets, type TicketsChoice } from '@devhub/contracts';
 import { makeJiraConnection, makeOpenSprint, makeTicket, makeTickets } from '@devhub/contracts/testing';
+import { expectNoAxeViolations } from '@devhub/ui/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 import { designTickets } from '../../../test/tickets.ts';
@@ -65,7 +66,7 @@ function pickingServer({ sprints = 'listed' }: { sprints?: 'listed' | 'none' | '
       });
     }),
     http.put(apiUrl(apiRoutes.ticketsChoice), async ({ request }) => {
-      choice = (await request.json()) as TicketsChoice;
+      choice = TicketsChoiceSchema.parse(await request.json());
       saved.push(choice);
       return new HttpResponse(null, { status: 204 });
     }),
@@ -146,6 +147,38 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
     ).toBeVisible();
   });
 
+  it('a pick that doesn’t save says so in spec 005’s words, and the page goes back to the sprint it showed', async () => {
+    pickingServer();
+    server.use(http.put(apiUrl(apiRoutes.ticketsChoice), () => new HttpResponse(null, { status: 500 })));
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+
+    await user.click(project());
+    await user.keyboard('web{Enter}');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't save that change. Check that Orynx is still running, then try again.",
+    );
+    expect(await screen.findByText('6 tickets')).toBeVisible();
+    expect(project()).toHaveTextContent('Project Your sprint');
+  });
+
+  it('AC-34: picking with the keyboard keeps focus on Project, whether the page then has a sprint or none', async () => {
+    pickingServer({ sprints: 'none' });
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+
+    await user.click(project());
+    await user.keyboard('ops{Enter}');
+    await screen.findByText('OPS has no open sprints.');
+    expect(project()).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+    await user.keyboard('web{Enter}');
+    await screen.findByRole('link', { name: 'Ship the new footer' });
+    expect(project()).toHaveFocus();
+  });
+
   it('AC-28: when the sprints don’t load, the menu says so and Try again asks again', async () => {
     pickingServer({ sprints: 'fails' });
     const { user } = await renderApp({ route: '/tickets' });
@@ -174,7 +207,9 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
     await user.click(sprint());
 
     const menu = await screen.findByRole('menu', { name: 'Sprint' });
-    expect(within(menu).getByRole('status')).toHaveTextContent('Loading sprints');
+    // A menu holds menu items alone (ARIA), so the menu says it's busy and its loading rows are only drawn.
+    expect(menu).toHaveAttribute('aria-busy', 'true');
+    await expectNoAxeViolations(menu);
   });
 
   it('AC-29: picking Your sprint again goes back to the automatic sprint', async () => {

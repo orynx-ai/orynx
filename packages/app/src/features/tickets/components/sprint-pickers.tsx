@@ -13,6 +13,7 @@ import {
   Picker,
   Skeleton,
 } from '@devhub/ui';
+import { SaveError } from '../../settings/components/save-error.tsx';
 import { useJiraConnection, useJiraProjects } from '../../settings/queries.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { useChooseTicketsSprint, useTicketsSprints } from '../queries.ts';
@@ -39,9 +40,9 @@ export function SprintPickers({
   loading?: boolean;
 }) {
   const jira = useJiraConnection();
-  // Jira's project list is asked for once someone opens Project, not on every visit to Tickets.
-  const [looked, setLooked] = useState(false);
-  const projects = useJiraProjects(looked && jira.data !== undefined && jira.data.saved !== null);
+  // Jira's project list is asked for while Project is open, not on every visit to Tickets or window focus.
+  const [listing, setListing] = useState(false);
+  const projects = useJiraProjects(listing && jira.data !== undefined && jira.data.saved !== null);
   const choose = useChooseTicketsSprint();
   // Whose sprints the Sprint menu lists: the picked project, or Your sprint's own.
   const project = choice.projectKey ?? sprint?.projectKey ?? null;
@@ -65,9 +66,7 @@ export function SprintPickers({
         // Compact, at most 360 px tall: the user's call for this toolbar (spec 020, AC-40).
         size="sm"
         loading={projects.isPending && projects.fetchStatus !== 'idle'}
-        onOpenChange={(open) => {
-          if (open) setLooked(true);
-        }}
+        onOpenChange={setListing}
       >
         <Picker className={pickerWidth}>
           <span className="text-muted-foreground">Project</span> {choice.projectKey ?? yourSprintText}
@@ -83,6 +82,12 @@ export function SprintPickers({
           else if (project !== null) choose.mutate({ projectKey: project, sprintId });
         }}
       />
+      {choose.isError ? (
+        // The page has gone back to the sprint it showed; the line stays until the next pick (spec 005, Q7c).
+        <div className="basis-full">
+          <SaveError />
+        </div>
+      ) : null}
     </>
   );
 }
@@ -101,6 +106,7 @@ function SprintMenu({
   const [open, setOpen] = useState(false);
   const sprints = useTicketsSprints(project, open);
   const now = useNow();
+  const loading = open && project !== null && sprints.isPending;
 
   return (
     <Menu open={open} onOpenChange={setOpen}>
@@ -113,13 +119,14 @@ function SprintMenu({
           )}
         </Picker>
       </MenuTrigger>
-      <MenuContent heading="Sprint" align="start" size="sm">
+      {/* A menu holds menu items alone (ARIA), and while open it hides the page around it, so the menu itself
+            says it's busy; the loading rows are only drawn. */}
+      <MenuContent heading="Sprint" align="start" size="sm" aria-busy={loading || undefined}>
         {project === null ? null : sprints.isPending ? (
           // Two rows the size of a sprint's (its name over its dates), so the list doesn't jump when they arrive.
-          <div role="status" className="flex flex-col">
-            <span className="sr-only">Loading sprints</span>
+          <div aria-hidden className="flex flex-col">
             {[0, 1].map((row) => (
-              <span key={row} aria-hidden className="flex flex-col px-3 py-1">
+              <span key={row} className="flex flex-col px-3 py-1">
                 <span className="flex h-5 items-center">
                   <Skeleton className="h-3.5 w-24" />
                 </span>

@@ -5,7 +5,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { KanbanIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
 import { defaultTicketsChoice, type InboxToolState, type TicketsChoice } from '@devhub/contracts';
 import { Button, Icon, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
-import { PageBar, PageBody, PageBreadcrumb, Toolbar, type Crumb } from '../../shell/page-frame.tsx';
+import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
 import { useWide } from '../../shell/use-wide.ts';
 import { toolLine } from '../../words/tool-line.ts';
 import { useNow } from '../../words/use-now.ts';
@@ -69,7 +69,9 @@ export function TicketsScreen() {
   const choice = data?.choice ?? defaultTicketsChoice;
   // No sprint shows its tickets with no sprint of their own (spec 020, AC-39).
   const withoutSprint = choice.sprintId === 'none';
-  if (!loading && sprint === null && !withoutSprint) return <NoSprint jira={data.jira} choice={choice} now={now} />;
+  // Q8c: Jira answered and there's no sprint to show, or the picked project has none (spec 020, AC-28). The page
+  // keeps its bar and pickers, the same elements, so a pick that empties or fills it keeps focus where it was.
+  const noSprint = !loading && sprint === null && !withoutSprint;
   // What the page calls what it shows; null while it loads.
   const shownName = sprint?.name ?? (withoutSprint && !loading ? noSprintName : null);
 
@@ -107,7 +109,9 @@ export function TicketsScreen() {
   );
 
   let body: ReactNode;
-  if (loading || shownName === null) {
+  if (noSprint) {
+    body = <NoSprint jira={data.jira} choice={choice} />;
+  } else if (loading || shownName === null) {
     body = view === 'board' ? <TicketsBoardSkeleton /> : <TicketsListSkeleton />;
   } else if (view === 'board') {
     body = <TicketsBoard shown={shown} unfiltered={unfiltered} now={now} />;
@@ -135,25 +139,27 @@ export function TicketsScreen() {
             : (sprintMeta(sprint, now) ?? undefined)
         }
         actions={
-          <>
-            {wide ? searchField : null}
-            <SegmentedControl
-              aria-label="View"
-              value={view}
-              onValueChange={(picked) => {
-                if (picked === 'board' || picked === 'list') setView(picked);
-              }}
-            >
-              <SegmentedControlItem value="board">
-                <Icon icon={KanbanIcon} aria-hidden />
-                Board
-              </SegmentedControlItem>
-              <SegmentedControlItem value="list">
-                <Icon icon={LeftToRightListBulletIcon} aria-hidden />
-                List
-              </SegmentedControlItem>
-            </SegmentedControl>
-          </>
+          noSprint ? undefined : (
+            <>
+              {wide ? searchField : null}
+              <SegmentedControl
+                aria-label="View"
+                value={view}
+                onValueChange={(picked) => {
+                  if (picked === 'board' || picked === 'list') setView(picked);
+                }}
+              >
+                <SegmentedControlItem value="board">
+                  <Icon icon={KanbanIcon} aria-hidden />
+                  Board
+                </SegmentedControlItem>
+                <SegmentedControlItem value="list">
+                  <Icon icon={LeftToRightListBulletIcon} aria-hidden />
+                  List
+                </SegmentedControlItem>
+              </SegmentedControl>
+            </>
+          )
         }
       />
       <TicketsToolbar
@@ -164,9 +170,10 @@ export function TicketsScreen() {
         count={loading ? undefined : shown.length}
         assigneeRef={assignee}
         pickers={<SprintPickers choice={choice} sprint={sprint} loading={loading} />}
+        pickersOnly={noSprint}
         {...(wide ? {} : { search: searchField })}
       />
-      <PageBody width="full">
+      <PageBody width={noSprint ? 'wide' : 'full'}>
         <h1 className="sr-only">{shownName === null ? 'Tickets' : pageHeading(shownName)}</h1>
         {line === null && data?.truncated !== true ? null : (
           <div className="flex flex-col gap-1">
@@ -205,30 +212,17 @@ function Note({ message, action }: { message: string; action: { text: string; ta
 
 /**
  * Q8c: Jira answered, and no active sprint holds a ticket of yours, or the picked project has no open sprint
- * (spec 020, AC-28); or its sync failed before it said. The pickers stay, so another project is one pick away.
+ * (spec 020, AC-28). A sync that failed before Jira ever answered can't say, so its line above stands alone.
  */
-function NoSprint({ jira, choice, now }: { jira: InboxToolState; choice: TicketsChoice; now: Date }) {
-  const line = toolLine('jira', jira, now);
-  // A sync that failed before Jira ever answered can't say whether there's a sprint.
+function NoSprint({ jira, choice }: { jira: InboxToolState; choice: TicketsChoice }) {
   const answered = jira.state === 'synced' || (jira.state === 'failed' && jira.lastSyncedAt !== null);
-  return (
-    <>
-      <PageBar breadcrumb={<PageBreadcrumb crumbs={[ticketsCrumb]} />} />
-      <Toolbar role="group" aria-label="Sprint">
-        <SprintPickers choice={choice} sprint={null} />
-      </Toolbar>
-      <PageBody>
-        <h1 className="sr-only">Tickets</h1>
-        {line === null ? null : <Note message={line.message} action={line.action} />}
-        {!answered ? null : choice.projectKey === null ? (
-          <EmptyState title={noSprintText.title}>
-            <span>{noSprintText.line}</span>
-          </EmptyState>
-        ) : (
-          <EmptyState title={noOpenSprintsText(choice.projectKey)} />
-        )}
-      </PageBody>
-    </>
+  if (!answered) return null;
+  return choice.projectKey === null ? (
+    <EmptyState title={noSprintText.title}>
+      <span>{noSprintText.line}</span>
+    </EmptyState>
+  ) : (
+    <EmptyState title={noOpenSprintsText(choice.projectKey)} />
   );
 }
 
