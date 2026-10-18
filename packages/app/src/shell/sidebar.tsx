@@ -11,11 +11,12 @@ import {
 } from '@hugeicons/core-free-icons';
 import { BrandMark, Button, cn, Icon, Kbd, Splitter } from '@devhub/ui';
 import { useInboxCount } from '../features/home/queries.ts';
+import { useSearchStore } from '../features/search/store.ts';
 import { useTicketsCount } from '../features/tickets/queries.ts';
 import { SidebarSessions } from '../features/sessions/components/sidebar-sessions.tsx';
 import { usePlatform } from '../platform.tsx';
 import { clampSidebarWidth, sidebarWidthLimits, useUiStore } from '../stores/ui-store.ts';
-import { newTaskShortcut, searchShortcutLabel } from './shortcuts.ts';
+import { newTaskShortcut, searchShortcut } from './shortcuts.ts';
 import { SidebarFooter } from './sidebar-footer.tsx';
 import { useNewTask } from './use-shortcuts.ts';
 
@@ -39,6 +40,8 @@ export function Sidebar() {
   const widthStyle: CSSProperties & Record<'--sidebar-width', string> = { '--sidebar-width': `${String(width)}px` };
   const platform = usePlatform();
   const newTask = newTaskShortcut(platform);
+  const search = searchShortcut(platform);
+  const openSearch = useSearchStore((state) => state.setOpen);
   const startNewTask = useNewTask();
   // New task is an action, so it must never announce itself as the current page on Home.
   // Only the router's href (hash or path, per host); the click is handled below.
@@ -110,11 +113,16 @@ export function Sidebar() {
         </Button>
         <button
           type="button"
-          // aria-disabled, not disabled: it stays in the Tab order with its name and key until search ships (spec 009).
-          aria-disabled
+          aria-haspopup="dialog"
+          aria-keyshortcuts={search.ariaKeyShortcuts}
           title={collapsed ? 'Search' : undefined}
+          onClick={(event) => {
+            // Safari doesn't focus a clicked button; focus it, so closing search gives focus back here.
+            event.currentTarget.focus();
+            openSearch(true);
+          }}
           className={cn(
-            'flex h-10 w-full cursor-not-allowed items-center gap-2 rounded-sm border border-border bg-canvas px-3 text-muted-foreground max-md:size-10 max-md:justify-center max-md:px-0',
+            'flex h-10 w-full cursor-pointer items-center gap-2 rounded-sm border border-border bg-canvas px-3 text-muted-foreground hover:border-control hover:text-foreground max-md:size-10 max-md:justify-center max-md:px-0',
             collapsed && 'md:justify-center md:px-0',
           )}
         >
@@ -122,7 +130,7 @@ export function Sidebar() {
           <Label collapsed={collapsed} className="max-md:sr-only">
             Search
           </Label>
-          <Kbd className={cn('ms-auto max-md:hidden', collapsed && 'md:hidden')}>{searchShortcutLabel(platform)}</Kbd>
+          <Kbd className={cn('ms-auto max-md:hidden', collapsed && 'md:hidden')}>{search.label}</Kbd>
         </button>
       </div>
 
