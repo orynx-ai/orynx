@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   apiRoutes,
   RespondToApprovalRequestSchema,
+  SendMessageAnswerSchema,
+  SendMessageRequestSchema,
   ServerEventSchema,
   SessionApprovalSchema,
   SessionIdSchema,
@@ -326,5 +328,35 @@ describe('one session on the wire', () => {
     const event = { type: 'session.changed', sessionId: '0123456789abcdef' };
     expect(ServerEventSchema.parse(event)).toEqual(event);
     expect(ServerEventSchema.safeParse({ type: 'session.changed' }).success).toBe(false);
+  });
+});
+
+describe('a follow-up (spec 013)', () => {
+  it('AC-11: takes your text, trimmed', () => {
+    expect(SendMessageRequestSchema.parse({ text: '  Use the existing useSelection hook instead\n' })).toEqual({
+      text: 'Use the existing useSelection hook instead',
+    });
+  });
+
+  it('AC-15, AC-21: refuses an empty message and one longer than 10,000 characters', () => {
+    for (const text of ['', '   \n  ', 'x'.repeat(10_001)]) {
+      expect(SendMessageRequestSchema.safeParse({ text }).success).toBe(false);
+    }
+    expect(SendMessageRequestSchema.safeParse({ text: 'x'.repeat(10_000) }).success).toBe(true);
+  });
+
+  it("AC-14, AC-15: answers sent, or why it can't send", () => {
+    expect(SendMessageAnswerSchema.parse({ result: 'sent' })).toEqual({ result: 'sent' });
+    for (const reason of ['too_many', 'discarded', 'never_started', 'newer_session'] as const) {
+      expect(SendMessageAnswerSchema.parse({ result: 'cannot_send', reason })).toEqual({
+        result: 'cannot_send',
+        reason,
+      });
+    }
+    expect(SendMessageAnswerSchema.safeParse({ result: 'cannot_send', reason: 'busy' }).success).toBe(false);
+  });
+
+  it('AC-11: has its path under the session', () => {
+    expect(apiRoutes.sessionMessages).toBe('/api/sessions/:id/messages');
   });
 });

@@ -255,3 +255,26 @@ export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 
 export const RespondToApprovalRequestSchema = z.object({ decision: ApprovalDecisionSchema });
 export type RespondToApprovalRequest = z.infer<typeof RespondToApprovalRequestSchema>;
+
+/** A follow-up holds at most this many characters (spec 013). */
+export const mostMessageCharacters = 10_000;
+
+/** POST /api/sessions/:id/messages: what you typed in the follow-up box, exactly as Claude gets it (spec 013). */
+export const SendMessageRequestSchema = z.object({
+  text: z.string().trim().min(1).max(mostMessageCharacters),
+});
+export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>;
+
+/**
+ * The answer to a follow-up. One that can't go says why, and nothing is sent (AC-14, AC-15): three sessions
+ * already working, the changes discarded, Claude never started, or the ticket has a newer live session.
+ */
+export const SendMessageAnswerSchema = z.discriminatedUnion('result', [
+  z.object({ result: z.literal('sent') }),
+  z.object({
+    result: z.literal('cannot_send'),
+    reason: z.enum(['too_many', 'discarded', 'never_started', 'newer_session']),
+  }),
+]);
+export type SendMessageAnswer = z.infer<typeof SendMessageAnswerSchema>;
+export type CannotSendReason = Extract<SendMessageAnswer, { result: 'cannot_send' }>['reason'];

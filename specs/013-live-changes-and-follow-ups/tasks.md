@@ -9,7 +9,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Add the session contracts: the `message` step, the `resume` problem, `ticket` (type, description, status, due), `followUp` (open, or why not with the newer session's id), `worktreePath`, `workedMs` and `runStartedAt`, each with a default so a 012 session still parses, and the builders (AC-9, AC-11, AC-14, AC-16, AC-20, Q3)
       Check: pnpm test packages/contracts/src/session.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/contracts/src/testing.ts
-- [ ] Task 3: Add the follow-up contracts: `SendMessageRequestSchema` (trimmed, 1 to 10,000 characters), the `sent` or `cannot_send` answer with its reasons (`too_many`, `discarded`, `never_started`, `newer_session`), and the path (AC-11, AC-14, AC-15)
+- [x] Task 3: Add the follow-up contracts: `SendMessageRequestSchema` (trimmed, 1 to 10,000 characters), the `sent` or `cannot_send` answer with its reasons (`too_many`, `discarded`, `never_started`, `newer_session`), and the path (AC-11, AC-14, AC-15)
       Check: pnpm test packages/contracts/src/session.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/testing.ts
 - [ ] Task 4: Add the changes contracts: `SessionChangesSchema` (why there are none, files with counts, binary and renamed-from, how many more, totals), `DiffLineSchema` with the `hunk` kind, `FileDiffSchema` (lines, binary, renamed-from, cut short), both paths, the `session.files.changed` event with only the id, and the builders (AC-2, AC-3, AC-5, AC-6, AC-23)
