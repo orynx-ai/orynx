@@ -151,10 +151,18 @@ describe('RepositoriesPanel', () => {
     const { user } = await renderApp({ route: '/settings/repositories' });
     await folderList();
     const status = screen.getByRole('status');
-    const watcher = new MutationObserver(() => {
-      if (status.textContent) said.push(status.textContent);
+    // Read each change from its record, with the text it replaced: on a slow run both answers can land
+    // before the callback, and by then the live region holds only the last one.
+    const watcher = new MutationObserver((records) => {
+      for (const record of records) {
+        const texts =
+          record.type === 'characterData'
+            ? [record.oldValue, record.target.textContent]
+            : [...record.addedNodes].map((node) => node.textContent);
+        for (const text of texts) if (text) said.push(text);
+      }
     });
-    watcher.observe(status, { childList: true, characterData: true, subtree: true });
+    watcher.observe(status, { childList: true, characterData: true, characterDataOldValue: true, subtree: true });
 
     await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
     await user.click(screen.getByRole('button', { name: 'Remove mobile' }));

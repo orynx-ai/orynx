@@ -67,7 +67,7 @@ export function InboxToolbar({
           event.preventDefault();
         }}
       >
-        <SearchField aria-label={label} placeholder={label} className="w-full" ref={boxRef} {...field} />
+        <SearchField size="sm" aria-label={label} placeholder={label} className="w-full" ref={boxRef} {...field} />
       </form>
       <div className="flex flex-wrap items-center gap-2 md:ms-auto">
         {menus.map((menu) => (

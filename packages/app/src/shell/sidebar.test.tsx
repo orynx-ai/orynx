@@ -6,6 +6,7 @@ import { makeInbox, makeInboxItem } from '@devhub/contracts/testing';
 import { useUiStore } from '../stores/ui-store.ts';
 import { apiUrl, server } from '../test/msw.ts';
 import { renderApp } from '../test/render.tsx';
+import { designTickets, ticketsHandler } from '../test/tickets.ts';
 
 /** GET /api/inbox answering with this many rows. */
 function inboxWith(count: number) {
@@ -211,5 +212,32 @@ describe('Sidebar', () => {
 
     expect(within(mainNav()).getByRole('link', { name: 'Home' })).toBeVisible();
     expect(within(mainNav()).queryByText('3')).toBeNull();
+  });
+
+  it('AC-27: shows next to Tickets how many of your tickets are in the sprint, Done included', async () => {
+    server.use(ticketsHandler());
+    await renderApp({ route: '/' });
+
+    const tickets = await within(mainNav()).findByRole('link', { name: 'Tickets, 6 in your sprint' });
+
+    expect(within(tickets).getByText('6')).toBeVisible();
+  });
+
+  it('AC-27: shows no Tickets count when none of the sprint is yours, or Jira isn’t connected', async () => {
+    server.use(ticketsHandler({ tickets: designTickets.filter((ticket) => ticket.assignee?.mine !== true) }));
+    await renderApp({ route: '/' });
+    await screen.findByText('Claude not connected · runs locally');
+
+    expect(within(mainNav()).getByRole('link', { name: 'Tickets' })).toBeVisible();
+  });
+
+  it('AC-27: leaves the Tickets count off the collapsed rail', async () => {
+    server.use(ticketsHandler());
+    useUiStore.setState({ sidebarCollapsed: true });
+    await renderApp({ route: '/' });
+    await screen.findByText('Claude not connected · runs locally');
+
+    expect(within(mainNav()).getByRole('link', { name: 'Tickets' })).toBeVisible();
+    expect(within(mainNav()).queryByText('6')).toBeNull();
   });
 });

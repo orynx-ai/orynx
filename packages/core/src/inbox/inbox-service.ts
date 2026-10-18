@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { Inbox, InboxProblem, InboxToolState, Preferences } from '@devhub/contracts';
+import type { Inbox, InboxProblem, Preferences } from '@devhub/contracts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { GitHubClient } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
@@ -9,8 +9,10 @@ import { jiraAccount, type JiraSyncCredentials } from '../integrations/jira/conn
 import { JiraIssueRecordSchema, jiraInboxProblem, jiraRecords } from '../integrations/jira/map.ts';
 import type { SessionStore } from '../sessions/session-store.ts';
 import type { Settings, SettingsStore } from '../settings/settings-store.ts';
+import type { SprintSyncOutcome } from '../tickets/tickets-service.ts';
 import type { CachedTool, CacheRecord, InboxCache, InboxTool } from './inbox-cache.ts';
 import { inboxItems } from './rules.ts';
+import { toolState } from './tool-state.ts';
 
 /**
  * Home's "Needs your attention" list (spec 007). Reading answers from the cache at once and applies the
@@ -27,7 +29,7 @@ export interface InboxService {
    * state, so another one follows it. Resolves when that one has ended.
    */
   syncAfterChange(): Promise<void>;
-  /** Resolves once no sync is running, so the host can close the cache after the last write. */
+  /** Resolves once no sync is running, the sprint's included, so the host can close the cache after the last write. */
   idle(): Promise<void>;
   /** Clear cache: everything goes, open pages are told, and a sync starts. */
   clear(): Promise<void>;
@@ -46,6 +48,12 @@ export interface InboxServiceOptions {
   };
   jira: JiraClient;
   github: GitHubClient;
+  /**
+   * Tickets' sprint (spec 008), read beside the tools in each sync but on its own: Home's rows and Refresh
+   * never wait for it, and it tells open pages itself when it ends. It has its own part of the cache, so it
+   * never changes Home's lines or "Synced" time, and it goes when Jira does.
+   */
+  sprint?: { sync(): Promise<SprintSyncOutcome>; forget(): void };
   sessions: SessionStore;
   preferences: { read(): Promise<Preferences> };
   events: EventBus;
@@ -62,27 +70,10 @@ type Outcome = 'answered' | 'failed' | 'not_connected';
 
 const syncedTools = ['jira', 'github'] as const satisfies readonly InboxTool[];
 
-/**
- * What a tool's line says when its sync broke in DevHub itself (a cache it can't write, say): the words
- * the /api error handler already uses, because the cause is in the terminal, not in the tool.
- */
-const brokenHere: InboxProblem = {
-  kind: 'other',
-  message: 'Something went wrong in the local server. See the terminal for details.',
-};
-
 /** The account a tool is connected as, from the saved settings; null when it isn't connected. */
 function accountOf(settings: Settings, tool: InboxTool): string | null {
   if (tool === 'jira') return settings.jira === undefined ? null : jiraAccount(settings.jira);
   return settings.github?.method ?? null;
-}
-
-function stateOf(cached: CachedTool | null, broken: boolean): InboxToolState {
-  if (broken) return { state: 'failed', problem: brokenHere, lastSyncedAt: cached?.syncedAt ?? null };
-  if (cached === null) return { state: 'syncing' };
-  if (cached.problem !== null) return { state: 'failed', problem: cached.problem, lastSyncedAt: cached.syncedAt };
-  // No time and no problem this version can read: nothing to show yet, as before a first sync.
-  return cached.syncedAt === null ? { state: 'syncing' } : { state: 'synced', at: cached.syncedAt };
 }
 
 /** Records that still read as the schema says; one from an older shape is left out rather than failing. */
@@ -99,6 +90,9 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
   let running: Promise<void> | undefined;
   /** A change came while a sync was running, so another pass follows it. */
   let again = false;
+  /** Tickets' sprint pass, which runs on its own beside the tools (spec 008). */
+  let sprintRunning: Promise<void> | undefined;
+  let sprintAgain = false;
   /** Tools whose last sync threw in DevHub itself; cleared by their next sync that ends normally. */
   const broken = new Set<InboxTool>();
 
@@ -156,7 +150,44 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     );
   }
 
+  async function sprintPass(sprint: NonNullable<InboxServiceOptions['sprint']>): Promise<void> {
+    try {
+      // A sprint a disconnected Jira left behind goes, as a tool's rows do.
+      if ((await sprint.sync()) === 'not_connected' && cache.tool('jira_sprint') !== null) sprint.forget();
+    } catch (error) {
+      // Never Home's problem: the sprint keeps its own line, and the terminal says what happened.
+      options.onError?.(error);
+    }
+    events.publish({ type: 'inbox.changed' });
+  }
+
+  /** Read through a call: a sync can set it while a sprint pass awaits, which narrowing can't see. */
+  function anotherSprintAsked(): boolean {
+    return sprintAgain;
+  }
+
+  /** Starts the sprint's pass, or asks the running one for one more pass after it (it read the old state). */
+  function syncSprint(): void {
+    const { sprint } = options;
+    if (sprint === undefined) return;
+    if (sprintRunning !== undefined) {
+      sprintAgain = true;
+      return;
+    }
+    sprintRunning = (async () => {
+      try {
+        do {
+          sprintAgain = false;
+          await sprintPass(sprint);
+        } while (anotherSprintAsked());
+      } finally {
+        sprintRunning = undefined;
+      }
+    })();
+  }
+
   async function run(): Promise<void> {
+    syncSprint();
     const outcomes = await Promise.allSettled([syncJira(), syncGitHub()]);
     const ended = outcomes.map((outcome, index): Outcome => {
       const tool = syncedTools[index] ?? 'jira';
@@ -224,8 +255,8 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
       return {
         items,
         tools: {
-          jira: jira === 'not_connected' ? { state: 'not_connected' } : stateOf(jira, broken.has('jira')),
-          github: github === 'not_connected' ? { state: 'not_connected' } : stateOf(github, broken.has('github')),
+          jira: jira === 'not_connected' ? { state: 'not_connected' } : toolState(jira, broken.has('jira')),
+          github: github === 'not_connected' ? { state: 'not_connected' } : toolState(github, broken.has('github')),
         },
         syncedAt: anyConnected ? cache.syncedAt() : null,
       };
@@ -236,7 +267,10 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     syncAfterChange,
 
     idle() {
-      return (running ?? Promise.resolve()).catch(() => undefined);
+      // The sprint's pass too, so the host closes the cache only after its last write.
+      return Promise.all(
+        [running, sprintRunning].map((pass) => (pass ?? Promise.resolve()).catch(() => undefined)),
+      ).then(() => undefined);
     },
 
     clear() {
@@ -248,6 +282,7 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
 
     forget(tool) {
       cache.forget(tool);
+      if (tool === 'jira') options.sprint?.forget();
       events.publish({ type: 'inbox.changed' });
     },
   };

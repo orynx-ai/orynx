@@ -13,7 +13,10 @@ export const ServerEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('sessions.changed') }),
   /** A setting from Settings › Coding agent, Repositories or Inbox rules was saved; refetch them (spec 005). */
   z.object({ type: z.literal('settings.changed') }),
-  /** A sync ended, the cache was cleared or a tool's rows went; refetch GET /api/inbox (spec 007). */
+  /**
+   * A sync ended, the cache was cleared or a tool's rows went; refetch GET /api/inbox (spec 007) and
+   * GET /api/tickets (spec 008), whose sprint syncs with the inbox.
+   */
   z.object({ type: z.literal('inbox.changed') }),
 ]);
 export type ServerEvent = z.infer<typeof ServerEventSchema>;

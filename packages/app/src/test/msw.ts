@@ -8,6 +8,7 @@ import {
   makePreferences,
   makeSessionList,
   makeStatus,
+  makeTickets,
 } from '@devhub/contracts/testing';
 
 /** The origin the app under test calls. MSW stands in for the network, nothing else. */
@@ -39,5 +40,8 @@ export const server = setupServer(
     HttpResponse.json(
       makeInbox({ tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } }, syncedAt: null }),
     ),
+  ),
+  http.get(apiUrl(apiRoutes.tickets), () =>
+    HttpResponse.json(makeTickets({ jira: { state: 'not_connected' }, sprint: null, tickets: [] })),
   ),
 );

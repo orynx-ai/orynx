@@ -46,7 +46,7 @@ Before the handler runs, the `local-only` plugin checks the Host header and the 
 
 ## 4. The query options
 
-`packages/api-client/src/queries.ts` turns the function into `statusQueryOptions(api)`: a query key from `queryKeys` plus the fetcher. Keeping keys in one place means an event can invalidate exactly the right cache entries (see `learn/live-updates.md`). Keys go from general to specific: the sidebar's session list is `['sessions', { limit: 5 }]` and the full list is `['sessions', {}]`, so invalidating `queryKeys.sessions` refreshes both. One key can also serve two views: the sidebar's Home count reads `queryKeys.inbox` with a `select` that keeps only the number of rows, so it shares Home's request and cache entry (spec 007).
+`packages/api-client/src/queries.ts` turns the function into `statusQueryOptions(api)`: a query key from `queryKeys` plus the fetcher. Keeping keys in one place means an event can invalidate exactly the right cache entries (see `learn/live-updates.md`). Keys go from general to specific: the sidebar's session list is `['sessions', { limit: 5 }]` and the full list is `['sessions', {}]`, so invalidating `queryKeys.sessions` refreshes both. One key can also serve two views: the sidebar's Home count reads `queryKeys.inbox` with a `select` that keeps only the number of rows, so it shares Home's request and cache entry (spec 007). The Tickets count does the same with `queryKeys.tickets`, counting the sprint's tickets that are yours (spec 008).
 
 ## 5. The feature hook
 

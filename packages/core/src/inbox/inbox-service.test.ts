@@ -19,13 +19,21 @@ import { createMemorySessionStore } from '../sessions/session-store.ts';
 import { createMemorySettingsStore, type Settings } from '../settings/settings-store.ts';
 import { acceptingInboxQuery, githubToken, graphqlUrl, type FakePull } from '../test/fake-github.ts';
 import {
+  acceptingBoardConfiguration,
+  acceptingFieldList,
   acceptingIssueSearch,
+  acceptingMyself,
+  acceptingMySprintSearch,
+  acceptingSprintIssueSearch,
+  acceptingStatusList,
   goodToken,
   issueSearchUrl,
   jiraEmail,
   jiraSite,
+  myselfUrl,
   type FakeIssue,
 } from '../test/fake-jira.ts';
+import { createTicketsService } from '../tickets/tickets-service.ts';
 import { cacheFilePath, openInboxCache, type InboxCache } from './inbox-cache.ts';
 import { createInboxService } from './inbox-service.ts';
 
@@ -65,7 +73,8 @@ function setup({
   settings: initial = {},
   sessions = [],
   cache = openInboxCache(':memory:'),
-}: { settings?: Settings; sessions?: SessionSummary[]; cache?: InboxCache } = {}) {
+  sprint = false,
+}: { settings?: Settings; sessions?: SessionSummary[]; cache?: InboxCache; sprint?: boolean } = {}) {
   const events = createEventBus();
   const seen: ServerEvent[] = [];
   events.subscribe((event) => seen.push(event));
@@ -75,11 +84,21 @@ function setup({
     events,
   });
   const preferences = createPreferencesService({ settings, events });
+  const jiraConnection = createJiraConnection({ settings, tokens, jira: createJiraClient(), events, envToken: false });
+  const tickets = createTicketsService({
+    cache,
+    settings,
+    connection: jiraConnection,
+    jira: createJiraClient({ timeoutMs: 300 }),
+    sessions: createMemorySessionStore(sessions),
+    now: () => clock,
+  });
   const inbox = createInboxService({
     cache,
     settings,
+    ...(sprint ? { sprint: tickets } : {}),
     connections: {
-      jira: createJiraConnection({ settings, tokens, jira: createJiraClient(), events, envToken: false }),
+      jira: jiraConnection,
       github: createGitHubConnection({
         settings,
         tokens,
@@ -96,7 +115,22 @@ function setup({
     events,
     now: () => clock,
   });
-  return { inbox, settings, preferences, seen, cache };
+  return { inbox, tickets, settings, preferences, seen, cache };
+}
+
+/** Jira answering every read of the sprint (spec 008): you, the sprint field, your sprint, its board and issues. */
+function acceptingSprint(issues: FakeIssue[] = [issue]) {
+  outside.use(
+    acceptingMyself(),
+    acceptingFieldList(),
+    acceptingMySprintSearch(issues.map((found) => ({ ...found, sprints: [{ id: 42, boardId: 7 }] }))),
+    acceptingBoardConfiguration(7),
+    acceptingStatusList(),
+    acceptingSprintIssueSearch(
+      42,
+      issues.map((found) => ({ ...found, priority: null })),
+    ),
+  );
 }
 
 /** Counts the requests that reach Jira and GitHub. */
@@ -406,5 +440,125 @@ describe('inbox service', () => {
 
     expect(cache.tool('jira')?.syncedAt).toBe('2026-10-17T10:00:00.000Z');
     await inbox.idle();
+  });
+
+  describe('with Tickets’ sprint (spec 008)', () => {
+    it('AC-17: a sync reads the sprint beside the tools, and each tells open pages when it ends', async () => {
+      outside.use(acceptingIssueSearch([issue]));
+      acceptingSprint();
+      const { inbox, tickets, seen } = setup({ settings: jiraConnected, sprint: true });
+
+      await inbox.sync();
+      await inbox.idle();
+
+      expect((await tickets.read()).tickets.map((ticket) => ticket.key)).toEqual(['PROJ-1423']);
+      expect((await inbox.read()).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
+      expect(seen).toEqual([{ type: 'inbox.changed' }, { type: 'inbox.changed' }]);
+    });
+
+    it('AC-17: Home’s rows and Refresh never wait for a slow sprint', async () => {
+      outside.use(acceptingIssueSearch([issue]));
+      acceptingSprint();
+      outside.use(
+        http.get(myselfUrl(), async () => {
+          await delay(150);
+          return HttpResponse.json({ accountId: '5b10ac8d82e05b22cc7d4ef5', displayName: 'Dev Example' });
+        }),
+      );
+      const { inbox, tickets } = setup({ settings: jiraConnected, sprint: true });
+
+      await inbox.sync();
+
+      expect((await inbox.read()).items.map((item) => item.id)).toEqual(['jira:PROJ-1423']);
+      expect((await tickets.read()).jira).toEqual({ state: 'syncing' });
+      await inbox.idle();
+      expect((await tickets.read()).tickets).toHaveLength(1);
+    });
+
+    it('a sync while the sprint is still on its way reads the sprint once more after it', async () => {
+      outside.use(acceptingIssueSearch([issue]));
+      acceptingSprint();
+      let reads = 0;
+      outside.use(
+        http.get(myselfUrl(), async () => {
+          reads += 1;
+          await delay(50);
+          return HttpResponse.json({ accountId: '5b10ac8d82e05b22cc7d4ef5', displayName: 'Dev Example' });
+        }),
+      );
+      const { inbox } = setup({ settings: jiraConnected, sprint: true });
+
+      await inbox.sync();
+      await inbox.sync();
+      await inbox.sync();
+      await inbox.idle();
+
+      // The second and third syncs ask for one more pass, not one each.
+      expect(reads).toBe(2);
+    });
+
+    it('AC-23: a sprint read that fails leaves Home’s Jira line and its sync time alone', async () => {
+      outside.use(
+        acceptingIssueSearch([issue]),
+        http.get(myselfUrl(), () => HttpResponse.json({ errorMessages: ['Down'] }, { status: 503 })),
+      );
+      const { inbox, tickets } = setup({ settings: jiraConnected, sprint: true });
+
+      await inbox.sync();
+      await inbox.idle();
+
+      expect((await tickets.read()).jira).toMatchObject({ state: 'failed', problem: { kind: 'no_answer' } });
+      const read = await inbox.read();
+      expect(read.tools.jira).toEqual({ state: 'synced', at: '2026-10-17T10:00:00.000Z' });
+      expect(read.syncedAt).toBe('2026-10-17T10:00:00.000Z');
+    });
+
+    it('AC-29: disconnecting Jira takes the sprint too', async () => {
+      outside.use(acceptingIssueSearch([issue]));
+      acceptingSprint();
+      const { inbox, cache } = setup({ settings: jiraConnected, sprint: true });
+      await inbox.sync();
+      await inbox.idle();
+      expect(cache.tool('jira_sprint')).not.toBeNull();
+
+      inbox.forget('jira');
+
+      expect(cache.tool('jira_sprint')).toBeNull();
+    });
+
+    it('AC-29: Clear cache takes the sprint and syncs it again', async () => {
+      outside.use(acceptingIssueSearch([issue]));
+      acceptingSprint();
+      const { inbox, tickets, cache } = setup({ settings: jiraConnected, sprint: true });
+      await inbox.sync();
+      await inbox.idle();
+
+      await inbox.clear();
+      expect(cache.tool('jira_sprint')).toBeNull();
+
+      await vi.waitFor(() => {
+        expect(cache.tool('jira_sprint')).not.toBeNull();
+      });
+      await inbox.idle();
+      expect((await tickets.read()).tickets).toHaveLength(1);
+    });
+
+    it('AC-29: a sprint a disconnected Jira left in the cache goes at the next sync', async () => {
+      outside.use(acceptingIssueSearch([issue]));
+      acceptingSprint();
+      const cache = openInboxCache(':memory:');
+      const first = setup({ settings: jiraConnected, cache, sprint: true }).inbox;
+      await first.sync();
+      await first.idle();
+      expect(cache.tool('jira_sprint')).not.toBeNull();
+      const asked = requests();
+
+      const second = setup({ cache, sprint: true }).inbox;
+      await second.sync();
+      await second.idle();
+
+      expect(cache.tool('jira_sprint')).toBeNull();
+      expect(asked()).toEqual([]);
+    });
   });
 });

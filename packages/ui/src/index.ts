@@ -17,6 +17,7 @@ export {
   type AttentionTitleProps,
 } from './components/attention-row.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
+export { Board, BoardColumn, type BoardColumnProps, type BoardProps } from './components/board.tsx';
 export {
   Breadcrumb,
   BreadcrumbItem,
@@ -74,9 +75,9 @@ export {
 export { Panel, type PanelProps } from './components/panel.tsx';
 export { Pagination, type PaginationProps } from './components/pagination.tsx';
 export { Picker, type PickerProps } from './components/picker.tsx';
-export { SearchField, type SearchFieldProps } from './components/search-field.tsx';
 export { Pill, type PillProps, type PillTone } from './components/pill.tsx';
 export { ResumeBanner, type ResumeBannerProps } from './components/resume-banner.tsx';
+export { SearchField, type SearchFieldProps } from './components/search-field.tsx';
 export {
   SegmentedControl,
   SegmentedControlItem,
@@ -95,15 +96,28 @@ export { SourceMark, type Source, type SourceMarkProps } from './components/sour
 export { Splitter, type SplitterProps } from './components/splitter.tsx';
 export { StatusIcon, type StatusIconProps, type StatusIconStatus } from './components/status-icon.tsx';
 export { Stepper, type StepperProps } from './components/stepper.tsx';
+export {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableRowSkeleton,
+  type TableProps,
+} from './components/table.tsx';
 export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsTriggerProps } from './components/tabs.tsx';
 export {
   WorkItemBuild,
   WorkItemCard,
   WorkItemCardSkeleton,
+  WorkItemKey,
+  WorkItemPriority,
   WorkItemTitle,
   type WorkItemBuildProps,
   type WorkItemCardProps,
   type WorkItemPriorityLevel,
+  type WorkItemPriorityProps,
   type WorkItemTitleProps,
 } from './components/work-item-card.tsx';
 export { bundledFontFaces } from './fonts.ts';

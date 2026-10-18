@@ -11,4 +11,5 @@ export {
   repositoriesQueryOptions,
   sessionsQueryOptions,
   statusQueryOptions,
+  ticketsQueryOptions,
 } from './queries.ts';

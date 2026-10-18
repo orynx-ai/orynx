@@ -15,6 +15,7 @@ export const apiPaths = {
   inbox: '/inbox',
   inboxRefresh: '/inbox/refresh',
   inboxCache: '/inbox/cache',
+  tickets: '/tickets',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -33,6 +34,7 @@ export const apiRoutes = {
   inbox: `${apiPrefix}${apiPaths.inbox}`,
   inboxRefresh: `${apiPrefix}${apiPaths.inboxRefresh}`,
   inboxCache: `${apiPrefix}${apiPaths.inboxCache}`,
+  tickets: `${apiPrefix}${apiPaths.tickets}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];

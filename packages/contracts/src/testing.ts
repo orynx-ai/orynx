@@ -9,6 +9,7 @@ import { defaultPreferences, PreferencesSchema, type InboxRules, type Preference
 import { RepositorySchema, type Repository } from './repositories.ts';
 import { SessionListSchema, SessionSummarySchema, type SessionList, type SessionSummary } from './session.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
+import { TicketSchema, TicketsSchema, type Ticket, type Tickets } from './tickets.ts';
 
 export interface StatusOverrides {
   version?: string;
@@ -117,6 +118,39 @@ export function makeInbox(overrides: Partial<Inbox> = {}): Inbox {
     items: [],
     tools: { jira: synced, github: synced },
     syncedAt: '2026-10-17T10:00:00.000Z',
+    ...overrides,
+  });
+}
+
+/**
+ * One ticket: the design's "Add bulk archive to the content list", a Story of yours in progress, unless the
+ * override says otherwise. The link follows the key.
+ */
+export function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
+  const key = overrides.key ?? 'PROJ-1423';
+  return TicketSchema.parse({
+    key,
+    title: 'Add bulk archive to the content list',
+    url: `https://your-team.atlassian.net/browse/${key}`,
+    status: 'In Progress',
+    column: 'in_progress',
+    type: 'Story',
+    bug: false,
+    priority: { name: 'High', level: 'high' },
+    dueDate: '2026-10-23',
+    assignee: { name: 'Rakesh Dhariwal', mine: true },
+    session: null,
+    ...overrides,
+  });
+}
+
+/** Sprint 42 of PROJ, ending on 24 Oct 2026, with no tickets, synced at 10:00 on 17 Oct, unless the override says otherwise. */
+export function makeTickets(overrides: Partial<Tickets> = {}): Tickets {
+  return TicketsSchema.parse({
+    jira: { state: 'synced', at: '2026-10-17T10:00:00.000Z' },
+    sprint: { id: 42, name: 'Sprint 42', endsAt: '2026-10-24T17:00:00.000Z', projectKey: 'PROJ' },
+    tickets: [],
+    truncated: false,
     ...overrides,
   });
 }

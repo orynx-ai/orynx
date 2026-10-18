@@ -1,0 +1,69 @@
+import { z } from 'zod';
+import { InboxToolStateSchema, JiraLinkSchema } from './inbox.ts';
+import { JiraProjectKeySchema } from './jira.ts';
+import { SessionStateSchema } from './session.ts';
+
+/**
+ * Tickets: your current Jira sprint as a board or a list (spec 008). The server sends data, never words
+ * that change with the clock: the app writes "Due Tue" and "Overdue · 2 d" from the due day with the
+ * laptop's calendar, as Home does.
+ */
+
+/**
+ * The board's four columns. To do and Done follow Jira's status categories; an In progress status sits in
+ * In review when the sprint's board puts it in a later in-progress column than the first (spec 008, Q2).
+ */
+export const TicketColumnSchema = z.enum(['to_do', 'in_progress', 'in_review', 'done']);
+export type TicketColumn = z.infer<typeof TicketColumnSchema>;
+
+/** How many of the card's three priority bars are filled, from the site's own priority order (Q7a). */
+export const PriorityLevelSchema = z.enum(['high', 'medium', 'low']);
+export type PriorityLevel = z.infer<typeof PriorityLevelSchema>;
+
+/** One issue in the sprint. */
+export const TicketSchema = z.object({
+  key: z.string().regex(/^[A-Z][A-Z0-9_]*-\d+$/),
+  title: z.string().min(1),
+  /** The issue on its Jira Cloud site: https, and that host only. */
+  url: JiraLinkSchema,
+  /** The status's own name, shown as it is in the list ("Code Review"). */
+  status: z.string(),
+  column: TicketColumnSchema,
+  /** The type's own name: "Story", "Bug", "Sub-task". */
+  type: z.string().min(1),
+  /** The type is named "Bug", in any case (spec 007, Q2f): drawn in `danger`, and what Bugs only keeps. */
+  bug: z.boolean(),
+  /** The priority's own name ("Highest", "P2") and its bars; null when the issue has none. */
+  priority: z.object({ name: z.string().min(1), level: PriorityLevelSchema }).nullable(),
+  /** A calendar day: the app works out "Due Tue" or "Overdue" in the laptop's calendar. */
+  dueDate: z.iso.date().nullable(),
+  /** Jira's display name, and whether it's you; null when nobody is assigned. */
+  assignee: z.object({ name: z.string().min(1), mine: z.boolean() }).nullable(),
+  /** The newest Claude session on this ticket, unless it was stopped (Q4c). */
+  session: z.object({ id: z.string().min(1), state: SessionStateSchema.exclude(['stopped']) }).nullable(),
+});
+export type Ticket = z.infer<typeof TicketSchema>;
+
+/** The active sprint that holds most of your issues (Q1). */
+export const SprintSchema = z.object({
+  id: z.int().positive(),
+  /** The sprint's own name: "Sprint 42". */
+  name: z.string().min(1),
+  /** When Jira says the sprint ends; null when it doesn't say. */
+  endsAt: z.iso.datetime().nullable(),
+  /** The board's project; null when the board covers more than one project (Q9a). */
+  projectKey: JiraProjectKeySchema.nullable(),
+});
+export type Sprint = z.infer<typeof SprintSchema>;
+
+/** GET /api/tickets: the sprint and every ticket in it, in Jira's rank order. Answers from the cache. */
+export const TicketsSchema = z.object({
+  /** Where Jira's sprint read stands, in the inbox's terms, so a failed read says so in 007's words. */
+  jira: InboxToolStateSchema,
+  /** Null when Jira isn't connected, hasn't answered yet, or no active sprint holds a ticket of yours. */
+  sprint: SprintSchema.nullable(),
+  tickets: z.array(TicketSchema),
+  /** The sprint held more tickets than DevHub keeps, so these are the first in rank order (Q8h). */
+  truncated: z.boolean(),
+});
+export type Tickets = z.infer<typeof TicketsSchema>;

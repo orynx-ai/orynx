@@ -8,3 +8,4 @@ export * from './repositories.ts';
 export * from './routes.ts';
 export * from './session.ts';
 export * from './status.ts';
+export * from './tickets.ts';

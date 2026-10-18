@@ -1,51 +1,55 @@
-import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { SearchField } from './search-field.tsx';
 
-function TicketSearch() {
-  const [text, setText] = useState('');
-  return (
-    <>
+describe('SearchField', () => {
+  it('is a search box named by its label, and takes what a person types', async () => {
+    render(<SearchField aria-label="Search tickets" placeholder="Search tickets" />);
+
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search tickets' }), 'bulk archive');
+
+    expect(screen.getByRole('searchbox', { name: 'Search tickets' })).toHaveValue('bulk archive');
+  });
+
+  it('keeps its icon out of what a screen reader hears', () => {
+    const { container } = render(<SearchField aria-label="Search tickets" />);
+
+    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('passes what it’s told to the input, such as its value and what to do on a change', async () => {
+    const changes: string[] = [];
+    render(
       <SearchField
         aria-label="Search tickets"
-        placeholder="Search tickets"
-        value={text}
-        onChange={(event) => {
-          setText(event.target.value);
-        }}
-      />
-      <output>{text}</output>
-    </>
-  );
-}
+        size="sm"
+        value="14"
+        onChange={(event) => changes.push(event.target.value)}
+      />,
+    );
 
-describe('SearchField', () => {
-  it('Q10b: is a search box named for screen readers, with its magnifier hidden from them', async () => {
-    const { container } = render(<TicketSearch />);
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search tickets' }), '2');
 
-    const box = screen.getByRole('searchbox', { name: 'Search tickets' });
-    expect(box).toHaveAttribute('placeholder', 'Search tickets');
-    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
-    await expectNoAxeViolations(container);
+    expect(changes).toEqual(['142']);
   });
 
-  it('Q10b: takes what is typed', async () => {
-    const user = userEvent.setup();
-    render(<TicketSearch />);
-
-    await user.type(screen.getByRole('searchbox', { name: 'Search tickets' }), 'archive');
-
-    expect(screen.getByRole('status')).toHaveTextContent('archive');
-  });
-
-  it('Q10b: sizes the whole field, magnifier included, from its className', () => {
+  it('sizes the whole field, icon included, from its className', () => {
     render(<SearchField aria-label="Search" className="w-60" />);
 
     const box = screen.getByRole('searchbox', { name: 'Search' });
     expect(box.parentElement).toHaveClass('w-60');
     expect(box).not.toHaveClass('w-60');
+  });
+
+  it('has no accessibility violations, at either size', async () => {
+    const { container } = render(
+      <>
+        <SearchField aria-label="Search tickets" />
+        <SearchField aria-label="Search people" size="sm" />
+      </>,
+    );
+    await expectNoAxeViolations(container);
   });
 });

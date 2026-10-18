@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { Link } from '@tanstack/react-router';
+import { useLinkProps } from '@tanstack/react-router';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -111,13 +111,31 @@ function CrumbItem({ crumb, first }: { crumb: Crumb; first: boolean }) {
           <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
         ) : (
           <BreadcrumbLink asChild>
-            {/* Exact, so a parent place is never marked current next to the page itself. */}
-            <Link to={crumb.to} activeOptions={{ exact: true }}>
-              {crumb.label}
-            </Link>
+            <CrumbLink to={crumb.to}>{crumb.label}</CrumbLink>
           </BreadcrumbLink>
         )}
       </BreadcrumbItem>
     </>
+  );
+}
+
+/**
+ * A crumb's link to a place above the page. It's never the page itself: only the last crumb is current,
+ * even when the place's link leads to this very address, as Tickets / Sprint 42 does (spec 008). The
+ * router's Link marks an active link current whatever it's told, so this takes its props and drops that,
+ * with the `active` class and style it puts in place of the crumb's own look.
+ */
+function CrumbLink({ to, children, ...props }: Omit<ComponentProps<'a'>, 'href'> & { to: Place }) {
+  // Exact, so a parent place is never marked active next to the page itself.
+  const {
+    'aria-current': _current,
+    className: _className,
+    style: _style,
+    ...link
+  } = useLinkProps({ to, activeOptions: { exact: true } });
+  return (
+    <a {...props} {...link}>
+      {children}
+    </a>
   );
 }

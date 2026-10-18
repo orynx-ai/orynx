@@ -3,7 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { AgentChip } from './agent-chip.tsx';
-import { WorkItemBuild, WorkItemCard, WorkItemCardSkeleton, WorkItemTitle } from './work-item-card.tsx';
+import {
+  WorkItemBuild,
+  WorkItemCard,
+  WorkItemCardSkeleton,
+  WorkItemTitle,
+  WorkItemKey,
+  WorkItemPriority,
+} from './work-item-card.tsx';
 
 function StoryCard() {
   return (
@@ -98,5 +105,16 @@ describe('WorkItemCard', () => {
     expect(within(column).queryByRole('article')).not.toBeInTheDocument();
     for (const card of column.children) expect(card).toHaveAttribute('aria-hidden', 'true');
     await expectNoAxeViolations(container);
+  });
+
+  it('lends its key and priority to the list view, with the same words (spec 008)', () => {
+    render(
+      <p>
+        <WorkItemKey>PROJ-1423</WorkItemKey> <WorkItemPriority level="low" label="Lowest" />
+      </p>,
+    );
+
+    expect(screen.getByText('PROJ-1423')).toBeVisible();
+    expect(screen.getByText('Lowest')).toBeVisible();
   });
 });
