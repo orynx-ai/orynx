@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { InboxToolStateSchema, JiraLinkSchema } from './inbox.ts';
-import { JiraProjectKeySchema } from './jira.ts';
+import { InboxToolStateSchema } from './inbox.ts';
+import { JiraLinkSchema, JiraProjectKeySchema } from './jira.ts';
 import { SessionStateSchema } from './session.ts';
 
 /**

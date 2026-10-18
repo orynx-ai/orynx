@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { z } from 'zod';
 import type { IntegrationId } from '@devhub/contracts';
-import { agentEnvironment, type EnvTokens } from '@devhub/core';
+import { agentEnvironment, gitEnvironment, type EnvTokens } from '@devhub/core';
 
 /** The only place that reads process.env (CLAUDE.md rule 9). Every key is in .env.example. */
 const EnvSchema = z.object({
@@ -58,6 +58,8 @@ export interface ServerConfig {
   claudeCode: string | null;
   /** The part of the shell's environment Claude Code may see (spec 010, AC-10). Nothing from `.env`. */
   agentEnvironment: Record<string, string>;
+  /** The same for the git that makes a session's worktree, with your SSH agent and no prompts (spec 011, Q8d). */
+  gitEnvironment: Record<string, string>;
 }
 
 /** The `.env` next to `.env.example` at the repo root. The same path from `src/` (dev) and `dist/` (start). */
@@ -134,5 +136,6 @@ export function loadConfig({
     ghSearchPath: shell.data.PATH,
     claudeCode: shell.data.DEVHUB_CLAUDE_CODE ?? null,
     agentEnvironment: agentEnvironment(env),
+    gitEnvironment: gitEnvironment(env),
   };
 }

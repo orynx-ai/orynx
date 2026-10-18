@@ -16,6 +16,8 @@ export const Primary: Story = { args: { variant: 'primary' } };
 export const Secondary: Story = { args: { variant: 'secondary', children: 'Open in VS Code' } };
 export const Ghost: Story = { args: { variant: 'ghost', children: 'Cancel' } };
 export const Danger: Story = { args: { variant: 'danger', children: 'Discard changes' } };
+/** The quiet one `session.html` draws under the changes: ghost, danger text, a confirm step before it acts. */
+export const DangerGhost: Story = { args: { variant: 'danger-ghost', size: 'sm', children: 'Discard changes' } };
 export const Small: Story = { args: { variant: 'primary', size: 'sm', children: 'Build with Claude' } };
 export const Disabled: Story = { args: { variant: 'primary', disabled: true } };
 /** A button that can wait: it keeps room for the spinner, so it doesn't widen when it starts. */

@@ -2,8 +2,8 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { apiRoutes, tokenHeader } from '@devhub/contracts';
-import { makeSessionList } from '@devhub/contracts/testing';
-import { ApiRequestError, createApiClient, queryKeys, sessionsQueryOptions } from './index.ts';
+import { makeSession, makeSessionList } from '@devhub/contracts/testing';
+import { ApiRequestError, createApiClient, queryKeys, sessionQueryOptions, sessionsQueryOptions } from './index.ts';
 
 const baseURL = 'http://127.0.0.1:4317';
 const sessionsUrl = `${baseURL}${apiRoutes.sessions}`;
@@ -67,5 +67,113 @@ describe('sessionsQueryOptions', () => {
 
     expect(sessionsQueryOptions(api, { limit: 5 }).queryKey).toEqual([...queryKeys.sessions, { limit: 5 }]);
     expect(sessionsQueryOptions(api).queryKey).toEqual([...queryKeys.sessions, {}]);
+  });
+});
+
+const oneUrl = (id: string) => `${baseURL}${apiRoutes.session.replace(':id', id)}`;
+
+describe('createApiClient().session()', () => {
+  it('AC-1: reads one session with the token, parsed by the contract', async () => {
+    let token: string | null = null;
+    server.use(
+      http.get(oneUrl('0123456789abcdef'), ({ request }) => {
+        token = request.headers.get(tokenHeader);
+        return HttpResponse.json(makeSession({ step: 'build' }));
+      }),
+    );
+
+    const session = await createApiClient({ baseURL, token: 'abc' }).session('0123456789abcdef');
+
+    expect(token).toBe('abc');
+    expect(session).toMatchObject({ id: '0123456789abcdef', step: 'build' });
+  });
+
+  it('AC-17: rejects with not_found for a session the server doesn’t have', async () => {
+    server.use(
+      http.get(oneUrl('fedcba9876543210'), () =>
+        HttpResponse.json({ code: 'not_found', message: 'There is no session with this id.' }, { status: 404 }),
+      ),
+    );
+    const error = await createApiClient({ baseURL, token: 't' })
+      .session('fedcba9876543210')
+      .catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'not_found', status: 404 });
+  });
+
+  it('puts the id in the path safely', async () => {
+    let path = '';
+    server.use(
+      http.get(`${baseURL}/api/sessions/:id`, ({ request }) => {
+        path = new URL(request.url).pathname;
+        return HttpResponse.json(makeSession());
+      }),
+    );
+    await createApiClient({ baseURL, token: 't' }).session('a/b');
+    expect(path).toBe('/api/sessions/a%2Fb');
+  });
+});
+
+describe('createApiClient().startSession()', () => {
+  it('AC-1, AC-11: sends the ticket and the folder, and returns the answer', async () => {
+    let body: unknown = null;
+    server.use(
+      http.post(sessionsUrl, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ result: 'started', sessionId: '0123456789abcdef' });
+      }),
+    );
+    const answer = await createApiClient({ baseURL, token: 't' }).startSession({
+      ticketKey: 'PROJ-1423',
+      repositoryId: '00000000000000aa',
+    });
+    expect(body).toEqual({ ticketKey: 'PROJ-1423', repositoryId: '00000000000000aa' });
+    expect(answer).toEqual({ result: 'started', sessionId: '0123456789abcdef' });
+  });
+
+  it('AC-12: returns why a session can’t start', async () => {
+    server.use(http.post(sessionsUrl, () => HttpResponse.json({ result: 'cannot_start', reason: 'too_many' })));
+    expect(await createApiClient({ baseURL, token: 't' }).startSession({ ticketKey: 'PROJ-1423' })).toEqual({
+      result: 'cannot_start',
+      reason: 'too_many',
+    });
+  });
+});
+
+describe('createApiClient().stopSession() and discardSession()', () => {
+  it('AC-9, AC-10: post to the session’s stop and discard paths', async () => {
+    const posted: string[] = [];
+    server.use(
+      http.post(`${baseURL}/api/sessions/:id/:action`, ({ request }) => {
+        posted.push(new URL(request.url).pathname);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const api = createApiClient({ baseURL, token: 't' });
+    await api.stopSession('0123456789abcdef');
+    await api.discardSession('0123456789abcdef');
+    expect(posted).toEqual(['/api/sessions/0123456789abcdef/stop', '/api/sessions/0123456789abcdef/discard']);
+  });
+});
+
+describe('sessionQueryOptions', () => {
+  it('AC-4: keys one session under "sessions", so sessions.changed refreshes it with the lists', () => {
+    const api = createApiClient({ baseURL, token: 't' });
+    expect(sessionQueryOptions(api, '0123456789abcdef').queryKey).toEqual([
+      ...queryKeys.sessions,
+      'detail',
+      '0123456789abcdef',
+    ]);
+  });
+
+  it('AC-10: asks for recent sessions only when told to', async () => {
+    let recent: string | null = 'unset';
+    server.use(
+      http.get(sessionsUrl, ({ request }) => {
+        recent = new URL(request.url).searchParams.get('recent');
+        return HttpResponse.json({ sessions: [] });
+      }),
+    );
+    await createApiClient({ baseURL, token: 't' }).sessions({ limit: 5, recent: true });
+    expect(recent).toBe('true');
   });
 });

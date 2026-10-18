@@ -5,6 +5,9 @@ export const apiPrefix = '/api';
 export const apiPaths = {
   status: '/status',
   sessions: '/sessions',
+  session: '/sessions/:id',
+  sessionStop: '/sessions/:id/stop',
+  sessionDiscard: '/sessions/:id/discard',
   events: '/events',
   jiraConnection: '/jira/connection',
   jiraProjects: '/jira/projects',
@@ -27,6 +30,9 @@ type ApiPaths = typeof apiPaths;
 export const apiRoutes = {
   status: `${apiPrefix}${apiPaths.status}`,
   sessions: `${apiPrefix}${apiPaths.sessions}`,
+  session: `${apiPrefix}${apiPaths.session}`,
+  sessionStop: `${apiPrefix}${apiPaths.sessionStop}`,
+  sessionDiscard: `${apiPrefix}${apiPaths.sessionDiscard}`,
   events: `${apiPrefix}${apiPaths.events}`,
   jiraConnection: `${apiPrefix}${apiPaths.jiraConnection}`,
   jiraProjects: `${apiPrefix}${apiPaths.jiraProjects}`,

@@ -8,10 +8,14 @@ const calloutVariants = cva('flex gap-3 rounded-md p-4 motion-safe:animate-fade-
     tone: {
       warning: 'bg-warning-subtle text-foreground',
       info: 'bg-info-subtle text-info-foreground',
+      /** Something failed and stopped the work: a session that couldn't start (spec 011, Q9f). */
+      danger: 'bg-danger-subtle text-foreground',
     },
   },
   defaultVariants: { tone: 'info' },
 });
+
+const titleColour = { warning: 'text-foreground', info: 'text-info-foreground', danger: 'text-danger' } as const;
 
 export type CalloutProps = Omit<ComponentProps<'div'>, 'title'> &
   VariantProps<typeof calloutVariants> & {
@@ -31,9 +35,7 @@ export function Callout({ tone, title, icon, actions, className, children, ...pr
     <div className={cn(calloutVariants({ tone }), className)} {...props}>
       {icon ? <span className="mt-0.5 flex shrink-0">{icon}</span> : null}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <span className={cn('font-medium', tone === 'warning' ? 'text-foreground' : 'text-info-foreground')}>
-          {title}
-        </span>
+        <span className={cn('font-medium', titleColour[tone ?? 'info'])}>{title}</span>
         {children}
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>

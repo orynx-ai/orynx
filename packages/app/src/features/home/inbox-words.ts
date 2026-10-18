@@ -1,7 +1,8 @@
 import type { Inbox, InboxItem, InboxRules, InboxTab } from '@devhub/contracts';
 import type { PillTone } from '@devhub/ui';
 import { personName } from '../../shell/person-name.ts';
-import { calendarDay, day, daysUntil, minute, months, plural, weekdays } from '../../words/calendar.ts';
+import { agoText } from '../../words/ago.ts';
+import { calendarDay, day, daysUntil, months, plural, weekdays } from '../../words/calendar.ts';
 import { waitText } from '../../words/tool-line.ts';
 
 // Moved to `words/` so Tickets writes them the same way (spec 008); Home's own importers keep these.
@@ -93,9 +94,13 @@ export function subLine(item: InboxItem): string {
   }
 }
 
-/** Q6: "Review" for a review request; "Open" for the rest until spec 011 adds Build and Fix. */
-export function actionLabel(item: InboxItem): string {
-  return item.reason.kind === 'review_requested' ? 'Review' : 'Open';
+/**
+ * Q6: "Review" for a review request; "Build" for an assigned issue with no live session, which starts Claude
+ * on it (spec 011, AC-15); "Open" for the rest. Failing checks keep "Open" until "Fix" comes (spec 011, Q12).
+ */
+export function actionLabel(item: InboxItem): 'Review' | 'Build' | 'Open' {
+  if (item.reason.kind === 'review_requested') return 'Review';
+  return item.subject.kind === 'issue' && item.target.kind === 'external' ? 'Build' : 'Open';
 }
 
 /** How many rows each tab counts; All counts every row. */
@@ -105,11 +110,6 @@ export function tabCounts(items: readonly InboxItem[]): Record<'all' | InboxTab,
     jira: items.filter((item) => item.tab === 'jira').length,
     pull_requests: items.filter((item) => item.tab === 'pull_requests').length,
   };
-}
-
-/** "just now" under a minute, then "12 min ago", "2 h ago" or "3 d ago". */
-function agoText(ms: number): string {
-  return ms < minute ? 'just now' : `${waitText(ms).short} ago`;
 }
 
 /** Q8c: the page bar's line, or null when no tool is connected or no sync has had every tool answer. */

@@ -2,13 +2,14 @@ import { accessSync, constants, existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
-import { fakeClaude, fakeClaudeDir } from './e2e/fake-claude/config.ts';
-import { fakeToolsHubPort } from './e2e/fake-tools/config.ts';
+import { fakeClaude, fakeClaudeDir, fakeClaudeDirFor } from './e2e/fake-claude/config.ts';
+import { fakeToolsHubPort, sessionsHubPort } from './e2e/fake-tools/config.ts';
 
 // The e2e run gets its own port and data folder, so it never touches the real ~/.devhub.
 const port = 4399;
 const home = mkdtempSync(join(tmpdir(), 'devhub-e2e-'));
 const fakeToolsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-tools-'));
+const sessionsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-sessions-'));
 
 // The e2e server must find this fake gh, never your real one (spec 004, AC-20). Stop the run rather than
 // let it fall back to the real gh: on Windows (DevHub looks for gh.exe), when the fake can't run, or when
@@ -91,6 +92,26 @@ export default defineConfig({
         DEVHUB_CLAUDE_CODE: fakeClaude,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDir,
+      },
+    },
+    {
+      // The same again for sessions (spec 011): its sessions, worktrees and fake Claude Code stay away from
+      // the other specs. The fake Claude Code plays one scripted run (e2e/fake-claude/session.ts).
+      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
+      url: `http://127.0.0.1:${String(sessionsHubPort)}/`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        DEVHUB_PORT: String(sessionsHubPort),
+        DEVHUB_HOME: sessionsHome,
+        LOG_LEVEL: 'warn',
+        NODE_ENV: 'production',
+        DEVHUB_TOKENS_FROM_ENV: 'false',
+        DEVHUB_KEYCHAIN: 'memory',
+        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
+        DEVHUB_CLAUDE_CODE: fakeClaude,
+        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
+        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(sessionsHubPort),
       },
     },
   ],

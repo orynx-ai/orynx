@@ -22,6 +22,19 @@ const seven = makeSessionList([
 ]);
 
 describe('Sidebar sessions', () => {
+  it('AC-10 (spec 011): asks for recent sessions only, so a long-discarded one leaves the sidebar', async () => {
+    const asked: URLSearchParams[] = [];
+    server.use(
+      http.get(apiUrl(apiRoutes.sessions), ({ request }) => {
+        asked.push(new URL(request.url).searchParams);
+        return HttpResponse.json(makeSessionList([]));
+      }),
+    );
+    await renderApp({ route: '/' });
+    await within(mainNav()).findByText('No sessions yet');
+    expect(asked.some((params) => params.get('recent') === 'true' && params.get('limit') === '5')).toBe(true);
+  });
+
   it('AC-8: shows the 5 sessions with the newest activity as two-line links', async () => {
     server.use(sessionsHandler(seven));
     await renderApp();

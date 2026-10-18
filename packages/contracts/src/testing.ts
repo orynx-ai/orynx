@@ -16,7 +16,14 @@ import {
   type SearchPullRequest,
   type SearchTicket,
 } from './search.ts';
-import { SessionListSchema, SessionSummarySchema, type SessionList, type SessionSummary } from './session.ts';
+import {
+  SessionListSchema,
+  SessionSchema,
+  SessionSummarySchema,
+  type Session,
+  type SessionList,
+  type SessionSummary,
+} from './session.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 import { TicketSchema, TicketsSchema, type Ticket, type Tickets } from './tickets.ts';
 
@@ -56,6 +63,24 @@ export function makeSessionSummary(overrides: Partial<SessionSummary> = {}): Ses
     state: 'working',
     source: { kind: 'jira', key: 'PROJ-1423' },
     updatedAt: '2026-10-16T10:00:00.000Z',
+    ...overrides,
+  });
+}
+
+/** A session Claude is working on, as GET /api/sessions/:id sends it: started from PROJ-1423 in web-app. */
+export function makeSession(overrides: Partial<Session> = {}): Session {
+  return SessionSchema.parse({
+    ...makeSessionSummary({ id: '0123456789abcdef' }),
+    folder: { name: 'web-app', displayPath: '~/code/web-app' },
+    branch: 'feat/PROJ-1423',
+    step: 'plan',
+    activities: [],
+    problem: null,
+    startedAt: '2026-10-16T09:56:00.000Z',
+    endedAt: null,
+    discardedAt: null,
+    jiraUrl: 'https://your-team.atlassian.net/browse/PROJ-1423',
+    sprint: 'Sprint 42',
     ...overrides,
   });
 }

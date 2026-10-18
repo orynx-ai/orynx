@@ -20,6 +20,19 @@ describe('loadConfig', () => {
       ghSearchPath: '',
       claudeCode: null,
       agentEnvironment: {},
+      gitEnvironment: { GIT_TERMINAL_PROMPT: '0' },
+    });
+  });
+
+  it('AC-20 (spec 011, Q8d): gives a session’s git the short list, your SSH agent and no password prompt', () => {
+    const config = loadConfig({
+      env: { HOME: '/Users/you', PATH: '/usr/bin', SSH_AUTH_SOCK: '/tmp/agent.sock', DEVHUB_GITHUB_TOKEN: githubToken },
+    });
+    expect(config.gitEnvironment).toEqual({
+      HOME: '/Users/you',
+      PATH: '/usr/bin',
+      SSH_AUTH_SOCK: '/tmp/agent.sock',
+      GIT_TERMINAL_PROMPT: '0',
     });
   });
 

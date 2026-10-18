@@ -33,7 +33,9 @@ import { createSearchService } from './search/search-service.ts';
 import type { Keychain } from './secrets/keychain.ts';
 import { createMemoryKeychain } from './secrets/memory-keychain.ts';
 import { createTokenStore, type EnvTokens, type TokenStore } from './secrets/token-store.ts';
-import { createMemorySessionStore, type SessionStore } from './sessions/session-store.ts';
+import { createClaudeAdapter, type QueryFunction } from './agents/claude/claude-adapter.ts';
+import { createSessionService } from './sessions/session-service.ts';
+import { createMemorySessionStore, type SessionRecords } from './sessions/session-store.ts';
 import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
 import { createTicketsService } from './tickets/tickets-service.ts';
 import { readGitUserName } from './status/git-user-name.ts';
@@ -51,8 +53,16 @@ export interface CoreOptions {
   events?: EventBus;
   /** Keep-alive interval for the event stream. */
   eventsKeepAliveMs?: number;
-  /** Where sessions are kept; an empty memory store until spec 011. */
-  sessions?: SessionStore;
+  /** Where sessions are kept. Hosts pass the store under DEVHUB_HOME (spec 011); tests get memory. */
+  sessions?: SessionRecords;
+  /**
+   * What runs Claude in a session (spec 011): the Agent SDK's `query()`, the Claude Code to run and the
+   * allow-listed environment. Hosts pass the SDK's; tests pass a fake. Left out, no session can start, so no
+   * test can run the real Claude Code (AC-22).
+   */
+  agent?: { query: QueryFunction; program: string; env: Readonly<Record<string, string>> };
+  /** The environment a session's git runs with, from `gitEnvironment()`. Empty by default. */
+  gitEnvironment?: Readonly<Record<string, string>>;
   /** Who is using DevHub; the name from `git config --global user.name` by default. */
   userName?: () => Promise<string | null>;
   /** Where tokens are saved. Hosts pass `createOsKeychain()`; tests get an empty in-memory keychain. */
@@ -253,6 +263,43 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     await inbox.idle();
     cache.close();
   });
+  const userHome = options.userHome ?? homedir();
+  const devhubHome = options.dataDir ?? join(homedir(), '.devhub');
+  const repositories = createRepositoryService({ settings, events, home: userHome, devhubHome });
+  const sessionService = createSessionService({
+    records: sessions,
+    repositories,
+    claude,
+    connection: jira,
+    jira: jiraClient,
+    describeTicket: async (key) => {
+      const sprint = await tickets.read();
+      const ticket = sprint.tickets.find((candidate) => candidate.key === key);
+      if (ticket !== undefined) return { title: ticket.title, sprint: sprint.sprint?.name ?? null };
+      const assigned = (await inbox.records()).jira.find((record) => record.key === key);
+      return assigned === undefined ? null : { title: assigned.summary, sprint: null };
+    },
+    preferences,
+    worktrees: { env: options.gitEnvironment ?? {}, root: join(devhubHome, 'worktrees') },
+    adapter:
+      options.agent === undefined
+        ? null
+        : createClaudeAdapter({
+            query: options.agent.query,
+            program: options.agent.program,
+            env: options.agent.env,
+            home: userHome,
+          }),
+    events,
+    // Kinds, ids and codes only: never the ticket's text or Claude's words (AC-21).
+    onReport: (report) => {
+      if (report.what === 'started') app.log.info(report, 'Claude started a session');
+      else app.log.warn(report, 'A session stopped with a problem');
+    },
+  });
+  app.addHook('onClose', async () => {
+    await sessionService.close();
+  });
   const status = createStatusService({
     version: options.version,
     userName: options.userName ?? readGitUserName,
@@ -290,7 +337,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       });
 
       await api.register(statusRoutes, { status });
-      await api.register(sessionsRoutes, { sessions });
+      await api.register(sessionsRoutes, { sessions, service: sessionService });
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
       await api.register(claudeRoutes, { claude });
@@ -298,14 +345,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(inboxRoutes, { inbox });
       await api.register(ticketsRoutes, { tickets });
       await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });
-      await api.register(repositoriesRoutes, {
-        repositories: createRepositoryService({
-          settings,
-          events,
-          home: options.userHome ?? homedir(),
-          devhubHome: options.dataDir ?? join(homedir(), '.devhub'),
-        }),
-      });
+      await api.register(repositoriesRoutes, { repositories });
       await api.register(eventsRoutes, {
         events,
         ...(options.eventsKeepAliveMs === undefined ? {} : { keepAliveMs: options.eventsKeepAliveMs }),

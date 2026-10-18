@@ -9,7 +9,8 @@ const recentSessions = 5;
 
 /** The sidebar's Sessions section (the shell places it): the most recent sessions, newest activity first. */
 export function SidebarSessions({ className }: { className?: string }) {
-  const sessions = useSessions({ limit: recentSessions });
+  // Recent ones only: a session discarded more than 7 days ago leaves the sidebar (spec 011, product spec).
+  const sessions = useSessions({ limit: recentSessions, recent: true });
 
   return (
     <div className={className}>

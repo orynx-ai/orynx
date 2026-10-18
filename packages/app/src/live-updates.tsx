@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@devhub/api-client';
+import { queryKeys, sessionQueryKey } from '@devhub/api-client';
 import type { ServerEvent } from '@devhub/contracts';
 import { useApi } from './api.tsx';
 
@@ -25,6 +25,9 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // A session waiting for approval is a row on Home (spec 007), a ticket's agent chip (spec 008), and a
       // search result (spec 009).
       return [queryKeys.sessions, queryKeys.inbox, queryKeys.tickets, queryKeys.search];
+    case 'session.changed':
+      // One session's steps changed: only its Session screen refetches (spec 011, AC-4).
+      return [sessionQueryKey(event.sessionId)];
     case 'settings.changed':
       // The inbox rules apply when the server reads the list (spec 007).
       return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];

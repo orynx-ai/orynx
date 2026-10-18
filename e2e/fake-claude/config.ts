@@ -11,17 +11,23 @@ export const fakeClaude = join(import.meta.dirname, 'claude');
  * hub has none, so its Claude is always signed out, as shell.spec.ts expects. A fixed name, because
  * Playwright loads its config once per worker.
  */
-export const fakeClaudeDir = join(tmpdir(), `devhub-e2e-claude-${String(fakeToolsHubPort)}`);
+export function fakeClaudeDirFor(hubPort: number): string {
+  return join(tmpdir(), `devhub-e2e-claude-${String(hubPort)}`);
+}
 
-const answerFile = join(fakeClaudeDir, 'fake-auth-status.json');
+export const fakeClaudeDir = fakeClaudeDirFor(fakeToolsHubPort);
 
-/** What the second hub's fake Claude Code says from its next check on. */
-export async function answerClaudeAs(answer: 'signed_in' | 'signed_out' | 'unreadable'): Promise<void> {
+/** What a hub's fake Claude Code says from its next check on; the second hub's unless another folder is given. */
+export async function answerClaudeAs(
+  answer: 'signed_in' | 'signed_out' | 'unreadable',
+  dir: string = fakeClaudeDir,
+): Promise<void> {
+  const answerFile = join(dir, 'fake-auth-status.json');
   if (answer === 'signed_out') {
     await rm(answerFile, { force: true });
     return;
   }
-  await mkdir(fakeClaudeDir, { recursive: true });
+  await mkdir(dir, { recursive: true });
   const status = {
     loggedIn: true,
     authMethod: 'claude.ai',

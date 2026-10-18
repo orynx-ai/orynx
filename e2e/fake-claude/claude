@@ -1,8 +1,15 @@
 #!/bin/sh
 # Stands in for Claude Code in the e2e run: playwright.config.ts names it with DEVHUB_CLAUDE_CODE, so
-# the run never reads your real Claude login (spec 010, AC-12). DevHub runs it as `auth status --json`.
-# It's signed out, unless CLAUDE_CONFIG_DIR holds an answer a spec wrote (config.ts, answerClaudeAs):
-# then it prints that answer and exits 0.
+# the run never reads your real Claude login or reaches Claude (specs 010 and 011, AC-12, AC-22).
+# A session (the Agent SDK's `--input-format stream-json`) goes to session.ts, which plays one scripted run.
+here="$(dirname "$0")"
+for arg in "$@"; do
+  if [ "$arg" = "stream-json" ]; then
+    exec node --disable-warning=ExperimentalWarning "$here/session.ts" "$@"
+  fi
+done
+# The login check, `auth status --json`. It's signed out, unless CLAUDE_CONFIG_DIR holds an answer a spec
+# wrote (config.ts, answerClaudeAs): then it prints that answer and exits 0.
 answer="${CLAUDE_CONFIG_DIR:-/nonexistent}/fake-auth-status.json"
 if [ -f "$answer" ]; then
   cat "$answer"

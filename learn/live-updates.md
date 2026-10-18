@@ -21,7 +21,7 @@ service in core ──publish(event)──▶ event bus ──▶ GET /api/event
 
 ## 1. The event union
 
-`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed`, `sessions.changed`, `settings.changed` (a value in Settings › Coding agent, Repositories or Inbox rules was saved, spec 005) and `inbox.changed` (a sync ended, the cache was cleared or a tool's rows went, spec 007). Tickets' sprint syncs with the inbox (spec 008), so `inbox.changed` refreshes it too, with no event of its own. ⌘K search (spec 009) reads the same cache and the sessions, so `inbox.changed`, `status.changed` and `sessions.changed` refresh it, and `settings.changed` doesn't: the inbox rules never hide anything from search. Every new kind of change adds a member here first, so the server and the page agree on the payload.
+`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed`, `sessions.changed` (a session started, or one changed its state or title), `session.changed { sessionId }` (one session's steps changed, spec 011), `settings.changed` (a value in Settings › Coding agent, Repositories or Inbox rules was saved, spec 005) and `inbox.changed` (a sync ended, the cache was cleared or a tool's rows went, spec 007). Tickets' sprint syncs with the inbox (spec 008), so `inbox.changed` refreshes it too, with no event of its own. ⌘K search (spec 009) reads the same cache and the sessions, so `inbox.changed`, `status.changed` and `sessions.changed` refresh it, and `settings.changed` doesn't: the inbox rules never hide anything from search. Every new kind of change adds a member here first, so the server and the page agree on the payload.
 
 ## 2. The event bus
 
@@ -40,6 +40,8 @@ service in core ──publish(event)──▶ event bus ──▶ GET /api/event
 `packages/app/src/live-updates.tsx` subscribes once, near the root, and maps each event type to the queries it makes stale:
 
 ```ts
+import { queryKeys, sessionQueryKey } from '@devhub/api-client';
+
 function keysFor(event: ServerEvent): readonly (readonly string[])[] {
   switch (event.type) {
     case 'hello':
@@ -60,6 +62,9 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // A session waiting for approval is a row on Home (spec 007), a ticket's agent chip (spec 008), and a
       // search result (spec 009).
       return [queryKeys.sessions, queryKeys.inbox, queryKeys.tickets, queryKeys.search];
+    case 'session.changed':
+      // One session's steps changed: only its Session screen refetches (spec 011, AC-4).
+      return [sessionQueryKey(event.sessionId)];
     case 'settings.changed':
       // The inbox rules apply when the server reads the list (spec 007).
       return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];
@@ -71,6 +76,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
 ```
 
 The switch has no `default`, so TypeScript refuses to compile until a new event type has a case.
+
+`session.changed` names one session, so a working session refreshes its own Session screen and nothing else. The session service sends it at once, then at most every 250 ms per session while steps keep coming. A change of state or title also sends `sessions.changed`, and because a session's key (`['sessions', 'detail', id]`) starts with `queryKeys.sessions`, that refreshes the open Session screen too.
 
 One exception sits in the subscriber: for `settings.changed`, a key with a change still on its way is skipped. That change refetches when it settles (`refetchAfterLast` in `features/settings/queries.ts`); refetching earlier could read the server before the change is written and flip the control back for a moment (spec 005 review).
 

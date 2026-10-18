@@ -7,7 +7,8 @@ import { Icon } from './icon.tsx';
 
 /**
  * Design system: Button (`dh-btn`). One `primary` per view; everything else is
- * `secondary` or `ghost`. Use `asChild` with a link when the button navigates.
+ * `secondary` or `ghost`. `danger` and the quieter `danger-ghost` are for destructive actions that ask
+ * first. Use `asChild` with a link when the button navigates.
  */
 export const buttonVariants = cva(
   'inline-flex cursor-pointer items-center justify-center gap-2 rounded-sm border border-transparent font-medium whitespace-nowrap no-underline disabled:cursor-not-allowed disabled:opacity-45 aria-disabled:cursor-not-allowed aria-disabled:opacity-45',
@@ -18,6 +19,8 @@ export const buttonVariants = cva(
         secondary: 'border-control bg-raised text-foreground hover:bg-subtle',
         ghost: 'bg-transparent text-foreground hover:bg-subtle',
         danger: 'bg-danger text-on-danger hover:opacity-88',
+        /** Ghost with danger text, as `session.html` draws Discard changes; pair it with a confirm step. */
+        'danger-ghost': 'bg-transparent text-danger hover:bg-danger-subtle',
       },
       size: {
         default: 'h-10 px-4',

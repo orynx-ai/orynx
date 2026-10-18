@@ -17,7 +17,7 @@ A session is one piece of work Claude does for the user: one task, one repo, one
 3. **Always ask, whatever the mode:** commands that touch the network, delete outside the worktree, or push to git.
 4. **The PR is always the user's click.** DevHub pushes the branch and opens the PR only after Create pull request. Claude never pushes or opens a PR by itself.
 5. **The brief is exactly the chips.** What goes to Claude is the composer text plus every context chip (ticket, PR diff, Slack thread, files). Slack data goes only when the user added that thread.
-6. **Credentials.** The Claude login is Claude Code's own. DevHub only checks it with `auth status --json` and never stores it (spec 010, `learn/checking-claude.md`). Claude Code gets only the allow-listed environment in `packages/core/src/agents/agent-environment.ts`, never DevHub's: start sessions with the same list. Any command Claude runs as `node` (tests, scripts) can read DevHub's "DevHub" keychain items without a macOS prompt, and any command can read `<DEVHUB_HOME>/runtime.json` and call `/api` with the session token (to approve its own request, say), so the runtime must keep Claude's commands away from both. Decide how in spec 011, where a session first runs (spec 010, Q1; `learn/tokens-and-keychain.md`). Also decide there, from spec 010's review: pass `AWS_*` only when `CLAUDE_CODE_USE_BEDROCK` is set and `GOOGLE_*` only when `CLAUDE_CODE_USE_VERTEX` is, so a session's commands don't inherit cloud credentials Claude isn't using; whether `CLAUDE_*` becomes an explicit list of Claude Code's documented settings; and whether gh and git get the short environment too.
+6. **Credentials.** The Claude login is Claude Code's own. DevHub only checks it with `auth status --json` and never stores it (spec 010, `learn/checking-claude.md`). Claude Code gets only the allow-listed environment in `packages/core/src/agents/agent-environment.ts`, never DevHub's, for the login check and for sessions alike; `AWS_*` passes only with `CLAUDE_CODE_USE_BEDROCK` and `GOOGLE_*` only with `CLAUDE_CODE_USE_VERTEX` (spec 011, Q8b), and `CLAUDE_*` stays a prefix less the variables of a Claude Code session (Q8c). A session's git gets `gitEnvironment()`: the same list, `SSH_AUTH_SOCK`, `GIT_TERMINAL_PROMPT=0` (Q8d). Any command Claude runs as `node` could read DevHub's "DevHub" keychain items without a macOS prompt, and any command could read `<DEVHUB_HOME>/runtime.json` and call `/api` with the session token. Spec 011 runs no command (no `Bash`) and refuses reads outside the worktree, so neither is reachable; spec 012 must keep commands away from both before it lets one run (Q8a; `learn/sessions-and-worktrees.md`).
 7. **Stop** works at any step. The worktree keeps the changes. Discard deletes the worktree and branch after a confirm step in the page (never a browser dialog).
 
 ## The adapter interface
@@ -27,15 +27,26 @@ Claude plugs in through one interface so other agents can follow later without c
 ```ts
 export interface AgentAdapter {
   readonly id: 'claude';
-  startSession(brief: AgentBrief, worktreePath: string, permissions: AgentPermissions): Promise<string>; // sessionId
-  onEvent(sessionId: string, handler: (event: AgentEvent) => void): () => void; // step, file change, approval request, done, error
+  startSession(
+    brief: AgentBrief,
+    worktreePath: string,
+    permissions: AgentPermissions,
+    instructions: string,
+  ): Promise<string>; // sessionId
+  onEvent(sessionId: string, handler: (event: AgentEvent) => void): () => void; // started, work, problem, ended
   respond(sessionId: string, approvalId: string, decision: 'allow' | 'deny' | 'always'): Promise<void>;
   sendMessage(sessionId: string, text: string): Promise<void>;
   stop(sessionId: string): Promise<void>;
 }
 ```
 
-The Claude implementation uses `@anthropic-ai/claude-agent-sdk` (decided in spec 010, pinned to one version; run the Claude Code it ships, found with `findSdkClaudeCode()`, never a `claude` on the PATH) and `simple-git` for worktrees (spec 011). Spec 010 added only the login check; the session methods come with spec 011.
+The Claude implementation is `packages/core/src/agents/claude/claude-adapter.ts` (spec 011) over `@anthropic-ai/claude-agent-sdk` (pinned; it runs the Claude Code the SDK ships, found with `findSdkClaudeCode()`, never a `claude` on the PATH). `startSession` takes a fourth argument, the note for Claude Code's system prompt. `respond` comes with spec 012 and `sendMessage` with spec 013; until then they reject. Every SDK option is set on purpose, because the defaults load every settings file:
+
+- `settingSources: []`, `settings: { disableAllHooks: true }`, `strictMcpConfig: true`, `mcpServers: {}`: no hooks, plugins, MCP servers or allow rules from `~/.claude` or the repository.
+- `tools` (`sessionTools` in `tool-decision.ts`), `permissionMode: 'default'` and `canUseTool` from the tool decision: paths stay inside the worktree, symlinks followed, never its `.git`; Ask before everything refuses edits.
+- The prompt is a stream that stays open until Claude finishes, so Stop can interrupt it; an interrupted turn ends with a failed result, which isn't a problem after Stop.
+
+Worktrees come from `packages/core/src/sessions/worktrees.ts` (`simple-git`, hooks off, no prompts), and `session-service.ts` runs a session from the ticket to Claude's last step. Tests fake `query()` at the SDK's boundary with `test/fake-claude-sdk.ts`; the e2e run's fake Claude Code plays a session over the SDK's stream protocol (`e2e/fake-claude/session.ts`).
 
 ## Session states
 
@@ -51,10 +62,10 @@ States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `w
 
 ## Session data
 
-| Data                    | Where                           |
-| ----------------------- | ------------------------------- |
-| Brief, steps, approvals | `~/.devhub/sessions/`           |
-| Code changes            | `~/.devhub/worktrees/<session>` |
+| Data                    | Where                                                                   |
+| ----------------------- | ----------------------------------------------------------------------- |
+| Brief, steps, approvals | `~/.devhub/sessions/<session>/` (`session.json`, `brief.md`), 0700/0600 |
+| Code changes            | `~/.devhub/worktrees/<session>` on `feat/<KEY>`                         |
 
 ## Testing
 

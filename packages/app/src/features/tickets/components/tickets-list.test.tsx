@@ -57,6 +57,18 @@ describe('TicketsList', () => {
     expect(platform.openExternal).toHaveBeenCalledWith('https://your-team.atlassian.net/browse/PROJ-1402');
   });
 
+  it('AC-1 (spec 011): a row without a live session has Build with Claude, named for its ticket', async () => {
+    server.use(ticketsHandler());
+    await openList();
+    const table = screen.getByRole('table');
+    const row = within(table).getByRole('row', { name: /Add empty state to saved searches/ });
+    const build = within(row).getByRole('button', { name: 'Build PROJ-1402 with Claude' });
+    expect(build).toHaveTextContent('Build with Claude');
+    // A row with a live session shows its chip instead.
+    const live = within(table).getByRole('row', { name: /Add bulk archive/ });
+    expect(within(live).queryByRole('button', { name: /with Claude/ })).toBeNull();
+  });
+
   it('AC-16: with nothing to show under the filters, it says so', async () => {
     server.use(ticketsHandler());
     const { user } = await openList('/tickets?type=bug&due=week');

@@ -13,6 +13,8 @@ import {
   designBoardColumns,
   fieldListUrl,
   goodBasicValue,
+  acceptingIssue,
+  issueUrl,
   issueSearchUrl,
   goodToken,
   jiraEmail,
@@ -716,5 +718,64 @@ describe('Jira client: status categories (spec 008)', () => {
       ok: false,
       problem: { kind: 'rejected' },
     });
+  });
+});
+
+describe('Jira client: one issue (spec 011)', () => {
+  it('AC-3: reads the summary, the type and the description as Markdown, with only those fields', async () => {
+    const seen: Request[] = [];
+    jira.events.on('request:start', ({ request }) => {
+      seen.push(request.clone());
+    });
+    jira.use(acceptingIssue({ key: 'PROJ-1423', summary: 'Add bulk archive to the content list' }));
+
+    expect(await client.issue(credentials, 'PROJ-1423')).toEqual({
+      ok: true,
+      issue: {
+        key: 'PROJ-1423',
+        summary: 'Add bulk archive to the content list',
+        type: 'Story',
+        description:
+          'Content managers need to archive many items at once.\n\n- Checkbox on each row\n- Partial failures show which items failed',
+      },
+    });
+    const url = new URL(seen[0]?.url ?? '');
+    expect(`${url.origin}${url.pathname}`).toBe(issueUrl('PROJ-1423'));
+    expect(url.searchParams.get('fields')).toBe('summary,issuetype,description');
+    expect(seen[0]?.headers.get('authorization')).toBe(`Basic ${goodBasicValue}`);
+  });
+
+  it('AC-3: an issue with no description or type says so', async () => {
+    jira.use(
+      http.get(issueUrl('PROJ-7'), () =>
+        HttpResponse.json({ key: 'PROJ-7', fields: { summary: 'Fix it', issuetype: null, description: null } }),
+      ),
+    );
+    expect(await client.issue(credentials, 'PROJ-7')).toEqual({
+      ok: true,
+      issue: { key: 'PROJ-7', summary: 'Fix it', type: null, description: null },
+    });
+  });
+
+  it('AC-13: an issue Jira hides or doesn’t have is a problem', async () => {
+    jira.use(acceptingIssue({ key: 'PROJ-1423' }));
+    expect(await client.issue(credentials, 'PROJ-9')).toEqual({ ok: false, problem: { kind: 'not_found' } });
+  });
+
+  it('AC-13: a refused token comes back as a problem, without the token', async () => {
+    jira.use(acceptingIssue({ key: 'PROJ-1423' }));
+    const answer = await client.issue({ ...credentials, apiToken: 'fake-wrong-token' }, 'PROJ-1423');
+    expect(answer).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(answer)).not.toContain('fake-wrong-token');
+  });
+
+  it('AC-13: a slow Jira is a timeout', async () => {
+    jira.use(
+      http.get(issueUrl('PROJ-1423'), async () => {
+        await delay(1000);
+        return HttpResponse.json({});
+      }),
+    );
+    expect(await client.issue(credentials, 'PROJ-1423')).toEqual({ ok: false, problem: { kind: 'timeout' } });
   });
 });

@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Inbox, type InboxItem } from '@devhub/contracts';
-import { makeInbox, makeInboxItem, makePreferences } from '@devhub/contracts/testing';
+import { makeInbox, makeInboxItem, makePreferences, makeRepository, makeStatus } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -119,7 +119,7 @@ describe('AttentionPanel', () => {
     );
   });
 
-  it('AC-2: shows a Jira ticket with its sub line and reason, and opens it in Jira from the title and the action', async () => {
+  it('AC-2: shows a Jira ticket with its sub line and reason, and its title opens it in Jira', async () => {
     const { user, platform } = await openHome();
     const row = rowOf('Add bulk archive to the content list');
 
@@ -127,11 +127,42 @@ describe('AttentionPanel', () => {
     expect(row.getByText('In progress · 2 d')).toBeVisible();
 
     await user.click(row.getByRole('link', { name: 'Add bulk archive to the content list' }));
-    await user.click(row.getByRole('link', { name: 'Open' }));
 
-    expect(platform.openExternal).toHaveBeenCalledTimes(2);
-    expect(platform.openExternal).toHaveBeenNthCalledWith(1, 'https://acme.atlassian.net/browse/PROJ-1423');
-    expect(platform.openExternal).toHaveBeenNthCalledWith(2, 'https://acme.atlassian.net/browse/PROJ-1423');
+    expect(platform.openExternal).toHaveBeenCalledWith('https://acme.atlassian.net/browse/PROJ-1423');
+  });
+
+  it('AC-15 (spec 011): an assigned issue’s action is Build, which starts Claude on it and opens the session', async () => {
+    const asked: unknown[] = [];
+    server.use(
+      http.get(apiUrl(apiRoutes.status), () =>
+        HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+      ),
+      http.get(apiUrl(apiRoutes.repositories), () =>
+        HttpResponse.json({ repositories: [makeRepository({ jiraProject: 'PROJ' })] }),
+      ),
+      http.post(apiUrl(apiRoutes.sessions), async ({ request }) => {
+        asked.push(await request.json());
+        return HttpResponse.json({ result: 'started', sessionId: '0123456789abcdef' });
+      }),
+    );
+    const { user, history } = await openHome();
+    const build = rowOf('Add bulk archive to the content list').getByRole('button', {
+      name: 'Build PROJ-1423 with Claude',
+    });
+    expect(build).toHaveTextContent('Build');
+
+    await user.click(build);
+
+    expect(asked).toEqual([{ ticketKey: 'PROJ-1423' }]);
+    expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
+  });
+
+  it('AC-15 (spec 011): an issue with a live session says Open and opens the session', async () => {
+    inboxWith([{ ...ticket, target: { kind: 'session', sessionId: '0123456789abcdef' } }]);
+    await openHome();
+    const row = rowOf('Add bulk archive to the content list');
+    expect(row.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/sessions/0123456789abcdef');
+    expect(row.queryByRole('button', { name: /with Claude/ })).toBeNull();
   });
 
   it("AC-6: shows a review request with its author, and Review opens the pull request's Files tab", async () => {
@@ -447,7 +478,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
   it("AC-18: moves focus to the next row's title when the focused row goes", async () => {
     inboxWith([review, ticket, comments]);
     await openHome('/?sort=longest');
-    focusOn(rowOf(ticket.title).getByRole('link', { name: 'Open' }));
+    focusOn(rowOf(ticket.title).getByRole('button', { name: 'Build PROJ-1423 with Claude' }));
 
     await syncTo([review, comments]);
 
@@ -514,7 +545,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent ?? null);
     }
 
-    expect(stops).toEqual(['Search', 'Reason', review.title, 'Review', ticket.title, 'Open']);
+    expect(stops).toEqual(['Search', 'Reason', review.title, 'Review', ticket.title, 'Build PROJ-1423 with Claude']);
   });
 });
 

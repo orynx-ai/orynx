@@ -43,3 +43,14 @@ export const Info: Story = {
     children: <span>Tokens live in your OS keychain. Orynx talks only to Jira, GitHub, Slack and Claude.</span>,
   },
 };
+
+/** A session that couldn't start, or stopped with an error (spec 011, Q9f). */
+export const Danger: Story = {
+  args: {
+    tone: 'danger',
+    title: "Claude couldn't start",
+    children: (
+      <span>Claude Code&apos;s login didn&apos;t work. Sign in with `claude` in a terminal, then start again.</span>
+    ),
+  },
+};

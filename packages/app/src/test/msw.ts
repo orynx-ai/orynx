@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { apiRoutes, type SessionList } from '@devhub/contracts';
+import { apiRoutes, type Session, type SessionList } from '@devhub/contracts';
 import {
   makeGitHubConnection,
   makeInbox,
@@ -27,10 +27,21 @@ export function sessionsHandler(list: SessionList) {
   });
 }
 
+/** Answers GET /api/sessions/:id with one of these sessions, or 404 as the server does for any other id. */
+export function sessionHandler(...sessions: Session[]) {
+  return http.get(apiUrl(apiRoutes.session), ({ params }) => {
+    const found = sessions.find((session) => session.id === params['id']);
+    return found === undefined
+      ? HttpResponse.json({ code: 'not_found', message: 'There is no session with this id.' }, { status: 404 })
+      : HttpResponse.json(found);
+  });
+}
+
 /** Default answers for every endpoint; a test overrides one with server.use(...). */
 export const server = setupServer(
   http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(makeStatus())),
   sessionsHandler(makeSessionList([])),
+  sessionHandler(),
   http.get(apiUrl(apiRoutes.jiraConnection), () => HttpResponse.json(makeJiraConnection())),
   http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(makeGitHubConnection())),
   http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences())),
