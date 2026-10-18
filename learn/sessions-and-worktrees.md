@@ -1,8 +1,8 @@
-<!-- learn-sources: packages/contracts/src/session.ts packages/core/src/sessions/session-service.ts packages/core/src/sessions/worktrees.ts packages/core/src/sessions/file-session-store.ts packages/core/src/sessions/session-store.ts packages/core/src/sessions/progress.ts packages/core/src/sessions/brief.ts packages/core/src/agents/agent-adapter.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/agents/claude/command-decision.ts packages/core/src/agents/claude/edit-preview.ts packages/core/src/agents/claude/sandbox.ts packages/contracts/src/commands.ts packages/core/src/agents/claude/sdk-messages.ts packages/core/src/agents/agent-environment.ts packages/core/src/routes/sessions.ts apps/server/src/main.ts e2e/fake-claude/session.ts e2e/fake-claude/probe.ts packages/app/src/features/sessions/components/build-with-claude.tsx packages/app/src/features/sessions/step-words.ts packages/app/src/features/sessions/components/approval-callout.tsx -->
+<!-- learn-sources: packages/contracts/src/session.ts packages/core/src/sessions/session-service.ts packages/core/src/sessions/worktrees.ts packages/core/src/sessions/file-session-store.ts packages/core/src/sessions/session-store.ts packages/core/src/sessions/progress.ts packages/core/src/sessions/brief.ts packages/core/src/agents/agent-adapter.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/agents/claude/command-decision.ts packages/core/src/agents/claude/edit-preview.ts packages/core/src/agents/claude/sandbox.ts packages/contracts/src/commands.ts packages/core/src/agents/claude/sdk-messages.ts packages/core/src/agents/agent-environment.ts packages/core/src/routes/sessions.ts apps/server/src/main.ts e2e/fake-claude/session.ts e2e/fake-claude/probe.ts packages/app/src/features/sessions/components/build-with-claude.tsx packages/app/src/features/sessions/step-words.ts packages/app/src/features/sessions/components/approval-callout.tsx packages/contracts/src/changes.ts packages/core/src/sessions/changes.ts packages/core/src/sessions/unified-diff.ts packages/app/src/features/sessions/components/changes-panel.tsx packages/app/src/features/sessions/components/follow-up-box.tsx packages/app/src/features/sessions/components/ticket-panel.tsx -->
 
 # Sessions and worktrees: Claude on a ticket, away from your checkout
 
-A session is Claude working on one ticket, in one folder, on its own branch. You press Build with Claude on a Tickets card or row, or Build on a Home row, and Orynx makes a branch and a git worktree for it under `<DEVHUB_HOME>/worktrees/`, so your checkout is never touched. You watch Claude's progress on the Session screen, and you can stop it or throw its work away. Spec 011 built it.
+A session is Claude working on one ticket, in one folder, on its own branch. You press Build with Claude on a Tickets card or row, or Build on a Home row, and Orynx makes a branch and a git worktree for it under `<DEVHUB_HOME>/worktrees/`, so your checkout is never touched. You watch Claude's progress on the Session screen, read its changes as it makes them, write to it, and stop it or throw its work away. Spec 011 built it; spec 012 added the approvals and spec 013 the Changes and Ticket tabs and the follow-up box.
 
 ## The path of one session
 
@@ -20,7 +20,8 @@ Build with Claude                                     (the page: build-with-clau
             3. brief.ts: the brief, saved as sessions/<id>/brief.md, and the note for Claude's system prompt
             4. claude-adapter.ts: query() from the Agent SDK, in the worktree
                  └─ each message → sdk-messages.ts → a piece of work → progress.ts → a step
-  every change: sessions.changed (state or title) at once, session.changed (steps) at most every 250 ms
+  every change: sessions.changed (state or title) at once, session.changed (steps) at most every 250 ms,
+                session.files.changed (an edit or a command ended, or Discard) at most once a second
 ```
 
 ## Where things go
@@ -85,6 +86,34 @@ canUseTool(tool, input)                              claude-adapter.ts; one call
 
 The server sends structured steps, never words. The page says them (`step-words.ts`): "Explored the code" with "ContentList.tsx, contentApi.ts and 6 more", "Edited 4 files", "Finished" with Claude's summary.
 
+## The Changes tab (spec 013)
+
+```
+GET /api/sessions/:id/changes                       the list: path, + and − counts, binary, renamedFrom
+GET /api/sessions/:id/changes/diff?path=<file>      one file's diff: git's 3 lines around each change, hunk headers
+  └─ session-service.ts changes() / fileDiff()  →  changes.ts, on the session's worktree
+       compared with the commit the branch started from (worktrees.ts records it as `startCommit`;
+       a session from before 013 finds it with `git merge-base HEAD <base>`)
+```
+
+- **What's listed.** Everything that differs from that commit: Claude's commits, its uncommitted edits, new files git doesn't track (ignored ones left out), a command's changes and yours. The files Claude edited come first, in the order it first did, then the rest by path. At most 300, then "and 41 more files". A diff stops after 2,000 lines with a line pointing to the editor.
+- **Read-only.** `git diff` refreshes the index by default, even with `--no-optional-locks`, so every call also passes `-c diff.autoRefreshIndex=false`. No hook runs, each call stops after 10 seconds, and `git status` is the same before and after (the e2e run checks the index's bytes and time). A new file is read from disk only when it's a regular file with one link whose real path is in the worktree, so a link Claude made can't show a file from anywhere else.
+- **Only listed paths.** The diff route reads a path only when it's in the list, so `../../runtime.json`, an absolute path or anything else gets 404 (AC-24). Logs redact `?path=` from request URLs.
+- **The states.** `ready` (maybe with no files yet), `no_worktree` (it stopped before git made one), `discarded`, and `missing` (deleted outside Orynx). git failing is a 500 the page says as "Couldn't read the changes." with Try again.
+- **Live.** `session.files.changed` makes the page read the list and the shown diff again (`staleTime: 0`); the file you're looking at stays, by its path in the address (`?file=`). Discard sends it too, because discarding a session that had already stopped doesn't change its state.
+- **Open in VS Code or Cursor** is a plain `vscode://file/<worktree>` or `cursor://file/<worktree>` link, the editor Settings › Coding agent picks. Orynx runs no program for it.
+
+The Ticket tab shows the ticket as Claude got it: the description saved in `session.json` when the session started (or, for an older session, read back from `brief.md`), laid out by `@devhub/ui`'s `Markdown`, with the status and due date as the inbox cache knows them now.
+
+## Follow-ups (spec 013)
+
+`POST /api/sessions/:id/messages { text }` (1 to 10,000 characters, trimmed) answers `sent`, or `cannot_send` with why: `too_many` (three already working), `discarded`, `never_started`, or `newer_session` when the ticket has a newer live one. The session's own `followUp` (`open`, `discarded`, `never_started` or `newer_session` with its id) says before you type whether one can go, so the box gives way to that line.
+
+- **While Claude works**, the message goes into the open prompt stream with its own `uuid` and `priority: 'next'`: Claude Code reads it after its current tool call. Claude has finished only when a result says no message is queued (`queued_turn_count: 0`) and every uuid Orynx sent is among the turns' `user_message_uuids`. Until then a result is only the end of a turn.
+- **After Done or Stop**, the session starts Claude Code again with the SDK's `resume: claudeSessionId` (saved from the first `init`), in the same worktree, with your text as the prompt. The stepper goes back to Build and the time counts on (`workedMs`, `runStartedAt`). It waits for a Stop or Discard under way, and for the last Claude Code to end, so it never undoes one. A resumed Claude Code that ends before `init`, or starts a different session, couldn't find the conversation: the session stops with the `resume` problem.
+- **Stop** makes `canUseTool` refuse every call from then on, and when Claude Code still holds a message it hasn't read, closes it at once, so Claude never acts on it (AC-17).
+- **The log** hears "You sent Claude a follow-up" with the session and ticket, never the text.
+
 ## When something goes wrong
 
 A failure stops the session with a problem the Session screen says in the danger callout: Jira couldn't be read, the folder isn't a git repository any more, git couldn't make the worktree, Claude Code's login didn't work (an assistant message with `error: 'authentication_failed'`, a 401 or 403, or a gateway or organisation startup reason), a usage or capacity limit, or anything else. Before Claude did any work the title is "Claude couldn't start", after it "Claude stopped with an error". The terminal gets the session id, the ticket key and a code, never the ticket's text or Claude's words.
@@ -92,14 +121,14 @@ A failure stops the session with a problem the Session screen says in the danger
 ## Stop, Discard, and a restart
 
 - **Stop** aborts git when the worktree is still being made, and interrupts Claude. Stop that comes just before Claude starts means Claude never starts, and Stop that comes while Claude Code is starting, when there was no Claude yet to stop, has the run stop it as soon as it has started. An interrupted turn still ends with a failed result, which isn't a problem after Stop. If Claude Code hasn't ended 5 seconds later, its process is closed. The worktree keeps its changes, and the last step is "You stopped Claude".
-- **Discard** stops a working session first, then `git worktree remove --force --force` and `git branch -D`, after a confirm step in the page. A worktree you deleted yourself is pruned. When the repository itself is gone, only the worktree folder is deleted, and only inside `<DEVHUB_HOME>/worktrees`. The session stays, Stopped, and leaves the sidebar 7 days later (`GET /api/sessions?recent=true`).
+- **Discard** stops a working session first, then `git worktree remove --force --force` and `git branch -D`, after a confirm step in the page, then says `session.files.changed`, so every open Changes tab reads "The changes are gone". A worktree you deleted yourself is pruned. When the repository itself is gone, only the worktree folder is deleted, and only inside `<DEVHUB_HOME>/worktrees`. The session stays, Stopped, and leaves the sidebar 7 days later (`GET /api/sessions?recent=true`).
 - **A restart.** Claude Code runs as a child of the server, so closing Orynx ends it: `close()` stops every working session as "Orynx closed while Claude was working". Opening the store does the same for a session a crash left Working or waiting for you; its waiting calls are kept in the log, unanswered.
 
 ## Tests
 
 Core tests never run the real Claude Code. `test/fake-claude-sdk.ts` fakes `query()` at the SDK's boundary: it asks `canUseTool` about each scripted call as Claude Code does, and ends an interrupted turn with a failed result. Git runs for real, on temporary repositories with a bare `origin` (`test/git-repository.ts`) and none of your git settings.
 
-The e2e run has a hub of its own for sessions (port 4396). Its `e2e/fake-claude/claude` hands every stream-json run to `session.ts`, which speaks the pinned SDK's protocol as far as a session needs: it answers `initialize` and `interrupt`, asks `can_use_tool` before its edit and before each command, and writes the file into the worktree when allowed. It never runs a command: an allowed one is written to `ran.txt` in the worktree. Words in the ticket's title pick the commands: "(runs tests)" asks for `npm test -- content-list`, "(fetches)" for a `curl` that always asks, and "(runs two)" for two commands in one message. The e2e hubs set `DEVHUB_SANDBOX=assume`, because the fake has no sandbox.
+The e2e run has a hub of its own for sessions (port 4396), and another for spec 013's changes and follow-ups (4392). Its `e2e/fake-claude/claude` hands every stream-json run to `session.ts`, which speaks the pinned SDK's protocol as far as a session needs: it answers `initialize` and `interrupt`, asks `can_use_tool` before its edit and before each command, and writes the file into the worktree when allowed. It never runs a command: an allowed one is written to `ran.txt` in the worktree. Words in the ticket's title pick the commands: "(runs tests)" asks for `npm test -- content-list`, "(fetches)" for a `curl` that always asks, and "(runs two)" for two commands in one message. For spec 013 it also takes messages while it works, folding them into the turn after its next tool call and saying which ones each result took; "(slow)" in the title waits for one after its first read. With `--resume=<its own id>` (the SDK passes each option as one argument) it plays a follow-up that writes the message it got into `src/follow-up.ts`, and "(hold)" in the message waits for another first; any other id exits before it starts, as Claude Code does. The e2e hubs set `DEVHUB_SANDBOX=assume`, because the fake has no sandbox.
 
 `e2e/fake-claude/probe.ts` shows what the SDK sends, with a stand-in that records it and never reaches Claude (`node e2e/fake-claude/probe.ts`). For SDK 0.3.302: `--output-format stream-json --verbose --input-format stream-json --permission-prompt-tool=stdio --tools=…,Bash --setting-sources= --strict-mcp-config --permission-mode=default --settings {"disableAllHooks":true,"sandbox":{…}}`, then an `initialize` control request carrying the note, then the brief as a user message. The `sandbox` option is merged into `--settings`, the flag layer, which is why `strictAllowlist` and the deny lists hold (spec 012). Bump the SDK and run the probe again.
 

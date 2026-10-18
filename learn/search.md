@@ -34,7 +34,7 @@ The inbox rules don't hide anything from search. `InboxService.records()` hands 
 
 ## Why the browser matches
 
-The whole index is small (about 700 rows at most), so `GET /api/search` sends it once, when the dialog first opens. `searchQueryOptions` keeps it with `staleTime: Infinity`, and `inbox.changed`, `status.changed` and `sessions.changed` mark it stale (`live-updates.tsx`). Spec 011's `session.changed` doesn't: a session's steps change nothing search shows, and a change of state or title sends `sessions.changed` as well. That gives three things. Typing is instant, because no request rides on a keystroke. The dialog works with Jira and GitHub offline. And it matches the way Home does: `words/match-words.ts` needs every word typed, in any case, and isn't fuzzy, for both lists.
+The whole index is small (about 700 rows at most), so `GET /api/search` sends it once, when the dialog first opens. `searchQueryOptions` keeps it with `staleTime: Infinity`, and `inbox.changed`, `status.changed` and `sessions.changed` mark it stale (`live-updates.tsx`). Spec 011's `session.changed` doesn't, and neither does spec 013's `session.files.changed`: a session's steps and files change nothing search shows, and a change of state or title sends `sessions.changed` as well. That gives three things. Typing is instant, because no request rides on a keystroke. The dialog works with Jira and GitHub offline. And it matches the way Home does: `words/match-words.ts` needs every word typed, in any case, and isn't fuzzy, for both lists.
 
 `search-results.ts` does the rest, as pure functions:
 
