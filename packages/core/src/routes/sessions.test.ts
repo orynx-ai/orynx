@@ -1,8 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import {
   apiRoutes,
   ApiErrorSchema,
+  FileDiffSchema,
+  SendMessageAnswerSchema,
+  SessionChangesSchema,
   SessionListSchema,
   SessionSchema,
   StartSessionAnswerSchema,
@@ -11,7 +16,10 @@ import {
   type SessionSummary,
 } from '@devhub/contracts';
 import { makeSession, makeSessionSummary } from '@devhub/contracts/testing';
+import { gitEnvironment } from '../agents/agent-environment.ts';
 import { createServer } from '../create-server.ts';
+import { createWorktrees } from '../sessions/worktrees.ts';
+import { useTestRepositories } from '../test/git-repository.ts';
 import { createMemorySessionStore, type SessionRecords } from '../sessions/session-store.ts';
 
 const token = 'test-token-0123456789';
@@ -204,5 +212,137 @@ describe('POST /api/sessions/:id/stop and /discard', () => {
       const res = await app.inject({ method: 'POST', url: url.replace(':id', 'fedcba9876543210'), headers });
       expect(res.statusCode).toBe(404);
     }
+  });
+});
+
+const repositories = useTestRepositories();
+const changesOf = (id: string) => apiRoutes.sessionChanges.replace(':id', id);
+const diffOf = (id: string, path: string) =>
+  `${apiRoutes.sessionChangesDiff.replace(':id', id)}?path=${encodeURIComponent(path)}`;
+
+describe('GET /api/sessions/:id/changes and its diff (spec 013)', () => {
+  vi.setConfig({ testTimeout: 15_000 });
+
+  it('AC-2, AC-3, AC-24: lists a worktree’s changes and one file’s diff, and no file outside them', async () => {
+    const repos = await repositories();
+    const worktree = join(repos.worktrees, '0123456789abcdef');
+    const made = await createWorktrees({ env: gitEnvironment(repos.env), root: repos.worktrees }).make(
+      repos.clone,
+      worktree,
+      {
+        branch: 'feat/PROJ-1423',
+        base: 'origin/main',
+        remote: true,
+      },
+    );
+    if (!made.ok) throw new Error('the worktree should be made');
+    await writeFile(join(worktree, 'README.md'), '# web-app\n\nBulk archive.\n');
+    const store = createMemorySessionStore();
+    await store.create({
+      session: makeSession({ id: '0123456789abcdef', state: 'done' }),
+      repository: { id: '00000000000000aa', path: repos.clone },
+      worktree,
+      startCommit: made.startCommit,
+      claudeSessionId: 'b2c7e0f4-0000-4000-8000-000000000001',
+      approvalLog: [],
+    });
+    app = await createServer({
+      token,
+      port,
+      version: '1.2.3',
+      sessions: store,
+      gitEnvironment: gitEnvironment(repos.env),
+    });
+
+    const listed = await app.inject({ method: 'GET', url: changesOf('0123456789abcdef'), headers });
+    expect(listed.statusCode).toBe(200);
+    expect(SessionChangesSchema.parse(listed.json())).toEqual({
+      state: 'ready',
+      files: [{ path: 'README.md', added: 2, removed: 0, binary: false, renamedFrom: null }],
+      moreFiles: 0,
+      added: 2,
+      removed: 0,
+    });
+
+    const diff = await app.inject({ method: 'GET', url: diffOf('0123456789abcdef', 'README.md'), headers });
+    expect(diff.statusCode).toBe(200);
+    expect(FileDiffSchema.parse(diff.json()).lines.filter((line) => line.kind === 'added')).toEqual([
+      { kind: 'added', number: 2, text: '' },
+      { kind: 'added', number: 3, text: 'Bulk archive.' },
+    ]);
+
+    for (const path of ['../../../.gitconfig', join(repos.root, '.gitconfig'), '.git/config']) {
+      const refused = await app.inject({ method: 'GET', url: diffOf('0123456789abcdef', path), headers });
+      expect(refused.statusCode).toBe(404);
+      expect(JSON.stringify(refused.json())).not.toContain('defaultBranch');
+    }
+  });
+
+  it('AC-6: says a session never got a worktree, or that its changes were discarded', async () => {
+    const { app: hub } = await serverWith(
+      { id: 'never-made', branch: null },
+      { id: 'discarded', state: 'stopped', discardedAt: '2026-10-16T10:05:00.000Z' },
+    );
+    expect((await hub.inject({ method: 'GET', url: changesOf('never-made'), headers })).json()).toEqual({
+      state: 'no_worktree',
+    });
+    expect((await hub.inject({ method: 'GET', url: changesOf('discarded'), headers })).json()).toEqual({
+      state: 'discarded',
+    });
+  });
+
+  it('AC-6: says the worktree is missing when it was deleted outside Orynx', async () => {
+    const store = createMemorySessionStore();
+    await store.create({
+      session: makeSession({ id: 'gone' }),
+      repository: { id: '00000000000000aa', path: '/nowhere/web-app' },
+      worktree: '/nowhere/worktrees/gone',
+      startCommit: 'a'.repeat(40),
+      claudeSessionId: null,
+      approvalLog: [],
+    });
+    app = await createServer({ token, port, version: '1.2.3', sessions: store });
+    expect((await app.inject({ method: 'GET', url: changesOf('gone'), headers })).json()).toEqual({ state: 'missing' });
+  });
+
+  it('AC-17, AC-24: answers 404 for a session it doesn’t have, and for a diff with no worktree behind it', async () => {
+    const { app: hub } = await serverWith({ id: 'never-made', branch: null });
+    expect((await hub.inject({ method: 'GET', url: changesOf('nobody'), headers })).statusCode).toBe(404);
+    expect((await hub.inject({ method: 'GET', url: diffOf('nobody', 'a.ts'), headers })).statusCode).toBe(404);
+    expect(
+      (await hub.inject({ method: 'GET', url: diffOf('never-made', '../../runtime.json'), headers })).statusCode,
+    ).toBe(404);
+    const noPath = await hub.inject({
+      method: 'GET',
+      url: apiRoutes.sessionChangesDiff.replace(':id', 'never-made'),
+      headers,
+    });
+    expect(noPath.statusCode).toBe(400);
+  });
+});
+
+describe('POST /api/sessions/:id/messages (spec 013)', () => {
+  const messagesOf = (id: string) => apiRoutes.sessionMessages.replace(':id', id);
+
+  it('AC-14: says why a follow-up can’t go to a session Claude never started', async () => {
+    const { app: hub } = await serverWith({ id: '0123456789abcdef', state: 'stopped' });
+    const res = await hub.inject({
+      method: 'POST',
+      url: messagesOf('0123456789abcdef'),
+      headers,
+      payload: { text: 'More' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(SendMessageAnswerSchema.parse(res.json())).toEqual({ result: 'cannot_send', reason: 'never_started' });
+  });
+
+  it('AC-15: refuses an empty follow-up and one longer than 10,000 characters, and answers 404 for no session', async () => {
+    const { app: hub } = await serverWith({ id: '0123456789abcdef', state: 'stopped' });
+    for (const text of ['   ', 'x'.repeat(10_001)]) {
+      const res = await hub.inject({ method: 'POST', url: messagesOf('0123456789abcdef'), headers, payload: { text } });
+      expect(res.statusCode).toBe(400);
+    }
+    const missing = await hub.inject({ method: 'POST', url: messagesOf('nobody'), headers, payload: { text: 'More' } });
+    expect(missing.statusCode).toBe(404);
   });
 });

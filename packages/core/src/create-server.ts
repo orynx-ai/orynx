@@ -35,6 +35,7 @@ import { createMemoryKeychain } from './secrets/memory-keychain.ts';
 import { createTokenStore, type EnvTokens, type TokenStore } from './secrets/token-store.ts';
 import { createClaudeAdapter, type QueryFunction } from './agents/claude/claude-adapter.ts';
 import { sandboxSettings } from './agents/claude/sandbox.ts';
+import { createChangesReader } from './sessions/changes.ts';
 import { createSessionService } from './sessions/session-service.ts';
 import { createMemorySessionStore, type SessionRecords } from './sessions/session-store.ts';
 import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
@@ -126,6 +127,13 @@ export function redactToken(url: string): string {
   return url.replace(tokenInUrl, '$1[redacted]');
 }
 
+const pathInUrl = /([?&]path=)[^&#]*/g;
+
+/** A changed file's diff is asked for by its path, which must never reach the terminal either (spec 013, AC-23). */
+export function redactPath(url: string): string {
+  return url.replace(pathInUrl, '$1[redacted]');
+}
+
 function withTokenRedaction(logger: CoreOptions['logger']): NonNullable<FastifyServerOptions['logger']> {
   if (logger === undefined || logger === false) return false;
   const base = logger === true ? {} : logger;
@@ -149,7 +157,10 @@ function withTokenRedaction(logger: CoreOptions['logger']): NonNullable<FastifyS
     },
     serializers: {
       ...base.serializers,
-      req: (request: { method: string; url: string }) => ({ method: request.method, url: redactToken(request.url) }),
+      req: (request: { method: string; url: string }) => ({
+        method: request.method,
+        url: redactPath(redactToken(request.url)),
+      }),
     },
   };
 }
@@ -304,6 +315,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     },
     preferences,
     worktrees: { env: options.gitEnvironment ?? {}, root: join(devhubHome, 'worktrees') },
+    changes: createChangesReader({ env: options.gitEnvironment ?? {} }),
     adapter:
       options.agent === undefined
         ? null
@@ -340,6 +352,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
           return;
         case 'failed':
           app.log.warn(report, 'A session stopped with a problem');
+          return;
+        case 'followed_up':
+          app.log.info(report, 'You sent Claude a follow-up');
           return;
       }
     },

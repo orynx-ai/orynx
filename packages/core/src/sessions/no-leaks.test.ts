@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -231,5 +231,104 @@ describe.skipIf(process.platform === 'win32')('a session stays out of the log an
 
     expect(await readFile(settingsFilePath(home), 'utf8')).toBe(settingsBefore);
     expect(keychainChanges).toEqual([]);
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('spec 013 stays out of the log and the event stream', () => {
+  it('AC-23: a follow-up’s text, a changed file’s path and its lines never leak', async () => {
+    const followUp = 'fake-follow-up-for-leaks';
+    const secretFile = 'fake-secret-path-for-leaks.ts';
+    const secretLine = 'fake-file-line-for-leaks';
+    const repos = await repositories();
+    home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-leaks-013-')));
+    const folder = await fakeClaudeFolder();
+    await folder.install({ kind: 'signed_in' });
+    jira.use(acceptingIssue({ key: 'PROJ-1', summary: 'Work on PROJ-1' }));
+    const log: string[] = [];
+    const bus = createEventBus();
+    const events: ServerEvent[] = [];
+    bus.subscribe((event) => events.push(event));
+    const settings = createFileSettingsStore(home);
+    await settings.update(() => ({ jira: { site: jiraSite, email: jiraEmail } }));
+    const keychain: Keychain = {
+      get: (account) => Promise.resolve(account === 'jira' ? goodToken : null),
+      set: () => Promise.resolve(),
+      delete: () => Promise.resolve(),
+    };
+    const sdk = fakeClaudeSdk([{ finish: summary }], [{ finish: summary }]);
+    const shell = { HOME: repos.root, PATH: gitSearchPath };
+
+    app = await createServer({
+      token: sessionToken,
+      port,
+      version: 'test',
+      events: bus,
+      userName: () => Promise.resolve(null),
+      keychain,
+      settings,
+      dataDir: home,
+      userHome: repos.root,
+      sessions: await openFileSessionStore(home),
+      claudeCode: createClaudeCode({
+        program: folder.program,
+        env: { PATH: '/usr/bin:/bin' },
+        workFolder: folder.workFolder,
+      }),
+      agent: { query: sdk.query, program: '/opt/claude/claude', env: agentEnvironment(shell) },
+      gitEnvironment: gitEnvironment({ ...repos.env, ...shell }),
+      logger: {
+        level: 'trace',
+        stream: new Writable({
+          write(chunk: Buffer, _encoding, done) {
+            log.push(chunk.toString());
+            done();
+          },
+        }),
+      },
+    });
+    const hub = app;
+    await hub.inject({
+      method: 'POST',
+      url: apiRoutes.repositories,
+      headers,
+      payload: { path: repos.clone, jiraProject: 'PROJ' },
+    });
+    const started = await hub.inject({
+      method: 'POST',
+      url: apiRoutes.sessions,
+      headers,
+      payload: { ticketKey: 'PROJ-1' },
+    });
+    const id = started.json<{ sessionId: string }>().sessionId;
+    const stateOf = async () =>
+      (await hub.inject({ method: 'GET', url: apiRoutes.session.replace(':id', id), headers })).json<{
+        state: string;
+      }>().state;
+    await until(async () => (await stateOf()) === 'done');
+
+    await writeFile(join(home, 'worktrees', id, secretFile), `${secretLine}\n`);
+    const changes = await hub.inject({ method: 'GET', url: apiRoutes.sessionChanges.replace(':id', id), headers });
+    expect(changes.json<{ files: { path: string }[] }>().files.map((file) => file.path)).toEqual([secretFile]);
+    const diff = await hub.inject({
+      method: 'GET',
+      url: `${apiRoutes.sessionChangesDiff.replace(':id', id)}?path=${secretFile}`,
+      headers,
+    });
+    expect(diff.statusCode).toBe(200);
+    const sent = await hub.inject({
+      method: 'POST',
+      url: apiRoutes.sessionMessages.replace(':id', id),
+      headers,
+      payload: { text: followUp },
+    });
+    expect(sent.json()).toEqual({ result: 'sent' });
+    await until(() => Promise.resolve(sdk.runs.length === 2));
+    await until(async () => (await stateOf()) === 'done');
+    await hub.close();
+
+    const told = log.join('') + JSON.stringify(events);
+    for (const secret of [followUp, secretFile, secretLine, summary]) expect(told).not.toContain(secret);
+    expect(told).toContain('You sent Claude a follow-up');
+    expect(sdk.runs[1]?.prompts).toEqual([followUp]);
   });
 });

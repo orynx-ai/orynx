@@ -3,7 +3,12 @@ import { z } from 'zod';
 import {
   ApiErrorSchema,
   apiPaths,
+  FileDiffQuerySchema,
+  FileDiffSchema,
   RespondToApprovalRequestSchema,
+  SendMessageAnswerSchema,
+  SendMessageRequestSchema,
+  SessionChangesSchema,
   SessionListQuerySchema,
   SessionListSchema,
   SessionSchema,
@@ -19,6 +24,14 @@ const SessionParamsSchema = z.object({ id: z.string().min(1).max(64) });
 const notFound: ApiError = { code: 'not_found', message: 'There is no session with this id.' };
 
 const ApprovalParamsSchema = SessionParamsSchema.extend({ approvalId: z.string().min(1).max(64) });
+
+const notListed: ApiError = { code: 'not_found', message: 'That file isn’t among this session’s changes.' };
+
+/** git couldn't read the worktree; the terminal says why, and the page words it itself (spec 013, Q10c). */
+const unreadable: ApiError = {
+  code: 'internal',
+  message: 'The changes could not be read. See the terminal for details.',
+};
 
 /** How each answer to an approval goes back over HTTP (spec 012). The page words them itself (Q8e). */
 const approvalErrors: Record<Exclude<RespondResult, 'answered'>, { status: 400 | 404 | 409 | 503; body: ApiError }> = {
@@ -88,6 +101,60 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
       return reply.code(204).send();
     },
   );
+  app.post(
+    apiPaths.sessionMessages,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        body: SendMessageRequestSchema,
+        response: { 200: SendMessageAnswerSchema, 404: ApiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const answer = await service.send(request.params.id, request.body.text);
+      return answer.result === 'not_found' ? reply.code(404).send(notFound) : answer;
+    },
+  );
+
+  app.get(
+    apiPaths.sessionChanges,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        response: { 200: SessionChangesSchema, 404: ApiErrorSchema, 500: ApiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const changes = await service.changes(request.params.id);
+      if (changes === null) return reply.code(404).send(notFound);
+      if (changes === 'unreadable') {
+        request.log.warn({ session: request.params.id }, "git couldn't read a session's changes");
+        return reply.code(500).send(unreadable);
+      }
+      return changes;
+    },
+  );
+
+  app.get(
+    apiPaths.sessionChangesDiff,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        querystring: FileDiffQuerySchema,
+        response: { 200: FileDiffSchema, 404: ApiErrorSchema, 500: ApiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const diff = await service.fileDiff(request.params.id, request.query.path);
+      if (diff === null) return reply.code(404).send(notListed);
+      if (diff === 'unreadable') {
+        request.log.warn({ session: request.params.id }, "git couldn't read a changed file's diff");
+        return reply.code(500).send(unreadable);
+      }
+      return diff;
+    },
+  );
+
   app.post(
     apiPaths.sessionApproval,
     {

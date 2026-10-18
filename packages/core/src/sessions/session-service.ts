@@ -2,11 +2,13 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type {
   ApprovalDecision,
+  FileDiff,
   PermissionMode,
   Repository,
   SendMessageAnswer,
   Session,
   SessionApproval,
+  SessionChanges,
   SessionFollowUp,
   SessionTicket,
   StartSessionAnswer,
@@ -17,6 +19,7 @@ import type { EventBus } from '../events/event-bus.ts';
 import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { briefText, sessionNote, ticketBrief, ticketFromBrief } from './brief.ts';
+import type { ChangesReader, StartPoint } from './changes.ts';
 import {
   addStep,
   addWaiting,
@@ -83,6 +86,10 @@ export interface SessionService {
    * Code's own session once it has finished or stopped. Sends one at a time for each session.
    */
   send(id: string, text: string): Promise<SendResult>;
+  /** What changed in the worktree (spec 013, Q4); null for no such session, `unreadable` when git failed. */
+  changes(id: string): Promise<SessionChanges | 'unreadable' | null>;
+  /** One changed file's diff; null for no such session or no such changed file (AC-24). */
+  fileDiff(id: string, path: string): Promise<FileDiff | 'unreadable' | null>;
   /** Stops every running session and waits for every change still being saved, for the server's shutdown. */
   close(): Promise<void>;
 }
@@ -110,6 +117,8 @@ export interface SessionServiceOptions {
     change(change: { allowCommand: string }): Promise<unknown>;
   };
   worktrees: WorktreesOptions;
+  /** Reads a worktree's changes for the Changes tab (spec 013). */
+  changes: ChangesReader;
   /** Null when the server was built without Claude Code: then no session can start (AC-22). */
   adapter: AgentAdapter | null;
   events: EventBus;
@@ -213,6 +222,25 @@ function endApprovals(
     },
     ended,
   };
+}
+
+/**
+ * What the Changes tab compares the worktree with (spec 013, Q4): the commit the branch started from, or, for a
+ * session made before spec 013, the base its worktree step names. Null when no worktree was ever made.
+ */
+function startPointOf(record: StoredSession): StartPoint | null {
+  const { session } = record;
+  if (record.worktree === null || session.branch === null) return null;
+  // git couldn't make the worktree, so there's none to read.
+  if (session.problem?.kind === 'git' && session.problem.stage === 'starting') return null;
+  if (record.startCommit !== null) return { commit: record.startCommit };
+  const made = session.activities.find((activity) => activity.kind === 'worktree');
+  return made?.kind === 'worktree' ? { base: made.base } : null;
+}
+
+/** The files Claude edited, in the order it first did (Q5). */
+function editOrder(session: Session): string[] {
+  return session.activities.flatMap((activity) => (activity.kind === 'edit' ? activity.files : []));
 }
 
 function progressOf(session: Session): Progress {
@@ -843,6 +871,27 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     discard(id) {
       return whileEnding(id, discardNow(id));
+    },
+
+    async changes(id) {
+      const record = await records.get(id);
+      if (record === null) return null;
+      if (record.session.discardedAt !== null) return { state: 'discarded' };
+      const start = startPointOf(record);
+      if (start === null || record.worktree === null) return { state: 'no_worktree' };
+      const listed = await options.changes.list(record.worktree, start, editOrder(record.session));
+      if (listed.ok) return listed.changes;
+      return listed.problem === 'missing' ? { state: 'missing' } : 'unreadable';
+    },
+
+    async fileDiff(id, path) {
+      const record = await records.get(id);
+      if (record?.session.discardedAt !== null) return null;
+      const start = startPointOf(record);
+      if (start === null || record.worktree === null) return null;
+      const read = await options.changes.fileDiff(record.worktree, start, path);
+      if (read.ok) return read.diff;
+      return read.problem === 'git' ? 'unreadable' : null;
     },
 
     send(id, text) {

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { apiRoutes, ApiErrorSchema, StatusSchema, tokenHeader } from '@devhub/contracts';
-import { createServer, redactToken } from './create-server.ts';
+import { createServer, redactPath, redactToken } from './create-server.ts';
 
 const token = 'test-token-0123456789';
 const port = 4317;
@@ -163,6 +163,15 @@ describe('unknown API routes', () => {
 
     expect(res.statusCode).toBe(404);
     expect(ApiErrorSchema.parse(res.json())).toEqual({ code: 'not_found', message: 'No API route for GET /api/nope.' });
+  });
+});
+
+describe('redactPath', () => {
+  it('013 AC-23: keeps a changed file’s path out of the logged URL', () => {
+    expect(redactPath('/api/sessions/0123456789abcdef/changes/diff?path=src%2Fsecret.ts')).toBe(
+      '/api/sessions/0123456789abcdef/changes/diff?path=[redacted]',
+    );
+    expect(redactPath('/api/sessions/0123456789abcdef/changes')).toBe('/api/sessions/0123456789abcdef/changes');
   });
 });
 

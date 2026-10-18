@@ -25,6 +25,7 @@ import { useTestRepositories } from '../test/git-repository.ts';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import type { SessionRecords } from './session-store.ts';
+import { createChangesReader } from './changes.ts';
 import { createSessionService, type SessionReport } from './session-service.ts';
 
 // Real git, a real Claude Code login check and a real Jira client behind a fake Jira: each test does a lot.
@@ -156,6 +157,7 @@ async function setUp({
       events,
     }),
     worktrees: { env: gitEnvironment(repos.env), root: join(home, 'worktrees'), fetchTimeoutMs: 2_000 },
+    changes: createChangesReader({ env: gitEnvironment(repos.env) }),
     stepEventMs: 250,
     adapter: noClaude
       ? null
