@@ -65,7 +65,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 21: e2e: a command asks and Allow once runs it, Deny doesn't, Always allow adds the entry Settings shows and the next run doesn't ask, a network command says why and offers no Always allow, two commands wait in turn, a second tab's callout goes, and Stop while waiting denies (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10, AC-12, AC-13)
       Check: pnpm test:e2e e2e/approvals.spec.ts
       Files: e2e/approvals.spec.ts, e2e/fake-tools/config.ts
-- [ ] Task 22: e2e: an edit asks in Ask before everything with its change, Settings' allowed commands add, remove and refuse, the keyboard path through a callout and the list, and axe at 360 and 1280 px in light and dark (AC-8, AC-15, AC-18, AC-19)
+- [x] Task 22: e2e: an edit asks in Ask before everything with its change, Settings' allowed commands add, remove and refuse, the keyboard path through a callout and the list, and axe at 360 and 1280 px in light and dark (AC-8, AC-15, AC-18, AC-19)
       Check: pnpm test:e2e e2e/approvals.spec.ts
       Files: e2e/approvals.spec.ts
 - [ ] Task 23: Docs: `learn/sessions-and-worktrees.md` (approvals, the sandbox, the probe's record) and `learn/settings-and-folders.md` (the allow list), agent-runtime rule 6's command side and its Approvals section, the roadmap's 012 line, `docs/architecture.md` (the sandbox, `DEVHUB_SANDBOX`, the command reader in contracts)
