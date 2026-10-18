@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 and 18 come after it.
+Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 and 18 come after it. 008 merged on 18 Oct 2026 right after task 1, so task 16 ran then, before task 2.
 
 - [x] Task 1: Add the search contract: ticket, pull request and session results, each tool's state, each result's link (from 007's `InboxTargetSchema`), the path and test builders (AC-6, AC-8, AC-9, AC-28)
       Check: pnpm test packages/contracts; pnpm typecheck
@@ -49,7 +49,7 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [ ] Task 15: Update `docs/architecture.md` (the search route, `Dialog`), `learn/the-inbox.md` (the cache keeps every open pull request), and add `learn/search.md`: what search reads, why matching runs in the browser, and how ⌘K is caught
       Check: pnpm gate learn-freshness specs; pnpm exec prettier --check docs learn
       Files: docs/architecture.md, learn/the-inbox.md, learn/search.md
-- [ ] Task 16: WAIT for 008 to merge. Then move this branch onto `main`, take 008's `SearchField`, and run the full check
+- [x] Task 16: WAIT for 008 to merge. Then move this branch onto `main`, take 008's `SearchField`, and run the full check
       Check: git rebase origin/main; pnpm verify
       Files: none, unless the rebase shows a conflict
 - [ ] Task 17: Add the sprint's tickets: the sprint in Jira's rank order, then the other assigned issues by key, each ticket once. `inbox.changed` already covers the sprint's sync (AC-16, Q1d)
