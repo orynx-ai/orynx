@@ -1,6 +1,6 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeInbox, makeInboxItem } from '@devhub/contracts/testing';
 import { useUiStore } from '../stores/ui-store.ts';
@@ -167,6 +167,28 @@ describe('Sidebar', () => {
     within(nav)
       .getByRole('button', { name: /^Search/ })
       .focus();
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('AC-11 (spec 020): a narrow window shows the places’ words, so a saved collapsed state adds no tooltips to them', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    useUiStore.setState({ sidebarCollapsed: true });
+    const { user } = await renderApp();
+    const nav = mainNav();
+    // The narrow bar's Search is an icon alone, so it has one.
+    within(nav)
+      .getByRole('button', { name: /^Search/ })
+      .focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Search (⌘K)');
+
+    await user.tab();
+
+    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveFocus();
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 

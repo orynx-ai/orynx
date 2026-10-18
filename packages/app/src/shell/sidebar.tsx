@@ -198,9 +198,12 @@ function NavItem({
   className?: string | undefined;
 }) {
   const showCount = count !== undefined && count.value > 0 && !collapsed;
+  // The rail is collapsed from 768 px only; the narrow bar shows every place's words.
+  const wide = useWide();
+  const rail = collapsed && wide;
   return (
     // On the rail only the icon shows, so its name is in a tooltip beside it.
-    <Tooltip label={collapsed ? label : null} side="right">
+    <Tooltip label={rail ? label : null} side="right">
       <Link
         to={to}
         // A place is its path: Home stays current with its tab, search or page in the address.
