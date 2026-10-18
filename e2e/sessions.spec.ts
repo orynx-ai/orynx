@@ -219,7 +219,8 @@ test('AC-11, AC-18: with two folders, Ship asks which with the keyboard, and sta
   await build.focus();
   await page.keyboard.press('Enter');
   const menu = page.getByRole('menu', { name: 'Start in' });
-  await expect(menu.getByRole('menuitem')).toHaveCount(2);
+  // The two folders, then Add local folder (spec 020, AC-24).
+  await expect(menu.getByRole('menuitem')).toHaveCount(3);
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('ArrowDown');
   await expect(menu.getByRole('menuitem', { name: /mobile/ })).toBeFocused();
@@ -237,14 +238,14 @@ test('AC-11, AC-18: with two folders, Ship asks which with the keyboard, and sta
   await api(page, 'DELETE', `/api/repositories/${added.id}`);
 });
 
-test('AC-12 (Q4): Ship says why it can’t start, and links to the fix', async ({ page }) => {
+test('AC-12 (Q4), AC-22 (spec 020): Ship says why it can’t start, and offers the fix', async ({ page }) => {
   await page.goto('/tickets');
 
   const mob = page.getByRole('button', { name: 'Ship MOB-1' });
   await mob.click();
   const noFolder = page.getByRole('menu', { name: 'Ship MOB-1' });
   await expect(noFolder.getByText('No folder is set for MOB.')).toBeVisible();
-  await expect(noFolder.getByRole('menuitem', { name: 'Open Settings › Repositories' })).toBeVisible();
+  await expect(noFolder.getByRole('menuitem', { name: 'Add local folder' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(mob).toBeFocused();
 

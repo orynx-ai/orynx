@@ -67,7 +67,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12d: The folder dialog's Jira project field is a Combobox (AC-37)
       Check: pnpm test packages/app/src/features/settings; pnpm exec playwright test e2e/settings.spec.ts
       Files: packages/app/src/features/settings/components/folder-dialog.tsx (+ test), e2e/settings.spec.ts
-- [ ] Task 13: Ship's menu ends in Add local folder, which opens the dialog with the ticket's project and starts Claude in the new folder (AC-22 to AC-24)
+- [x] Task 13: Ship's menu ends in Add local folder, which opens the dialog with the ticket's project and starts Claude in the new folder (AC-22 to AC-24)
       Check: pnpm test packages/app/src/features/sessions
       Files: packages/app/src/features/sessions/components/ship-with-claude.tsx, ship-with-claude.test.tsx
 

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { SparklesIcon } from '@hugeicons/core-free-icons';
+import { PlusSignIcon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { Link, useNavigate } from '@tanstack/react-router';
 import type { CannotStartReason, StartSessionAnswer } from '@devhub/contracts';
 import {
@@ -11,10 +11,12 @@ import {
   MenuContent,
   MenuItem,
   MenuLabel,
+  MenuSeparator,
   MenuTrigger,
   WorkItemShip,
 } from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
+import { FolderDialog } from '../../settings/components/folder-dialog.tsx';
 import { useRepositories, useStatus } from '../../settings/queries.ts';
 import { useSessions } from '../queries.ts';
 
@@ -37,7 +39,9 @@ function projectOf(key: string): string {
  * Ship: start Claude on a ticket (spec 011, AC-1, AC-11, AC-12; named Ship in spec 020). With one folder for the ticket's project, Claude signed in
  * and room for another session, it starts at once and opens the session. Otherwise it opens a menu: the
  * folders under "Start in", or why it can't start and where to fix it (Q4). The page decides from what it
- * already holds; the server checks again and has the last word.
+ * already holds; the server checks again and has the last word. The menu ends in Add local folder, which
+ * opens Settings' folder dialog with the ticket's project picked, then starts Claude in the new folder
+ * (spec 020, AC-22 to AC-24).
  */
 export function ShipWithClaude({ ticketKey, look }: { ticketKey: string; look: ShipLook }) {
   const api = useApi();
@@ -46,6 +50,10 @@ export function ShipWithClaude({ ticketKey, look }: { ticketKey: string; look: S
   const repositories = useRepositories();
   const sessions = useSessions();
   const [open, setOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  // Add local folder opens the dialog once the menu has closed and let go of focus.
+  const addAfterClose = useRef(false);
+  const button = useRef<HTMLButtonElement>(null);
   const project = projectOf(ticketKey);
 
   const start = useMutation({
@@ -105,58 +113,88 @@ export function ShipWithClaude({ ticketKey, look }: { ticketKey: string; look: S
 
   const trigger =
     look === 'sparkle' ? (
-      <WorkItemShip itemKey={ticketKey} pending={start.isPending} />
+      <WorkItemShip ref={button} itemKey={ticketKey} pending={start.isPending} />
     ) : look === 'button' ? (
-      <Button variant="ghost" size="sm" pending={start.isPending} aria-label={name}>
+      <Button ref={button} variant="ghost" size="sm" pending={start.isPending} aria-label={name}>
         Ship
       </Button>
     ) : (
       // A Home row's icon, beside Open in Jira (spec 020).
-      <IconButton variant="ghost" size="sm" label="Ship" aria-label={name} pending={start.isPending}>
+      <IconButton ref={button} variant="ghost" size="sm" label="Ship" aria-label={name} pending={start.isPending}>
         <Icon icon={SparklesIcon} aria-hidden />
       </IconButton>
     );
 
+  const addFolder = (
+    <MenuItem
+      icon={<Icon icon={PlusSignIcon} />}
+      onSelect={() => {
+        addAfterClose.current = true;
+      }}
+    >
+      Add local folder
+    </MenuItem>
+  );
+
+  function openDialogAfterClose(event: Event) {
+    if (!addAfterClose.current) return;
+    addAfterClose.current = false;
+    event.preventDefault();
+    setAdding(true);
+  }
+
   return (
-    <Menu open={open} onOpenChange={changeOpen}>
-      <MenuTrigger asChild>{trigger}</MenuTrigger>
-      {reason === 'choose_folder' ? (
-        <MenuContent heading="Start in" align="end">
-          {folders.map((folder) => (
-            <MenuItem
-              key={folder.id}
-              path={folder.displayPath}
-              onSelect={() => {
-                start.mutate(folder.id);
-              }}
-            >
-              {folder.name}
-            </MenuItem>
-          ))}
-        </MenuContent>
-      ) : (
-        <MenuContent aria-label={name} align="end">
-          <ReasonItems reason={reason} project={project} />
-        </MenuContent>
-      )}
-    </Menu>
+    <>
+      <Menu open={open} onOpenChange={changeOpen}>
+        <MenuTrigger asChild>{trigger}</MenuTrigger>
+        {reason === 'choose_folder' ? (
+          <MenuContent heading="Start in" align="end" onCloseAutoFocus={openDialogAfterClose}>
+            {folders.map((folder) => (
+              <MenuItem
+                key={folder.id}
+                path={folder.displayPath}
+                onSelect={() => {
+                  start.mutate(folder.id);
+                }}
+              >
+                {folder.name}
+              </MenuItem>
+            ))}
+            <MenuSeparator />
+            {addFolder}
+          </MenuContent>
+        ) : (
+          <MenuContent aria-label={name} align="end" onCloseAutoFocus={openDialogAfterClose}>
+            {reason === 'no_folder' ? (
+              <>
+                <MenuLabel>No folder is set for {project}.</MenuLabel>
+                {addFolder}
+              </>
+            ) : (
+              <ReasonItems reason={reason} />
+            )}
+          </MenuContent>
+        )}
+      </Menu>
+      <FolderDialog
+        task={adding ? { kind: 'add', jiraProject: project } : null}
+        returnFocusTo={() => button.current}
+        onClose={() => {
+          setAdding(false);
+        }}
+        onSaved={(folder) => {
+          setAdding(false);
+          // The quick path: Claude starts on the ticket in the folder just added (AC-23).
+          start.mutate(folder.id);
+        }}
+      />
+    </>
   );
 }
 
-/** Why Ship can't start, and the link that fixes it when there is one (Q10d). */
-function ReasonItems({ reason, project }: { reason: Reason | null; project: string }) {
+/** Why Ship can't start, and the link that fixes it when there is one (Q10d). No folder has its own items. */
+function ReasonItems({ reason }: { reason: Reason | null }) {
   switch (reason) {
-    case 'no_folder':
-      return (
-        <>
-          <MenuLabel>No folder is set for {project}.</MenuLabel>
-          <MenuItem asChild>
-            <Link to="/settings/$tab" params={{ tab: 'repositories' }}>
-              Open Settings › Repositories
-            </Link>
-          </MenuItem>
-        </>
-      );
     case 'signed_out':
       return (
         <>
