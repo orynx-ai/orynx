@@ -13,7 +13,7 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 3: Give `InboxService` a `records()` call: the connected tools' records and each tool's state, with no inbox rules. `read()` builds on it (AC-17, AC-24, AC-27)
       Check: pnpm test packages/core/src/inbox
       Files: packages/core/src/inbox/inbox-service.ts, inbox-service.test.ts
-- [ ] Task 4: Add the search service. Tickets come by key, each with its newest session or its Jira link. Pull requests come newest first, linking to their main page. Sessions come newest first. Each tool's state is included (AC-6, AC-8, AC-9, AC-13, AC-17, AC-18, AC-24, AC-27)
+- [x] Task 4: Add the search service. Tickets come by key, each with its newest session or its Jira link. Pull requests come newest first, linking to their main page. Sessions come newest first. Each tool's state is included (AC-6, AC-8, AC-9, AC-13, AC-17, AC-18, AC-24, AC-27)
       Check: pnpm test packages/core/src/search
       Files: packages/core/src/search/search-service.ts, search-service.test.ts
 - [ ] Task 5: Add `GET /api/search` and wire it into `createServer`. Test the token and Host checks, and extend the leak test: no token, description or comment text (AC-28)
@@ -52,7 +52,7 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 16: WAIT for 008 to merge. Then move this branch onto `main`, take 008's `SearchField`, and run the full check
       Check: git rebase origin/main; pnpm verify
       Files: none, unless the rebase shows a conflict
-- [ ] Task 17: Add the sprint's tickets: the sprint in Jira's rank order, then the other assigned issues by key, each ticket once. `inbox.changed` already covers the sprint's sync (AC-16, Q1d)
+- [x] Task 17: Built in task 4, because 008 merged first. Add the sprint's tickets: the sprint in Jira's rank order, then the other assigned issues by key, each ticket once. `inbox.changed` already covers the sprint's sync (AC-16, Q1d)
       Check: pnpm test packages/core/src/search packages/core/src/routes/search.test.ts
       Files: packages/core/src/search/search-service.ts, search-service.test.ts, packages/core/src/create-server.ts
 - [ ] Task 18: Open search in a real browser at 360 and 1280 px, light and dark, in each state. Compare with Q3, run axe, check for sideways scroll and layout shift as it opens, and try ⌘K over a text field. Fix what turns up, then run the full check (AC-29, AC-30)
