@@ -28,6 +28,24 @@ describe('Tabs', () => {
     expect(screen.getByRole('tabpanel')).toHaveTextContent('Everything');
   });
 
+  it('Q11d: keeps the room of a count still on its way, and says nothing of it', async () => {
+    const { container } = render(
+      <Tabs defaultValue="all">
+        <TabsList aria-label="Inbox sources">
+          <TabsTrigger value="all" count={null}>
+            All
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="all">Everything</TabsContent>
+      </Tabs>,
+    );
+
+    const tab = screen.getByRole('tab', { name: 'All' });
+    expect(tab).toHaveTextContent(/^All$/);
+    expect(tab.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    await expectNoAxeViolations(container);
+  });
+
   it('switches content on click', async () => {
     render(<InboxTabs />);
 

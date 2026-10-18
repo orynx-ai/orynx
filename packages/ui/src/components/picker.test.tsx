@@ -83,4 +83,22 @@ describe('Picker', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'api' })).toHaveFocus();
   });
+
+  it('Q11b: a picker with nothing to offer is unavailable, out of the Tab order, and opens nothing', async () => {
+    const user = userEvent.setup();
+    render(
+      <Menu>
+        {/* On the trigger: Radix opens its menu by its own `disabled`, and sets the button's from it. */}
+        <MenuTrigger asChild disabled>
+          <Picker>Reason</Picker>
+        </MenuTrigger>
+        <MenuContent aria-label="Reason" />
+      </Menu>,
+    );
+    const picker = screen.getByRole('button', { name: 'Reason' });
+
+    expect(picker).toBeDisabled();
+    await user.click(picker);
+    expect(screen.queryByRole('menu', { name: 'Reason' })).not.toBeInTheDocument();
+  });
 });

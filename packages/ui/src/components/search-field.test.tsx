@@ -35,6 +35,14 @@ describe('SearchField', () => {
     expect(changes).toEqual(['142']);
   });
 
+  it('sizes the whole field, icon included, from its className', () => {
+    render(<SearchField aria-label="Search" className="w-60" />);
+
+    const box = screen.getByRole('searchbox', { name: 'Search' });
+    expect(box.parentElement).toHaveClass('w-60');
+    expect(box).not.toHaveClass('w-60');
+  });
+
   it('has no accessibility violations, at either size', async () => {
     const { container } = render(
       <>

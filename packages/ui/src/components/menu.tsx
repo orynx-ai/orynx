@@ -206,6 +206,50 @@ export function MenuRadioItem({
   );
 }
 
+export type MenuCheckboxItemProps = ComponentProps<typeof MenuPrimitive.CheckboxItem> & ItemContentProps;
+
+/**
+ * One option that is ticked or not, such as a filter's value (spec 007 Q10c, Q11c). Every option
+ * leads with a 16 px box, so a menu of them reads as tick-several; a ticked one is announced as
+ * checked and its box takes an `info` border and tick. Ticking keeps the menu open, so several can be
+ * ticked in a row; Esc, Tab or a click outside closes it.
+ */
+export function MenuCheckboxItem({
+  icon,
+  description,
+  path,
+  textValue,
+  className,
+  onSelect,
+  children,
+  ...props
+}: MenuCheckboxItemProps) {
+  return (
+    <MenuPrimitive.CheckboxItem
+      data-slot="menu-checkbox-item"
+      textValue={nameOf(children, textValue)}
+      className={cn(menuItemClass, 'group', className)}
+      onSelect={(event) => {
+        onSelect?.(event);
+        event.preventDefault();
+      }}
+      {...props}
+    >
+      <span
+        aria-hidden
+        className="flex size-4 shrink-0 items-center justify-center rounded-xs border border-control group-data-[state=checked]:border-info"
+      >
+        <MenuPrimitive.ItemIndicator className="inline-flex">
+          <Check className="size-3.5 text-info" />
+        </MenuPrimitive.ItemIndicator>
+      </span>
+      <ItemBody icon={icon} description={description} path={path}>
+        {children}
+      </ItemBody>
+    </MenuPrimitive.CheckboxItem>
+  );
+}
+
 /** A section's name: 14 px in `text-secondary`. Arrow keys skip it. */
 export function MenuLabel({ className, ...props }: ComponentProps<typeof MenuPrimitive.Label>) {
   return (

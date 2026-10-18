@@ -40,6 +40,16 @@ describe('Sidebar', () => {
     expect(within(nav).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
   });
 
+  it.each(['/?inbox=jira', '/?q=archive&sort=longest', '/?page=2'])(
+    'AC-14, Q10i: keeps Home the current place with a tab, search or page in the address (%s)',
+    async (route) => {
+      await renderApp({ route });
+      const nav = screen.getByRole('navigation', { name: 'Main' });
+
+      expect(within(nav).getByRole('link', { name: /^Home/ })).toHaveAttribute('aria-current', 'page');
+    },
+  );
+
   it('collapses and remembers it', async () => {
     const { user } = await renderApp();
 

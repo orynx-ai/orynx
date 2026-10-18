@@ -146,6 +146,24 @@ test.describe('wide window', () => {
     expect(await place(homeColumn)).toEqual({ width: 720, start: 210, end: 210 });
   });
 
+  test('Given a page taller than the window, when I scroll it, then the sidebar and the page bar stay where they are', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 480 });
+    await page.goto('/settings/connections');
+    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+    const sidebar = page.getByRole('navigation', { name: 'Main' });
+
+    await page.evaluate(() => {
+      window.scrollBy(0, 400);
+    });
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+    expect(await sidebar.boundingBox()).toMatchObject({ y: 0, height: 480 });
+    expect((await pageBar(page).boundingBox())?.y).toBe(0);
+    await expect(sidebar.getByText('Claude not connected · runs locally')).toBeInViewport();
+  });
+
   test('Given a wide window, when I open DevHub, then the footer says whether Claude is connected', async ({
     page,
   }) => {
@@ -213,6 +231,21 @@ test.describe('narrow window', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
     // One slim bar: the title is cut rather than the bar growing a second line.
     expect((await pageBar(page).boundingBox())?.height).toBe(56);
+  });
+
+  test('Given a page taller than the window at 360 px, when I scroll it, then the page bar stays on top and the compact bar scrolls away', async ({
+    page,
+  }) => {
+    await page.goto('/settings/connections');
+    await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
+
+    await page.evaluate(() => {
+      window.scrollBy(0, 400);
+    });
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+
+    expect((await pageBar(page).boundingBox())?.y).toBe(0);
+    await expect(page.getByRole('navigation', { name: 'Main' })).not.toBeInViewport();
   });
 
   test('Given Settings at 360 px, when it opens, then the page bar stays one 56 px line', async ({ page }) => {

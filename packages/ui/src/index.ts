@@ -58,6 +58,7 @@ export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from
 export { Kbd } from './components/kbd.tsx';
 export {
   Menu,
+  MenuCheckboxItem,
   MenuContent,
   MenuItem,
   MenuLabel,
@@ -65,12 +66,14 @@ export {
   MenuRadioItem,
   MenuSeparator,
   MenuTrigger,
+  type MenuCheckboxItemProps,
   type MenuContentProps,
   type MenuItemProps,
   type MenuProps,
   type MenuRadioItemProps,
 } from './components/menu.tsx';
 export { Panel, type PanelProps } from './components/panel.tsx';
+export { Pagination, type PaginationProps } from './components/pagination.tsx';
 export { Picker, type PickerProps } from './components/picker.tsx';
 export { Pill, type PillProps, type PillTone } from './components/pill.tsx';
 export { ResumeBanner, type ResumeBannerProps } from './components/resume-banner.tsx';

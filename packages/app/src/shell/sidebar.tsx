@@ -15,9 +15,11 @@ import { useNewTask } from './use-shortcuts.ts';
  * Design system: SidebarNav. Places, the most recent sessions and the agent's state.
  * Under 768 px it is a compact bar above the content (spec 001, Q3): the logo with New task
  * and Search as icon buttons, then the places in one row, with Sessions linking to the full
- * list. It is never fixed to the viewport height.
- * From 768 px it is 300 px wide by default and the user can drag its edge between 260 and
- * 400 px (spec 001, Q10). The width is a remembered preference, so the first paint already uses it.
+ * list. It scrolls away with the page.
+ * From 768 px it stays in place while the page scrolls, as tall as the window (the user's call,
+ * 2026-10-17); in a short window its session list scrolls inside it. It is 300 px wide by default
+ * and the user can drag its edge between 260 and 400 px (spec 001, Q10). The width is a
+ * remembered preference, so the first paint already uses it.
  */
 const sidebarId = 'sidebar';
 
@@ -43,7 +45,8 @@ export function Sidebar() {
       style={widthStyle}
       className={cn(
         'flex flex-wrap items-center gap-2 border-b border-border bg-sidebar p-3 md:shrink-0 md:flex-col md:flex-nowrap md:items-stretch md:gap-5 md:border-e md:border-b-0',
-        'md:relative',
+        // Above the page bar, so the resize edge can be grabbed beside it too.
+        'md:sticky md:top-0 md:z-20 md:h-dvh',
         collapsed ? 'md:w-16' : 'md:w-(--sidebar-width)',
       )}
     >
@@ -151,7 +154,11 @@ export function Sidebar() {
       </div>
 
       {/* The rail has no room for session rows; "View all" is one click away once expanded. */}
-      {collapsed ? null : <SidebarSessions className="hidden flex-col gap-0.5 md:flex" />}
+      {/* The part that gives way in a short window. Its inset leaves room for the focus rings: 4 px for the rows,
+          10 px on top for View all, whose hit area reaches 6 px above its heading. */}
+      {collapsed ? null : (
+        <SidebarSessions className="hidden flex-col gap-0.5 md:-mx-1 md:-mt-2.5 md:-mb-1 md:flex md:min-h-0 md:overflow-y-auto md:px-1 md:pt-2.5 md:pb-1" />
+      )}
 
       <SidebarFooter collapsed={collapsed} />
 
@@ -198,7 +205,8 @@ function NavItem({
   return (
     <Link
       to={to}
-      activeOptions={{ exact }}
+      // A place is its path: Home stays current with its tab, search or page in the address.
+      activeOptions={{ exact, includeSearch: false }}
       title={collapsed ? label : undefined}
       className={cn(
         'group flex min-h-10 items-center gap-3 rounded-sm px-3 font-medium text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:text-foreground',

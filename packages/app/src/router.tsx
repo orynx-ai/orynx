@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router';
 import type { ApiClient } from '@devhub/api-client';
 import { HomeScreen } from './features/home/home-screen.tsx';
+import { HomeSearchSchema } from './features/home/inbox-tabs.ts';
 import { NotFoundScreen } from './features/not-found/not-found-screen.tsx';
 import { SessionScreen } from './features/sessions/session-screen.tsx';
 import { SessionsScreen } from './features/sessions/sessions-screen.tsx';
@@ -28,7 +29,13 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
   notFoundComponent: NotFoundScreen,
 });
 
-const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomeScreen });
+const homeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  // The inbox's tab, search, filters, order and page (spec 007, Q10i); each left out when it's the default.
+  validateSearch: (search) => HomeSearchSchema.parse(search),
+  component: HomeScreen,
+});
 
 const ticketsRoute = createRoute({
   getParentRoute: () => rootRoute,

@@ -10,7 +10,8 @@ export type PickerProps = ComponentProps<'button'> & {
 /**
  * Design system: picker (`dh-picker`). A 32 px button showing the current choice (the folder, the
  * agent) that opens a Menu: put it in `<MenuTrigger asChild>`, which says it opens a menu and
- * whether it's open. The chevron says so to the eye.
+ * whether it's open. The chevron says so to the eye. With nothing to offer, pass `disabled` to the
+ * trigger: the picker then takes the Button's disabled look (spec 007 Q11b).
  */
 export function Picker({ icon, type, className, children, ...props }: PickerProps) {
   return (
@@ -18,7 +19,7 @@ export function Picker({ icon, type, className, children, ...props }: PickerProp
       data-slot="picker"
       type={type ?? 'button'}
       className={cn(
-        'inline-flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-sm border border-border bg-raised px-2.5 text-small font-medium text-foreground hover:bg-subtle aria-expanded:bg-subtle',
+        'inline-flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-sm border border-border bg-raised px-2.5 text-small font-medium text-foreground enabled:hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-45 aria-expanded:bg-subtle',
         className,
       )}
       {...props}
