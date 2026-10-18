@@ -77,8 +77,8 @@ const emptyColumns: Record<TicketColumn, { title: string; line: string }> = {
 };
 
 /**
- * Q9d: a column with nothing in it. `filtered` when Due this week, Bugs only or the search emptied it;
- * otherwise nothing was there under Assigned to me alone.
+ * Q9d: a column with nothing in it. `filtered` when Status, Type, Priority, Due or the search emptied it;
+ * otherwise nothing was there under Assignee alone.
  */
 export function columnEmptyText(column: TicketColumn, filtered: boolean): EmptyText {
   return filtered ? { title: 'No tickets match these filters', line: null } : emptyColumns[column];
@@ -94,7 +94,7 @@ export function listEmptyText(sprintName: string, { filtered, onlyMine }: { filt
   if (!filtered && onlyMine) {
     return {
       title: `Nothing assigned to you in ${sprintName}`,
-      line: 'Turn off Assigned to me to see the whole sprint.',
+      line: 'Untick Me under Assignee to see the whole sprint.',
     };
   }
   return { title: 'No tickets match these filters', line: 'Turn one off, or clear them.' };

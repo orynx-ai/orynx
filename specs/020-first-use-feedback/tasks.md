@@ -94,7 +94,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: `FilterMenu` in `@devhub/ui` (Home's filter picker, moved there), and Home uses it (AC-30)
       Check: pnpm test packages/ui/src/components/filter-menu.test.tsx packages/app/src/features/home
       Files: packages/ui/src/components/filter-menu.tsx (+ story, test), packages/ui/src/index.ts, docs/design-map.md, packages/app/src/features/home/components/inbox-toolbar.tsx
-- [ ] Task 19: Tickets' five filters: the model, the address (spec 008's addresses still work), the toolbar, Clear filters (AC-30 to AC-33)
+- [x] Task 19: Tickets' five filters: the model, the address (spec 008's addresses still work), the toolbar, Clear filters (AC-30 to AC-33)
       Check: pnpm test packages/app/src/features/tickets; pnpm exec playwright test e2e/tickets.spec.ts
       Files: packages/app/src/features/tickets/filters.ts, filters.test.ts, components/tickets-toolbar.tsx (+ test), tickets-screen.tsx, tickets-screen.test.tsx, e2e/tickets.spec.ts
 

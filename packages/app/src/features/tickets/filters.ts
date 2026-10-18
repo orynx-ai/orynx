@@ -1,64 +1,197 @@
 import { z } from 'zod';
 import type { Ticket, TicketColumn } from '@devhub/contracts';
+import { daysUntil } from '../../words/calendar.ts';
 import { dueText } from '../../words/due.ts';
 import { columnOrder } from './ticket-words.ts';
 
 /**
- * Tickets' filters (spec 008, Q3). They live in the address, so a reload keeps them and 015's "Pick up a
- * ticket" can link to them: `/tickets?assignee=anyone&due=week&type=bug`. Only a filter that differs from
- * the default is written. The search text isn't kept.
+ * Tickets' filters (spec 020, replacing spec 008's Q3): Assignee, Status, Type, Priority and Due. Options in
+ * one filter widen it (any of them), and filters narrow each other (all of them). They live in the address as
+ * comma lists, so a reload keeps them and 015's "Pick up a ticket" can link to them:
+ * `/tickets?assignee=me,unassigned&status=Code%20Review&due=overdue,week`. Only a filter that differs from the
+ * default is written. Spec 008's addresses still work: `assignee=anyone`, `due=week`, `type=bug`.
  */
 export const TicketsSearchSchema = z.object({
-  // A value DevHub can't read opens the default instead of an error page.
-  assignee: z.enum(['anyone']).optional().catch(undefined),
-  due: z.enum(['week']).optional().catch(undefined),
-  type: z.enum(['bug']).optional().catch(undefined),
+  assignee: z.string().optional().catch(undefined),
+  status: z.string().optional().catch(undefined),
+  type: z.string().optional().catch(undefined),
+  priority: z.string().optional().catch(undefined),
+  due: z.string().optional().catch(undefined),
 });
 export type TicketsSearch = z.infer<typeof TicketsSearchSchema>;
 
+/** Due's three options. */
+export const dueOptions = ['overdue', 'week', 'none'] as const;
+export type DueOption = (typeof dueOptions)[number];
+
 export interface TicketFilters {
-  /** Assigned to me (on by default). */
-  mine: boolean;
-  /** Due this week: not Done, and due within 6 days or overdue, as the card's date draws it. */
-  dueThisWeek: boolean;
-  bugsOnly: boolean;
+  /** `me`, `unassigned`, or a person's name as Jira gives it; empty lets everyone through. Me by default. */
+  assignee: string[];
+  /** Statuses by their own names ("Code Review"). */
+  status: string[];
+  /** Types by their own names ("Bug"), matched in any case. */
+  type: string[];
+  /** Priorities by their own names ("High"). */
+  priority: string[];
+  /** Overdue, due within 6 days, or no due date; a Done ticket is never overdue or due this week. */
+  due: DueOption[];
   /** Search tickets: the key or the title holds it, in any case. */
   text: string;
 }
 
 export type AddressFilters = Omit<TicketFilters, 'text'>;
 
-export const defaultFilters: TicketFilters = { mine: true, dueThisWeek: false, bugsOnly: false, text: '' };
+export const defaultFilters: TicketFilters = {
+  assignee: ['me'],
+  status: [],
+  type: [],
+  priority: [],
+  due: [],
+  text: '',
+};
 
-export function filtersFromSearch(search: TicketsSearch): AddressFilters {
-  return { mine: search.assignee !== 'anyone', dueThisWeek: search.due === 'week', bugsOnly: search.type === 'bug' };
+/** The filters a page can hold in the address (spec 020): every filter, without the search text. */
+export type FilterKey = keyof AddressFilters;
+export const filterKeys: readonly FilterKey[] = ['assignee', 'status', 'type', 'priority', 'due'];
+
+/** A comma list's values, each once. */
+function commaList(raw: string | undefined): string[] {
+  const values = (raw ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value !== '');
+  return [...new Set(values)];
 }
 
-export function searchFromFilters(filters: AddressFilters): TicketsSearch {
+export function filtersFromSearch(search: TicketsSearch): AddressFilters {
+  // Spec 008's `assignee=anyone` let everyone through, as nothing ticked does now.
+  const assignee =
+    search.assignee === undefined ? ['me'] : commaList(search.assignee).filter((value) => value !== 'anyone');
   return {
-    ...(filters.mine ? {} : { assignee: 'anyone' as const }),
-    ...(filters.dueThisWeek ? { due: 'week' as const } : {}),
-    ...(filters.bugsOnly ? { type: 'bug' as const } : {}),
+    assignee,
+    status: commaList(search.status),
+    // Spec 008's `type=bug` was Bugs only.
+    type: commaList(search.type).map((type) => (type === 'bug' ? 'Bug' : type)),
+    priority: commaList(search.priority),
+    due: commaList(search.due).filter((value): value is DueOption => (dueOptions as readonly string[]).includes(value)),
   };
 }
 
-/** Q3f: Due this week, Bugs only or a search is on, so Clear filters shows. Assigned to me is the default. */
-export function hasExtraFilters(filters: TicketFilters): boolean {
-  return filters.dueThisWeek || filters.bugsOnly || filters.text.trim() !== '';
+export function searchFromFilters(filters: AddressFilters): TicketsSearch {
+  const isDefaultAssignee = filters.assignee.length === 1 && filters.assignee[0] === 'me';
+  const search: TicketsSearch = {};
+  if (!isDefaultAssignee) search.assignee = filters.assignee.length === 0 ? 'anyone' : filters.assignee.join(',');
+  for (const key of ['status', 'type', 'priority', 'due'] as const) {
+    if (filters[key].length > 0) search[key] = filters[key].join(',');
+  }
+  return search;
 }
 
-/** Q3d: whether the ticket passes every filter that's on. */
+/** Clear filters shows when anything differs from Assignee: Me alone with an empty search. */
+export function hasExtraFilters(filters: TicketFilters): boolean {
+  const isDefaultAssignee = filters.assignee.length === 1 && filters.assignee[0] === 'me';
+  return (
+    !isDefaultAssignee ||
+    filters.status.length > 0 ||
+    filters.type.length > 0 ||
+    filters.priority.length > 0 ||
+    filters.due.length > 0 ||
+    filters.text.trim() !== ''
+  );
+}
+
+function assigneeMatches(ticket: Ticket, wanted: readonly string[]): boolean {
+  if (wanted.length === 0) return true;
+  return wanted.some((value) => {
+    if (value === 'me') return ticket.assignee?.mine === true;
+    if (value === 'unassigned') return ticket.assignee === null;
+    return ticket.assignee !== null && !ticket.assignee.mine && ticket.assignee.name === value;
+  });
+}
+
+function dueMatches(ticket: Ticket, wanted: readonly DueOption[], now: Date): boolean {
+  if (wanted.length === 0) return true;
+  const done = ticket.column === 'done';
+  return wanted.some((value) => {
+    if (value === 'none') return ticket.dueDate === null;
+    if (ticket.dueDate === null || done) return false;
+    const days = daysUntil(ticket.dueDate, now);
+    return value === 'overdue' ? days < 0 : days >= 0 && dueText(ticket.dueDate, done, now).soon;
+  });
+}
+
+/** Whether the ticket passes every filter that's on. */
 export function matches(ticket: Ticket, filters: TicketFilters, now: Date): boolean {
-  if (filters.mine && ticket.assignee?.mine !== true) return false;
-  if (filters.bugsOnly && !ticket.bug) return false;
-  if (
-    filters.dueThisWeek &&
-    (ticket.dueDate === null || !dueText(ticket.dueDate, ticket.column === 'done', now).soon)
-  ) {
+  if (!assigneeMatches(ticket, filters.assignee)) return false;
+  if (filters.status.length > 0 && !filters.status.includes(ticket.status)) return false;
+  if (filters.type.length > 0 && !filters.type.some((type) => type.toLowerCase() === ticket.type.toLowerCase())) {
     return false;
   }
+  if (filters.priority.length > 0 && (ticket.priority === null || !filters.priority.includes(ticket.priority.name))) {
+    return false;
+  }
+  if (!dueMatches(ticket, filters.due, now)) return false;
   const text = filters.text.trim().toLowerCase();
   return text === '' || ticket.key.toLowerCase().includes(text) || ticket.title.toLowerCase().includes(text);
+}
+
+/** One filter's options, as its menu lists them. */
+export interface FilterOptions {
+  key: FilterKey;
+  options: { value: string; label: string }[];
+}
+
+const levelOrder = { high: 0, medium: 1, low: 2 } as const;
+
+/**
+ * Each filter's options from the sprint's own tickets (AC-30): Assignee's Me and Unassigned, then the people
+ * A to Z; the statuses in column order; the types A to Z; the priorities highest first; Due's three. A value
+ * ticked in the address that no ticket has still shows, so it can be unticked.
+ */
+export function filterOptions(
+  tickets: readonly Ticket[],
+  filters: AddressFilters,
+): Record<FilterKey, FilterOptions['options']> {
+  const withTicked = (values: string[], ticked: readonly string[]) => [
+    ...values,
+    ...ticked.filter((value) => !values.includes(value)),
+  ];
+  const people = [
+    ...new Set(
+      tickets.flatMap((ticket) => (ticket.assignee !== null && !ticket.assignee.mine ? [ticket.assignee.name] : [])),
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+  const statuses = [...new Set(inListOrder(tickets).map((ticket) => ticket.status))];
+  const types = [...new Set(tickets.map((ticket) => ticket.type))].sort((a, b) => a.localeCompare(b));
+  const priorities = [
+    ...new Map(
+      tickets
+        .flatMap((ticket) => (ticket.priority === null ? [] : [ticket.priority]))
+        .sort((a, b) => levelOrder[a.level] - levelOrder[b.level] || a.name.localeCompare(b.name))
+        .map((priority) => [priority.name, priority]),
+    ).keys(),
+  ];
+  const asOptions = (values: string[]) => values.map((value) => ({ value, label: value }));
+  return {
+    assignee: [
+      { value: 'me', label: 'Me' },
+      { value: 'unassigned', label: 'Unassigned' },
+      ...asOptions(
+        withTicked(
+          people,
+          filters.assignee.filter((value) => value !== 'me' && value !== 'unassigned'),
+        ),
+      ),
+    ],
+    status: asOptions(withTicked(statuses, filters.status)),
+    type: asOptions(withTicked(types, filters.type)),
+    priority: asOptions(withTicked(priorities, filters.priority)),
+    due: [
+      { value: 'overdue', label: 'Overdue' },
+      { value: 'week', label: 'This week' },
+      { value: 'none', label: 'No due date' },
+    ],
+  };
 }
 
 /** The board's columns, each in Jira's rank order. */

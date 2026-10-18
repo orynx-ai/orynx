@@ -23,9 +23,9 @@ export interface TicketsListProps {
   /** The tickets every filter lets through. */
   shown: readonly Ticket[];
   sprintName: string;
-  /** Due this week, Bugs only or a search is on (Q9e). */
+  /** A filter besides Assignee: Me, or a search, is on (Q9e, spec 020). */
   filtered: boolean;
-  /** Assigned to me is on (Q9e). */
+  /** Assignee is Me alone (Q9e, spec 020). */
   onlyMine: boolean;
   now: Date;
 }

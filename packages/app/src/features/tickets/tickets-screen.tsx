@@ -15,6 +15,7 @@ import { SprintPickers } from './components/sprint-pickers.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
 import {
   defaultFilters,
+  filterOptions,
   filtersFromSearch,
   hasExtraFilters,
   matches,
@@ -45,7 +46,7 @@ export function TicketsScreen() {
   // The search box narrows this page only, and isn't kept in the address (Q3e).
   const form = useForm<{ text: string }>({ defaultValues: { text: '' } });
   const text = useWatch({ control: form.control, name: 'text' });
-  const assignedToMe = useRef<HTMLButtonElement>(null);
+  const assignee = useRef<HTMLButtonElement>(null);
   const now = useNow();
   const wide = useWide();
 
@@ -75,8 +76,10 @@ export function TicketsScreen() {
   const filters = { ...filtersFromSearch(search), text };
   const all = data?.tickets ?? [];
   const shown = all.filter((ticket) => matches(ticket, filters, now));
-  // Assigned to me alone, so an empty column can say whether the other filters emptied it (Q9d).
-  const unfiltered = all.filter((ticket) => matches(ticket, { ...defaultFilters, mine: filters.mine }, now));
+  // Assignee alone, so an empty column can say whether the other filters emptied it (Q9d).
+  const unfiltered = all.filter((ticket) => matches(ticket, { ...defaultFilters, assignee: filters.assignee }, now));
+  const { text: _, ...address } = filters;
+  const options = filterOptions(all, address);
   const crumbs: Crumb[] =
     shownName === null ? [ticketsCrumb] : [{ ...ticketsCrumb, to: '/tickets' }, { label: shownName }];
   const line = data === undefined ? null : toolLine('jira', data.jira, now);
@@ -88,7 +91,7 @@ export function TicketsScreen() {
   function clearFilters() {
     form.reset();
     changeFilters(defaultFilters);
-    assignedToMe.current?.focus();
+    assignee.current?.focus();
   }
 
   // One search field: in the page bar from 768 px, as the design draws it, and at the start of the toolbar
@@ -114,7 +117,7 @@ export function TicketsScreen() {
         shown={shown}
         sprintName={shownName}
         filtered={hasExtraFilters(filters)}
-        onlyMine={filters.mine}
+        onlyMine={filters.assignee.length === 1 && filters.assignee[0] === 'me'}
         now={now}
       />
     );
@@ -157,8 +160,9 @@ export function TicketsScreen() {
         filters={filters}
         onFiltersChange={changeFilters}
         onClear={clearFilters}
+        options={options}
         count={loading ? undefined : shown.length}
-        assignedToMeRef={assignedToMe}
+        assigneeRef={assignee}
         pickers={<SprintPickers choice={choice} sprint={sprint} />}
         {...(wide ? {} : { search: searchField })}
       />

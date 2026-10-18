@@ -1,69 +1,74 @@
 import type { ReactNode, Ref } from 'react';
 import { FilterIcon } from '@hugeicons/core-free-icons';
-import { Button, FilterChip, Icon } from '@devhub/ui';
+import { Button, FilterMenu, Icon } from '@devhub/ui';
 import { Toolbar } from '../../../shell/page-frame.tsx';
-import { hasExtraFilters, type AddressFilters, type TicketFilters } from '../filters.ts';
+import {
+  filterKeys,
+  hasExtraFilters,
+  type AddressFilters,
+  type FilterKey,
+  type FilterOptions,
+  type TicketFilters,
+} from '../filters.ts';
 import { ticketCount } from '../ticket-words.ts';
 
 export interface TicketsToolbarProps {
   filters: TicketFilters;
   onFiltersChange: (filters: AddressFilters) => void;
-  /** Back to Assigned to me only, with the search emptied (Q3f). */
+  /** Each filter's options, from the sprint's own tickets (spec 020, AC-30). */
+  options: Record<FilterKey, FilterOptions['options']>;
+  /** Back to Assignee: Me alone, with the search emptied (AC-33). */
   onClear: () => void;
   /** How many tickets the filters let through; left out while the sprint loads. */
   count: number | undefined;
-  /** Assigned to me, where Clear filters puts focus (AC-9). */
-  assignedToMeRef?: Ref<HTMLButtonElement>;
+  /** Assignee, where Clear filters puts focus (AC-33). */
+  assigneeRef?: Ref<HTMLButtonElement>;
   /** Under 768 px, the search field, on its own line at the start (Q8g). */
   search?: ReactNode;
   /** The Project and Sprint pickers, before the filters (spec 020). */
   pickers?: ReactNode;
 }
 
+const filterLabels: Record<FilterKey, string> = {
+  assignee: 'Assignee',
+  status: 'Status',
+  type: 'Type',
+  priority: 'Priority',
+  due: 'Due',
+};
+
 /**
- * Tickets' filters (spec 008, Q3) and the live count. The count is a polite status, so a screen reader
+ * Tickets' five filters (spec 020, replacing spec 008's three chips) and the live count. The count is a polite status, so a screen reader
  * hears the new count when a filter or the search changes it (AC-31).
  */
 export function TicketsToolbar({
   filters,
   onFiltersChange,
+  options,
   onClear,
   count,
-  assignedToMeRef,
+  assigneeRef,
   search,
   pickers,
 }: TicketsToolbarProps) {
-  const { mine, dueThisWeek, bugsOnly } = filters;
+  const { text: _, ...address } = filters;
   return (
     <Toolbar role="group" aria-label="Filters">
       {search === undefined ? null : <div className="basis-full">{search}</div>}
       {pickers}
       <Icon icon={FilterIcon} aria-hidden className="text-muted-foreground" />
-      <FilterChip
-        ref={assignedToMeRef}
-        pressed={mine}
-        onPressedChange={(pressed) => {
-          onFiltersChange({ mine: pressed, dueThisWeek, bugsOnly });
-        }}
-      >
-        Assigned to me
-      </FilterChip>
-      <FilterChip
-        pressed={dueThisWeek}
-        onPressedChange={(pressed) => {
-          onFiltersChange({ mine, dueThisWeek: pressed, bugsOnly });
-        }}
-      >
-        Due this week
-      </FilterChip>
-      <FilterChip
-        pressed={bugsOnly}
-        onPressedChange={(pressed) => {
-          onFiltersChange({ mine, dueThisWeek, bugsOnly: pressed });
-        }}
-      >
-        Bugs only
-      </FilterChip>
+      {filterKeys.map((key) => (
+        <FilterMenu
+          key={key}
+          {...(key === 'assignee' && assigneeRef !== undefined ? { ref: assigneeRef } : {})}
+          label={filterLabels[key]}
+          options={options[key]}
+          ticked={address[key]}
+          onTickedChange={(ticked) => {
+            onFiltersChange({ ...address, [key]: ticked });
+          }}
+        />
+      ))}
       <span className="ms-auto flex items-center gap-2">
         {hasExtraFilters(filters) ? (
           <Button variant="ghost" size="sm" onClick={onClear}>

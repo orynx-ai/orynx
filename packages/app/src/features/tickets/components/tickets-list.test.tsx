@@ -85,6 +85,6 @@ describe('TicketsList', () => {
     await openList();
 
     expect(screen.getByText('Nothing assigned to you in Sprint 42')).toBeVisible();
-    expect(screen.getByText('Turn off Assigned to me to see the whole sprint.')).toBeVisible();
+    expect(screen.getByText('Untick Me under Assignee to see the whole sprint.')).toBeVisible();
   });
 });

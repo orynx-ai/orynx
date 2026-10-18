@@ -15,7 +15,7 @@ const statusIcons: Record<TicketColumn, StatusIconStatus> = {
 export interface TicketsBoardProps {
   /** The tickets every filter lets through, in rank order. */
   shown: readonly Ticket[];
-  /** The tickets Assigned to me alone lets through, so an empty column can say why it's empty (Q9d). */
+  /** The tickets Assignee alone lets through, so an empty column can say why it's empty (Q9d). */
   unfiltered: readonly Ticket[];
   now: Date;
 }
