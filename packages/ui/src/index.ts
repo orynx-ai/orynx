@@ -95,6 +95,12 @@ export {
   type SegmentedControlProps,
 } from './components/segmented-control.tsx';
 export {
+  SearchPalette,
+  type SearchPaletteGroup,
+  type SearchPaletteItem,
+  type SearchPaletteProps,
+} from './components/search-palette.tsx';
+export {
   SearchGroup,
   SearchResult,
   SearchResultSkeleton,
