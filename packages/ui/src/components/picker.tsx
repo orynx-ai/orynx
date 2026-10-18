@@ -50,6 +50,9 @@ export function Picker({ icon, count, variant, type, className, children, ...pro
     >
       {icon}
       <span className="min-w-0 truncate">{children}</span>
+      {/* A space between the words and the count, so their visible text ("Status 2") reads inside the name
+          ("Status · 2") for axe's label-in-name check; flex layout draws nothing for it. */}
+      {counted ? ' ' : null}
       {counted ? (
         <span
           aria-hidden={named}
