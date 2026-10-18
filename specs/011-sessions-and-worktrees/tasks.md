@@ -26,7 +26,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: Add `simple-git` and make a worktree: find the default branch, fetch it (20 s, no prompts, the last fetched one when that fails), take the first free `feat/<KEY>`, `-2`, `-3`…, and add the worktree. Tests use temporary repositories with a bare `origin`. Mark `simple-git` decided in `docs/architecture.md` (AC-2, Q1, Q2)
       Check: pnpm test packages/core/src/sessions/worktrees.test.ts; pnpm gate boundaries
       Files: packages/core/package.json, apps/server/package.json, pnpm-lock.yaml, packages/core/src/sessions/worktrees.ts, worktrees.test.ts, packages/core/src/test/git-repository.ts, docs/architecture.md
-- [ ] Task 9: Remove a worktree and its branch, prune one that's already gone, and abort git when Stop comes during setup (AC-9, AC-10)
+- [x] Task 9: Remove a worktree and its branch, prune one that's already gone, and abort git when Stop comes during setup (AC-9, AC-10)
       Check: pnpm test packages/core/src/sessions/worktrees.test.ts
       Files: packages/core/src/sessions/worktrees.ts, worktrees.test.ts
 - [ ] Task 10: Keep sessions on disk: `session.json` and `brief.md` under `<DEVHUB_HOME>/sessions/<id>/` (folders 0700, files 0600), writes renamed into place and one session's writes in order, Working turned into Stopped with an `interrupted` step when the store opens, and the `recent` filter (AC-14)

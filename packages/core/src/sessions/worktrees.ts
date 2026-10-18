@@ -1,4 +1,5 @@
-import { stat } from 'node:fs/promises';
+import { realpath, rm, stat } from 'node:fs/promises';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { simpleGit, type SimpleGit } from 'simple-git';
 
 /**
@@ -27,6 +28,7 @@ export type WorktreeProblem =
 
 export type Prepared = { ok: true; plan: WorktreePlan } | { ok: false; problem: WorktreeProblem };
 export type Made = { ok: true; fetched: boolean } | { ok: false; problem: WorktreeProblem };
+export type Removed = { ok: true } | { ok: false; problem: WorktreeProblem };
 
 export interface Worktrees {
   /** Finds the default branch and the first free branch name for this ticket (Q1, Q2). Fast: no network. */
@@ -37,11 +39,19 @@ export interface Worktrees {
    * push can't land on it.
    */
   make(repo: string, path: string, plan: WorktreePlan, signal?: AbortSignal): Promise<Made>;
+  /**
+   * Deletes the worktree with whatever is in it, and its branch (AC-10). A worktree or branch that's
+   * already gone is fine. When the repository itself is gone, only the worktree folder is deleted, and
+   * only when it's inside `root`.
+   */
+  remove(repo: string, path: string, branch: string): Promise<Removed>;
 }
 
 export interface WorktreesOptions {
   /** From `gitEnvironment()`. */
   env: Readonly<Record<string, string>>;
+  /** `<DEVHUB_HOME>/worktrees`: the only folder whose contents this file ever deletes by itself. */
+  root: string;
   /** How long a fetch may take before the last fetched branch is used instead; 20 seconds (Q1a). */
   fetchTimeoutMs?: number;
 }
@@ -49,7 +59,7 @@ export interface WorktreesOptions {
 /** How many `feat/<KEY>-n` names to try before giving up. */
 const mostBranchNames = 100;
 
-export function createWorktrees({ env, fetchTimeoutMs = 20_000 }: WorktreesOptions): Worktrees {
+export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: WorktreesOptions): Worktrees {
   function git(repo: string, signal?: AbortSignal): SimpleGit {
     return simpleGit({
       baseDir: repo,
@@ -129,5 +139,48 @@ export function createWorktrees({ env, fetchTimeoutMs = 20_000 }: WorktreesOptio
         return { ok: false, problem: signal?.aborted ? { kind: 'stopped' } : { kind: 'git', step: 'add' } };
       }
     },
+
+    async remove(repo, path, branch) {
+      if (!(await isRepository(repo))) {
+        if (!(await insideRoot(path))) return { ok: false, problem: { kind: 'git', step: 'remove' } };
+        await rm(path, { recursive: true, force: true });
+        return { ok: true };
+      }
+      try {
+        // git lists a worktree by its real path.
+        const listed = (await git(repo).raw(['worktree', 'list', '--porcelain'])).split('\n');
+        if (listed.includes(`worktree ${await realOrSelf(path)}`)) {
+          // Twice: also when the worktree is locked.
+          await git(repo).raw(['worktree', 'remove', '--force', '--force', path]);
+        }
+        // A worktree folder you deleted yourself is still listed until it's pruned.
+        await git(repo).raw(['worktree', 'prune']);
+        const branches = await git(repo).raw(['for-each-ref', '--format=%(refname)', `refs/heads/${branch}`]);
+        if (branches.trim() !== '') await git(repo).raw(['branch', '-D', branch]);
+        return { ok: true };
+      } catch {
+        return { ok: false, problem: { kind: 'git', step: 'remove' } };
+      }
+    },
   };
+
+  /** Strictly inside `root`, once symlinks are followed: never `root` itself, never anywhere else. */
+  async function insideRoot(path: string): Promise<boolean> {
+    const [real, top] = await Promise.all([realOrSelf(path), realOrSelf(root)]);
+    const inside = relative(top, real);
+    return inside !== '' && !inside.startsWith('..') && !isAbsolute(inside);
+  }
+}
+
+/** The real path, or the path itself when it doesn't exist (its parent's real path, then). */
+async function realOrSelf(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch {
+    try {
+      return resolve(await realpath(dirname(path)), relative(dirname(path), path));
+    } catch {
+      return resolve(path);
+    }
+  }
 }

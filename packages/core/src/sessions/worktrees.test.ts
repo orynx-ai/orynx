@@ -1,5 +1,5 @@
 import { createServer, type Server } from 'node:net';
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { gitEnvironment } from '../agents/agent-environment.ts';
@@ -10,8 +10,21 @@ const repositories = useTestRepositories();
 
 async function setUp() {
   const repos = await repositories();
-  const worktrees = createWorktrees({ env: gitEnvironment(repos.env), fetchTimeoutMs: 2_000 });
+  const worktrees = createWorktrees({ env: gitEnvironment(repos.env), root: repos.worktrees, fetchTimeoutMs: 2_000 });
   return { repos, worktrees };
+}
+
+const plan = { branch: 'feat/PROJ-1423', base: 'origin/main', remote: true } as const;
+
+/** A local server that accepts a connection and never answers, like a remote waiting for a password. */
+async function silentOrigin(): Promise<{ url: string; server: Server }> {
+  const server = createServer(() => {
+    // Says nothing.
+  });
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const port = typeof address === 'object' && address !== null ? address.port : 0;
+  return { url: `http://127.0.0.1:${String(port)}/web-app.git`, server };
 }
 
 const exists = (path: string) =>
@@ -138,14 +151,10 @@ describe('making a worktree', () => {
 
     it('AC-2 (Q1a): gives up on the fetch after its time limit and never waits for a password', async () => {
       const { repos } = await setUp();
-      silent = createServer(() => {
-        // Accepts the connection and says nothing, like a server waiting for credentials that never come.
-      });
-      await new Promise<void>((resolve) => silent?.listen(0, '127.0.0.1', resolve));
-      const address = silent.address();
-      const port = typeof address === 'object' && address !== null ? address.port : 0;
-      await repos.git(repos.clone, 'remote', 'set-url', 'origin', `http://127.0.0.1:${String(port)}/web-app.git`);
-      const worktrees = createWorktrees({ env: gitEnvironment(repos.env), fetchTimeoutMs: 300 });
+      const origin = await silentOrigin();
+      silent = origin.server;
+      await repos.git(repos.clone, 'remote', 'set-url', 'origin', origin.url);
+      const worktrees = createWorktrees({ env: gitEnvironment(repos.env), root: repos.worktrees, fetchTimeoutMs: 300 });
 
       const started = Date.now();
       const made = await worktrees.make(repos.clone, join(repos.worktrees, '0123456789abcdef'), {
@@ -178,5 +187,116 @@ describe('making a worktree', () => {
     expect(
       await worktrees.make(repos.clone, path, { branch: 'feat/PROJ-1423', base: 'origin/main', remote: true }),
     ).toEqual({ ok: false, problem: { kind: 'git', step: 'add' } });
+  });
+});
+
+describe('Stop while the worktree is being made', () => {
+  let silent: Server | undefined;
+  afterEach(() => {
+    silent?.close();
+  });
+
+  it('AC-9: stops a fetch that is still waiting, and makes nothing', async () => {
+    const { repos } = await setUp();
+    const origin = await silentOrigin();
+    silent = origin.server;
+    await repos.git(repos.clone, 'remote', 'set-url', 'origin', origin.url);
+    const worktrees = createWorktrees({
+      env: gitEnvironment(repos.env),
+      root: repos.worktrees,
+      fetchTimeoutMs: 10_000,
+    });
+    const stop = new AbortController();
+    const path = join(repos.worktrees, '0123456789abcdef');
+
+    const making = worktrees.make(repos.clone, path, plan, stop.signal);
+    setTimeout(() => {
+      stop.abort();
+    }, 200);
+    const started = Date.now();
+
+    expect(await making).toEqual({ ok: false, problem: { kind: 'stopped' } });
+    expect(Date.now() - started).toBeLessThan(5_000);
+    expect(await exists(path)).toBe(false);
+  });
+
+  it('AC-9: starts nothing when Stop came first', async () => {
+    const { repos, worktrees } = await setUp();
+    const stop = new AbortController();
+    stop.abort();
+    expect(await worktrees.prepare(repos.clone, 'PROJ-1423', stop.signal)).toEqual({
+      ok: false,
+      problem: { kind: 'stopped' },
+    });
+    const path = join(repos.worktrees, '0123456789abcdef');
+    expect(await worktrees.make(repos.clone, path, plan, stop.signal)).toEqual({
+      ok: false,
+      problem: { kind: 'stopped' },
+    });
+    expect(await exists(path)).toBe(false);
+  });
+});
+
+describe('removing a worktree', () => {
+  it('AC-10: deletes the worktree and its branch, with Claude’s uncommitted changes', async () => {
+    const { repos, worktrees } = await setUp();
+    const path = join(repos.worktrees, '0123456789abcdef');
+    await worktrees.make(repos.clone, path, plan);
+    await writeFile(join(path, 'claude-was-here.ts'), 'export {};\n');
+
+    expect(await worktrees.remove(repos.clone, path, 'feat/PROJ-1423')).toEqual({ ok: true });
+    expect(await exists(path)).toBe(false);
+    expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toBe('');
+    expect(await repos.git(repos.clone, 'worktree', 'list', '--porcelain')).not.toContain(path);
+  });
+
+  it('AC-10: carries on when you deleted the worktree yourself, and forgets it', async () => {
+    const { repos, worktrees } = await setUp();
+    const path = join(repos.worktrees, '0123456789abcdef');
+    await worktrees.make(repos.clone, path, plan);
+    await rm(path, { recursive: true, force: true });
+
+    expect(await worktrees.remove(repos.clone, path, 'feat/PROJ-1423')).toEqual({ ok: true });
+    expect(await repos.git(repos.clone, 'worktree', 'list', '--porcelain')).not.toContain(path);
+    expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toBe('');
+  });
+
+  it('AC-10: carries on when the branch is already gone, or the worktree was never made', async () => {
+    const { repos, worktrees } = await setUp();
+    expect(await worktrees.remove(repos.clone, join(repos.worktrees, 'fedcba9876543210'), 'feat/PROJ-9')).toEqual({
+      ok: true,
+    });
+  });
+
+  it('AC-10: deletes the worktree folder when the repository itself is gone', async () => {
+    const { repos, worktrees } = await setUp();
+    const path = join(repos.worktrees, '0123456789abcdef');
+    await worktrees.make(repos.clone, path, plan);
+    await rm(repos.clone, { recursive: true, force: true });
+
+    expect(await worktrees.remove(repos.clone, path, 'feat/PROJ-1423')).toEqual({ ok: true });
+    expect(await exists(path)).toBe(false);
+  });
+
+  it('AC-10: never deletes a folder outside Orynx’s worktrees folder', async () => {
+    const { repos, worktrees } = await setUp();
+    const elsewhere = join(repos.root, 'not-a-worktree');
+    await mkdir(elsewhere);
+    await rm(repos.clone, { recursive: true, force: true });
+
+    expect(await worktrees.remove(repos.clone, elsewhere, 'feat/PROJ-1423')).toEqual({
+      ok: false,
+      problem: { kind: 'git', step: 'remove' },
+    });
+    expect(await exists(elsewhere)).toBe(true);
+  });
+
+  it('AC-10: leaves the folder’s own checkout and its other branches alone', async () => {
+    const { repos, worktrees } = await setUp();
+    await repos.git(repos.clone, 'branch', 'mine');
+    const path = join(repos.worktrees, '0123456789abcdef');
+    await worktrees.make(repos.clone, path, plan);
+    await worktrees.remove(repos.clone, path, 'feat/PROJ-1423');
+    expect(await repos.git(repos.clone, 'branch', '--format=%(refname:short)')).toBe('main\nmine');
   });
 });
