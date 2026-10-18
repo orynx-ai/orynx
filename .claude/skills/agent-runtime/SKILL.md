@@ -13,11 +13,11 @@ A session is one piece of work Claude does for the user: one task, one repo, one
 2. **Permission modes** (Settings › Coding agent, saved since spec 005 as `agent.permissionMode` in `settings.json`; read it through `createPreferencesService().read()`, never the file):
    - Ask before everything: every file edit and every command needs a click.
    - Edit files freely, ask before commands (default, recommended): edits stay in the worktree; commands ask.
-   - Edit files and run allowed commands: commands on the allow list run; anything else asks. "Always allow" adds to the list.
-3. **Always ask, whatever the mode:** commands that touch the network, delete outside the worktree, or push to git.
+   - Edit files and run allowed commands: commands on the allow list (`agent.allowedCommands`) run; anything else asks. "Always allow" adds to the list, and is offered only in this mode (spec 012, Q1).
+3. **Always ask, whatever the mode:** commands that touch the network, delete outside the worktree, or ask to run outside the sandbox; Allow once and Deny only, and the list can't hold them. A push or `gh pr create` is refused without asking (spec 012, Q7). The reading lives in `packages/contracts/src/commands.ts`, the decision in `packages/core/src/agents/claude/command-decision.ts`.
 4. **The PR is always the user's click.** DevHub pushes the branch and opens the PR only after Create pull request. Claude never pushes or opens a PR by itself.
 5. **The brief is exactly the chips.** What goes to Claude is the composer text plus every context chip (ticket, PR diff, Slack thread, files). Slack data goes only when the user added that thread.
-6. **Credentials.** The Claude login is Claude Code's own. DevHub only checks it with `auth status --json` and never stores it (spec 010, `learn/checking-claude.md`). Claude Code gets only the allow-listed environment in `packages/core/src/agents/agent-environment.ts`, never DevHub's, for the login check and for sessions alike; `AWS_*` passes only with `CLAUDE_CODE_USE_BEDROCK` and `GOOGLE_*` only with `CLAUDE_CODE_USE_VERTEX` (spec 011, Q8b), and `CLAUDE_*` stays a prefix less the variables of a Claude Code session (Q8c). A session's git gets `gitEnvironment()`: the same list, `SSH_AUTH_SOCK`, `GIT_TERMINAL_PROMPT=0` (Q8d). Any command Claude runs as `node` could read DevHub's "DevHub" keychain items without a macOS prompt, and any command could read `<DEVHUB_HOME>/runtime.json` and call `/api` with the session token. Spec 011 runs no command (no `Bash`) and refuses reads outside the worktree, so neither is reachable; spec 012 must keep commands away from both before it lets one run (Q8a; `learn/sessions-and-worktrees.md`).
+6. **Credentials.** The Claude login is Claude Code's own. DevHub only checks it with `auth status --json` and never stores it (spec 010, `learn/checking-claude.md`). Claude Code gets only the allow-listed environment in `packages/core/src/agents/agent-environment.ts`, never DevHub's, for the login check and for sessions alike; `AWS_*` passes only with `CLAUDE_CODE_USE_BEDROCK` and `GOOGLE_*` only with `CLAUDE_CODE_USE_VERTEX` (spec 011, Q8b), and `CLAUDE_*` stays a prefix less the variables of a Claude Code session (Q8c). A session's git gets `gitEnvironment()`: the same list, `SSH_AUTH_SOCK`, `GIT_TERMINAL_PROMPT=0` (Q8d). Any command Claude runs as `node` could read DevHub's "DevHub" keychain items without a macOS prompt, and any command could read `<DEVHUB_HOME>/runtime.json` and call `/api` with the session token. Every command runs in Claude Code's own sandbox (spec 012, Q2; `packages/core/src/agents/claude/sandbox.ts`): writes only in the worktree and the temporary folder, no reads under `DEVHUB_HOME` but the worktree, none of the keychain's files, no network (127.0.0.1 too). Never loosen those settings, and never give a session `Bash` without them: where the sandbox can't run, sessions get no commands (`learn/sessions-and-worktrees.md`).
 7. **Stop** works at any step. The worktree keeps the changes. Discard deletes the worktree and branch after a confirm step in the page (never a browser dialog).
 
 ## The adapter interface
@@ -27,23 +27,24 @@ Claude plugs in through one interface so other agents can follow later without c
 ```ts
 export interface AgentAdapter {
   readonly id: 'claude';
+  readonly runsCommands: boolean; // false where the sandbox can't run
   startSession(
     brief: AgentBrief,
     worktreePath: string,
-    permissions: AgentPermissions,
+    permissions: () => Promise<AgentPermissions>, // read for every call
     instructions: string,
   ): Promise<string>; // sessionId
-  onEvent(sessionId: string, handler: (event: AgentEvent) => void): () => void; // started, work, problem, ended
-  respond(sessionId: string, approvalId: string, decision: 'allow' | 'deny' | 'always'): Promise<void>;
+  onEvent(sessionId: string, handler: (event: AgentEvent) => void): () => void; // started, work, approval, answered, problem, ended
+  respond(sessionId: string, approvalId: string, decision: 'allow' | 'deny' | 'always'): Promise<boolean>; // false: not waiting
   sendMessage(sessionId: string, text: string): Promise<void>;
   stop(sessionId: string): Promise<void>;
 }
 ```
 
-The Claude implementation is `packages/core/src/agents/claude/claude-adapter.ts` (spec 011) over `@anthropic-ai/claude-agent-sdk` (pinned; it runs the Claude Code the SDK ships, found with `findSdkClaudeCode()`, never a `claude` on the PATH). `startSession` takes a fourth argument, the note for Claude Code's system prompt. `respond` comes with spec 012 and `sendMessage` with spec 013; until then they reject. Every SDK option is set on purpose, because the defaults load every settings file:
+The Claude implementation is `packages/core/src/agents/claude/claude-adapter.ts` (spec 011) over `@anthropic-ai/claude-agent-sdk` (pinned; it runs the Claude Code the SDK ships, found with `findSdkClaudeCode()`, never a `claude` on the PATH). `startSession` takes a fourth argument, the note for Claude Code's system prompt. `respond` came with spec 012; `sendMessage` comes with spec 013 and rejects until then. Every SDK option is set on purpose, because the defaults load every settings file:
 
 - `settingSources: []`, `settings: { disableAllHooks: true }`, `strictMcpConfig: true`, `mcpServers: {}`: no hooks, plugins, MCP servers or allow rules from `~/.claude` or the repository.
-- `tools` (`sessionTools` in `tool-decision.ts`), `permissionMode: 'default'` and `canUseTool` from the tool decision: paths stay inside the worktree, symlinks followed, never its `.git`; Ask before everything refuses edits.
+- `tools` (`sessionTools` in `tool-decision.ts`, without `Bash` when there's no sandbox), `sandbox` (`sandbox.ts`), `permissionMode: 'default'` and `canUseTool` from the tool decision: paths stay inside the worktree, symlinks followed, never its `.git`; a call is allowed, asked or refused, one at a time in the order Claude Code asked.
 - The prompt is a stream that stays open until Claude finishes, so Stop can interrupt it; an interrupted turn ends with a failed result, which isn't a problem after Stop.
 
 Worktrees come from `packages/core/src/sessions/worktrees.ts` (`simple-git`, hooks off, no prompts), and `session-service.ts` runs a session from the ticket to Claude's last step. Tests fake `query()` at the SDK's boundary with `test/fake-claude-sdk.ts`; the e2e run's fake Claude Code plays a session over the SDK's stream protocol (`e2e/fake-claude/session.ts`).
@@ -54,11 +55,11 @@ States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `w
 
 ## Approvals
 
-1. The SDK's permission callback asks the runtime whether a tool call may run.
-2. The runtime checks the mode, the allow list and the always-ask rules.
-3. If the user must decide, the session becomes `needs_you`, an approval event goes out on the event bus, and the call waits.
-4. The Session screen shows the amber callout in place (`role="alert"`) with Allow once, Always allow <command>, Deny.
-5. `respond()` resumes or denies the call. "Always" adds the command to the allow list.
+1. The SDK's permission callback (`canUseTool`) asks `tool-decision.ts` whether a call may run, with the mode and the allow list read again for this call.
+2. The decision checks the always-ask rules first, then the mode and the list: allow, ask, or refuse.
+3. An ask parks the call in the adapter, which says `approval`. `session-service.ts` adds it to `session.approvals` and a waiting step, the session becomes `needs_you`, and `sessions.changed` and `session.changed` go out. The call waits with no time limit.
+4. The Session screen shows the oldest waiting call in the amber callout (`role="alert"`, never focused by itself) with Allow once, Always allow <entry> (only where offered) and Deny.
+5. `POST /api/sessions/:id/approvals/:approvalId` reaches `SessionService.respond()`: Always allow saves the entry first (a failed save decides nothing), then `adapter.respond()` ends the wait. The first answer counts; a late one is 409. Stop, Discard and closing deny every waiting call. Each call is kept in `session.json`'s `approvalLog`; the log names only kinds and answers.
 
 ## Session data
 

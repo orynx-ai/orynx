@@ -1,4 +1,4 @@
-<!-- learn-sources: packages/contracts/src/preferences.ts packages/contracts/src/repositories.ts packages/core/src/settings/settings-store.ts packages/core/src/preferences/preferences-service.ts packages/core/src/repositories/folder-check.ts packages/core/src/repositories/repository-service.ts packages/core/src/routes/preferences.ts packages/core/src/routes/repositories.ts packages/app/src/features/settings/queries.ts packages/app/src/features/settings/components/coding-agent-panel.tsx packages/app/src/features/settings/components/inbox-rules-panel.tsx packages/app/src/features/settings/components/repositories-panel.tsx packages/app/src/features/settings/components/add-folder-form.tsx -->
+<!-- learn-sources: packages/contracts/src/preferences.ts packages/contracts/src/repositories.ts packages/core/src/settings/settings-store.ts packages/core/src/preferences/preferences-service.ts packages/core/src/repositories/folder-check.ts packages/core/src/repositories/repository-service.ts packages/core/src/routes/preferences.ts packages/core/src/routes/repositories.ts packages/app/src/features/settings/queries.ts packages/app/src/features/settings/components/coding-agent-panel.tsx packages/app/src/features/settings/components/allowed-commands.tsx packages/contracts/src/commands.ts packages/app/src/features/settings/components/inbox-rules-panel.tsx packages/app/src/features/settings/components/repositories-panel.tsx packages/app/src/features/settings/components/add-folder-form.tsx -->
 
 # Settings: how a change saves, and how a folder is checked
 
@@ -10,7 +10,7 @@ Everything goes in `<DEVHUB_HOME>/settings.json`, next to Jira's site and email 
 
 ```json
 {
-  "agent": { "permissionMode": "ask_everything" },
+  "agent": { "permissionMode": "edit_and_run_allowed", "allowedCommands": ["npm test", "npm run lint"] },
   "inbox": { "rules": { "checks_failing": false } },
   "repositories": [{ "id": "3f9c0a6d2b1e4f57", "path": "/Users/dev/code/intranet-web", "jiraProject": "PROJ" }]
 }
@@ -38,6 +38,12 @@ click a mode ─▶ useChangePreferences().mutate({ permissionMode })
 - **Quick changes don't undo each other.** Each PATCH carries only what changed (`{ inboxRules: { checks_failing: false } }`), and the server applies changes one at a time. The client refetches only when the last pending change settles (`refetchAfterLast`), and `LiveUpdates` ignores `settings.changed` for data with a change still on its way, so neither an early answer nor an early event can flip a later change back on screen.
 - **Remove works the same way.** `useRemoveRepository()` takes the row away at once and moves focus to the next row's Remove (or to Add local folder, whose plus is Hugeicons' `PlusSignIcon` through `<Icon>`, as every icon is since 18 Oct 2026). "Removed intranet-web." is said in the panel's polite live region once the server agrees. Each removal keeps its own outcome, so two quick removals each get theirs. A sentence leaves the live region only once it has been on screen: two answers that land together are said together ("Removed intranet-web. Removed mobile."), and an answer that lands just as you press the next Remove is still said. A failure puts back that row alone, at its place, and focus returns to its Remove unless you've moved on. A held-down Enter removes one folder, not one after another.
 - **Add waits for the server**, because only the server can look at the disk. The new row goes into the cache from the answer, and the list refetches after. While a folder is on its way, Add local folder can't close the form, so the answer always has a place to show.
+
+## The allow list (spec 012)
+
+Under the modes, Coding agent shows "Allowed commands": the commands that run without asking in "Edit files and run allowed commands". It shows in every mode, so you can fill it before you switch. An entry is one command, read by contracts' `AllowedCommandSchema`, the same reading a session uses (`readCommand` in `commands.ts`): words a single space apart, no `&&`, `;` or `|`, and nothing that always asks (`git push`, `curl …`, a delete outside the worktree). The Add form refuses those, and an entry already on the list, with the line that says why, before anything is sent.
+
+Adding and removing send one entry each (`{ allowCommand }`, `{ disallowCommand }`), so two quick changes can't undo each other, and both show at once through `useChangePreferences`; a failed one is taken back alone, at its place. Remove moves focus to the next row's Remove, or to the field. Always allow in a session's callout adds through the same service, and `settings.changed` brings it to every open tab.
 
 ## Clear cache
 

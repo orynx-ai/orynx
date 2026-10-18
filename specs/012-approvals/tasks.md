@@ -68,7 +68,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 22: e2e: an edit asks in Ask before everything with its change, Settings' allowed commands add, remove and refuse, the keyboard path through a callout and the list, and axe at 360 and 1280 px in light and dark (AC-8, AC-15, AC-18, AC-19)
       Check: pnpm test:e2e e2e/approvals.spec.ts
       Files: e2e/approvals.spec.ts
-- [ ] Task 23: Docs: `learn/sessions-and-worktrees.md` (approvals, the sandbox, the probe's record) and `learn/settings-and-folders.md` (the allow list), agent-runtime rule 6's command side and its Approvals section, the roadmap's 012 line, `docs/architecture.md` (the sandbox, `DEVHUB_SANDBOX`, the command reader in contracts)
+- [x] Task 23: Docs: `learn/sessions-and-worktrees.md` (approvals, the sandbox, the probe's record) and `learn/settings-and-folders.md` (the allow list), agent-runtime rule 6's command side and its Approvals section, the roadmap's 012 line, `docs/architecture.md` (the sandbox, `DEVHUB_SANDBOX`, the command reader in contracts)
       Check: pnpm gate learn-freshness; pnpm gate handbook-size; pnpm gate specs
       Files: learn/sessions-and-worktrees.md, learn/settings-and-folders.md, .claude/skills/agent-runtime/SKILL.md, docs/product/roadmap.md, docs/architecture.md
 - [ ] Task 24: Open the Session screen and Settings › Coding agent in a real browser (`pnpm dev`, own `DEVHUB_HOME`) at 360 and 1280 px, light and dark, in each state through `page.route`: a command callout, an always-ask callout, an edit callout, an answer error, the list empty, full and refusing an entry. Measure CLS, and tick each check here (AC-19)
