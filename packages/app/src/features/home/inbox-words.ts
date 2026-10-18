@@ -94,13 +94,47 @@ export function subLine(item: InboxItem): string {
   }
 }
 
+/** Where a row's Open icon goes, and its words: the tooltip, and a name that says which item (spec 020, Q4). */
+export type RowOpen =
+  | { kind: 'session'; sessionId: string; label: 'Open session'; name: string }
+  | { kind: 'external'; url: string; label: 'Open in Jira' | 'Open in GitHub'; name: string };
+
+export interface RowActions {
+  /** The ticket Ship starts Claude on: an assigned issue with no live session (spec 011, AC-15). */
+  ship: string | null;
+  open: RowOpen;
+}
+
 /**
- * Q6: "Review" for a review request; "Build" for an assigned issue with no live session, which starts Claude
- * on it (spec 011, AC-15); "Open" for the rest. Failing checks keep "Open" until "Fix" comes (spec 011, Q12).
+ * Spec 020: a row's icon actions. An assigned issue with no live session has Ship, then Open in Jira; a
+ * pull request has Open in GitHub, to the page its reason is about (Files, Checks); a session, or an issue
+ * whose session is live, has Open session.
  */
-export function actionLabel(item: InboxItem): 'Review' | 'Build' | 'Open' {
-  if (item.reason.kind === 'review_requested') return 'Review';
-  return item.subject.kind === 'issue' && item.target.kind === 'external' ? 'Build' : 'Open';
+export function rowActions(item: InboxItem): RowActions {
+  const { subject, target } = item;
+  if (target.kind === 'session') {
+    return {
+      ship: null,
+      open: {
+        kind: 'session',
+        sessionId: target.sessionId,
+        label: 'Open session',
+        name: `Open session: ${item.title}`,
+      },
+    };
+  }
+  if (subject.kind === 'pull_request') {
+    const pull = `${subject.repository} #${String(subject.number)}`;
+    return {
+      ship: null,
+      open: { kind: 'external', url: target.url, label: 'Open in GitHub', name: `Open ${pull} in GitHub` },
+    };
+  }
+  const key = subject.kind === 'issue' ? subject.key : item.title;
+  return {
+    ship: subject.kind === 'issue' ? subject.key : null,
+    open: { kind: 'external', url: target.url, label: 'Open in Jira', name: `Open ${key} in Jira` },
+  };
 }
 
 /** How many rows each tab counts; All counts every row. */

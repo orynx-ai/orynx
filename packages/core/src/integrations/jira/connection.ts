@@ -5,6 +5,7 @@ import type {
   JiraCredentials,
   JiraProject,
   JiraSavedConnection,
+  OpenSprint,
 } from '@devhub/contracts';
 import type { EventBus } from '../../events/event-bus.ts';
 import { TokenStoreError, type TokenSource, type TokenStore } from '../../secrets/token-store.ts';
@@ -13,6 +14,7 @@ import { createCheckedStatus } from '../checked-status.ts';
 import { ConnectionError, type KeychainProblem } from '../connection-error.ts';
 import type { JiraCheckRequest, JiraClient, JiraProblem } from './client.ts';
 import { describeJiraProblem } from './problems.ts';
+import { openSprintOf } from './sprint-map.ts';
 
 /** Why connecting or disconnecting Jira failed. The message is safe to show and never holds a token. */
 export class JiraConnectionError extends ConnectionError {
@@ -43,6 +45,8 @@ export interface JiraConnectionService {
    * time; a failure is a {@link JiraConnectionError} in spec 003's words.
    */
   projects(): Promise<JiraProject[]>;
+  /** A project's open sprints for Tickets' Sprint menu (spec 020), asked of Jira now; problems as `projects`. */
+  openSprints(projectKey: string): Promise<OpenSprint[]>;
   /**
    * Jira's line in GET /api/status. Reads the keychain only once a site and email are saved, and
    * asks Jira at most once every 2 minutes.
@@ -153,7 +157,12 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
 
       // The token first: it is the step that fails when the keychain is locked, and then nothing has changed.
       if (apiToken !== undefined) await fromTokenStore(() => tokens.save('jira', apiToken));
-      await settings.update((current) => ({ ...current, jira: { site, email } }));
+      await settings.update(({ tickets, ...rest }) =>
+        // The Tickets choice names the old site's project and sprint, so another site starts on Your sprint (spec 020).
+        rest.jira?.site === site && tickets !== undefined
+          ? { ...rest, tickets, jira: { site, email } }
+          : { ...rest, jira: { site, email } },
+      );
       checked.settle({ site, email }, connectedVia(stored?.source ?? 'keychain', site));
       events.publish({ type: 'status.changed' });
       return read();
@@ -161,7 +170,8 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
 
     async disconnect() {
       await fromTokenStore(() => tokens.remove('jira'));
-      await settings.update(({ jira: _, ...rest }) => rest);
+      // The Tickets choice names this site's projects and sprints, so it goes too (spec 020).
+      await settings.update(({ jira: _, tickets: __, ...rest }) => rest);
       checked.forget();
       events.publish({ type: 'status.changed' });
     },
@@ -175,6 +185,17 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
       if (stored === null) throw new JiraConnectionError('integration_rejected', missingToken);
       const answer = await jira.projects({ ...saved, apiToken: stored.token });
       if (answer.ok) return answer.projects;
+      options.onProblem?.(answer.problem);
+      throw new JiraConnectionError(codeFor(answer.problem), describeJiraProblem(answer.problem, saved.site));
+    },
+
+    async openSprints(projectKey) {
+      const saved = (await settings.read()).jira;
+      if (saved === undefined) throw new JiraConnectionError('bad_request', 'Connect Jira in Connections first.');
+      const stored = await fromTokenStore(() => tokens.read('jira'));
+      if (stored === null) throw new JiraConnectionError('integration_rejected', missingToken);
+      const answer = await jira.projectSprints({ ...saved, apiToken: stored.token }, projectKey);
+      if (answer.ok) return answer.sprints.flatMap((sprint) => openSprintOf(sprint) ?? []);
       options.onProblem?.(answer.problem);
       throw new JiraConnectionError(codeFor(answer.problem), describeJiraProblem(answer.problem, saved.site));
     },

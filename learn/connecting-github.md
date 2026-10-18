@@ -29,7 +29,7 @@ form (react-hook-form + the contract's schema)
 
 ## Finding gh
 
-- `apps/server/src/config.ts` hands core the shell's `PATH` as gh's search path, never a `PATH` written in `.env`, so a file can't decide which program DevHub starts. `DEVHUB_CLAUDE_CODE` follows the same rule (`learn/checking-claude.md`), and so does `gitEnvironment` (spec 011): the git that makes a session's worktree gets Claude Code's short allow list from the shell, your SSH agent, and `GIT_TERMINAL_PROMPT=0`, so a fetch never waits on a password prompt (`learn/sessions-and-worktrees.md`).
+- `apps/server/src/config.ts` hands core the shell's `PATH` as gh's search path, never a `PATH` written in `.env`, so a file can't decide which program DevHub starts. `DEVHUB_CLAUDE_CODE` follows the same rule (`learn/checking-claude.md`), and so does `gitEnvironment` (spec 011): the git that makes a session's worktree gets Claude Code's short allow list from the shell, your SSH agent, and `GIT_TERMINAL_PROMPT=0`, so a fetch never waits on a password prompt (`learn/sessions-and-worktrees.md`). The computer's folder picker for Choose folder (spec 020) is looked for on the same `PATH` (`learn/settings-and-folders.md`).
 - `gh.ts` looks through that path for an executable `gh` (`gh.exe` on Windows) without running it, skipping relative folders such as `.`, as gh's own lookup does. That is how the form knows to pick gh, and how `GET /api/github/connection` says `ghFound`.
 - gh runs only on Connect with the gh way, or when the status check needs a token for a saved gh connection. It gets 5 seconds, then SIGKILL. Its output must be one token on one line; anything else is "failed". stderr is read only to tell "no oauth token found" (signed out) from other failures, and only the exit code is kept.
 - gh must be the real program, or a wrapper that ends with `exec gh …`: the time limit stops the program DevHub started, so a wrapper that starts gh as a child of its own would leave that child running.
@@ -68,7 +68,7 @@ The inbox's sync asks `connection.credentials()` for a token: gh's for the gh wa
 
 - `client.ts` hands octokit the token and names `https://api.github.com` itself, and octokit sends `Authorization: token …`. Redirects are refused, so the header can't follow one to another host. No octokit error leaves `client.ts`, and octokit's own logger is silenced, so it never writes a request to the terminal. Every request names itself `Orynx` (the user agent), and the "Create a token" link names the new token Orynx too. That link, like every link that leaves Orynx, is `@devhub/ui`'s `ExternalLink`: its arrow, and a highlight and underline on hover.
 - `gh.ts` is the only file that sees gh's output. A failure keeps only the exit code.
-- `settings.json` gets only `{ "github": { "method": … } }` from GitHub. Each save changes its own key and keeps the rest as written: Jira's site and email, and Settings' own values (spec 005), even ones this version can't read.
+- `settings.json` gets only `{ "github": { "method": … } }` from GitHub. Each save changes its own key and keeps the rest as written: Jira's site and email, Settings' own values (spec 005) and the sprint Tickets shows (spec 020), even ones this version can't read.
 - The Fastify logger's `authorization` redaction is the second guard, as for Jira.
 - `no-token-leaks.test.ts` runs the real hub at trace level through both ways, every kind of failure, status and disconnect, and finds neither token nor gh's output in any log line, response, event or `settings.json`.
 

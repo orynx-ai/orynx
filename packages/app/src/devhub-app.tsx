@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, type RouterHistory } from '@tanstack/react-router';
+import { TooltipProvider } from '@devhub/ui';
 import { createApiClient, type EventSourceConstructor } from '@devhub/api-client';
 import { ApiProvider } from './api.tsx';
 import { LiveUpdates } from './live-updates.tsx';
@@ -52,7 +53,9 @@ export function DevhubApp({ server, platform, history, queryClient: givenQueryCl
       <ApiProvider api={api}>
         <QueryClientProvider client={queryClient}>
           <LiveUpdates />
-          <RouterProvider router={router} />
+          <TooltipProvider>
+            <RouterProvider router={router} />
+          </TooltipProvider>
         </QueryClientProvider>
       </ApiProvider>
     </PlatformProvider>

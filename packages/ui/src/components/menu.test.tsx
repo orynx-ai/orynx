@@ -217,4 +217,29 @@ describe('Menu', () => {
       expect(screen.getByRole('button', { name: 'Reason · 2' })).toHaveFocus();
     });
   });
+
+  it('AC-40 (spec 020): a compact menu works the same, its heading naming it (its size is checked in the browser)', async () => {
+    const user = userEvent.setup();
+    const onPick = vi.fn();
+    const { container } = render(
+      <Menu>
+        <MenuTrigger asChild>
+          <Button>Sprint</Button>
+        </MenuTrigger>
+        <MenuContent heading="Sprint" size="sm">
+          <MenuLabel>Open sprints</MenuLabel>
+          <MenuItem description="Active · ends 24 Oct" onSelect={onPick}>
+            Sprint 43
+          </MenuItem>
+        </MenuContent>
+      </Menu>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Sprint' }));
+    const menu = screen.getByRole('menu', { name: 'Sprint' });
+    expect(within(menu).getByText('Active · ends 24 Oct')).toBeVisible();
+    await expectNoAxeViolations(container);
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(onPick).toHaveBeenCalledOnce();
+  });
 });

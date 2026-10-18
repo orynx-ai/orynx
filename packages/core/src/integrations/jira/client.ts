@@ -88,6 +88,18 @@ export interface JiraIssueDetail {
 
 export type JiraIssue = { ok: true; issue: JiraIssueDetail } | { ok: false; problem: JiraProblem };
 
+/** Who the credentials belong to, for "Assigned to you" on a sprint Tickets reads by its id (spec 020). */
+export type JiraAccount = { ok: true; accountId: string } | { ok: false; problem: JiraProblem };
+
+/** A sprint as the Agile API's board and sprint reads give it, with only what Tickets uses (spec 020). */
+export type JiraBoardSprint = z.infer<typeof BoardSprintSchema>;
+
+/** A project's active then future sprints, each once (spec 020, AC-26). */
+export type JiraProjectSprints = { ok: true; sprints: JiraBoardSprint[] } | { ok: false; problem: JiraProblem };
+
+/** One sprint by its id; null when it's gone or hidden from these credentials. */
+export type JiraSprint = { ok: true; sprint: JiraBoardSprint | null } | { ok: false; problem: JiraProblem };
+
 export interface JiraClient {
   readonly timeoutMs: number;
   /** Asks Jira who these credentials belong to (`GET /rest/api/3/myself`). */
@@ -118,6 +130,11 @@ export interface JiraClient {
    */
   sprintIssues(request: JiraCheckRequest, sprintId: number): Promise<JiraSprintIssues>;
   /**
+   * The issues in no sprint that aren't Done (spec 020, AC-39), read as `sprintIssues` reads a sprint: the
+   * project's (its backlog), or with no project, the ones assigned to these credentials.
+   */
+  issuesWithoutSprint(request: JiraCheckRequest, projectKey: string | null): Promise<JiraSprintIssues>;
+  /**
    * Every status's category, by id (`GET /rest/api/3/status`, which any user may read). A board's columns
    * name their statuses by id only, so this says which column is the first in progress (spec 008, Q2).
    */
@@ -127,6 +144,17 @@ export interface JiraClient {
    * (spec 011). The only read that asks for a description; it's never cached or logged.
    */
   issue(request: JiraCheckRequest, key: string): Promise<JiraIssue>;
+  /** Who these credentials belong to (`GET /rest/api/3/myself`), for a sprint Tickets reads by its id (spec 020). */
+  account(request: JiraCheckRequest): Promise<JiraAccount>;
+  /**
+   * A project's active sprints, then its future ones (spec 020, AC-26): its Scrum boards
+   * (`/rest/agile/1.0/board?projectKeyOrId=`, at most 10), then each board's open sprints
+   * (`/rest/agile/1.0/board/{id}/sprint?state=active,future`, at most 50 each). A sprint on two boards shows
+   * once; a board that's gone or hidden is skipped. Active ones end soonest first, future ones start soonest.
+   */
+  projectSprints(request: JiraCheckRequest, projectKey: string): Promise<JiraProjectSprints>;
+  /** One sprint (`/rest/agile/1.0/sprint/{id}`), for the sprint Tickets holds (spec 020). */
+  sprint(request: JiraCheckRequest, sprintId: number): Promise<JiraSprint>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -204,6 +232,50 @@ const SprintIssueSchema = z.object({
   }),
 });
 
+const nullableText = z
+  .string()
+  .nullish()
+  .transform((text) => text ?? null);
+
+const BoardSprintSchema = z.object({
+  id: z.int().positive(),
+  name: z.string().min(1),
+  state: z.enum(['active', 'future', 'closed']),
+  boardId: z
+    .int()
+    .positive()
+    .nullish()
+    .transform((boardId) => boardId ?? null),
+  startDate: nullableText,
+  endDate: nullableText,
+});
+
+/** The Agile API names a sprint's board `originBoardId`; the sprint field names it `boardId`. */
+function boardSprint(found: unknown): JiraBoardSprint | null {
+  if (typeof found !== 'object' || found === null) return null;
+  const { originBoardId, ...rest } = found as Record<string, unknown>;
+  const parsed = BoardSprintSchema.safeParse({ boardId: originBoardId, ...rest });
+  return parsed.success ? parsed.data : null;
+}
+
+const BoardPageSchema = z.object({ values: z.array(z.object({ id: z.int().positive() })) });
+const SprintPageSchema = z.object({ values: z.array(z.unknown()) });
+const mostBoards = 10;
+const mostSprintsPerBoard = 50;
+
+/** When two sprints tie, one with no date comes last. */
+function timeOf(date: string | null): number {
+  const at = date === null ? Number.NaN : Date.parse(date);
+  return Number.isNaN(at) ? Number.POSITIVE_INFINITY : at;
+}
+
+/** Active sprints ending soonest, then future ones starting soonest, then by id. */
+function inSprintOrder(a: JiraBoardSprint, b: JiraBoardSprint): number {
+  if (a.state !== b.state) return a.state === 'active' ? -1 : b.state === 'active' ? 1 : 0;
+  const when = a.state === 'active' ? timeOf(a.endDate) - timeOf(b.endDate) : timeOf(a.startDate) - timeOf(b.startDate);
+  return when || a.id - b.id;
+}
+
 const IssueDetailSchema = z.object({
   key: z.string(),
   fields: z.object({
@@ -267,6 +339,69 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
     } catch (error) {
       return { ok: false, problem: problemOf(sdk, error) };
     }
+  }
+
+  /**
+   * Every issue `filter` finds, in rank order (`<filter> ORDER BY Rank ASC` through `search/jql`'s
+   * `nextPageToken`), 100 a page, at most 300, and the priority order for the bars. When it finds more, your
+   * own issues past the first 300 follow them (at most 300 more). Never a description or a comment.
+   */
+  async function rankedIssues(request: JiraCheckRequest, filter: string): Promise<JiraSprintIssues> {
+    const answer = await withJira(request, async (client) => {
+      // Every page and the priority list share one wait, like the project list.
+      const signal = AbortSignal.timeout(timeoutMs);
+
+      /** Up to 300 issues for `jql` in rank order, following `nextPageToken`, and whether Jira had more. */
+      async function pages(jql: string): Promise<{ issues: JiraSprintIssue[]; more: boolean }> {
+        const found: unknown[] = [];
+        let nextPageToken: string | undefined;
+        let more = true;
+        while (more && found.length < mostSprintIssues) {
+          const page = await client.sendRequest({
+            url: '/rest/api/3/search/jql',
+            method: 'POST',
+            body: {
+              jql,
+              fields: sprintFields,
+              maxResults: Math.min(sprintIssuesPerPage, mostSprintIssues - found.length),
+              ...(nextPageToken === undefined ? {} : { nextPageToken }),
+            },
+            schema: IssuePageSchema,
+            signal,
+          });
+          found.push(...page.issues);
+          nextPageToken = page.nextPageToken ?? undefined;
+          // Jira may send fewer than asked for: only isLast, or no token to go on with, ends the read.
+          more = page.isLast === false && nextPageToken !== undefined && page.issues.length > 0;
+        }
+        const issues = found.slice(0, mostSprintIssues).flatMap((issue) => {
+          const parsed = SprintIssueSchema.safeParse(issue);
+          return parsed.success ? [parsed.data] : [];
+        });
+        return { issues, more: more || found.length > mostSprintIssues };
+      }
+
+      const first = await pages(`${filter} ORDER BY Rank ASC`);
+      let issues = first.issues;
+      if (first.more) {
+        // A list cut short may leave out your own issues, and Assignee: Me is on by default. Any issue the
+        // first 300 left out ranks after all of them, so yours follow them in their own rank order.
+        const kept = new Set(issues.map((issue) => issue.key));
+        const mine = await pages(`${filter} AND assignee = currentUser() ORDER BY Rank ASC`);
+        issues = [...issues, ...mine.issues.filter((issue) => !kept.has(issue.key))];
+      }
+      const truncated = first.more;
+      if (!issues.some((issue) => issue.fields.priority)) return { issues, truncated, priorityOrder: [] };
+      const priorities = await client.sendRequest({
+        url: '/rest/api/3/priority/search',
+        method: 'GET',
+        searchParams: { maxResults: 50 },
+        schema: PrioritySearchSchema,
+        signal,
+      });
+      return { issues, truncated, priorityOrder: priorities.values.map((priority) => priority.id) };
+    });
+    return answer.ok ? { ok: true, ...answer.value } : answer;
   }
 
   return {
@@ -393,62 +528,13 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
     },
 
     async sprintIssues(request, sprintId) {
-      const answer = await withJira(request, async (client) => {
-        // Every page and the priority list share one wait, like the project list.
-        const signal = AbortSignal.timeout(timeoutMs);
+      return rankedIssues(request, `sprint = ${String(sprintId)}`);
+    },
 
-        /** Up to 300 issues for `jql` in rank order, following `nextPageToken`, and whether Jira had more. */
-        async function pages(jql: string): Promise<{ issues: JiraSprintIssue[]; more: boolean }> {
-          const found: unknown[] = [];
-          let nextPageToken: string | undefined;
-          let more = true;
-          while (more && found.length < mostSprintIssues) {
-            const page = await client.sendRequest({
-              url: '/rest/api/3/search/jql',
-              method: 'POST',
-              body: {
-                jql,
-                fields: sprintFields,
-                maxResults: Math.min(sprintIssuesPerPage, mostSprintIssues - found.length),
-                ...(nextPageToken === undefined ? {} : { nextPageToken }),
-              },
-              schema: IssuePageSchema,
-              signal,
-            });
-            found.push(...page.issues);
-            nextPageToken = page.nextPageToken ?? undefined;
-            // Jira may send fewer than asked for: only isLast, or no token to go on with, ends the read.
-            more = page.isLast === false && nextPageToken !== undefined && page.issues.length > 0;
-          }
-          const issues = found.slice(0, mostSprintIssues).flatMap((issue) => {
-            const parsed = SprintIssueSchema.safeParse(issue);
-            return parsed.success ? [parsed.data] : [];
-          });
-          return { issues, more: more || found.length > mostSprintIssues };
-        }
-
-        const sprint = `sprint = ${String(sprintId)}`;
-        const first = await pages(`${sprint} ORDER BY Rank ASC`);
-        let issues = first.issues;
-        if (first.more) {
-          // A sprint cut short may leave out your own issues, and Assigned to me is on by default. Any issue
-          // the first 300 left out ranks after all of them, so yours follow them in their own rank order.
-          const kept = new Set(issues.map((issue) => issue.key));
-          const mine = await pages(`${sprint} AND assignee = currentUser() ORDER BY Rank ASC`);
-          issues = [...issues, ...mine.issues.filter((issue) => !kept.has(issue.key))];
-        }
-        const truncated = first.more;
-        if (!issues.some((issue) => issue.fields.priority)) return { issues, truncated, priorityOrder: [] };
-        const priorities = await client.sendRequest({
-          url: '/rest/api/3/priority/search',
-          method: 'GET',
-          searchParams: { maxResults: 50 },
-          schema: PrioritySearchSchema,
-          signal,
-        });
-        return { issues, truncated, priorityOrder: priorities.values.map((priority) => priority.id) };
-      });
-      return answer.ok ? { ok: true, ...answer.value } : answer;
+    async issuesWithoutSprint(request, projectKey) {
+      // A key the contract checked: project letters only. Quoted, so a key that is a JQL word (IS, ORDER) still reads.
+      const whose = projectKey === null ? 'assignee = currentUser()' : `project = "${projectKey}"`;
+      return rankedIssues(request, `${whose} AND sprint is EMPTY AND statusCategory != Done`);
     },
 
     async issue(request, key) {
@@ -472,6 +558,78 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
           description: adfToMarkdown(fields.description),
         },
       };
+    },
+
+    async account(request) {
+      const answer = await withJira(request, (client) =>
+        client.sendRequest({
+          url: '/rest/api/3/myself',
+          method: 'GET',
+          schema: MyselfSchema,
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+      return answer.ok ? { ok: true, accountId: answer.value.accountId } : answer;
+    },
+
+    async projectSprints(request, projectKey) {
+      const answer = await withJira(request, async (client, sdk) => {
+        // The boards and their sprints share one wait, like the project list.
+        const signal = AbortSignal.timeout(timeoutMs);
+        const boards = await client.sendRequest({
+          url: '/rest/agile/1.0/board',
+          method: 'GET',
+          searchParams: { projectKeyOrId: projectKey, type: 'scrum', maxResults: mostBoards },
+          schema: BoardPageSchema,
+          signal,
+        });
+        // Side by side, so ten boards cost one wait, not ten.
+        const pages = await Promise.all(
+          boards.values.slice(0, mostBoards).map(async (board) => {
+            try {
+              const page = await client.sendRequest({
+                url: `/rest/agile/1.0/board/${String(board.id)}/sprint`,
+                method: 'GET',
+                searchParams: { state: 'active,future', maxResults: mostSprintsPerBoard },
+                schema: SprintPageSchema,
+                signal,
+              });
+              return page.values;
+            } catch (error) {
+              // A board that's gone or hidden from you, or that keeps no sprints, is skipped.
+              if (sdk.isNotFoundError(error) || sdk.isForbiddenError(error)) return [];
+              if (sdk.isApiError(error) && error.status === 400) return [];
+              throw error;
+            }
+          }),
+        );
+        const sprints = new Map<number, JiraBoardSprint>();
+        for (const found of pages.flat()) {
+          const sprint = boardSprint(found);
+          if (sprint !== null && sprint.state !== 'closed' && !sprints.has(sprint.id)) sprints.set(sprint.id, sprint);
+        }
+        return [...sprints.values()].sort(inSprintOrder);
+      });
+      return answer.ok ? { ok: true, sprints: answer.value } : answer;
+    },
+
+    async sprint(request, sprintId) {
+      const answer = await withJira(request, async (client, sdk) => {
+        try {
+          const found = await client.sendRequest({
+            url: `/rest/agile/1.0/sprint/${String(sprintId)}`,
+            method: 'GET',
+            schema: z.unknown(),
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+          return boardSprint(found);
+        } catch (error) {
+          // A sprint that's gone or hidden from you is an answer: Tickets says it has no sprint.
+          if (sdk.isNotFoundError(error) || sdk.isForbiddenError(error)) return null;
+          throw error;
+        }
+      });
+      return answer.ok ? { ok: true, sprint: answer.value } : answer;
     },
 
     async statusCategories(request) {

@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { UserIcon } from '@hugeicons/core-free-icons';
-import { Avatar, cn, Icon } from '@devhub/ui';
+import { Avatar, cn, Icon, Tooltip } from '@devhub/ui';
 import { useStatus } from '../features/settings/queries.ts';
 import { personName } from './person-name.ts';
 
@@ -26,30 +26,32 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="mt-auto border-t border-border pt-3 max-md:hidden">
-      <Link
-        to="/settings"
-        // Exact, so the footer is never a second "current page" next to the Settings place.
-        activeOptions={{ exact: true }}
-        title={collapsed ? `${who} · ${text}` : undefined}
-        className={cn(
-          'flex items-center gap-3 rounded-sm px-2 py-2 text-foreground no-underline hover:bg-subtle',
-          collapsed && 'md:justify-center md:px-0',
-        )}
-      >
-        <span aria-hidden className="flex size-9 shrink-0 items-center justify-center text-muted-foreground">
-          {person === null ? <Icon icon={UserIcon} /> : <Avatar initials={person.initials} size="lg" />}
-        </span>
-        <span className={cn('flex min-w-0 flex-col gap-px', collapsed && 'md:sr-only')}>
-          <span className="truncate font-medium">{who}</span>{' '}
-          <span className="flex min-w-0 items-center gap-1.5 text-small text-muted-foreground">
-            <span aria-hidden className={cn('size-2 shrink-0 rounded-full bg-current', dot)} />
-            {/* At the default width this line is cut; the tooltip keeps it readable. */}
-            <span className="truncate" title={text}>
-              {text}
+      {/* On the rail only the avatar shows, so who and Claude's state are in a tooltip beside it. */}
+      <Tooltip label={collapsed ? `${who} · ${text}` : null} side="right">
+        <Link
+          to="/settings"
+          // Exact, so the footer is never a second "current page" next to the Settings place.
+          activeOptions={{ exact: true }}
+          className={cn(
+            'flex items-center gap-3 rounded-sm px-2 py-2 text-foreground no-underline hover:bg-subtle',
+            collapsed && 'md:justify-center md:px-0',
+          )}
+        >
+          <span aria-hidden className="flex size-9 shrink-0 items-center justify-center text-muted-foreground">
+            {person === null ? <Icon icon={UserIcon} /> : <Avatar initials={person.initials} size="lg" />}
+          </span>
+          <span className={cn('flex min-w-0 flex-col gap-px', collapsed && 'md:sr-only')}>
+            <span className="truncate font-medium">{who}</span>{' '}
+            <span className="flex min-w-0 items-center gap-1.5 text-small text-muted-foreground">
+              <span aria-hidden className={cn('size-2 shrink-0 rounded-full bg-current', dot)} />
+              {/* At the default width this line is cut; the tooltip keeps it readable. */}
+              <span className="truncate" title={text}>
+                {text}
+              </span>
             </span>
           </span>
-        </span>
-      </Link>
+        </Link>
+      </Tooltip>
     </div>
   );
 }

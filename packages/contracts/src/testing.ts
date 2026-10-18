@@ -37,7 +37,14 @@ import {
   type SessionTicket,
 } from './session.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
-import { TicketSchema, TicketsSchema, type Ticket, type Tickets } from './tickets.ts';
+import {
+  OpenSprintSchema,
+  TicketSchema,
+  TicketsSchema,
+  type OpenSprint,
+  type Ticket,
+  type Tickets,
+} from './tickets.ts';
 
 export interface StatusOverrides {
   version?: string;
@@ -290,7 +297,7 @@ export function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     column: 'in_progress',
     type: 'Story',
     bug: false,
-    priority: { name: 'High', level: 'high' },
+    priority: { name: 'High', level: 'high', rank: 1 },
     dueDate: '2026-10-23',
     assignee: { name: 'Rakesh Dhariwal', mine: true },
     session: null,
@@ -305,6 +312,18 @@ export function makeTickets(overrides: Partial<Tickets> = {}): Tickets {
     sprint: { id: 42, name: 'Sprint 42', endsAt: '2026-10-24T17:00:00.000Z', projectKey: 'PROJ' },
     tickets: [],
     truncated: false,
+    ...overrides,
+  });
+}
+
+/** One of a project's open sprints, as Tickets' Sprint menu lists it: WEB's active Sprint 43 (spec 020). */
+export function makeOpenSprint(overrides: Partial<OpenSprint> = {}): OpenSprint {
+  return OpenSprintSchema.parse({
+    id: 43,
+    name: 'Sprint 43',
+    state: 'active',
+    startsAt: '2026-10-13T09:00:00.000Z',
+    endsAt: '2026-10-24T17:00:00.000Z',
     ...overrides,
   });
 }

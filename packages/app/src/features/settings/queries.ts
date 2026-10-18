@@ -20,9 +20,11 @@ import type {
   Preferences,
   PreferencesChange,
   AddRepositoryRequest,
+  FolderPick,
   Repository,
   RepositoryId,
   RepositoryList,
+  UpdateRepositoryRequest,
 } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
@@ -251,7 +253,7 @@ export function useChangePreferences() {
 /**
  * Refetches only after the last of several quick changes to the same data, so an early answer (or an
  * early settings.changed) can't undo a later change on screen. Live updates hold back for the same reason.
- * Not awaited: the caller's own onSuccess, such as closing the add-folder form, shouldn't wait for it.
+ * Not awaited: the caller's own onSuccess, such as closing the folder dialog, shouldn't wait for it.
  */
 function refetchAfterLast(queryClient: QueryClient, key: readonly string[]): void {
   if (queryClient.isMutating({ mutationKey: key }) === 1) void queryClient.invalidateQueries({ queryKey: key });
@@ -263,21 +265,18 @@ export function useRepositories() {
   return useQuery(repositoriesQueryOptions(api));
 }
 
-/** The projects the saved Jira connection can see, asked only while the add-folder form is open and Jira is connected. */
+/** The projects the saved Jira connection can see, asked only while the folder dialog or Project picker is open and Jira is connected. */
 export function useJiraProjects(enabled: boolean) {
   const api = useApi();
   return useQuery({ ...jiraProjectsQueryOptions(api), enabled });
 }
-
-/** Adding has its own key under repositories, so the panel can tell an add is on its way. */
-const addRepositoryKey = [...queryKeys.repositories, 'add'] as const;
 
 /** Checks the folder on disk, then saves it. Fails with folder_rejected and the message for the Folder field. */
 export function useAddRepository() {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation<Repository, ApiRequestError, AddRepositoryRequest>({
-    mutationKey: addRepositoryKey,
+    mutationKey: [...queryKeys.repositories, 'add'],
     mutationFn: (request) => api.addRepository(request),
     onSuccess: (folder) => {
       // The row shows at once; settings.changed then refetches the list to confirm it.
@@ -293,9 +292,36 @@ export function useAddRepository() {
   });
 }
 
-/** Whether a folder is being added right now; closing the form then would hide the server's answer. */
-export function useAddingRepository(): boolean {
-  return useIsMutating({ mutationKey: addRepositoryKey }) > 0;
+/**
+ * Changes a folder's path or Jira project (spec 020), with the checks adding makes. Fails with
+ * folder_rejected for the Folder field, or not_found when another tab removed it.
+ */
+export function useEditRepository() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<Repository, ApiRequestError, { id: RepositoryId; request: UpdateRepositoryRequest }>({
+    mutationKey: [...queryKeys.repositories, 'edit'],
+    mutationFn: ({ id, request }) => api.editRepository(id, request),
+    onSuccess: (folder) => {
+      // The row changes at once; settings.changed then refetches the list to confirm it.
+      queryClient.setQueryData<RepositoryList>(
+        queryKeys.repositories,
+        (old) => old && { repositories: old.repositories.map((other) => (other.id === folder.id ? folder : other)) },
+      );
+    },
+    onSettled: () => {
+      refetchAfterLast(queryClient, queryKeys.repositories);
+    },
+  });
+}
+
+/**
+ * Choose folder (spec 020): the server opens the computer's folder picker and answers the path picked, null
+ * on Cancel, or fails with picker_unavailable where none can open. It saves nothing.
+ */
+export function useChooseFolder() {
+  const api = useApi();
+  return useMutation<FolderPick, ApiRequestError>({ mutationFn: () => api.pickFolder() });
 }
 
 /** Forgets a folder, taking its row away at once (spec 005, AC-11). A failed save puts back that row alone. */

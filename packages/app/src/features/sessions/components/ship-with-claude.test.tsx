@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type StartSessionAnswer } from '@devhub/contracts';
@@ -27,7 +27,7 @@ interface Setup {
   answer?: StartSessionAnswer | 'fails';
 }
 
-/** The board with one ticket, Claude signed in, one folder for PROJ; records what Build asked the server. */
+/** The board with one ticket, Claude signed in, one folder for PROJ; records what Ship asked the server. */
 function setUp({ signedIn = true, folders = [webApp], answer }: Setup = {}) {
   const asked: unknown[] = [];
   server.use(
@@ -45,9 +45,9 @@ function setUp({ signedIn = true, folders = [webApp], answer }: Setup = {}) {
   return asked;
 }
 
-const build = () => screen.findByRole('button', { name: 'Build PROJ-1423 with Claude' });
+const build = () => screen.findByRole('button', { name: 'Ship PROJ-1423' });
 
-describe('Build with Claude', () => {
+describe('Ship', () => {
   it('AC-1: with one folder, starts Claude on the ticket at once and opens the session', async () => {
     const asked = setUp();
     const { user, history } = await renderApp({ route: '/tickets' });
@@ -65,7 +65,7 @@ describe('Build with Claude', () => {
     expect(history.location.pathname).toBe('/sessions/fedcba9876543210');
   });
 
-  it('AC-11 (Q3): with several folders, asks which one under "Start in", then starts there', async () => {
+  it('AC-11 (Q3), AC-24 (spec 020): with several folders, asks which one under "Start in", then starts there', async () => {
     const asked = setUp({ folders: [webApp, mobile] });
     const { user, history } = await renderApp({ route: '/tickets' });
 
@@ -75,7 +75,7 @@ describe('Build with Claude', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['web-app~/code/web-app', 'mobile~/code/mobile']);
+    ).toEqual(['web-app~/code/web-app', 'mobile~/code/mobile', 'Add local folder']);
     await user.click(within(menu).getByRole('menuitem', { name: /mobile/ }));
 
     expect(asked).toEqual([{ ticketKey: 'PROJ-1423', repositoryId: '00000000000000bb' }]);
@@ -93,16 +93,59 @@ describe('Build with Claude', () => {
     expect(button).toHaveFocus();
   });
 
-  it('AC-12 (Q4): with no folder for the project, says so and links to Settings › Repositories', async () => {
+  it('AC-22 (spec 020): with no folder for the project, says so and offers Add local folder', async () => {
     const asked = setUp({ folders: [] });
-    const { user, history } = await renderApp({ route: '/tickets' });
+    const { user } = await renderApp({ route: '/tickets' });
 
     await user.click(await build());
-    const menu = await screen.findByRole('menu', { name: 'Build PROJ-1423 with Claude' });
+    const menu = await screen.findByRole('menu', { name: 'Ship PROJ-1423' });
     expect(within(menu).getByText('No folder is set for PROJ.')).toBeVisible();
-    await user.click(within(menu).getByRole('menuitem', { name: 'Open Settings › Repositories' }));
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Add local folder']);
+    expect(asked).toEqual([]);
+  });
 
-    expect(history.location.pathname).toBe('/settings/repositories');
+  it('AC-23 (spec 020): Add local folder opens the folder dialog with PROJ picked, then starts Claude in the new folder', async () => {
+    const asked = setUp({ folders: [] });
+    const added: unknown[] = [];
+    server.use(
+      http.post(apiUrl(apiRoutes.repositories), async ({ request }) => {
+        added.push(await request.json());
+        return HttpResponse.json(webApp, { status: 201 });
+      }),
+    );
+    const { user, history } = await renderApp({ route: '/tickets' });
+    await user.click(await build());
+    await user.click(await screen.findByRole('menuitem', { name: 'Add local folder' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Add a folder' });
+    expect(within(dialog).getByRole('textbox', { name: 'Folder' })).toHaveFocus();
+    expect(within(dialog).getByRole('button', { name: 'Jira project' })).toHaveTextContent('PROJ');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Folder' }), '~/code/web-app');
+    await user.click(within(dialog).getByRole('button', { name: 'Add folder' }));
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
+    });
+    expect(added).toEqual([{ path: '~/code/web-app', jiraProject: 'PROJ' }]);
+    expect(asked).toEqual([{ ticketKey: 'PROJ-1423', repositoryId: '00000000000000aa' }]);
+  });
+
+  it('AC-23 (spec 020): Cancel in the folder dialog starts nothing and gives focus back to Ship', async () => {
+    const asked = setUp({ folders: [webApp, mobile] });
+    const { user } = await renderApp({ route: '/tickets' });
+    const ship = await build();
+    await user.click(ship);
+    await user.click(await screen.findByRole('menuitem', { name: 'Add local folder' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add a folder' });
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(ship).toHaveFocus();
     expect(asked).toEqual([]);
   });
 

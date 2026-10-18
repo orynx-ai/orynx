@@ -7,12 +7,12 @@ export {
 } from './components/activity-step.tsx';
 export { AgentChip, type AgentChipProps } from './components/agent-chip.tsx';
 export {
-  AttentionAction,
+  AttentionActions,
   AttentionList,
   AttentionRow,
   AttentionRowSkeleton,
   AttentionTitle,
-  type AttentionActionProps,
+  type AttentionActionsProps,
   type AttentionRowProps,
   type AttentionTitleProps,
 } from './components/attention-row.tsx';
@@ -45,6 +45,7 @@ export {
   type ComposerSendProps,
   type ComposerTextareaProps,
 } from './components/composer.tsx';
+export { Combobox, type ComboboxOption, type ComboboxProps } from './components/combobox.tsx';
 export { ContextChip, ContextList, type ContextChipProps, type ContextListProps } from './components/context-chip.tsx';
 export {
   DiffView,
@@ -64,7 +65,9 @@ export {
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { ExternalLink, type ExternalLinkProps } from './components/external-link.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
+export { FilterMenu, type FilterMenuOption, type FilterMenuProps } from './components/filter-menu.tsx';
 export { Icon, type IconProps, type IconSvgElement } from './components/icon.tsx';
+export { IconButton, type IconButtonProps } from './components/icon-button.tsx';
 export { Input } from './components/input.tsx';
 export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from './components/file-list.tsx';
 export { Kbd } from './components/kbd.tsx';
@@ -80,6 +83,7 @@ export {
   MenuSeparator,
   MenuTrigger,
   type MenuCheckboxItemProps,
+  type MenuSize,
   type MenuContentProps,
   type MenuItemProps,
   type MenuProps,
@@ -113,6 +117,7 @@ export {
 export { Select } from './components/select.tsx';
 export {
   SessionItem,
+  SessionItemSkeleton,
   SessionStateIcon,
   sessionStateLabels,
   type SessionItemProps,
@@ -134,17 +139,18 @@ export {
   type TableProps,
 } from './components/table.tsx';
 export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsTriggerProps } from './components/tabs.tsx';
+export { Tooltip, TooltipProvider, type TooltipProps } from './components/tooltip.tsx';
 export {
-  WorkItemBuild,
   WorkItemCard,
   WorkItemCardSkeleton,
   WorkItemKey,
   WorkItemPriority,
+  WorkItemShip,
   WorkItemTitle,
-  type WorkItemBuildProps,
   type WorkItemCardProps,
   type WorkItemPriorityLevel,
   type WorkItemPriorityProps,
+  type WorkItemShipProps,
   type WorkItemTitleProps,
 } from './components/work-item-card.tsx';
 export { bundledFontFaces } from './fonts.ts';

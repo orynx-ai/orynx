@@ -231,10 +231,10 @@ test('AC-6, AC-8, AC-11, AC-17: Given two pages on Repositories, when I add a fo
 
     const add = page.getByRole('button', { name: 'Add local folder' });
     await add.click();
-    const form = page.getByRole('form', { name: 'Add a folder' });
+    const form = page.getByRole('dialog', { name: 'Add a folder' });
     await expect(form.getByRole('textbox', { name: 'Folder' })).toBeFocused();
     // The e2e run never connects Jira.
-    const project = form.getByRole('combobox', { name: 'Jira project' });
+    const project = form.getByRole('button', { name: 'Jira project' });
     await expect(project).toBeDisabled();
     await expect(form.getByText('Connect Jira in Connections to pick a project.')).toBeVisible();
 
@@ -247,9 +247,11 @@ test('AC-6, AC-8, AC-11, AC-17: Given two pages on Repositories, when I add a fo
     await expect(add).toBeFocused();
     await expect(folderRow(other, name)).toBeVisible();
 
+    // Spec 020: a folder's actions are in its More actions menu.
     await folderRow(page, name)
-      .getByRole('button', { name: `Remove ${name}` })
+      .getByRole('button', { name: `More actions for ${name}` })
       .click();
+    await page.getByRole('menuitem', { name: /^Delete/ }).click();
 
     await expect(folderRow(page, name)).toHaveCount(0);
     await expect(folderRow(other, name)).toHaveCount(0);
@@ -258,7 +260,46 @@ test('AC-6, AC-8, AC-11, AC-17: Given two pages on Repositories, when I add a fo
   }
 });
 
-test('AC-7, AC-10: Given the add-folder form, when the folder is not a repository, then Folder says so, and Escape closes the form', async ({
+test('AC-17, AC-20 (spec 020): Given a folder, when I choose Edit in its More actions, then the dialog opens filled in, and Escape gives focus back to More actions', async ({
+  page,
+}, testInfo) => {
+  const folders = makeFolders(`edit-${testInfo.project.name}`);
+  const name = `app-edit-${testInfo.project.name}`;
+  try {
+    await page.goto('/settings/repositories');
+    await waitForTab(page, 'repositories');
+    await page.getByRole('button', { name: 'Add local folder' }).click();
+    await page.getByRole('textbox', { name: 'Folder' }).fill(folders.repository);
+    await page.keyboard.press('Enter');
+    await expect(folderRow(page, name)).toBeVisible();
+
+    const more = folderRow(page, name).getByRole('button', { name: `More actions for ${name}` });
+    await more.click();
+    await expect(page.getByRole('menuitem', { name: /^Delete/ })).toContainText('The folder stays on disk.');
+    await page.getByRole('menuitem', { name: 'Edit' }).click();
+
+    const dialog = page.getByRole('dialog', { name: `Edit ${name}` });
+    await expect(dialog.getByRole('textbox', { name: 'Folder' })).toHaveValue(new RegExp(`${name}$`));
+    await expect(dialog.getByRole('textbox', { name: 'Folder' })).toBeFocused();
+    // The dialog's actions sit at its end, Cancel first (the user's call, 18 Oct 2026).
+    const cancel = await dialog.getByRole('button', { name: 'Cancel' }).boundingBox();
+    const save = await dialog.getByRole('button', { name: 'Save changes' }).boundingBox();
+    expect(cancel !== null && save !== null && cancel.x < save.x).toBe(true);
+    expect(await axeViolations(page)).toEqual([]);
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(more).toBeFocused();
+
+    await more.click();
+    await page.getByRole('menuitem', { name: /^Delete/ }).click();
+    await expect(folderRow(page, name)).toHaveCount(0);
+  } finally {
+    folders.remove();
+  }
+});
+
+test('AC-7, AC-10: Given the Add a folder dialog, when the folder is not a repository, then Folder says so, and Escape closes the dialog', async ({
   page,
 }, testInfo) => {
   const folders = makeFolders(testInfo.project.name);
@@ -279,7 +320,7 @@ test('AC-7, AC-10: Given the add-folder form, when the folder is not a repositor
     expect(await horizontalOverflow(page)).toBe(0);
 
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('form', { name: 'Add a folder' })).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Add a folder' })).toHaveCount(0);
     await expect(add).toBeFocused();
   } finally {
     folders.remove();
@@ -295,7 +336,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await page.goto(`/settings/${tab}`);
       await waitForTab(page, tab);
       if (tab === 'repositories') {
-        // The open form with an error, so the field, the select and the message are checked too.
+        // The open dialog with an error, so the field, the select and the message are checked too.
         await page.getByRole('button', { name: 'Add local folder' }).click();
         await page.getByRole('button', { name: 'Add folder' }).click();
         await expect(page.getByText("Enter the folder's path.")).toBeVisible();

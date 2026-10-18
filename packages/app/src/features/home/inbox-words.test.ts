@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultPreferences, type Inbox, type InboxItem, type InboxReason } from '@devhub/contracts';
 import { makeInbox, makeInboxItem } from '@devhub/contracts/testing';
-import { actionLabel, emptyText, reasonPill, subLine, syncLine, tabCounts, toolLine, waitText } from './inbox-words.ts';
+import { emptyText, reasonPill, rowActions, subLine, syncLine, tabCounts, toolLine, waitText } from './inbox-words.ts';
 
 // Saturday 17 October 2026, 10:00 on the laptop's own clock, whatever its time zone.
 const now = new Date(2026, 9, 17, 10, 0);
@@ -108,21 +108,31 @@ describe('Home’s words', () => {
     ).toBe('PROJ-1');
   });
 
-  it('AC-6, AC-12: the actions say Review for a review request and Open for a pull request or a session (Q6)', () => {
-    const action = (reason: InboxReason) => actionLabel(makeInboxItem({ reason }));
-
-    expect(action({ kind: 'review_requested' })).toBe('Review');
-    for (const reason of [{ kind: 'checks_failing' }, { kind: 'unresolved_comments', count: 2 }] as const) {
-      expect(action(reason)).toBe('Open');
+  it('AC-15 (spec 020): a pull request’s one action opens it in GitHub, where its reason points, named for it', () => {
+    for (const reason of [
+      { kind: 'review_requested' },
+      { kind: 'checks_failing' },
+      { kind: 'unresolved_comments', count: 2 },
+    ] as const) {
+      expect(rowActions(makeInboxItem({ reason }))).toEqual({
+        ship: null,
+        open: {
+          kind: 'external',
+          url: 'https://github.com/acme/web-app/pull/2841/files',
+          label: 'Open in GitHub',
+          name: 'Open web-app #2841 in GitHub',
+        },
+      });
     }
   });
 
-  it('AC-15 (spec 011): an assigned issue says Build, or Open when it has a live session', () => {
+  it('AC-14 (spec 020): an assigned issue has Ship then Open in Jira, or only Open session once its session is live', () => {
     const issue = (target: InboxItem['target'], reason: InboxReason = { kind: 'status', category: 'to_do' }) =>
-      actionLabel(
+      rowActions(
         makeInboxItem({
           source: 'jira',
           tab: 'jira',
+          title: 'Add bulk archive',
           subject: { kind: 'issue', key: 'PROJ-1', status: 'To Do', highPriorityBug: false },
           reason,
           target,
@@ -134,10 +144,17 @@ describe('Home’s words', () => {
       { kind: 'status', category: 'to_do' },
       { kind: 'due', on: '2026-10-19', highPriorityBug: false },
     ] as const) {
-      expect(issue(jira, reason)).toBe('Build');
+      expect(issue(jira, reason)).toEqual({
+        ship: 'PROJ-1',
+        open: { kind: 'external', url: jira.url, label: 'Open in Jira', name: 'Open PROJ-1 in Jira' },
+      });
     }
-    expect(issue({ kind: 'session', sessionId: 'session-1' })).toBe('Open');
-    expect(issue({ kind: 'session', sessionId: 'session-1' }, { kind: 'approval' })).toBe('Open');
+    const live = {
+      ship: null,
+      open: { kind: 'session', sessionId: 'session-1', label: 'Open session', name: 'Open session: Add bulk archive' },
+    };
+    expect(issue({ kind: 'session', sessionId: 'session-1' })).toEqual(live);
+    expect(issue({ kind: 'session', sessionId: 'session-1' }, { kind: 'approval' })).toEqual(live);
   });
 
   it('AC-1: counts the rows in each tab, with All counting every row', () => {

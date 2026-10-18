@@ -1,9 +1,9 @@
-// Design: docs/design/screens/tickets.html — page bar, filter toolbar, board and list
+// Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list
 import { useRef, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { KanbanIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
-import type { InboxToolState } from '@devhub/contracts';
+import { defaultTicketsChoice, type InboxToolState, type TicketsChoice } from '@devhub/contracts';
 import { Button, Icon, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
 import { useWide } from '../../shell/use-wide.ts';
@@ -11,9 +11,11 @@ import { toolLine } from '../../words/tool-line.ts';
 import { useNow } from '../../words/use-now.ts';
 import { TicketsBoard, TicketsBoardSkeleton } from './components/tickets-board.tsx';
 import { TicketsList, TicketsListSkeleton } from './components/tickets-list.tsx';
+import { SprintPickers } from './components/sprint-pickers.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
 import {
   defaultFilters,
+  filterOptions,
   filtersFromSearch,
   hasExtraFilters,
   matches,
@@ -22,7 +24,15 @@ import {
 } from './filters.ts';
 import { useTickets } from './queries.ts';
 import { useTicketsStore } from './store.ts';
-import { noSprintText, pageHeading, sprintMeta, tooManyLine, unreachableText } from './ticket-words.ts';
+import {
+  noOpenSprintsText,
+  noSprintName,
+  noSprintText,
+  pageHeading,
+  sprintMeta,
+  tooManyLine,
+  unreachableText,
+} from './ticket-words.ts';
 
 const ticketsCrumb: Crumb = { label: 'Tickets' };
 
@@ -36,7 +46,7 @@ export function TicketsScreen() {
   // The search box narrows this page only, and isn't kept in the address (Q3e).
   const form = useForm<{ text: string }>({ defaultValues: { text: '' } });
   const text = useWatch({ control: form.control, name: 'text' });
-  const assignedToMe = useRef<HTMLButtonElement>(null);
+  const assignee = useRef<HTMLButtonElement>(null);
   const now = useNow();
   const wide = useWide();
 
@@ -53,18 +63,27 @@ export function TicketsScreen() {
   }
   if (data?.jira.state === 'not_connected') return <JiraNotConnected />;
 
-  // Loading until the first sync has read the sprint (Q8a); after that the cache always answers.
+  // Loading until the first sync has read the sprint (Q8a), or a new pick's (spec 020); after that the cache answers.
   const loading = data === undefined || data.jira.state === 'syncing';
   const sprint = data?.sprint ?? null;
-  if (!loading && sprint === null) return <NoSprint jira={data.jira} now={now} />;
+  const choice = data?.choice ?? defaultTicketsChoice;
+  // No sprint shows its tickets with no sprint of their own (spec 020, AC-39).
+  const withoutSprint = choice.sprintId === 'none';
+  // Q8c: Jira answered and there's no sprint to show, or the picked project has none (spec 020, AC-28). The page
+  // keeps its bar and pickers, the same elements, so a pick that empties or fills it keeps focus where it was.
+  const noSprint = !loading && sprint === null && !withoutSprint;
+  // What the page calls what it shows; null while it loads.
+  const shownName = sprint?.name ?? (withoutSprint && !loading ? noSprintName : null);
 
   const filters = { ...filtersFromSearch(search), text };
   const all = data?.tickets ?? [];
   const shown = all.filter((ticket) => matches(ticket, filters, now));
-  // Assigned to me alone, so an empty column can say whether the other filters emptied it (Q9d).
-  const unfiltered = all.filter((ticket) => matches(ticket, { ...defaultFilters, mine: filters.mine }, now));
+  // Assignee alone, so an empty column can say whether the other filters emptied it (Q9d).
+  const unfiltered = all.filter((ticket) => matches(ticket, { ...defaultFilters, assignee: filters.assignee }, now));
+  const { text: _, ...address } = filters;
+  const options = filterOptions(all, address);
   const crumbs: Crumb[] =
-    sprint === null ? [ticketsCrumb] : [{ ...ticketsCrumb, to: '/tickets' }, { label: sprint.name }];
+    shownName === null ? [ticketsCrumb] : [{ ...ticketsCrumb, to: '/tickets' }, { label: shownName }];
   const line = data === undefined ? null : toolLine('jira', data.jira, now);
 
   function changeFilters(next: AddressFilters) {
@@ -74,7 +93,7 @@ export function TicketsScreen() {
   function clearFilters() {
     form.reset();
     changeFilters(defaultFilters);
-    assignedToMe.current?.focus();
+    assignee.current?.focus();
   }
 
   // One search field: in the page bar from 768 px, as the design draws it, and at the start of the toolbar
@@ -90,7 +109,9 @@ export function TicketsScreen() {
   );
 
   let body: ReactNode;
-  if (sprint === null) {
+  if (noSprint) {
+    body = <NoSprint jira={data.jira} choice={choice} />;
+  } else if (loading || shownName === null) {
     body = view === 'board' ? <TicketsBoardSkeleton /> : <TicketsListSkeleton />;
   } else if (view === 'board') {
     body = <TicketsBoard shown={shown} unfiltered={unfiltered} now={now} />;
@@ -98,9 +119,9 @@ export function TicketsScreen() {
     body = (
       <TicketsList
         shown={shown}
-        sprintName={sprint.name}
+        sprintName={shownName}
         filtered={hasExtraFilters(filters)}
-        onlyMine={filters.mine}
+        onlyMine={filters.assignee.length === 1 && filters.assignee[0] === 'me'}
         now={now}
       />
     );
@@ -110,44 +131,55 @@ export function TicketsScreen() {
     <>
       <PageBar
         breadcrumb={<PageBreadcrumb crumbs={crumbs} />}
-        meta={sprint === null ? undefined : (sprintMeta(sprint, now) ?? undefined)}
+        meta={
+          sprint === null
+            ? withoutSprint
+              ? (choice.projectKey ?? undefined)
+              : undefined
+            : (sprintMeta(sprint, now) ?? undefined)
+        }
         actions={
-          <>
-            {wide ? searchField : null}
-            <SegmentedControl
-              aria-label="View"
-              value={view}
-              onValueChange={(picked) => {
-                if (picked === 'board' || picked === 'list') setView(picked);
-              }}
-            >
-              <SegmentedControlItem value="board">
-                <Icon icon={KanbanIcon} aria-hidden />
-                Board
-              </SegmentedControlItem>
-              <SegmentedControlItem value="list">
-                <Icon icon={LeftToRightListBulletIcon} aria-hidden />
-                List
-              </SegmentedControlItem>
-            </SegmentedControl>
-          </>
+          noSprint ? undefined : (
+            <>
+              {wide ? searchField : null}
+              <SegmentedControl
+                aria-label="View"
+                value={view}
+                onValueChange={(picked) => {
+                  if (picked === 'board' || picked === 'list') setView(picked);
+                }}
+              >
+                <SegmentedControlItem value="board">
+                  <Icon icon={KanbanIcon} aria-hidden />
+                  Board
+                </SegmentedControlItem>
+                <SegmentedControlItem value="list">
+                  <Icon icon={LeftToRightListBulletIcon} aria-hidden />
+                  List
+                </SegmentedControlItem>
+              </SegmentedControl>
+            </>
+          )
         }
       />
       <TicketsToolbar
         filters={filters}
         onFiltersChange={changeFilters}
         onClear={clearFilters}
+        options={options}
         count={loading ? undefined : shown.length}
-        assignedToMeRef={assignedToMe}
+        assigneeRef={assignee}
+        pickers={<SprintPickers choice={choice} sprint={sprint} loading={loading} />}
+        pickersOnly={noSprint}
         {...(wide ? {} : { search: searchField })}
       />
-      <PageBody width="full">
-        <h1 className="sr-only">{sprint === null ? 'Tickets' : pageHeading(sprint.name)}</h1>
+      <PageBody width={noSprint ? 'wide' : 'full'}>
+        <h1 className="sr-only">{shownName === null ? 'Tickets' : pageHeading(shownName)}</h1>
         {line === null && data?.truncated !== true ? null : (
           <div className="flex flex-col gap-1">
             {line === null ? null : <Note message={line.message} action={line.action} />}
-            {sprint !== null && data?.truncated === true ? (
-              <Note message={tooManyLine(sprint.name)} action={null} />
+            {shownName !== null && data?.truncated === true ? (
+              <Note message={tooManyLine(shownName)} action={null} />
             ) : null}
           </div>
         )}
@@ -178,24 +210,19 @@ function Note({ message, action }: { message: string; action: { text: string; ta
   );
 }
 
-/** Q8c: Jira answered, and no active sprint holds a ticket of yours; or its sync failed before it said. */
-function NoSprint({ jira, now }: { jira: InboxToolState; now: Date }) {
-  const line = toolLine('jira', jira, now);
-  // A sync that failed before Jira ever answered can't say whether there's a sprint.
+/**
+ * Q8c: Jira answered, and no active sprint holds a ticket of yours, or the picked project has no open sprint
+ * (spec 020, AC-28). A sync that failed before Jira ever answered can't say, so its line above stands alone.
+ */
+function NoSprint({ jira, choice }: { jira: InboxToolState; choice: TicketsChoice }) {
   const answered = jira.state === 'synced' || (jira.state === 'failed' && jira.lastSyncedAt !== null);
-  return (
-    <>
-      <PageBar breadcrumb={<PageBreadcrumb crumbs={[ticketsCrumb]} />} />
-      <PageBody>
-        <h1 className="sr-only">Tickets</h1>
-        {line === null ? null : <Note message={line.message} action={line.action} />}
-        {answered ? (
-          <EmptyState title={noSprintText.title}>
-            <span>{noSprintText.line}</span>
-          </EmptyState>
-        ) : null}
-      </PageBody>
-    </>
+  if (!answered) return null;
+  return choice.projectKey === null ? (
+    <EmptyState title={noSprintText.title}>
+      <span>{noSprintText.line}</span>
+    </EmptyState>
+  ) : (
+    <EmptyState title={noOpenSprintsText(choice.projectKey)} />
   );
 }
 

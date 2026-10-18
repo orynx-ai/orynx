@@ -2,6 +2,7 @@ import axios, { type AxiosInstance } from 'axios';
 import {
   tokenHeader,
   type AddRepositoryRequest,
+  type FolderPick,
   type ClaudeLogin,
   type GitHubConnection,
   type GitHubConnectionRequest,
@@ -14,6 +15,7 @@ import {
   type Repository,
   type RepositoryId,
   type RepositoryList,
+  type UpdateRepositoryRequest,
   type SearchIndex,
   type ServerEvent,
   type ApprovalDecision,
@@ -26,14 +28,22 @@ import {
   type StartSessionAnswer,
   type StartSessionRequest,
   type Status,
+  type OpenSprints,
   type Tickets,
+  type TicketsChoice,
 } from '@devhub/contracts';
 import { getClaudeLogin, postClaudeLoginCheck } from './endpoints/claude.ts';
 import { deleteGitHubConnection, getGitHubConnection, putGitHubConnection } from './endpoints/github.ts';
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
 import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnection } from './endpoints/jira.ts';
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
-import { deleteRepository, getRepositories, postRepository } from './endpoints/repositories.ts';
+import {
+  deleteRepository,
+  getRepositories,
+  patchRepository,
+  postFolderPicker,
+  postRepository,
+} from './endpoints/repositories.ts';
 import { getSearch } from './endpoints/search.ts';
 import {
   getFileDiff,
@@ -47,7 +57,7 @@ import {
   postSessionStop,
 } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
-import { getTickets } from './endpoints/tickets.ts';
+import { getTickets, getTicketsSprints, putTicketsChoice } from './endpoints/tickets.ts';
 import { toApiRequestError } from './errors.ts';
 import { subscribeToEvents, type EventSourceConstructor } from './events.ts';
 
@@ -104,8 +114,12 @@ export interface ApiClient {
   repositories(): Promise<RepositoryList>;
   /** Checks the folder on disk, then saves it; rejects with folder_rejected and the message for the Folder field. */
   addRepository(request: AddRepositoryRequest): Promise<Repository>;
+  /** Changes a folder's path or Jira project in place (spec 020); rejects with folder_rejected or not_found. */
+  editRepository(id: RepositoryId, request: UpdateRepositoryRequest): Promise<Repository>;
   /** Forgets the folder; nothing on disk changes. */
   removeRepository(id: RepositoryId): Promise<void>;
+  /** Opens the computer's folder picker (spec 020); rejects with picker_unavailable where none can open. */
+  pickFolder(): Promise<FolderPick>;
   /** Home's "Needs your attention" list, from the server's cache. */
   inbox(): Promise<Inbox>;
   /** Syncs the inbox now; resolves once the sync has ended. */
@@ -114,6 +128,10 @@ export interface ApiClient {
   clearInboxCache(): Promise<void>;
   /** Tickets' sprint and its tickets, from the server's cache (spec 008). It syncs with the inbox. */
   tickets(): Promise<Tickets>;
+  /** A project's open sprints for Tickets' Sprint menu (spec 020), asked of Jira now. */
+  ticketsSprints(project: string): Promise<OpenSprints>;
+  /** Saves which sprint Tickets shows (spec 020). */
+  chooseTicketsSprint(choice: TicketsChoice): Promise<void>;
   /** Claude Code's login on this computer, as the server last checked it (spec 010). */
   claudeLogin(): Promise<ClaudeLogin>;
   /** Check again: the server asks Claude Code now, or shares a check that's running. */
@@ -175,12 +193,19 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     repositories: () => getRepositories(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     addRepository: (request) =>
       postRepository(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    editRepository: (id, request) =>
+      patchRepository(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     removeRepository: (id) =>
       deleteRepository(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    pickFolder: () => postFolderPicker(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     inbox: () => getInbox(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     refreshInbox: () => postInboxRefresh(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     tickets: () => getTickets(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    ticketsSprints: (project) =>
+      getTicketsSprints(http, project).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    chooseTicketsSprint: (choice) =>
+      putTicketsChoice(http, choice).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     claudeLogin: () => getClaudeLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkClaudeLogin: () =>
       postClaudeLoginCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

@@ -1,9 +1,10 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import {
   ApiRequestError,
   preferencesQueryOptions,
   sessionChangesQueryOptions,
   sessionDiffQueryOptions,
+  sessionPagesQueryOptions,
   sessionQueryKey,
   sessionsQueryOptions,
 } from '@devhub/api-client';
@@ -14,6 +15,12 @@ import { useApi } from '../../api.tsx';
 export function useSessions(query: SessionListQuery = {}) {
   const api = useApi();
   return useQuery(sessionsQueryOptions(api, query));
+}
+
+/** Sessions a page at a time, newest activity first (spec 020: the sidebar's infinite list). */
+export function useSessionPages(query: Omit<SessionListQuery, 'cursor'>) {
+  const api = useApi();
+  return useInfiniteQuery(sessionPagesQueryOptions(api, query));
 }
 
 /**

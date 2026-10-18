@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 import type { SessionListQuery } from '@devhub/contracts';
 import type { ApiClient } from './client.ts';
 
@@ -14,6 +14,8 @@ export const queryKeys = {
   repositories: ['repositories'] as const,
   inbox: ['inbox'] as const,
   tickets: ['tickets'] as const,
+  /** Not under `tickets`, so a sync's inbox.changed never asks Jira for a project's sprints again. */
+  ticketsSprints: ['jira', 'sprints'] as const,
   claudeLogin: ['claude', 'login'] as const,
   search: ['search'] as const,
 };
@@ -31,6 +33,22 @@ export function sessionsQueryOptions(api: ApiClient, query: SessionListQuery = {
   return queryOptions({
     queryKey: [...queryKeys.sessions, query] as const,
     queryFn: () => api.sessions(query),
+    // Freshness comes from the event stream (sessions.changed), not from polling.
+    staleTime: Infinity,
+  });
+}
+
+/**
+ * Sessions a page at a time, each page starting where the last one's `nextCursor` says (spec 020: the
+ * sidebar's infinite list). A `sessions.changed` refetch reads the pages again in order from the first, so
+ * each cursor comes from fresh data and a session that moved to the top shows once.
+ */
+export function sessionPagesQueryOptions(api: ApiClient, query: Omit<SessionListQuery, 'cursor'> = {}) {
+  return infiniteQueryOptions({
+    queryKey: [...queryKeys.sessions, 'pages', query] as const,
+    queryFn: ({ pageParam }) => api.sessions(pageParam === null ? query : { ...query, cursor: pageParam }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     // Freshness comes from the event stream (sessions.changed), not from polling.
     staleTime: Infinity,
   });
@@ -122,7 +140,7 @@ export function jiraProjectsQueryOptions(api: ApiClient) {
   return queryOptions({
     queryKey: queryKeys.jiraProjects,
     queryFn: () => api.jiraProjects(),
-    // Asked each time the add-folder form opens and dropped when it closes (spec 005): nothing is cached.
+    // Asked each time the folder dialog or Tickets' Project picker opens (specs 005, 020): nothing is cached.
     staleTime: 0,
     gcTime: 0,
     retry: false,
@@ -136,6 +154,18 @@ export function inboxQueryOptions(api: ApiClient) {
     // Freshness comes from the event stream (inbox.changed, settings.changed, status.changed), not from
     // polling: the server syncs on its own every 2 minutes while a page is open.
     staleTime: Infinity,
+  });
+}
+
+/**
+ * A project's open sprints, for Tickets' Sprint menu (spec 020): asked of Jira when the menu needs them,
+ * and kept for a minute, so opening the menu again doesn't ask again.
+ */
+export function ticketsSprintsQueryOptions(api: ApiClient, project: string) {
+  return queryOptions({
+    queryKey: [...queryKeys.ticketsSprints, project] as const,
+    queryFn: () => api.ticketsSprints(project),
+    staleTime: 60_000,
   });
 }
 

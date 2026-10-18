@@ -38,6 +38,8 @@ const SettingsSchema = z.looseObject({
   agent: WrittenObjectSchema.optional().catch(undefined),
   inbox: WrittenObjectSchema.optional().catch(undefined),
   repositories: z.array(z.unknown()).optional().catch(undefined),
+  /** Which sprint Tickets shows (spec 020), kept as written; the tickets service reads what it can. */
+  tickets: WrittenObjectSchema.optional().catch(undefined),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

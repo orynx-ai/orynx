@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { apiRoutes, TicketsSchema, tokenHeader } from '@devhub/contracts';
+import { apiRoutes, ApiErrorSchema, OpenSprintsSchema, TicketsSchema, tokenHeader } from '@devhub/contracts';
 import { makeSessionSummary } from '@devhub/contracts/testing';
 import { createServer, type CoreOptions } from '../create-server.ts';
 import { cacheFilePath, openInboxCache } from '../inbox/inbox-cache.ts';
@@ -12,6 +12,8 @@ import { createMemoryKeychain } from '../secrets/memory-keychain.ts';
 import { createMemorySessionStore } from '../sessions/session-store.ts';
 import { createMemorySettingsStore, type Settings } from '../settings/settings-store.ts';
 import {
+  acceptingProjectSprints,
+  acceptingPrioritySearch,
   acceptingBoardConfiguration,
   acceptingFieldList,
   acceptingIssueSearch,
@@ -98,6 +100,7 @@ describe('/api/tickets', () => {
       sprint: null,
       tickets: [],
       truncated: false,
+      choice: { projectKey: null, sprintId: null },
     });
   });
 
@@ -142,5 +145,100 @@ describe('/api/tickets', () => {
     const second = await server({ settings, cache: openInboxCache(cacheFilePath(folder)) });
 
     expect((await readTickets(second)).tickets.map((ticket) => ticket.key)).toEqual(['PROJ-1423']);
+  });
+});
+
+describe('/api/tickets/sprints and /api/tickets/choice (spec 020)', () => {
+  const web = {
+    WEB: [
+      {
+        id: 11,
+        sprints: [
+          { id: 44, name: 'Sprint 44', state: 'future' as const, startDate: '2026-10-27T09:00:00.000Z', endDate: null },
+          { id: 43, name: 'Sprint 43', state: 'active' as const, endDate: '2026-10-24T17:00:00.000Z' },
+        ],
+      },
+    ],
+  };
+
+  it('AC-26: lists a project’s active sprints, then its future ones, with their dates', async () => {
+    outside.use(...acceptingProjectSprints(web));
+    const app = await server({ settings: createMemorySettingsStore(jiraConnected) });
+
+    const response = await app.inject({ method: 'GET', url: `${apiRoutes.ticketsSprints}?project=WEB`, headers });
+
+    expect(response.statusCode).toBe(200);
+    expect(OpenSprintsSchema.parse(response.json())).toEqual({
+      sprints: [
+        {
+          id: 43,
+          name: 'Sprint 43',
+          state: 'active',
+          startsAt: '2026-10-10T09:00:00.000Z',
+          endsAt: '2026-10-24T17:00:00.000Z',
+        },
+        { id: 44, name: 'Sprint 44', state: 'future', startsAt: '2026-10-27T09:00:00.000Z', endsAt: null },
+      ],
+    });
+  });
+
+  it('AC-28: says why the sprints didn’t load, and refuses a project key it can’t read', async () => {
+    const app = await server();
+    const notConnected = await app.inject({ method: 'GET', url: `${apiRoutes.ticketsSprints}?project=WEB`, headers });
+    expect(notConnected.statusCode).toBe(400);
+    expect(ApiErrorSchema.parse(notConnected.json()).code).toBe('bad_request');
+
+    const bad = await app.inject({ method: 'GET', url: `${apiRoutes.ticketsSprints}?project=web%20app`, headers });
+    expect(bad.statusCode).toBe(400);
+  });
+
+  it('AC-26, AC-27: saving a choice answers 204, reads say syncing, then its sprint once the pass ends', async () => {
+    acceptingSprint([{ key: 'PROJ-1423', summary: 'Add bulk archive', priority: null }]);
+    outside.use(
+      ...acceptingProjectSprints(web),
+      acceptingBoardConfiguration(11),
+      acceptingPrioritySearch(),
+      acceptingSprintIssueSearch(43, [{ key: 'WEB-7', summary: 'Ship the new footer', priority: null }]),
+    );
+    const settings = createMemorySettingsStore(jiraConnected);
+    const app = await server({ settings });
+
+    const saved = await app.inject({
+      method: 'PUT',
+      url: apiRoutes.ticketsChoice,
+      headers,
+      payload: { projectKey: 'WEB', sprintId: null },
+    });
+
+    expect(saved.statusCode).toBe(204);
+    expect((await settings.read()).tickets).toEqual({ projectKey: 'WEB', sprintId: null });
+    const read = await vi.waitFor(async () => {
+      const tickets = await readTickets(app);
+      expect(tickets.sprint).not.toBeNull();
+      return tickets;
+    });
+    expect(read.choice).toEqual({ projectKey: 'WEB', sprintId: null });
+    expect(read.sprint?.name).toBe('Sprint 43');
+    expect(read.tickets.map((ticket) => ticket.key)).toEqual(['WEB-7']);
+  });
+
+  it('refuses a sprint picked without its project, and a request without the session token', async () => {
+    const app = await server({ settings: createMemorySettingsStore(jiraConnected) });
+
+    const orphan = await app.inject({
+      method: 'PUT',
+      url: apiRoutes.ticketsChoice,
+      headers,
+      payload: { projectKey: null, sprintId: 43 },
+    });
+    expect(orphan.statusCode).toBe(400);
+
+    const anonymous = await app.inject({
+      method: 'PUT',
+      url: apiRoutes.ticketsChoice,
+      headers: { host: headers.host },
+      payload: { projectKey: null, sprintId: null },
+    });
+    expect(anonymous.statusCode).toBe(401);
   });
 });

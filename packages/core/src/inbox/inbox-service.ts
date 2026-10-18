@@ -41,6 +41,11 @@ export interface InboxService {
    * state, so another one follows it. Resolves when that one has ended.
    */
   syncAfterChange(): Promise<void>;
+  /**
+   * A sprint pass that sees a change just made, such as Tickets' choice (spec 020): one running read the old
+   * state, so another follows it. Resolves when the pass has ended and pages were told.
+   */
+  sprintAfterChange(): Promise<void>;
   /** Resolves once no sync is running, the sprint's included, so the host can close the cache after the last write. */
   idle(): Promise<void>;
   /** Clear cache: everything goes, open pages are told, and a sync starts. */
@@ -284,6 +289,11 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     sync,
 
     syncAfterChange,
+
+    async sprintAfterChange() {
+      syncSprint();
+      await sprintRunning;
+    },
 
     idle() {
       // The sprint's pass too, so the host closes the cache only after its last write.

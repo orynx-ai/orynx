@@ -47,6 +47,24 @@ describe('SessionListQuerySchema', () => {
   it('AC-15: rejects a limit below 1', () => {
     expect(SessionListQuerySchema.safeParse({ limit: '0' }).success).toBe(false);
   });
+
+  it('AC-6 (spec 020): reads a cursor of the last row’s time and id, and refuses one it can’t read', () => {
+    expect(SessionListQuerySchema.parse({ limit: '16', cursor: '1760608800000.0123456789abcdef' })).toEqual({
+      limit: 16,
+      cursor: '1760608800000.0123456789abcdef',
+    });
+    expect(SessionListQuerySchema.safeParse({ cursor: 'yesterday' }).success).toBe(false);
+    expect(SessionListQuerySchema.safeParse({ cursor: '1760608800000.' }).success).toBe(false);
+  });
+});
+
+describe('SessionListSchema paging', () => {
+  it('AC-6 (spec 020): a page names where the next one starts, or null on the last; an older answer reads as the last', () => {
+    expect(SessionListSchema.parse({ sessions: [], nextCursor: '1760608800000.session-16' }).nextCursor).toBe(
+      '1760608800000.session-16',
+    );
+    expect(SessionListSchema.parse({ sessions: [] })).toEqual({ sessions: [], nextCursor: null });
+  });
 });
 
 describe('sessions on the wire', () => {

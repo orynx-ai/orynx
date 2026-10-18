@@ -49,7 +49,7 @@ export function githubFormSchema(tokenRequired: boolean): z.ZodType<GitHubCreden
   ]);
 }
 
-/** What the add-folder form holds while a person types; "" in the select means no Jira project. */
+/** What the folder dialog holds while a person types (spec 020); "" for the Jira project means none. */
 export interface AddFolderFormValues {
   path: string;
   jiraProject: string;

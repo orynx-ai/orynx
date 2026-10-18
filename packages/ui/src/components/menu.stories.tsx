@@ -2,10 +2,21 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { File01Icon, Folder01Icon, GitBranchIcon, PlusSignIcon, Settings02Icon } from '@hugeicons/core-free-icons';
 import { Button } from './button.tsx';
-import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from './menu.tsx';
+import {
+  Menu,
+  MenuCheckboxItem,
+  MenuContent,
+  MenuItem,
+  MenuLabel,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuSeparator,
+  MenuTrigger,
+} from './menu.tsx';
 import { Picker } from './picker.tsx';
 import { SourceMark } from './source-mark.tsx';
 import { Icon } from './icon.tsx';
+import { IconButton } from './icon-button.tsx';
 
 const meta = {
   title: 'Components/Menu',
@@ -32,9 +43,9 @@ export const AddContext: Story = {
   render: (args) => (
     <Menu {...args}>
       <MenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label="Add context">
+        <IconButton variant="ghost" size="sm" label="Add context">
           <Icon icon={PlusSignIcon} aria-hidden />
-        </Button>
+        </IconButton>
       </MenuTrigger>
       <MenuContent
         aria-label="Add context"
@@ -146,3 +157,27 @@ export const Filter: Story = {
     </div>
   ),
 };
+
+/** Compact, as Tickets' Sprint picker opens it (spec 020): 32 px rows, 14 px words, 12 px dates, at most 360 px tall. */
+export const Compact: Story = {
+  render: (args) => (
+    <Menu {...args}>
+      <MenuTrigger asChild>
+        <Picker>Sprint 43</Picker>
+      </MenuTrigger>
+      <MenuContent heading="Sprint" size="sm">
+        <MenuRadioGroup value="43">
+          {Array.from({ length: 12 }, (_, index) => 43 + index).map((sprint) => (
+            <MenuRadioItem key={sprint} value={String(sprint)} description={index(sprint)}>
+              Sprint {sprint}
+            </MenuRadioItem>
+          ))}
+        </MenuRadioGroup>
+      </MenuContent>
+    </Menu>
+  ),
+};
+
+function index(sprint: number): string {
+  return sprint === 43 ? 'Active · ends 24 Oct' : 'Future';
+}

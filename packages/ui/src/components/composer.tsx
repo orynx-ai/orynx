@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { ArrowUp02Icon, Loading03Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
-import { Button } from './button.tsx';
+import { IconButton } from './icon-button.tsx';
 import { Icon } from './icon.tsx';
 
 /** Home's task box, or the follow-up box on the Session screen. */
@@ -202,11 +202,10 @@ export function ComposerSend({ label, className, onClick, ...props }: ComposerSe
   const { look, canSend, pending } = useContext(ComposerContext);
   const unavailable = !canSend || pending;
   return (
-    <Button
+    <IconButton
       type="submit"
       variant={look === 'task' ? 'primary' : 'secondary'}
-      size="icon"
-      aria-label={label}
+      label={label}
       aria-disabled={unavailable || undefined}
       aria-busy={pending || undefined}
       onClick={(event) => {
@@ -224,6 +223,6 @@ export function ComposerSend({ label, className, onClick, ...props }: ComposerSe
       ) : (
         <Icon icon={ArrowUp02Icon} aria-hidden />
       )}
-    </Button>
+    </IconButton>
   );
 }

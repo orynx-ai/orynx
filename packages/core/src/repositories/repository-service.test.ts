@@ -103,14 +103,31 @@ describe('repository service', () => {
     expect(seen).toEqual([]);
   });
 
-  it('AC-7: refuses a folder already in the list, even through a symlink', async () => {
+  it('AC-7: refuses a folder already in the list for the same project, even through a symlink', async () => {
     const { repositories } = service();
     await repositories.add({ path: '~/code/app', jiraProject: null });
+    await repositories.add({ path: '~/code/mobile', jiraProject: 'MOB' });
 
-    expect(await refusal(repositories.add({ path: '~/app-link', jiraProject: 'PROJ' }))).toBe(
+    expect(await refusal(repositories.add({ path: '~/app-link', jiraProject: null }))).toBe(
       'This folder is already in the list.',
     );
-    expect(await repositories.list()).toHaveLength(1);
+    expect(await refusal(repositories.add({ path: '~/code/mobile', jiraProject: 'MOB' }))).toBe(
+      'This folder is already in the list for MOB.',
+    );
+    expect(await repositories.list()).toHaveLength(2);
+  });
+
+  it('AC-21 (spec 020, Q3): lists the same folder again for another Jira project, as Duplicate does', async () => {
+    const { repositories } = service();
+    await repositories.add({ path: '~/code/app', jiraProject: 'PROJ' });
+
+    const again = await repositories.add({ path: '~/app-link', jiraProject: 'WEB' });
+
+    expect(again).toMatchObject({ path: app, jiraProject: 'WEB' });
+    expect((await repositories.list()).map((folder) => [folder.name, folder.jiraProject])).toEqual([
+      ['app', 'PROJ'],
+      ['app', 'WEB'],
+    ]);
   });
 
   it('AC-7: refuses a folder already in the list under another spelling of its path', async () => {
@@ -135,6 +152,59 @@ describe('repository service', () => {
     expect(await refusal(repositories.add({ path: '~/code/app', jiraProject: null }))).toBe(
       'Orynx holds at most 100 folders. Remove one first.',
     );
+  });
+
+  it('AC-20 (spec 020): edits a folder in place, keeping its id and place, and says settings changed', async () => {
+    const { repositories, settings, seen } = service();
+    const first = await repositories.add({ path: '~/code/app', jiraProject: 'PROJ' });
+    await repositories.add({ path: '~/code/mobile', jiraProject: 'MOB' });
+    seen.length = 0;
+
+    const edited = await repositories.update(first.id, { path: '~/code/app', jiraProject: 'WEB' });
+
+    expect(edited).toEqual({ ...first, jiraProject: 'WEB' });
+    expect((await repositories.list()).map((folder) => [folder.id, folder.jiraProject])).toEqual([
+      [first.id, 'WEB'],
+      [expect.any(String) as unknown, 'MOB'],
+    ]);
+    expect((await settings.read()).repositories?.[0]).toEqual({ id: first.id, path: app, jiraProject: 'WEB' });
+    expect(seen).toEqual([{ type: 'settings.changed' }]);
+  });
+
+  it('AC-20 (spec 020): moves a folder to another path, with the checks adding makes', async () => {
+    const { repositories } = service();
+    const first = await repositories.add({ path: '~/code/app', jiraProject: 'PROJ' });
+    await repositories.add({ path: '~/code/mobile', jiraProject: 'MOB' });
+
+    expect(await refusal(repositories.update(first.id, { path: '~/plain', jiraProject: 'PROJ' }))).toBe(
+      "This folder isn't a git repository. Claude works on a branch, so it needs one.",
+    );
+    expect(await refusal(repositories.update(first.id, { path: '~/code/mobile', jiraProject: 'MOB' }))).toBe(
+      'This folder is already in the list for MOB.',
+    );
+    expect(await repositories.update(first.id, { path: '~/code/mobile', jiraProject: 'PROJ' })).toMatchObject({
+      id: first.id,
+      name: 'mobile',
+      jiraProject: 'PROJ',
+    });
+  });
+
+  it('AC-20 (spec 020): saving a folder unchanged is not a duplicate of itself', async () => {
+    const { repositories } = service();
+    const first = await repositories.add({ path: '~/code/app', jiraProject: 'PROJ' });
+
+    expect(await repositories.update(first.id, { path: '~/app-link', jiraProject: 'PROJ' })).toMatchObject({
+      id: first.id,
+      jiraProject: 'PROJ',
+    });
+  });
+
+  it('AC-20 (spec 020): editing a folder another tab removed answers null and saves nothing', async () => {
+    const { repositories, seen } = service();
+
+    expect(await repositories.update('00000000000000aa', { path: '~/code/app', jiraProject: null })).toBeNull();
+    expect(await repositories.list()).toEqual([]);
+    expect(seen).toEqual([]);
   });
 
   it('AC-11: removes a folder by id, says settings changed, and leaves the folder on disk', async () => {

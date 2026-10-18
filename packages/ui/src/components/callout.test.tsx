@@ -1,5 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import { FakeResizeObserver } from '../test/fake-resize-observer.ts';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Button } from './button.tsx';
@@ -23,6 +24,28 @@ describe('Callout', () => {
     render(<Callout title="Everything stays on this computer">Tokens live in your OS keychain.</Callout>);
     expect(screen.getByText('Everything stays on this computer')).toBeVisible();
     expect(screen.getByText('Tokens live in your OS keychain.')).toBeVisible();
+  });
+
+  it('AC-13 (spec 020): a closable notice ends in a close button named by its label, with its tooltip', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const { container } = render(
+      <Callout title="Everything stays on this computer" closeLabel="Hide this note" onClose={onClose}>
+        Tokens live in your OS keychain.
+      </Callout>,
+    );
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Hide this note' })).toHaveFocus();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Hide this note');
+    await expectNoAxeViolations(container);
+    await user.keyboard('{Enter}');
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('has no close button unless asked for one', () => {
+    render(<Callout title="Claude wants to run a command">npm test</Callout>);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('AC-13 (spec 011): says what went wrong in the danger tone, title first', () => {

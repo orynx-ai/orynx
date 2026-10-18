@@ -1,6 +1,6 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeInbox, makeInboxItem } from '@devhub/contracts/testing';
 import { useUiStore } from '../stores/ui-store.ts';
@@ -110,50 +110,96 @@ describe('Sidebar', () => {
     const { user } = await renderApp({ route: '/tickets' });
     await user.click(within(mainNav()).getByRole('button', { name: 'Collapse sidebar' }));
     const search = within(mainNav()).getByRole('button', { name: /^Search/ });
-    expect(search).toHaveAttribute('title', 'Search');
 
     search.focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Search (⌘K)');
     await user.keyboard('{Enter}');
 
     expect(await screen.findByRole('dialog', { name: 'Search' })).toBeVisible();
   });
 
-  it('AC-4: names every icon-only control when collapsed, with a hover tooltip, in Tab order', async () => {
+  it('AC-7, AC-10, AC-11 (spec 020): every control on the rail shows its name in a tooltip as Tab reaches it', async () => {
     const { user } = await renderApp();
     const nav = mainNav();
     await within(nav).findByText('Claude not connected · runs locally');
     await user.click(within(nav).getByRole('button', { name: 'Collapse sidebar' }));
-
     const expand = within(nav).getByRole('button', { name: 'Expand sidebar' });
-    const newTask = within(nav).getByRole('link', { name: /^New task/ });
-    const search = within(nav).getByRole('button', { name: /Search/ });
-    const places = ['Home', 'Tickets', 'Settings'].map((name) => within(nav).getByRole('link', { name }));
     const footer = within(nav).getByRole('link', { name: 'You Claude not connected · runs locally' });
 
-    expect(expand).toHaveAttribute('title', 'Expand sidebar');
-    expect(newTask).toHaveAttribute('title', 'New task (⌥⌘N)');
-    expect(search).toHaveAttribute('title', 'Search');
-    expect(places.map((place) => place.getAttribute('title'))).toEqual(['Home', 'Tickets', 'Settings']);
-    expect(footer).toHaveAttribute('title', 'You · Claude not connected · runs locally');
-
-    // jsdom applies no CSS, so the narrow-window Sessions link (display: none from 768 px) is
-    // in its Tab order too; check that the rail's controls come in this order, in sequence.
+    // Collapse kept focus on this button; focus it afresh, as Tab would.
+    expand.blur();
     expand.focus();
-    const reached: Element[] = [];
-    while (document.activeElement !== footer && reached.length < 10) {
+    const tooltips: string[] = [(await screen.findByRole('tooltip')).textContent];
+    while (document.activeElement !== footer && tooltips.length < 10) {
       await user.tab();
-      if (document.activeElement !== null) reached.push(document.activeElement);
+      tooltips.push(screen.queryByRole('tooltip')?.textContent ?? '(none)');
     }
-    const order = [newTask, search, ...places, footer];
-    expect(reached.filter((element) => order.includes(element as HTMLElement))).toEqual(order);
+
+    expect(tooltips).toEqual([
+      'Expand sidebar',
+      'Search (⌘K)',
+      'Home',
+      'Tickets',
+      'Settings',
+      'Sessions',
+      'You · Claude not connected · runs locally',
+    ]);
+    // No control on the rail draws a title attribute: the tooltip is the one place its name shows.
+    expect(nav.querySelectorAll('a[title], button[title]')).toHaveLength(0);
+  });
+
+  it('AC-7 (spec 020): the collapsed rail has Sessions, which opens the full list and is marked current', async () => {
+    const { user, history } = await renderApp({ route: '/tickets' });
+    await user.click(within(mainNav()).getByRole('button', { name: 'Collapse sidebar' }));
+
+    await user.click(within(mainNav()).getByRole('link', { name: 'Sessions' }));
+
+    expect(history.location.pathname).toBe('/sessions');
+    expect(within(mainNav()).getByRole('link', { name: 'Sessions' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('AC-2: shows no tooltips while expanded, where every name is already on screen', async () => {
     await renderApp();
     const nav = mainNav();
 
-    expect(within(nav).getByRole('link', { name: 'Home' })).not.toHaveAttribute('title');
-    expect(within(nav).getByRole('link', { name: /^New task/ })).not.toHaveAttribute('title');
+    within(nav).getByRole('link', { name: 'Home' }).focus();
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    within(nav)
+      .getByRole('button', { name: /^Search/ })
+      .focus();
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('AC-11 (spec 020): a narrow window shows the places’ words, so a saved collapsed state adds no tooltips to them', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    useUiStore.setState({ sidebarCollapsed: true });
+    const { user } = await renderApp();
+    const nav = mainNav();
+    // The narrow bar's Search is an icon alone, so it has one.
+    within(nav)
+      .getByRole('button', { name: /^Search/ })
+      .focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Search (⌘K)');
+
+    await user.tab();
+
+    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveFocus();
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('AC-8 (spec 020): has no New task, collapsed or not; Home carries its shortcut for screen readers', async () => {
+    const { user } = await renderApp();
+    const nav = mainNav();
+    expect(within(nav).queryByRole('link', { name: /New task/ })).not.toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-keyshortcuts', 'Alt+Meta+N');
+
+    await user.click(within(nav).getByRole('button', { name: 'Collapse sidebar' }));
+    expect(within(nav).queryByRole('link', { name: /New task/ })).not.toBeInTheDocument();
   });
 
   it('AC-19: reaches the session list from the narrow top bar, which has no session rows', async () => {

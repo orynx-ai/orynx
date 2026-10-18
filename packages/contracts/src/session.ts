@@ -34,17 +34,30 @@ export const SessionSummarySchema = z.object({
 });
 export type SessionSummary = z.infer<typeof SessionSummarySchema>;
 
+/**
+ * Where the next page of sessions starts (spec 020): the last row's activity time in milliseconds and its
+ * id, so a session that moves to the top between two pages is never listed twice.
+ */
+export const SessionCursorSchema = z.string().regex(/^\d{1,15}\.\S{1,128}$/);
+export type SessionCursor = z.infer<typeof SessionCursorSchema>;
+
 /** GET /api/sessions: sessions with the newest activity first. */
-export const SessionListSchema = z.object({ sessions: z.array(SessionSummarySchema) });
+export const SessionListSchema = z.object({
+  sessions: z.array(SessionSummarySchema),
+  /** Pass it back as `cursor` for the next page; null on the last page, or when no `limit` was asked. */
+  nextCursor: SessionCursorSchema.nullable().default(null),
+});
 export type SessionList = z.infer<typeof SessionListSchema>;
 
 /**
  * Query string of GET /api/sessions. Leave `limit` out for every session. `recent` leaves out sessions
- * discarded more than 7 days ago, as the sidebar does (product spec, "Cleaning up").
+ * discarded more than 7 days ago, as the sidebar does (product spec, "Cleaning up"). `cursor` asks for the
+ * page after the one whose `nextCursor` it is (spec 020).
  */
 export const SessionListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
   recent: z.stringbool().optional(),
+  cursor: SessionCursorSchema.optional(),
 });
 export type SessionListQuery = z.infer<typeof SessionListQuerySchema>;
 

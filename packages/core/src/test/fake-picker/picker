@@ -1,0 +1,8 @@
+#!/bin/sh
+# A stand-in for the OS folder pickers (osascript, zenity, kdialog), for tests only (see
+# ../fake-picker.ts). Each test folder holds symlinks named after the pickers to this one file, so macOS
+# checks a new program once per run, and a behaviour.sh that says what to do. Every run appends its
+# name and arguments to runs.log in that folder.
+here=$(dirname "$0")
+echo "$(basename "$0") $*" >> "$here/runs.log"
+. "$here/behaviour.sh"

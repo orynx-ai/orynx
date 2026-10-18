@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, type ChangeEvent, type RefObject } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger, Picker, SearchField } from '@devhub/ui';
+import { FilterMenu, SearchField } from '@devhub/ui';
 import type { HomeTab } from '../inbox-tabs.ts';
-import type { FilterKey, FilterMenu } from '../inbox-view.ts';
+import type { FilterKey, FilterMenu as InboxFilter } from '../inbox-view.ts';
 import { SearchFormSchema, type SearchFormValues } from '../schemas.ts';
 
 const searchLabels: Record<HomeTab, string> = {
@@ -27,7 +27,7 @@ export function InboxToolbar({
 }: {
   tab: HomeTab;
   query: string;
-  menus: FilterMenu[];
+  menus: InboxFilter[];
   onQueryChange: (query: string) => void;
   onFilterChange: (key: FilterKey, ticked: string[]) => void;
   /** The search box, for Clear search and filters to put focus back in it. */
@@ -72,9 +72,11 @@ export function InboxToolbar({
       </form>
       <div className="flex flex-wrap items-center gap-1">
         {menus.map((menu) => (
-          <FilterPicker
+          <FilterMenu
             key={menu.key}
-            menu={menu}
+            label={menu.label}
+            options={menu.options}
+            ticked={menu.ticked}
             onTickedChange={(ticked) => {
               onFilterChange(menu.key, ticked);
             }}
@@ -82,37 +84,5 @@ export function InboxToolbar({
         ))}
       </div>
     </div>
-  );
-}
-
-/**
- * One filter: its name in a plain picker with how many are ticked, opening its options as checkboxes
- * under the filter's name.
- */
-function FilterPicker({ menu, onTickedChange }: { menu: FilterMenu; onTickedChange: (ticked: string[]) => void }) {
-  return (
-    <Menu>
-      {/* Nothing to offer while the tab has no rows (Q11b). Radix reads `disabled` on the trigger. */}
-      <MenuTrigger asChild disabled={menu.options.length === 0}>
-        <Picker variant="plain" count={menu.ticked.length}>
-          {menu.label}
-        </Picker>
-      </MenuTrigger>
-      <MenuContent heading={menu.label}>
-        {menu.options.map((option) => (
-          <MenuCheckboxItem
-            key={option.value}
-            checked={menu.ticked.includes(option.value)}
-            onCheckedChange={(on) => {
-              onTickedChange(
-                on ? [...menu.ticked, option.value] : menu.ticked.filter((value) => value !== option.value),
-              );
-            }}
-          >
-            {option.label}
-          </MenuCheckboxItem>
-        ))}
-      </MenuContent>
-    </Menu>
   );
 }

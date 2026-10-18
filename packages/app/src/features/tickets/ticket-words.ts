@@ -1,4 +1,4 @@
-import type { Sprint, Ticket, TicketColumn } from '@devhub/contracts';
+import type { OpenSprint, Sprint, Ticket, TicketColumn } from '@devhub/contracts';
 import { personName } from '../../shell/person-name.ts';
 import { dayMonth, plural } from '../../words/calendar.ts';
 
@@ -16,6 +16,25 @@ export function sprintMeta(sprint: Sprint, now: Date): string | null {
     parts.push(`${ends.getTime() < now.getTime() ? 'ended' : 'ends'} ${dayMonth(ends, now).short}`);
   }
   return parts.length === 0 ? null : parts.join(' · ');
+}
+
+/** Spec 020, Q4e: a sprint's line in the Sprint menu: "Active · ends 24 Oct", "Future · starts 27 Oct", "Future". */
+export function openSprintLine(sprint: OpenSprint, now: Date): string {
+  const state = sprint.state === 'active' ? 'Active' : 'Future';
+  const date = sprint.state === 'active' ? sprint.endsAt : sprint.startsAt;
+  if (date === null) return state;
+  return `${state} · ${sprint.state === 'active' ? 'ends' : 'starts'} ${dayMonth(new Date(date), now).short}`;
+}
+
+/** Spec 020, Q4e: the Project picker's first option, and its words while nothing is picked. */
+export const yourSprintText = 'Your sprint';
+
+/** Spec 020: the tickets in no sprint that aren't Done, as the page and the Sprint menu name them (AC-39). */
+export const noSprintName = 'No sprint';
+
+/** Spec 020, Q4e: a picked project with no active or future sprint. */
+export function noOpenSprintsText(projectKey: string): string {
+  return `${projectKey} has no open sprints.`;
 }
 
 /** Q9a: the page's hidden heading. */
@@ -58,8 +77,8 @@ const emptyColumns: Record<TicketColumn, { title: string; line: string }> = {
 };
 
 /**
- * Q9d: a column with nothing in it. `filtered` when Due this week, Bugs only or the search emptied it;
- * otherwise nothing was there under Assigned to me alone.
+ * Q9d: a column with nothing in it. `filtered` when Status, Type, Priority, Due or the search emptied it;
+ * otherwise nothing was there under Assignee alone.
  */
 export function columnEmptyText(column: TicketColumn, filtered: boolean): EmptyText {
   return filtered ? { title: 'No tickets match these filters', line: null } : emptyColumns[column];
@@ -75,7 +94,7 @@ export function listEmptyText(sprintName: string, { filtered, onlyMine }: { filt
   if (!filtered && onlyMine) {
     return {
       title: `Nothing assigned to you in ${sprintName}`,
-      line: 'Turn off Assigned to me to see the whole sprint.',
+      line: 'Untick Me under Assignee to see the whole sprint.',
     };
   }
   return { title: 'No tickets match these filters', line: 'Turn one off, or clear them.' };

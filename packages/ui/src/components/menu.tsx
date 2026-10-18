@@ -7,6 +7,10 @@ import { Icon } from './icon.tsx';
 /** Lets the content close its own menu (Tab); Radix keeps the open state inside the root. */
 const SetOpenContext = createContext<(open: boolean) => void>(() => undefined);
 
+/** How large the open menu draws its rows and words: `sm` for a toolbar's compact lists (spec 020). */
+export type MenuSize = 'default' | 'sm';
+const SizeContext = createContext<MenuSize>('default');
+
 export type MenuProps = ComponentProps<typeof MenuPrimitive.Root>;
 
 /**
@@ -40,6 +44,11 @@ export type MenuContentProps = ComponentProps<typeof MenuPrimitive.Content> & {
   heading?: string;
   /** One quiet line under the items ("Tip: …"). It also describes the menu, so screen readers hear it. */
   foot?: ReactNode;
+  /**
+   * `sm`, the user's call for Tickets' toolbar lists (18 Oct 2026, spec 020): 32 px rows in `text-small`,
+   * descriptions in `text-label`, 256 px wide whatever it holds, and at most 360 px tall.
+   */
+  size?: MenuSize;
 };
 
 /**
@@ -53,6 +62,7 @@ export function MenuContent({
   className,
   heading,
   foot,
+  size = 'default',
   align = 'start',
   sideOffset = 4,
   collisionPadding = 16,
@@ -83,6 +93,7 @@ export function MenuContent({
         className={cn(
           'z-50 flex max-h-(--radix-dropdown-menu-content-available-height) max-w-(--radix-dropdown-menu-content-available-width) min-w-65 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-y-auto rounded-md border border-border bg-raised p-1.5 text-body text-foreground shadow-overlay',
           'motion-safe:data-[state=closed]:animate-menu-out motion-safe:data-[state=open]:animate-menu-in',
+          size === 'sm' && 'max-h-90 w-64 min-w-0 p-1 text-small',
           className,
         )}
         {...props}
@@ -91,12 +102,15 @@ export function MenuContent({
           // Stays at the top while the options scroll under it.
           <div
             id={headingId}
-            className="sticky -top-1.5 z-10 -mx-1.5 -mt-1.5 mb-1.5 border-b border-border bg-raised px-3.5 py-3 font-medium"
+            className={cn(
+              'sticky z-10 border-b border-border bg-raised font-medium',
+              size === 'sm' ? '-top-1 -mx-1 -mt-1 mb-1 px-3 py-2' : '-top-1.5 -mx-1.5 -mt-1.5 mb-1.5 px-3.5 py-3',
+            )}
           >
             {heading}
           </div>
         )}
-        {children}
+        <SizeContext value={size}>{children}</SizeContext>
         {foot ? (
           <div id={footId} className="mt-1 border-t border-border px-2 pt-1.5 pb-0.5 text-small text-muted-foreground">
             {foot}
@@ -115,7 +129,7 @@ export function MenuContent({
  * repository menu draws them; pass a quieter icon (`text-muted-foreground`) where the design does, as
  * in the + menu. Only the chevron is quiet by default.
  */
-const menuItemClass = cn(
+export const menuItemClass = cn(
   'relative flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-sm px-3 py-1.5 text-start text-foreground no-underline outline-hidden select-none data-disabled:cursor-not-allowed data-disabled:opacity-45 data-highlighted:bg-subtle',
   'before:absolute before:inset-y-1.5 before:start-0 before:w-1 before:rounded-full before:bg-primary before:opacity-0 data-highlighted:before:opacity-100 motion-safe:before:transition-opacity',
 );
@@ -129,6 +143,9 @@ interface ItemContentProps {
   path?: ReactNode;
 }
 
+/** A compact menu's rows: 32 px, as the checkbox rows already are. */
+const smallItemClass = 'min-h-8 py-1';
+
 /** The icon, then the name with its description or path under it. `className` sizes the words' column. */
 function ItemBody({
   icon,
@@ -137,12 +154,17 @@ function ItemBody({
   className,
   children,
 }: ItemContentProps & { className?: string; children: ReactNode }) {
+  const size = useContext(SizeContext);
   return (
     <>
       {icon}
       <span className={cn('flex min-w-0 flex-1 flex-col', className)}>
         {children}
-        {description ? <span className="truncate text-small text-muted-foreground">{description}</span> : null}
+        {description ? (
+          <span className={cn('truncate text-muted-foreground', size === 'sm' ? 'text-label' : 'text-small')}>
+            {description}
+          </span>
+        ) : null}
         {path ? <span className="truncate font-mono text-code text-muted-foreground">{path}</span> : null}
       </span>
     </>
@@ -175,13 +197,14 @@ export function MenuItem({
   children,
   ...props
 }: MenuItemProps) {
+  const size = useContext(SizeContext);
   const chevron = leadsOn ? (
     <Icon icon={ArrowRight01Icon} aria-hidden className="ms-auto text-muted-foreground" />
   ) : null;
   const itemProps = {
     'data-slot': 'menu-item',
     textValue: nameOf(children, textValue),
-    className: cn(menuItemClass, className),
+    className: cn(menuItemClass, size === 'sm' && smallItemClass, className),
     ...props,
   };
 
@@ -222,11 +245,12 @@ export function MenuRadioItem({
   children,
   ...props
 }: MenuRadioItemProps) {
+  const size = useContext(SizeContext);
   return (
     <MenuPrimitive.RadioItem
       data-slot="menu-radio-item"
       textValue={nameOf(children, textValue)}
-      className={cn(menuItemClass, className)}
+      className={cn(menuItemClass, size === 'sm' && smallItemClass, className)}
       {...props}
     >
       <ItemBody icon={icon} description={description} path={path}>
@@ -286,10 +310,11 @@ export function MenuCheckboxItem({
 
 /** A section's name: 14 px in `text-secondary`. Arrow keys skip it. */
 export function MenuLabel({ className, ...props }: ComponentProps<typeof MenuPrimitive.Label>) {
+  const size = useContext(SizeContext);
   return (
     <MenuPrimitive.Label
       data-slot="menu-label"
-      className={cn('px-2 pt-1.5 pb-1 text-small text-muted-foreground', className)}
+      className={cn('px-2 pt-1.5 pb-1 text-muted-foreground', size === 'sm' ? 'text-label' : 'text-small', className)}
       {...props}
     />
   );

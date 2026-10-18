@@ -14,8 +14,11 @@ export function clampSidebarWidth(width: number): number {
 interface UiState {
   sidebarCollapsed: boolean;
   sidebarWidth: number;
+  /** The person closed Settings' "Everything stays on this computer" note; it never shows again here (spec 020). */
+  localFirstNoteHidden: boolean;
   toggleSidebar: () => void;
   setSidebarWidth: (width: number) => void;
+  hideLocalFirstNote: () => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -23,6 +26,7 @@ export const useUiStore = create<UiState>()(
     (set) => ({
       sidebarCollapsed: false,
       sidebarWidth: sidebarWidthLimits.initial,
+      localFirstNoteHidden: false,
       toggleSidebar: () => {
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
       },
@@ -32,6 +36,9 @@ export const useUiStore = create<UiState>()(
           const next = clampSidebarWidth(width);
           return next === state.sidebarWidth ? state : { sidebarWidth: next };
         });
+      },
+      hideLocalFirstNote: () => {
+        set({ localFirstNoteHidden: true });
       },
     }),
     {

@@ -57,16 +57,16 @@ describe('TicketsList', () => {
     expect(platform.openExternal).toHaveBeenCalledWith('https://your-team.atlassian.net/browse/PROJ-1402');
   });
 
-  it('AC-1 (spec 011): a row without a live session has Build with Claude, named for its ticket', async () => {
+  it('AC-1 (spec 011): a row without a live session has Ship, named for its ticket (spec 020, AC-16)', async () => {
     server.use(ticketsHandler());
     await openList();
     const table = screen.getByRole('table');
     const row = within(table).getByRole('row', { name: /Add empty state to saved searches/ });
-    const build = within(row).getByRole('button', { name: 'Build PROJ-1402 with Claude' });
-    expect(build).toHaveTextContent('Build with Claude');
+    const build = within(row).getByRole('button', { name: 'Ship PROJ-1402' });
+    expect(build).toHaveTextContent('Ship');
     // A row with a live session shows its chip instead.
     const live = within(table).getByRole('row', { name: /Add bulk archive/ });
-    expect(within(live).queryByRole('button', { name: /with Claude/ })).toBeNull();
+    expect(within(live).queryByRole('button', { name: /^Ship / })).toBeNull();
   });
 
   it('AC-16: with nothing to show under the filters, it says so', async () => {
@@ -85,6 +85,6 @@ describe('TicketsList', () => {
     await openList();
 
     expect(screen.getByText('Nothing assigned to you in Sprint 42')).toBeVisible();
-    expect(screen.getByText('Turn off Assigned to me to see the whole sprint.')).toBeVisible();
+    expect(screen.getByText('Untick Me under Assignee to see the whole sprint.')).toBeVisible();
   });
 });

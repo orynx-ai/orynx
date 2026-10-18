@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import type { UserEvent } from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type Repository } from '@devhub/contracts';
@@ -55,6 +56,12 @@ function listen(region: HTMLElement) {
   return said;
 }
 
+/** Opens a folder's More actions and picks Delete (spec 020). */
+async function deleteFolder(user: UserEvent, name: string) {
+  await user.click(screen.getByRole('button', { name: `More actions for ${name}` }));
+  await user.click(await screen.findByRole('menuitem', { name: /^Delete/ }));
+}
+
 describe('RepositoriesPanel', () => {
   it('AC-4: says what the tab is for, offers Add local folder, and says no folder is there yet', async () => {
     await renderApp({ route: '/settings/repositories' });
@@ -65,7 +72,7 @@ describe('RepositoriesPanel', () => {
     expect(screen.getByRole('button', { name: 'Add local folder' })).toBeEnabled();
   });
 
-  it('AC-6: shows each folder with its name, its path with ~, its Jira project and Remove', async () => {
+  it('AC-6, AC-17 (spec 020): shows each folder with its name, its path with ~, its Jira project and More actions', async () => {
     listing(() => [intranet, mobile]);
     await renderApp({ route: '/settings/repositories' });
 
@@ -75,13 +82,13 @@ describe('RepositoriesPanel', () => {
     expect(first).toHaveTextContent('intranet-web');
     expect(within(first).getByText('~/code/intranet-web')).toBeVisible();
     expect(within(first).getByText('Jira PROJ')).toBeVisible();
-    expect(within(first).getByRole('button', { name: 'Remove intranet-web' })).toBeEnabled();
+    expect(within(first).getByRole('button', { name: 'More actions for intranet-web' })).toBeEnabled();
     expect(within(second).getByText('~/code/mobile')).toBeVisible();
     expect(within(second).queryByText(/^Jira /)).not.toBeInTheDocument();
     expect(screen.queryByText('No folders yet')).not.toBeInTheDocument();
   });
 
-  it('AC-11: removes the row at once, moves focus to the next Remove and says what was removed', async () => {
+  it('AC-18 (spec 020): Delete removes the row at once, moves focus to the next More actions and says what was removed', async () => {
     let folders = [intranet, mobile];
     listing(() => folders);
     let removed: string | undefined;
@@ -96,10 +103,10 @@ describe('RepositoriesPanel', () => {
     const { user } = await renderApp({ route: '/settings/repositories' });
     await folderList();
 
-    await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
+    await deleteFolder(user, 'intranet-web');
 
     expect(screen.queryByText('~/code/intranet-web')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Remove mobile' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'More actions for mobile' })).toHaveFocus();
     // Said once the server has forgotten it, so a failed removal never claims it happened.
     await waitFor(() => {
       expect(screen.getByRole('status')).toHaveTextContent('Removed intranet-web.');
@@ -119,7 +126,7 @@ describe('RepositoriesPanel', () => {
     const { user } = await renderApp({ route: '/settings/repositories' });
     await folderList();
 
-    await user.click(screen.getByRole('button', { name: 'Remove mobile' }));
+    await deleteFolder(user, 'mobile');
 
     expect(screen.getByRole('button', { name: 'Add local folder' })).toHaveFocus();
     expect(await screen.findByText('No folders yet')).toBeVisible();
@@ -135,14 +142,14 @@ describe('RepositoriesPanel', () => {
     const { user } = await renderApp({ route: '/settings/repositories' });
     await folderList();
 
-    await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
+    await deleteFolder(user, 'intranet-web');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       "Couldn't save that change. Check that Orynx is still running, then try again.",
     );
     expect(screen.getByText('~/code/intranet-web')).toBeVisible();
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Remove intranet-web' })).toHaveFocus();
+      expect(screen.getByRole('button', { name: 'More actions for intranet-web' })).toHaveFocus();
     });
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
@@ -163,8 +170,8 @@ describe('RepositoriesPanel', () => {
     const { user } = await renderApp({ route: '/settings/repositories' });
     await folderList();
 
-    await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
-    await user.click(screen.getByRole('button', { name: 'Remove mobile' }));
+    await deleteFolder(user, 'intranet-web');
+    await deleteFolder(user, 'mobile');
     release();
 
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save that change.");
@@ -188,8 +195,8 @@ describe('RepositoriesPanel', () => {
     await folderList();
     const said = listen(screen.getByRole('status'));
 
-    await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
-    await user.click(screen.getByRole('button', { name: 'Remove mobile' }));
+    await deleteFolder(user, 'intranet-web');
+    await deleteFolder(user, 'mobile');
     release();
 
     await waitFor(() => {
@@ -198,7 +205,7 @@ describe('RepositoriesPanel', () => {
     });
   });
 
-  it('AC-11: a removal whose answer lands as the next Remove is pressed is still heard', async () => {
+  it('AC-11: a removal whose answer lands as the next Delete is picked is still heard', async () => {
     listing(() => [intranet, mobile]);
     const { answered, release } = heldAnswer();
     server.use(
@@ -211,9 +218,10 @@ describe('RepositoriesPanel', () => {
     await folderList();
     const said = listen(screen.getByRole('status'));
 
-    await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
-    const removeMobile = screen.getByRole('button', { name: 'Remove mobile' });
-    // Press Remove mobile just after the first answer is in, before the page has drawn it: a few
+    await deleteFolder(user, 'intranet-web');
+    await user.click(screen.getByRole('button', { name: 'More actions for mobile' }));
+    const removeMobile = await screen.findByRole('menuitem', { name: /^Delete/ });
+    // Pick Delete on mobile just after the first answer is in, before the page has drawn it: a few
     // microtasks on, while React draws only in a later task.
     const stop = queryClient.getMutationCache().subscribe((event) => {
       if (event.type !== 'updated' || event.action.type !== 'success') return;
@@ -226,28 +234,6 @@ describe('RepositoriesPanel', () => {
       expect(said.join(' ')).toContain('Removed intranet-web.');
       expect(said.join(' ')).toContain('Removed mobile.');
     });
-  });
-
-  it('AC-11: holding Enter on Remove removes one folder, not one after another', async () => {
-    listing(() => [intranet, mobile]);
-    const removed: string[] = [];
-    server.use(
-      http.delete(apiUrl(apiRoutes.repository), async ({ params }) => {
-        removed.push(String(params['id']));
-        await delay(20);
-        return new HttpResponse(null, { status: 204 });
-      }),
-    );
-    const { user } = await renderApp({ route: '/settings/repositories' });
-    await folderList();
-    screen.getByRole('button', { name: 'Remove intranet-web' }).focus();
-
-    await user.keyboard('{Enter>3/}');
-
-    await waitFor(() => {
-      expect(removed).toEqual([intranet.id]);
-    });
-    expect(screen.getByRole('button', { name: 'Remove mobile' })).toBeVisible();
   });
 
   it('AC-15: keeps the intro line and Add local folder in place while the folders load', async () => {

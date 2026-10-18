@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { SessionItem } from './session-item.tsx';
+import { SessionItem, SessionItemSkeleton } from './session-item.tsx';
 
 const meta = {
   title: 'Components/SessionItem',
@@ -29,4 +29,15 @@ export const LongTitle: Story = {
 };
 export const LongSource: Story = {
   args: { title: 'Rename the billing exports', source: 'PLATFORM-123456', state: 'done' },
+};
+
+/** Two rows while the next page of sessions loads, under one that has loaded (spec 020). */
+export const Loading: Story = {
+  render: (args) => (
+    <>
+      <SessionItem {...args} />
+      <SessionItemSkeleton />
+      <SessionItemSkeleton />
+    </>
+  ),
 };

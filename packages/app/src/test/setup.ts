@@ -7,6 +7,7 @@ import { useConnectionStore } from '../stores/connection-store.ts';
 import { useThemeStore } from '../stores/theme-store.ts';
 import { useUiStore } from '../stores/ui-store.ts';
 import { FakeEventSource } from './fake-event-source.ts';
+import { FakeIntersectionObserver } from './fake-intersection-observer.ts';
 import { server } from './msw.ts';
 
 // jsdom has no scrolling; a stand-in lets parts that scroll a focused item into view run (as @devhub/ui's tests do).
@@ -25,6 +26,9 @@ if (typeof window.ResizeObserver !== 'function') {
     },
   });
 }
+
+// jsdom has no layout, so nothing scrolls into view; tests say when it does (FakeIntersectionObserver.scrollIntoView).
+Object.defineProperty(window, 'IntersectionObserver', { configurable: true, value: FakeIntersectionObserver });
 
 // jsdom has no media queries; a stand-in reports a wide window, and a test of a narrow one stubs it.
 if (typeof window.matchMedia !== 'function') {
@@ -54,6 +58,7 @@ afterEach(() => {
   useTicketsStore.setState(useTicketsStore.getInitialState());
   useSearchStore.setState(useSearchStore.getInitialState());
   FakeEventSource.instances = [];
+  FakeIntersectionObserver.instances = [];
 });
 
 afterAll(() => {

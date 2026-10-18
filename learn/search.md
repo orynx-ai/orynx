@@ -14,8 +14,8 @@ Search button ──────────────────────
                                                           │ first open only
 page ── GET /api/search ──▶ search-service.read()
                               inbox.records()     assigned issues and every open pull request, no inbox rules
-                              tickets.read()      the sprint, in rank order (spec 008)
-                              listSessions()      every session, newest first
+                              tickets.read()      the sprint Tickets shows, in rank order (spec 008)
+                              sessions.list()     every session, from the store
                               searchIndex()       → SearchIndex: tickets, pull requests, sessions, tools
                                                           │
                        searchResults(index, query)  in the browser, as you type
@@ -25,9 +25,9 @@ page ── GET /api/search ──▶ search-service.read()
 
 ## What it finds (Q1)
 
-- **Tickets:** the sprint first, in Jira's rank order, then the other issues assigned to you that aren't Done, by key (PROJ-7 before PROJ-1377). A ticket in both shows once. Each opens its newest session, unless that one was stopped, else Jira. That's 008's rule, now in `sessions/ticket-sessions.ts` so Tickets, search and Home's rows (spec 011) can't drift apart. A ticket's link passes `JiraLinkSchema`, which lives in `contracts/src/jira.ts` since spec 011.
+- **Tickets:** the sprint first, in Jira's rank order (whichever Tickets shows: your sprint, the one you picked, or No sprint's tickets, spec 020), then the other issues assigned to you that aren't Done, by key (PROJ-7 before PROJ-1377). A ticket in both shows once. Each opens its newest session, unless that one was stopped, else Jira. That's 008's rule, now in `sessions/ticket-sessions.ts` so Tickets, search and Home's rows (spec 011) can't drift apart. A ticket's link passes `JiraLinkSchema`, which lives in `contracts/src/jira.ts` since spec 011.
 - **Pull requests:** every open one the GitHub read brings, yours and those waiting for your review, newest opened first. Before 009 the cache kept only the ones an inbox rule matched, so your own pull request with green checks couldn't be found. Now `github/map.ts` keeps them all with `openedAt`, and the rules still decide what Home shows. A record cached before `openedAt` existed reads with null and sorts last until the next sync.
-- **Sessions:** all of them, newest first. Spec 011's Build with Claude creates them, with at most one live session per ticket.
+- **Sessions:** all of them, newest first. Ship (spec 011, named Ship in spec 020) creates them, with at most one live session per ticket.
 - **Not:** Slack messages (spec 016), anything DevHub never synced (other people's issues, closed tickets, merged pull requests), or descriptions and comments, which the cache never holds.
 
 The inbox rules don't hide anything from search. `InboxService.records()` hands over each connected tool's records with no rules applied, and Home's `read()` builds on the same call. A tool that isn't connected gives nothing, and a tool whose last sync failed still gives its last records. `tools` tells the dialog which tools are still on their first sync.

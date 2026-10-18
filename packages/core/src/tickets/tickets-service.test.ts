@@ -15,6 +15,7 @@ import { createTokenStore } from '../secrets/token-store.ts';
 import { createMemorySessionStore } from '../sessions/session-store.ts';
 import { createMemorySettingsStore, type Settings } from '../settings/settings-store.ts';
 import {
+  acceptingProjectSprints,
   acceptingBoardConfiguration,
   acceptingFieldList,
   acceptingMyself,
@@ -53,6 +54,7 @@ afterAll(() => {
 });
 
 const jiraConnected: Settings = { jira: { site: jiraSite, email: jiraEmail } };
+const yourSprint = { projectKey: null, sprintId: null };
 
 /** The design's Sprint 42: one ticket of yours in each of three columns. */
 const designIssues: FakeIssue[] = [
@@ -117,6 +119,7 @@ describe('tickets service', () => {
       sprint: null,
       tickets: [],
       truncated: false,
+      choice: yourSprint,
     });
     expect(asked()).toEqual([]);
   });
@@ -124,7 +127,13 @@ describe('tickets service', () => {
   it('AC-20: Jira is connected and hasn’t synced yet, so there is nothing to show', async () => {
     const { tickets } = setup({ settings: jiraConnected });
 
-    expect(await tickets.read()).toEqual({ jira: { state: 'syncing' }, sprint: null, tickets: [], truncated: false });
+    expect(await tickets.read()).toEqual({
+      jira: { state: 'syncing' },
+      sprint: null,
+      tickets: [],
+      truncated: false,
+      choice: yourSprint,
+    });
   });
 
   it('AC-1, AC-4: a sync keeps the sprint and its tickets in rank order, each in its board column', async () => {
@@ -205,6 +214,7 @@ describe('tickets service', () => {
       sprint: null,
       tickets: [],
       truncated: false,
+      choice: yourSprint,
     });
   });
 
@@ -352,7 +362,7 @@ describe('tickets service', () => {
     await tickets.sync();
     // A cache someone else wrote, pointing a title at a lookalike site.
     const stored = cache.tool('jira_sprint');
-    const record = stored?.records[0] as { tickets: Record<string, unknown>[] };
+    const kept = stored?.records[0] as { for: unknown; record: { tickets: Record<string, unknown>[] } };
     cache.synced('jira_sprint', {
       connection: stored?.connection ?? '',
       at: '2026-10-17T10:00:00.000Z',
@@ -360,8 +370,11 @@ describe('tickets service', () => {
         {
           id: 'sprint',
           data: {
-            ...record,
-            tickets: record.tickets.map((ticket) => ({ ...ticket, url: 'https://evil-team.atlassian.net/x' })),
+            ...kept,
+            record: {
+              ...kept.record,
+              tickets: kept.record.tickets.map((ticket) => ({ ...ticket, url: 'https://evil-team.atlassian.net/x' })),
+            },
           },
         },
       ],
@@ -426,5 +439,172 @@ describe('tickets service', () => {
       cache.close();
       await rm(join(home, '..'), { recursive: true, force: true });
     }
+  });
+});
+
+/** WEB's board 11: Sprint 43 active, Sprint 44 next, and Sprint 41 closed, each with one ticket. */
+function acceptingWeb() {
+  outside.use(
+    acceptingMyself(),
+    ...acceptingProjectSprints({
+      WEB: [
+        {
+          id: 11,
+          sprints: [
+            { id: 41, name: 'Sprint 41', state: 'closed', endDate: '2026-10-10T17:00:00.000Z' },
+            { id: 43, name: 'Sprint 43', state: 'active', endDate: '2026-10-24T17:00:00.000Z' },
+            { id: 44, name: 'Sprint 44', state: 'future', startDate: '2026-10-27T09:00:00.000Z', endDate: null },
+          ],
+        },
+      ],
+      OPS: [],
+    }),
+    acceptingBoardConfiguration(11, designBoardColumns),
+    acceptingStatusList(),
+    acceptingPrioritySearch(),
+    acceptingSprintIssueSearch(41, [{ key: 'WEB-1', summary: 'Closed work' }]),
+    acceptingSprintIssueSearch(43, [{ key: 'WEB-7', summary: 'Ship the new footer' }]),
+  );
+}
+
+describe('tickets service: the sprint you pick (spec 020)', () => {
+  it('AC-26: a picked project shows its current sprint: reads say syncing until a sync has read it', async () => {
+    acceptingSprint();
+    acceptingWeb();
+    const { tickets, settings } = setup({ settings: jiraConnected });
+    await tickets.sync();
+    expect((await tickets.read()).sprint?.name).toBe('Sprint 42');
+
+    await tickets.choose({ projectKey: 'WEB', sprintId: null });
+
+    expect((await settings.read()).tickets).toEqual({ projectKey: 'WEB', sprintId: null });
+    expect(await tickets.read()).toEqual({
+      jira: { state: 'syncing' },
+      choice: { projectKey: 'WEB', sprintId: null },
+      sprint: null,
+      tickets: [],
+      truncated: false,
+    });
+    expect(await tickets.sync()).toBe('answered');
+    const read = await tickets.read();
+    expect(read.choice).toEqual({ projectKey: 'WEB', sprintId: null });
+    expect(read.sprint).toEqual({ id: 43, name: 'Sprint 43', endsAt: '2026-10-24T17:00:00.000Z', projectKey: 'WEB' });
+    expect(read.tickets.map((ticket) => [ticket.key, ticket.assignee?.mine])).toEqual([['WEB-7', true]]);
+  });
+
+  it('AC-27: a picked sprint stays picked, even once it has closed', async () => {
+    acceptingWeb();
+    const { tickets } = setup({ settings: { ...jiraConnected, tickets: { projectKey: 'WEB', sprintId: 41 } } });
+
+    await tickets.sync();
+
+    const read = await tickets.read();
+    expect(read.sprint?.name).toBe('Sprint 41');
+    expect(read.tickets.map((ticket) => ticket.key)).toEqual(['WEB-1']);
+  });
+
+  it('AC-28: a project with no open sprint has none to show, and says which project was picked', async () => {
+    acceptingWeb();
+    const { tickets } = setup({ settings: { ...jiraConnected, tickets: { projectKey: 'OPS', sprintId: null } } });
+
+    expect(await tickets.sync()).toBe('answered');
+
+    expect(await tickets.read()).toEqual({
+      jira: { state: 'synced', at: '2026-10-17T10:00:00.000Z' },
+      choice: { projectKey: 'OPS', sprintId: null },
+      sprint: null,
+      tickets: [],
+      truncated: false,
+    });
+  });
+
+  it('AC-29: picking your sprint again leaves nothing in settings and reads your sprint', async () => {
+    acceptingSprint();
+    acceptingWeb();
+    const { tickets, settings } = setup({
+      settings: { ...jiraConnected, tickets: { projectKey: 'WEB', sprintId: 43 } },
+    });
+    await tickets.sync();
+
+    await tickets.choose({ projectKey: null, sprintId: null });
+    await tickets.sync();
+
+    expect((await settings.read()).tickets).toBeUndefined();
+    expect((await tickets.read()).sprint?.name).toBe('Sprint 42');
+  });
+
+  it('AC-27: a picked sprint that’s gone has nothing to show, rather than failing', async () => {
+    acceptingWeb();
+    outside.use(
+      http.get(`https://${jiraSite}/rest/agile/1.0/sprint/99`, () => new HttpResponse(null, { status: 404 })),
+    );
+    const { tickets } = setup({ settings: { ...jiraConnected, tickets: { projectKey: 'WEB', sprintId: 99 } } });
+
+    expect(await tickets.sync()).toBe('answered');
+    expect((await tickets.read()).sprint).toBeNull();
+  });
+
+  it('a failed sync after a new pick keeps the failure in view, not the old sprint', async () => {
+    acceptingSprint();
+    const { tickets } = setup({ settings: jiraConnected });
+    await tickets.sync();
+    outside.resetHandlers();
+    outside.use(http.get(myselfUrl(), () => HttpResponse.json({}, { status: 500 })));
+
+    await tickets.choose({ projectKey: 'WEB', sprintId: null });
+    expect(await tickets.sync()).toBe('failed');
+
+    const read = await tickets.read();
+    expect(read.jira.state).toBe('failed');
+    // The last good sync was the old pick's, so Jira hasn't yet said whether the new one has a sprint.
+    expect(read.jira).toMatchObject({ lastSyncedAt: null });
+    expect(read.sprint).toBeNull();
+  });
+
+  it('reads a sprint kept before spec 020 as your sprint', async () => {
+    acceptingSprint();
+    const { tickets, cache } = setup({ settings: jiraConnected });
+    await tickets.sync();
+    const stored = cache.tool('jira_sprint');
+    const kept = stored?.records[0] as { record: unknown };
+    // Before spec 020 the row held the record alone.
+    cache.synced('jira_sprint', {
+      connection: stored?.connection ?? '',
+      at: '2026-10-17T10:00:00.000Z',
+      records: [{ id: 'sprint', data: kept.record }],
+    });
+
+    expect((await tickets.read()).sprint?.name).toBe('Sprint 42');
+  });
+
+  it('AC-39: No sprint reads the tickets in no sprint, the project’s or yours, with no sprint of their own', async () => {
+    const asked: string[] = [];
+    outside.use(
+      acceptingMyself(),
+      acceptingPrioritySearch(),
+      http.post(`https://${jiraSite}/rest/api/3/search/jql`, async ({ request }) => {
+        asked.push(((await request.json()) as { jql: string }).jql);
+        return HttpResponse.json({
+          issues: [jiraIssue({ key: 'WEB-9', summary: 'Tidy the footer links', category: 'indeterminate' })],
+          isLast: true,
+        });
+      }),
+    );
+    const { tickets } = setup({ settings: { ...jiraConnected, tickets: { projectKey: 'WEB', sprintId: 'none' } } });
+
+    expect(await tickets.sync()).toBe('answered');
+
+    const read = await tickets.read();
+    expect(read.choice).toEqual({ projectKey: 'WEB', sprintId: 'none' });
+    expect(read.sprint).toBeNull();
+    expect(read.tickets.map((ticket) => [ticket.key, ticket.column])).toEqual([['WEB-9', 'in_progress']]);
+    expect(asked[0]).toBe('project = "WEB" AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC');
+
+    await tickets.choose({ projectKey: null, sprintId: 'none' });
+    await tickets.sync();
+    expect(asked.at(-1)).toBe(
+      'assignee = currentUser() AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC',
+    );
+    expect((await tickets.read()).choice).toEqual({ projectKey: null, sprintId: 'none' });
   });
 });

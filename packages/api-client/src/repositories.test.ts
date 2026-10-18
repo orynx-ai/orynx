@@ -60,6 +60,36 @@ describe('repositories endpoints', () => {
     });
   });
 
+  it('AC-20 (spec 020): edits a folder by its id and returns the one the server saved', async () => {
+    let sent: { id: string; body: unknown } | undefined;
+    server.use(
+      http.patch(`${baseURL}${apiRoutes.repository}`, async ({ params, request }) => {
+        sent = { id: String(params['id']), body: await request.json() };
+        return HttpResponse.json(makeRepository({ jiraProject: 'WEB' }));
+      }),
+    );
+
+    expect(await api.editRepository('0123456789abcdef', { path: '~/code/intranet-web', jiraProject: 'WEB' })).toEqual(
+      makeRepository({ jiraProject: 'WEB' }),
+    );
+    expect(sent).toEqual({ id: '0123456789abcdef', body: { path: '~/code/intranet-web', jiraProject: 'WEB' } });
+  });
+
+  it('AC-35, AC-36 (spec 020): opens the folder picker, and says when none can open', async () => {
+    server.use(http.post(`${baseURL}${apiRoutes.folderPicker}`, () => HttpResponse.json({ path: '~/code/app' })));
+    expect(await api.pickFolder()).toEqual({ path: '~/code/app' });
+
+    server.use(
+      http.post(`${baseURL}${apiRoutes.folderPicker}`, () =>
+        HttpResponse.json(
+          { code: 'picker_unavailable', message: "Orynx can't open a folder picker on this computer." },
+          { status: 503 },
+        ),
+      ),
+    );
+    await expect(api.pickFolder()).rejects.toMatchObject({ code: 'picker_unavailable' });
+  });
+
   it('AC-11: removes a folder by its id', async () => {
     let removed: string | undefined;
     server.use(

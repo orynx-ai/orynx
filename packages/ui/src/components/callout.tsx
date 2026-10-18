@@ -1,6 +1,9 @@
 import { useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Cancel01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
+import { Icon } from './icon.tsx';
+import { IconButton } from './icon-button.tsx';
 
 // An alert or a notice fades in as it appears, so the change is seen.
 const calloutVariants = cva('flex gap-3 rounded-md p-4 motion-safe:animate-fade-in', {
@@ -24,13 +27,30 @@ export type CalloutProps = Omit<ComponentProps<'div'>, 'title'> &
     icon?: ReactNode;
     /** Buttons that say what each choice does: "Allow once", "Deny". */
     actions?: ReactNode;
+    /**
+     * Gives the callout a close button at its end, for a notice the person may hide (spec 020). The
+     * caller remembers the choice and moves focus on, since the button goes with the callout.
+     */
+    onClose?: () => void;
+    /** The close button's words, in its tooltip and its name: "Hide this note". */
+    closeLabel?: string;
   };
 
 /**
  * Design system: Callout (`dh-callout`). An inline message in the flow of work, never a modal.
  * Pass `role="alert"` for approvals so screen readers announce them.
  */
-export function Callout({ tone, title, icon, actions, className, children, ...props }: CalloutProps) {
+export function Callout({
+  tone,
+  title,
+  icon,
+  actions,
+  onClose,
+  closeLabel = 'Close',
+  className,
+  children,
+  ...props
+}: CalloutProps) {
   return (
     <div className={cn(calloutVariants({ tone }), className)} {...props}>
       {icon ? <span className="mt-0.5 flex shrink-0">{icon}</span> : null}
@@ -39,6 +59,12 @@ export function Callout({ tone, title, icon, actions, className, children, ...pr
         {children}
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
+      {onClose ? (
+        // Level with the title: the 32 px button reaches 6 px above and below its 20 px line.
+        <IconButton variant="ghost" size="sm" label={closeLabel} className="-my-1.5 -me-1.5 shrink-0" onClick={onClose}>
+          <Icon icon={Cancel01Icon} aria-hidden />
+        </IconButton>
+      ) : null}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { cva } from 'class-variance-authority';
 import { GitBranchIcon, StopIcon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
 import { Icon } from './icon.tsx';
+import { Skeleton } from './skeleton.tsx';
 
 export type SessionItemState = 'needs_you' | 'working' | 'done' | 'pr_open' | 'stopped';
 
@@ -139,5 +140,30 @@ export function SessionItem({
         </span>
       </span>
     </Comp>
+  );
+}
+
+/**
+ * A session row while it loads: the row's own padding, its state circle and its two lines as blank
+ * blocks, so nothing moves when the session arrives (spec 020: the sidebar's next 16).
+ */
+export function SessionItemSkeleton({ className, ...props }: Omit<ComponentProps<'div'>, 'children'>) {
+  return (
+    <div
+      data-slot="session-item-skeleton"
+      aria-hidden
+      className={cn('flex items-start gap-3 px-3 py-2', className)}
+      {...props}
+    >
+      <Skeleton shape="circle" className="size-6" />
+      <span className="flex min-w-0 flex-1 flex-col gap-px">
+        <span className="flex h-6 items-center">
+          <Skeleton className="h-4 w-3/4" />
+        </span>
+        <span className="flex h-5 items-center">
+          <Skeleton className="h-3.5 w-1/2" />
+        </span>
+      </span>
+    </div>
   );
 }

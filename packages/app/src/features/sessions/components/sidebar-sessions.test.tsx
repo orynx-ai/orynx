@@ -1,10 +1,11 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type SessionSummary } from '@devhub/contracts';
 import { makeSessionList } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
-import { apiUrl, server, sessionsHandler } from '../../../test/msw.ts';
+import { FakeIntersectionObserver } from '../../../test/fake-intersection-observer.ts';
+import { apiUrl, server, sessionsHandler, sessionsPage } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
 function mainNav() {
@@ -32,10 +33,10 @@ describe('Sidebar sessions', () => {
     );
     await renderApp({ route: '/' });
     await within(mainNav()).findByText('No sessions yet');
-    expect(asked.some((params) => params.get('recent') === 'true' && params.get('limit') === '5')).toBe(true);
+    expect(asked.some((params) => params.get('recent') === 'true' && params.get('limit') === '16')).toBe(true);
   });
 
-  it('AC-8: shows the 5 sessions with the newest activity as two-line links', async () => {
+  it('AC-8: shows each session as a two-line link', async () => {
     server.use(sessionsHandler(seven));
     await renderApp();
     const nav = mainNav();
@@ -50,7 +51,8 @@ describe('Sidebar sessions', () => {
       'href',
       '/sessions/session-5',
     );
-    expect(within(nav).queryByText('Sixth session')).toBeNull();
+    // Spec 020: no longer only the five newest.
+    expect(within(nav).getByRole('link', { name: /^Seventh session/ })).toBeVisible();
   });
 
   it('AC-10: says there are no sessions yet and still links to the full list', async () => {
@@ -128,5 +130,113 @@ describe('Sidebar sessions', () => {
     for (const name of ['Home', 'Tickets', 'Settings', 'View all']) {
       expect(within(nav).getByRole('link', { name })).not.toHaveAttribute('aria-current');
     }
+  });
+});
+
+/** Forty sessions, "Session 1" the newest. */
+const forty = makeSessionList(Array.from({ length: 40 }, (_, index) => ({ title: `Session ${String(index + 1)}` })));
+
+/** The titles of the session rows the sidebar shows, in order. */
+function shownTitles() {
+  return within(mainNav())
+    .getAllByRole('link', { name: /^Session \d+ / })
+    .map((link) => /^Session \d+/.exec(link.textContent)?.[0]);
+}
+
+/** The person scrolls the sidebar's sessions to their end. */
+function scrollToEnd() {
+  act(() => {
+    FakeIntersectionObserver.scrollIntoView();
+  });
+}
+
+const titles = (from: number, to: number) =>
+  Array.from({ length: to - from + 1 }, (_, index) => `Session ${String(from + index)}`);
+
+describe('Sidebar sessions, 16 at a time (spec 020)', () => {
+  it('AC-1: lists the 16 with the newest activity first', async () => {
+    server.use(sessionsHandler(forty));
+    await renderApp();
+
+    await within(mainNav()).findByRole('link', { name: /^Session 1 / });
+    expect(shownTitles()).toEqual(titles(1, 16));
+  });
+
+  it('AC-2: loads the next 16 at the list’s end, with skeleton rows meanwhile, then the last 8, then stops', async () => {
+    let release: () => void = () => undefined;
+    let pages = 0;
+    server.use(
+      http.get(apiUrl(apiRoutes.sessions), async ({ request }) => {
+        pages += 1;
+        if (pages === 2) await new Promise<void>((resolve) => (release = resolve));
+        return HttpResponse.json(sessionsPage(forty, request.url));
+      }),
+    );
+    await renderApp();
+    const nav = mainNav();
+    await within(nav).findByRole('link', { name: /^Session 16 / });
+
+    scrollToEnd();
+    expect(await within(nav).findByRole('status')).toHaveTextContent('Loading more sessions');
+    release();
+    await within(nav).findByRole('link', { name: /^Session 32 / });
+    expect(within(nav).queryByRole('status')).toBeNull();
+    expect(shownTitles()).toEqual(titles(1, 32));
+
+    scrollToEnd();
+    await within(nav).findByRole('link', { name: /^Session 40 / });
+    expect(shownTitles()).toEqual(titles(1, 40));
+    scrollToEnd();
+    expect(pages).toBe(3);
+  });
+
+  it('AC-3: when a session on page two gets new activity, it moves to the top once, and both pages stay', async () => {
+    let list = forty;
+    server.use(
+      http.get(apiUrl(apiRoutes.sessions), ({ request }) => HttpResponse.json(sessionsPage(list, request.url))),
+    );
+    await renderApp();
+    const nav = mainNav();
+    await within(nav).findByRole('link', { name: /^Session 16 / });
+    scrollToEnd();
+    await within(nav).findByRole('link', { name: /^Session 32 / });
+
+    const moved = list.sessions.find((session) => session.title === 'Session 20');
+    list = makeSessionList([
+      { ...moved, updatedAt: '2026-10-16T11:00:00.000Z' },
+      ...forty.sessions.filter((session) => session !== moved),
+    ]);
+    act(() => {
+      FakeEventSource.latest().emit({ type: 'sessions.changed' });
+    });
+
+    await vi.waitFor(() => {
+      expect(shownTitles()[0]).toBe('Session 20');
+    });
+    expect(shownTitles()).toEqual(['Session 20', ...titles(1, 19), ...titles(21, 32)]);
+  });
+
+  it('AC-5: when the next 16 fail, keeps the rows shown and tries again on request', async () => {
+    let fail = false;
+    server.use(
+      http.get(apiUrl(apiRoutes.sessions), ({ request }) =>
+        fail
+          ? HttpResponse.json({ code: 'internal', message: 'Disk full' }, { status: 500 })
+          : HttpResponse.json(sessionsPage(forty, request.url)),
+      ),
+    );
+    const { user } = await renderApp();
+    const nav = mainNav();
+    await within(nav).findByRole('link', { name: /^Session 16 / });
+
+    fail = true;
+    scrollToEnd();
+    expect(await within(nav).findByText("Couldn't load sessions")).toBeVisible();
+    expect(shownTitles()).toEqual(titles(1, 16));
+
+    fail = false;
+    await user.click(within(nav).getByRole('button', { name: 'Try again' }));
+    await within(nav).findByRole('link', { name: /^Session 32 / });
+    expect(within(nav).queryByText("Couldn't load sessions")).toBeNull();
   });
 });

@@ -2,12 +2,13 @@ import { z } from 'zod';
 import {
   JiraProjectKeySchema,
   SprintSchema,
+  type OpenSprint,
   TicketSchema,
   type PriorityLevel,
   type Sprint,
   type TicketColumn,
 } from '@devhub/contracts';
-import type { JiraBoardColumn, JiraSprintIssue, JiraSprintRef } from './client.ts';
+import type { JiraBoardColumn, JiraBoardSprint, JiraSprintIssue, JiraSprintRef } from './client.ts';
 import { isoTime } from './map.ts';
 
 /**
@@ -19,7 +20,8 @@ export const TicketRecordSchema = TicketSchema.omit({ session: true, url: true }
 export type TicketRecord = z.infer<typeof TicketRecordSchema>;
 
 export const SprintRecordSchema = z.object({
-  sprint: SprintSchema,
+  /** Null for No sprint, whose tickets come without one (spec 020). */
+  sprint: SprintSchema.nullable(),
   tickets: z.array(TicketRecordSchema),
   truncated: z.boolean(),
 });
@@ -100,6 +102,12 @@ export function priorityLevel(id: string, order: readonly string[]): PriorityLev
   return 'medium';
 }
 
+/** The priority's place in the site's list, highest first, so Priority's filter lists them so (spec 020). */
+function rankIn(id: string, order: readonly string[]): { rank?: number } {
+  const at = order.indexOf(id);
+  return at === -1 ? {} : { rank: at };
+}
+
 /** Q9a: the project the sprint's tickets belong to, or null when they span more than one, or there are none. */
 function projectOf(keys: readonly string[]): string | null {
   const projects = new Set(keys.map((key) => key.slice(0, key.lastIndexOf('-'))));
@@ -110,7 +118,8 @@ function projectOf(keys: readonly string[]): string | null {
 export interface SprintRecordInput {
   /** Who the saved credentials belong to, for "Assigned to you". */
   accountId: string;
-  sprint: JiraSprintRef;
+  /** Null for No sprint (spec 020). */
+  sprint: JiraSprintRef | null;
   /** The sprint's issues in rank order. */
   issues: readonly JiraSprintIssue[];
   /** Null when the board is gone or hidden: every In progress ticket is then In progress (AC-5). */
@@ -143,7 +152,11 @@ export function sprintRecord(input: SprintRecordInput): SprintRecord {
         type,
         bug: type.toLowerCase() === 'bug',
         priority: fields.priority
-          ? { name: fields.priority.name, level: priorityLevel(fields.priority.id, input.priorityOrder) }
+          ? {
+              name: fields.priority.name,
+              level: priorityLevel(fields.priority.id, input.priorityOrder),
+              ...rankIn(fields.priority.id, input.priorityOrder),
+            }
           : null,
         dueDate: dueDate.success ? dueDate.data : null,
         assignee:
@@ -153,11 +166,26 @@ export function sprintRecord(input: SprintRecordInput): SprintRecord {
       },
     ];
   });
-  const sprint: Sprint = {
-    id: input.sprint.id,
-    name: input.sprint.name,
-    endsAt: isoTime(input.sprint.endDate),
-    projectKey: projectOf(tickets.map((ticket) => ticket.key)),
-  };
+  const sprint: Sprint | null =
+    input.sprint === null
+      ? null
+      : {
+          id: input.sprint.id,
+          name: input.sprint.name,
+          endsAt: isoTime(input.sprint.endDate),
+          projectKey: projectOf(tickets.map((ticket) => ticket.key)),
+        };
   return { sprint, tickets, truncated: input.truncated };
+}
+
+/** A project's open sprint as Tickets' Sprint menu lists it (spec 020); a closed one is left out. */
+export function openSprintOf(sprint: JiraBoardSprint): OpenSprint | null {
+  if (sprint.state === 'closed') return null;
+  return {
+    id: sprint.id,
+    name: sprint.name,
+    state: sprint.state,
+    startsAt: isoTime(sprint.startDate),
+    endsAt: isoTime(sprint.endDate),
+  };
 }

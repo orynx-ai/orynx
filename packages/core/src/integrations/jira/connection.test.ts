@@ -170,6 +170,21 @@ describe('Jira connection', () => {
     expect(await settings.read()).toEqual({ jira: { ...saved, email: 'new@example.com' } });
   });
 
+  it('spec 020: a new site drops the Tickets choice, whose project and sprint were the old site’s; the same site keeps it', async () => {
+    jira.use(http.get(myselfUrl('other.atlassian.net'), () => HttpResponse.json({ accountId: 'abc' })));
+    const choice = { projectKey: 'WEB', sprintId: 43 };
+    const { connection, settings } = setup({
+      keychain: createMemoryKeychain({ jira: goodToken }),
+      settings: { jira: saved, tickets: choice },
+    });
+
+    await connection.connect({ ...saved, apiToken: goodToken });
+    expect((await settings.read()).tickets).toEqual(choice);
+
+    await connection.connect({ site: 'other.atlassian.net', email: jiraEmail, apiToken: goodToken });
+    expect(await settings.read()).toEqual({ jira: { site: 'other.atlassian.net', email: jiraEmail } });
+  });
+
   it('asks for a token when none is saved and none was given', async () => {
     const { connection } = setup();
 
@@ -179,10 +194,10 @@ describe('Jira connection', () => {
     expect(error.message).toBe('Paste your Jira API token.');
   });
 
-  it('AC-11: disconnecting removes the token, the site and the email, and says so on the stream', async () => {
+  it('AC-11: disconnecting removes the token, the site, the email and the Tickets choice (spec 020), and says so', async () => {
     const { connection, keychain, settings, seen } = setup({
       keychain: createMemoryKeychain({ jira: goodToken }),
-      settings: { jira: saved },
+      settings: { jira: saved, tickets: { projectKey: 'WEB', sprintId: null } },
     });
 
     await connection.disconnect();

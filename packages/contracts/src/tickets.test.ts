@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { apiPaths, apiRoutes, TicketSchema, TicketsSchema } from './index.ts';
-import { makeTicket, makeTickets } from './testing.ts';
+import { apiPaths, apiRoutes, OpenSprintsSchema, TicketsChoiceSchema, TicketSchema, TicketsSchema } from './index.ts';
+import { makeOpenSprint, makeTicket, makeTickets } from './testing.ts';
 
 describe('TicketsSchema', () => {
   it('AC-1: carries the sprint, its tickets in rank order and where Jira’s sprint read stands', () => {
@@ -92,5 +92,34 @@ describe('TicketsSchema', () => {
   it('AC-1: is served at /api/tickets', () => {
     expect(apiPaths.tickets).toBe('/tickets');
     expect(apiRoutes.tickets).toBe('/api/tickets');
+  });
+});
+
+describe('TicketsChoiceSchema (spec 020)', () => {
+  it('takes your sprint, a project’s current sprint, one sprint of a project, or No sprint (AC-39)', () => {
+    for (const choice of [
+      { projectKey: null, sprintId: null },
+      { projectKey: 'WEB', sprintId: null },
+      { projectKey: 'WEB', sprintId: 43 },
+      { projectKey: 'WEB', sprintId: 'none' },
+      { projectKey: null, sprintId: 'none' },
+    ]) {
+      expect(TicketsChoiceSchema.parse(choice)).toEqual(choice);
+    }
+  });
+
+  it('refuses a sprint without its project, and a key Jira never makes', () => {
+    expect(TicketsChoiceSchema.safeParse({ projectKey: null, sprintId: 43 }).success).toBe(false);
+    expect(TicketsChoiceSchema.safeParse({ projectKey: 'web app', sprintId: null }).success).toBe(false);
+  });
+
+  it('reads an answer from before spec 020 as your sprint', () => {
+    const { choice: _, ...before } = makeTickets();
+    expect(TicketsSchema.parse(before).choice).toEqual({ projectKey: null, sprintId: null });
+  });
+
+  it('lists open sprints with their dates', () => {
+    expect(OpenSprintsSchema.parse({ sprints: [makeOpenSprint()] }).sprints[0]?.name).toBe('Sprint 43');
+    expect(OpenSprintsSchema.safeParse({ sprints: [{ ...makeOpenSprint(), state: 'closed' }] }).success).toBe(false);
   });
 });

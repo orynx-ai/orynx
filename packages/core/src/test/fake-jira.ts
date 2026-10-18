@@ -19,6 +19,11 @@ export const boardConfigurationUrl = (boardId: number, site: string = jiraSite) 
 
 /** The account /myself answers with for the good credentials. */
 export const issueUrl = (key: string, site: string = jiraSite) => `https://${site}/rest/api/3/issue/${key}`;
+export const boardSearchUrl = (site: string = jiraSite) => `https://${site}/rest/agile/1.0/board`;
+export const boardSprintsUrl = (boardId: number, site: string = jiraSite) =>
+  `https://${site}/rest/agile/1.0/board/${String(boardId)}/sprint`;
+export const sprintUrl = (sprintId: number, site: string = jiraSite) =>
+  `https://${site}/rest/agile/1.0/sprint/${String(sprintId)}`;
 
 export const myAccountId = '5b10ac8d82e05b22cc7d4ef5';
 
@@ -339,6 +344,62 @@ export function acceptingIssue(
       },
     });
   });
+}
+
+/** A sprint as the Agile API's board and sprint reads give it: its board is `originBoardId` there. */
+export function agileSprint(sprint: FakeSprint & { startDate?: string | null }) {
+  const { boardId, ...rest } = jiraSprint(sprint);
+  return {
+    ...rest,
+    ...(sprint.startDate === null ? { startDate: undefined } : { startDate: sprint.startDate ?? rest.startDate }),
+    ...(boardId === undefined ? {} : { originBoardId: boardId }),
+    self: `https://${jiraSite}/rest/agile/1.0/sprint/${String(sprint.id)}`,
+  };
+}
+
+/**
+ * The Agile API for a project's Scrum boards and their open sprints (spec 020), for the good credentials:
+ * `boards` maps each project key to its boards, each with its sprints. Asked for active and future sprints,
+ * it leaves out the closed ones, as Jira does.
+ */
+export function acceptingProjectSprints(
+  boards: Readonly<
+    Record<string, readonly { id: number; sprints: readonly (FakeSprint & { startDate?: string | null })[] }[]>
+  >,
+  { site = jiraSite }: { site?: string } = {},
+) {
+  const all = Object.values(boards).flat();
+  return [
+    http.get(boardSearchUrl(site), ({ request }) => {
+      if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+      const params = new URL(request.url).searchParams;
+      const project = params.get('projectKeyOrId') ?? '';
+      const values = (boards[project] ?? []).map((board) => ({
+        id: board.id,
+        name: `${project} board`,
+        type: 'scrum',
+      }));
+      return HttpResponse.json({ maxResults: 50, startAt: 0, isLast: true, values });
+    }),
+    ...all.map((board) =>
+      http.get(boardSprintsUrl(board.id, site), ({ request }) => {
+        if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+        const states = (new URL(request.url).searchParams.get('state') ?? '').split(',');
+        const values = board.sprints
+          .map((sprint) => agileSprint({ boardId: board.id, ...sprint }))
+          .filter((sprint) => states.includes(sprint.state));
+        return HttpResponse.json({ maxResults: 50, startAt: 0, isLast: true, values });
+      }),
+    ),
+    ...all.flatMap((board) =>
+      board.sprints.map((sprint) =>
+        http.get(sprintUrl(sprint.id, site), ({ request }) => {
+          if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+          return HttpResponse.json(agileSprint({ boardId: board.id, ...sprint }));
+        }),
+      ),
+    ),
+  ];
 }
 
 /** Jira's /myself as Atlassian answers it: the user for good credentials, 401 otherwise. */

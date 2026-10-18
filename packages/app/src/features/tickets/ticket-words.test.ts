@@ -75,7 +75,7 @@ describe('Tickets’ words', () => {
     });
     expect(listEmptyText('Sprint 42', { filtered: false, onlyMine: true })).toEqual({
       title: 'Nothing assigned to you in Sprint 42',
-      line: 'Turn off Assigned to me to see the whole sprint.',
+      line: 'Untick Me under Assignee to see the whole sprint.',
     });
   });
 

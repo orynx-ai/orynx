@@ -52,7 +52,7 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
   app.get(
     apiPaths.sessions,
     { schema: { querystring: SessionListQuerySchema, response: { 200: SessionListSchema } } },
-    async (request) => ({ sessions: await listSessions(sessions, request.query) }),
+    (request) => listSessions(sessions, request.query),
   );
 
   app.post(

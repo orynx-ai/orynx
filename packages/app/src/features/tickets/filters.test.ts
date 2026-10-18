@@ -3,12 +3,15 @@ import { makeTicket } from '@devhub/contracts/testing';
 import {
   byColumn,
   defaultFilters,
+  filterOptions,
   filtersFromSearch,
   hasExtraFilters,
   inListOrder,
   matches,
   searchFromFilters,
   TicketsSearchSchema,
+  type DueOption,
+  type TicketFilters,
 } from './filters.ts';
 
 // Saturday 17 Oct 2026, 10:00 on the laptop's calendar.
@@ -18,39 +21,51 @@ const mine = makeTicket({ key: 'PROJ-1423', title: 'Add bulk archive to the cont
 const theirs = makeTicket({ key: 'PROJ-1398', title: 'Read receipts', assignee: { name: 'Priya Shah', mine: false } });
 const nobodys = makeTicket({ key: 'PROJ-1411', title: 'Keyboard navigation', assignee: null });
 
-describe('Tickets’ filters (Q3)', () => {
-  it('AC-1: Assigned to me is on by default, and the rest are off', () => {
-    expect(defaultFilters).toEqual({ mine: true, dueThisWeek: false, bugsOnly: false, text: '' });
-    expect(filtersFromSearch({})).toEqual({ mine: true, dueThisWeek: false, bugsOnly: false });
+describe('Tickets’ filters (spec 020)', () => {
+  const tickets = [mine, theirs, nobodys];
+  const keys = (filters: Partial<TicketFilters>) =>
+    tickets.filter((ticket) => matches(ticket, { ...defaultFilters, ...filters }, now)).map((ticket) => ticket.key);
+
+  it('AC-30: Assignee starts as Me, and the rest let everything through', () => {
+    expect(defaultFilters).toEqual({ assignee: ['me'], status: [], type: [], priority: [], due: [], text: '' });
+    expect(filtersFromSearch({})).toEqual({ assignee: ['me'], status: [], type: [], priority: [], due: [] });
   });
 
-  it('AC-7: Assigned to me keeps your tickets; off, it keeps everyone’s', () => {
-    const tickets = [mine, theirs, nobodys];
-
-    expect(tickets.filter((ticket) => matches(ticket, defaultFilters, now)).map((ticket) => ticket.key)).toEqual([
-      'PROJ-1423',
-    ]);
-    expect(tickets.filter((ticket) => matches(ticket, { ...defaultFilters, mine: false }, now))).toHaveLength(3);
+  it('AC-31: Assignee keeps Me, Unassigned or a person, any of those ticked; nothing ticked keeps everyone', () => {
+    expect(keys({})).toEqual(['PROJ-1423']);
+    expect(keys({ assignee: ['unassigned'] })).toEqual(['PROJ-1411']);
+    expect(keys({ assignee: ['me', 'Priya Shah'] })).toEqual(['PROJ-1423', 'PROJ-1398']);
+    expect(keys({ assignee: [] })).toHaveLength(3);
   });
 
-  it('AC-8: Due this week keeps tickets that aren’t Done and are due within 6 days or overdue', () => {
-    const filters = { ...defaultFilters, mine: false, dueThisWeek: true };
-    const due = (dueDate: string | null, column: 'in_progress' | 'done' = 'in_progress') =>
-      matches(makeTicket({ dueDate, column }), filters, now);
+  it('AC-31: Status, Type and Priority keep tickets with any value ticked; Type in any case', () => {
+    const review = makeTicket({
+      key: 'PROJ-1',
+      status: 'Code Review',
+      type: 'Bug',
+      priority: { name: 'High', level: 'high' },
+    });
+    const story = makeTicket({ key: 'PROJ-2', status: 'In Progress', type: 'Story', priority: null });
+    const pick = (filters: Partial<TicketFilters>) =>
+      [review, story].filter((ticket) => matches(ticket, { ...defaultFilters, ...filters }, now)).map((t) => t.key);
 
-    expect(due('2026-10-17')).toBe(true);
-    expect(due('2026-10-23')).toBe(true);
-    expect(due('2026-10-24')).toBe(false);
-    expect(due('2026-10-10')).toBe(true);
-    expect(due(null)).toBe(false);
-    expect(due('2026-10-18', 'done')).toBe(false);
+    expect(pick({ status: ['Code Review', 'In Progress'] })).toEqual(['PROJ-1', 'PROJ-2']);
+    expect(pick({ status: ['Code Review'], type: ['bug'] })).toEqual(['PROJ-1']);
+    expect(pick({ priority: ['High'] })).toEqual(['PROJ-1']);
   });
 
-  it('AC-8: Bugs only keeps bugs', () => {
-    const filters = { ...defaultFilters, bugsOnly: true };
+  it('AC-31: Due keeps Overdue, due this week, or no due date; a Done ticket is never overdue or due', () => {
+    const due = (dueDate: string | null, want: DueOption[], column: 'in_progress' | 'done' = 'in_progress') =>
+      matches(makeTicket({ dueDate, column }), { ...defaultFilters, due: want }, now);
 
-    expect(matches(makeTicket({ type: 'Bug', bug: true }), filters, now)).toBe(true);
-    expect(matches(makeTicket({ type: 'Story', bug: false }), filters, now)).toBe(false);
+    expect(due('2026-10-10', ['overdue'])).toBe(true);
+    expect(due('2026-10-10', ['week'])).toBe(false);
+    expect(due('2026-10-17', ['week'])).toBe(true);
+    expect(due('2026-10-23', ['week'])).toBe(true);
+    expect(due('2026-10-24', ['week'])).toBe(false);
+    expect(due(null, ['none'])).toBe(true);
+    expect(due(null, ['overdue', 'week'])).toBe(false);
+    expect(due('2026-10-10', ['overdue'], 'done')).toBe(false);
   });
 
   it('AC-10: the search keeps tickets whose key or title holds the text, in any case', () => {
@@ -63,41 +78,89 @@ describe('Tickets’ filters (Q3)', () => {
     expect(search('receipts')).toBe(false);
   });
 
-  it('AC-8: the filters add up', () => {
-    const filters = { mine: true, dueThisWeek: true, bugsOnly: true, text: '' };
-
-    expect(matches(makeTicket({ bug: true, type: 'Bug', dueDate: '2026-10-19' }), filters, now)).toBe(true);
-    expect(matches(makeTicket({ bug: true, type: 'Bug', dueDate: '2026-11-19' }), filters, now)).toBe(false);
-    expect(matches(makeTicket({ bug: true, type: 'Bug', dueDate: '2026-10-19', assignee: null }), filters, now)).toBe(
-      false,
-    );
-  });
-
-  it('AC-8, AC-9: Clear filters shows when Due this week, Bugs only or a search is on', () => {
+  it('AC-33: Clear filters shows when anything differs from Assignee: Me with an empty search', () => {
     expect(hasExtraFilters(defaultFilters)).toBe(false);
-    expect(hasExtraFilters({ ...defaultFilters, mine: false })).toBe(false);
-    expect(hasExtraFilters({ ...defaultFilters, dueThisWeek: true })).toBe(true);
-    expect(hasExtraFilters({ ...defaultFilters, bugsOnly: true })).toBe(true);
+    expect(hasExtraFilters({ ...defaultFilters, assignee: [] })).toBe(true);
+    expect(hasExtraFilters({ ...defaultFilters, due: ['week'] })).toBe(true);
     expect(hasExtraFilters({ ...defaultFilters, text: ' x ' })).toBe(true);
     expect(hasExtraFilters({ ...defaultFilters, text: '   ' })).toBe(false);
   });
 
-  it('AC-7, AC-8: the filters live in the address, and only those that differ from the default', () => {
-    expect(searchFromFilters({ mine: true, dueThisWeek: false, bugsOnly: false })).toEqual({});
-    expect(searchFromFilters({ mine: false, dueThisWeek: true, bugsOnly: true })).toEqual({
-      assignee: 'anyone',
-      due: 'week',
-      type: 'bug',
-    });
-    expect(filtersFromSearch({ assignee: 'anyone', due: 'week', type: 'bug' })).toEqual({
-      mine: false,
-      dueThisWeek: true,
-      bugsOnly: true,
+  it('AC-31: the filters live in the address as comma lists, and only those that differ from the default', () => {
+    const { text: _, ...address } = defaultFilters;
+    expect(searchFromFilters(address)).toEqual({});
+    expect(
+      searchFromFilters({
+        assignee: ['me', 'unassigned'],
+        status: ['Code Review'],
+        type: [],
+        priority: ['High'],
+        due: ['overdue', 'week'],
+      }),
+    ).toEqual({ assignee: 'me,unassigned', status: 'Code Review', priority: 'High', due: 'overdue,week' });
+    expect(searchFromFilters({ ...address, assignee: [] })).toEqual({ assignee: 'anyone' });
+    expect(
+      filtersFromSearch({ assignee: 'me,unassigned', status: 'Code Review,In Progress', due: 'week,month' }),
+    ).toEqual({
+      assignee: ['me', 'unassigned'],
+      status: ['Code Review', 'In Progress'],
+      type: [],
+      priority: [],
+      due: ['week'],
     });
   });
 
-  it('an address value DevHub can’t read falls back to the default, rather than an error page', () => {
-    expect(TicketsSearchSchema.parse({ assignee: 'me', due: 'month', type: 'story' })).toEqual({});
+  it('AC-31: a value holding a comma, such as a person named "Doe, Jane", stays one value in the address', () => {
+    const ticked = { ...filtersFromSearch({}), assignee: ['Doe, Jane', 'me'], status: ['100% done'] };
+    const search = searchFromFilters(ticked);
+
+    expect(search).toEqual({ assignee: 'Doe%2C Jane,me', status: '100%25 done' });
+    expect(filtersFromSearch(search)).toEqual(ticked);
+  });
+
+  it('AC-32: spec 008’s addresses still work', () => {
+    expect(filtersFromSearch(TicketsSearchSchema.parse({ assignee: 'anyone', due: 'week', type: 'bug' }))).toEqual({
+      assignee: [],
+      status: [],
+      type: ['Bug'],
+      priority: [],
+      due: ['week'],
+    });
+  });
+
+  it('AC-30: each filter offers what the sprint holds, in its order, and keeps a ticked value no ticket has', () => {
+    const sprint = [
+      makeTicket({
+        key: 'PROJ-1',
+        status: 'Done',
+        column: 'done',
+        type: 'Task',
+        priority: { name: 'Low', level: 'low', rank: 3 },
+      }),
+      makeTicket({
+        key: 'PROJ-2',
+        status: 'To Do',
+        column: 'to_do',
+        type: 'Bug',
+        assignee: { name: 'Sam Lee', mine: false },
+      }),
+      makeTicket({
+        key: 'PROJ-3',
+        status: 'Code Review',
+        column: 'in_review',
+        priority: { name: 'Highest', level: 'high', rank: 0 },
+      }),
+      theirs,
+    ];
+    const options = filterOptions(sprint, { ...filtersFromSearch({}), status: ['Blocked'] });
+    const labels = (key: keyof typeof options) => options[key].map((option) => option.label);
+
+    expect(labels('assignee')).toEqual(['Me', 'Unassigned', 'Priya Shah', 'Sam Lee']);
+    expect(labels('status')).toEqual(['To Do', 'In Progress', 'Code Review', 'Done', 'Blocked']);
+    expect(labels('type')).toEqual(['Bug', 'Story', 'Task']);
+    // The site's order, highest first, not A to Z: Highest and High share a level (spec 020).
+    expect(labels('priority')).toEqual(['Highest', 'High', 'Low']);
+    expect(labels('due')).toEqual(['Overdue', 'This week', 'No due date']);
   });
 });
 

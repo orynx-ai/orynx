@@ -1,9 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ArrowUpRight01Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
+import { Icon } from './icon.tsx';
+import { IconButton } from './icon-button.tsx';
 import {
-  AttentionAction,
+  AttentionActions,
   AttentionList,
   AttentionRow,
   AttentionRowSkeleton,
@@ -23,7 +26,21 @@ function Inbox() {
         sub="web-app #2841 · by Priya S."
         reason="Review requested · 2 d"
         reasonTone="warning"
-        action={<AttentionAction href="https://github.com/acme/web-app/pull/2841">Review</AttentionAction>}
+        action={
+          <AttentionActions>
+            <IconButton
+              asChild
+              variant="ghost"
+              size="sm"
+              label="Open in GitHub"
+              aria-label="Open web-app #2841 in GitHub"
+            >
+              <a href="https://github.com/acme/web-app/pull/2841">
+                <Icon icon={ArrowUpRight01Icon} aria-hidden />
+              </a>
+            </IconButton>
+          </AttentionActions>
+        }
       />
       <AttentionRow
         source="slack"
@@ -35,7 +52,18 @@ function Inbox() {
         sub="Neha K. in #web-platform"
         reason="No reply · 3 h"
         reasonTone="warning"
-        action={<AttentionAction href="https://acme.slack.com/archives/C1/p1">Reply</AttentionAction>}
+        action={
+          <AttentionActions>
+            <IconButton variant="ghost" size="sm" label="Ship" aria-label="Ship PROJ-1377">
+              <Icon icon={SparklesIcon} aria-hidden />
+            </IconButton>
+            <IconButton asChild variant="ghost" size="sm" label="Open in Slack" aria-label="Open the message in Slack">
+              <a href="https://acme.slack.com/archives/C1/p1">
+                <Icon icon={ArrowUpRight01Icon} aria-hidden />
+              </a>
+            </IconButton>
+          </AttentionActions>
+        }
       />
     </AttentionList>
   );
@@ -57,7 +85,7 @@ describe('AttentionRow', () => {
     );
     expect(row.getByText('web-app #2841 · by Priya S.')).toBeVisible();
     expect(row.getByText('Review requested · 2 d')).toBeVisible();
-    expect(row.getByRole('link', { name: 'Review' })).toHaveAttribute(
+    expect(row.getByRole('link', { name: 'Open web-app #2841 in GitHub' })).toHaveAttribute(
       'href',
       'https://github.com/acme/web-app/pull/2841',
     );
@@ -77,7 +105,6 @@ describe('AttentionRow', () => {
           sub="web-app #2841 · by Priya S."
           reason="Review requested · 2 d"
           reasonTone="warning"
-          action={<AttentionAction href="https://github.com/acme/web-app/pull/2841">Review</AttentionAction>}
         />
       </AttentionList>,
     );
@@ -86,16 +113,23 @@ describe('AttentionRow', () => {
     await expectNoAxeViolations(container);
   });
 
-  it('AC-18: Tab stops on the title, then on the action', async () => {
+  it('AC-18, AC-14 (spec 020): Tab stops on the title, then on each action, which shows its words in a tooltip', async () => {
     const user = userEvent.setup();
     render(<Inbox />);
 
     await user.tab();
     expect(screen.getByRole('link', { name: 'Lazy-load the people directory' })).toHaveFocus();
     await user.tab();
-    expect(screen.getByRole('link', { name: 'Review' })).toHaveFocus();
+    expect(screen.getByRole('link', { name: 'Open web-app #2841 in GitHub' })).toHaveFocus();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Open in GitHub');
     await user.tab();
     expect(screen.getByRole('link', { name: 'Can you confirm the archive API returns 207?' })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Ship PROJ-1377' })).toHaveFocus();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Ship');
+    await user.tab();
+    expect(screen.getByRole('link', { name: 'Open the message in Slack' })).toHaveFocus();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Open in Slack');
   });
 
   it('AC-26: the loading rows are hidden from screen readers (their size is checked in the browser)', async () => {
@@ -111,17 +145,5 @@ describe('AttentionRow', () => {
     expect(list).toHaveTextContent('');
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
-  });
-
-  it("AC-18: the action can be the router's link, with its chevron inside", () => {
-    render(
-      <AttentionAction asChild>
-        <a href="/sessions/42">Open session</a>
-      </AttentionAction>,
-    );
-
-    const link = screen.getByRole('link', { name: 'Open session' });
-    expect(link).toHaveAttribute('href', '/sessions/42');
-    expect(link.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
 });

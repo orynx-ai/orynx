@@ -2,6 +2,10 @@ import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import {
   acceptingBoardConfiguration,
+  acceptingProjectSprints,
+  boardSearchUrl,
+  boardSprintsUrl,
+  sprintUrl,
   acceptingFieldList,
   acceptingIssueSearch,
   acceptingMySprintSearch,
@@ -777,5 +781,161 @@ describe('Jira client: one issue (spec 011)', () => {
       }),
     );
     expect(await client.issue(credentials, 'PROJ-1423')).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+});
+
+describe('Jira client: a project’s sprints (spec 020)', () => {
+  it('AC-26: lists a project’s active sprints ending soonest, then its future ones starting soonest, each once', async () => {
+    jira.use(
+      ...acceptingProjectSprints({
+        WEB: [
+          {
+            id: 11,
+            sprints: [
+              { id: 43, name: 'Web 43', state: 'future', startDate: '2026-10-27T09:00:00.000Z', endDate: null },
+              { id: 42, name: 'Web 42', state: 'active', endDate: '2026-10-24T17:00:00.000Z' },
+              { id: 41, name: 'Web 41', state: 'closed' },
+            ],
+          },
+          {
+            id: 12,
+            sprints: [
+              // On both boards: listed once.
+              { id: 42, name: 'Web 42', state: 'active', endDate: '2026-10-24T17:00:00.000Z' },
+              { id: 7, name: 'Platform 7', state: 'active', endDate: '2026-10-21T17:00:00.000Z' },
+              { id: 44, name: 'Web 44', state: 'future', startDate: '2026-11-10T09:00:00.000Z', endDate: null },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const answer = await client.projectSprints(credentials, 'WEB');
+
+    expect(answer).toEqual({
+      ok: true,
+      sprints: [
+        {
+          id: 7,
+          name: 'Platform 7',
+          state: 'active',
+          boardId: 12,
+          startDate: '2026-10-10T09:00:00.000Z',
+          endDate: '2026-10-21T17:00:00.000Z',
+        },
+        {
+          id: 42,
+          name: 'Web 42',
+          state: 'active',
+          boardId: 11,
+          startDate: '2026-10-10T09:00:00.000Z',
+          endDate: '2026-10-24T17:00:00.000Z',
+        },
+        { id: 43, name: 'Web 43', state: 'future', boardId: 11, startDate: '2026-10-27T09:00:00.000Z', endDate: null },
+        { id: 44, name: 'Web 44', state: 'future', boardId: 12, startDate: '2026-11-10T09:00:00.000Z', endDate: null },
+      ],
+    });
+  });
+
+  it('AC-26: asks for Scrum boards of the project, and only active and future sprints', async () => {
+    const asked: string[] = [];
+    jira.use(
+      http.get(boardSearchUrl(), ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return HttpResponse.json({ values: [{ id: 11 }] });
+      }),
+      http.get(boardSprintsUrl(11), ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return HttpResponse.json({ values: [] });
+      }),
+    );
+
+    await client.projectSprints(credentials, 'WEB');
+
+    expect(asked).toEqual(['?projectKeyOrId=WEB&type=scrum&maxResults=10', '?state=active%2Cfuture&maxResults=50']);
+  });
+
+  it('AC-28: a project with no Scrum board, or none that keeps sprints, has no open sprints', async () => {
+    jira.use(...acceptingProjectSprints({ OPS: [] }));
+    expect(await client.projectSprints(credentials, 'OPS')).toEqual({ ok: true, sprints: [] });
+
+    jira.use(
+      http.get(boardSearchUrl(), () => HttpResponse.json({ values: [{ id: 21 }, { id: 22 }] })),
+      http.get(boardSprintsUrl(21), () =>
+        HttpResponse.json({ errorMessages: ['The board does not support sprints'] }, { status: 400 }),
+      ),
+      http.get(boardSprintsUrl(22), () => HttpResponse.json({ errorMessages: ['Hidden'] }, { status: 403 })),
+    );
+    expect(await client.projectSprints(credentials, 'OPS')).toEqual({ ok: true, sprints: [] });
+  });
+
+  it('AC-28: a refused token or a slow Jira is a problem', async () => {
+    jira.use(...acceptingProjectSprints({ WEB: [{ id: 11, sprints: [{ id: 42 }] }] }));
+    expect(await client.projectSprints({ ...credentials, apiToken: 'fake-wrong-token' }, 'WEB')).toEqual({
+      ok: false,
+      problem: { kind: 'rejected' },
+    });
+
+    jira.use(
+      http.get(boardSearchUrl(), async () => {
+        await delay('infinite');
+        return HttpResponse.json({});
+      }),
+    );
+    expect(await client.projectSprints(credentials, 'WEB')).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+});
+
+describe('Jira client: one sprint and who you are (spec 020)', () => {
+  it('AC-27: reads the sprint Tickets holds, with its board', async () => {
+    jira.use(...acceptingProjectSprints({ WEB: [{ id: 11, sprints: [{ id: 42, name: 'Web 42', state: 'closed' }] }] }));
+
+    expect(await client.sprint(credentials, 42)).toEqual({
+      ok: true,
+      sprint: {
+        id: 42,
+        name: 'Web 42',
+        state: 'closed',
+        boardId: 11,
+        startDate: '2026-10-10T09:00:00.000Z',
+        endDate: '2026-10-24T17:00:00.000Z',
+      },
+    });
+  });
+
+  it('AC-27: a sprint that’s gone or hidden is no sprint, rather than a problem', async () => {
+    jira.use(http.get(sprintUrl(99), () => HttpResponse.json({ errorMessages: ['Gone'] }, { status: 404 })));
+    expect(await client.sprint(credentials, 99)).toEqual({ ok: true, sprint: null });
+  });
+
+  it('says who the credentials belong to', async () => {
+    expect(await client.account(credentials)).toEqual({ ok: true, accountId: myAccountId });
+    expect(await client.account({ ...credentials, apiToken: 'fake-wrong-token' })).toEqual({
+      ok: false,
+      problem: { kind: 'rejected' },
+    });
+  });
+});
+
+describe('Jira client: issues in no sprint (spec 020)', () => {
+  it('AC-39: asks for a project’s backlog, or your own issues in no sprint, that aren’t Done, in rank order', async () => {
+    const asked: string[] = [];
+    jira.use(
+      http.post(issueSearchUrl(), async ({ request }) => {
+        const body = (await request.json()) as { jql: string };
+        asked.push(body.jql);
+        return HttpResponse.json({ issues: [jiraIssue({ key: 'WEB-1', priority: null })], isLast: true });
+      }),
+    );
+
+    const project = await client.issuesWithoutSprint(credentials, 'WEB');
+    const yours = await client.issuesWithoutSprint(credentials, null);
+
+    expect(project.ok && project.issues.map((issue) => issue.key)).toEqual(['WEB-1']);
+    expect(yours.ok).toBe(true);
+    expect(asked).toEqual([
+      'project = "WEB" AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC',
+      'assignee = currentUser() AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC',
+    ]);
   });
 });

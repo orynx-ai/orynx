@@ -27,10 +27,16 @@ export const TicketSchema = z.object({
   column: TicketColumnSchema,
   /** The type's own name: "Story", "Bug", "Sub-task". */
   type: z.string().min(1),
-  /** The type is named "Bug", in any case (spec 007, Q2f): drawn in `danger`, and what Bugs only keeps. */
+  /** The type is named "Bug", in any case (spec 007, Q2f): drawn in `danger`, and what Type: Bug keeps. */
   bug: z.boolean(),
-  /** The priority's own name ("Highest", "P2") and its bars; null when the issue has none. */
-  priority: z.object({ name: z.string().min(1), level: PriorityLevelSchema }).nullable(),
+  /**
+   * The priority's own name ("Highest", "P2"), its bars, and its place in the site's list, highest first (spec
+   * 020: Priority's filter lists them so); null when the issue has none. `rank` is left out when the site's list
+   * doesn't hold it, or the sprint was kept before spec 020.
+   */
+  priority: z
+    .object({ name: z.string().min(1), level: PriorityLevelSchema, rank: z.int().nonnegative().optional() })
+    .nullable(),
   /** A calendar day: the app works out "Due Tue" or "Overdue" in the laptop's calendar. */
   dueDate: z.iso.date().nullable(),
   /** Jira's display name, and whether it's you; null when nobody is assigned. */
@@ -52,14 +58,56 @@ export const SprintSchema = z.object({
 });
 export type Sprint = z.infer<typeof SprintSchema>;
 
+/**
+ * Which sprint Tickets shows (spec 020): your sprint (no project, the default: the active sprint that holds
+ * most of your tickets), a project's current sprint (a project, no sprint: it follows the project as sprints
+ * roll over), one sprint of a project, held until another is picked, or `none`: the tickets in no sprint that
+ * aren't Done, the project's or, with no project, your own (AC-39).
+ */
+export const TicketsChoiceSchema = z
+  .object({
+    projectKey: JiraProjectKeySchema.nullable(),
+    sprintId: z.union([z.int().positive(), z.literal('none')]).nullable(),
+  })
+  .refine((choice) => choice.projectKey !== null || choice.sprintId === null || choice.sprintId === 'none', {
+    message: 'A sprint is picked with its project.',
+  });
+export type TicketsChoice = z.infer<typeof TicketsChoiceSchema>;
+
+/** Your sprint, until a project is picked. */
+export const defaultTicketsChoice: TicketsChoice = { projectKey: null, sprintId: null };
+
 /** GET /api/tickets: the sprint and every ticket in it, in Jira's rank order. Answers from the cache. */
 export const TicketsSchema = z.object({
   /** Where Jira's sprint read stands, in the inbox's terms, so a failed read says so in 007's words. */
   jira: InboxToolStateSchema,
-  /** Null when Jira isn't connected, hasn't answered yet, or no active sprint holds a ticket of yours. */
+  /**
+   * Null when Jira isn't connected, hasn't answered yet, or no active sprint holds a ticket of yours; and for
+   * No sprint, whose tickets come without one (spec 020).
+   */
   sprint: SprintSchema.nullable(),
   tickets: z.array(TicketSchema),
   /** The sprint held more tickets than DevHub keeps, so these are the first in rank order (Q8h). */
   truncated: z.boolean(),
+  /** Which sprint was asked for (spec 020); while its first sync runs, Jira's state is `syncing`. */
+  choice: TicketsChoiceSchema.default(defaultTicketsChoice),
 });
 export type Tickets = z.infer<typeof TicketsSchema>;
+
+/** One of a project's open sprints, for Tickets' Sprint menu (spec 020, AC-26). */
+export const OpenSprintSchema = z.object({
+  id: z.int().positive(),
+  name: z.string().min(1),
+  state: z.enum(['active', 'future']),
+  /** When Jira says it starts and ends; null when it doesn't say. */
+  startsAt: z.iso.datetime().nullable(),
+  endsAt: z.iso.datetime().nullable(),
+});
+export type OpenSprint = z.infer<typeof OpenSprintSchema>;
+
+/** GET /api/tickets/sprints?project=WEB: the project's active sprints ending soonest, then its future ones. Asks Jira. */
+export const OpenSprintsSchema = z.object({ sprints: z.array(OpenSprintSchema) });
+export type OpenSprints = z.infer<typeof OpenSprintsSchema>;
+
+export const OpenSprintsQuerySchema = z.object({ project: JiraProjectKeySchema });
+export type OpenSprintsQuery = z.infer<typeof OpenSprintsQuerySchema>;

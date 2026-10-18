@@ -67,14 +67,13 @@ describe('TicketsScreen', () => {
     const view = screen.getByRole('group', { name: 'View' });
     expect(within(view).getByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true');
     expect(within(view).getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'false');
-    expect(filter('Assigned to me')).toHaveAttribute('aria-pressed', 'true');
-    expect(filter('Due this week')).toHaveAttribute('aria-pressed', 'false');
-    expect(filter('Bugs only')).toHaveAttribute('aria-pressed', 'false');
+    expect(filter('Assignee · 1')).toBeVisible();
+    expect(filter('Due')).toBeVisible();
     expect(count()).toHaveTextContent('6 tickets');
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
 
-  it('AC-30: Tab goes through the search, Board / List, the filters, Clear filters, the board, then each card', async () => {
+  it('AC-30: Tab goes through the search, Board / List, Project and Sprint (spec 020), the filters, Clear filters, the board, then each card', async () => {
     server.use(ticketsHandler());
     const { user } = await renderApp({ route: '/tickets?type=bug' });
     await screen.findByText('1 ticket');
@@ -83,7 +82,7 @@ describe('TicketsScreen', () => {
       .focus();
     const stops: string[] = [];
 
-    for (let stop = 0; stop < 9; stop += 1) {
+    for (let stop = 0; stop < 13; stop += 1) {
       await user.tab();
       const focused = document.activeElement;
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent.trim() ?? '');
@@ -93,9 +92,13 @@ describe('TicketsScreen', () => {
       'Search tickets',
       'Board',
       'List',
-      'Assigned to me',
-      'Due this week',
-      'Bugs only',
+      'Project Your sprint',
+      'Sprint Sprint 42',
+      'Assignee · 1',
+      'Status',
+      'Type · 1',
+      'Priority',
+      'Due',
       'Clear filters',
       'Board',
       'Search returns archived sites for guest users',
@@ -111,7 +114,9 @@ describe('TicketsScreen', () => {
       within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Tickets' });
     const onThisPage = crumb().className;
 
-    await user.click(filter('Assigned to me'));
+    await user.click(filter('Assignee · 1'));
+    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Me' }));
+    await user.keyboard('{Escape}');
 
     expect(crumb().className).toBe(onThisPage);
     expect(onThisPage).not.toBe('active');
@@ -177,7 +182,7 @@ describe('TicketsScreen', () => {
       expect(columns.map((column) => column.getAttribute('aria-busy'))).toEqual(['true', 'true', 'true', 'true']);
       expect(within(board).getByRole('heading', { name: 'In review' })).toBeVisible();
       expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Tickets')).toBeVisible();
-      expect(filter('Assigned to me')).toBeVisible();
+      expect(filter('Assignee · 1')).toBeVisible();
       expect(count()).toBeEmptyDOMElement();
     });
 

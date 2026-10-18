@@ -17,7 +17,9 @@ export {
   sessionDiffQueryOptions,
   sessionQueryKey,
   sessionQueryOptions,
+  sessionPagesQueryOptions,
   sessionsQueryOptions,
   statusQueryOptions,
   ticketsQueryOptions,
+  ticketsSprintsQueryOptions,
 } from './queries.ts';

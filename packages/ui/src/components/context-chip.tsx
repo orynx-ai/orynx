@@ -2,6 +2,7 @@ import type { ComponentProps, MouseEvent, ReactNode } from 'react';
 import { Cancel01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
 import { Icon } from './icon.tsx';
+import { Tooltip } from './tooltip.tsx';
 
 export type ContextListProps = ComponentProps<'ul'> & {
   /** What the chips are, for screen readers: "Context for Claude". */
@@ -58,17 +59,19 @@ export function ContextChip({ label, icon, onRemove, className, ...props }: Cont
       <span title={label} className="min-w-0 truncate">
         {label}
       </span>
-      <button
-        type="button"
-        aria-label={`Remove ${label}`}
-        onClick={(event) => {
-          focusAfterRemoving(event);
-          onRemove();
-        }}
-        className="relative inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-xs border-0 bg-transparent text-muted-foreground after:absolute after:-inset-1 hover:bg-subtle hover:text-foreground [&_svg]:size-3.5 [&_svg]:stroke-2"
-      >
-        <Icon icon={Cancel01Icon} aria-hidden />
-      </button>
+      <Tooltip label="Remove">
+        <button
+          type="button"
+          aria-label={`Remove ${label}`}
+          onClick={(event) => {
+            focusAfterRemoving(event);
+            onRemove();
+          }}
+          className="relative inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-xs border-0 bg-transparent text-muted-foreground after:absolute after:-inset-1 hover:bg-subtle hover:text-foreground [&_svg]:size-3.5 [&_svg]:stroke-2"
+        >
+          <Icon icon={Cancel01Icon} aria-hidden />
+        </button>
+      </Tooltip>
     </li>
   );
 }
