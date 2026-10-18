@@ -3,7 +3,7 @@ import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-a
 import { briefText } from '../../sessions/brief.ts';
 import type { AgentAdapter, AgentEvent } from '../agent-adapter.ts';
 import { createMessageReader } from './sdk-messages.ts';
-import { decideToolUse, sessionTools } from './tool-decision.ts';
+import { decideToolUse, sessionToolsWithoutCommands } from './tool-decision.ts';
 
 /**
  * Claude behind the agent adapter (spec 011), through the Claude Agent SDK's `query()`. Every option is
@@ -92,7 +92,8 @@ export function createClaudeAdapter({
         pathToClaudeCodeExecutable: program,
         env: { ...env, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' },
         permissionMode: 'default',
-        tools: [...sessionTools],
+        // Commands join once the sandbox and `respond` exist (spec 012, tasks 7 and 8).
+        tools: [...sessionToolsWithoutCommands],
         settingSources: [],
         settings: { disableAllHooks: true },
         strictMcpConfig: true,
@@ -101,8 +102,28 @@ export function createClaudeAdapter({
         // Claude Code's own output can hold the brief or file contents; it never reaches the log.
         stderr: () => undefined,
         async canUseTool(tool, input) {
-          const decision = await decideToolUse(tool, input, { worktree, mode: permissions.mode, home });
+          const decision = await decideToolUse(tool, input, {
+            worktree,
+            mode: permissions.mode,
+            allowedCommands: permissions.allowedCommands,
+            home,
+          });
           if (decision.behavior === 'allow') return { behavior: 'allow', updatedInput: input };
+          if (decision.behavior === 'ask') {
+            // Until `respond` exists (spec 012, task 8), an ask is refused as spec 011 refused it.
+            const refusal = {
+              access: 'edit',
+              reason: 'ask_everything',
+              path: decision.ask.kind === 'edit' ? decision.ask.path : decision.ask.command,
+            } as const;
+            send({ type: 'work', sessionId: id, work: { kind: 'refused', refusal } });
+            return {
+              behavior: 'deny',
+              message:
+                "Ask before everything is on, and Orynx can't ask the user yet, so file edits are refused. " +
+                'Describe the change you would make instead.',
+            };
+          }
           if (decision.refusal !== null) {
             send({ type: 'work', sessionId: id, work: { kind: 'refused', refusal: decision.refusal } });
           }

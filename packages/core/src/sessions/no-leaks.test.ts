@@ -8,7 +8,7 @@ import { apiRoutes, tokenHeader, type ServerEvent } from '@devhub/contracts';
 import { agentEnvironment, gitEnvironment } from '../agents/agent-environment.ts';
 import type { QueryFunction } from '../agents/claude/claude-adapter.ts';
 import { createClaudeCode } from '../agents/claude/claude-code.ts';
-import { sessionTools } from '../agents/claude/tool-decision.ts';
+import { sessionToolsWithoutCommands } from '../agents/claude/tool-decision.ts';
 import { createServer } from '../create-server.ts';
 import { createEventBus } from '../events/event-bus.ts';
 import type { Keychain } from '../secrets/keychain.ts';
@@ -190,7 +190,7 @@ describe.skipIf(process.platform === 'win32')('a session stays out of the log an
       const options = fake.runs[0]?.options;
       expect(options?.settingSources).toEqual([]);
       expect(options?.settings).toEqual({ disableAllHooks: true });
-      expect(options?.tools).toEqual([...sessionTools]);
+      expect(options?.tools).toEqual([...sessionToolsWithoutCommands]);
       expect(Object.keys(options?.env ?? {}).filter((name) => name.startsWith('DEVHUB_'))).toEqual([]);
       expect(JSON.stringify(options?.env)).not.toContain(devhubToken);
     }

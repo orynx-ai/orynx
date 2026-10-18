@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { fakeClaudeSdk, type FakeTurn } from '../../test/fake-claude-sdk.ts';
 import type { AgentEvent, AgentPermissions } from '../agent-adapter.ts';
 import { createClaudeAdapter } from './claude-adapter.ts';
-import { sessionTools } from './tool-decision.ts';
+import { sessionToolsWithoutCommands } from './tool-decision.ts';
 
 let root: string;
 let worktree: string;
@@ -68,7 +68,7 @@ describe('the Claude adapter', () => {
       pathToClaudeCodeExecutable: '/opt/claude/claude',
       env: { HOME: '/Users/you', PATH: '/usr/bin', CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' },
       permissionMode: 'default',
-      tools: [...sessionTools],
+      tools: [...sessionToolsWithoutCommands],
       settingSources: [],
       settings: { disableAllHooks: true },
       strictMcpConfig: true,
@@ -146,10 +146,13 @@ describe('the Claude adapter', () => {
   });
 
   it('AC-5 (Q6): refuses a tool a session doesn’t have, without a step', async () => {
-    const { sdk, adapter } = setUp([{ tool: 'Bash', input: { command: 'git push' } }, { finish: 'Did not push.' }]);
+    const { sdk, adapter } = setUp([
+      { tool: 'WebFetch', input: { url: 'https://example.com', prompt: 'x' } },
+      { finish: 'Did not fetch.' },
+    ]);
     const { events } = await runToEnd(adapter);
     expect(sdk.runs[0]?.decisions[0]?.result.behavior).toBe('deny');
-    expect(works(events)).toEqual([{ kind: 'finished', summary: 'Did not push.' }]);
+    expect(works(events)).toEqual([{ kind: 'finished', summary: 'Did not fetch.' }]);
   });
 
   it('keeps the events that come before anyone listens, for the first listener', async () => {

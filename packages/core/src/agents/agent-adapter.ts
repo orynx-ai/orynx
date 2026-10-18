@@ -27,11 +27,11 @@ export interface AgentBrief {
 
 export type ApprovalDecision = 'allow' | 'deny' | 'always';
 
-/** A call the adapter refused, which the session shows as a step (spec 011, Q6). */
+/** A call the adapter refused, which the session shows as a step (spec 011 Q6, spec 012 Q7). */
 export interface AgentRefusal {
-  access: 'read' | 'edit';
-  reason: 'outside_worktree' | 'ask_everything';
-  /** As the agent asked for it: relative to the worktree when it's inside, otherwise absolute. */
+  access: 'read' | 'edit' | 'run';
+  reason: 'outside_worktree' | 'ask_everything' | 'push' | 'background';
+  /** As the agent asked for it: relative to the worktree when it's inside, otherwise absolute; the command for a `run`. */
   path: string;
 }
 
