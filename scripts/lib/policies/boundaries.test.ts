@@ -81,6 +81,20 @@ describe('findBoundaryViolations', () => {
     );
   });
 
+  it('keeps the Claude Agent SDK and the peers it brings out of browser packages (spec 010)', () => {
+    assert.deepEqual(
+      rules(
+        'packages/app/src/x.ts',
+        [
+          'import { query } from "@anthropic-ai/claude-agent-sdk";',
+          'import Anthropic from "@anthropic-ai/sdk";',
+          'import { Client } from "@modelcontextprotocol/sdk/client/index.js";',
+        ].join('\n'),
+      ),
+      ['server-lib-in-browser', 'server-lib-in-browser', 'server-lib-in-browser'],
+    );
+  });
+
   it('lets browser-package tests use Node built-ins', () => {
     assert.deepEqual(
       rules(

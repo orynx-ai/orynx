@@ -97,6 +97,9 @@ export function isServerOnly(name: string): boolean {
     name.startsWith('fastify-') ||
     name.startsWith('@fastify/') ||
     name === '@anthropic-ai/claude-agent-sdk' ||
+    // The SDK's required peers (spec 010, Q8).
+    name === '@anthropic-ai/sdk' ||
+    name === '@modelcontextprotocol/sdk' ||
     name === 'simple-git' ||
     name === 'better-sqlite3' ||
     name === 'drizzle-orm' ||
