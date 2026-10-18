@@ -1,5 +1,6 @@
 export { agentEnvironment, gitEnvironment } from './agents/agent-environment.ts';
 export { claudeWorkFolder, createClaudeCode, findSdkClaudeCode, type ClaudeCode } from './agents/claude/claude-code.ts';
+export { sandboxAvailable } from './agents/claude/sandbox.ts';
 export { createServer, redactToken, type CoreOptions } from './create-server.ts';
 export { createEventBus, type EventBus, type EventListener } from './events/event-bus.ts';
 export { createGhCli, type GhCli } from './integrations/github/gh.ts';

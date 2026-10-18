@@ -12,6 +12,8 @@ import {
   type PermissionMode,
 } from '@devhub/contracts';
 import { gitEnvironment } from '../agents/agent-environment.ts';
+import { sandboxSettings } from '../agents/claude/sandbox.ts';
+import { sessionTools, sessionToolsWithoutCommands } from '../agents/claude/tool-decision.ts';
 import { createClaudeCode } from '../agents/claude/claude-code.ts';
 import { createServer } from '../create-server.ts';
 import { openFileSessionStore } from '../sessions/file-session-store.ts';
@@ -44,10 +46,12 @@ afterEach(async () => {
 interface HubOptions {
   script: readonly FakeTurn[];
   mode?: PermissionMode;
+  /** Whether the host found Claude Code's sandbox. */
+  sandbox?: boolean;
 }
 
 /** A hub with one folder for PROJ, Jira connected and Claude Code signed in; saving settings can be made to fail. */
-async function hub({ script, mode = 'edit_freely_ask_commands' }: HubOptions) {
+async function hub({ script, mode = 'edit_freely_ask_commands', sandbox = true }: HubOptions) {
   const repos = await repositories();
   home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-approvals-')));
   const folder = await fakeClaudeFolder();
@@ -79,7 +83,12 @@ async function hub({ script, mode = 'edit_freely_ask_commands' }: HubOptions) {
       env: { PATH: '/usr/bin:/bin' },
       workFolder: folder.workFolder,
     }),
-    agent: { query: sdk.query, program: '/opt/claude/claude', env: { HOME: repos.root, PATH: gitSearchPath } },
+    agent: {
+      query: sdk.query,
+      program: '/opt/claude/claude',
+      env: { HOME: repos.root, PATH: gitSearchPath },
+      sandbox,
+    },
     gitEnvironment: gitEnvironment(repos.env),
   });
   app = server;
@@ -119,7 +128,7 @@ async function hub({ script, mode = 'edit_freely_ask_commands' }: HubOptions) {
       headers,
       payload: { decision },
     });
-  return { server, sessionId, session, waiting, answer, saving, settings: memory };
+  return { server, sessionId, session, waiting, answer, saving, settings: memory, sdk, repos, home };
 }
 
 const npmTest: FakeTurn = { tool: 'Bash', input: { command: 'npm test', description: 'Run the tests' } };
@@ -192,6 +201,34 @@ describe.skipIf(process.platform === 'win32')('POST /api/sessions/:id/approvals/
     saving.fails = false;
     expect((await answer(approval?.id ?? '', 'always_allow')).statusCode).toBe(204);
     expect((await settings.read()).agent).toMatchObject({ allowedCommands: ['npm run lint'] });
+  });
+
+  it('012 AC-9, AC-20: with the sandbox, Claude gets commands, each run sandboxed for its own worktree', async () => {
+    const { sdk, sessionId, waiting, answer, repos, home } = await hub({ script: [npmTest, { finish: 'Done.' }] });
+    const [approval] = await waiting();
+    const options = sdk.runs[0]?.options;
+    const worktree = join(home, 'worktrees', sessionId);
+    expect(options?.tools).toEqual([...sessionTools]);
+    expect(options?.sandbox).toEqual(
+      sandboxSettings({
+        platform: process.platform,
+        worktree,
+        devhubHome: home,
+        home: repos.root,
+        temporary: tmpdir(),
+      }),
+    );
+    expect((await answer(approval?.id ?? '', 'deny')).statusCode).toBe(204);
+  });
+
+  it('012 AC-20: without the sandbox, Claude gets no commands, and the session says so', async () => {
+    const { sdk, session } = await hub({ script: [{ finish: 'Done.' }], sandbox: false });
+    await vi.waitFor(async () => {
+      expect((await session()).state).toBe('done');
+    });
+    expect(sdk.runs[0]?.options.tools).toEqual([...sessionToolsWithoutCommands]);
+    expect(sdk.runs[0]?.options).not.toHaveProperty('sandbox');
+    expect((await session()).activities).toContainEqual(expect.objectContaining({ kind: 'no_commands' }) as unknown);
   });
 
   it('answers 401 without the session token', async () => {

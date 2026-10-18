@@ -14,6 +14,7 @@ import {
   findSdkClaudeCode,
   openFileSessionStore,
   openInboxCache,
+  sandboxAvailable,
   settingsFilePath,
 } from '@devhub/core';
 import { forgetTokenSettings, loadConfig, readEnvFile, repoEnvFile } from './config.ts';
@@ -49,6 +50,10 @@ const cache = openInboxCache(cacheFilePath(config.home), {
 
 // The Claude Code inside the Agent SDK, or the fake the e2e run names with DEVHUB_CLAUDE_CODE.
 const claudeProgram = config.claudeCode ?? findSdkClaudeCode();
+// Claude runs commands only inside Claude Code's sandbox (spec 012, Q2). The e2e run's fake has none.
+const sandbox =
+  config.sandbox === 'assume' ||
+  (await sandboxAvailable({ platform: process.platform, searchPath: config.ghSearchPath }));
 
 const app = await createServer({
   token,
@@ -69,7 +74,9 @@ const app = await createServer({
   }),
   // Sessions run that same Claude Code through the SDK, with the same environment (spec 011). With no
   // Claude Code for this computer, no session can start.
-  ...(claudeProgram === null ? {} : { agent: { query, program: claudeProgram, env: config.agentEnvironment } }),
+  ...(claudeProgram === null
+    ? {}
+    : { agent: { query, program: claudeProgram, env: config.agentEnvironment, sandbox } }),
   gitEnvironment: config.gitEnvironment,
   // Under DEVHUB_HOME/sessions, and the worktrees under DEVHUB_HOME/worktrees.
   sessions: await openFileSessionStore(config.home),
@@ -90,6 +97,13 @@ const app = await createServer({
 });
 
 for (const notice of cacheNotices) app.log.warn(notice);
+if (config.sandbox === 'assume') {
+  app.log.warn('DEVHUB_SANDBOX=assume: Orynx gives Claude commands without checking that its sandbox can run.');
+} else if (!sandbox) {
+  app.log.warn(
+    "Claude Code's sandbox can't run on this computer, so Claude runs no commands in a session. On Linux, install bubblewrap and socat.",
+  );
+}
 if (config.claudeCode !== null) {
   app.log.warn(`DEVHUB_CLAUDE_CODE is set: Orynx checks the Claude login and runs sessions with ${config.claudeCode}.`);
 }

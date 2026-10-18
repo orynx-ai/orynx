@@ -71,6 +71,8 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         // Always signed out: this hub's fake Claude Code gets no answer folder.
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
+        DEVHUB_SANDBOX: 'assume',
       },
     },
     {
@@ -90,6 +92,8 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         // This hub's fake Claude Code answers what coding-agent.spec.ts writes into its folder.
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
+        DEVHUB_SANDBOX: 'assume',
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDir,
       },
@@ -110,6 +114,8 @@ export default defineConfig({
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
+        DEVHUB_SANDBOX: 'assume',
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(sessionsHubPort),
       },

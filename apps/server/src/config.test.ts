@@ -19,9 +19,16 @@ describe('loadConfig', () => {
       tokens: { fromEnv: false, env: {}, ignored: [] },
       ghSearchPath: '',
       claudeCode: null,
+      sandbox: 'required',
       agentEnvironment: {},
       gitEnvironment: { GIT_TERMINAL_PROMPT: '0' },
     });
+  });
+
+  it('012 AC-20, AC-23: checks for Claude Code’s sandbox unless DEVHUB_SANDBOX=assume, which the e2e run sets', () => {
+    expect(loadConfig({ env: { DEVHUB_SANDBOX: 'assume' } }).sandbox).toBe('assume');
+    expect(loadConfig({ env: {}, envFile: 'DEVHUB_SANDBOX=assume\n' }).sandbox).toBe('assume');
+    expect(() => loadConfig({ env: { DEVHUB_SANDBOX: 'off' } })).toThrow(/DEVHUB_SANDBOX/);
   });
 
   it('AC-20 (spec 011, Q8d): gives a session’s git the short list, your SSH agent and no password prompt', () => {
