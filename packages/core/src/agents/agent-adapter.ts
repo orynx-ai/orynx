@@ -68,7 +68,8 @@ export type AgentWork =
   | { kind: 'finished'; summary: string };
 
 /** Why a session stopped with an error: the login, a usage or capacity limit, or anything else. */
-export type AgentProblemKind = 'login' | 'limit' | 'other';
+/** `resume` is a follow-up the agent couldn't carry on: it no longer has the session's conversation (spec 013). */
+export type AgentProblemKind = 'login' | 'limit' | 'resume' | 'other';
 
 export type AgentEvent =
   /** The agent's own session began; `loaded` is logged by count only. */
@@ -94,7 +95,9 @@ export interface AgentAdapter {
   readonly runsCommands: boolean;
   /**
    * Starts the agent in `worktreePath` with the brief. `instructions` go into the agent's system prompt
-   * (spec 011, Q5). Events that come before a handler is added are kept for the first one.
+   * (spec 011, Q5). With `resume`, the agent carries on its own earlier session, given as the `agentSessionId`
+   * it said when it started, and the brief is your follow-up (spec 013). Events that come before a handler is
+   * added are kept for the first one.
    */
   startSession(
     brief: AgentBrief,
@@ -102,6 +105,7 @@ export interface AgentAdapter {
     /** Read on every call, so a change in Settings applies from the agent's next call (spec 012, AC-11). */
     permissions: () => Promise<AgentPermissions>,
     instructions: string,
+    resuming?: { resume: string },
   ): Promise<string>;
   /** Returns a function that removes the handler. */
   onEvent(sessionId: string, handler: (event: AgentEvent) => void): () => void;

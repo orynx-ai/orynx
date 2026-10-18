@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SandboxSettings } from '@anthropic-ai/claude-agent-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fakeClaudeSdk, type FakeTurn } from '../../test/fake-claude-sdk.ts';
+import { fakeClaudeSdk, freshSessionId, type FakeTurn } from '../../test/fake-claude-sdk.ts';
 import type { AgentAdapter, AgentEvent, AgentPermissions } from '../agent-adapter.ts';
 import { createClaudeAdapter } from './claude-adapter.ts';
 import { sandboxSettings } from './sandbox.ts';
@@ -598,6 +598,74 @@ describe('the Claude adapter', () => {
       ['Edit', 'deny'],
     ]);
     expect(works(events).some((work) => work.kind === 'edit')).toBe(false);
+  });
+
+  it('013 AC-11, AC-13: resumes Claude Code’s own session with the follow-up, and every other option as at the start', async () => {
+    const { sdk, adapter } = setUp([{ finish: 'Used the hook.' }]);
+    await runToEnd(adapter);
+    const conversation = 'b2c7e0f4-0000-4000-8000-000000000001';
+    const followUp = { message: 'Use the existing useSelection hook instead', context: [] };
+    const id = await adapter.startSession(followUp, worktree, editFreely, 'Work in the worktree.', {
+      resume: conversation,
+    });
+    const events: AgentEvent[] = [];
+    await new Promise<void>((resolve) => {
+      adapter.onEvent(id, (event) => {
+        events.push(event);
+        if (event.type === 'ended') resolve();
+      });
+    });
+
+    const [first, resumed] = sdk.runs;
+    expect(resumed?.options.resume).toBe(conversation);
+    expect(first?.options.resume).toBeUndefined();
+    const { resume: _resume, canUseTool: _ask, stderr: _err, ...same } = resumed?.options ?? {};
+    const { canUseTool: _ask2, stderr: _err2, ...atStart } = first?.options ?? {};
+    expect(same).toEqual(atStart);
+    expect(resumed?.prompts).toEqual(['Use the existing useSelection hook instead']);
+    expect(works(events)).toEqual([{ kind: 'finished', summary: 'Used the hook.' }]);
+  });
+
+  it('013 AC-16: a resume that ends before Claude Code starts is Claude Code missing the conversation', async () => {
+    const { sdk, adapter } = setUp([{ finish: 'Never.' }]);
+    sdk.onResume = 'no_conversation';
+    const id = await adapter.startSession({ message: 'More', context: [] }, worktree, editFreely, 'x', {
+      resume: 'b2c7e0f4-0000-4000-8000-000000000001',
+    });
+    const events: AgentEvent[] = [];
+    await new Promise<void>((resolve) => {
+      adapter.onEvent(id, (event) => {
+        events.push(event);
+        if (event.type === 'ended') resolve();
+      });
+    });
+    expect(events).toEqual([
+      { type: 'problem', sessionId: id, kind: 'resume', code: 'no_conversation' },
+      { type: 'ended', sessionId: id },
+    ]);
+  });
+
+  it('013 AC-16: a resume that starts a new conversation is stopped at once, before Claude does anything', async () => {
+    const { sdk, adapter } = setUp([
+      { tool: 'Edit', input: { file_path: join(worktree, 'src', 'a.ts'), old_string: '1', new_string: '2' } },
+      { finish: 'Done without its history.' },
+    ]);
+    sdk.onResume = 'starts_afresh';
+    const id = await adapter.startSession({ message: 'More', context: [] }, worktree, editFreely, 'x', {
+      resume: 'b2c7e0f4-0000-4000-8000-000000000001',
+    });
+    const events: AgentEvent[] = [];
+    await new Promise<void>((resolve) => {
+      adapter.onEvent(id, (event) => {
+        events.push(event);
+        if (event.type === 'ended') resolve();
+      });
+    });
+    expect(events.filter((event) => event.type !== 'ended')).toEqual([
+      { type: 'problem', sessionId: id, kind: 'resume', code: 'new_conversation' },
+    ]);
+    expect(JSON.stringify(events)).not.toContain(freshSessionId);
+    expect(sdk.runs[0]?.decisions).toEqual([]);
   });
 
   it('stopping a session that has ended, or one it never started, is fine', async () => {

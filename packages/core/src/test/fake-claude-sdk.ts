@@ -57,12 +57,20 @@ export interface FakeClaudeSdk {
   runs: FakeRun[];
   /** A hanging turn ignores `interrupt()`, so only `close()` ends it. */
   ignoreInterrupt: boolean;
+  /**
+   * What a resume finds (spec 013): the conversation (by default), none, so Claude Code exits before it starts,
+   * or a new one under another id, as Claude Code might when it can't find the old one.
+   */
+  onResume: 'resumes' | 'no_conversation' | 'starts_afresh';
 }
 
 const sessionFields = {
   session_id: 'b2c7e0f4-0000-4000-8000-000000000001',
   uuid: 'b2c7e0f4-0000-4000-8000-0000000000aa',
 };
+
+/** The id Claude Code gives the new conversation it starts when it can't resume the old one. */
+export const freshSessionId = 'b2c7e0f4-0000-4000-8000-0000000000ff';
 
 function textOf(message: SDKUserMessage): string {
   const content = message.message.content;
@@ -76,6 +84,7 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
   const fake: FakeClaudeSdk = {
     runs: [],
     ignoreInterrupt: false,
+    onResume: 'resumes',
     query: ({ prompt, options }) => {
       /** The calls waiting for `canUseTool`: Claude Code cancels them when it's interrupted. */
       const asking = new Set<AbortController>();
@@ -192,6 +201,10 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
           hear(first.value);
           if (first.value.uuid !== undefined) taken.push(first.value.uuid);
         }
+        if (options.resume !== undefined && fake.onResume === 'no_conversation') {
+          throw new Error(`No conversation found with session ID: ${options.resume}`);
+        }
+        const afresh = options.resume !== undefined && fake.onResume === 'starts_afresh';
         void (async () => {
           for (;;) {
             const next = await input.next();
@@ -206,6 +219,7 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
           type: 'system',
           subtype: 'init',
           ...sessionFields,
+          ...(afresh ? { session_id: freshSessionId } : {}),
           cwd: options.cwd,
           tools: Array.isArray(options.tools) ? options.tools : [],
           mcp_servers: [],

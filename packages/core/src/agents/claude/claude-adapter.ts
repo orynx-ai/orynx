@@ -140,7 +140,8 @@ export function createClaudeAdapter({
     id: 'claude',
     runsCommands: sandbox !== null,
 
-    startSession(brief, worktree, permissions, instructions) {
+    startSession(brief, worktree, permissions, instructions, resuming) {
+      const resume = resuming?.resume;
       const id = randomUUID();
       // The prompt stream: the brief, then each follow-up as it's given, until the input is over.
       const given: SDKUserMessage[] = [];
@@ -186,6 +187,8 @@ export function createClaudeAdapter({
         ...(sandbox === null ? {} : { sandbox: sandbox(worktree) }),
         settingSources: [],
         settings: { disableAllHooks: true },
+        // A follow-up carries on Claude Code's own session, with its conversation (spec 013).
+        ...(resume === undefined ? {} : { resume }),
         strictMcpConfig: true,
         mcpServers: {},
         systemPrompt: { type: 'preset', preset: 'claude_code', append: instructions },
@@ -252,10 +255,22 @@ export function createClaudeAdapter({
       const read = createMessageReader(worktree, (toolUseId) => running.decided.has(toolUseId));
       running.ended = (async () => {
         let failed = false;
+        let started = false;
+        /** Says Claude couldn't carry on a resumed session, once, and ends Claude Code before it does anything. */
+        const lostConversation = (code: 'no_conversation' | 'new_conversation') => {
+          failed = true;
+          emit(running, { type: 'problem', sessionId: id, kind: 'resume', code });
+          endInput();
+        };
         try {
           for await (const message of running.query) {
             for (const said of read(message)) {
-              if (said.type === 'started') {
+              if (said.type === 'started' && resume !== undefined && said.claudeSessionId !== resume) {
+                // Claude Code started a new conversation: Claude would work without its history.
+                lostConversation('new_conversation');
+                running.query.close();
+              } else if (said.type === 'started') {
+                started = true;
                 emit(running, {
                   type: 'started',
                   sessionId: id,
@@ -273,6 +288,10 @@ export function createClaudeAdapter({
                   emit(running, { type: 'work', sessionId: id, work: { kind: 'finished', summary: said.summary } });
                   endInput();
                 }
+              } else if (failed) {
+                // Said already, once.
+              } else if (resume !== undefined && !started && said.kind === 'other') {
+                lostConversation('no_conversation');
               } else if (!running.stopping) {
                 // An interrupted turn ends with a failed result; after Stop that isn't a problem.
                 failed = true;
@@ -282,9 +301,12 @@ export function createClaudeAdapter({
             }
           }
         } catch {
-          // The process died: its message can hold anything, so only the fact is passed on.
-          if (!failed && !running.stopping)
-            emit(running, { type: 'problem', sessionId: id, kind: 'other', code: 'exited' });
+          // The process died: its message can hold anything, so only the fact is passed on. Before it started,
+          // a resumed Claude Code dies because it can't find the conversation.
+          if (!failed && !running.stopping) {
+            if (resume !== undefined && !started) lostConversation('no_conversation');
+            else emit(running, { type: 'problem', sessionId: id, kind: 'other', code: 'exited' });
+          }
         } finally {
           endInput();
           // Claude Code is gone, so nobody waits for these answers any more.
