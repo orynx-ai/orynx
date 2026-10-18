@@ -38,9 +38,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: Add `ClaudeCard`, above the permission modes: skeletons while loading, Active with the account line for each way of signing in, Not signed in and Error with Check again, which says "Checking…", stays focused and starts one check. `status.changed` refreshes it (AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, Q3, Q5, Q6)
       Check: pnpm test packages/app/src/features/settings/components/claude-card.test.tsx packages/app/src/live-updates.test.tsx
       Files: packages/app/src/features/settings/components/claude-card.tsx, claude-card.test.tsx, coding-agent-panel.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx
-- [ ] Task 13: Add "More agents" beside the Claude card, side by side when there's room and stacked at 360 px, and prove the tab's keyboard path to Check again (AC-13, AC-14, AC-15)
+- [x] Task 13: Add "More agents" beside the Claude card, side by side when there's room and stacked at 360 px, and prove the tab's keyboard path to Check again (AC-13, AC-14, AC-15)
       Check: pnpm test packages/app/src/features/settings
-      Files: packages/app/src/features/settings/components/coding-agent-panel.tsx, coding-agent-panel.test.tsx, packages/app/src/features/settings/settings-screen.test.tsx
+      Files: packages/app/src/features/settings/components/coding-agent-panel.tsx, coding-agent-panel.test.tsx, packages/app/src/features/settings/settings-screen.tsx, settings-screen.test.tsx
 - [ ] Task 14: e2e: the footer and the card signed out, sign in with the fake, then Check again turns this tab and a second tab to Active and connected with no reload. Keyboard path, and axe at 360 and 1280 px in light and dark (AC-1, AC-4, AC-5, AC-13, AC-14)
       Check: pnpm test:e2e e2e/coding-agent.spec.ts
       Files: e2e/coding-agent.spec.ts

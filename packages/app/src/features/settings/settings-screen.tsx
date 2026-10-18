@@ -1,4 +1,4 @@
-// Design: docs/design/screens/settings.html — page bar, title, local-first callout, tabs, the connection list, and the Coding agent (modes), Repositories and Inbox rules tabs
+// Design: docs/design/screens/settings.html — page bar, title, local-first callout, tabs, the connection list, and the Coding agent (agent cards and modes), Repositories and Inbox rules tabs
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { SquareLock02Icon } from '@hugeicons/core-free-icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger, Callout, Icon } from '@devhub/ui';

@@ -1,5 +1,5 @@
 import type { PermissionMode } from '@devhub/contracts';
-import { ChoiceCard, ChoiceGroup } from '@devhub/ui';
+import { Card, ChoiceCard, ChoiceGroup } from '@devhub/ui';
 import { useChangePreferences, usePreferences } from '../queries.ts';
 import { ClaudeCard } from './claude-card.tsx';
 import { SaveError } from './save-error.tsx';
@@ -39,7 +39,18 @@ export function CodingAgentPanel() {
 
   return (
     <div className="flex flex-col gap-5">
-      <ClaudeCard />
+      {/* Side by side once the tab is 512 px wide (the design's two 260 px columns, near enough), stacked
+          below that. The row stretches both cards to the taller one. */}
+      <div className="@container">
+        <div className="grid gap-3 @lg:grid-cols-2">
+          <ClaudeCard />
+          <Card title="More agents" look="placeholder">
+            <p className="m-0 text-small text-muted-foreground">
+              Coming later. Each agent plugs in through one small adapter.
+            </p>
+          </Card>
+        </div>
+      </div>
       <div className="flex flex-col gap-2">
         <ChoiceGroup
           legend="What Claude can do without asking"

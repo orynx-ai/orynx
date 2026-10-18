@@ -29,6 +29,17 @@ function slowSave() {
 }
 
 describe('CodingAgentPanel', () => {
+  it('AC-14, AC-15: shows the Claude card and "More agents" above the modes, in that order', async () => {
+    await renderApp({ route: '/settings/coding-agent' });
+
+    const claude = await screen.findByRole('group', { name: 'Claude' });
+    const more = screen.getByRole('group', { name: 'More agents' });
+    expect(more).toHaveTextContent('Coming later. Each agent plugs in through one small adapter.');
+    const modes = screen.getByRole('radiogroup', { name: legend });
+    expect(claude.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(more.compareDocumentPosition(modes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('AC-2: offers three modes with their lines, picks the recommended one, and says what always asks', async () => {
     await renderApp({ route: '/settings/coding-agent' });
 
