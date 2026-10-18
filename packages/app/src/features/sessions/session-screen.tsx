@@ -1,9 +1,8 @@
 // Design: docs/design/screens/session.html — page bar, title row with Stop Claude, stepper, Claude's progress with the approval callout (full width until 013), Discard changes
 import { useRef } from 'react';
 import { useParams } from '@tanstack/react-router';
-import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
 import type { Session } from '@devhub/contracts';
-import { Button, Icon } from '@devhub/ui';
+import { ExternalLink } from '@devhub/ui';
 import { usePlatform } from '../../platform.tsx';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
 import { agoText } from '../../words/ago.ts';
@@ -31,20 +30,18 @@ function crumbsFor(session: Session): Crumb[] {
 function OpenInJira({ url }: { url: string }) {
   const platform = usePlatform();
   return (
-    <Button asChild variant="ghost" size="sm">
-      <a
-        href={url}
-        rel="noreferrer"
-        onClick={(event) => {
-          event.preventDefault();
-          platform.openExternal(url);
-        }}
-      >
-        {/* Under 768 px only the arrow shows, so the breadcrumb keeps room for the ticket's key. */}
-        <span className="max-md:sr-only">Open in Jira</span>
-        <Icon icon={ArrowUpRight01Icon} aria-hidden />
-      </a>
-    </Button>
+    // As tall as the bar's buttons, with their room around the text.
+    <ExternalLink
+      href={url}
+      size="body"
+      className="mx-0 min-h-8 px-2"
+      onOpen={(href) => {
+        platform.openExternal(href);
+      }}
+    >
+      {/* Under 768 px only the arrow shows, so the breadcrumb keeps room for the ticket's key. */}
+      <span className="max-md:sr-only">Open in Jira</span>
+    </ExternalLink>
   );
 }
 

@@ -1,5 +1,5 @@
 import type { Session } from '@devhub/contracts';
-import { Callout, Markdown, Pill, SourceMark } from '@devhub/ui';
+import { Callout, ExternalLink, Markdown, Pill, SourceMark } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { duePill } from '../../../words/due.ts';
 import { statusTones } from '../../../words/status-tone.ts';
@@ -39,17 +39,9 @@ export function TicketPanel({ session }: { session: Session }) {
           </Pill>
         )}
         {jiraUrl === null ? null : (
-          <a
-            href={jiraUrl}
-            rel="noreferrer"
-            className="ms-auto text-small"
-            onClick={(event) => {
-              event.preventDefault();
-              open(jiraUrl);
-            }}
-          >
+          <ExternalLink href={jiraUrl} onOpen={open} className="ms-auto">
             Open in Jira
-          </a>
+          </ExternalLink>
         )}
       </div>
       {ticket === null ? null : (

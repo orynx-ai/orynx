@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useWatch } from 'react-hook-form';
 import type { ApiRequestError } from '@devhub/api-client';
 import type { GitHubConnection, GitHubCredentials, GitHubMethod } from '@devhub/contracts';
-import { Button, ChoiceCard, ChoiceGroup, Field, Input } from '@devhub/ui';
+import { Button, ChoiceCard, ChoiceGroup, ExternalLink, Field, Input } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { useConnectGitHub, useDisconnectGitHub } from '../queries.ts';
 import { githubFormSchema, type GitHubFormValues } from '../schemas.ts';
@@ -184,17 +184,15 @@ export function GitHubConnectionForm({
             />
           </Field>
           {/* On a line of its own, so it stays whatever the field says. */}
-          <a
+          <ExternalLink
             href={newTokenUrl}
-            rel="noreferrer"
-            className="self-start text-small text-info underline"
-            onClick={(event) => {
-              event.preventDefault();
-              platform.openExternal(newTokenUrl);
+            className="self-start"
+            onOpen={(href) => {
+              platform.openExternal(href);
             }}
           >
             Create a token
-          </a>
+          </ExternalLink>
         </div>
       ) : null}
       {formError === undefined ? null : (

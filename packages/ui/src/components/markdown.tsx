@@ -1,5 +1,6 @@
 import { useMemo, type ComponentProps, type ReactNode } from 'react';
 import { cn } from '../lib/cn.ts';
+import { ExternalLink } from './external-link.tsx';
 import {
   parseMarkdown,
   safeLink,
@@ -53,17 +54,9 @@ function inlines(nodes: readonly Inline[], ctx: Context): ReactNode[] {
         const href = safeLink(node.href);
         if (href === null) return <span key={index}>{inlines(node.inline, ctx)}</span>;
         return (
-          <a
-            key={index}
-            href={href}
-            rel="noreferrer"
-            onClick={(event) => {
-              event.preventDefault();
-              ctx.onOpenLink(href);
-            }}
-          >
+          <ExternalLink key={index} look="inline" size="inherit" href={href} onOpen={ctx.onOpenLink}>
             {inlines(node.inline, ctx)}
-          </a>
+          </ExternalLink>
         );
       }
     }
