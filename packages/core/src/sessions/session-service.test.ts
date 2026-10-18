@@ -192,6 +192,15 @@ async function briefed(records: SessionRecords, id: string) {
   throw new Error('The session never sent its brief');
 }
 
+/** Until Claude Code has said its session id: before that, a stopped session never started (spec 013). */
+async function claudeStarted(records: SessionRecords, id: string) {
+  for (let tries = 0; tries < 500; tries++) {
+    if ((await records.get(id))?.claudeSessionId != null) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('Claude Code never started');
+}
+
 /** Waits until the session isn't Working or waiting for you any more. */
 async function settled(records: SessionRecords, id = '0000000000000001') {
   for (let tries = 0; tries < 500; tries++) {
@@ -1073,7 +1082,8 @@ describe('follow-ups (spec 013)', () => {
     const { service, records, sdk } = await setUp({ script: [{ hang: true }] });
     jira.use(acceptingIssue([{ key: 'PROJ-1' }, { key: 'PROJ-2' }, { key: 'PROJ-3' }, { key: 'PROJ-4' }]));
     const first = await service.start({ ticketKey: 'PROJ-1' });
-    await briefed(records, id);
+    // Stopped once Claude has started, so it has something to carry on.
+    await claudeStarted(records, id);
     await service.stop(id);
     for (const key of ['PROJ-2', 'PROJ-3', 'PROJ-4']) {
       const started = await service.start({ ticketKey: key });
