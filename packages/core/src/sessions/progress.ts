@@ -93,6 +93,14 @@ export function addWork(progress: Progress, work: ClaudeWork): Progress {
     }
     case 'refused':
       return addStep(progress, { kind: 'refused', ...work.refusal });
+    case 'command':
+      return running?.kind === 'command'
+        ? withLast(progress, { ...running, commands: [...running.commands, work.command] })
+        : addStep(progress, { kind: 'command', commands: [work.command] }, 'running');
+    case 'denied':
+      return addStep(progress, { kind: 'denied', about: work.about, text: work.text });
+    case 'no_commands':
+      return addStep(progress, { kind: 'no_commands', reason: 'no_sandbox' });
     case 'finished':
       return {
         ...addStep(progress, { kind: 'finished', summary: work.summary }),

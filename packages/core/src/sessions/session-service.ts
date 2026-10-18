@@ -42,7 +42,7 @@ export interface SessionServiceOptions {
   jira: JiraClient;
   /** What the cache already knows about a ticket, for the title and breadcrumb before Jira answers. */
   describeTicket: (key: string) => Promise<{ title: string; sprint: string | null } | null>;
-  preferences: { read(): Promise<{ permissionMode: PermissionMode }> };
+  preferences: { read(): Promise<{ permissionMode: PermissionMode; allowedCommands: readonly string[] }> };
   worktrees: WorktreesOptions;
   /** Null when the server was built without Claude Code: then no session can start (AC-22). */
   adapter: AgentAdapter | null;
@@ -258,15 +258,15 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (stopping(run)) return;
 
     if (adapter === null) return fail(id, 'other', 'no_claude_code');
-    const { permissionMode } = await options.preferences.read();
-    // Stop can come while the mode is read: then Claude never starts.
+    // Settings are read before Claude starts, and again for each call it makes (spec 012, AC-11).
+    const permissions = async () => {
+      const { permissionMode, allowedCommands } = await options.preferences.read();
+      return { mode: permissionMode, allowedCommands };
+    };
+    await permissions();
+    // Stop can come while they're read: then Claude never starts.
     if (stopping(run)) return;
-    const agentId = await adapter.startSession(
-      brief,
-      record.worktree,
-      { mode: permissionMode, allowedCommands: [] },
-      sessionNote(plan.branch),
-    );
+    const agentId = await adapter.startSession(brief, record.worktree, permissions, sessionNote(plan.branch));
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.
     if (stopping(run)) {

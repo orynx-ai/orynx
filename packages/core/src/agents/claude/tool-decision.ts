@@ -1,7 +1,7 @@
 import { lstat, readlink, realpath } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import type { AlwaysAskReason, ChangeLine, PermissionMode } from '@devhub/contracts';
-import type { AgentRefusal } from '../agent-adapter.ts';
+import type { PermissionMode } from '@devhub/contracts';
+import type { AgentAsk, AgentRefusal } from '../agent-adapter.ts';
 import { decideCommand } from './command-decision.ts';
 import { previewEdit, type EditTool } from './edit-preview.ts';
 
@@ -31,17 +31,7 @@ type SessionTool = (typeof sessionTools)[number];
 export type ToolRefusal = AgentRefusal;
 
 /** A call that waits for your answer (spec 012). */
-export type ToolAsk =
-  | {
-      kind: 'command';
-      command: string;
-      /** Claude's own line about the command, when it gave one. */
-      description: string | null;
-      alwaysAsk: AlwaysAskReason | null;
-      /** The entry Always allow would save, when it's offered (Q1, Q4). */
-      alwaysAllow: string | null;
-    }
-  | { kind: 'edit'; path: string; creates: boolean; lines: ChangeLine[]; moreLines: number };
+export type ToolAsk = AgentAsk;
 
 export type ToolDecision =
   | { behavior: 'allow' }

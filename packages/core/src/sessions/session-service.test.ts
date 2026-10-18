@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import type { ServerEvent } from '@devhub/contracts';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { createClaudeAdapter } from '../agents/claude/claude-adapter.ts';
+import { sandboxSettings } from '../agents/claude/sandbox.ts';
 import { createClaudeCode } from '../agents/claude/claude-code.ts';
 import { createClaudeLogin } from '../agents/claude/claude-login.ts';
 import { createEventBus } from '../events/event-bus.ts';
@@ -134,7 +135,14 @@ async function setUp({
     stepEventMs: 250,
     adapter: noClaude
       ? null
-      : createClaudeAdapter({ query: sdk.query, program: '/opt/claude/claude', env: {}, home: repos.root }),
+      : createClaudeAdapter({
+          query: sdk.query,
+          program: '/opt/claude/claude',
+          env: {},
+          home: repos.root,
+          sandbox: (worktree) =>
+            sandboxSettings({ platform: 'darwin', worktree, devhubHome: home, home: repos.root, temporary: tmpdir() }),
+        }),
     events,
     onReport: (report) => reports.push(report),
     now: () => clock,
@@ -322,17 +330,18 @@ describe('running a session', () => {
     });
   });
 
-  it('AC-6: refuses edits when Settings says Ask before everything', async () => {
-    const { service, records } = await setUp({
+  it('012 AC-8: an edit waits when Settings says Ask before everything, and nothing is written meanwhile', async () => {
+    const { service, home, sdk } = await setUp({
       mode: 'ask_everything',
-      script: [{ tool: 'Write', input: { file_path: 'a.ts', content: 'x' } }, { finish: 'Described it.' }],
+      script: [{ tool: 'Write', input: { file_path: 'a.ts', content: 'x' } }, { finish: 'Wrote it.' }],
     });
     await service.start({ ticketKey: 'PROJ-1423' });
-    const record = await settled(records);
-    expect(record.session.activities).toContainEqual(
-      expect.objectContaining({ kind: 'refused', reason: 'ask_everything', path: 'a.ts' }) as unknown,
-    );
-    expect(record.session.step).toBe('review');
+    await vi.waitFor(() => {
+      expect(sdk.runs[0]?.waiting).toBe(1);
+    });
+    await expect(readFile(join(home, 'worktrees', '0000000000000001', 'a.ts'))).rejects.toThrow();
+    expect(await service.stop('0000000000000001')).toBe('stopped');
+    expect(sdk.runs[0]?.decisions[0]?.result.behavior).toBe('deny');
   });
 
   it('AC-4: tells the Session screen about new steps at most every 250 ms, and the lists about state at once', async () => {
@@ -466,7 +475,7 @@ describe('running a session', () => {
         what: 'started',
         session: '0000000000000001',
         ticket: 'PROJ-1423',
-        loaded: { tools: 7, mcpServers: 0, plugins: 0 },
+        loaded: { tools: 8, mcpServers: 0, plugins: 0 },
       });
     });
   });
