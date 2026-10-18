@@ -66,3 +66,12 @@ export function useEditor() {
   const api = useApi();
   return useQuery({ ...preferencesQueryOptions(api), select: (preferences) => preferences.editor });
 }
+
+/**
+ * A follow-up (spec 013): the answer says sent, or why it can't go. The session changes on the server, which
+ * says so with `session.changed` and `sessions.changed`, so nothing here touches the cache.
+ */
+export function useSendMessage(sessionId: string) {
+  const api = useApi();
+  return useMutation({ mutationFn: (text: string) => api.sendMessage(sessionId, text) });
+}

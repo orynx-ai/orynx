@@ -95,7 +95,7 @@ function WorkedFor({ session }: { session: Session }) {
  * in its words, the latest one still running (AC-4, AC-13). Until spec 013 brings the changes beside it,
  * it takes the page's width (Q9a).
  */
-export function SessionProgress({ session }: { session: Session }) {
+export function SessionProgress({ session, footer }: { session: Session; footer?: ReactNode }) {
   const problem = session.problem === null ? null : problemWords(session.problem, session);
   // Focus comes here once you've answered the last call waiting for you (spec 012, AC-18).
   const pane = useRef<HTMLElement>(null);
@@ -117,6 +117,7 @@ export function SessionProgress({ session }: { session: Session }) {
             );
           })}
         </ActivityList>
+        {footer}
       </div>
     </Panel>
   );

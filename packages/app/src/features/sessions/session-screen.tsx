@@ -10,6 +10,7 @@ import { agoText } from '../../words/ago.ts';
 import { useNow } from '../../words/use-now.ts';
 import { NotFoundScreen } from '../not-found/not-found-screen.tsx';
 import { ChangesPanel } from './components/changes-panel.tsx';
+import { FollowUpBox } from './components/follow-up-box.tsx';
 import { TicketPanel } from './components/ticket-panel.tsx';
 import { SessionHeader, SessionHeaderSkeleton } from './components/session-header.tsx';
 import { SessionProgress, SessionProgressSkeleton, SessionStepper } from './components/session-progress.tsx';
@@ -91,7 +92,7 @@ export function SessionScreen() {
       <PageBody>
         <SessionHeader session={found} title={title} />
         <SessionStepper session={found} />
-        <SessionProgress session={found} />
+        <SessionProgress session={found} footer={<FollowUpBox session={found} />} />
         <ChangesPanel session={found} title={title} />
         {/* The Ticket tab's content, until the tabs come (spec 013, task 27). */}
         <section aria-label={`Ticket ${sourceLabel(found.source) ?? ''}`.trim()}>
