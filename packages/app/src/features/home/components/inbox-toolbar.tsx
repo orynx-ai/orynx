@@ -1,19 +1,16 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, type ChangeEvent, type RefObject } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger, Picker, SearchField } from '@devhub/ui';
 import type { HomeTab } from '../inbox-tabs.ts';
 import type { FilterKey, FilterMenu } from '../inbox-view.ts';
+import { SearchFormSchema, type SearchFormValues } from '../schemas.ts';
 
 const searchLabels: Record<HomeTab, string> = {
   all: 'Search',
   jira: 'Search tickets',
   'pull-requests': 'Search pull requests',
 };
-
-const SearchFormSchema = z.object({ q: z.string() });
-type SearchFormValues = z.infer<typeof SearchFormSchema>;
 
 /**
  * Under a tab: the search box on the left and the tab's filters on the right (spec 007, Q9a, Q10b, Q10c).
@@ -33,15 +30,24 @@ export function InboxToolbar({
   onQueryChange: (query: string) => void;
   onFilterChange: (key: FilterKey, ticked: string[]) => void;
   /** The search box, for Clear search and filters to put focus back in it. */
-  searchRef?: React.RefObject<HTMLInputElement | null>;
+  searchRef?: RefObject<HTMLInputElement | null>;
 }) {
   const form = useForm<SearchFormValues>({ resolver: zodResolver(SearchFormSchema), defaultValues: { q: query } });
   const box = useRef<HTMLInputElement | null>(null);
   const { ref, ...field } = form.register('q', {
-    onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+    onChange: (event: ChangeEvent<HTMLInputElement>) => {
       onQueryChange(event.target.value);
     },
   });
+  // One ref for react-hook-form, the box's own and the caller's, kept across renders.
+  const boxRef = useCallback(
+    (element: HTMLInputElement | null) => {
+      ref(element);
+      box.current = element;
+      if (searchRef) searchRef.current = element;
+    },
+    [ref, searchRef],
+  );
 
   // The address can change without typing (Back, Clear search and filters). The box follows it, but never
   // while someone types in it: the address catches up a moment after each key.
@@ -61,17 +67,7 @@ export function InboxToolbar({
           event.preventDefault();
         }}
       >
-        <SearchField
-          aria-label={label}
-          placeholder={label}
-          className="w-full"
-          ref={(element) => {
-            ref(element);
-            box.current = element;
-            if (searchRef) searchRef.current = element;
-          }}
-          {...field}
-        />
+        <SearchField aria-label={label} placeholder={label} className="w-full" ref={boxRef} {...field} />
       </form>
       <div className="flex flex-wrap items-center gap-2 md:ms-auto">
         {menus.map((menu) => (
@@ -93,10 +89,9 @@ function FilterPicker({ menu, onTickedChange }: { menu: FilterMenu; onTickedChan
   const count = menu.ticked.length;
   return (
     <Menu>
-      <MenuTrigger asChild>
-        <Picker disabled={menu.options.length === 0}>
-          {count === 0 ? menu.label : `${menu.label} · ${String(count)}`}
-        </Picker>
+      {/* Nothing to offer while the tab has no rows (Q11b). Radix reads `disabled` on the trigger. */}
+      <MenuTrigger asChild disabled={menu.options.length === 0}>
+        <Picker>{count === 0 ? menu.label : `${menu.label} · ${String(count)}`}</Picker>
       </MenuTrigger>
       <MenuContent aria-label={menu.label}>
         {menu.options.map((option) => (

@@ -79,6 +79,20 @@ describe('the address', () => {
     expect(viewOf(search)).toEqual({ ...defaultView, query: '2841' });
   });
 
+  it("Q10c, Q10h: reads only the tab's own filters, known reasons, each once", () => {
+    const read = (search: Record<string, string>) => viewOf(HomeSearchSchema.parse(search)).filters;
+
+    expect(read({ inbox: 'jira', repo: 'api', project: 'PROJ' })).toEqual({
+      ...defaultView.filters,
+      project: ['PROJ'],
+    });
+    expect(read({ project: 'PROJ', status: 'To Do', reason: 'to-do' })).toEqual({
+      ...defaultView.filters,
+      reason: ['to-do'],
+    });
+    expect(read({ reason: 'gone,to-do,to-do,bug' })).toEqual({ ...defaultView.filters, reason: ['to-do', 'bug'] });
+  });
+
   it('AC-41, Q10h: switching tabs keeps the search and the order, and drops the filters and the page', () => {
     const on = view({
       query: 'archive',
@@ -149,7 +163,7 @@ describe('showView', () => {
 
     const first = showView(many, view({ order: 'longest' }));
     expect(pageSize).toBe(16);
-    expect(first).toMatchObject({ page: 1, pageCount: 3, matched: 34 });
+    expect(first).toMatchObject({ page: 1, pageCount: 3 });
     expect(titles(first.rows)).toEqual(Array.from({ length: 16 }, (_, index) => `Ticket ${String(index)}`));
     expect(titles(showView(many, view({ order: 'longest', page: 3 })).rows)).toEqual(['Ticket 32', 'Ticket 33']);
   });
@@ -165,7 +179,7 @@ describe('showView', () => {
     );
 
     expect(showView(many, view({ page: 9 }))).toMatchObject({ page: 2, pageCount: 2 });
-    expect(showView([], view({ page: 4 }))).toMatchObject({ page: 1, pageCount: 1, matched: 0, rows: [] });
+    expect(showView([], view({ page: 4 }))).toMatchObject({ page: 1, pageCount: 1, rows: [] });
   });
 
   it('AC-37: only shows the rows of the tab', () => {

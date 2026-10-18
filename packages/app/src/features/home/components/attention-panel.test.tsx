@@ -566,6 +566,19 @@ describe('AttentionPanel pages', () => {
     expect(shownTitles(panel)[0]).toBe('Ticket 16');
   });
 
+  it('Q10g: moves focus only for a page picked in the pager, never after a click on the page already shown', async () => {
+    inboxWith(tickets(34));
+    const { user, panel } = await openHome('/?sort=longest&page=2');
+    const pager = within(panel).getByRole('navigation', { name: 'Pages' });
+
+    await user.click(within(pager).getByRole('link', { name: '2' }));
+    const search = within(panel).getByRole('searchbox', { name: 'Search' });
+    await user.type(search, 'ti');
+
+    expect(search).toHaveFocus();
+    expect(search).toHaveValue('ti');
+  });
+
   it('AC-40: has no pager with 16 rows or fewer', async () => {
     inboxWith(tickets(16));
     const { panel } = await openHome();
@@ -591,6 +604,24 @@ describe('AttentionPanel pages', () => {
     await user.type(within(panel).getByRole('searchbox', { name: 'Search' }), 'ticket 19');
     expect(new URLSearchParams(history.location.search).get('page')).toBeNull();
     expect(shownTitles(panel)).toEqual(['Ticket 19']);
+  });
+
+  it("AC-18, AC-41: when a sync empties the page I'm on, focus moves to the first row of the page shown", async () => {
+    inboxWith(tickets(17));
+    const { panel } = await openHome('/?sort=longest&page=2');
+    act(() => {
+      screen.getByRole('link', { name: 'Ticket 16' }).focus();
+    });
+
+    inboxWith(tickets(16));
+    act(() => {
+      FakeEventSource.latest().emit({ type: 'inbox.changed' });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Ticket 0' })).toHaveFocus();
+    });
+    expect(within(panel).queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
   });
 
   it('AC-44: a sync keeps the search, the filters, the order and the page', async () => {

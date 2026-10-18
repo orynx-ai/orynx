@@ -17,8 +17,14 @@ export interface DevhubAppProps {
   queryClient?: QueryClient;
 }
 
+/**
+ * Every request goes to the hub on this computer, so they all go out whatever the browser says about the
+ * network: a dropped Wi-Fi must not pause the inbox's refetch or Refresh (spec 007, AC-17, AC-24).
+ */
 export function createQueryClient(): QueryClient {
-  return new QueryClient({ defaultOptions: { queries: { retry: 1 } } });
+  return new QueryClient({
+    defaultOptions: { queries: { retry: 1, networkMode: 'always' }, mutations: { networkMode: 'always' } },
+  });
 }
 
 /** The whole product UI. Hosts (apps/web, a future apps/desktop) render only this. */

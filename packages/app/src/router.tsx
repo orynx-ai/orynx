@@ -31,7 +31,7 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  // The inbox tab: `/?inbox=jira` or `/?inbox=pull-requests`; All has none.
+  // The inbox's tab, search, filters, order and page (spec 007, Q10i); each left out when it's the default.
   validateSearch: (search) => HomeSearchSchema.parse(search),
   component: HomeScreen,
 });

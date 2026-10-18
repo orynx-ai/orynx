@@ -30,23 +30,30 @@ export const defaultView: HomeView = {
   page: 1,
 };
 
+/** A comma list's values, each once. */
 function commaList(raw: string | undefined): string[] {
-  return (raw ?? '')
+  const values = (raw ?? '')
     .split(',')
     .map((value) => value.trim())
     .filter((value) => value !== '');
+  return [...new Set(values)];
 }
 
-/** The view the address asks for. */
+/**
+ * The view the address asks for. Only the tab's own filters count, and only reasons that exist, so an old or
+ * hand-typed address never hides rows behind a tick no menu shows.
+ */
 export function viewOf(search: HomeSearch): HomeView {
+  const tab = search.inbox ?? 'all';
+  const own = (key: FilterKey) => (tabFilters[tab].includes(key) ? commaList(search[key]) : []);
   return {
-    tab: search.inbox ?? 'all',
+    tab,
     query: search.q ?? '',
     filters: {
-      reason: commaList(search.reason),
-      project: commaList(search.project),
-      status: commaList(search.status),
-      repo: commaList(search.repo),
+      reason: own('reason').filter((value) => reasons.some((reason) => reason.value === value)),
+      project: own('project'),
+      status: own('status'),
+      repo: own('repo'),
     },
     order: search.sort === 'longest' ? 'longest' : 'newest',
     page: search.page ?? 1,
@@ -162,15 +169,13 @@ function byWait(order: HomeView['order']) {
 export interface ShownView<Item> {
   /** The rows on this page, in order. */
   rows: Item[];
-  /** How many rows match, across every page. */
-  matched: number;
   /** The page shown: the one asked for, or the last when that's past the end (AC-41). */
   page: number;
   pageCount: number;
 }
 
 /** The tab's rows that match the search and filters, in the view's order, across every page. */
-export function matchingRows<Item extends InboxItem>(items: readonly Item[], view: HomeView): Item[] {
+function matchingRows<Item extends InboxItem>(items: readonly Item[], view: HomeView): Item[] {
   return itemsInTab(items, view.tab)
     .filter((item) => matchesQuery(item, view.query) && matchesFilters(item, view.filters))
     .sort(byWait(view.order));
@@ -181,7 +186,7 @@ export function showView<Item extends InboxItem>(items: readonly Item[], view: H
   const matched = matchingRows(items, view);
   const pageCount = Math.max(1, Math.ceil(matched.length / pageSize));
   const page = Math.min(Math.max(1, view.page), pageCount);
-  return { rows: matched.slice((page - 1) * pageSize, page * pageSize), matched: matched.length, page, pageCount };
+  return { rows: matched.slice((page - 1) * pageSize, page * pageSize), page, pageCount };
 }
 
 export interface FilterMenu {

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type FocusEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, type FocusEvent, type MouseEvent, type RefObject } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { defaultPreferences, type Inbox, type InboxRules, type InboxTarget } from '@devhub/contracts';
 import {
@@ -29,8 +29,8 @@ const panelTitle = 'Needs your attention';
 
 /**
  * Home's "Needs your attention" panel (spec 007): the tabs All, Jira and Pull requests with their counts, and
- * one row per ticket or pull request, newest wait first unless the order menu says otherwise. The tab and
- * the order live in the address, so a reload keeps them.
+ * one row per ticket or pull request, newest wait first unless the order menu says otherwise, 16 a page. The
+ * tab, search, filters, order and page live in the address, so a reload keeps them.
  */
 export function AttentionPanel() {
   const inbox = useInbox();
@@ -105,17 +105,17 @@ export function AttentionPanel() {
             <TabsTrigger
               key={value}
               value={value}
-              // A tab still waiting for its rows has no count yet (AC-20).
-              {...(data === undefined || counts === undefined || loading(value, data)
-                ? {}
-                : { count: counts[countKey(value)] })}
+              // A tab still waiting for its rows keeps a blank count's room (AC-20, Q11d).
+              count={
+                data === undefined || counts === undefined || loading(value, data) ? null : counts[countKey(value)]
+              }
             >
               {homeTabLabels[value]}
             </TabsTrigger>
           ))}
         </TabsList>
         {homeTabs.map((value) => (
-          // Tab goes from the selected tab straight to the first row (AC-14, AC-33).
+          // Not a stop of its own: Tab goes from the selected tab straight to its toolbar and rows (AC-33, AC-45).
           <TabsContent key={value} value={value} tabIndex={-1}>
             <TabView
               view={{ ...view, tab: value }}
@@ -246,9 +246,13 @@ function TabBody({
   return (
     <>
       <div {...keepFocus}>
-        {lines.map(({ tool, line }) => (
-          <ToolNote key={tool} line={line} />
-        ))}
+        {lines.length > 0 ? (
+          <div className="flex flex-col gap-1 px-4 py-3">
+            {lines.map(({ tool, line }) => (
+              <ToolNote key={tool} line={line} />
+            ))}
+          </div>
+        ) : null}
         {rows.length > 0 ? (
           <AttentionList>
             {rows.map((item) => (
@@ -273,7 +277,7 @@ function TabBody({
                 search={searchFor({ ...view, page })}
                 resetScroll={false}
                 activeOptions={{ exact: true, includeSearch: true }}
-                onClick={firstRowAfterPaging}
+                onClick={firstRowAfterPaging(page)}
               >
                 {children}
               </Link>
@@ -289,17 +293,26 @@ function TabBody({
  * After a page is picked in the pager, the list's top scrolls into view under the page bar and focus moves to
  * its first row's title (Q10g). Paging any other way, Back included, leaves focus alone.
  */
-function useFirstRowAfterPaging(page: number, box: React.RefObject<HTMLDivElement | null>): () => void {
-  const picked = useRef(false);
+function useFirstRowAfterPaging(
+  page: number,
+  box: RefObject<HTMLDivElement | null>,
+): (target: number) => (event: MouseEvent) => void {
+  // The page the pager asked for, until the next page shows, whichever it is.
+  const asked = useRef<number | null>(null);
   useEffect(() => {
-    if (!picked.current) return;
-    picked.current = false;
+    const target = asked.current;
+    asked.current = null;
+    if (target !== page) return;
     const list = box.current?.querySelector('ul');
     list?.querySelector('a')?.focus({ preventScroll: true });
     list?.scrollIntoView({ block: 'start' });
   }, [page, box]);
-  return () => {
-    picked.current = true;
+  return (target) => (event) => {
+    // The page already shown, or a click that opens a new tab, changes nothing here.
+    if (target === page || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    asked.current = target;
   };
 }
 
@@ -321,8 +334,8 @@ function NoMatches({ onClear }: { onClear: () => void }) {
 
 /**
  * When a sync takes away the row that has focus, focus moves to the next row's title, to the row before it
- * when it was the last, or to the selected tab when no row is left (AC-18). Rows that stay keep their
- * elements, so focus on them never moves (AC-16).
+ * when it was the last, to the first row when the page shown changed under it, or to the selected tab when no
+ * row is left (AC-18). Rows that stay keep their elements, so focus on them never moves (AC-16).
  */
 function useFocusAfterSync(rows: readonly HomeItem[]) {
   const box = useRef<HTMLDivElement>(null);
@@ -341,7 +354,13 @@ function useFocusAfterSync(rows: readonly HomeItem[]) {
     if (document.activeElement !== null && document.activeElement !== document.body) return;
     const at = before.indexOf(gone);
     const next = [...before.slice(at + 1), ...before.slice(0, at).reverse()].find((id) => after.includes(id));
-    const target = next === undefined ? selectedTab(box.current) : rowTitle(box.current, after.indexOf(next));
+    // With none of its neighbours left (the list fell back a page), the first row shown takes focus.
+    const target =
+      next !== undefined
+        ? rowTitle(box.current, after.indexOf(next))
+        : after.length > 0
+          ? rowTitle(box.current, 0)
+          : selectedTab(box.current);
     target?.focus();
   }, [rows]);
 
@@ -378,7 +397,7 @@ function selectedTab(box: HTMLElement | null): HTMLElement | null {
 /** One quiet line for a tool that isn't connected or whose last sync failed, above its rows (Q5). */
 function ToolNote({ line }: { line: ToolLine }) {
   return (
-    <p className="m-0 px-4 pt-3 text-small text-muted-foreground last:pb-3">
+    <p className="m-0 text-small text-muted-foreground">
       {line.message}
       {line.action === null ? null : (
         <>
