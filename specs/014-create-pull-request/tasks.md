@@ -93,5 +93,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 30: Ask the user to run one real session on a throwaway GitHub repository of their own (Q12). Create the PR from the draft, check the branch, the commit and the PR on GitHub, change a file and push changes, then close the PR and delete the repository. Write down what happened
       Check: the user's notes recorded here; AC-2, AC-4, AC-5, AC-15 and AC-17 as seen
       Files: specs/014-create-pull-request/tasks.md, learn/sessions-and-worktrees.md
+      Not done: on 18 Oct 2026 the user asked to skip the review and push. The real run on a throwaway GitHub repository is still to do.
 - [ ] Task 31: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
+      Skipped at the user's ask on 18 Oct 2026 ("skip review and push"): pushed with the pre-push hook bypassed, after `pnpm verify` passed on this exact change. No review stamp exists for this branch.
