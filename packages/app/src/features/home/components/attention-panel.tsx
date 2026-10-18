@@ -24,7 +24,7 @@ import { useInbox, useInboxRules, type HomeItem } from '../queries.ts';
 import { useNow } from '../use-now.ts';
 import { InboxToolbar } from './inbox-toolbar.tsx';
 import { OrderMenu } from './order-menu.tsx';
-import { BuildWithClaude } from '../../sessions/components/build-with-claude.tsx';
+import { ShipWithClaude } from '../../sessions/components/ship-with-claude.tsx';
 
 const panelTitle = 'Needs your attention';
 
@@ -448,8 +448,8 @@ function Row({ item, now }: { item: HomeItem; now: Date }) {
       }
       reasonTone={pill.tone}
       action={
-        item.subject.kind === 'issue' && actionLabel(item) === 'Build' ? (
-          <BuildWithClaude ticketKey={item.subject.key} look="row" />
+        item.subject.kind === 'issue' && actionLabel(item) === 'Ship' ? (
+          <ShipWithClaude ticketKey={item.subject.key} look="row" />
         ) : (
           <TargetLink target={item.target} look="action">
             {actionLabel(item)}

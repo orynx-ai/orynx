@@ -117,7 +117,7 @@ describe('Home’s words', () => {
     }
   });
 
-  it('AC-15 (spec 011): an assigned issue says Build, or Open when it has a live session', () => {
+  it('AC-15 (spec 011): an assigned issue says Ship, or Open when it has a live session', () => {
     const issue = (target: InboxItem['target'], reason: InboxReason = { kind: 'status', category: 'to_do' }) =>
       actionLabel(
         makeInboxItem({
@@ -134,7 +134,7 @@ describe('Home’s words', () => {
       { kind: 'status', category: 'to_do' },
       { kind: 'due', on: '2026-10-19', highPriorityBug: false },
     ] as const) {
-      expect(issue(jira, reason)).toBe('Build');
+      expect(issue(jira, reason)).toBe('Ship');
     }
     expect(issue({ kind: 'session', sessionId: 'session-1' })).toBe('Open');
     expect(issue({ kind: 'session', sessionId: 'session-1' }, { kind: 'approval' })).toBe('Open');

@@ -27,7 +27,7 @@ interface Setup {
   answer?: StartSessionAnswer | 'fails';
 }
 
-/** The board with one ticket, Claude signed in, one folder for PROJ; records what Build asked the server. */
+/** The board with one ticket, Claude signed in, one folder for PROJ; records what Ship asked the server. */
 function setUp({ signedIn = true, folders = [webApp], answer }: Setup = {}) {
   const asked: unknown[] = [];
   server.use(
@@ -45,9 +45,9 @@ function setUp({ signedIn = true, folders = [webApp], answer }: Setup = {}) {
   return asked;
 }
 
-const build = () => screen.findByRole('button', { name: 'Build PROJ-1423 with Claude' });
+const build = () => screen.findByRole('button', { name: 'Ship PROJ-1423' });
 
-describe('Build with Claude', () => {
+describe('Ship', () => {
   it('AC-1: with one folder, starts Claude on the ticket at once and opens the session', async () => {
     const asked = setUp();
     const { user, history } = await renderApp({ route: '/tickets' });
@@ -98,7 +98,7 @@ describe('Build with Claude', () => {
     const { user, history } = await renderApp({ route: '/tickets' });
 
     await user.click(await build());
-    const menu = await screen.findByRole('menu', { name: 'Build PROJ-1423 with Claude' });
+    const menu = await screen.findByRole('menu', { name: 'Ship PROJ-1423' });
     expect(within(menu).getByText('No folder is set for PROJ.')).toBeVisible();
     await user.click(within(menu).getByRole('menuitem', { name: 'Open Settings › Repositories' }));
 

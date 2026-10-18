@@ -10,7 +10,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: `IconButton` in `@devhub/ui`: `label` is the tooltip and, unless `aria-label` says more, the name; Button's icon stories move to it (AC-9, AC-10)
       Check: pnpm test packages/ui/src/components/icon-button.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/icon-button.tsx, icon-button.stories.tsx, icon-button.test.tsx, button.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 3: The ui's own icon buttons get tooltips: Composer's Send, a context chip's Remove, Pagination's arrows; the card's Build becomes `WorkItemShip` ("Ship PROJ-1423", tooltip "Ship") (AC-11, AC-16)
+- [x] Task 3: The ui's own icon buttons get tooltips: Composer's Send, a context chip's Remove, Pagination's arrows; the card's Build becomes `WorkItemShip` ("Ship PROJ-1423", tooltip "Ship") (AC-11, AC-16)
       Check: pnpm test packages/ui
       Files: packages/ui/src/components/{composer,context-chip,pagination,work-item-card}.tsx and their tests and stories
 - [ ] Task 4: `pnpm gate icon-buttons` (failing from the start), CLAUDE.md rule 7, `pnpm agent-rules` (AC-12)
@@ -40,7 +40,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## F. Ship
 
-- [ ] Task 9: "Ship" starts Claude on Tickets' cards and list (`ShipWithClaude`, renamed from `BuildWithClaude`) (AC-16)
+- [x] Task 9: "Ship" starts Claude on Tickets' cards and list (`ShipWithClaude`, renamed from `BuildWithClaude`) (AC-16). Done with task 3, since the card's rename broke the app's tests
       Check: pnpm test packages/app/src/features/sessions packages/app/src/features/tickets; pnpm exec playwright test e2e/sessions.spec.ts e2e/approvals.spec.ts
       Files: packages/app/src/features/sessions/components/ship-with-claude.tsx (+ test), tickets components and tests, e2e specs that press Build
 - [ ] Task 10: Home's rows end in icon buttons: Ship and Open in Jira, Open in GitHub, Open session (AC-14, AC-15)

@@ -137,14 +137,14 @@ test.afterAll(() => {
   rmSync(repository.root, { recursive: true, force: true });
 });
 
-test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8: Build on a card starts Claude, and every tab watches it finish', async ({
+test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8: Ship on a card starts Claude, and every tab watches it finish', async ({
   page,
   context,
 }) => {
   const before = repository.git(repository.clone, 'status', '--porcelain=v1', '--branch');
   await page.goto('/tickets');
 
-  await page.getByRole('button', { name: 'Build PROJ-1423 with Claude' }).click();
+  await page.getByRole('button', { name: 'Ship PROJ-1423' }).click();
 
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   seen.done = page.url();
@@ -182,7 +182,7 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8: Build on a card starts Claude, and eve
 
 test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its branch after asking', async ({ page }) => {
   await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Build PROJ-1424 with Claude' }).click();
+  await page.getByRole('button', { name: 'Ship PROJ-1424' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   seen.discarded = page.url();
   const progress = page.getByRole('region', { name: "Claude's progress" });
@@ -207,7 +207,7 @@ test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its bran
   expect(repository.git(repository.clone, 'branch', '--list', 'feat/PROJ-1424')).toBe('');
 });
 
-test('AC-11, AC-18: with two folders, Build asks which with the keyboard, and starts in the one picked', async ({
+test('AC-11, AC-18: with two folders, Ship asks which with the keyboard, and starts in the one picked', async ({
   page,
 }) => {
   const mobile = join(repository.root, 'mobile');
@@ -215,7 +215,7 @@ test('AC-11, AC-18: with two folders, Build asks which with the keyboard, and st
   await page.goto('/tickets');
   const added = (await api(page, 'POST', '/api/repositories', { path: mobile, jiraProject: 'PROJ' })) as { id: string };
 
-  const build = page.getByRole('button', { name: 'Build PROJ-1425 with Claude' });
+  const build = page.getByRole('button', { name: 'Ship PROJ-1425' });
   await build.focus();
   await page.keyboard.press('Enter');
   const menu = page.getByRole('menu', { name: 'Start in' });
@@ -237,12 +237,12 @@ test('AC-11, AC-18: with two folders, Build asks which with the keyboard, and st
   await api(page, 'DELETE', `/api/repositories/${added.id}`);
 });
 
-test('AC-12 (Q4): Build says why it can’t start, and links to the fix', async ({ page }) => {
+test('AC-12 (Q4): Ship says why it can’t start, and links to the fix', async ({ page }) => {
   await page.goto('/tickets');
 
-  const mob = page.getByRole('button', { name: 'Build MOB-1 with Claude' });
+  const mob = page.getByRole('button', { name: 'Ship MOB-1' });
   await mob.click();
-  const noFolder = page.getByRole('menu', { name: 'Build MOB-1 with Claude' });
+  const noFolder = page.getByRole('menu', { name: 'Ship MOB-1' });
   await expect(noFolder.getByText('No folder is set for MOB.')).toBeVisible();
   await expect(noFolder.getByRole('menuitem', { name: 'Open Settings › Repositories' })).toBeVisible();
   await page.keyboard.press('Escape');
@@ -251,8 +251,8 @@ test('AC-12 (Q4): Build says why it can’t start, and links to the fix', async 
   await answerClaudeAs('signed_out', fakeClaudeDirFor(sessionsHubPort));
   await api(page, 'POST', '/api/claude/login/check');
   await page.reload();
-  await page.getByRole('button', { name: 'Build PROJ-1426 with Claude' }).click();
-  const signedOut = page.getByRole('menu', { name: 'Build PROJ-1426 with Claude' });
+  await page.getByRole('button', { name: 'Ship PROJ-1426' }).click();
+  const signedOut = page.getByRole('menu', { name: 'Ship PROJ-1426' });
   await expect(signedOut.getByText("Claude Code isn't signed in.")).toBeVisible();
   await signedOut.getByRole('menuitem', { name: 'Open Settings › Coding agent' }).click();
   await expect(page).toHaveURL(/\/settings\/coding-agent$/);
@@ -263,7 +263,7 @@ test('AC-12 (Q4): Build says why it can’t start, and links to the fix', async 
 
 test('AC-13: when Jira won’t give the ticket, the session says it couldn’t start, and why', async ({ page }) => {
   await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Build PROJ-1427 with Claude' }).click();
+  await page.getByRole('button', { name: 'Ship PROJ-1427' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   seen.failed = page.url();
 
@@ -275,7 +275,7 @@ test('AC-13: when Jira won’t give the ticket, the session says it couldn’t s
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible();
 });
 
-test('AC-15, AC-18: Home opens a live session, and Build, Stop and Discard all work from the keyboard', async ({
+test('AC-15, AC-18: Home opens a live session, and Ship, Stop and Discard all work from the keyboard', async ({
   page,
 }) => {
   await api(await page.goto('/').then(() => page), 'POST', '/api/inbox/refresh');
@@ -283,7 +283,7 @@ test('AC-15, AC-18: Home opens a live session, and Build, Stop and Discard all w
   const live = panel.getByRole('listitem').filter({ hasText: 'Add bulk archive to the content list' });
   await expect(live.getByRole('link', { name: 'Open' })).toHaveAttribute('href', new URL(seen.done ?? '').pathname);
 
-  const build = panel.getByRole('button', { name: 'Build PROJ-1428 with Claude' });
+  const build = panel.getByRole('button', { name: 'Ship PROJ-1428' });
   await build.focus();
   await page.keyboard.press('Enter');
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
@@ -338,7 +338,7 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
   // An open menu hides the rest of the page from screen readers, so it is checked on its own.
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Build MOB-1 with Claude' }).click();
+  await page.getByRole('button', { name: 'Ship MOB-1' }).click();
   await expect(page.getByRole('menu')).toBeVisible();
   expect(await check('[role="menu"]')).toEqual([]);
 });

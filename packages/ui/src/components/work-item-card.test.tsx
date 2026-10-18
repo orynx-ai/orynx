@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { AgentChip } from './agent-chip.tsx';
 import {
-  WorkItemBuild,
+  WorkItemShip,
   WorkItemCard,
   WorkItemCardSkeleton,
   WorkItemTitle,
@@ -44,7 +44,7 @@ describe('WorkItemCard', () => {
     await expectNoAxeViolations(container);
   });
 
-  it('AC-16: without a session it offers "Build … with Claude" as an icon button', async () => {
+  it('AC-16: without a session it offers Ship as an icon button with its tooltip', async () => {
     const user = userEvent.setup();
     const onBuild = vi.fn();
     const { container } = render(
@@ -55,15 +55,16 @@ describe('WorkItemCard', () => {
         priority={{ level: 'medium', label: 'Medium' }}
         due={{ label: 'Oct 28' }}
         title={<WorkItemTitle href="/tickets/1377">Search returns archived sites for guest users</WorkItemTitle>}
-        action={<WorkItemBuild itemKey="PROJ-1377" onClick={onBuild} />}
+        action={<WorkItemShip itemKey="PROJ-1377" onClick={onBuild} />}
       />,
     );
 
     expect(screen.getByText('Bug')).toBeVisible();
     expect(screen.queryByRole('link', { name: /needs you/i })).not.toBeInTheDocument();
-    const build = screen.getByRole('button', { name: 'Build PROJ-1377 with Claude' });
-    expect(build).toHaveAttribute('title', 'Build with Claude');
-    await user.click(build);
+    const ship = screen.getByRole('button', { name: 'Ship PROJ-1377' });
+    await user.hover(ship);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Ship');
+    await user.click(ship);
     expect(onBuild).toHaveBeenCalledTimes(1);
     await expectNoAxeViolations(container);
   });
@@ -86,14 +87,14 @@ describe('WorkItemCard', () => {
     await expectNoAxeViolations(container);
   });
 
-  it("AC-16: the build action can be the router's link", () => {
+  it("AC-16: Ship can be the router's link", () => {
     render(
-      <WorkItemBuild itemKey="PROJ-1377" asChild>
+      <WorkItemShip itemKey="PROJ-1377" asChild>
         <a href="/sessions/new?ticket=PROJ-1377">{/* The button fills in its sparkle. */}</a>
-      </WorkItemBuild>,
+      </WorkItemShip>,
     );
 
-    expect(screen.getByRole('link', { name: 'Build PROJ-1377 with Claude' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Ship PROJ-1377' })).toHaveAttribute(
       'href',
       '/sessions/new?ticket=PROJ-1377',
     );

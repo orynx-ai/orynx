@@ -82,4 +82,13 @@ describe('pagerItems', () => {
     expect(shown(2, 3, true)).toBe('1 2 3');
     expect(shown(3, 5, true)).toBe('1 2 3 4 5');
   });
+
+  it('AC-11: Previous and Next show their words in a tooltip, since under 480 px only the arrow shows', async () => {
+    const user = userEvent.setup();
+    render(<Pagination page={2} pageCount={3} pageLink={pageLink} />);
+
+    await user.tab();
+    expect(screen.getByRole('link', { name: 'Previous page' })).toHaveFocus();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Previous page');
+  });
 });

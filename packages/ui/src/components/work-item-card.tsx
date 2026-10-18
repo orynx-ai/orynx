@@ -3,7 +3,7 @@ import { ArrowUpRight01Icon, Calendar03Icon, SparklesIcon } from '@hugeicons/cor
 import { Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { Avatar } from './avatar.tsx';
-import { Button, type ButtonProps } from './button.tsx';
+import { IconButton, type IconButtonProps } from './icon-button.tsx';
 import { Skeleton } from './skeleton.tsx';
 import { Icon } from './icon.tsx';
 
@@ -27,7 +27,7 @@ export type WorkItemCardProps = Omit<ComponentProps<'article'>, 'title' | 'child
   due?: { label: ReactNode; soon?: boolean } | undefined;
   /** The title link: `<WorkItemTitle>`. */
   title: ReactNode;
-  /** At the end of the meta row: an `AgentChip`, or `<WorkItemBuild>` when the ticket has no session. */
+  /** At the end of the meta row: an `AgentChip`, or `<WorkItemShip>` when the ticket has no session. */
   action?: ReactNode;
 };
 
@@ -70,7 +70,7 @@ export function WorkItemPriority({ level, label }: WorkItemPriorityProps) {
 
 /**
  * Design system: WorkItemCard (`dh-card`). One ticket on a board: key and type, title (two lines at
- * most), priority, due date, assignee, and either Claude's state or a quiet "Build with Claude". The
+ * most), priority, due date, assignee, and either Claude's state or a quiet "Ship". The
  * title is the link to the ticket; the card isn't one big link, so its action stays reachable by
  * keyboard. The border darkens on hover; no shadow.
  */
@@ -213,29 +213,29 @@ export function WorkItemTitle({
   );
 }
 
-export type WorkItemBuildProps = Omit<ButtonProps, 'variant' | 'size'> & {
-  /** The ticket's key, so the button's name says which ticket: "Build PROJ-1377 with Claude". */
+export type WorkItemShipProps = Omit<IconButtonProps, 'variant' | 'size' | 'label'> & {
+  /** The ticket's key, so the button's name says which ticket: "Ship PROJ-1377". */
   itemKey: string;
 };
 
 /**
- * The quiet "Build with Claude" action on a card without a session: an icon-only ghost button with
- * a sparkle. A button when it starts the session here, the router's link (`asChild`) when it goes
- * somewhere.
+ * The quiet "Ship" action on a card without a session, which starts Claude on the ticket (spec 020): an
+ * icon-only ghost button with a sparkle and the tooltip "Ship". A button when it starts the session here,
+ * the router's link (`asChild`) when it goes somewhere.
  */
-export function WorkItemBuild({ itemKey, asChild = false, className, children, ...props }: WorkItemBuildProps) {
+export function WorkItemShip({ itemKey, asChild = false, className, children, ...props }: WorkItemShipProps) {
   return (
-    <Button
+    <IconButton
+      label="Ship"
+      aria-label={`Ship ${itemKey}`}
       variant="ghost"
-      size="icon-sm"
+      size="sm"
       asChild={asChild}
-      aria-label={`Build ${itemKey} with Claude`}
-      title="Build with Claude"
       className={cn('text-muted-foreground hover:text-info', className)}
       {...props}
     >
       <Icon icon={SparklesIcon} aria-hidden />
       {asChild ? <Slot.Slottable>{children}</Slot.Slottable> : null}
-    </Button>
+    </IconButton>
   );
 }

@@ -95,12 +95,12 @@ export function subLine(item: InboxItem): string {
 }
 
 /**
- * Q6: "Review" for a review request; "Build" for an assigned issue with no live session, which starts Claude
+ * Q6: "Review" for a review request; "Ship" for an assigned issue with no live session, which starts Claude
  * on it (spec 011, AC-15); "Open" for the rest. Failing checks keep "Open" until "Fix" comes (spec 011, Q12).
  */
-export function actionLabel(item: InboxItem): 'Review' | 'Build' | 'Open' {
+export function actionLabel(item: InboxItem): 'Review' | 'Ship' | 'Open' {
   if (item.reason.kind === 'review_requested') return 'Review';
-  return item.subject.kind === 'issue' && item.target.kind === 'external' ? 'Build' : 'Open';
+  return item.subject.kind === 'issue' && item.target.kind === 'external' ? 'Ship' : 'Open';
 }
 
 /** How many rows each tab counts; All counts every row. */

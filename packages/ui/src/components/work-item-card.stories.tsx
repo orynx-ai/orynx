@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { AgentChip } from './agent-chip.tsx';
-import { WorkItemBuild, WorkItemCard, WorkItemCardSkeleton, WorkItemTitle } from './work-item-card.tsx';
+import { WorkItemShip, WorkItemCard, WorkItemCardSkeleton, WorkItemTitle } from './work-item-card.tsx';
 
 const meta = {
   title: 'Components/WorkItemCard',
@@ -47,7 +47,7 @@ export const BugToBuild: Story = {
     priority: { level: 'medium', label: 'Medium' },
     due: { label: 'Oct 28' },
     title: <WorkItemTitle href="#ticket">Search returns archived sites for guest users</WorkItemTitle>,
-    action: <WorkItemBuild itemKey="PROJ-1377" />,
+    action: <WorkItemShip itemKey="PROJ-1377" />,
   },
 };
 /** A title longer than two lines is cut off with an ellipsis. */
@@ -79,7 +79,7 @@ export const Sparse: Story = {
     assignee: undefined,
     due: undefined,
     priority: { level: 'low', label: 'Low' },
-    action: <WorkItemBuild itemKey="PROJ-1423" />,
+    action: <WorkItemShip itemKey="PROJ-1423" />,
   },
 };
 /** Loading: the same size as a card with a two-line title, shown here above one. */

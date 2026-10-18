@@ -4,6 +4,7 @@ import { Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { buttonVariants } from './button.tsx';
 import { Icon } from './icon.tsx';
+import { Tooltip } from './tooltip.tsx';
 
 export type PagerItem =
   { kind: 'page'; page: number; wide: boolean; narrow: boolean } | { kind: 'gap'; wide: boolean; narrow: boolean };
@@ -107,6 +108,7 @@ export function Pagination({ page, pageCount, pageLink, className, ...props }: P
               <Slot.Root
                 aria-current={item.page === page ? 'page' : undefined}
                 className={cn(
+                  // icon-buttons-ignore-next-line: a page number shows its own words, so it needs no tooltip
                   buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
                   'relative text-small text-muted-foreground hover:text-foreground',
                   // The tabs' selection mark: the number in full colour over an info underline (spec 007 Q11a).
@@ -132,7 +134,10 @@ export function Pagination({ page, pageCount, pageLink, className, ...props }: P
 
 const stepLook = cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'gap-1 px-2 @max-[30rem]:w-8 @max-[30rem]:px-0');
 
-/** Previous or Next: a link, or a link that's unavailable (and out of the Tab order) at either end. */
+/**
+ * Previous or Next: a link, or a link that's unavailable (and out of the Tab order) at either end. Under
+ * 480 px only its arrow shows, so its words are always in a tooltip too (spec 020).
+ */
 function Step({
   page,
   pageLink,
@@ -141,14 +146,18 @@ function Step({
 }: Pick<PaginationProps, 'pageLink'> & { page: number | null; label: string; children: ReactNode }) {
   if (page === null) {
     return (
-      <span role="link" aria-disabled="true" aria-label={label} className={stepLook}>
-        {children}
-      </span>
+      <Tooltip label={label}>
+        <span role="link" aria-disabled="true" aria-label={label} className={stepLook}>
+          {children}
+        </span>
+      </Tooltip>
     );
   }
   return (
-    <Slot.Root aria-label={label} className={stepLook}>
-      {pageLink(page, children)}
-    </Slot.Root>
+    <Tooltip label={label}>
+      <Slot.Root aria-label={label} className={stepLook}>
+        {pageLink(page, children)}
+      </Slot.Root>
+    </Tooltip>
   );
 }

@@ -131,7 +131,7 @@ describe('AttentionPanel', () => {
     expect(platform.openExternal).toHaveBeenCalledWith('https://acme.atlassian.net/browse/PROJ-1423');
   });
 
-  it('AC-15 (spec 011): an assigned issue’s action is Build, which starts Claude on it and opens the session', async () => {
+  it('AC-15 (spec 011): an assigned issue’s action is Ship, which starts Claude on it and opens the session', async () => {
     const asked: unknown[] = [];
     server.use(
       http.get(apiUrl(apiRoutes.status), () =>
@@ -147,9 +147,9 @@ describe('AttentionPanel', () => {
     );
     const { user, history } = await openHome();
     const build = rowOf('Add bulk archive to the content list').getByRole('button', {
-      name: 'Build PROJ-1423 with Claude',
+      name: 'Ship PROJ-1423',
     });
-    expect(build).toHaveTextContent('Build');
+    expect(build).toHaveTextContent('Ship');
 
     await user.click(build);
 
@@ -162,7 +162,7 @@ describe('AttentionPanel', () => {
     await openHome();
     const row = rowOf('Add bulk archive to the content list');
     expect(row.getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/sessions/0123456789abcdef');
-    expect(row.queryByRole('button', { name: /with Claude/ })).toBeNull();
+    expect(row.queryByRole('button', { name: /^Ship / })).toBeNull();
   });
 
   it("AC-6: shows a review request with its author, and Review opens the pull request's Files tab", async () => {
@@ -478,7 +478,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
   it("AC-18: moves focus to the next row's title when the focused row goes", async () => {
     inboxWith([review, ticket, comments]);
     await openHome('/?sort=longest');
-    focusOn(rowOf(ticket.title).getByRole('button', { name: 'Build PROJ-1423 with Claude' }));
+    focusOn(rowOf(ticket.title).getByRole('button', { name: 'Ship PROJ-1423' }));
 
     await syncTo([review, comments]);
 
@@ -545,7 +545,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent ?? null);
     }
 
-    expect(stops).toEqual(['Search', 'Reason', review.title, 'Review', ticket.title, 'Build PROJ-1423 with Claude']);
+    expect(stops).toEqual(['Search', 'Reason', review.title, 'Review', ticket.title, 'Ship PROJ-1423']);
   });
 });
 

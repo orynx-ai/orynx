@@ -17,7 +17,7 @@ import { inListOrder } from '../filters.ts';
 import { statusTones } from '../../../words/status-tone.ts';
 import { listCaption, listEmptyText } from '../ticket-words.ts';
 import { dueLabel, TicketAgentChip, TicketTitleLink } from './ticket-card.tsx';
-import { BuildWithClaude } from '../../sessions/components/build-with-claude.tsx';
+import { ShipWithClaude } from '../../sessions/components/ship-with-claude.tsx';
 
 export interface TicketsListProps {
   /** The tickets every filter lets through. */
@@ -69,7 +69,7 @@ export function TicketsList({ shown, sprintName, filtered, onlyMine, now }: Tick
               <TableCell>{dueLabel(ticket, now)?.label ?? null}</TableCell>
               <TableCell className="text-end">
                 {ticket.session === null ? (
-                  <BuildWithClaude ticketKey={ticket.key} look="button" />
+                  <ShipWithClaude ticketKey={ticket.key} look="button" />
                 ) : (
                   <TicketAgentChip ticket={ticket} />
                 )}

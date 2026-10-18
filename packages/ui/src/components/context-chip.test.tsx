@@ -88,4 +88,18 @@ describe('ContextChip', () => {
 
     expect(screen.getByRole('textbox', { name: 'Describe a task for Claude' })).toHaveFocus();
   });
+
+  it('AC-11: a remove button shows "Remove" in a tooltip on focus, and Send shows its name', async () => {
+    const user = userEvent.setup();
+    render(<ComposerWithContext />);
+
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Remove PROJ-1423' })).toHaveFocus();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Remove');
+
+    await user.click(screen.getByRole('textbox', { name: 'Describe a task for Claude' }));
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Send to Claude' })).toHaveFocus();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Send to Claude');
+  });
 });

@@ -111,10 +111,10 @@ function ran(key: string): string[] {
   return existsSync(file) ? readFileSync(file, 'utf8').trim().split('\n') : [];
 }
 
-/** Presses Build on the ticket's card and waits for its Session screen. */
+/** Presses Ship on the ticket's card and waits for its Session screen. */
 async function build(page: Page, key: string): Promise<string> {
   await page.goto('/tickets');
-  await page.getByRole('button', { name: `Build ${key} with Claude` }).click();
+  await page.getByRole('button', { name: `Ship ${key}` }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   return page.url();
 }

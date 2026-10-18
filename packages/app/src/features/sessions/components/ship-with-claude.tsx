@@ -2,16 +2,7 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import type { CannotStartReason, StartSessionAnswer } from '@devhub/contracts';
-import {
-  AttentionAction,
-  Button,
-  Menu,
-  MenuContent,
-  MenuItem,
-  MenuLabel,
-  MenuTrigger,
-  WorkItemBuild,
-} from '@devhub/ui';
+import { AttentionAction, Button, Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger, WorkItemShip } from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
 import { useRepositories, useStatus } from '../../settings/queries.ts';
 import { useSessions } from '../queries.ts';
@@ -20,10 +11,10 @@ import { useSessions } from '../queries.ts';
 const mostWorking = 3;
 
 /**
- * Where Build sits: the sparkle on a Tickets card, the list's "Build with Claude", or the action on a Home
- * row ("Build").
+ * Where Ship sits: the sparkle on a Tickets card, the list's "Ship", or the action on a Home row (spec 020:
+ * "Ship" names the action that starts Claude on a ticket, everywhere).
  */
-export type BuildLook = 'sparkle' | 'button' | 'row';
+export type ShipLook = 'sparkle' | 'button' | 'row';
 
 type Reason = CannotStartReason | 'failed';
 
@@ -32,12 +23,12 @@ function projectOf(key: string): string {
 }
 
 /**
- * Build with Claude (spec 011, AC-1, AC-11, AC-12). With one folder for the ticket's project, Claude signed in
+ * Ship: start Claude on a ticket (spec 011, AC-1, AC-11, AC-12; named Ship in spec 020). With one folder for the ticket's project, Claude signed in
  * and room for another session, it starts at once and opens the session. Otherwise it opens a menu: the
  * folders under "Start in", or why it can't start and where to fix it (Q4). The page decides from what it
  * already holds; the server checks again and has the last word.
  */
-export function BuildWithClaude({ ticketKey, look }: { ticketKey: string; look: BuildLook }) {
+export function ShipWithClaude({ ticketKey, look }: { ticketKey: string; look: ShipLook }) {
   const api = useApi();
   const navigate = useNavigate();
   const status = useStatus();
@@ -66,7 +57,7 @@ export function BuildWithClaude({ ticketKey, look }: { ticketKey: string; look: 
   const working = (sessions.data?.sessions ?? []).filter(
     (session) => session.state === 'working' || session.state === 'needs_you',
   ).length;
-  // What the page knows; while any of it is still loading, Build starts and the server decides.
+  // What the page knows; while any of it is still loading, Ship starts and the server decides.
   const known = status.isSuccess && repositories.isSuccess && sessions.isSuccess;
   const ahead: Reason | null = !known
     ? null
@@ -85,7 +76,7 @@ export function BuildWithClaude({ ticketKey, look }: { ticketKey: string; look: 
       ? start.data.reason
       : null;
   const reason = answered ?? ahead;
-  const name = `Build ${ticketKey} with Claude`;
+  const name = `Ship ${ticketKey}`;
 
   function changeOpen(next: boolean) {
     if (!next) {
@@ -103,15 +94,15 @@ export function BuildWithClaude({ ticketKey, look }: { ticketKey: string; look: 
 
   const trigger =
     look === 'sparkle' ? (
-      <WorkItemBuild itemKey={ticketKey} pending={start.isPending} />
+      <WorkItemShip itemKey={ticketKey} pending={start.isPending} />
     ) : look === 'button' ? (
       <Button variant="ghost" size="sm" pending={start.isPending} aria-label={name}>
-        Build with Claude
+        Ship
       </Button>
     ) : (
       <AttentionAction asChild aria-disabled={start.isPending || undefined}>
         <button type="button" aria-label={name}>
-          Build
+          Ship
         </button>
       </AttentionAction>
     );
@@ -142,7 +133,7 @@ export function BuildWithClaude({ ticketKey, look }: { ticketKey: string; look: 
   );
 }
 
-/** Why Build can't start, and the link that fixes it when there is one (Q10d). */
+/** Why Ship can't start, and the link that fixes it when there is one (Q10d). */
 function ReasonItems({ reason, project }: { reason: Reason | null; project: string }) {
   switch (reason) {
     case 'no_folder':

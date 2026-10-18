@@ -1,13 +1,13 @@
 import type { ComponentProps } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { File02Icon, Folder01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
-import { Button } from './button.tsx';
 import { Composer, ComposerBar, ComposerHint, ComposerSend, ComposerTextarea } from './composer.tsx';
 import { ContextChip, ContextList } from './context-chip.tsx';
 import { Menu, MenuContent, MenuItem, MenuRadioGroup, MenuRadioItem, MenuTrigger } from './menu.tsx';
 import { Picker } from './picker.tsx';
 import { SourceMark } from './source-mark.tsx';
 import { Icon } from './icon.tsx';
+import { IconButton } from './icon-button.tsx';
 
 const meta = {
   title: 'Components/Composer',
@@ -51,9 +51,9 @@ function HomeComposer({
       <ComposerBar>
         <Menu>
           <MenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="Add context">
+            <IconButton variant="ghost" size="sm" label="Add context">
               <Icon icon={PlusSignIcon} aria-hidden />
-            </Button>
+            </IconButton>
           </MenuTrigger>
           <MenuContent aria-label="Add context">
             <MenuItem>Jira ticket</MenuItem>

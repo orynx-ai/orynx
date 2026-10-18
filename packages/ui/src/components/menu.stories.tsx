@@ -6,6 +6,7 @@ import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuLabel, MenuSeparator
 import { Picker } from './picker.tsx';
 import { SourceMark } from './source-mark.tsx';
 import { Icon } from './icon.tsx';
+import { IconButton } from './icon-button.tsx';
 
 const meta = {
   title: 'Components/Menu',
@@ -32,9 +33,9 @@ export const AddContext: Story = {
   render: (args) => (
     <Menu {...args}>
       <MenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label="Add context">
+        <IconButton variant="ghost" size="sm" label="Add context">
           <Icon icon={PlusSignIcon} aria-hidden />
-        </Button>
+        </IconButton>
       </MenuTrigger>
       <MenuContent
         aria-label="Add context"

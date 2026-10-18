@@ -137,16 +137,16 @@ export {
 export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsTriggerProps } from './components/tabs.tsx';
 export { Tooltip, TooltipProvider, type TooltipProps } from './components/tooltip.tsx';
 export {
-  WorkItemBuild,
   WorkItemCard,
   WorkItemCardSkeleton,
   WorkItemKey,
   WorkItemPriority,
+  WorkItemShip,
   WorkItemTitle,
-  type WorkItemBuildProps,
   type WorkItemCardProps,
   type WorkItemPriorityLevel,
   type WorkItemPriorityProps,
+  type WorkItemShipProps,
   type WorkItemTitleProps,
 } from './components/work-item-card.tsx';
 export { bundledFontFaces } from './fonts.ts';
