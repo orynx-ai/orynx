@@ -29,7 +29,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Remove a worktree and its branch, prune one that's already gone, and abort git when Stop comes during setup (AC-9, AC-10)
       Check: pnpm test packages/core/src/sessions/worktrees.test.ts
       Files: packages/core/src/sessions/worktrees.ts, worktrees.test.ts
-- [ ] Task 10: Keep sessions on disk: `session.json` and `brief.md` under `<DEVHUB_HOME>/sessions/<id>/` (folders 0700, files 0600), writes renamed into place and one session's writes in order, Working turned into Stopped with an `interrupted` step when the store opens, and the `recent` filter (AC-14)
+- [x] Task 10: Keep sessions on disk: `session.json` and `brief.md` under `<DEVHUB_HOME>/sessions/<id>/` (folders 0700, files 0600), writes renamed into place and one session's writes in order, Working turned into Stopped with an `interrupted` step when the store opens, and the `recent` filter (AC-14)
       Check: pnpm test packages/core/src/sessions/file-session-store.test.ts
       Files: packages/core/src/sessions/session-store.ts, file-session-store.ts, file-session-store.test.ts
 - [ ] Task 11: Add the Claude adapter: `startSession` with the worktree as `cwd`, the allow-listed `env`, `permissionMode: 'default'`, Q6's `tools`, `settingSources: []`, hooks off, `strictMcpConfig`, the `claude_code` preset with Q5's note, and `canUseTool` from the tool decision; `onEvent`; `stop` (interrupt, then close after 5 s). `respond` and `sendMessage` reject until 012 and 013. Tests fake `query()` at the SDK's boundary (AC-3, AC-5, AC-6, AC-9, AC-20)

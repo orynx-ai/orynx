@@ -1,10 +1,13 @@
 import { createServer, type Server } from 'node:net';
 import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { createWorktrees } from './worktrees.ts';
+
+// Each test makes real repositories with git; with every test file running at once that can pass 5 seconds.
+vi.setConfig({ testTimeout: 15_000 });
 
 const repositories = useTestRepositories();
 
