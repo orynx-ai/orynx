@@ -91,6 +91,72 @@ describe('stepWords (Q10a)', () => {
     });
   });
 
+  it('012 AC-7, Q8c: a push or a background command Orynx refused, with the command', () => {
+    expect(
+      step({ kind: 'refused', state: 'done', access: 'run', reason: 'push', path: 'git push origin main' }),
+    ).toEqual({
+      title: "Couldn't push: that waits for Create pull request",
+      detail: 'git push origin main',
+    });
+    expect(step({ kind: 'refused', state: 'done', access: 'run', reason: 'background', path: 'npm start &' })).toEqual({
+      title: "Couldn't run a command in the background",
+      detail: 'npm start &',
+    });
+  });
+
+  it('012 AC-1, AC-8, Q8c: a call waiting for your approval, with Claude’s line or the path', () => {
+    expect(
+      step({
+        kind: 'waiting',
+        state: 'running',
+        approvalId: 'ap-1',
+        about: 'command',
+        text: 'Run the content list tests',
+      }),
+    ).toEqual({ title: 'Waiting for your approval', detail: 'Run the content list tests' });
+    expect(step({ kind: 'waiting', state: 'running', approvalId: 'ap-1', about: 'command', text: null })).toEqual({
+      title: 'Waiting for your approval',
+      detail: 'Wants to run a command',
+    });
+    expect(step({ kind: 'waiting', state: 'running', approvalId: 'ap-2', about: 'edit', text: 'src/a.ts' })).toEqual({
+      title: 'Waiting for your approval',
+      detail: 'Wants to edit src/a.ts',
+    });
+  });
+
+  it('012 AC-2, AC-10, Q8c: commands, while one runs and once they ran', () => {
+    expect(step({ kind: 'command', state: 'running', commands: ['npm test'] })).toEqual({
+      title: 'Running a command',
+      detail: 'npm test',
+    });
+    expect(step({ kind: 'command', state: 'done', commands: ['npm test'] })).toEqual({
+      title: 'Ran 1 command',
+      detail: 'npm test',
+    });
+    expect(step({ kind: 'command', state: 'done', commands: ['npm test', 'npm run lint', 'pnpm build'] })).toEqual({
+      title: 'Ran 3 commands',
+      detail: 'npm test, npm run lint and pnpm build',
+    });
+  });
+
+  it('012 AC-3, AC-8, Q8c: a call you denied, with the command or the path', () => {
+    expect(step({ kind: 'denied', state: 'done', about: 'command', text: 'rm -rf dist' })).toEqual({
+      title: 'You denied a command',
+      detail: 'rm -rf dist',
+    });
+    expect(step({ kind: 'denied', state: 'done', about: 'edit', text: 'src/a.ts' })).toEqual({
+      title: 'You denied an edit',
+      detail: 'src/a.ts',
+    });
+  });
+
+  it('012 AC-20, Q2b, Q8c: commands are off where the sandbox can’t run', () => {
+    expect(step({ kind: 'no_commands', state: 'done', reason: 'no_sandbox' })).toEqual({
+      title: "Commands are off: Claude Code's sandbox can't run on this computer",
+      detail: null,
+    });
+  });
+
   it('AC-8, AC-9, AC-10, AC-14: how a session ended', () => {
     expect(step({ kind: 'finished', state: 'done', summary: 'Added a toolbar button.' })).toEqual({
       title: 'Finished',

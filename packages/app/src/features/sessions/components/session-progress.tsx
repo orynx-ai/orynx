@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import {
+  AlertCircleIcon,
   Cancel01Icon,
   CheckListIcon,
   Delete02Icon,
@@ -9,6 +10,7 @@ import {
   PowerIcon,
   SentIcon,
   StopIcon,
+  TerminalIcon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons';
 import type { Session, SessionActivity, SessionStep } from '@devhub/contracts';
@@ -41,6 +43,10 @@ const kindIcons = {
   plan: CheckListIcon,
   edit: PencilEdit01Icon,
   refused: Cancel01Icon,
+  waiting: AlertCircleIcon,
+  command: TerminalIcon,
+  denied: Cancel01Icon,
+  no_commands: TerminalIcon,
   finished: Tick02Icon,
   stopped: StopIcon,
   interrupted: PowerIcon,
@@ -48,7 +54,14 @@ const kindIcons = {
 } as const;
 
 /** Steps that ended the work or were refused aren't something done, so they keep the plain dot. */
-const plainKinds = new Set<SessionActivity['kind']>(['refused', 'stopped', 'interrupted', 'discarded']);
+const plainKinds = new Set<SessionActivity['kind']>([
+  'refused',
+  'denied',
+  'no_commands',
+  'stopped',
+  'interrupted',
+  'discarded',
+]);
 
 function look(activity: SessionActivity): { state: ActivityStepState | undefined; icon: ReactNode } {
   if (activity.state === 'done' && !plainKinds.has(activity.kind)) {

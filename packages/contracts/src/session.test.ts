@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   apiRoutes,
+  RespondToApprovalRequestSchema,
   ServerEventSchema,
+  SessionApprovalSchema,
   SessionIdSchema,
   SessionListQuerySchema,
   SessionListSchema,
   SessionSchema,
   StartSessionAnswerSchema,
   StartSessionRequestSchema,
+  type SessionActivity,
 } from './index.ts';
-import { makeSession, makeSessionList, makeSessionSummary } from './testing.ts';
+import { makeSession, makeSessionApproval, makeSessionList, makeSessionSummary } from './testing.ts';
 
 describe('SessionListSchema', () => {
   it('AC-8: accepts sessions from a Jira ticket, a pull request and no source', () => {
@@ -109,6 +112,93 @@ describe('SessionSchema', () => {
   it('AC-10: a discarded session says when', () => {
     const session = makeSession({ state: 'stopped', discardedAt: '2026-10-16T10:05:00.000Z' });
     expect(SessionSchema.parse(session).discardedAt).toBe('2026-10-16T10:05:00.000Z');
+  });
+});
+
+describe('session approvals (spec 012)', () => {
+  it('AC-1, AC-10: holds the calls waiting for an answer, in order', () => {
+    const session = makeSession({
+      state: 'needs_you',
+      approvals: [makeSessionApproval(), makeSessionApproval({ id: 'approval-2', command: 'npm run lint' })],
+    });
+    expect(SessionSchema.parse(session).approvals.map((approval) => approval.id)).toEqual(['approval-1', 'approval-2']);
+  });
+
+  it('AC-1, AC-5, AC-6: a command approval carries the command, its description, why it always asks and the Always allow entry', () => {
+    expect(makeSessionApproval()).toEqual({
+      id: 'approval-1',
+      kind: 'command',
+      command: 'npm test -- content-list',
+      description: 'Run the content list tests',
+      alwaysAsk: null,
+      alwaysAllow: 'npm test',
+      askedAt: '2026-10-16T10:00:00.000Z',
+    });
+    const network = makeSessionApproval({ command: 'curl https://x.test', alwaysAsk: 'network', alwaysAllow: null });
+    expect(SessionApprovalSchema.parse(network)).toMatchObject({ alwaysAsk: 'network', alwaysAllow: null });
+    for (const reason of ['network', 'delete_outside', 'unsandboxed'] as const) {
+      expect(SessionApprovalSchema.safeParse(makeSessionApproval({ alwaysAsk: reason })).success).toBe(true);
+    }
+    expect(SessionApprovalSchema.safeParse({ ...makeSessionApproval(), alwaysAsk: 'scary' }).success).toBe(false);
+  });
+
+  it('AC-8, Q9: an edit approval carries the path, whether it creates the file, the change as lines and how many more', () => {
+    const edit = {
+      id: 'approval-3',
+      kind: 'edit',
+      path: 'src/content/ContentList.tsx',
+      creates: false,
+      lines: [
+        { kind: 'context', number: 41, text: 'export function ContentList({ items }: Props) {' },
+        { kind: 'removed', number: 42, text: '  const [rows] = useState(items);' },
+        { kind: 'added', number: 42, text: '  const { selected } = useSelection(items);' },
+      ],
+      moreLines: 12,
+      askedAt: '2026-10-16T10:00:00.000Z',
+    };
+    expect(SessionApprovalSchema.parse(edit)).toEqual(edit);
+    const unnumbered = { ...edit, lines: [{ kind: 'added', text: 'x' }] };
+    expect(SessionApprovalSchema.safeParse(unnumbered).success).toBe(false);
+  });
+
+  it('AC-1, AC-2, AC-3, AC-7, AC-17, AC-20: holds the steps approvals add', () => {
+    const activities: SessionActivity[] = [
+      {
+        id: 'a1',
+        state: 'running',
+        kind: 'waiting',
+        approvalId: 'approval-1',
+        about: 'command',
+        text: 'Run the tests',
+      },
+      { id: 'a2', state: 'running', kind: 'waiting', approvalId: 'approval-2', about: 'edit', text: 'src/a.ts' },
+      { id: 'a3', state: 'done', kind: 'command', commands: ['npm test', 'npm run lint'] },
+      { id: 'a4', state: 'done', kind: 'denied', about: 'command', text: 'rm -rf dist' },
+      { id: 'a5', state: 'done', kind: 'denied', about: 'edit', text: 'src/a.ts' },
+      { id: 'a6', state: 'done', kind: 'no_commands', reason: 'no_sandbox' },
+      { id: 'a7', state: 'done', kind: 'refused', access: 'run', reason: 'push', path: 'git push origin main' },
+      { id: 'a8', state: 'done', kind: 'refused', access: 'run', reason: 'background', path: 'npm start' },
+    ];
+    const session = makeSession({ activities });
+    expect(SessionSchema.parse(session).activities).toEqual(activities);
+  });
+
+  it('a session saved before spec 012 has no approvals, and reads as having none', () => {
+    const { approvals: _none, ...older } = makeSession();
+    expect(SessionSchema.parse(older).approvals).toEqual([]);
+  });
+});
+
+describe('answering an approval', () => {
+  it('AC-2, AC-3, AC-5: takes Allow once, Always allow or Deny', () => {
+    for (const decision of ['allow_once', 'always_allow', 'deny'] as const) {
+      expect(RespondToApprovalRequestSchema.parse({ decision })).toEqual({ decision });
+    }
+    expect(RespondToApprovalRequestSchema.safeParse({ decision: 'allow' }).success).toBe(false);
+  });
+
+  it('has its path under the session', () => {
+    expect(apiRoutes.sessionApproval).toBe('/api/sessions/:id/approvals/:approvalId');
   });
 });
 

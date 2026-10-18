@@ -18,9 +18,11 @@ import {
 } from './search.ts';
 import {
   SessionListSchema,
+  SessionApprovalSchema,
   SessionSchema,
   SessionSummarySchema,
   type Session,
+  type SessionApproval,
   type SessionList,
   type SessionSummary,
 } from './session.ts';
@@ -81,8 +83,27 @@ export function makeSession(overrides: Partial<Session> = {}): Session {
     discardedAt: null,
     jiraUrl: 'https://your-team.atlassian.net/browse/PROJ-1423',
     sprint: 'Sprint 42',
+    approvals: [],
     ...overrides,
   });
+}
+
+type CommandApproval = Extract<SessionApproval, { kind: 'command' }>;
+
+/** A command waiting for your answer (spec 012): the design's `npm test -- content-list`, with Always allow offered. */
+export function makeSessionApproval(overrides: Partial<CommandApproval> = {}): CommandApproval {
+  const approval = SessionApprovalSchema.parse({
+    id: 'approval-1',
+    kind: 'command',
+    command: 'npm test -- content-list',
+    description: 'Run the content list tests',
+    alwaysAsk: null,
+    alwaysAllow: 'npm test',
+    askedAt: '2026-10-16T10:00:00.000Z',
+    ...overrides,
+  });
+  if (approval.kind !== 'command') throw new Error('makeSessionApproval builds a command approval');
+  return approval;
 }
 
 /**

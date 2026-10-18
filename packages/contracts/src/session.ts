@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AlwaysAskReasonSchema } from './commands.ts';
 import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
 import { RepositoryIdSchema } from './repositories.ts';
 
@@ -76,13 +77,30 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   /** The plan's items, from Claude's to-do list. */
   ActivityBaseSchema.extend({ kind: z.literal('plan'), items: z.array(z.string().min(1)) }),
   ActivityBaseSchema.extend({ kind: z.literal('edit'), files: FilesSchema }),
-  /** A call Orynx refused (Q6): outside the worktree, or an edit while Ask before everything is on. */
+  /**
+   * A call Orynx refused: outside the worktree (spec 011, Q6), a push or a background command (spec 012,
+   * Q7). `path` holds the command for a `run`. `ask_everything` is from before spec 012, when an edit in
+   * Ask before everything was refused instead of asked.
+   */
   ActivityBaseSchema.extend({
     kind: z.literal('refused'),
-    access: z.enum(['read', 'edit']),
-    reason: z.enum(['outside_worktree', 'ask_everything']),
+    access: z.enum(['read', 'edit', 'run']),
+    reason: z.enum(['outside_worktree', 'ask_everything', 'push', 'background']),
     path: z.string().min(1),
   }),
+  /** A call waiting for your answer (spec 012): `text` is Claude's line about the command, or the edit's path. */
+  ActivityBaseSchema.extend({
+    kind: z.literal('waiting'),
+    approvalId: z.string().min(1),
+    about: z.enum(['command', 'edit']),
+    text: z.string().nullable(),
+  }),
+  /** Commands that ran, in the order they were allowed. */
+  ActivityBaseSchema.extend({ kind: z.literal('command'), commands: z.array(z.string().min(1)) }),
+  /** You denied a call: `text` is the command, or the edit's path. */
+  ActivityBaseSchema.extend({ kind: z.literal('denied'), about: z.enum(['command', 'edit']), text: z.string().min(1) }),
+  /** Claude can't run commands in this session (spec 012, Q2b). */
+  ActivityBaseSchema.extend({ kind: z.literal('no_commands'), reason: z.enum(['no_sandbox']) }),
   /** Claude finished, with its own summary of what it changed. */
   ActivityBaseSchema.extend({ kind: z.literal('finished'), summary: z.string() }),
   /** You pressed Stop Claude. */
@@ -104,6 +122,41 @@ export const SessionProblemSchema = z.object({
 });
 export type SessionProblem = z.infer<typeof SessionProblemSchema>;
 
+/** One line of the change an edit would make, as the approval callout shows it (spec 012, Q9). */
+export const ChangeLineSchema = z.object({
+  kind: z.enum(['context', 'added', 'removed']),
+  /** The new file's number for added and unchanged lines, the old file's for removed ones. */
+  number: z.int().positive(),
+  text: z.string(),
+});
+export type ChangeLine = z.infer<typeof ChangeLineSchema>;
+
+const ApprovalBaseSchema = z.object({ id: z.string().min(1), askedAt: z.iso.datetime() });
+
+/** A call waiting for your answer (spec 012): a command, or an edit while Ask before everything is on. */
+export const SessionApprovalSchema = z.discriminatedUnion('kind', [
+  ApprovalBaseSchema.extend({
+    kind: z.literal('command'),
+    command: z.string().min(1),
+    /** Claude's own line about what the command does, when it gave one. */
+    description: z.string().nullable(),
+    /** Null when it asks only because of the mode or the list. */
+    alwaysAsk: AlwaysAskReasonSchema.nullable(),
+    /** The entry Always allow would save (Q4); null when Always allow isn't offered (Q1). */
+    alwaysAllow: z.string().min(1).nullable(),
+  }),
+  ApprovalBaseSchema.extend({
+    kind: z.literal('edit'),
+    /** Relative to the worktree. */
+    path: z.string().min(1),
+    creates: z.boolean(),
+    /** At most 20 lines of the change; `moreLines` says how many follow them. */
+    lines: z.array(ChangeLineSchema),
+    moreLines: z.int().nonnegative(),
+  }),
+]);
+export type SessionApproval = z.infer<typeof SessionApprovalSchema>;
+
 /** GET /api/sessions/:id: everything the Session screen shows (spec 011). */
 export const SessionSchema = SessionSummarySchema.extend({
   /** The folder Claude works in, as Settings › Repositories shows it. */
@@ -123,6 +176,8 @@ export const SessionSchema = SessionSummarySchema.extend({
   jiraUrl: JiraLinkSchema.nullable(),
   /** The sprint the ticket was in when the session started, for the breadcrumb (Q9e). */
   sprint: z.string().min(1).nullable(),
+  /** The calls waiting for your answer, oldest first (spec 012). A session saved before spec 012 has none. */
+  approvals: z.array(SessionApprovalSchema).default([]),
 });
 export type Session = z.infer<typeof SessionSchema>;
 
@@ -148,3 +203,10 @@ export const StartSessionAnswerSchema = z.discriminatedUnion('result', [
 ]);
 export type StartSessionAnswer = z.infer<typeof StartSessionAnswerSchema>;
 export type CannotStartReason = Extract<StartSessionAnswer, { result: 'cannot_start' }>['reason'];
+
+/** POST /api/sessions/:id/approvals/:approvalId: your answer to a waiting call (spec 012). */
+export const ApprovalDecisionSchema = z.enum(['allow_once', 'always_allow', 'deny']);
+export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
+
+export const RespondToApprovalRequestSchema = z.object({ decision: ApprovalDecisionSchema });
+export type RespondToApprovalRequest = z.infer<typeof RespondToApprovalRequestSchema>;

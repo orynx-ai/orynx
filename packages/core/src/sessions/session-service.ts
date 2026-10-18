@@ -369,6 +369,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         discardedAt: null,
         jiraUrl: await jiraLink(ticketKey),
         sprint: known?.sprint ?? null,
+        approvals: [],
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),

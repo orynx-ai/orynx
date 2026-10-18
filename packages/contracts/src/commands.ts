@@ -7,14 +7,18 @@ import { z } from 'zod';
  * asks and never matches the list.
  */
 
-/** Why a command asks in every mode (Q3), whatever the list says. */
-export type AlwaysAskReason = 'network' | 'delete_outside';
+/**
+ * Why a command asks in every mode (Q3), whatever the list says: it reaches the network, deletes outside
+ * the worktree, or asked to run outside the sandbox (which only the call's input can say).
+ */
+export const AlwaysAskReasonSchema = z.enum(['network', 'delete_outside', 'unsandboxed']);
+export type AlwaysAskReason = z.infer<typeof AlwaysAskReasonSchema>;
 
 export type CommandReading =
   /** Pushes or opens a pull request: refused, never asked (Q7). */
   | { kind: 'push' }
   /** Asks in every mode, with Allow once and Deny only, and can't go on the list. */
-  | { kind: 'always_asks'; reason: AlwaysAskReason }
+  | { kind: 'always_asks'; reason: Exclude<AlwaysAskReason, 'unsandboxed'> }
   /**
    * The words of each command in the line, split at `&&`, `||`, `;`, `|` and newlines. `entry` is what
    * Always allow saves (Q4); null when the line holds several commands.
