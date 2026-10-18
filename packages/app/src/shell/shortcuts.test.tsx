@@ -117,18 +117,65 @@ describe('New task on Home', () => {
 });
 
 describe('Search', () => {
-  it('AC-7: stays inactive until search ships, and ⌘K does nothing yet', async () => {
+  const commandK = { key: 'k', code: 'KeyK', metaKey: true };
+
+  function searchBox() {
+    return screen.getByRole('combobox', { name: 'Search tickets, pull requests and sessions' });
+  }
+
+  it('AC-1: ⌘K opens Search from any page, with focus in its box, and blocks the browser’s own action', async () => {
     const { history } = await renderApp({ route: '/tickets' });
 
-    const search = within(mainNav()).getByRole('button', { name: /Search/ });
-    expect(search).toHaveAttribute('aria-disabled', 'true');
-    expect(within(search).getByText('⌘K')).toBeVisible();
-    expect(press({ key: 'k', code: 'KeyK', metaKey: true })).toBe(true);
+    expect(press(commandK)).toBe(false);
+
+    expect(await screen.findByRole('dialog', { name: 'Search' })).toBeVisible();
+    expect(searchBox()).toHaveFocus();
     expect(history.location.pathname).toBe('/tickets');
   });
 
-  it('AC-7: shows Ctrl+K off macOS', async () => {
+  it('AC-19: ⌘K again closes it', async () => {
+    await renderApp({ route: '/tickets' });
+    press(commandK);
+    await screen.findByRole('dialog', { name: 'Search' });
+
+    press(commandK, searchBox());
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('AC-3: works while typing in a text field, and gives focus back to it, with its text, on Esc', async () => {
+    const { user } = await renderApp({ route: '/tickets' });
+    const field = document.createElement('input');
+    field.dataset['outsideApp'] = '';
+    document.body.append(field);
+    field.focus();
+    await user.keyboard('archive');
+
+    press(commandK, field);
+    await screen.findByRole('dialog', { name: 'Search' });
+    await user.keyboard('{Escape}');
+
+    expect(field).toHaveFocus();
+    expect(field).toHaveValue('archive');
+  });
+
+  it('AC-2: uses Ctrl+K off macOS, shows it that way, and leaves the Windows key alone', async () => {
     await renderApp({ platform: { os: 'other' } });
-    expect(within(mainNav()).getByText('Ctrl+K')).toBeVisible();
+    const search = within(mainNav()).getByRole('button', { name: /Search/ });
+    expect(within(search).getByText('Ctrl+K')).toBeVisible();
+    expect(search).toHaveAttribute('aria-keyshortcuts', 'Control+K');
+
+    expect(press(commandK)).toBe(true);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    expect(press({ key: 'k', code: 'KeyK', ctrlKey: true })).toBe(false);
+    expect(await screen.findByRole('dialog', { name: 'Search' })).toBeVisible();
+  });
+
+  it('AC-1: leaves ⇧⌘K to the browser', async () => {
+    await renderApp();
+
+    expect(press({ ...commandK, shiftKey: true })).toBe(true);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

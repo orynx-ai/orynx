@@ -46,7 +46,8 @@ export function newTaskShortcut({ kind, os }: Pick<Platform, 'kind' | 'os'>): Sh
   };
 }
 
-/** Search's key, shown on the button. It does nothing until search ships (spec 009). */
-export function searchShortcutLabel({ os }: Pick<Platform, 'os'>): string {
-  return os === 'mac' ? '⌘K' : 'Ctrl+K';
+/** Search (spec 009): ⌘K on a Mac, Ctrl+K elsewhere. Browsers let a page take it, as GitHub and Slack do. */
+export function searchShortcut({ os }: Pick<Platform, 'os'>): Shortcut {
+  if (os === 'mac') return { label: '⌘K', ariaKeyShortcuts: 'Meta+K', matches: matcher({ meta: true, code: 'KeyK' }) };
+  return { label: 'Ctrl+K', ariaKeyShortcuts: 'Control+K', matches: matcher({ ctrl: true, code: 'KeyK' }) };
 }

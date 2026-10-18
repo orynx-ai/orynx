@@ -77,14 +77,31 @@ describe('Sidebar', () => {
     expect(within(mainNav()).getByText('Orynx')).toHaveClass('md:sr-only');
   });
 
-  it('AC-7: keeps Search reachable but inactive until search ships', async () => {
+  it('AC-4 (spec 009): Search opens the Search dialog, says it opens one and names its key; Esc gives focus back', async () => {
     const { user } = await renderApp({ route: '/tickets' });
     const search = within(mainNav()).getByRole('button', { name: /Search/ });
+    expect(search).toHaveAttribute('aria-haspopup', 'dialog');
+    expect(search).toHaveAttribute('aria-keyshortcuts', 'Meta+K');
+    expect(search).not.toHaveAttribute('aria-disabled');
 
-    expect(search).toHaveAttribute('aria-disabled', 'true');
     await user.click(search);
-    expect(screen.getByRole('main')).toBeVisible();
+    expect(await screen.findByRole('dialog', { name: 'Search' })).toBeVisible();
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(search).toHaveFocus();
+  });
+
+  it('AC-4 (spec 009): Search on the collapsed rail opens it too, from the keyboard', async () => {
+    const { user } = await renderApp({ route: '/tickets' });
+    await user.click(within(mainNav()).getByRole('button', { name: 'Collapse sidebar' }));
+    const search = within(mainNav()).getByRole('button', { name: /^Search/ });
+    expect(search).toHaveAttribute('title', 'Search');
+
+    search.focus();
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByRole('dialog', { name: 'Search' })).toBeVisible();
   });
 
   it('AC-4: names every icon-only control when collapsed, with a hover tooltip, in Tab order', async () => {
