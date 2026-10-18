@@ -46,7 +46,8 @@ The project key in the page bar ("PROJ · ends 24 Oct") comes from the sprint's 
 - `ticket-words.ts` writes every word from data with the laptop's calendar, the way Home writes its dates ("Mon", "28 Oct", "Overdue · 2 d"), with a spoken form ("Due Monday") for screen readers. The calendar helpers are shared with Home in `packages/app/src/words/`.
 - The filters live in the address (`/tickets?assignee=anyone&due=week&type=bug`), so a reload keeps them. Only a filter that differs from the default is written, and an address DevHub can't read opens the defaults. The search text is held by react-hook-form and isn't kept. Board or List is a persisted zustand preference (`devhub.tickets`).
 - Due this week and the card's amber date are one rule (`dueText(...).soon`): not Done, and due within 6 days or overdue.
-- When a sync takes the focused card away, the board hands focus on: to the same ticket in its new column, else the next card, the one before, or the board itself. Focus that left the board on purpose is never taken back.
+- When a sync takes the focused card away, the board hands focus on: to the same ticket in its new column or its new place in the same column (a browser drops focus from an element it moves), else the next card, the one before, or the board itself. Focus that went elsewhere on the page is never taken back; focus that left with the window (another tab) still moves on. A card that takes focus in a half-hidden column is scrolled into view.
+- Every state has an `h1`, hidden where the design draws none: "Sprint 42 tickets", or "Tickets".
 - Under 768 px the search field moves from the page bar to the start of the toolbar, so the page bar stays one line. `useWide()` moves it, so only one search field exists at a time; restyling stays in CSS.
 
 ## Testing
