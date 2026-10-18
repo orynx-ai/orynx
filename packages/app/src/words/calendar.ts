@@ -48,3 +48,9 @@ export function dayMonth(date: Date, now: Date): { short: string; long: string }
     long: `${String(date.getDate())} ${month}${year}`,
   };
 }
+
+/** A time on the laptop's clock, as `14:05` (spec 007, and spec 014's rate limit). */
+export function clockText(iso: string): string {
+  const time = new Date(iso);
+  return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+}
