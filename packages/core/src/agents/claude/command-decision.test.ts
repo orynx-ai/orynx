@@ -12,6 +12,14 @@ function decide(command: string, mode: PermissionMode = 'edit_and_run_allowed', 
   );
 }
 
+/** In Edit files and run allowed commands, with this allow list. */
+function decideWith(command: string, list: readonly string[]) {
+  return decideCommand(
+    { command, runInBackground: false, unsandboxed: false },
+    { mode: 'edit_and_run_allowed', allowedCommands: list, worktree },
+  );
+}
+
 const asks = (alwaysAllow: string | null = null) => ({ behavior: 'ask', alwaysAsk: null, alwaysAllow });
 
 describe('decideCommand', () => {
@@ -39,9 +47,39 @@ describe('decideCommand', () => {
       ['cargo test --lib', 'cargo test'],
       ['npm testing', 'npm testing'],
       ['npm', 'npm'],
-      ['ls -la src', 'ls src'],
+      ['ls -la', 'ls'],
     ])('AC-5, Q4: asks about %j, which is not on the list, offering Always allow %j', (command, entry) => {
       expect(decide(command)).toEqual(asks(entry));
+    });
+
+    it.each([
+      'npm run lint -- --fix',
+      'cargo test --lib',
+      'ls -la',
+      'npm test -- content-list',
+      '/usr/bin/make check',
+      'node scripts/check.js --quiet',
+    ])('AC-5, Q4: once Always allow has saved its entry, %j runs without asking', (command) => {
+      const offered = decideWith(command, []);
+      const entry = offered.behavior === 'ask' ? offered.alwaysAllow : null;
+      expect(entry).not.toBeNull();
+      expect(decideWith(command, [entry ?? ''])).toEqual({ behavior: 'allow' });
+    });
+
+    it.each(['ls -la src', 'git --no-pager diff', 'npm --silent test', 'npm run --silent lint', 'npm -w pkg test'])(
+      'AC-5, Q4: asks about %j with no Always allow, because an option before its words would keep the entry from matching',
+      (command) => {
+        expect(decideWith(command, [])).toEqual(asks(null));
+      },
+    );
+
+    it.each([
+      ['npm run test', 'npm test'],
+      ['npm testing', 'npm test'],
+      ['git -C ../other diff', 'git diff'],
+      ['git --git-dir .. diff', 'git diff'],
+    ])('AC-5, Q4: %j does not run on the entry %j, whose words it does not start with', (command, entry) => {
+      expect(decideWith(command, [entry])).toMatchObject({ behavior: 'ask' });
     });
 
     it.each([

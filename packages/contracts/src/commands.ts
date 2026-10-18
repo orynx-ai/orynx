@@ -21,7 +21,8 @@ export type CommandReading =
   | { kind: 'always_asks'; reason: Exclude<AlwaysAskReason, 'unsandboxed'> }
   /**
    * The words of each command in the line, split at `&&`, `||`, `;`, `|` and newlines. `entry` is what
-   * Always allow saves (Q4); null when the line holds several commands.
+   * Always allow saves (Q4); null when the line holds several commands, or an option comes before the
+   * words the entry would hold.
    */
   | { kind: 'command'; parts: string[][]; entry: string | null }
   /** Holds something the reader won't follow: a substitution, a redirection, `sudo`, an unclosed quote… */
@@ -238,14 +239,19 @@ function lineOf(words: readonly string[]): string {
   return words.map((word) => (plainWord.test(word) ? word : `'${word.replaceAll("'", String.raw`'\''`)}'`)).join(' ');
 }
 
-/** What Always allow saves for one command (Q4): the program and its first word that isn't an option, and the script after `run`. */
-function entryOf(words: readonly string[]): string {
+/**
+ * What Always allow saves for one command (Q4): the program and its first word that isn't an option, and the
+ * script after `run`. Null when an option comes before those words: an entry matches only commands that start
+ * with its words, so it wouldn't match this one, and the option may have taken the word (`npm -w pkg test`).
+ */
+function entryOf(words: readonly string[]): string | null {
   const program = programOf(words);
   const rest = words.slice(1).filter((word) => !word.startsWith('-'));
   const first = rest[0];
   if (first === undefined) return program;
   const second = rest[1];
-  return lineOf(first === 'run' && second !== undefined ? [program, first, second] : [program, first]);
+  const after = first === 'run' && second !== undefined ? [first, second] : [first];
+  return after.every((word, i) => words[i + 1] === word) ? lineOf([program, ...after]) : null;
 }
 
 export function readCommand(line: string): CommandReading {

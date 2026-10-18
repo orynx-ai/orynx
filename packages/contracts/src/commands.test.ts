@@ -16,9 +16,9 @@ describe('readCommand', () => {
   });
 
   it('Q3: keeps quoted and escaped text as one word', () => {
-    expect(readCommand(`grep -n "a && b" 'c | d' e\\ f src`)).toEqual({
+    expect(readCommand(`grep "a && b" 'c | d' e\\ f src`)).toEqual({
       kind: 'command',
-      parts: [['grep', '-n', 'a && b', 'c | d', 'e f', 'src']],
+      parts: [['grep', 'a && b', 'c | d', 'e f', 'src']],
       entry: `grep 'a && b'`,
     });
   });
@@ -69,11 +69,23 @@ describe('readCommand', () => {
     ['pnpm run build', 'pnpm run build'],
     ['pnpm build', 'pnpm build'],
     ['ls', 'ls'],
-    ['ls -la src', 'ls src'],
+    ['ls -la', 'ls'],
     ['/usr/bin/make check', 'make check'],
     ['node scripts/check.js --quiet', 'node scripts/check.js'],
   ])('Q4: the entry for %j is %j', (line, entry) => {
     expect(readCommand(line)).toMatchObject({ kind: 'command', entry });
+  });
+
+  it.each([
+    'ls -la src',
+    'git --no-pager diff',
+    'npm --silent test',
+    'npm run --silent lint',
+    'npm -w pkg test',
+    'pnpm --filter @devhub/core test',
+  ])('Q4: offers no entry for %j, where an option comes before the words the entry would hold', (line) => {
+    // The entry would skip the option, so it wouldn't match this very command, or would name the wrong one.
+    expect(readCommand(line)).toMatchObject({ kind: 'command', entry: null });
   });
 
   it.each([
