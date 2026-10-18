@@ -52,6 +52,21 @@ export const SprintSchema = z.object({
 });
 export type Sprint = z.infer<typeof SprintSchema>;
 
+/**
+ * Which sprint Tickets shows (spec 020): your sprint (no project, the default: the active sprint that holds
+ * most of your tickets), a project's current sprint (a project, no sprint: it follows the project as sprints
+ * roll over), or one sprint of a project, held until another is picked.
+ */
+export const TicketsChoiceSchema = z
+  .object({ projectKey: JiraProjectKeySchema.nullable(), sprintId: z.int().positive().nullable() })
+  .refine((choice) => choice.projectKey !== null || choice.sprintId === null, {
+    message: 'A sprint is picked with its project.',
+  });
+export type TicketsChoice = z.infer<typeof TicketsChoiceSchema>;
+
+/** Your sprint, until a project is picked. */
+export const defaultTicketsChoice: TicketsChoice = { projectKey: null, sprintId: null };
+
 /** GET /api/tickets: the sprint and every ticket in it, in Jira's rank order. Answers from the cache. */
 export const TicketsSchema = z.object({
   /** Where Jira's sprint read stands, in the inbox's terms, so a failed read says so in 007's words. */
@@ -61,5 +76,25 @@ export const TicketsSchema = z.object({
   tickets: z.array(TicketSchema),
   /** The sprint held more tickets than DevHub keeps, so these are the first in rank order (Q8h). */
   truncated: z.boolean(),
+  /** Which sprint was asked for (spec 020); while its first sync runs, Jira's state is `syncing`. */
+  choice: TicketsChoiceSchema.default(defaultTicketsChoice),
 });
 export type Tickets = z.infer<typeof TicketsSchema>;
+
+/** One of a project's open sprints, for Tickets' Sprint menu (spec 020, AC-26). */
+export const OpenSprintSchema = z.object({
+  id: z.int().positive(),
+  name: z.string().min(1),
+  state: z.enum(['active', 'future']),
+  /** When Jira says it starts and ends; null when it doesn't say. */
+  startsAt: z.iso.datetime().nullable(),
+  endsAt: z.iso.datetime().nullable(),
+});
+export type OpenSprint = z.infer<typeof OpenSprintSchema>;
+
+/** GET /api/tickets/sprints?project=WEB: the project's active sprints ending soonest, then its future ones. Asks Jira. */
+export const OpenSprintsSchema = z.object({ sprints: z.array(OpenSprintSchema) });
+export type OpenSprints = z.infer<typeof OpenSprintsSchema>;
+
+export const OpenSprintsQuerySchema = z.object({ project: JiraProjectKeySchema });
+export type OpenSprintsQuery = z.infer<typeof OpenSprintsQuerySchema>;

@@ -1,7 +1,14 @@
-import type { InboxProblem, Tickets } from '@devhub/contracts';
+import { z } from 'zod';
+import {
+  defaultTicketsChoice,
+  TicketsChoiceSchema,
+  type InboxProblem,
+  type Tickets,
+  type TicketsChoice,
+} from '@devhub/contracts';
 import type { CachedTool, InboxCache } from '../inbox/inbox-cache.ts';
 import { toolState } from '../inbox/tool-state.ts';
-import type { JiraClient } from '../integrations/jira/client.ts';
+import type { JiraClient, JiraSprintRef } from '../integrations/jira/client.ts';
 import { jiraAccount, type JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { jiraInboxProblem } from '../integrations/jira/map.ts';
 import {
@@ -10,6 +17,7 @@ import {
   sprintRecord,
   SprintRecordSchema,
   type BoardLayout,
+  type SprintRecord,
 } from '../integrations/jira/sprint-map.ts';
 import type { SessionStore } from '../sessions/session-store.ts';
 import { sessionsByTicket } from '../sessions/ticket-sessions.ts';
@@ -27,6 +35,11 @@ export interface TicketsService {
   sync(): Promise<SprintSyncOutcome>;
   /** Disconnect or Clear cache: the sprint goes. */
   forget(): void;
+  /**
+   * Saves which sprint Tickets shows (spec 020). The sprint already kept was read for the old choice, so reads
+   * say `syncing` until the next sync has read the new one.
+   */
+  choose(choice: TicketsChoice): Promise<void>;
 }
 
 /** How a sprint sync ended, as the inbox's sync counts its tools. */
@@ -49,7 +62,26 @@ export interface TicketsServiceOptions {
 }
 
 const part = 'jira_sprint';
-const nothing: Omit<Tickets, 'jira'> = { sprint: null, tickets: [], truncated: false };
+const nothing: Omit<Tickets, 'jira' | 'choice'> = { sprint: null, tickets: [], truncated: false };
+
+/**
+ * The sprint as the cache keeps it, with the choice it was read for (spec 020): a record, or null when that
+ * choice has no sprint. A row written before spec 020 holds the record alone, read for your sprint.
+ */
+const StoredSprintSchema = z.union([
+  z.object({ for: TicketsChoiceSchema, record: SprintRecordSchema.nullable() }),
+  SprintRecordSchema.transform((record) => ({ for: defaultTicketsChoice, record })),
+]);
+
+function sameChoice(a: TicketsChoice, b: TicketsChoice): boolean {
+  return a.projectKey === b.projectKey && a.sprintId === b.sprintId;
+}
+
+/** The saved choice, or your sprint when there is none or it can't be read. */
+function choiceIn(written: unknown): TicketsChoice {
+  const choice = TicketsChoiceSchema.safeParse(written);
+  return choice.success ? choice.data : defaultTicketsChoice;
+}
 
 export function createTicketsService(options: TicketsServiceOptions): TicketsService {
   const { cache, settings, connection, jira } = options;
@@ -75,14 +107,38 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     return 'failed';
   }
 
-  async function keep(account: string, record: unknown): Promise<SprintSyncOutcome> {
+  async function keep(account: string, choice: TicketsChoice, record: SprintRecord | null): Promise<SprintSyncOutcome> {
     if (!(await stillConnected(account))) return 'not_connected';
     cache.synced(part, {
       connection: account,
       at: new Date(now()).toISOString(),
-      records: record === null ? [] : [{ id: 'sprint', data: record }],
+      records: [{ id: 'sprint', data: { for: choice, record } }],
     });
     return 'answered';
+  }
+
+  /** The sprint the choice names, and who the credentials belong to, or why Jira couldn't say. */
+  async function chosenSprint(
+    credentials: Extract<JiraSyncCredentials, { ok: true }>,
+    choice: TicketsChoice,
+  ): Promise<{ accountId: string; sprint: JiraSprintRef | null } | InboxProblem> {
+    const { request, site } = credentials;
+    if (choice.projectKey === null) {
+      const mine = await jira.mySprints(request);
+      if (!mine.ok) return jiraInboxProblem(mine.problem, site);
+      return { accountId: mine.accountId, sprint: pickSprint(mine.issues) };
+    }
+    const me = await jira.account(request);
+    if (!me.ok) return jiraInboxProblem(me.problem, site);
+    if (choice.sprintId !== null) {
+      const one = await jira.sprint(request, choice.sprintId);
+      if (!one.ok) return jiraInboxProblem(one.problem, site);
+      return { accountId: me.accountId, sprint: one.sprint };
+    }
+    // The project's current sprint: its active one ending soonest, or its first future one (spec 020).
+    const open = await jira.projectSprints(request, choice.projectKey);
+    if (!open.ok) return jiraInboxProblem(open.problem, site);
+    return { accountId: me.accountId, sprint: open.sprints[0] ?? null };
   }
 
   /** The board's layout, asking for the status list only when the board shows a status not yet known. */
@@ -108,10 +164,11 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     if (!credentials.ok) return fail(credentials.connection, credentials.problem);
     const { request, site } = credentials;
     const account = credentials.connection;
-    const mine = await jira.mySprints(request);
-    if (!mine.ok) return fail(account, jiraInboxProblem(mine.problem, site));
-    const sprint = pickSprint(mine.issues);
-    if (sprint === null) return keep(account, null);
+    const choice = choiceIn((await settings.read()).tickets);
+    const chosen = await chosenSprint(credentials, choice);
+    if ('kind' in chosen) return fail(account, chosen);
+    const { accountId, sprint } = chosen;
+    if (sprint === null) return keep(account, choice, null);
     const [board, issues] = await Promise.all([
       sprint.boardId === null
         ? Promise.resolve({ ok: true as const, columns: null })
@@ -126,9 +183,10 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     // last good one, rather than vanishing at the next read.
     return keep(
       account,
+      choice,
       SprintRecordSchema.parse(
         sprintRecord({
-          accountId: mine.accountId,
+          accountId,
           sprint,
           issues: issues.issues,
           layout,
@@ -142,24 +200,34 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
   return {
     async read() {
       const [saved, sessions] = await Promise.all([settings.read(), options.sessions.list()]);
-      if (saved.jira === undefined) return { jira: { state: 'not_connected' }, ...nothing };
+      const choice = choiceIn(saved.tickets);
+      if (saved.jira === undefined) return { jira: { state: 'not_connected' }, choice, ...nothing };
       const { site } = saved.jira;
       const stored = cache.tool(part);
       // Rows from another account never show: they go at its next sync.
       const cached: CachedTool | null = stored?.connection === jiraAccount(saved.jira) ? stored : null;
       const jiraState = toolState(cached, broken);
-      const record = SprintRecordSchema.safeParse(cached?.records[0]);
-      if (!record.success) return { jira: jiraState, ...nothing };
+      if (cached === null) return { jira: jiraState, choice, ...nothing };
+      // No row: a sync from before spec 020 found no sprint of yours.
+      const kept = StoredSprintSchema.safeParse(cached.records[0] ?? { for: defaultTicketsChoice, record: null });
+      if (!kept.success) return { jira: jiraState, choice, ...nothing };
+      // Read for another choice: the new one's first sync hasn't ended, unless the last sync failed.
+      if (!sameChoice(kept.data.for, choice)) {
+        return { jira: jiraState.state === 'synced' ? { state: 'syncing' } : jiraState, choice, ...nothing };
+      }
+      const record = kept.data.record;
+      if (record === null) return { jira: jiraState, choice, ...nothing };
       const joined = sessionsByTicket(sessions);
       return {
         jira: jiraState,
-        sprint: record.data.sprint,
-        tickets: record.data.tickets.map((ticket) => ({
+        choice,
+        sprint: record.sprint,
+        tickets: record.tickets.map((ticket) => ({
           ...ticket,
           url: `https://${site}/browse/${ticket.key}`,
           session: joined.get(ticket.key) ?? null,
         })),
-        truncated: record.data.truncated,
+        truncated: record.truncated,
       };
     },
 
@@ -178,6 +246,13 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     forget() {
       cache.forget(part);
       known = undefined;
+    },
+
+    async choose(choice) {
+      await settings.update(({ tickets: _, ...rest }) =>
+        // Your sprint is the default, so it leaves nothing behind in settings.json.
+        sameChoice(choice, defaultTicketsChoice) ? rest : { ...rest, tickets: { ...choice } },
+      );
     },
   };
 }

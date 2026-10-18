@@ -2,12 +2,13 @@ import { z } from 'zod';
 import {
   JiraProjectKeySchema,
   SprintSchema,
+  type OpenSprint,
   TicketSchema,
   type PriorityLevel,
   type Sprint,
   type TicketColumn,
 } from '@devhub/contracts';
-import type { JiraBoardColumn, JiraSprintIssue, JiraSprintRef } from './client.ts';
+import type { JiraBoardColumn, JiraBoardSprint, JiraSprintIssue, JiraSprintRef } from './client.ts';
 import { isoTime } from './map.ts';
 
 /**
@@ -160,4 +161,16 @@ export function sprintRecord(input: SprintRecordInput): SprintRecord {
     projectKey: projectOf(tickets.map((ticket) => ticket.key)),
   };
   return { sprint, tickets, truncated: input.truncated };
+}
+
+/** A project's open sprint as Tickets' Sprint menu lists it (spec 020); a closed one is left out. */
+export function openSprintOf(sprint: JiraBoardSprint): OpenSprint | null {
+  if (sprint.state === 'closed') return null;
+  return {
+    id: sprint.id,
+    name: sprint.name,
+    state: sprint.state,
+    startsAt: isoTime(sprint.startDate),
+    endsAt: isoTime(sprint.endDate),
+  };
 }

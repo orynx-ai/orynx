@@ -412,7 +412,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(claudeRoutes, { claude });
       await api.register(preferencesRoutes, { preferences });
       await api.register(inboxRoutes, { inbox });
-      await api.register(ticketsRoutes, { tickets });
+      await api.register(ticketsRoutes, { tickets, inbox, jira });
       await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });
       await api.register(repositoriesRoutes, { repositories });
       await api.register(folderPickerRoutes, {

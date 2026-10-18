@@ -76,7 +76,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: The Jira client reads a project's open sprints, one sprint, and who you are (AC-26, AC-28)
       Check: pnpm test packages/core/src/integrations/jira
       Files: packages/core/src/integrations/jira/client.ts, client.test.ts, packages/core/src/test/fake-jira.ts
-- [ ] Task 15: The Tickets choice: saved in `settings.json`, read by the sprint sync, `GET /api/tickets/sprints?project=` and `PUT /api/tickets/choice`; a record read for another choice reads as syncing (AC-25 to AC-29)
+- [x] Task 15: The Tickets choice: saved in `settings.json`, read by the sprint sync, `GET /api/tickets/sprints?project=` and `PUT /api/tickets/choice`; a record read for another choice reads as syncing (AC-25 to AC-29)
       Check: pnpm test packages/contracts/src/tickets.test.ts packages/core/src/tickets packages/core/src/routes/tickets.test.ts
       Files: packages/contracts/src/tickets.ts, routes.ts, testing.ts, packages/core/src/tickets/tickets-service.ts, packages/core/src/integrations/jira/sprint-map.ts, packages/core/src/settings/settings-store.ts, packages/core/src/routes/tickets.ts and tests
 - [ ] Task 16: The api-client's sprints query and choice call (AC-26, AC-29)
