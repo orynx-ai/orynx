@@ -65,6 +65,8 @@ interface SetUpOptions {
   /** Build the server without Claude Code. */
   noClaude?: boolean;
   mode?: 'ask_everything' | 'edit_freely_ask_commands';
+  /** Holds the read of the permission mode, the run's last step before Claude starts, until it resolves. */
+  preferencesGate?: Promise<void>;
 }
 
 async function setUp({
@@ -75,6 +77,7 @@ async function setUp({
   cached = { title: 'Add bulk archive', sprint: 'Sprint 42' },
   noClaude = false,
   mode = 'edit_freely_ask_commands',
+  preferencesGate,
 }: SetUpOptions = {}) {
   const repos = await repositories();
   const home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-home-')));
@@ -116,7 +119,17 @@ async function setUp({
     connection,
     jira: createJiraClient({ timeoutMs: 500 }),
     describeTicket: () => Promise.resolve(cached),
-    preferences: createPreferencesService({ settings, events }),
+    preferences: createPreferencesService({
+      // The settings file, slow to answer when the test says so.
+      settings:
+        preferencesGate === undefined
+          ? settings
+          : {
+              read: async () => await preferencesGate.then(() => settings.read()),
+              update: (change) => settings.update(change),
+            },
+      events,
+    }),
     worktrees: { env: gitEnvironment(repos.env), root: join(home, 'worktrees'), fetchTimeoutMs: 2_000 },
     stepEventMs: 250,
     adapter: noClaude
@@ -346,6 +359,7 @@ describe('running a session', () => {
       jira.use(http.get(issueUrl('PROJ-1423'), () => HttpResponse.json({ errorMessages: ['gone'] }, { status: 404 })));
       await service.start({ ticketKey: 'PROJ-1423' });
       const record = await settled(records);
+      await service.close();
       expect(record.session).toMatchObject({
         state: 'stopped',
         problem: { kind: 'jira', stage: 'starting' },
@@ -487,6 +501,25 @@ describe('stopping a session', () => {
     expect(heard.filter((event) => event.type === 'sessions.changed').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('AC-9: Stop just before Claude starts means Claude never starts', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { service, records, sdk } = await setUp({ script: [{ hang: true }], preferencesGate: gate });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await hasStep(records, 'brief');
+
+    const stopping = service.stop('0000000000000001');
+    release();
+    expect(await stopping).toBe('stopped');
+    await service.close();
+
+    const record = await records.get('0000000000000001');
+    expect(record && kinds(record)).toEqual(['worktree:done', 'brief:done', 'stopped:done']);
+    expect(sdk.runs).toEqual([]);
+  });
+
   describe('while the worktree is being made', () => {
     let silent: Server | undefined;
     afterEach(() => {
@@ -580,6 +613,10 @@ describe('closing the server', () => {
     const { service, records, sdk } = await setUp({ script: [{ hang: true }] });
     await service.start({ ticketKey: 'PROJ-1423' });
     await hasStep(records, 'brief');
+    // Until Claude Code has started: closing before that means it never starts, which another test covers.
+    for (let tries = 0; tries < 500 && sdk.runs.length === 0; tries++) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
     await service.close();
     const record = await records.get('0000000000000001');
     expect(record?.session.state).toBe('stopped');

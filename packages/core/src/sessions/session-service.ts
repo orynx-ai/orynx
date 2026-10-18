@@ -259,6 +259,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     if (adapter === null) return fail(id, 'other', 'no_claude_code');
     const { permissionMode } = await options.preferences.read();
+    // Stop can come while the mode is read: then Claude never starts.
+    if (stopping(run)) return;
     const agentId = await adapter.startSession(
       brief,
       record.worktree,
@@ -266,6 +268,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       sessionNote(plan.branch),
     );
     run.agentId = agentId;
+    // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.
+    if (stopping(run)) {
+      await adapter.stop(agentId);
+      return;
+    }
     adapter.onEvent(agentId, (event) => {
       heard(id, run, event);
     });
