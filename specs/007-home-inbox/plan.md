@@ -39,7 +39,7 @@ The work splits in two at 006. Everything up to task 15 needs nothing from 006 a
 
 ## Touches
 
-- Packages: contracts, core, api-client, app, server. ui only by using 006's parts. Nothing in ui changes here.
+- Packages: contracts, core, api-client, app, server, and ui from the amendment on (`SearchField`, `MenuCheckboxItem`, `Pagination`; the review's disabled `Picker` and pending tab count, Q11).
 - New dependencies: `better-sqlite3`, `drizzle-orm` (and `@types/better-sqlite3` for development), in `@devhub/core` only, as `docs/architecture.md` plans for this spec.
 - Gates that check this work: boundaries, secrets, env-policy, test-policy, style-policy, design-source, component-coverage, specs, learn-freshness, plus typecheck, lint, the tests and the 90% coverage.
 - Skills to follow: `.claude/skills/integration-adapter/SKILL.md`, `.claude/skills/add-api-endpoint/SKILL.md`, `.claude/skills/server-state/SKILL.md`, `.claude/skills/honest-tests/SKILL.md`, `.claude/skills/build-a-screen/SKILL.md`, `.claude/skills/clean-ui/SKILL.md`.
