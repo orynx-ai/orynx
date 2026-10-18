@@ -61,7 +61,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12b: Choose folder in the folder dialog fills Folder from the picker (AC-35, AC-36)
       Check: pnpm test packages/app/src/features/settings
       Files: packages/app/src/features/settings/components/folder-dialog.tsx (+ test), queries.ts
-- [ ] Task 12c: `Combobox` in `@devhub/ui`: a Select-like field opening a searchable listbox in a popover (AC-37)
+- [x] Task 12c: `Combobox` in `@devhub/ui`: a Select-like field opening a searchable listbox in a popover (AC-37)
       Check: pnpm test packages/ui/src/components/combobox.test.tsx; pnpm gate component-coverage style-policy icon-buttons
       Files: packages/ui/src/components/combobox.tsx (+ story, test), packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 12d: The folder dialog's Jira project field is a Combobox (AC-37)

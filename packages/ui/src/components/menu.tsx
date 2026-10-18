@@ -115,7 +115,7 @@ export function MenuContent({
  * repository menu draws them; pass a quieter icon (`text-muted-foreground`) where the design does, as
  * in the + menu. Only the chevron is quiet by default.
  */
-const menuItemClass = cn(
+export const menuItemClass = cn(
   'relative flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-sm px-3 py-1.5 text-start text-foreground no-underline outline-hidden select-none data-disabled:cursor-not-allowed data-disabled:opacity-45 data-highlighted:bg-subtle',
   'before:absolute before:inset-y-1.5 before:start-0 before:w-1 before:rounded-full before:bg-primary before:opacity-0 data-highlighted:before:opacity-100 motion-safe:before:transition-opacity',
 );
