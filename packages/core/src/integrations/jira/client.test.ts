@@ -934,7 +934,7 @@ describe('Jira client: issues in no sprint (spec 020)', () => {
     expect(project.ok && project.issues.map((issue) => issue.key)).toEqual(['WEB-1']);
     expect(yours.ok).toBe(true);
     expect(asked).toEqual([
-      'project = WEB AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC',
+      'project = "WEB" AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC',
       'assignee = currentUser() AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC',
     ]);
   });

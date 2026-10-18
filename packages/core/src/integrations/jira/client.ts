@@ -532,8 +532,8 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
     },
 
     async issuesWithoutSprint(request, projectKey) {
-      // A key the contract checked: project letters only, so it's safe in the query as it is.
-      const whose = projectKey === null ? 'assignee = currentUser()' : `project = ${projectKey}`;
+      // A key the contract checked: project letters only. Quoted, so a key that is a JQL word (IS, ORDER) still reads.
+      const whose = projectKey === null ? 'assignee = currentUser()' : `project = "${projectKey}"`;
       return rankedIssues(request, `${whose} AND sprint is EMPTY AND statusCategory != Done`);
     },
 

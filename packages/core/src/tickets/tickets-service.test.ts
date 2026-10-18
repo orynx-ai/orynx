@@ -556,6 +556,8 @@ describe('tickets service: the sprint you pick (spec 020)', () => {
 
     const read = await tickets.read();
     expect(read.jira.state).toBe('failed');
+    // The last good sync was the old pick's, so Jira hasn't yet said whether the new one has a sprint.
+    expect(read.jira).toMatchObject({ lastSyncedAt: null });
     expect(read.sprint).toBeNull();
   });
 
@@ -596,7 +598,7 @@ describe('tickets service: the sprint you pick (spec 020)', () => {
     expect(read.choice).toEqual({ projectKey: 'WEB', sprintId: 'none' });
     expect(read.sprint).toBeNull();
     expect(read.tickets.map((ticket) => [ticket.key, ticket.column])).toEqual([['WEB-9', 'in_progress']]);
-    expect(asked[0]).toBe('project = WEB AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC');
+    expect(asked[0]).toBe('project = "WEB" AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC');
 
     await tickets.choose({ projectKey: null, sprintId: 'none' });
     await tickets.sync();

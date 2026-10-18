@@ -157,7 +157,12 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
 
       // The token first: it is the step that fails when the keychain is locked, and then nothing has changed.
       if (apiToken !== undefined) await fromTokenStore(() => tokens.save('jira', apiToken));
-      await settings.update((current) => ({ ...current, jira: { site, email } }));
+      await settings.update(({ tickets, ...rest }) =>
+        // The Tickets choice names the old site's project and sprint, so another site starts on Your sprint (spec 020).
+        rest.jira?.site === site && tickets !== undefined
+          ? { ...rest, tickets, jira: { site, email } }
+          : { ...rest, jira: { site, email } },
+      );
       checked.settle({ site, email }, connectedVia(stored?.source ?? 'keychain', site));
       events.publish({ type: 'status.changed' });
       return read();

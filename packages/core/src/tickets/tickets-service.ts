@@ -125,9 +125,9 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     const { request, site } = credentials;
     const account = credentials.connection;
     const choice: TicketsChoice = { projectKey, sprintId: 'none' };
-    const me = await jira.account(request);
+    // Side by side, so a slow Jira costs one wait, not two.
+    const [me, issues] = await Promise.all([jira.account(request), jira.issuesWithoutSprint(request, projectKey)]);
     if (!me.ok) return fail(account, jiraInboxProblem(me.problem, site));
-    const issues = await jira.issuesWithoutSprint(request, projectKey);
     if (!issues.ok) return fail(account, jiraInboxProblem(issues.problem, site));
     // No board orders them, so they sit in To do, In progress and Done by status category alone.
     return keep(
@@ -158,17 +158,19 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
       if (!mine.ok) return jiraInboxProblem(mine.problem, site);
       return { accountId: mine.accountId, sprint: pickSprint(mine.issues) };
     }
-    const me = await jira.account(request);
+    // Who you are and the sprint side by side, so a slow Jira costs one wait, not two.
+    const [me, found] = await Promise.all([
+      jira.account(request),
+      choice.sprintId === null
+        ? // The project's current sprint: its active one ending soonest, or its first future one (spec 020).
+          jira
+            .projectSprints(request, choice.projectKey)
+            .then((open) => (open.ok ? { ok: true as const, sprint: open.sprints[0] ?? null } : open))
+        : jira.sprint(request, choice.sprintId),
+    ]);
     if (!me.ok) return jiraInboxProblem(me.problem, site);
-    if (choice.sprintId !== null) {
-      const one = await jira.sprint(request, choice.sprintId);
-      if (!one.ok) return jiraInboxProblem(one.problem, site);
-      return { accountId: me.accountId, sprint: one.sprint };
-    }
-    // The project's current sprint: its active one ending soonest, or its first future one (spec 020).
-    const open = await jira.projectSprints(request, choice.projectKey);
-    if (!open.ok) return jiraInboxProblem(open.problem, site);
-    return { accountId: me.accountId, sprint: open.sprints[0] ?? null };
+    if (!found.ok) return jiraInboxProblem(found.problem, site);
+    return { accountId: me.accountId, sprint: found.sprint };
   }
 
   /** The board's layout, asking for the status list only when the board shows a status not yet known. */
@@ -242,9 +244,12 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
       // No row: a sync from before spec 020 found no sprint of yours.
       const kept = StoredSprintSchema.safeParse(cached.records[0] ?? { for: defaultTicketsChoice, record: null });
       if (!kept.success) return { jira: jiraState, choice, ...nothing };
-      // Read for another choice: the new one's first sync hasn't ended, unless the last sync failed.
+      // Read for another choice: the new one's first sync hasn't ended, or it failed before Jira ever answered
+      // for it, so the last good sync (the old choice's) says nothing about this one.
       if (!sameChoice(kept.data.for, choice)) {
-        return { jira: jiraState.state === 'synced' ? { state: 'syncing' } : jiraState, choice, ...nothing };
+        const first: Tickets['jira'] =
+          jiraState.state === 'failed' ? { ...jiraState, lastSyncedAt: null } : { state: 'syncing' };
+        return { jira: first, choice, ...nothing };
       }
       const record = kept.data.record;
       if (record === null) return { jira: jiraState, choice, ...nothing };
