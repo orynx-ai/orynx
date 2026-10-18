@@ -96,11 +96,13 @@ describe('TicketsSchema', () => {
 });
 
 describe('TicketsChoiceSchema (spec 020)', () => {
-  it('takes your sprint, a project’s current sprint, or one sprint of a project', () => {
+  it('takes your sprint, a project’s current sprint, one sprint of a project, or No sprint (AC-39)', () => {
     for (const choice of [
       { projectKey: null, sprintId: null },
       { projectKey: 'WEB', sprintId: null },
       { projectKey: 'WEB', sprintId: 43 },
+      { projectKey: 'WEB', sprintId: 'none' },
+      { projectKey: null, sprintId: 'none' },
     ]) {
       expect(TicketsChoiceSchema.parse(choice)).toEqual(choice);
     }

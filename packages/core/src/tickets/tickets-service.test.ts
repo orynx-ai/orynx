@@ -574,4 +574,35 @@ describe('tickets service: the sprint you pick (spec 020)', () => {
 
     expect((await tickets.read()).sprint?.name).toBe('Sprint 42');
   });
+
+  it('AC-39: No sprint reads the tickets in no sprint, the project’s or yours, with no sprint of their own', async () => {
+    const asked: string[] = [];
+    outside.use(
+      acceptingMyself(),
+      acceptingPrioritySearch(),
+      http.post(`https://${jiraSite}/rest/api/3/search/jql`, async ({ request }) => {
+        asked.push(((await request.json()) as { jql: string }).jql);
+        return HttpResponse.json({
+          issues: [jiraIssue({ key: 'WEB-9', summary: 'Tidy the footer links', category: 'indeterminate' })],
+          isLast: true,
+        });
+      }),
+    );
+    const { tickets } = setup({ settings: { ...jiraConnected, tickets: { projectKey: 'WEB', sprintId: 'none' } } });
+
+    expect(await tickets.sync()).toBe('answered');
+
+    const read = await tickets.read();
+    expect(read.choice).toEqual({ projectKey: 'WEB', sprintId: 'none' });
+    expect(read.sprint).toBeNull();
+    expect(read.tickets.map((ticket) => [ticket.key, ticket.column])).toEqual([['WEB-9', 'in_progress']]);
+    expect(asked[0]).toBe('project = WEB AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC');
+
+    await tickets.choose({ projectKey: null, sprintId: 'none' });
+    await tickets.sync();
+    expect(asked.at(-1)).toBe(
+      'assignee = currentUser() AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC',
+    );
+    expect((await tickets.read()).choice).toEqual({ projectKey: null, sprintId: 'none' });
+  });
 });

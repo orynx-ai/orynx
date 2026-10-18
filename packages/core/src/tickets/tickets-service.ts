@@ -117,13 +117,42 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     return 'answered';
   }
 
+  /** No sprint (spec 020, AC-39): the project's tickets in no sprint, or yours, that aren't Done. */
+  async function syncWithoutSprint(
+    credentials: Extract<JiraSyncCredentials, { ok: true }>,
+    projectKey: string | null,
+  ): Promise<SprintSyncOutcome> {
+    const { request, site } = credentials;
+    const account = credentials.connection;
+    const choice: TicketsChoice = { projectKey, sprintId: 'none' };
+    const me = await jira.account(request);
+    if (!me.ok) return fail(account, jiraInboxProblem(me.problem, site));
+    const issues = await jira.issuesWithoutSprint(request, projectKey);
+    if (!issues.ok) return fail(account, jiraInboxProblem(issues.problem, site));
+    // No board orders them, so they sit in To do, In progress and Done by status category alone.
+    return keep(
+      account,
+      choice,
+      SprintRecordSchema.parse(
+        sprintRecord({
+          accountId: me.accountId,
+          sprint: null,
+          issues: issues.issues,
+          layout: null,
+          priorityOrder: issues.priorityOrder,
+          truncated: issues.truncated,
+        }),
+      ),
+    );
+  }
+
   /** The sprint the choice names, and who the credentials belong to, or why Jira couldn't say. */
   async function chosenSprint(
     credentials: Extract<JiraSyncCredentials, { ok: true }>,
     choice: TicketsChoice,
   ): Promise<{ accountId: string; sprint: JiraSprintRef | null } | InboxProblem> {
     const { request, site } = credentials;
-    if (choice.projectKey === null) {
+    if (choice.projectKey === null || choice.sprintId === 'none') {
       const mine = await jira.mySprints(request);
       if (!mine.ok) return jiraInboxProblem(mine.problem, site);
       return { accountId: mine.accountId, sprint: pickSprint(mine.issues) };
@@ -165,6 +194,7 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     const { request, site } = credentials;
     const account = credentials.connection;
     const choice = choiceIn((await settings.read()).tickets);
+    if (choice.sprintId === 'none') return syncWithoutSprint(credentials, choice.projectKey);
     const chosen = await chosenSprint(credentials, choice);
     if ('kind' in chosen) return fail(account, chosen);
     const { accountId, sprint } = chosen;
@@ -217,6 +247,7 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
       }
       const record = kept.data.record;
       if (record === null) return { jira: jiraState, choice, ...nothing };
+      // No sprint keeps its tickets with no sprint of their own (spec 020).
       const joined = sessionsByTicket(sessions);
       return {
         jira: jiraState,

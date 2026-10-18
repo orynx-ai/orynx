@@ -20,7 +20,8 @@ export const TicketRecordSchema = TicketSchema.omit({ session: true, url: true }
 export type TicketRecord = z.infer<typeof TicketRecordSchema>;
 
 export const SprintRecordSchema = z.object({
-  sprint: SprintSchema,
+  /** Null for No sprint, whose tickets come without one (spec 020). */
+  sprint: SprintSchema.nullable(),
   tickets: z.array(TicketRecordSchema),
   truncated: z.boolean(),
 });
@@ -111,7 +112,8 @@ function projectOf(keys: readonly string[]): string | null {
 export interface SprintRecordInput {
   /** Who the saved credentials belong to, for "Assigned to you". */
   accountId: string;
-  sprint: JiraSprintRef;
+  /** Null for No sprint (spec 020). */
+  sprint: JiraSprintRef | null;
   /** The sprint's issues in rank order. */
   issues: readonly JiraSprintIssue[];
   /** Null when the board is gone or hidden: every In progress ticket is then In progress (AC-5). */
@@ -154,12 +156,15 @@ export function sprintRecord(input: SprintRecordInput): SprintRecord {
       },
     ];
   });
-  const sprint: Sprint = {
-    id: input.sprint.id,
-    name: input.sprint.name,
-    endsAt: isoTime(input.sprint.endDate),
-    projectKey: projectOf(tickets.map((ticket) => ticket.key)),
-  };
+  const sprint: Sprint | null =
+    input.sprint === null
+      ? null
+      : {
+          id: input.sprint.id,
+          name: input.sprint.name,
+          endsAt: isoTime(input.sprint.endDate),
+          projectKey: projectOf(tickets.map((ticket) => ticket.key)),
+        };
   return { sprint, tickets, truncated: input.truncated };
 }
 

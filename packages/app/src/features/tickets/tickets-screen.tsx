@@ -25,6 +25,7 @@ import { useTickets } from './queries.ts';
 import { useTicketsStore } from './store.ts';
 import {
   noOpenSprintsText,
+  noSprintName,
   noSprintText,
   pageHeading,
   sprintMeta,
@@ -65,7 +66,11 @@ export function TicketsScreen() {
   const loading = data === undefined || data.jira.state === 'syncing';
   const sprint = data?.sprint ?? null;
   const choice = data?.choice ?? defaultTicketsChoice;
-  if (!loading && sprint === null) return <NoSprint jira={data.jira} choice={choice} now={now} />;
+  // No sprint shows its tickets with no sprint of their own (spec 020, AC-39).
+  const withoutSprint = choice.sprintId === 'none';
+  if (!loading && sprint === null && !withoutSprint) return <NoSprint jira={data.jira} choice={choice} now={now} />;
+  // What the page calls what it shows; null while it loads.
+  const shownName = sprint?.name ?? (withoutSprint && !loading ? noSprintName : null);
 
   const filters = { ...filtersFromSearch(search), text };
   const all = data?.tickets ?? [];
@@ -73,7 +78,7 @@ export function TicketsScreen() {
   // Assigned to me alone, so an empty column can say whether the other filters emptied it (Q9d).
   const unfiltered = all.filter((ticket) => matches(ticket, { ...defaultFilters, mine: filters.mine }, now));
   const crumbs: Crumb[] =
-    sprint === null ? [ticketsCrumb] : [{ ...ticketsCrumb, to: '/tickets' }, { label: sprint.name }];
+    shownName === null ? [ticketsCrumb] : [{ ...ticketsCrumb, to: '/tickets' }, { label: shownName }];
   const line = data === undefined ? null : toolLine('jira', data.jira, now);
 
   function changeFilters(next: AddressFilters) {
@@ -99,7 +104,7 @@ export function TicketsScreen() {
   );
 
   let body: ReactNode;
-  if (sprint === null) {
+  if (loading || shownName === null) {
     body = view === 'board' ? <TicketsBoardSkeleton /> : <TicketsListSkeleton />;
   } else if (view === 'board') {
     body = <TicketsBoard shown={shown} unfiltered={unfiltered} now={now} />;
@@ -107,7 +112,7 @@ export function TicketsScreen() {
     body = (
       <TicketsList
         shown={shown}
-        sprintName={sprint.name}
+        sprintName={shownName}
         filtered={hasExtraFilters(filters)}
         onlyMine={filters.mine}
         now={now}
@@ -119,7 +124,13 @@ export function TicketsScreen() {
     <>
       <PageBar
         breadcrumb={<PageBreadcrumb crumbs={crumbs} />}
-        meta={sprint === null ? undefined : (sprintMeta(sprint, now) ?? undefined)}
+        meta={
+          sprint === null
+            ? withoutSprint
+              ? (choice.projectKey ?? undefined)
+              : undefined
+            : (sprintMeta(sprint, now) ?? undefined)
+        }
         actions={
           <>
             {wide ? searchField : null}
@@ -152,12 +163,12 @@ export function TicketsScreen() {
         {...(wide ? {} : { search: searchField })}
       />
       <PageBody width="full">
-        <h1 className="sr-only">{sprint === null ? 'Tickets' : pageHeading(sprint.name)}</h1>
+        <h1 className="sr-only">{shownName === null ? 'Tickets' : pageHeading(shownName)}</h1>
         {line === null && data?.truncated !== true ? null : (
           <div className="flex flex-col gap-1">
             {line === null ? null : <Note message={line.message} action={line.action} />}
-            {sprint !== null && data?.truncated === true ? (
-              <Note message={tooManyLine(sprint.name)} action={null} />
+            {shownName !== null && data?.truncated === true ? (
+              <Note message={tooManyLine(shownName)} action={null} />
             ) : null}
           </div>
         )}

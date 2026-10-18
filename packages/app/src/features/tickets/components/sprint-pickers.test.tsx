@@ -32,14 +32,16 @@ function pickingServer({ sprints = 'listed' }: { sprints?: 'listed' | 'none' | '
     ),
     http.get(apiUrl(apiRoutes.tickets), () => {
       const answer: Partial<Tickets> =
-        choice.projectKey === null
-          ? { tickets: designTickets }
-          : choice.projectKey === 'OPS'
-            ? { sprint: null, tickets: [] }
-            : {
-                sprint: { ...webSprint, ...(choice.sprintId === 44 ? { id: 44, name: 'Sprint 44' } : {}) },
-                tickets: [webTicket],
-              };
+        choice.sprintId === 'none'
+          ? { sprint: null, tickets: [makeTicket({ key: 'PROJ-1500', title: 'Write the release notes' })] }
+          : choice.projectKey === null
+            ? { tickets: designTickets }
+            : choice.projectKey === 'OPS'
+              ? { sprint: null, tickets: [] }
+              : {
+                  sprint: { ...webSprint, ...(choice.sprintId === 44 ? { id: 44, name: 'Sprint 44' } : {}) },
+                  tickets: [webTicket],
+                };
       return HttpResponse.json(makeTickets({ ...answer, choice }));
     }),
     http.get(apiUrl(apiRoutes.ticketsSprints), () => {
@@ -119,7 +121,7 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
       within(menu)
         .getAllByRole('menuitemradio')
         .map((item) => item.textContent),
-    ).toEqual(['Sprint 43Active · ends 24 Oct', 'Sprint 44Future · starts 27 Oct']);
+    ).toEqual(['Sprint 43Active · ends 24 Oct', 'Sprint 44Future · starts 27 Oct', 'No sprint']);
     await user.click(within(menu).getByRole('menuitemradio', { name: /Sprint 44/ }));
 
     await waitFor(() => {
@@ -189,5 +191,37 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
     expect(await screen.findByText('6 tickets')).toBeVisible();
     expect(save.saved.at(-1)).toEqual({ projectKey: null, sprintId: null });
     expect(project()).toHaveTextContent('Project Your sprint');
+  });
+
+  it('AC-39: No sprint shows your tickets in no sprint as a board, named No sprint, and a reload keeps it', async () => {
+    const save = pickingServer();
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+
+    await user.click(sprint());
+    const menu = await screen.findByRole('menu', { name: 'Sprint' });
+    await user.click(within(menu).getByRole('menuitemradio', { name: 'No sprint' }));
+
+    expect(await screen.findByRole('link', { name: 'Write the release notes' })).toBeVisible();
+    // From Your sprint, No sprint means your own tickets in no sprint, in any project.
+    expect(save.saved).toEqual([{ projectKey: null, sprintId: 'none' }]);
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('No sprint')).toBeVisible();
+    expect(sprint()).toHaveTextContent('Sprint No sprint');
+    expect(screen.getByRole('heading', { name: 'No sprint tickets' })).toBeInTheDocument();
+  });
+
+  it('AC-39: with a project picked, No sprint keeps the project', async () => {
+    const save = pickingServer();
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+    await user.click(project());
+    await user.keyboard('web{Enter}');
+    await screen.findByRole('link', { name: 'Ship the new footer' });
+
+    await user.click(sprint());
+    await user.click(await screen.findByRole('menuitemradio', { name: 'No sprint' }));
+
+    await screen.findByRole('link', { name: 'Write the release notes' });
+    expect(save.saved.at(-1)).toEqual({ projectKey: 'WEB', sprintId: 'none' });
   });
 });

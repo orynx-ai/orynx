@@ -29,6 +29,9 @@ export function openSprintLine(sprint: OpenSprint, now: Date): string {
 /** Spec 020, Q4e: the Project picker's first option, and its words while nothing is picked. */
 export const yourSprintText = 'Your sprint';
 
+/** Spec 020: the tickets in no sprint that aren't Done, as the page and the Sprint menu name them (AC-39). */
+export const noSprintName = 'No sprint';
+
 /** Spec 020, Q4e: a picked project with no active or future sprint. */
 export function noOpenSprintsText(projectKey: string): string {
   return `${projectKey} has no open sprints.`;

@@ -85,7 +85,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 17: Tickets' Project picker (a Combobox) and Sprint picker (AC-25 to AC-29, AC-38)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/sprint-pickers.tsx (+ test), tickets-screen.tsx, tickets-toolbar.tsx, queries.ts, ticket-words.ts and tests
-- [ ] Task 17b: No sprint: the choice, Jira's issues in no sprint, and its place in the Sprint menu and the page (AC-39)
+- [x] Task 17b: No sprint: the choice, Jira's issues in no sprint, and its place in the Sprint menu and the page (AC-39)
       Check: pnpm test packages/contracts packages/core/src/tickets packages/core/src/integrations/jira packages/app/src/features/tickets
       Files: packages/contracts/src/tickets.ts, packages/core/src/integrations/jira/client.ts, sprint-map.ts, packages/core/src/tickets/tickets-service.ts, packages/app/src/features/tickets/* and tests
 - [ ] Task 17c: Compact Project and Sprint lists: `size="sm"` on Menu and Combobox (AC-40)

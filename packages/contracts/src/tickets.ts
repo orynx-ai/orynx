@@ -55,11 +55,15 @@ export type Sprint = z.infer<typeof SprintSchema>;
 /**
  * Which sprint Tickets shows (spec 020): your sprint (no project, the default: the active sprint that holds
  * most of your tickets), a project's current sprint (a project, no sprint: it follows the project as sprints
- * roll over), or one sprint of a project, held until another is picked.
+ * roll over), one sprint of a project, held until another is picked, or `none`: the tickets in no sprint that
+ * aren't Done, the project's or, with no project, your own (AC-39).
  */
 export const TicketsChoiceSchema = z
-  .object({ projectKey: JiraProjectKeySchema.nullable(), sprintId: z.int().positive().nullable() })
-  .refine((choice) => choice.projectKey !== null || choice.sprintId === null, {
+  .object({
+    projectKey: JiraProjectKeySchema.nullable(),
+    sprintId: z.union([z.int().positive(), z.literal('none')]).nullable(),
+  })
+  .refine((choice) => choice.projectKey !== null || choice.sprintId === null || choice.sprintId === 'none', {
     message: 'A sprint is picked with its project.',
   });
 export type TicketsChoice = z.infer<typeof TicketsChoiceSchema>;
@@ -71,7 +75,10 @@ export const defaultTicketsChoice: TicketsChoice = { projectKey: null, sprintId:
 export const TicketsSchema = z.object({
   /** Where Jira's sprint read stands, in the inbox's terms, so a failed read says so in 007's words. */
   jira: InboxToolStateSchema,
-  /** Null when Jira isn't connected, hasn't answered yet, or no active sprint holds a ticket of yours. */
+  /**
+   * Null when Jira isn't connected, hasn't answered yet, or no active sprint holds a ticket of yours; and for
+   * No sprint, whose tickets come without one (spec 020).
+   */
   sprint: SprintSchema.nullable(),
   tickets: z.array(TicketSchema),
   /** The sprint held more tickets than DevHub keeps, so these are the first in rank order (Q8h). */

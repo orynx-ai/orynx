@@ -130,6 +130,11 @@ export interface JiraClient {
    */
   sprintIssues(request: JiraCheckRequest, sprintId: number): Promise<JiraSprintIssues>;
   /**
+   * The issues in no sprint that aren't Done (spec 020, AC-39), read as `sprintIssues` reads a sprint: the
+   * project's (its backlog), or with no project, the ones assigned to these credentials.
+   */
+  issuesWithoutSprint(request: JiraCheckRequest, projectKey: string | null): Promise<JiraSprintIssues>;
+  /**
    * Every status's category, by id (`GET /rest/api/3/status`, which any user may read). A board's columns
    * name their statuses by id only, so this says which column is the first in progress (spec 008, Q2).
    */
@@ -336,6 +341,69 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
     }
   }
 
+  /**
+   * Every issue `filter` finds, in rank order (`<filter> ORDER BY Rank ASC` through `search/jql`'s
+   * `nextPageToken`), 100 a page, at most 300, and the priority order for the bars. When it finds more, your
+   * own issues past the first 300 follow them (at most 300 more). Never a description or a comment.
+   */
+  async function rankedIssues(request: JiraCheckRequest, filter: string): Promise<JiraSprintIssues> {
+    const answer = await withJira(request, async (client) => {
+      // Every page and the priority list share one wait, like the project list.
+      const signal = AbortSignal.timeout(timeoutMs);
+
+      /** Up to 300 issues for `jql` in rank order, following `nextPageToken`, and whether Jira had more. */
+      async function pages(jql: string): Promise<{ issues: JiraSprintIssue[]; more: boolean }> {
+        const found: unknown[] = [];
+        let nextPageToken: string | undefined;
+        let more = true;
+        while (more && found.length < mostSprintIssues) {
+          const page = await client.sendRequest({
+            url: '/rest/api/3/search/jql',
+            method: 'POST',
+            body: {
+              jql,
+              fields: sprintFields,
+              maxResults: Math.min(sprintIssuesPerPage, mostSprintIssues - found.length),
+              ...(nextPageToken === undefined ? {} : { nextPageToken }),
+            },
+            schema: IssuePageSchema,
+            signal,
+          });
+          found.push(...page.issues);
+          nextPageToken = page.nextPageToken ?? undefined;
+          // Jira may send fewer than asked for: only isLast, or no token to go on with, ends the read.
+          more = page.isLast === false && nextPageToken !== undefined && page.issues.length > 0;
+        }
+        const issues = found.slice(0, mostSprintIssues).flatMap((issue) => {
+          const parsed = SprintIssueSchema.safeParse(issue);
+          return parsed.success ? [parsed.data] : [];
+        });
+        return { issues, more: more || found.length > mostSprintIssues };
+      }
+
+      const first = await pages(`${filter} ORDER BY Rank ASC`);
+      let issues = first.issues;
+      if (first.more) {
+        // A list cut short may leave out your own issues, and Assignee: Me is on by default. Any issue the
+        // first 300 left out ranks after all of them, so yours follow them in their own rank order.
+        const kept = new Set(issues.map((issue) => issue.key));
+        const mine = await pages(`${filter} AND assignee = currentUser() ORDER BY Rank ASC`);
+        issues = [...issues, ...mine.issues.filter((issue) => !kept.has(issue.key))];
+      }
+      const truncated = first.more;
+      if (!issues.some((issue) => issue.fields.priority)) return { issues, truncated, priorityOrder: [] };
+      const priorities = await client.sendRequest({
+        url: '/rest/api/3/priority/search',
+        method: 'GET',
+        searchParams: { maxResults: 50 },
+        schema: PrioritySearchSchema,
+        signal,
+      });
+      return { issues, truncated, priorityOrder: priorities.values.map((priority) => priority.id) };
+    });
+    return answer.ok ? { ok: true, ...answer.value } : answer;
+  }
+
   return {
     timeoutMs,
 
@@ -460,62 +528,13 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
     },
 
     async sprintIssues(request, sprintId) {
-      const answer = await withJira(request, async (client) => {
-        // Every page and the priority list share one wait, like the project list.
-        const signal = AbortSignal.timeout(timeoutMs);
+      return rankedIssues(request, `sprint = ${String(sprintId)}`);
+    },
 
-        /** Up to 300 issues for `jql` in rank order, following `nextPageToken`, and whether Jira had more. */
-        async function pages(jql: string): Promise<{ issues: JiraSprintIssue[]; more: boolean }> {
-          const found: unknown[] = [];
-          let nextPageToken: string | undefined;
-          let more = true;
-          while (more && found.length < mostSprintIssues) {
-            const page = await client.sendRequest({
-              url: '/rest/api/3/search/jql',
-              method: 'POST',
-              body: {
-                jql,
-                fields: sprintFields,
-                maxResults: Math.min(sprintIssuesPerPage, mostSprintIssues - found.length),
-                ...(nextPageToken === undefined ? {} : { nextPageToken }),
-              },
-              schema: IssuePageSchema,
-              signal,
-            });
-            found.push(...page.issues);
-            nextPageToken = page.nextPageToken ?? undefined;
-            // Jira may send fewer than asked for: only isLast, or no token to go on with, ends the read.
-            more = page.isLast === false && nextPageToken !== undefined && page.issues.length > 0;
-          }
-          const issues = found.slice(0, mostSprintIssues).flatMap((issue) => {
-            const parsed = SprintIssueSchema.safeParse(issue);
-            return parsed.success ? [parsed.data] : [];
-          });
-          return { issues, more: more || found.length > mostSprintIssues };
-        }
-
-        const sprint = `sprint = ${String(sprintId)}`;
-        const first = await pages(`${sprint} ORDER BY Rank ASC`);
-        let issues = first.issues;
-        if (first.more) {
-          // A sprint cut short may leave out your own issues, and Assigned to me is on by default. Any issue
-          // the first 300 left out ranks after all of them, so yours follow them in their own rank order.
-          const kept = new Set(issues.map((issue) => issue.key));
-          const mine = await pages(`${sprint} AND assignee = currentUser() ORDER BY Rank ASC`);
-          issues = [...issues, ...mine.issues.filter((issue) => !kept.has(issue.key))];
-        }
-        const truncated = first.more;
-        if (!issues.some((issue) => issue.fields.priority)) return { issues, truncated, priorityOrder: [] };
-        const priorities = await client.sendRequest({
-          url: '/rest/api/3/priority/search',
-          method: 'GET',
-          searchParams: { maxResults: 50 },
-          schema: PrioritySearchSchema,
-          signal,
-        });
-        return { issues, truncated, priorityOrder: priorities.values.map((priority) => priority.id) };
-      });
-      return answer.ok ? { ok: true, ...answer.value } : answer;
+    async issuesWithoutSprint(request, projectKey) {
+      // A key the contract checked: project letters only, so it's safe in the query as it is.
+      const whose = projectKey === null ? 'assignee = currentUser()' : `project = ${projectKey}`;
+      return rankedIssues(request, `${whose} AND sprint is EMPTY AND statusCategory != Done`);
     },
 
     async issue(request, key) {

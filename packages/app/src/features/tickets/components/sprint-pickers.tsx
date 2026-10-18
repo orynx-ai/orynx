@@ -8,6 +8,7 @@ import {
   MenuLabel,
   MenuRadioGroup,
   MenuRadioItem,
+  MenuSeparator,
   MenuTrigger,
   Picker,
   Skeleton,
@@ -15,13 +16,14 @@ import {
 import { useJiraConnection, useJiraProjects } from '../../settings/queries.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { useChooseTicketsSprint, useTicketsSprints } from '../queries.ts';
-import { noOpenSprintsText, openSprintLine, yourSprintText } from '../ticket-words.ts';
+import { noOpenSprintsText, noSprintName, openSprintLine, yourSprintText } from '../ticket-words.ts';
 
 /**
  * Tickets' Project and Sprint pickers (spec 020). Project searches the Jira projects you can see, with Your
  * sprint first (AC-38); picking one shows its current sprint. Sprint lists that project's active then future
  * sprints, asked of Jira when it opens; picking one holds it. With Your sprint, Sprint lists the sprint's own
- * project when its board has one.
+ * project when its board has one. No sprint ends the list (AC-39): the picked project's tickets in no sprint,
+ * or with Your sprint, your own.
  */
 export function SprintPickers({ choice, sprint }: { choice: TicketsChoice; sprint: Sprint | null }) {
   const jira = useJiraConnection();
@@ -54,9 +56,11 @@ export function SprintPickers({ choice, sprint }: { choice: TicketsChoice; sprin
       <SprintMenu
         project={project}
         current={choice.sprintId ?? sprint?.id ?? null}
-        name={sprint?.name ?? null}
+        name={choice.sprintId === 'none' ? noSprintName : (sprint?.name ?? null)}
         onPick={(sprintId) => {
-          if (project !== null) choose.mutate({ projectKey: project, sprintId });
+          // No sprint keeps Your sprint's "yours"; a sprint belongs to the project listed.
+          if (sprintId === 'none') choose.mutate({ projectKey: choice.projectKey, sprintId });
+          else if (project !== null) choose.mutate({ projectKey: project, sprintId });
         }}
       />
     </>
@@ -70,9 +74,9 @@ function SprintMenu({
   onPick,
 }: {
   project: string | null;
-  current: number | null;
+  current: number | 'none' | null;
   name: string | null;
-  onPick: (sprintId: number) => void;
+  onPick: (sprintId: number | 'none') => void;
 }) {
   const [open, setOpen] = useState(false);
   const sprints = useTicketsSprints(project, open);
@@ -80,14 +84,13 @@ function SprintMenu({
 
   return (
     <Menu open={open} onOpenChange={setOpen}>
-      {/* A sprint without one project to list has nothing else to offer. */}
-      <MenuTrigger asChild disabled={project === null}>
+      <MenuTrigger asChild>
         <Picker>
           <span className="text-muted-foreground">Sprint</span> {name ?? '–'}
         </Picker>
       </MenuTrigger>
       <MenuContent heading="Sprint" align="start">
-        {sprints.isPending ? (
+        {project === null ? null : sprints.isPending ? (
           <div role="status" className="flex flex-col gap-1 p-1.5">
             <span className="sr-only">Loading sprints</span>
             <Skeleton className="h-10 w-full" />
@@ -107,21 +110,24 @@ function SprintMenu({
             </MenuItem>
           </>
         ) : sprints.data.sprints.length === 0 ? (
-          <MenuLabel>{noOpenSprintsText(project ?? '')}</MenuLabel>
-        ) : (
-          <MenuRadioGroup
-            value={current === null ? '' : String(current)}
-            onValueChange={(value) => {
-              onPick(Number(value));
-            }}
-          >
-            {sprints.data.sprints.map((open) => (
-              <MenuRadioItem key={open.id} value={String(open.id)} description={openSprintLine(open, now)}>
-                {open.name}
-              </MenuRadioItem>
-            ))}
-          </MenuRadioGroup>
-        )}
+          <MenuLabel>{noOpenSprintsText(project)}</MenuLabel>
+        ) : null}
+        <MenuRadioGroup
+          value={current === null ? '' : String(current)}
+          onValueChange={(value) => {
+            onPick(value === 'none' ? 'none' : Number(value));
+          }}
+        >
+          {project === null || !sprints.isSuccess
+            ? null
+            : sprints.data.sprints.map((found) => (
+                <MenuRadioItem key={found.id} value={String(found.id)} description={openSprintLine(found, now)}>
+                  {found.name}
+                </MenuRadioItem>
+              ))}
+          {project === null ? null : <MenuSeparator />}
+          <MenuRadioItem value="none">{noSprintName}</MenuRadioItem>
+        </MenuRadioGroup>
       </MenuContent>
     </Menu>
   );

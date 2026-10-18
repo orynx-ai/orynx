@@ -232,8 +232,24 @@ describe('sprintRecord', () => {
   });
 
   it('AC-1: the page bar’s project is left out when the sprint spans more than one project (Q9a)', () => {
-    expect(record([{ key: 'PROJ-1' }, { key: 'WEB-2' }]).sprint.projectKey).toBeNull();
-    expect(record([]).sprint.projectKey).toBeNull();
+    expect(record([{ key: 'PROJ-1' }, { key: 'WEB-2' }]).sprint?.projectKey).toBeNull();
+    expect(record([]).sprint?.projectKey).toBeNull();
+  });
+
+  it('AC-39 (spec 020): No sprint keeps its tickets with no sprint, each in its status category’s column', () => {
+    const kept = sprintRecord({
+      accountId: myAccountId,
+      sprint: null,
+      issues: [issue({ key: 'WEB-1', category: 'new' }), issue({ key: 'WEB-2', statusId: '10001' })],
+      layout: null,
+      priorityOrder: [],
+      truncated: false,
+    });
+    expect(kept.sprint).toBeNull();
+    expect(kept.tickets.map((ticket) => [ticket.key, ticket.column])).toEqual([
+      ['WEB-1', 'to_do'],
+      ['WEB-2', 'in_progress'],
+    ]);
   });
 
   it('AC-26: says when Jira had more tickets than DevHub keeps', () => {

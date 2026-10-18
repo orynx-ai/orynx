@@ -916,3 +916,26 @@ describe('Jira client: one sprint and who you are (spec 020)', () => {
     });
   });
 });
+
+describe('Jira client: issues in no sprint (spec 020)', () => {
+  it('AC-39: asks for a project’s backlog, or your own issues in no sprint, that aren’t Done, in rank order', async () => {
+    const asked: string[] = [];
+    jira.use(
+      http.post(issueSearchUrl(), async ({ request }) => {
+        const body = (await request.json()) as { jql: string };
+        asked.push(body.jql);
+        return HttpResponse.json({ issues: [jiraIssue({ key: 'WEB-1', priority: null })], isLast: true });
+      }),
+    );
+
+    const project = await client.issuesWithoutSprint(credentials, 'WEB');
+    const yours = await client.issuesWithoutSprint(credentials, null);
+
+    expect(project.ok && project.issues.map((issue) => issue.key)).toEqual(['WEB-1']);
+    expect(yours.ok).toBe(true);
+    expect(asked).toEqual([
+      'project = WEB AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC',
+      'assignee = currentUser() AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC',
+    ]);
+  });
+});
