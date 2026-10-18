@@ -55,6 +55,18 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: The folder dialog (Add, Edit, Duplicate) and each folder's More actions menu with Delete (AC-17 to AC-21)
       Check: pnpm test packages/app/src/features/settings; pnpm exec playwright test e2e/settings.spec.ts
       Files: packages/app/src/features/settings/components/folder-dialog.tsx (from add-folder-form.tsx), repository-row.tsx, repositories-panel.tsx, queries.ts and tests, e2e/settings.spec.ts
+- [ ] Task 12a: `POST /api/folder-picker` opens the OS folder picker (osascript, zenity or kdialog, PowerShell) and answers the path, null on Cancel, or `picker_unavailable` (AC-35, AC-36)
+      Check: pnpm test packages/contracts packages/core/src/folder-picker packages/core/src/routes/folder-picker.test.ts packages/api-client
+      Files: packages/contracts/src/repositories.ts, errors.ts, routes.ts, packages/core/src/folder-picker/*, packages/core/src/routes/folder-picker.ts, packages/core/src/create-server.ts, packages/api-client/src/endpoints/repositories.ts, client.ts
+- [ ] Task 12b: Choose folder in the folder dialog fills Folder from the picker (AC-35, AC-36)
+      Check: pnpm test packages/app/src/features/settings
+      Files: packages/app/src/features/settings/components/folder-dialog.tsx (+ test), queries.ts
+- [ ] Task 12c: `Combobox` in `@devhub/ui`: a Select-like field opening a searchable listbox in a popover (AC-37)
+      Check: pnpm test packages/ui/src/components/combobox.test.tsx; pnpm gate component-coverage style-policy icon-buttons
+      Files: packages/ui/src/components/combobox.tsx (+ story, test), packages/ui/src/index.ts, docs/design-map.md
+- [ ] Task 12d: The folder dialog's Jira project field is a Combobox (AC-37)
+      Check: pnpm test packages/app/src/features/settings; pnpm exec playwright test e2e/settings.spec.ts
+      Files: packages/app/src/features/settings/components/folder-dialog.tsx (+ test), e2e/settings.spec.ts
 - [ ] Task 13: Ship's menu ends in Add local folder, which opens the dialog with the ticket's project and starts Claude in the new folder (AC-22 to AC-24)
       Check: pnpm test packages/app/src/features/sessions
       Files: packages/app/src/features/sessions/components/ship-with-claude.tsx, ship-with-claude.test.tsx
@@ -70,7 +82,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 16: The api-client's sprints query and choice call (AC-26, AC-29)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/tickets.ts, client.ts, queries.ts, tickets.test.ts
-- [ ] Task 17: Tickets' Project and Sprint pickers (AC-25 to AC-29)
+- [ ] Task 17: Tickets' Project picker (a Combobox) and Sprint picker (AC-25 to AC-29, AC-38)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/sprint-pickers.tsx (+ test), tickets-screen.tsx, tickets-toolbar.tsx, queries.ts, ticket-words.ts and tests
 - [ ] Task 18: `FilterMenu` in `@devhub/ui` (Home's filter picker, moved there), and Home uses it (AC-30)
