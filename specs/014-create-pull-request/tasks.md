@@ -77,10 +77,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 25: Say in Discard's confirm that the PR and the branch on GitHub stay, once a PR is open, and keep Open PR after Discard (AC-18)
       Check: pnpm test packages/app/src/features/sessions/components/discard-session.test.tsx
       Files: packages/app/src/features/sessions/components/discard-session.tsx, packages/app/src/features/sessions/components/discard-session.test.tsx
-- [ ] Task 26: e2e create. Draft, edit the title and create, with PR open in a second tab too. The bare origin holds the branch with Orynx's commit and its trailer, and the fake GitHub got the title and the description. A ".env.local" stops the commit. "(no draft)" starts from the ticket (AC-1, AC-2, AC-4, AC-5, AC-6, AC-8, AC-13)
+- [x] Task 26: e2e create. Draft, edit the title and create, with PR open in a second tab too. The bare origin holds the branch with Orynx's commit and its trailer, and the fake GitHub got the title and the description. A ".env.local" stops the commit. "(no draft)" starts from the ticket (AC-1, AC-2, AC-4, AC-5, AC-6, AC-8, AC-13)
       Check: pnpm test:e2e e2e/pull-requests.spec.ts
       Files: e2e/pull-requests.spec.ts
-- [ ] Task 27: e2e after the PR: Push changes updates the branch, and a follow-up on a PR-open session ends PR open. Discard keeps the PR. Then the keyboard path, and axe at 360 and 1280 px in light and dark (AC-17, AC-18, AC-19, AC-21, AC-22)
+- [x] Task 27: e2e after the PR: Push changes updates the branch, and a follow-up on a PR-open session ends PR open. Discard keeps the PR. Then the keyboard path, and axe at 360 and 1280 px in light and dark (AC-17, AC-18, AC-19, AC-21, AC-22)
       Check: pnpm test:e2e e2e/pull-requests.spec.ts
       Files: e2e/pull-requests.spec.ts
 - [ ] Task 28: Docs. `learn/sessions-and-worktrees.md` gets the PR, the push, the draft call and why hooks stay off. `learn/connecting-github.md` gets what Orynx writes. agent-runtime gets the PR section and `write()`. `docs/architecture.md` gets the routes, git now committing and pushing, and GitHub's writes. The roadmap gets its 014 line and a new 021 line, "After the merge" (Q8)
