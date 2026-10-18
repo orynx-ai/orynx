@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: Add the command reader to contracts: split a command into parts at `&&`, `||`, `;` and `|` minding quotes and escapes, say why it always asks (`network`, `delete_outside`, `unsandboxed`) or is refused (`push`), name what never matches (substitution, `eval`, `sh -c`, `sudo`, redirections, `NAME=value`), give the entry Always allow saves, and `AllowedCommandSchema` refined on it, as a table (AC-4, AC-5, AC-6, AC-7, AC-15, Q3, Q4)
+- [x] Task 1: Add the command reader to contracts: split a command into parts at `&&`, `||`, `;` and `|` minding quotes and escapes, say why it always asks (`network`, `delete_outside`, `unsandboxed`) or is refused (`push`), name what never matches (substitution, `eval`, `sh -c`, `sudo`, redirections, `NAME=value`), give the entry Always allow saves, and `AllowedCommandSchema` refined on it, as a table (AC-4, AC-5, AC-6, AC-7, AC-15, Q3, Q4)
       Check: pnpm test packages/contracts/src/commands.test.ts; pnpm typecheck
       Files: packages/contracts/src/commands.ts, packages/contracts/src/commands.test.ts, packages/contracts/src/index.ts
 - [ ] Task 2: Add `allowedCommands` to the preferences, and `allowCommand` and `disallowCommand` to the change (one entry each, the refine updated), with the builders (AC-5, AC-11, AC-15)
