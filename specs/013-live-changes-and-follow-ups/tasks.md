@@ -24,7 +24,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Record the commit a worktree starts from (`git rev-parse HEAD` in the new worktree) and keep it with the session as `startCommit` (null for older sessions) (AC-4)
       Check: pnpm test packages/core/src/sessions/worktrees.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/worktrees.ts, packages/core/src/sessions/worktrees.test.ts, packages/core/src/sessions/session-store.ts, packages/core/src/sessions/session-service.ts
-- [ ] Task 8: Parse git's unified diff into `DiffLine`s, as a table: hunk headers, numbers on both sides, "No newline at end of file", a new and a deleted file, a rename's first line, binary, and the cut after 2,000 lines (AC-3, AC-5, Q5)
+- [x] Task 8: Parse git's unified diff into `DiffLine`s, as a table: hunk headers, numbers on both sides, "No newline at end of file", a new and a deleted file, a rename's first line, binary, and the cut after 2,000 lines (AC-3, AC-5, Q5)
       Check: pnpm test packages/core/src/sessions/unified-diff.test.ts
       Files: packages/core/src/sessions/unified-diff.ts, packages/core/src/sessions/unified-diff.test.ts
 - [ ] Task 9: List a worktree's changes against its start commit with read-only git (`--no-optional-locks`, hooks off, `gitEnvironment()`, 10 s per call): committed, uncommitted, new (counted with `--no-index`), deleted, renamed, binary, ignored left out, Claude's edit order then by path, 300 then how many more; the worktree's index and `git status` unchanged; `merge-base` for a session without a start commit (AC-4, AC-5, Q4, Q5)
