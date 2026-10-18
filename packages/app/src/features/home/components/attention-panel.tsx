@@ -83,7 +83,7 @@ export function AttentionPanel() {
   return (
     <Panel
       title={panelTitle}
-      meta={
+      actions={
         <OrderMenu
           order={view.order}
           onOrderChange={(order) => {

@@ -3,7 +3,10 @@ import type { HomeView } from '../inbox-view.ts';
 
 const orderLabels: Record<HomeView['order'], string> = { newest: 'Newest first', longest: 'Longest wait first' };
 
-/** The list's order, in the panel's head where the design wrote "Sorted by how long it has waited" (Q10d). */
+/**
+ * The list's order, in the panel's head where the design wrote "Sorted by how long it has waited" (Q10d),
+ * at the head's far end (the Orynx look, 18 Oct 2026), so its menu opens towards the middle.
+ */
 export function OrderMenu({
   order,
   onOrderChange,
@@ -14,9 +17,11 @@ export function OrderMenu({
   return (
     <Menu>
       <MenuTrigger asChild>
-        <Picker aria-label={`Order: ${orderLabels[order]}`}>{orderLabels[order]}</Picker>
+        <Picker variant="plain" aria-label={`Order: ${orderLabels[order]}`}>
+          {orderLabels[order]}
+        </Picker>
       </MenuTrigger>
-      <MenuContent aria-label="Order">
+      <MenuContent aria-label="Order" align="end">
         <MenuRadioGroup
           value={order}
           onValueChange={(value) => {
