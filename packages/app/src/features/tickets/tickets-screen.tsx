@@ -2,9 +2,9 @@
 import { useRef, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { List, SquareKanban } from 'lucide-react';
+import { KanbanIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
 import type { InboxToolState } from '@devhub/contracts';
-import { Button, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
+import { Button, Icon, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
 import { useWide } from '../../shell/use-wide.ts';
 import { toolLine } from '../../words/tool-line.ts';
@@ -122,11 +122,11 @@ export function TicketsScreen() {
               }}
             >
               <SegmentedControlItem value="board">
-                <SquareKanban aria-hidden />
+                <Icon icon={KanbanIcon} aria-hidden />
                 Board
               </SegmentedControlItem>
               <SegmentedControlItem value="list">
-                <List aria-hidden />
+                <Icon icon={LeftToRightListBulletIcon} aria-hidden />
                 List
               </SegmentedControlItem>
             </SegmentedControl>

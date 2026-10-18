@@ -62,7 +62,7 @@ Waits read in minutes, hours and days ("12 min", "3 h", "9 d"), with a spoken fo
 - **The query client ignores the browser's online state** (`networkMode: 'always'` in `createQueryClient`): every request goes to the hub on this computer, so a dropped Wi-Fi must not pause the refetch after a sync, or Refresh.
 - **Rows with no mark.** A Claude session on neither a ticket nor a pull request has no tool to draw. None can exist before spec 011, so `queries.ts` leaves such rows out of Home and the sidebar count alike, until 011 asks for a mark.
 - **A clock that ticks once a minute** (`use-now.ts`) moves the waits and "Synced 2 min ago" on, with no request.
-- **Refresh** (`sync-status.tsx`) stays busy until the new list is in, not just until the sync ends, so the line reads "Synced just now" the moment its arrow stops.
+- **Refresh** (`sync-status.tsx`) stays busy until the new list is in, not just until the sync ends, so the line reads "Synced just now" the moment its arrow stops. The arrow is Hugeicons' `Rotate01Icon` through `<Icon>`, like every icon since 18 Oct 2026, and it spins only under `motion-safe:`.
 - **Paging** moves focus to the new page's first title and scrolls the list's top under the page bar, but only when the pager was used; Back leaves focus alone.
 - **Focus when rows change.** Rows are keyed by id, so a row that stays keeps its elements and focus on it never moves. When the focused row goes, the panel moves focus to the next row's title, the row before it when it was the last, or the selected tab when none is left. It remembers which row holds focus and forgets it when focus leaves for somewhere else, so a sync never pulls focus back from the page bar.
 

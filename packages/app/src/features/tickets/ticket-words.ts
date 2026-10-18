@@ -147,7 +147,7 @@ export const noSprintText = {
 /** Q9k: the local server didn't answer. */
 export const unreachableText = {
   title: "Couldn't load the sprint",
-  line: 'Check that DevHub is still running, then try again.',
+  line: 'Check that Orynx is still running, then try again.',
   action: 'Try again',
 };
 

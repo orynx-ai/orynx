@@ -136,7 +136,7 @@ describe('Tickets’ words', () => {
     });
     expect(unreachableText).toEqual({
       title: "Couldn't load the sprint",
-      line: 'Check that DevHub is still running, then try again.',
+      line: 'Check that Orynx is still running, then try again.',
       action: 'Try again',
     });
     expect(tooManyLine('Sprint 42')).toBe("Showing the first 300 tickets in Sprint 42, in Jira's order.");
