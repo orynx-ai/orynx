@@ -108,20 +108,36 @@ describe('Home’s words', () => {
     ).toBe('PROJ-1');
   });
 
-  it('AC-6, AC-12: the actions say Review for a review request and Open otherwise, until 011 (Q6)', () => {
+  it('AC-6, AC-12: the actions say Review for a review request and Open for a pull request or a session (Q6)', () => {
     const action = (reason: InboxReason) => actionLabel(makeInboxItem({ reason }));
 
     expect(action({ kind: 'review_requested' })).toBe('Review');
+    for (const reason of [{ kind: 'checks_failing' }, { kind: 'unresolved_comments', count: 2 }] as const) {
+      expect(action(reason)).toBe('Open');
+    }
+  });
+
+  it('AC-15 (spec 011): an assigned issue says Build, or Open when it has a live session', () => {
+    const issue = (target: InboxItem['target'], reason: InboxReason = { kind: 'status', category: 'to_do' }) =>
+      actionLabel(
+        makeInboxItem({
+          source: 'jira',
+          tab: 'jira',
+          subject: { kind: 'issue', key: 'PROJ-1', status: 'To Do', highPriorityBug: false },
+          reason,
+          target,
+        }),
+      );
+    const jira = { kind: 'external', url: 'https://acme.atlassian.net/browse/PROJ-1' } as const;
     for (const reason of [
-      { kind: 'checks_failing' },
-      { kind: 'unresolved_comments', count: 2 },
-      { kind: 'approval' },
       { kind: 'bug' },
       { kind: 'status', category: 'to_do' },
       { kind: 'due', on: '2026-10-19', highPriorityBug: false },
     ] as const) {
-      expect(action(reason)).toBe('Open');
+      expect(issue(jira, reason)).toBe('Build');
     }
+    expect(issue({ kind: 'session', sessionId: 'session-1' })).toBe('Open');
+    expect(issue({ kind: 'session', sessionId: 'session-1' }, { kind: 'approval' })).toBe('Open');
   });
 
   it('AC-1: counts the rows in each tab, with All counting every row', () => {

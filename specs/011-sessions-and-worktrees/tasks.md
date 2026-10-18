@@ -72,7 +72,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 23: Put Build with Claude in the Tickets list's last column, for tickets without a live session, as task 22 put it on the cards (AC-1, AC-18)
       Check: pnpm test packages/app/src/features/tickets
       Files: packages/app/src/features/tickets/components/tickets-list.tsx, tickets-list.test.tsx
-- [ ] Task 24: Home's assigned-issue rows say "Build" and start a session, or "Open" for a live session (AC-15)
+- [x] Task 24: Home's assigned-issue rows say "Build" and start a session, or "Open" for a live session (AC-15)
       Check: pnpm test packages/app/src/features/home
       Files: packages/app/src/features/home/inbox-words.ts, inbox-words.test.ts, components/attention-panel.tsx, attention-panel.test.tsx
 - [ ] Task 25: Build the Session screen's frame: the breadcrumb (Q9e), "Started 4 min ago", Open in Jira, the title with its pill, branch and line, and Stop Claude ("Stopping…", then focus on the title). Add the loading skeleton, Not found and the load error (AC-9, AC-16, AC-17, AC-19, Q9e, Q10b)

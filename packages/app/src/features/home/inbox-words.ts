@@ -94,9 +94,13 @@ export function subLine(item: InboxItem): string {
   }
 }
 
-/** Q6: "Review" for a review request; "Open" for the rest until spec 011 adds Build and Fix. */
-export function actionLabel(item: InboxItem): string {
-  return item.reason.kind === 'review_requested' ? 'Review' : 'Open';
+/**
+ * Q6: "Review" for a review request; "Build" for an assigned issue with no live session, which starts Claude
+ * on it (spec 011, AC-15); "Open" for the rest. Failing checks keep "Open" until "Fix" comes (spec 011, Q12).
+ */
+export function actionLabel(item: InboxItem): 'Review' | 'Build' | 'Open' {
+  if (item.reason.kind === 'review_requested') return 'Review';
+  return item.subject.kind === 'issue' && item.target.kind === 'external' ? 'Build' : 'Open';
 }
 
 /** How many rows each tab counts; All counts every row. */
