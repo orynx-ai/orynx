@@ -1,7 +1,8 @@
 import { lstat, readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative } from 'node:path';
 import { simpleGit, type SimpleGit } from 'simple-git';
-import type { ChangedFile, SessionChanges } from '@devhub/contracts';
+import type { ChangedFile, FileDiff, SessionChanges } from '@devhub/contracts';
+import { parseUnifiedDiff } from './unified-diff.ts';
 
 /**
  * What differs in a session's worktree from the commit its branch started from (spec 013, Q4): Claude's
@@ -19,9 +20,14 @@ export type StartPoint = { commit: string } | { base: string };
 
 export type ListedChanges = { ok: true; changes: ReadyChanges } | { ok: false; problem: 'missing' | 'git' };
 
+/** One file's diff, or why there isn't one: `not_listed` is any path that isn't a changed file (AC-24). */
+export type ReadDiff = { ok: true; diff: FileDiff } | { ok: false; problem: 'missing' | 'git' | 'not_listed' };
+
 export interface ChangesReader {
   /** `order` is the files Claude first changed, in order: they come first, then the rest by path (Q5). */
   list(worktree: string, start: StartPoint, order: readonly string[]): Promise<ListedChanges>;
+  /** Only a path git lists as changed is ever read, so nothing outside the worktree can be (AC-24). */
+  fileDiff(worktree: string, start: StartPoint, path: string): Promise<ReadDiff>;
 }
 
 export interface ChangesReaderOptions {
@@ -62,27 +68,50 @@ function readNumstat(output: string): ChangedFile[] {
   return files;
 }
 
-/** A new file's lines, as git counts them for a file added whole; binary when it can't or mustn't be read. */
-async function countNewFile(worktree: string, path: string): Promise<ChangedFile> {
-  const notShown: ChangedFile = { path, added: 0, removed: 0, binary: true, renamedFrom: null };
+/**
+ * A new file's bytes, or null when it can't or mustn't be read: a link, a folder (another repository inside
+ * this one), a file linked from elsewhere, one too big, one that leads outside the worktree, or a binary one.
+ */
+async function readNewFile(worktree: string, path: string): Promise<Buffer | null> {
   try {
     const full = join(worktree, path);
     const found = await lstat(full);
-    // A link, a folder (another repository inside this one), or a file linked from elsewhere is never read.
-    if (!found.isFile() || found.nlink > 1 || found.size > mostNewFileBytes) return notShown;
+    if (!found.isFile() || found.nlink > 1 || found.size > mostNewFileBytes) return null;
     const inside = relative(await realpath(worktree), await realpath(full));
-    if (inside === '' || inside.startsWith('..') || isAbsolute(inside)) return notShown;
+    if (inside === '' || inside.startsWith('..') || isAbsolute(inside)) return null;
     const bytes = await readFile(full);
-    if (bytes.subarray(0, sniffBytes).includes(0)) return notShown;
-    let lines = 0;
-    for (const byte of bytes) if (byte === 0x0a) lines += 1;
-    if (bytes.length > 0 && bytes.at(-1) !== 0x0a) lines += 1;
-    return { path, added: lines, removed: 0, binary: false, renamedFrom: null };
+    return bytes.subarray(0, sniffBytes).includes(0) ? null : bytes;
   } catch {
     // Gone since git listed it.
-    return notShown;
+    return null;
   }
 }
+
+/** A new file's lines, as git counts them for a file added whole; binary when it isn't read. */
+async function countNewFile(worktree: string, path: string): Promise<ChangedFile> {
+  const bytes = await readNewFile(worktree, path);
+  if (bytes === null) return { path, added: 0, removed: 0, binary: true, renamedFrom: null };
+  let lines = 0;
+  for (const byte of bytes) if (byte === 0x0a) lines += 1;
+  if (bytes.length > 0 && bytes.at(-1) !== 0x0a) lines += 1;
+  return { path, added: lines, removed: 0, binary: false, renamedFrom: null };
+}
+
+/** A new file's diff: every line added, numbered from 1, as git would show it. */
+async function newFileDiff(worktree: string, path: string): Promise<FileDiff> {
+  const bytes = await readNewFile(worktree, path);
+  if (bytes === null) return { path, lines: [], binary: true, renamedFrom: null, cut: false };
+  const text = bytes.toString('utf8');
+  if (text === '') return { path, lines: [], binary: false, renamedFrom: null, cut: false };
+  const rows = (text.endsWith('\n') ? text.slice(0, -1) : text).split('\n');
+  const patch = [`@@ -0,0 +1,${String(rows.length)} @@`, ...rows.map((row) => `+${row}`)].join('\n');
+  return { path, ...parseUnifiedDiff(patch), renamedFrom: null };
+}
+
+/** What changed, from git: the start commit, the tracked files git counted, and the new files it lists. */
+type Scan =
+  | { ok: true; commit: string; tracked: Map<string, ChangedFile>; untracked: Set<string> }
+  | { ok: false; problem: 'missing' | 'git' };
 
 export function createChangesReader({ env, timeoutMs = 10_000, mostFiles = 300 }: ChangesReaderOptions): ChangesReader {
   function git(worktree: string): SimpleGit {
@@ -119,26 +148,30 @@ export function createChangesReader({ env, timeoutMs = 10_000, mostFiles = 300 }
     return found;
   }
 
+  async function scan(worktree: string, start: StartPoint): Promise<Scan> {
+    if (!(await isWorktree(worktree))) return { ok: false, problem: 'missing' };
+    try {
+      const commit = await startOf(worktree, start);
+      const diff = ['diff', '--numstat', '-z', '-M', '--no-ext-diff', '--no-textconv', commit, '--'];
+      const [tracked, untracked] = await Promise.all([
+        read(worktree, diff).then(readNumstat),
+        read(worktree, ['ls-files', '--others', '--exclude-standard', '-z']).then((out) =>
+          out.split('\0').filter((path) => path !== ''),
+        ),
+      ]);
+      const byPath = new Map(tracked.map((file) => [file.path, file]));
+      return { ok: true, commit, tracked: byPath, untracked: new Set(untracked.filter((path) => !byPath.has(path))) };
+    } catch {
+      return { ok: false, problem: 'git' };
+    }
+  }
+
   return {
     async list(worktree, start, order) {
-      if (!(await isWorktree(worktree))) return { ok: false, problem: 'missing' };
-      let tracked: ChangedFile[];
-      let untracked: string[];
-      try {
-        const commit = await startOf(worktree, start);
-        const diff = ['diff', '--numstat', '-z', '-M', '--no-ext-diff', '--no-textconv', commit, '--'];
-        [tracked, untracked] = await Promise.all([
-          read(worktree, diff).then(readNumstat),
-          read(worktree, ['ls-files', '--others', '--exclude-standard', '-z']).then((out) =>
-            out.split('\0').filter((path) => path !== ''),
-          ),
-        ]);
-      } catch {
-        return { ok: false, problem: 'git' };
-      }
-
-      const byPath = new Map<string, ChangedFile | null>(tracked.map((file) => [file.path, file]));
-      for (const path of untracked) if (!byPath.has(path)) byPath.set(path, null);
+      const found = await scan(worktree, start);
+      if (!found.ok) return found;
+      const byPath = new Map<string, ChangedFile | null>(found.tracked);
+      for (const path of found.untracked) byPath.set(path, null);
       const first = [...new Set(order)].filter((path) => byPath.has(path));
       const rest = [...byPath.keys()].filter((path) => !first.includes(path)).sort((a, b) => (a < b ? -1 : 1));
       const listed = [...first, ...rest].slice(0, mostFiles);
@@ -158,6 +191,34 @@ export function createChangesReader({ env, timeoutMs = 10_000, mostFiles = 300 }
           removed: files.reduce((sum, file) => sum + file.removed, 0),
         },
       };
+    },
+
+    async fileDiff(worktree, start, path) {
+      const found = await scan(worktree, start);
+      if (!found.ok) return found;
+      if (found.untracked.has(path)) return { ok: true, diff: await newFileDiff(worktree, path) };
+      const file = found.tracked.get(path);
+      if (file === undefined) return { ok: false, problem: 'not_listed' };
+      const { renamedFrom } = file;
+      if (file.binary) return { ok: true, diff: { path, lines: [], binary: true, renamedFrom, cut: false } };
+      // Both paths of a rename, so git can still see it as one.
+      const paths = renamedFrom === null ? [path] : [renamedFrom, path];
+      try {
+        const patch = await read(worktree, [
+          'diff',
+          '-U3',
+          '-M',
+          '--no-ext-diff',
+          '--no-textconv',
+          found.commit,
+          '--',
+          ...paths,
+        ]);
+        const parsed = parseUnifiedDiff(patch);
+        return { ok: true, diff: { path, ...parsed, renamedFrom: renamedFrom ?? parsed.renamedFrom } };
+      } catch {
+        return { ok: false, problem: 'git' };
+      }
     },
   };
 }

@@ -188,3 +188,120 @@ describe('listing a worktree’s changes', () => {
     expect(await reader.list(worktree, { commit: startCommit }, [])).toEqual({ ok: false, problem: 'missing' });
   });
 });
+
+describe('reading one file’s diff', () => {
+  /** A worktree whose start commit holds `long.ts`, 20 numbered lines. */
+  async function withLongFile() {
+    const set = await setUp();
+    const long = Array.from({ length: 20 }, (_, n) => `line ${String(n + 1)}`).join('\n');
+    await writeFile(join(set.worktree, 'long.ts'), `${long}\n`);
+    await set.repos.git(set.worktree, 'add', 'long.ts');
+    await set.repos.git(set.worktree, 'commit', '-m', 'long');
+    const commit = await set.repos.git(set.worktree, 'rev-parse', 'HEAD');
+    return { ...set, start: { commit } };
+  }
+
+  it('AC-3: shows 3 lines around each change, numbered, with a hunk header between changes far apart', async () => {
+    const { worktree, start, reader } = await withLongFile();
+    const lines = Array.from({ length: 20 }, (_, n) => `line ${String(n + 1)}`);
+    lines[1] = 'line two';
+    lines[17] = 'line eighteen';
+    await writeFile(join(worktree, 'long.ts'), `${lines.join('\n')}\n`);
+
+    const read = await reader.fileDiff(worktree, start, 'long.ts');
+    expect(read).toEqual({
+      ok: true,
+      diff: {
+        path: 'long.ts',
+        lines: [
+          { kind: 'hunk', text: '@@ -1,5 +1,5 @@' },
+          { kind: 'context', number: 1, text: 'line 1' },
+          { kind: 'removed', number: 2, text: 'line 2' },
+          { kind: 'added', number: 2, text: 'line two' },
+          { kind: 'context', number: 3, text: 'line 3' },
+          { kind: 'context', number: 4, text: 'line 4' },
+          { kind: 'context', number: 5, text: 'line 5' },
+          { kind: 'hunk', text: '@@ -15,6 +15,6 @@ line 14' },
+          { kind: 'context', number: 15, text: 'line 15' },
+          { kind: 'context', number: 16, text: 'line 16' },
+          { kind: 'context', number: 17, text: 'line 17' },
+          { kind: 'removed', number: 18, text: 'line 18' },
+          { kind: 'added', number: 18, text: 'line eighteen' },
+          { kind: 'context', number: 19, text: 'line 19' },
+          { kind: 'context', number: 20, text: 'line 20' },
+        ],
+        binary: false,
+        renamedFrom: null,
+        cut: false,
+      },
+    });
+  });
+
+  it('AC-4: shows a new file as added lines from 1, and a deleted one as removed lines', async () => {
+    const { worktree, start, reader } = await withLongFile();
+    await writeFile(join(worktree, 'new.ts'), 'one\ntwo\n');
+    await rm(join(worktree, 'a.ts'));
+    const added = await reader.fileDiff(worktree, start, 'new.ts');
+    expect(added.ok && added.diff.lines).toEqual([
+      { kind: 'hunk', text: '@@ -0,0 +1,2 @@' },
+      { kind: 'added', number: 1, text: 'one' },
+      { kind: 'added', number: 2, text: 'two' },
+    ]);
+    const deleted = await reader.fileDiff(worktree, start, 'a.ts');
+    expect(deleted.ok && deleted.diff.lines.slice(1)).toEqual([{ kind: 'removed', number: 1, text: 'a.ts' }]);
+  });
+
+  it('AC-5: says where a renamed file came from, and shows its change', async () => {
+    const { repos, worktree, start, reader } = await withLongFile();
+    await repos.git(worktree, 'mv', 'long.ts', 'longer.ts');
+    await writeFile(join(worktree, 'longer.ts'), `${await readFile(join(worktree, 'longer.ts'), 'utf8')}line 21\n`);
+    await repos.git(worktree, 'add', 'longer.ts');
+    const read = await reader.fileDiff(worktree, start, 'longer.ts');
+    expect(read.ok && read.diff).toMatchObject({ renamedFrom: 'long.ts', binary: false });
+    expect(read.ok && read.diff.lines.at(-1)).toEqual({ kind: 'added', number: 21, text: 'line 21' });
+  });
+
+  it('AC-5: says a binary file, tracked or new, has no lines to show', async () => {
+    const { repos, worktree, start, reader } = await withLongFile();
+    await writeFile(join(worktree, 'logo.png'), Buffer.from([0x89, 0x00]));
+    await repos.git(worktree, 'add', 'logo.png');
+    await writeFile(join(worktree, 'icon.png'), Buffer.from([0x00, 0x01]));
+    for (const path of ['logo.png', 'icon.png']) {
+      expect(await reader.fileDiff(worktree, start, path)).toEqual({
+        ok: true,
+        diff: { path, lines: [], binary: true, renamedFrom: null, cut: false },
+      });
+    }
+  });
+
+  it('AC-5, Q5: stops a long new file after 2,000 lines and says so', async () => {
+    const { worktree, start, reader } = await withLongFile();
+    await writeFile(join(worktree, 'big.txt'), Array.from({ length: 2_500 }, (_, n) => `row ${String(n)}`).join('\n'));
+    const read = await reader.fileDiff(worktree, start, 'big.txt');
+    expect(read.ok && read.diff.lines).toHaveLength(2_000);
+    expect(read.ok && read.diff.cut).toBe(true);
+  });
+
+  it('AC-24: answers only for a changed file, never one outside the worktree or behind a link', async () => {
+    const { repos, worktree, start, reader } = await withLongFile();
+    await writeFile(join(worktree, 'b.ts'), 'changed\n');
+    await writeFile(join(repos.root, 'devhub', 'runtime.json'), '{"token":"secret"}\n');
+    await symlink(join(repos.root, 'devhub', 'runtime.json'), join(worktree, 'runtime-link.json'));
+    for (const path of ['../../runtime.json', join(worktree, 'b.ts'), 'README.md', 'nowhere.ts', '.git/config']) {
+      expect(await reader.fileDiff(worktree, start, path)).toEqual({ ok: false, problem: 'not_listed' });
+    }
+    expect(await reader.fileDiff(worktree, start, 'runtime-link.json')).toEqual({
+      ok: true,
+      diff: { path: 'runtime-link.json', lines: [], binary: true, renamedFrom: null, cut: false },
+    });
+  });
+
+  it('AC-6, AC-7: says the worktree is missing, or that git failed', async () => {
+    const { repos, worktree, reader } = await withLongFile();
+    expect(await reader.fileDiff(join(repos.worktrees, 'gone'), { commit: 'f'.repeat(40) }, 'a.ts')).toEqual({
+      ok: false,
+      problem: 'missing',
+    });
+    expect(await reader.fileDiff(worktree, { commit: 'f'.repeat(40) }, 'a.ts')).toEqual({ ok: false, problem: 'git' });
+  });
+});
