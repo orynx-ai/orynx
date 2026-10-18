@@ -50,7 +50,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: Add the composer's words (Q13): the placeholders, the + menu's descriptions, foot, search boxes and notes, the limits, the "Add PROJ-9999" row, the empty and not-connected lines, each `cannot_start` and `context_failed` line, the pickers' words, the busy Send, and the banner's lines with "· 2 more waiting" and an edit's path (AC-3, AC-8, AC-10 to AC-12, AC-18, AC-21 to AC-23, AC-25, AC-26)
       Check: pnpm test packages/app/src/features/home/composer-words.test.ts
       Files: packages/app/src/features/home/composer-words.ts, packages/app/src/features/home/composer-words.test.ts
-- [ ] Task 17: Add the composer's rules, as tables: a paste that is exactly one key or one github.com PR link (Q6), a file that is text (UTF-8, no NUL byte, at most 100 KB) and the count limits (Q5), and Q7's folder: picked, the ticket's only folder, the last used, the only one, or none (AC-12, AC-14, AC-17)
+- [x] Task 17: Add the composer's rules, as tables: a paste that is exactly one key or one github.com PR link (Q6), a file that is text (UTF-8, no NUL byte, at most 100 KB) and the count limits (Q5), and Q7's folder: picked, the ticket's only folder, the last used, the only one, or none (AC-12, AC-14, AC-17)
       Check: pnpm test packages/app/src/features/home/composer-rules.test.ts
       Files: packages/app/src/features/home/composer-rules.ts, packages/app/src/features/home/composer-rules.test.ts
 - [ ] Task 18: Keep the draft: `store.ts` holds the text, the chips in order (one ticket, which a second replaces), the folder and whether you picked it. `persist` keeps only the last used folder as `devhub.home` (AC-9, AC-33, Q14)
