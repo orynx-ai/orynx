@@ -44,7 +44,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: Teach the e2e fake Claude Code to ask: a `Bash` call that asks `can_use_tool` and runs what the answer allows (writes a file the test can see), picked by the ticket's title: a plain command, a network command, an edit in Ask before everything, and two commands at once; probe the pinned SDK's flags for the sandbox settings and record them (AC-23)
       Check: pnpm test:e2e e2e/sessions.spec.ts (still passes); the probe's record in learn/
       Files: e2e/fake-claude/session.ts, e2e/fake-claude/probe.ts, learn/sessions-and-worktrees.md
-- [ ] Task 15: Add `respondToApproval` to the api-client, parsed with the contract, with its MSW test (AC-2)
+- [x] Task 15: Add `respondToApproval` to the api-client, parsed with the contract, with its MSW test (AC-2)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/endpoints/sessions.test.ts, packages/api-client/src/client.ts, packages/api-client/src/index.ts
 - [ ] Task 16: Give `Callout` a `code` block for the command: mono, wrapped, scrolling inside its box past 12 lines, with a story per state and a test (AC-1, AC-19, Q8a)

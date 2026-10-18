@@ -1,9 +1,11 @@
 import type { AxiosInstance } from 'axios';
 import {
   apiRoutes,
+  RespondToApprovalRequestSchema,
   SessionListSchema,
   SessionSchema,
   StartSessionAnswerSchema,
+  type ApprovalDecision,
   type Session,
   type SessionList,
   type SessionListQuery,
@@ -35,4 +37,15 @@ export async function postSessionStop(http: AxiosInstance, id: string): Promise<
 
 export async function postSessionDiscard(http: AxiosInstance, id: string): Promise<void> {
   await http.post(pathFor(apiRoutes.sessionDiscard, id));
+}
+
+/** Your answer to a call waiting in a session (spec 012). */
+export async function postApproval(
+  http: AxiosInstance,
+  id: string,
+  approvalId: string,
+  decision: ApprovalDecision,
+): Promise<void> {
+  const path = pathFor(apiRoutes.sessionApproval, id).replace(':approvalId', encodeURIComponent(approvalId));
+  await http.post(path, RespondToApprovalRequestSchema.parse({ decision }));
 }

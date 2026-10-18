@@ -155,6 +155,42 @@ describe('createApiClient().stopSession() and discardSession()', () => {
   });
 });
 
+describe('createApiClient().respondToApproval() (spec 012)', () => {
+  it('AC-2, AC-3, AC-5: posts the answer to the call’s path under its session', async () => {
+    const sent: { path: string; body: unknown }[] = [];
+    server.use(
+      http.post(`${baseURL}/api/sessions/:id/approvals/:approvalId`, async ({ request }) => {
+        sent.push({ path: new URL(request.url).pathname, body: await request.json() });
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const api = createApiClient({ baseURL, token: 't' });
+    await api.respondToApproval('0123456789abcdef', 'approval/1', 'always_allow');
+    expect(sent).toEqual([
+      { path: '/api/sessions/0123456789abcdef/approvals/approval%2F1', body: { decision: 'always_allow' } },
+    ]);
+  });
+
+  it('AC-13, AC-14: rejects with the code the page words: answered already, or the list not saved', async () => {
+    const api = createApiClient({ baseURL, token: 't' });
+    for (const [status, code] of [
+      [409, 'already_answered'],
+      [503, 'settings_unsaved'],
+    ] as const) {
+      server.use(
+        http.post(`${baseURL}/api/sessions/:id/approvals/:approvalId`, () =>
+          HttpResponse.json({ code, message: 'x' }, { status }),
+        ),
+      );
+      const error = await api
+        .respondToApproval('0123456789abcdef', 'a1', 'allow_once')
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(ApiRequestError);
+      expect(error).toMatchObject({ code });
+    }
+  });
+});
+
 describe('sessionQueryOptions', () => {
   it('AC-4: keys one session under "sessions", so sessions.changed refreshes it with the lists', () => {
     const api = createApiClient({ baseURL, token: 't' });
