@@ -1,5 +1,6 @@
 import { useRef, type ReactNode } from 'react';
 import {
+  BubbleChatIcon,
   Cancel01Icon,
   CheckListIcon,
   Delete02Icon,
@@ -48,13 +49,15 @@ const kindIcons = {
   denied: Cancel01Icon,
   no_commands: TerminalIcon,
   finished: Tick02Icon,
+  message: BubbleChatIcon,
   stopped: StopIcon,
   interrupted: PowerIcon,
   discarded: Delete02Icon,
 } as const;
 
-/** Steps that ended the work or were refused aren't something done, so they keep the plain dot. */
+/** Steps that ended the work, were refused, or are your own message aren't something done, so they keep the plain dot. */
 const plainKinds = new Set<SessionActivity['kind']>([
+  'message',
   'refused',
   'denied',
   'no_commands',

@@ -12,7 +12,7 @@ import {
   StartSessionRequestSchema,
   type SessionActivity,
 } from './index.ts';
-import { makeSession, makeSessionApproval, makeSessionList, makeSessionSummary } from './testing.ts';
+import { makeSession, makeSessionApproval, makeSessionList, makeSessionSummary, makeSessionTicket } from './testing.ts';
 
 describe('SessionListSchema', () => {
   it('AC-8: accepts sessions from a Jira ticket, a pull request and no source', () => {
@@ -186,6 +186,73 @@ describe('session approvals (spec 012)', () => {
   it('a session saved before spec 012 has no approvals, and reads as having none', () => {
     const { approvals: _none, ...older } = makeSession();
     expect(SessionSchema.parse(older).approvals).toEqual([]);
+  });
+});
+
+describe('a session in spec 013', () => {
+  it('AC-11, AC-12: holds the step with your message, never an empty one', () => {
+    const activities: SessionActivity[] = [
+      { id: 'a1', state: 'done', kind: 'message', text: 'Use the existing useSelection hook instead' },
+    ];
+    expect(SessionSchema.parse(makeSession({ activities })).activities).toEqual(activities);
+    const withEmpty = { ...makeSession(), activities: [{ id: 'a1', state: 'done', kind: 'message', text: '' }] };
+    expect(SessionSchema.safeParse(withEmpty).success).toBe(false);
+  });
+
+  it("AC-16: can stop because Claude Code couldn't carry on the earlier conversation", () => {
+    const session = makeSession({ problem: { kind: 'resume', stage: 'working' } });
+    expect(SessionSchema.parse(session).problem).toEqual({ kind: 'resume', stage: 'working' });
+  });
+
+  it('AC-9: carries the ticket as Claude got it, with its status and due date from the cache', () => {
+    const ticket = makeSessionTicket();
+    expect(SessionSchema.parse(makeSession({ ticket })).ticket).toEqual(ticket);
+    const bare = { type: null, description: null, status: null, dueDate: null };
+    expect(SessionSchema.parse(makeSession({ ticket: bare })).ticket).toEqual(bare);
+    const badColumn = { ...ticket, status: { name: 'Doing', column: 'doing' } };
+    expect(SessionSchema.safeParse({ ...makeSession(), ticket: badColumn }).success).toBe(false);
+  });
+
+  it('AC-14: says whether the follow-up box is open, or why not, with the newer session when there is one', () => {
+    for (const followUp of [
+      { kind: 'open' },
+      { kind: 'discarded' },
+      { kind: 'never_started' },
+      { kind: 'newer_session', sessionId: 'fedcba9876543210' },
+    ] as const) {
+      expect(SessionSchema.parse(makeSession({ followUp })).followUp).toEqual(followUp);
+    }
+    const noId = { ...makeSession(), followUp: { kind: 'newer_session' } };
+    expect(SessionSchema.safeParse(noId).success).toBe(false);
+  });
+
+  it("AC-20: carries the worktree's path for Open in", () => {
+    const worktreePath = '/Users/you/.devhub/worktrees/0123456789abcdef';
+    expect(SessionSchema.parse(makeSession({ worktreePath })).worktreePath).toBe(worktreePath);
+  });
+
+  it("Q3: carries Claude's working time so far and when the current run started", () => {
+    const session = makeSession({ workedMs: 252_000, runStartedAt: '2026-10-16T10:20:00.000Z' });
+    expect(SessionSchema.parse(session)).toMatchObject({ workedMs: 252_000, runStartedAt: '2026-10-16T10:20:00.000Z' });
+    expect(SessionSchema.safeParse({ ...makeSession(), workedMs: -1 }).success).toBe(false);
+  });
+
+  it('a session saved before spec 013 reads with no ticket, the box open, no path and no time worked', () => {
+    const {
+      ticket: _ticket,
+      followUp: _followUp,
+      worktreePath: _path,
+      workedMs: _worked,
+      runStartedAt: _run,
+      ...older
+    } = makeSession();
+    expect(SessionSchema.parse(older)).toMatchObject({
+      ticket: null,
+      followUp: { kind: 'open' },
+      worktreePath: null,
+      workedMs: 0,
+      runStartedAt: null,
+    });
   });
 });
 

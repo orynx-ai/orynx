@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AlwaysAskReasonSchema } from './commands.ts';
 import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
 import { RepositoryIdSchema } from './repositories.ts';
+import { TicketColumnSchema } from './ticket-column.ts';
 
 /**
  * Where a Claude session is, as the sidebar shows it (spec: "Session states").
@@ -103,6 +104,8 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({ kind: z.literal('no_commands'), reason: z.enum(['no_sandbox']) }),
   /** Claude finished, with its own summary of what it changed. */
   ActivityBaseSchema.extend({ kind: z.literal('finished'), summary: z.string() }),
+  /** You wrote to Claude in the follow-up box (spec 013): exactly the text Claude got. */
+  ActivityBaseSchema.extend({ kind: z.literal('message'), text: z.string().min(1) }),
   /** You pressed Stop Claude. */
   ActivityBaseSchema.extend({ kind: z.literal('stopped') }),
   /** Orynx closed while Claude was working (AC-14). */
@@ -114,10 +117,11 @@ export type SessionActivity = z.infer<typeof SessionActivitySchema>;
 
 /**
  * Why a session couldn't start (`starting`) or stopped with an error once Claude was working (`working`),
- * spec 011 Q10f. The details go to the terminal only.
+ * spec 011 Q10f. `resume` is a follow-up Claude Code couldn't carry on, because it no longer has the
+ * session's conversation (spec 013, AC-16). The details go to the terminal only.
  */
 export const SessionProblemSchema = z.object({
-  kind: z.enum(['jira', 'folder', 'git', 'login', 'limit', 'other']),
+  kind: z.enum(['jira', 'folder', 'git', 'login', 'limit', 'resume', 'other']),
   stage: z.enum(['starting', 'working']),
 });
 export type SessionProblem = z.infer<typeof SessionProblemSchema>;
@@ -157,6 +161,35 @@ export const SessionApprovalSchema = z.discriminatedUnion('kind', [
 ]);
 export type SessionApproval = z.infer<typeof SessionApprovalSchema>;
 
+/**
+ * The ticket on the Ticket tab (spec 013, Q7): its type and description as Claude got them when the session
+ * started, and its status and due date as the cache knows them now (null when it doesn't have the ticket).
+ * The key and title are the session's own.
+ */
+export const SessionTicketSchema = z.object({
+  type: z.string().min(1).nullable(),
+  /** Markdown, from Orynx's converter; null when the ticket has none. */
+  description: z.string().nullable(),
+  /** The status's own name ("In progress") and its board column, for the pill's look. */
+  status: z.object({ name: z.string().min(1), column: TicketColumnSchema }).nullable(),
+  /** A calendar day, worded by the app ("Due Fri"), as on Tickets. */
+  dueDate: z.iso.date().nullable(),
+});
+export type SessionTicket = z.infer<typeof SessionTicketSchema>;
+
+/**
+ * Whether the follow-up box takes a message (spec 013, Q1), or why not: the changes are discarded, Claude
+ * never started, or the ticket has a newer live session, which the box links to. Three sessions already
+ * working is said only when you send, because it can change at any moment.
+ */
+export const SessionFollowUpSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('open') }),
+  z.object({ kind: z.literal('discarded') }),
+  z.object({ kind: z.literal('never_started') }),
+  z.object({ kind: z.literal('newer_session'), sessionId: SessionIdSchema }),
+]);
+export type SessionFollowUp = z.infer<typeof SessionFollowUpSchema>;
+
 /** GET /api/sessions/:id: everything the Session screen shows (spec 011). */
 export const SessionSchema = SessionSummarySchema.extend({
   /** The folder Claude works in, as Settings › Repositories shows it. */
@@ -178,6 +211,18 @@ export const SessionSchema = SessionSummarySchema.extend({
   sprint: z.string().min(1).nullable(),
   /** The calls waiting for your answer, oldest first (spec 012). A session saved before spec 012 has none. */
   approvals: z.array(SessionApprovalSchema).default([]),
+  /** The Ticket tab (spec 013). Null for a session saved before spec 013 until the server reads its brief. */
+  ticket: SessionTicketSchema.nullable().default(null),
+  followUp: SessionFollowUpSchema.default({ kind: 'open' }),
+  /** Where the worktree is, for Open in VS Code or Cursor (spec 013, Q9); null before it's made. */
+  worktreePath: z.string().min(1).nullable().default(null),
+  /**
+   * Claude's working time before the current run, added up over the first run and every follow-up (spec 013,
+   * Q3). The time beside "Claude's progress" adds the current run's, from `runStartedAt`, while it works.
+   */
+  workedMs: z.int().nonnegative().default(0),
+  /** When the current run started; null while Claude isn't working. */
+  runStartedAt: z.iso.datetime().nullable().default(null),
 });
 export type Session = z.infer<typeof SessionSchema>;
 

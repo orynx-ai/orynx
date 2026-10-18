@@ -2,7 +2,7 @@ import type { Session, SessionActivity, SessionProblem } from '@devhub/contracts
 
 /**
  * The words for each step of "Claude's progress" and for a session that couldn't start (spec 011, Q10a and
- * Q10f). The server sends what happened; these say it. A running step is in the present tense, a done one
+ * Q10f; spec 013, Q10d and Q10e). The server sends what happened; these say it. A running step is in the present tense, a done one
  * in the past.
  */
 
@@ -26,6 +26,12 @@ function listOf(items: readonly string[]): string | null {
 }
 
 const keepsChanges = 'The worktree keeps the changes.';
+
+/** A message shows its first 3 lines, then "…" (spec 013, Q10e). */
+function firstLines(text: string): string {
+  const lines = text.split('\n');
+  return lines.length <= 3 ? text : [...lines.slice(0, 3), '…'].join('\n');
+}
 
 /** Why Orynx refused a call (spec 011 Q6; spec 012 Q7, Q8c). */
 function refusedTitle(activity: Extract<SessionActivity, { kind: 'refused' }>): string {
@@ -93,6 +99,8 @@ export function stepWords(activity: SessionActivity): StepWords {
       return { title: "Commands are off: Claude Code's sandbox can't run on this computer", detail: null };
     case 'finished':
       return { title: 'Finished', detail: activity.summary.trim() === '' ? null : activity.summary };
+    case 'message':
+      return { title: 'You asked Claude', detail: firstLines(activity.text) };
     case 'stopped':
       return { title: 'You stopped Claude', detail: keepsChanges };
     case 'interrupted':
@@ -116,8 +124,11 @@ export function problemWords(problem: SessionProblem, session: Session): Problem
     git: "git couldn't make the worktree. See the terminal for details.",
     login: "Claude Code's login didn't work. Sign in with `claude` in a terminal, then start again.",
     limit: "Claude's service is busy or your usage limit is reached. Try again later.",
+    resume: "Claude Code no longer has this session's conversation. Start again from the ticket.",
     other: 'See the terminal for details.',
   };
+  // A follow-up Claude Code couldn't resume isn't a start that failed, nor an error while working (spec 013, Q10d).
+  if (problem.kind === 'resume') return { title: "Claude couldn't carry on", line: lines.resume };
   return {
     title: problem.stage === 'starting' ? "Claude couldn't start" : 'Claude stopped with an error',
     line: lines[problem.kind],

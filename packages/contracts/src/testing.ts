@@ -21,10 +21,12 @@ import {
   SessionApprovalSchema,
   SessionSchema,
   SessionSummarySchema,
+  SessionTicketSchema,
   type Session,
   type SessionApproval,
   type SessionList,
   type SessionSummary,
+  type SessionTicket,
 } from './session.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 import { TicketSchema, TicketsSchema, type Ticket, type Tickets } from './tickets.ts';
@@ -84,6 +86,26 @@ export function makeSession(overrides: Partial<Session> = {}): Session {
     jiraUrl: 'https://your-team.atlassian.net/browse/PROJ-1423',
     sprint: 'Sprint 42',
     approvals: [],
+    ...overrides,
+  });
+}
+
+/**
+ * The ticket on the Session screen's Ticket tab (spec 013): PROJ-1423 as `session.html` draws it, In progress
+ * and due on Friday 16 Oct 2026.
+ */
+export function makeSessionTicket(overrides: Partial<SessionTicket> = {}): SessionTicket {
+  return SessionTicketSchema.parse({
+    type: 'Story',
+    description:
+      'Content managers need to archive many items at once from the content list instead of one by one.\n\n' +
+      '### Acceptance criteria\n\n' +
+      '- Checkbox on each row, plus select all\n' +
+      '- Archive selected button in the toolbar\n' +
+      '- Partial failures show which items failed\n' +
+      '- Unit tests for the new API call',
+    status: { name: 'In progress', column: 'in_progress' },
+    dueDate: '2026-10-16',
     ...overrides,
   });
 }
