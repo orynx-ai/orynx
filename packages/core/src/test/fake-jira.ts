@@ -315,10 +315,15 @@ export const designDescription = {
 };
 
 /** Jira's single issue for the good credentials; any other key is 404, as Jira answers a key it hides. */
-export function acceptingIssue(issue: FakeIssueDetail, { site = jiraSite }: { site?: string } = {}) {
+export function acceptingIssue(
+  issues: FakeIssueDetail | readonly FakeIssueDetail[],
+  { site = jiraSite }: { site?: string } = {},
+) {
+  const known: readonly FakeIssueDetail[] = 'key' in issues ? [issues] : issues;
   return http.get(`https://${site}/rest/api/3/issue/:key`, ({ request, params }) => {
     if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
-    if (params['key'] !== issue.key) {
+    const issue = known.find((candidate) => candidate.key === params['key']);
+    if (issue === undefined) {
       return HttpResponse.json(
         { errorMessages: ['Issue does not exist or you do not have permission to see it.'] },
         { status: 404 },

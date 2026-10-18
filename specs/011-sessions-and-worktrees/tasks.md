@@ -38,7 +38,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: Start a session's record: the folders for the key's project (one, chosen, or none), the login from 010's check, at most three working, and a live session on the ticket reused, including two starts at once (AC-1, AC-11, AC-12, Q3, Q4, Q11)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/session-service.ts, session-service.test.ts
-- [ ] Task 13: Run the session: read the issue, make the worktree, write the brief, start Claude and fold its activity into steps. Publish `sessions.changed` on state changes and `session.changed` at most every 250 ms. Failures (Jira, folder, git, login, limit, crash) become the session's problem, and the log names only their kind and exit code (AC-2, AC-3, AC-4, AC-8, AC-13)
+- [x] Task 13: Run the session: read the issue, make the worktree, write the brief, start Claude and fold its activity into steps. Publish `sessions.changed` on state changes and `session.changed` at most every 250 ms. Failures (Jira, folder, git, login, limit, crash) become the session's problem, and the log names only their kind and exit code (AC-2, AC-3, AC-4, AC-8, AC-13)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/session-service.ts, session-service.test.ts
 - [ ] Task 14: Stop a session at any point (Stopping while git works keeps what was made), discard one (stopping it first, then the worktree and branch), and stop every running session when the server closes (AC-9, AC-10, AC-14)

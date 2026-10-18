@@ -1,4 +1,4 @@
-import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setupServer } from 'msw/node';
@@ -18,9 +18,11 @@ import { createTokenStore } from '../secrets/token-store.ts';
 import { createMemorySettingsStore } from '../settings/settings-store.ts';
 import { useFakeClaudeFolder } from '../test/fake-claude.ts';
 import { fakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
-import { acceptingIssue, goodToken, jiraEmail, jiraSite } from '../test/fake-jira.ts';
+import { acceptingIssue, goodToken, issueUrl, jiraEmail, jiraSite } from '../test/fake-jira.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
-import { createMemorySessionStore } from './session-store.ts';
+import { http, HttpResponse } from 'msw';
+import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
+import type { SessionRecords } from './session-store.ts';
 import { createSessionService, type SessionReport } from './session-service.ts';
 
 // Real git, a real Claude Code login check and a real Jira client behind a fake Jira: each test does a lot.
@@ -41,7 +43,10 @@ afterAll(() => {
 const repositories = useTestRepositories();
 const claudeFolder = useFakeClaudeFolder();
 const homes: string[] = [];
+const services: { close(): Promise<void> }[] = [];
 afterEach(async () => {
+  // Every change still being saved lands before its folder goes.
+  await Promise.all(services.splice(0).map((service) => service.close()));
   await Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true })));
 });
 
@@ -56,6 +61,9 @@ interface SetUpOptions {
   folder?: boolean;
   script?: readonly FakeTurn[];
   cached?: { title: string; sprint: string | null } | null;
+  /** Build the server without Claude Code. */
+  noClaude?: boolean;
+  mode?: 'ask_everything' | 'edit_freely_ask_commands';
 }
 
 async function setUp({
@@ -64,6 +72,8 @@ async function setUp({
   folder = true,
   script = [{ finish: 'Done.' }],
   cached = { title: 'Add bulk archive', sprint: 'Sprint 42' },
+  noClaude = false,
+  mode = 'edit_freely_ask_commands',
 }: SetUpOptions = {}) {
   const repos = await repositories();
   const home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-home-')));
@@ -72,7 +82,10 @@ async function setUp({
   const heard: ServerEvent[] = [];
   events.subscribe((event) => heard.push(event));
 
-  const settings = createMemorySettingsStore({ jira: { site: jiraSite, email: jiraEmail } });
+  const settings = createMemorySettingsStore({
+    jira: { site: jiraSite, email: jiraEmail },
+    agent: { permissionMode: mode },
+  });
   const tokens = createTokenStore({ keychain: createMemoryKeychain({ jira: goodToken }), events });
   const connection = createJiraConnection({ settings, tokens, jira: createJiraClient(), events, envToken: false });
   const folders = createRepositoryService({ settings, events, home: repos.root, devhubHome: home });
@@ -92,7 +105,7 @@ async function setUp({
   });
 
   const sdk = fakeClaudeSdk(script);
-  const records = createMemorySessionStore();
+  const records = await openFileSessionStore(home, { now: () => clock });
   const reports: SessionReport[] = [];
   let ids = 0;
   const service = createSessionService({
@@ -104,7 +117,10 @@ async function setUp({
     describeTicket: () => Promise.resolve(cached),
     preferences: createPreferencesService({ settings, events }),
     worktrees: { env: gitEnvironment(repos.env), root: join(home, 'worktrees'), fetchTimeoutMs: 2_000 },
-    adapter: createClaudeAdapter({ query: sdk.query, program: '/opt/claude/claude', env: {}, home: repos.root }),
+    stepEventMs: 250,
+    adapter: noClaude
+      ? null
+      : createClaudeAdapter({ query: sdk.query, program: '/opt/claude/claude', env: {}, home: repos.root }),
     events,
     onReport: (report) => reports.push(report),
     now: () => clock,
@@ -113,9 +129,33 @@ async function setUp({
       return ids.toString(16).padStart(16, '0');
     },
   });
+  services.push(service);
   jira.use(acceptingIssue({ key: 'PROJ-1423', summary: 'Add bulk archive to the content list' }));
   return { service, records, repos, home, heard, reports, sdk, folders: added, settings };
 }
+
+/** Waits until the session has sent Claude its brief: from there a hanging Claude writes nothing more. */
+async function briefed(records: SessionRecords, id: string) {
+  for (let tries = 0; tries < 500; tries++) {
+    const record = await records.get(id);
+    if (record?.session.activities.some((activity) => activity.kind === 'brief') === true) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('The session never sent its brief');
+}
+
+/** Waits until the session isn't Working any more. */
+async function settled(records: SessionRecords, id = '0000000000000001') {
+  for (let tries = 0; tries < 500; tries++) {
+    const record = await records.get(id);
+    if (record !== null && record.session.state !== 'working') return record;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('The session is still working');
+}
+
+const kinds = (record: { session: { activities: readonly { kind: string; state: string }[] } }) =>
+  record.session.activities.map((activity) => `${activity.kind}:${activity.state}`);
 
 describe('starting a session', () => {
   it('AC-1: starts a session on a ticket whose project has one folder, and tells every tab', async () => {
@@ -140,12 +180,14 @@ describe('starting a session', () => {
       },
     });
     expect(heard).toContainEqual({ type: 'sessions.changed' });
+    await settled(records);
   });
 
-  it('AC-1: uses the key as the title when the cache doesn’t know the ticket yet', async () => {
+  it('AC-1: uses the key as the title when neither the cache nor Jira knows the ticket', async () => {
     const { service, records } = await setUp({ cached: null });
+    jira.use(http.get(issueUrl('PROJ-1423'), () => HttpResponse.json({}, { status: 404 })));
     await service.start({ ticketKey: 'PROJ-1423' });
-    expect((await records.get('0000000000000001'))?.session).toMatchObject({ title: 'PROJ-1423', sprint: null });
+    expect((await settled(records)).session).toMatchObject({ title: 'PROJ-1423', sprint: null });
   });
 
   it('AC-11 (Q3): asks which folder when the project has several, and starts in the one picked', async () => {
@@ -161,6 +203,7 @@ describe('starting a session', () => {
       result: 'started',
     });
     expect((await records.get('0000000000000001'))?.repository.id).toBe(picked.id);
+    await settled(records);
   });
 
   it('AC-11: refuses a folder that isn’t one of the project’s', async () => {
@@ -183,8 +226,11 @@ describe('starting a session', () => {
 
   it('AC-12 (Q11): lets three sessions work at once, and no fourth', async () => {
     const { service, records } = await setUp({ script: [{ hang: true }] });
+    jira.use(acceptingIssue([{ key: 'PROJ-1' }, { key: 'PROJ-2' }, { key: 'PROJ-3' }, { key: 'PROJ-4' }]));
     for (const key of ['PROJ-1', 'PROJ-2', 'PROJ-3']) {
-      expect(await service.start({ ticketKey: key })).toMatchObject({ result: 'started' });
+      const started = await service.start({ ticketKey: key });
+      expect(started).toMatchObject({ result: 'started' });
+      await briefed(records, started.result === 'started' ? started.sessionId : '');
     }
     expect(await service.start({ ticketKey: 'PROJ-4' })).toEqual({ result: 'cannot_start', reason: 'too_many' });
     expect(await records.list()).toHaveLength(3);
@@ -194,6 +240,7 @@ describe('starting a session', () => {
   it('AC-1: opens the ticket’s live session instead of starting a second one', async () => {
     const { service, records } = await setUp({ script: [{ hang: true }] });
     const first = await service.start({ ticketKey: 'PROJ-1423' });
+    await briefed(records, '0000000000000001');
     expect(await service.start({ ticketKey: 'PROJ-1423' })).toEqual({
       result: 'existing',
       sessionId: first.result === 'started' ? first.sessionId : '',
@@ -210,6 +257,202 @@ describe('starting a session', () => {
     ]);
     expect([a.result, b.result].sort()).toEqual(['existing', 'started']);
     expect(await records.list()).toHaveLength(1);
+    await briefed(records, '0000000000000001');
     await service.close();
+  });
+});
+
+describe('running a session', () => {
+  const work: FakeTurn[] = [
+    { tool: 'Read', input: { file_path: 'README.md' } },
+    { tool: 'TodoWrite', input: { todos: [{ content: 'Add a toolbar button', status: 'pending', activeForm: 'x' }] } },
+    { tool: 'Write', input: { file_path: 'src/toolbar.ts', content: 'export const toolbar = true;\n' } },
+    { finish: 'Added a toolbar button.' },
+  ];
+
+  it('AC-2, AC-3, AC-8: reads the ticket, makes the worktree, sends the brief, and follows Claude to the end', async () => {
+    const { service, records, repos, home, sdk } = await setUp({ script: work });
+    const before = await repos.git(repos.clone, 'status', '--porcelain=v1', '--branch');
+
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+
+    expect(record.session).toMatchObject({
+      title: 'Add bulk archive to the content list',
+      state: 'done',
+      branch: 'feat/PROJ-1423',
+      step: 'review',
+      problem: null,
+      endedAt: '2026-10-18T09:56:00.000Z',
+    });
+    expect(record.session.activities).toEqual([
+      { id: 'step-1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true },
+      { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423' },
+      { id: 'step-3', state: 'done', kind: 'explore', files: ['README.md'] },
+      { id: 'step-4', state: 'done', kind: 'plan', items: ['Add a toolbar button'] },
+      { id: 'step-5', state: 'done', kind: 'edit', files: ['src/toolbar.ts'] },
+      { id: 'step-6', state: 'done', kind: 'finished', summary: 'Added a toolbar button.' },
+    ]);
+    expect(record.claudeSessionId).toBe('b2c7e0f4-0000-4000-8000-000000000001');
+
+    const worktree = join(home, 'worktrees', '0000000000000001');
+    expect(await repos.git(worktree, 'branch', '--show-current')).toBe('feat/PROJ-1423');
+    expect(await repos.git(repos.clone, 'status', '--porcelain=v1', '--branch')).toBe(before);
+
+    const brief = await readFile(join(sessionsFolder(home), '0000000000000001', 'brief.md'), 'utf8');
+    expect(sdk.runs[0]?.prompts).toEqual([brief]);
+    expect(brief).toMatch(/^Jira ticket PROJ-1423 \(Story\): Add bulk archive to the content list\n\n/);
+    expect(sdk.runs[0]?.options.cwd).toBe(worktree);
+    expect(sdk.runs[0]?.options.systemPrompt).toMatchObject({
+      append: expect.stringContaining('feat/PROJ-1423') as unknown,
+    });
+  });
+
+  it('AC-6: refuses edits when Settings says Ask before everything', async () => {
+    const { service, records } = await setUp({
+      mode: 'ask_everything',
+      script: [{ tool: 'Write', input: { file_path: 'a.ts', content: 'x' } }, { finish: 'Described it.' }],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+    expect(record.session.activities).toContainEqual(
+      expect.objectContaining({ kind: 'refused', reason: 'ask_everything', path: 'a.ts' }) as unknown,
+    );
+    expect(record.session.step).toBe('review');
+  });
+
+  it('AC-4: tells the Session screen about new steps at most every 250 ms, and the lists about state at once', async () => {
+    const burst: FakeTurn[] = Array.from({ length: 30 }, (_, n) => ({
+      tool: 'Read',
+      input: { file_path: n % 2 === 0 ? 'README.md' : 'missing.md' },
+    }));
+    const { service, records, heard } = await setUp({ script: [...burst, { finish: 'Read a lot.' }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const stepEvents = heard.filter((event) => event.type === 'session.changed');
+    expect(stepEvents.length).toBeGreaterThan(0);
+    expect(stepEvents.length).toBeLessThan(8);
+    expect(stepEvents.every((event) => event.sessionId === '0000000000000001')).toBe(true);
+    // Started, and done.
+    expect(heard.filter((event) => event.type === 'sessions.changed').length).toBeGreaterThanOrEqual(2);
+  });
+
+  describe('when something fails', () => {
+    it('AC-13: Jira can’t be read: Stopped, couldn’t start, no worktree', async () => {
+      const { service, records, home, reports } = await setUp();
+      jira.use(http.get(issueUrl('PROJ-1423'), () => HttpResponse.json({ errorMessages: ['gone'] }, { status: 404 })));
+      await service.start({ ticketKey: 'PROJ-1423' });
+      const record = await settled(records);
+      expect(record.session).toMatchObject({
+        state: 'stopped',
+        problem: { kind: 'jira', stage: 'starting' },
+        branch: null,
+      });
+      expect(reports).toContainEqual({
+        what: 'failed',
+        session: '0000000000000001',
+        ticket: 'PROJ-1423',
+        problem: 'jira',
+        code: 'not_found',
+      });
+      await expect(readFile(join(home, 'worktrees', '0000000000000001', 'README.md'))).rejects.toThrow();
+    });
+
+    it('AC-13: the folder isn’t a git repository any more', async () => {
+      const { service, records, repos } = await setUp();
+      await rm(join(repos.clone, '.git'), { recursive: true, force: true });
+      await service.start({ ticketKey: 'PROJ-1423' });
+      expect((await settled(records)).session.problem).toEqual({ kind: 'folder', stage: 'starting' });
+    });
+
+    it('AC-13: git can’t make the worktree', async () => {
+      const { service, records, home } = await setUp();
+      const inTheWay = join(home, 'worktrees', '0000000000000001');
+      await mkdir(inTheWay, { recursive: true });
+      await writeFile(join(inTheWay, 'file.txt'), 'x');
+      await service.start({ ticketKey: 'PROJ-1423' });
+      const record = await settled(records);
+      expect(record.session.problem).toEqual({ kind: 'git', stage: 'starting' });
+      expect(kinds(record)).toEqual(['worktree:done']);
+    });
+
+    it('AC-13: Claude Code refuses the login before Claude does anything: couldn’t start', async () => {
+      const { service, records, reports } = await setUp({
+        script: [
+          {
+            message: {
+              type: 'assistant',
+              parent_tool_use_id: null,
+              error: 'authentication_failed',
+              message: { content: [] },
+            },
+          },
+        ],
+      });
+      await service.start({ ticketKey: 'PROJ-1423' });
+      await settled(records);
+      await service.close();
+      const record = await records.get('0000000000000001');
+      if (record === null) throw new Error('no session');
+      expect(record.session).toMatchObject({ state: 'stopped', problem: { kind: 'login', stage: 'starting' } });
+      expect(kinds(record)).toEqual(['worktree:done', 'brief:done']);
+      expect(reports).toContainEqual(
+        expect.objectContaining({ problem: 'login', code: 'authentication_failed' }) as unknown,
+      );
+    });
+
+    it('AC-13: a limit after Claude has worked: stopped with an error, its steps kept', async () => {
+      const { service, records } = await setUp({
+        script: [
+          { tool: 'Read', input: { file_path: 'README.md' } },
+          { message: { type: 'assistant', parent_tool_use_id: null, error: 'rate_limit', message: { content: [] } } },
+        ],
+      });
+      await service.start({ ticketKey: 'PROJ-1423' });
+      const record = await settled(records);
+      expect(record.session.problem).toEqual({ kind: 'limit', stage: 'working' });
+      expect(kinds(record)).toEqual(['worktree:done', 'brief:done', 'explore:done']);
+    });
+
+    it('AC-13: Claude Code’s process dies', async () => {
+      const { service, records } = await setUp({ script: [{ crash: 'boom' }] });
+      await service.start({ ticketKey: 'PROJ-1423' });
+      expect((await settled(records)).session.problem).toEqual({ kind: 'other', stage: 'starting' });
+    });
+
+    it('AC-22: with no Claude Code, the session can’t start and nothing runs', async () => {
+      const { service, records, sdk } = await setUp({ noClaude: true });
+      await service.start({ ticketKey: 'PROJ-1423' });
+      expect((await settled(records)).session.problem).toEqual({ kind: 'other', stage: 'starting' });
+      expect(sdk.runs).toEqual([]);
+    });
+
+    it('AC-21: never tells the terminal the ticket’s text or Claude’s words', async () => {
+      const { service, records, reports } = await setUp({ script: work });
+      jira.use(
+        acceptingIssue({
+          key: 'PROJ-1423',
+          summary: 'Secret summary',
+          description: {
+            type: 'doc',
+            version: 1,
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Secret description' }] }],
+          },
+        }),
+      );
+      await service.start({ ticketKey: 'PROJ-1423' });
+      await settled(records);
+      await service.close();
+      const told = JSON.stringify(reports);
+      expect(told).not.toMatch(/Secret|toolbar|README/);
+      expect(reports).toContainEqual({
+        what: 'started',
+        session: '0000000000000001',
+        ticket: 'PROJ-1423',
+        loaded: { tools: 7, mcpServers: 0, plugins: 0 },
+      });
+    });
   });
 });

@@ -1,12 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type { PermissionMode, Repository, Session, StartSessionAnswer, StartSessionRequest } from '@devhub/contracts';
-import type { AgentAdapter } from '../agents/agent-adapter.ts';
+import type { AgentAdapter, AgentEvent } from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
+import { briefText, sessionNote, ticketBrief } from './brief.ts';
+import { addStep, addWork, endProgress, replaceStep, type Progress } from './progress.ts';
 import type { SessionRecords, StoredSession } from './session-store.ts';
-import type { WorktreesOptions } from './worktrees.ts';
+import { createWorktrees, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
 
 /**
  * Claude sessions (spec 011): starting one on a ticket, running it, stopping it and discarding it. A
@@ -23,7 +25,7 @@ export interface SessionService {
   start(request: StartSessionRequest): Promise<StartSessionAnswer>;
   /** The session as the Session screen shows it; null when there's none with this id. */
   get(id: string): Promise<Session | null>;
-  /** Stops every running session, for the server's shutdown. */
+  /** Stops every running session and waits for every change still being saved, for the server's shutdown. */
   close(): Promise<void>;
 }
 
@@ -44,6 +46,8 @@ export interface SessionServiceOptions {
   onReport?: (report: SessionReport) => void;
   now?: () => number;
   newId?: () => string;
+  /** The Session screen hears about new steps at most this often; 250 ms (AC-4). */
+  stepEventMs?: number;
 }
 
 /** At most this many sessions work at once (Q11). */
@@ -57,10 +61,213 @@ function isLive(session: { state: Session['state'] }): boolean {
   return session.state !== 'stopped';
 }
 
+/** A session that is setting up or running, and how to stop it. */
+interface Run {
+  controller: AbortController;
+  /** The adapter's id for Claude's session, once it has started. */
+  agentId: string | null;
+  stopping: boolean;
+}
+
+type ProblemKind = NonNullable<Session['problem']>['kind'];
+
+/** Read through a call: Stop can change it while the run waits, which TypeScript can't see. */
+function stopping(run: Run): boolean {
+  return run.stopping;
+}
+
+/** Whether Claude has done anything yet: a problem before that means it couldn't start (Q10f). */
+function claudeWorked(session: Session): boolean {
+  return session.activities.some((activity) =>
+    ['explore', 'plan', 'edit', 'refused', 'finished'].includes(activity.kind),
+  );
+}
+
+function progressOf(session: Session): Progress {
+  return { step: session.step, activities: session.activities };
+}
+
+function withProgress(record: StoredSession, change: (progress: Progress) => Progress): StoredSession {
+  const { step, activities } = change(progressOf(record.session));
+  return { ...record, session: { ...record.session, step, activities: [...activities] } };
+}
+
 export function createSessionService(options: SessionServiceOptions): SessionService {
-  const { records, repositories, claude, connection, describeTicket, events } = options;
+  const { records, repositories, claude, connection, describeTicket, events, adapter } = options;
   const now = options.now ?? Date.now;
   const newId = options.newId ?? (() => randomBytes(8).toString('hex'));
+  const stepEventMs = options.stepEventMs ?? 250;
+  const worktrees = createWorktrees(options.worktrees);
+  const runs = new Map<string, Run>();
+  /** Work started by an event or a start that nobody awaits; `close()` waits for all of it. */
+  const inFlight = new Set<Promise<unknown>>();
+  function track(work: Promise<unknown>) {
+    const tracked = work.catch(() => undefined).finally(() => inFlight.delete(tracked));
+    inFlight.add(tracked);
+  }
+  const stepTimers = new Map<string, { timer: NodeJS.Timeout; again: boolean }>();
+
+  /** `session.changed` at once, then at most once every `stepEventMs` while steps keep coming. */
+  function stepsChanged(id: string) {
+    const waiting = stepTimers.get(id);
+    if (waiting !== undefined) {
+      waiting.again = true;
+      return;
+    }
+    events.publish({ type: 'session.changed', sessionId: id });
+    const entry = { again: false, timer: setTimeout(tick, stepEventMs) };
+    stepTimers.set(id, entry);
+    function tick() {
+      if (!entry.again) {
+        stepTimers.delete(id);
+        return;
+      }
+      entry.again = false;
+      events.publish({ type: 'session.changed', sessionId: id });
+      entry.timer = setTimeout(tick, stepEventMs);
+    }
+  }
+
+  /** Changes a session; the lists hear at once when its state or title changed, the Session screen always. */
+  async function change(id: string, update: (record: StoredSession) => StoredSession): Promise<StoredSession | null> {
+    const seen = { listsChanged: false };
+    const saved = await records.update(id, (current) => {
+      const next = update(current);
+      seen.listsChanged = next.session.state !== current.session.state || next.session.title !== current.session.title;
+      return { ...next, session: { ...next.session, updatedAt: new Date(now()).toISOString() } };
+    });
+    if (saved === null) return null;
+    if (seen.listsChanged) events.publish({ type: 'sessions.changed' });
+    stepsChanged(id);
+    return saved;
+  }
+
+  function report(record: StoredSession | null, kind: ProblemKind, code: string | null) {
+    if (record === null) return;
+    const ticket = record.session.source?.kind === 'jira' ? record.session.source.key : '';
+    options.onReport?.({ what: 'failed', session: record.session.id, ticket, problem: kind, code });
+  }
+
+  /** Ends a session with a problem: Stopped, every step done, and the terminal told the kind. */
+  async function fail(id: string, kind: ProblemKind, code: string | null) {
+    const run = runs.get(id);
+    if (run?.stopping === true) return;
+    runs.delete(id);
+    const saved = await change(id, (record) => {
+      const ended = withProgress(record, (progress) => endProgress(progress, null));
+      return {
+        ...ended,
+        session: {
+          ...ended.session,
+          state: 'stopped',
+          problem: { kind, stage: claudeWorked(record.session) ? 'working' : 'starting' },
+          endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
+        },
+      };
+    });
+    report(saved, kind, code);
+  }
+
+  function worktreeFailure(id: string, problem: WorktreeProblem): Promise<void> {
+    if (problem.kind === 'stopped') return Promise.resolve();
+    return fail(id, problem.kind, problem.kind === 'git' ? problem.step : null);
+  }
+
+  function heard(id: string, run: Run, event: AgentEvent) {
+    if (stopping(run)) return;
+    switch (event.type) {
+      case 'started':
+        track(
+          change(id, (record) => ({ ...record, claudeSessionId: event.agentSessionId })).then((record) => {
+            if (record === null) return;
+            const ticket = record.session.source?.kind === 'jira' ? record.session.source.key : '';
+            options.onReport?.({ what: 'started', session: id, ticket, loaded: event.loaded });
+          }),
+        );
+        return;
+      case 'work': {
+        const finished = event.work.kind === 'finished';
+        // At once, so the `ended` that follows a finish isn't taken for an end without one.
+        if (finished) runs.delete(id);
+        track(
+          change(id, (record) => {
+            const next = withProgress(record, (progress) => addWork(progress, event.work));
+            if (!finished) return next;
+            return { ...next, session: { ...next.session, state: 'done', endedAt: new Date(now()).toISOString() } };
+          }),
+        );
+        return;
+      }
+      case 'problem':
+        track(fail(id, event.kind, event.code));
+        return;
+      case 'ended':
+        // Claude Code ended without finishing or saying why.
+        if (runs.get(id) === run) track(fail(id, 'other', 'ended'));
+        return;
+    }
+  }
+
+  async function run(id: string, run: Run): Promise<void> {
+    const record = await records.get(id);
+    if (record === null || record.session.source?.kind !== 'jira' || record.worktree === null) return;
+    const key = record.session.source.key;
+    const { signal } = run.controller;
+
+    const credentials = await connection.credentials();
+    if (credentials?.ok !== true)
+      return fail(id, 'jira', credentials === null ? 'not_connected' : credentials.problem.kind);
+    const answer = await options.jira.issue(credentials.request, key);
+    if (!answer.ok) return fail(id, 'jira', answer.problem.kind);
+    if (stopping(run)) return;
+    const { issue } = answer;
+    await change(id, (current) => ({
+      ...current,
+      session: { ...current.session, title: issue.summary.trim() === '' ? current.session.title : issue.summary },
+    }));
+
+    const prepared = await worktrees.prepare(record.repository.path, key, signal);
+    if (!prepared.ok) return worktreeFailure(id, prepared.problem);
+    const { plan } = prepared;
+    const making = { kind: 'worktree', branch: plan.branch, base: plan.base, fetched: false } as const;
+    const withStep = await change(id, (current) => {
+      const next = withProgress(current, (progress) => addStep(progress, making, 'running'));
+      return { ...next, session: { ...next.session, branch: plan.branch } };
+    });
+    const stepId = withStep?.session.activities.at(-1)?.id ?? '';
+    const made = await worktrees.make(record.repository.path, record.worktree, plan, signal);
+    await change(id, (current) =>
+      withProgress(current, (progress) =>
+        replaceStep(progress, stepId, { ...making, fetched: made.ok && made.fetched }),
+      ),
+    );
+    if (!made.ok) return worktreeFailure(id, made.problem);
+    if (stopping(run)) return;
+
+    const brief = ticketBrief(issue);
+    await records.writeBrief(id, briefText(brief));
+    await change(id, (current) => withProgress(current, (progress) => addStep(progress, { kind: 'brief', key })));
+    if (stopping(run)) return;
+
+    if (adapter === null) return fail(id, 'other', 'no_claude_code');
+    const { permissionMode } = await options.preferences.read();
+    const agentId = await adapter.startSession(
+      brief,
+      record.worktree,
+      { mode: permissionMode, allowedCommands: [] },
+      sessionNote(plan.branch),
+    );
+    run.agentId = agentId;
+    adapter.onEvent(agentId, (event) => {
+      heard(id, run, event);
+    });
+  }
+
+  function begin(id: string) {
+    const started: Run = { controller: new AbortController(), agentId: null, stopping: false };
+    runs.set(id, started);
+    track(run(id, started).catch(() => fail(id, 'other', 'unexpected')));
+  }
   /** One start at a time per ticket, so two tabs pressing Build start one session. */
   const starting = new Map<string, Promise<unknown>>();
 
@@ -128,6 +335,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     };
     await records.create(record);
     events.publish({ type: 'sessions.changed' });
+    begin(id);
     return { result: 'started', sessionId: id };
   }
 
@@ -146,8 +354,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return (await records.get(id))?.session ?? null;
     },
 
-    close() {
-      return Promise.resolve();
+    async close() {
+      while (inFlight.size > 0) await Promise.all(inFlight);
+      for (const { timer } of stepTimers.values()) clearTimeout(timer);
+      stepTimers.clear();
     },
   };
 }
