@@ -63,12 +63,18 @@ export function stepWords(activity: SessionActivity): StepWords {
         detail: `${activity.branch} from ${activity.base}${offline ? ' (last fetched, offline)' : ''}`,
       };
     }
-    case 'brief':
-      // Composer briefs are worded in full with the Session screen's no-ticket changes (spec 015, task 26).
-      return {
-        title: 'Sent Claude the brief',
-        detail: activity.key === null ? 'Your message' : `${activity.key} and its description`,
-      };
+    case 'brief': {
+      // The ticket alone is its description (spec 011); a composer brief names each part (spec 015, AC-24).
+      const parts = [
+        ...(activity.message ? ['your message'] : []),
+        ...(activity.key === null ? [] : [activity.key]),
+        ...activity.pullRequests,
+        ...activity.files,
+      ];
+      const ticketAlone = activity.key !== null && parts.length === 1;
+      const said = ticketAlone ? `${activity.key} and its description` : listOf(parts);
+      return { title: 'Sent Claude the brief', detail: said?.replace(/^your message/, 'Your message') ?? null };
+    }
     case 'explore':
       return {
         title: running ? 'Exploring the code' : 'Explored the code',

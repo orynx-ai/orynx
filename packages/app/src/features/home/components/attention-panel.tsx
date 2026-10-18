@@ -436,7 +436,8 @@ function Row({ item, now }: { item: HomeItem; now: Date }) {
   const pill = reasonPill(item, now);
   return (
     <AttentionRow
-      source={item.source}
+      // Orynx's own mark leads a session on neither a ticket nor a pull request (spec 015, Q15b).
+      source={item.source ?? 'orynx'}
       title={<TargetLink target={item.target} title={item.title} />}
       sub={subLine(item)}
       reason={

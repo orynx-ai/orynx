@@ -76,6 +76,48 @@ describe('SessionScreen', () => {
     expect(within(crumbs).getByRole('link', { name: 'Sessions' })).toHaveAttribute('href', '/sessions');
   });
 
+  it('015 AC-24: a session with no ticket says Sessions / its title, has no Ticket tab, and names what Claude got', async () => {
+    server.use(
+      sessionHandler({
+        ...working,
+        title: 'Add a CSV export to the reports page',
+        source: null,
+        sprint: null,
+        jiraUrl: null,
+        branch: 'feat/add-a-csv-export-to',
+        activities: [
+          {
+            id: 'step-1',
+            state: 'done',
+            kind: 'brief',
+            key: null,
+            message: true,
+            pullRequests: ['web-app #2836'],
+            files: ['notes.md'],
+          },
+        ],
+      }),
+    );
+    await renderApp({ route: `${route}?tab=ticket` });
+
+    const crumbs = within(pageBar()).getByRole('navigation', { name: 'Breadcrumb' });
+    expect(await within(crumbs).findByText('Add a CSV export to the reports page')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(crumbs).getByRole('link', { name: 'Sessions' })).toBeVisible();
+    expect(within(pageBar()).queryByRole('link', { name: 'Open in Jira' })).toBeNull();
+    const tabs = screen.getByRole('tablist', { name: 'Session details' });
+    expect(
+      within(tabs)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['Changes']);
+    expect(within(tabs).getByRole('tab', { name: /Changes/ })).toHaveAttribute('aria-selected', 'true');
+    const progress = screen.getByRole('region', { name: "Claude's progress" });
+    expect(within(progress).getByText('Your message, web-app #2836 and notes.md')).toBeVisible();
+  });
+
   it('AC-16: shows the page bar and skeletons in the page’s shape while the session loads', async () => {
     server.use(
       http.get(apiUrl(apiRoutes.session), async () => {

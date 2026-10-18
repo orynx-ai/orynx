@@ -17,16 +17,18 @@ function useChangedCount(sessionId: string): number | null | undefined {
 
 /**
  * The right pane (spec 013, `session.html`'s "Work details"): the Changes and Ticket tabs, the one open kept in
- * the address (`?tab=ticket`), Changes by default.
+ * the address (`?tab=ticket`), Changes by default. A session with no ticket has Changes alone (spec 015).
  */
 export function SessionDetails({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
   const { tab } = useSearch({ from: '/sessions/$sessionId' });
   const navigate = useNavigate({ from: '/sessions/$sessionId' });
   const count = useChangedCount(session.id);
   const key = sourceLabel(session.source);
+  // A session with no ticket has nothing for the Ticket tab (spec 015, Q8d).
+  const ticket = session.source?.kind === 'jira';
   return (
     <Tabs
-      value={tab ?? 'changes'}
+      value={ticket && tab === 'ticket' ? 'ticket' : 'changes'}
       onValueChange={(next) => {
         void navigate({
           search: (search) => ({ ...search, tab: next === 'ticket' ? 'ticket' : undefined }),
@@ -38,16 +40,20 @@ export function SessionDetails({ session, title }: { session: Session; title: Re
         <TabsTrigger value="changes" {...(count === undefined ? {} : { count })}>
           Changes
         </TabsTrigger>
-        <TabsTrigger value="ticket" {...(key === undefined ? {} : { count: key })}>
-          Ticket
-        </TabsTrigger>
+        {ticket ? (
+          <TabsTrigger value="ticket" {...(key === undefined ? {} : { count: key })}>
+            Ticket
+          </TabsTrigger>
+        ) : null}
       </TabsList>
       <TabsContent value="changes" className="pt-3">
         <ChangesPanel session={session} title={title} />
       </TabsContent>
-      <TabsContent value="ticket" className="pt-3">
-        <TicketPanel session={session} />
-      </TabsContent>
+      {ticket ? (
+        <TabsContent value="ticket" className="pt-3">
+          <TicketPanel session={session} />
+        </TabsContent>
+      ) : null}
     </Tabs>
   );
 }
