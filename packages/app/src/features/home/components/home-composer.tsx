@@ -15,7 +15,7 @@ import {
   SourceMark,
 } from '@devhub/ui';
 import { useRepositories } from '../../settings/queries.ts';
-import { folderFor } from '../composer-rules.ts';
+import { chipFromPaste, folderFor } from '../composer-rules.ts';
 import {
   cannotStartLine,
   chipLabel,
@@ -78,6 +78,7 @@ export function HomeComposer() {
   const lastUsed = useComposerStore((state) => state.lastUsed);
   const setText = useComposerStore((state) => state.setText);
   const removeChip = useComposerStore((state) => state.removeChip);
+  const addChip = useComposerStore((state) => state.addChip);
   const sent = useComposerStore((state) => state.sent);
   const repositories = useRepositories();
   const start = useStartFromComposer();
@@ -158,6 +159,13 @@ export function HomeComposer() {
           placeholder={placeholderFor(ticketKey)}
           readOnly={start.isPending}
           {...field}
+          onPaste={(event) => {
+            // A paste that is exactly one key or pull request link becomes its chip (AC-14, Q6).
+            const chip = chipFromPaste(event.clipboardData.getData('text/plain'));
+            if (chip === null) return;
+            event.preventDefault();
+            setRefused(addChip(chip) === null ? null : composerWords.tooManyPullRequests);
+          }}
           ref={(element) => {
             field.ref(element);
             box.current = element;

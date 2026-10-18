@@ -158,3 +158,54 @@ describe('Home’s composer (spec 015)', () => {
     expect(posted).toEqual([]);
   });
 });
+
+describe('pasting and removing chips (spec 015)', () => {
+  it('AC-14 (Q6): a pasted key or pull request link becomes its chip; a sentence stays text', async () => {
+    serve();
+    const { user } = await renderApp();
+    await user.click(await screen.findByRole('textbox', { name: 'Describe a task for Claude' }));
+
+    await user.paste('PROJ-1423');
+    await user.paste('https://github.com/acme/web-app/pull/2836');
+    expect(box()).toHaveValue('');
+    const chips = within(screen.getByRole('list', { name: 'Context for Claude' })).getAllByRole('listitem');
+    expect(chips.map((chip) => chip.textContent)).toEqual(['PROJ-1423', 'web-app #2836']);
+
+    await user.paste('Fix PROJ-1377 too');
+    expect(box()).toHaveValue('Fix PROJ-1377 too');
+    expect(within(screen.getByRole('list', { name: 'Context for Claude' })).getAllByRole('listitem')).toHaveLength(2);
+  });
+
+  it('AC-11: a fourth pasted pull request is said, not added', async () => {
+    serve();
+    useComposerStore.setState({
+      chips: [1, 2, 3].map((number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number })),
+    });
+    const { user } = await renderApp();
+    await user.click(await screen.findByRole('textbox', { name: 'Describe a task for Claude' }));
+    await user.paste('https://github.com/acme/web-app/pull/2836');
+    expect(await screen.findByRole('alert')).toHaveTextContent('A session takes up to 3 pull requests.');
+    expect(useComposerStore.getState().chips).toHaveLength(3);
+  });
+
+  it('AC-15: a chip’s × by keyboard removes it, moves focus on and says so', async () => {
+    serve();
+    useComposerStore.setState({
+      chips: [
+        { kind: 'jira', key: 'PROJ-1423' },
+        { kind: 'file', name: 'notes.md', text: 'x' },
+      ],
+    });
+    const { user } = await renderApp();
+    const first = await screen.findByRole('button', { name: 'Remove PROJ-1423' });
+    first.focus();
+
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('button', { name: 'Remove notes.md' })).toHaveFocus();
+    expect(screen.getByRole('status')).toHaveTextContent('PROJ-1423 removed');
+    await user.keyboard('{Enter}');
+    expect(box()).toHaveFocus();
+    expect(screen.queryByRole('list', { name: 'Context for Claude' })).toBeNull();
+  });
+});
