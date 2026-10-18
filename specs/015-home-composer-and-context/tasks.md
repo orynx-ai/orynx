@@ -53,7 +53,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 17: Add the composer's rules, as tables: a paste that is exactly one key or one github.com PR link (Q6), a file that is text (UTF-8, no NUL byte, at most 100 KB) and the count limits (Q5), and Q7's folder: picked, the ticket's only folder, the last used, the only one, or none (AC-12, AC-14, AC-17)
       Check: pnpm test packages/app/src/features/home/composer-rules.test.ts
       Files: packages/app/src/features/home/composer-rules.ts, packages/app/src/features/home/composer-rules.test.ts
-- [ ] Task 18: Keep the draft: `store.ts` holds the text, the chips in order (one ticket, which a second replaces), the folder and whether you picked it. `persist` keeps only the last used folder as `devhub.home` (AC-9, AC-33, Q14)
+- [x] Task 18: Keep the draft: `store.ts` holds the text, the chips in order (one ticket, which a second replaces), the folder and whether you picked it. `persist` keeps only the last used folder as `devhub.home` (AC-9, AC-33, Q14)
       Check: pnpm test packages/app/src/features/home/store.test.ts
       Files: packages/app/src/features/home/store.ts, packages/app/src/features/home/store.test.ts
 - [ ] Task 19: Build `HomeComposer`: react-hook-form with the contract's message rule, the text mirrored into the store, the chips (ContextList), the placeholder for a ticket, Send on only with text or a ticket, Enter and Shift+Enter, busy Send with the box read-only, `started` opening the session and clearing the draft, and a line (`role="alert"`) for every other answer with the draft kept and "Open session" for `existing` (AC-3 to AC-5, AC-8, AC-21 to AC-23)
