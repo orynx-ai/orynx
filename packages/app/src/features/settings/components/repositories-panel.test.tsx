@@ -174,6 +174,38 @@ describe('RepositoriesPanel', () => {
     watcher.disconnect();
   });
 
+  it('AC-11: two removals the server answers at the same moment are both said', async () => {
+    listing(() => [intranet, mobile]);
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let waiting = 0;
+    server.use(
+      http.delete(apiUrl(apiRoutes.repository), async () => {
+        waiting += 1;
+        await released;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await renderApp({ route: '/settings/repositories' });
+    await folderList();
+
+    await user.click(screen.getByRole('button', { name: 'Remove intranet-web' }));
+    await user.click(screen.getByRole('button', { name: 'Remove mobile' }));
+    await waitFor(() => {
+      expect(waiting).toBe(2);
+    });
+    // Both answers land together, so React draws them in one go.
+    release();
+
+    const status = screen.getByRole('status');
+    await waitFor(() => {
+      expect(status).toHaveTextContent('Removed intranet-web.');
+    });
+    expect(status).toHaveTextContent('Removed mobile.');
+  });
+
   it('AC-11: holding Enter on Remove removes one folder, not one after another', async () => {
     listing(() => [intranet, mobile]);
     const removed: string[] = [];

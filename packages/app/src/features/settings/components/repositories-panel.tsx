@@ -17,7 +17,8 @@ export function RepositoriesPanel() {
   const remove = useRemoveRepository();
   const adding = useAddingRepository();
   const [formOpen, setFormOpen] = useState(false);
-  const [announcement, setAnnouncement] = useState('');
+  // What the live region says since your last action: one line per removal the server agreed to.
+  const [announcements, setAnnouncements] = useState<readonly string[]>([]);
   // Kept through a callback ref, so closing the form can hand focus back to it.
   const [addButton, setAddButton] = useState<HTMLButtonElement | null>(null);
   const removeButtons = useRef(new Map<string, HTMLButtonElement>());
@@ -49,11 +50,12 @@ export function RepositoriesPanel() {
     // Focus moves on before the row goes, so it never falls back to the page.
     const target = next === undefined ? addButton : (removeButtons.current.get(next.id) ?? null);
     target?.focus();
-    setAnnouncement('');
+    setAnnouncements([]);
     setRemoveFailed(false);
     remove.mutateAsync(folder.id).then(
       () => {
-        setAnnouncement(`Removed ${folder.name}.`);
+        // Added to what's there, not in place of it: two answers that land together must both be said.
+        setAnnouncements((said) => [...said, `Removed ${folder.name}.`]);
       },
       () => {
         setRemoveFailed(true);
@@ -78,7 +80,7 @@ export function RepositoriesPanel() {
           aria-disabled={adding || undefined}
           onClick={() => {
             if (adding) return;
-            setAnnouncement('');
+            setAnnouncements([]);
             setFormOpen((open) => !open);
           }}
         >
@@ -115,9 +117,15 @@ export function RepositoriesPanel() {
         </ul>
       )}
       {removeFailed ? <SaveError /> : null}
-      <p role="status" className="sr-only">
-        {announcement}
-      </p>
+      {/* Not atomic, so a screen reader reads each new line rather than everything again. */}
+      <div role="status" aria-atomic="false" className="sr-only">
+        {announcements.map((line, index) => (
+          // The lines only grow until the next action empties them, so the index names each one.
+          <p key={index} className="m-0">
+            {line}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
