@@ -86,7 +86,8 @@ export function FollowUpBox({ session }: { session: Session }) {
       {off.link === null ? null : (
         <>
           {' '}
-          <Link to="/sessions/$sessionId" params={{ sessionId: off.link.sessionId }}>
+          {/* A link in a sentence, drawn as Tickets draws one: told apart by more than its colour. */}
+          <Link to="/sessions/$sessionId" params={{ sessionId: off.link.sessionId }} className="text-info underline">
             {off.link.label}
           </Link>
         </>
