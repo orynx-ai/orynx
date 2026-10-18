@@ -14,6 +14,18 @@ if (!('scrollIntoView' in Element.prototype)) {
   Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: () => undefined });
 }
 
+// jsdom has no layout, so nothing resizes; a stand-in that never reports lets parts that watch their size run.
+if (typeof window.ResizeObserver !== 'function') {
+  Object.defineProperty(window, 'ResizeObserver', {
+    configurable: true,
+    value: class {
+      observe = () => undefined;
+      unobserve = () => undefined;
+      disconnect = () => undefined;
+    },
+  });
+}
+
 // jsdom has no media queries; a stand-in reports a wide window, and a test of a narrow one stubs it.
 if (typeof window.matchMedia !== 'function') {
   Object.defineProperty(window, 'matchMedia', {

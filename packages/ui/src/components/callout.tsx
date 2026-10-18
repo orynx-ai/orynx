@@ -58,7 +58,19 @@ export function CalloutCode({ className, children, ...props }: CalloutCodeProps)
 
   useLayoutEffect(() => {
     const element = box.current;
-    if (element !== null) setScrolls(element.scrollHeight > element.clientHeight);
+    if (element === null) return;
+    const measure = () => {
+      setScrolls(element.scrollHeight > element.clientHeight);
+    };
+    measure();
+    // A narrower window or sidebar, or a late font, can make the same text scroll. At its full height the
+    // box keeps its size while its text grows, so the text is watched as well.
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    if (element.firstElementChild !== null) observer.observe(element.firstElementChild);
+    return () => {
+      observer.disconnect();
+    };
   }, [children]);
 
   return (
@@ -67,8 +79,8 @@ export function CalloutCode({ className, children, ...props }: CalloutCodeProps)
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling box must take focus to scroll by keyboard (axe: scrollable-region-focusable); one that fits stays out of the Tab order
       tabIndex={scrolls ? 0 : undefined}
       className={cn(
-        // 12 lines of 20 px, and 6 px above and below.
-        'm-0 max-h-63 overflow-y-auto rounded-sm border border-border bg-raised px-2 py-1.5 font-mono text-code wrap-anywhere whitespace-pre-wrap text-foreground',
+        // 12 lines of 20 px exactly, with the 6 px above and below and the border outside them.
+        'm-0 box-content max-h-60 overflow-y-auto rounded-sm border border-border bg-raised px-2 py-1.5 font-mono text-code wrap-anywhere whitespace-pre-wrap text-foreground',
         className,
       )}
       {...props}

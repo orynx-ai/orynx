@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { FakeResizeObserver } from '../test/fake-resize-observer.ts';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Button } from './button.tsx';
 import { Callout, CalloutCode } from './callout.tsx';
@@ -67,6 +68,30 @@ describe('Callout', () => {
     }
     rerender(<CalloutCode>{'npm test\n'.repeat(30)}</CalloutCode>);
     expect(box).toHaveAttribute('tabindex', '0');
+  });
+
+  it('012 AC-19: a command that starts to scroll when the window narrows can then be reached by keyboard', () => {
+    render(<CalloutCode>{'npm test -- content-list '.repeat(20)}</CalloutCode>);
+    const code = screen.getByText(/npm test/);
+    const box = code.closest('pre');
+    if (box === null) throw new Error('no box');
+    expect(box).not.toHaveAttribute('tabindex');
+
+    // The same text, wrapped onto more lines than the box holds: at its full height only the text grows.
+    Object.defineProperty(box, 'scrollHeight', { configurable: true, value: 352 });
+    Object.defineProperty(box, 'clientHeight', { configurable: true, value: 252 });
+    act(() => {
+      FakeResizeObserver.resize(code);
+    });
+    expect(box).toHaveAttribute('tabindex', '0');
+
+    // Wide again: it fits, so it leaves the Tab order.
+    Object.defineProperty(box, 'scrollHeight', { configurable: true, value: 112 });
+    Object.defineProperty(box, 'clientHeight', { configurable: true, value: 112 });
+    act(() => {
+      FakeResizeObserver.resize(box);
+    });
+    expect(box).not.toHaveAttribute('tabindex');
   });
 
   it('has no accessibility violations with a command', async () => {
