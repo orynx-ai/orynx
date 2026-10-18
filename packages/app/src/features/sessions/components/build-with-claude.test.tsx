@@ -112,7 +112,7 @@ describe('Build with Claude', () => {
 
     await user.click(await build());
     const menu = await screen.findByRole('menu');
-    expect(within(menu).getByText('Claude Code isn’t signed in.')).toBeVisible();
+    expect(within(menu).getByText("Claude Code isn't signed in.")).toBeVisible();
     await user.click(within(menu).getByRole('menuitem', { name: 'Open Settings › Coding agent' }));
 
     expect(history.location.pathname).toBe('/settings/coding-agent');
@@ -146,7 +146,7 @@ describe('Build with Claude', () => {
     setUp({ answer: { result: 'cannot_start', reason: 'signed_out' } });
     const { user } = await renderApp({ route: '/tickets' });
     await user.click(await build());
-    expect(within(await screen.findByRole('menu')).getByText('Claude Code isn’t signed in.')).toBeVisible();
+    expect(within(await screen.findByRole('menu')).getByText("Claude Code isn't signed in.")).toBeVisible();
   });
 
   it('says to look at the terminal when the start fails', async () => {

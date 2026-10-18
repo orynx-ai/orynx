@@ -57,8 +57,8 @@ export function stepWords(activity: SessionActivity): StepWords {
       return {
         title:
           activity.reason === 'ask_everything'
-            ? 'Couldn’t edit files: Ask before everything is on'
-            : `Couldn’t ${activity.access} outside the worktree`,
+            ? "Couldn't edit files: Ask before everything is on"
+            : `Couldn't ${activity.access} outside the worktree`,
         detail: activity.path,
       };
     case 'finished':
@@ -81,15 +81,15 @@ export interface ProblemWords {
 export function problemWords(problem: SessionProblem, session: Session): ProblemWords {
   const key = session.source?.kind === 'jira' ? session.source.key : 'the ticket';
   const lines: Record<SessionProblem['kind'], string> = {
-    jira: `Orynx couldn’t read ${key} from Jira. Check Settings › Connections, then start again.`,
-    folder: `${session.folder.displayPath} isn’t a git repository any more. Check Settings › Repositories.`,
-    git: 'git couldn’t make the worktree. See the terminal for details.',
-    login: 'Claude Code’s login didn’t work. Sign in with `claude` in a terminal, then start again.',
-    limit: 'Claude’s service is busy or your usage limit is reached. Try again later.',
+    jira: `Orynx couldn't read ${key} from Jira. Check Settings › Connections, then start again.`,
+    folder: `${session.folder.displayPath} isn't a git repository any more. Check Settings › Repositories.`,
+    git: "git couldn't make the worktree. See the terminal for details.",
+    login: "Claude Code's login didn't work. Sign in with `claude` in a terminal, then start again.",
+    limit: "Claude's service is busy or your usage limit is reached. Try again later.",
     other: 'See the terminal for details.',
   };
   return {
-    title: problem.stage === 'starting' ? 'Claude couldn’t start' : 'Claude stopped with an error',
+    title: problem.stage === 'starting' ? "Claude couldn't start" : 'Claude stopped with an error',
     line: lines[problem.kind],
   };
 }

@@ -77,16 +77,16 @@ describe('stepWords (Q10a)', () => {
     expect(
       step({ kind: 'refused', state: 'done', access: 'edit', reason: 'outside_worktree', path: '/etc/hosts' }),
     ).toEqual({
-      title: 'Couldn’t edit outside the worktree',
+      title: "Couldn't edit outside the worktree",
       detail: '/etc/hosts',
     });
     expect(
       step({ kind: 'refused', state: 'done', access: 'read', reason: 'outside_worktree', path: '/etc/hosts' }).title,
-    ).toBe('Couldn’t read outside the worktree');
+    ).toBe("Couldn't read outside the worktree");
     expect(
       step({ kind: 'refused', state: 'done', access: 'edit', reason: 'ask_everything', path: 'src/a.ts' }),
     ).toEqual({
-      title: 'Couldn’t edit files: Ask before everything is on',
+      title: "Couldn't edit files: Ask before everything is on",
       detail: 'src/a.ts',
     });
   });
@@ -114,17 +114,17 @@ describe('stepWords (Q10a)', () => {
 describe('problemWords (Q10f)', () => {
   const session = makeSession({ folder: { name: 'web-app', displayPath: '~/code/web-app' } });
 
-  it('AC-13: says Claude couldn’t start before it worked, and stopped with an error after', () => {
-    expect(problemWords({ kind: 'login', stage: 'starting' }, session).title).toBe('Claude couldn’t start');
+  it("AC-13: says Claude couldn't start before it worked, and stopped with an error after", () => {
+    expect(problemWords({ kind: 'login', stage: 'starting' }, session).title).toBe("Claude couldn't start");
     expect(problemWords({ kind: 'limit', stage: 'working' }, session).title).toBe('Claude stopped with an error');
   });
 
   it.each([
-    ['jira', 'Orynx couldn’t read PROJ-1423 from Jira. Check Settings › Connections, then start again.'],
-    ['folder', '~/code/web-app isn’t a git repository any more. Check Settings › Repositories.'],
-    ['git', 'git couldn’t make the worktree. See the terminal for details.'],
-    ['login', 'Claude Code’s login didn’t work. Sign in with `claude` in a terminal, then start again.'],
-    ['limit', 'Claude’s service is busy or your usage limit is reached. Try again later.'],
+    ['jira', "Orynx couldn't read PROJ-1423 from Jira. Check Settings › Connections, then start again."],
+    ['folder', "~/code/web-app isn't a git repository any more. Check Settings › Repositories."],
+    ['git', "git couldn't make the worktree. See the terminal for details."],
+    ['login', "Claude Code's login didn't work. Sign in with `claude` in a terminal, then start again."],
+    ['limit', "Claude's service is busy or your usage limit is reached. Try again later."],
     ['other', 'See the terminal for details.'],
   ] as const)('AC-13: says what to do about %s', (kind, line) => {
     expect(problemWords({ kind, stage: 'starting' }, session).line).toBe(line);

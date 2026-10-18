@@ -26,17 +26,17 @@ describe('Callout', () => {
 
   it('AC-13 (spec 011): says what went wrong in the danger tone, title first', () => {
     render(
-      <Callout tone="danger" title="Claude couldn’t start">
-        Claude Code’s login didn’t work.
+      <Callout tone="danger" title="Claude couldn't start">
+        Claude Code&apos;s login didn&apos;t work.
       </Callout>,
     );
-    expect(screen.getByText('Claude couldn’t start')).toBeVisible();
-    expect(screen.getByText('Claude Code’s login didn’t work.')).toBeVisible();
+    expect(screen.getByText("Claude couldn't start")).toBeVisible();
+    expect(screen.getByText("Claude Code's login didn't work.")).toBeVisible();
   });
 
   it('has no accessibility violations in the danger tone', async () => {
     const { container } = render(
-      <Callout tone="danger" title="Claude couldn’t start">
+      <Callout tone="danger" title="Claude couldn't start">
         See the terminal for details.
       </Callout>,
     );

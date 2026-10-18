@@ -1,4 +1,4 @@
-// Design: docs/design/screens/session.html — page bar, title row with Stop Claude; the progress pane comes with spec 011 task 26
+// Design: docs/design/screens/session.html — page bar, title row with Stop Claude, stepper, Claude's progress (full width until 013)
 import { useParams } from '@tanstack/react-router';
 import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
 import type { Session } from '@devhub/contracts';
@@ -9,6 +9,7 @@ import { agoText } from '../../words/ago.ts';
 import { useNow } from '../../words/use-now.ts';
 import { NotFoundScreen } from '../not-found/not-found-screen.tsx';
 import { SessionHeader, SessionHeaderSkeleton } from './components/session-header.tsx';
+import { SessionProgress, SessionProgressSkeleton, SessionStepper } from './components/session-progress.tsx';
 import { SessionsLoadError } from './components/sessions-load-error.tsx';
 import { useSession } from './queries.ts';
 import { sourceLabel } from './source-label.ts';
@@ -54,6 +55,7 @@ export function SessionScreen() {
         <PageBar breadcrumb={<PageBreadcrumb crumbs={[sessionsCrumb]} />} />
         <PageBody aria-busy>
           <SessionHeaderSkeleton />
+          <SessionProgressSkeleton />
         </PageBody>
       </>
     );
@@ -82,6 +84,8 @@ export function SessionScreen() {
       />
       <PageBody>
         <SessionHeader session={found} />
+        <SessionStepper session={found} />
+        <SessionProgress session={found} />
       </PageBody>
     </>
   );

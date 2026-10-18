@@ -48,7 +48,9 @@ export const Info: Story = {
 export const Danger: Story = {
   args: {
     tone: 'danger',
-    title: 'Claude couldn’t start',
-    children: <span>Claude Code’s login didn’t work. Sign in with `claude` in a terminal, then start again.</span>,
+    title: "Claude couldn't start",
+    children: (
+      <span>Claude Code&apos;s login didn&apos;t work. Sign in with `claude` in a terminal, then start again.</span>
+    ),
   },
 };

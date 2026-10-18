@@ -78,7 +78,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 25: Build the Session screen's frame: the breadcrumb (Q9e), "Started 4 min ago", Open in Jira, the title with its pill, branch and line, and Stop Claude ("Stopping…", then focus on the title). Add the loading skeleton, Not found and the load error (AC-9, AC-16, AC-17, AC-19, Q9e, Q10b)
       Check: pnpm test packages/app/src/features/sessions/session-screen.test.tsx
       Files: packages/app/src/features/sessions/session-screen.tsx, session-screen.test.tsx, components/session-header.tsx, session-header.test.tsx
-- [ ] Task 26: Add the stepper and Claude's progress: the heading, the time counting each second while working, the steps (running plain, done ticked) and the danger callout when it couldn't start, full width until 013 (AC-4, AC-7, AC-8, AC-13, AC-14, Q9a, Q9f, Q9g, Q10f)
+- [x] Task 26: Add the stepper and Claude's progress: the heading, the time counting each second while working, the steps (running plain, done ticked) and the danger callout when it couldn't start, full width until 013 (AC-4, AC-7, AC-8, AC-13, AC-14, Q9a, Q9f, Q9g, Q10f)
       Check: pnpm test packages/app/src/features/sessions/components/session-progress.test.tsx
       Files: packages/app/src/features/sessions/components/session-progress.tsx, session-progress.test.tsx, packages/app/src/features/sessions/session-screen.tsx
 - [ ] Task 27: Add Discard changes under the progress and its confirm step in a `Dialog`, with focus on Cancel, Esc back to the button, and the discarded step afterwards (AC-10, AC-18, Q9c, Q10e)

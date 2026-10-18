@@ -159,7 +159,7 @@ function ReasonItems({ reason, project }: { reason: Reason | null; project: stri
     case 'signed_out':
       return (
         <>
-          <MenuLabel>Claude Code isn’t signed in.</MenuLabel>
+          <MenuLabel>Claude Code isn&apos;t signed in.</MenuLabel>
           <MenuItem asChild>
             <Link to="/settings/$tab" params={{ tab: 'coding-agent' }}>
               Open Settings › Coding agent
