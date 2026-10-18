@@ -41,7 +41,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: Add `DEVHUB_SANDBOX` (`required` by default, `assume` for a fake Claude Code) to the server's config, `.env.example` and `turbo.json`, pass the sandbox check to `createServer()`, and run the e2e hubs with `assume` (AC-20, AC-23)
       Check: pnpm test apps/server; pnpm gate env-policy
       Files: apps/server/src/config.ts, apps/server/src/config.test.ts, apps/server/src/main.ts, .env.example, turbo.json, playwright.config.ts
-- [ ] Task 14: Teach the e2e fake Claude Code to ask: a `Bash` call that asks `can_use_tool` and runs what the answer allows (writes a file the test can see), picked by the ticket's title: a plain command, a network command, an edit in Ask before everything, and two commands at once; probe the pinned SDK's flags for the sandbox settings and record them (AC-23)
+- [x] Task 14: Teach the e2e fake Claude Code to ask: a `Bash` call that asks `can_use_tool` and runs what the answer allows (writes a file the test can see), picked by the ticket's title: a plain command, a network command, an edit in Ask before everything, and two commands at once; probe the pinned SDK's flags for the sandbox settings and record them (AC-23)
       Check: pnpm test:e2e e2e/sessions.spec.ts (still passes); the probe's record in learn/
       Files: e2e/fake-claude/session.ts, e2e/fake-claude/probe.ts, learn/sessions-and-worktrees.md
 - [ ] Task 15: Add `respondToApproval` to the api-client, parsed with the contract, with its MSW test (AC-2)
