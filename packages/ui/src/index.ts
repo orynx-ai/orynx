@@ -134,6 +134,7 @@ export {
   type TableProps,
 } from './components/table.tsx';
 export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsTriggerProps } from './components/tabs.tsx';
+export { Tooltip, TooltipProvider, type TooltipProps } from './components/tooltip.tsx';
 export {
   WorkItemBuild,
   WorkItemCard,

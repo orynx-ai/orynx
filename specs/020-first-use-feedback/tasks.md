@@ -4,7 +4,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## D. Tooltips (first, because every part uses them)
 
-- [ ] Task 1: `Tooltip` in `@devhub/ui`: Radix Tooltip drawn like a menu (Q1), its own provider when none is above it, opens on rest and on focus, Escape closes (AC-9, AC-10)
+- [x] Task 1: `Tooltip` in `@devhub/ui`: Radix Tooltip drawn like a menu (Q1), its own provider when none is above it, opens on rest and on focus, Escape closes (AC-9, AC-10)
       Check: pnpm test packages/ui/src/components/tooltip.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/tooltip.tsx, tooltip.stories.tsx, tooltip.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 2: `IconButton` in `@devhub/ui`: `label` is the tooltip and, unless `aria-label` says more, the name; Button's icon stories move to it (AC-9, AC-10)
