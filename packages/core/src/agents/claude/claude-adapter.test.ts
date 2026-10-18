@@ -668,6 +668,18 @@ describe('the Claude adapter', () => {
     expect(sdk.runs[0]?.decisions).toEqual([]);
   });
 
+  it('013 AC-2: says files may have changed after an edit and after a command, so the Changes tab can look', async () => {
+    const { adapter } = setUp([
+      { tool: 'Read', input: { file_path: 'src/a.ts' } },
+      { tool: 'Edit', input: { file_path: join(worktree, 'src', 'a.ts'), old_string: '1', new_string: '2' } },
+      { finish: 'Done.' },
+    ]);
+    const { id, events } = await runToEnd(adapter);
+    const kinds = events.map((event) => (event.type === 'work' ? event.work.kind : event.type));
+    expect(kinds).toEqual(['started', 'explore', 'edit', 'files_changed', 'finished', 'ended']);
+    expect(events).toContainEqual({ type: 'files_changed', sessionId: id });
+  });
+
   it('stopping a session that has ended, or one it never started, is fine', async () => {
     const { adapter } = setUp([{ finish: 'Done.' }]);
     const { id } = await runToEnd(adapter);

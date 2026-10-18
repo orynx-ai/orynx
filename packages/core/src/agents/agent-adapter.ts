@@ -82,6 +82,8 @@ export type AgentEvent =
   | { type: 'work'; sessionId: string; work: AgentWork }
   /** A call waits for your answer until `respond()`, Stop, or the agent drops it (spec 012). */
   | { type: 'approval'; sessionId: string; approvalId: string; ask: AgentAsk }
+  /** An edit or a command ended, so the worktree's files may have changed (spec 013, AC-2). */
+  | { type: 'files_changed'; sessionId: string }
   /** A waiting call ended: `allowed` only when you allowed it. Comes before the work it lets happen. */
   | { type: 'answered'; sessionId: string; approvalId: string; allowed: boolean }
   /** `code` is safe to log; it never holds the agent's own words. */

@@ -280,6 +280,8 @@ export function createClaudeAdapter({
                 if (sandbox === null) emit(running, { type: 'work', sessionId: id, work: { kind: 'no_commands' } });
               } else if (said.type === 'work') {
                 emit(running, { type: 'work', sessionId: id, work: said.work });
+              } else if (said.type === 'files_changed') {
+                emit(running, { type: 'files_changed', sessionId: id });
               } else if (said.type === 'turn_ended') {
                 // A Claude Code too old to say which messages it took is done when none are queued.
                 if (said.took === null && said.queued === 0) running.unread.clear();

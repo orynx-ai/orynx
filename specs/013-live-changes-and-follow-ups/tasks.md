@@ -39,7 +39,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: Let the adapter resume: `startSession` takes `{ resume }` and passes the SDK's `resume` with every other option unchanged, and a resumed run that ends before `init`, or whose `init` names another session id, is the `resume` problem (AC-11, AC-13, AC-16)
       Check: pnpm test packages/core/src/agents/claude/claude-adapter.test.ts
       Files: packages/core/src/agents/agent-adapter.ts, packages/core/src/agents/claude/claude-adapter.ts, packages/core/src/agents/claude/claude-adapter.test.ts, packages/core/src/agents/claude/sdk-messages.ts, packages/core/src/test/fake-claude-sdk.ts
-- [ ] Task 13: Say when files may have changed: the reader marks the result of an edit or a command, and the adapter emits `files_changed` (AC-2)
+- [x] Task 13: Say when files may have changed: the reader marks the result of an edit or a command, and the adapter emits `files_changed` (AC-2)
       Check: pnpm test packages/core/src/agents/claude/sdk-messages.test.ts packages/core/src/agents/claude/claude-adapter.test.ts
       Files: packages/core/src/agents/agent-adapter.ts, packages/core/src/agents/claude/sdk-messages.ts, packages/core/src/agents/claude/sdk-messages.test.ts, packages/core/src/agents/claude/claude-adapter.ts, packages/core/src/agents/claude/claude-adapter.test.ts
 - [ ] Task 14: Send a follow-up into a live run in the session service: the `message` step, the state and stepper left as they are, a message that arrives after the input closed falling through to a resume, `session.files.changed` at most once a second, Q2a's sentence in the note, and the log naming only the session (AC-2, AC-12, AC-17, AC-23, Q2)

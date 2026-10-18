@@ -22,6 +22,8 @@ export type ReadMessage =
    * adapter decides from these whether Claude has finished.
    */
   | { type: 'turn_ended'; summary: string; queued: number; took: readonly string[] | null }
+  /** An edit or a command has ended, so the worktree's files may have changed (spec 013, AC-2). */
+  | { type: 'files_changed' }
   | { type: 'problem'; kind: ProblemKind; code: string };
 
 const InitSchema = z.object({
@@ -191,11 +193,14 @@ export function createMessageReader(
         if (command.success && !decidedByOrynx(done.data.tool_use_id)) {
           said.push({ type: 'work', work: { kind: 'command', command: command.data.command } });
         }
+        // A command can write anything, even one that failed part way.
+        said.push({ type: 'files_changed' });
         continue;
       }
       if (call === undefined || done.data.is_error === true) continue;
       const work = workOf(call.name, call.input);
       if (work !== null) said.push({ type: 'work', work });
+      if (work?.kind === 'edit') said.push({ type: 'files_changed' });
     }
     return said;
   };
