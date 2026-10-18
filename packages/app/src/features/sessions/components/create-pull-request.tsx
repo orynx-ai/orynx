@@ -68,7 +68,6 @@ function PullRequestForm({
   return (
     <form noValidate aria-label={pullRequestWords.create} className="flex min-h-0 flex-col gap-4" onSubmit={submit}>
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
-        {draft.byClaude ? null : <p className="m-0 text-small text-muted-foreground">{pullRequestWords.notDrafted}</p>}
         <Field label={pullRequestWords.title} error={errors.title?.message}>
           <Input
             readOnly={creating}
@@ -97,7 +96,11 @@ function PullRequestForm({
             })}
           />
         </Field>
-        <p className="m-0 text-small text-muted-foreground">{whatHappensLine(draft)}</p>
+        {/* Under the fields, where "Claude is drafting…" was, so the fields never move (AC-23). */}
+        <p className="m-0 text-small text-muted-foreground max-md:min-h-20">
+          {draft.byClaude ? null : <span>{pullRequestWords.notDrafted} </span>}
+          <span>{whatHappensLine(draft)}</span>
+        </p>
       </div>
       {failed === null && !failedToSend ? null : (
         <p role="alert" className="m-0 text-small text-danger">
@@ -136,9 +139,6 @@ function PullRequestForm({
 function Drafting({ onCancel }: { onCancel: () => void }) {
   return (
     <div className="flex flex-col gap-4">
-      <p role="status" className="m-0 text-small text-muted-foreground">
-        {pullRequestWords.drafting}
-      </p>
       <div aria-hidden className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <span className="text-small font-medium text-foreground">{pullRequestWords.title}</span>
@@ -150,15 +150,18 @@ function Drafting({ onCancel }: { onCancel: () => void }) {
           <Skeleton className="h-64.5 w-full" />
           <span className="text-small text-muted-foreground">{pullRequestWords.descriptionHelp}</span>
         </div>
-        <span className="flex h-5 items-center">
-          <Skeleton className="h-4 w-3/4" />
-        </span>
       </div>
+      {/* Where the line about what Create will do comes, so the fields above never move. */}
+      {/* As tall as that line on a narrow window, where it takes up to four lines, so the buttons stay put. */}
+      <p role="status" className="m-0 text-small text-muted-foreground max-md:min-h-20">
+        {pullRequestWords.drafting}
+      </p>
       <div className="flex flex-wrap justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onCancel}>
           {pullRequestWords.cancel}
         </Button>
-        <Button type="button" variant="primary" disabled>
+        {/* `pending` too, so it's as wide as the form's Create and wraps the same way. */}
+        <Button type="button" variant="primary" pending={false} disabled>
           {pullRequestWords.create}
         </Button>
       </div>
@@ -320,9 +323,20 @@ export function CreatePullRequest({
       >
         <div className="flex flex-col gap-1">
           <DialogTitle>{pullRequestWords.create}</DialogTitle>
-          <p id={describedBy} className="m-0 font-mono text-code text-muted-foreground">
-            {current === undefined ? <Skeleton className="h-5 w-64 max-w-full" /> : whereLine(current.draft)}
-          </p>
+          {/* One line, cut short on a narrow window, so it takes its skeleton's place exactly; the whole line on hover. */}
+          {current === undefined ? (
+            <span id={describedBy} className="flex h-5 items-center">
+              <Skeleton className="h-4 w-64 max-w-full" />
+            </span>
+          ) : (
+            <p
+              id={describedBy}
+              title={whereLine(current.draft)}
+              className="m-0 truncate font-mono text-code text-muted-foreground"
+            >
+              {whereLine(current.draft)}
+            </p>
+          )}
         </div>
         {body}
       </DialogContent>

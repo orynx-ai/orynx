@@ -120,16 +120,23 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
   );
 }
 
-/** The title row's loading form: the same lines, so nothing moves when the session arrives (AC-16). */
+/**
+ * The title row's loading form: the same lines, and the button Claude's state offers (Stop Claude, Create pull
+ * request or Open PR), wrapping under them on a narrow window as it does, so nothing moves when the session
+ * arrives (AC-16; spec 014, AC-23).
+ */
 export function SessionHeaderSkeleton() {
   return (
-    <div aria-hidden className="flex flex-col gap-1.5">
-      <span className="flex h-7 items-center">
-        <Skeleton className="h-5 w-2/3" />
-      </span>
-      <span className="flex h-6 items-center">
-        <Skeleton className="h-4 w-1/2" />
-      </span>
+    <div aria-hidden className="flex flex-wrap items-start gap-3">
+      <div className="flex min-w-0 flex-1 basis-90 flex-col gap-1.5">
+        <span className="flex h-7 items-center">
+          <Skeleton className="h-5 w-2/3" />
+        </span>
+        <span className="flex h-6 items-center">
+          <Skeleton className="h-4 w-1/2" />
+        </span>
+      </div>
+      <Skeleton className="h-10 w-44" />
     </div>
   );
 }

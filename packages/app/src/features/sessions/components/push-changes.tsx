@@ -155,7 +155,7 @@ export function PushChanges({ session, repository }: { session: Session; reposit
           <Button type="button" variant="secondary" onClick={cancel}>
             {pullRequestWords.cancel}
           </Button>
-          <Button type="button" variant="primary" disabled>
+          <Button type="button" variant="primary" pending={false} disabled>
             {pullRequestWords.push}
           </Button>
         </div>
