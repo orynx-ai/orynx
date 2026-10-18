@@ -15,12 +15,20 @@ import { createMemoryKeychain } from '../secrets/memory-keychain.ts';
 import { createTokenStore } from '../secrets/token-store.ts';
 import { createMemorySettingsStore } from '../settings/settings-store.ts';
 import { fakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
-import { acceptingPulls, acceptingRepository, githubToken, useFakeGitHub } from '../test/fake-github.ts';
+import { http, HttpResponse } from 'msw';
+import {
+  acceptingPulls,
+  acceptingRepository,
+  githubToken,
+  pullsUrl,
+  useFakeGitHub,
+  type FakeOpenedPull,
+} from '../test/fake-github.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { createBranchGit } from './branch-git.ts';
 import { createChangesReader } from './changes.ts';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
-import { createPullRequests } from './pull-requests.ts';
+import { createPullRequests, type PullRequestReport } from './pull-requests.ts';
 import type { StoredSession } from './session-store.ts';
 import { createWorktrees } from './worktrees.ts';
 
@@ -115,15 +123,19 @@ async function setUp({
   const adapter = noClaude
     ? null
     : createClaudeAdapter({ query: sdk.query, program: '/opt/claude/claude', env: {}, home: repos.root });
+  const reports: PullRequestReport[] = [];
   const pulls = createPullRequests({
     records,
+    save: (saving, update) => records.update(saving, update),
+    now: () => Date.parse('2026-10-18T10:30:00.000Z'),
+    onReport: (report) => reports.push(report),
     github: connection,
     client: createGitHubClient({ timeoutMs: 500 }),
     git: createBranchGit({ env }),
     changes: createChangesReader({ env }),
     adapter,
   });
-  return { repos, home, worktree, records, sdk, pulls };
+  return { repos, home, worktree, records, sdk, pulls, reports };
 }
 
 const hashOf = async (path: string) =>
@@ -261,5 +273,224 @@ describe('drafting the pull request (spec 014)', () => {
   it('answers null for a session it doesn’t have', async () => {
     const { pulls } = await setUp();
     expect(await pulls.draft('fedcba9876543210')).toBeNull();
+  });
+});
+
+/** Gives git the name and email the commit is made with, as your ~/.gitconfig would. */
+async function withIdentity(root: string) {
+  await writeFile(
+    join(root, '.gitconfig'),
+    '[init]\n\tdefaultBranch = main\n[user]\n\tname = Rakesh D\n\temail = you@company.com\n',
+  );
+}
+
+const asked = { title: 'PROJ-1423: Add bulk archive to the content list', body: 'What changed.\n\nJira: PROJ-1423' };
+const pullUrl = 'https://github.com/acme/web-app/pull/2841';
+
+/** A session with Claude's change in its worktree, GitHub ready to open pull requests, and your git identity. */
+async function readyToCreate(options: SetUpOptions = {}) {
+  const set = await setUp(options);
+  await withIdentity(set.repos.root);
+  await writeFile(join(set.worktree, 'README.md'), '# web-app\n\nBulk archive.\n');
+  await writeFile(join(set.worktree, 'select.ts'), 'export const select = true;\n');
+  const opened: FakeOpenedPull[] = [];
+  github.use(...acceptingPulls({ opened }), acceptingRepository());
+  return { ...set, opened };
+}
+
+describe('creating the pull request (spec 014)', () => {
+  it('AC-4, AC-5: commits, pushes the branch and opens the pull request as you left it, then saves it as PR open', async () => {
+    const { repos, worktree, records, opened, pulls, reports } = await readyToCreate();
+    const mainBefore = await repos.git(repos.origin, 'rev-parse', 'refs/heads/main');
+
+    expect(await pulls.create(id, asked)).toEqual({ result: 'opened', number: 2841, url: pullUrl, linked: false });
+
+    const head = await repos.git(worktree, 'rev-parse', 'HEAD');
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/feat/PROJ-1423')).toBe(head);
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/main')).toBe(mainBefore);
+    expect(await repos.git(worktree, 'log', '-1', '--format=%an <%ae>%n%B')).toBe(
+      `Rakesh D <you@company.com>\n${asked.title}\n\nCo-Authored-By: Claude <noreply@anthropic.com>`,
+    );
+    expect(opened).toEqual([
+      { owner: 'acme', repository: 'web-app', number: 2841, head: 'feat/PROJ-1423', base: 'main', ...asked },
+    ]);
+    const saved = await records.get(id);
+    expect(saved?.session).toMatchObject({
+      state: 'pr_open',
+      step: 'pull_request',
+      pullRequest: { number: 2841, url: pullUrl, repository: 'acme/web-app', openedAt: '2026-10-18T10:30:00.000Z' },
+    });
+    expect(saved?.session.activities.at(-1)).toMatchObject({
+      kind: 'pull_request',
+      number: 2841,
+      url: pullUrl,
+      files: 2,
+      branch: 'feat/PROJ-1423',
+      linked: false,
+    });
+    expect(saved?.pushedCommit).toBe(head);
+    expect(reports).toEqual([
+      { what: 'pull_request', session: id, ticket: 'PROJ-1423', step: 'create', outcome: 'opened', number: 2841 },
+    ]);
+  });
+
+  it('AC-5: commits nothing when Claude committed everything, and only pushes', async () => {
+    const { repos, worktree, records, pulls } = await readyToCreate();
+    await repos.git(worktree, 'add', '.');
+    await repos.git(worktree, 'commit', '-m', 'Claude committed this');
+    expect(await pulls.create(id, asked)).toMatchObject({ result: 'opened' });
+    expect(await repos.git(worktree, 'log', '-1', '--format=%s')).toBe('Claude committed this');
+    expect((await records.get(id))?.session.activities.at(-1)).toMatchObject({ kind: 'pull_request', files: 0 });
+  });
+
+  it('AC-11: links an open pull request GitHub already has from the branch, as it is', async () => {
+    const { pulls, opened, records } = await readyToCreate();
+    opened.push({
+      owner: 'acme',
+      repository: 'web-app',
+      number: 2840,
+      head: 'feat/PROJ-1423',
+      base: 'main',
+      title: 'Mine',
+      body: '',
+    });
+    expect(await pulls.create(id, asked)).toEqual({
+      result: 'opened',
+      number: 2840,
+      url: 'https://github.com/acme/web-app/pull/2840',
+      linked: true,
+    });
+    expect(opened.map((pull) => pull.title)).toEqual(['Mine']);
+    expect((await records.get(id))?.session.activities.at(-1)).toMatchObject({ kind: 'pull_request', linked: true });
+  });
+
+  it('AC-8: a new file that looks like a secret stops everything: no commit, no push, nothing saved', async () => {
+    const { repos, worktree, records, pulls } = await readyToCreate();
+    await writeFile(join(worktree, '.env.local'), 'TOKEN=x\n');
+    const before = await records.get(id);
+    const head = await repos.git(worktree, 'rev-parse', 'HEAD');
+    expect(await pulls.create(id, asked)).toEqual({
+      result: 'failed',
+      problem: { kind: 'secret', path: '.env.local' },
+    });
+    expect(await repos.git(worktree, 'rev-parse', 'HEAD')).toBe(head);
+    expect(await repos.git(repos.origin, 'branch', '--list', 'feat/*')).toBe('');
+    expect(await records.get(id)).toEqual(before);
+  });
+
+  it('AC-8: says git has no name and email for you, and pushes nothing', async () => {
+    const { repos, pulls } = await readyToCreate();
+    await writeFile(join(repos.root, '.gitconfig'), '[init]\n\tdefaultBranch = main\n');
+    expect(await pulls.create(id, asked)).toEqual({ result: 'failed', problem: { kind: 'no_identity' } });
+    expect(await repos.git(repos.origin, 'branch', '--list', 'feat/*')).toBe('');
+  });
+
+  it('AC-9: a rejected push keeps Orynx’s commit, and the next press pushes it without making another', async () => {
+    const { repos, worktree, pulls, records } = await readyToCreate();
+    const other = join(repos.root, 'other');
+    await repos.git(repos.root, 'clone', repos.origin, other);
+    await repos.git(other, 'checkout', '-b', 'feat/PROJ-1423');
+    await writeFile(join(other, 'theirs.ts'), 'theirs\n');
+    await repos.git(other, 'add', '.');
+    await repos.git(other, 'commit', '-m', 'Their commit');
+    await repos.git(other, 'push', 'origin', 'feat/PROJ-1423');
+
+    expect(await pulls.create(id, asked)).toEqual({ result: 'failed', problem: { kind: 'push_rejected' } });
+    expect(await repos.git(worktree, 'log', '-1', '--format=%s')).toBe(asked.title);
+    expect((await records.get(id))?.session.pullRequest).toBeNull();
+
+    await repos.git(repos.origin, 'branch', '-D', 'feat/PROJ-1423');
+    expect(await pulls.create(id, asked)).toMatchObject({ result: 'opened' });
+    expect(await repos.git(worktree, 'log', '--format=%s', `${(await records.get(id))?.startCommit ?? ''}..HEAD`)).toBe(
+      asked.title,
+    );
+  });
+
+  it("AC-9: says git couldn't sign in to origin", async () => {
+    const { repos, pulls } = await readyToCreate();
+    const program = join(repos.root, 'fake-ssh');
+    await writeFile(program, '#!/bin/sh\necho "Permission denied (publickey)." >&2\nexit 255\n', { mode: 0o755 });
+    await repos.git(repos.clone, 'config', 'core.sshCommand', program);
+    await repos.git(repos.clone, 'config', '--unset', `url.${repos.origin}.pushInsteadOf`);
+    expect(await pulls.create(id, asked)).toEqual({ result: 'failed', problem: { kind: 'push_auth' } });
+  });
+
+  it('AC-10: GitHub refusing after the push leaves the branch pushed, and the next press opens the pull request', async () => {
+    const { repos, worktree, pulls } = await readyToCreate();
+    github.use(http.post(pullsUrl, () => HttpResponse.json({ message: 'Must have admin rights' }, { status: 403 })));
+    expect(await pulls.create(id, asked)).toEqual({ result: 'failed', problem: { kind: 'github_forbidden' } });
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/feat/PROJ-1423')).toBe(
+      await repos.git(worktree, 'rev-parse', 'HEAD'),
+    );
+    github.resetHandlers(...acceptingPulls(), acceptingRepository());
+    expect(await pulls.create(id, asked)).toMatchObject({ result: 'opened', number: 2841 });
+  });
+
+  it.each([
+    [
+      'single sign-on',
+      () =>
+        HttpResponse.json(
+          { message: 'SAML' },
+          {
+            status: 403,
+            headers: { 'X-GitHub-SSO': 'required; url=https://github.com/orgs/acme/sso?authorization_request=A1' },
+          },
+        ),
+      { kind: 'github_sso', url: 'https://github.com/orgs/acme/sso?authorization_request=A1' },
+    ],
+    [
+      'the rate limit',
+      () =>
+        HttpResponse.json(
+          { message: 'API rate limit exceeded' },
+          { status: 403, headers: { 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '1792234500' } },
+        ),
+      { kind: 'rate_limited', resetAt: '2026-10-17T10:55:00.000Z' },
+    ],
+    ['an unreachable GitHub', () => HttpResponse.error(), { kind: 'github_unreachable' }],
+    [
+      'nothing to merge',
+      () =>
+        HttpResponse.json(
+          { message: 'Validation Failed', errors: [{ message: 'No commits between main and feat/PROJ-1423' }] },
+          { status: 422 },
+        ),
+      { kind: 'no_commits' },
+    ],
+    [
+      'any other refusal',
+      () => HttpResponse.json({ message: 'Validation Failed' }, { status: 422 }),
+      { kind: 'github_refused' },
+    ],
+    [
+      'a refused token',
+      () => HttpResponse.json({ message: 'Bad credentials' }, { status: 401 }),
+      { kind: 'github_refused' },
+    ],
+  ])('AC-10: says when GitHub refuses the pull request: %s', async (_what, answer, problem) => {
+    const { pulls } = await readyToCreate();
+    github.use(http.post(pullsUrl, answer));
+    expect(await pulls.create(id, asked)).toEqual({ result: 'failed', problem });
+  });
+
+  it('AC-13: two presses at once make one commit, one push and one pull request', async () => {
+    const { repos, worktree, records, opened, pulls } = await readyToCreate();
+    const answers = await Promise.all([pulls.create(id, asked), pulls.create(id, asked)]);
+    expect(answers).toEqual([
+      { result: 'opened', number: 2841, url: pullUrl, linked: false },
+      { result: 'opened', number: 2841, url: pullUrl, linked: false },
+    ]);
+    expect(opened).toHaveLength(1);
+    const start = (await records.get(id))?.startCommit ?? '';
+    expect(await repos.git(worktree, 'rev-list', '--count', `${start}..HEAD`)).toBe('1');
+  });
+
+  it("AC-7: says why there can't be a pull request, as the draft does", async () => {
+    const { pulls } = await readyToCreate({ connected: false });
+    expect(await pulls.create(id, asked)).toEqual({ result: 'cannot', reason: 'not_connected' });
+    const working = await readyToCreate({ session: { state: 'working' } });
+    expect(await working.pulls.create(id, asked)).toEqual({ result: 'cannot', reason: 'working' });
+    expect(await pulls.create('fedcba9876543210', asked)).toBeNull();
   });
 });
