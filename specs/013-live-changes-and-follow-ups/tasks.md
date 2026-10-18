@@ -15,10 +15,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Add the changes contracts: `SessionChangesSchema` (why there are none, files with counts, binary and renamed-from, how many more, totals), `DiffLineSchema` with the `hunk` kind, `FileDiffSchema` (lines, binary, renamed-from, cut short), both paths, the `session.files.changed` event with only the id, and the builders (AC-2, AC-3, AC-5, AC-6, AC-23)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/changes.ts, packages/contracts/src/changes.test.ts, packages/contracts/src/events.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
-- [ ] Task 5: Add `editor` (`vscode` or `cursor`, `vscode` by default, so saved settings without it still read) to the preferences and an `editor` change, with the builders (AC-20, AC-26, Q9)
+- [x] Task 5: Add `editor` (`vscode` or `cursor`, `vscode` by default, so saved settings without it still read) to the preferences and an `editor` change, with the builders (AC-20, AC-26, Q9)
       Check: pnpm test packages/contracts/src/preferences.test.ts; pnpm typecheck
       Files: packages/contracts/src/preferences.ts, packages/contracts/src/preferences.test.ts, packages/contracts/src/testing.ts
-- [ ] Task 6: Read and save `agent.editor` in the preferences service: keep every other setting, say `settings.changed`, and read a `settings.json` without it as VS Code (AC-26)
+- [x] Task 6: Read and save `agent.editor` in the preferences service: keep every other setting, say `settings.changed`, and read a `settings.json` without it as VS Code (AC-26)
       Check: pnpm test packages/core/src/preferences; pnpm test packages/core/src/routes/preferences.test.ts
       Files: packages/core/src/preferences/preferences-service.ts, packages/core/src/preferences/preferences-service.test.ts, packages/core/src/routes/preferences.test.ts
 - [ ] Task 7: Record the commit a worktree starts from (`git rev-parse HEAD` in the new worktree) and keep it with the session as `startCommit` (null for older sessions) (AC-4)

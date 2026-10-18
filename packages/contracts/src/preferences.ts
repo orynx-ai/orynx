@@ -8,6 +8,10 @@ import { AllowedCommandSchema } from './commands.ts';
 export const PermissionModeSchema = z.enum(['ask_everything', 'edit_freely_ask_commands', 'edit_and_run_allowed']);
 export type PermissionMode = z.infer<typeof PermissionModeSchema>;
 
+/** Settings › Coding agent's Editor: where Open in opens a session's worktree (spec 013, Q9). */
+export const EditorSchema = z.enum(['vscode', 'cursor']);
+export type Editor = z.infer<typeof EditorSchema>;
+
 /**
  * Settings › Inbox rules: one per row of the product spec's "What counts as needs you" table. Home
  * (spec 007) applies them. Slack's rule and its wait time join in spec 016 (spec 005, Q6).
@@ -31,6 +35,7 @@ export const PreferencesSchema = z.object({
   inboxRules: InboxRulesSchema,
   /** Commands that run without asking in "Edit files and run allowed commands" (spec 012), as saved, in the order they were added. */
   allowedCommands: z.array(z.string().min(1)),
+  editor: EditorSchema,
 });
 export type Preferences = z.infer<typeof PreferencesSchema>;
 
@@ -45,6 +50,7 @@ export const defaultPreferences: Preferences = {
     session_waiting: true,
   },
   allowedCommands: [],
+  editor: 'vscode',
 };
 
 /**
@@ -59,8 +65,9 @@ export const PreferencesChangeSchema = z
     allowCommand: AllowedCommandSchema.optional(),
     /** One entry to take off the list, as it was saved. */
     disallowCommand: z.string().min(1).optional(),
+    editor: EditorSchema.optional(),
   })
   .refine((change) => Object.values(change).some((value) => value !== undefined), {
-    message: 'Send the mode, at least one rule, or a command.',
+    message: 'Send the mode, at least one rule, a command, or the editor.',
   });
 export type PreferencesChange = z.infer<typeof PreferencesChangeSchema>;

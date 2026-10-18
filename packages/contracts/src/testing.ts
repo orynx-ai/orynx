@@ -222,6 +222,7 @@ export interface PreferencesOverrides {
   /** Override some rules and keep the others on. */
   inboxRules?: Partial<InboxRules>;
   allowedCommands?: string[];
+  editor?: Preferences['editor'];
 }
 
 /** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
@@ -230,6 +231,7 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
     permissionMode: overrides.permissionMode ?? defaultPreferences.permissionMode,
     inboxRules: { ...defaultPreferences.inboxRules, ...overrides.inboxRules },
     allowedCommands: overrides.allowedCommands ?? [],
+    editor: overrides.editor ?? defaultPreferences.editor,
   });
 }
 

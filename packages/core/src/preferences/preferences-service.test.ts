@@ -77,6 +77,20 @@ describe('preferences service', () => {
     expect((await noList.read()).allowedCommands).toEqual([]);
   });
 
+  it('013 AC-26: saves the editor beside the mode, and says settings changed', async () => {
+    const { preferences, settings, seen } = service({ agent: { permissionMode: 'ask_everything' } });
+    const answer = await preferences.change({ editor: 'cursor' });
+    expect(answer).toMatchObject({ editor: 'cursor', permissionMode: 'ask_everything' });
+    expect((await settings.read()).agent).toEqual({ permissionMode: 'ask_everything', editor: 'cursor' });
+    expect(seen).toEqual([{ type: 'settings.changed' }]);
+  });
+
+  it("013 AC-20: reads VS Code when settings.json has no editor, or one it doesn't know", async () => {
+    expect((await service().preferences.read()).editor).toBe('vscode');
+    expect((await service({ agent: { editor: 'zed' } }).preferences.read()).editor).toBe('vscode');
+    expect((await service({ agent: { editor: 'cursor' } }).preferences.read()).editor).toBe('cursor');
+  });
+
   it('AC-18: leaves the Jira and GitHub settings as they were', async () => {
     const { preferences, settings } = service({ jira, github: { method: 'gh' } });
 
