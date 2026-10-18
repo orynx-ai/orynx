@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { File, Folder, GitBranch, Plus, Settings } from 'lucide-react';
 import { Button } from './button.tsx';
-import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from './menu.tsx';
+import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from './menu.tsx';
+import { Picker } from './picker.tsx';
 import { SourceMark } from './source-mark.tsx';
 
 const meta = {
@@ -93,5 +95,39 @@ export const Folders: Story = {
         </MenuItem>
       </MenuContent>
     </Menu>
+  ),
+};
+
+function ReasonFilter() {
+  const reasons = ['Approve command', 'Checks failing', 'Review requested', 'Unresolved comments'];
+  const [ticked, setTicked] = useState<string[]>(['Checks failing', 'Review requested']);
+  return (
+    <Menu defaultOpen modal={false}>
+      <MenuTrigger asChild>
+        <Picker>{ticked.length === 0 ? 'Reason' : `Reason · ${String(ticked.length)}`}</Picker>
+      </MenuTrigger>
+      <MenuContent aria-label="Reason">
+        {reasons.map((reason) => (
+          <MenuCheckboxItem
+            key={reason}
+            checked={ticked.includes(reason)}
+            onCheckedChange={(on) => {
+              setTicked((now) => (on ? [...now, reason] : now.filter((each) => each !== reason)));
+            }}
+          >
+            {reason}
+          </MenuCheckboxItem>
+        ))}
+      </MenuContent>
+    </Menu>
+  );
+}
+
+/** A filter on Home's toolbar: ticked options carry the check, and the menu stays open while you tick. */
+export const Filter: Story = {
+  render: () => (
+    <div className="min-h-72">
+      <ReasonFilter />
+    </div>
   ),
 };

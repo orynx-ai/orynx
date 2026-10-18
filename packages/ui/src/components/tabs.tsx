@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ComponentProps } from 'react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
+import { Skeleton } from './skeleton.tsx';
 
 /** Scrolls the tab list sideways, and only it, until `tab` is fully in view. */
 function scrollIntoList(tab: HTMLElement): void {
@@ -54,8 +55,11 @@ export function TabsList({ className, ...props }: ComponentProps<typeof TabsPrim
 }
 
 export type TabsTriggerProps = ComponentProps<typeof TabsPrimitive.Trigger> & {
-  /** Shown after the label, e.g. the number of items in that tab. */
-  count?: number;
+  /**
+   * Shown after the label, e.g. the number of items in that tab. `null` while it's on its way: a blank
+   * bubble keeps its room, so the tabs don't move when it arrives (spec 007 Q11d).
+   */
+  count?: number | null;
 };
 
 export function TabsTrigger({ className, count, children, ...props }: TabsTriggerProps) {
@@ -70,10 +74,12 @@ export function TabsTrigger({ className, count, children, ...props }: TabsTrigge
       {...props}
     >
       {children}
-      {count === undefined ? null : ' '}
-      {count === undefined ? null : (
+      {typeof count === 'number' ? ' ' : null}
+      {typeof count === 'number' ? (
         <span className="rounded-full bg-subtle px-1.5 text-label font-medium text-muted-foreground">{count}</span>
-      )}
+      ) : count === null ? (
+        <Skeleton shape="circle" className="h-4 w-6" />
+      ) : null}
     </TabsPrimitive.Trigger>
   );
 }

@@ -1,4 +1,4 @@
-<!-- learn-sources: packages/contracts/src/inbox.ts packages/core/src/inbox/inbox-cache.ts packages/core/src/inbox/inbox-service.ts packages/core/src/inbox/inbox-schedule.ts packages/core/src/inbox/rules.ts packages/core/src/routes/inbox.ts packages/core/src/integrations/jira/map.ts packages/core/src/integrations/github/map.ts packages/app/src/features/home/inbox-words.ts packages/app/src/features/home/queries.ts packages/app/src/live-updates.tsx -->
+<!-- learn-sources: packages/contracts/src/inbox.ts packages/core/src/inbox/inbox-cache.ts packages/core/src/inbox/inbox-service.ts packages/core/src/inbox/inbox-schedule.ts packages/core/src/inbox/rules.ts packages/core/src/routes/inbox.ts packages/core/src/integrations/jira/map.ts packages/core/src/integrations/github/map.ts packages/app/src/features/home/inbox-words.ts packages/app/src/features/home/queries.ts packages/app/src/features/home/components/attention-panel.tsx packages/app/src/features/home/components/sync-status.tsx packages/app/src/features/home/inbox-view.ts packages/app/src/features/home/components/inbox-toolbar.tsx packages/app/src/live-updates.tsx e2e/fake-tools/preload.ts -->
 
 # The inbox: how "Needs your attention" stays up to date
 
@@ -50,6 +50,19 @@ The server sends data: each row's reason (`review_requested`, `due` with a calen
 
 Waits read in minutes, hours and days ("12 min", "3 h", "9 d"), with a spoken form ("9 days") for screen readers.
 
+## On Home
+
+- **The panel** (`attention-panel.tsx`) draws the rows with 006's `AttentionRow`. A tab whose tools are all on their first sync shows five loading rows and no count.
+- **Search, filters, order and pages** (the amendment of 17 Oct 2026) all happen in the browser, on the rows the page already has (at most 300), so the server never hears of them. `inbox-view.ts` holds them as pure functions: the address in and out, matching (every word typed, across title, key, number, repository, author and status), filtering (any tick within a menu, every menu together), the newest or longest wait first, and pages of 16. Everything lives in the address next to the tab (`q`, `reason`, `project`, `status`, `repo` as comma lists, `sort=longest`, `page`), leaving out defaults, so a reload or a shared link shows the same list. Switching tabs keeps the search and the order and drops the filters, which belong to their tab; any change goes back to page 1, and a page past the end after a sync shows the last one.
+- **The search box** (`inbox-toolbar.tsx`) is a react-hook-form field rather than one driven by the address: the router applies an address change in a transition, so an input bound to it could lose keys. It writes to the address as you type (replacing, so Back skips the keystrokes) and follows the address only when it isn't focused (Back, or Clear search and filters).
+- **The tab counts** stay the totals: search and filters narrow the list, not what needs you. The sidebar's count is the total too. While a tab loads, a blank bubble holds its count's room, so the tabs don't move when the numbers come.
+- **The query client ignores the browser's online state** (`networkMode: 'always'` in `createQueryClient`): every request goes to the hub on this computer, so a dropped Wi-Fi must not pause the refetch after a sync, or Refresh.
+- **Rows with no mark.** A Claude session on neither a ticket nor a pull request has no tool to draw. None can exist before spec 011, so `queries.ts` leaves such rows out of Home and the sidebar count alike, until 011 asks for a mark.
+- **A clock that ticks once a minute** (`use-now.ts`) moves the waits and "Synced 2 min ago" on, with no request.
+- **Refresh** (`sync-status.tsx`) stays busy until the new list is in, not just until the sync ends, so the line reads "Synced just now" the moment its arrow stops.
+- **Paging** moves focus to the new page's first title and scrolls the list's top under the page bar, but only when the pager was used; Back leaves focus alone.
+- **Focus when rows change.** Rows are keyed by id, so a row that stays keeps its elements and focus on it never moves. When the focused row goes, the panel moves focus to the next row's title, the row before it when it was the last, or the selected tab when none is left. It remembers which row holds focus and forgets it when focus leaves for somewhere else, so a sync never pulls focus back from the page bar.
+
 ## When it syncs
 
 `inbox-schedule.ts` runs only when the host passes `autoSync: true` (`apps/server` does): once at start, every 2 minutes while a page has the event stream open (the event bus counts pages apart from the hub's own listeners), and at once when `status.changed` shows a tool newly connected. It compares the saved connections one change at a time, in order. A tool that disconnects loses its rows from the cache, and any sync also forgets rows a disconnected tool left behind.
@@ -65,4 +78,5 @@ With `autoSync` left off, only Refresh (`POST /api/inbox/refresh`, which answers
 
 - `map.ts`, `rules.ts` and `inbox-words.ts` are pure and tested with plain data; the words with a clock built from local dates, so they read the same in any time zone the tests run in.
 - The service, the schedule and the routes run against the real cache (in memory), the real connections and MSW standing in for Jira and GitHub. The schedule fakes only `setInterval`, so requests and promises run as they really do.
+- `e2e/home-inbox.spec.ts` runs the real hub with Jira and GitHub faked inside its process: `e2e/fake-tools/preload.ts` loads ahead of `apps/server/dist/main.mjs` with the same MSW answers core's tests use, fails any other request out (through a callback: MSW's own `error` setting still lets requests that look like static files through), and takes what the tools hold over `PUT /tools` on its own port, answering only requests addressed to `127.0.0.1`. The spec connects both through Settings, then starts each sync with `POST /api/inbox/refresh` from the page, so focus and scroll stay where the test put them.
 - `inbox/no-leaks.test.ts` runs a good sync and failed ones (a refused token whose error body names it, a GraphQL error, a locked keychain) at trace level, and reads the log, the answer and `cache.db` back: no token or error body anywhere, and no description or comment text in the cache.

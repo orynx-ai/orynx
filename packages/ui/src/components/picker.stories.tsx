@@ -85,6 +85,18 @@ export const LongName: Story = {
   ],
 };
 
+/** Nothing to offer yet: the trigger is disabled and the picker takes the Button's disabled look. */
+export const Disabled: Story = {
+  render: () => (
+    <Menu>
+      <MenuTrigger asChild disabled>
+        <Picker>Reason</Picker>
+      </MenuTrigger>
+      <MenuContent aria-label="Reason" />
+    </Menu>
+  ),
+};
+
 /** Near the bottom of the window the menu opens above the picker, so it stays in view. */
 export const NearTheBottom: Story = {
   render: () => (

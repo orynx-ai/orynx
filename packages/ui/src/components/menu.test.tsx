@@ -5,7 +5,8 @@ import { Folder, GitBranch, Plus, Settings } from 'lucide-react';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Button } from './button.tsx';
-import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from './menu.tsx';
+import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from './menu.tsx';
+import { Picker } from './picker.tsx';
 
 function Folders({ onAdd = () => undefined }: { onAdd?: () => void }) {
   return (
@@ -143,5 +144,73 @@ describe('Menu', () => {
     expect(onOpenChange.mock.calls).toEqual([[true], [false]]);
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Folders' })).toHaveFocus();
+  });
+
+  describe('MenuCheckboxItem', () => {
+    const reasons = ['Checks failing', 'Review requested', 'Unresolved comments'];
+
+    function ReasonFilter() {
+      const [ticked, setTicked] = useState<string[]>(['Checks failing']);
+      return (
+        <Menu>
+          <MenuTrigger asChild>
+            <Picker>{ticked.length === 0 ? 'Reason' : `Reason · ${String(ticked.length)}`}</Picker>
+          </MenuTrigger>
+          <MenuContent aria-label="Reason">
+            {reasons.map((reason) => (
+              <MenuCheckboxItem
+                key={reason}
+                checked={ticked.includes(reason)}
+                onCheckedChange={(on) => {
+                  setTicked((now) => (on ? [...now, reason] : now.filter((each) => each !== reason)));
+                }}
+              >
+                {reason}
+              </MenuCheckboxItem>
+            ))}
+          </MenuContent>
+        </Menu>
+      );
+    }
+
+    it('Q10c: says which options are ticked', async () => {
+      const user = userEvent.setup();
+      render(<ReasonFilter />);
+
+      await user.click(screen.getByRole('button', { name: 'Reason · 1' }));
+
+      const menu = screen.getByRole('menu', { name: 'Reason' });
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Checks failing' })).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Review requested' })).toHaveAttribute(
+        'aria-checked',
+        'false',
+      );
+      await expectNoAxeViolations(menu);
+    });
+
+    it('Q10c: Space and Enter tick and untick, and the menu stays open for the next one', async () => {
+      const user = userEvent.setup();
+      render(<ReasonFilter />);
+
+      screen.getByRole('button', { name: 'Reason · 1' }).focus();
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown} ');
+      await user.keyboard('{ArrowDown}{Enter}');
+      await user.keyboard('{ArrowUp}{ArrowUp} ');
+
+      expect(screen.getByRole('menu', { name: 'Reason' })).toBeVisible();
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Checks failing' })).toHaveAttribute('aria-checked', 'false');
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Review requested' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Unresolved comments' })).toHaveAttribute(
+        'aria-checked',
+        'true',
+      );
+
+      await user.keyboard('{Escape}');
+      expect(screen.getByRole('button', { name: 'Reason · 2' })).toHaveFocus();
+    });
   });
 });
