@@ -26,7 +26,8 @@ function isMissing(error: unknown): boolean {
 
 /**
  * Reads every session. One that was Working or waiting when Orynx stopped is Stopped now, with the step
- * "Orynx closed while Claude was working" (AC-14): its Claude Code ended with the server.
+ * "Orynx closed while Claude was working" (AC-14): its Claude Code ended with the server, and so did any
+ * call waiting for your answer (spec 012).
  */
 export async function openFileSessionStore(
   home: string,
@@ -91,9 +92,14 @@ export async function openFileSessionStore(
         ...session,
         state: 'stopped',
         activities: [...progress.activities],
+        // A call that was waiting for you went with Claude Code; it stays in the log, unanswered (spec 012, AC-21).
+        approvals: [],
         endedAt: session.endedAt ?? at,
         updatedAt: at,
       },
+      approvalLog: record.approvalLog.map((entry) =>
+        entry.by === null ? { ...entry, by: 'closed', answeredAt: at } : entry,
+      ),
     };
     records.set(id, stopped);
     await save(stopped);

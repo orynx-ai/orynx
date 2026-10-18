@@ -35,7 +35,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: Add `POST /api/sessions/:id/approvals/:approvalId`: 204, 404 for an unknown session or approval, 409 when already answered, 503 when the allow list can't be saved; the session detail carries the waiting approvals; the leak test covers asks, answers and denials at `LOG_LEVEL=trace` (AC-13, AC-14, AC-22)
       Check: pnpm test packages/core/src/routes/sessions.test.ts packages/core/src/create-server.test.ts
       Files: packages/core/src/routes/sessions.ts, packages/core/src/routes/sessions.test.ts, packages/core/src/create-server.ts, packages/core/src/create-server.test.ts, packages/contracts/src/errors.ts
-- [ ] Task 12: Read old sessions without `approvals` from disk, and answer a session's waiting approvals as interrupted when the store opens with it still waiting (AC-21)
+- [x] Task 12: Read old sessions without `approvals` from disk, and answer a session's waiting approvals as interrupted when the store opens with it still waiting (AC-21)
       Check: pnpm test packages/core/src/sessions/file-session-store.test.ts
       Files: packages/core/src/sessions/file-session-store.ts, packages/core/src/sessions/file-session-store.test.ts
 - [ ] Task 13: Add `DEVHUB_SANDBOX` (`required` by default, `assume` for a fake Claude Code) to the server's config, `.env.example` and `turbo.json`, pass the sandbox check to `createServer()`, and run the e2e hubs with `assume` (AC-20, AC-23)
