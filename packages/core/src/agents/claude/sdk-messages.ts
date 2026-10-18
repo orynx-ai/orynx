@@ -47,6 +47,7 @@ const ResultSchema = z.object({
 });
 
 const PathInputSchema = z.object({ file_path: z.string() });
+const CommandInputSchema = z.object({ command: z.string().min(1) });
 const NotebookInputSchema = z.object({ notebook_path: z.string() });
 const TodoInputSchema = z.object({ todos: z.array(z.object({ content: z.string().min(1) })) });
 
@@ -79,8 +80,15 @@ function statusKind(status: number): ProblemKind {
  * One reader per session: it remembers each tool call until its result arrives, so only calls that
  * worked become work. A refused call comes back as a failed result and is left out here; the tool
  * decision already made it a step.
+ *
+ * A command is shown by the adapter when Orynx allows it, so it shows while it runs (spec 012). One that
+ * never came to Orynx, because Claude Code ran it by itself, is shown here from its result, failed or not,
+ * so nothing runs unseen. `decidedByOrynx` says which tool calls came to Orynx.
  */
-export function createMessageReader(worktree: string): (message: SDKMessage) => ReadMessage[] {
+export function createMessageReader(
+  worktree: string,
+  decidedByOrynx: (toolUseId: string) => boolean = () => false,
+): (message: SDKMessage) => ReadMessage[] {
   const calls = new Map<string, { name: string; input: unknown }>();
   let failed = false;
 
@@ -168,6 +176,13 @@ export function createMessageReader(worktree: string): (message: SDKMessage) => 
       if (!done.success) continue;
       const call = calls.get(done.data.tool_use_id);
       calls.delete(done.data.tool_use_id);
+      if (call?.name === 'Bash') {
+        const command = CommandInputSchema.safeParse(call.input);
+        if (command.success && !decidedByOrynx(done.data.tool_use_id)) {
+          said.push({ type: 'work', work: { kind: 'command', command: command.data.command } });
+        }
+        continue;
+      }
       if (call === undefined || done.data.is_error === true) continue;
       const work = workOf(call.name, call.input);
       if (work !== null) said.push({ type: 'work', work });

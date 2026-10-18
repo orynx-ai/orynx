@@ -232,7 +232,11 @@ describe('the Claude adapter', () => {
     const { events } = await runToEnd(adapter, fixed({ mode: 'edit_and_run_allowed', allowedCommands: ['npm test'] }));
     expect(events.some((event) => event.type === 'approval')).toBe(false);
     expect(sdk.runs[0]?.decisions[0]?.result).toEqual({ behavior: 'allow', updatedInput: npmTest });
-    expect(works(events)[0]).toEqual({ kind: 'command', command: 'npm test -- content-list' });
+    // Shown once: when Orynx allowed it, not again when its result comes.
+    expect(works(events)).toEqual([
+      { kind: 'command', command: 'npm test -- content-list' },
+      { kind: 'finished', summary: 'Ran the tests.' },
+    ]);
   });
 
   it('AC-6: an always-ask command you allow runs once outside the sandbox', async () => {

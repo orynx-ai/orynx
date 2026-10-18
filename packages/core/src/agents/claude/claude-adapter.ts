@@ -76,6 +76,8 @@ interface Running {
   stopping: boolean;
   /** The calls waiting for an answer, by approval id: each ends with one outcome. */
   parked: Map<string, (outcome: Outcome) => void>;
+  /** Every tool call `canUseTool` was asked about, so the reader shows a command once (spec 012). */
+  decided: Set<string>;
 }
 
 export function createClaudeAdapter({
@@ -155,7 +157,8 @@ export function createClaudeAdapter({
         systemPrompt: { type: 'preset', preset: 'claude_code', append: instructions },
         // Claude Code's own output can hold the brief or file contents; it never reaches the log.
         stderr: () => undefined,
-        async canUseTool(tool, input, { signal }): Promise<PermissionResult> {
+        async canUseTool(tool, input, { signal, toolUseID }): Promise<PermissionResult> {
+          sessions.get(id)?.decided.add(toolUseID);
           const decision = await decideToolUse(tool, input, { worktree, home, ...(await permissions()) });
           if (decision.behavior === 'allow') {
             const command = input['command'];
@@ -198,9 +201,10 @@ export function createClaudeAdapter({
         done: false,
         stopping: false,
         parked: new Map(),
+        decided: new Set(),
       };
       sessions.set(id, running);
-      const read = createMessageReader(worktree);
+      const read = createMessageReader(worktree, (toolUseId) => running.decided.has(toolUseId));
       running.ended = (async () => {
         let failed = false;
         try {
