@@ -4,9 +4,10 @@ import { join } from 'node:path';
 import { createServer as createNetServer, type Server } from 'node:net';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { ServerEvent } from '@devhub/contracts';
+import type { PermissionMode, ServerEvent } from '@devhub/contracts';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { createClaudeAdapter } from '../agents/claude/claude-adapter.ts';
+import { sandboxSettings } from '../agents/claude/sandbox.ts';
 import { createClaudeCode } from '../agents/claude/claude-code.ts';
 import { createClaudeLogin } from '../agents/claude/claude-login.ts';
 import { createEventBus } from '../events/event-bus.ts';
@@ -64,9 +65,15 @@ interface SetUpOptions {
   cached?: { title: string; sprint: string | null } | null;
   /** Build the server without Claude Code. */
   noClaude?: boolean;
-  mode?: 'ask_everything' | 'edit_freely_ask_commands';
+  mode?: PermissionMode;
+  /** The allow list in Settings › Coding agent. */
+  allowedCommands?: string[];
+  /** Saving settings fails, as a full disk would. */
+  savesFail?: boolean;
   /** Holds the read of the permission mode, the run's last step before Claude starts, until it resolves. */
   preferencesGate?: Promise<void>;
+  /** Holds every save of the settings until it resolves, as a slow disk would. */
+  saveGate?: Promise<void>;
 }
 
 async function setUp({
@@ -77,7 +84,10 @@ async function setUp({
   cached = { title: 'Add bulk archive', sprint: 'Sprint 42' },
   noClaude = false,
   mode = 'edit_freely_ask_commands',
+  allowedCommands = [],
+  savesFail = false,
   preferencesGate,
+  saveGate,
 }: SetUpOptions = {}) {
   const repos = await repositories();
   const home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-home-')));
@@ -88,7 +98,7 @@ async function setUp({
 
   const settings = createMemorySettingsStore({
     jira: { site: jiraSite, email: jiraEmail },
-    agent: { permissionMode: mode },
+    agent: { permissionMode: mode, allowedCommands },
   });
   const tokens = createTokenStore({ keychain: createMemoryKeychain({ jira: goodToken }), events });
   const connection = createJiraConnection({ settings, tokens, jira: createJiraClient(), events, envToken: false });
@@ -121,20 +131,31 @@ async function setUp({
     describeTicket: () => Promise.resolve(cached),
     preferences: createPreferencesService({
       // The settings file, slow to answer when the test says so.
-      settings:
-        preferencesGate === undefined
-          ? settings
-          : {
-              read: async () => await preferencesGate.then(() => settings.read()),
-              update: (change) => settings.update(change),
-            },
+      settings: {
+        read: async () => {
+          await preferencesGate;
+          return settings.read();
+        },
+        update: async (change) => {
+          await saveGate;
+          if (savesFail) throw new Error('disk full');
+          return settings.update(change);
+        },
+      },
       events,
     }),
     worktrees: { env: gitEnvironment(repos.env), root: join(home, 'worktrees'), fetchTimeoutMs: 2_000 },
     stepEventMs: 250,
     adapter: noClaude
       ? null
-      : createClaudeAdapter({ query: sdk.query, program: '/opt/claude/claude', env: {}, home: repos.root }),
+      : createClaudeAdapter({
+          query: sdk.query,
+          program: '/opt/claude/claude',
+          env: {},
+          home: repos.root,
+          sandbox: (worktree) =>
+            sandboxSettings({ platform: 'darwin', worktree, devhubHome: home, home: repos.root, temporary: tmpdir() }),
+        }),
     events,
     onReport: (report) => reports.push(report),
     now: () => clock,
@@ -158,11 +179,11 @@ async function briefed(records: SessionRecords, id: string) {
   throw new Error('The session never sent its brief');
 }
 
-/** Waits until the session isn't Working any more. */
+/** Waits until the session isn't Working or waiting for you any more. */
 async function settled(records: SessionRecords, id = '0000000000000001') {
   for (let tries = 0; tries < 500; tries++) {
     const record = await records.get(id);
-    if (record !== null && record.session.state !== 'working') return record;
+    if (record !== null && record.session.state !== 'working' && record.session.state !== 'needs_you') return record;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error('The session is still working');
@@ -322,17 +343,18 @@ describe('running a session', () => {
     });
   });
 
-  it('AC-6: refuses edits when Settings says Ask before everything', async () => {
-    const { service, records } = await setUp({
+  it('012 AC-8: an edit waits when Settings says Ask before everything, and nothing is written meanwhile', async () => {
+    const { service, home, sdk } = await setUp({
       mode: 'ask_everything',
-      script: [{ tool: 'Write', input: { file_path: 'a.ts', content: 'x' } }, { finish: 'Described it.' }],
+      script: [{ tool: 'Write', input: { file_path: 'a.ts', content: 'x' } }, { finish: 'Wrote it.' }],
     });
     await service.start({ ticketKey: 'PROJ-1423' });
-    const record = await settled(records);
-    expect(record.session.activities).toContainEqual(
-      expect.objectContaining({ kind: 'refused', reason: 'ask_everything', path: 'a.ts' }) as unknown,
-    );
-    expect(record.session.step).toBe('review');
+    await vi.waitFor(() => {
+      expect(sdk.runs[0]?.waiting).toBe(1);
+    });
+    await expect(readFile(join(home, 'worktrees', '0000000000000001', 'a.ts'))).rejects.toThrow();
+    expect(await service.stop('0000000000000001')).toBe('stopped');
+    expect(sdk.runs[0]?.decisions[0]?.result.behavior).toBe('deny');
   });
 
   it('AC-4: tells the Session screen about new steps at most every 250 ms, and the lists about state at once', async () => {
@@ -466,7 +488,7 @@ describe('running a session', () => {
         what: 'started',
         session: '0000000000000001',
         ticket: 'PROJ-1423',
-        loaded: { tools: 7, mcpServers: 0, plugins: 0 },
+        loaded: { tools: 8, mcpServers: 0, plugins: 0 },
       });
     });
   });
@@ -481,6 +503,266 @@ async function hasStep(records: SessionRecords, kind: string, id = '000000000000
   }
   throw new Error(`The session never had a ${kind} step`);
 }
+
+/** Waits until the session has this many calls waiting for an answer, and gives them. */
+async function waitingCalls(records: SessionRecords, count = 1, id = '0000000000000001') {
+  for (let tries = 0; tries < 500; tries++) {
+    const record = await records.get(id);
+    if (record !== null && record.session.approvals.length === count) return record.session.approvals;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`The session never had ${String(count)} calls waiting`);
+}
+
+describe('approvals (spec 012)', () => {
+  const npmTest = { command: 'npm test -- content-list', description: 'Run the content list tests' };
+  const asks: readonly FakeTurn[] = [{ tool: 'Bash', input: npmTest }, { finish: 'Ran the tests.' }];
+
+  it('AC-1: a command waits: the session is Needs you, with the call, its step, and the lists told', async () => {
+    const { service, records, heard, reports } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+
+    expect(approval).toEqual({
+      id: approval?.id,
+      kind: 'command',
+      command: 'npm test -- content-list',
+      description: 'Run the content list tests',
+      alwaysAsk: null,
+      alwaysAllow: null,
+      askedAt: '2026-10-18T09:56:00.000Z',
+    });
+    const record = await records.get('0000000000000001');
+    expect(record?.session.state).toBe('needs_you');
+    expect(record?.session.activities.at(-1)).toMatchObject({
+      kind: 'waiting',
+      state: 'running',
+      approvalId: approval?.id,
+      about: 'command',
+      text: 'Run the content list tests',
+    });
+    expect(heard).toContainEqual({ type: 'sessions.changed' });
+    // The terminal is told once the call is saved, so the report can come just after the saved call shows.
+    await vi.waitFor(() => {
+      expect(reports).toContainEqual({
+        what: 'asked',
+        session: '0000000000000001',
+        ticket: 'PROJ-1423',
+        about: 'command',
+      });
+    });
+    await service.stop('0000000000000001');
+  });
+
+  it('AC-2: Allow once runs the command, and the session works on to the end', async () => {
+    const { service, records, reports } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+
+    expect(await service.respond('0000000000000001', approval?.id ?? '', 'allow_once')).toBe('answered');
+
+    const record = await settled(records);
+    expect(record.session.state).toBe('done');
+    expect(record.session.approvals).toEqual([]);
+    expect(kinds(record)).toEqual(['worktree:done', 'brief:done', 'command:done', 'finished:done']);
+    expect(record.approvalLog).toEqual([
+      {
+        id: approval?.id,
+        about: 'command',
+        text: 'npm test -- content-list',
+        askedAt: '2026-10-18T09:56:00.000Z',
+        answer: 'allow_once',
+        by: 'you',
+        answeredAt: '2026-10-18T09:56:00.000Z',
+      },
+    ]);
+    expect(reports).toContainEqual({
+      what: 'answered',
+      session: '0000000000000001',
+      ticket: 'PROJ-1423',
+      about: 'command',
+      answer: 'allow_once',
+      by: 'you',
+    });
+  });
+
+  it('AC-3: Deny shows what you denied, and Claude works on', async () => {
+    const { service, records } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    await service.respond('0000000000000001', approval?.id ?? '', 'deny');
+
+    const record = await settled(records);
+    expect(record.session.state).toBe('done');
+    expect(record.session.activities).toContainEqual(
+      expect.objectContaining({ kind: 'denied', about: 'command', text: 'npm test -- content-list' }) as unknown,
+    );
+    expect(record.approvalLog[0]).toMatchObject({ answer: 'deny', by: 'you' });
+  });
+
+  it('AC-5: Always allow saves the entry first, then runs the command', async () => {
+    const { service, records, settings } = await setUp({
+      mode: 'edit_and_run_allowed',
+      allowedCommands: ['npm test'],
+      script: [{ tool: 'Bash', input: { command: 'npm run lint -- --fix' } }, { finish: 'Linted.' }],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    expect(approval).toMatchObject({ alwaysAllow: 'npm run lint' });
+
+    expect(await service.respond('0000000000000001', approval?.id ?? '', 'always_allow')).toBe('answered');
+
+    expect((await settings.read()).agent).toMatchObject({ allowedCommands: ['npm test', 'npm run lint'] });
+    expect((await settled(records)).approvalLog[0]).toMatchObject({ answer: 'always_allow', by: 'you' });
+  });
+
+  it('AC-14: when Always allow can’t save the list, nothing is decided and the call keeps waiting', async () => {
+    const { service, records } = await setUp({
+      mode: 'edit_and_run_allowed',
+      savesFail: true,
+      script: [{ tool: 'Bash', input: { command: 'npm run lint' } }, { finish: 'Linted.' }],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+
+    expect(await service.respond('0000000000000001', approval?.id ?? '', 'always_allow')).toBe('not_saved');
+
+    const record = await records.get('0000000000000001');
+    expect(record?.session.state).toBe('needs_you');
+    expect(record?.session.approvals.map((waiting) => waiting.id)).toEqual([approval?.id]);
+    expect(await service.respond('0000000000000001', approval?.id ?? '', 'allow_once')).toBe('answered');
+    await settled(records);
+  });
+
+  it('Q1: refuses Always allow where it isn’t offered, and decides nothing', async () => {
+    const { service, records } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    expect(await service.respond('0000000000000001', approval?.id ?? '', 'always_allow')).toBe('not_offered');
+    expect((await records.get('0000000000000001'))?.session.state).toBe('needs_you');
+    await service.stop('0000000000000001');
+  });
+
+  it('AC-13: the first answer counts; a late one, or one for no such call, changes nothing', async () => {
+    const { service, records } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    const id = approval?.id ?? '';
+
+    const [first, second] = await Promise.all([
+      service.respond('0000000000000001', id, 'allow_once'),
+      service.respond('0000000000000001', id, 'deny'),
+    ]);
+    expect([first, second]).toEqual(['answered', 'already_answered']);
+    await settled(records);
+    expect(await service.respond('0000000000000001', id, 'deny')).toBe('already_answered');
+    expect(await service.respond('0000000000000001', 'no-such-call', 'deny')).toBe('not_found');
+    expect(await service.respond('ffffffffffffffff', id, 'deny')).toBe('not_found');
+  });
+
+  it('AC-13: an Always allow still saving counts first; a Deny from another tab changes nothing', async () => {
+    let saved: () => void = () => undefined;
+    const saveGate = new Promise<void>((resolve) => {
+      saved = resolve;
+    });
+    const { service, records, settings } = await setUp({
+      mode: 'edit_and_run_allowed',
+      saveGate,
+      script: [{ tool: 'Bash', input: { command: 'npm run lint' } }, { finish: 'Linted.' }],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    const id = approval?.id ?? '';
+
+    const always = service.respond('0000000000000001', id, 'always_allow');
+    expect(await service.respond('0000000000000001', id, 'deny')).toBe('already_answered');
+    saved();
+    expect(await always).toBe('answered');
+
+    expect((await settings.read()).agent).toMatchObject({ allowedCommands: ['npm run lint'] });
+    expect((await settled(records)).approvalLog[0]).toMatchObject({ answer: 'always_allow', by: 'you' });
+  });
+
+  it('AC-10: calls asked together wait in the order asked, and the session is Needs you until both are answered', async () => {
+    const { service, records } = await setUp({
+      script: [
+        {
+          together: [
+            { tool: 'Bash', input: { command: 'npm test' } },
+            { tool: 'Bash', input: { command: 'npm run lint' } },
+          ],
+        },
+        { finish: 'Done.' },
+      ],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [first, second] = await waitingCalls(records, 2);
+    expect([first, second].map((call) => call?.kind === 'command' && call.command)).toEqual([
+      'npm test',
+      'npm run lint',
+    ]);
+
+    await service.respond('0000000000000001', second?.id ?? '', 'deny');
+    await waitingCalls(records, 1);
+    expect((await records.get('0000000000000001'))?.session.state).toBe('needs_you');
+
+    await service.respond('0000000000000001', first?.id ?? '', 'allow_once');
+    expect((await settled(records)).session.state).toBe('done');
+  });
+
+  it('AC-11: a change in Settings applies to Claude’s next call', async () => {
+    const { service, records, settings } = await setUp({
+      script: [
+        { tool: 'Bash', input: { command: 'npm test' } },
+        { tool: 'Bash', input: { command: 'npm test' } },
+        { finish: 'Ran the tests twice.' },
+      ],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    await settings.update((current) => ({
+      ...current,
+      agent: { permissionMode: 'edit_and_run_allowed', allowedCommands: ['npm test'] },
+    }));
+    await service.respond('0000000000000001', approval?.id ?? '', 'allow_once');
+    const record = await settled(records);
+    expect(record.approvalLog).toHaveLength(1);
+    expect(record.session.activities).toContainEqual(
+      expect.objectContaining({ kind: 'command', commands: ['npm test', 'npm test'] }) as unknown,
+    );
+  });
+
+  it.each([
+    ['AC-12: Stop', 'stopped'],
+    ['AC-12: Discard', 'discarded'],
+    ['AC-21: Orynx closing', 'closed'],
+  ] as const)('%s answers the waiting call, and its step goes', async (_, by) => {
+    const { service, records } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await waitingCalls(records);
+
+    if (by === 'stopped') await service.stop('0000000000000001');
+    else if (by === 'discarded') await service.discard('0000000000000001');
+    else await service.close();
+
+    const record = await records.get('0000000000000001');
+    expect(record?.session.state).toBe('stopped');
+    expect(record?.session.approvals).toEqual([]);
+    expect(record?.session.activities.some((activity) => activity.kind === 'waiting')).toBe(false);
+    expect(record?.approvalLog[0]).toMatchObject({ answer: null, by });
+  });
+
+  it('AC-22: the terminal hears only kinds and answers, never the command or Claude’s line about it', async () => {
+    const { service, records, reports } = await setUp({ script: asks });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    await service.respond('0000000000000001', approval?.id ?? '', 'deny');
+    await settled(records);
+    const told = JSON.stringify(reports);
+    expect(told).not.toContain('npm test');
+    expect(told).not.toContain('content list');
+  });
+});
 
 describe('stopping a session', () => {
   it('AC-9: stops Claude while it works: Stopped, every step done, the worktree kept', async () => {

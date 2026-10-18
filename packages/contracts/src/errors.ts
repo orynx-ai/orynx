@@ -13,6 +13,10 @@ export const ApiErrorCodeSchema = z.enum([
   'integration_unreachable',
   /** The folder can't be added to Settings › Repositories: nothing there, not a git repository, already listed (spec 005). */
   'folder_rejected',
+  /** The call was answered already, by another tab or by Stop (spec 012); the first answer counts. */
+  'already_answered',
+  /** Settings couldn't be saved, so an Always allow decided nothing (spec 012, AC-14). */
+  'settings_unsaved',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;

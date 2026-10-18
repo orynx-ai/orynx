@@ -142,10 +142,18 @@ export function usePreferences() {
   return useQuery(preferencesQueryOptions(api));
 }
 
+/** The list with one entry added once, or one taken off (spec 012). */
+function withCommandChange(list: readonly string[], change: PreferencesChange): string[] {
+  const kept = list.filter((entry) => entry !== change.disallowCommand);
+  const added = change.allowCommand;
+  return added === undefined || kept.includes(added) ? kept : [...kept, added];
+}
+
 function withChange(preferences: Preferences, change: PreferencesChange): Preferences {
   return {
     permissionMode: change.permissionMode ?? preferences.permissionMode,
     inboxRules: { ...preferences.inboxRules, ...change.inboxRules },
+    allowedCommands: withCommandChange(preferences.allowedCommands, change),
   };
 }
 
@@ -160,7 +168,19 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
     if (set !== undefined && inboxRules[rule] === set) inboxRules[rule] = saved.inboxRules[rule];
   }
   const modeStillSet = change.permissionMode !== undefined && current.permissionMode === change.permissionMode;
-  return { permissionMode: modeStillSet ? saved.permissionMode : current.permissionMode, inboxRules };
+  // An entry it added goes, and one it took off comes back where the server has it, unless a later change moved it.
+  let allowedCommands = current.allowedCommands;
+  if (change.allowCommand !== undefined && !saved.allowedCommands.includes(change.allowCommand)) {
+    allowedCommands = allowedCommands.filter((entry) => entry !== change.allowCommand);
+  }
+  if (change.disallowCommand !== undefined && saved.allowedCommands.includes(change.disallowCommand)) {
+    const back = change.disallowCommand;
+    if (!allowedCommands.includes(back)) {
+      const at = saved.allowedCommands.indexOf(back);
+      allowedCommands = [...allowedCommands.slice(0, at), back, ...allowedCommands.slice(at)];
+    }
+  }
+  return { permissionMode: modeStillSet ? saved.permissionMode : current.permissionMode, inboxRules, allowedCommands };
 }
 
 interface PreferencesChangeContext {

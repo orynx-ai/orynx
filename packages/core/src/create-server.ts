@@ -34,6 +34,7 @@ import type { Keychain } from './secrets/keychain.ts';
 import { createMemoryKeychain } from './secrets/memory-keychain.ts';
 import { createTokenStore, type EnvTokens, type TokenStore } from './secrets/token-store.ts';
 import { createClaudeAdapter, type QueryFunction } from './agents/claude/claude-adapter.ts';
+import { sandboxSettings } from './agents/claude/sandbox.ts';
 import { createSessionService } from './sessions/session-service.ts';
 import { createMemorySessionStore, type SessionRecords } from './sessions/session-store.ts';
 import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
@@ -60,7 +61,13 @@ export interface CoreOptions {
    * allow-listed environment. Hosts pass the SDK's; tests pass a fake. Left out, no session can start, so no
    * test can run the real Claude Code (AC-22).
    */
-  agent?: { query: QueryFunction; program: string; env: Readonly<Record<string, string>> };
+  agent?: {
+    query: QueryFunction;
+    program: string;
+    env: Readonly<Record<string, string>>;
+    /** Claude Code's sandbox can run here (spec 012, Q2b). Left out, sessions get no commands. */
+    sandbox?: boolean;
+  };
   /** The environment a session's git runs with, from `gitEnvironment()`. Empty by default. */
   gitEnvironment?: Readonly<Record<string, string>>;
   /** Who is using DevHub; the name from `git config --global user.name` by default. */
@@ -289,12 +296,36 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
             program: options.agent.program,
             env: options.agent.env,
             home: userHome,
+            // Every command runs sandboxed, writing only in its own worktree (spec 012, Q2a).
+            sandbox:
+              options.agent.sandbox === true
+                ? (worktree) =>
+                    sandboxSettings({
+                      platform: process.platform,
+                      worktree,
+                      devhubHome,
+                      home: userHome,
+                      temporary: tmpdir(),
+                    })
+                : null,
           }),
     events,
     // Kinds, ids and codes only: never the ticket's text or Claude's words (AC-21).
     onReport: (report) => {
-      if (report.what === 'started') app.log.info(report, 'Claude started a session');
-      else app.log.warn(report, 'A session stopped with a problem');
+      switch (report.what) {
+        case 'started':
+          app.log.info(report, 'Claude started a session');
+          return;
+        case 'asked':
+          app.log.info(report, 'Claude is waiting for an answer');
+          return;
+        case 'answered':
+          app.log.info(report, 'A waiting call ended');
+          return;
+        case 'failed':
+          app.log.warn(report, 'A session stopped with a problem');
+          return;
+      }
     },
   });
   app.addHook('onClose', async () => {

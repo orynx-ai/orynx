@@ -10,7 +10,8 @@
     "NODE_ENV",
     "DEVHUB_TOKENS_FROM_ENV",
     "DEVHUB_KEYCHAIN",
-    "DEVHUB_CLAUDE_CODE"
+    "DEVHUB_CLAUDE_CODE",
+    "DEVHUB_SANDBOX"
   ],
   "tasks": {
     "build": {

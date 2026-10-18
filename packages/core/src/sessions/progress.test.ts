@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   addStep,
+  addWaiting,
   addWork,
   emptyProgress,
   endProgress,
+  removeWaiting,
   replaceStep,
   type ClaudeWork,
   type Progress,
@@ -193,5 +195,74 @@ describe('Orynx’s own steps', () => {
   it('AC-13: ends every step with no new one when the session fails', () => {
     const ended = endProgress(fold([{ kind: 'explore', file: 'a' }]), null);
     expect(ended.activities).toEqual([{ id: 'step-1', state: 'done', kind: 'explore', files: ['a'] }]);
+  });
+});
+
+describe('commands and approvals (spec 012)', () => {
+  const asking = { approvalId: 'ap-1', about: 'command', text: 'Run the content list tests' } as const;
+
+  it('AC-2: groups commands into one step, running until another kind of work starts', () => {
+    const progress = fold([
+      { kind: 'command', command: 'npm test' },
+      { kind: 'command', command: 'npm run lint' },
+    ]);
+    expect(progress.activities).toEqual([
+      { id: 'step-1', state: 'running', kind: 'command', commands: ['npm test', 'npm run lint'] },
+    ]);
+    expect(fold([{ kind: 'explore', file: 'a' }], progress).activities[0]?.state).toBe('done');
+  });
+
+  it('AC-17: moves the stepper to Test at the first command after the first edit, and never back', () => {
+    expect(fold([{ kind: 'command', command: 'git log' }]).step).toBe('plan');
+    const testing = fold([
+      { kind: 'command', command: 'git log' },
+      { kind: 'edit', file: 'src/a.ts' },
+      { kind: 'command', command: 'npm test' },
+    ]);
+    expect(testing.step).toBe('test');
+    expect(fold([{ kind: 'edit', file: 'src/b.ts' }], testing).step).toBe('test');
+    expect(fold([{ kind: 'finished', summary: 'Done.' }], testing).step).toBe('review');
+  });
+
+  it('AC-1: a call waiting for you is a running step with Claude’s line about it, after what was running', () => {
+    const progress = addWaiting(fold([{ kind: 'edit', file: 'src/a.ts' }]), asking);
+    expect(progress.activities).toEqual([
+      { id: 'step-1', state: 'done', kind: 'edit', files: ['src/a.ts'] },
+      { id: 'step-2', state: 'running', kind: 'waiting', ...asking },
+    ]);
+  });
+
+  it('AC-10: a waiting step keeps running while other calls’ work comes, until its own call is answered', () => {
+    const waiting = addWaiting(emptyProgress, asking);
+    const second = addWaiting(waiting, { approvalId: 'ap-2', about: 'edit', text: 'src/a.ts' });
+    const working = fold([{ kind: 'command', command: 'npm run lint' }], second);
+    expect(working.activities.map((activity) => [activity.kind, activity.state])).toEqual([
+      ['waiting', 'running'],
+      ['waiting', 'running'],
+      ['command', 'running'],
+    ]);
+
+    const answered = removeWaiting(working, 'ap-1');
+    expect(answered.activities.map((activity) => activity.id)).toEqual(['step-2', 'step-3']);
+    // A new step never takes the id of one still shown.
+    const next = fold([{ kind: 'denied', about: 'command', text: 'npm test' }], answered);
+    expect(next.activities.map((activity) => activity.id)).toEqual(['step-2', 'step-3', 'step-4']);
+    expect(removeWaiting(next, 'no-such-call')).toEqual(next);
+  });
+
+  it('AC-3, AC-20: a denied call and commands being off are finished steps of their own', () => {
+    expect(fold([{ kind: 'no_commands' }, { kind: 'denied', about: 'edit', text: 'src/a.ts' }]).activities).toEqual([
+      { id: 'step-1', state: 'done', kind: 'no_commands', reason: 'no_sandbox' },
+      { id: 'step-2', state: 'done', kind: 'denied', about: 'edit', text: 'src/a.ts' },
+    ]);
+  });
+
+  it('AC-12, AC-21: stopping or closing takes away the steps still waiting', () => {
+    const waiting = addWaiting(fold([{ kind: 'edit', file: 'src/a.ts' }]), asking);
+    for (const last of [{ kind: 'stopped' } as const, { kind: 'interrupted' } as const, null]) {
+      expect(endProgress(waiting, last).activities.map((activity) => activity.kind)).toEqual(
+        last === null ? ['edit'] : ['edit', last.kind],
+      );
+    }
   });
 });

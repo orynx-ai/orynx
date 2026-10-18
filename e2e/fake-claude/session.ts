@@ -1,9 +1,10 @@
-// Stands in for a Claude Code session in the e2e run (spec 011): `claude` hands it every run the Agent SDK
-// starts with `--input-format stream-json`. It speaks the SDK's protocol as the pinned version (0.3.302)
-// does, as far as a session needs: it answers `initialize` and `interrupt`, asks `can_use_tool` before an
-// edit, and plays one scripted run. It never reaches Claude, and it edits only its working folder, which
-// is the session's worktree. Run by Node directly, which strips the types.
-import { mkdirSync, writeFileSync } from 'node:fs';
+// Stands in for a Claude Code session in the e2e run (specs 011 and 012): `claude` hands it every run the
+// Agent SDK starts with `--input-format stream-json`. It speaks the SDK's protocol as the pinned version
+// (0.3.302) does, as far as a session needs: it answers `initialize` and `interrupt`, asks `can_use_tool`
+// before an edit or a command, and plays one scripted run, picked by words in the ticket's title. It never
+// reaches Claude and never runs a command: an allowed command is only written down, in `ran.txt` in its
+// working folder, which is the session's worktree. Run by Node directly, which strips the types.
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 
@@ -47,22 +48,54 @@ function ask(tool: string, input: Message, toolUseId: string): Promise<Message> 
   return answer;
 }
 
-/** Claude calls a tool: the call, then its result. `edit` asks first and writes the file when allowed. */
-async function call(tool: string, input: Message, edit?: { path: string; content: string }): Promise<void> {
-  const id = nextId('toolu');
-  let allowed = true;
-  let said = 'ok';
-  if (edit !== undefined) {
-    const answer = await ask(tool, input, id);
-    allowed = answer['behavior'] === 'allow';
-    if (allowed) {
-      const file = join(process.cwd(), edit.path);
-      mkdirSync(dirname(file), { recursive: true });
-      writeFileSync(file, edit.content);
-    } else {
-      said = typeof answer['message'] === 'string' ? answer['message'] : 'Refused.';
-    }
+/** What a call does once allowed: nothing, write a file (an edit), or note a command in ran.txt. */
+type Effect = { path: string; content: string } | { command: string } | undefined;
+
+function apply(effect: Effect): void {
+  if (effect === undefined) return;
+  if ('command' in effect) {
+    appendFileSync(join(process.cwd(), 'ran.txt'), `${effect.command}\n`);
+    return;
   }
+  const file = join(process.cwd(), effect.path);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, effect.content);
+}
+
+/** Asks about a call that has an effect, as Claude Code does in the default permission mode. */
+async function decide(tool: string, input: Message, id: string, effect: Effect) {
+  if (effect === undefined) return { allowed: true, said: 'ok' };
+  const answer = await ask(tool, input, id);
+  if (answer['behavior'] === 'allow') {
+    apply(effect);
+    return { allowed: true, said: 'ok' };
+  }
+  return { allowed: false, said: typeof answer['message'] === 'string' ? answer['message'] : 'Refused.' };
+}
+
+/** Claude calls a tool: the call, then its result. A call with an effect asks first, and has it only when allowed. */
+async function call(tool: string, input: Message, effect?: Effect): Promise<void> {
+  const id = nextId('toolu');
+  const { allowed, said } = await decide(tool, input, id, effect);
+  sendCall(tool, input, id, allowed, said);
+}
+
+/** Claude calls several tools in one message: it asks about all of them at once (spec 012, AC-10). */
+async function together(calls: { tool: string; input: Message; effect: Effect }[]): Promise<void> {
+  const ids = calls.map(() => nextId('toolu'));
+  const answers = await Promise.all(calls.map((one, i) => decide(one.tool, one.input, ids[i] ?? '', one.effect)));
+  calls.forEach((one, i) => {
+    const answer = answers[i];
+    if (answer !== undefined) sendCall(one.tool, one.input, ids[i] ?? '', answer.allowed, answer.said);
+  });
+}
+
+/** A command Claude wants to run, with its own line about it. */
+function bash(command: string, description: string) {
+  return { tool: 'Bash', input: { command, description }, effect: { command } };
+}
+
+function sendCall(tool: string, input: Message, id: string, allowed: boolean, said: string): void {
   send({
     type: 'assistant',
     parent_tool_use_id: null,
@@ -86,7 +119,31 @@ async function call(tool: string, input: Message, edit?: { path: string; content
 
 let stopped = false;
 
-/** One run: read, plan, edit, then finish, or wait for Stop when the brief says "(waits)". */
+/** The commands a ticket's title asks the fake to run after its edit (spec 012). */
+function commandsFor(brief: string): (() => Promise<void>)[] {
+  const steps: (() => Promise<void>)[] = [];
+  if (brief.includes('(runs tests)')) {
+    const test = bash('npm test -- content-list', 'Run the content list tests');
+    steps.push(() => call(test.tool, test.input, test.effect));
+  }
+  if (brief.includes('(fetches)')) {
+    const fetch = bash('curl -fsS https://registry.npmjs.org/react', 'Look up the react package');
+    steps.push(() => call(fetch.tool, fetch.input, fetch.effect));
+  }
+  if (brief.includes('(pushes)')) {
+    const push = bash('git push origin HEAD', 'Push the branch');
+    steps.push(() => call(push.tool, push.input, push.effect));
+  }
+  if (brief.includes('(runs two)')) {
+    steps.push(() => together([bash('npm test', 'Run the tests'), bash('npm run lint', 'Check the code style')]));
+  }
+  return steps;
+}
+
+/**
+ * One run: read, plan, edit, then any commands the ticket's title asks for, then finish; or wait for Stop
+ * when it says "(waits)".
+ */
 async function play(brief: string): Promise<void> {
   send({
     type: 'system',
@@ -117,6 +174,7 @@ async function play(brief: string): Promise<void> {
         { file_path: join(process.cwd(), 'src', 'archive.ts'), content: 'export const archive = true;\n' },
         { path: join('src', 'archive.ts'), content: 'export const archive = true;\n' },
       ),
+    ...commandsFor(brief),
   ];
   for (const step of steps) {
     await pause(stepMs);

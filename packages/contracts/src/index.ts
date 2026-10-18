@@ -1,4 +1,5 @@
 export * from './claude.ts';
+export * from './commands.ts';
 export * from './errors.ts';
 export * from './events.ts';
 export * from './github.ts';

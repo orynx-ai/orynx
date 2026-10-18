@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AllowedCommandSchema } from './commands.ts';
 
 /**
  * Settings › Coding agent: what Claude may do without asking (product spec, "Permission modes").
@@ -28,6 +29,8 @@ export type InboxRules = z.infer<typeof InboxRulesSchema>;
 export const PreferencesSchema = z.object({
   permissionMode: PermissionModeSchema,
   inboxRules: InboxRulesSchema,
+  /** Commands that run without asking in "Edit files and run allowed commands" (spec 012), as saved, in the order they were added. */
+  allowedCommands: z.array(z.string().min(1)),
 });
 export type Preferences = z.infer<typeof PreferencesSchema>;
 
@@ -41,18 +44,23 @@ export const defaultPreferences: Preferences = {
     unresolved_comments: true,
     session_waiting: true,
   },
+  allowedCommands: [],
 };
 
 /**
- * PATCH /api/preferences: one change, as the person makes it. Only the rules that changed are sent, so
- * two quick changes in a row can't undo each other.
+ * PATCH /api/preferences: one change, as the person makes it. Only the rules that changed are sent, and
+ * one allow-list entry at a time, so two quick changes in a row can't undo each other.
  */
 export const PreferencesChangeSchema = z
   .strictObject({
     permissionMode: PermissionModeSchema.optional(),
     inboxRules: z.partialRecord(InboxRuleIdSchema, z.boolean()).optional(),
+    /** One command to add to the allow list, read as Settings reads it (spec 012, Q8f). */
+    allowCommand: AllowedCommandSchema.optional(),
+    /** One entry to take off the list, as it was saved. */
+    disallowCommand: z.string().min(1).optional(),
   })
-  .refine((change) => change.permissionMode !== undefined || change.inboxRules !== undefined, {
-    message: 'Send the mode or at least one rule.',
+  .refine((change) => Object.values(change).some((value) => value !== undefined), {
+    message: 'Send the mode, at least one rule, or a command.',
   });
 export type PreferencesChange = z.infer<typeof PreferencesChangeSchema>;

@@ -29,15 +29,40 @@ function atLeast(current: SessionStep, wanted: SessionStep): SessionStep {
   return stepOrder.indexOf(wanted) > stepOrder.indexOf(current) ? wanted : current;
 }
 
+/** Whatever was running is done now, except a call still waiting for you: that runs until it's answered. */
 function allDone(activities: readonly SessionActivity[]): SessionActivity[] {
-  return activities.map((activity) => (activity.state === 'running' ? { ...activity, state: 'done' } : activity));
+  return activities.map((activity) =>
+    activity.state === 'running' && activity.kind !== 'waiting' ? { ...activity, state: 'done' } : activity,
+  );
+}
+
+/** The next step's id: one past the highest shown, so a removed waiting step's id is never reused while it matters. */
+function nextId(activities: readonly SessionActivity[]): string {
+  const highest = Math.max(0, ...activities.map((activity) => Number(activity.id.slice('step-'.length)) || 0));
+  return `step-${String(highest + 1)}`;
 }
 
 /** Adds a step at the end; whatever was running is done now. */
 export function addStep(progress: Progress, step: NewStep, state: SessionActivityState = 'done'): Progress {
   const activities = allDone(progress.activities);
-  const added = { ...step, id: `step-${String(activities.length + 1)}`, state };
+  const added = { ...step, id: nextId(progress.activities), state };
   return { ...progress, activities: [...activities, added] };
+}
+
+/** A call that waits for your answer (spec 012): a running step until `removeWaiting`. */
+export function addWaiting(
+  progress: Progress,
+  waiting: { approvalId: string; about: 'command' | 'edit'; text: string | null },
+): Progress {
+  return addStep(progress, { kind: 'waiting', ...waiting }, 'running');
+}
+
+/** Takes away the step of a call that was answered; what it led to comes as work of its own. */
+export function removeWaiting(progress: Progress, approvalId: string): Progress {
+  const activities = progress.activities.filter(
+    (activity) => activity.kind !== 'waiting' || activity.approvalId !== approvalId,
+  );
+  return activities.length === progress.activities.length ? progress : { ...progress, activities };
 }
 
 /** Puts `step` where the step with this id is, done unless said otherwise: a worktree that's now made. */
@@ -53,9 +78,13 @@ export function replaceStep(
   };
 }
 
-/** Ends every step: with `last` (stopped, closed, discarded) after them, or none when the session failed. */
+/**
+ * Ends every step: with `last` (stopped, closed, discarded) after them, or none when the session failed. A
+ * call still waiting for you was never answered, so its step goes; the session keeps the approval itself.
+ */
 export function endProgress(progress: Progress, last: NewStep | null): Progress {
-  return last === null ? { ...progress, activities: allDone(progress.activities) } : addStep(progress, last);
+  const kept = { ...progress, activities: progress.activities.filter((activity) => activity.kind !== 'waiting') };
+  return last === null ? { ...kept, activities: allDone(kept.activities) } : addStep(kept, last);
 }
 
 function withLast(progress: Progress, last: SessionActivity): Progress {
@@ -93,6 +122,18 @@ export function addWork(progress: Progress, work: ClaudeWork): Progress {
     }
     case 'refused':
       return addStep(progress, { kind: 'refused', ...work.refusal });
+    case 'command': {
+      const next =
+        running?.kind === 'command'
+          ? withLast(progress, { ...running, commands: [...running.commands, work.command] })
+          : addStep(progress, { kind: 'command', commands: [work.command] }, 'running');
+      // Test is reached by a command once Claude has built something; before any edit, a command is planning.
+      return { ...next, step: progress.step === 'plan' ? 'plan' : atLeast(progress.step, 'test') };
+    }
+    case 'denied':
+      return addStep(progress, { kind: 'denied', about: work.about, text: work.text });
+    case 'no_commands':
+      return addStep(progress, { kind: 'no_commands', reason: 'no_sandbox' });
     case 'finished':
       return {
         ...addStep(progress, { kind: 'finished', summary: work.summary }),

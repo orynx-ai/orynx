@@ -18,6 +18,7 @@ const EnvSchema = z.object({
   DEVHUB_GITHUB_TOKEN: z.string().optional(),
   DEVHUB_SLACK_USER_TOKEN: z.string().optional(),
   DEVHUB_KEYCHAIN: z.enum(['os', 'memory']).default('os'),
+  DEVHUB_SANDBOX: z.enum(['required', 'assume']).default('required'),
 });
 
 /** Settings read from the shell only, never from `.env`: a file must not decide which program DevHub starts. */
@@ -56,6 +57,12 @@ export interface ServerConfig {
    * instead of the SDK's own (spec 010, Q10). The e2e run sets it to a fake. Null runs the SDK's.
    */
   claudeCode: string | null;
+  /**
+   * Whether Orynx checks that Claude Code's sandbox can run before giving sessions commands (spec 012,
+   * Q2b): `required`, or `assume` for a fake Claude Code, as the e2e run uses. A real Claude Code still
+   * refuses to run commands without a sandbox.
+   */
+  sandbox: z.infer<typeof EnvSchema>['DEVHUB_SANDBOX'];
   /** The part of the shell's environment Claude Code may see (spec 010, AC-10). Nothing from `.env`. */
   agentEnvironment: Record<string, string>;
   /** The same for the git that makes a session's worktree, with your SSH agent and no prompts (spec 011, Q8d). */
@@ -135,6 +142,7 @@ export function loadConfig({
     tokens: { fromEnv, env: tokens, ignored },
     ghSearchPath: shell.data.PATH,
     claudeCode: shell.data.DEVHUB_CLAUDE_CODE ?? null,
+    sandbox: settings.DEVHUB_SANDBOX,
     agentEnvironment: agentEnvironment(env),
     gitEnvironment: gitEnvironment(env),
   };

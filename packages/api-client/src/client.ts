@@ -16,6 +16,7 @@ import {
   type RepositoryList,
   type SearchIndex,
   type ServerEvent,
+  type ApprovalDecision,
   type Session,
   type SessionList,
   type SessionListQuery,
@@ -31,7 +32,14 @@ import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnec
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
 import { deleteRepository, getRepositories, postRepository } from './endpoints/repositories.ts';
 import { getSearch } from './endpoints/search.ts';
-import { getSession, getSessions, postSession, postSessionDiscard, postSessionStop } from './endpoints/sessions.ts';
+import {
+  getSession,
+  getSessions,
+  postApproval,
+  postSession,
+  postSessionDiscard,
+  postSessionStop,
+} from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
 import { getTickets } from './endpoints/tickets.ts';
 import { toApiRequestError } from './errors.ts';
@@ -59,6 +67,11 @@ export interface ApiClient {
   stopSession(id: string): Promise<void>;
   /** Deletes the session's worktree and branch, stopping it first if it's working. */
   discardSession(id: string): Promise<void>;
+  /**
+   * Answers a call waiting in a session (spec 012); rejects with already_answered when another answer came
+   * first, and settings_unsaved when Always allow couldn't save the list.
+   */
+  respondToApproval(id: string, approvalId: string, decision: ApprovalDecision): Promise<void>;
   /** The saved Jira site and email, and whether `.env` holds a Jira token. */
   jiraConnection(): Promise<JiraConnection>;
   /** Checks with Jira, then saves; rejects with integration_rejected, integration_unreachable or keychain_unavailable. */
@@ -124,6 +137,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     stopSession: (id) => postSessionStop(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     discardSession: (id) =>
       postSessionDiscard(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    respondToApproval: (id, approvalId, decision) =>
+      postApproval(http, id, approvalId, decision).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     jiraConnection: () => getJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     connectJira: (request) =>
       putJiraConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

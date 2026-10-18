@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { ApiRequestError, sessionQueryKey, sessionsQueryOptions } from '@devhub/api-client';
-import type { Session, SessionListQuery } from '@devhub/contracts';
+import type { ApprovalDecision, Session, SessionListQuery } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
 /** Sessions with the newest activity first. Kept fresh by `sessions.changed` events, not polling. */
@@ -27,5 +27,17 @@ export function useSession(sessionId: string) {
     },
     // Freshness comes from the event stream, not from polling.
     staleTime: Infinity,
+  });
+}
+
+/**
+ * Your answer to a call waiting in a session (spec 012). The session changes on the server, which says so
+ * with `session.changed` and `sessions.changed`, so nothing here touches the cache.
+ */
+export function useRespondToApproval(sessionId: string) {
+  const api = useApi();
+  return useMutation({
+    mutationFn: ({ approvalId, decision }: { approvalId: string; decision: ApprovalDecision }) =>
+      api.respondToApproval(sessionId, approvalId, decision),
   });
 }

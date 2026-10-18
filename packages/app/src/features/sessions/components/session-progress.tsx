@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import {
   Cancel01Icon,
   CheckListIcon,
@@ -9,6 +9,7 @@ import {
   PowerIcon,
   SentIcon,
   StopIcon,
+  TerminalIcon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons';
 import type { Session, SessionActivity, SessionStep } from '@devhub/contracts';
@@ -25,6 +26,7 @@ import {
 import { durationText } from '../../../words/duration.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { problemWords, stepWords } from '../step-words.ts';
+import { ApprovalCallout } from './approval-callout.tsx';
 
 const steps = ['Plan', 'Build', 'Test', 'Review', 'Pull request'] as const;
 const stepIndex: Record<SessionStep, number> = { plan: 0, build: 1, test: 2, review: 3, pull_request: 4 };
@@ -41,6 +43,10 @@ const kindIcons = {
   plan: CheckListIcon,
   edit: PencilEdit01Icon,
   refused: Cancel01Icon,
+  waiting: TerminalIcon,
+  command: TerminalIcon,
+  denied: Cancel01Icon,
+  no_commands: TerminalIcon,
   finished: Tick02Icon,
   stopped: StopIcon,
   interrupted: PowerIcon,
@@ -48,11 +54,22 @@ const kindIcons = {
 } as const;
 
 /** Steps that ended the work or were refused aren't something done, so they keep the plain dot. */
-const plainKinds = new Set<SessionActivity['kind']>(['refused', 'stopped', 'interrupted', 'discarded']);
+const plainKinds = new Set<SessionActivity['kind']>([
+  'refused',
+  'denied',
+  'no_commands',
+  'stopped',
+  'interrupted',
+  'discarded',
+]);
 
 function look(activity: SessionActivity): { state: ActivityStepState | undefined; icon: ReactNode } {
   if (activity.state === 'done' && !plainKinds.has(activity.kind)) {
     return { state: 'done', icon: <Icon icon={Tick02Icon} /> };
+  }
+  // A call waiting for you is amber, with the kind of work it waits to do (spec 012, as session.html draws it).
+  if (activity.kind === 'waiting') {
+    return { state: 'waiting', icon: <Icon icon={activity.about === 'edit' ? PencilEdit01Icon : TerminalIcon} /> };
   }
   return { state: undefined, icon: <Icon icon={kindIcons[activity.kind]} /> };
 }
@@ -77,9 +94,12 @@ function WorkedFor({ session }: { session: Session }) {
  */
 export function SessionProgress({ session }: { session: Session }) {
   const problem = session.problem === null ? null : problemWords(session.problem, session);
+  // Focus comes here once you've answered the last call waiting for you (spec 012, AC-18).
+  const pane = useRef<HTMLElement>(null);
   return (
-    <Panel title="Claude's progress" actions={<WorkedFor session={session} />}>
+    <Panel ref={pane} tabIndex={-1} title="Claude's progress" actions={<WorkedFor session={session} />}>
       <div className="flex flex-col gap-4 p-4">
+        <ApprovalCallout session={session} afterAll={pane} />
         {problem === null ? null : (
           <Callout tone="danger" role="alert" title={problem.title}>
             <span>{withCode(problem.line)}</span>

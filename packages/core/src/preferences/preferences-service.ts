@@ -41,7 +41,17 @@ function fromSettings(settings: Settings): Preferences {
     if (typeof on === 'boolean') inboxRules[rule] = on;
   }
   const mode = PermissionModeSchema.safeParse(settings.agent?.['permissionMode']);
-  return { permissionMode: mode.success ? mode.data : defaultPreferences.permissionMode, inboxRules };
+  return {
+    permissionMode: mode.success ? mode.data : defaultPreferences.permissionMode,
+    inboxRules,
+    allowedCommands: writtenCommands(settings),
+  };
+}
+
+/** The allow list as written (spec 012): its non-empty strings, or none when it isn't a list. */
+function writtenCommands(settings: Settings): string[] {
+  const list = settings.agent?.['allowedCommands'];
+  return Array.isArray(list) ? list.filter((entry): entry is string => typeof entry === 'string' && entry !== '') : [];
 }
 
 /** The change on top of what was written, keeping every key this version doesn't know. */
@@ -50,6 +60,12 @@ function applied(current: Settings, change: PreferencesChange): Settings {
   if (change.permissionMode !== undefined) next.agent = { ...current.agent, permissionMode: change.permissionMode };
   if (change.inboxRules !== undefined) {
     next.inbox = { ...current.inbox, rules: { ...writtenRules(current), ...change.inboxRules } };
+  }
+  if (change.allowCommand !== undefined || change.disallowCommand !== undefined) {
+    // One entry at a time (spec 012): taken off wherever it is, added once at the end.
+    const list = writtenCommands(current).filter((entry) => entry !== change.disallowCommand);
+    if (change.allowCommand !== undefined && !list.includes(change.allowCommand)) list.push(change.allowCommand);
+    next.agent = { ...next.agent, allowedCommands: list };
   }
   return next;
 }

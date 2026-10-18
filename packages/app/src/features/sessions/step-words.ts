@@ -27,6 +27,26 @@ function listOf(items: readonly string[]): string | null {
 
 const keepsChanges = 'The worktree keeps the changes.';
 
+/** Why Orynx refused a call (spec 011 Q6; spec 012 Q7, Q8c). */
+function refusedTitle(activity: Extract<SessionActivity, { kind: 'refused' }>): string {
+  switch (activity.reason) {
+    case 'ask_everything':
+      return "Couldn't edit files: Ask before everything is on";
+    case 'push':
+      return "Couldn't push: that waits for Create pull request";
+    case 'background':
+      return "Couldn't run a command in the background";
+    case 'outside_worktree':
+      return `Couldn't ${activity.access} outside the worktree`;
+  }
+}
+
+/** What Claude wants: its own line about the command when it gave one, or the file it would edit (spec 012, Q8c). */
+function waitingDetail(activity: Extract<SessionActivity, { kind: 'waiting' }>): string {
+  if (activity.about === 'edit') return `Wants to edit ${activity.text ?? 'a file'}`;
+  return activity.text ?? 'Wants to run a command';
+}
+
 export function stepWords(activity: SessionActivity): StepWords {
   const running = activity.state === 'running';
   switch (activity.kind) {
@@ -54,13 +74,23 @@ export function stepWords(activity: SessionActivity): StepWords {
       };
     }
     case 'refused':
+      return { title: refusedTitle(activity), detail: activity.path };
+    case 'waiting':
+      return { title: 'Waiting for your approval', detail: waitingDetail(activity) };
+    case 'command': {
+      const count = activity.commands.length;
       return {
-        title:
-          activity.reason === 'ask_everything'
-            ? "Couldn't edit files: Ask before everything is on"
-            : `Couldn't ${activity.access} outside the worktree`,
-        detail: activity.path,
+        title: running ? 'Running a command' : `Ran ${String(count)} ${count === 1 ? 'command' : 'commands'}`,
+        detail: listOf(activity.commands),
       };
+    }
+    case 'denied':
+      return {
+        title: activity.about === 'command' ? 'You denied a command' : 'You denied an edit',
+        detail: activity.text,
+      };
+    case 'no_commands':
+      return { title: "Commands are off: Claude Code's sandbox can't run on this computer", detail: null };
     case 'finished':
       return { title: 'Finished', detail: activity.summary.trim() === '' ? null : activity.summary };
     case 'stopped':

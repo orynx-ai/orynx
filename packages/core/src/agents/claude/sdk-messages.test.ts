@@ -100,6 +100,18 @@ describe('createMessageReader', () => {
     expect(read(toolResult('t1', true))).toEqual([]);
   });
 
+  it('012 AC-2: shows a command Claude Code ran without asking Orynx, even one that failed', () => {
+    const read = createMessageReader(worktree, () => false);
+    read(toolUse('t1', 'Bash', { command: 'npm test' }));
+    expect(read(toolResult('t1', true))).toEqual([{ type: 'work', work: { kind: 'command', command: 'npm test' } }]);
+  });
+
+  it('012 AC-2: leaves out a command Orynx already showed when it decided about it', () => {
+    const read = createMessageReader(worktree, (id) => id === 't1');
+    read(toolUse('t1', 'Bash', { command: 'npm test' }));
+    expect(read(toolResult('t1'))).toEqual([]);
+  });
+
   it('ignores a result for a call it never saw, and Claude’s text', () => {
     const read = createMessageReader(worktree);
     expect(read(toolResult('unknown'))).toEqual([]);

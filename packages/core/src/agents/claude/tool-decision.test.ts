@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PermissionMode } from '@devhub/contracts';
-import { decideToolUse, sessionTools } from './tool-decision.ts';
+import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool-decision.ts';
 
 let root: string;
 let worktree: string;
@@ -29,12 +29,17 @@ afterAll(async () => {
   await rm(root, { recursive: true, force: true });
 });
 
-const decide = (tool: string, input: Record<string, unknown>, mode: PermissionMode = 'edit_freely_ask_commands') =>
-  decideToolUse(tool, input, { worktree, mode, home: join(root, 'home') });
+const decide = (
+  tool: string,
+  input: Record<string, unknown>,
+  mode: PermissionMode = 'edit_freely_ask_commands',
+  allowedCommands: readonly string[] = [],
+) => decideToolUse(tool, input, { worktree, mode, home: join(root, 'home'), allowedCommands });
 
 describe('sessionTools', () => {
-  it('AC-20 (Q6): is exactly the tools a session gets before approvals', () => {
-    expect(sessionTools).toEqual(['Read', 'Glob', 'Grep', 'Edit', 'Write', 'NotebookEdit', 'TodoWrite']);
+  it('AC-20 (011 Q6, 012 Q2b): is exactly the tools a session gets, with commands and without', () => {
+    expect(sessionTools).toEqual(['Read', 'Glob', 'Grep', 'Edit', 'Write', 'NotebookEdit', 'TodoWrite', 'Bash']);
+    expect(sessionToolsWithoutCommands).toEqual(['Read', 'Glob', 'Grep', 'Edit', 'Write', 'NotebookEdit', 'TodoWrite']);
   });
 });
 
@@ -111,18 +116,45 @@ describe('decideToolUse', () => {
     }
   });
 
-  it.each(['Edit', 'Write', 'NotebookEdit'])(
-    'AC-6: refuses %s inside the worktree while Ask before everything is on',
-    async (tool) => {
-      const input = tool === 'NotebookEdit' ? { notebook_path: 'n.ipynb', new_source: 'x' } : { file_path: 'src/a.ts' };
-      const decision = await decide(tool, input, 'ask_everything');
-      expect(decision).toMatchObject({
-        behavior: 'deny',
-        refusal: { access: 'edit', reason: 'ask_everything', path: tool === 'NotebookEdit' ? 'n.ipynb' : 'src/a.ts' },
-      });
-      expect(decision.behavior === 'deny' && decision.message).toMatch(/Ask before everything/);
-    },
-  );
+  it('012 AC-8, Q9: asks about an Edit inside the worktree while Ask before everything is on, with the change', async () => {
+    const input = { file_path: 'src/a.ts', old_string: 'a = 1', new_string: 'a = 2' };
+    expect(await decide('Edit', input, 'ask_everything')).toEqual({
+      behavior: 'ask',
+      ask: {
+        kind: 'edit',
+        path: 'src/a.ts',
+        creates: false,
+        lines: [
+          { kind: 'removed', number: 1, text: 'export const a = 1;' },
+          { kind: 'added', number: 1, text: 'export const a = 2;' },
+        ],
+        moreLines: 0,
+      },
+    });
+  });
+
+  it('012 AC-8, Q9: asks about a Write of a new file and a NotebookEdit the same way', async () => {
+    expect(await decide('Write', { file_path: 'src/new.ts', content: 'x' }, 'ask_everything')).toEqual({
+      behavior: 'ask',
+      ask: {
+        kind: 'edit',
+        path: 'src/new.ts',
+        creates: true,
+        lines: [{ kind: 'added', number: 1, text: 'x' }],
+        moreLines: 0,
+      },
+    });
+    expect(await decide('NotebookEdit', { notebook_path: 'n.ipynb', new_source: 'x' }, 'ask_everything')).toEqual({
+      behavior: 'ask',
+      ask: {
+        kind: 'edit',
+        path: 'n.ipynb',
+        creates: false,
+        lines: [{ kind: 'added', number: 1, text: 'x' }],
+        moreLines: 0,
+      },
+    });
+  });
 
   it('AC-6: still lets Claude read and search while Ask before everything is on', async () => {
     expect(await decide('Read', { file_path: 'src/a.ts' }, 'ask_everything')).toEqual({ behavior: 'allow' });
@@ -135,8 +167,70 @@ describe('decideToolUse', () => {
     });
   });
 
+  describe('a command (012)', () => {
+    const command = (input: Record<string, unknown>, mode?: PermissionMode, allowed?: readonly string[]) =>
+      decide('Bash', input, mode, allowed);
+
+    it('AC-1: asks, with the command and Claude’s own line about it', async () => {
+      expect(await command({ command: 'npm test -- content-list', description: 'Run the content list tests' })).toEqual(
+        {
+          behavior: 'ask',
+          ask: {
+            kind: 'command',
+            command: 'npm test -- content-list',
+            description: 'Run the content list tests',
+            alwaysAsk: null,
+            alwaysAllow: null,
+          },
+        },
+      );
+      expect(await command({ command: 'npm test' })).toMatchObject({ ask: { description: null } });
+    });
+
+    it('AC-4, AC-5: in Edit files and run allowed commands, runs one on the list and asks about the rest with Always allow', async () => {
+      expect(await command({ command: 'npm test' }, 'edit_and_run_allowed', ['npm test'])).toEqual({
+        behavior: 'allow',
+      });
+      expect(await command({ command: 'npm run lint -- --fix' }, 'edit_and_run_allowed', ['npm test'])).toMatchObject({
+        behavior: 'ask',
+        ask: { alwaysAsk: null, alwaysAllow: 'npm run lint' },
+      });
+    });
+
+    it('AC-6: asks about a command that always asks, saying why', async () => {
+      expect(await command({ command: 'curl https://x.test' }, 'edit_and_run_allowed', ['curl'])).toMatchObject({
+        ask: { alwaysAsk: 'network', alwaysAllow: null },
+      });
+      expect(
+        await command({ command: 'npm test', dangerouslyDisableSandbox: true }, 'edit_and_run_allowed', ['npm test']),
+      ).toMatchObject({
+        ask: { alwaysAsk: 'unsandboxed' },
+      });
+    });
+
+    it('AC-7: refuses a push without asking, as a step with the command', async () => {
+      const decision = await command({ command: 'git push origin main' });
+      expect(decision).toMatchObject({
+        behavior: 'deny',
+        refusal: { access: 'run', reason: 'push', path: 'git push origin main' },
+      });
+      expect(decision.behavior === 'deny' && decision.message).toMatch(/Create pull request/);
+    });
+
+    it('refuses a background command, as a step with the command', async () => {
+      expect(await command({ command: 'npm start', run_in_background: true })).toMatchObject({
+        behavior: 'deny',
+        refusal: { access: 'run', reason: 'background', path: 'npm start' },
+      });
+    });
+
+    it('refuses a call whose command it can’t read, without a step', async () => {
+      expect(await command({})).toMatchObject({ behavior: 'deny', refusal: null });
+      expect(await command({ command: 42 })).toMatchObject({ behavior: 'deny', refusal: null });
+    });
+  });
+
   it.each([
-    ['Bash', { command: 'npm test' }],
     ['WebFetch', { url: 'https://example.com', prompt: 'x' }],
     ['WebSearch', { query: 'x' }],
     ['Agent', { prompt: 'x', description: 'x' }],

@@ -1,6 +1,7 @@
 import type { PermissionMode } from '@devhub/contracts';
 import { Card, ChoiceCard, ChoiceGroup } from '@devhub/ui';
 import { useChangePreferences, usePreferences } from '../queries.ts';
+import { AllowedCommands } from './allowed-commands.tsx';
 import { ClaudeCard } from './claude-card.tsx';
 import { SaveError } from './save-error.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
@@ -82,6 +83,7 @@ export function CodingAgentPanel() {
         </ChoiceGroup>
         {change.isError ? <SaveError /> : null}
       </div>
+      <AllowedCommands />
     </div>
   );
 }

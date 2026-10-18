@@ -1,4 +1,4 @@
-<!-- learn-sources: packages/contracts/src/session.ts packages/core/src/sessions/session-service.ts packages/core/src/sessions/worktrees.ts packages/core/src/sessions/file-session-store.ts packages/core/src/sessions/session-store.ts packages/core/src/sessions/progress.ts packages/core/src/sessions/brief.ts packages/core/src/agents/agent-adapter.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/agents/claude/sdk-messages.ts packages/core/src/agents/agent-environment.ts packages/core/src/routes/sessions.ts apps/server/src/main.ts e2e/fake-claude/session.ts packages/app/src/features/sessions/components/build-with-claude.tsx packages/app/src/features/sessions/step-words.ts -->
+<!-- learn-sources: packages/contracts/src/session.ts packages/core/src/sessions/session-service.ts packages/core/src/sessions/worktrees.ts packages/core/src/sessions/file-session-store.ts packages/core/src/sessions/session-store.ts packages/core/src/sessions/progress.ts packages/core/src/sessions/brief.ts packages/core/src/agents/agent-adapter.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/agents/claude/command-decision.ts packages/core/src/agents/claude/edit-preview.ts packages/core/src/agents/claude/sandbox.ts packages/contracts/src/commands.ts packages/core/src/agents/claude/sdk-messages.ts packages/core/src/agents/agent-environment.ts packages/core/src/routes/sessions.ts apps/server/src/main.ts e2e/fake-claude/session.ts e2e/fake-claude/probe.ts packages/app/src/features/sessions/components/build-with-claude.tsx packages/app/src/features/sessions/step-words.ts packages/app/src/features/sessions/components/approval-callout.tsx -->
 
 # Sessions and worktrees: Claude on a ticket, away from your checkout
 
@@ -49,17 +49,39 @@ The id is 16 hex characters, so it is always a safe folder name. Every write goe
 The SDK's defaults load every settings file (`~/.claude` and the repository's) and let Claude Code allow tool calls by its own rules, so `claude-adapter.ts` sets every option on purpose:
 
 - `settingSources: []`, `settings: { disableAllHooks: true }`, `strictMcpConfig: true`, `mcpServers: {}`: none of your or the repository's hooks, plugins, MCP servers or allow rules.
-- `tools`: only `Read`, `Glob`, `Grep`, `Edit`, `Write`, `NotebookEdit` and `TodoWrite`. No command can run until approvals come (spec 012), so Claude has no `Bash`, no web, no sub-agents and no questions.
-- `permissionMode: 'default'` with `canUseTool`: every call Claude Code doesn't allow by itself comes to `tool-decision.ts`. It refuses any path outside the worktree once symlinks are followed (a glob's fixed start too, and a symlink to a file that doesn't exist yet), anything under the worktree's `.git`, and every edit while Settings says Ask before everything. A refusal is a step: "Couldn't edit outside the worktree".
+- `tools`: `Read`, `Glob`, `Grep`, `Edit`, `Write`, `NotebookEdit`, `TodoWrite` and `Bash` (spec 012). Where Claude Code's sandbox can't run, `Bash` is left out. No web, no sub-agents and no questions.
+- `sandbox`: every command runs in Claude Code's own sandbox (`sandbox.ts`, spec 012 Q2), set below under "Keeping commands away from Orynx".
+- `permissionMode: 'default'` with `canUseTool`: every call Claude Code doesn't allow by itself comes to `tool-decision.ts`, which allows it, asks you (next section) or refuses it. It refuses any path outside the worktree once symlinks are followed (a glob's fixed start too, and a symlink to a file that doesn't exist yet), anything under the worktree's `.git`, a push or `gh pr create`, and a background command. A refusal is a step: "Couldn't edit outside the worktree", "Couldn't push: that waits for Create pull request".
 - `env`: the allow list from `agent-environment.ts` and `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`. The SDK replaces the environment rather than adding to it. `AWS_*` passes only when `CLAUDE_CODE_USE_BEDROCK` is on and `GOOGLE_*` only with `CLAUDE_CODE_USE_VERTEX`, so a session never inherits cloud credentials Claude isn't using.
-- `systemPrompt`: the `claude_code` preset with Orynx's note: the branch, read CLAUDE.md if there is one, don't push, say which commands you'd run, and summarise at the end.
+- `systemPrompt`: the `claude_code` preset with Orynx's note: the branch, read CLAUDE.md if there is one, don't push, that commands run in a sandbox with no network and some wait for you, run the project's checks, and summarise at the end (spec 012 Q8g). Without a sandbox it says Claude can't run commands on this computer, so it says which ones it would run.
 - Claude Code's own output (`stderr`) is dropped: it can hold the brief or file contents.
 
 The prompt goes in as a stream that stays open until Claude finishes, because the SDK can interrupt only a session with streaming input.
 
+## When Claude asks you (spec 012)
+
+```
+canUseTool(tool, input)                              claude-adapter.ts; one call decided at a time, in the order asked
+  └─ tool-decision.ts ─ Bash ─▶ command-decision.ts  reads the command with contracts' readCommand()
+       allow  → runs; the session shows "Running a command"
+       refuse → a push, a background command, a path outside the worktree: a step, Claude is told why
+       ask    → the call waits: the adapter parks it and says `approval`
+                  └─ session-service.ts: the call joins session.approvals, a waiting step, state Needs you
+                       POST /api/sessions/:id/approvals/:approvalId { allow_once | always_allow | deny }
+                       └─ respond(): Always allow saves the entry first; adapter.respond() ends the wait
+                            answered → the waiting step goes; the command runs, or "You denied a command"
+```
+
+- **What asks.** In Ask before everything, every edit and every command; in Edit files freely, every command; in Edit files and run allowed commands, a command whose every part is on the allow list, a `cd` inside the worktree or a filter (`head`, `tail`, `grep`, `wc`, `sort`, `uniq`) runs, and anything else asks. Whatever the mode, a command that reaches the network, deletes outside the worktree or asks to run outside the sandbox asks, with Allow once and Deny only. Shell the reader won't follow (`$(…)`, backticks, `eval`, `sh -c`, `sudo`, redirections other than `2>&1`, a leading `NAME=value`) always asks and never matches the list.
+- **What Always allow saves.** The program and its first word that isn't an option, plus the script after `run`: `npm test -- content-list` saves `npm test`, `npm run lint -- --fix` saves `npm run lint`. It's offered only in Edit files and run allowed commands, and only for one command. `PATCH /api/preferences` takes the same entries through contracts' `AllowedCommandSchema`, so Settings and Always allow agree.
+- **An edit that asks** shows its change (`edit-preview.ts`): the old and new lines, numbered from where the old text sits in the file (at most 1 MB read), at most 20 lines, then how many more. A new file is all added lines.
+- **Waiting.** A call waits with no time limit. Calls asked together wait in the order asked; the Session screen shows the oldest. Settings are read for every call, so a change applies from Claude's next one. The first answer counts: a late one gets 409, and the page says nothing.
+- **Deny** tells Claude "The user denied this. Don't try it another way…" and Claude carries on. Stop, Discard and Orynx closing deny every waiting call. Each call that asked is kept in `session.json`'s `approvalLog` (the command or path, the answer, who gave it), never in the log: the terminal hears only kinds and answers.
+- **The callout** (`approval-callout.tsx`) is `role="alert"` and never takes focus, so no key pressed for something else answers it. After you answer, focus moves to the next waiting call's first button, or to Claude's progress.
+
 ## Steps and the stepper
 
-`sdk-messages.ts` pairs each tool call with its result, so only calls that worked become work: a read or search is explore, `Edit`/`Write`/`NotebookEdit` is edit, `TodoWrite` is the plan, and the result ends the turn with Claude's summary. `progress.ts` folds them into steps: one step per run of the same kind of work, the latest one running until another kind starts. A later to-do update changes the plan's items without a new step. The stepper moves from Plan to Build at the first edit and to Review when Claude finishes, and never moves back; Test needs a command, which comes with spec 012.
+`sdk-messages.ts` pairs each tool call with its result, so only calls that worked become work: a read or search is explore, `Edit`/`Write`/`NotebookEdit` is edit, `TodoWrite` is the plan, and the result ends the turn with Claude's summary. `progress.ts` folds them into steps: one step per run of the same kind of work, the latest one running until another kind starts. A later to-do update changes the plan's items without a new step. A command is shown when Orynx lets it run, so "Running a command" shows while it runs; one Claude Code ran without asking Orynx is shown from its result, so nothing runs unseen. A call waiting for you is a running step in the amber look until it's answered. The stepper moves from Plan to Build at the first edit, to Test at the first command after that, and to Review when Claude finishes, and never moves back.
 
 The server sends structured steps, never words. The page says them (`step-words.ts`): "Explored the code" with "ContentList.tsx, contentApi.ts and 6 more", "Edited 4 files", "Finished" with Claude's summary.
 
@@ -71,14 +93,25 @@ A failure stops the session with a problem the Session screen says in the danger
 
 - **Stop** aborts git when the worktree is still being made, and interrupts Claude. Stop that comes just before Claude starts means Claude never starts, and Stop that comes while Claude Code is starting, when there was no Claude yet to stop, has the run stop it as soon as it has started. An interrupted turn still ends with a failed result, which isn't a problem after Stop. If Claude Code hasn't ended 5 seconds later, its process is closed. The worktree keeps its changes, and the last step is "You stopped Claude".
 - **Discard** stops a working session first, then `git worktree remove --force --force` and `git branch -D`, after a confirm step in the page. A worktree you deleted yourself is pruned. When the repository itself is gone, only the worktree folder is deleted, and only inside `<DEVHUB_HOME>/worktrees`. The session stays, Stopped, and leaves the sidebar 7 days later (`GET /api/sessions?recent=true`).
-- **A restart.** Claude Code runs as a child of the server, so closing Orynx ends it: `close()` stops every working session as "Orynx closed while Claude was working". Opening the store does the same for a session a crash left Working.
+- **A restart.** Claude Code runs as a child of the server, so closing Orynx ends it: `close()` stops every working session as "Orynx closed while Claude was working". Opening the store does the same for a session a crash left Working or waiting for you; its waiting calls are kept in the log, unanswered.
 
 ## Tests
 
 Core tests never run the real Claude Code. `test/fake-claude-sdk.ts` fakes `query()` at the SDK's boundary: it asks `canUseTool` about each scripted call as Claude Code does, and ends an interrupted turn with a failed result. Git runs for real, on temporary repositories with a bare `origin` (`test/git-repository.ts`) and none of your git settings.
 
-The e2e run has a hub of its own for sessions (port 4396). Its `e2e/fake-claude/claude` hands every stream-json run to `session.ts`, which speaks the pinned SDK's protocol as far as a session needs: it answers `initialize` and `interrupt`, asks `can_use_tool` before its edit, and writes the file into the worktree when allowed. A probe that stood in for Claude Code showed what the SDK sends: `--output-format stream-json --input-format stream-json --permission-prompt-tool=stdio --tools=… --setting-sources= --strict-mcp-config --permission-mode=default --settings {"disableAllHooks":true}`, then an `initialize` control request carrying the note, then the brief as a user message. Bump the SDK and check the fake against a probe again.
+The e2e run has a hub of its own for sessions (port 4396). Its `e2e/fake-claude/claude` hands every stream-json run to `session.ts`, which speaks the pinned SDK's protocol as far as a session needs: it answers `initialize` and `interrupt`, asks `can_use_tool` before its edit and before each command, and writes the file into the worktree when allowed. It never runs a command: an allowed one is written to `ran.txt` in the worktree. Words in the ticket's title pick the commands: "(runs tests)" asks for `npm test -- content-list`, "(fetches)" for a `curl` that always asks, and "(runs two)" for two commands in one message. The e2e hubs set `DEVHUB_SANDBOX=assume`, because the fake has no sandbox.
 
-## Left for spec 012
+`e2e/fake-claude/probe.ts` shows what the SDK sends, with a stand-in that records it and never reaches Claude (`node e2e/fake-claude/probe.ts`). For SDK 0.3.302: `--output-format stream-json --verbose --input-format stream-json --permission-prompt-tool=stdio --tools=…,Bash --setting-sources= --strict-mcp-config --permission-mode=default --settings {"disableAllHooks":true,"sandbox":{…}}`, then an `initialize` control request carrying the note, then the brief as a user message. The `sandbox` option is merged into `--settings`, the flag layer, which is why `strictAllowlist` and the deny lists hold (spec 012). Bump the SDK and run the probe again.
 
-No command runs in 011 and reads outside the worktree are refused, so Claude can reach neither DevHub's keychain items nor `<DEVHUB_HOME>/runtime.json` with its session token. When approvals let commands run, spec 012 has to keep commands away from both, for example with Claude Code's sandbox.
+## Keeping commands away from Orynx (spec 012)
+
+A command's text can't be trusted: an allow-listed `npm test` runs whatever Claude wrote into the tests. And any command could read `<DEVHUB_HOME>/runtime.json` and call `/api` with the session token (to approve its own request), and one run as `node` could read the "DevHub" keychain items without a macOS prompt (`learn/tokens-and-keychain.md`). So every command runs in Claude Code's own sandbox (Seatbelt on macOS, bubblewrap and socat on Linux), set per session by `sandbox.ts`:
+
+- writes only in the worktree and the temporary folder;
+- no reads under `DEVHUB_HOME` except this session's worktree (`denyRead`, then `allowRead`), and none of the keychain's own files;
+- no network at all, 127.0.0.1 included (`strictAllowlist` with no domains);
+- `autoAllowBashIfSandboxed: false`, so a sandboxed command still comes to Orynx, and `failIfUnavailable`, so nothing runs unsandboxed by surprise.
+
+A command that needs more (the network, a delete outside the worktree) always asks; allowed, it runs once with `dangerouslyDisableSandbox`, and the callout says so. Where the sandbox can't run (Windows, or Linux without bubblewrap or socat), `apps/server` gives sessions no `Bash` and says why in the terminal and in the progress. `DEVHUB_SANDBOX=assume` skips that check, for the e2e run's fake Claude Code only.
+
+Tests can only check the settings Orynx passes. What the real sandbox blocks (127.0.0.1, the keychain lookup, `runtime.json`) is checked in spec 012's real run (Q10).

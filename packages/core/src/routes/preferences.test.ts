@@ -96,7 +96,43 @@ describe('/api/preferences', () => {
     expect(PreferencesSchema.parse(res.json())).toEqual({
       permissionMode: 'edit_and_run_allowed',
       inboxRules: { ...defaultPreferences.inboxRules, unresolved_comments: false },
+      allowedCommands: [],
     });
+  });
+
+  it('012 AC-5, AC-15: PATCH adds one command, read as Settings reads it, and takes one off', async () => {
+    const { app, seen } = await server();
+    const added = await app.inject({
+      method: 'PATCH',
+      url: apiRoutes.preferences,
+      headers,
+      payload: { allowCommand: '  npm   test ' },
+    });
+    expect(added.statusCode).toBe(200);
+    expect(PreferencesSchema.parse(added.json()).allowedCommands).toEqual(['npm test']);
+    const removed = await app.inject({
+      method: 'PATCH',
+      url: apiRoutes.preferences,
+      headers,
+      payload: { disallowCommand: 'npm test' },
+    });
+    expect(PreferencesSchema.parse(removed.json()).allowedCommands).toEqual([]);
+    expect(seen).toEqual([{ type: 'settings.changed' }, { type: 'settings.changed' }]);
+  });
+
+  it('012 AC-15: PATCH refuses a command that always asks, or several at once, with bad_request and its line', async () => {
+    const { app, seen } = await server();
+    for (const [allowCommand, message] of [
+      ['git push', "git push always asks, so it can't go on the list."],
+      ['npm test && npm run lint', 'Add one command at a time, without &&, ; or |.'],
+    ] as const) {
+      const res = await app.inject({ method: 'PATCH', url: apiRoutes.preferences, headers, payload: { allowCommand } });
+      expect(res.statusCode).toBe(400);
+      const error = ApiErrorSchema.parse(res.json());
+      expect(error.code).toBe('bad_request');
+      expect(error.message).toContain(message);
+    }
+    expect(seen).toEqual([]);
   });
 
   it('PATCH refuses an empty change or an unknown mode with bad_request, and saves nothing', async () => {

@@ -8,7 +8,7 @@ import { apiRoutes, tokenHeader, type ServerEvent } from '@devhub/contracts';
 import { agentEnvironment, gitEnvironment } from '../agents/agent-environment.ts';
 import type { QueryFunction } from '../agents/claude/claude-adapter.ts';
 import { createClaudeCode } from '../agents/claude/claude-code.ts';
-import { sessionTools } from '../agents/claude/tool-decision.ts';
+import { sessionToolsWithoutCommands } from '../agents/claude/tool-decision.ts';
 import { createServer } from '../create-server.ts';
 import { createEventBus } from '../events/event-bus.ts';
 import type { Keychain } from '../secrets/keychain.ts';
@@ -33,7 +33,21 @@ const description = 'fake-ticket-description-for-leaks';
 const summary = 'fake-claude-summary-for-leaks';
 const words = 'fake-claude-words-for-leaks';
 const devhubToken = 'fake-devhub-github-token-for-leaks';
-const secrets = [description, summary, words, devhubToken, goodToken, sessionToken, claudeEmail, claudeOrganisation];
+// A command Claude asks about, and its own line about it (spec 012, AC-22).
+const command = 'echo fake-command-for-leaks';
+const commandLine = 'fake-command-description-for-leaks';
+const secrets = [
+  description,
+  summary,
+  words,
+  devhubToken,
+  goodToken,
+  sessionToken,
+  claudeEmail,
+  claudeOrganisation,
+  command,
+  commandLine,
+];
 
 let app: FastifyInstance | undefined;
 let home: string | undefined;
@@ -72,14 +86,14 @@ async function until(check: () => Promise<boolean>) {
 }
 
 describe.skipIf(process.platform === 'win32')('a session stays out of the log and the event stream', () => {
-  it('AC-20, AC-21: finished, stopped and failing, nothing of the ticket, the brief or Claude leaks', async () => {
+  it('AC-20, AC-21, 012 AC-22: finished, stopped, failing and asking, nothing of the ticket, the brief, Claude or a command leaks', async () => {
     const repos = await repositories();
     home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-leaks-')));
     const folder = await fakeClaudeFolder();
     await folder.install({ kind: 'signed_in' });
     jira.use(
       acceptingIssue(
-        ['PROJ-1', 'PROJ-2', 'PROJ-3'].map((key) => ({
+        ['PROJ-1', 'PROJ-2', 'PROJ-3', 'PROJ-4'].map((key) => ({
           key,
           summary: `Work on ${key}`,
           description: {
@@ -117,6 +131,7 @@ describe.skipIf(process.platform === 'win32')('a session stays out of the log an
         text(words),
         { message: { type: 'assistant', parent_tool_use_id: null, error: 'rate_limit', message: { content: [] } } },
       ],
+      [text(words), { tool: 'Bash', input: { command, description: commandLine } }, { finish: summary }],
     ]);
     // The shell that started Orynx holds Orynx's own settings and a token; none may reach Claude Code.
     const shell = { HOME: repos.root, PATH: gitSearchPath, DEVHUB_GITHUB_TOKEN: devhubToken };
@@ -179,18 +194,37 @@ describe.skipIf(process.platform === 'win32')('a session stays out of the log an
     ).toBe(204);
     const failing = await start('PROJ-3');
     await until(async () => (await stateOf(failing)) === 'stopped');
+    const asking = await start('PROJ-4');
+    let approvalId = '';
+    await until(async () => {
+      const waiting = (
+        await hub.inject({ method: 'GET', url: apiRoutes.session.replace(':id', asking), headers })
+      ).json<{ approvals: { id: string }[] }>().approvals;
+      approvalId = waiting[0]?.id ?? '';
+      return approvalId !== '';
+    });
+    const denied = await hub.inject({
+      method: 'POST',
+      url: apiRoutes.sessionApproval.replace(':id', asking).replace(':approvalId', approvalId),
+      headers,
+      payload: { decision: 'deny' },
+    });
+    expect(denied.statusCode).toBe(204);
+    await until(async () => (await stateOf(asking)) === 'done');
     await hub.close();
 
     const told = log.join('') + JSON.stringify(events);
     for (const secret of secrets) expect(told).not.toContain(secret);
     expect(told).toContain('Claude started a session');
     expect(told).toContain('rate_limit');
+    expect(told).toContain('Claude is waiting for an answer');
+    expect(told).toContain('A waiting call ended');
 
     for (const fake of fakes) {
       const options = fake.runs[0]?.options;
       expect(options?.settingSources).toEqual([]);
       expect(options?.settings).toEqual({ disableAllHooks: true });
-      expect(options?.tools).toEqual([...sessionTools]);
+      expect(options?.tools).toEqual([...sessionToolsWithoutCommands]);
       expect(Object.keys(options?.env ?? {}).filter((name) => name.startsWith('DEVHUB_'))).toEqual([]);
       expect(JSON.stringify(options?.env)).not.toContain(devhubToken);
     }

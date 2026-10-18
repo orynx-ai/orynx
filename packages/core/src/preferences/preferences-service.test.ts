@@ -44,6 +44,39 @@ describe('preferences service', () => {
     expect((await settings.read()).inbox).toEqual({ rules: { checks_failing: false, review_requested: false } });
   });
 
+  it('012 AC-5, AC-15: adds a command to the allow list once, in the order added, and says settings changed', async () => {
+    const { preferences, settings, seen } = service();
+    await preferences.change({ allowCommand: 'npm test' });
+    await preferences.change({ allowCommand: 'pnpm lint' });
+    const answer = await preferences.change({ allowCommand: 'npm test' });
+    expect(answer.allowedCommands).toEqual(['npm test', 'pnpm lint']);
+    expect((await settings.read()).agent).toEqual({ allowedCommands: ['npm test', 'pnpm lint'] });
+    expect(seen).toEqual([{ type: 'settings.changed' }, { type: 'settings.changed' }, { type: 'settings.changed' }]);
+  });
+
+  it('012 AC-15: takes one entry off the list and leaves the others, even one that is not there', async () => {
+    const { preferences, settings } = service({ agent: { allowedCommands: ['npm test', 'pnpm lint'] } });
+    expect((await preferences.change({ disallowCommand: 'npm test' })).allowedCommands).toEqual(['pnpm lint']);
+    expect((await preferences.change({ disallowCommand: 'npm test' })).allowedCommands).toEqual(['pnpm lint']);
+    expect((await settings.read()).agent).toEqual({ allowedCommands: ['pnpm lint'] });
+  });
+
+  it('012 AC-11: reads the list as written, keeping the mode beside it and dropping what is not a command', async () => {
+    const { preferences } = service({
+      agent: { permissionMode: 'edit_and_run_allowed', allowedCommands: ['npm test', '', 7] },
+    });
+    expect(await preferences.read()).toMatchObject({
+      permissionMode: 'edit_and_run_allowed',
+      allowedCommands: ['npm test'],
+    });
+    expect((await preferences.change({ allowCommand: 'pnpm lint' })).allowedCommands).toEqual([
+      'npm test',
+      'pnpm lint',
+    ]);
+    const { preferences: noList } = service({ agent: { allowedCommands: 'npm test' } });
+    expect((await noList.read()).allowedCommands).toEqual([]);
+  });
+
   it('AC-18: leaves the Jira and GitHub settings as they were', async () => {
     const { preferences, settings } = service({ jira, github: { method: 'gh' } });
 

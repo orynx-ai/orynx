@@ -1,11 +1,13 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { SandboxSettings } from '@anthropic-ai/claude-agent-sdk';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeClaudeSdk, type FakeTurn } from '../../test/fake-claude-sdk.ts';
-import type { AgentEvent, AgentPermissions } from '../agent-adapter.ts';
+import type { AgentAdapter, AgentEvent, AgentPermissions } from '../agent-adapter.ts';
 import { createClaudeAdapter } from './claude-adapter.ts';
-import { sessionTools } from './tool-decision.ts';
+import { sandboxSettings } from './sandbox.ts';
+import { sessionTools, sessionToolsWithoutCommands } from './tool-decision.ts';
 
 let root: string;
 let worktree: string;
@@ -27,10 +29,20 @@ const brief = {
     { kind: 'jira' as const, title: 'Jira ticket PROJ-1423 (Story): Add bulk archive', body: 'No description.' },
   ],
 };
-const editFreely: AgentPermissions = { mode: 'edit_freely_ask_commands', allowedCommands: [] };
+const fixed = (permissions: AgentPermissions) => () => Promise.resolve(permissions);
+const editFreely = fixed({ mode: 'edit_freely_ask_commands', allowedCommands: [] });
 const env = { HOME: '/Users/you', PATH: '/usr/bin' };
 
-function setUp(script: readonly FakeTurn[], { stopGraceMs = 5_000 }: { stopGraceMs?: number } = {}) {
+function sandboxFor(path: string): SandboxSettings {
+  return sandboxSettings({ platform: 'darwin', worktree: path, devhubHome: root, home: root, temporary: tmpdir() });
+}
+
+interface SetUpOptions {
+  stopGraceMs?: number;
+  sandbox?: ((worktree: string) => SandboxSettings) | null;
+}
+
+function setUp(script: readonly FakeTurn[], { stopGraceMs = 5_000, sandbox = sandboxFor }: SetUpOptions = {}) {
   const sdk = fakeClaudeSdk(script);
   const adapter = createClaudeAdapter({
     query: sdk.query,
@@ -38,12 +50,13 @@ function setUp(script: readonly FakeTurn[], { stopGraceMs = 5_000 }: { stopGrace
     env,
     home: root,
     stopGraceMs,
+    sandbox,
   });
   return { sdk, adapter };
 }
 
 /** Starts a session and gathers its events until `ended`. */
-async function runToEnd(adapter: ReturnType<typeof setUp>['adapter'], permissions = editFreely) {
+async function runToEnd(adapter: AgentAdapter, permissions = editFreely) {
   const id = await adapter.startSession(brief, worktree, permissions, 'Work in the worktree.');
   const events: AgentEvent[] = [];
   await new Promise<void>((resolve) => {
@@ -57,8 +70,30 @@ async function runToEnd(adapter: ReturnType<typeof setUp>['adapter'], permission
 
 const works = (events: readonly AgentEvent[]) => events.flatMap((event) => (event.type === 'work' ? [event.work] : []));
 
+/** Starts a session and keeps its events as they come, for a test that answers calls while Claude waits. */
+async function watch(adapter: AgentAdapter, permissions = editFreely) {
+  const id = await adapter.startSession(brief, worktree, permissions, 'x');
+  const events: AgentEvent[] = [];
+  adapter.onEvent(id, (event) => events.push(event));
+  const approvals = async (count = 1) => {
+    await vi.waitFor(() => {
+      expect(events.filter((event) => event.type === 'approval')).toHaveLength(count);
+    });
+    return events.flatMap((event) => (event.type === 'approval' ? [event] : []));
+  };
+  const ended = () =>
+    vi.waitFor(() => {
+      expect(events.at(-1)?.type).toBe('ended');
+    });
+  return { id, events, approvals, ended };
+}
+
+const npmTest = { command: 'npm test -- content-list', description: 'Run the content list tests' };
+const deniedMessage =
+  "The user denied this. Don't try it another way. Carry on without it, or say in your summary what you needed.";
+
 describe('the Claude adapter', () => {
-  it('AC-20: starts Claude Code in the worktree with only Orynx’s options: no settings files, hooks off, Q6’s tools', async () => {
+  it('AC-20: starts Claude Code in the worktree with only Orynx’s options: no settings files, hooks off, the tools and the sandbox', async () => {
     const { sdk, adapter } = setUp([{ finish: 'Done.' }]);
     await runToEnd(adapter);
 
@@ -69,6 +104,7 @@ describe('the Claude adapter', () => {
       env: { HOME: '/Users/you', PATH: '/usr/bin', CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' },
       permissionMode: 'default',
       tools: [...sessionTools],
+      sandbox: sandboxFor(worktree),
       settingSources: [],
       settings: { disableAllHooks: true },
       strictMcpConfig: true,
@@ -106,7 +142,7 @@ describe('the Claude adapter', () => {
       type: 'started',
       sessionId: id,
       agentSessionId: 'b2c7e0f4-0000-4000-8000-000000000001',
-      loaded: { tools: 7, mcpServers: 0, plugins: 0 },
+      loaded: { tools: 8, mcpServers: 0, plugins: 0 },
     });
     expect(works(events)).toEqual([
       { kind: 'explore', file: 'src/a.ts' },
@@ -133,23 +169,247 @@ describe('the Claude adapter', () => {
     ]);
   });
 
-  it('AC-6: refuses every edit while Ask before everything is on', async () => {
-    const { adapter } = setUp([
-      { tool: 'Edit', input: { file_path: 'src/a.ts', old_string: '1', new_string: '2' } },
-      { finish: 'Described the change instead.' },
-    ]);
-    const { events } = await runToEnd(adapter, { mode: 'ask_everything', allowedCommands: [] });
-    expect(works(events)).toEqual([
-      { kind: 'refused', refusal: { access: 'edit', reason: 'ask_everything', path: 'src/a.ts' } },
-      { kind: 'finished', summary: 'Described the change instead.' },
+  it('AC-20, Q2b: without a sandbox, Claude gets no commands, and says so after it starts', async () => {
+    const { sdk, adapter } = setUp([{ finish: 'Done.' }], { sandbox: null });
+    const { events } = await runToEnd(adapter);
+    expect(sdk.runs[0]?.options.tools).toEqual([...sessionToolsWithoutCommands]);
+    expect(sdk.runs[0]?.options).not.toHaveProperty('sandbox');
+    expect(events[0]?.type).toBe('started');
+    expect(works(events)).toEqual([{ kind: 'no_commands' }, { kind: 'finished', summary: 'Done.' }]);
+  });
+
+  it('AC-1, AC-2: a command waits for your answer, then runs when you allow it once', async () => {
+    const { sdk, adapter } = setUp([{ tool: 'Bash', input: npmTest }, { finish: 'Ran the tests.' }]);
+    const session = await watch(adapter);
+    const [approval] = await session.approvals();
+
+    expect(approval).toMatchObject({
+      type: 'approval',
+      sessionId: session.id,
+      ask: { kind: 'command', ...npmTest, alwaysAsk: null, alwaysAllow: null },
+    });
+    expect(sdk.runs[0]).toMatchObject({ waiting: 1, decisions: [] });
+
+    expect(await adapter.respond(session.id, approval?.approvalId ?? '', 'allow')).toBe(true);
+    await session.ended();
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({ behavior: 'allow', updatedInput: npmTest });
+    const after = session.events.slice(session.events.indexOf(approval as AgentEvent) + 1);
+    expect(after.slice(0, 2)).toEqual([
+      { type: 'answered', sessionId: session.id, approvalId: approval?.approvalId, allowed: true },
+      { type: 'work', sessionId: session.id, work: { kind: 'command', command: 'npm test -- content-list' } },
     ]);
   });
 
+  it('AC-3: Deny tells Claude and it carries on, and shows what you denied', async () => {
+    const { sdk, adapter } = setUp([{ tool: 'Bash', input: npmTest }, { finish: 'Skipped the tests.' }]);
+    const session = await watch(adapter);
+    const [approval] = await session.approvals();
+    await adapter.respond(session.id, approval?.approvalId ?? '', 'deny');
+    await session.ended();
+
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({ behavior: 'deny', message: deniedMessage });
+    expect(works(session.events)).toEqual([
+      { kind: 'denied', about: 'command', text: 'npm test -- content-list' },
+      { kind: 'finished', summary: 'Skipped the tests.' },
+    ]);
+  });
+
+  it('AC-5: offers Always allow in Edit files and run allowed commands, which runs the call as Allow once does', async () => {
+    const { sdk, adapter } = setUp([
+      { tool: 'Bash', input: { command: 'npm run lint -- --fix' } },
+      { finish: 'Linted.' },
+    ]);
+    const session = await watch(adapter, fixed({ mode: 'edit_and_run_allowed', allowedCommands: ['npm test'] }));
+    const [approval] = await session.approvals();
+    expect(approval?.ask).toMatchObject({ alwaysAsk: null, alwaysAllow: 'npm run lint' });
+    await adapter.respond(session.id, approval?.approvalId ?? '', 'always');
+    await session.ended();
+    expect(sdk.runs[0]?.decisions[0]?.result.behavior).toBe('allow');
+  });
+
+  it('AC-4: runs a command on the list without asking, and shows it', async () => {
+    const { sdk, adapter } = setUp([{ tool: 'Bash', input: npmTest }, { finish: 'Ran the tests.' }]);
+    const { events } = await runToEnd(adapter, fixed({ mode: 'edit_and_run_allowed', allowedCommands: ['npm test'] }));
+    expect(events.some((event) => event.type === 'approval')).toBe(false);
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({ behavior: 'allow', updatedInput: npmTest });
+    // Shown once: when Orynx allowed it, not again when its result comes.
+    expect(works(events)).toEqual([
+      { kind: 'command', command: 'npm test -- content-list' },
+      { kind: 'finished', summary: 'Ran the tests.' },
+    ]);
+  });
+
+  it('AC-6: an always-ask command you allow runs once outside the sandbox', async () => {
+    const curl = { command: 'curl -fsS https://registry.npmjs.org/react' };
+    const { sdk, adapter } = setUp([{ tool: 'Bash', input: curl }, { finish: 'Fetched.' }]);
+    const session = await watch(adapter, fixed({ mode: 'edit_and_run_allowed', allowedCommands: ['curl'] }));
+    const [approval] = await session.approvals();
+    expect(approval?.ask).toMatchObject({ alwaysAsk: 'network', alwaysAllow: null });
+    await adapter.respond(session.id, approval?.approvalId ?? '', 'allow');
+    await session.ended();
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({
+      behavior: 'allow',
+      updatedInput: { ...curl, dangerouslyDisableSandbox: true },
+    });
+  });
+
+  it('AC-7: refuses a push without asking, and shows it as a step', async () => {
+    const { sdk, adapter } = setUp([{ tool: 'Bash', input: { command: 'git push origin HEAD' } }, { finish: 'x' }]);
+    const { events } = await runToEnd(adapter);
+    expect(events.some((event) => event.type === 'approval')).toBe(false);
+    expect(sdk.runs[0]?.decisions[0]?.result.behavior).toBe('deny');
+    expect(works(events)[0]).toEqual({
+      kind: 'refused',
+      refusal: { access: 'run', reason: 'push', path: 'git push origin HEAD' },
+    });
+  });
+
+  it('AC-11: reads the mode and the allow list again for every call', async () => {
+    let permissions: AgentPermissions = { mode: 'edit_freely_ask_commands', allowedCommands: [] };
+    const { sdk, adapter } = setUp([
+      { tool: 'Bash', input: { command: 'npm test' } },
+      { tool: 'Bash', input: { command: 'npm test' } },
+      { finish: 'Ran the tests twice.' },
+    ]);
+    const session = await watch(adapter, () => Promise.resolve(permissions));
+    const [first] = await session.approvals();
+    permissions = { mode: 'edit_and_run_allowed', allowedCommands: ['npm test'] };
+    await adapter.respond(session.id, first?.approvalId ?? '', 'allow');
+    await session.ended();
+    expect(session.events.filter((event) => event.type === 'approval')).toHaveLength(1);
+    expect(sdk.runs[0]?.decisions.map((decision) => decision.result.behavior)).toEqual(['allow', 'allow']);
+  });
+
+  it('AC-8: an edit waits while Ask before everything is on, with the change, and is made once allowed', async () => {
+    const { sdk, adapter } = setUp([
+      { tool: 'Edit', input: { file_path: 'src/a.ts', old_string: 'a = 1', new_string: 'a = 2' } },
+      { finish: 'Changed a.' },
+    ]);
+    const session = await watch(adapter, fixed({ mode: 'ask_everything', allowedCommands: [] }));
+    const [approval] = await session.approvals();
+    expect(approval?.ask).toEqual({
+      kind: 'edit',
+      path: 'src/a.ts',
+      creates: false,
+      lines: [
+        { kind: 'removed', number: 1, text: 'export const a = 1;' },
+        { kind: 'added', number: 1, text: 'export const a = 2;' },
+      ],
+      moreLines: 0,
+    });
+    await adapter.respond(session.id, approval?.approvalId ?? '', 'allow');
+    await session.ended();
+    expect(sdk.runs[0]?.decisions[0]?.result.behavior).toBe('allow');
+    expect(works(session.events)).toEqual([
+      { kind: 'edit', file: 'src/a.ts' },
+      { kind: 'finished', summary: 'Changed a.' },
+    ]);
+  });
+
+  it('AC-10: calls asked together wait together, and each is answered on its own', async () => {
+    const { sdk, adapter } = setUp([
+      {
+        together: [
+          { tool: 'Bash', input: { command: 'npm test' } },
+          { tool: 'Bash', input: { command: 'npm run lint' } },
+        ],
+      },
+      { finish: 'Done.' },
+    ]);
+    const session = await watch(adapter);
+    const [first, second] = await session.approvals(2);
+    expect(sdk.runs[0]?.waiting).toBe(2);
+    await adapter.respond(session.id, second?.approvalId ?? '', 'deny');
+    await vi.waitFor(() => {
+      expect(sdk.runs[0]?.waiting).toBe(1);
+    });
+    await adapter.respond(session.id, first?.approvalId ?? '', 'allow');
+    await session.ended();
+    expect(sdk.runs[0]?.decisions.map(({ result }) => result.behavior)).toEqual(['deny', 'allow']);
+  });
+
+  it('AC-10: calls asked together wait in the order asked, even when reading Settings for the first is slower', async () => {
+    const { adapter } = setUp([
+      {
+        together: [
+          { tool: 'Bash', input: { command: 'npm test' } },
+          { tool: 'Bash', input: { command: 'npm run lint' } },
+        ],
+      },
+      { finish: 'Done.' },
+    ]);
+    let reads = 0;
+    const slowFirst = async (): Promise<AgentPermissions> => {
+      reads += 1;
+      if (reads === 1) await new Promise((resolve) => setTimeout(resolve, 50));
+      return { mode: 'edit_freely_ask_commands', allowedCommands: [] };
+    };
+    const session = await watch(adapter, slowFirst);
+    const [first, second] = await session.approvals(2);
+    expect([first?.ask, second?.ask].map((ask) => ask?.kind === 'command' && ask.command)).toEqual([
+      'npm test',
+      'npm run lint',
+    ]);
+    await adapter.stop(session.id);
+  });
+
+  it('AC-12: Stop denies a waiting call, then stops Claude', async () => {
+    const { sdk, adapter } = setUp([{ tool: 'Bash', input: npmTest }, { finish: 'never' }]);
+    const session = await watch(adapter);
+    const [approval] = await session.approvals();
+    await adapter.stop(session.id);
+    await session.ended();
+
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({
+      behavior: 'deny',
+      message: 'The user stopped the session.',
+      interrupt: true,
+    });
+    expect(session.events).toContainEqual({
+      type: 'answered',
+      sessionId: session.id,
+      approvalId: approval?.approvalId,
+      allowed: false,
+    });
+    expect(works(session.events)).toEqual([]);
+    expect(await adapter.respond(session.id, approval?.approvalId ?? '', 'allow')).toBe(false);
+  });
+
+  it('a call Claude Code drops is answered as not allowed, and asks nothing more', async () => {
+    const { sdk, adapter } = setUp([{ tool: 'Bash', input: npmTest }, { finish: 'Moved on.' }]);
+    const session = await watch(adapter);
+    const [approval] = await session.approvals();
+    sdk.runs[0]?.cancelAsks();
+    await session.ended();
+    expect(sdk.runs[0]?.decisions[0]?.result.behavior).toBe('deny');
+    expect(session.events).toContainEqual({
+      type: 'answered',
+      sessionId: session.id,
+      approvalId: approval?.approvalId,
+      allowed: false,
+    });
+    expect(await adapter.respond(session.id, approval?.approvalId ?? '', 'allow')).toBe(false);
+  });
+
+  it('answers false for a call that isn’t waiting: answered already, unknown, or in a session it never started', async () => {
+    const { adapter } = setUp([{ tool: 'Bash', input: npmTest }, { finish: 'Done.' }]);
+    const session = await watch(adapter);
+    const [approval] = await session.approvals();
+    expect(await adapter.respond(session.id, 'no-such-call', 'allow')).toBe(false);
+    expect(await adapter.respond('never-started', approval?.approvalId ?? '', 'allow')).toBe(false);
+    expect(await adapter.respond(session.id, approval?.approvalId ?? '', 'allow')).toBe(true);
+    expect(await adapter.respond(session.id, approval?.approvalId ?? '', 'deny')).toBe(false);
+    await session.ended();
+  });
+
   it('AC-5 (Q6): refuses a tool a session doesn’t have, without a step', async () => {
-    const { sdk, adapter } = setUp([{ tool: 'Bash', input: { command: 'git push' } }, { finish: 'Did not push.' }]);
+    const { sdk, adapter } = setUp([
+      { tool: 'WebFetch', input: { url: 'https://example.com', prompt: 'x' } },
+      { finish: 'Did not fetch.' },
+    ]);
     const { events } = await runToEnd(adapter);
     expect(sdk.runs[0]?.decisions[0]?.result.behavior).toBe('deny');
-    expect(works(events)).toEqual([{ kind: 'finished', summary: 'Did not push.' }]);
+    expect(works(events)).toEqual([{ kind: 'finished', summary: 'Did not fetch.' }]);
   });
 
   it('keeps the events that come before anyone listens, for the first listener', async () => {
@@ -236,10 +496,9 @@ describe('the Claude adapter', () => {
     ]);
   });
 
-  it('answers approvals and follow-ups with an error until specs 012 and 013', async () => {
+  it('answers follow-ups with an error until spec 013', async () => {
     const { adapter } = setUp([{ finish: 'Done.' }]);
     const { id } = await runToEnd(adapter);
-    await expect(adapter.respond(id, 'a1', 'allow')).rejects.toThrow(/012/);
     await expect(adapter.sendMessage(id, 'More')).rejects.toThrow(/013/);
   });
 

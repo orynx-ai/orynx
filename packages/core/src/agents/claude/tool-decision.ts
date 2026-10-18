@@ -1,25 +1,41 @@
 import { lstat, readlink, realpath } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { PermissionMode } from '@devhub/contracts';
-import type { AgentRefusal } from '../agent-adapter.ts';
+import type { AgentAsk, AgentRefusal } from '../agent-adapter.ts';
+import { decideCommand } from './command-decision.ts';
+import { previewEdit, type EditTool } from './edit-preview.ts';
 
 /**
- * What Claude may do in a session before approvals exist (spec 011, Q6): read, search, plan and edit
- * inside the session's worktree, and nothing else. Nobody can say yes to a command until spec 012, and
- * CLAUDE.md rule 11 forbids running one without a click, so a session has no `Bash`, no web, no MCP
- * tools, no sub-agents and no questions. Claude Code's `canUseTool` asks this file about every call it
- * doesn't allow by itself.
+ * What Claude may do in a session: read, search, plan and edit inside the session's worktree (spec 011,
+ * Q6), and run commands that the mode, the allow list and the always-ask rules let through or that you
+ * approve (spec 012). Nothing else: no web, no MCP tools, no sub-agents and no questions. Claude Code's
+ * `canUseTool` asks this file about every call it doesn't allow by itself, and gets one of three answers:
+ * allow, ask you, or deny with the reason Claude is told.
  */
 
+/** The tools a session gets where commands can't run (spec 012, Q2b: no sandbox on this computer). */
+export const sessionToolsWithoutCommands = [
+  'Read',
+  'Glob',
+  'Grep',
+  'Edit',
+  'Write',
+  'NotebookEdit',
+  'TodoWrite',
+] as const;
 /** The only tools a session gets, passed to the SDK's `tools` so Claude never sees the others. */
-export const sessionTools = ['Read', 'Glob', 'Grep', 'Edit', 'Write', 'NotebookEdit', 'TodoWrite'] as const;
+export const sessionTools = [...sessionToolsWithoutCommands, 'Bash'] as const;
 type SessionTool = (typeof sessionTools)[number];
 
-/** A refused call the session shows as a step (Q10a). */
+/** A refused call the session shows as a step (011 Q10a, 012 Q8c). */
 export type ToolRefusal = AgentRefusal;
+
+/** A call that waits for your answer (spec 012). */
+export type ToolAsk = AgentAsk;
 
 export type ToolDecision =
   | { behavior: 'allow' }
+  | { behavior: 'ask'; ask: ToolAsk }
   /** `message` is for Claude. `refusal` is null for a call nobody needs to see, like a tool it doesn't have. */
   | { behavior: 'deny'; message: string; refusal: ToolRefusal | null };
 
@@ -27,6 +43,8 @@ export interface ToolContext {
   /** The session's worktree, Claude's working folder. */
   worktree: string;
   mode: PermissionMode;
+  /** Settings › Coding agent's allow list, as saved. */
+  allowedCommands: readonly string[];
   /** What `~` means in a path Claude gives. */
   home: string;
 }
@@ -40,7 +58,45 @@ const targets: Record<SessionTool, { field: string; access: 'read' | 'edit'; opt
   Write: { field: 'file_path', access: 'edit', optional: false },
   NotebookEdit: { field: 'notebook_path', access: 'edit', optional: false },
   TodoWrite: null,
+  Bash: null,
 };
+
+function isEditTool(tool: SessionTool): tool is EditTool {
+  return tool === 'Edit' || tool === 'Write' || tool === 'NotebookEdit';
+}
+
+/** A command: it runs, it asks, or it's refused (spec 012), as `command-decision.ts` decides. */
+function decideBash(input: Readonly<Record<string, unknown>>, context: ToolContext): ToolDecision {
+  const command = input['command'];
+  if (typeof command !== 'string') return unreadable('Bash');
+  const description = input['description'];
+  const decision = decideCommand(
+    {
+      command,
+      runInBackground: input['run_in_background'] === true,
+      unsandboxed: input['dangerouslyDisableSandbox'] === true,
+    },
+    { mode: context.mode, allowedCommands: context.allowedCommands, worktree: context.worktree },
+  );
+  if (decision.behavior === 'allow') return { behavior: 'allow' };
+  if (decision.behavior === 'refuse') {
+    return {
+      behavior: 'deny',
+      message: decision.message,
+      refusal: { access: 'run', reason: decision.reason, path: command },
+    };
+  }
+  return {
+    behavior: 'ask',
+    ask: {
+      kind: 'command',
+      command,
+      description: typeof description === 'string' ? description : null,
+      alwaysAsk: decision.alwaysAsk,
+      alwaysAllow: decision.alwaysAllow,
+    },
+  };
+}
 
 function isSessionTool(tool: string): tool is SessionTool {
   return (sessionTools as readonly string[]).includes(tool);
@@ -49,11 +105,13 @@ function isSessionTool(tool: string): tool is SessionTool {
 export async function decideToolUse(
   tool: string,
   input: Readonly<Record<string, unknown>>,
-  { worktree, mode, home }: ToolContext,
+  context: ToolContext,
 ): Promise<ToolDecision> {
+  const { worktree, mode, home } = context;
   if (!isSessionTool(tool)) {
     return { behavior: 'deny', message: `${tool} isn't available in this session.`, refusal: null };
   }
+  if (tool === 'Bash') return decideBash(input, context);
   const target = targets[tool];
   if (target === null) return { behavior: 'allow' };
 
@@ -75,14 +133,9 @@ export async function decideToolUse(
       refusal: { access: target.access, reason: 'outside_worktree', path: shown },
     };
   }
-  if (target.access === 'edit' && mode === 'ask_everything') {
-    return {
-      behavior: 'deny',
-      message:
-        "Ask before everything is on, and Orynx can't ask the user yet, so file edits are refused. " +
-        'Describe the change you would make instead.',
-      refusal: { access: 'edit', reason: 'ask_everything', path: shown },
-    };
+  if (target.access === 'edit' && mode === 'ask_everything' && isEditTool(tool)) {
+    // Every edit waits for your click (spec 012, AC-8), shown with the change it would make (Q9).
+    return { behavior: 'ask', ask: { kind: 'edit', path: shown, ...(await previewEdit(tool, input, asked)) } };
   }
   return { behavior: 'allow' };
 }

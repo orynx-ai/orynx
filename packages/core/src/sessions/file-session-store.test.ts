@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { makeSession } from '@devhub/contracts/testing';
+import { makeSession, makeSessionApproval } from '@devhub/contracts/testing';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import { listSessions, type StoredSession } from './session-store.ts';
 
@@ -23,6 +23,7 @@ function record(overrides: Partial<StoredSession['session']> = {}, id = '0123456
     repository: { id: '00000000000000aa', path: '/Users/you/code/web-app' },
     worktree: join(home, 'worktrees', id),
     claudeSessionId: null,
+    approvalLog: [],
   };
 }
 
@@ -120,6 +121,77 @@ describe('the file session store', () => {
     // And it's on disk, so a second restart doesn't add the step again.
     const again = await openFileSessionStore(home, { now });
     expect((await again.get('0123456789abcdef'))?.session.activities).toHaveLength(2);
+  });
+
+  it('012 AC-21: a session waiting for you when Orynx stopped has its calls closed, unanswered, and their steps gone', async () => {
+    const first = await openFileSessionStore(home, { now });
+    const approval = makeSessionApproval({ id: 'approval-1', askedAt: '2026-10-18T11:59:00.000Z' });
+    await first.create({
+      ...record({
+        state: 'needs_you',
+        step: 'test',
+        approvals: [approval],
+        activities: [
+          { id: 'step-1', state: 'done', kind: 'edit', files: ['src/a.ts'] },
+          {
+            id: 'step-2',
+            state: 'running',
+            kind: 'waiting',
+            approvalId: 'approval-1',
+            about: 'command',
+            text: 'Run the content list tests',
+          },
+        ],
+      }),
+      approvalLog: [
+        {
+          id: 'approval-1',
+          about: 'command',
+          text: 'npm test -- content-list',
+          askedAt: '2026-10-18T11:59:00.000Z',
+          answer: null,
+          by: null,
+          answeredAt: null,
+        },
+      ],
+    });
+
+    const reopened = await openFileSessionStore(home, { now });
+
+    const stopped = await reopened.get('0123456789abcdef');
+    expect(stopped?.session).toMatchObject({
+      state: 'stopped',
+      approvals: [],
+      activities: [
+        { id: 'step-1', state: 'done', kind: 'edit', files: ['src/a.ts'] },
+        { id: 'step-2', state: 'done', kind: 'interrupted' },
+      ],
+    });
+    expect(stopped?.approvalLog).toEqual([
+      {
+        id: 'approval-1',
+        about: 'command',
+        text: 'npm test -- content-list',
+        askedAt: '2026-10-18T11:59:00.000Z',
+        answer: null,
+        by: 'closed',
+        answeredAt: '2026-10-18T12:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('012: reads a session saved before approvals existed, as having none', async () => {
+    const folder = join(sessionsFolder(home), '0123456789abcdef');
+    await mkdir(folder, { recursive: true });
+    const { approvalLog: _log, session, ...older } = record({ state: 'done' });
+    const { approvals: _approvals, ...olderSession } = session;
+    await writeFile(join(folder, 'session.json'), JSON.stringify({ ...older, session: olderSession }));
+
+    const store = await openFileSessionStore(home, { now });
+
+    const read = await store.get('0123456789abcdef');
+    expect(read?.session.approvals).toEqual([]);
+    expect(read?.approvalLog).toEqual([]);
   });
 
   it('skips a session it can’t read, and anything that isn’t a session’s folder', async () => {

@@ -1,9 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  Options,
+  PermissionResult,
+  SandboxSettings,
+  SDKMessage,
+  SDKUserMessage,
+} from '@anthropic-ai/claude-agent-sdk';
 import { briefText } from '../../sessions/brief.ts';
-import type { AgentAdapter, AgentEvent } from '../agent-adapter.ts';
+import type { AgentAdapter, AgentAsk, AgentEvent } from '../agent-adapter.ts';
 import { createMessageReader } from './sdk-messages.ts';
-import { decideToolUse, sessionTools } from './tool-decision.ts';
+import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool-decision.ts';
 
 /**
  * Claude behind the agent adapter (spec 011), through the Claude Agent SDK's `query()`. Every option is
@@ -13,8 +19,13 @@ import { decideToolUse, sessionTools } from './tool-decision.ts';
  * - `settingSources: []`, hooks off and `strictMcpConfig`: none of `~/.claude`'s or the repository's
  *   hooks, plugins, MCP servers or allow rules (Q7).
  * - `permissionMode: 'default'` and `canUseTool`: every call Claude Code doesn't allow by itself comes to
- *   the tool decision, and `tools` holds only Q6's tools.
+ *   the tool decision, and `tools` holds only the session's tools.
+ * - `sandbox`: every command runs in Claude Code's sandbox (spec 012, Q2a). Without one, `Bash` is left
+ *   out of `tools`, so no command can run at all (Q2b).
  * - `env` replaces the environment: only the allow list (`agent-environment.ts`), and no telemetry.
+ *
+ * A call the tool decision asks about waits in `canUseTool` until `respond()` answers it, Stop denies it,
+ * or Claude Code drops it (spec 012). The SDK holds the call meanwhile, with no time limit.
  *
  * The brief goes in as a stream that stays open until Claude finishes, because the SDK can interrupt
  * only a session with streaming input; follow-ups (spec 013) will use the same stream.
@@ -39,7 +50,19 @@ export interface ClaudeAdapterOptions {
   home: string;
   /** How long Stop waits after interrupting before it ends the process; 5 seconds. */
   stopGraceMs?: number;
+  /**
+   * The sandbox for a session's commands, from `sandboxSettings()`; null where it can't run here, and then
+   * a session gets no commands (spec 012, Q2b). Null by default, so nothing runs a command unsandboxed.
+   */
+  sandbox?: ((worktree: string) => SandboxSettings) | null;
 }
+
+/** How a waiting call ended: your answer, Stop, or Claude Code dropping it. */
+type Outcome = 'allow' | 'deny' | 'stopped' | 'dropped';
+
+/** Said to Claude when you deny a call (spec 012). */
+const deniedMessage =
+  "The user denied this. Don't try it another way. Carry on without it, or say in your summary what you needed.";
 
 interface Running {
   handlers: Set<(event: AgentEvent) => void>;
@@ -51,6 +74,15 @@ interface Running {
   ended: Promise<void>;
   done: boolean;
   stopping: boolean;
+  /** The calls waiting for an answer, by approval id: each ends with one outcome. */
+  parked: Map<string, (outcome: Outcome) => void>;
+  /** Every tool call `canUseTool` was asked about, so the reader shows a command once (spec 012). */
+  decided: Set<string>;
+  /**
+   * The decision before this one: calls are decided one at a time, in the order Claude Code asked, so
+   * calls asked together wait in that order whichever reads Settings faster (AC-10).
+   */
+  deciding: Promise<unknown>;
 }
 
 export function createClaudeAdapter({
@@ -59,6 +91,7 @@ export function createClaudeAdapter({
   env,
   home,
   stopGraceMs = 5_000,
+  sandbox = null,
 }: ClaudeAdapterOptions): AgentAdapter {
   const sessions = new Map<string, Running>();
 
@@ -67,8 +100,37 @@ export function createClaudeAdapter({
     else for (const handler of running.handlers) handler(event);
   }
 
+  /** Ends a waiting call with `outcome`, and says so; false when it wasn't waiting. */
+  function settle(sessionId: string, running: Running, approvalId: string, outcome: Outcome): boolean {
+    const resolve = running.parked.get(approvalId);
+    if (resolve === undefined) return false;
+    running.parked.delete(approvalId);
+    emit(running, { type: 'answered', sessionId, approvalId, allowed: outcome === 'allow' });
+    resolve(outcome);
+    return true;
+  }
+
+  /** Parks a call until it's answered, telling the session it waits. */
+  function waitForAnswer(sessionId: string, ask: AgentAsk, signal: AbortSignal): Promise<Outcome> {
+    const running = sessions.get(sessionId);
+    if (running === undefined || running.done || running.stopping || signal.aborted) {
+      return Promise.resolve('stopped');
+    }
+    const approvalId = randomUUID();
+    const answer = new Promise<Outcome>((resolve) => {
+      running.parked.set(approvalId, resolve);
+    });
+    const drop = () => settle(sessionId, running, approvalId, 'dropped');
+    signal.addEventListener('abort', drop, { once: true });
+    emit(running, { type: 'approval', sessionId, approvalId, ask });
+    return answer.finally(() => {
+      signal.removeEventListener('abort', drop);
+    });
+  }
+
   return {
     id: 'claude',
+    runsCommands: sandbox !== null,
 
     startSession(brief, worktree, permissions, instructions) {
       const id = randomUUID();
@@ -92,7 +154,8 @@ export function createClaudeAdapter({
         pathToClaudeCodeExecutable: program,
         env: { ...env, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' },
         permissionMode: 'default',
-        tools: [...sessionTools],
+        tools: sandbox === null ? [...sessionToolsWithoutCommands] : [...sessionTools],
+        ...(sandbox === null ? {} : { sandbox: sandbox(worktree) }),
         settingSources: [],
         settings: { disableAllHooks: true },
         strictMcpConfig: true,
@@ -100,13 +163,42 @@ export function createClaudeAdapter({
         systemPrompt: { type: 'preset', preset: 'claude_code', append: instructions },
         // Claude Code's own output can hold the brief or file contents; it never reaches the log.
         stderr: () => undefined,
-        async canUseTool(tool, input) {
-          const decision = await decideToolUse(tool, input, { worktree, mode: permissions.mode, home });
-          if (decision.behavior === 'allow') return { behavior: 'allow', updatedInput: input };
-          if (decision.refusal !== null) {
-            send({ type: 'work', sessionId: id, work: { kind: 'refused', refusal: decision.refusal } });
+        async canUseTool(tool, input, { signal, toolUseID }): Promise<PermissionResult> {
+          const current = sessions.get(id);
+          current?.decided.add(toolUseID);
+          const decide = async () => decideToolUse(tool, input, { worktree, home, ...(await permissions()) });
+          const turn = (current?.deciding ?? Promise.resolve()).then(decide);
+          if (current !== undefined) current.deciding = turn.catch(() => undefined);
+          const decision = await turn;
+          if (decision.behavior === 'allow') {
+            const command = input['command'];
+            if (tool === 'Bash' && typeof command === 'string') {
+              send({ type: 'work', sessionId: id, work: { kind: 'command', command } });
+            }
+            return { behavior: 'allow', updatedInput: input };
           }
-          return { behavior: 'deny', message: decision.message };
+          if (decision.behavior === 'deny') {
+            if (decision.refusal !== null) {
+              send({ type: 'work', sessionId: id, work: { kind: 'refused', refusal: decision.refusal } });
+            }
+            return { behavior: 'deny', message: decision.message };
+          }
+
+          const { ask } = decision;
+          const outcome = await waitForAnswer(id, ask, signal);
+          if (outcome === 'stopped')
+            return { behavior: 'deny', message: 'The user stopped the session.', interrupt: true };
+          if (outcome === 'dropped') return { behavior: 'deny', message: 'Cancelled.' };
+          if (outcome === 'deny') {
+            const text = ask.kind === 'command' ? ask.command : ask.path;
+            send({ type: 'work', sessionId: id, work: { kind: 'denied', about: ask.kind, text } });
+            return { behavior: 'deny', message: deniedMessage };
+          }
+          if (ask.kind === 'edit') return { behavior: 'allow', updatedInput: input };
+          send({ type: 'work', sessionId: id, work: { kind: 'command', command: ask.command } });
+          // A command that always asks runs outside the sandbox, this once (Q2a).
+          const updatedInput = ask.alwaysAsk === null ? input : { ...input, dangerouslyDisableSandbox: true };
+          return { behavior: 'allow', updatedInput };
         },
       };
 
@@ -118,9 +210,12 @@ export function createClaudeAdapter({
         ended: Promise.resolve(),
         done: false,
         stopping: false,
+        parked: new Map(),
+        decided: new Set(),
+        deciding: Promise.resolve(),
       };
       sessions.set(id, running);
-      const read = createMessageReader(worktree);
+      const read = createMessageReader(worktree, (toolUseId) => running.decided.has(toolUseId));
       running.ended = (async () => {
         let failed = false;
         try {
@@ -133,6 +228,7 @@ export function createClaudeAdapter({
                   agentSessionId: said.claudeSessionId,
                   loaded: said.loaded,
                 });
+                if (sandbox === null) emit(running, { type: 'work', sessionId: id, work: { kind: 'no_commands' } });
               } else if (said.type === 'work') {
                 emit(running, { type: 'work', sessionId: id, work: said.work });
                 if (said.work.kind === 'finished') endInput();
@@ -150,6 +246,8 @@ export function createClaudeAdapter({
             emit(running, { type: 'problem', sessionId: id, kind: 'other', code: 'exited' });
         } finally {
           endInput();
+          // Claude Code is gone, so nobody waits for these answers any more.
+          for (const approvalId of [...running.parked.keys()]) settle(id, running, approvalId, 'dropped');
           running.done = true;
           emit(running, { type: 'ended', sessionId: id });
         }
@@ -171,8 +269,10 @@ export function createClaudeAdapter({
       };
     },
 
-    respond() {
-      return Promise.reject(new Error('Approvals come with spec 012.'));
+    respond(sessionId, approvalId, decision) {
+      const running = sessions.get(sessionId);
+      if (running === undefined || running.stopping) return Promise.resolve(false);
+      return Promise.resolve(settle(sessionId, running, approvalId, decision === 'deny' ? 'deny' : 'allow'));
     },
 
     sendMessage() {
@@ -183,6 +283,8 @@ export function createClaudeAdapter({
       const running = sessions.get(sessionId);
       if (running === undefined || running.done) return;
       running.stopping = true;
+      // A call waiting for you would hold Claude Code's turn open: deny it before interrupting.
+      for (const approvalId of [...running.parked.keys()]) settle(sessionId, running, approvalId, 'stopped');
       await running.query.interrupt().catch(() => undefined);
       running.endInput();
       let timer: NodeJS.Timeout | undefined;

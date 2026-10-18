@@ -4,6 +4,7 @@ import { StopIcon } from '@hugeicons/core-free-icons';
 import type { Session, SessionState } from '@devhub/contracts';
 import { Button, Icon, Pill, Skeleton, sessionStateLabels, type PillTone } from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
+import { needsApprovalLabel } from '../approval-words.ts';
 
 /** The state pill's colour, as the sidebar colours each state (Q10b). */
 const stateTones: Record<SessionState, PillTone> = {
@@ -36,7 +37,10 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
           {session.title}
         </h1>
         <div className="flex flex-wrap items-center gap-2 text-small text-muted-foreground">
-          <Pill tone={stateTones[session.state]}>{sessionStateLabels[session.state]}</Pill>
+          <Pill tone={stateTones[session.state]}>
+            {/* The sidebar's "Needs you" is said in full here, where you answer (spec 012, Q8d). */}
+            {session.state === 'needs_you' ? needsApprovalLabel : sessionStateLabels[session.state]}
+          </Pill>
           {session.branch === null ? null : (
             <code className="rounded-sm bg-subtle px-2 font-mono text-code text-foreground">{session.branch}</code>
           )}

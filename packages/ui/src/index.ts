@@ -28,7 +28,7 @@ export {
   BreadcrumbSeparator,
 } from './components/breadcrumb.tsx';
 export { Button, buttonVariants, type ButtonProps } from './components/button.tsx';
-export { Callout, type CalloutProps } from './components/callout.tsx';
+export { Callout, CalloutCode, type CalloutCodeProps, type CalloutProps } from './components/callout.tsx';
 export { Card, type CardLook, type CardProps } from './components/card.tsx';
 export { Checkbox, type CheckboxProps } from './components/checkbox.tsx';
 export { Chip, FilterChip, type ChipProps, type FilterChipProps } from './components/chip.tsx';

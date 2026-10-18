@@ -1,10 +1,34 @@
 import { z } from 'zod';
-import { RepositoryIdSchema, SessionSchema, type Session, type SessionSummary } from '@devhub/contracts';
+import {
+  ApprovalDecisionSchema,
+  RepositoryIdSchema,
+  SessionSchema,
+  type Session,
+  type SessionSummary,
+} from '@devhub/contracts';
 
 /**
  * Where sessions are kept. `openFileSessionStore` keeps them under `<DEVHUB_HOME>/sessions/` (spec 011);
  * the memory store serves tests and a server built without a home.
  */
+
+/**
+ * A call that asked, as the session keeps it for your own review (spec 012; product spec, "Security,
+ * privacy and data"): what it was, and how it ended. Never sent to the page or the log.
+ */
+export const ApprovalRecordSchema = z.object({
+  id: z.string().min(1),
+  about: z.enum(['command', 'edit']),
+  /** The command, or the edit's path. */
+  text: z.string().min(1),
+  askedAt: z.iso.datetime(),
+  /** Your answer; null when the call ended without one. */
+  answer: ApprovalDecisionSchema.nullable(),
+  /** Who ended it: you, Stop, Discard, Orynx closing, or Claude Code dropping it. Null while it waits. */
+  by: z.enum(['you', 'stopped', 'discarded', 'closed', 'dropped']).nullable(),
+  answeredAt: z.iso.datetime().nullable(),
+});
+export type ApprovalRecord = z.infer<typeof ApprovalRecordSchema>;
 
 /** A session as the server keeps it: what the Session screen shows, plus what only the server needs. */
 export const StoredSessionSchema = z.object({
@@ -15,6 +39,8 @@ export const StoredSessionSchema = z.object({
   worktree: z.string().min(1).nullable(),
   /** Claude Code's own session id, which a follow-up resumes (spec 013). */
   claudeSessionId: z.string().min(1).nullable(),
+  /** Every call that asked, in order (spec 012). A session saved before spec 012 has none. */
+  approvalLog: z.array(ApprovalRecordSchema).default([]),
 });
 export type StoredSession = z.infer<typeof StoredSessionSchema>;
 

@@ -29,8 +29,15 @@ describe('PreferencesSchema', () => {
         unresolved_comments: true,
         session_waiting: true,
       },
+      allowedCommands: [],
     });
     expect(PreferencesSchema.parse(defaultPreferences)).toEqual(defaultPreferences);
+  });
+
+  it('AC-15: lists the allowed commands as saved, and refuses an empty entry', () => {
+    const list = makePreferences({ allowedCommands: ['npm test', 'pnpm lint'] });
+    expect(PreferencesSchema.parse(list).allowedCommands).toEqual(['npm test', 'pnpm lint']);
+    expect(PreferencesSchema.safeParse({ ...defaultPreferences, allowedCommands: [''] }).success).toBe(false);
   });
 
   it('AC-12: has five rules until Slack joins in spec 016 (Q6)', () => {
@@ -63,12 +70,23 @@ describe('PreferencesChangeSchema', () => {
     });
   });
 
+  it('AC-5, AC-15: takes one command to allow, read as Settings reads it, or one to take off the list', () => {
+    expect(PreferencesChangeSchema.parse({ allowCommand: '  npm   test ' })).toEqual({ allowCommand: 'npm test' });
+    expect(PreferencesChangeSchema.parse({ disallowCommand: 'npm test' })).toEqual({ disallowCommand: 'npm test' });
+    const refused = PreferencesChangeSchema.safeParse({ allowCommand: 'git push' });
+    expect(refused.success).toBe(false);
+    expect(refused.error?.issues[0]?.message).toBe("git push always asks, so it can't go on the list.");
+  });
+
   it('refuses an empty change, an unknown mode, an unknown rule and an unknown key', () => {
     for (const body of [
       {},
       { permissionMode: 'yolo' },
       { inboxRules: { slack_no_reply: false } },
       { inboxRules: { checks_failing: 'no' } },
+      { allowCommand: '' },
+      { allowCommand: 'npm test && npm run lint' },
+      { disallowCommand: '' },
       { theme: 'dark' },
     ]) {
       expect(PreferencesChangeSchema.safeParse(body).success, JSON.stringify(body)).toBe(false);
