@@ -13,7 +13,7 @@ import {
   SessionListSchema,
   SessionSchema,
   StartSessionAnswerSchema,
-  TicketStartSchema,
+  StartSessionRequestSchema,
   type ApiError,
 } from '@devhub/contracts';
 import type { RespondResult, SessionService } from '../sessions/session-service.ts';
@@ -44,6 +44,9 @@ const approvalErrors: Record<Exclude<RespondResult, 'answered'>, { status: 400 |
   },
 };
 
+/** 4 MiB, for the composer's start (spec 015); every other route keeps Fastify's 1 MiB. */
+const composerBodyLimit = 4 * 1024 * 1024;
+
 export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; service: SessionService }> = (
   app,
   { sessions, service },
@@ -57,7 +60,12 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
 
   app.post(
     apiPaths.sessions,
-    { schema: { body: TicketStartSchema, response: { 200: StartSessionAnswerSchema } } },
+    {
+      // The composer's most (spec 015): five 100 KB files and a 10,000-character message, which JSON can write
+      // up to six times over when the text holds control characters, as a coloured log does.
+      bodyLimit: composerBodyLimit,
+      schema: { body: StartSessionRequestSchema, response: { 200: StartSessionAnswerSchema } },
+    },
     (request) => service.start(request.body),
   );
 

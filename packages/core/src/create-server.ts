@@ -177,6 +177,18 @@ function withTokenRedaction(logger: CoreOptions['logger']): NonNullable<FastifyS
  * Builds the hub: security, then every /api route. The host (apps/server, or a future
  * desktop main process) adds static files and calls listen() on 127.0.0.1.
  */
+/** An error Fastify raised about the request itself, with the status it chose. */
+function isFastifyError(error: unknown): error is { code: string; statusCode: number; message: string } {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    typeof error.code === 'string' &&
+    error.code.startsWith('FST_ERR_') &&
+    'statusCode' in error &&
+    typeof error.statusCode === 'number'
+  );
+}
+
 export async function createServer(options: CoreOptions): Promise<FastifyInstance> {
   const app = Fastify({ logger: withTokenRedaction(options.logger) });
   app.setValidatorCompiler(validatorCompiler);
@@ -403,6 +415,11 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
         if (error instanceof ConnectionError) {
           const body: ApiError = { code: error.code, message: error.message };
           return reply.code(statusFor[error.code]).send(body);
+        }
+        // Fastify's own refusals of a request, such as a body over the route's limit (413) or JSON it can't read.
+        if (isFastifyError(error) && error.statusCode >= 400 && error.statusCode < 500) {
+          const body: ApiError = { code: 'bad_request', message: error.message };
+          return reply.code(error.statusCode).send(body);
         }
         request.log.error(error);
         const body: ApiError = {
