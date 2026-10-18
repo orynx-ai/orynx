@@ -23,7 +23,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Add `GET /api/claude/login` and `POST /api/claude/login/check`, take `claudeCode` in `createServer`, and answer the status line's `connected` from the same check. With no program, nothing starts and Claude is not connected (AC-1, AC-4, AC-5, AC-12)
       Check: pnpm test packages/core/src/routes/claude.test.ts packages/core/src/create-server.test.ts; pnpm typecheck
       Files: packages/core/src/routes/claude.ts, claude.test.ts, packages/core/src/create-server.ts, packages/core/src/status/status-service.ts, packages/core/src/index.ts
-- [ ] Task 8: Prove no email, organisation or program output reaches the log at `LOG_LEVEL=trace` or the event stream, signed in, signed out and failing, and that `settings.json` and the keychain don't change (AC-11)
+- [x] Task 8: Prove no email, organisation or program output reaches the log at `LOG_LEVEL=trace` or the event stream, signed in, signed out and failing, and that `settings.json` and the keychain don't change (AC-11)
       Check: pnpm test packages/core/src/agents/claude/no-leaks.test.ts
       Files: packages/core/src/agents/claude/no-leaks.test.ts
 - [ ] Task 9: Pass the SDK's program from `apps/server`, add `DEVHUB_CLAUDE_CODE` (an absolute path, empty for the SDK's own) to `config.ts` and `.env.example`, and point the e2e run at `e2e/fake-claude/claude`, which reads its answer from a file the test writes (AC-12, Q10)
