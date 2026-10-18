@@ -156,3 +156,104 @@ export function acceptingInboxQuery({
     });
   });
 }
+
+/** A pull request as the composer reads it for a brief (spec 015, Q4). */
+export interface FakePullContext {
+  owner?: string;
+  repository?: string;
+  number: number;
+  title?: string;
+  body?: string | null;
+  base?: string;
+  head?: string;
+  files?: readonly { path: string; additions: number; deletions: number }[];
+  /** The head commit's checks and statuses. */
+  contexts?: readonly (
+    | { type: 'CheckRun'; name: string; conclusion: string | null }
+    | { type: 'StatusContext'; context: string; state: string }
+  )[];
+  threads?: readonly {
+    resolved: boolean;
+    path: string;
+    line: number | null;
+    comments: readonly { author: string | null; body: string }[];
+  }[];
+}
+
+/** GitHub's answer when a repository or pull request is missing or hidden from the token. */
+function notFound(owner: string, repository: string) {
+  return HttpResponse.json({
+    data: { repository: null },
+    errors: [
+      {
+        type: 'NOT_FOUND',
+        path: ['repository'],
+        message: `Could not resolve to a Repository with the name '${owner}/${repository}'.`,
+      },
+    ],
+  });
+}
+
+/**
+ * GitHub's GraphQL API answering the composer's pull request query (spec 015) for a good token, for these pull
+ * requests only. Any other query falls through to the next handler, such as the inbox's.
+ */
+export function acceptingPullContext(
+  pulls: readonly FakePullContext[],
+  { tokens = [githubToken, ghToken] }: { tokens?: readonly string[] } = {},
+) {
+  return http.post(graphqlUrl, async ({ request }) => {
+    const sent = (await request.clone().json()) as { query?: unknown; variables?: Record<string, unknown> };
+    if (typeof sent.query !== 'string' || !sent.query.includes('DevHubPullContext')) return undefined;
+    if (!tokens.some((token) => request.headers.get('authorization') === `token ${token}`)) {
+      return HttpResponse.json({ message: 'Bad credentials', status: '401' }, { status: 401 });
+    }
+    const { owner, name, number } = sent.variables ?? {};
+    const pull = pulls.find(
+      (candidate) =>
+        (candidate.owner ?? 'acme') === owner &&
+        (candidate.repository ?? 'web-app') === name &&
+        candidate.number === number,
+    );
+    if (pull === undefined) return notFound(String(owner), String(name));
+    return HttpResponse.json({
+      data: {
+        repository: {
+          pullRequest: {
+            title: pull.title ?? `Pull request ${String(pull.number)}`,
+            body: pull.body === undefined ? 'What this pull request changes.' : pull.body,
+            baseRefName: pull.base ?? 'main',
+            headRefName: pull.head ?? `feat/pull-${String(pull.number)}`,
+            files: { nodes: pull.files ?? [] },
+            commits: {
+              nodes: [
+                {
+                  commit: {
+                    statusCheckRollup: {
+                      contexts: {
+                        nodes: (pull.contexts ?? []).map(({ type, ...context }) => ({ __typename: type, ...context })),
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+            reviewThreads: {
+              nodes: (pull.threads ?? []).map((thread) => ({
+                isResolved: thread.resolved,
+                path: thread.path,
+                line: thread.line,
+                comments: {
+                  nodes: thread.comments.map((comment) => ({
+                    author: comment.author === null ? null : { login: comment.author },
+                    body: comment.body,
+                  })),
+                },
+              })),
+            },
+          },
+        },
+      },
+    });
+  });
+}

@@ -2,6 +2,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import {
   acceptingInboxQuery,
+  acceptingPullContext,
   githubLogin,
   githubToken,
   graphqlUrl,
@@ -264,5 +265,115 @@ describe('GitHub client: the inbox (spec 007)', () => {
 
     github.use(http.post(graphqlUrl, () => HttpResponse.json({ message: 'Server Error' }, { status: 502 })));
     expect(await client.inbox(githubToken)).toEqual({ ok: false, problem: { kind: 'github_error', status: 502 } });
+  });
+});
+
+describe('GitHub client: a pull request for the composer (spec 015)', () => {
+  const pull = { owner: 'acme', name: 'web-app', number: 2836 };
+
+  it('AC-20 (Q4): reads the title, description, branches, failing checks, unresolved comments and changed files in one query', async () => {
+    const seen: Request[] = [];
+    github.events.on('request:start', ({ request }) => {
+      seen.push(request.clone());
+    });
+    github.use(
+      acceptingPullContext([
+        {
+          number: 2836,
+          title: 'Lazy-load the people directory',
+          body: 'Loads 50 people at a time.',
+          base: 'main',
+          head: 'feat/lazy-people',
+          files: [{ path: 'src/people.ts', additions: 12, deletions: 3 }],
+          contexts: [
+            { type: 'CheckRun', name: 'test (ubuntu)', conclusion: 'FAILURE' },
+            { type: 'CheckRun', name: 'lint', conclusion: 'SUCCESS' },
+            { type: 'CheckRun', name: 'e2e', conclusion: 'TIMED_OUT' },
+            { type: 'CheckRun', name: 'deploy', conclusion: null },
+            { type: 'StatusContext', context: 'ci/circleci', state: 'ERROR' },
+            { type: 'StatusContext', context: 'coverage', state: 'SUCCESS' },
+          ],
+          threads: [
+            {
+              resolved: false,
+              path: 'src/people.ts',
+              line: 12,
+              comments: [{ author: 'octocat', body: 'Name this constant.' }],
+            },
+            { resolved: true, path: 'src/old.ts', line: 3, comments: [{ author: 'octocat', body: 'Done.' }] },
+            { resolved: false, path: 'README.md', line: null, comments: [{ author: null, body: 'Typo.' }] },
+          ],
+        },
+      ]),
+    );
+
+    expect(await client.pullContext(githubToken, pull)).toEqual({
+      ok: true,
+      pull: {
+        title: 'Lazy-load the people directory',
+        body: 'Loads 50 people at a time.',
+        base: 'main',
+        head: 'feat/lazy-people',
+        failingChecks: [
+          { name: 'test (ubuntu)', conclusion: 'failure' },
+          { name: 'e2e', conclusion: 'timed out' },
+          { name: 'ci/circleci', conclusion: 'error' },
+        ],
+        comments: [
+          { author: 'octocat', path: 'src/people.ts', line: 12, body: 'Name this constant.' },
+          { author: 'Someone', path: 'README.md', line: null, body: 'Typo.' },
+        ],
+        files: [{ path: 'src/people.ts', additions: 12, deletions: 3 }],
+      },
+    });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.url).toBe(graphqlUrl);
+    expect(seen[0]?.headers.get('authorization')).toBe(`token ${githubToken}`);
+    expect(((await seen[0]?.json()) as { variables: unknown }).variables).toEqual(pull);
+  });
+
+  it('AC-21: a pull request GitHub hides or hasn’t got, even behind single sign-on, is not found', async () => {
+    github.use(acceptingPullContext([{ number: 2836 }]));
+    expect(await client.pullContext(githubToken, { ...pull, number: 9 })).toEqual({
+      ok: false,
+      problem: { kind: 'not_found' },
+    });
+    github.use(
+      http.post(graphqlUrl, () =>
+        HttpResponse.json({
+          data: { repository: null },
+          errors: [{ type: 'FORBIDDEN', message: 'Resource protected by organization SAML enforcement.' }],
+        }),
+      ),
+    );
+    expect(await client.pullContext(githubToken, pull)).toEqual({ ok: false, problem: { kind: 'not_found' } });
+  });
+
+  it('AC-21: a refused token, the rate limit and a slow GitHub are problems that never hold the token', async () => {
+    github.use(acceptingPullContext([{ number: 2836 }]));
+    const refused = await client.pullContext('fake-wrong-token-for-tests', pull);
+    expect(refused).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(refused)).not.toContain('fake-wrong-token-for-tests');
+
+    github.use(
+      http.post(graphqlUrl, () =>
+        HttpResponse.json(
+          { errors: [{ type: 'RATE_LIMITED', message: 'API rate limit exceeded.' }] },
+          { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1792245900' } },
+        ),
+      ),
+    );
+    expect(await client.pullContext(githubToken, pull)).toEqual({
+      ok: false,
+      problem: { kind: 'rate_limited', resetAt: 1_792_245_900_000 },
+    });
+
+    github.use(
+      http.post(graphqlUrl, async () => {
+        await delay('infinite');
+        return HttpResponse.json({});
+      }),
+    );
+    expect(await client.pullContext(githubToken, pull)).toEqual({ ok: false, problem: { kind: 'timeout' } });
   });
 });
