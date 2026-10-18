@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { apiRoutes, type AddRepositoryRequest, type Repository } from '@devhub/contracts';
+import { apiRoutes, type AddRepositoryRequest, type Repository, type UpdateRepositoryRequest } from '@devhub/contracts';
 import { makeJiraConnection, makeRepository } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -45,15 +45,16 @@ function jira({ connected = true, list = true }: { connected?: boolean; list?: b
   );
 }
 
+/** Settings › Repositories with the Add a folder dialog open (spec 020: a dialog, no longer a form under the button). */
 async function openForm() {
   const rendered = await renderApp({ route: '/settings/repositories' });
   await rendered.user.click(await screen.findByRole('button', { name: 'Add local folder' }));
-  const form = await screen.findByRole('form', { name: 'Add a folder' });
+  const form = await screen.findByRole('dialog', { name: 'Add a folder' });
   return { ...rendered, form };
 }
 
-describe('AddFolderForm', () => {
-  it('AC-5: opens with Folder focused and my Jira projects listed, "No Jira project" picked', async () => {
+describe('FolderDialog: Add a folder', () => {
+  it('AC-5, AC-19 (spec 020): opens a dialog with Folder focused and my Jira projects listed, "No Jira project" picked', async () => {
     jira();
     const { form } = await openForm();
 
@@ -73,10 +74,14 @@ describe('AddFolderForm', () => {
     expect(select).toHaveAccessibleDescription('Tickets from this project open in this folder.');
     expect(within(form).getByRole('button', { name: 'Add folder' })).toBeEnabled();
     expect(within(form).getByRole('button', { name: 'Cancel' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Add local folder' })).toHaveAttribute('aria-expanded', 'true');
+    // The page behind a dialog is hidden from screen readers while it's open.
+    expect(screen.getByRole('button', { name: 'Add local folder', hidden: true })).toHaveAttribute(
+      'aria-haspopup',
+      'dialog',
+    );
   });
 
-  it('AC-6: adds the folder with its project, closes the form and puts focus back on Add local folder', async () => {
+  it('AC-6, AC-19: adds the folder with its project, closes the dialog and puts focus back on Add local folder', async () => {
     jira();
     const save = savingServer();
     const { user, form } = await openForm();
@@ -92,7 +97,7 @@ describe('AddFolderForm', () => {
     expect(await screen.findByText('~/code/intranet-web')).toBeVisible();
     expect(screen.getByText('Jira PROJ')).toBeVisible();
     expect(save.sent).toEqual([{ path: '~/code/intranet-web', jiraProject: 'PROJ' }]);
-    expect(screen.queryByRole('form', { name: 'Add a folder' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Add a folder' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add local folder' })).toHaveFocus();
   });
 
@@ -149,7 +154,7 @@ describe('AddFolderForm', () => {
       );
     });
     expect(folder).toHaveFocus();
-    expect(screen.getByRole('form', { name: 'Add a folder' })).toBeVisible();
+    expect(screen.getByRole('dialog', { name: 'Add a folder' })).toBeVisible();
   });
 
   it('says the server is out of reach in one line above the buttons', async () => {
@@ -205,7 +210,7 @@ describe('AddFolderForm', () => {
     });
   });
 
-  it('AC-10: Cancel closes the form, sends nothing and puts focus back on Add local folder', async () => {
+  it('AC-10, AC-19: Cancel closes the dialog, sends nothing and puts focus back on Add local folder', async () => {
     jira();
     const save = savingServer();
     const { user, form } = await openForm();
@@ -213,22 +218,22 @@ describe('AddFolderForm', () => {
 
     await user.click(within(form).getByRole('button', { name: 'Cancel' }));
 
-    expect(screen.queryByRole('form', { name: 'Add a folder' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Add a folder' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add local folder' })).toHaveFocus();
     expect(save.sent).toEqual([]);
   });
 
-  it('AC-10: Escape closes the form the same way', async () => {
+  it('AC-10, AC-19: Escape closes the dialog the same way', async () => {
     jira();
     const { user } = await openForm();
 
     await user.keyboard('{Escape}');
 
-    expect(screen.queryByRole('form', { name: 'Add a folder' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Add a folder' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add local folder' })).toHaveFocus();
   });
 
-  it('AC-7: Add local folder keeps the form open while the folder is on its way, so its answer still shows', async () => {
+  it('AC-7: the dialog stays open while the folder is on its way, even on Escape or Cancel, so its answer still shows', async () => {
     jira({ connected: false });
     server.use(
       http.post(apiUrl(apiRoutes.repositories), async () => {
@@ -241,12 +246,13 @@ describe('AddFolderForm', () => {
     await user.type(folder, '~/nope');
 
     await user.click(within(form).getByRole('button', { name: 'Add folder' }));
-    await user.click(screen.getByRole('button', { name: 'Add local folder' }));
+    await user.keyboard('{Escape}');
+    await user.click(within(form).getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => {
       expect(folder).toHaveAccessibleDescription('Nothing is at this path.');
     });
-    expect(screen.getByRole('form', { name: 'Add a folder' })).toBeVisible();
+    expect(screen.getByRole('dialog', { name: 'Add a folder' })).toBeVisible();
   });
 
   it('a second press while the folder is on its way sends nothing more', async () => {
@@ -267,8 +273,122 @@ describe('AddFolderForm', () => {
     await user.click(add);
 
     await waitFor(() => {
-      expect(screen.queryByRole('form', { name: 'Add a folder' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Add a folder' })).not.toBeInTheDocument();
     });
     expect(sent).toHaveLength(1);
+  });
+});
+
+const intranet = makeRepository();
+
+/** Settings › Repositories listing intranet-web, saving edits and new folders like the real server. */
+function editingServer() {
+  let folders: Repository[] = [intranet];
+  const edits: { id: string; body: UpdateRepositoryRequest }[] = [];
+  const adds: AddRepositoryRequest[] = [];
+  server.use(
+    http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: folders })),
+    http.patch(apiUrl(apiRoutes.repository), async ({ params, request }) => {
+      const body = (await request.json()) as UpdateRepositoryRequest;
+      edits.push({ id: String(params['id']), body });
+      const folder = { ...intranet, jiraProject: body.jiraProject };
+      folders = folders.map((other) => (other.id === folder.id ? folder : other));
+      return HttpResponse.json(folder);
+    }),
+    http.post(apiUrl(apiRoutes.repositories), async ({ request }) => {
+      const body = (await request.json()) as AddRepositoryRequest;
+      adds.push(body);
+      const folder = makeRepository({ id: 'fedcba9876543210', jiraProject: body.jiraProject });
+      folders = [...folders, folder];
+      return HttpResponse.json(folder, { status: 201 });
+    }),
+  );
+  return { edits, adds };
+}
+
+describe('FolderDialog: Edit and Duplicate (spec 020)', () => {
+  it('AC-20: Edit opens filled in, saves the new project in place, and gives focus back to More actions', async () => {
+    jira();
+    const save = editingServer();
+    const { user } = await renderApp({ route: '/settings/repositories' });
+    await user.click(await screen.findByRole('button', { name: 'More actions for intranet-web' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Edit intranet-web' });
+    expect(within(dialog).getByRole('textbox', { name: 'Folder' })).toHaveValue('~/code/intranet-web');
+    expect(within(dialog).getByRole('textbox', { name: 'Folder' })).toHaveFocus();
+    const select = within(dialog).getByRole('combobox', { name: 'Jira project' });
+    expect(select).toHaveValue('PROJ');
+    await within(select).findByRole('option', { name: 'MOB · Mobile' });
+    await user.selectOptions(select, 'MOB');
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByText('Jira MOB')).toBeVisible();
+    expect(save.edits).toEqual([{ id: intranet.id, body: { path: '~/code/intranet-web', jiraProject: 'MOB' } }]);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More actions for intranet-web' })).toHaveFocus();
+  });
+
+  it('AC-20: a folder the server refuses keeps the dialog open with the reason under Folder', async () => {
+    jira();
+    editingServer();
+    server.use(
+      http.patch(apiUrl(apiRoutes.repository), () =>
+        HttpResponse.json({ code: 'folder_rejected', message: 'Nothing is at this path.' }, { status: 422 }),
+      ),
+    );
+    const { user } = await renderApp({ route: '/settings/repositories' });
+    await user.click(await screen.findByRole('button', { name: 'More actions for intranet-web' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit intranet-web' });
+    const folder = within(dialog).getByRole('textbox', { name: 'Folder' });
+
+    await user.clear(folder);
+    await user.type(folder, '~/nope');
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => {
+      expect(folder).toHaveAccessibleDescription('Nothing is at this path.');
+    });
+    expect(folder).toHaveFocus();
+    expect(screen.getByRole('dialog', { name: 'Edit intranet-web' })).toBeVisible();
+  });
+
+  it('AC-20: shows the project a folder has while the project list is still on its way', async () => {
+    jira();
+    editingServer();
+    server.use(
+      http.get(apiUrl(apiRoutes.jiraProjects), async () => {
+        await delay('infinite');
+        return HttpResponse.json({ projects });
+      }),
+    );
+    const { user } = await renderApp({ route: '/settings/repositories' });
+    await user.click(await screen.findByRole('button', { name: 'More actions for intranet-web' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Edit' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Edit intranet-web' });
+    expect(within(dialog).getByRole('combobox', { name: 'Jira project' })).toHaveValue('PROJ');
+  });
+
+  it('AC-21: Duplicate opens filled in with the folder’s path and project, and adds another entry', async () => {
+    jira();
+    const save = editingServer();
+    const { user } = await renderApp({ route: '/settings/repositories' });
+    await user.click(await screen.findByRole('button', { name: 'More actions for intranet-web' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Duplicate' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Duplicate intranet-web' });
+    expect(within(dialog).getByRole('textbox', { name: 'Folder' })).toHaveValue('~/code/intranet-web');
+    const select = within(dialog).getByRole('combobox', { name: 'Jira project' });
+    expect(select).toHaveValue('PROJ');
+    await within(select).findByRole('option', { name: 'MOB · Mobile' });
+    await user.selectOptions(select, 'MOB');
+    await user.click(within(dialog).getByRole('button', { name: 'Add folder' }));
+
+    await waitFor(() => {
+      expect(within(screen.getByRole('list', { name: 'Folders' })).getAllByRole('listitem')).toHaveLength(2);
+    });
+    expect(save.adds).toEqual([{ path: '~/code/intranet-web', jiraProject: 'MOB' }]);
   });
 });

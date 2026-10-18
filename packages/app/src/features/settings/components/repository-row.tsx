@@ -1,20 +1,26 @@
-import type { Ref } from 'react';
-import { Folder01Icon } from '@hugeicons/core-free-icons';
+import { useRef, type Ref } from 'react';
+import { Copy01Icon, Delete02Icon, Folder01Icon, MoreVerticalIcon, PencilEdit02Icon } from '@hugeicons/core-free-icons';
 import type { Repository } from '@devhub/contracts';
-import { Button, Icon, Pill } from '@devhub/ui';
+import { Icon, IconButton, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Pill } from '@devhub/ui';
 
 export interface RepositoryRowProps {
   folder: Repository;
-  onRemove: () => void;
-  /** The Remove button, so the panel can move focus to it when the row above goes. */
-  removeRef?: Ref<HTMLButtonElement>;
+  onEdit: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  /** The More actions button, so the panel can move focus to it. */
+  moreRef?: Ref<HTMLButtonElement>;
 }
 
 /**
- * One folder in Settings › Repositories: its name, its path with `~`, its Jira project and Remove. The
- * name is never cut off; on a narrow row the path wraps under it.
+ * One folder in Settings › Repositories: its name, its path with `~`, its Jira project, and More actions
+ * (spec 020): Edit, Duplicate and Delete. The name is never cut off; on a narrow row the path wraps under it.
  */
-export function RepositoryRow({ folder, onRemove, removeRef }: RepositoryRowProps) {
+export function RepositoryRow({ folder, onEdit, onDuplicate, onDelete, moreRef }: RepositoryRowProps) {
+  // The action picked runs once the menu has closed and let go of focus (it keeps focus inside while
+  // open); the panel then moves focus itself: into the dialog, or on to the next row.
+  const picked = useRef<(() => void) | null>(null);
+
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
       <span className="flex min-w-0 items-center gap-2 font-medium wrap-anywhere sm:min-w-25">
@@ -25,19 +31,58 @@ export function RepositoryRow({ folder, onRemove, removeRef }: RepositoryRowProp
         {folder.displayPath}
       </span>
       {folder.jiraProject === null ? null : <Pill plain>Jira {folder.jiraProject}</Pill>}
-      <Button
-        ref={removeRef}
-        variant="ghost"
-        size="sm"
-        aria-label={`Remove ${folder.name}`}
-        // Removing moves focus to the next row's Remove, so a held-down Enter would remove one after another.
-        onKeyDown={(event) => {
-          if (event.repeat) event.preventDefault();
-        }}
-        onClick={onRemove}
-      >
-        Remove
-      </Button>
+      <Menu>
+        <MenuTrigger asChild>
+          <IconButton
+            ref={moreRef}
+            variant="ghost"
+            size="sm"
+            label="More actions"
+            aria-label={`More actions for ${folder.name}`}
+          >
+            <Icon icon={MoreVerticalIcon} aria-hidden />
+          </IconButton>
+        </MenuTrigger>
+        <MenuContent
+          align="end"
+          aria-label={`Actions for ${folder.name}`}
+          onCloseAutoFocus={(event) => {
+            const action = picked.current;
+            if (action === null) return;
+            picked.current = null;
+            event.preventDefault();
+            action();
+          }}
+        >
+          <MenuItem
+            icon={<Icon icon={PencilEdit02Icon} />}
+            onSelect={() => {
+              picked.current = onEdit;
+            }}
+          >
+            Edit
+          </MenuItem>
+          <MenuItem
+            icon={<Icon icon={Copy01Icon} />}
+            onSelect={() => {
+              picked.current = onDuplicate;
+            }}
+          >
+            Duplicate
+          </MenuItem>
+          <MenuSeparator />
+          <MenuItem
+            icon={<Icon icon={Delete02Icon} />}
+            description="The folder stays on disk."
+            className="text-danger"
+            onSelect={() => {
+              picked.current = onDelete;
+            }}
+          >
+            Delete
+          </MenuItem>
+        </MenuContent>
+      </Menu>
     </li>
   );
 }
