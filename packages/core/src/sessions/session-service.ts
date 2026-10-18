@@ -2,8 +2,14 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type {
   ApprovalDecision,
+  CreatePullRequestAnswer,
+  CreatePullRequestRequest,
   FileDiff,
   PermissionMode,
+  PullRequestDraftAnswer,
+  PushAnswer,
+  PushDraftAnswer,
+  PushRequest,
   Repository,
   SendMessageAnswer,
   Session,
@@ -16,8 +22,11 @@ import type {
 } from '@devhub/contracts';
 import type { AgentAdapter, AgentBrief, AgentEvent } from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
+import { createGitHubClient, type GitHubClient } from '../integrations/github/client.ts';
+import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
 import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
+import { createBranchGit } from './branch-git.ts';
 import { briefText, sessionNote, ticketBrief, ticketFromBrief } from './brief.ts';
 import type { ChangesReader, StartPoint } from './changes.ts';
 import {
@@ -31,6 +40,7 @@ import {
   type NewStep,
   type Progress,
 } from './progress.ts';
+import { createPullRequests, type PullRequestReport } from './pull-requests.ts';
 import type { ApprovalRecord, SessionRecords, StoredSession } from './session-store.ts';
 import { createWorktrees, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
 
@@ -60,7 +70,9 @@ export type SessionReport =
       by: ApprovalEnd;
     }
   /** You sent a follow-up (spec 013): into the running Claude, or resuming it. Never its text (AC-23). */
-  | { what: 'followed_up'; session: string; ticket: string; resumed: boolean };
+  | { what: 'followed_up'; session: string; ticket: string; resumed: boolean }
+  /** Create pull request or Push changes ended (spec 014): how, and the number. Never a title or git's words. */
+  | PullRequestReport;
 
 /** The answer to `send()`: the follow-up's own answer, or no session with this id. */
 export type SendResult = SendMessageAnswer | { result: 'not_found' };
@@ -90,6 +102,14 @@ export interface SessionService {
   changes(id: string): Promise<SessionChanges | 'unreadable' | null>;
   /** One changed file's diff; null for no such session or no such changed file (AC-24). */
   fileDiff(id: string, path: string): Promise<FileDiff | 'unreadable' | null>;
+  /** Claude's draft of the pull request, which changes nothing (spec 014, AC-14); null for no such session. */
+  draftPullRequest(id: string): Promise<PullRequestDraftAnswer | null>;
+  /** Commits, pushes and opens the pull request, on your press only (spec 014); null for no such session. */
+  createPullRequest(id: string, request: CreatePullRequestRequest): Promise<CreatePullRequestAnswer | null>;
+  /** Claude's commit message for what's new since the last push (spec 014, Q7); null for no such session. */
+  draftPush(id: string): Promise<PushDraftAnswer | null>;
+  /** Commits what's new and pushes it to the pull request, on your press only (Q7); null for no such session. */
+  push(id: string, request: PushRequest): Promise<PushAnswer | null>;
   /** Stops every running session and waits for every change still being saved, for the server's shutdown. */
   close(): Promise<void>;
 }
@@ -119,6 +139,9 @@ export interface SessionServiceOptions {
   worktrees: WorktreesOptions;
   /** Reads a worktree's changes for the Changes tab (spec 013). */
   changes: ChangesReader;
+  /** 004's GitHub connection, for the pull request's token (spec 014). Without it, GitHub isn't connected. */
+  github?: { credentials(): Promise<GitHubSyncCredentials | null> };
+  githubClient?: GitHubClient;
   /** Null when the server was built without Claude Code: then no session can start (AC-22). */
   adapter: AgentAdapter | null;
   events: EventBus;
@@ -428,7 +451,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
               ...next,
               session: {
                 ...next.session,
-                state: 'done',
+                // Once the pull request is open, Claude finishing a follow-up leaves it open (spec 014, AC-19).
+                state: next.session.pullRequest === null ? 'done' : 'pr_open',
                 endedAt: new Date(at).toISOString(),
                 ...endRun(next.session, at),
               },
@@ -809,6 +833,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   /** Stops the session if it's working, then deletes its worktree and branch (AC-10). */
   async function discardNow(id: string): Promise<'discarded' | 'not_found' | 'failed'> {
+    // A push under way finishes first, so git never pushes from a worktree that's being deleted (spec 014).
+    await publishing.get(id);
     const found = await records.get(id);
     if (found === null) return 'not_found';
     if (found.session.discardedAt !== null) return 'discarded';
@@ -837,7 +863,36 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return 'discarded';
   }
 
+  const pullRequests = createPullRequests({
+    records,
+    save: change,
+    now,
+    onReport: (report) => options.onReport?.(report),
+    github: options.github ?? { credentials: () => Promise.resolve(null) },
+    client: options.githubClient ?? createGitHubClient(),
+    git: createBranchGit({ env: options.worktrees.env }),
+    changes: options.changes,
+    adapter,
+  });
+  /** Each session's create or push under way, which Discard and closing wait for. */
+  const publishing = new Map<string, Promise<unknown>>();
+  function whilePublishing<T>(id: string, work: Promise<T>): Promise<T> {
+    const all = Promise.all([publishing.get(id), work.catch(() => undefined)]);
+    publishing.set(id, all);
+    track(
+      all.finally(() => {
+        if (publishing.get(id) === all) publishing.delete(id);
+      }),
+    );
+    return work;
+  }
+
   return {
+    draftPullRequest: (id) => pullRequests.draft(id),
+    createPullRequest: (id, request) => whilePublishing(id, pullRequests.create(id, request)),
+    draftPush: (id) => pullRequests.draftPush(id),
+    push: (id, request) => whilePublishing(id, pullRequests.push(id, request)),
+
     start(request) {
       const waiting = starting.get(request.ticketKey);
       const turn = (waiting ?? Promise.resolve()).then(() => startNow(request));
