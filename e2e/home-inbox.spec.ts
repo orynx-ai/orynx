@@ -145,7 +145,7 @@ test.beforeAll(async ({ browser }, testInfo) => {
   await page.close();
 });
 
-test('Given Jira and GitHub are connected, when Home opens, then their rows show under the tabs, newest wait first', async ({
+test('AC-1, AC-39: Given Jira and GitHub are connected, when Home opens, then their rows show under the tabs, newest wait first', async ({
   page,
 }) => {
   await openHome(page);
@@ -165,7 +165,7 @@ test('Given Jira and GitHub are connected, when Home opens, then their rows show
   await expect(page.getByText('Synced just now')).toBeVisible();
 });
 
-test('Given Home with rows, when I go through it with Tab, then it stops on Refresh, the order, the selected tab, the search box, the filter, then each title and action, each with the focus ring', async ({
+test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it stops on Refresh, the order, the selected tab, the search box, the filter, then each title and action, each with the focus ring', async ({
   page,
 }) => {
   await openHome(page);
@@ -198,7 +198,7 @@ test('Given Home with rows, when I go through it with Tab, then it stops on Refr
   ]);
 });
 
-test('Given a row has focus, when a sync brings a new item and takes another away, then focus and the row stay where they are', async ({
+test('AC-16: Given a row has focus, when a sync brings a new item and takes another away, then focus and the row stay where they are', async ({
   page,
 }) => {
   await openHome(page);
@@ -225,7 +225,7 @@ test('Given a row has focus, when a sync brings a new item and takes another awa
   expect((await kept.boundingBox())?.y).toBe(before?.y);
 });
 
-test("Given a row has focus, when a sync takes it away, then focus moves to the next row's title and the page doesn't scroll", async ({
+test("AC-16, AC-18: Given a row has focus, when a sync takes it away, then focus moves to the next row's title and the page doesn't scroll", async ({
   page,
 }) => {
   await openHome(page);
@@ -244,7 +244,7 @@ test("Given a row has focus, when a sync takes it away, then focus moves to the 
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
 });
 
-test('Given two pages of rows, when I pick a page, search, tick a filter and change the order, then the list follows, and a reload keeps it all', async ({
+test('AC-36, AC-37, AC-39, AC-40, AC-41: Given two pages of rows, when I pick a page, search, tick a filter and change the order, then the list follows, and a reload keeps it all', async ({
   page,
 }) => {
   await openHome(page, { ...everything, issues: backlog });
@@ -282,7 +282,7 @@ test('Given two pages of rows, when I pick a page, search, tick a filter and cha
   await expect(attentionPanel(page).getByRole('button', { name: 'Order: Longest wait first' })).toBeVisible();
 });
 
-test('Given the toolbar and the pager, when axe checks Home and then its open filter menu, then it finds nothing', async ({
+test('AC-34, AC-45: Given the toolbar and the pager, when axe checks Home and then its open filter menu, then it finds nothing', async ({
   page,
 }) => {
   await openHome(page, { ...everything, issues: backlog });
@@ -301,4 +301,43 @@ test('Given the toolbar and the pager, when axe checks Home and then its open fi
   await attentionPanel(page).getByRole('button', { name: 'Reason' }).click();
   await expect(page.getByRole('menu', { name: 'Reason' })).toBeVisible();
   expect(await check('[role="menu"]')).toEqual([]);
+});
+
+test('AC-43: Given a 360 px window and nine pages, when I look at the toolbar and the pager, then the box takes a line of its own, the filter wraps under it, the pager keeps its arrows and fits, and nothing scrolls sideways', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  const many = Array.from({ length: 130 }, (_, index) => ({
+    key: `PROJ-${String(2000 + index)}`,
+    summary: `Long backlog item ${String(index + 1)}`,
+    category: 'new' as const,
+    statuscategorychangedate: jiraAgo((index + 1) * hour),
+  }));
+  await openHome(page, { ...everything, issues: many });
+  await page.goto('/?page=5');
+  const panel = attentionPanel(page);
+  await expect(rows(page)).toHaveCount(16);
+
+  const search = await panel.getByRole('searchbox', { name: 'Search' }).boundingBox();
+  const reason = await panel.getByRole('button', { name: 'Reason' }).boundingBox();
+  expect(reason && search && reason.y >= search.y + search.height).toBe(true);
+
+  const pager = panel.getByRole('navigation', { name: 'Pages' });
+  await expect(pager.getByRole('link', { name: 'Previous page' })).toBeVisible();
+  await expect(pager.getByRole('link', { name: 'Next page' })).toBeVisible();
+  await expect(pager.getByText('Next', { exact: true })).toBeHidden();
+  await expect(pager.getByRole('link', { name: '5' })).toHaveAttribute('aria-current', 'page');
+  const links = await pager
+    .getByRole('link')
+    .evaluateAll((all) =>
+      all
+        .filter((link) => link.getBoundingClientRect().width > 0)
+        .map((link) => link.getAttribute('aria-label') ?? link.textContent),
+    );
+  expect(links).toEqual(['Previous page', '1', '4', '5', '6', '9', 'Next page']);
+
+  const box = await panel.boundingBox();
+  const shown = await pager.locator('ul').boundingBox();
+  expect(box && shown && shown.x >= box.x && shown.x + shown.width <= box.x + box.width).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 });

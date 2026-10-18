@@ -27,10 +27,20 @@ function handlers() {
 }
 
 const network = setupServer(...handlers());
-network.listen({ onUnhandledFrame: 'error' });
+network.listen({
+  // A callback rather than 'error', which still lets requests that look like static files through.
+  onUnhandledFrame: () => {
+    throw new Error('The e2e hub asked the real network for something the fakes do not answer.');
+  },
+});
 
-// The spec sets what the tools hold; the hub sees it on its next sync.
+// The spec sets what the tools hold; the hub sees it on its next sync. Only this machine's own address is
+// answered, so a page elsewhere can't reach it through a rebound name.
 createServer((request, response) => {
+  if (request.headers.host !== `127.0.0.1:${String(fakeToolsControlPort)}`) {
+    response.writeHead(403).end();
+    return;
+  }
   if (request.method !== 'PUT' || request.url !== '/tools') {
     response.writeHead(404).end();
     return;
@@ -41,7 +51,13 @@ createServer((request, response) => {
     body += chunk;
   });
   request.on('end', () => {
-    tools = JSON.parse(body) as FakeTools;
+    try {
+      // Unchecked: only the spec writes here, and a wrong shape fails its own sync loudly.
+      tools = JSON.parse(body) as FakeTools;
+    } catch {
+      response.writeHead(400).end();
+      return;
+    }
     network.resetHandlers(...handlers());
     response.writeHead(204).end();
   });
