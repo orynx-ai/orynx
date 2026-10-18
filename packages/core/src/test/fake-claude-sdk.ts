@@ -15,7 +15,7 @@ export type FakeTurn =
   | { finish: string }
   /** Any message, as it is. */
   | { message: object }
-  /** Claude keeps working until it's interrupted or closed. */
+  /** Claude keeps working until it's interrupted (then the turn ends with a failed result) or closed. */
   | { hang: true }
   /** Claude Code's process dies. */
   | { crash: string };
@@ -62,6 +62,12 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
       const ended = new Promise<IteratorReturnResult<undefined>>((resolve) => {
         endNow = () => {
           resolve({ done: true, value: undefined });
+        };
+      });
+      let interruptNow: () => void = () => undefined;
+      const interrupted = new Promise<'interrupted'>((resolve) => {
+        interruptNow = () => {
+          resolve('interrupted');
         };
       });
 
@@ -127,7 +133,16 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
           } else if ('message' in turn) {
             yield turn.message as SDKMessage;
           } else if ('hang' in turn) {
-            await ended;
+            await interrupted;
+            // As Claude Code does: an interrupted turn ends with a failed result, then waits for the input to end.
+            yield {
+              type: 'result',
+              subtype: 'error_during_execution',
+              is_error: true,
+              errors: [],
+              ...sessionFields,
+            } as unknown as SDKMessage;
+            break;
           } else {
             throw new Error(turn.crash);
           }
@@ -141,7 +156,7 @@ export function fakeClaudeSdk(script: readonly FakeTurn[]): FakeClaudeSdk {
         [Symbol.asyncIterator]: () => ({ next: () => Promise.race([stream.next(), ended]) }),
         interrupt() {
           run.interrupts += 1;
-          if (!fake.ignoreInterrupt) endNow();
+          if (!fake.ignoreInterrupt) interruptNow();
           return Promise.resolve();
         },
         close() {

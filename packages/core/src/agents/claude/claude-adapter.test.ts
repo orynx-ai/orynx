@@ -181,6 +181,19 @@ describe('the Claude adapter', () => {
     expect(events.at(-1)).toEqual({ type: 'ended', sessionId: id });
   });
 
+  it('AC-9: says no problem for the failed result an interrupted turn ends with', async () => {
+    const { adapter } = setUp([{ tool: 'Read', input: { file_path: 'src/a.ts' } }, { hang: true }]);
+    const id = await adapter.startSession(brief, worktree, editFreely, 'x');
+    const events: AgentEvent[] = [];
+    await new Promise<void>((resolve) => {
+      adapter.onEvent(id, (event) => {
+        events.push(event);
+        if (event.type === 'work') void adapter.stop(id).then(resolve);
+      });
+    });
+    expect(events.filter((event) => event.type === 'problem')).toEqual([]);
+  });
+
   it('AC-9: ends Claude Code’s process when it doesn’t stop in time', async () => {
     const { sdk, adapter } = setUp([{ hang: true }], { stopGraceMs: 50 });
     sdk.ignoreInterrupt = true;

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { query } from '@anthropic-ai/claude-agent-sdk';
 import {
   cacheFilePath,
   claudeWorkFolder,
@@ -11,6 +12,7 @@ import {
   createOsKeychain,
   createServer,
   findSdkClaudeCode,
+  openFileSessionStore,
   openInboxCache,
   settingsFilePath,
 } from '@devhub/core';
@@ -45,6 +47,9 @@ const cache = openInboxCache(cacheFilePath(config.home), {
   },
 });
 
+// The Claude Code inside the Agent SDK, or the fake the e2e run names with DEVHUB_CLAUDE_CODE.
+const claudeProgram = config.claudeCode ?? findSdkClaudeCode();
+
 const app = await createServer({
   token,
   port: config.port,
@@ -58,10 +63,16 @@ const app = await createServer({
   // The Claude Code inside the Agent SDK, with only the allowed part of the shell's environment (spec 010).
   // The e2e run names a fake with DEVHUB_CLAUDE_CODE.
   claudeCode: createClaudeCode({
-    program: config.claudeCode ?? findSdkClaudeCode(),
+    program: claudeProgram,
     env: config.agentEnvironment,
     workFolder: claudeWorkFolder(config.home),
   }),
+  // Sessions run that same Claude Code through the SDK, with the same environment (spec 011). With no
+  // Claude Code for this computer, no session can start.
+  ...(claudeProgram === null ? {} : { agent: { query, program: claudeProgram, env: config.agentEnvironment } }),
+  gitEnvironment: config.gitEnvironment,
+  // Under DEVHUB_HOME/sessions, and the worktrees under DEVHUB_HOME/worktrees.
+  sessions: await openFileSessionStore(config.home),
   // Settings › Repositories never adds DevHub's own folder (spec 005).
   dataDir: config.home,
   settings: createFileSettingsStore(config.home, {
@@ -80,7 +91,7 @@ const app = await createServer({
 
 for (const notice of cacheNotices) app.log.warn(notice);
 if (config.claudeCode !== null) {
-  app.log.warn(`DEVHUB_CLAUDE_CODE is set: Orynx checks the Claude login with ${config.claudeCode}.`);
+  app.log.warn(`DEVHUB_CLAUDE_CODE is set: Orynx checks the Claude login and runs sessions with ${config.claudeCode}.`);
 }
 
 if (serveWebApp) {

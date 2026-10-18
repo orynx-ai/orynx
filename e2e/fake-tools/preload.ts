@@ -5,15 +5,18 @@
 import { createServer } from 'node:http';
 import { setupServer } from 'msw/node';
 import {
+  acceptingIssue,
   acceptingIssueSearch,
   acceptingMyself,
   acceptingPrioritySearch,
   acceptingProjectSearch,
 } from '../../packages/core/src/test/fake-jira.ts';
 import { acceptingInboxQuery, acceptingUser } from '../../packages/core/src/test/fake-github.ts';
-import { fakeToolsControlPort, type FakeTools } from './config.ts';
+import { controlPortFor, type FakeTools } from './config.ts';
 
 let tools: FakeTools = { issues: [], reviews: [], mine: [] };
+// Each hub's own control port, so two hubs with these fakes can run side by side.
+const controlPort = controlPortFor(Number(process.env['DEVHUB_PORT']));
 
 function handlers() {
   return [
@@ -21,6 +24,14 @@ function handlers() {
     acceptingProjectSearch([]),
     acceptingPrioritySearch(),
     acceptingIssueSearch(tools.issues),
+    // A session reads its ticket on its own (spec 011).
+    acceptingIssue(
+      tools.issues.map((issue) => ({
+        key: issue.key,
+        summary: issue.summary ?? `Summary of ${issue.key}`,
+        type: issue.type ?? 'Story',
+      })),
+    ),
     acceptingUser(),
     acceptingInboxQuery({ reviews: tools.reviews, mine: tools.mine }),
   ];
@@ -37,7 +48,7 @@ network.listen({
 // The spec sets what the tools hold; the hub sees it on its next sync. Only this machine's own address is
 // answered, so a page elsewhere can't reach it through a rebound name.
 createServer((request, response) => {
-  if (request.headers.host !== `127.0.0.1:${String(fakeToolsControlPort)}`) {
+  if (request.headers.host !== `127.0.0.1:${String(controlPort)}`) {
     response.writeHead(403).end();
     return;
   }
@@ -61,4 +72,4 @@ createServer((request, response) => {
     network.resetHandlers(...handlers());
     response.writeHead(204).end();
   });
-}).listen(fakeToolsControlPort, '127.0.0.1');
+}).listen(controlPort, '127.0.0.1');

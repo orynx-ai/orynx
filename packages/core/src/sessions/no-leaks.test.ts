@@ -16,7 +16,7 @@ import { createFileSettingsStore, settingsFilePath } from '../settings/settings-
 import { claudeEmail, claudeOrganisation, useFakeClaudeFolder } from '../test/fake-claude.ts';
 import { fakeClaudeSdk, type FakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
 import { acceptingIssue, goodToken, jiraEmail, jiraSite, useFakeJira } from '../test/fake-jira.ts';
-import { useTestRepositories } from '../test/git-repository.ts';
+import { gitSearchPath, useTestRepositories } from '../test/git-repository.ts';
 import { openFileSessionStore } from './file-session-store.ts';
 
 vi.setConfig({ testTimeout: 30_000 });
@@ -119,7 +119,7 @@ describe.skipIf(process.platform === 'win32')('a session stays out of the log an
       ],
     ]);
     // The shell that started Orynx holds Orynx's own settings and a token; none may reach Claude Code.
-    const shell = { HOME: repos.root, PATH: process.env['PATH'] ?? '/usr/bin:/bin', DEVHUB_GITHUB_TOKEN: devhubToken };
+    const shell = { HOME: repos.root, PATH: gitSearchPath, DEVHUB_GITHUB_TOKEN: devhubToken };
 
     app = await createServer({
       token: sessionToken,

@@ -7,6 +7,9 @@ import { afterEach } from 'vitest';
 
 const run = promisify(execFile);
 
+/** Where git usually lives on macOS and Linux; tests never read the shell's own PATH (env-policy gate). */
+export const gitSearchPath = ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin'].join(':');
+
 /**
  * Real git repositories in a temporary folder, for the code that makes session worktrees (spec 011).
  * Never a real repository: each test gets a bare `origin` and a clone of it, and git reads no global or
@@ -40,7 +43,7 @@ export function useTestRepositories(): () => Promise<TestRepositories> {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'devhub-git-')));
     made.push(root);
     const env = {
-      PATH: process.env['PATH'] ?? '/usr/bin:/bin',
+      PATH: gitSearchPath,
       HOME: root,
       GIT_CONFIG_NOSYSTEM: '1',
       GIT_AUTHOR_NAME: 'Test',

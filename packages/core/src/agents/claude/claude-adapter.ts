@@ -136,7 +136,8 @@ export function createClaudeAdapter({
               } else if (said.type === 'work') {
                 emit(running, { type: 'work', sessionId: id, work: said.work });
                 if (said.work.kind === 'finished') endInput();
-              } else {
+              } else if (!running.stopping) {
+                // An interrupted turn ends with a failed result; after Stop that isn't a problem.
                 failed = true;
                 emit(running, { type: 'problem', sessionId: id, kind: said.kind, code: said.code });
                 endInput();
