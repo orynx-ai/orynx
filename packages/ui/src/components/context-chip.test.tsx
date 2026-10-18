@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FileText } from 'lucide-react';
+import { File02Icon } from '@hugeicons/core-free-icons';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Composer, ComposerBar, ComposerSend, ComposerTextarea } from './composer.tsx';
 import { ContextChip, ContextList } from './context-chip.tsx';
 import { SourceMark } from './source-mark.tsx';
+import { Icon } from './icon.tsx';
 
 interface Item {
   id: string;
@@ -29,7 +30,7 @@ function ComposerWithContext({ onRemove }: { onRemove?: (id: string) => void }) 
           <ContextChip
             key={item.id}
             label={item.label}
-            icon={item.file ? <FileText /> : <SourceMark source="jira" label="none" />}
+            icon={item.file ? <Icon icon={File02Icon} /> : <SourceMark source="jira" label="none" />}
             onRemove={() => {
               onRemove?.(item.id);
               setItems((now) => now.filter((other) => other.id !== item.id));

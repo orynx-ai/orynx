@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { File, Folder, GitBranch, Plus, Settings } from 'lucide-react';
+import { File01Icon, Folder01Icon, GitBranchIcon, PlusSignIcon, Settings02Icon } from '@hugeicons/core-free-icons';
 import { Button } from './button.tsx';
 import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from './menu.tsx';
 import { Picker } from './picker.tsx';
 import { SourceMark } from './source-mark.tsx';
+import { Icon } from './icon.tsx';
 
 const meta = {
   title: 'Components/Menu',
@@ -32,7 +33,7 @@ export const AddContext: Story = {
     <Menu {...args}>
       <MenuTrigger asChild>
         <Button variant="ghost" size="icon-sm" aria-label="Add context">
-          <Plus aria-hidden />
+          <Icon icon={PlusSignIcon} aria-hidden />
         </Button>
       </MenuTrigger>
       <MenuContent
@@ -42,7 +43,7 @@ export const AddContext: Story = {
       >
         <MenuLabel>Add context for Claude</MenuLabel>
         <MenuItem
-          icon={<GitBranch className="text-muted-foreground" />}
+          icon={<Icon icon={GitBranchIcon} className="text-muted-foreground" />}
           description="The folder Claude works in"
           leadsOn
         >
@@ -65,7 +66,10 @@ export const AddContext: Story = {
         >
           Slack thread
         </MenuItem>
-        <MenuItem icon={<File className="text-muted-foreground" />} description="Opens your computer's file dialog">
+        <MenuItem
+          icon={<Icon icon={File01Icon} className="text-muted-foreground" />}
+          description="Opens your computer's file dialog"
+        >
           File from this computer
         </MenuItem>
       </MenuContent>
@@ -82,15 +86,15 @@ export const Folders: Story = {
       </MenuTrigger>
       <MenuContent aria-label="Folders">
         <MenuLabel>On this computer</MenuLabel>
-        <MenuItem icon={<Folder />} path="~/code/web-app">
+        <MenuItem icon={<Icon icon={Folder01Icon} />} path="~/code/web-app">
           web-app
         </MenuItem>
-        <MenuItem icon={<Folder />} path="~/code/platform/services/notifications-and-digest-emails">
+        <MenuItem icon={<Icon icon={Folder01Icon} />} path="~/code/platform/services/notifications-and-digest-emails">
           notifications-and-digest-emails
         </MenuItem>
         <MenuSeparator />
-        <MenuItem icon={<Plus />}>Add local folder</MenuItem>
-        <MenuItem icon={<Settings />} asChild>
+        <MenuItem icon={<Icon icon={PlusSignIcon} />}>Add local folder</MenuItem>
+        <MenuItem icon={<Icon icon={Settings02Icon} />} asChild>
           <a href="#settings">Manage folders</a>
         </MenuItem>
       </MenuContent>

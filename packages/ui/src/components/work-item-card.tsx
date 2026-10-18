@@ -1,10 +1,11 @@
 import { createContext, useContext, useId, type ComponentProps, type ReactNode } from 'react';
-import { CalendarDays, Sparkle } from 'lucide-react';
+import { Calendar03Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { Avatar } from './avatar.tsx';
 import { Button, type ButtonProps } from './button.tsx';
 import { Skeleton } from './skeleton.tsx';
+import { Icon } from './icon.tsx';
 
 /** The title's id, so the card is named by its title. */
 const TitleIdContext = createContext<string | undefined>(undefined);
@@ -114,7 +115,7 @@ export function WorkItemCard({
           {priority ? <WorkItemPriority level={priority.level} label={priority.label} /> : null}
           {due ? (
             <span className={cn('inline-flex items-center gap-1', due.soon && 'font-medium text-warning')}>
-              <CalendarDays aria-hidden className="size-4" />
+              <Icon icon={Calendar03Icon} aria-hidden className="size-4" />
               {due.label}
             </span>
           ) : null}
@@ -203,7 +204,7 @@ export function WorkItemBuild({ itemKey, asChild = false, className, children, .
       className={cn('text-muted-foreground hover:text-info', className)}
       {...props}
     >
-      <Sparkle aria-hidden />
+      <Icon icon={SparklesIcon} aria-hidden />
       {asChild ? <Slot.Slottable>{children}</Slot.Slottable> : null}
     </Button>
   );

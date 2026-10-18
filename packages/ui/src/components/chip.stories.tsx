@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { GitPullRequest, Kanban, MessageSquare, Wrench } from 'lucide-react';
+import { GitPullRequestIcon, KanbanIcon, Message01Icon, Wrench01Icon } from '@hugeicons/core-free-icons';
 import { Chip, FilterChip } from './chip.tsx';
+import { Icon } from './icon.tsx';
 
 const meta = {
   title: 'Components/Chip',
@@ -17,22 +18,22 @@ export const QuickStarts: Story = {
     <div className="flex max-w-xl flex-wrap justify-center gap-2">
       <Chip asChild>
         <a href="#tickets">
-          <Kanban aria-hidden />
+          <Icon icon={KanbanIcon} aria-hidden />
           Pick up a ticket
         </a>
       </Chip>
       <Chip>
-        <GitPullRequest aria-hidden />
+        <Icon icon={GitPullRequestIcon} aria-hidden />
         Review a pull request
       </Chip>
       <Chip asChild>
         <a href="#session">
-          <Wrench aria-hidden />
+          <Icon icon={Wrench01Icon} aria-hidden />
           Fix failing checks
         </a>
       </Chip>
       <Chip>
-        <MessageSquare aria-hidden />
+        <Icon icon={Message01Icon} aria-hidden />
         Draft a Slack reply
       </Chip>
     </div>

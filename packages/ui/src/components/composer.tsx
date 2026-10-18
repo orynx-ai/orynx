@@ -7,9 +7,10 @@ import {
   type KeyboardEvent,
   type Ref,
 } from 'react';
-import { ArrowUp, LoaderCircle } from 'lucide-react';
+import { ArrowUp02Icon, Loading03Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
 import { Button } from './button.tsx';
+import { Icon } from './icon.tsx';
 
 /** Home's task box, or the follow-up box on the Session screen. */
 export type ComposerLook = 'task' | 'follow-up';
@@ -218,7 +219,11 @@ export function ComposerSend({ label, className, onClick, ...props }: ComposerSe
       className={cn('ms-auto size-9 rounded-full', className)}
       {...props}
     >
-      {pending ? <LoaderCircle aria-hidden className="motion-safe:animate-spin" /> : <ArrowUp aria-hidden />}
+      {pending ? (
+        <Icon icon={Loading03Icon} aria-hidden className="motion-safe:animate-spin" />
+      ) : (
+        <Icon icon={ArrowUp02Icon} aria-hidden />
+      )}
     </Button>
   );
 }

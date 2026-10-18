@@ -46,13 +46,13 @@ Every route is `PageBar` → optional `Toolbar` → `PageBody` from `packages/ap
 
 ## 3. Size and density
 
-| Thing                                   | Size                                       |
-| --------------------------------------- | ------------------------------------------ |
-| Icons (`.lucide` base style)            | 20 px, 1.75 stroke. Never pass a size prop |
-| `Button` default / `sm`                 | 40 px / 32 px tall                         |
-| Sidebar rows (places, New task, Search) | 40 px                                      |
-| Page bar / Tabs                         | 56 px / 48 px                              |
-| Hit targets                             | 32 px in dense rows, 40 px elsewhere       |
+| Thing                                   | Size                                      |
+| --------------------------------------- | ----------------------------------------- |
+| Icons (`<Icon>`, Hugeicons)             | 20 px, 1.5 stroke. Never pass a size prop |
+| `Button` default / `sm`                 | 40 px / 32 px tall                        |
+| Sidebar rows (places, New task, Search) | 40 px                                     |
+| Page bar / Tabs                         | 56 px / 48 px                             |
+| Hit targets                             | 32 px in dense rows, 40 px elsewhere      |
 
 ## 4. Components and colour
 

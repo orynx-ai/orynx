@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
-import { UserRound } from 'lucide-react';
-import { Avatar, cn } from '@devhub/ui';
+import { UserIcon } from '@hugeicons/core-free-icons';
+import { Avatar, cn, Icon } from '@devhub/ui';
 import { useStatus } from '../features/settings/queries.ts';
 import { personName } from './person-name.ts';
 
@@ -37,7 +37,7 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
         )}
       >
         <span aria-hidden className="flex size-9 shrink-0 items-center justify-center text-muted-foreground">
-          {person === null ? <UserRound /> : <Avatar initials={person.initials} size="lg" />}
+          {person === null ? <Icon icon={UserIcon} /> : <Avatar initials={person.initials} size="lg" />}
         </span>
         <span className={cn('flex min-w-0 flex-col gap-px', collapsed && 'md:sr-only')}>
           <span className="truncate font-medium">{who}</span>{' '}

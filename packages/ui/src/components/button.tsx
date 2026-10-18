@@ -1,8 +1,9 @@
 import type { ComponentProps, MouseEvent } from 'react';
-import { LoaderCircle } from 'lucide-react';
+import { Loading03Icon } from '@hugeicons/core-free-icons';
 import { Slot } from 'radix-ui';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
+import { Icon } from './icon.tsx';
 
 /**
  * Design system: Button (`dh-btn`). One `primary` per view; everything else is
@@ -90,11 +91,11 @@ function PendingLabel({ pending, children }: { pending: boolean; children: Butto
   return (
     <span className="grid justify-items-center">
       <span className="col-start-1 row-start-1 inline-flex items-center gap-2">
-        {pending ? <LoaderCircle aria-hidden className="motion-safe:animate-spin" /> : null}
+        {pending ? <Icon icon={Loading03Icon} aria-hidden className="motion-safe:animate-spin" /> : null}
         {children}
       </span>
       <span aria-hidden className="invisible col-start-1 row-start-1 inline-flex items-center gap-2">
-        <LoaderCircle />
+        <Icon icon={Loading03Icon} />
         {children}
       </span>
     </span>

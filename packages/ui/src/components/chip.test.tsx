@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Kanban, MessageSquare } from 'lucide-react';
+import { KanbanIcon, Message01Icon } from '@hugeicons/core-free-icons';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Chip, FilterChip } from './chip.tsx';
+import { Icon } from './icon.tsx';
 
 describe('FilterChip', () => {
   it('AC-25: is a toggle button that says whether it is pressed', async () => {
@@ -38,7 +39,7 @@ describe('Chip', () => {
     const { container } = render(
       <Chip asChild>
         <a href="/tickets">
-          <Kanban aria-hidden />
+          <Icon icon={KanbanIcon} aria-hidden />
           Pick up a ticket
         </a>
       </Chip>,
@@ -53,7 +54,7 @@ describe('Chip', () => {
     const onClick = vi.fn();
     render(
       <Chip onClick={onClick}>
-        <MessageSquare aria-hidden />
+        <Icon icon={Message01Icon} aria-hidden />
         Draft a Slack reply
       </Chip>,
     );

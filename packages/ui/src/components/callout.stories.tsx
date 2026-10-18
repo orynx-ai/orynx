@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Lock } from 'lucide-react';
+import { SquareLock02Icon } from '@hugeicons/core-free-icons';
 import { Button } from './button.tsx';
 import { Callout } from './callout.tsx';
+import { Icon } from './icon.tsx';
 
 const meta = { title: 'Components/Callout', component: Callout, args: { title: 'Notice' } } satisfies Meta<
   typeof Callout
@@ -37,7 +38,7 @@ export const Approval: Story = {
 export const Info: Story = {
   args: {
     tone: 'info',
-    icon: <Lock aria-hidden />,
+    icon: <Icon icon={SquareLock02Icon} aria-hidden />,
     title: 'Everything stays on this computer',
     children: <span>Tokens live in your OS keychain. Orynx talks only to Jira, GitHub, Slack and Claude.</span>,
   },

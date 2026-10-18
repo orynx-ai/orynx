@@ -1,7 +1,8 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
+import { Icon } from './icon.tsx';
 
 const pickerVariants = cva(
   'group inline-flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-sm border text-small text-foreground enabled:hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-45 aria-expanded:bg-subtle',
@@ -57,7 +58,11 @@ export function Picker({ icon, count, variant, type, className, children, ...pro
           {count}
         </span>
       ) : null}
-      <ChevronDown aria-hidden className="group-aria-expanded:rotate-180 motion-safe:transition-transform" />
+      <Icon
+        icon={ArrowDown01Icon}
+        aria-hidden
+        className="group-aria-expanded:rotate-180 motion-safe:transition-transform"
+      />
     </button>
   );
 }

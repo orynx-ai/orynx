@@ -1,19 +1,20 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Kanban, List } from 'lucide-react';
+import { KanbanIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { SegmentedControl, SegmentedControlItem } from './segmented-control.tsx';
+import { Icon } from './icon.tsx';
 
 function View({ onValueChange }: { onValueChange?: (value: string) => void }) {
   return (
     <SegmentedControl aria-label="View" defaultValue="board" onValueChange={onValueChange}>
       <SegmentedControlItem value="board">
-        <Kanban aria-hidden />
+        <Icon icon={KanbanIcon} aria-hidden />
         Board
       </SegmentedControlItem>
       <SegmentedControlItem value="list">
-        <List aria-hidden />
+        <Icon icon={LeftToRightListBulletIcon} aria-hidden />
         List
       </SegmentedControlItem>
     </SegmentedControl>

@@ -1,7 +1,8 @@
 import { createContext, useContext, useId, useState, type ComponentProps, type ReactNode } from 'react';
-import { Check, ChevronRight } from 'lucide-react';
+import { ArrowRight01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { DropdownMenu as MenuPrimitive, Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
+import { Icon } from './icon.tsx';
 
 /** Lets the content close its own menu (Tab); Radix keeps the open state inside the root. */
 const SetOpenContext = createContext<(open: boolean) => void>(() => undefined);
@@ -174,7 +175,9 @@ export function MenuItem({
   children,
   ...props
 }: MenuItemProps) {
-  const chevron = leadsOn ? <ChevronRight aria-hidden className="ms-auto text-muted-foreground" /> : null;
+  const chevron = leadsOn ? (
+    <Icon icon={ArrowRight01Icon} aria-hidden className="ms-auto text-muted-foreground" />
+  ) : null;
   const itemProps = {
     'data-slot': 'menu-item',
     textValue: nameOf(children, textValue),
@@ -230,7 +233,7 @@ export function MenuRadioItem({
         {children}
       </ItemBody>
       <MenuPrimitive.ItemIndicator className="ms-auto inline-flex">
-        <Check aria-hidden className="text-info" />
+        <Icon icon={Tick02Icon} aria-hidden className="text-info" />
       </MenuPrimitive.ItemIndicator>
     </MenuPrimitive.RadioItem>
   );
@@ -271,7 +274,7 @@ export function MenuCheckboxItem({
         className="mt-0.5 flex size-5 shrink-0 items-center justify-center self-start rounded-sm border border-control bg-raised group-data-[state=checked]:border-primary group-data-[state=checked]:bg-primary motion-safe:transition-colors"
       >
         <MenuPrimitive.ItemIndicator className="inline-flex motion-safe:animate-fade-in">
-          <Check className="size-3.5 text-primary-foreground" />
+          <Icon icon={Tick02Icon} className="size-3.5 text-primary-foreground" />
         </MenuPrimitive.ItemIndicator>
       </span>
       <ItemBody icon={icon} description={description} path={path} className="max-w-80 wrap-anywhere">

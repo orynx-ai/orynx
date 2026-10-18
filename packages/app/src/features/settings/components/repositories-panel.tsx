@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { PlusSignIcon } from '@hugeicons/core-free-icons';
 import type { Repository } from '@devhub/contracts';
-import { Button, EmptyState } from '@devhub/ui';
+import { Button, Icon, EmptyState } from '@devhub/ui';
 import { useAddingRepository, useRemoveRepository, useRepositories } from '../queries.ts';
 import { AddFolderForm } from './add-folder-form.tsx';
 import { RepositoryRow } from './repository-row.tsx';
@@ -82,7 +82,7 @@ export function RepositoriesPanel() {
             setFormOpen((open) => !open);
           }}
         >
-          <Plus aria-hidden />
+          <Icon icon={PlusSignIcon} aria-hidden />
           Add local folder
         </Button>
       </div>

@@ -121,4 +121,4 @@ The sizes follow the Clean UI scale (`.claude/skills/clean-ui/SKILL.md`): on 17 
 
 ## Icons
 
-Icons are outline, 20 px, with a 1.75 stroke. Use `lucide-react`. The `.lucide` base style in `theme.css` sets the size and stroke, so write `<Plus aria-hidden />` with no size props. An icon never stands alone: give it a visible label, or put `aria-label` on its button.
+Icons are Hugeicons' free set (`@hugeicons/core-free-icons`, the user's call for the Orynx brand, 18 Oct 2026): outline, 20 px, a 1.5 stroke, in the text colour. Draw one with `<Icon icon={Home03Icon} />` from `@devhub/ui`, which sets the size, stroke and `aria-hidden`, so pass no size or stroke (`className="size-4"` may shrink one). Use `lucide-react` only when Hugeicons has no match; its `.lucide` base style gives it 20 px and a 1.75 stroke. An icon never stands alone: give it a visible label, or put `aria-label` on its button.

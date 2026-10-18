@@ -1,8 +1,9 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { ChevronLeft, ChevronRight, Ellipsis } from 'lucide-react';
+import { ArrowLeft01Icon, ArrowRight01Icon, MoreHorizontalIcon } from '@hugeicons/core-free-icons';
 import { Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { buttonVariants } from './button.tsx';
+import { Icon } from './icon.tsx';
 
 export type PagerItem =
   { kind: 'page'; page: number; wide: boolean; narrow: boolean } | { kind: 'gap'; wide: boolean; narrow: boolean };
@@ -87,7 +88,7 @@ export function Pagination({ page, pageCount, pageLink, className, ...props }: P
       <ul className="m-0 flex list-none items-center gap-1 p-0 @max-[30rem]:gap-0">
         <li className="flex">
           <Step page={page > 1 ? page - 1 : null} pageLink={pageLink} label="Previous page">
-            <ChevronLeft aria-hidden />
+            <Icon icon={ArrowLeft01Icon} aria-hidden />
             <span className="@max-[30rem]:hidden">Previous</span>
           </Step>
         </li>
@@ -99,7 +100,7 @@ export function Pagination({ page, pageCount, pageLink, className, ...props }: P
               aria-hidden
               className={cn('size-8 items-center justify-center text-muted-foreground', shownWhen(item))}
             >
-              <Ellipsis />
+              <Icon icon={MoreHorizontalIcon} />
             </li>
           ) : (
             <li key={item.page} className={shownWhen(item)}>
@@ -121,7 +122,7 @@ export function Pagination({ page, pageCount, pageLink, className, ...props }: P
         <li className="flex">
           <Step page={page < pageCount ? page + 1 : null} pageLink={pageLink} label="Next page">
             <span className="@max-[30rem]:hidden">Next</span>
-            <ChevronRight aria-hidden />
+            <Icon icon={ArrowRight01Icon} aria-hidden />
           </Step>
         </li>
       </ul>

@@ -175,7 +175,15 @@
     }
   }
 
-  /* Outline icons, 20 px, 1.75 stroke, drawn in currentColor (design system, Iconography; size from Clean UI). */
+  /* Icons are Hugeicons' free set through <Icon> (18 Oct 2026): 20 px, drawn in currentColor, the 1.5
+     stroke set by <Icon>. A utility such as size-4 resizes one. */
+  .icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  /* The fallback, lucide-react, only where Hugeicons has no match: 20 px, 1.75 stroke, in currentColor. */
   .lucide {
     width: 1.25rem;
     height: 1.25rem;

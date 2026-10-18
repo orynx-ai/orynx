@@ -1,7 +1,15 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Link, useLinkProps } from '@tanstack/react-router';
-import { History, House, PanelLeft, PenLine, Search, Settings, SquareKanban } from 'lucide-react';
-import { BrandMark, Button, Kbd, Splitter, cn } from '@devhub/ui';
+import {
+  HistoryIcon,
+  Home03Icon,
+  PencilEdit02Icon,
+  Search01Icon,
+  Settings02Icon,
+  SidebarLeftIcon,
+  Ticket01Icon,
+} from '@hugeicons/core-free-icons';
+import { BrandMark, Button, cn, Icon, Kbd, Splitter } from '@devhub/ui';
 import { useInboxCount } from '../features/home/queries.ts';
 import { useTicketsCount } from '../features/tickets/queries.ts';
 import { SidebarSessions } from '../features/sessions/components/sidebar-sessions.tsx';
@@ -69,7 +77,7 @@ export function Sidebar() {
           aria-pressed={collapsed}
           onClick={toggleSidebar}
         >
-          <PanelLeft aria-hidden />
+          <Icon icon={SidebarLeftIcon} aria-hidden />
         </Button>
       </div>
 
@@ -93,7 +101,7 @@ export function Sidebar() {
               startNewTask();
             }}
           >
-            <PenLine aria-hidden />
+            <Icon icon={PencilEdit02Icon} aria-hidden />
             <Label collapsed={collapsed} className="max-md:sr-only">
               New task
             </Label>
@@ -110,7 +118,7 @@ export function Sidebar() {
             collapsed && 'md:justify-center md:px-0',
           )}
         >
-          <Search aria-hidden />
+          <Icon icon={Search01Icon} aria-hidden />
           <Label collapsed={collapsed} className="max-md:sr-only">
             Search
           </Label>
@@ -121,7 +129,7 @@ export function Sidebar() {
       <div className="grid w-full grid-cols-4 gap-1 md:flex md:flex-col md:gap-0.5">
         <NavItem
           to="/"
-          icon={<House aria-hidden />}
+          icon={<Icon icon={Home03Icon} aria-hidden />}
           label="Home"
           collapsed={collapsed}
           exact
@@ -131,7 +139,7 @@ export function Sidebar() {
         />
         <NavItem
           to="/tickets"
-          icon={<SquareKanban aria-hidden />}
+          icon={<Icon icon={Ticket01Icon} aria-hidden />}
           label="Tickets"
           collapsed={collapsed}
           // Spec 008, Q6: your tickets in the sprint, Done included, as the design draws "9".
@@ -139,11 +147,16 @@ export function Sidebar() {
             ? {}
             : { count: { value: inSprint, spoken: `${String(inSprint)} in your sprint` } })}
         />
-        <NavItem to="/settings" icon={<Settings aria-hidden />} label="Settings" collapsed={collapsed} />
+        <NavItem
+          to="/settings"
+          icon={<Icon icon={Settings02Icon} aria-hidden />}
+          label="Settings"
+          collapsed={collapsed}
+        />
         {/* Narrow windows have no session rows, so the full list gets a place of its own. */}
         <NavItem
           to="/sessions"
-          icon={<History aria-hidden />}
+          icon={<Icon icon={HistoryIcon} aria-hidden />}
           label="Sessions"
           collapsed={collapsed}
           className="md:hidden"

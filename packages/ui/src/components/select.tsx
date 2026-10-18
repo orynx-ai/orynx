@@ -1,7 +1,8 @@
 import type { ComponentProps } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
 import { useFieldControl } from './field.tsx';
+import { Icon } from './icon.tsx';
 
 /**
  * A native `<select>` drawn like `Input`: 40 px, the `border-control` outline and the shared focus ring
@@ -23,7 +24,11 @@ export function Select({ className, children, ...props }: ComponentProps<'select
       >
         {children}
       </select>
-      <ChevronDown aria-hidden className="pointer-events-none absolute end-3 top-2.5 text-muted-foreground" />
+      <Icon
+        icon={ArrowDown01Icon}
+        aria-hidden
+        className="pointer-events-none absolute end-3 top-2.5 text-muted-foreground"
+      />
     </div>
   );
 }
