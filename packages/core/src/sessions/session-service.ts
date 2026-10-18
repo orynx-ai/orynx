@@ -12,14 +12,18 @@ import type {
   SessionFollowUp,
   SessionTicket,
   StartSessionAnswer,
+  StartSessionRequest,
+  ComposerStart,
   TicketStart,
 } from '@devhub/contracts';
 import type { AgentAdapter, AgentBrief, AgentEvent } from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
-import { briefText, sessionNote, ticketBrief, ticketFromBrief } from './brief.ts';
+import { briefText, sessionNote, ticketFromBrief } from './brief.ts';
 import type { ChangesReader, StartPoint } from './changes.ts';
+import { chooseFolder, composerPlan, ticketKeyOf, ticketPlan, type StartPlan } from './compose.ts';
+import type { ContextReader } from './context-reader.ts';
 import {
   addStep,
   addWaiting,
@@ -35,9 +39,9 @@ import type { ApprovalRecord, SessionRecords, StoredSession } from './session-st
 import { createWorktrees, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
 
 /**
- * Claude sessions (spec 011): starting one on a ticket, running it, stopping it and discarding it. A
- * start checks everything it can before anything exists (Q4), so a session that can't start leaves
- * nothing behind; what goes wrong later shows on the session itself (AC-13).
+ * Claude sessions (spec 011): starting one on a ticket or from the composer (spec 015), running it, stopping
+ * it and discarding it. A start checks everything it can before anything exists (Q4), so a session that can't
+ * start leaves nothing behind; what goes wrong later shows on the session itself (AC-13).
  */
 
 /** Who ended a waiting call (spec 012). */
@@ -72,7 +76,8 @@ export type SendResult = SendMessageAnswer | { result: 'not_found' };
 export type RespondResult = 'answered' | 'not_found' | 'already_answered' | 'not_offered' | 'not_saved';
 
 export interface SessionService {
-  start(request: TicketStart): Promise<StartSessionAnswer>;
+  /** Ship's start on a ticket, or the composer's with your message and its chips (spec 015). */
+  start(request: StartSessionRequest): Promise<StartSessionAnswer>;
   /** The session as the Session screen shows it; null when there's none with this id. */
   get(id: string): Promise<Session | null>;
   /** Stop Claude (AC-9). A session that isn't working stays as it is. */
@@ -101,6 +106,8 @@ export interface SessionServiceOptions {
   claude: { connected(): Promise<boolean> };
   connection: { credentials(): Promise<JiraSyncCredentials | null> };
   jira: JiraClient;
+  /** Reads the composer's chips from Jira and GitHub before a composer start makes anything (spec 015). */
+  context: ContextReader;
   /**
    * What the cache already knows about a ticket: the title and breadcrumb before Jira answers (spec 011), and
    * its status and due date now, for the Ticket tab (spec 013).
@@ -181,6 +188,13 @@ function claudeWorked(session: Session): boolean {
   return session.activities.some((activity) =>
     ['explore', 'plan', 'edit', 'refused', 'finished', 'waiting', 'command', 'denied'].includes(activity.kind),
   );
+}
+
+/** Whether the ticket alone was the brief, so Claude's note points it at the ticket (spec 015, Q8c). */
+function ticketNote(session: Session): boolean {
+  const brief = session.activities.find((activity) => activity.kind === 'brief');
+  if (brief === undefined) return session.source?.kind === 'jira';
+  return brief.key !== null && !brief.message;
 }
 
 function ticketOf(record: StoredSession): string {
@@ -494,18 +508,19 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     }
   }
 
-  async function run(id: string, run: Run): Promise<void> {
-    const record = await records.get(id);
-    if (record === null || record.session.source?.kind !== 'jira' || record.worktree === null) return;
-    const key = record.session.source.key;
-    const { signal } = run.controller;
-
+  /** Ship's start reads the ticket now, as the run's first step (spec 011); null when it failed or you stopped. */
+  async function shipPlan(id: string, key: string, run: Run): Promise<StartPlan | null> {
     const credentials = await connection.credentials();
-    if (credentials?.ok !== true)
-      return fail(id, 'jira', credentials === null ? 'not_connected' : credentials.problem.kind);
+    if (credentials?.ok !== true) {
+      await fail(id, 'jira', credentials === null ? 'not_connected' : credentials.problem.kind);
+      return null;
+    }
     const answer = await options.jira.issue(credentials.request, key);
-    if (!answer.ok) return fail(id, 'jira', answer.problem.kind);
-    if (stopping(run)) return;
+    if (!answer.ok) {
+      await fail(id, 'jira', answer.problem.kind);
+      return null;
+    }
+    if (stopping(run)) return null;
     const { issue } = answer;
     await change(id, (current) => ({
       ...current,
@@ -516,8 +531,21 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         ticket: { type: issue.type, description: issue.description, status: null, dueDate: null },
       },
     }));
+    return ticketPlan(issue);
+  }
 
-    const prepared = await worktrees.prepare(record.repository.path, key, signal);
+  async function run(id: string, run: Run): Promise<void> {
+    const record = await records.get(id);
+    if (record?.worktree == null) return;
+    // A composer start read everything before its record was made (spec 015); Ship reads the ticket now.
+    const planned = startPlans.get(id);
+    startPlans.delete(id);
+    const shipKey = record.session.source?.kind === 'jira' ? record.session.source.key : null;
+    const start = planned ?? (shipKey === null ? null : await shipPlan(id, shipKey, run));
+    if (start === null) return;
+    const { signal } = run.controller;
+
+    const prepared = await worktrees.prepare(record.repository.path, start.branchName, signal);
     if (!prepared.ok) return worktreeFailure(id, prepared.problem);
     const { plan } = prepared;
     const making = { kind: 'worktree', branch: plan.branch, base: plan.base, fetched: false } as const;
@@ -536,16 +564,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (!made.ok) return worktreeFailure(id, made.problem);
     if (stopping(run)) return;
 
-    const brief = ticketBrief(issue);
-    await records.writeBrief(id, briefText(brief));
+    await records.writeBrief(id, briefText(start.brief));
     await change(id, (current) =>
-      withProgress(current, (progress) =>
-        addStep(progress, { kind: 'brief', key, message: false, pullRequests: [], files: [] }),
-      ),
+      withProgress(current, (progress) => addStep(progress, { kind: 'brief', ...start.briefStep })),
     );
     if (stopping(run)) return;
 
-    await startClaude(id, run, brief, record.worktree, plan.branch, null);
+    await startClaude(id, run, start.brief, record.worktree, plan.branch, null, start.ticketNote);
   }
 
   /** Starts Claude for a run, with the brief or, resuming its own session, your follow-up, and follows it. */
@@ -556,6 +581,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     worktree: string,
     branch: string,
     resume: string | null,
+    ticketNote: boolean,
   ): Promise<void> {
     if (adapter === null) return fail(id, 'other', 'no_claude_code');
     // Settings are read before Claude starts, and again for each call it makes (spec 012, AC-11).
@@ -566,7 +592,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     await permissions();
     // Stop can come while they're read: then Claude never starts.
     if (stopping(run)) return;
-    const note = sessionNote(branch, adapter.runsCommands);
+    const note = sessionNote(branch, adapter.runsCommands, ticketNote);
     const agentId = await adapter.startSession(
       brief,
       worktree,
@@ -710,7 +736,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     });
     options.onReport?.({ what: 'followed_up', session: id, ticket: key, resumed: true });
     track(
-      startClaude(id, run, { message: text, context: [] }, worktree, branch, claudeSessionId)
+      startClaude(id, run, { message: text, context: [] }, worktree, branch, claudeSessionId, ticketNote(session))
         .catch(() => fail(id, 'other', 'unexpected'))
         .finally(() => {
           run.markStarted(null);
@@ -720,6 +746,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   }
   /** One start at a time per ticket, so two tabs pressing Build start one session. */
   const starting = new Map<string, Promise<unknown>>();
+  /** A composer start's plan, from its record being made until its run takes it (spec 015). */
+  const startPlans = new Map<string, StartPlan>();
 
   async function liveSessionOn(key: string): Promise<string | null> {
     const listed = await records.list();
@@ -809,6 +837,67 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return { result: 'started', sessionId: id };
   }
 
+  /**
+   * The composer's start (spec 015). Every answer that makes nothing comes first (Q9, AC-22): a live session on
+   * the ticket, signed out, three working, the folder (Q7), then the chips as Jira and GitHub give them (AC-21).
+   * Only then is the record made, with the brief its run starts from (AC-4, AC-20).
+   */
+  async function composeNow(request: ComposerStart): Promise<StartSessionAnswer> {
+    const key = ticketKeyOf(request);
+    if (key !== null) {
+      const live = await liveSessionOn(key);
+      if (live !== null) return { result: 'existing', sessionId: live };
+    }
+    if (!(await claude.connected())) return { result: 'cannot_start', reason: 'signed_out' };
+    if ((await workingCount()) >= mostWorking) return { result: 'cannot_start', reason: 'too_many' };
+    const folder = chooseFolder(await repositories.list(), request);
+    if (typeof folder === 'string') return { result: 'cannot_start', reason: folder };
+
+    const read = await options.context.read(request.context);
+    if (!read.ok) return { result: 'context_failed', chip: read.chip, problem: read.problem };
+    const { title, ticket, plan } = composerPlan(request.message, read.chips);
+
+    const id = newId();
+    const at = new Date(now()).toISOString();
+    const known = ticket === null ? null : await describeTicket(ticket.key);
+    const record: StoredSession = {
+      session: {
+        id,
+        title,
+        state: 'working',
+        source: ticket === null ? null : { kind: 'jira', key: ticket.key },
+        updatedAt: at,
+        folder: { name: folder.name, displayPath: folder.displayPath },
+        branch: null,
+        step: 'plan',
+        activities: [],
+        problem: null,
+        startedAt: at,
+        endedAt: null,
+        discardedAt: null,
+        jiraUrl: ticket === null ? null : await jiraLink(ticket.key),
+        sprint: known?.sprint ?? null,
+        approvals: [],
+        ticket:
+          ticket === null ? null : { type: ticket.type, description: ticket.description, status: null, dueDate: null },
+        followUp: { kind: 'open' },
+        worktreePath: null,
+        workedMs: 0,
+        runStartedAt: at,
+      },
+      repository: { id: folder.id, path: folder.path },
+      worktree: join(options.worktrees.root, id),
+      startCommit: null,
+      claudeSessionId: null,
+      approvalLog: [],
+    };
+    startPlans.set(id, plan);
+    await records.create(record);
+    events.publish({ type: 'sessions.changed' });
+    begin(id);
+    return { result: 'started', sessionId: id };
+  }
+
   /** Stops the session if it's working, then deletes its worktree and branch (AC-10). */
   async function discardNow(id: string): Promise<'discarded' | 'not_found' | 'failed'> {
     const found = await records.get(id);
@@ -841,10 +930,14 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   return {
     start(request) {
-      const waiting = starting.get(request.ticketKey);
-      const turn = (waiting ?? Promise.resolve()).then(() => startNow(request));
+      // Starts on one ticket go one at a time, from Ship or the composer; so do composer starts with no ticket.
+      const key = 'ticketKey' in request ? request.ticketKey : (ticketKeyOf(request) ?? 'composer');
+      const waiting = starting.get(key);
+      const turn = (waiting ?? Promise.resolve()).then(() =>
+        'ticketKey' in request ? startNow(request) : composeNow(request),
+      );
       starting.set(
-        request.ticketKey,
+        key,
         turn.catch(() => undefined),
       );
       return turn;

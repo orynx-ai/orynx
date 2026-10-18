@@ -38,6 +38,7 @@ import { createTokenStore, type EnvTokens, type TokenStore } from './secrets/tok
 import { createClaudeAdapter, type QueryFunction } from './agents/claude/claude-adapter.ts';
 import { sandboxSettings } from './agents/claude/sandbox.ts';
 import { createChangesReader } from './sessions/changes.ts';
+import { createContextReader } from './sessions/context-reader.ts';
 import { createSessionService } from './sessions/session-service.ts';
 import { createMemorySessionStore, type SessionRecords } from './sessions/session-store.ts';
 import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
@@ -297,6 +298,12 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     claude,
     connection: jira,
     jira: jiraClient,
+    context: createContextReader({
+      jira: jiraClient,
+      jiraConnection: jira,
+      github: githubClient,
+      githubConnection: github,
+    }),
     describeTicket: async (key) => {
       // A status with no name is left out: the Ticket tab can't word it (spec 013).
       const status = (name: string, column: TicketColumn) => (name === '' ? null : { name, column });

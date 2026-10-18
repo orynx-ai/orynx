@@ -11,6 +11,9 @@ import { sandboxSettings } from '../agents/claude/sandbox.ts';
 import { createClaudeCode } from '../agents/claude/claude-code.ts';
 import { createClaudeLogin } from '../agents/claude/claude-login.ts';
 import { createEventBus } from '../events/event-bus.ts';
+import { createGitHubClient } from '../integrations/github/client.ts';
+import { createGitHubConnection } from '../integrations/github/connection.ts';
+import { createGhCli } from '../integrations/github/gh.ts';
 import { createJiraClient } from '../integrations/jira/client.ts';
 import { createJiraConnection } from '../integrations/jira/connection.ts';
 import { createPreferencesService } from '../preferences/preferences-service.ts';
@@ -26,6 +29,7 @@ import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import type { SessionRecords } from './session-store.ts';
 import { createChangesReader } from './changes.ts';
+import { createContextReader } from './context-reader.ts';
 import { createSessionService, type SessionReport } from './session-service.ts';
 
 // Real git, a real Claude Code login check and a real Jira client behind a fake Jira: each test does a lot.
@@ -140,6 +144,20 @@ async function setUp({
     claude,
     connection,
     jira: createJiraClient({ timeoutMs: 500 }),
+    // GitHub isn't connected here; spec 015's composer starts are tested in compose.test.ts.
+    context: createContextReader({
+      jira: createJiraClient({ timeoutMs: 500 }),
+      jiraConnection: connection,
+      github: createGitHubClient(),
+      githubConnection: createGitHubConnection({
+        settings,
+        tokens,
+        github: createGitHubClient(),
+        gh: createGhCli({ searchPath: '' }),
+        events,
+        envToken: false,
+      }),
+    }),
     describeTicket: () => Promise.resolve(cached === null ? null : { status: null, dueDate: null, ...cached }),
     preferences: createPreferencesService({
       // The settings file, slow to answer when the test says so.
