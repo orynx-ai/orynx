@@ -43,7 +43,7 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 13: Add the dialog's states: loading rows, nothing to search with Open Settings, a tool still syncing, no matches, and the error with Try again. A sync that changes the results keeps the text and the active item (AC-21, AC-22, AC-23, AC-24, AC-25, AC-26, AC-27)
       Check: pnpm test packages/app/src/features/search
       Files: packages/app/src/features/search/components/search-dialog.tsx, search-dialog.test.tsx
-- [ ] Task 14: Add an e2e run with Jira and GitHub faked: ⌘K, typing, the arrow keys, and Enter opening Jira in a new tab, then Esc giving focus back (AC-1, AC-6, AC-11, AC-12, AC-19)
+- [x] Task 14: Add an e2e run with Jira and GitHub faked: ⌘K, typing, the arrow keys, and Enter opening Jira in a new tab, then Esc giving focus back (AC-1, AC-6, AC-11, AC-12, AC-19)
       Check: pnpm test:e2e e2e/search.spec.ts
       Files: e2e/search.spec.ts
 - [ ] Task 15: Update `docs/architecture.md` (the search route, `Dialog`), `learn/the-inbox.md` (the cache keeps every open pull request), and add `learn/search.md`: what search reads, why matching runs in the browser, and how ⌘K is caught
