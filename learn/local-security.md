@@ -55,6 +55,7 @@ Not here. Those live in the OS keychain, are read only by `packages/core` (throu
 - **A fixed command.** The program and its arguments are written in `folder-picker.ts` (`osascript -e 'POSIX path of (choose folder)'`, `zenity` or `kdialog`). The request has no body, nothing the page sends reaches the command, and it runs through `execFile`, never a shell.
 - **Found where gh is found.** `apps/server` looks for the program on the shell's `PATH`, never one written in `.env`, and only in absolute folders. Core's `createServer()` uses an empty search path when the host passes no picker, so no core test can open a real picker.
 - **One at a time, and not forever.** A second request while it's open shares the first one's answer, and a picker left open 10 minutes is killed.
+- **One path, whole.** Output that holds a line break inside it is refused rather than cut at the first line, so a folder planted with a newline in its name can't fill Folder with another, real folder.
 - **It saves nothing.** The answer is a path for the Folder field. Saving the folder checks it on disk as a typed path is checked.
 
 ## What a Claude session can reach (specs 011 and 012)

@@ -62,7 +62,7 @@ SidebarSessions ── useSessionPages({ limit: 16, recent: true })   an infinit
 - **`sessions.changed` refreshes every page loaded**, in order from the first (`sessionPagesQueryOptions` in `api-client`), so each cursor comes from fresh data and the pages already shown stay shown.
 - **While the next page loads,** two `SessionItemSkeleton` rows sit at the end, and a screen reader hears "Loading more sessions". A page that fails keeps the rows above it and shows spec 001's "Couldn't load sessions" with Try again under them. The marker is watched again after each page, so a short page whose end is still in view loads the next one too.
 - **The 7-day rule stays:** `recent=true` leaves out a session discarded more than 7 days ago, which the Sessions page (View all) still lists.
-- **The collapsed rail** has no room for rows, so it gets a Sessions place under Settings, as narrow windows have. Every rail icon, Sessions included, shows its name in a tooltip beside it.
+- **The collapsed rail** has no room for rows, so it gets a Sessions place under Settings, as narrow windows have. Every rail icon, Sessions included, shows its name in a tooltip beside it. The rail is collapsed from 768 px only: under that, the narrow bar shows each place's words, so they get no tooltip there.
 - **New task left the sidebar** in spec 020, since Home does the same job. ⌘N (Ctrl+N elsewhere) still opens Home with focus on its content, and the Home place carries that key in `aria-keyshortcuts`.
 
 ## The branch and the worktree
