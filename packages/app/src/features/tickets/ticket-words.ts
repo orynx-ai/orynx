@@ -1,51 +1,11 @@
 import type { Sprint, Ticket, TicketColumn } from '@devhub/contracts';
-import type { PillTone } from '@devhub/ui';
 import { personName } from '../../shell/person-name.ts';
-import { calendarDay, daysUntil, months, plural, weekdays } from '../../words/calendar.ts';
+import { dayMonth, plural } from '../../words/calendar.ts';
 
 /**
  * Every word Tickets shows (spec 008, Q7, Q9). The server sends data; these turn it into words with the
  * laptop's calendar, the way Home writes its dates.
  */
-
-export interface DueText {
-  text: string;
-  /** What a screen reader hears: the calendar icon says "due" to the eye only. */
-  spoken: string;
-  /** Drawn in `warning`: not Done, and overdue or due within 6 days (Q7b, Q3b). */
-  soon: boolean;
-}
-
-/** "24 Oct" and "24 October", with the year when it isn't this year's: "3 Jan 2027". */
-function dayMonth(date: Date, now: Date): { short: string; long: string } {
-  const month = months[date.getMonth()] ?? '';
-  const year = date.getFullYear() === now.getFullYear() ? '' : ` ${String(date.getFullYear())}`;
-  return {
-    short: `${String(date.getDate())} ${month.slice(0, 3)}${year}`,
-    long: `${String(date.getDate())} ${month}${year}`,
-  };
-}
-
-/**
- * Q7b: Home's dates without "Due". "Today", "Tomorrow", a weekday within 6 days, or "28 Oct"; a ticket that
- * isn't Done and is past its date reads "Overdue · 2 d". A Done ticket's date is never `soon`.
- */
-export function dueText(on: string, done: boolean, now: Date): DueText {
-  const days = daysUntil(on, now);
-  if (days < 0 && !done) {
-    return { text: `Overdue · ${String(-days)} d`, spoken: `Overdue by ${plural(-days, 'day')}`, soon: true };
-  }
-  const soon = !done && days <= 6;
-  if (days === 0) return { text: 'Today', spoken: 'Due today', soon };
-  if (days === 1) return { text: 'Tomorrow', spoken: 'Due tomorrow', soon };
-  const due = calendarDay(on);
-  if (days > 1 && days <= 6) {
-    const weekday = weekdays[due.getDay()] ?? '';
-    return { text: weekday.slice(0, 3), spoken: `Due ${weekday}`, soon };
-  }
-  const date = dayMonth(due, now);
-  return { text: date.short, spoken: `Due ${date.long}`, soon };
-}
 
 /** Q9a, Q7c: "PROJ · ends 24 Oct", "PROJ · ended 24 Oct", "PROJ", or "ends 24 Oct"; null with neither. */
 export function sprintMeta(sprint: Sprint, now: Date): string | null {
@@ -129,14 +89,6 @@ export function assigneeAvatar(assignee: Ticket['assignee']): { initials: string
     label: assignee.mine ? 'Assigned to you' : `Assigned to ${assignee.name}`,
   };
 }
-
-/** AC-11: the list's status pill in its column's colour, as the design system gives each status. */
-export const statusTones: Record<TicketColumn, PillTone> = {
-  to_do: 'neutral',
-  in_progress: 'warning',
-  in_review: 'info',
-  done: 'success',
-};
 
 /** Q9i. */
 export const noSprintText = {

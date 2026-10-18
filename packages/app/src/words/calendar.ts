@@ -38,3 +38,13 @@ export function daysUntil(on: string, now: Date): number {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.round((calendarDay(on).getTime() - today.getTime()) / day);
 }
+
+/** "24 Oct" and "24 October", with the year when it isn't this year's: "3 Jan 2027". */
+export function dayMonth(date: Date, now: Date): { short: string; long: string } {
+  const month = months[date.getMonth()] ?? '';
+  const year = date.getFullYear() === now.getFullYear() ? '' : ` ${String(date.getFullYear())}`;
+  return {
+    short: `${String(date.getDate())} ${month.slice(0, 3)}${year}`,
+    long: `${String(date.getDate())} ${month}${year}`,
+  };
+}
