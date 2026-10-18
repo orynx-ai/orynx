@@ -10,7 +10,7 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 2: GitHub's map keeps every open pull request the sync reads, and records when each was opened (null for older cache records). Home's rows don't change (AC-18, Q1c)
       Check: pnpm test packages/core/src/integrations/github packages/core/src/inbox
       Files: packages/core/src/integrations/github/map.ts, map.test.ts, client.ts, client.test.ts, packages/core/src/inbox/rules.test.ts, inbox-service.test.ts
-- [ ] Task 3: Give `InboxService` a `records()` call: the connected tools' records and each tool's state, with no inbox rules. `read()` builds on it (AC-17, AC-24, AC-27)
+- [x] Task 3: Give `InboxService` a `records()` call: the connected tools' records and each tool's state, with no inbox rules. `read()` builds on it (AC-17, AC-24, AC-27)
       Check: pnpm test packages/core/src/inbox
       Files: packages/core/src/inbox/inbox-service.ts, inbox-service.test.ts
 - [ ] Task 4: Add the search service. Tickets come by key, each with its newest session or its Jira link. Pull requests come newest first, linking to their main page. Sessions come newest first. Each tool's state is included (AC-6, AC-8, AC-9, AC-13, AC-17, AC-18, AC-24, AC-27)
