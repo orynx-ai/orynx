@@ -28,6 +28,7 @@ function pull(overrides: Partial<PullRequestRecord> = {}): PullRequestRecord {
     url: 'https://github.com/acme/web-app/pull/2841',
     author: 'Priya Sharma',
     mine: false,
+    openedAt: '2026-10-10T09:00:00.000Z',
     reviewRequestedAt: '2026-10-15T10:00:00.000Z',
     checksFailedAt: null,
     unresolved: null,
@@ -216,6 +217,10 @@ describe('inbox rules', () => {
       ],
       ['session:s3', null, null, 'Add bulk archive', { kind: 'session', source: null }],
     ]);
+  });
+
+  it('AC-18: your open pull request that needs nothing from you, kept for search, has no row on Home (Q1c)', () => {
+    expect(items({ github: [mine()] })).toEqual([]);
   });
 
   it('AC-15: each rule that is off takes its rows away, and nothing else', () => {

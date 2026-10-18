@@ -7,7 +7,7 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 1: Add the search contract: ticket, pull request and session results, each tool's state, each result's link (from 007's `InboxTargetSchema`), the path and test builders (AC-6, AC-8, AC-9, AC-28)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/search.ts, search.test.ts, routes.ts, index.ts, testing.ts
-- [ ] Task 2: GitHub's map keeps every open pull request the sync reads, and records when each was opened (null for older cache records). Home's rows don't change (AC-18, Q1c)
+- [x] Task 2: GitHub's map keeps every open pull request the sync reads, and records when each was opened (null for older cache records). Home's rows don't change (AC-18, Q1c)
       Check: pnpm test packages/core/src/integrations/github packages/core/src/inbox
       Files: packages/core/src/integrations/github/map.ts, map.test.ts, client.ts, client.test.ts, packages/core/src/inbox/rules.test.ts, inbox-service.test.ts
 - [ ] Task 3: Give `InboxService` a `records()` call: the connected tools' records and each tool's state, with no inbox rules. `read()` builds on it (AC-17, AC-24, AC-27)
