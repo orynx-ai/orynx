@@ -17,6 +17,8 @@ export const ApiErrorCodeSchema = z.enum([
   'already_answered',
   /** Settings couldn't be saved, so an Always allow decided nothing (spec 012, AC-14). */
   'settings_unsaved',
+  /** No folder picker can open on this computer, so the path is typed instead (spec 020, AC-36). */
+  'picker_unavailable',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;

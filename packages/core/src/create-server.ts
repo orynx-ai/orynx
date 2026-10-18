@@ -18,6 +18,7 @@ import { createInboxService } from './inbox/inbox-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
+import { createFolderPicker, type FolderPicker } from './folder-picker/folder-picker.ts';
 import { claudeRoutes } from './routes/claude.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
@@ -25,6 +26,7 @@ import { inboxRoutes } from './routes/inbox.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
+import { folderPickerRoutes } from './routes/folder-picker.ts';
 import { searchRoutes } from './routes/search.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
 import { ticketsRoutes } from './routes/tickets.ts';
@@ -89,6 +91,11 @@ export interface CoreOptions {
    * fake. Left out, no program is found, so no test can start the real one (AC-12).
    */
   claudeCode?: ClaudeCode;
+  /**
+   * The computer's folder picker, for Choose folder (spec 020). Hosts pass one that searches their PATH;
+   * tests pass a folder with a fake one. Left out, none is found, so no test opens a real picker.
+   */
+  folderPicker?: FolderPicker;
   /** The person's home folder, which Settings › Repositories shows as `~`. The OS's by default. */
   userHome?: string;
   /** DEVHUB_HOME, which Settings › Repositories never adds. `~/.devhub` by default. */
@@ -408,6 +415,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(ticketsRoutes, { tickets });
       await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });
       await api.register(repositoriesRoutes, { repositories });
+      await api.register(folderPickerRoutes, {
+        picker: options.folderPicker ?? createFolderPicker({ searchPath: '', platform: process.platform }),
+        home: userHome,
+      });
       await api.register(eventsRoutes, {
         events,
         ...(options.eventsKeepAliveMs === undefined ? {} : { keepAliveMs: options.eventsKeepAliveMs }),

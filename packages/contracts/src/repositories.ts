@@ -51,3 +51,11 @@ export type AddRepositoryRequest = z.input<typeof AddRepositoryRequestSchema>;
  */
 export const UpdateRepositoryRequestSchema = AddRepositoryRequestSchema;
 export type UpdateRepositoryRequest = z.input<typeof UpdateRepositoryRequestSchema>;
+
+/**
+ * POST /api/folder-picker: the folder picked in the computer's own folder picker, with `~` for the home
+ * folder, or null when the person pressed Cancel (spec 020, AC-35). The Folder field takes it as typed text,
+ * and the server checks it when the folder is saved.
+ */
+export const FolderPickSchema = z.object({ path: z.string().min(1).nullable() });
+export type FolderPick = z.infer<typeof FolderPickSchema>;

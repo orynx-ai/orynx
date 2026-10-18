@@ -7,6 +7,7 @@ import {
   claudeWorkFolder,
   createClaudeCode,
   createFileSettingsStore,
+  createFolderPicker,
   createGhCli,
   createMemoryKeychain,
   createOsKeychain,
@@ -65,6 +66,8 @@ const app = await createServer({
   envTokens: config.tokens.env,
   // gh from the PATH of the terminal that started DevHub. The e2e run puts a fake one first.
   gh: createGhCli({ searchPath: config.ghSearchPath }),
+  // The computer's folder picker from that same PATH, for Choose folder (spec 020).
+  folderPicker: createFolderPicker({ searchPath: config.ghSearchPath, platform: process.platform }),
   // The Claude Code inside the Agent SDK, with only the allowed part of the shell's environment (spec 010).
   // The e2e run names a fake with DEVHUB_CLAUDE_CODE.
   claudeCode: createClaudeCode({

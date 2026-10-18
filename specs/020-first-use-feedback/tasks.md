@@ -55,7 +55,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: The folder dialog (Add, Edit, Duplicate) and each folder's More actions menu with Delete (AC-17 to AC-21)
       Check: pnpm test packages/app/src/features/settings; pnpm exec playwright test e2e/settings.spec.ts
       Files: packages/app/src/features/settings/components/folder-dialog.tsx (from add-folder-form.tsx), repository-row.tsx, repositories-panel.tsx, queries.ts and tests, e2e/settings.spec.ts
-- [ ] Task 12a: `POST /api/folder-picker` opens the OS folder picker (osascript, zenity or kdialog, PowerShell) and answers the path, null on Cancel, or `picker_unavailable` (AC-35, AC-36)
+- [x] Task 12a: `POST /api/folder-picker` opens the OS folder picker (osascript, zenity or kdialog, PowerShell) and answers the path, null on Cancel, or `picker_unavailable` (AC-35, AC-36)
       Check: pnpm test packages/contracts packages/core/src/folder-picker packages/core/src/routes/folder-picker.test.ts packages/api-client
       Files: packages/contracts/src/repositories.ts, errors.ts, routes.ts, packages/core/src/folder-picker/*, packages/core/src/routes/folder-picker.ts, packages/core/src/create-server.ts, packages/api-client/src/endpoints/repositories.ts, client.ts
 - [ ] Task 12b: Choose folder in the folder dialog fills Folder from the picker (AC-35, AC-36)

@@ -1,0 +1,142 @@
+import { execFile } from 'node:child_process';
+import { access, constants, stat } from 'node:fs/promises';
+import { delimiter, isAbsolute, join } from 'node:path';
+
+/**
+ * The computer's own folder picker (spec 020, AC-35): a browser never tells a page a folder's full path,
+ * so Choose folder asks the local server, which opens the OS's picker and answers the path. It runs a
+ * fixed command that holds nothing the page sent, and only when the person presses the button.
+ */
+export type FolderPickOutcome =
+  | { kind: 'picked'; path: string }
+  /** The person closed the picker without choosing. */
+  | { kind: 'cancelled' }
+  /** No picker could open here: none is installed, or there is no screen to show it on (AC-36). */
+  | { kind: 'unavailable' };
+
+export interface FolderPicker {
+  /** Opens the picker and waits for the person. A second call while it's open waits for the same answer. */
+  pick(): Promise<FolderPickOutcome>;
+}
+
+export interface FolderPickerOptions {
+  /**
+   * Folders to look in for the picker program, joined like PATH. The host passes its PATH; tests pass a
+   * folder with a fake one. Empty finds nothing, so no test can open a real picker on the screen.
+   */
+  searchPath: string;
+  platform: NodeJS.Platform;
+  /** How long the picker may stay open; 10 minutes by default, then it's closed and counts as cancelled. */
+  timeoutMs?: number;
+}
+
+interface Picker {
+  program: string;
+  args: string[];
+  /** Whether a failed run means the person cancelled, rather than that no picker could open. */
+  cancelled: (exitCode: number | null, stderr: string) => boolean;
+}
+
+// PowerShell's folder dialog needs a single-threaded apartment; Cancel exits 1, as the other pickers do.
+const windowsScript = [
+  'Add-Type -AssemblyName System.Windows.Forms',
+  '$dialog = New-Object System.Windows.Forms.FolderBrowserDialog',
+  "if ($dialog.ShowDialog() -eq 'OK') { $dialog.SelectedPath } else { exit 1 }",
+].join('; ');
+
+/** Each OS's pickers, in the order they're tried. A quiet exit 1 is a Cancel; one with words is a failure. */
+const pickers: Partial<Record<NodeJS.Platform, readonly Picker[]>> = {
+  // AppleScript says "User canceled. (-128)" when the person presses Cancel.
+  darwin: [
+    {
+      program: 'osascript',
+      args: ['-e', 'POSIX path of (choose folder)'],
+      cancelled: (_code, stderr) => stderr.includes('(-128)'),
+    },
+  ],
+  linux: [
+    { program: 'zenity', args: ['--file-selection', '--directory'], cancelled: quietExitOne },
+    { program: 'kdialog', args: ['--getexistingdirectory'], cancelled: quietExitOne },
+  ],
+  win32: [
+    {
+      program: 'powershell.exe',
+      args: ['-NoProfile', '-STA', '-Command', windowsScript],
+      cancelled: quietExitOne,
+    },
+  ],
+};
+
+function quietExitOne(exitCode: number | null, stderr: string): boolean {
+  return exitCode === 1 && stderr.trim() === '';
+}
+
+async function isProgram(path: string): Promise<boolean> {
+  try {
+    if (!(await stat(path)).isFile()) return false;
+    await access(path, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** The picked folder as the picker printed it, without a trailing newline or slash; null when it's no path. */
+function pathFrom(stdout: string): string | null {
+  const line = stdout.split(/\r?\n/)[0]?.trim() ?? '';
+  const path = line.length > 1 ? line.replace(/[\\/]+$/, '') : line;
+  return isAbsolute(path) ? path : null;
+}
+
+export function createFolderPicker({
+  searchPath,
+  platform,
+  timeoutMs = 10 * 60_000,
+}: FolderPickerOptions): FolderPicker {
+  let open: Promise<FolderPickOutcome> | null = null;
+
+  async function find(): Promise<{ path: string; picker: Picker } | null> {
+    for (const picker of pickers[platform] ?? []) {
+      for (const folder of searchPath.split(delimiter)) {
+        // A relative folder would be looked up from wherever Orynx runs; skip it, as a shell does.
+        if (!isAbsolute(folder)) continue;
+        const path = join(folder, picker.program);
+        if (await isProgram(path)) return { path, picker };
+      }
+    }
+    return null;
+  }
+
+  function run(path: string, picker: Picker): Promise<FolderPickOutcome> {
+    return new Promise((resolve) => {
+      execFile(
+        path,
+        picker.args,
+        // SIGKILL, so a picker left open past the limit is closed for sure. A path is small; more is wrong.
+        { timeout: timeoutMs, killSignal: 'SIGKILL', maxBuffer: 64 * 1024, encoding: 'utf8' },
+        (error, stdout, stderr) => {
+          if (error === null) {
+            const picked = pathFrom(stdout);
+            resolve(picked === null ? { kind: 'unavailable' } : { kind: 'picked', path: picked });
+          } else if (error.killed) {
+            resolve({ kind: 'cancelled' });
+          } else {
+            const exitCode = typeof error.code === 'number' ? error.code : null;
+            resolve(picker.cancelled(exitCode, stderr) ? { kind: 'cancelled' } : { kind: 'unavailable' });
+          }
+        },
+      );
+    });
+  }
+
+  return {
+    pick() {
+      open ??= find()
+        .then((found) => (found === null ? { kind: 'unavailable' as const } : run(found.path, found.picker)))
+        .finally(() => {
+          open = null;
+        });
+      return open;
+    },
+  };
+}

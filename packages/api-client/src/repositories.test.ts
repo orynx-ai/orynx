@@ -75,6 +75,21 @@ describe('repositories endpoints', () => {
     expect(sent).toEqual({ id: '0123456789abcdef', body: { path: '~/code/intranet-web', jiraProject: 'WEB' } });
   });
 
+  it('AC-35, AC-36 (spec 020): opens the folder picker, and says when none can open', async () => {
+    server.use(http.post(`${baseURL}${apiRoutes.folderPicker}`, () => HttpResponse.json({ path: '~/code/app' })));
+    expect(await api.pickFolder()).toEqual({ path: '~/code/app' });
+
+    server.use(
+      http.post(`${baseURL}${apiRoutes.folderPicker}`, () =>
+        HttpResponse.json(
+          { code: 'picker_unavailable', message: "Orynx can't open a folder picker on this computer." },
+          { status: 503 },
+        ),
+      ),
+    );
+    await expect(api.pickFolder()).rejects.toMatchObject({ code: 'picker_unavailable' });
+  });
+
   it('AC-11: removes a folder by its id', async () => {
     let removed: string | undefined;
     server.use(
