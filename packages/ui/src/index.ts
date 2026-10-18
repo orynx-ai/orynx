@@ -53,7 +53,10 @@ export {
   ContextPickerContent,
   ContextPickerLabel,
   ContextPickerTrigger,
+  ContextSearch,
   type ContextKindItemProps,
+  type ContextSearchOption,
+  type ContextSearchProps,
   type ContextPickerContentProps,
   type ContextPickerTriggerProps,
 } from './components/context-picker.tsx';
