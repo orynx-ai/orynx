@@ -10,11 +10,19 @@ import {
   SessionListQuerySchema,
   SessionListSchema,
   SessionSchema,
+  ComposerStartSchema,
   StartSessionAnswerSchema,
   StartSessionRequestSchema,
   type SessionActivity,
 } from './index.ts';
-import { makeSession, makeSessionApproval, makeSessionList, makeSessionSummary, makeSessionTicket } from './testing.ts';
+import {
+  makeComposerStart,
+  makeSession,
+  makeSessionApproval,
+  makeSessionList,
+  makeSessionSummary,
+  makeSessionTicket,
+} from './testing.ts';
 
 describe('SessionListSchema', () => {
   it('AC-8: accepts sessions from a Jira ticket, a pull request and no source', () => {
@@ -376,5 +384,97 @@ describe('a follow-up (spec 013)', () => {
 
   it('AC-11: has its path under the session', () => {
     expect(apiRoutes.sessionMessages).toBe('/api/sessions/:id/messages');
+  });
+});
+
+describe("the composer's start (spec 015)", () => {
+  const ticket = { kind: 'jira', key: 'PROJ-1423' } as const;
+  const pull = (number: number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number }) as const;
+  const file = (name: string, text = 'Export every column.') => ({ kind: 'file', name, text }) as const;
+  // A body as the page would send it, changed only where a test says, so a refused one can be built too.
+  const body = (change: object) => ({ ...makeComposerStart(), ...change });
+
+  it('AC-4: takes your message, trimmed, with the folder and no chips', () => {
+    expect(
+      StartSessionRequestSchema.parse({
+        message: '  Add a CSV export to the reports page\n',
+        repositoryId: '00000000000000aa',
+        context: [],
+      }),
+    ).toEqual({ message: 'Add a CSV export to the reports page', repositoryId: '00000000000000aa', context: [] });
+  });
+
+  it('AC-20: keeps a ticket, pull requests and files in the order you added them', () => {
+    const context = [file('notes.md'), ticket, pull(2836), pull(2841)];
+    expect(ComposerStartSchema.parse(body({ message: 'Use the notes', context })).context).toEqual(context);
+  });
+
+  it('AC-8: takes an empty message only when a ticket is the brief', () => {
+    expect(ComposerStartSchema.safeParse(body({ message: '  ', context: [ticket] })).success).toBe(true);
+    for (const context of [[], [pull(2836)], [file('notes.md')]]) {
+      expect(ComposerStartSchema.safeParse(body({ message: ' \n ', context })).success).toBe(false);
+    }
+  });
+
+  it('AC-11, AC-12: refuses more than 1 ticket, 3 pull requests or 5 files, or the same pull request twice', () => {
+    const tooMany = [
+      [ticket, { kind: 'jira', key: 'PROJ-1424' }],
+      [pull(1), pull(2), pull(3), pull(4)],
+      [1, 2, 3, 4, 5, 6].map((n) => file(`notes-${String(n)}.md`)),
+      [pull(2836), pull(2836)],
+    ];
+    for (const context of tooMany) {
+      expect(ComposerStartSchema.safeParse(body({ context })).success).toBe(false);
+    }
+    const most = [ticket, pull(1), pull(2), pull(3), ...[1, 2, 3, 4, 5].map((n) => file(`notes-${String(n)}.md`))];
+    expect(ComposerStartSchema.safeParse(body({ context: most })).success).toBe(true);
+  });
+
+  it('AC-12: takes a file of up to 100 KB of UTF-8, counted in bytes, not characters', () => {
+    expect(ComposerStartSchema.safeParse(body({ context: [file('a.md', '😀'.repeat(25_600))] })).success).toBe(true);
+    expect(ComposerStartSchema.safeParse(body({ context: [file('a.md', '😀'.repeat(25_601))] })).success).toBe(false);
+    expect(ComposerStartSchema.safeParse(body({ context: [file('a.log', 'x'.repeat(102_400))] })).success).toBe(true);
+    for (const text of ['x'.repeat(102_401), 'é'.repeat(51_201)]) {
+      expect(ComposerStartSchema.safeParse(body({ context: [file('a.log', text)] })).success).toBe(false);
+    }
+  });
+
+  it('refuses a message over 10,000 characters, and names that could be read as paths', () => {
+    expect(ComposerStartSchema.safeParse(body({ message: 'x'.repeat(10_001) })).success).toBe(false);
+    for (const chip of [
+      { ...pull(2836), owner: '../acme' },
+      { ...pull(2836), name: '..' },
+      { ...pull(2836), name: 'web app' },
+      { ...pull(2836), number: 0 },
+      file(''),
+      file('notes/../../.ssh/id_rsa'),
+      file('two\nlines.md'),
+      { kind: 'jira', key: 'proj-1423' },
+      { kind: 'slack_thread', ts: '1' },
+    ]) {
+      expect(ComposerStartSchema.safeParse(body({ context: [chip] })).success).toBe(false);
+    }
+  });
+
+  it("still takes Ship's ticket, and never reads one start as the other", () => {
+    expect(StartSessionRequestSchema.parse({ ticketKey: 'PROJ-1423' })).toEqual({ ticketKey: 'PROJ-1423' });
+    expect('ticketKey' in StartSessionRequestSchema.parse(makeComposerStart())).toBe(false);
+    expect(StartSessionRequestSchema.safeParse({ message: 'Fix it' }).success).toBe(false);
+  });
+
+  it('AC-21: answers which chip failed and how', () => {
+    for (const problem of ['not_connected', 'not_found', 'unreachable', 'other'] as const) {
+      expect(StartSessionAnswerSchema.parse({ result: 'context_failed', chip: 2, problem })).toEqual({
+        result: 'context_failed',
+        chip: 2,
+        problem,
+      });
+    }
+    expect(StartSessionAnswerSchema.safeParse({ result: 'context_failed', chip: -1, problem: 'other' }).success).toBe(
+      false,
+    );
+    expect(StartSessionAnswerSchema.safeParse({ result: 'context_failed', chip: 0, problem: 'busy' }).success).toBe(
+      false,
+    );
   });
 });

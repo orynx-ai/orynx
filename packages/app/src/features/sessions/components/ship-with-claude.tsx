@@ -60,7 +60,7 @@ export function ShipWithClaude({ ticketKey, look }: { ticketKey: string; look: S
     mutationFn: (repositoryId?: string) =>
       api.startSession({ ticketKey, ...(repositoryId === undefined ? {} : { repositoryId }) }),
     onSuccess: (answer: StartSessionAnswer) => {
-      if (answer.result === 'cannot_start') {
+      if (answer.result === 'cannot_start' || answer.result === 'context_failed') {
         setOpen(true);
         return;
       }
@@ -89,11 +89,13 @@ export function ShipWithClaude({ ticketKey, look }: { ticketKey: string; look: S
           : folders.length > 1
             ? 'choose_folder'
             : null;
-  const answered: Reason | null = start.isError
-    ? 'failed'
-    : start.data?.result === 'cannot_start'
-      ? start.data.reason
-      : null;
+  // Ship sends no chips (spec 015), so none can fail; if one ever did, it reads as any failed start.
+  const answered: Reason | null =
+    start.isError || start.data?.result === 'context_failed'
+      ? 'failed'
+      : start.data?.result === 'cannot_start'
+        ? start.data.reason
+        : null;
   const reason = answered ?? ahead;
   const name = `Ship ${ticketKey}`;
 

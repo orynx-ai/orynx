@@ -13,7 +13,7 @@ import {
   SessionListSchema,
   SessionSchema,
   StartSessionAnswerSchema,
-  StartSessionRequestSchema,
+  TicketStartSchema,
   type ApiError,
 } from '@devhub/contracts';
 import type { RespondResult, SessionService } from '../sessions/session-service.ts';
@@ -57,7 +57,7 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
 
   app.post(
     apiPaths.sessions,
-    { schema: { body: StartSessionRequestSchema, response: { 200: StartSessionAnswerSchema } } },
+    { schema: { body: TicketStartSchema, response: { 200: StartSessionAnswerSchema } } },
     (request) => service.start(request.body),
   );
 

@@ -12,7 +12,7 @@ import type {
   SessionFollowUp,
   SessionTicket,
   StartSessionAnswer,
-  StartSessionRequest,
+  TicketStart,
 } from '@devhub/contracts';
 import type { AgentAdapter, AgentBrief, AgentEvent } from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
@@ -72,7 +72,7 @@ export type SendResult = SendMessageAnswer | { result: 'not_found' };
 export type RespondResult = 'answered' | 'not_found' | 'already_answered' | 'not_offered' | 'not_saved';
 
 export interface SessionService {
-  start(request: StartSessionRequest): Promise<StartSessionAnswer>;
+  start(request: TicketStart): Promise<StartSessionAnswer>;
   /** The session as the Session screen shows it; null when there's none with this id. */
   get(id: string): Promise<Session | null>;
   /** Stop Claude (AC-9). A session that isn't working stays as it is. */
@@ -748,7 +748,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return credentials === null ? null : `https://${credentials.site}/browse/${key}`;
   }
 
-  async function startNow({ ticketKey, repositoryId }: StartSessionRequest): Promise<StartSessionAnswer> {
+  async function startNow({ ticketKey, repositoryId }: TicketStart): Promise<StartSessionAnswer> {
     const live = await liveSessionOn(ticketKey);
     if (live !== null) return { result: 'existing', sessionId: live };
 
