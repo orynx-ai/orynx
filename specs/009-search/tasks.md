@@ -31,9 +31,9 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 9: Add `SearchPalette` to `@devhub/ui`: the head's 40 px combobox with the magnifier and a hidden label, and the grouped listbox. ↑ and ↓ move the active option across groups and stop at the ends, Enter picks, and the active row scrolls into view. A polite region reads the count. The body takes the hint, empty and error forms (AC-1, AC-5, AC-11, AC-20, AC-29, Q3b, Q3d)
       Check: pnpm test packages/ui/src/components/search-palette.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/search-palette.tsx, search-palette.test.tsx, search-palette.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 10: Move Home's word matching into a shared function. Write search's pure part: matching each kind's text, exact key or number first, 6 per group with totals, and the spoken count (AC-6, AC-7, AC-8, AC-9, AC-10, AC-16, AC-21, Q5)
-      Check: pnpm test packages/app/src/lib packages/app/src/features/search packages/app/src/features/home
-      Files: packages/app/src/lib/match-words.ts, match-words.test.ts, packages/app/src/features/home/inbox-view.ts, packages/app/src/features/search/search-results.ts, search-results.test.ts
+- [x] Task 10: Move Home's word matching into a shared function. Write search's pure part: matching each kind's text, exact key or number first, 6 per group with totals, and the spoken count (AC-6, AC-7, AC-8, AC-9, AC-10, AC-16, AC-21, Q5)
+      Check: pnpm test packages/app/src/words packages/app/src/features/search packages/app/src/features/home
+      Files: packages/app/src/words/match-words.ts, match-words.test.ts, packages/app/src/features/home/inbox-view.ts, packages/app/src/features/search/search-results.ts, search-results.test.ts
 - [ ] Task 11: ⌘K, Ctrl+K and the Search button (full sidebar and rail) open the Search dialog. Focus goes to its box, and the hint line shows. Esc, a click outside or ⌘K closes it, focus goes back, and the text is dropped. 001's inactive-Search tests change (AC-1, AC-2, AC-3, AC-4, AC-5, AC-19, AC-20)
       Check: pnpm test packages/app/src/shell packages/app/src/features/search; pnpm gate style-policy
       Files: packages/app/src/shell/shortcuts.ts, shortcuts.test.tsx, use-shortcuts.ts, sidebar.tsx, sidebar.test.tsx, app-shell.tsx, packages/app/src/features/search/store.ts, components/search-dialog.tsx, search-dialog.test.tsx

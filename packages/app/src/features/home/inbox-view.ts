@@ -1,5 +1,6 @@
 import type { InboxItem } from '@devhub/contracts';
 import { personName } from '../../shell/person-name.ts';
+import { matchesWords } from '../../words/match-words.ts';
 import { itemsInTab, type HomeSearch, type HomeTab } from './inbox-tabs.ts';
 
 /**
@@ -139,15 +140,12 @@ function searchText(item: InboxItem): string {
   if (subject.kind === 'session' && subject.source?.kind === 'pull_request') {
     parts.push(`#${String(subject.source.number)}`);
   }
-  return parts.join(' ').toLowerCase();
+  return parts.join(' ');
 }
 
 /** Every word typed must be found, ignoring case (Q10a). */
 function matchesQuery(item: InboxItem, query: string): boolean {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return true;
-  const text = searchText(item);
-  return words.every((word) => text.includes(word));
+  return matchesWords(searchText(item), query);
 }
 
 /** Ticks in one filter mean any of them; filters together mean all of them (AC-37). */
