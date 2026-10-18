@@ -130,6 +130,10 @@ function commandsFor(brief: string): (() => Promise<void>)[] {
     const fetch = bash('curl -fsS https://registry.npmjs.org/react', 'Look up the react package');
     steps.push(() => call(fetch.tool, fetch.input, fetch.effect));
   }
+  if (brief.includes('(pushes)')) {
+    const push = bash('git push origin HEAD', 'Push the branch');
+    steps.push(() => call(push.tool, push.input, push.effect));
+  }
   if (brief.includes('(runs two)')) {
     steps.push(() => together([bash('npm test', 'Run the tests'), bash('npm run lint', 'Check the code style')]));
   }

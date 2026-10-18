@@ -11,6 +11,12 @@ export const fakeToolsHubPort = 4398;
 /** The third e2e hub, for sessions (spec 011): the same fakes, its own data folder, so sessions stay out of the other specs. */
 export const sessionsHubPort = 4396;
 
+/**
+ * The fourth, for approvals (spec 012): its permission mode and allow list change from test to test, which
+ * would change what the sessions spec's Claude may do.
+ */
+export const approvalsHubPort = 4394;
+
 /** Where a spec tells a hub's fakes what Jira and GitHub hold, with `PUT /tools`: the port below the hub's. */
 export function controlPortFor(hubPort: number): number {
   return hubPort - 1;
