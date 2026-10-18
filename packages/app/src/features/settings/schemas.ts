@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  AllowedCommandSchema,
   GitHubTokenOrBlankSchema,
   GitHubTokenSchema,
   JiraApiTokenOrBlankSchema,
@@ -65,3 +66,22 @@ export const addFolderFormSchema: z.ZodType<
     .transform((key) => (key === '' ? null : key))
     .pipe(JiraProjectKeySchema.nullable()),
 });
+
+/** What the allow list's Add field holds while a person types (spec 012). */
+export interface AllowedCommandFormValues {
+  command: string;
+}
+
+/**
+ * The contract's own reading, so the form and the server refuse the same commands with the same words
+ * (Q8f), and an entry already on the list, as the list reads it.
+ */
+export function allowedCommandFormSchema(
+  saved: readonly string[],
+): z.ZodType<{ command: string }, AllowedCommandFormValues> {
+  return z.object({
+    command: AllowedCommandSchema.superRefine((entry, ctx) => {
+      if (saved.includes(entry)) ctx.addIssue({ code: 'custom', message: `${entry} is already on the list.` });
+    }),
+  });
+}
