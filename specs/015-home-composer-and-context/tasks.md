@@ -35,7 +35,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: Serve it: `POST /api/sessions` parses the union, with a 4 MiB `bodyLimit` on that route (five full files of control characters, which JSON writes six times over, go through), and Fastify's own 4xx refusals answered with their status. Wire the context reader into `createServer()`, and extend the leak test at `LOG_LEVEL=trace`: no message, file text, description, comment, diff line or token in a log line or an event (AC-4, AC-21, AC-35)
       Check: pnpm test packages/core/src/routes/sessions.test.ts packages/core/src/sessions/no-leaks.test.ts
       Files: packages/core/src/routes/sessions.ts, packages/core/src/routes/sessions.test.ts, packages/core/src/sessions/no-leaks.test.ts, packages/core/src/create-server.ts
-- [ ] Task 12: Let the api-client send the composer's start: `postSession()` takes the union and parses `context_failed` (AC-4, AC-21)
+- [x] Task 12: Let the api-client send the composer's start: `postSession()` takes the union and parses `context_failed` (AC-4, AC-21)
       Check: pnpm test packages/api-client/src/sessions.test.ts
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/sessions.test.ts
 - [ ] Task 13: Give a session with no ticket Orynx's mark: SourceMark's `orynx` source with `BrandMark` at the same size, taken by AttentionRow and SessionItem. A story and a test for each (AC-24, Q15b)

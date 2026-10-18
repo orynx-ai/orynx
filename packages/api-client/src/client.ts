@@ -78,7 +78,7 @@ export interface ApiClient {
   sessions(query?: SessionListQuery): Promise<SessionList>;
   /** One session, as the Session screen shows it; rejects with not_found for an unknown id (spec 011). */
   session(id: string): Promise<Session>;
-  /** Starts Claude on a ticket, or answers why it can't. */
+  /** Starts Claude on a ticket (Ship) or from the composer (spec 015), or answers why it can't. */
   startSession(request: StartSessionRequest): Promise<StartSessionAnswer>;
   stopSession(id: string): Promise<void>;
   /** Deletes the session's worktree and branch, stopping it first if it's working. */
