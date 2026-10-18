@@ -1,5 +1,5 @@
 import type { InboxToolState } from '@devhub/contracts';
-import { day, hour, minute, plural } from './calendar.ts';
+import { clockText, day, hour, minute, plural } from './calendar.ts';
 
 /** Spec 007 Q2c: "12 min", "3 h" or "9 d", never weeks; at least a minute. The spoken form says the words. */
 export function waitText(ms: number): { short: string; spoken: string } {
@@ -23,11 +23,6 @@ export interface ToolLine {
 
 const toolNames = { jira: 'Jira', github: 'GitHub' } as const;
 
-function clock(iso: string): string {
-  const time = new Date(iso);
-  return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
-}
-
 /**
  * Spec 007 Q5: one quiet line for a tool that isn't connected or whose last sync failed; null otherwise.
  * Home shows it for each tool, and Tickets for Jira's sprint (spec 008, Q8d).
@@ -49,7 +44,7 @@ export function toolLine(tool: keyof typeof toolNames, state: InboxToolState, no
       return { message: `${name} didn't answer.${age}`, action: null };
     case 'rate_limited':
       return {
-        message: `${name}'s rate limit is used up${problem.until === null ? '' : ` until ${clock(problem.until)}`}.${age}`,
+        message: `${name}'s rate limit is used up${problem.until === null ? '' : ` until ${clockText(problem.until)}`}.${age}`,
         action: null,
       };
     case 'rejected':

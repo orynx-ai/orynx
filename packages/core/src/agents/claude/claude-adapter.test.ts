@@ -687,3 +687,59 @@ describe('the Claude adapter', () => {
     await expect(adapter.stop('never-started')).resolves.toBeUndefined();
   });
 });
+
+describe('writing text with no tools (spec 014)', () => {
+  const instructions = "You write a pull request's title and description.";
+  const prompt = 'The ticket, PROJ-1423, as Claude got it\n\nAdd bulk archive';
+
+  it('AC-15: answers Claude’s text, from a query that can read, edit and run nothing and is never saved', async () => {
+    const { sdk, adapter } = setUp([{ finish: 'PROJ-1423: Add bulk archive\n\nWhat changed.' }]);
+    expect(await adapter.write(prompt, instructions)).toEqual({
+      ok: true,
+      text: 'PROJ-1423: Add bulk archive\n\nWhat changed.',
+    });
+    const [run] = sdk.runs;
+    expect(run?.prompts).toEqual([prompt]);
+    expect(run?.options).toMatchObject({
+      pathToClaudeCodeExecutable: '/opt/claude/claude',
+      env: { ...env, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' },
+      tools: [],
+      maxTurns: 1,
+      persistSession: false,
+      settingSources: [],
+      settings: { disableAllHooks: true },
+      strictMcpConfig: true,
+      mcpServers: {},
+      systemPrompt: instructions,
+    });
+    expect(run?.options.sandbox).toBeUndefined();
+    expect(run?.options.resume).toBeUndefined();
+    // Its folder is an empty one of its own, gone once Claude has answered: there's nothing there to read.
+    const cwd = run?.options.cwd ?? '';
+    expect(cwd).not.toBe(worktree);
+    await expect(realpath(cwd)).rejects.toThrow();
+    const ask = await run?.options.canUseTool?.('Read', { file_path: join(worktree, 'src', 'a.ts') }, {
+      signal: new AbortController().signal,
+      toolUseID: 'toolu_1',
+    } as Parameters<NonNullable<NonNullable<typeof run>['options']['canUseTool']>>[2]);
+    expect(ask).toMatchObject({ behavior: 'deny' });
+  });
+
+  it('AC-6: says when the login or a limit stops Claude, or Claude Code fails', async () => {
+    const login = setUp([{ message: { type: 'assistant', error: 'authentication_failed', message: { content: [] } } }]);
+    expect(await login.adapter.write(prompt, instructions)).toEqual({ ok: false, problem: 'login' });
+    const limit = setUp([
+      { message: { type: 'result', subtype: 'error_during_execution', is_error: true, api_error_status: 429 } },
+    ]);
+    expect(await limit.adapter.write(prompt, instructions)).toEqual({ ok: false, problem: 'limit' });
+    const crash = setUp([{ crash: 'Claude Code exited' }]);
+    expect(await crash.adapter.write(prompt, instructions)).toEqual({ ok: false, problem: 'other' });
+  });
+
+  it('AC-6: gives up when Claude doesn’t answer in time, and ends Claude Code', async () => {
+    const { sdk, adapter } = setUp([{ hang: true }]);
+    expect(await adapter.write(prompt, instructions, { timeoutMs: 50 })).toEqual({ ok: false, problem: 'timeout' });
+    expect(sdk.runs[0]?.interrupts).toBe(1);
+    expect(sdk.runs[0]?.closes).toBe(1);
+  });
+});

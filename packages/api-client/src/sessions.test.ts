@@ -2,7 +2,14 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { apiRoutes, tokenHeader } from '@devhub/contracts';
-import { makeFileDiff, makeSession, makeSessionChanges, makeSessionList } from '@devhub/contracts/testing';
+import {
+  makeFileDiff,
+  makePullRequestDraft,
+  makePushDraft,
+  makeSession,
+  makeSessionChanges,
+  makeSessionList,
+} from '@devhub/contracts/testing';
 import { InfiniteQueryObserver, QueryClient } from '@tanstack/react-query';
 import {
   ApiRequestError,
@@ -347,5 +354,81 @@ describe('the changes’ query options (spec 013)', () => {
   it('AC-2: refetches whenever asked, so coming back to the window shows edits made outside Orynx', () => {
     expect(sessionChangesQueryOptions(api, '0123456789abcdef').staleTime).toBe(0);
     expect(sessionDiffQueryOptions(api, '0123456789abcdef', 'src/a.ts').staleTime).toBe(0);
+  });
+});
+
+describe('Create pull request and Push changes (spec 014)', () => {
+  const id = '0123456789abcdef';
+  const api = createApiClient({ baseURL, token: 'abc' });
+
+  it('AC-2: asks for the draft with the token, and answers it parsed by the contract', async () => {
+    let token: string | null = null;
+    server.use(
+      http.post(at(apiRoutes.sessionPullRequestDraft, id), ({ request }) => {
+        token = request.headers.get(tokenHeader);
+        return HttpResponse.json(makePullRequestDraft());
+      }),
+    );
+    expect(await api.draftPullRequest(id)).toEqual(makePullRequestDraft());
+    expect(token).toBe('abc');
+  });
+
+  it('AC-4: sends the title and description as you left them, trimmed, and answers opened', async () => {
+    let body: unknown = null;
+    server.use(
+      http.post(at(apiRoutes.sessionPullRequest, id), async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({
+          result: 'opened',
+          number: 2841,
+          url: 'https://github.com/acme/web-app/pull/2841',
+          linked: false,
+        });
+      }),
+    );
+    expect(await api.createPullRequest(id, { title: ' PROJ-1423: Add bulk archive ', body: 'What changed.' })).toEqual({
+      result: 'opened',
+      number: 2841,
+      url: 'https://github.com/acme/web-app/pull/2841',
+      linked: false,
+    });
+    expect(body).toEqual({ title: 'PROJ-1423: Add bulk archive', body: 'What changed.' });
+  });
+
+  it('AC-8: answers a failure with its problem', async () => {
+    server.use(
+      http.post(at(apiRoutes.sessionPullRequest, id), () =>
+        HttpResponse.json({ result: 'failed', problem: { kind: 'secret', path: '.env.local' } }),
+      ),
+    );
+    expect(await api.createPullRequest(id, { title: 'T', body: '' })).toEqual({
+      result: 'failed',
+      problem: { kind: 'secret', path: '.env.local' },
+    });
+  });
+
+  it('AC-17: drafts and pushes changes, with the message trimmed', async () => {
+    let body: unknown = null;
+    server.use(
+      http.post(at(apiRoutes.sessionPushDraft, id), () => HttpResponse.json(makePushDraft())),
+      http.post(at(apiRoutes.sessionPush, id), async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ result: 'pushed', files: 2 });
+      }),
+    );
+    expect(await api.draftPush(id)).toEqual(makePushDraft());
+    expect(await api.pushChanges(id, '  Use the existing hook ')).toEqual({ result: 'pushed', files: 2 });
+    expect(body).toEqual({ message: 'Use the existing hook' });
+  });
+
+  it('rejects an answer that breaks the contract, and a 404 as not_found', async () => {
+    server.use(
+      http.post(at(apiRoutes.sessionPullRequestDraft, id), () => HttpResponse.json({ result: 'maybe' })),
+      http.post(at(apiRoutes.sessionPushDraft, id), () =>
+        HttpResponse.json({ code: 'not_found', message: 'There is no session with this id.' }, { status: 404 }),
+      ),
+    );
+    await expect(api.draftPullRequest(id)).rejects.toThrow();
+    await expect(api.draftPush(id)).rejects.toMatchObject({ code: 'not_found' });
   });
 });

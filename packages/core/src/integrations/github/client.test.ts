@@ -2,12 +2,17 @@ import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import {
   acceptingInboxQuery,
+  acceptingPulls,
+  acceptingRepository,
   githubLogin,
   githubToken,
   graphqlUrl,
   pullNode,
+  pullsUrl,
+  repositoryUrl,
   userUrl,
   useFakeGitHub,
+  type FakeOpenedPull,
 } from '../../test/fake-github.ts';
 import { createGitHubClient, type GitHubCheck } from './client.ts';
 
@@ -264,5 +269,173 @@ describe('GitHub client: the inbox (spec 007)', () => {
 
     github.use(http.post(graphqlUrl, () => HttpResponse.json({ message: 'Server Error' }, { status: 502 })));
     expect(await client.inbox(githubToken)).toEqual({ ok: false, problem: { kind: 'github_error', status: 502 } });
+  });
+});
+
+describe('GitHub client: pull requests (spec 014)', () => {
+  const target = { repository: 'acme/web-app', head: 'feat/PROJ-1423', base: 'main' };
+  const draft = { title: 'PROJ-1423: Add bulk archive', body: 'What changed.' };
+
+  function answerCreate(response: () => Response | Promise<Response>) {
+    github.use(http.post(pullsUrl, response));
+  }
+
+  it('AC-5: opens the pull request from the branch into the base, sending the token to api.github.com only', async () => {
+    const opened: FakeOpenedPull[] = [];
+    const seen: Request[] = [];
+    github.use(...acceptingPulls({ opened }));
+    github.events.on('request:start', ({ request }) => {
+      seen.push(request.clone());
+    });
+
+    const answer = await client.openPull(githubToken, { ...target, ...draft });
+    expect(answer).toEqual({ ok: true, number: 2841, url: 'https://github.com/acme/web-app/pull/2841' });
+    expect(opened).toEqual([
+      { owner: 'acme', repository: 'web-app', number: 2841, head: target.head, base: target.base, ...draft },
+    ]);
+    expect(seen.map((request) => request.url)).toEqual(['https://api.github.com/repos/acme/web-app/pulls']);
+    expect(seen[0]?.headers.get('authorization')).toBe(`token ${githubToken}`);
+    github.events.removeAllListeners();
+  });
+
+  it('AC-11: says GitHub already has an open pull request from the branch, and finds it', async () => {
+    const opened: FakeOpenedPull[] = [
+      {
+        owner: 'acme',
+        repository: 'web-app',
+        number: 2840,
+        head: 'feat/PROJ-1423',
+        base: 'main',
+        title: 'Mine',
+        body: '',
+      },
+    ];
+    github.use(...acceptingPulls({ opened }));
+    expect(await client.openPull(githubToken, { ...target, ...draft })).toEqual({
+      ok: false,
+      problem: { kind: 'exists' },
+    });
+    expect(await client.findOpenPull(githubToken, target)).toEqual({
+      ok: true,
+      pull: { number: 2840, url: 'https://github.com/acme/web-app/pull/2840' },
+    });
+    expect(await client.findOpenPull(githubToken, { ...target, head: 'feat/PROJ-9' })).toEqual({
+      ok: true,
+      pull: null,
+    });
+  });
+
+  it("AC-10: says there's nothing to merge from the branch into the base", async () => {
+    answerCreate(() =>
+      HttpResponse.json(
+        {
+          message: 'Validation Failed',
+          errors: [{ resource: 'PullRequest', code: 'custom', message: 'No commits between main and feat/PROJ-1423' }],
+        },
+        { status: 422 },
+      ),
+    );
+    expect(await client.openPull(githubToken, { ...target, ...draft })).toEqual({
+      ok: false,
+      problem: { kind: 'no_commits' },
+    });
+  });
+
+  it('AC-10: any other refusal of the pull request is a GitHub error', async () => {
+    answerCreate(() =>
+      HttpResponse.json(
+        { message: 'Validation Failed', errors: [{ code: 'invalid', field: 'base' }] },
+        { status: 422 },
+      ),
+    );
+    expect(await client.openPull(githubToken, { ...target, ...draft })).toEqual({
+      ok: false,
+      problem: { kind: 'github_error', status: 422 },
+    });
+  });
+
+  it("AC-10: says the token isn't authorized for the organisation's single sign-on, with GitHub's own link", async () => {
+    const sso = 'https://github.com/orgs/acme/sso?authorization_request=A1B2C3';
+    answerCreate(() =>
+      HttpResponse.json(
+        { message: 'Resource protected by organization SAML enforcement.' },
+        { status: 403, headers: { 'X-GitHub-SSO': `required; url=${sso}` } },
+      ),
+    );
+    expect(await client.openPull(githubToken, { ...target, ...draft })).toEqual({
+      ok: false,
+      problem: { kind: 'sso', url: sso },
+    });
+  });
+
+  it('AC-10: a sign-on link that isn’t https on github.com is never passed on', async () => {
+    answerCreate(() =>
+      HttpResponse.json(
+        { message: 'SAML' },
+        { status: 403, headers: { 'X-GitHub-SSO': 'required; url=https://evil.example/sso' } },
+      ),
+    );
+    expect(await client.openPull(githubToken, { ...target, ...draft })).toEqual({
+      ok: false,
+      problem: { kind: 'forbidden' },
+    });
+  });
+
+  it.each([403, 404])("AC-10: your account can't open pull requests there (%i)", async (status) => {
+    answerCreate(() => HttpResponse.json({ message: 'Not Found' }, { status }));
+    expect(await client.openPull(githubToken, { ...target, ...draft })).toEqual({
+      ok: false,
+      problem: { kind: 'forbidden' },
+    });
+  });
+
+  it('AC-10: the rate limit, a refused token, a slow or unreachable GitHub, as for the other calls', async () => {
+    answerCreate(() =>
+      HttpResponse.json(
+        { message: 'API rate limit exceeded' },
+        { status: 403, headers: { 'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '1792234500' } },
+      ),
+    );
+    expect(await client.openPull(githubToken, { ...target, ...draft })).toEqual({
+      ok: false,
+      problem: { kind: 'rate_limited', resetAt: 1_792_234_500_000 },
+    });
+    github.use(...acceptingPulls());
+    const refusedToken = await client.openPull('fake-wrong-token', { ...target, ...draft });
+    expect(refusedToken).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(refusedToken)).not.toContain('fake-wrong-token');
+    answerCreate(() => HttpResponse.error());
+    expect(await client.openPull(githubToken, { ...target, ...draft })).toEqual({
+      ok: false,
+      problem: { kind: 'unreachable', code: undefined },
+    });
+    answerCreate(async () => {
+      await delay('infinite');
+      return HttpResponse.json({});
+    });
+    expect(await client.openPull(githubToken, { ...target, ...draft })).toEqual({
+      ok: false,
+      problem: { kind: 'timeout' },
+    });
+  });
+
+  it("AC-16: doesn't keep a pull request whose link isn't https on github.com", async () => {
+    answerCreate(() =>
+      HttpResponse.json({ number: 2841, html_url: 'https://evil.example/acme/web-app/pull/2841' }, { status: 201 }),
+    );
+    expect(await client.openPull(githubToken, { ...target, ...draft })).toEqual({
+      ok: false,
+      problem: { kind: 'unreachable', code: undefined },
+    });
+  });
+
+  it("names a repository's default branch on GitHub", async () => {
+    github.use(acceptingRepository({ defaultBranch: 'trunk' }));
+    expect(await client.defaultBranch(githubToken, 'acme/web-app')).toEqual({ ok: true, branch: 'trunk' });
+    github.use(http.get(repositoryUrl, () => HttpResponse.json({ message: 'Not Found' }, { status: 404 })));
+    expect(await client.defaultBranch(githubToken, 'acme/web-app')).toEqual({
+      ok: false,
+      problem: { kind: 'forbidden' },
+    });
   });
 });

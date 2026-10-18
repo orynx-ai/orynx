@@ -17,7 +17,12 @@ import {
   acceptingPrioritySearch,
   acceptingProjectSearch,
 } from '../../packages/core/src/test/fake-jira.ts';
-import { acceptingInboxQuery, acceptingUser } from '../../packages/core/src/test/fake-github.ts';
+import {
+  acceptingInboxQuery,
+  acceptingPulls,
+  acceptingRepository,
+  acceptingUser,
+} from '../../packages/core/src/test/fake-github.ts';
 import { controlPortFor, type FakeTools } from './config.ts';
 
 let tools: FakeTools = { issues: [], reviews: [], mine: [] };
@@ -57,6 +62,9 @@ function handlers() {
     ),
     acceptingUser(),
     acceptingInboxQuery({ reviews: tools.reviews, mine: tools.mine }),
+    // Create pull request (spec 014): the pull requests GitHub opens join the spec's list.
+    ...acceptingPulls({ opened: (tools.pulls ??= []) }),
+    acceptingRepository(),
   ];
 }
 
@@ -75,8 +83,13 @@ createServer((request, response) => {
     response.writeHead(403).end();
     return;
   }
-  if (request.method !== 'PUT' || request.url !== '/tools') {
+  if (request.url !== '/tools' || (request.method !== 'PUT' && request.method !== 'GET')) {
     response.writeHead(404).end();
+    return;
+  }
+  // What the tools hold now, with the pull requests GitHub opened (spec 014).
+  if (request.method === 'GET') {
+    response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(tools));
     return;
   }
   let body = '';

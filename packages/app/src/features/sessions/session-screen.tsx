@@ -1,4 +1,4 @@
-// Design: docs/design/screens/session.html — page bar, title row with Stop Claude, stepper, Claude's progress with the approval callout and the follow-up box, the Changes and Ticket tabs
+// Design: docs/design/screens/session.html — page bar, title row with Stop Claude and Create pull request (spec 014's dialog and PR-open row: Design: none, settled in its Q10), stepper, Claude's progress with the approval callout and the follow-up box, the Changes and Ticket tabs
 import { useRef, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import type { Session } from '@devhub/contracts';

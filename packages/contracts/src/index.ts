@@ -7,6 +7,7 @@ export * from './github.ts';
 export * from './inbox.ts';
 export * from './jira.ts';
 export * from './preferences.ts';
+export * from './pull-requests.ts';
 export * from './repositories.ts';
 export * from './routes.ts';
 export * from './search.ts';

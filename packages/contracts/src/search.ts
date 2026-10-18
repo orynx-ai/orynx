@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { GitHubLinkSchema, InboxToolStateSchema } from './inbox.ts';
+import { GitHubLinkSchema } from './github.ts';
+import { InboxToolStateSchema } from './inbox.ts';
 import { JiraLinkSchema } from './jira.ts';
 import { SessionSummarySchema } from './session.ts';
 

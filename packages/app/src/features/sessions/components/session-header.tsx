@@ -1,10 +1,14 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { StopIcon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon, StopIcon } from '@hugeicons/core-free-icons';
 import type { Session, SessionState } from '@devhub/contracts';
 import { Button, Icon, Pill, Skeleton, sessionStateLabels, type PillTone } from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
+import { usePlatform } from '../../../platform.tsx';
 import { needsApprovalLabel } from '../approval-words.ts';
+import { openPullRequestLabel } from '../pull-request-words.ts';
+import { CreatePullRequest } from './create-pull-request.tsx';
+import { PushChanges } from './push-changes.tsx';
 
 /** The state pill's colour, as the sidebar colours each state (Q10b). */
 const stateTones: Record<SessionState, PillTone> = {
@@ -16,11 +20,37 @@ const stateTones: Record<SessionState, PillTone> = {
 };
 
 /**
+ * Create pull request shows once Claude isn't working, while the worktree is there and no pull request is open
+ * (spec 014, Q2): Done, or Stopped after Stop, an error or Orynx closing.
+ */
+function canCreatePullRequest(session: Session): boolean {
+  const working = session.state === 'working' || session.state === 'needs_you';
+  return !working && session.pullRequest === null && session.discardedAt === null && session.worktreePath !== null;
+}
+
+/** Push changes shows once a pull request is open, whenever Claude isn't working and the worktree is there (Q7). */
+function canPush(session: Session): boolean {
+  const working = session.state === 'working' || session.state === 'needs_you';
+  return !working && session.discardedAt === null && session.worktreePath !== null;
+}
+
+/**
  * The Session screen's title row (`session.html`): the title, the state, the branch and where Claude works,
  * with Stop Claude while it works (AC-9). Stop keeps focus while it runs; once the session has stopped, the
- * title takes focus, because the button is gone.
+ * title takes focus, because the button is gone. Once Claude is done, Create pull request; once the pull request
+ * is open, Open PR and Push changes, with no primary button (spec 014, Q10e).
  */
 export function SessionHeader({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
+  const platform = usePlatform();
+  // Once you've created the pull request, focus goes to Open PR, now or as soon as it shows (spec 014, AC-4).
+  const justOpened = useRef(false);
+  const openPullRequest = useRef<HTMLAnchorElement>(null);
+  const { pullRequest } = session;
+  useEffect(() => {
+    if (pullRequest === null || !justOpened.current) return;
+    justOpened.current = false;
+    openPullRequest.current?.focus();
+  }, [pullRequest]);
   const api = useApi();
   const stop = useMutation({ mutationFn: () => api.stopSession(session.id) });
   const working = session.state === 'working' || session.state === 'needs_you';
@@ -47,6 +77,33 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
           <span>in {session.folder.name} · separate worktree, your main checkout is untouched</span>
         </div>
       </div>
+      <CreatePullRequest
+        session={session}
+        show={canCreatePullRequest(session)}
+        onOpened={() => {
+          if (openPullRequest.current === null) justOpened.current = true;
+          else openPullRequest.current.focus();
+        }}
+      />
+      {pullRequest === null ? null : (
+        <Button asChild variant="secondary">
+          <a
+            ref={openPullRequest}
+            href={pullRequest.url}
+            rel="noreferrer"
+            onClick={(event) => {
+              event.preventDefault();
+              platform.openExternal(pullRequest.url);
+            }}
+          >
+            {openPullRequestLabel(pullRequest.number)}
+            <Icon icon={ArrowUpRight01Icon} aria-hidden />
+          </a>
+        </Button>
+      )}
+      {pullRequest !== null && canPush(session) ? (
+        <PushChanges session={session} repository={pullRequest.repository} />
+      ) : null}
       {working ? (
         <Button
           variant="secondary"
@@ -63,16 +120,23 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
   );
 }
 
-/** The title row's loading form: the same lines, so nothing moves when the session arrives (AC-16). */
+/**
+ * The title row's loading form: the same lines, and the button Claude's state offers (Stop Claude, Create pull
+ * request or Open PR), wrapping under them on a narrow window as it does, so nothing moves when the session
+ * arrives (AC-16; spec 014, AC-23).
+ */
 export function SessionHeaderSkeleton() {
   return (
-    <div aria-hidden className="flex flex-col gap-1.5">
-      <span className="flex h-7 items-center">
-        <Skeleton className="h-5 w-2/3" />
-      </span>
-      <span className="flex h-6 items-center">
-        <Skeleton className="h-4 w-1/2" />
-      </span>
+    <div aria-hidden className="flex flex-wrap items-start gap-3">
+      <div className="flex min-w-0 flex-1 basis-90 flex-col gap-1.5">
+        <span className="flex h-7 items-center">
+          <Skeleton className="h-5 w-2/3" />
+        </span>
+        <span className="flex h-6 items-center">
+          <Skeleton className="h-4 w-1/2" />
+        </span>
+      </div>
+      <Skeleton className="h-10 w-44" />
     </div>
   );
 }

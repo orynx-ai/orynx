@@ -323,6 +323,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     preferences,
     worktrees: { env: options.gitEnvironment ?? {}, root: join(devhubHome, 'worktrees') },
     changes: createChangesReader({ env: options.gitEnvironment ?? {} }),
+    // The pull request's token, the gh way or the token way, and the client that opens it (spec 014).
+    github,
+    githubClient,
     adapter:
       options.agent === undefined
         ? null
@@ -362,6 +365,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
           return;
         case 'followed_up':
           app.log.info(report, 'You sent Claude a follow-up');
+          return;
+        case 'pull_request':
+          app.log.info(report, report.step === 'create' ? 'Create pull request ended' : 'Push changes ended');
           return;
       }
     },

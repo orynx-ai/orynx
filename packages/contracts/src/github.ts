@@ -1,6 +1,17 @@
 import { z } from 'zod';
 import { tokenOrBlankSchema, tokenSchema } from './token.ts';
 
+/** A link to a pull request on github.com: https, and that host only. */
+export const GitHubLinkSchema = z.url({ protocol: /^https$/, hostname: /^github\.com$/ });
+
+/**
+ * A repository on github.com as `owner/name`: GitHub's own rules for both, an owner of letters, digits and
+ * single hyphens, a name of letters, digits, `.`, `_` and `-` but never `.` or `..` (spec 014).
+ */
+export const GitHubRepositorySchema = z
+  .string()
+  .regex(/^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}\/(?!\.\.?$)[A-Za-z0-9._-]{1,100}$/);
+
 /** How DevHub gets a GitHub token: from the gh command-line login, or a personal access token (spec 004). */
 export const GitHubMethodSchema = z.enum(['gh', 'token']);
 export type GitHubMethod = z.infer<typeof GitHubMethodSchema>;

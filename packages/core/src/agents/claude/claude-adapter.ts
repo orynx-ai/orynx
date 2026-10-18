@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type {
   Options,
   PermissionResult,
@@ -7,7 +10,7 @@ import type {
   SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
 import { briefText } from '../../sessions/brief.ts';
-import type { AgentAdapter, AgentAsk, AgentEvent } from '../agent-adapter.ts';
+import type { AgentAdapter, AgentAsk, AgentEvent, AgentWritten } from '../agent-adapter.ts';
 import { createMessageReader } from './sdk-messages.ts';
 import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool-decision.ts';
 
@@ -54,6 +57,8 @@ export interface ClaudeAdapterOptions {
   home: string;
   /** How long Stop waits after interrupting before it ends the process; 5 seconds. */
   stopGraceMs?: number;
+  /** How long `write()` waits for Claude's text; 60 seconds (spec 014, Q4). */
+  writeTimeoutMs?: number;
   /**
    * The sandbox for a session's commands, from `sandboxSettings()`; null where it can't run here, and then
    * a session gets no commands (spec 012, Q2b). Null by default, so nothing runs a command unsandboxed.
@@ -99,6 +104,7 @@ export function createClaudeAdapter({
   env,
   home,
   stopGraceMs = 5_000,
+  writeTimeoutMs = 60_000,
   sandbox = null,
 }: ClaudeAdapterOptions): AgentAdapter {
   const sessions = new Map<string, Running>();
@@ -136,9 +142,81 @@ export function createClaudeAdapter({
     });
   }
 
+  /** Claude's text for one prompt, with no tools, from an empty folder of its own (spec 014). */
+  async function writeText(text: string, instructions: string, timeoutMs: number): Promise<AgentWritten> {
+    const folder = await mkdtemp(join(tmpdir(), 'orynx-write-'));
+    let endInput: () => void = () => undefined;
+    const inputOver = new Promise<void>((resolve) => {
+      endInput = resolve;
+    });
+    // A stream, so the SDK can interrupt it; it stays open until Claude has answered.
+    async function* prompt(): AsyncGenerator<SDKUserMessage> {
+      yield { type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null };
+      await inputOver;
+    }
+    const running = query({
+      prompt: prompt(),
+      options: {
+        cwd: folder,
+        pathToClaudeCodeExecutable: program,
+        env: { ...env, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' },
+        permissionMode: 'default',
+        // No tools at all, and a refusal for any Claude Code might still offer: this call only writes text.
+        tools: [],
+        canUseTool: () => Promise.resolve({ behavior: 'deny', message: 'No tools here: answer with text only.' }),
+        maxTurns: 1,
+        // Nothing joins ~/.claude/projects/, and no session of the user's gains a turn.
+        persistSession: false,
+        settingSources: [],
+        settings: { disableAllHooks: true },
+        strictMcpConfig: true,
+        mcpServers: {},
+        systemPrompt: instructions,
+        stderr: () => undefined,
+      },
+    });
+    const read = createMessageReader(folder);
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<AgentWritten>((resolve) => {
+      timer = setTimeout(() => {
+        resolve({ ok: false, problem: 'timeout' });
+      }, timeoutMs);
+    });
+    const answered = (async (): Promise<AgentWritten> => {
+      try {
+        for await (const message of running) {
+          for (const said of read(message)) {
+            if (said.type === 'turn_ended') return { ok: true, text: said.summary };
+            if (said.type === 'problem') return { ok: false, problem: said.kind };
+          }
+        }
+        return { ok: false, problem: 'other' };
+      } catch {
+        // The process died: its words can hold anything, so only the fact is passed on.
+        return { ok: false, problem: 'other' };
+      }
+    })();
+    try {
+      const written = await Promise.race([answered, late]);
+      if (!written.ok && written.problem === 'timeout') {
+        await running.interrupt().catch(() => undefined);
+        running.close();
+      }
+      return written;
+    } finally {
+      clearTimeout(timer);
+      endInput();
+      await rm(folder, { recursive: true, force: true });
+    }
+  }
+
   return {
     id: 'claude',
     runsCommands: sandbox !== null,
+
+    write(text, instructions, { timeoutMs = writeTimeoutMs } = {}) {
+      return writeText(text, instructions, timeoutMs);
+    },
 
     startSession(brief, worktree, permissions, instructions, resuming) {
       const resume = resuming?.resume;

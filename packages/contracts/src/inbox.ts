@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GitHubLinkSchema } from './github.ts';
 import { JiraLinkSchema } from './jira.ts';
 import { SessionSourceSchema } from './session.ts';
 
@@ -49,9 +50,6 @@ export const InboxReasonSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('status'), category: z.enum(['to_do', 'in_progress']) }),
 ]);
 export type InboxReason = z.infer<typeof InboxReasonSchema>;
-
-/** A link to a pull request on github.com: https, and that host only. */
-export const GitHubLinkSchema = z.url({ protocol: /^https$/, hostname: /^github\.com$/ });
 
 /**
  * Where a row's title and action go: out to Jira or GitHub (https, and only their hosts, so a cached or

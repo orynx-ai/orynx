@@ -49,6 +49,15 @@ export const StoredSessionSchema = z.object({
     .default(null),
   /** Claude Code's own session id, which a follow-up resumes (spec 013). */
   claudeSessionId: z.string().min(1).nullable(),
+  /**
+   * The commit Orynx last pushed to the pull request's branch (spec 014): Push changes drafts its message from what
+   * changed since. Null until the first push, and for a session saved before spec 014.
+   */
+  pushedCommit: z
+    .string()
+    .regex(/^[0-9a-f]{40}([0-9a-f]{24})?$/)
+    .nullable()
+    .default(null),
   /** Every call that asked, in order (spec 012). A session saved before spec 012 has none. */
   approvalLog: z.array(ApprovalRecordSchema).default([]),
 });

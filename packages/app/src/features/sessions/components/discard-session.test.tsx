@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type Session } from '@devhub/contracts';
-import { makeSession } from '@devhub/contracts/testing';
+import { makeSession, makeSessionPullRequest } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -115,5 +115,17 @@ describe('DiscardSession', () => {
     await renderApp({ route });
     await screen.findByRole('heading', { level: 1 });
     expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull();
+  });
+});
+
+describe('Discard once a pull request is open (spec 014)', () => {
+  it('AC-18 (Q11g): the confirm says the pull request and the branch on GitHub stay', async () => {
+    serve(makeSession({ ...done, state: 'pr_open', pullRequest: makeSessionPullRequest() }));
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('button', { name: 'Discard changes' }));
+    const confirm = screen.getByRole('dialog', { name: "Discard Claude's changes?" });
+    expect(confirm).toHaveAccessibleDescription(
+      `This deletes the worktree and the branch feat/PROJ-1423. The changes can't be brought back. Pull request #${String(2841)} and the branch on GitHub stay.`,
+    );
   });
 });

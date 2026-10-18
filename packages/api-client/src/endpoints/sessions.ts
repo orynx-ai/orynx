@@ -1,7 +1,13 @@
 import type { AxiosInstance } from 'axios';
 import {
   apiRoutes,
+  CreatePullRequestAnswerSchema,
+  CreatePullRequestRequestSchema,
   FileDiffSchema,
+  PullRequestDraftAnswerSchema,
+  PushAnswerSchema,
+  PushDraftAnswerSchema,
+  PushRequestSchema,
   RespondToApprovalRequestSchema,
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
@@ -10,7 +16,12 @@ import {
   SessionSchema,
   StartSessionAnswerSchema,
   type ApprovalDecision,
+  type CreatePullRequestAnswer,
+  type CreatePullRequestRequest,
   type FileDiff,
+  type PullRequestDraftAnswer,
+  type PushAnswer,
+  type PushDraftAnswer,
   type SendMessageAnswer,
   type SessionChanges,
   type Session,
@@ -76,4 +87,35 @@ export async function getSessionChanges(http: AxiosInstance, id: string): Promis
 export async function getFileDiff(http: AxiosInstance, id: string, path: string): Promise<FileDiff> {
   const res = await http.get<unknown>(pathFor(apiRoutes.sessionChangesDiff, id), { params: { path } });
   return FileDiffSchema.parse(res.data);
+}
+
+/** Claude's draft of the pull request, which changes nothing on the server (spec 014, AC-14). */
+export async function postPullRequestDraft(http: AxiosInstance, id: string): Promise<PullRequestDraftAnswer> {
+  const res = await http.post<unknown>(pathFor(apiRoutes.sessionPullRequestDraft, id));
+  return PullRequestDraftAnswerSchema.parse(res.data);
+}
+
+/** Commits, pushes and opens the pull request with your title and description (spec 014). */
+export async function postPullRequest(
+  http: AxiosInstance,
+  id: string,
+  request: CreatePullRequestRequest,
+): Promise<CreatePullRequestAnswer> {
+  const res = await http.post<unknown>(
+    pathFor(apiRoutes.sessionPullRequest, id),
+    CreatePullRequestRequestSchema.parse(request),
+  );
+  return CreatePullRequestAnswerSchema.parse(res.data);
+}
+
+/** Claude's commit message for what's new since the last push (spec 014, Q7). */
+export async function postPushDraft(http: AxiosInstance, id: string): Promise<PushDraftAnswer> {
+  const res = await http.post<unknown>(pathFor(apiRoutes.sessionPushDraft, id));
+  return PushDraftAnswerSchema.parse(res.data);
+}
+
+/** Commits what's new and pushes it to the pull request, with your commit message (spec 014, Q7). */
+export async function postPush(http: AxiosInstance, id: string, message: string): Promise<PushAnswer> {
+  const res = await http.post<unknown>(pathFor(apiRoutes.sessionPush, id), PushRequestSchema.parse({ message }));
+  return PushAnswerSchema.parse(res.data);
 }

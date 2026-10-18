@@ -1,5 +1,5 @@
 import type { FakeIssue } from '../../packages/core/src/test/fake-jira.ts';
-import type { FakePull } from '../../packages/core/src/test/fake-github.ts';
+import type { FakeOpenedPull, FakePull } from '../../packages/core/src/test/fake-github.ts';
 
 /**
  * The second e2e hub: the real server as `pnpm start` builds it, with Jira and GitHub faked inside its
@@ -23,6 +23,12 @@ export const approvalsHubPort = 4394;
  */
 export const changesHubPort = 4392;
 
+/**
+ * The sixth, for Create pull request (spec 014): its folder's origin reads as github.com, its git has a name of
+ * its own (HOME is a folder of the run's), and its fake GitHub opens pull requests.
+ */
+export const pullRequestsHubPort = 4390;
+
 /** Where a spec tells a hub's fakes what Jira and GitHub hold, with `PUT /tools`: the port below the hub's. */
 export function controlPortFor(hubPort: number): number {
   return hubPort - 1;
@@ -39,4 +45,6 @@ export interface FakeTools {
   sprint?: boolean;
   /** Issues whose own page Jira won't give (a 404), so a session on one couldn't start (spec 011, AC-13). */
   brokenIssues?: string[];
+  /** The pull requests GitHub has (spec 014): it opens more into this list, which `GET /tools` gives back. */
+  pulls?: FakeOpenedPull[];
 }

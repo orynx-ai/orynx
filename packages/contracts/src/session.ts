@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AlwaysAskReasonSchema } from './commands.ts';
+import { GitHubLinkSchema, GitHubRepositorySchema } from './github.ts';
 import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
 import { RepositoryIdSchema } from './repositories.ts';
 import { TicketColumnSchema } from './ticket-column.ts';
@@ -119,6 +120,25 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({ kind: z.literal('finished'), summary: z.string() }),
   /** You wrote to Claude in the follow-up box (spec 013): exactly the text Claude got. */
   ActivityBaseSchema.extend({ kind: z.literal('message'), text: z.string().min(1) }),
+  /**
+   * Orynx opened the pull request on your press (spec 014): `files` it committed first (0 when Claude had
+   * committed everything), and `linked` when GitHub already had an open one from this branch, which it took.
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('pull_request'),
+    number: z.int().positive(),
+    url: GitHubLinkSchema,
+    files: z.int().nonnegative(),
+    branch: z.string().min(1),
+    linked: z.boolean(),
+  }),
+  /** Orynx pushed what was new to the pull request's branch on your press (spec 014): `files` it committed. */
+  ActivityBaseSchema.extend({
+    kind: z.literal('pushed'),
+    number: z.int().positive(),
+    url: GitHubLinkSchema,
+    files: z.int().nonnegative(),
+  }),
   /** You pressed Stop Claude. */
   ActivityBaseSchema.extend({ kind: z.literal('stopped') }),
   /** Orynx closed while Claude was working (AC-14). */
@@ -203,6 +223,17 @@ export const SessionFollowUpSchema = z.discriminatedUnion('kind', [
 ]);
 export type SessionFollowUp = z.infer<typeof SessionFollowUpSchema>;
 
+/** The pull request Orynx opened for a session, or the open one it linked (spec 014). */
+export const SessionPullRequestSchema = z.object({
+  number: z.int().positive(),
+  /** Https on github.com only, so a saved or forged session can't send you anywhere else (AC-16). */
+  url: GitHubLinkSchema,
+  /** `owner/name`, as the dialog and the lines say it. */
+  repository: GitHubRepositorySchema,
+  openedAt: z.iso.datetime(),
+});
+export type SessionPullRequest = z.infer<typeof SessionPullRequestSchema>;
+
 /** GET /api/sessions/:id: everything the Session screen shows (spec 011). */
 export const SessionSchema = SessionSummarySchema.extend({
   /** The folder Claude works in, as Settings › Repositories shows it. */
@@ -236,6 +267,8 @@ export const SessionSchema = SessionSummarySchema.extend({
   workedMs: z.int().nonnegative().default(0),
   /** When the current run started; null while Claude isn't working. */
   runStartedAt: z.iso.datetime().nullable().default(null),
+  /** Null until you create the pull request (spec 014); a session saved before spec 014 has none. */
+  pullRequest: SessionPullRequestSchema.nullable().default(null),
 });
 export type Session = z.infer<typeof SessionSchema>;
 

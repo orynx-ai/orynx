@@ -91,6 +91,9 @@ export type AgentEvent =
   /** The agent's program has ended, however it ended. Always the last event. */
   | { type: 'ended'; sessionId: string };
 
+/** What `write()` gives back: the agent's text, or why there's none, with `timeout` when it didn't answer in time. */
+export type AgentWritten = { ok: true; text: string } | { ok: false; problem: AgentProblemKind | 'timeout' };
+
 export interface AgentAdapter {
   readonly id: 'claude';
   /** Whether a session's agent can run commands here: only inside a sandbox (spec 012, Q2b). */
@@ -120,4 +123,9 @@ export interface AgentAdapter {
   sendMessage(sessionId: string, text: string): Promise<boolean>;
   /** Asks the agent to stop, and ends its program if it hasn't stopped soon after; resolves once it has ended. */
   stop(sessionId: string): Promise<void>;
+  /**
+   * Asks the agent for text alone, with no tools, so it can read, edit and run nothing: a pull request's draft or
+   * a commit message (spec 014, Q4). It's no session's, is never saved, and gives up after `timeoutMs` (60 s).
+   */
+  write(prompt: string, instructions: string, options?: { timeoutMs?: number }): Promise<AgentWritten>;
 }
