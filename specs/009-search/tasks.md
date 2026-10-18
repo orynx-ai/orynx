@@ -19,7 +19,7 @@ Tasks 1 to 15 need nothing from 008. Task 16 waits until 008 merges. Tasks 17 an
 - [x] Task 5: Add `GET /api/search` and wire it into `createServer`. Test the token and Host checks, and extend the leak test: no token, description or comment text (AC-28)
       Check: pnpm test packages/core/src/routes/search.test.ts packages/core/src/inbox/no-leaks.test.ts; pnpm typecheck; pnpm gate boundaries
       Files: packages/core/src/routes/search.ts, search.test.ts, packages/core/src/create-server.ts, packages/core/src/inbox/no-leaks.test.ts
-- [ ] Task 6: Add `search()` and `searchQueryOptions` to the api-client, with an MSW test and a bad-shape test (AC-23, AC-25)
+- [x] Task 6: Add `search()` and `searchQueryOptions` to the api-client, with an MSW test and a bad-shape test (AC-23, AC-25)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/search.ts, search.test.ts, client.ts, queries.ts, index.ts
 - [ ] Task 7: Add `Dialog` to `@devhub/ui` from shadcn's dialog. It's 720 px wide (`max-w-180`), 80 px from the top, and under 768 px full width less 16 px each side, 16 px from the top. It uses `bg-raised`, `border-default`, `rounded-lg` and `shadow-overlay`, with no backdrop, no close button, no scroll lock, and a 150 ms fade under `motion-safe` (AC-19, AC-20, AC-30, Q3a)
