@@ -81,7 +81,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 26: Add the stepper and Claude's progress: the heading, the time counting each second while working, the steps (running plain, done ticked) and the danger callout when it couldn't start, full width until 013 (AC-4, AC-7, AC-8, AC-13, AC-14, Q9a, Q9f, Q9g, Q10f)
       Check: pnpm test packages/app/src/features/sessions/components/session-progress.test.tsx
       Files: packages/app/src/features/sessions/components/session-progress.tsx, session-progress.test.tsx, packages/app/src/features/sessions/session-screen.tsx
-- [ ] Task 27: Add Discard changes under the progress and its confirm step in a `Dialog`, with focus on Cancel, Esc back to the button, and the discarded step afterwards (AC-10, AC-18, Q9c, Q10e)
+- [x] Task 27: Add Discard changes under the progress and its confirm step in a `Dialog`, with focus on Cancel, Esc back to the button, and the discarded step afterwards (AC-10, AC-18, Q9c, Q10e)
       Check: pnpm test packages/app/src/features/sessions/components/discard-session.test.tsx
       Files: packages/app/src/features/sessions/components/discard-session.tsx, discard-session.test.tsx, packages/app/src/features/sessions/session-screen.tsx
 - [ ] Task 28: e2e: Build on a card, watch the fake run's steps arrive in this tab and a second one, finish at Review, then start another, stop it and discard it. The repository's own checkout stays as it was (AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, AC-9, AC-10, AC-22)

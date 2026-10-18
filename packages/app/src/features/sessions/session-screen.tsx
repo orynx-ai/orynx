@@ -1,4 +1,5 @@
-// Design: docs/design/screens/session.html — page bar, title row with Stop Claude, stepper, Claude's progress (full width until 013)
+// Design: docs/design/screens/session.html — page bar, title row with Stop Claude, stepper, Claude's progress (full width until 013), Discard changes
+import { useRef } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
 import type { Session } from '@devhub/contracts';
@@ -8,6 +9,7 @@ import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-
 import { agoText } from '../../words/ago.ts';
 import { useNow } from '../../words/use-now.ts';
 import { NotFoundScreen } from '../not-found/not-found-screen.tsx';
+import { DiscardSession } from './components/discard-session.tsx';
 import { SessionHeader, SessionHeaderSkeleton } from './components/session-header.tsx';
 import { SessionProgress, SessionProgressSkeleton, SessionStepper } from './components/session-progress.tsx';
 import { SessionsLoadError } from './components/sessions-load-error.tsx';
@@ -48,6 +50,8 @@ export function SessionScreen() {
   const { sessionId } = useParams({ from: '/sessions/$sessionId' });
   const session = useSession(sessionId);
   const now = useNow();
+  // Stop and Discard hand focus to the title once their buttons are gone.
+  const title = useRef<HTMLHeadingElement>(null);
 
   if (session.isPending) {
     return (
@@ -83,9 +87,10 @@ export function SessionScreen() {
         {...(found.jiraUrl === null ? {} : { actions: <OpenInJira url={found.jiraUrl} /> })}
       />
       <PageBody>
-        <SessionHeader session={found} />
+        <SessionHeader session={found} title={title} />
         <SessionStepper session={found} />
         <SessionProgress session={found} />
+        <DiscardSession session={found} title={title} />
       </PageBody>
     </>
   );

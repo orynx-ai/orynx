@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, type RefObject } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { StopIcon } from '@hugeicons/core-free-icons';
 import type { Session, SessionState } from '@devhub/contracts';
@@ -19,16 +19,15 @@ const stateTones: Record<SessionState, PillTone> = {
  * with Stop Claude while it works (AC-9). Stop keeps focus while it runs; once the session has stopped, the
  * title takes focus, because the button is gone.
  */
-export function SessionHeader({ session }: { session: Session }) {
+export function SessionHeader({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
   const api = useApi();
-  const title = useRef<HTMLHeadingElement>(null);
   const stop = useMutation({ mutationFn: () => api.stopSession(session.id) });
   const working = session.state === 'working' || session.state === 'needs_you';
   const stopping = stop.isPending || (stop.isSuccess && working);
 
   useEffect(() => {
     if (stop.isSuccess && !working) title.current?.focus();
-  }, [stop.isSuccess, working]);
+  }, [stop.isSuccess, working, title]);
 
   return (
     <div className="flex flex-wrap items-start gap-3">
