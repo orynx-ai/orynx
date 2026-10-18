@@ -23,7 +23,9 @@ export function TicketTitleLink({ ticket }: { ticket: Ticket }) {
     );
   }
   return (
+    // It leaves Orynx, so it has the external link's arrow (the user's call, 18 Oct 2026).
     <WorkItemTitle
+      external
       href={ticket.url}
       rel="noreferrer"
       onClick={(event) => {

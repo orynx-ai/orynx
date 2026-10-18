@@ -34,6 +34,17 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const ReviewRequested: Story = {};
+
+/** A title that opens in GitHub, with the external link's arrow, cut off before it when long. */
+export const OpensOutside: Story = {
+  args: {
+    title: (
+      <AttentionTitle external href="https://github.com/acme/web-app/pull/2841">
+        Lazy-load the people directory so the first paint stays under a second on slow laptops
+      </AttentionTitle>
+    ),
+  },
+};
 /** Home's list: a review request, a Slack message, a Jira ticket and a pull request with failing checks. */
 export const Inbox: Story = {
   render: (args) => (

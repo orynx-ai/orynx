@@ -1,5 +1,5 @@
 import { createContext, useContext, useId, type ComponentProps, type ReactNode } from 'react';
-import { Calendar03Icon, SparklesIcon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon, Calendar03Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { Avatar } from './avatar.tsx';
@@ -167,11 +167,39 @@ export function WorkItemCardSkeleton({ className, ...props }: Omit<ComponentProp
 export type WorkItemTitleProps = ComponentProps<'a'> & {
   /** Render the child link (the router's) with the title's look. */
   asChild?: boolean;
+  /**
+   * It opens outside Orynx, in Jira: the arrow after it, and on hover the `bg-subtle` highlight with the
+   * underline, as every external link (the user's call, 18 Oct 2026).
+   */
+  external?: boolean;
 };
 
 /** The card's title: the link to the ticket or its session, cut off with an ellipsis after two lines. */
-export function WorkItemTitle({ asChild = false, className, ...props }: WorkItemTitleProps) {
+export function WorkItemTitle({
+  asChild = false,
+  external = false,
+  className,
+  children,
+  ...props
+}: WorkItemTitleProps) {
   const titleId = useContext(TitleIdContext);
+  if (external) {
+    return (
+      <a
+        id={titleId}
+        data-slot="work-item-title"
+        className={cn(
+          'flex items-start gap-1 rounded-xs font-medium text-foreground no-underline hover:bg-subtle hover:underline',
+          className,
+        )}
+        {...props}
+      >
+        {/* Only the text is cut off after two lines; the arrow stays beside its first. */}
+        <span className="line-clamp-2 min-w-0">{children}</span>
+        <Icon icon={ArrowUpRight01Icon} aria-hidden className="mt-1 size-3.5" />
+      </a>
+    );
+  }
   const Comp = asChild ? Slot.Root : 'a';
   return (
     <Comp
@@ -179,7 +207,9 @@ export function WorkItemTitle({ asChild = false, className, ...props }: WorkItem
       data-slot="work-item-title"
       className={cn('line-clamp-2 font-medium text-foreground no-underline hover:underline', className)}
       {...props}
-    />
+    >
+      {children}
+    </Comp>
   );
 }
 

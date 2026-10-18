@@ -68,6 +68,24 @@ describe('WorkItemCard', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('a title that opens in Jira shows the arrow and keeps its name, the card’s too', async () => {
+    const { container } = render(
+      <WorkItemCard
+        itemKey="PROJ-1423"
+        type="Story"
+        title={
+          <WorkItemTitle external href="https://your-team.atlassian.net/browse/PROJ-1423">
+            Add bulk archive to the content list
+          </WorkItemTitle>
+        }
+      />,
+    );
+    const link = screen.getByRole('link', { name: 'Add bulk archive to the content list' });
+    expect(link.querySelector('svg')).not.toBeNull();
+    expect(screen.getByRole('article', { name: /Add bulk archive to the content list/ })).toBeVisible();
+    await expectNoAxeViolations(container);
+  });
+
   it("AC-16: the build action can be the router's link", () => {
     render(
       <WorkItemBuild itemKey="PROJ-1377" asChild>
