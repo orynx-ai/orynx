@@ -798,6 +798,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       worktree: join(options.worktrees.root, id),
       startCommit: null,
       claudeSessionId: null,
+      pushedCommit: null,
       approvalLog: [],
     };
     await records.create(record);

@@ -44,6 +44,7 @@ async function serverWith(...sessions: Partial<Session>[]): Promise<{ app: Fasti
       worktree: null,
       startCommit: null,
       claudeSessionId: null,
+      pushedCommit: null,
       approvalLog: [],
     });
   }
@@ -316,6 +317,7 @@ describe('GET /api/sessions/:id/changes and its diff (spec 013)', () => {
       worktree,
       startCommit: made.startCommit,
       claudeSessionId: 'b2c7e0f4-0000-4000-8000-000000000001',
+      pushedCommit: null,
       approvalLog: [],
     });
     app = await createServer({
@@ -371,6 +373,7 @@ describe('GET /api/sessions/:id/changes and its diff (spec 013)', () => {
       worktree: '/nowhere/worktrees/gone',
       startCommit: 'a'.repeat(40),
       claudeSessionId: null,
+      pushedCommit: null,
       approvalLog: [],
     });
     app = await createServer({ token, port, version: '1.2.3', sessions: store });
