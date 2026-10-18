@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: Add the Claude login contract: signed in (how, email, organisation), signed out or error, its two paths, and a test builder (AC-2, AC-3, AC-4, AC-6)
+- [x] Task 1: Add the Claude login contract: signed in (how, email, organisation), signed out or error, its two paths, and a test builder (AC-2, AC-3, AC-4, AC-6)
       Check: pnpm test packages/contracts; pnpm typecheck
       Files: packages/contracts/src/claude.ts, claude.test.ts, routes.ts, index.ts, testing.ts
 - [ ] Task 2: Add the short environment the agent's programs get: the allow list from the spec's Assumptions, and never a `DEVHUB_*` variable (AC-10)
