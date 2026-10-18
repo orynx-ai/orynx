@@ -125,6 +125,7 @@ export function createClaudeAdapter({
 
   return {
     id: 'claude',
+    runsCommands: sandbox !== null,
 
     startSession(brief, worktree, permissions, instructions) {
       const id = randomUUID();

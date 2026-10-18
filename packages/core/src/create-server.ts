@@ -293,8 +293,20 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     events,
     // Kinds, ids and codes only: never the ticket's text or Claude's words (AC-21).
     onReport: (report) => {
-      if (report.what === 'started') app.log.info(report, 'Claude started a session');
-      else app.log.warn(report, 'A session stopped with a problem');
+      switch (report.what) {
+        case 'started':
+          app.log.info(report, 'Claude started a session');
+          return;
+        case 'asked':
+          app.log.info(report, 'Claude is waiting for an answer');
+          return;
+        case 'answered':
+          app.log.info(report, 'A waiting call ended');
+          return;
+        case 'failed':
+          app.log.warn(report, 'A session stopped with a problem');
+          return;
+      }
     },
   });
   app.addHook('onClose', async () => {

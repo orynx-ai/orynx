@@ -90,6 +90,8 @@ export type AgentEvent =
 
 export interface AgentAdapter {
   readonly id: 'claude';
+  /** Whether a session's agent can run commands here: only inside a sandbox (spec 012, Q2b). */
+  readonly runsCommands: boolean;
   /**
    * Starts the agent in `worktreePath` with the brief. `instructions` go into the agent's system prompt
    * (spec 011, Q5). Events that come before a handler is added are kept for the first one.

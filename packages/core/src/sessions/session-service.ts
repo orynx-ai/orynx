@@ -1,13 +1,30 @@
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import type { PermissionMode, Repository, Session, StartSessionAnswer, StartSessionRequest } from '@devhub/contracts';
+import type {
+  ApprovalDecision,
+  PermissionMode,
+  Repository,
+  Session,
+  SessionApproval,
+  StartSessionAnswer,
+  StartSessionRequest,
+} from '@devhub/contracts';
 import type { AgentAdapter, AgentEvent } from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { briefText, sessionNote, ticketBrief } from './brief.ts';
-import { addStep, addWork, endProgress, replaceStep, type NewStep, type Progress } from './progress.ts';
-import type { SessionRecords, StoredSession } from './session-store.ts';
+import {
+  addStep,
+  addWaiting,
+  addWork,
+  endProgress,
+  removeWaiting,
+  replaceStep,
+  type NewStep,
+  type Progress,
+} from './progress.ts';
+import type { ApprovalRecord, SessionRecords, StoredSession } from './session-store.ts';
 import { createWorktrees, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
 
 /**
@@ -16,10 +33,31 @@ import { createWorktrees, type WorktreeProblem, type WorktreesOptions } from './
  * nothing behind; what goes wrong later shows on the session itself (AC-13).
  */
 
-/** What the terminal is told: kinds, ids and exit codes, never the ticket's text or Claude's words. */
+/** Who ended a waiting call (spec 012). */
+export type ApprovalEnd = NonNullable<ApprovalRecord['by']>;
+
+/**
+ * What the terminal is told: kinds, ids, answers and exit codes, never the ticket's text, Claude's words, a
+ * command or a path (spec 011 AC-21, spec 012 AC-22).
+ */
 export type SessionReport =
   | { what: 'started'; session: string; ticket: string; loaded: { tools: number; mcpServers: number; plugins: number } }
-  | { what: 'failed'; session: string; ticket: string; problem: string; code: string | null };
+  | { what: 'failed'; session: string; ticket: string; problem: string; code: string | null }
+  | { what: 'asked'; session: string; ticket: string; about: 'command' | 'edit' }
+  | {
+      what: 'answered';
+      session: string;
+      ticket: string;
+      about: 'command' | 'edit';
+      answer: ApprovalDecision | null;
+      by: ApprovalEnd;
+    };
+
+/**
+ * The answer to `respond()`: the call was answered; there's no such session or call; it was answered
+ * already; Always allow isn't offered for it; or Always allow couldn't save the list, so nothing was decided.
+ */
+export type RespondResult = 'answered' | 'not_found' | 'already_answered' | 'not_offered' | 'not_saved';
 
 export interface SessionService {
   start(request: StartSessionRequest): Promise<StartSessionAnswer>;
@@ -29,6 +67,8 @@ export interface SessionService {
   stop(id: string): Promise<'stopped' | 'not_found'>;
   /** Stops the session if it's working, then deletes its worktree and branch (AC-10). */
   discard(id: string): Promise<'discarded' | 'not_found' | 'failed'>;
+  /** Your answer to a call waiting in this session (spec 012). The first answer counts. */
+  respond(id: string, approvalId: string, decision: ApprovalDecision): Promise<RespondResult>;
   /** Stops every running session and waits for every change still being saved, for the server's shutdown. */
   close(): Promise<void>;
 }
@@ -42,7 +82,11 @@ export interface SessionServiceOptions {
   jira: JiraClient;
   /** What the cache already knows about a ticket, for the title and breadcrumb before Jira answers. */
   describeTicket: (key: string) => Promise<{ title: string; sprint: string | null } | null>;
-  preferences: { read(): Promise<{ permissionMode: PermissionMode; allowedCommands: readonly string[] }> };
+  preferences: {
+    read(): Promise<{ permissionMode: PermissionMode; allowedCommands: readonly string[] }>;
+    /** Saves Always allow's entry to the list (spec 012, AC-5). */
+    change(change: { allowCommand: string }): Promise<unknown>;
+  };
   worktrees: WorktreesOptions;
   /** Null when the server was built without Claude Code: then no session can start (AC-22). */
   adapter: AgentAdapter | null;
@@ -87,8 +131,49 @@ function stopping(run: Run): boolean {
 /** Whether Claude has done anything yet: a problem before that means it couldn't start (Q10f). */
 function claudeWorked(session: Session): boolean {
   return session.activities.some((activity) =>
-    ['explore', 'plan', 'edit', 'refused', 'finished'].includes(activity.kind),
+    ['explore', 'plan', 'edit', 'refused', 'finished', 'waiting', 'command', 'denied'].includes(activity.kind),
   );
+}
+
+function ticketOf(record: StoredSession): string {
+  return record.session.source?.kind === 'jira' ? record.session.source.key : '';
+}
+
+/**
+ * Ends the waiting calls `which` picks: they leave the session's approvals and their steps go, the log says
+ * how each ended, and a session with none left waiting is Working again. Gives the log's entries it ended.
+ */
+function endApprovals(
+  record: StoredSession,
+  which: (id: string) => boolean,
+  answer: ApprovalDecision | null,
+  by: ApprovalEnd,
+  at: string,
+): { record: StoredSession; ended: ApprovalRecord[] } {
+  const ending = record.session.approvals.filter((approval) => which(approval.id));
+  const unanswered = record.approvalLog.filter((entry) => entry.by === null && which(entry.id));
+  if (ending.length === 0 && unanswered.length === 0) return { record, ended: [] };
+  const ended = unanswered.map((entry) => ({ ...entry, answer, by, answeredAt: at }));
+  const approvals = record.session.approvals.filter((approval) => !which(approval.id));
+  const withoutSteps = ending.reduce(
+    (progress, approval) => removeWaiting(progress, approval.id),
+    progressOf(record.session),
+  );
+  const state = record.session.state === 'needs_you' && approvals.length === 0 ? 'working' : record.session.state;
+  return {
+    record: {
+      ...record,
+      session: {
+        ...record.session,
+        state,
+        approvals,
+        step: withoutSteps.step,
+        activities: [...withoutSteps.activities],
+      },
+      approvalLog: record.approvalLog.map((entry) => ended.find((done) => done.id === entry.id) ?? entry),
+    },
+    ended,
+  };
 }
 
 function progressOf(session: Session): Progress {
@@ -114,6 +199,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     inFlight.add(tracked);
   }
   const stepTimers = new Map<string, { timer: NodeJS.Timeout; again: boolean }>();
+  /** Your answers on their way to Claude, by approval id, so the log says what you answered. */
+  const given = new Map<string, ApprovalDecision>();
 
   /** `session.changed` at once, then at most once every `stepEventMs` while steps keep coming. */
   function stepsChanged(id: string) {
@@ -152,8 +239,39 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   function report(record: StoredSession | null, kind: ProblemKind, code: string | null) {
     if (record === null) return;
-    const ticket = record.session.source?.kind === 'jira' ? record.session.source.key : '';
-    options.onReport?.({ what: 'failed', session: record.session.id, ticket, problem: kind, code });
+    options.onReport?.({ what: 'failed', session: record.session.id, ticket: ticketOf(record), problem: kind, code });
+  }
+
+  function reportAnswered(id: string, ticket: string, ended: readonly ApprovalRecord[]) {
+    for (const entry of ended) {
+      if (entry.by === null) continue;
+      options.onReport?.({
+        what: 'answered',
+        session: id,
+        ticket,
+        about: entry.about,
+        answer: entry.answer,
+        by: entry.by,
+      });
+    }
+  }
+
+  /** Changes a session and ends some of its waiting calls in the same change, then tells the terminal. */
+  async function changeEnding(
+    id: string,
+    update: (record: StoredSession) => StoredSession,
+    which: (approvalId: string) => boolean,
+    answer: ApprovalDecision | null,
+    by: ApprovalEnd,
+  ): Promise<StoredSession | null> {
+    let ended: ApprovalRecord[] = [];
+    const saved = await change(id, (record) => {
+      const result = endApprovals(update(record), which, answer, by, new Date(now()).toISOString());
+      ended = result.ended;
+      return result.record;
+    });
+    if (saved !== null) reportAnswered(id, ticketOf(saved), ended);
+    return saved;
   }
 
   /** Ends a session with a problem: Stopped, every step done, and the terminal told the kind. */
@@ -161,18 +279,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const run = runs.get(id);
     if (run?.stopping === true) return;
     runs.delete(id);
-    const saved = await change(id, (record) => {
-      const ended = withProgress(record, (progress) => endProgress(progress, null));
-      return {
-        ...ended,
-        session: {
-          ...ended.session,
-          state: 'stopped',
-          problem: { kind, stage: claudeWorked(record.session) ? 'working' : 'starting' },
-          endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
-        },
-      };
-    });
+    const saved = await changeEnding(
+      id,
+      (record) => {
+        const ended = withProgress(record, (progress) => endProgress(progress, null));
+        return {
+          ...ended,
+          session: {
+            ...ended.session,
+            state: 'stopped',
+            problem: { kind, stage: claudeWorked(record.session) ? 'working' : 'starting' },
+            endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
+          },
+        };
+      },
+      () => true,
+      null,
+      'dropped',
+    );
     report(saved, kind, code);
   }
 
@@ -203,6 +327,50 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
             if (!finished) return next;
             return { ...next, session: { ...next.session, state: 'done', endedAt: new Date(now()).toISOString() } };
           }),
+        );
+        return;
+      }
+      case 'approval': {
+        const { approvalId, ask } = event;
+        const text = ask.kind === 'command' ? ask.command : ask.path;
+        track(
+          change(id, (record) => {
+            const at = new Date(now()).toISOString();
+            const approval: SessionApproval = { id: approvalId, askedAt: at, ...ask };
+            const waiting = withProgress(record, (progress) =>
+              addWaiting(progress, {
+                approvalId,
+                about: ask.kind,
+                text: ask.kind === 'command' ? ask.description : ask.path,
+              }),
+            );
+            return {
+              ...waiting,
+              session: { ...waiting.session, state: 'needs_you', approvals: [...record.session.approvals, approval] },
+              approvalLog: [
+                ...record.approvalLog,
+                { id: approvalId, about: ask.kind, text, askedAt: at, answer: null, by: null, answeredAt: null },
+              ],
+            };
+          }).then((record) => {
+            if (record !== null) {
+              options.onReport?.({ what: 'asked', session: id, ticket: ticketOf(record), about: ask.kind });
+            }
+          }),
+        );
+        return;
+      }
+      case 'answered': {
+        const answer = given.get(event.approvalId) ?? null;
+        given.delete(event.approvalId);
+        track(
+          changeEnding(
+            id,
+            (record) => record,
+            (approvalId) => approvalId === event.approvalId,
+            answer,
+            answer === null ? 'dropped' : 'you',
+          ),
         );
         return;
       }
@@ -266,7 +434,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     await permissions();
     // Stop can come while they're read: then Claude never starts.
     if (stopping(run)) return;
-    const agentId = await adapter.startSession(brief, record.worktree, permissions, sessionNote(plan.branch));
+    const agentId = await adapter.startSession(
+      brief,
+      record.worktree,
+      permissions,
+      sessionNote(plan.branch, adapter.runsCommands),
+    );
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.
     if (stopping(run)) {
@@ -280,9 +453,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   /**
    * Ends a working session with `last` (you stopped it, or Orynx closed): git and Claude are stopped first,
-   * and nothing they say afterwards changes the session.
+   * and nothing they say afterwards changes the session. A call still waiting ends `by` it (spec 012).
    */
-  async function halt(id: string, last: NewStep): Promise<void> {
+  async function halt(id: string, last: NewStep, by: Exclude<ApprovalEnd, 'you' | 'dropped'>): Promise<void> {
     const run = runs.get(id);
     if (run !== undefined) {
       run.stopping = true;
@@ -290,18 +463,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       run.controller.abort();
       if (run.agentId !== null && adapter !== null) await adapter.stop(run.agentId);
     }
-    await change(id, (record) => {
-      if (!isWorking(record.session)) return record;
-      const ended = withProgress(record, (progress) => endProgress(progress, last));
-      return {
-        ...ended,
-        session: {
-          ...ended.session,
-          state: 'stopped',
-          endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
-        },
-      };
-    });
+    await changeEnding(
+      id,
+      (record) => {
+        if (!isWorking(record.session)) return record;
+        const ended = withProgress(record, (progress) => endProgress(progress, last));
+        return {
+          ...ended,
+          session: {
+            ...ended.session,
+            state: 'stopped',
+            endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
+          },
+        };
+      },
+      () => true,
+      null,
+      by,
+    );
   }
 
   function begin(id: string) {
@@ -374,6 +553,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
       claudeSessionId: null,
+      approvalLog: [],
     };
     await records.create(record);
     events.publish({ type: 'sessions.changed' });
@@ -399,7 +579,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     async stop(id) {
       const record = await records.get(id);
       if (record === null) return 'not_found';
-      if (isWorking(record.session)) await halt(id, { kind: 'stopped' });
+      if (isWorking(record.session)) await halt(id, { kind: 'stopped' }, 'stopped');
       return 'stopped';
     },
 
@@ -407,7 +587,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const found = await records.get(id);
       if (found === null) return 'not_found';
       if (found.session.discardedAt !== null) return 'discarded';
-      if (isWorking(found.session)) await halt(id, { kind: 'stopped' });
+      if (isWorking(found.session)) await halt(id, { kind: 'stopped' }, 'discarded');
       const record = (await records.get(id)) ?? found;
       const { branch } = record.session;
       if (record.worktree !== null) {
@@ -430,9 +610,41 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return 'discarded';
     },
 
+    async respond(id, approvalId, decision) {
+      const record = await records.get(id);
+      if (record === null) return 'not_found';
+      const waiting = record.session.approvals.find((approval) => approval.id === approvalId);
+      if (waiting === undefined) {
+        return record.approvalLog.some((entry) => entry.id === approvalId) ? 'already_answered' : 'not_found';
+      }
+      const run = runs.get(id);
+      if (run?.agentId == null || adapter === null || given.has(approvalId)) return 'already_answered';
+      if (decision === 'always_allow') {
+        if (waiting.kind !== 'command' || waiting.alwaysAllow === null) return 'not_offered';
+        // The entry is saved first: if it can't be, nothing is decided and the call keeps waiting (AC-14).
+        try {
+          await options.preferences.change({ allowCommand: waiting.alwaysAllow });
+        } catch {
+          return 'not_saved';
+        }
+        if (given.has(approvalId)) return 'already_answered';
+      }
+      given.set(approvalId, decision);
+      const answered = await adapter.respond(
+        run.agentId,
+        approvalId,
+        decision === 'deny' ? 'deny' : decision === 'always_allow' ? 'always' : 'allow',
+      );
+      if (!answered) {
+        given.delete(approvalId);
+        return 'already_answered';
+      }
+      return 'answered';
+    },
+
     async close() {
       // A session still working when Orynx closes was closed, not stopped by you (AC-14).
-      await Promise.all([...runs.keys()].map((id) => halt(id, { kind: 'interrupted' })));
+      await Promise.all([...runs.keys()].map((id) => halt(id, { kind: 'interrupted' }, 'closed')));
       while (inFlight.size > 0) await Promise.all(inFlight);
       for (const { timer } of stepTimers.values()) clearTimeout(timer);
       stepTimers.clear();

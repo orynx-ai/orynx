@@ -28,16 +28,26 @@ export function briefText(brief: AgentBrief): string {
 }
 
 /**
- * Added to Claude Code's own system prompt (Q5). The last two sentences change when approvals let commands
- * run (spec 012).
+ * Added to Claude Code's own system prompt (011 Q5). Where Claude can run commands, the last sentences say
+ * how they run (012 Q8g); where the sandbox can't run, that it can't (012 Q2b).
  */
-export function sessionNote(branch: string): string {
+export function sessionNote(branch: string, commands: boolean): string {
+  const ending = commands
+    ? [
+        'You can run commands in the worktree.',
+        "They run in a sandbox with no network, and some wait for the user's approval.",
+        "Run the project's tests and checks before you finish.",
+        "When you're done, summarise what you changed and which checks you ran, in a few sentences.",
+      ]
+    : [
+        "You can't run commands on this computer, so say which ones you'd run to check your work.",
+        "When you're done, summarise what you changed in a few sentences.",
+      ];
   return [
     `You're working in a separate git worktree on the branch ${branch}.`,
     'Make the change the ticket asks for.',
     'If the repository has a CLAUDE.md, read it first.',
     "Don't push, open pull requests or change git settings.",
-    "You can't run commands in this version, so say which ones you'd run to check your work.",
-    "When you're done, summarise what you changed in a few sentences.",
+    ...ending,
   ].join(' ');
 }

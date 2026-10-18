@@ -49,12 +49,24 @@ describe('the brief', () => {
 });
 
 describe('the note added to Claude Code’s system prompt', () => {
-  it('AC-3 (Q5): says where Claude works and what it may not do, word for word', () => {
-    expect(sessionNote('feat/PROJ-1423')).toBe(
+  it('AC-3 (011 Q5, 012 Q8g): says where Claude works, what it may not do, and that commands may wait, word for word', () => {
+    expect(sessionNote('feat/PROJ-1423', true)).toBe(
       "You're working in a separate git worktree on the branch feat/PROJ-1423. Make the change the ticket asks for. " +
         'If the repository has a CLAUDE.md, read it first. ' +
         "Don't push, open pull requests or change git settings. " +
-        "You can't run commands in this version, so say which ones you'd run to check your work. " +
+        'You can run commands in the worktree. ' +
+        "They run in a sandbox with no network, and some wait for the user's approval. " +
+        "Run the project's tests and checks before you finish. " +
+        "When you're done, summarise what you changed and which checks you ran, in a few sentences.",
+    );
+  });
+
+  it('012 AC-20: where commands can’t run, says so, and asks which ones Claude would run', () => {
+    expect(sessionNote('feat/PROJ-1423', false)).toBe(
+      "You're working in a separate git worktree on the branch feat/PROJ-1423. Make the change the ticket asks for. " +
+        'If the repository has a CLAUDE.md, read it first. ' +
+        "Don't push, open pull requests or change git settings. " +
+        "You can't run commands on this computer, so say which ones you'd run to check your work. " +
         "When you're done, summarise what you changed in a few sentences.",
     );
   });

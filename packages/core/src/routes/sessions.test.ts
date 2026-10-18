@@ -35,6 +35,7 @@ async function serverWith(...sessions: Partial<Session>[]): Promise<{ app: Fasti
       // No worktree was made, so Discard has nothing on disk to delete.
       worktree: null,
       claudeSessionId: null,
+      approvalLog: [],
     });
   }
   app = await createServer({ token, port, version: '1.2.3', sessions: store });
