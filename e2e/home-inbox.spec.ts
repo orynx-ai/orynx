@@ -165,20 +165,24 @@ test('AC-1, AC-39: Given Jira and GitHub are connected, when Home opens, then th
   await expect(page.getByText('Synced just now')).toBeVisible();
 });
 
-test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it stops on Refresh, the order, the selected tab, the search box, the filter, then each title and action, each with the focus ring', async ({
+test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it stops on Refresh, the composer and its quick starts (spec 015), the order, the selected tab, the search box, the filter, then each title and action, each with the focus ring', async ({
   page,
 }) => {
   await openHome(page);
   await page.getByRole('button', { name: 'Refresh' }).focus();
 
   const stops: { name: string; ring: boolean }[] = [];
-  for (let stop = 0; stop < 8; stop += 1) {
+  for (let stop = 0; stop < 15; stop += 1) {
     stops.push(
       await page.evaluate(() => {
         const focused = document.activeElement;
-        const style = focused === null ? null : getComputedStyle(focused);
+        // The composer's box is named by its label, and the composer draws its ring around the whole box.
+        const box = focused instanceof HTMLTextAreaElement ? focused : null;
+        const ringed = box === null ? focused : box.closest('form');
+        const style = ringed === null ? null : getComputedStyle(ringed);
+        const label = box?.labels[0]?.textContent ?? null;
         return {
-          name: focused?.getAttribute('aria-label') ?? focused?.textContent ?? '',
+          name: focused?.getAttribute('aria-label') ?? label ?? focused?.textContent ?? '',
           ring: style !== null && style.outlineStyle === 'solid' && style.outlineWidth === '2px',
         };
       }),
@@ -188,6 +192,14 @@ test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it
 
   expect(stops).toEqual([
     { name: 'Refresh', ring: true },
+    { name: 'Describe a task for Claude', ring: true },
+    { name: 'Add context', ring: true },
+    { name: 'Add a folder', ring: true },
+    // Claude's state here depends on which spec last answered for this hub's fake Claude Code.
+    { name: expect.stringMatching(/^Agent: Claude, (connected|signed out)$/) as unknown as string, ring: true },
+    { name: 'Send to Claude', ring: true },
+    { name: 'Pick up a ticket', ring: true },
+    { name: 'Review a pull request', ring: true },
     { name: 'Order: Newest first', ring: true },
     { name: 'All 14', ring: true },
     { name: 'Search', ring: true },

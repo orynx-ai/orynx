@@ -9,7 +9,6 @@ import {
   MenuSeparator,
   MenuTrigger,
   Picker,
-  Skeleton,
 } from '@devhub/ui';
 import { useStatus } from '../../settings/queries.ts';
 import { composerWords } from '../composer-words.ts';
@@ -32,10 +31,7 @@ function Dot({ connected, className }: { connected: boolean; className?: string 
  */
 export function AgentPicker() {
   const status = useStatus();
-  if (status.data === undefined) {
-    // As big as the picker, so the bar doesn't move when the status arrives.
-    return <Skeleton aria-hidden className="h-8 w-20 rounded-sm" />;
-  }
+  if (status.data === undefined) return null;
   const { connected } = status.data.agent;
   return (
     <Menu>

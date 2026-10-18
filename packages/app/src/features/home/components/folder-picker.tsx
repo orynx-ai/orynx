@@ -12,7 +12,6 @@ import {
   MenuSeparator,
   MenuTrigger,
   Picker,
-  Skeleton,
 } from '@devhub/ui';
 import { FolderDialog } from '../../settings/components/folder-dialog.tsx';
 import { useRepositories } from '../../settings/queries.ts';
@@ -43,10 +42,8 @@ export function FolderPicker() {
   const trigger = useRef<HTMLButtonElement>(null);
   const ticketKey = chips.find((chip) => chip.kind === 'jira')?.key ?? null;
 
-  if (repositories.data === undefined) {
-    // As big as the picker, so the bar doesn't move when the folders arrive.
-    return <Skeleton aria-hidden className="h-8 w-24 rounded-sm" />;
-  }
+  // The composer shows its pickers once both have what they need, so the bar never moves (AC-1).
+  if (repositories.data === undefined) return null;
   const folders = repositories.data.repositories;
   const shown = folderFor({ folders, picked, ticketKey, lastUsed });
 

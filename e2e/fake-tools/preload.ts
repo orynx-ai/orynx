@@ -17,7 +17,12 @@ import {
   acceptingPrioritySearch,
   acceptingProjectSearch,
 } from '../../packages/core/src/test/fake-jira.ts';
-import { acceptingInboxQuery, acceptingUser } from '../../packages/core/src/test/fake-github.ts';
+import {
+  acceptingInboxQuery,
+  acceptingPullContext,
+  acceptingPullDiff,
+  acceptingUser,
+} from '../../packages/core/src/test/fake-github.ts';
 import { controlPortFor, type FakeTools } from './config.ts';
 
 let tools: FakeTools = { issues: [], reviews: [], mine: [] };
@@ -56,6 +61,15 @@ function handlers() {
         })),
     ),
     acceptingUser(),
+    // The composer's pull requests (spec 015); this handler answers only its own query.
+    acceptingPullContext(
+      (tools.pullRequests ?? []).map(({ number, title, body }) => ({
+        number,
+        title,
+        ...(body === undefined ? {} : { body }),
+      })),
+    ),
+    acceptingPullDiff((tools.pullRequests ?? []).map(({ number, diff }) => ({ number, diff }))),
     acceptingInboxQuery({ reviews: tools.reviews, mine: tools.mine }),
   ];
 }

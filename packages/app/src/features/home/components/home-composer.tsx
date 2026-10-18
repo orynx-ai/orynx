@@ -15,7 +15,7 @@ import {
   SourceMark,
 } from '@devhub/ui';
 import { newTaskTargetId } from '../../../shell/main-content.ts';
-import { useRepositories } from '../../settings/queries.ts';
+import { useRepositories, useStatus } from '../../settings/queries.ts';
 import { chipFromPaste, folderFor } from '../composer-rules.ts';
 import {
   cannotStartLine,
@@ -82,7 +82,10 @@ export function HomeComposer() {
   const addChip = useComposerStore((state) => state.addChip);
   const sent = useComposerStore((state) => state.sent);
   const repositories = useRepositories();
+  const status = useStatus();
   const start = useStartFromComposer();
+  // Both pickers come at once, when both have what they need: one arriving first would move the other (AC-1).
+  const pickers = repositories.data !== undefined && status.data !== undefined;
   const [removed, setRemoved] = useState('');
   // Why a file wasn't added (AC-12); it goes when the draft changes or another file is added.
   const [refused, setRefused] = useState<string | null>(null);
@@ -180,8 +183,16 @@ export function HomeComposer() {
             }}
             onRefused={setRefused}
           />
-          <FolderPicker />
-          <AgentPicker />
+          {/* The pickers' own row under 640 px, there from the first paint, so the box never grows when they
+              arrive (AC-1, AC-30); in a wider window they sit between + and Send. */}
+          <div className="flex min-h-8 min-w-0 items-center gap-2 max-sm:order-last max-sm:basis-full">
+            {pickers ? (
+              <>
+                <FolderPicker />
+                <AgentPicker />
+              </>
+            ) : null}
+          </div>
           <ComposerSend label={start.isPending ? composerWords.sending : composerWords.send} />
         </ComposerBar>
       </Composer>
