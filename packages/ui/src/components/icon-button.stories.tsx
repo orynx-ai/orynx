@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { LinkSquare02Icon, Refresh04Icon, SparklesIcon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon, Refresh04Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { Icon } from './icon.tsx';
 import { IconButton } from './icon-button.tsx';
 
@@ -46,7 +46,7 @@ export const AsLink: Story = {
     asChild: true,
     children: (
       <a href="#jira">
-        <Icon icon={LinkSquare02Icon} aria-hidden />
+        <Icon icon={ArrowUpRight01Icon} aria-hidden />
       </a>
     ),
   },

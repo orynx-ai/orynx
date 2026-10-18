@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { LinkSquare02Icon, SparklesIcon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Icon } from './icon.tsx';
@@ -36,7 +36,7 @@ function Inbox() {
               aria-label="Open web-app #2841 in GitHub"
             >
               <a href="https://github.com/acme/web-app/pull/2841">
-                <Icon icon={LinkSquare02Icon} aria-hidden />
+                <Icon icon={ArrowUpRight01Icon} aria-hidden />
               </a>
             </IconButton>
           </AttentionActions>
@@ -59,7 +59,7 @@ function Inbox() {
             </IconButton>
             <IconButton asChild variant="ghost" size="sm" label="Open in Slack" aria-label="Open the message in Slack">
               <a href="https://acme.slack.com/archives/C1/p1">
-                <Icon icon={LinkSquare02Icon} aria-hidden />
+                <Icon icon={ArrowUpRight01Icon} aria-hidden />
               </a>
             </IconButton>
           </AttentionActions>

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { LinkSquare02Icon, Refresh04Icon, SparklesIcon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon, Refresh04Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Icon } from './icon.tsx';
@@ -61,7 +61,7 @@ describe('IconButton', () => {
     const { container } = render(
       <IconButton asChild label="Open in Jira" aria-label="Open PROJ-1423 in Jira" variant="ghost" size="sm">
         <a href="https://acme.atlassian.net/browse/PROJ-1423">
-          <Icon icon={LinkSquare02Icon} aria-hidden />
+          <Icon icon={ArrowUpRight01Icon} aria-hidden />
         </a>
       </IconButton>,
     );

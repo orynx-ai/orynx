@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, type FocusEvent, type MouseEvent, type RefObject } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { defaultPreferences, type Inbox, type InboxRules, type InboxTarget } from '@devhub/contracts';
-import { ArrowRight01Icon, LinkSquare02Icon } from '@hugeicons/core-free-icons';
+import { ArrowRight01Icon, ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
 import {
   AttentionActions,
   AttentionList,
@@ -474,7 +474,8 @@ function RowActionButtons({ item }: { item: HomeItem }) {
               platform.openExternal(open.url);
             }}
           >
-            <Icon icon={LinkSquare02Icon} aria-hidden />
+            {/* Leaves Orynx, so it draws the external link's arrow (spec 013, the user's call 18 Oct 2026). */}
+            <Icon icon={ArrowUpRight01Icon} aria-hidden />
           </a>
         </IconButton>
       )}
@@ -503,7 +504,7 @@ function TargetLink({ target, title }: { target: InboxTarget; title: string }) {
       rel="noreferrer"
       title={title}
       // A title that leaves Orynx says so with the external link's arrow (the user's call, 18 Oct 2026).
-      {...(look === 'title' ? { external: true } : {})}
+      external
       onClick={(event) => {
         event.preventDefault();
         platform.openExternal(target.url);
