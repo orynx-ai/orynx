@@ -205,6 +205,7 @@ function Unreachable({ pending, onRetry }: { pending: boolean; onRetry: () => vo
     <>
       <PageBar breadcrumb={<PageBreadcrumb crumbs={[ticketsCrumb]} />} />
       <PageBody>
+        <h1 className="sr-only">Tickets</h1>
         <EmptyState
           title={unreachableText.title}
           action={
@@ -225,6 +226,7 @@ function JiraNotConnected() {
     <>
       <PageBar breadcrumb={<PageBreadcrumb crumbs={[ticketsCrumb]} />} />
       <PageBody>
+        <h1 className="sr-only">Tickets</h1>
         <EmptyState
           title="Jira is not connected"
           action={

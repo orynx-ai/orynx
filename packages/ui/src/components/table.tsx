@@ -24,7 +24,8 @@ export function Table({ caption, className, children, ...props }: TableProps) {
       aria-labelledby={captionId}
       data-slot="table-container"
       // Relative, so hidden text inside (a header read only by screen readers) is clipped here, not by the page.
-      className="relative w-full overflow-x-auto"
+      // The ring is drawn inside the box, so a panel around the table can't cut it off.
+      className="relative w-full overflow-x-auto focus-visible:-outline-offset-2"
     >
       <table
         data-slot="table"

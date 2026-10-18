@@ -22,6 +22,7 @@ Correct these now, or the work goes ahead on them.
 - **Claude's state on a card** comes from the session store that exists today (`GET /api/sessions`, a session's `source.key`). Nothing creates a session until 011, so no card shows an agent chip until then (Q4c).
 - **No Jira writes.** If Q5 is answered as recommended, 008 only reads.
 - **The new `@devhub/ui` parts** (Q10) are built here, because 006 left board columns, the list table and the search field to 008 (006 Q1b).
+- **Changed while building (18 Oct 2026, task 21), for a person to confirm.** On a real Jira site the chosen sprint held more than 300 issues and yours ranked past the first 300, so Assigned to me showed nothing. A sprint cut short now also shows your own tickets past the first 300, after them in rank order (AC-26). The line in Q9l keeps its wording until a person rewords it, for example to say that all of yours are there.
 
 ## Goal
 

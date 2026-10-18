@@ -13,6 +13,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 /** Counts the page's reads of GET /api/tickets. */
@@ -42,6 +43,7 @@ describe('TicketsScreen', () => {
 
     expect(await screen.findByText('Jira is not connected')).toBeVisible();
     expect(screen.getByText('Connect it in Settings to see your sprint.')).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'Tickets' })).toBeInTheDocument();
     await user.click(screen.getByRole('link', { name: 'Open Settings' }));
 
     expect(history.location.pathname).toBe('/settings/connections');
@@ -70,6 +72,50 @@ describe('TicketsScreen', () => {
     expect(filter('Bugs only')).toHaveAttribute('aria-pressed', 'false');
     expect(count()).toHaveTextContent('6 tickets');
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
+  });
+
+  it('AC-30: Tab goes through the search, Board / List, the filters, Clear filters, the board, then each card', async () => {
+    server.use(ticketsHandler());
+    const { user } = await renderApp({ route: '/tickets?type=bug' });
+    await screen.findByText('1 ticket');
+    within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
+      .getByRole('link', { name: 'Tickets' })
+      .focus();
+    const stops: string[] = [];
+
+    for (let stop = 0; stop < 9; stop += 1) {
+      await user.tab();
+      const focused = document.activeElement;
+      stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent.trim() ?? '');
+    }
+
+    expect(stops).toEqual([
+      'Search tickets',
+      'Board',
+      'List',
+      'Assigned to me',
+      'Due this week',
+      'Bugs only',
+      'Clear filters',
+      'Board',
+      'Search returns archived sites for guest users',
+    ]);
+    expect(document.activeElement).toHaveAttribute('href', 'https://your-team.atlassian.net/browse/PROJ-1377');
+  });
+
+  it('AC-20: the Tickets crumb looks the same whether or not its link leads to this very page', async () => {
+    server.use(ticketsHandler());
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+    const crumb = () =>
+      within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByRole('link', { name: 'Tickets' });
+    const onThisPage = crumb().className;
+
+    await user.click(filter('Assigned to me'));
+
+    expect(crumb().className).toBe(onThisPage);
+    expect(onThisPage).not.toBe('active');
+    expect(crumb()).not.toHaveAttribute('aria-current');
   });
 
   it('AC-10: the search narrows the tickets by key or title as you type, without asking the server', async () => {
@@ -186,6 +232,21 @@ describe('TicketsScreen', () => {
       expect(history.location.pathname).toBe('/settings/connections');
     });
 
+    it.each([
+      [{ kind: 'rejected' } as const, /^Jira refused the saved token\./],
+      [
+        { kind: 'sign_in_needed', site: 'your-team.atlassian.net' } as const,
+        /^Jira wants you to sign in on the web first\. Sign in at your-team\.atlassian\.net/,
+      ],
+    ])('AC-24: Jira says %o, and the last tickets stay under its line', async (problem, line) => {
+      server.use(ticketsHandler({ jira: { state: 'failed', problem, lastSyncedAt: '2026-10-17T08:48:00.000Z' } }));
+      await renderApp({ route: '/tickets' });
+
+      expect(await screen.findByText(line)).toBeVisible();
+      expect(screen.getByRole('region', { name: 'To do, 2 tickets' })).toBeVisible();
+      expect(count()).toHaveTextContent('6 tickets');
+    });
+
     it('AC-25: the local server stops answering, then Try again loads the sprint', async () => {
       let answer: 'down' | 'up' = 'down';
       server.use(
@@ -196,6 +257,7 @@ describe('TicketsScreen', () => {
       const { user } = await renderApp({ route: '/tickets' });
 
       expect(await screen.findByText("Couldn't load the sprint")).toBeVisible();
+      expect(screen.getByRole('heading', { level: 1, name: 'Tickets' })).toBeInTheDocument();
       expect(screen.getByText('Check that DevHub is still running, then try again.')).toBeVisible();
       expect(screen.getByRole('navigation', { name: 'Main' })).toBeVisible();
 
@@ -226,6 +288,5 @@ describe('TicketsScreen', () => {
 
     expect(within(toolbar()).getByRole('searchbox', { name: 'Search tickets' })).toBeVisible();
     expect(screen.getAllByRole('searchbox')).toHaveLength(1);
-    vi.unstubAllGlobals();
   });
 });

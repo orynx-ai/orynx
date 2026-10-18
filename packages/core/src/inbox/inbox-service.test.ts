@@ -536,7 +536,9 @@ describe('inbox service', () => {
       await inbox.clear();
       expect(cache.tool('jira_sprint')).toBeNull();
 
-      await vi.waitFor(() => { expect(cache.tool('jira_sprint')).not.toBeNull(); });
+      await vi.waitFor(() => {
+        expect(cache.tool('jira_sprint')).not.toBeNull();
+      });
       await inbox.idle();
       expect((await tickets.read()).tickets).toHaveLength(1);
     });

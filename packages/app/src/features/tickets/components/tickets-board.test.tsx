@@ -109,6 +109,39 @@ describe('TicketsBoard', () => {
       );
     });
 
+    it('AC-17: a focused card that moves within its column keeps its focus', async () => {
+      const sprint = sprintServer(progress);
+      await renderApp({ route: '/tickets' });
+      await screen.findByText('2 tickets');
+      title('Add bulk archive to the content list').focus();
+
+      // A teammate ranks the other ticket above it.
+      await sprint.sync([...progress].reverse());
+
+      await waitFor(() => {
+        expect(title('Add bulk archive to the content list')).toHaveFocus();
+      });
+    });
+
+    it('AC-18: focus that left with the window (another tab) still moves on when the card goes', async () => {
+      const sprint = sprintServer(progress);
+      await renderApp({ route: '/tickets' });
+      await screen.findByText('2 tickets');
+      const leaving = title('Add bulk archive to the content list');
+      leaving.focus();
+      // The window loses focus: the page keeps its focused element, and the blur has nothing to go to.
+      const hasFocus = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+      leaving.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+      await Promise.resolve();
+      hasFocus.mockRestore();
+
+      await sprint.sync(progress.slice(1));
+
+      await waitFor(() => {
+        expect(title('Keyboard navigation for the mega menu')).toHaveFocus();
+      });
+    });
+
     it('AC-18: a focused card that leaves the sprint hands focus to the next card in its column', async () => {
       const sprint = sprintServer(progress);
       await renderApp({ route: '/tickets' });

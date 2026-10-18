@@ -84,8 +84,10 @@ function titleOf(card: Element | undefined): HTMLElement | null {
 
 /**
  * AC-17, AC-18: a sync that takes the focused card away hands focus on instead of dropping it on the page.
- * A card that moved keeps it, in its new column; one that left gives it to the next card in its column,
- * or the one before, or the board itself. Focus that left the board on purpose is never taken back.
+ * A card that moved keeps it, in its new column or its new place in the same column (the browser drops
+ * focus from an element it moves); one that left gives it to the next card in its column, or the one
+ * before, or the board itself. Focus that went elsewhere on the page is never taken back; focus that left
+ * with the window (another tab) still moves on.
  */
 function useFocusAcrossSyncs(board: RefObject<HTMLDivElement | null>) {
   const focused = useRef<FocusedCard | null>(null);
@@ -93,8 +95,13 @@ function useFocusAcrossSyncs(board: RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
     const last = focused.current;
     const root = board.current;
-    if (last === null || root === null || last.element.isConnected) return;
+    if (last === null || root === null) return;
     if (document.activeElement !== null && document.activeElement !== document.body) return;
+    if (last.element.isConnected) {
+      // The card is still here, moved by the sync.
+      if (last.element instanceof HTMLElement) last.element.focus({ preventScroll: true });
+      return;
+    }
     focused.current = null;
     // Keys are letters, digits, a dash and an underscore (the contract), so they're safe in a selector.
     const moved = root.querySelector(`[data-key="${last.key}"]`);
@@ -128,9 +135,11 @@ function useFocusAcrossSyncs(board: RefObject<HTMLDivElement | null>) {
         if (!event.currentTarget.contains(relatedTarget)) focused.current = null;
         return;
       }
-      // Nothing took focus: a click on the page, or the card leaving. Only a card that's still there was left.
+      // Nothing took focus. A click on the page left the card; another window or tab, or the card moving or
+      // leaving, didn't, so the board can still hand focus on.
       queueMicrotask(() => {
-        if (focused.current?.element === target && target.isConnected) focused.current = null;
+        const leftOnPurpose = document.hasFocus() && document.activeElement !== target && target.isConnected;
+        if (focused.current?.element === target && leftOnPurpose) focused.current = null;
       });
     },
   };

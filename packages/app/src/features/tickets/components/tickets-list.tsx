@@ -52,7 +52,8 @@ export function TicketsList({ shown, sprintName, filtered, onlyMine, now }: Tick
                 <WorkItemKey>{ticket.key}</WorkItemKey>
               </TableCell>
               {/* The title is the one cell that wraps; keys, dates and chips stay on one line, as shadcn's table keeps them. */}
-              <TableCell className="whitespace-normal">
+              {/* At the board's size: the same title looks the same everywhere (Clean UI). */}
+              <TableCell className="text-body whitespace-normal">
                 <TicketTitleLink ticket={ticket} />
               </TableCell>
               <TableCell>

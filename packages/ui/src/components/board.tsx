@@ -10,17 +10,26 @@ export type BoardProps = ComponentProps<'div'> & {
 /**
  * The Tickets board (spec 008, Q10a): its columns side by side, each at least 250 px wide, as the design
  * draws them. When the window is narrower, the board scrolls sideways inside its own box, never the page.
- * The box is a named region in the Tab order, so the arrow keys can scroll it.
+ * The box is a named region in the Tab order, so the arrow keys can scroll it, and a card that takes focus
+ * is scrolled into view.
  */
-export function Board({ className, children, ...props }: BoardProps) {
+export function Board({ className, children, onFocus, ...props }: BoardProps) {
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- its focus listener only scrolls a focused card into view; nothing becomes interactive
     <div
       role="region"
       // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling box must take focus to scroll by keyboard (axe: scrollable-region-focusable)
       tabIndex={0}
       data-slot="board"
-      // Relative, so hidden text on a card (a due date's spoken form) is clipped here, not by the page.
-      className={cn('relative overflow-x-auto pb-2', className)}
+      // Relative, so hidden text on a card (a due date's spoken form) is clipped here, not by the page. The
+      // scroll padding leaves room for a focused card's ring at the box's edge.
+      className={cn('relative scroll-px-3 overflow-x-auto pb-2', className)}
+      onFocus={(event) => {
+        // A browser doesn't scroll a part that's half in view when it takes focus; a card in a half-hidden
+        // column would stay half hidden, its ring cut off.
+        if (event.target !== event.currentTarget) event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        onFocus?.(event);
+      }}
       {...props}
     >
       <div className="flex items-start gap-3">{children}</div>

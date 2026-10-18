@@ -20,6 +20,7 @@ packages/app/src/features/<feature>/
 - Every screen handles four states: loading (skeleton built from the real chrome), empty, error and loaded. If a design does not show one of them, stop and ask.
 - Shared app chrome (sidebar, page bar) lives in `packages/app/src/shell/`.
 - Global UI stores (theme, sidebar) live in `packages/app/src/stores/`.
+- Words and clocks more than one screen writes the same way (dates, waits, a tool's sync line, `useNow`) live in `packages/app/src/words/`.
 
 ## An API endpoint
 

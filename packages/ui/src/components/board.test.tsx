@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Board, BoardColumn } from './board.tsx';
 import { Button } from './button.tsx';
@@ -84,5 +84,35 @@ describe('Board', () => {
   it('has no accessibility violations', async () => {
     const { container } = render(<DesignBoard />);
     await expectNoAxeViolations(container);
+  });
+
+  it('AC-30: a card focused in a column half out of view is scrolled into view, and the board itself isn’t moved', async () => {
+    const scroll = vi.spyOn(Element.prototype, 'scrollIntoView');
+    render(<DesignBoard />);
+
+    await userEvent.tab();
+    expect(scroll).not.toHaveBeenCalled();
+
+    await userEvent.tab();
+    expect(screen.getByRole('link', { name: 'Search returns archived sites' })).toHaveFocus();
+    expect(scroll).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' });
+    scroll.mockRestore();
+  });
+
+  it('still tells the screen about focus inside it', async () => {
+    const focused: string[] = [];
+    render(
+      <Board aria-label="Board" onFocus={(event) => focused.push(event.target.textContent)}>
+        <BoardColumn status="todo" title="To do">
+          <a href="#one">One</a>
+        </BoardColumn>
+      </Board>,
+    );
+
+    await userEvent.tab();
+    await userEvent.tab();
+
+    // The board, then the link inside it.
+    expect(focused).toEqual(['To doOne', 'One']);
   });
 });
