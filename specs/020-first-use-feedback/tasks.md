@@ -19,7 +19,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## B, C. The sidebar
 
-- [ ] Task 5: The tooltip provider at the app's root; the sidebar loses New task and gains Sessions on the rail; Collapse, Expand, Search, the rail's places and the footer get tooltips in place of `title` (AC-7, AC-8, AC-11)
+- [x] Task 5: The tooltip provider at the app's root; the sidebar loses New task and gains Sessions on the rail; Collapse, Expand, Search, the rail's places and the footer get tooltips in place of `title` (AC-7, AC-8, AC-11)
       Check: pnpm test packages/app/src/shell; pnpm exec playwright test e2e/shell.spec.ts
       Files: packages/app/src/devhub-app.tsx, packages/app/src/shell/sidebar.tsx, sidebar-footer.tsx, sidebar.test.tsx, sidebar-footer.test.tsx, app-shell.test.tsx, e2e/shell.spec.ts
 

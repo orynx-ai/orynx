@@ -19,16 +19,7 @@ afterEach(() => {
   });
 });
 
-describe('New task', () => {
-  it('AC-5: clicking it opens Home and moves focus to the main region', async () => {
-    const { user, history } = await renderApp({ route: '/tickets' });
-
-    await user.click(within(mainNav()).getByRole('link', { name: /^New task/ }));
-
-    expect(history.location.pathname).toBe('/');
-    expect(screen.getByRole('main')).toHaveFocus();
-  });
-
+describe('The New task shortcut', () => {
   it('AC-6: ⌥⌘N opens Home from any page and blocks the browser’s own action', async () => {
     const { history } = await renderApp({ route: '/settings/appearance' });
 
@@ -52,12 +43,10 @@ describe('New task', () => {
     expect(history.location.pathname).toBe('/');
   });
 
-  it('AC-6: shows ⌥⌘N in the sidebar and names it for screen readers on a Mac', async () => {
+  it('AC-6: names ⌥⌘N for screen readers on a Mac, on Home, where it goes (spec 020, AC-8)', async () => {
     await renderApp();
-    const newTask = within(mainNav()).getByRole('link', { name: /^New task/ });
 
-    expect(within(newTask).getByText('⌥⌘N')).toBeVisible();
-    expect(newTask).toHaveAttribute('aria-keyshortcuts', 'Alt+Meta+N');
+    expect(within(mainNav()).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-keyshortcuts', 'Alt+Meta+N');
   });
 
   it('AC-6: leaves ⌘N to the browser, which keeps it for a new window', async () => {
@@ -67,11 +56,9 @@ describe('New task', () => {
     expect(history.location.pathname).toBe('/tickets');
   });
 
-  it('AC-6: uses Ctrl+Alt+N and shows it that way off macOS', async () => {
+  it('AC-6: uses Ctrl+Alt+N off macOS', async () => {
     const { history } = await renderApp({ route: '/tickets', platform: { os: 'other' } });
-    const newTask = within(mainNav()).getByRole('link', { name: /^New task/ });
-    expect(within(newTask).getByText('Ctrl+Alt+N')).toBeVisible();
-    expect(newTask).toHaveAttribute('aria-keyshortcuts', 'Control+Alt+N');
+    expect(within(mainNav()).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-keyshortcuts', 'Control+Alt+N');
 
     press(optionCommandN);
     expect(history.location.pathname).toBe('/tickets');
@@ -98,21 +85,11 @@ describe('New task', () => {
 
   it('AC-6: uses ⌘N in the desktop app, where the page gets every key', async () => {
     const { history } = await renderApp({ route: '/tickets', platform: { kind: 'desktop' } });
-    expect(within(mainNav()).getByText('⌘N')).toBeVisible();
+    expect(within(mainNav()).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-keyshortcuts', 'Meta+N');
 
     expect(press({ key: 'n', code: 'KeyN', metaKey: true })).toBe(false);
     await screen.findByRole('heading', { name: 'What should we build today?' });
     expect(history.location.pathname).toBe('/');
-  });
-});
-
-describe('New task on Home', () => {
-  it('AC-1: is never marked as the current page; only the Home place is', async () => {
-    await renderApp({ route: '/' });
-    const nav = mainNav();
-
-    expect(within(nav).getByRole('link', { name: /^New task/ })).not.toHaveAttribute('aria-current');
-    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
   });
 });
 

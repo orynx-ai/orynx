@@ -41,8 +41,9 @@ test('Given any page, when I press the New task shortcut, then Home opens with f
   page,
 }) => {
   await page.goto('/tickets');
-  const newTask = page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: /^New task/ });
-  const keys = await newTask.getAttribute('aria-keyshortcuts');
+  // New task left the sidebar (spec 020); Home, where the shortcut goes, names its keys.
+  const home = page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Home', exact: true });
+  const keys = await home.getAttribute('aria-keyshortcuts');
   expect(keys).toMatch(/^(Alt\+Meta|Control\+Alt)\+N$/);
 
   await page.keyboard.press(playwrightKeys(keys ?? ''));
@@ -187,7 +188,7 @@ test.describe('narrow window', () => {
     for (const name of ['Home', 'Tickets', 'Settings', 'Sessions']) {
       await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
     }
-    await expect(nav.getByRole('link', { name: /^New task/ })).toBeVisible();
+    await expect(nav.getByRole('link', { name: /New task/ })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: /Search/ })).toBeVisible();
     await expect(nav.getByRole('link', { name: 'View all' })).toBeHidden();
     await expect(nav.getByRole('separator', { name: 'Resize sidebar' })).toHaveCount(0);
