@@ -18,6 +18,7 @@ import { createInboxService } from './inbox/inbox-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
+import { createSkillStore, SkillRejectedError } from './skills/skill-store.ts';
 import { createFolderPicker, type FolderPicker } from './folder-picker/folder-picker.ts';
 import { claudeRoutes } from './routes/claude.ts';
 import { eventsRoutes } from './routes/events.ts';
@@ -26,6 +27,7 @@ import { inboxRoutes } from './routes/inbox.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
+import { skillsRoutes } from './routes/skills.ts';
 import { folderPickerRoutes } from './routes/folder-picker.ts';
 import { searchRoutes } from './routes/search.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
@@ -304,6 +306,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const userHome = options.userHome ?? homedir();
   const devhubHome = options.dataDir ?? join(homedir(), '.devhub');
   const repositories = createRepositoryService({ settings, events, home: userHome, devhubHome });
+  const skills = createSkillStore({ devhubHome, home: userHome, events });
   const sessionService = createSessionService({
     records: sessions,
     repositories,
@@ -414,7 +417,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
           const body: ApiError = { code: 'bad_request', message: error.message };
           return reply.code(400).send(body);
         }
-        if (error instanceof FolderRejectedError) {
+        if (error instanceof FolderRejectedError || error instanceof SkillRejectedError) {
           const body: ApiError = { code: error.code, message: error.message };
           return reply.code(422).send(body);
         }
@@ -445,6 +448,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(ticketsRoutes, { tickets, inbox, jira });
       await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });
       await api.register(repositoriesRoutes, { repositories });
+      await api.register(skillsRoutes, { skills });
       await api.register(folderPickerRoutes, {
         picker: options.folderPicker ?? createFolderPicker({ searchPath: '', platform: process.platform }),
         home: userHome,
