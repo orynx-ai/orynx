@@ -15,6 +15,12 @@ import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
 import {
+  NotificationListSchema,
+  NotificationSchema,
+  type Notification,
+  type NotificationList,
+} from './notifications.ts';
+import {
   defaultPreferences,
   PreferencesSchema,
   type InboxRules,
@@ -481,5 +487,35 @@ export function makeSearchIndex(overrides: Partial<SearchIndex> = {}): SearchInd
     sessions: [],
     tools: { jira: synced, github: synced },
     ...overrides,
+  });
+}
+
+/**
+ * The design's "Session finished, ready for a pull request" for PROJ-1398, unread, at 10:00 on 19 Oct 2026,
+ * unless the override says otherwise (spec 029).
+ */
+export function makeNotification(overrides: Partial<Notification> = {}): Notification {
+  return NotificationSchema.parse({
+    id: 'n-1',
+    at: '2026-10-19T10:00:00.000Z',
+    read: false,
+    what: {
+      kind: 'session_finished',
+      session: {
+        id: '00000000000000bb',
+        title: 'Read receipts on analytics',
+        source: { kind: 'jira', key: 'PROJ-1398' },
+      },
+    },
+    ...overrides,
+  });
+}
+
+/** The list with its counts worked out from the notifications, as the server sends it. */
+export function makeNotificationList(notifications: readonly Notification[] = []): NotificationList {
+  return NotificationListSchema.parse({
+    notifications,
+    unread: notifications.filter((notification) => !notification.read).length,
+    waiting: notifications.filter(({ what }) => what.kind === 'approval' && what.waiting).length,
   });
 }

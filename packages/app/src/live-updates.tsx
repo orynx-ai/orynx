@@ -43,6 +43,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // Another tab, or this one, added, saved or deleted one of your skills (spec 023, AC-19). The key covers
       // Settings › Skills and the composer's `/` lists, which show your skills too.
       return [queryKeys.skills];
+    case 'notifications.changed':
+      return [];
   }
 }
 

@@ -4,7 +4,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **Contracts and core**
 
-- [ ] Task 1: Notification contracts: kinds and their facts, the list answer, the read request, settings with defaults and change, sounds, paths, `notifications.changed`, builders (AC-18, AC-19, AC-22, AC-47)
+- [x] Task 1: Notification contracts: kinds and their facts, the list answer, the read request, settings with defaults and change, sounds, paths, `notifications.changed`, builders (AC-18, AC-19, AC-22, AC-47)
       Check: pnpm test packages/contracts/src/notifications.test.ts
       Files: packages/contracts/src/notifications.ts, packages/contracts/src/notifications.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/events.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
 - [ ] Task 2: A `notifications` table in `cache.db`: add, list newest first, mark read, mark all read, end an approval; newest 200, 30 days; Clear cache empties it (AC-13, AC-18)

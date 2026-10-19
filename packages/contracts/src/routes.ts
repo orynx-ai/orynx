@@ -42,6 +42,9 @@ export const apiPaths = {
   orynxSkill: '/skills/orynx/:folder',
   orynxSkillStarters: '/skills/orynx/starters',
   agentModels: '/agent/models',
+  notifications: '/notifications',
+  notificationsRead: '/notifications/read',
+  notificationSettings: '/notifications/settings',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -87,6 +90,9 @@ export const apiRoutes = {
   orynxSkill: `${apiPrefix}${apiPaths.orynxSkill}`,
   orynxSkillStarters: `${apiPrefix}${apiPaths.orynxSkillStarters}`,
   agentModels: `${apiPrefix}${apiPaths.agentModels}`,
+  notifications: `${apiPrefix}${apiPaths.notifications}`,
+  notificationsRead: `${apiPrefix}${apiPaths.notificationsRead}`,
+  notificationSettings: `${apiPrefix}${apiPaths.notificationSettings}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];
