@@ -280,8 +280,8 @@ describe('Settings › Notifications: what you’re told about (spec 029)', () =
     ).not.toBeChecked();
     expect(
       within(table).getByRole('combobox', { name: 'Sound for Claude is waiting for your approval' }),
-    ).toHaveDisplayValue('Knock');
-    expect(within(table).getByRole('combobox', { name: 'Sound for Jira ticket assigned to you' })).toHaveDisplayValue(
+    ).toHaveTextContent('Knock');
+    expect(within(table).getByRole('combobox', { name: 'Sound for Jira ticket assigned to you' })).toHaveTextContent(
       'None',
     );
   });
@@ -298,7 +298,8 @@ describe('Settings › Notifications: what you’re told about (spec 029)', () =
     });
 
     await user.click(popUp);
-    await user.selectOptions(within(table).getByRole('combobox', { name: 'Sound for Session finished' }), 'Ping');
+    await user.click(within(table).getByRole('combobox', { name: 'Sound for Session finished' }));
+    await user.click(screen.getByRole('option', { name: 'Ping' }));
 
     await waitFor(() => {
       expect(changes).toEqual([
@@ -337,7 +338,8 @@ describe('Settings › Notifications: do not disturb (spec 029)', () => {
     });
     expect(within(section).getByText('Off. Notifications and sounds are on.')).toBeVisible();
 
-    await user.selectOptions(within(section).getByRole('combobox', { name: 'Pause for' }), 'Until 9:00 tomorrow');
+    await user.click(within(section).getByRole('combobox', { name: 'Pause for' }));
+    await user.click(screen.getByRole('option', { name: 'Until 9:00 tomorrow' }));
     await user.click(pauseNow);
 
     expect(await within(section).findByText('Paused until 9:00 tomorrow.')).toBeVisible();
@@ -362,7 +364,8 @@ describe('Settings › Notifications: do not disturb (spec 029)', () => {
     expect(within(section).getByRole('button', { name: 'Mon' })).toHaveAttribute('aria-pressed', 'true');
 
     await user.click(saturday);
-    fireEvent.change(within(section).getByLabelText('From'), { target: { value: '20:30' } });
+    await user.click(within(section).getByRole('combobox', { name: 'From' }));
+    await user.click(screen.getByRole('option', { name: '20:30' }));
     await user.click(within(section).getByRole('switch', { name: 'Quiet hours' }));
 
     await waitFor(() => {
@@ -375,21 +378,44 @@ describe('Settings › Notifications: do not disturb (spec 029)', () => {
     expect(saturday).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('AC-41: From and to list every half hour, and a saved time between them still shows as picked', async () => {
+    browserSays('granted');
+    serving({
+      ...defaultNotificationSettings,
+      quietHours: { ...defaultNotificationSettings.quietHours, from: '22:15' },
+    });
+    const { user } = await renderApp({ route: '/settings/notifications' });
+    const section = await screen.findByRole('region', { name: 'Do not disturb' });
+    const from = within(section).getByRole('combobox', { name: 'From' });
+    await waitFor(() => {
+      expect(from).toHaveTextContent('22:15');
+    });
+
+    await user.click(from);
+
+    const times = screen.getAllByRole('option').map((option) => option.textContent);
+    expect(times).toHaveLength(49);
+    expect(times.slice(0, 2)).toEqual(['00:00', '00:30']);
+    expect(times.slice(44, 47)).toEqual(['22:00', '22:15', '22:30']);
+    expect(screen.getByRole('option', { name: '22:15' })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('AC-41: From equal to to says why on to, and saves nothing', async () => {
     browserSays('granted');
     const changes = serving();
-    await renderApp({ route: '/settings/notifications' });
+    const { user } = await renderApp({ route: '/settings/notifications' });
     const section = await screen.findByRole('region', { name: 'Do not disturb' });
-    const to = within(section).getByLabelText('to');
+    const to = within(section).getByRole('combobox', { name: 'to' });
     await waitFor(() => {
       expect(to).toBeEnabled();
     });
 
-    fireEvent.change(to, { target: { value: '19:00' } });
+    await user.click(to);
+    await user.click(screen.getByRole('option', { name: '19:00' }));
 
     expect(await within(section).findByText('Quiet hours need a different start and end.')).toBeVisible();
     expect(to).toHaveAttribute('aria-invalid', 'true');
-    expect(to).toHaveValue('19:00');
+    expect(to).toHaveTextContent('19:00');
     expect(changes).toEqual([]);
   });
 
