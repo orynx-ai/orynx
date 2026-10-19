@@ -36,5 +36,10 @@ export const OneTicked: Story = { render: () => <Assignee start={['me']} /> };
 /** Nothing ticked: the filter lets every ticket through. */
 export const NoneTicked: Story = { render: () => <Assignee start={[]} /> };
 
+/** With a search box over the people, as Tickets' Assignee (the user's call, 19 Oct 2026). */
+export const Searchable: Story = {
+  args: { searchLabel: 'Search people', emptyText: 'No one matches', size: 'sm', ticked: ['me'] },
+};
+
 /** Nothing to offer, as on a tab with no rows. */
 export const Empty: Story = { args: { options: [] } };

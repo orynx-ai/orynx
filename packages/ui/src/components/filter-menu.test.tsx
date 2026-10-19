@@ -57,4 +57,38 @@ describe('FilterMenu', () => {
     render(<Status options={[]} />);
     expect(screen.getByRole('button', { name: 'Status' })).toBeDisabled();
   });
+
+  it('with a search label, narrows the options by what you type and ticks them as checkboxes', async () => {
+    const user = userEvent.setup();
+    function Assignee() {
+      const [ticked, setTicked] = useState<string[]>([]);
+      return (
+        <>
+          <FilterMenu
+            label="Assignee"
+            options={[
+              { value: 'me', label: 'Me' },
+              { value: 'Priya Shah', label: 'Priya Shah' },
+              { value: 'Sam Lee', label: 'Sam Lee' },
+            ]}
+            ticked={ticked}
+            onTickedChange={setTicked}
+            searchLabel="Search people"
+            emptyText="No one matches"
+          />
+          <output>{ticked.join(', ')}</output>
+        </>
+      );
+    }
+    render(<Assignee />);
+    await user.click(screen.getByRole('button', { name: 'Assignee' }));
+    await user.keyboard('sam');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Sam Lee']);
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('status', { hidden: true })).toHaveTextContent('Sam Lee');
+    await user.keyboard('zzz');
+    expect(screen.getByText('No one matches')).toBeVisible();
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'Assignee · 1' })).toHaveFocus();
+  });
 });
