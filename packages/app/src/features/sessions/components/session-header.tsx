@@ -74,7 +74,11 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
           {session.branch === null ? null : (
             <code className="rounded-sm bg-subtle px-2 font-mono text-code text-foreground">{session.branch}</code>
           )}
-          <span>in {session.folder.name} · separate worktree, your main checkout is untouched</span>
+          {session.mode === 'ask' ? (
+            <span>Ask session · reads {session.folder.name} in place and changes nothing</span>
+          ) : (
+            <span>in {session.folder.name} · separate worktree, your main checkout is untouched</span>
+          )}
         </div>
       </div>
       <CreatePullRequest

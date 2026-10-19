@@ -52,6 +52,35 @@ describe('SessionScreen', () => {
     expect(within(details).getByRole('button', { name: 'Discard changes' })).toBeVisible();
   });
 
+  it('spec 026: an Ask session has no stepper, worktree or Changes: it says it reads the folder in place', async () => {
+    const ask = { ...working, mode: 'ask', branch: null, worktreePath: null, state: 'done' } as const;
+    server.use(sessionHandler({ ...ask, context: [] }));
+    await renderApp({ route });
+
+    expect(await screen.findByText('Ask session · reads web-app in place and changes nothing')).toBeVisible();
+    expect(screen.queryByText(/separate worktree/)).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Session progress' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Create pull request' })).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Message Claude' })).toBeVisible();
+    // Its ticket is all it was sent: Context alone, with no Changes beside it.
+    const tabs = screen.getByRole('tablist', { name: 'Session details' });
+    expect(
+      within(tabs)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['Context 1']);
+    expect(within(tabs).getByRole('tab', { name: 'Context 1' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('spec 026: an Ask session that was sent nothing has no details beside its progress', async () => {
+    server.use(
+      sessionHandler({ ...working, mode: 'ask', branch: null, worktreePath: null, source: null, context: [] }),
+    );
+    await renderApp({ route });
+    expect(await screen.findByRole('region', { name: "Claude's progress" })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Work details' })).toBeNull();
+  });
+
   it('AC-6 (Q9e): the page bar shows Tickets / the sprint / the key, when it started, and Open in Jira', async () => {
     server.use(sessionHandler(working));
     const { user, platform } = await renderApp({ route });
