@@ -306,6 +306,8 @@ export function AddContext({
               setAddingFolder(true);
               return;
             }
+            // A file pick that answered before the popup finished closing has already put focus in the box.
+            if (document.activeElement !== null && document.activeElement === box()) event.preventDefault();
             if (!toBox.current) return;
             toBox.current = false;
             event.preventDefault();
