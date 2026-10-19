@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { Book02Icon } from '@hugeicons/core-free-icons';
+import { Book02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import type { ReadySkill, SkillEntry, SkillFolder } from '@devhub/contracts';
 import { Button, Callout, EmptyState, Icon, ListNavSkeleton } from '@devhub/ui';
 import { useAddStarterSkills, useSkills } from '../queries.ts';
@@ -151,6 +151,7 @@ export function SkillsPanel() {
                 starters.mutate();
               }}
             >
+              <Icon icon={PlusSignIcon} aria-hidden />
               Add the starter skills
             </Button>
           }

@@ -1,8 +1,16 @@
-// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Coding agent (agent cards and modes), Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023)
+// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023); the Coding agent tab and the tabs' icons: Design: none — the user's redesign mockup 4a · Settings › Coding agent (redesign), 19 Oct 2026
 import { useRef } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { SquareLock02Icon } from '@hugeicons/core-free-icons';
-import { Tabs, TabsContent, TabsList, TabsTrigger, Callout, Icon } from '@devhub/ui';
+import {
+  Book02Icon,
+  Folder01Icon,
+  InboxIcon,
+  PaintBrush02Icon,
+  Plug01Icon,
+  RoboticIcon,
+  SquareLock02Icon,
+} from '@hugeicons/core-free-icons';
+import { Tabs, TabsContent, TabsList, TabsTrigger, Callout, Icon, type IconSvgElement } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb } from '../../shell/page-frame.tsx';
 import { useUiStore } from '../../stores/ui-store.ts';
 import { AppearancePanel } from './components/appearance-panel.tsx';
@@ -12,7 +20,17 @@ import { RepositoriesPanel } from './components/repositories-panel.tsx';
 import { SkillsBarActions } from './components/skills-bar-actions.tsx';
 import { SkillsPanel } from './components/skills-panel.tsx';
 import { ConnectionsPanel } from './components/connections-panel.tsx';
-import { SettingsTabSchema, settingsTabLabels } from './tabs.ts';
+import { SettingsTabSchema, settingsTabLabels, type SettingsTab } from './tabs.ts';
+
+/** Each tab's icon, before its name (the user's call, 19 Oct 2026: icons wherever they help). */
+const tabIcons: Record<SettingsTab, IconSvgElement> = {
+  connections: Plug01Icon,
+  'coding-agent': RoboticIcon,
+  skills: Book02Icon,
+  repositories: Folder01Icon,
+  'inbox-rules': InboxIcon,
+  appearance: PaintBrush02Icon,
+};
 
 export function SettingsScreen() {
   const { tab } = useParams({ from: '/settings/$tab' });
@@ -70,6 +88,7 @@ export function SettingsScreen() {
           <TabsList ref={tabs} aria-label="Settings sections">
             {SettingsTabSchema.options.map((value) => (
               <TabsTrigger key={value} value={value}>
+                <Icon icon={tabIcons[value]} aria-hidden />
                 {settingsTabLabels[value]}
               </TabsTrigger>
             ))}
