@@ -55,6 +55,8 @@ export interface SkillStoreOptions {
   /** The person's home folder, for `~`. */
   home: string;
   events: EventBus;
+  /** How many sessions named each skill, by folder (AC-24); none counted without it. */
+  uses?: () => Promise<ReadonlyMap<string, number>>;
 }
 
 /** Where Settings › Skills keeps your skills: `<DEVHUB_HOME>/plugin/skills`. */
@@ -78,6 +80,7 @@ function taken(folder: string): SkillRejectedError {
 
 export function createSkillStore(options: SkillStoreOptions): SkillStore {
   const { events } = options;
+  const uses = options.uses ?? (() => Promise.resolve(new Map<string, number>()));
   const plugin = join(options.devhubHome, 'plugin');
   const skills = orynxSkillsFolder(options.devhubHome);
   // Changes run one at a time, so two saves can't both take a free folder.
@@ -119,16 +122,11 @@ export function createSkillStore(options: SkillStoreOptions): SkillStore {
     }
   }
 
-  async function entry(folder: string): Promise<SkillEntry> {
+  async function entry(folder: string, counted: ReadonlyMap<string, number>): Promise<SkillEntry> {
     const read = await content(folder);
     if (read === null) return { state: 'unreadable', folder };
-    return {
-      state: 'ready',
-      folder,
-      title: read.title,
-      description: read.description,
-      instructions: read.instructions,
-    };
+    const { title, description, instructions } = read;
+    return { state: 'ready', folder, title, description, instructions, uses: counted.get(folder) ?? 0 };
   }
 
   /** A folder that only this user can open: the skills folder, its parent, or one skill's. */
@@ -160,7 +158,8 @@ export function createSkillStore(options: SkillStoreOptions): SkillStore {
 
   return {
     async list() {
-      const entries = await Promise.all((await folders()).map(entry));
+      const counted = await uses();
+      const entries = await Promise.all((await folders()).map((folder) => entry(folder, counted)));
       return { pluginFolder: displayPath(plugin, options.home), skills: entries.sort(byName) };
     },
 
@@ -170,7 +169,7 @@ export function createSkillStore(options: SkillStoreOptions): SkillStore {
         if ((await kind(folder)) !== 'missing') throw taken(folder);
         await create(folder, fields);
         events.publish({ type: 'skills.changed' });
-        return { state: 'ready', folder, ...fields };
+        return { state: 'ready', folder, ...fields, uses: 0 };
       }),
 
     save: (current, fields) =>
@@ -189,7 +188,7 @@ export function createSkillStore(options: SkillStoreOptions): SkillStore {
           throw error;
         }
         events.publish({ type: 'skills.changed' });
-        return { state: 'ready', folder, ...fields };
+        return { state: 'ready', folder, ...fields, uses: (await uses()).get(folder) ?? 0 };
       }),
 
     remove: (folder) =>

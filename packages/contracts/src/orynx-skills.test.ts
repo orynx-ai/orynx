@@ -96,6 +96,7 @@ describe('OrynxSkillListSchema', () => {
       title: 'Bug bash',
       description: 'Hunt for bugs in the code a ticket touches and list each one with steps to reproduce.',
       instructions: expect.stringContaining('# Bug bash') as string,
+      uses: 0,
     });
   });
 

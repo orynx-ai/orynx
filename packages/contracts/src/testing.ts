@@ -328,6 +328,7 @@ export function makeOrynxSkill(overrides: Partial<Omit<ReadySkill, 'state'>> = {
     folder: 'bug-bash',
     title: 'Bug bash',
     description: 'Hunt for bugs in the code a ticket touches and list each one with steps to reproduce.',
+    uses: 0,
     instructions:
       '# Bug bash\n\n1. Read the ticket and its acceptance criteria.\n2. Run the existing tests.\n\nDo not change any code. Report only.\n',
     ...overrides,

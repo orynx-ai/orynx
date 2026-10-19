@@ -74,6 +74,7 @@ describe('skill store: reading', () => {
       title: 'Bug bash',
       description: 'When to use Bug bash.',
       instructions: '# Bug bash\n',
+      uses: 0,
     });
   });
 
@@ -116,13 +117,31 @@ describe('skill store: reading', () => {
       { state: 'unreadable', folder: 'linked-file' },
     ]);
   });
+
+  it('AC-24: gives each skill the sessions that named it, and 0 to the rest', async () => {
+    await put('bug-bash', skillFile('Bug bash'));
+    await put('how-we-review', skillFile('How we review'));
+    const counted = createSkillStore({
+      devhubHome,
+      home: userHome,
+      events: createEventBus(),
+      uses: () => Promise.resolve(new Map([['bug-bash', 4]])),
+    });
+
+    expect((await counted.list()).skills.map((skill) => skill.state === 'ready' && [skill.folder, skill.uses])).toEqual(
+      [
+        ['bug-bash', 4],
+        ['how-we-review', 0],
+      ],
+    );
+  });
 });
 
 describe('skill store: writing', () => {
   it('AC-5: adds a skill in a 0700 folder as a 0600 SKILL.md, and says skills changed', async () => {
     const skillStore = store();
 
-    expect(await skillStore.add(bugBash)).toEqual({ state: 'ready', folder: 'bug-bash', ...bugBash });
+    expect(await skillStore.add(bugBash)).toEqual({ state: 'ready', folder: 'bug-bash', ...bugBash, uses: 0 });
 
     const file = join(skills, 'bug-bash', 'SKILL.md');
     expect(await readFile(file, 'utf8')).toBe(
@@ -133,7 +152,7 @@ describe('skill store: writing', () => {
       expect(await mode(folder)).toBe(0o700);
     }
     expect(published).toEqual([{ type: 'skills.changed' }]);
-    expect((await skillStore.list()).skills).toEqual([{ state: 'ready', folder: 'bug-bash', ...bugBash }]);
+    expect((await skillStore.list()).skills).toEqual([{ state: 'ready', folder: 'bug-bash', ...bugBash, uses: 0 }]);
   });
 
   it('AC-7: refuses a Name whose folder another skill has, and writes nothing', async () => {
@@ -154,7 +173,7 @@ describe('skill store: writing', () => {
 
     const saved = await skillStore.save('bug-bash', { ...bugBash, instructions: 'New.\n' });
 
-    expect(saved).toEqual({ state: 'ready', folder: 'bug-bash', ...bugBash, instructions: 'New.\n' });
+    expect(saved).toEqual({ state: 'ready', folder: 'bug-bash', ...bugBash, instructions: 'New.\n', uses: 0 });
     expect(await readFile(join(skills, 'bug-bash', 'SKILL.md'), 'utf8')).toBe(
       '---\nname: bug-bash\ndescription: Hunt for bugs.\nlicense: MIT\nmetadata:\n  title: Bug bash\n---\n\nNew.\n',
     );
@@ -255,7 +274,7 @@ describe('skill store: writing', () => {
       'bug-bash',
       'write-tests-first',
     ]);
-    expect(list.skills).toContainEqual({ state: 'ready', ...starterSkills[1] });
+    expect(list.skills).toContainEqual({ state: 'ready', ...starterSkills[1], uses: 0 });
     expect(await readFile(join(skills, 'bug-bash', 'SKILL.md'), 'utf8')).toBe(skillFile('My own bug bash'));
     expect(published).toEqual([{ type: 'skills.changed' }]);
   });

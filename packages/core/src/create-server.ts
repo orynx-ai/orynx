@@ -19,6 +19,7 @@ import { registerLocalOnly } from './plugins/local-only.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
 import { createSkillStore, orynxSkillsFolder, SkillRejectedError } from './skills/skill-store.ts';
+import { orynxSkillUses } from './skills/skill-uses.ts';
 import {
   createFilePicker,
   createFolderPicker,
@@ -317,7 +318,12 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const devhubHome = options.dataDir ?? join(homedir(), '.devhub');
   const repositories = createRepositoryService({ settings, events, home: userHome, devhubHome });
   const skills = createSkillsService({ repositories, home: userHome, orynx: orynxSkillsFolder(devhubHome) });
-  const orynxSkills = createSkillStore({ devhubHome, home: userHome, events });
+  const orynxSkills = createSkillStore({
+    devhubHome,
+    home: userHome,
+    events,
+    uses: () => orynxSkillUses(sessions),
+  });
   const sessionService = createSessionService({
     skills,
     records: sessions,

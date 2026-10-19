@@ -105,7 +105,7 @@ describe('/api/skills/orynx', () => {
     const added = await app.inject({ method: 'POST', url: apiRoutes.orynxSkills, headers, payload: bugBash });
 
     expect(added.statusCode).toBe(201);
-    expect(ReadySkillSchema.parse(added.json())).toEqual({ state: 'ready', folder: 'bug-bash', ...bugBash });
+    expect(ReadySkillSchema.parse(added.json())).toEqual({ state: 'ready', folder: 'bug-bash', ...bugBash, uses: 0 });
     expect(await readFile(join(skills, 'bug-bash', 'SKILL.md'), 'utf8')).toContain('title: Bug bash');
     expect(seen).toContainEqual({ type: 'skills.changed' });
     const list = await app.inject({ method: 'GET', url: apiRoutes.orynxSkills, headers });

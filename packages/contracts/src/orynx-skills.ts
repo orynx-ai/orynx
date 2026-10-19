@@ -46,6 +46,8 @@ export const ReadySkillSchema = z.object({
   description: z.string(),
   /** Everything after the frontmatter. */
   instructions: z.string(),
+  /** How many sessions' briefs named it from Orynx (AC-24). A rename starts it again: sessions keep the old folder. */
+  uses: z.number().int().nonnegative(),
 });
 export type ReadySkill = z.infer<typeof ReadySkillSchema>;
 
