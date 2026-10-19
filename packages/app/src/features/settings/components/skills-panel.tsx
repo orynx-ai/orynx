@@ -67,6 +67,8 @@ export function SkillsPanel() {
       params: { tab: 'skills' },
       search: next === undefined ? {} : { skill: next.folder },
       replace: true,
+      // The deleted skill's unsaved changes went with it.
+      ignoreBlocker: true,
     });
     setFocusNext(next?.folder ?? null);
   }
@@ -74,7 +76,14 @@ export function SkillsPanel() {
   /** A new skill, or a rename, is saved under another folder: the address follows it. */
   function saved(skill: ReadySkill) {
     if (skill.folder === search.skill) return;
-    void navigate({ to: '/settings/$tab', params: { tab: 'skills' }, search: { skill: skill.folder }, replace: true });
+    void navigate({
+      to: '/settings/$tab',
+      params: { tab: 'skills' },
+      search: { skill: skill.folder },
+      replace: true,
+      // Just saved, so nothing is lost.
+      ignoreBlocker: true,
+    });
   }
 
   return (

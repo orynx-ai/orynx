@@ -6,6 +6,7 @@ import { folderFromName, SaveSkillRequestSchema, type ReadySkill, type SaveSkill
 import { Button, Field, Input, Panel, Skeleton, SourceMark, Textarea } from '@devhub/ui';
 import { useAddSkill, useSaveSkill } from '../queries.ts';
 import { DeleteSkill } from './delete-skill.tsx';
+import { DiscardSkillChanges } from './discard-skill-changes.tsx';
 
 type SubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0];
 
@@ -89,6 +90,7 @@ export function SkillEditor({ skill, pluginFolder, onSaved, onDeleted, className
   const status = isDirty ? 'Unsaved changes' : skill === null ? '' : 'Saved';
   return (
     <Panel aria-labelledby={headingId} className={className}>
+      <DiscardSkillChanges name={skill === null ? 'New skill' : skill.title} unsaved={() => form.formState.isDirty} />
       <form noValidate onSubmit={submit}>
         <div className={head}>
           <SourceMark source="skill" size="lg" label="none" />
