@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # release.yml runs these same checks before it builds the desktop app (spec 027).
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
