@@ -4,7 +4,7 @@ import type { Ticket } from '@devhub/contracts';
 import { AgentChip, WorkItemCard, WorkItemTitleButton } from '@devhub/ui';
 import { dueText } from '../../../words/due.ts';
 import { assigneeAvatar } from '../ticket-words.ts';
-import { ShipWithClaude } from '../../sessions/components/ship-with-claude.tsx';
+import { ShipButton } from './ship-button.tsx';
 import { useTicketDialogStore } from '../ticket-dialog-store.ts';
 
 /**
@@ -67,7 +67,7 @@ export function TicketCard({ ticket, now }: { ticket: Ticket; now: Date }) {
       // A ticket with a live session shows its chip; one without, Ship (spec 011, named in spec 020).
       action={
         ticket.session === null ? (
-          <ShipWithClaude ticketKey={ticket.key} look="sparkle" />
+          <ShipButton ticketKey={ticket.key} look="sparkle" />
         ) : (
           <TicketAgentChip ticket={ticket} />
         )
