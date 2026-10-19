@@ -65,8 +65,8 @@ export function ShipSelected({ onCleared }: { onCleared: () => void }) {
             newTask();
           }}
         >
-          <Icon icon={SparklesIcon} aria-hidden />
           {selectionWords.ship}
+          <Icon icon={SparklesIcon} aria-hidden />
         </Button>
       </FloatingBar>
     </>

@@ -16,8 +16,8 @@ describe('FloatingBar', () => {
         </Button>
         <FloatingBarSeparator />
         <Button variant="ghost" size="sm">
-          <Icon icon={SparklesIcon} aria-hidden />
           Ship all
+          <Icon icon={SparklesIcon} aria-hidden />
         </Button>
       </FloatingBar>,
     );

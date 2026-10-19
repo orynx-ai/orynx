@@ -19,8 +19,8 @@ const meta = {
         </Button>
         <FloatingBarSeparator />
         <Button variant="ghost" size="sm">
-          <Icon icon={SparklesIcon} aria-hidden />
           Ship all
+          <Icon icon={SparklesIcon} aria-hidden />
         </Button>
       </>
     ),
@@ -45,8 +45,8 @@ export const One: Story = {
         </Button>
         <FloatingBarSeparator />
         <Button variant="ghost" size="sm">
-          <Icon icon={SparklesIcon} aria-hidden />
           Ship all
+          <Icon icon={SparklesIcon} aria-hidden />
         </Button>
       </>
     ),
