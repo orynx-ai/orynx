@@ -42,6 +42,9 @@ export type ContextPickerContentProps = ComponentProps<typeof Popover.Content> &
 
 const kindSelector = '[role="menuitem"]';
 
+/** The popup's rows: 32 px, as a compact Menu's are. */
+const compactRow = 'min-h-8 py-1';
+
 /** ↓ ↑ Home End move between the kinds, round from the last to the first. */
 function moveBetweenKinds(event: KeyboardEvent<HTMLDivElement>) {
   const keys = ['ArrowDown', 'ArrowUp', 'Home', 'End'];
@@ -60,9 +63,10 @@ function moveBetweenKinds(event: KeyboardEvent<HTMLDivElement>) {
 }
 
 /**
- * The popup: `bg-raised`, a hairline, `radius-md` and the one shadow, as Menu draws it. 330 px for the kinds and
- * 350 px for a list (`home.html`), never wider than the room the window has, keeping 16 px from its edges.
- * The kinds open with focus on the first of them, and Back from a list brings focus to the kind it came from.
+ * The popup: `bg-raised`, a hairline, `radius-md` and the one shadow, as Menu draws it. Compact, as the user asked
+ * (19 Oct 2026): `text-small` with 32 px rows, 288 px for the kinds and 320 px for a list, a list at most 460 px
+ * tall, and never wider or taller than the room the window has, keeping 16 px from its edges. The kinds open with
+ * focus on the first of them, and Back from a list brings focus to the kind it came from.
  */
 export function ContextPickerContent({
   view,
@@ -110,14 +114,15 @@ export function ContextPickerContent({
           lastKind.current = [...event.currentTarget.querySelectorAll(kindSelector)].indexOf(kind);
         }}
         className={cn(
-          'z-50 flex max-h-(--radix-popover-content-available-height) max-w-(--radix-popover-content-available-width) origin-(--radix-popover-content-transform-origin) flex-col rounded-md border border-border bg-raised p-1.5 text-body text-foreground shadow-overlay',
+          'z-50 flex max-h-(--radix-popover-content-available-height) max-w-(--radix-popover-content-available-width) origin-(--radix-popover-content-transform-origin) flex-col rounded-md border border-border bg-raised p-1.5 text-small text-foreground shadow-overlay',
           'motion-safe:data-[state=closed]:animate-menu-out motion-safe:data-[state=open]:animate-menu-in',
-          kinds ? 'w-82.5 overflow-y-auto' : 'w-87.5',
+          kinds ? 'w-72 overflow-y-auto' : 'w-80',
           className,
         )}
         {...props}
       >
-        {children}
+        {/* A list stops at 460 px, or sooner when the window has less room. */}
+        {kinds ? children : <div className="flex max-h-115 min-h-0 flex-col">{children}</div>}
         {kinds && foot ? (
           <div id={footId} className="mt-1 border-t border-border px-2 pt-1.5 pb-0.5 text-small text-muted-foreground">
             {foot}
@@ -164,6 +169,7 @@ export function ContextKindItem({
       data-slot="context-kind"
       className={cn(
         menuItemClass,
+        compactRow,
         'hover:bg-subtle hover:before:opacity-100 focus:bg-subtle focus:before:opacity-100',
         className,
       )}
@@ -173,7 +179,7 @@ export function ContextKindItem({
       {icon}
       <span className="flex min-w-0 flex-1 flex-col">
         {children}
-        {description ? <span className="truncate text-small text-muted-foreground">{description}</span> : null}
+        {description ? <span className="truncate text-label text-muted-foreground">{description}</span> : null}
       </span>
       {leadsOn ? <Icon icon={ArrowRight01Icon} aria-hidden className="ms-auto text-muted-foreground" /> : null}
     </button>
@@ -320,7 +326,7 @@ export function ContextSearch({
                 setActive(0);
               }}
               onKeyDown={onSearchKeyDown}
-              className="h-8 w-full min-w-0 rounded-sm border border-control bg-raised ps-9 pe-3 text-body text-foreground placeholder:text-placeholder"
+              className="h-8 w-full min-w-0 rounded-sm border border-control bg-raised ps-9 pe-3 text-small text-foreground placeholder:text-placeholder"
             />
           </div>
           {/* The listbox holds options alone (ARIA) and scrolls them; the empty line and loading rows sit under it. */}
@@ -343,7 +349,7 @@ export function ContextSearch({
                 role="option"
                 aria-selected={option.added === true}
                 data-highlighted={index === marked ? '' : undefined}
-                className={menuItemClass}
+                className={cn(menuItemClass, compactRow)}
                 onPointerMove={() => {
                   if (index !== marked) setActive(index);
                 }}
@@ -360,7 +366,7 @@ export function ContextSearch({
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate">{option.label}</span>
                   {option.description === undefined ? null : (
-                    <span className="truncate text-small text-muted-foreground">{option.description}</span>
+                    <span className="truncate text-label text-muted-foreground">{option.description}</span>
                   )}
                 </span>
               </div>
@@ -373,7 +379,7 @@ export function ContextSearch({
             <div role="status" className="flex shrink-0 flex-col">
               <span className="sr-only">Loading</span>
               {[0, 1, 2].map((row) => (
-                <span key={row} aria-hidden className="flex h-10 items-center px-3">
+                <span key={row} aria-hidden className="flex h-8 items-center px-3">
                   <Skeleton className="h-3.5 w-3/4" />
                 </span>
               ))}
@@ -390,6 +396,7 @@ export function ContextSearch({
             type="button"
             className={cn(
               menuItemClass,
+              compactRow,
               'hover:bg-subtle hover:before:opacity-100 focus-visible:bg-subtle focus-visible:before:opacity-100',
             )}
             onClick={extra.onSelect}
