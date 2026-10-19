@@ -7,7 +7,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Skill contracts: the folder-name rule, `folderFromName`, limits, the list, one skill, the save request, paths, `skills.changed`, `skill_rejected`, builders (AC-6, AC-8, AC-20)
       Check: pnpm test packages/contracts/src/skills.test.ts
       Files: packages/contracts/src/skills.ts, packages/contracts/src/skills.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/events.ts, packages/contracts/src/errors.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
-- [ ] Task 2: Read and write a `SKILL.md`: `name`, `description`, `metadata.title`, unknown keys kept; add `yaml` to core (AC-5, AC-17, AC-18)
+- [x] Task 2: Read and write a `SKILL.md`: `name`, `description`, `metadata.title`, unknown keys kept; add `yaml` to core (AC-5, AC-17, AC-18)
       Check: pnpm test packages/core/src/skills/skill-file.test.ts
       Files: packages/core/src/skills/skill-file.ts, packages/core/src/skills/skill-file.test.ts, packages/core/package.json, docs/architecture.md
 - [ ] Task 3: The skill store, reading: list and read under `<DEVHUB_HOME>/plugin/skills`, unreadable folders, links skipped, 64 KB cap (AC-2, AC-12, AC-17, AC-20)
