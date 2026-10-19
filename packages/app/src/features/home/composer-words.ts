@@ -86,6 +86,15 @@ export const composerWords = {
     added: (label: string) => `${label} added to the composer.`,
     removed: (label: string) => `${label} removed from the composer.`,
   },
+  /** The `/` list of skills (spec 022, G, Q12). */
+  skills: {
+    label: 'Skills',
+    yours: 'Yours',
+    empty: (folder: string | null) =>
+      folder === null ? 'No skills in ~/.claude.' : `No skills in ${folder} or in ~/.claude.`,
+    failed: "Orynx couldn't read the skills.",
+    tooMany: 'Use up to 5 skills.',
+  },
   /** The +N after the first two chips (spec 022, Q6). */
   more: {
     tooltip: 'Show all context',

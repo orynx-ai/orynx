@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ComposerStart, FileCheckAnswer, FileCheckRequest, FilePicks, InboxItem } from '@devhub/contracts';
-import { inboxQueryOptions, preferencesQueryOptions, queryKeys, type ApiRequestError } from '@devhub/api-client';
+import {
+  inboxQueryOptions,
+  preferencesQueryOptions,
+  queryKeys,
+  skillsQueryOptions,
+  type ApiRequestError,
+} from '@devhub/api-client';
 import { useApi } from '../../api.tsx';
 
 /** A row of Home's list. A Claude session on neither a ticket nor a pull request has no tool (spec 015, AC-24). */
@@ -56,4 +62,10 @@ export function useCheckFile() {
   return useMutation<FileCheckAnswer, ApiRequestError, FileCheckRequest>({
     mutationFn: (request) => api.checkFile(request),
   });
+}
+
+/** The skills for the shown folder, or yours alone (spec 022): asked for only once the `/` list opens. */
+export function useSkills(repositoryId: string | null, enabled: boolean) {
+  const api = useApi();
+  return useQuery({ ...skillsQueryOptions(api, repositoryId), enabled });
 }
