@@ -25,7 +25,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **F. The ticket dialog**
 
-- [ ] Task 6: Let the Jira client read a ticket in full: `issueContext()` also reads status (name and category), priority, assignee, reporter, due date, labels, created and updated; the MSW fake learns them (AC-40, Q8)
+- [x] Task 6: Let the Jira client read a ticket in full: `issueContext()` also reads status (name and category), priority, assignee, reporter, due date, labels, created and updated; the MSW fake learns them (AC-40, Q8)
       Check: pnpm test packages/core/src/integrations/jira
       Files: packages/core/src/integrations/jira/client.ts, packages/core/src/integrations/jira/client.test.ts, packages/core/src/test/fake-jira.ts
 - [ ] Task 7: Serve one ticket: `TicketDetailSchema` and `GET /api/tickets/:key` in the contracts, a ticket service that answers it through the Jira client with the board's column and priority level, 404 when Jira can't find it, 502 when Jira doesn't answer, 409 when Jira isn't connected; route tests with `app.inject()`, the 401 case, and the leak test (AC-40, AC-44)

@@ -68,7 +68,9 @@ export function createContextReader({
     if (credentials?.ok !== true) return { ok: false, problem: 'not_connected' };
     const answer = await jira.issueContext(credentials.request, key);
     if (!answer.ok) return { ok: false, problem: fromJira(answer.problem) };
-    return { ok: true, chip: { kind: 'jira', ...answer.issue } };
+    // Only what the brief gives Claude (spec 015, Q3); the dialog's other fields stay behind.
+    const { key: read, summary, type, description, comments, links } = answer.issue;
+    return { ok: true, chip: { kind: 'jira', key: read, summary, type, description, comments, links } };
   }
 
   async function readPull(chip: Extract<ComposerChip, { kind: 'pull_request' }>): Promise<ChipRead> {

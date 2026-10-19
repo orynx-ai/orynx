@@ -838,8 +838,38 @@ describe('Jira client: a ticket for the composer (spec 015)', () => {
     expect(read[0]).toEqual({ author: 'Person 5', created: '2026-10-06T09:00:00.000+0100', body: 'Comment 5' });
     expect(read.at(-1)).toEqual({ author: 'Someone', created: '2026-10-25T09:00:00.000+0100', body: 'Comment 24' });
     expect(new URL(seen[0]?.url ?? '').searchParams.get('fields')).toBe(
-      'summary,issuetype,description,comment,issuelinks',
+      'summary,issuetype,description,comment,issuelinks,status,priority,assignee,reporter,duedate,labels,created,updated',
     );
+  });
+
+  it('022 AC-40: reads what the ticket dialog shows: status and its category, priority, people, dates and labels', async () => {
+    jira.use(
+      acceptingIssue({
+        key: 'PROJ-1423',
+        status: { name: 'Code Review', category: 'indeterminate' },
+        priority: 'High',
+        assignee: 'Priya S.',
+        reporter: 'Neha K.',
+        dueDate: '2026-10-24',
+        labels: ['archive', 'web'],
+        created: '2026-10-01T09:00:00.000+0100',
+        updated: '2026-10-18T10:30:00.000+0100',
+      }),
+    );
+    expect(await client.issueContext(credentials, 'PROJ-1423')).toMatchObject({
+      ok: true,
+      issue: {
+        status: { name: 'Code Review', category: 'indeterminate' },
+        priority: 'High',
+        assignee: 'Priya S.',
+        reporter: 'Neha K.',
+        dueDate: '2026-10-24',
+        labels: ['archive', 'web'],
+        // Jira's own times; the ticket's map makes them ISO.
+        created: '2026-10-01T09:00:00.000+0100',
+        updated: '2026-10-18T10:30:00.000+0100',
+      },
+    });
   });
 
   it('AC-20: a ticket with no comments or links has none, and an empty comment is left out', async () => {
@@ -860,7 +890,22 @@ describe('Jira client: a ticket for the composer (spec 015)', () => {
     );
     expect(await client.issueContext(credentials, 'PROJ-7')).toEqual({
       ok: true,
-      issue: { key: 'PROJ-7', summary: 'Fix it', type: null, description: null, comments: [], links: [] },
+      issue: {
+        key: 'PROJ-7',
+        summary: 'Fix it',
+        type: null,
+        description: null,
+        comments: [],
+        links: [],
+        status: null,
+        priority: null,
+        assignee: null,
+        reporter: null,
+        dueDate: null,
+        labels: [],
+        created: null,
+        updated: null,
+      },
     });
   });
 
