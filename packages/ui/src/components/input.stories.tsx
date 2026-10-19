@@ -15,3 +15,7 @@ export const Search: Story = {};
 export const WithValue: Story = { args: { defaultValue: 'bulk archive' } };
 export const Disabled: Story = { args: { disabled: true, defaultValue: 'your-team.atlassian.net' } };
 export const Invalid: Story = { args: { 'aria-invalid': true, defaultValue: 'your-team.atlasian.net' } };
+/** A value Orynx works out, read-only: Settings › Skills' Folder name (spec 023). */
+export const Computed: Story = {
+  args: { computed: true, type: 'text', value: 'bug-bash', placeholder: undefined, 'aria-label': 'Folder name' },
+};

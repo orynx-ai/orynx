@@ -26,6 +26,18 @@ describe('Input', () => {
     expect(screen.getByRole('textbox', { name: 'Jira site' })).toHaveValue('your-team.atlassian.net');
   });
 
+  it('AC-6 (spec 023): shows a value Orynx works out read-only, in the mono face on the sidebar wash', async () => {
+    render(<Input aria-label="Folder name" computed value="bug-bash" />);
+    const box = screen.getByRole('textbox', { name: 'Folder name' });
+
+    await userEvent.type(box, 'x');
+
+    expect(box).toHaveValue('bug-bash');
+    expect(box).toHaveAttribute('readonly');
+    expect(box).toHaveClass('font-mono', 'text-code', 'bg-sidebar');
+    expect(box).not.toHaveClass('bg-raised');
+  });
+
   it('has no accessibility violations on its own with an aria-label', async () => {
     const { container } = render(<Input aria-label="Search tickets" type="search" />);
     await expectNoAxeViolations(container);
