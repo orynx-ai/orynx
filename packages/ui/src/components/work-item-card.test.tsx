@@ -148,20 +148,20 @@ describe('WorkItemCard', () => {
 
   it('a checkbox before the key picks the ticket, named by its key', async () => {
     const user = userEvent.setup();
-    const onChange = vi.fn();
+    const onCheckedChange = vi.fn();
     const { container } = render(
       <WorkItemCard
         itemKey="PROJ-1377"
         type="Bug"
         title={<WorkItemTitleButton>Search returns archived sites</WorkItemTitleButton>}
-        select={<WorkItemSelect itemKey="PROJ-1377" onChange={onChange} />}
+        select={<WorkItemSelect itemKey="PROJ-1377" onCheckedChange={onCheckedChange} />}
       />,
     );
     const box = screen.getByRole('checkbox', { name: 'Select PROJ-1377' });
     expect(box).not.toBeChecked();
     await user.click(box);
     expect(box).toBeChecked();
-    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onCheckedChange).toHaveBeenCalledExactlyOnceWith(true);
     await expectNoAxeViolations(container);
   });
 
