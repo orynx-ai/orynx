@@ -14,10 +14,12 @@ export function SkillsBarActions() {
   const count = skills?.skills.length ?? 0;
 
   return (
-    <>
+    // The count arrives with the skills. Out of the flow, just before New skill, it moves nothing when it does
+    // (AC-15); the group stays as wide as the button.
+    <div className="relative flex items-center">
       {skills === undefined || count === 0 ? null : (
         // Under 768 px the bar has room only for the crumbs and the button.
-        <span className="text-small text-muted-foreground max-md:hidden">
+        <span className="absolute end-full me-2 max-w-100 truncate text-small whitespace-nowrap text-muted-foreground max-md:hidden">
           {`${plural(count, 'skill')} in ${skills.pluginFolder}`}
         </span>
       )}
@@ -31,6 +33,6 @@ export function SkillsBarActions() {
         <Icon icon={PlusSignIcon} aria-hidden />
         New skill
       </Button>
-    </>
+    </div>
   );
 }
