@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: The login shell's PATH, after the PATH the app got, with markers, closed stdin and a 10-second limit (AC-10, AC-11)
       Check: pnpm test apps/desktop/src/login-path.test.ts
       Files: apps/desktop/src/login-path.ts, apps/desktop/src/login-path.test.ts
-- [ ] Task 5: Finding the hub: another live hub on this home (pid alive and `GET /` answers), an ended one ignored, then waiting for this hub's `runtime.json` and `GET /`, 30 seconds at most (AC-6, AC-8, AC-9)
+- [x] Task 5: Finding the hub: another live hub on this home (pid alive and `GET /` answers), an ended one ignored, then waiting for this hub's `runtime.json` and `GET /`, 30 seconds at most (AC-6, AC-8, AC-9)
       Check: pnpm test apps/desktop/src/hub.test.ts
       Files: apps/desktop/src/hub.ts, apps/desktop/src/hub.test.ts
 - [ ] Task 6: The log file (`logs/orynx.log`, the last launch's as `orynx.old.log`, folder 0700, files 0600) and the link rules (https new windows and `vscode:`/`cursor:` to the OS, everything else refused) (AC-13, AC-14, AC-15, AC-21)
