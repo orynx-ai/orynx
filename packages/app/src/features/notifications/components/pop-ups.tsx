@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { defaultNotificationSettings, type Notification } from '@devhub/contracts';
 import { Notification01Icon } from '@hugeicons/core-free-icons';
 import { Toast, ToastRegion } from '@devhub/ui';
@@ -28,6 +28,7 @@ export function PopUps() {
   const settings = useNotificationSettings();
   const navigate = useNavigate();
   const platform = usePlatform();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const seen = useRef<Set<string> | null>(null);
   const speaking = useRef(false);
   const [queued, setQueued] = useState<readonly string[]>([]);
@@ -77,11 +78,15 @@ export function PopUps() {
     const chosen = settings.data ?? defaultNotificationSettings;
     const now = new Date();
     const popping = arrived.filter(
-      (notification) => !notification.read && delivery(notification.what, chosen, now).popUp,
+      ({ read, what }) =>
+        !read &&
+        delivery(what, chosen, now).popUp &&
+        // The session you're looking at already shows it, its approval callout included.
+        !('session' in what && pathname === `/sessions/${what.session.id}`),
     );
     if (popping.length > 0) setQueued((ids) => [...ids, ...popping.map((notification) => notification.id)]);
     if (speaking.current && arrived.length > 0) void announce(arrived, chosen, now, open);
-  }, [list, settings.data, open]);
+  }, [list, settings.data, open, pathname]);
 
   const byId = new Map((list ?? []).map((notification) => [notification.id, notification]));
   // An approval answered anywhere has nothing left to ask, so its pop-up goes (AC-23).

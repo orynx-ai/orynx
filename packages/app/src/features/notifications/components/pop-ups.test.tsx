@@ -152,6 +152,21 @@ describe('pop-ups (spec 029)', () => {
     expect(within(popUps()).getAllByRole('status')).toHaveLength(3);
   });
 
+  it('none pops up for the session whose screen you’re on, which shows it already', async () => {
+    choosing(awake);
+    listing([]);
+    await renderApp({ route: '/sessions/00000000000000aa' });
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    await within(nav).findByRole('button', { name: 'Notifications' });
+    listing([approval]);
+    act(() => {
+      FakeEventSource.latest().emit({ type: 'notifications.changed' });
+    });
+
+    await within(nav).findByRole('button', { name: 'Notifications, 1 unread' });
+    expect(within(popUps()).queryByRole('alert')).toBeNull();
+  });
+
   it('those already there when the tab opened don’t pop up', async () => {
     choosing(awake);
     await arrive([], [finished()]);
