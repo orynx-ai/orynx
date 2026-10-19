@@ -33,14 +33,20 @@ describe('approval words (spec 012, Q8)', () => {
     expect(alwaysAllowLabel('npm test')).toBe('Always allow npm test');
   });
 
-  it('AC-6, Q8b: says why a command always asks, and that allowing it runs it once outside the sandbox', () => {
+  it('AC-6, Q8b, spec 026: says why a command asks first, and that allowing it runs it once outside the sandbox', () => {
     expect(alwaysAskLine('network')).toBe(
-      'This reaches the network, so it always asks. If you allow it, it runs once outside the sandbox.',
+      'This reaches the network, so it asks first. If you allow it, it runs once outside the sandbox.',
     );
     expect(alwaysAskLine('delete_outside')).toBe(
-      'This deletes outside the worktree, so it always asks. If you allow it, it runs once outside the sandbox.',
+      'This deletes outside the worktree, so it asks first. If you allow it, it runs once outside the sandbox.',
     );
-    expect(alwaysAskLine('unsandboxed')).toBe('Claude asked to run this outside the sandbox, so it always asks.');
+    expect(alwaysAskLine('unsandboxed')).toBe('Claude asked to run this outside the sandbox, so it asks first.');
+    expect(alwaysAskLine('push')).toBe(
+      'This pushes the branch to GitHub, so it asks first. If you allow it, it runs once outside the sandbox.',
+    );
+    expect(alwaysAskLine('pull_request')).toBe(
+      'This opens a pull request on GitHub, so it asks first. If you allow it, it runs once outside the sandbox.',
+    );
   });
 
   it('AC-14, Q8e: says what went wrong with an answer, and what to do', () => {

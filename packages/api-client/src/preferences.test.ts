@@ -56,7 +56,7 @@ describe('preferences endpoints', () => {
       ),
     );
 
-    const failure = api.changePreferences({ permissionMode: 'ask_everything' });
+    const failure = api.changePreferences({ permissions: { edits: 'ask' } });
 
     await expect(failure).rejects.toBeInstanceOf(ApiRequestError);
     await expect(failure).rejects.toMatchObject({ code: 'internal', status: 500 });

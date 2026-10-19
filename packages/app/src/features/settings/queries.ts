@@ -156,8 +156,12 @@ function withCommandChange(list: readonly string[], change: PreferencesChange): 
 }
 
 function withChange(preferences: Preferences, change: PreferencesChange): Preferences {
+  const permissions = { ...preferences.permissions };
+  for (const [row, set] of Object.entries(change.permissions ?? {})) {
+    if (set !== undefined) Object.assign(permissions, { [row]: set });
+  }
   return {
-    permissionMode: change.permissionMode ?? preferences.permissionMode,
+    permissions,
     inboxRules: { ...preferences.inboxRules, ...change.inboxRules },
     allowedCommands: withCommandChange(preferences.allowedCommands, change),
     editor: change.editor ?? preferences.editor,
@@ -174,7 +178,12 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
     const set = change.inboxRules?.[rule];
     if (set !== undefined && inboxRules[rule] === set) inboxRules[rule] = saved.inboxRules[rule];
   }
-  const modeStillSet = change.permissionMode !== undefined && current.permissionMode === change.permissionMode;
+  // A row it set goes back to the saved one, unless a later change has set that row again since.
+  const permissions = { ...current.permissions };
+  for (const [row, set] of Object.entries(change.permissions ?? {})) {
+    const key = row as keyof Preferences['permissions'];
+    if (permissions[key] === set) Object.assign(permissions, { [key]: saved.permissions[key] });
+  }
   // An entry it added goes, and one it took off comes back where the server has it, unless a later change moved it.
   let allowedCommands = current.allowedCommands;
   if (change.allowCommand !== undefined && !saved.allowedCommands.includes(change.allowCommand)) {
@@ -189,7 +198,7 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
   }
   const editorStillSet = change.editor !== undefined && current.editor === change.editor;
   return {
-    permissionMode: modeStillSet ? saved.permissionMode : current.permissionMode,
+    permissions,
     inboxRules,
     allowedCommands,
     editor: editorStillSet ? saved.editor : current.editor,

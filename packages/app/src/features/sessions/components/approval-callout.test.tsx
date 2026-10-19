@@ -89,7 +89,7 @@ describe('ApprovalCallout (spec 012)', () => {
     const callout = await screen.findByRole('alert');
     expect(
       within(callout).getByText(
-        'This reaches the network, so it always asks. If you allow it, it runs once outside the sandbox.',
+        'This reaches the network, so it asks first. If you allow it, it runs once outside the sandbox.',
       ),
     ).toBeVisible();
   });

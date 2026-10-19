@@ -12,7 +12,7 @@ import {
   makeSession,
   makeStatus,
 } from '@devhub/contracts/testing';
-import type { PermissionMode } from '@devhub/contracts';
+import type { Permissions } from '@devhub/contracts';
 import { FakeEventSource } from './test/fake-event-source.ts';
 import { apiUrl, server } from './test/msw.ts';
 import { renderApp, testToken } from './test/render.tsx';
@@ -58,19 +58,21 @@ describe('LiveUpdates', () => {
   });
 
   it('AC-17: refetches the preferences when another tab saved a change', async () => {
-    let permissionMode: PermissionMode = 'edit_freely_ask_commands';
-    server.use(http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences({ permissionMode }))));
+    let edits: Permissions['edits'] = 'allow';
+    server.use(
+      http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences({ permissions: { edits } }))),
+    );
     await renderApp({ route: '/settings/coding-agent' });
-    const everything = await screen.findByRole('radio', { name: 'Ask before everything' });
+    const row = await screen.findByRole('combobox', { name: 'Edit files' });
     await waitFor(() => {
-      expect(everything).toBeEnabled();
+      expect(row).toHaveDisplayValue('Allow');
     });
 
-    permissionMode = 'ask_everything';
+    edits = 'ask';
     FakeEventSource.latest().emit({ type: 'settings.changed' });
 
     await waitFor(() => {
-      expect(everything).toBeChecked();
+      expect(row).toHaveDisplayValue('Ask first');
     });
   });
 

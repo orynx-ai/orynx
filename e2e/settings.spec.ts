@@ -159,31 +159,28 @@ for (const tab of ['coding-agent', 'repositories', 'inbox-rules'] as const) {
   });
 }
 
-test('AC-3, AC-19: Given Coding agent, when I move the mode with the arrow keys, then it saves and a reload keeps it', async ({
+test('AC-3, spec 026: Given Coding agent, when I change a row, then it saves and a reload keeps it', async ({
   page,
 }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop', 'The mode is one value for the whole server; one run owns it.');
+  test.skip(testInfo.project.name !== 'desktop', 'The rows are one value for the whole server; one run owns them.');
   await page.goto('/settings/coding-agent');
-  const recommended = page.getByRole('radio', { name: 'Edit files freely, ask before commands' });
-  await expect(recommended).toBeChecked();
+  const edits = page.getByRole('combobox', { name: 'Edit files' });
+  await expect(edits).toHaveValue('allow');
 
-  await recommended.focus();
   const firstSave = saved(page);
-  await page.keyboard.press('ArrowUp');
-  const everything = page.getByRole('radio', { name: 'Ask before everything' });
-  await expect(everything).toBeChecked();
-  await expect(everything).toBeFocused();
+  await edits.selectOption('ask');
+  await expect(edits).toBeFocused();
   await firstSave;
 
   await page.reload();
-  await expect(page.getByRole('radio', { name: 'Ask before everything' })).toBeChecked();
+  await expect(page.getByRole('combobox', { name: 'Edit files' })).toHaveValue('ask');
 
   // Back to the default, for anyone who runs the suite twice against one server.
   const secondSave = saved(page);
-  await page.getByRole('radio', { name: 'Edit files freely, ask before commands' }).click();
+  await page.getByRole('combobox', { name: 'Edit files' }).selectOption('allow');
   await secondSave;
   await page.reload();
-  await expect(page.getByRole('radio', { name: 'Edit files freely, ask before commands' })).toBeChecked();
+  await expect(page.getByRole('combobox', { name: 'Edit files' })).toHaveValue('allow');
 });
 
 test('AC-13, AC-19: Given Inbox rules, when I press Space on a rule, then it saves and a reload keeps it', async ({

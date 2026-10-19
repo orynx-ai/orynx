@@ -7,8 +7,8 @@ import { allowedCommandFormSchema, type AllowedCommandFormValues } from '../sche
 import { SaveError } from './save-error.tsx';
 
 /**
- * Settings › Coding agent's allow list (spec 012, Q6, Q8f): the commands that run without asking in "Edit
- * files and run allowed commands". Shown in every mode, so it can be filled before switching. Adding and
+ * Settings › Coding agent's allow list (spec 012, Q6, Q8f): the commands that run without asking while Run
+ * commands is Only allowed commands (spec 026). Shown whatever it's set to, so it can be filled first. Adding and
  * removing save one entry each, shown at once; a change that fails is taken back alone.
  */
 export function AllowedCommands() {
@@ -50,7 +50,7 @@ export function AllowedCommands() {
           Allowed commands
         </h2>
         <p className="m-0 text-small text-muted-foreground">
-          These run without asking when Edit files and run allowed commands is on. Commands run in a sandbox with no
+          These run without asking while Run commands is set to Only allowed commands. Commands run in a sandbox with no
           network.
         </p>
       </div>

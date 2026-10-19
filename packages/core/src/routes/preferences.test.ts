@@ -60,7 +60,7 @@ describe('/api/preferences', () => {
     expect(PreferencesSchema.parse(res.json())).toEqual(defaultPreferences);
   });
 
-  it('AC-3, AC-17: PATCH saves the mode to settings.json, answers with every preference and says settings changed', async () => {
+  it('AC-3, AC-17: PATCH saves a row to settings.json, answers with every preference and says settings changed', async () => {
     const folder = await home();
     const { app, seen } = await server({ settings: createFileSettingsStore(folder) });
 
@@ -68,14 +68,13 @@ describe('/api/preferences', () => {
       method: 'PATCH',
       url: apiRoutes.preferences,
       headers,
-      payload: { permissionMode: 'ask_everything' },
+      payload: { permissions: { edits: 'ask' } },
     });
 
+    const permissions = { ...defaultPreferences.permissions, edits: 'ask' };
     expect(res.statusCode).toBe(200);
-    expect(PreferencesSchema.parse(res.json())).toEqual({ ...defaultPreferences, permissionMode: 'ask_everything' });
-    expect(JSON.parse(await readFile(settingsFilePath(folder), 'utf8'))).toEqual({
-      agent: { permissionMode: 'ask_everything' },
-    });
+    expect(PreferencesSchema.parse(res.json())).toEqual({ ...defaultPreferences, permissions });
+    expect(JSON.parse(await readFile(settingsFilePath(folder), 'utf8'))).toEqual({ agent: { permissions } });
     expect(seen).toContainEqual({ type: 'settings.changed' });
   });
 
@@ -86,7 +85,7 @@ describe('/api/preferences', () => {
       method: 'PATCH',
       url: apiRoutes.preferences,
       headers,
-      payload: { permissionMode: 'edit_and_run_allowed', inboxRules: { unresolved_comments: false } },
+      payload: { permissions: { commands: 'allowed_list' }, inboxRules: { unresolved_comments: false } },
     });
     await first.app.close();
 
@@ -94,7 +93,7 @@ describe('/api/preferences', () => {
     const res = await app.inject({ method: 'GET', url: apiRoutes.preferences, headers });
 
     expect(PreferencesSchema.parse(res.json())).toEqual({
-      permissionMode: 'edit_and_run_allowed',
+      permissions: { ...defaultPreferences.permissions, commands: 'allowed_list' },
       inboxRules: { ...defaultPreferences.inboxRules, unresolved_comments: false },
       allowedCommands: [],
       editor: 'vscode',
@@ -151,10 +150,10 @@ describe('/api/preferences', () => {
     expect(seen).toEqual([]);
   });
 
-  it('PATCH refuses an empty change or an unknown mode with bad_request, and saves nothing', async () => {
+  it('PATCH refuses an empty change, the old mode or an unknown choice with bad_request, and saves nothing', async () => {
     const { app, seen } = await server();
 
-    for (const payload of [{}, { permissionMode: 'yolo' }]) {
+    for (const payload of [{}, { permissionMode: 'ask_everything' }, { permissions: { push: 'yes' } }]) {
       const res = await app.inject({ method: 'PATCH', url: apiRoutes.preferences, headers, payload });
       expect(res.statusCode).toBe(400);
       expect(ApiErrorSchema.parse(res.json()).code).toBe('bad_request');

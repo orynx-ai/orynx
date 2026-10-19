@@ -51,7 +51,7 @@ describe('AllowedCommands (spec 012, Q6, Q8f)', () => {
 
     expect(
       allowed.getByText(
-        'These run without asking when Edit files and run allowed commands is on. Commands run in a sandbox with no network.',
+        'These run without asking while Run commands is set to Only allowed commands. Commands run in a sandbox with no network.',
       ),
     ).toBeVisible();
     const rows = within(await allowed.findByRole('list', { name: 'Allowed commands' })).getAllByRole('listitem');

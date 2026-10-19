@@ -14,7 +14,13 @@ import { ClaudeSignedInSchema, type ClaudeSignedIn } from './claude.ts';
 import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
-import { defaultPreferences, PreferencesSchema, type InboxRules, type Preferences } from './preferences.ts';
+import {
+  defaultPreferences,
+  PreferencesSchema,
+  type InboxRules,
+  type Preferences,
+  type PreferencesChange,
+} from './preferences.ts';
 import {
   DraftedPullRequestSchema,
   DraftedPushSchema,
@@ -292,7 +298,8 @@ export function makeGitHubConnection(overrides: Partial<GitHubConnection> = {}):
 }
 
 export interface PreferencesOverrides {
-  permissionMode?: Preferences['permissionMode'];
+  /** Override some rows and keep the others at their defaults, as a change sends them. */
+  permissions?: PreferencesChange['permissions'];
   /** Override some rules and keep the others on. */
   inboxRules?: Partial<InboxRules>;
   allowedCommands?: string[];
@@ -302,7 +309,10 @@ export interface PreferencesOverrides {
 /** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
 export function makePreferences(overrides: PreferencesOverrides = {}): Preferences {
   return PreferencesSchema.parse({
-    permissionMode: overrides.permissionMode ?? defaultPreferences.permissionMode,
+    permissions: {
+      ...defaultPreferences.permissions,
+      ...Object.fromEntries(Object.entries(overrides.permissions ?? {}).filter(([, set]) => set !== undefined)),
+    },
     inboxRules: { ...defaultPreferences.inboxRules, ...overrides.inboxRules },
     allowedCommands: overrides.allowedCommands ?? [],
     editor: overrides.editor ?? defaultPreferences.editor,

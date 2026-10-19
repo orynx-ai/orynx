@@ -79,7 +79,7 @@ test.describe('the first hub, whose Claude Code is never signed in', () => {
     await expect(claudeCard(page).getByText('Not signed in')).toBeVisible();
     await expect(claudeCard(page).getByText(notSignedIn)).toBeVisible();
     await expect(claudeCard(page).getByRole('button', { name: 'Check again' })).toBeVisible();
-    await expect(page.getByRole('radio', { name: 'Edit files freely, ask before commands' })).toBeChecked();
+    await expect(page.getByRole('combobox', { name: 'Run commands' })).toHaveValue('ask');
     await page.getByRole('tab', { name: 'Connections' }).click();
     await expect(page.getByRole('button', { name: 'Connect' }).first()).toBeVisible();
   });
@@ -125,7 +125,7 @@ test.describe('the first hub, whose Claude Code is never signed in', () => {
     });
     await page.goto('/settings/coding-agent');
     const card = claudeCard(page);
-    const modes = page.getByRole('radiogroup', { name: 'What Claude can do without asking' });
+    const modes = page.getByRole('region', { name: 'What Claude can do without asking' });
     const button = card.getByRole('button', { name: 'Check again' });
     await expect(button).toBeVisible();
     // Measured where the click leaves the page: at 360 px the button can start just below the fold, and the

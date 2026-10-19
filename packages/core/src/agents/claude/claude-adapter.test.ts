@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SandboxSettings } from '@anthropic-ai/claude-agent-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { defaultPermissions } from '@devhub/contracts';
 import { fakeClaudeSdk, freshSessionId, type FakeTurn } from '../../test/fake-claude-sdk.ts';
 import type { AgentAdapter, AgentEvent, AgentPermissions } from '../agent-adapter.ts';
 import { createClaudeAdapter } from './claude-adapter.ts';
@@ -30,7 +31,7 @@ const brief = {
   ],
 };
 const fixed = (permissions: AgentPermissions) => () => Promise.resolve(permissions);
-const editFreely = fixed({ mode: 'edit_freely_ask_commands', allowedCommands: [] });
+const editFreely = fixed({ ...defaultPermissions, allowedCommands: [] });
 const env = { HOME: '/Users/you', PATH: '/usr/bin' };
 
 function sandboxFor(path: string): SandboxSettings {
@@ -226,7 +227,10 @@ describe('the Claude adapter', () => {
       { tool: 'Bash', input: { command: 'npm run lint -- --fix' } },
       { finish: 'Linted.' },
     ]);
-    const session = await watch(adapter, fixed({ mode: 'edit_and_run_allowed', allowedCommands: ['npm test'] }));
+    const session = await watch(
+      adapter,
+      fixed({ ...defaultPermissions, commands: 'allowed_list', allowedCommands: ['npm test'] }),
+    );
     const [approval] = await session.approvals();
     expect(approval?.ask).toMatchObject({ alwaysAsk: null, alwaysAllow: 'npm run lint' });
     await adapter.respond(session.id, approval?.approvalId ?? '', 'always');
@@ -236,7 +240,10 @@ describe('the Claude adapter', () => {
 
   it('AC-4: runs a command on the list without asking, and shows it', async () => {
     const { sdk, adapter } = setUp([{ tool: 'Bash', input: npmTest }, { finish: 'Ran the tests.' }]);
-    const { events } = await runToEnd(adapter, fixed({ mode: 'edit_and_run_allowed', allowedCommands: ['npm test'] }));
+    const { events } = await runToEnd(
+      adapter,
+      fixed({ ...defaultPermissions, commands: 'allowed_list', allowedCommands: ['npm test'] }),
+    );
     expect(events.some((event) => event.type === 'approval')).toBe(false);
     expect(sdk.runs[0]?.decisions[0]?.result).toEqual({ behavior: 'allow', updatedInput: npmTest });
     // Shown once: when Orynx allowed it, not again when its result comes.
@@ -249,7 +256,10 @@ describe('the Claude adapter', () => {
   it('AC-6: an always-ask command you allow runs once outside the sandbox', async () => {
     const curl = { command: 'curl -fsS https://registry.npmjs.org/react' };
     const { sdk, adapter } = setUp([{ tool: 'Bash', input: curl }, { finish: 'Fetched.' }]);
-    const session = await watch(adapter, fixed({ mode: 'edit_and_run_allowed', allowedCommands: ['curl'] }));
+    const session = await watch(
+      adapter,
+      fixed({ ...defaultPermissions, commands: 'allowed_list', allowedCommands: ['curl'] }),
+    );
     const [approval] = await session.approvals();
     expect(approval?.ask).toMatchObject({ alwaysAsk: 'network', alwaysAllow: null });
     await adapter.respond(session.id, approval?.approvalId ?? '', 'allow');
@@ -257,6 +267,20 @@ describe('the Claude adapter', () => {
     expect(sdk.runs[0]?.decisions[0]?.result).toEqual({
       behavior: 'allow',
       updatedInput: { ...curl, dangerouslyDisableSandbox: true },
+    });
+  });
+
+  it('spec 026: with Push the branch on Allow, pushes the session branch without asking, outside the sandbox', async () => {
+    const push = { command: 'git push -u origin feat/PROJ-1423' };
+    const { sdk, adapter } = setUp([{ tool: 'Bash', input: push }, { finish: 'Pushed.' }]);
+    const { events } = await runToEnd(
+      adapter,
+      fixed({ ...defaultPermissions, push: 'allow', branch: 'feat/PROJ-1423', allowedCommands: [] }),
+    );
+    expect(events.some((event) => event.type === 'approval')).toBe(false);
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({
+      behavior: 'allow',
+      updatedInput: { ...push, dangerouslyDisableSandbox: true },
     });
   });
 
@@ -272,7 +296,7 @@ describe('the Claude adapter', () => {
   });
 
   it('AC-11: reads the mode and the allow list again for every call', async () => {
-    let permissions: AgentPermissions = { mode: 'edit_freely_ask_commands', allowedCommands: [] };
+    let permissions: AgentPermissions = { ...defaultPermissions, allowedCommands: [] };
     const { sdk, adapter } = setUp([
       { tool: 'Bash', input: { command: 'npm test' } },
       { tool: 'Bash', input: { command: 'npm test' } },
@@ -280,7 +304,7 @@ describe('the Claude adapter', () => {
     ]);
     const session = await watch(adapter, () => Promise.resolve(permissions));
     const [first] = await session.approvals();
-    permissions = { mode: 'edit_and_run_allowed', allowedCommands: ['npm test'] };
+    permissions = { ...defaultPermissions, commands: 'allowed_list', allowedCommands: ['npm test'] };
     await adapter.respond(session.id, first?.approvalId ?? '', 'allow');
     await session.ended();
     expect(session.events.filter((event) => event.type === 'approval')).toHaveLength(1);
@@ -292,7 +316,7 @@ describe('the Claude adapter', () => {
       { tool: 'Edit', input: { file_path: 'src/a.ts', old_string: 'a = 1', new_string: 'a = 2' } },
       { finish: 'Changed a.' },
     ]);
-    const session = await watch(adapter, fixed({ mode: 'ask_everything', allowedCommands: [] }));
+    const session = await watch(adapter, fixed({ ...defaultPermissions, edits: 'ask', allowedCommands: [] }));
     const [approval] = await session.approvals();
     expect(approval?.ask).toEqual({
       kind: 'edit',
@@ -349,7 +373,7 @@ describe('the Claude adapter', () => {
     const slowFirst = async (): Promise<AgentPermissions> => {
       reads += 1;
       if (reads === 1) await new Promise((resolve) => setTimeout(resolve, 50));
-      return { mode: 'edit_freely_ask_commands', allowedCommands: [] };
+      return { ...defaultPermissions, allowedCommands: [] };
     };
     const session = await watch(adapter, slowFirst);
     const [first, second] = await session.approvals(2);

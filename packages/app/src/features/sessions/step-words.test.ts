@@ -188,7 +188,7 @@ describe('stepWords (Q10a)', () => {
     expect(
       step({ kind: 'refused', state: 'done', access: 'run', reason: 'push', path: 'git push origin main' }),
     ).toEqual({
-      title: "Couldn't push: that waits for Create pull request",
+      title: "Couldn't push or open a pull request: Settings didn't allow it",
       detail: 'git push origin main',
     });
     expect(step({ kind: 'refused', state: 'done', access: 'run', reason: 'background', path: 'npm start &' })).toEqual({

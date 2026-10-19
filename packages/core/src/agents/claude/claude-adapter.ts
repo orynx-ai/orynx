@@ -386,7 +386,10 @@ export function createClaudeAdapter({
             if (tool === 'Bash' && typeof command === 'string') {
               send({ type: 'work', sessionId: id, work: { kind: 'command', command } });
             }
-            return { behavior: 'allow', updatedInput: input };
+            // A command its row in Settings allowed outside the sandbox, such as a push, runs there this once (spec 026).
+            const updatedInput =
+              decision.outsideSandbox === true ? { ...input, dangerouslyDisableSandbox: true } : input;
+            return { behavior: 'allow', updatedInput };
           }
           if (decision.behavior === 'deny') {
             if (decision.refusal !== null) {

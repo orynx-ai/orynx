@@ -151,12 +151,22 @@ describe('readCommand', () => {
     },
   );
 
-  it.each(['git push', 'git push --force origin feat/x', 'git -C . push', 'gh pr create -f', 'npm test; git push'])(
-    'AC-7, Q7: %j pushes or opens a pull request, so it is refused',
-    (line) => {
-      expect(readCommand(line)).toEqual({ kind: 'push' });
-    },
-  );
+  it.each([
+    ['git push', 'push', [['git', 'push']]],
+    ['git push --force origin feat/x', 'push', [['git', 'push', '--force', 'origin', 'feat/x']]],
+    ['git -C . push', 'push', [['git', '-C', '.', 'push']]],
+    ['gh pr create -f', 'pull_request', [['gh', 'pr', 'create', '-f']]],
+    [
+      'npm test; git push',
+      'push',
+      [
+        ['npm', 'test'],
+        ['git', 'push'],
+      ],
+    ],
+  ])('Q7, spec 026: %j pushes or opens a pull request, which its own row decides', (line, what, parts) => {
+    expect(readCommand(line)).toEqual({ kind: 'push', what, parts });
+  });
 
   it.each([
     'echo $(date)',

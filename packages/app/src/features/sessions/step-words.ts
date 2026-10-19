@@ -39,7 +39,7 @@ function refusedTitle(activity: Extract<SessionActivity, { kind: 'refused' }>): 
     case 'ask_everything':
       return "Couldn't edit files: Ask before everything is on";
     case 'push':
-      return "Couldn't push: that waits for Create pull request";
+      return "Couldn't push or open a pull request: Settings didn't allow it";
     case 'background':
       return "Couldn't run a command in the background";
     case 'outside_worktree':

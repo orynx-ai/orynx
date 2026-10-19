@@ -71,6 +71,24 @@ describe('the note added to Claude Code’s system prompt', () => {
     );
   });
 
+  it('spec 026: says Claude may push the branch or open its pull request only as Settings allows, and how', () => {
+    const note = (push: 'never' | 'ask' | 'allow', pullRequest: 'never' | 'ask' | 'allow', commands = true) =>
+      sessionNote('feat/PROJ-1423', commands, true, { push, pullRequest });
+    expect(note('allow', 'ask')).toContain(
+      'You may push this branch with exactly `git push origin feat/PROJ-1423` on its own. ' +
+        'Never force-push or push another branch. ' +
+        'You may open its pull request with `gh pr create`, once the user allows it. ' +
+        "Don't change git settings.",
+    );
+    expect(note('ask', 'never')).toContain(
+      'with exactly `git push origin feat/PROJ-1423` on its own, once the user allows it. Never force-push',
+    );
+    expect(note('ask', 'never')).toContain("Don't open pull requests.");
+    expect(note('never', 'allow')).toContain("Don't push. You may open its pull request with `gh pr create`.");
+    // Without commands there's no git to run, so the old line stays.
+    expect(note('allow', 'allow', false)).toContain("Don't push, open pull requests or change git settings.");
+  });
+
   it('012 AC-20: where commands can’t run, says so, and asks which ones Claude would run', () => {
     expect(sessionNote('feat/PROJ-1423', false)).toBe(
       "You're working in a separate git worktree on the branch feat/PROJ-1423. Make the change the ticket asks for. " +

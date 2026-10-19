@@ -2,11 +2,52 @@ import { z } from 'zod';
 import { AllowedCommandSchema } from './commands.ts';
 
 /**
- * Settings › Coding agent: what Claude may do without asking (product spec, "Permission modes").
- * Saved now (spec 005) and enforced once sessions run (specs 011 and 012).
+ * The three permission modes saved before spec 026 (spec 005, 012). Read only to carry an older setting over to
+ * `permissions`; nothing saves one now.
  */
 export const PermissionModeSchema = z.enum(['ask_everything', 'edit_freely_ask_commands', 'edit_and_run_allowed']);
 export type PermissionMode = z.infer<typeof PermissionModeSchema>;
+
+/**
+ * Settings › Coding agent: what Claude may do without asking, one row for each kind of call (spec 026, the user's
+ * call of 20 Oct 2026). Each row decides its own kind, so a network command follows `network` whatever `commands`
+ * says. A call allowed by `network`, `deleteOutside`, `push` or `pullRequest` runs outside the sandbox, that once.
+ */
+export const PermissionsSchema = z.object({
+  /** File edits in the session's worktree. Edits outside it are always refused. */
+  edits: z.enum(['ask', 'allow']),
+  /** Commands in the sandbox: every one asks, those on the allowed list run, or every one runs. */
+  commands: z.enum(['ask', 'allowed_list', 'any']),
+  /** Commands that reach the network, such as npm install or curl. */
+  network: z.enum(['ask', 'allow']),
+  /** Commands that delete outside the worktree. */
+  deleteOutside: z.enum(['ask', 'allow']),
+  /** Commands Claude asks to run outside the sandbox. */
+  unsandboxed: z.enum(['ask', 'allow']),
+  /** `git push origin <the session's branch>`, never forced and never another branch. */
+  push: z.enum(['never', 'ask', 'allow']),
+  /** `gh pr create` for the session's branch. */
+  pullRequest: z.enum(['never', 'ask', 'allow']),
+});
+export type Permissions = z.infer<typeof PermissionsSchema>;
+
+/** What a fresh Orynx starts with: the recommended mode before spec 026, edit freely and ask before commands. */
+export const defaultPermissions: Permissions = {
+  edits: 'allow',
+  commands: 'ask',
+  network: 'ask',
+  deleteOutside: 'ask',
+  unsandboxed: 'ask',
+  push: 'never',
+  pullRequest: 'never',
+};
+
+/** An older saved mode as rows: it set only how edits and commands ask, so every other row keeps its default. */
+export function permissionsFromMode(mode: PermissionMode): Permissions {
+  if (mode === 'ask_everything') return { ...defaultPermissions, edits: 'ask' };
+  if (mode === 'edit_and_run_allowed') return { ...defaultPermissions, commands: 'allowed_list' };
+  return defaultPermissions;
+}
 
 /** Settings › Coding agent's Editor: where Open in opens a session's worktree (spec 013, Q9). */
 export const EditorSchema = z.enum(['vscode', 'cursor']);
@@ -31,9 +72,9 @@ export type InboxRules = z.infer<typeof InboxRulesSchema>;
 
 /** GET /api/preferences, and the answer to PATCH: the saved values, or the defaults for anything never set. */
 export const PreferencesSchema = z.object({
-  permissionMode: PermissionModeSchema,
+  permissions: PermissionsSchema,
   inboxRules: InboxRulesSchema,
-  /** Commands that run without asking in "Edit files and run allowed commands" (spec 012), as saved, in the order they were added. */
+  /** Commands that run without asking while `permissions.commands` is `allowed_list` (spec 012), as saved, in order. */
   allowedCommands: z.array(z.string().min(1)),
   editor: EditorSchema,
 });
@@ -41,7 +82,7 @@ export type Preferences = z.infer<typeof PreferencesSchema>;
 
 /** What a fresh DevHub starts with (product spec, Settings table). */
 export const defaultPreferences: Preferences = {
-  permissionMode: 'edit_freely_ask_commands',
+  permissions: defaultPermissions,
   inboxRules: {
     jira_assigned: true,
     review_requested: true,
@@ -54,12 +95,12 @@ export const defaultPreferences: Preferences = {
 };
 
 /**
- * PATCH /api/preferences: one change, as the person makes it. Only the rules that changed are sent, and
+ * PATCH /api/preferences: one change, as the person makes it. Only the rows and rules that changed are sent, and
  * one allow-list entry at a time, so two quick changes in a row can't undo each other.
  */
 export const PreferencesChangeSchema = z
   .strictObject({
-    permissionMode: PermissionModeSchema.optional(),
+    permissions: z.strictObject(PermissionsSchema.partial().shape).optional(),
     inboxRules: z.partialRecord(InboxRuleIdSchema, z.boolean()).optional(),
     /** One command to add to the allow list, read as Settings reads it (spec 012, Q8f). */
     allowCommand: AllowedCommandSchema.optional(),
@@ -68,6 +109,6 @@ export const PreferencesChangeSchema = z
     editor: EditorSchema.optional(),
   })
   .refine((change) => Object.values(change).some((value) => value !== undefined), {
-    message: 'Send the mode, at least one rule, a command, or the editor.',
+    message: 'Send a permission, at least one rule, a command, or the editor.',
   });
 export type PreferencesChange = z.infer<typeof PreferencesChangeSchema>;

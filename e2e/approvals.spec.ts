@@ -169,8 +169,15 @@ async function checkEverywhere(page: Page, ready: () => Promise<void>, what: str
   await page.setViewportSize({ width: 1280, height: 800 });
 }
 
-async function setMode(page: Page, permissionMode: string) {
-  await api(page, 'PATCH', '/api/preferences', { permissionMode });
+/** The rows of Settings › Coding agent that each mode before spec 026 stood for. */
+const rowsOf = {
+  ask_everything: { edits: 'ask', commands: 'ask' },
+  edit_freely_ask_commands: { edits: 'allow', commands: 'ask' },
+  edit_and_run_allowed: { edits: 'allow', commands: 'allowed_list' },
+} as const;
+
+async function setMode(page: Page, mode: keyof typeof rowsOf) {
+  await api(page, 'PATCH', '/api/preferences', { permissions: rowsOf[mode] });
 }
 
 test.beforeAll(async ({ browser }, testInfo) => {
@@ -238,9 +245,7 @@ test('AC-6: a command that reaches the network says why it always asks, with no 
   await build(page, 'PROJ-2003');
   const callout = progress(page).getByRole('alert');
   await expect(
-    callout.getByText(
-      'This reaches the network, so it always asks. If you allow it, it runs once outside the sandbox.',
-    ),
+    callout.getByText('This reaches the network, so it asks first. If you allow it, it runs once outside the sandbox.'),
   ).toBeVisible({ timeout: 15_000 });
   await expectButtons(callout, ['Allow once', 'Deny']);
   await callout.getByRole('button', { name: 'Allow once' }).click();
@@ -264,7 +269,9 @@ test('AC-10: two commands asked together wait in turn', async ({ page }) => {
 test('AC-7: a push is refused without asking, and the progress says so', async ({ page }) => {
   await build(page, 'PROJ-2005');
   await finished(page);
-  await expect(progress(page).getByText("Couldn't push: that waits for Create pull request")).toBeVisible();
+  await expect(
+    progress(page).getByText("Couldn't push or open a pull request: Settings didn't allow it"),
+  ).toBeVisible();
   expect(ran('PROJ-2005')).toEqual([]);
 });
 
@@ -408,7 +415,7 @@ test('AC-19: the callouts and the allow list have no axe violations, at 1280 and
     await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
   };
   await waiting('PROJ-2012', 'Claude wants to run a command');
-  await waiting('PROJ-2013', 'This reaches the network, so it always asks.');
+  await waiting('PROJ-2013', 'This reaches the network, so it asks first.');
   await page.goto('/');
   await setMode(page, 'ask_everything');
   await waiting('PROJ-2014', 'Claude wants to create a file');

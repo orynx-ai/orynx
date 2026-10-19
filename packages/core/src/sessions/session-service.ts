@@ -7,7 +7,7 @@ import type {
   CreatePullRequestAnswer,
   CreatePullRequestRequest,
   FileDiff,
-  PermissionMode,
+  Permissions,
   PullRequestDraftAnswer,
   PushAnswer,
   PushDraftAnswer,
@@ -157,7 +157,7 @@ export interface SessionServiceOptions {
     dueDate: string | null;
   } | null>;
   preferences: {
-    read(): Promise<{ permissionMode: PermissionMode; allowedCommands: readonly string[] }>;
+    read(): Promise<{ permissions: Permissions; allowedCommands: readonly string[] }>;
     /** Saves Always allow's entry to the list (spec 012, AC-5). */
     change(change: { allowCommand: string }): Promise<unknown>;
   };
@@ -650,23 +650,25 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (adapter === null) return fail(id, 'other', 'no_claude_code');
     // Settings are read before Claude starts, and again for each call it makes (spec 012, AC-11).
     const permissions = async () => {
-      const [{ permissionMode, allowedCommands }, current] = await Promise.all([
+      const [{ permissions: rows, allowedCommands }, current] = await Promise.all([
         options.preferences.read(),
         records.get(id),
       ]);
-      // The files and folders the brief named, which Claude may read on this run and every follow-up (spec 022).
-      // An Ask session reads only, whatever the mode; a record that's gone reads only too.
+      // The files and folders the brief named, which Claude may read on this run and every follow-up (spec 022);
+      // the branch, the only one a push may name (spec 026). An Ask session reads only, whatever the rows say; a
+      // record that's gone reads only too.
       return {
-        mode: permissionMode,
+        ...rows,
         allowedCommands,
+        branch,
         reads: current?.reads ?? noReads,
         readOnly: current?.session.mode !== 'build',
       };
     };
-    await permissions();
+    const first = await permissions();
     // Stop can come while they're read: then Claude never starts.
     if (stopping(run)) return;
-    const note = branch === null ? askNote() : sessionNote(branch, adapter.runsCommands, ticketNote);
+    const note = branch === null ? askNote() : sessionNote(branch, adapter.runsCommands, ticketNote, first);
     const agentId = await adapter.startSession(brief, worktree, permissions, note, {
       ...(resume === null ? {} : { resume }),
       model,
