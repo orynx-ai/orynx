@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Orynx — Everything around your code</title>
+    <title>Orynx — The developer-first home for Claude Code</title>
     <meta
       name="description"
-      content="Orynx puts the Jira tickets and GitHub reviews that need you in one inbox, and runs Claude on a ticket in its own git worktree while you approve every command. It runs on your laptop."
+      content="Orynx is a developer-first app on your laptop: the Jira tickets and GitHub reviews that need you in one inbox, and Claude building a ticket in its own git worktree, asking first or shipping the pull request itself, as you choose."
     />
     <meta name="theme-color" content="#12110f" />
     <meta name="color-scheme" content="dark" />
@@ -14,10 +14,10 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Orynx" />
-    <meta property="og:title" content="Orynx — Everything around your code" />
+    <meta property="og:title" content="Orynx — The developer-first home for Claude Code" />
     <meta
       property="og:description"
-      content="One inbox for the work that needs you, and Claude building tickets in a worktree you control. Runs on your laptop."
+      content="One inbox for the work that needs you, and Claude taking tickets to pull requests in a worktree you control. Runs on your laptop."
     />
     <meta property="og:image" content="/og.png" />
     <meta property="og:image:width" content="1200" />
@@ -48,7 +48,7 @@
         <nav class="site-nav" aria-label="Main">
           <a href="#inbox">Product</a>
           <a href="#how-it-works">How it works</a>
-          <a href="#control">Safety</a>
+          <a href="#control">Control</a>
           <a href="#faq">FAQ</a>
         </nav>
         <a class="btn btn-primary btn-small" href="#get-started">Get started</a>
@@ -58,11 +58,12 @@
     <main id="main">
       <section class="hero" id="top" aria-labelledby="hero-title">
         <div class="wrap hero-copy">
-          <p class="pill"><span class="pill-dot" aria-hidden="true"></span>Built on Claude · Runs on your laptop</p>
-          <h1 id="hero-title">Everything around your code, <em>in one place.</em></h1>
+          <p class="pill"><span class="pill-dot" aria-hidden="true"></span>Developer-first · Runs on your laptop</p>
+          <h1 id="hero-title">Hand Claude the ticket. <em>Keep your flow.</em></h1>
           <p class="lede">
-            Orynx puts the Jira tickets and GitHub reviews that need you in one inbox. Hand a ticket to Claude and watch
-            it build the change in its own git worktree, while you approve every command and decide what ships.
+            Built for developers who ship with Claude Code. Orynx puts the Jira tickets and GitHub reviews that need you
+            in one inbox, and Claude builds a ticket in its own git worktree. You choose how far it goes: ask before
+            every command, or push the branch and open the pull request on its own.
           </p>
           <div class="actions">
             <a class="btn btn-primary" href="#get-started">Get started</a>
@@ -89,7 +90,7 @@
           </figure>
         </div>
 
-        <ul class="wrap proof" aria-label="Why teams trust it">
+        <ul class="wrap proof" aria-label="Why developers use it">
           <li>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>Runs on your laptop
           </li>
@@ -98,8 +99,8 @@
             keychain
           </li>
           <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>Nothing ships without
-            your click
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>You set what needs your
+            click
           </li>
         </ul>
       </section>
@@ -167,6 +168,13 @@
               </svg>
               Slack <span class="soon">Soon</span>
             </li>
+            <li class="tool tool-soon">
+              <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v8M8 12h8" />
+              </svg>
+              More connectors <span class="soon">Coming</span>
+            </li>
           </ul>
         </div>
       </section>
@@ -231,7 +239,7 @@
             <h2 id="how-title">Delegate the work. Stay close to the change.</h2>
             <p>
               A session takes a ticket from brief to pull request in five visible steps: plan, build, test, review and
-              pull request. You can step in at any of them.
+              pull request. Step in at any of them, or let it run.
             </p>
           </div>
           <div class="how">
@@ -251,17 +259,17 @@
                 </p>
               </li>
               <li>
-                <h3>You approve what runs</h3>
+                <h3>Your settings decide what runs</h3>
                 <p>
-                  Commands wait for you: allow once, always allow, or deny. Review the diff file by file and ask for
-                  changes without starting over.
+                  Claude does what you allowed in Settings and asks for the rest: allow once, always allow, or deny.
+                  Review the diff file by file and ask for changes without starting over.
                 </p>
               </li>
               <li>
-                <h3>Ship when you are ready</h3>
+                <h3>Ship your way</h3>
                 <p>
-                  Claude drafts the pull request title and description. Nothing is pushed and no pull request opens
-                  until you click.
+                  Claude drafts the pull request title and description. Push and open it with one click, or allow Claude
+                  to push the branch and open the pull request on its own.
                 </p>
               </li>
             </ol>
@@ -292,27 +300,34 @@
               height="900"
               loading="lazy"
               decoding="async"
-              alt="Orynx Settings, Coding agent. Claude is active through a company login. Three choices set what Claude can do without asking: ask before everything, edit files freely and ask before commands, or edit files and run allowed commands."
+              alt="Orynx Settings, Coding agent. Under What Claude can do without asking, four levels: Cautious, Balanced, Hands-off and Custom. Hands-off is picked, and the summary says Claude edits files, runs any command, uses the network, pushes the branch and opens pull requests without asking, and asks before deleting outside its copy."
             />
           </figure>
           <div class="reveal">
             <div class="section-head">
-              <p class="eyebrow">You stay in control</p>
-              <h2 id="control-title">Automation without losing the wheel.</h2>
-              <p>Pick how much Claude may do on its own. The guardrails below hold whichever level you choose.</p>
+              <p class="eyebrow">Your rules</p>
+              <h2 id="control-title">As hands-on or hands-off as you like.</h2>
+              <p>
+                Pick a level in Settings › Coding agent, then set any kind of call to Allow, Ask or Block. Claude checks
+                your settings before every call.
+              </p>
             </div>
             <ul class="checks">
               <li>
-                <strong>Three permission levels.</strong> From asking before every edit to running only the commands on
-                your allow list.
-              </li>
-              <li><strong>A sandbox for every command.</strong> Commands run without network access.</li>
-              <li>
-                <strong>Risky steps always ask.</strong> Reaching the network, deleting outside the session's folder and
-                pushing to git wait for you.
+                <strong>Three levels to start from.</strong> Cautious asks before every edit and command. Balanced edits
+                freely and runs your allowed commands. Hands-off runs, pushes and opens pull requests by itself.
               </li>
               <li>
-                <strong>No push, no pull request on its own.</strong> Claude drafts; you decide what leaves your laptop.
+                <strong>Your own mix.</strong> Edits, commands, the network, deleting outside the session's copy,
+                pushing and pull requests each have their own row.
+              </li>
+              <li>
+                <strong>Pull requests without the click.</strong> Allow push and pull request, and Claude ships the
+                session's branch as you, never forced. Until then, it never pushes on its own.
+              </li>
+              <li>
+                <strong>Sandboxed unless you say so.</strong> Commands run with no network and write only to the
+                session's copy. Each risky row warns you when you allow it.
               </li>
               <li>
                 <strong>Stop at any moment.</strong> Stop Claude mid-step, or discard the session and its worktree.
@@ -367,8 +382,10 @@
                   <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
                 </svg>
                 <div>
-                  <h3>Four services, nothing else</h3>
-                  <p>Orynx talks only to Jira, GitHub, Slack and Claude.</p>
+                  <h3>Only what you connect</h3>
+                  <p>
+                    Orynx talks only to the services you connect: Jira, GitHub and Claude today, Slack and more next.
+                  </p>
                 </div>
               </li>
             </ul>
@@ -509,8 +526,9 @@ pnpm start
             <details>
               <summary>Can Claude push code or open a pull request by itself?</summary>
               <p>
-                No. Claude drafts the commit message and the pull request, and nothing leaves your laptop until you
-                click. Pushing to git always asks, whatever permission level you pick.
+                If you allow it. A fresh Orynx never pushes. In Settings › Coding agent, pick Hands-off, or set Push the
+                branch and Open a pull request to Allow, and Claude pushes the session's branch and opens the pull
+                request on its own. Set them to Ask to click for each one, or Block to keep them off.
               </p>
             </details>
             <details>
@@ -521,10 +539,11 @@ pnpm start
               </p>
             </details>
             <details>
-              <summary>When does Slack arrive?</summary>
+              <summary>Which connectors come next?</summary>
               <p>
                 Slack mentions and direct messages are next. Reading them needs a Slack app your workspace admin
-                approves, so the timing depends on that approval.
+                approves, so the timing depends on that approval. More connectors follow, each a small adapter on the
+                local server, so a new tool lands in the same inbox.
               </p>
             </details>
             <details>
@@ -537,8 +556,10 @@ pnpm start
 
       <section class="cta" aria-labelledby="cta-title">
         <div class="wrap cta-inner reveal">
-          <h2 id="cta-title">Make the next step <em>obvious.</em></h2>
-          <p>One calm view of your engineering work, from the first ticket to the pull request that ships it.</p>
+          <h2 id="cta-title">Spend your day <em>on the code.</em></h2>
+          <p>
+            Orynx keeps tickets, reviews and Claude sessions in view, from the first ticket to the merged pull request.
+          </p>
           <div class="actions">
             <a class="btn btn-primary" href="#get-started">Get started</a>
             <a class="btn btn-secondary" href="#how-it-works">See how it works</a>
@@ -563,7 +584,7 @@ pnpm start
         <nav class="footer-nav" aria-label="Footer">
           <a href="#inbox">Product</a>
           <a href="#how-it-works">How it works</a>
-          <a href="#control">Safety</a>
+          <a href="#control">Control</a>
           <a href="#local-first">Local-first</a>
           <a href="#faq">FAQ</a>
         </nav>
