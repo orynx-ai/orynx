@@ -67,7 +67,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **App: reaching you**
 
-- [ ] Task 18: `quiet.ts`: Do not disturb and its end, quiet hours across midnight on the chosen days, approvals breaking through (AC-29, AC-30, AC-31)
+- [x] Task 18: `quiet.ts`: Do not disturb and its end, quiet hours across midnight on the chosen days, approvals breaking through (AC-29, AC-30, AC-31)
       Check: pnpm test packages/app/src/features/notifications/quiet.test.ts
       Files: packages/app/src/features/notifications/quiet.ts, packages/app/src/features/notifications/quiet.test.ts
 - [ ] Task 19: `sounds.ts`: Knock, Chime and Ping with Web Audio at a volume, skipped when the browser refuses (AC-28, AC-37)
