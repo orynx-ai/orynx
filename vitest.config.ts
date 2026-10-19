@@ -17,6 +17,7 @@ export default defineConfig({
         '**/src/testing.ts', // test helpers shipped to other packages
         'apps/server/src/main.ts', // process entry: covered by the e2e smoke test
         'apps/web/src/main.tsx', // browser entry: covered by the e2e smoke test
+        'apps/desktop/src/main.ts', // Electron entry: covered by the desktop e2e test (spec 027)
         'apps/landing/**', // static landing page: checked in a browser, not unit tested
         'packages/core/src/agents/agent-adapter.ts', // types only until roadmap 010
       ],

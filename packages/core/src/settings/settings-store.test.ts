@@ -88,6 +88,42 @@ describe('file settings store', () => {
     expect(await store.read()).toEqual({ jira });
   });
 
+  it("AC-37 (spec 027): a save keeps the file it couldn't read beside the new one, for this user only", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-19T08:12:33Z'));
+    try {
+      await mkdir(home, { recursive: true });
+      const written = JSON.stringify({ jira: { site: 'jira.example.com' }, repositories: [{ id: 'web' }] });
+      await writeFile(settingsFilePath(home), written);
+      const onKept = vi.fn();
+      const store = createFileSettingsStore(home, { onKept });
+
+      await store.update((settings) => ({ ...settings, jira }));
+
+      const kept = join(home, 'settings-20261019-081233.unreadable.json');
+      expect(onKept).toHaveBeenCalledExactlyOnceWith(kept);
+      expect(await readFile(kept, 'utf8')).toBe(written);
+      expect((await stat(kept)).mode & 0o777).toBe(0o600);
+      expect(JSON.parse(await readFile(settingsFilePath(home), 'utf8'))).toEqual({ jira });
+
+      await store.update((settings) => ({ ...settings, github: { method: 'gh' } }));
+      expect(onKept).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("AC-37 (spec 027): a change that fails leaves the file it couldn't read where it was", async () => {
+    await mkdir(home, { recursive: true });
+    await writeFile(settingsFilePath(home), '{ "jira": ');
+    const store = createFileSettingsStore(home);
+
+    await expect(store.update(() => ({ github: { method: 'oauth' } as never }))).rejects.toThrow();
+
+    expect(await readdir(home)).toEqual(['settings.json']);
+    expect(await readFile(settingsFilePath(home), 'utf8')).toBe('{ "jira": ');
+  });
+
   it('treats a file with a wrong shape as empty', async () => {
     await mkdir(home, { recursive: true });
     await writeFile(settingsFilePath(home), JSON.stringify({ jira: { site: 'jira.example.com' } }));

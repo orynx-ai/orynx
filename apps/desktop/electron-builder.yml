@@ -1,0 +1,48 @@
+# Packs Orynx for macOS (Apple Silicon) and Linux (spec 027). Run through `pnpm --filter @devhub/desktop package`,
+# which stages the hub in .stage/ first (scripts/pack-desktop.ts).
+appId: io.github.masterghost2002.orynx
+productName: Orynx
+directories:
+  output: release
+  buildResources: build
+# The app itself is only the bundled main.cjs: every library is inside it.
+files:
+  - dist/main.cjs
+npmRebuild: false
+# The hub, its production node_modules and the web build, as plain files beside app.asar: the hub finds
+# ../../web/dist from server/dist, and Claude Code and the native modules run from real files.
+# .stage as a whole: electron-builder always drops the node_modules at the top of a folder it copies, but keeps
+# server/node_modules one level down.
+extraResources:
+  - from: .stage
+    to: .
+    filter: ['**/*']
+mac:
+  target:
+    - target: dmg
+      arch: arm64
+    - target: zip
+      arch: arm64
+  category: public.app-category.developer-tools
+  # Unsigned for now (Q12): ad-hoc signed, which Apple Silicon needs to run it at all. No hardened runtime,
+  # so the hub may load native modules that carry no team id.
+  identity: '-'
+  hardenedRuntime: false
+  # Claude Code keeps Anthropic's own signature and entitlements.
+  signIgnore:
+    - 'claude-agent-sdk-darwin-arm64/claude$'
+dmg:
+  artifactName: Orynx-${version}-${arch}.dmg
+linux:
+  executableName: orynx
+  target:
+    - target: AppImage
+      arch: x64
+  category: Development
+appImage:
+  artifactName: Orynx-${version}.AppImage
+# Writes latest-mac.yml and latest-linux.yml, and the app-update.yml the installed app reads.
+publish:
+  provider: github
+  owner: masterghost2002
+  repo: dev-hub

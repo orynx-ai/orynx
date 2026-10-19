@@ -58,7 +58,7 @@ Hosts are the only things that build. A host mounts shared packages and supplies
 - Backend: call `createServer()` from `@devhub/core`, keep the token handshake and the 127.0.0.1 bind.
 - Env config lives in `apps/<name>/src/config.ts` only, parsed with zod, every key in `.env.example`.
 
-`apps/desktop` (Electron via electron-vite) is planned after v1; see "Porting to a desktop app" in `docs/architecture.md`.
+`apps/desktop` (Electron, spec 027) starts `apps/server`'s bundle instead of calling `createServer()` itself; see "The desktop app" in `docs/architecture.md`.
 
 ## Update the rules
 

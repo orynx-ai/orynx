@@ -74,7 +74,7 @@ The ticket dialog (spec 022) makes the same read through `GET /api/tickets/:key`
 - While a Connect or Disconnect is on its way, the form's Cancel and the row's Close do nothing (they stay focusable), and a second submit sends nothing, so the change always finishes where the person can see it.
 - The token field asks browsers and password managers not to save it (`autoComplete="one-time-code"`, `data-1p-ignore`, `data-lpignore`), and the mutation that carries it keeps nothing in the cache (`gcTime: 0`).
 - `no-token-leaks.test.ts` runs the real hub at trace level through connect, refusal, an unreachable site, status and disconnect. It finds neither the token nor its base64 value in any log line, response, event or `settings.json`.
-- `settings.json` holds the site and email, GitHub's way of connecting (spec 004), Settings' own values (spec 005) and the sprint Tickets shows (spec 020), never a token. It is mode 0600 (the folder is created 0700), and is written through a temporary file and a rename, so a crash never leaves half a file. A broken file counts as empty (with a warn line) until the next save.
+- `settings.json` holds the site and email, GitHub's way of connecting (spec 004), Settings' own values (spec 005) and the sprint Tickets shows (spec 020), never a token. It is mode 0600 (the folder is created 0700), and is written through a temporary file and a rename, so a crash never leaves half a file. A broken file counts as empty (with a warn line), and the next save keeps it beside the new one as `settings-<date-time>.unreadable.json` (spec 027), so an update that can't read it loses nothing.
 
 ## Why only `jira.js/core`
 

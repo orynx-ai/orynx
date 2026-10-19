@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # release.yml runs these same checks before it builds the desktop app (spec 027).
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -62,6 +64,7 @@ jobs:
           - { name: api-client, dir: packages/api-client }
           - { name: server, dir: apps/server }
           - { name: web, dir: apps/web }
+          - { name: desktop, dir: apps/desktop }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
