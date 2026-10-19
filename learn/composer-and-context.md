@@ -75,7 +75,7 @@ At Send, `skillsNamedIn()` (contracts) finds each `/name` in the message, and `n
 
 ## Limits
 
-`ComposerStartSchema` takes a message of at most 10,000 characters, at most 10 tickets, 10 pull requests and 20 files, each once (Q5). A file's path starts with `/` or `~/`, has no control characters and is at most 4,096 characters. Skills count at Send: at most 5. The page checks the same limits before it sends (`composer-rules.ts` `addChip()` and `refusalFor()`). A full kind says why in place of its list, under the box, or to a screen reader from a row's +: "A session takes up to 10 tickets.", "A session takes up to 10 pull requests." or "Add up to 20 files.".
+`ComposerStartSchema` takes a message of at most 10,000 characters, at most 100 tickets, 100 pull requests and 100 files, each once (Q5). A file's path starts with `/` or `~/`, has no control characters and is at most 4,096 characters. Skills count at Send: at most 5. The page checks the same limits before it sends (`composer-rules.ts` `addChip()` and `refusalFor()`). A full kind says why in place of its list, under the box, or to a screen reader from a row's +: "A session takes up to 100 tickets.", "A session takes up to 100 pull requests." or "Add up to 100 files.".
 
 `POST /api/sessions` is still the one route with a 4 MiB body limit, set for 015's file text. With files sent as paths, the most the composer can send is about 140 KB. Fastify's own refusals, such as a 413 past the limit, are answered with their status rather than 500.
 

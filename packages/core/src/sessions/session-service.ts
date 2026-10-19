@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type {
+  AgentChoice,
   ApprovalDecision,
+  ComposerChip,
   CreatePullRequestAnswer,
   CreatePullRequestRequest,
   FileDiff,
@@ -29,9 +31,18 @@ import type { GitHubSyncCredentials } from '../integrations/github/connection.ts
 import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
-import { briefText, sessionNote, ticketFromBrief } from './brief.ts';
+import { briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
 import type { ChangesReader, StartPoint } from './changes.ts';
-import { chooseFolder, composerPlan, noReads, ticketKeyOf, ticketPlan, type StartPlan } from './compose.ts';
+import {
+  chooseFolder,
+  composerPlan,
+  contextAfter,
+  noReads,
+  readsAfter,
+  ticketKeyOf,
+  ticketPlan,
+  type StartPlan,
+} from './compose.ts';
 import type { SkillsService } from '../skills/skills-service.ts';
 import type { ContextReader } from './context-reader.ts';
 import {
@@ -103,7 +114,8 @@ export interface SessionService {
    * A follow-up (spec 013, Q1): read by Claude after its current step while it works, or carried on in Claude
    * Code's own session once it has finished or stopped. Sends one at a time for each session.
    */
-  send(id: string, text: string): Promise<SendResult>;
+  /** A follow-up, with the tickets, pull requests and files added to it, read as the composer's are (spec 025). */
+  send(id: string, text: string, context?: readonly ComposerChip[], choice?: AgentChoice): Promise<SendResult>;
   /** What changed in the worktree (spec 013, Q4); null for no such session, `unreadable` when git failed. */
   changes(id: string): Promise<SessionChanges | 'unreadable' | null>;
   /** One changed file's diff; null for no such session or no such changed file (AC-24). */
@@ -597,7 +609,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     );
     if (stopping(run)) return;
 
-    await startClaude(id, run, start.brief, record.worktree, plan.branch, null, start.ticketNote);
+    await startClaude(id, run, start.brief, record.worktree, plan.branch, null, start.ticketNote, start.choice);
   }
 
   /** Starts Claude for a run, with the brief or, resuming its own session, your follow-up, and follows it. */
@@ -609,6 +621,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     branch: string,
     resume: string | null,
     ticketNote: boolean,
+    /** The model and effort you picked for this run; left out, Claude Code's own default. */
+    { model, effort }: AgentChoice = {},
   ): Promise<void> {
     if (adapter === null) return fail(id, 'other', 'no_claude_code');
     // Settings are read before Claude starts, and again for each call it makes (spec 012, AC-11).
@@ -624,13 +638,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     // Stop can come while they're read: then Claude never starts.
     if (stopping(run)) return;
     const note = sessionNote(branch, adapter.runsCommands, ticketNote);
-    const agentId = await adapter.startSession(
-      brief,
-      worktree,
-      permissions,
-      note,
-      resume === null ? undefined : { resume },
-    );
+    const agentId = await adapter.startSession(brief, worktree, permissions, note, {
+      ...(resume === null ? {} : { resume }),
+      model,
+      effort,
+    });
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.
     if (stopping(run)) {
@@ -714,15 +726,42 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     );
   }
 
-  /** Into the running Claude when it can take it, else resuming Claude Code's own session (spec 013, Q1). */
-  async function sendNow(id: string, text: string): Promise<SendResult> {
+  /**
+   * Into the running Claude when it can take it, else resuming Claude Code's own session (spec 013, Q1). Chips
+   * added to the follow-up are read first, as the composer's are at start, and one that fails sends nothing
+   * (spec 025); the rest join what the session was sent, and their files what Claude may read.
+   */
+  async function sendNow(
+    id: string,
+    text: string,
+    context: readonly ComposerChip[],
+    choice: AgentChoice,
+  ): Promise<SendResult> {
     const record = await records.get(id);
     if (record === null) return { result: 'not_found' };
+    const read = context.length === 0 ? null : await options.context.read(context);
+    if (read?.ok === false) return { result: 'context_failed', chip: read.chip, problem: read.problem };
+    const brief = composerBrief(text, read?.chips ?? []);
+    const withContext = (current: StoredSession): StoredSession =>
+      read === null
+        ? current
+        : {
+            ...current,
+            session: { ...current.session, context: contextAfter(current.session, context) },
+            reads: readsAfter(current.reads ?? noReads, read.chips),
+          };
     const live = runs.get(id);
     if (live !== undefined && !live.stopping) {
       // Claude may still be setting up: the message waits for it to start.
       const agentId = live.agentId ?? (await live.started);
-      if (agentId !== null && adapter !== null && !stopping(live) && (await adapter.sendMessage(agentId, text))) {
+      // Saved before it goes, so Claude may read the new files as soon as it reads the message.
+      if (read !== null) await change(id, withContext);
+      if (
+        agentId !== null &&
+        adapter !== null &&
+        !stopping(live) &&
+        (await adapter.sendMessage(agentId, briefText(brief)))
+      ) {
         await change(id, (current) =>
           withProgress(current, (progress) => addStep(progress, { kind: 'message', text })),
         );
@@ -733,10 +772,17 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     // Not working, or it finished as you sent this: once a stop and the last Claude Code have ended, carry on.
     await Promise.all([...(ending.get(id) ?? [])]);
     await agentEnded.get(id);
-    return resume(id, text);
+    // A running Claude keeps its model; the one you picked starts with the next run.
+    return resume(id, text, brief, withContext, choice);
   }
 
-  async function resume(id: string, text: string): Promise<SendResult> {
+  async function resume(
+    id: string,
+    text: string,
+    brief: AgentBrief,
+    withContext: (current: StoredSession) => StoredSession,
+    choice: AgentChoice,
+  ): Promise<SendResult> {
     const record = await records.get(id);
     if (record === null) return { result: 'not_found' };
     const { session } = record;
@@ -759,7 +805,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     runs.set(id, run);
     const at = new Date(now()).toISOString();
     await change(id, (current) => {
-      const next = withProgress(current, (progress) => addStep(resumeProgress(progress), { kind: 'message', text }));
+      const next = withProgress(withContext(current), (progress) =>
+        addStep(resumeProgress(progress), { kind: 'message', text }),
+      );
       return {
         ...next,
         session: { ...next.session, state: 'working', problem: null, endedAt: null, runStartedAt: at },
@@ -767,7 +815,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     });
     options.onReport?.({ what: 'followed_up', session: id, ticket: key, resumed: true });
     track(
-      startClaude(id, run, { message: text, context: [] }, worktree, branch, claudeSessionId, ticketNote(session))
+      startClaude(id, run, brief, worktree, branch, claudeSessionId, ticketNote(session), choice)
         .catch(() => fail(id, 'other', 'unexpected'))
         .finally(() => {
           run.markStarted(null);
@@ -856,6 +904,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         workedMs: 0,
         runStartedAt: at,
         pullRequest: null,
+        context: [{ kind: 'jira', key: ticketKey }],
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -920,6 +969,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         workedMs: 0,
         runStartedAt: at,
         pullRequest: null,
+        context: [...request.context],
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -929,7 +979,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       approvalLog: [],
       reads: { files: [...plan.reads.files], folders: [...plan.reads.folders] },
     };
-    startPlans.set(id, plan);
+    startPlans.set(id, { ...plan, choice: { model: request.model, effort: request.effort } });
     await records.create(record);
     events.publish({ type: 'sessions.changed' });
     begin(id);
@@ -1062,8 +1112,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return read.problem === 'git' ? 'unreadable' : null;
     },
 
-    send(id, text) {
-      const turn = (sending.get(id) ?? Promise.resolve()).then(() => sendNow(id, text));
+    send(id, text, context = [], choice = {}) {
+      const turn = (sending.get(id) ?? Promise.resolve()).then(() => sendNow(id, text, context, choice));
       sending.set(
         id,
         turn.catch(() => undefined),

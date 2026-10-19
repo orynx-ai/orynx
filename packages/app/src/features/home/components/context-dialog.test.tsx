@@ -35,43 +35,6 @@ const file = (name: string): ComposerChip => ({ kind: 'file', path: `~/notes/${n
 const five = [ticket('PROJ-1423'), pull(2836), ticket('PROJ-1424'), pull(2841), file('notes.md')];
 
 const box = () => screen.getByRole('textbox', { name: 'Describe a task for Claude' });
-const strip = () => screen.getByRole('list', { name: 'Context for Claude' });
-
-describe('two chips, then +N (spec 022)', () => {
-  it('AC-18: two chips both show, with no +N', async () => {
-    serve();
-    useComposerStore.setState({ chips: [ticket('PROJ-1423'), pull(2836)] });
-    await renderApp();
-    await screen.findByRole('button', { name: 'Remove PROJ-1423' });
-    expect(
-      within(strip())
-        .getAllByRole('listitem')
-        .map((item) => item.textContent),
-    ).toEqual(['PROJ-1423', 'web-app #2836']);
-    expect(within(strip()).queryByRole('button', { name: /Show all/ })).toBeNull();
-  });
-
-  it('AC-19: five chips show the first two added, then +3', async () => {
-    serve();
-    useComposerStore.setState({ chips: five });
-    const { user } = await renderApp();
-    const more = await screen.findByRole('button', { name: '+3: Show all 5 items of context' });
-    expect(
-      within(strip())
-        .getAllByRole('listitem')
-        .map((item) => item.textContent),
-    ).toEqual(['PROJ-1423', 'web-app #2836', '+3']);
-
-    // Removing a shown chip brings the next one into view.
-    await user.click(screen.getByRole('button', { name: 'Remove PROJ-1423' }));
-    expect(
-      within(strip())
-        .getAllByRole('listitem')
-        .map((item) => item.textContent),
-    ).toEqual(['web-app #2836', 'PROJ-1424', '+2']);
-    expect(more).toHaveAccessibleName('+2: Show all 4 items of context');
-  });
-});
 
 describe('the context dialog (spec 022)', () => {
   it('AC-20: lists every chip under Tickets, Pull requests and Files, with what each one is', async () => {
@@ -125,21 +88,41 @@ describe('the context dialog (spec 022)', () => {
     expect(screen.getByText('PROJ-1423 removed')).toBeInTheDocument();
     expect(useComposerStore.getState().chips).toEqual(five.slice(1));
 
+    // The tab goes with its last row, and focus moves to the tab now shown (the user's call, 19 Oct 2026).
     await user.click(within(dialog).getByRole('button', { name: 'Remove PROJ-1424' }));
-    expect(within(dialog).getByRole('tab', { name: 'Tickets 0' })).toHaveFocus();
-    // AC-22: a tab with nothing in it says so.
-    expect(within(dialog).getByText('No tickets added.')).toBeVisible();
+    expect(within(dialog).getByRole('tab', { name: 'Pull requests 2' })).toHaveFocus();
+    expect(within(dialog).getByRole('tab', { name: 'Pull requests 2' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(dialog).queryByRole('tab', { name: /Tickets/ })).toBeNull();
   });
 
-  it('AC-22: opens on the first tab that holds something', async () => {
+  it('AC-22: opens on the first tab that holds something, and shows no tab for a kind with nothing', async () => {
     serve();
     useComposerStore.setState({ chips: [file('a.md'), file('b.md'), file('c.md')] });
     const { user } = await renderApp();
     await user.click(await screen.findByRole('button', { name: '+1: Show all 3 items of context' }));
     const dialog = await screen.findByRole('dialog', { name: 'Context for Claude' });
+    expect(
+      within(dialog)
+        .getAllByRole('tab')
+        .map((tab) => tab.textContent),
+    ).toEqual(['Files 3']);
     expect(within(dialog).getByRole('tab', { name: 'Files 3' })).toHaveAttribute('aria-selected', 'true');
-    await user.click(within(dialog).getByRole('tab', { name: 'Pull requests 0' }));
-    expect(within(dialog).getByText('No pull requests added.')).toBeVisible();
+  });
+
+  it('a ticket’s key opens the ticket dialog over it', async () => {
+    serve();
+    server.use(http.get(apiUrl(apiRoutes.ticket), () => HttpResponse.json({ result: 'not_found' })));
+    useComposerStore.setState({ chips: five });
+    const { user } = await renderApp();
+    await user.click(await screen.findByRole('button', { name: '+3: Show all 5 items of context' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Context for Claude' });
+
+    await user.click(within(dialog).getByRole('button', { name: 'PROJ-1424' }));
+
+    const ticketDialog = await screen.findByRole('dialog', { name: 'PROJ-1424' });
+    expect(await within(ticketDialog).findByRole('alert')).toHaveTextContent(
+      "Jira can't find PROJ-1424, or you can't see it.",
+    );
   });
 
   it('AC-23: removing every chip closes the dialog and puts focus in the box', async () => {

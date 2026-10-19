@@ -23,6 +23,7 @@ import {
   type PushAnswer,
   type PushDraftAnswer,
   type SendMessageAnswer,
+  type SendMessageInput,
   type SessionChanges,
   type Session,
   type SessionList,
@@ -72,11 +73,12 @@ export async function postApproval(
 }
 
 /** A follow-up (spec 013): exactly your text, which the server sends Claude, or why it can't. */
-export async function postSessionMessage(http: AxiosInstance, id: string, text: string): Promise<SendMessageAnswer> {
-  const res = await http.post<unknown>(
-    pathFor(apiRoutes.sessionMessages, id),
-    SendMessageRequestSchema.parse({ text }),
-  );
+export async function postSessionMessage(
+  http: AxiosInstance,
+  id: string,
+  request: SendMessageInput,
+): Promise<SendMessageAnswer> {
+  const res = await http.post<unknown>(pathFor(apiRoutes.sessionMessages, id), SendMessageRequestSchema.parse(request));
   return SendMessageAnswerSchema.parse(res.data);
 }
 

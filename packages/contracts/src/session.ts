@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AgentChoiceSchema } from './agent-models.ts';
 import { AlwaysAskReasonSchema } from './commands.ts';
 import { FilePathSchema } from './files.ts';
 import { GitHubLinkSchema, GitHubRepositorySchema } from './github.ts';
@@ -255,6 +256,30 @@ export const SessionPullRequestSchema = z.object({
 });
 export type SessionPullRequest = z.infer<typeof SessionPullRequestSchema>;
 
+/** GitHub's own rules for a user or organisation and for a repository's name, so neither can be read as a path. */
+const GitHubOwnerSchema = z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/);
+const GitHubRepositoryNameSchema = z.string().regex(/^(?!\.\.?$)[A-Za-z0-9._-]{1,100}$/);
+
+/**
+ * One thing the composer adds to the brief (spec 015). The server reads a ticket from Jira and a pull request
+ * from GitHub at Send; a file is its path on this computer, which Claude reads where it is (spec 022, Q4). A file
+ * whose name looks like a secret is never one.
+ */
+export const ComposerChipSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('jira'), key: JiraIssueKeySchema }),
+  z.object({
+    kind: z.literal('pull_request'),
+    owner: GitHubOwnerSchema,
+    name: GitHubRepositoryNameSchema,
+    number: z.int().positive(),
+  }),
+  z.object({
+    kind: z.literal('file'),
+    path: FilePathSchema.refine((path) => !looksLikeSecret(path), { message: 'A file that looks like a secret.' }),
+  }),
+]);
+export type ComposerChip = z.infer<typeof ComposerChipSchema>;
+
 /** GET /api/sessions/:id: everything the Session screen shows (spec 011). */
 export const SessionSchema = SessionSummarySchema.extend({
   /** The folder Claude works in, as Settings › Repositories shows it. */
@@ -290,6 +315,11 @@ export const SessionSchema = SessionSummarySchema.extend({
   runStartedAt: z.iso.datetime().nullable().default(null),
   /** Null until you create the pull request (spec 014); a session saved before spec 014 has none. */
   pullRequest: SessionPullRequestSchema.nullable().default(null),
+  /**
+   * Every ticket, pull request and file Claude was sent, in the order added: the composer's chips at the start,
+   * then each follow-up's new ones. A session saved before this kept none, so it shows its ticket alone.
+   */
+  context: z.array(ComposerChipSchema).default([]),
 });
 export type Session = z.infer<typeof SessionSchema>;
 
@@ -307,34 +337,27 @@ export const mostMessageCharacters = 10_000;
  * What one session can take from the composer (spec 022, Q5): its tickets, pull requests and files, and the skills
  * its message names. A file has no size or type limit: Claude reads it where it is.
  */
-export const composerLimits = { tickets: 10, pullRequests: 10, files: 20, skills: 5 } as const;
-
-/** GitHub's own rules for a user or organisation and for a repository's name, so neither can be read as a path. */
-const GitHubOwnerSchema = z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/);
-const GitHubRepositoryNameSchema = z.string().regex(/^(?!\.\.?$)[A-Za-z0-9._-]{1,100}$/);
-
-/**
- * One thing the composer adds to the brief (spec 015). The server reads a ticket from Jira and a pull request
- * from GitHub at Send; a file is its path on this computer, which Claude reads where it is (spec 022, Q4). A file
- * whose name looks like a secret is never one.
- */
-export const ComposerChipSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('jira'), key: JiraIssueKeySchema }),
-  z.object({
-    kind: z.literal('pull_request'),
-    owner: GitHubOwnerSchema,
-    name: GitHubRepositoryNameSchema,
-    number: z.int().positive(),
-  }),
-  z.object({
-    kind: z.literal('file'),
-    path: FilePathSchema.refine((path) => !looksLikeSecret(path), { message: 'A file that looks like a secret.' }),
-  }),
-]);
-export type ComposerChip = z.infer<typeof ComposerChipSchema>;
+export const composerLimits = { tickets: 100, pullRequests: 100, files: 100, skills: 5 } as const;
 
 function pullRequestId(chip: Extract<ComposerChip, { kind: 'pull_request' }>): string {
   return `${chip.owner}/${chip.name}#${String(chip.number)}`.toLowerCase();
+}
+
+/** Each kind within its limit (spec 022, Q5), and nothing twice: for the composer's start and a follow-up's. */
+function checkChips(context: readonly ComposerChip[], check: z.RefinementCtx): void {
+  const tickets = context.filter((chip) => chip.kind === 'jira');
+  const pulls = context.filter((chip) => chip.kind === 'pull_request');
+  const files = context.filter((chip) => chip.kind === 'file');
+  const issue = (message: string) => {
+    check.addIssue({ code: 'custom', message });
+  };
+  if (tickets.length > composerLimits.tickets) issue(`${String(composerLimits.tickets)} tickets at most.`);
+  if (new Set(tickets.map((chip) => chip.key)).size < tickets.length) issue('The same ticket twice.');
+  if (pulls.length > composerLimits.pullRequests)
+    issue(`${String(composerLimits.pullRequests)} pull requests at most.`);
+  if (new Set(pulls.map(pullRequestId)).size < pulls.length) issue('The same pull request twice.');
+  if (files.length > composerLimits.files) issue(`${String(composerLimits.files)} files at most.`);
+  if (new Set(files.map((chip) => chip.path)).size < files.length) issue('The same file twice.');
 }
 
 /**
@@ -347,22 +370,12 @@ export const ComposerStartSchema = z
     message: z.string().trim().max(mostMessageCharacters),
     repositoryId: RepositoryIdSchema.optional(),
     context: z.array(ComposerChipSchema),
+    // The model and effort the composer picked; left out, Claude Code's own default.
+    ...AgentChoiceSchema.shape,
   })
   .superRefine(({ message, context }, check) => {
-    const tickets = context.filter((chip) => chip.kind === 'jira');
-    const pulls = context.filter((chip) => chip.kind === 'pull_request');
-    const files = context.filter((chip) => chip.kind === 'file');
-    if (tickets.length > composerLimits.tickets) check.addIssue({ code: 'custom', message: 'Ten tickets at most.' });
-    if (new Set(tickets.map((chip) => chip.key)).size < tickets.length)
-      check.addIssue({ code: 'custom', message: 'The same ticket twice.' });
-    if (pulls.length > composerLimits.pullRequests)
-      check.addIssue({ code: 'custom', message: 'Ten pull requests at most.' });
-    if (new Set(pulls.map(pullRequestId)).size < pulls.length)
-      check.addIssue({ code: 'custom', message: 'The same pull request twice.' });
-    if (files.length > composerLimits.files) check.addIssue({ code: 'custom', message: 'Twenty files at most.' });
-    if (new Set(files.map((chip) => chip.path)).size < files.length)
-      check.addIssue({ code: 'custom', message: 'The same file twice.' });
-    if (message === '' && tickets.length === 0)
+    checkChips(context, check);
+    if (message === '' && !context.some((chip) => chip.kind === 'jira'))
       check.addIssue({ code: 'custom', message: 'A message, or a ticket as the brief.' });
   });
 export type ComposerStart = z.infer<typeof ComposerStartSchema>;
@@ -405,10 +418,20 @@ export const RespondToApprovalRequestSchema = z.object({ decision: ApprovalDecis
 export type RespondToApprovalRequest = z.infer<typeof RespondToApprovalRequestSchema>;
 
 /** POST /api/sessions/:id/messages: what you typed in the follow-up box, exactly as Claude gets it (spec 013). */
-export const SendMessageRequestSchema = z.object({
-  text: z.string().trim().min(1).max(mostMessageCharacters),
-});
+export const SendMessageRequestSchema = z
+  .object({
+    text: z.string().trim().min(1).max(mostMessageCharacters),
+    /** Tickets, pull requests and files added to this follow-up, read at Send as the composer's are at start. */
+    context: z.array(ComposerChipSchema).default([]),
+    // The model and effort for Claude's next run; left out, Claude Code's own default (spec 025).
+    ...AgentChoiceSchema.shape,
+  })
+  .superRefine(({ context }, check) => {
+    checkChips(context, check);
+  });
 export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>;
+/** A follow-up as the page gives it: `context` may be left out. */
+export type SendMessageInput = z.input<typeof SendMessageRequestSchema>;
 
 /**
  * The answer to a follow-up. One that can't go says why, and nothing is sent (AC-14, AC-15): three sessions
@@ -419,6 +442,12 @@ export const SendMessageAnswerSchema = z.discriminatedUnion('result', [
   z.object({
     result: z.literal('cannot_send'),
     reason: z.enum(['too_many', 'discarded', 'never_started', 'newer_session']),
+  }),
+  /** A chip added to the follow-up that Jira, GitHub or the computer couldn't give, by its place, as at start. */
+  z.object({
+    result: z.literal('context_failed'),
+    chip: z.int().nonnegative(),
+    problem: z.enum(['not_connected', 'not_found', 'unreachable', 'other']),
   }),
 ]);
 export type SendMessageAnswer = z.infer<typeof SendMessageAnswerSchema>;

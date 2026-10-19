@@ -178,7 +178,7 @@ describe('pasting and removing chips (spec 015)', () => {
 
   it('022 AC-3: an eleventh pasted pull request or ticket is said, not added', async () => {
     serve();
-    const pulls = Array.from({ length: 10 }, (_, n) => ({
+    const pulls = Array.from({ length: 100 }, (_, n) => ({
       kind: 'pull_request' as const,
       owner: 'acme',
       name: 'web-app',
@@ -188,14 +188,14 @@ describe('pasting and removing chips (spec 015)', () => {
     const { user } = await renderApp();
     await user.click(await screen.findByRole('textbox', { name: 'Describe a task for Claude' }));
     await user.paste('https://github.com/acme/web-app/pull/2836');
-    expect(await screen.findByRole('alert')).toHaveTextContent('A session takes up to 10 pull requests.');
-    expect(useComposerStore.getState().chips).toHaveLength(10);
+    expect(await screen.findByRole('alert')).toHaveTextContent('A session takes up to 100 pull requests.');
+    expect(useComposerStore.getState().chips).toHaveLength(100);
 
     useComposerStore.setState({
-      chips: Array.from({ length: 10 }, (_, n) => ({ kind: 'jira' as const, key: `OPS-${String(n + 1)}` })),
+      chips: Array.from({ length: 100 }, (_, n) => ({ kind: 'jira' as const, key: `OPS-${String(n + 1)}` })),
     });
     await user.paste('PROJ-1423');
-    expect(await screen.findByRole('alert')).toHaveTextContent('A session takes up to 10 tickets.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('A session takes up to 100 tickets.');
   });
 
   it('022 AC-2: pasting a key that’s there already adds nothing', async () => {

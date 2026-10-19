@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ComposerStart, FileCheckAnswer, FileCheckRequest, FilePicks, InboxItem } from '@devhub/contracts';
 import {
+  agentModelsQueryOptions,
   inboxQueryOptions,
   preferencesQueryOptions,
   queryKeys,
@@ -8,6 +9,12 @@ import {
   type ApiRequestError,
 } from '@devhub/api-client';
 import { useApi } from '../../api.tsx';
+
+/** The models Claude offers now, for the agent picker: asked only while Claude is connected. */
+export function useAgentModels(connected: boolean) {
+  const api = useApi();
+  return useQuery({ ...agentModelsQueryOptions(api), enabled: connected });
+}
 
 /** A row of Home's list. A Claude session on neither a ticket nor a pull request has no tool (spec 015, AC-24). */
 export type HomeItem = InboxItem;

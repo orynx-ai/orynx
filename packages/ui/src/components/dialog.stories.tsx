@@ -56,3 +56,22 @@ export const TallerThanTheWindow: Story = {
     </Dialog>
   ),
 };
+
+/** `size="full"`: the whole window less the 16 px gutter on every side, for a diff or a ticket read in full. */
+export const FullScreen: Story = {
+  render: (args) => (
+    <Dialog {...args}>
+      <DialogTrigger asChild>
+        <Button>Open the dialog</Button>
+      </DialogTrigger>
+      <DialogContent size="full">
+        <DialogTitle className="border-b border-border p-4">Changes</DialogTitle>
+        <ul aria-label="Changed lines" className="min-h-0 overflow-y-auto p-4 font-mono text-code">
+          {Array.from({ length: 60 }, (_, index) => (
+            <li key={index}>+ line {index + 1}</li>
+          ))}
+        </ul>
+      </DialogContent>
+    </Dialog>
+  ),
+};

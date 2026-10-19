@@ -8,7 +8,7 @@ import {
   sessionQueryKey,
   sessionsQueryOptions,
 } from '@devhub/api-client';
-import type { ApprovalDecision, Session, SessionListQuery } from '@devhub/contracts';
+import type { ApprovalDecision, SendMessageInput, Session, SessionListQuery } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
 /** Sessions with the newest activity first. Kept fresh by `sessions.changed` events, not polling. */
@@ -80,7 +80,7 @@ export function useEditor() {
  */
 export function useSendMessage(sessionId: string) {
   const api = useApi();
-  return useMutation({ mutationFn: (text: string) => api.sendMessage(sessionId, text) });
+  return useMutation({ mutationFn: (request: SendMessageInput) => api.sendMessage(sessionId, request) });
 }
 
 /** Claude's draft of the pull request (spec 014): asked on opening the dialog, never cached, since each asks Claude. */

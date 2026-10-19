@@ -20,6 +20,7 @@ import { useRepositories } from '../../settings/queries.ts';
 import { chipFromPaste, fileChipFor, firstTicket, folderFor, refusalFor } from '../composer-rules.ts';
 import { addRow, composerWords, countOf, fileRefusedLine, refusedLine } from '../composer-words.ts';
 import { usePickFiles } from '../queries.ts';
+import { useComposerChips } from '../composer-chips.tsx';
 import { useComposerStore } from '../store.ts';
 import { AddFileDialog } from './add-file-dialog.tsx';
 
@@ -49,14 +50,19 @@ interface ListProps {
   onQueryChange: (query: string) => void;
   onBack: () => void;
   onPicked: () => void;
+  /** A checkbox was ticked or unticked: the list stays open, and closing it puts focus in the box. */
+  onTicked: () => void;
   onAddFolder: () => void;
 }
 
-/** The Jira ticket and Pull request lists, from what search already holds (009); typing never asks again. */
-function ToolList({ kind, query, onQueryChange, onBack, onPicked }: ListProps & { kind: 'jira' | 'pull_request' }) {
+/**
+ * The Jira ticket and Pull request lists, from what search already holds (009); typing never asks again. Each
+ * option is a checkbox that adds or takes out its chip, and the list stays open for the next (the user's call,
+ * 19 Oct 2026).
+ */
+function ToolList({ kind, query, onQueryChange, onBack, onTicked }: ListProps & { kind: 'jira' | 'pull_request' }) {
   const index = useSearchIndex();
-  const chips = useComposerStore((state) => state.chips);
-  const addChip = useComposerStore((state) => state.addChip);
+  const { chips, addChip, dropChip } = useComposerChips();
   const said = lists[kind];
   const tool = index.data?.tools[kind === 'jira' ? 'jira' : 'github'];
   const loading = index.data === undefined || tool?.state === 'syncing';
@@ -128,10 +134,17 @@ function ToolList({ kind, query, onQueryChange, onBack, onPicked }: ListProps & 
       query={query}
       onQueryChange={onQueryChange}
       options={options}
+      select="many"
       onPick={(value) => {
         const option = options.find((candidate) => candidate.value === value);
         if (option === undefined) return;
-        if (addChip(option.chip) === null) onPicked();
+        onTicked();
+        if ('added' in option && option.added) {
+          dropChip(option.chip);
+          return;
+        }
+        // A typed key or link, once added, makes way for the list again.
+        if (addChip(option.chip) === null && value.startsWith('add:')) onQueryChange('');
       }}
       emptyText={query.trim() === '' ? said.empty : composerWords.noMatches}
       loading={loading}
@@ -191,18 +204,21 @@ export function AddContext({
   onPicked,
   onRefused,
   box,
+  folders = true,
 }: {
   onPicked: () => void;
   onRefused: (line: string | null) => void;
   /** The composer's box, where focus goes after Add a file (spec 022). */
   box: () => HTMLElement | null;
+  /** Offers Git repository: Home's composer does; a follow-up's session already has its folder (spec 025). */
+  folders?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'kinds' | ListKind>('kinds');
   const [query, setQuery] = useState('');
   const [addingFolder, setAddingFolder] = useState(false);
   const pickFolder = useComposerStore((state) => state.pickFolder);
-  const addChip = useComposerStore((state) => state.addChip);
+  const { addChip } = useComposerChips();
   const pickFiles = usePickFiles();
   // Why Add a file opened: the server's line that no picker can open here (AC-12); null while it's closed.
   const [typing, setTyping] = useState<string | null>(null);
@@ -266,6 +282,9 @@ export function AddContext({
       setView('kinds');
     },
     onPicked: picked,
+    onTicked: () => {
+      toBox.current = true;
+    },
     onAddFolder: () => {
       toFolderDialog.current = true;
       setOpen(false);
@@ -296,16 +315,18 @@ export function AddContext({
           {view === 'kinds' ? (
             <>
               <ContextPickerLabel>{words.heading}</ContextPickerLabel>
-              <ContextKindItem
-                icon={<Icon icon={GitBranchIcon} className="text-muted-foreground" />}
-                description={words.repository.description}
-                leadsOn
-                onSelect={() => {
-                  openList('repository');
-                }}
-              >
-                {words.repository.title}
-              </ContextKindItem>
+              {folders ? (
+                <ContextKindItem
+                  icon={<Icon icon={GitBranchIcon} className="text-muted-foreground" />}
+                  description={words.repository.description}
+                  leadsOn
+                  onSelect={() => {
+                    openList('repository');
+                  }}
+                >
+                  {words.repository.title}
+                </ContextKindItem>
+              ) : null}
               <ContextKindItem
                 icon={<SourceMark source="jira" label="none" />}
                 description={words.jira.description}

@@ -70,7 +70,18 @@ export const composerWords = {
     connected: 'Connected · runs locally',
     signedOut: 'Signed out',
     settings: 'Open Settings › Coding agent',
-    label: (connected: boolean) => `Agent: Claude, ${connected ? 'connected' : 'signed out'}`,
+    /** `choice` is the picked model and effort as the picker shows them ("Opus · High"). */
+    label: (connected: boolean, choice?: string) =>
+      `Agent: Claude${choice === undefined ? '' : `, ${choice}`}, ${connected ? 'connected' : 'signed out'}`,
+    effort: 'Effort',
+    efforts: {
+      default: 'Default',
+      low: 'Low',
+      medium: 'Medium',
+      high: 'High',
+      xhigh: 'Extra high',
+      max: 'Max',
+    },
   },
   existing: (key: string) => `${key} already has a session.`,
   openSession: 'Open session',
@@ -106,7 +117,6 @@ export const composerWords = {
   dialog: {
     title: 'Context for Claude',
     tabs: { tickets: 'Tickets', pull_requests: 'Pull requests', files: 'Files' },
-    empty: { tickets: 'No tickets added.', pull_requests: 'No pull requests added.', files: 'No files added.' },
     remove: 'Remove',
     done: 'Done',
   },

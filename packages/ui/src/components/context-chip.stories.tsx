@@ -21,6 +21,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const JiraTicket: Story = {};
+/** Its text opens what it is, such as the ticket dialog. */
+export const Openable: Story = { args: { onOpen: () => undefined } };
 export const PullRequest: Story = {
   args: { label: 'web-app #2836', icon: <SourceMark source="github" label="none" /> },
 };

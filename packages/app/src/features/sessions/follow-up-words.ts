@@ -4,7 +4,6 @@ import type { CannotSendReason, SessionFollowUp } from '@devhub/contracts';
 export const followUpBox = {
   label: 'Message Claude',
   placeholder: 'Ask Claude to change something',
-  hint: 'Enter to send · Shift+Enter for a new line',
   send: 'Send message',
 };
 

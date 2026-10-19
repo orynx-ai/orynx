@@ -78,7 +78,7 @@ test("Given DevHub is running, when I open it, then the sidebar shows Home, Tick
 
 - Run only what you touched: `pnpm test packages/app/src/features/settings`.
 - `pnpm test:changed` runs tests related to files changed since `origin/main`.
-- The full suite and coverage run in `pnpm verify` and CI.
+- The full suite, coverage and the e2e suite run once per branch, in `/review` (`pnpm verify`, `pnpm test:e2e`), the pre-push hook and CI, never per commit.
 
 ## Don't
 

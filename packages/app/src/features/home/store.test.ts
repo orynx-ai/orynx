@@ -24,7 +24,7 @@ describe('the composer’s draft (spec 015, Q14)', () => {
     });
   });
 
-  it('022 AC-1, AC-3: a second ticket is added after the first; an eleventh pull request is refused', () => {
+  it('022 AC-1, AC-3: a second ticket is added after the first; a 101st pull request is refused', () => {
     const composer = useComposerStore.getState();
     composer.addChip({ kind: 'jira', key: 'PROJ-1423' });
     composer.addChip({ kind: 'jira', key: 'PROJ-7' });
@@ -33,13 +33,13 @@ describe('the composer’s draft (spec 015, Q14)', () => {
       { kind: 'jira', key: 'PROJ-7' },
     ]);
 
-    for (let number = 1; number <= 10; number++) {
+    for (let number = 1; number <= 100; number++) {
       composer.addChip({ kind: 'pull_request', owner: 'acme', name: 'web-app', number });
     }
-    expect(composer.addChip({ kind: 'pull_request', owner: 'acme', name: 'web-app', number: 11 })).toBe(
+    expect(composer.addChip({ kind: 'pull_request', owner: 'acme', name: 'web-app', number: 101 })).toBe(
       'too_many_pull_requests',
     );
-    expect(useComposerStore.getState().chips).toHaveLength(12);
+    expect(useComposerStore.getState().chips).toHaveLength(102);
   });
 
   it('AC-15: removes one chip by its place', () => {
@@ -50,11 +50,13 @@ describe('the composer’s draft (spec 015, Q14)', () => {
     expect(useComposerStore.getState().chips).toEqual([{ kind: 'file', path: '~/notes.md' }]);
   });
 
-  it('AC-4: a sent draft is cleared and its folder remembered; only that folder is kept on this computer', () => {
+  it('AC-4: a sent draft is cleared and its folder remembered; only that folder and the agent pick are kept on this computer', () => {
     const composer = useComposerStore.getState();
     composer.setText('Add a CSV export');
     composer.addChip({ kind: 'jira', key: 'PROJ-1423' });
     composer.pickFolder('00000000000000bb');
+    composer.setModel('sonnet');
+    composer.setEffort('high');
 
     composer.sent('00000000000000bb');
 
@@ -63,9 +65,11 @@ describe('the composer’s draft (spec 015, Q14)', () => {
       chips: [],
       picked: null,
       lastUsed: '00000000000000bb',
+      model: 'sonnet',
+      effort: 'high',
     });
     expect(JSON.parse(localStorage.getItem('devhub.home') ?? '{}')).toEqual({
-      state: { lastUsed: '00000000000000bb' },
+      state: { lastUsed: '00000000000000bb', model: 'sonnet', effort: 'high' },
       version: 0,
     });
   });

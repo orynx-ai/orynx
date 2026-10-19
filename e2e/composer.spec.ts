@@ -215,7 +215,7 @@ test('AC-1, AC-4, AC-24: my words alone start a session on its own branch, and C
   const progress = page.getByRole('region', { name: "Claude's progress" });
   await expect(progress.getByText('feat/add-a-csv-export-to from origin/main')).toBeVisible();
   await expect(progress.getByText('Your message', { exact: true })).toBeVisible();
-  await expect(page.getByRole('tab', { name: /Ticket/ })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: /Context/ })).toHaveCount(0);
   await expect.poll(lastBrief).toBe('Add a CSV export to the reports page');
 
   await page.goto('/');
@@ -229,6 +229,9 @@ test('AC-6 to AC-8, AC-11, AC-14, AC-20, 022 AC-9, AC-10: a ticket, a pasted pul
   const jira = await openKind(page, /Jira ticket/, 'Jira ticket');
   await jira.getByRole('combobox', { name: 'Search tickets by key or title' }).fill('bulk');
   await jira.getByRole('option', { name: /PROJ-1423/ }).click();
+  // A checkbox: the list stays open for the next one, and closing it puts focus in the box (19 Oct 2026).
+  await expect(jira.getByRole('option', { name: /PROJ-1423/ })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Escape');
   await expect(box(page)).toBeFocused();
   await expect(box(page)).toHaveAttribute('placeholder', 'What should Claude do with PROJ-1423?');
 
@@ -278,12 +281,14 @@ test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Ho
   const jira = await openKind(page, /Jira ticket/, 'Jira ticket');
   await jira.getByRole('combobox').fill('bulk');
   await jira.getByRole('option', { name: /PROJ-1423/ }).click();
+  await page.keyboard.press('Escape');
 
   await expect(chips(page)).toHaveText(['PROJ-1377', 'web-app #2836', '+1']);
   await expect(box(page)).toHaveAttribute('placeholder', 'What should Claude do with these 2 tickets?');
   await page.getByRole('button', { name: '+1: Show all 3 items of context' }).click();
   const all = page.getByRole('dialog', { name: 'Context for Claude' });
-  await expect(all.getByRole('tab')).toHaveText(['Tickets 2', 'Pull requests 1', 'Files 0']);
+  // A kind with nothing in it has no tab (19 Oct 2026).
+  await expect(all.getByRole('tab')).toHaveText(['Tickets 2', 'Pull requests 1']);
   await expect(all.getByRole('tab', { name: 'Tickets 2' })).toHaveAttribute('aria-selected', 'true');
   await expect(all.getByRole('tabpanel').getByRole('listitem')).toHaveText([
     /^PROJ-1377Fix the header on small screens/,
@@ -311,6 +316,7 @@ test('AC-10, AC-21: a ticket Jira can’t find stops Send, says which, and keeps
   const jira = await openKind(page, /Jira ticket/, 'Jira ticket');
   await jira.getByRole('combobox').fill('proj-9999');
   await jira.getByRole('option', { name: 'Add PROJ-9999' }).click();
+  await page.keyboard.press('Escape');
   await box(page).fill('Look into it');
   await page.getByRole('button', { name: 'Send to Claude' }).click();
 
@@ -371,6 +377,7 @@ test('AC-30, AC-31: Home, its chips and the + popup fit 360 px and have no axe v
       if ((await chips(page).count()) === 0) {
         const jira = await openKind(page, /Jira ticket/, 'Jira ticket');
         await jira.getByRole('option', { name: /PROJ-1377/ }).click();
+        await page.keyboard.press('Escape');
       }
       await expect(chips(page)).toHaveText(['PROJ-1377']);
       expect(await axe(page), `Home at ${String(width)} px, ${colorScheme}`).toEqual([]);

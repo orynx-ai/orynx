@@ -79,6 +79,34 @@ describe('Dialog', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('locks the page’s scroll while it’s open, and lets it scroll again once it closes', async () => {
+    const user = userEvent.setup();
+    render(<Search />);
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+
+    // react-remove-scroll, under Radix's overlay, marks the locked page this way.
+    expect(document.body).toHaveAttribute('data-scroll-locked');
+    await user.keyboard('{Escape}');
+    expect(document.body).not.toHaveAttribute('data-scroll-locked');
+  });
+
+  it('size full fills the window less the 16 px gutter, at every width', async () => {
+    render(
+      <Dialog defaultOpen>
+        <DialogContent size="full">
+          <DialogTitle>Changes</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Changes' });
+    // jsdom draws nothing, so the classes stand in for the sizes; the browser check measures them.
+    expect(dialog).toHaveClass('h-full', 'max-w-none');
+    expect(dialog).not.toHaveClass('max-w-180');
+    expect(dialog.parentElement).toHaveClass('p-4');
+    expect(dialog.parentElement).not.toHaveClass('md:py-20');
+    await expectNoAxeViolations(document.body);
+  });
+
   it('AC-20: Tab and Shift+Tab stay inside it', async () => {
     const user = userEvent.setup();
     render(<Search />);

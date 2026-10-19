@@ -6,9 +6,9 @@ import { renderApp } from '../../../test/render.tsx';
 
 const id = '0123456789abcdef';
 
-const route = `/sessions/${id}?tab=ticket`;
-/** The Ticket tab's panel, named by its tab. */
-const ticketTab = () => screen.getByRole('tabpanel', { name: 'Ticket PROJ-1423' });
+const route = `/sessions/${id}?tab=context`;
+/** The Context tab's panel, named by its tab: the session's ticket alone. */
+const ticketTab = () => screen.getByRole('tabpanel', { name: 'Context 1' });
 
 describe('TicketPanel', () => {
   it('AC-9: shows the ticket as Claude got it, with its status and due date, and Open in Jira', async () => {
@@ -17,16 +17,27 @@ describe('TicketPanel', () => {
       sessionHandler(makeSession({ id, title: 'Add bulk archive to the content list', ticket: makeSessionTicket() })),
     );
     const { user, platform } = await renderApp({ route });
-    const tab = await screen.findByRole('tabpanel', { name: 'Ticket PROJ-1423' });
+    const tab = await screen.findByRole('tabpanel', { name: 'Context 1' });
 
     expect(within(tab).getByText('Jira')).toBeInTheDocument();
-    expect(within(tab).getByText('PROJ-1423')).toBeVisible();
+    const sent = within(tab).getByRole('list', { name: 'Context Claude was sent' });
+    // The ticket's key at the top; the Context list under it names the ticket too.
+    expect(
+      within(tab)
+        .getAllByText('PROJ-1423')
+        .filter((key) => !sent.contains(key)),
+    ).toHaveLength(1);
     expect(within(tab).getByText('Story')).toBeVisible();
     expect(within(tab).getByText('In progress')).toBeVisible();
     expect(within(tab).getByText('Due Fri')).toBeVisible();
     expect(within(tab).getByText(/^Content managers need to archive many items/)).toBeVisible();
     expect(within(tab).getByRole('heading', { name: 'Acceptance criteria' })).toBeVisible();
-    expect(within(tab).getAllByRole('listitem')).toHaveLength(4);
+    // The description's four criteria.
+    expect(
+      within(tab)
+        .getAllByRole('listitem')
+        .filter((item) => !sent.contains(item)),
+    ).toHaveLength(4);
     expect(within(tab).getByText("Claude's brief")).toBeVisible();
     expect(
       within(tab).getByText(
@@ -46,7 +57,7 @@ describe('TicketPanel', () => {
       ),
     );
     await renderApp({ route });
-    await screen.findByRole('tabpanel', { name: 'Ticket PROJ-1423' });
+    await screen.findByRole('tabpanel', { name: 'Context 1' });
     expect(within(ticketTab()).getByText('This ticket has no description.')).toBeVisible();
     expect(within(ticketTab()).queryByText('In progress')).toBeNull();
     expect(within(ticketTab()).queryByText(/^Due /)).toBeNull();
@@ -62,7 +73,7 @@ describe('TicketPanel', () => {
       ),
     );
     const { user, platform } = await renderApp({ route });
-    await screen.findByRole('tabpanel', { name: 'Ticket PROJ-1423' });
+    await screen.findByRole('tabpanel', { name: 'Context 1' });
     await user.click(within(ticketTab()).getByRole('link', { name: 'the design' }));
     expect(platform.openExternal).toHaveBeenCalledWith('https://figma.example.com/f');
   });
