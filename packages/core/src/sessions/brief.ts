@@ -228,6 +228,16 @@ export function sessionNote(branch: string, commands: boolean, ticket = true): s
   ].join(' ');
 }
 
+/** An Ask session's note (spec 026): Claude answers from the folder as it is, and changes nothing. */
+export function askNote(): string {
+  return [
+    "You're answering in the user's own folder, as it is: this is an Ask session.",
+    "You can read and search the files here. You can't change files or run commands, and nothing you try will be allowed.",
+    'If the repository has a CLAUDE.md, read it first.',
+    'Answer what the user asks. If it needs changes, describe them; the user can start a Build session to make them.',
+  ].join(' ');
+}
+
 const briefTitle = /^Jira ticket [A-Z][A-Z0-9_]*-\d+(?: \(([^)\n]*)\))?: [^\n]*$/;
 
 /**

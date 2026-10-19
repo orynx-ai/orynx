@@ -68,8 +68,8 @@ export const StoredSessionSchema = z.object({
 });
 export type StoredSession = z.infer<typeof StoredSessionSchema>;
 
-/** A session as lists see it: its summary, and when it was discarded. */
-export type ListedSession = SessionSummary & { discardedAt?: string | null };
+/** A session as lists see it: its summary, when it was discarded, and whether it was an Ask (spec 026). */
+export type ListedSession = SessionSummary & { discardedAt?: string | null; mode?: Session['mode'] };
 
 /** What Tickets, the inbox and search read: every session, in any order. */
 export interface SessionStore {
@@ -89,8 +89,8 @@ export interface SessionRecords extends SessionStore {
 }
 
 export function listedSession(session: Session): ListedSession {
-  const { id, title, state, source, updatedAt, discardedAt } = session;
-  return { id, title, state, source, updatedAt, discardedAt };
+  const { id, title, state, source, updatedAt, discardedAt, mode } = session;
+  return { id, title, state, source, updatedAt, discardedAt, mode };
 }
 
 /** Sessions held in memory: `sessions` are list-only summaries, as tests of Tickets and the inbox give them. */

@@ -310,3 +310,42 @@ describe('files and folders the brief named (spec 022)', () => {
     expect(await decide('Read', { file_path: join(outside, 'plan.pdf') })).toMatchObject({ behavior: 'deny' });
   });
 });
+
+describe('an Ask session (spec 026)', () => {
+  const ask = (tool: string, input: Record<string, unknown>, mode: PermissionMode = 'edit_and_run_allowed') =>
+    decideToolUse(tool, input, {
+      worktree,
+      mode,
+      home: join(root, 'home'),
+      allowedCommands: ['npm test'],
+      readOnly: true,
+    });
+
+  it('lets Claude read and search the folder, as in any session', async () => {
+    expect(await ask('Read', { file_path: 'src/a.ts' })).toEqual({ behavior: 'allow' });
+    expect(await ask('Glob', { pattern: '**/*.ts' })).toEqual({ behavior: 'allow' });
+    expect(await ask('Grep', { pattern: 'export' })).toEqual({ behavior: 'allow' });
+  });
+
+  it('refuses every edit and every command, even one on the allow list, as a step that says why', async () => {
+    expect(await ask('Edit', { file_path: 'src/a.ts', old_string: 'a = 1', new_string: 'a = 2' })).toMatchObject({
+      behavior: 'deny',
+      message: expect.stringContaining('Ask session') as unknown,
+      refusal: { access: 'edit', reason: 'ask_session', path: 'src/a.ts' },
+    });
+    expect(await ask('Write', { file_path: 'src/new.ts', content: 'x' })).toMatchObject({
+      refusal: { access: 'edit', reason: 'ask_session', path: 'src/new.ts' },
+    });
+    expect(await ask('NotebookEdit', { notebook_path: 'src/n.ipynb', new_source: 'x' })).toMatchObject({
+      refusal: { access: 'edit', reason: 'ask_session', path: 'src/n.ipynb' },
+    });
+    expect(await ask('Bash', { command: 'npm test' })).toMatchObject({
+      behavior: 'deny',
+      refusal: { access: 'run', reason: 'ask_session', path: 'npm test' },
+    });
+    // Ask before everything would ask about the edit; an Ask session refuses it first.
+    expect(
+      await ask('Edit', { file_path: 'src/a.ts', old_string: 'a', new_string: 'b' }, 'ask_everything'),
+    ).toMatchObject({ behavior: 'deny', refusal: { reason: 'ask_session' } });
+  });
+});

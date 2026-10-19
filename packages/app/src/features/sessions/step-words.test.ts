@@ -174,6 +174,16 @@ describe('stepWords (Q10a)', () => {
     });
   });
 
+  it('spec 026: an edit or a command an Ask session refused, with its path or command', () => {
+    expect(step({ kind: 'refused', state: 'done', access: 'edit', reason: 'ask_session', path: 'src/a.ts' })).toEqual({
+      title: "Couldn't edit files: this is an Ask session",
+      detail: 'src/a.ts',
+    });
+    expect(step({ kind: 'refused', state: 'done', access: 'run', reason: 'ask_session', path: 'ls' }).title).toBe(
+      "Couldn't run a command: this is an Ask session",
+    );
+  });
+
   it('012 AC-7, Q8c: a push or a background command Orynx refused, with the command', () => {
     expect(
       step({ kind: 'refused', state: 'done', access: 'run', reason: 'push', path: 'git push origin main' }),

@@ -18,6 +18,8 @@ export interface AgentPermissions {
   allowedCommands: readonly string[];
   /** What outside the worktree the brief named, for the agent to read and never edit (spec 022). */
   reads?: AgentReads;
+  /** An Ask session (spec 026): reads only, whatever the mode; every edit and command is refused. */
+  readOnly?: boolean;
 }
 
 /**
@@ -60,7 +62,7 @@ export type AgentAsk =
 /** A call the adapter refused, which the session shows as a step (spec 011 Q6, spec 012 Q7). */
 export interface AgentRefusal {
   access: 'read' | 'edit' | 'run';
-  reason: 'outside_worktree' | 'ask_everything' | 'push' | 'background';
+  reason: 'outside_worktree' | 'ask_everything' | 'push' | 'background' | 'ask_session';
   /** As the agent asked for it: relative to the worktree when it's inside, otherwise absolute; the command for a `run`. */
   path: string;
 }

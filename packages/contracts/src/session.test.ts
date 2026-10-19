@@ -490,6 +490,14 @@ describe("the composer's start (spec 015)", () => {
     ).toEqual({ message: 'Add a CSV export to the reports page', repositoryId: '00000000000000aa', context: [] });
   });
 
+  it('spec 026: takes Ask or Build, left out for Build, and a session saved before it is a Build', () => {
+    expect(ComposerStartSchema.parse(body({ mode: 'ask' })).mode).toBe('ask');
+    expect(ComposerStartSchema.parse(body({})).mode).toBeUndefined();
+    expect(ComposerStartSchema.safeParse(body({ mode: 'chat' })).success).toBe(false);
+    const { mode: _mode, ...saved } = makeSession();
+    expect(SessionSchema.parse(saved).mode).toBe('build');
+  });
+
   it('AC-20: keeps a ticket, pull requests and files in the order you added them', () => {
     const context = [file('notes.md'), ticket, pull(2836), pull(2841)];
     expect(ComposerStartSchema.parse(body({ message: 'Use the notes', context })).context).toEqual(context);

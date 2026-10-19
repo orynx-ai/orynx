@@ -31,7 +31,7 @@ import type { GitHubSyncCredentials } from '../integrations/github/connection.ts
 import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
-import { briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
+import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
 import type { ChangesReader, StartPoint } from './changes.ts';
 import {
   chooseFolder,
@@ -575,6 +575,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   async function run(id: string, run: Run): Promise<void> {
     const record = await records.get(id);
+    if (record?.session.mode === 'ask') return runAsk(id, run, record);
     if (record?.worktree == null) return;
     // A composer start read everything before its record was made (spec 015); Ship reads the ticket now.
     const planned = startPlans.get(id);
@@ -612,13 +613,32 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     await startClaude(id, run, start.brief, record.worktree, plan.branch, null, start.ticketNote, start.choice);
   }
 
-  /** Starts Claude for a run, with the brief or, resuming its own session, your follow-up, and follows it. */
+  /**
+   * An Ask session's run (spec 026): no worktree and no branch. Claude reads the repository folder where it is,
+   * and the read-only permissions refuse every edit and command there.
+   */
+  async function runAsk(id: string, run: Run, record: StoredSession): Promise<void> {
+    const start = startPlans.get(id);
+    startPlans.delete(id);
+    if (start === undefined) return;
+    await records.writeBrief(id, briefText(start.brief));
+    await change(id, (current) =>
+      withProgress(current, (progress) => addStep(progress, { kind: 'brief', ...start.briefStep })),
+    );
+    if (stopping(run)) return;
+    await startClaude(id, run, start.brief, record.repository.path, null, null, start.ticketNote, start.choice);
+  }
+
+  /**
+   * Starts Claude for a run, with the brief or, resuming its own session, your follow-up, and follows it. `worktree`
+   * is Claude's folder: the session's worktree, or an Ask session's repository folder, which has no branch.
+   */
   async function startClaude(
     id: string,
     run: Run,
     brief: AgentBrief,
     worktree: string,
-    branch: string,
+    branch: string | null,
     resume: string | null,
     ticketNote: boolean,
     /** The model and effort you picked for this run; left out, Claude Code's own default. */
@@ -632,12 +652,18 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         records.get(id),
       ]);
       // The files and folders the brief named, which Claude may read on this run and every follow-up (spec 022).
-      return { mode: permissionMode, allowedCommands, reads: current?.reads ?? noReads };
+      // An Ask session reads only, whatever the mode; a record that's gone reads only too.
+      return {
+        mode: permissionMode,
+        allowedCommands,
+        reads: current?.reads ?? noReads,
+        readOnly: current?.session.mode !== 'build',
+      };
     };
     await permissions();
     // Stop can come while they're read: then Claude never starts.
     if (stopping(run)) return;
-    const note = sessionNote(branch, adapter.runsCommands, ticketNote);
+    const note = branch === null ? askNote() : sessionNote(branch, adapter.runsCommands, ticketNote);
     const agentId = await adapter.startSession(brief, worktree, permissions, note, {
       ...(resume === null ? {} : { resume }),
       model,
@@ -791,13 +817,16 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       reason,
     });
     if (session.discardedAt !== null) return cannot('discarded');
-    const { claudeSessionId, worktree } = record;
+    const { claudeSessionId } = record;
     const { branch } = session;
-    if (claudeSessionId === null || worktree === null || branch === null || adapter === null) {
+    // An Ask session carries on in its repository folder, with no branch (spec 026).
+    const ask = session.mode === 'ask';
+    const folder = ask ? record.repository.path : record.worktree;
+    if (claudeSessionId === null || folder === null || (!ask && branch === null) || adapter === null) {
       return cannot('never_started');
     }
     const key = ticketOf(record);
-    const live = await liveSessionOn(key);
+    const live = ask ? null : await liveSessionOn(key);
     if (live !== null && live !== id) return cannot('newer_session');
     if ((await workingCount()) >= mostWorking) return cannot('too_many');
 
@@ -815,7 +844,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     });
     options.onReport?.({ what: 'followed_up', session: id, ticket: key, resumed: true });
     track(
-      startClaude(id, run, brief, worktree, branch, claudeSessionId, ticketNote(session), choice)
+      startClaude(id, run, brief, folder, branch, claudeSessionId, ticketNote(session), choice)
         .catch(() => fail(id, 'other', 'unexpected'))
         .finally(() => {
           run.markStarted(null);
@@ -830,8 +859,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   async function liveSessionOn(key: string): Promise<string | null> {
     const listed = await records.list();
+    // An Ask session reads only, so it never holds a ticket (spec 026).
     const live = listed.filter(
-      (session) => session.source?.kind === 'jira' && session.source.key === key && isLive(session),
+      (session) =>
+        session.source?.kind === 'jira' && session.source.key === key && isLive(session) && session.mode !== 'ask',
     );
     live.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
     return live[0]?.id ?? null;
@@ -842,7 +873,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const { session } = record;
     if (session.discardedAt !== null) return { kind: 'discarded' };
     if (record.claudeSessionId === null && !isWorking(session)) return { kind: 'never_started' };
-    if (session.source?.kind === 'jira') {
+    if (session.source?.kind === 'jira' && session.mode !== 'ask') {
       const live = await liveSessionOn(session.source.key);
       if (live !== null && live !== session.id) return { kind: 'newer_session', sessionId: live };
     }
@@ -905,6 +936,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         runStartedAt: at,
         pullRequest: null,
         context: [{ kind: 'jira', key: ticketKey }],
+        mode: 'build',
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -926,7 +958,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
    */
   async function composeNow(request: ComposerStart): Promise<StartSessionAnswer> {
     const key = ticketKeyOf(request);
-    if (key !== null) {
+    const ask = request.mode === 'ask';
+    // A ticket's live session stops a Build on it; an Ask only reads, so it starts beside one (spec 026).
+    if (key !== null && !ask) {
       const live = await liveSessionOn(key);
       if (live !== null) return { result: 'existing', sessionId: live };
     }
@@ -970,9 +1004,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         runStartedAt: at,
         pullRequest: null,
         context: [...request.context],
+        mode: ask ? 'ask' : 'build',
       },
       repository: { id: folder.id, path: folder.path },
-      worktree: join(options.worktrees.root, id),
+      // An Ask session makes no worktree: Claude reads the folder itself (spec 026).
+      worktree: ask ? null : join(options.worktrees.root, id),
       startCommit: null,
       pushedCommit: null,
       claudeSessionId: null,

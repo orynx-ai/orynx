@@ -47,6 +47,8 @@ export interface ToolContext {
   mode: PermissionMode;
   /** Settings › Coding agent's allow list, as saved. */
   allowedCommands: readonly string[];
+  /** An Ask session (spec 026): checked before the mode, so no setting lets an edit or a command through. */
+  readOnly?: boolean | undefined;
   /** What `~` means in a path Claude gives. */
   home: string;
 }
@@ -100,6 +102,14 @@ function decideBash(input: Readonly<Record<string, unknown>>, context: ToolConte
   };
 }
 
+const askSessionMessage =
+  "This is an Ask session: Orynx lets you read this folder, not change files or run commands. Answer from what you've read.";
+
+/** An edit or a command in an Ask session: refused, and shown as a step (spec 026). */
+function readOnlyRefusal(access: 'edit' | 'run', path: string): ToolDecision {
+  return { behavior: 'deny', message: askSessionMessage, refusal: { access, reason: 'ask_session', path } };
+}
+
 function isSessionTool(tool: string): tool is SessionTool {
   return (sessionTools as readonly string[]).includes(tool);
 }
@@ -113,7 +123,11 @@ export async function decideToolUse(
   if (!isSessionTool(tool)) {
     return { behavior: 'deny', message: `${tool} isn't available in this session.`, refusal: null };
   }
-  if (tool === 'Bash') return decideBash(input, context);
+  if (tool === 'Bash') {
+    const command = input['command'];
+    if (context.readOnly !== true) return decideBash(input, context);
+    return typeof command === 'string' && command !== '' ? readOnlyRefusal('run', command) : unreadable('Bash');
+  }
   const target = targets[tool];
   if (target === null) return { behavior: 'allow' };
 
@@ -127,6 +141,7 @@ export async function decideToolUse(
   if (tool === 'Glob' && typeof pattern === 'string') asked = absolute(fixedStart(pattern), asked, home);
 
   const shown = shownPath(asked, worktree);
+  if (context.readOnly === true && target.access === 'edit') return readOnlyRefusal('edit', shown);
   if (!(await insideWorktree(asked, worktree))) {
     // A file you picked, or a skill's folder, may be read where it is, and never changed (spec 022, AC-15, AC-53).
     if (target.access === 'read' && (await namedByBrief(asked, context.reads))) return { behavior: 'allow' };

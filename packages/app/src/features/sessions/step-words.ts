@@ -44,6 +44,10 @@ function refusedTitle(activity: Extract<SessionActivity, { kind: 'refused' }>): 
       return "Couldn't run a command in the background";
     case 'outside_worktree':
       return `Couldn't ${activity.access} outside the worktree`;
+    case 'ask_session':
+      return activity.access === 'run'
+        ? "Couldn't run a command: this is an Ask session"
+        : "Couldn't edit files: this is an Ask session";
   }
 }
 
