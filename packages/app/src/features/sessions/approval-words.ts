@@ -19,7 +19,7 @@ export function alwaysAllowLabel(entry: string): string {
 
 const runsOutside = 'If you allow it, it runs once outside the sandbox.';
 
-/** Why a command asks with Allow once and Deny only (Q8b): its row in Settings › Coding agent says Ask first (spec 026). */
+/** Why a command asks with Allow once and Deny only (Q8b): its row in Settings › Coding agent says Ask (spec 026). */
 export function alwaysAskLine(reason: AlwaysAskReason): string {
   switch (reason) {
     case 'network':

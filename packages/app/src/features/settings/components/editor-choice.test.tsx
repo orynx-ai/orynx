@@ -23,12 +23,12 @@ function saves({ fails = false } = {}) {
   return sent;
 }
 
-const editors = () => screen.getByRole('radiogroup', { name: 'Editor' });
+const editors = () => screen.getByRole('radiogroup', { name: 'Open changes in' });
 
 describe('EditorChoice', () => {
   it('AC-26: offers VS Code and Cursor, VS Code picked by default', async () => {
     await renderApp({ route });
-    const group = await screen.findByRole('radiogroup', { name: 'Editor' });
+    const group = await screen.findByRole('radiogroup', { name: 'Open changes in' });
     await waitFor(() => {
       expect(within(group).getByRole('radio', { name: 'VS Code' })).toBeChecked();
     });
@@ -81,7 +81,7 @@ describe('EditorChoice', () => {
       }),
     );
     await renderApp({ route });
-    const group = await screen.findByRole('radiogroup', { name: 'Editor' });
+    const group = await screen.findByRole('radiogroup', { name: 'Open changes in' });
     for (const name of ['VS Code', 'Cursor']) {
       expect(within(group).getByRole('radio', { name })).toBeDisabled();
       expect(within(group).getByRole('radio', { name })).not.toBeChecked();

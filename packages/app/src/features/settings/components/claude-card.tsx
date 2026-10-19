@@ -1,10 +1,11 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { ClaudeIcon, RefreshIcon } from '@hugeicons/core-free-icons';
 import type { ClaudeLogin, ClaudeSignedIn } from '@devhub/contracts';
-import { Button, Card, Pill, Skeleton, type PillTone } from '@devhub/ui';
+import { Button, Icon, Pill, Skeleton, type PillTone } from '@devhub/ui';
 import { useCheckClaudeLogin, useClaudeLogin } from '../queries.ts';
 
-/** The design's line, in every state (spec 010, Q5f). */
-const designLine = 'Uses your company Claude login through the Claude Agent SDK. No separate API key.';
+/** The design's line, in every state (spec 010, Q5f), in the redesign's words (19 Oct 2026). */
+const designLine = 'Company login through the Claude Agent SDK. No API key needed.';
 
 const pills: Record<ClaudeLogin['state'], { tone: PillTone; label: string }> = {
   signed_in: { tone: 'success', label: 'Active' },
@@ -45,10 +46,12 @@ const notReadyLines: Record<'signed_out' | 'error', ReactNode> = {
 /**
  * Settings › Coding agent: whether Claude is ready, from Claude Code's own login (spec 010). There is
  * nothing to connect here: when it isn't signed in, the card says how, and Check again asks once more.
+ * Drawn as the redesign's agent row (19 Oct 2026): Claude's mark, its name and state, then its lines.
  */
 export function ClaudeCard() {
   const login = useClaudeLogin();
   const check = useCheckClaudeLogin();
+  const nameId = useId();
   // A server that doesn't answer is a check that couldn't run, as far as this card can tell. A failed
   // Check again stands until the next press, or until a newer answer arrives from the server.
   const checkFailed = check.isError && check.submittedAt >= login.dataUpdatedAt;
@@ -68,48 +71,66 @@ export function ClaudeCard() {
   }, [notReady]);
 
   return (
-    <Card
-      title="Claude"
-      look="selected"
+    <div
+      role="group"
+      aria-labelledby={nameId}
       aria-busy={state === null}
-      aside={
-        state === null ? <Skeleton className="h-6 w-16" /> : <Pill tone={pills[state].tone}>{pills[state].label}</Pill>
-      }
+      className="flex items-start gap-3.5 rounded-md border border-border bg-raised px-4 py-3.5"
     >
-      <p className="m-0 text-small text-muted-foreground">{designLine}</p>
-      {state === null ? (
-        // The account line's height, so an Active answer moves nothing (Q9).
-        <Skeleton className="my-0.5 h-4 w-48 max-w-full" />
-      ) : null}
-      {login.data?.state === 'signed_in' ? (
-        <p ref={lineRef} tabIndex={-1} className="m-0 text-small wrap-anywhere">
-          {accountLine(login.data)}
-        </p>
-      ) : null}
-      {notReady ? (
-        <>
-          <p className="m-0 text-small">{notReadyLines[state]}</p>
-          {/* A flex row, so the spinner coming in can't shift the label's baseline and grow the card (AC-7). */}
-          <div className="flex">
-            <Button
-              variant="secondary"
-              size="sm"
-              pending={check.isPending}
-              onFocus={() => {
-                buttonHadFocus.current = true;
-              }}
-              onBlur={() => {
-                buttonHadFocus.current = false;
-              }}
-              onClick={() => {
-                check.mutate();
-              }}
-            >
-              {check.isPending ? 'Checking…' : 'Check again'}
-            </Button>
-          </div>
-        </>
-      ) : null}
-    </Card>
+      <span
+        aria-hidden
+        className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-info-subtle text-info-foreground"
+      >
+        <Icon icon={ClaudeIcon} />
+      </span>
+      <div className="flex min-w-0 grow flex-col gap-0.5">
+        {/* 24 px tall, the pill's height, so the skeleton and the pill sit alike. */}
+        <div className="flex min-h-6 flex-wrap items-center gap-2">
+          <h3 id={nameId} className="m-0 text-body font-medium">
+            Claude
+          </h3>
+          {state === null ? (
+            <Skeleton className="h-6 w-16" />
+          ) : (
+            <Pill tone={pills[state].tone}>{pills[state].label}</Pill>
+          )}
+        </div>
+        <p className="m-0 text-small text-muted-foreground">{designLine}</p>
+        {state === null ? (
+          // The account line's height, so an Active answer moves nothing (Q9).
+          <Skeleton className="my-0.5 h-4 w-48 max-w-full" />
+        ) : null}
+        {login.data?.state === 'signed_in' ? (
+          <p ref={lineRef} tabIndex={-1} className="m-0 text-small wrap-anywhere text-muted-foreground">
+            {accountLine(login.data)}
+          </p>
+        ) : null}
+        {notReady ? (
+          <>
+            <p className="m-0 text-small">{notReadyLines[state]}</p>
+            {/* A flex row, so the spinner coming in can't shift the label's baseline and grow the card (AC-7). */}
+            <div className="mt-2 flex">
+              <Button
+                variant="secondary"
+                size="sm"
+                pending={check.isPending}
+                onFocus={() => {
+                  buttonHadFocus.current = true;
+                }}
+                onBlur={() => {
+                  buttonHadFocus.current = false;
+                }}
+                onClick={() => {
+                  check.mutate();
+                }}
+              >
+                {check.isPending ? null : <Icon icon={RefreshIcon} aria-hidden />}
+                {check.isPending ? 'Checking…' : 'Check again'}
+              </Button>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
   );
 }
