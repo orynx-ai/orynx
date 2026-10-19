@@ -60,7 +60,7 @@ describe('two chips, then +N (spec 022)', () => {
       within(strip())
         .getAllByRole('listitem')
         .map((item) => item.textContent),
-    ).toEqual(['PROJ-1423', 'web-app #2836', '+3: Show all 5 items of context']);
+    ).toEqual(['PROJ-1423', 'web-app #2836', '+3']);
 
     // Removing a shown chip brings the next one into view.
     await user.click(screen.getByRole('button', { name: 'Remove PROJ-1423' }));
@@ -68,7 +68,7 @@ describe('two chips, then +N (spec 022)', () => {
       within(strip())
         .getAllByRole('listitem')
         .map((item) => item.textContent),
-    ).toEqual(['web-app #2836', 'PROJ-1424', '+2: Show all 4 items of context']);
+    ).toEqual(['web-app #2836', 'PROJ-1424', '+2']);
     expect(more).toHaveAccessibleName('+2: Show all 4 items of context');
   });
 });

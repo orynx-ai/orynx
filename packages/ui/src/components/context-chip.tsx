@@ -103,10 +103,12 @@ export function ContextMore({ count, label, tooltip, className, ...props }: Cont
             'relative inline-flex h-8 cursor-pointer items-center rounded-sm border border-border bg-sidebar px-2 text-small font-medium text-foreground hover:bg-subtle',
             className,
           )}
+          // One string, starting with what it shows, so a voice command for "+3" finds it (WCAG 2.5.3). A hidden span
+          // after "+3" read as "+3 : Show…" in Chrome, since the span is laid out as a block.
+          aria-label={`+${String(count)}: ${label}`}
           {...props}
         >
-          {/* Its name starts with what it shows, so a voice command for "+3" finds it (WCAG 2.5.3). */}+{count}
-          <span className="sr-only">: {label}</span>
+          +{count}
         </button>
       </Tooltip>
     </li>

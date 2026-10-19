@@ -213,7 +213,7 @@ test('AC-6 to AC-8, AC-11, AC-14, AC-20, 022 AC-9, AC-10: a ticket, a pasted pul
   await page.getByRole('menuitem', { name: /File from this computer/ }).click();
 
   // Two chips show, then +1 for the third (spec 022, AC-19).
-  await expect(chips(page)).toHaveText(['PROJ-1423', 'web-app #2836', '+1: Show all 3 items of context']);
+  await expect(chips(page)).toHaveText(['PROJ-1423', 'web-app #2836', '+1']);
   await box(page).fill('Use the notes');
   await page.getByRole('button', { name: 'Send to Claude' }).click();
 
@@ -248,7 +248,7 @@ test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Ho
   await jira.getByRole('combobox').fill('bulk');
   await jira.getByRole('option', { name: /PROJ-1423/ }).click();
 
-  await expect(chips(page)).toHaveText(['PROJ-1377', 'web-app #2836', '+1: Show all 3 items of context']);
+  await expect(chips(page)).toHaveText(['PROJ-1377', 'web-app #2836', '+1']);
   await expect(box(page)).toHaveAttribute('placeholder', 'What should Claude do with these 2 tickets?');
   await page.getByRole('button', { name: '+1: Show all 3 items of context' }).click();
   const all = page.getByRole('dialog', { name: 'Context for Claude' });
