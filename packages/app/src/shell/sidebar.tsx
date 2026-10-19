@@ -10,6 +10,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { BrandMark, cn, Icon, IconButton, Kbd, Splitter, Tooltip } from '@devhub/ui';
 import { useInboxCount } from '../features/home/queries.ts';
+import { NotificationCentre } from '../features/notifications/components/notification-centre.tsx';
 import { useSearchStore } from '../features/search/store.ts';
 import { useTicketsCount } from '../features/tickets/queries.ts';
 import { SidebarSessions } from '../features/sessions/components/sidebar-sessions.tsx';
@@ -68,6 +69,12 @@ export function Sidebar() {
           <BrandMark />
           <span className={cn('text-title font-medium', collapsed && 'md:sr-only')}>Orynx</span>
         </span>
+        {/* The narrow bar has no footer, so the bell sits here, before Search (spec 029, Q1). */}
+        {wide ? null : (
+          <span className="ms-auto">
+            <NotificationCentre side="bottom" tooltipSide="bottom" />
+          </span>
+        )}
         <IconButton
           variant="ghost"
           size="sm"
