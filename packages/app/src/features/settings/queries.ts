@@ -22,6 +22,9 @@ import type {
   PreferencesChange,
   AddRepositoryRequest,
   FolderPick,
+  ReadySkill,
+  SaveSkillRequest,
+  SkillFolder,
   Repository,
   RepositoryId,
   RepositoryList,
@@ -380,6 +383,31 @@ export function useAddStarterSkills() {
   return useMutation({
     mutationKey: [...queryKeys.skills, 'starters'],
     mutationFn: () => api.addStarterSkills(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
+  });
+}
+
+/**
+ * Saves a skill. The list reads itself again before the save settles, so a rename's new folder is listed by the
+ * time the editor opens it.
+ */
+export function useSaveSkill() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<ReadySkill, ApiRequestError, { folder: SkillFolder; request: SaveSkillRequest }>({
+    mutationKey: [...queryKeys.skills, 'save'],
+    mutationFn: ({ folder, request }) => api.saveSkill(folder, request),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
+  });
+}
+
+/** Writes a new skill; listed before the save settles, as {@link useSaveSkill}. */
+export function useAddSkill() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<ReadySkill, ApiRequestError, SaveSkillRequest>({
+    mutationKey: [...queryKeys.skills, 'add'],
+    mutationFn: (request) => api.addSkill(request),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
   });
 }

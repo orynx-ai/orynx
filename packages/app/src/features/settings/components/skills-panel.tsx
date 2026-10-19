@@ -1,9 +1,11 @@
+import type { ReactNode } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Book02Icon } from '@hugeicons/core-free-icons';
-import type { SkillEntry, SkillFolder } from '@devhub/contracts';
+import type { ReadySkill, SkillEntry, SkillFolder } from '@devhub/contracts';
 import { Button, Callout, EmptyState, Icon, ListNavSkeleton } from '@devhub/ui';
 import { useAddStarterSkills, useSkills } from '../queries.ts';
 import type { SettingsSearch } from '../tabs.ts';
+import { SkillEditor, SkillEditorSkeleton } from './skill-editor.tsx';
 import { SkillList } from './skill-list.tsx';
 
 /** The list's column: 260 px to 320 px beside the editor, the whole width once they stack. */
@@ -15,6 +17,18 @@ const editorColumn = 'min-w-0 grow-3 basis-130';
 function openFolder(skills: readonly SkillEntry[], search: SettingsSearch): SkillFolder | null {
   if (search.new === true) return null;
   return skills.find((skill) => skill.folder === search.skill)?.folder ?? skills[0]?.folder ?? null;
+}
+
+/** The editor for the open skill, a new one, or nothing yet for a skill Orynx can't read. */
+function editorFor(
+  skills: readonly SkillEntry[],
+  search: SettingsSearch,
+  render: (skill: ReadySkill | null) => ReactNode,
+): ReactNode {
+  if (search.new === true) return render(null);
+  const folder = openFolder(skills, search);
+  const skill = skills.find((entry) => entry.folder === folder);
+  return skill?.state === 'ready' ? render(skill) : null;
 }
 
 /**
@@ -30,6 +44,12 @@ export function SkillsPanel() {
 
   function open(folder: SkillFolder) {
     void navigate({ to: '/settings/$tab', params: { tab: 'skills' }, search: { skill: folder } });
+  }
+
+  /** A new skill, or a rename, is saved under another folder: the address follows it. */
+  function saved(skill: ReadySkill) {
+    if (skill.folder === search.skill) return;
+    void navigate({ to: '/settings/$tab', params: { tab: 'skills' }, search: { skill: skill.folder }, replace: true });
   }
 
   return (
@@ -56,7 +76,7 @@ export function SkillsPanel() {
       ) : list === undefined ? (
         <div className="flex flex-wrap items-start gap-5">
           <ListNavSkeleton rows={3} className={listColumn} />
-          <div aria-hidden className={`${editorColumn} h-140 rounded-md border border-border bg-raised`} />
+          <SkillEditorSkeleton className={editorColumn} />
         </div>
       ) : list.length === 0 ? (
         <EmptyState
@@ -77,6 +97,16 @@ export function SkillsPanel() {
       ) : (
         <div className="flex flex-wrap items-start gap-5">
           <SkillList skills={list} current={openFolder(list, search)} onPick={open} className={listColumn} />
+          {editorFor(list, search, (skill) => (
+            <SkillEditor
+              // Each skill gets a form of its own, so nothing typed for one shows on another.
+              key={skill?.folder ?? 'new'}
+              skill={skill}
+              pluginFolder={skills.data?.pluginFolder ?? ''}
+              onSaved={saved}
+              className={editorColumn}
+            />
+          ))}
         </div>
       )}
     </div>
