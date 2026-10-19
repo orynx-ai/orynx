@@ -103,5 +103,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 27: Browser check of the panel, a pop-up and the tab at 360 and 1280 px in light and dark (axe, sideways scroll, the panel and pop-up inside the window: no problems, after fitting the tab to 360 px); a `learn/` page; the script for `docs/design/screens/`, `design-system.md` and `docs/product/spec.md`, tried on a copy (AC-45, AC-46)
       Check: pnpm gate design-source; pnpm gate learn-freshness
       Files: learn/notifications.md, specs/029-notifications/people-files.sh, packages/ui/src/components/setting-row.tsx, packages/app/src/features/settings/components/test-notification.tsx
-- [ ] Task 28: STOP and run /review
-      Check: the review stamp matches the branch (pnpm review:stamp verify)
+- [x] Task 28: STOP and run /review
+      Skipped on 19 Oct 2026 at the user's ask ("push without review"); no stamp was written, so the branch was pushed past the pre-push `review-stamp` gate. `pnpm verify` passed on the whole branch (11 gates, learn-freshness warning only; typecheck, lint, 3,264 tests); the approvals and settings e2e passed (53). Still to come from the user: `specs/029-notifications/people-files.sh`.
