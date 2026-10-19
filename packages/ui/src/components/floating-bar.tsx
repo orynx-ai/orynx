@@ -25,3 +25,15 @@ export function FloatingBar({ className, ...props }: FloatingBarProps) {
     />
   );
 }
+
+/** A hairline between the bar's groups of actions, as tall as an `sm` button's words (the user's call, 19 Oct 2026). */
+export function FloatingBarSeparator({ className, ...props }: Omit<ComponentProps<'span'>, 'children'>) {
+  return (
+    <span
+      aria-hidden
+      data-slot="floating-bar-separator"
+      className={cn('h-5 w-px shrink-0 bg-border', className)}
+      {...props}
+    />
+  );
+}

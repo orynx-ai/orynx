@@ -1,6 +1,8 @@
+import { SparklesIcon } from '@hugeicons/core-free-icons';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Button } from './button.tsx';
-import { FloatingBar } from './floating-bar.tsx';
+import { FloatingBar, FloatingBarSeparator } from './floating-bar.tsx';
+import { Icon } from './icon.tsx';
 
 const meta = {
   title: 'Components/FloatingBar',
@@ -12,10 +14,14 @@ const meta = {
         <span role="status" className="text-small text-muted-foreground">
           2 selected
         </span>
-        <Button variant="ghost" size="sm">
+        <Button variant="danger-ghost" size="sm">
           Unselect all
         </Button>
-        <Button size="sm">Ship all</Button>
+        <FloatingBarSeparator />
+        <Button variant="ghost" size="sm">
+          <Icon icon={SparklesIcon} aria-hidden />
+          Ship all
+        </Button>
       </>
     ),
   },
@@ -34,10 +40,14 @@ export const One: Story = {
         <span role="status" className="text-small text-muted-foreground">
           1 selected
         </span>
-        <Button variant="ghost" size="sm">
+        <Button variant="danger-ghost" size="sm">
           Unselect all
         </Button>
-        <Button size="sm">Ship all</Button>
+        <FloatingBarSeparator />
+        <Button variant="ghost" size="sm">
+          <Icon icon={SparklesIcon} aria-hidden />
+          Ship all
+        </Button>
       </>
     ),
   },

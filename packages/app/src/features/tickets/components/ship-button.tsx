@@ -1,4 +1,5 @@
-import { Button, FloatingBar, WorkItemShip } from '@devhub/ui';
+import { SparklesIcon } from '@hugeicons/core-free-icons';
+import { Button, FloatingBar, FloatingBarSeparator, Icon, WorkItemShip } from '@devhub/ui';
 import { useNewTask } from '../../../shell/use-shortcuts.ts';
 import { useComposerStore } from '../../home/store.ts';
 import { useTicketsStore } from '../store.ts';
@@ -45,7 +46,7 @@ export function ShipSelected({ onCleared }: { onCleared: () => void }) {
           {selectionWords.count(selected.length)}
         </span>
         <Button
-          variant="ghost"
+          variant="danger-ghost"
           size="sm"
           onClick={() => {
             clear();
@@ -54,7 +55,9 @@ export function ShipSelected({ onCleared }: { onCleared: () => void }) {
         >
           {selectionWords.clear}
         </Button>
+        <FloatingBarSeparator />
         <Button
+          variant="ghost"
           size="sm"
           onClick={() => {
             for (const key of selected) addChip({ kind: 'jira', key });
@@ -62,6 +65,7 @@ export function ShipSelected({ onCleared }: { onCleared: () => void }) {
             newTask();
           }}
         >
+          <Icon icon={SparklesIcon} aria-hidden />
           {selectionWords.ship}
         </Button>
       </FloatingBar>
