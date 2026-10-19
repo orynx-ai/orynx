@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import type { SkillEntry, SkillFolder } from '@devhub/contracts';
 import { ListNav, ListNavItem, SearchField } from '@devhub/ui';
 
@@ -23,7 +23,7 @@ function searchText(skill: SkillEntry): string {
  */
 export function SkillList({ skills, current, onPick, itemRef, className }: SkillListProps) {
   const form = useForm({ defaultValues: { query: '' } });
-  const query = form.watch('query').trim();
+  const query = useWatch({ control: form.control, name: 'query' }).trim();
   const shown = query === '' ? skills : skills.filter((skill) => searchText(skill).includes(query.toLowerCase()));
 
   return (

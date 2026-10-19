@@ -78,6 +78,7 @@ describe('Settings › Skills', () => {
     const shown = await screen.findByRole('list', { name: 'Your skills' });
     expect(within(shown).getByRole('button', { name: 'How we review' })).toBeVisible();
     expect(screen.queryByText('No skills yet.')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Bug bash' })).toBeVisible();
   });
 
   it('AC-15: keeps the callout and shows no list while the skills load', async () => {
@@ -371,5 +372,22 @@ describe('Settings › Skills', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(history.location.search).toBe('?skill=how-we-review');
     });
+  });
+
+  it("AC-17: opens a skill Orynx can't read with that line and Delete skill only", async () => {
+    skills(makeSkillList({ skills: [makeSkill(), { state: 'unreadable', folder: 'broken' }] }));
+    const { user } = await renderApp({ route: '/settings/skills' });
+    await screen.findByRole('heading', { level: 2, name: 'Bug bash' });
+
+    await user.click(screen.getByRole('button', { name: 'broken' }));
+
+    const heading = await screen.findByRole('heading', { level: 2, name: 'broken' });
+    const panel = heading.closest('section');
+    if (panel === null) throw new Error('No editor.');
+    expect(within(panel).getByText("Orynx can't read this skill.")).toBeVisible();
+    expect(within(panel).getByText('~/.devhub/plugin/skills/broken/SKILL.md')).toBeVisible();
+    expect(within(panel).getByRole('button', { name: 'Delete skill' })).toBeVisible();
+    expect(within(panel).queryByRole('textbox')).not.toBeInTheDocument();
+    expect(within(panel).queryByRole('button', { name: 'Save skill' })).not.toBeInTheDocument();
   });
 });

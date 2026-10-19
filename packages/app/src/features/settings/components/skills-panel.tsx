@@ -5,7 +5,7 @@ import type { ReadySkill, SkillEntry, SkillFolder } from '@devhub/contracts';
 import { Button, Callout, EmptyState, Icon, ListNavSkeleton } from '@devhub/ui';
 import { useAddStarterSkills, useSkills } from '../queries.ts';
 import type { SettingsSearch } from '../tabs.ts';
-import { SkillEditor, SkillEditorSkeleton } from './skill-editor.tsx';
+import { SkillEditor, SkillEditorSkeleton, UnreadableSkill } from './skill-editor.tsx';
 import { SkillList } from './skill-list.tsx';
 
 /** The list's column: 260 px to 320 px beside the editor, the whole width once they stack. */
@@ -19,16 +19,11 @@ function openFolder(skills: readonly SkillEntry[], search: SettingsSearch): Skil
   return skills.find((skill) => skill.folder === search.skill)?.folder ?? skills[0]?.folder ?? null;
 }
 
-/** The editor for the open skill, a new one, or nothing yet for a skill Orynx can't read. */
-function editorFor(
-  skills: readonly SkillEntry[],
-  search: SettingsSearch,
-  render: (skill: ReadySkill | null) => ReactNode,
-): ReactNode {
-  if (search.new === true) return render(null);
+/** The open skill: a new one (null), one Orynx read, or one it can't; nothing while the list is empty. */
+function openSkill(skills: readonly SkillEntry[], search: SettingsSearch): SkillEntry | null | undefined {
+  if (search.new === true) return null;
   const folder = openFolder(skills, search);
-  const skill = skills.find((entry) => entry.folder === folder);
-  return skill?.state === 'ready' ? render(skill) : null;
+  return skills.find((entry) => entry.folder === folder);
 }
 
 /**
@@ -84,6 +79,37 @@ export function SkillsPanel() {
       // Just saved, so nothing is lost.
       ignoreBlocker: true,
     });
+  }
+
+  const pluginFolder = skills.data?.pluginFolder ?? '';
+  const shown = list === undefined ? undefined : openSkill(list, search);
+  let editor: ReactNode = null;
+  if (shown?.state === 'unreadable') {
+    editor = (
+      <UnreadableSkill
+        key={shown.folder}
+        folder={shown.folder}
+        pluginFolder={pluginFolder}
+        onDeleted={() => {
+          deleted(shown.folder);
+        }}
+        className={editorColumn}
+      />
+    );
+  } else if (shown !== undefined) {
+    editor = (
+      <SkillEditor
+        // Each skill gets a form of its own, so nothing typed for one shows on another.
+        key={shown?.folder ?? 'new'}
+        skill={shown}
+        pluginFolder={pluginFolder}
+        onSaved={saved}
+        onDeleted={() => {
+          if (shown !== null) deleted(shown.folder);
+        }}
+        className={editorColumn}
+      />
+    );
   }
 
   return (
@@ -143,19 +169,7 @@ export function SkillsPanel() {
               className={listColumn}
             />
           )}
-          {editorFor(list, search, (skill) => (
-            <SkillEditor
-              // Each skill gets a form of its own, so nothing typed for one shows on another.
-              key={skill?.folder ?? 'new'}
-              skill={skill}
-              pluginFolder={skills.data?.pluginFolder ?? ''}
-              onSaved={saved}
-              onDeleted={() => {
-                if (skill !== null) deleted(skill.folder);
-              }}
-              className={editorColumn}
-            />
-          ))}
+          {editor}
         </div>
       )}
     </div>

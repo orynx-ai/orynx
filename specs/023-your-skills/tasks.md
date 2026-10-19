@@ -46,7 +46,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: Discard changes when picking another skill, pressing New skill or leaving the tab (AC-11)
       Check: pnpm test packages/app/src/features/settings/components/skills-panel.test.tsx
       Files: packages/app/src/features/settings/components/discard-skill-changes.tsx, packages/app/src/features/settings/components/skills-panel.tsx, their tests
-- [ ] Task 15: The starters, the Bug bash callout, and unreadable skills (AC-13, AC-14, AC-17)
+- [x] Task 15: The starters, the Bug bash callout, and unreadable skills (AC-13, AC-14, AC-17)
       Check: pnpm test packages/app/src/features/settings/components/skills-panel.test.tsx packages/app/src/features/settings/components/skill-editor.test.tsx
       Files: packages/app/src/features/settings/components/skills-panel.tsx, packages/app/src/features/settings/components/skill-editor.tsx, their tests
 - [ ] Task 16: E2e for Settings › Skills on a hub of its own, and the browser check at 360 and 1280 px in both themes (AC-19, AC-25, AC-26, AC-29)

@@ -1,9 +1,15 @@
 import { useEffect, useId, useRef, type ComponentProps } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import type { z } from 'zod';
-import { folderFromName, SaveSkillRequestSchema, type ReadySkill, type SaveSkillRequest } from '@devhub/contracts';
-import { Button, Field, Input, Panel, Skeleton, SourceMark, Textarea } from '@devhub/ui';
+import {
+  folderFromName,
+  SaveSkillRequestSchema,
+  type ReadySkill,
+  type SaveSkillRequest,
+  type SkillFolder,
+} from '@devhub/contracts';
+import { Button, Callout, Field, Input, Panel, Skeleton, SourceMark, Textarea } from '@devhub/ui';
 import { useAddSkill, useSaveSkill } from '../queries.ts';
 import { DeleteSkill } from './delete-skill.tsx';
 import { DiscardSkillChanges } from './discard-skill-changes.tsx';
@@ -53,7 +59,7 @@ export function SkillEditor({ skill, pluginFolder, onSaved, onDeleted, className
     resetOptions: { keepDirtyValues: true },
   });
   const { errors, isDirty } = form.formState;
-  const folder = folderFromName(form.watch('title'));
+  const folder = folderFromName(useWatch({ control: form.control, name: 'title' }));
   const failure = (skill === null ? add : save).error;
   // A second press while the first save is on its way sends nothing.
   const busy = useRef(false);
@@ -130,6 +136,15 @@ export function SkillEditor({ skill, pluginFolder, onSaved, onDeleted, className
           >
             <Textarea mono {...form.register('instructions')} />
           </Field>
+          {skill?.folder === 'bug-bash' ? (
+            // The starter's limits, where you read its instructions (Q9).
+            <Callout tone="warning" title="What this skill can and can't do today">
+              <span>
+                It can read code and run tests. It can&apos;t open the running app: sessions have no network and no
+                browser. Bugs come back as a list in the session.
+              </span>
+            </Callout>
+          ) : null}
         </div>
         <div className={foot}>
           {skill === null ? null : (
@@ -148,6 +163,35 @@ export function SkillEditor({ skill, pluginFolder, onSaved, onDeleted, className
           ) : null}
         </div>
       </form>
+    </Panel>
+  );
+}
+
+export interface UnreadableSkillProps {
+  folder: SkillFolder;
+  pluginFolder: string;
+  onDeleted: () => void;
+  className?: string;
+}
+
+/** A skill Orynx can't read (AC-17): its folder, that line, and Delete skill only. */
+export function UnreadableSkill({ folder, pluginFolder, onDeleted, className }: UnreadableSkillProps) {
+  const headingId = useId();
+  return (
+    <Panel aria-labelledby={headingId} className={className}>
+      <div className={head}>
+        <SourceMark source="skill" size="lg" label="none" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <h2 id={headingId} className="m-0 truncate text-title font-medium">
+            {folder}
+          </h2>
+          <span className="truncate font-mono text-code text-muted-foreground">{`${pluginFolder}/skills/${folder}/SKILL.md`}</span>
+        </div>
+      </div>
+      <p className="m-0 p-4 text-muted-foreground">Orynx can&apos;t read this skill.</p>
+      <div className={foot}>
+        <DeleteSkill folder={folder} name={folder} pluginFolder={pluginFolder} onDeleted={onDeleted} />
+      </div>
     </Panel>
   );
 }

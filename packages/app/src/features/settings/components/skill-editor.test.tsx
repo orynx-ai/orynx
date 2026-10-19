@@ -174,4 +174,21 @@ describe('SkillEditor', () => {
     expect(within(editor()).queryByRole('alert')).not.toBeInTheDocument();
     expect(within(editor()).getByRole('status')).toHaveTextContent('Unsaved changes');
   });
+
+  it("AC-14: says under Bug bash's instructions what it can and can't do today, and only there", async () => {
+    skillsServer([makeSkill(), makeSkill({ folder: 'how-we-review', title: 'How we review' })]);
+    const { user } = await openBugBash();
+
+    const callout = within(editor()).getByText("What this skill can and can't do today");
+    expect(callout).toBeVisible();
+    expect(
+      within(editor()).getByText(
+        "It can read code and run tests. It can't open the running app: sessions have no network and no browser. Bugs come back as a list in the session.",
+      ),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'How we review' }));
+    await screen.findByRole('heading', { level: 2, name: 'How we review' });
+    expect(screen.queryByText("What this skill can and can't do today")).not.toBeInTheDocument();
+  });
 });
