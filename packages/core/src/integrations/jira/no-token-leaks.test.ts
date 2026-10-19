@@ -11,6 +11,7 @@ import { createEventBus } from '../../events/event-bus.ts';
 import { createMemoryKeychain } from '../../secrets/memory-keychain.ts';
 import { createFileSettingsStore, settingsFilePath } from '../../settings/settings-store.ts';
 import {
+  acceptingIssue,
   acceptingProjectSearch,
   goodBasicValue,
   goodToken,
@@ -103,6 +104,10 @@ describe('Jira tokens never leave core', () => {
     expect((await call('GET', apiRoutes.jiraProjects)).statusCode).toBe(422);
     jira.use(http.get(projectSearchUrl(), () => HttpResponse.error(), { once: true }));
     expect((await call('GET', apiRoutes.jiraProjects)).statusCode).toBe(502);
+    // The ticket dialog reads one ticket with the same token (spec 022): found, then hidden.
+    jira.use(acceptingIssue({ key: 'PROJ-1423' }));
+    expect((await call('GET', apiRoutes.ticket.replace(':key', 'PROJ-1423'))).statusCode).toBe(200);
+    expect((await call('GET', apiRoutes.ticket.replace(':key', 'PROJ-9999'))).json()).toEqual({ result: 'not_found' });
     await call('DELETE', connection);
 
     const everything = [...log, ...bodies, JSON.stringify(events), settingsWhileConnected].join('\n');

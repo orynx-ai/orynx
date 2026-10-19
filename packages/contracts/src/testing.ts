@@ -50,10 +50,12 @@ import {
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 import {
   OpenSprintSchema,
+  TicketDetailSchema,
   TicketSchema,
   TicketsSchema,
   type OpenSprint,
   type Ticket,
+  type TicketDetail,
   type Tickets,
 } from './tickets.ts';
 
@@ -364,6 +366,30 @@ export function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     priority: { name: 'High', level: 'high', rank: 1 },
     dueDate: '2026-10-23',
     assignee: { name: 'Rakesh Dhariwal', mine: true },
+    session: null,
+    ...overrides,
+  });
+}
+
+/** PROJ-1423 in full, as the ticket dialog reads it (spec 022), unless the override says otherwise. */
+export function makeTicketDetail(overrides: Partial<TicketDetail> = {}): TicketDetail {
+  const key = overrides.key ?? 'PROJ-1423';
+  return TicketDetailSchema.parse({
+    key,
+    url: `https://your-team.atlassian.net/browse/${key}`,
+    title: 'Add bulk archive to the content list',
+    type: 'Story',
+    status: { name: 'In Progress', column: 'in_progress' },
+    priority: 'High',
+    assignee: 'Rakesh Dhariwal',
+    reporter: 'Neha K.',
+    dueDate: '2026-10-23',
+    labels: [],
+    created: '2026-10-01T08:00:00.000Z',
+    updated: '2026-10-18T09:30:00.000Z',
+    description: 'Archive several items at once from the content list.',
+    links: [],
+    comments: [],
     session: null,
     ...overrides,
   });

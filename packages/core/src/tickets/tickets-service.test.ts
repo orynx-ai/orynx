@@ -15,6 +15,7 @@ import { createTokenStore } from '../secrets/token-store.ts';
 import { createMemorySessionStore } from '../sessions/session-store.ts';
 import { createMemorySettingsStore, type Settings } from '../settings/settings-store.ts';
 import {
+  acceptingIssue,
   acceptingProjectSprints,
   acceptingBoardConfiguration,
   acceptingFieldList,
@@ -606,5 +607,75 @@ describe('tickets service: the sprint you pick (spec 020)', () => {
       'assignee = currentUser() AND sprint is EMPTY AND statusCategory != Done ORDER BY Rank ASC',
     );
     expect((await tickets.read()).choice).toEqual({ projectKey: null, sprintId: 'none' });
+  });
+});
+
+describe('one ticket in full (spec 022)', () => {
+  it('AC-40: reads the ticket from Jira with its column from the board, its link and its session', async () => {
+    acceptingSprint();
+    outside.use(
+      acceptingIssue({
+        key: 'PROJ-1350',
+        summary: 'Migrate feed cards to the new Card component',
+        status: { name: 'In Review', category: 'indeterminate' },
+        priority: 'High',
+        assignee: 'Rakesh Dhariwal',
+        reporter: 'Neha K.',
+        dueDate: '2026-10-24',
+        labels: ['cards'],
+        created: '2026-10-01T09:00:00.000+0100',
+        updated: '2026-10-18T10:30:00.000+0100',
+        comments: [{ author: 'Neha K.', created: '2026-10-18T10:30:00.000+0100', body: null }],
+      }),
+    );
+    const session = makeSessionSummary({ id: '0000000000000007', source: { kind: 'jira', key: 'PROJ-1350' } });
+    const { tickets } = setup({ settings: jiraConnected, sessions: [session] });
+    await tickets.sync();
+
+    const answer = await tickets.detail('PROJ-1350');
+
+    expect(answer).toMatchObject({
+      result: 'found',
+      ticket: {
+        key: 'PROJ-1350',
+        url: `https://${jiraSite}/browse/PROJ-1350`,
+        title: 'Migrate feed cards to the new Card component',
+        type: 'Story',
+        status: { name: 'In Review', column: 'in_review' },
+        priority: 'High',
+        assignee: 'Rakesh Dhariwal',
+        reporter: 'Neha K.',
+        dueDate: '2026-10-24',
+        labels: ['cards'],
+        created: '2026-10-01T08:00:00.000Z',
+        updated: '2026-10-18T09:30:00.000Z',
+        comments: [],
+        session: { id: '0000000000000007', state: session.state },
+      },
+    });
+  });
+
+  it('AC-40: a ticket the sprint doesn’t hold sits in its status category’s column', async () => {
+    outside.use(acceptingIssue({ key: 'OPS-9', status: { name: 'Doing', category: 'indeterminate' } }));
+    const { tickets } = setup({ settings: jiraConnected });
+    expect(await tickets.detail('OPS-9')).toMatchObject({
+      result: 'found',
+      ticket: { status: { name: 'Doing', column: 'in_progress' }, session: null, priority: null, labels: [] },
+    });
+  });
+
+  it('AC-44: says when Jira can’t find it, isn’t connected or doesn’t answer, and keeps nothing', async () => {
+    outside.use(acceptingIssue({ key: 'PROJ-1423' }));
+    const { tickets, cache } = setup({ settings: jiraConnected });
+    expect(await tickets.detail('PROJ-9999')).toEqual({ result: 'not_found' });
+    expect(await setup().tickets.detail('PROJ-1423')).toEqual({ result: 'not_connected' });
+    outside.use(
+      http.get(`https://${jiraSite}/rest/api/3/issue/:key`, async () => {
+        await delay(1000);
+        return HttpResponse.json({});
+      }),
+    );
+    expect(await tickets.detail('PROJ-1423')).toEqual({ result: 'unreachable' });
+    expect(cache.tool('jira_sprint')).toBeNull();
   });
 });
