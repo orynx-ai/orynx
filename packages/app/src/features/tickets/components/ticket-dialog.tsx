@@ -58,6 +58,8 @@ function TicketDialogContent({ shown, onClose }: { shown: ShownTicket; onClose: 
 
   return (
     <DialogContent
+      // Named by its title, which its scrolling body is named by too.
+      aria-labelledby={titleId}
       onOpenAutoFocus={(event) => {
         // Focus on the dialog, not on Close: Close's tooltip would take the first Esc (AC-46).
         event.preventDefault();
