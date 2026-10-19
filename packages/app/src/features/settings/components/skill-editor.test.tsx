@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, folderFromName, type ReadySkill, type SaveSkillRequest } from '@devhub/contracts';
 import { makeOrynxSkill, makeOrynxSkillList } from '@devhub/contracts/testing';
+import { useComposerStore } from '../../home/store.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -190,5 +191,59 @@ describe('SkillEditor', () => {
     await user.click(screen.getByRole('button', { name: 'How we review' }));
     await screen.findByRole('heading', { level: 2, name: 'How we review' });
     expect(screen.queryByText("What this skill can and can't do today")).not.toBeInTheDocument();
+  });
+
+  it('AC-24: says in its head how many sessions used the skill, or Not used yet', async () => {
+    skillsServer([makeOrynxSkill({ uses: 4 }), makeOrynxSkill({ folder: 'how-we-review', title: 'How we review' })]);
+    const { user } = await openBugBash();
+
+    expect(within(editor()).getByText('Used in 4 sessions')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'How we review' }));
+    await screen.findByRole('heading', { level: 2, name: 'How we review' });
+    expect(within(editor()).getByText('Not used yet')).toBeVisible();
+  });
+
+  it('AC-23: Try in a new session opens Home with /bug-bash at the start of the box, the caret after it', async () => {
+    skillsServer();
+    const { user, history } = await openBugBash();
+    useComposerStore.getState().setText('on the date picker');
+
+    await user.click(within(editor()).getByRole('button', { name: 'Try in a new session' }));
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/');
+    });
+    const box = await screen.findByRole('textbox', { name: 'Describe a task for Claude' });
+    expect(box).toHaveValue('/bug-bash on the date picker');
+    await waitFor(() => {
+      expect(box).toHaveFocus();
+    });
+    expect((box as HTMLTextAreaElement).selectionStart).toBe('/bug-bash '.length);
+  });
+
+  it('AC-23: with unsaved changes, asks first; Cancel leaves the box as it was, Discard changes goes on', async () => {
+    skillsServer();
+    const { user, history } = await openBugBash();
+    await user.type(within(editor()).getByRole('textbox', { name: 'Instructions for Claude' }), ' More.');
+
+    await user.click(within(editor()).getByRole('button', { name: 'Try in a new session' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    expect(history.location.pathname).toBe('/settings/skills');
+    expect(useComposerStore.getState().text).toBe('');
+
+    await user.click(within(editor()).getByRole('button', { name: 'Try in a new session' }));
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Discard changes' }));
+
+    expect(await screen.findByRole('textbox', { name: 'Describe a task for Claude' })).toHaveValue('/bug-bash ');
+  });
+
+  it('AC-23: a new skill has no Try in a new session', async () => {
+    skillsServer();
+    const { user } = await openBugBash();
+
+    await user.click(screen.getByRole('button', { name: 'New skill' }));
+    await screen.findByRole('heading', { level: 2, name: 'New skill' });
+
+    expect(screen.queryByRole('button', { name: 'Try in a new session' })).not.toBeInTheDocument();
   });
 });

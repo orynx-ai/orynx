@@ -1,6 +1,7 @@
 import { useForm, useWatch } from 'react-hook-form';
 import type { SkillEntry, SkillFolder } from '@devhub/contracts';
 import { ListNav, ListNavItem, SearchField } from '@devhub/ui';
+import { plural } from '../../../words/calendar.ts';
 
 export interface SkillListProps {
   skills: readonly SkillEntry[];
@@ -10,6 +11,11 @@ export interface SkillListProps {
   /** Each item's button, so focus can move to a skill (after a delete, AC-10). */
   itemRef?: (folder: SkillFolder, button: HTMLButtonElement | null) => void;
   className?: string;
+}
+
+/** A skill's tag: how many sessions named it (AC-24). */
+function usedTimes(uses: number): string {
+  return uses === 0 ? 'Not used yet' : `Used ${plural(uses, 'time')}`;
 }
 
 /** What a skill is found by: its Name and when to use it, or the folder of one Orynx can't read. */
@@ -54,6 +60,7 @@ export function SkillList({ skills, current, onPick, itemRef, className }: Skill
         <ListNavItem
           key={skill.folder}
           label={skill.state === 'ready' ? skill.title : skill.folder}
+          tag={skill.state === 'ready' ? usedTimes(skill.uses) : undefined}
           description={skill.state === 'ready' ? skill.description : "Orynx can't read this skill."}
           current={skill.folder === current}
           ref={(button) => {

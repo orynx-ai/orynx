@@ -24,7 +24,7 @@ describe('SkillList', () => {
     const list = screen.getByRole('list', { name: 'Your skills' });
     expect(within(list).getByRole('button', { name: 'Bug bash' })).toHaveAttribute('aria-current', 'true');
     expect(within(list).getByRole('button', { name: 'How we review' })).toHaveAccessibleDescription(
-      'Correctness, tests, then nits.',
+      'Not used yet Correctness, tests, then nits.',
     );
     expect(within(list).getByRole('button', { name: 'broken' })).toHaveAccessibleDescription(
       "Orynx can't read this skill.",
@@ -65,5 +65,27 @@ describe('SkillList', () => {
 
     expect(screen.getByText('No skills match “rev zzz”.')).toBeVisible();
     expect(screen.queryByRole('list', { name: 'Your skills' })).not.toBeInTheDocument();
+  });
+
+  it('AC-24: tags each skill with how many sessions used it, or Not used yet', () => {
+    render(
+      <SkillList
+        skills={[
+          makeOrynxSkill({ uses: 4 }),
+          makeOrynxSkill({ folder: 'how-we-review', title: 'How we review', uses: 1 }),
+          makeOrynxSkill({ folder: 'write-tests-first', title: 'Write tests first', uses: 0 }),
+        ]}
+        current="bug-bash"
+        onPick={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('Used 4 times')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'How we review' })).toHaveAccessibleDescription(
+      `Used 1 time ${makeOrynxSkill().description}`,
+    );
+    expect(screen.getByRole('button', { name: 'Write tests first' })).toHaveAccessibleDescription(
+      `Not used yet ${makeOrynxSkill().description}`,
+    );
   });
 });

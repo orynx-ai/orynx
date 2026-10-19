@@ -7,6 +7,10 @@ export interface DiscardSkillChangesProps {
   name: string;
   /** Whether there is anything to lose: the editor's unsaved changes. */
   unsaved: () => boolean;
+  /** Just before the way out goes on: what Try in a new session does once you discard (AC-23). */
+  onDiscard?: () => void;
+  /** When Cancel keeps you here. */
+  onKeep?: () => void;
 }
 
 /**
@@ -14,7 +18,7 @@ export interface DiscardSkillChangesProps {
  * New skill are addresses too), so one blocker covers them all: the list, New skill, another tab, the sidebar, Back.
  * Closing the window gets the browser's own question. Cancel has focus first and keeps you where you were.
  */
-export function DiscardSkillChanges({ name, unsaved }: DiscardSkillChangesProps) {
+export function DiscardSkillChanges({ name, unsaved, onDiscard, onKeep }: DiscardSkillChangesProps) {
   const cancel = useRef<HTMLButtonElement>(null);
   const blocker = useBlocker({ shouldBlockFn: unsaved, enableBeforeUnload: unsaved, withResolver: true });
   const blocked = blocker.status === 'blocked';
@@ -23,7 +27,10 @@ export function DiscardSkillChanges({ name, unsaved }: DiscardSkillChangesProps)
     <Dialog
       open={blocked}
       onOpenChange={(open) => {
-        if (!open && blocked) blocker.reset();
+        if (!open && blocked) {
+          onKeep?.();
+          blocker.reset();
+        }
       }}
     >
       <DialogContent
@@ -39,7 +46,9 @@ export function DiscardSkillChanges({ name, unsaved }: DiscardSkillChangesProps)
             ref={cancel}
             variant="secondary"
             onClick={() => {
-              if (blocked) blocker.reset();
+              if (!blocked) return;
+              onKeep?.();
+              blocker.reset();
             }}
           >
             Cancel
@@ -47,7 +56,9 @@ export function DiscardSkillChanges({ name, unsaved }: DiscardSkillChangesProps)
           <Button
             variant="danger"
             onClick={() => {
-              if (blocked) blocker.proceed();
+              if (!blocked) return;
+              onDiscard?.();
+              blocker.proceed();
             }}
           >
             Discard changes

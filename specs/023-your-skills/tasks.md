@@ -70,7 +70,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 21: Use counts: each ready skill's `uses`, the sessions whose brief named it from Orynx (AC-24)
       Check: pnpm test packages/core/src/skills/skill-uses.test.ts packages/core/src/skills/skill-store.test.ts
       Files: packages/contracts/src/orynx-skills.ts, packages/core/src/skills/skill-uses.ts, packages/core/src/skills/skill-store.ts, packages/core/src/create-server.ts, their tests
-- [ ] Task 22: "Used 4 times", "Used in 4 sessions", "Not used yet", and Try in a new session (AC-23, AC-24)
+- [x] Task 22: "Used 4 times", "Used in 4 sessions", "Not used yet", and Try in a new session (AC-23, AC-24)
       Check: pnpm test packages/app/src/features/settings/components/skill-list.test.tsx packages/app/src/features/settings/components/skill-editor.test.tsx
       Files: packages/app/src/features/settings/components/skill-list.tsx, packages/app/src/features/settings/components/skill-editor.tsx, their tests
 - [ ] Task 23: E2e for a skill in a session: `/` lists it, Send carries it (AC-21, AC-22, AC-23)
