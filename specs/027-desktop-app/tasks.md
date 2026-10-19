@@ -32,9 +32,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: The desktop e2e test on the packed app: temporary home, memory keychain, fake Claude Code, a fake releases server; Home shows, a second launch starts no copy, another live hub stops the app, links reach the recorder, the window has no Node, a stopped hub says so, quitting removes `runtime.json`, a 404 only logs, a Mac shows the notice (AC-3, AC-5, AC-7, AC-8, AC-9, AC-13, AC-14, AC-15, AC-18, AC-21, AC-22, AC-23, AC-24, AC-29, AC-40, AC-41)
       Check: pnpm --filter @devhub/desktop package --dir; pnpm test:e2e:desktop (9 passed on macOS, 2026-10-19)
       Files: playwright.desktop.config.ts, e2e/desktop/desktop.spec.ts, e2e/desktop/fake-releases.ts, playwright.config.ts (ignores e2e/desktop), package.json, apps/server/package.json (0.1.0, as the app), apps/desktop/electron-builder.yml (Linux executable name), apps/desktop/src/updates.ts (the status inside electron-updater's message)
-- [ ] Task 11: The release version: major.minor from `apps/desktop/package.json` plus the run number, written into `apps/desktop` and `apps/server` package.json, never committed (AC-32)
-      Check: node --test scripts/release-version.test.ts
-      Files: scripts/release-version.ts, scripts/release-version.test.ts
+- [x] Task 11: The release version: major.minor from `apps/desktop/package.json` plus the run number, written into `apps/desktop` and `apps/server` package.json, never committed (AC-22, AC-32)
+      Check: node --test scripts/lib/release-version.test.ts; pnpm exec tsc -p tsconfig.json
+      Files: scripts/release-version.ts, scripts/lib/release-version.ts, scripts/lib/release-version.test.ts
 - [ ] Task 12: `release.yml`: refuse a commit not on `origin/main`, run `ci.yml` (now also `workflow_call`, with its own concurrency group), build macOS arm64 and Linux in parallel with the desktop e2e test on Linux, then publish `v<version>` with GitHub's notes; one run at a time; `workflow_dispatch` builds without publishing (AC-30, AC-31, AC-32, AC-33, AC-34, AC-35, AC-36)
       Check: pnpm exec prettier --check .github/workflows; pnpm gate secrets; the dry run (workflow_dispatch on feat/027-desktop-app, which you start on GitHub after pushing the branch) builds both apps and publishes nothing
       Files: .github/workflows/release.yml, .github/workflows/ci.yml
