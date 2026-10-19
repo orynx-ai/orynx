@@ -33,6 +33,9 @@ export const apiPaths = {
   claudeLogin: '/claude/login',
   claudeLoginCheck: '/claude/login/check',
   search: '/search',
+  skills: '/skills',
+  skill: '/skills/:folder',
+  skillStarters: '/skills/starters',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -69,6 +72,9 @@ export const apiRoutes = {
   claudeLogin: `${apiPrefix}${apiPaths.claudeLogin}`,
   claudeLoginCheck: `${apiPrefix}${apiPaths.claudeLoginCheck}`,
   search: `${apiPrefix}${apiPaths.search}`,
+  skills: `${apiPrefix}${apiPaths.skills}`,
+  skill: `${apiPrefix}${apiPaths.skill}`,
+  skillStarters: `${apiPrefix}${apiPaths.skillStarters}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];

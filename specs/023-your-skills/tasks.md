@@ -4,7 +4,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **Part A: Settings › Skills**
 
-- [ ] Task 1: Skill contracts: the folder-name rule, `folderFromName`, limits, the list, one skill, the save request, paths, `skills.changed`, `skill_rejected`, builders (AC-6, AC-8, AC-20)
+- [x] Task 1: Skill contracts: the folder-name rule, `folderFromName`, limits, the list, one skill, the save request, paths, `skills.changed`, `skill_rejected`, builders (AC-6, AC-8, AC-20)
       Check: pnpm test packages/contracts/src/skills.test.ts
       Files: packages/contracts/src/skills.ts, packages/contracts/src/skills.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/events.ts, packages/contracts/src/errors.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
 - [ ] Task 2: Read and write a `SKILL.md`: `name`, `description`, `metadata.title`, unknown keys kept; add `yaml` to core (AC-5, AC-17, AC-18)

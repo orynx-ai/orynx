@@ -37,6 +37,9 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'inbox.changed':
       // A sync ended: Tickets' sprint syncs with the inbox (spec 008), and search reads both (spec 009).
       return [queryKeys.inbox, queryKeys.tickets, queryKeys.search];
+    case 'skills.changed':
+      // Another tab, or this one, added, saved or deleted a skill (spec 023, AC-19).
+      return [queryKeys.skills];
   }
 }
 

@@ -12,6 +12,7 @@ export const queryKeys = {
   githubConnection: ['github', 'connection'] as const,
   preferences: ['preferences'] as const,
   repositories: ['repositories'] as const,
+  skills: ['skills'] as const,
   inbox: ['inbox'] as const,
   tickets: ['tickets'] as const,
   /** Not under `tickets`, so a sync's inbox.changed never asks Jira for a project's sprints again. */
