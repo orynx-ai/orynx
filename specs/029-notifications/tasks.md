@@ -49,7 +49,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **App: the bell and the panel**
 
-- [ ] Task 13: Notification words: titles, details, times, Today and Earlier, where each opens (AC-19, AC-20, AC-22)
+- [x] Task 13: Notification words: titles, details, times, Today and Earlier, where each opens (AC-19, AC-20, AC-22)
       Check: pnpm test packages/app/src/features/notifications/words.test.ts
       Files: packages/app/src/features/notifications/words.ts, packages/app/src/features/notifications/words.test.ts
 - [ ] Task 14: The bell at the bottom of the sidebar, on the rail and beside Search under 768 px, with the unread count (AC-1, AC-2, AC-3)
