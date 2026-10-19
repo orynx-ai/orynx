@@ -19,6 +19,17 @@ export interface FolderPicker {
   pick(): Promise<FolderPickOutcome>;
 }
 
+/** What the file picker answered (spec 022, B): one or more files, Cancel, or no picker at all. */
+export type FilePickOutcome = { kind: 'picked'; paths: string[] } | { kind: 'cancelled' } | { kind: 'unavailable' };
+
+/**
+ * The computer's own file picker, letting you pick several files (spec 022, Q4): a browser never tells a page a
+ * file's path, so File from this computer asks the local server, as Choose folder does.
+ */
+export interface FilePicker {
+  pick(): Promise<FilePickOutcome>;
+}
+
 export interface FolderPickerOptions {
   /**
    * Folders to look in for the picker program, joined like PATH. The host passes its PATH; tests pass a
@@ -37,6 +48,9 @@ interface Picker {
   cancelled: (exitCode: number | null, stderr: string) => boolean;
 }
 
+/** A picker's own way of writing what was picked: the paths, or null when its answer can't be read safely. */
+type ReadAnswer<T> = (stdout: string) => T | null;
+
 /**
  * Each OS's pickers, in the order they're tried. A quiet exit 1 is a Cancel; one with words is a failure.
  * Windows has none yet: a folder's path in Orynx starts with / or ~ (RepositoryPathSchema), which a Windows
@@ -54,6 +68,26 @@ const pickers: Partial<Record<NodeJS.Platform, readonly Picker[]>> = {
   linux: [
     { program: 'zenity', args: ['--file-selection', '--directory'], cancelled: quietExitOne },
     { program: 'kdialog', args: ['--getexistingdirectory'], cancelled: quietExitOne },
+  ],
+};
+
+/**
+ * Each OS's file pickers (spec 022). macOS's runs through JavaScript for Automation, which writes the paths as
+ * JSON, so a file whose name holds a line break stays one file. Linux's write one path a line.
+ */
+const chooseFiles =
+  'const app = Application.currentApplication(); app.includeStandardAdditions = true; JSON.stringify(app.chooseFile({ multipleSelectionsAllowed: true }).map((file) => file.toString()))';
+const filePickers: Partial<Record<NodeJS.Platform, readonly Picker[]>> = {
+  darwin: [
+    {
+      program: 'osascript',
+      args: ['-l', 'JavaScript', '-e', chooseFiles],
+      cancelled: (_code, stderr) => stderr.includes('(-128)'),
+    },
+  ],
+  linux: [
+    { program: 'zenity', args: ['--file-selection', '--multiple', '--separator=\n'], cancelled: quietExitOne },
+    { program: 'kdialog', args: ['--getopenfilename', '--multiple', '--separate-output'], cancelled: quietExitOne },
   ],
 };
 
@@ -79,6 +113,33 @@ async function isProgram(path: string): Promise<boolean> {
  * The picked folder as the picker printed it, without a trailing newline or slash; null when it's no path,
  * or when a line break inside it would cut it down to another folder.
  */
+function folderFrom(stdout: string): { path: string } | null {
+  const path = pathFrom(stdout);
+  return path === null ? null : { path };
+}
+
+/** macOS's JSON list of picked files; null unless it's one or more absolute paths. */
+function filesFromJson(stdout: string): { paths: string[] } | null {
+  let read: unknown;
+  try {
+    read = JSON.parse(stdout);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(read) || read.length === 0) return null;
+  const paths = read.filter((path): path is string => typeof path === 'string' && isAbsolute(path));
+  return paths.length === read.length ? { paths } : null;
+}
+
+/**
+ * Linux's picked files, one a line; null unless every line is an absolute path. A name with a line break in it
+ * would read as two, so the whole answer is refused rather than take a file nobody picked.
+ */
+function filesFromLines(stdout: string): { paths: string[] } | null {
+  const paths = stdout.split(/\r?\n/).filter((line) => line !== '');
+  return paths.length > 0 && paths.every((path) => isAbsolute(path)) ? { paths } : null;
+}
+
 function pathFrom(stdout: string): string | null {
   const line = stdout.replace(/\r?\n$/, '').trim();
   if (/[\r\n]/.test(line)) return null;
@@ -86,15 +147,18 @@ function pathFrom(stdout: string): string | null {
   return isAbsolute(path) ? path : null;
 }
 
-export function createFolderPicker({
-  searchPath,
-  platform,
-  timeoutMs = 10 * 60_000,
-}: FolderPickerOptions): FolderPicker {
-  let open: Promise<FolderPickOutcome> | null = null;
+type Outcome<T> = ({ kind: 'picked' } & T) | { kind: 'cancelled' } | { kind: 'unavailable' };
+
+/** Runs the first picker the OS has, one at a time: a second call while it's open waits for the same answer. */
+function createPicker<T>(
+  { searchPath, platform, timeoutMs = 10 * 60_000 }: FolderPickerOptions,
+  table: Partial<Record<NodeJS.Platform, readonly Picker[]>>,
+  readAnswer: (picker: Picker) => ReadAnswer<T>,
+): { pick(): Promise<Outcome<T>> } {
+  let open: Promise<Outcome<T>> | null = null;
 
   async function find(): Promise<{ path: string; picker: Picker } | null> {
-    for (const picker of pickers[platform] ?? []) {
+    for (const picker of table[platform] ?? []) {
       for (const folder of searchPath.split(delimiter)) {
         // A relative folder would be looked up from wherever Orynx runs; skip it, as a shell does.
         if (!isAbsolute(folder)) continue;
@@ -105,17 +169,17 @@ export function createFolderPicker({
     return null;
   }
 
-  function run(path: string, picker: Picker): Promise<FolderPickOutcome> {
+  function run(path: string, picker: Picker): Promise<Outcome<T>> {
     return new Promise((resolve) => {
       execFile(
         path,
         picker.args,
-        // SIGKILL, so a picker left open past the limit is closed for sure. A path is small; more is wrong.
-        { timeout: timeoutMs, killSignal: 'SIGKILL', maxBuffer: 64 * 1024, encoding: 'utf8' },
+        // SIGKILL, so a picker left open past the limit is closed for sure. Paths are small; more is wrong.
+        { timeout: timeoutMs, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024, encoding: 'utf8' },
         (error, stdout, stderr) => {
           if (error === null) {
-            const picked = pathFrom(stdout);
-            resolve(picked === null ? { kind: 'unavailable' } : { kind: 'picked', path: picked });
+            const picked = readAnswer(picker)(stdout);
+            resolve(picked === null ? { kind: 'unavailable' } : { kind: 'picked', ...picked });
           } else if (error.killed) {
             resolve({ kind: 'cancelled' });
           } else {
@@ -137,4 +201,15 @@ export function createFolderPicker({
       return open;
     },
   };
+}
+
+export function createFolderPicker(options: FolderPickerOptions): FolderPicker {
+  return createPicker(options, pickers, () => folderFrom);
+}
+
+/** The file picker (spec 022): macOS answers in JSON, Linux one path a line. */
+export function createFilePicker(options: FolderPickerOptions): FilePicker {
+  return createPicker(options, filePickers, (picker) =>
+    picker.program === 'osascript' ? filesFromJson : filesFromLines,
+  );
 }

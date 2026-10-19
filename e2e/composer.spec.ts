@@ -75,6 +75,8 @@ function makeRepository() {
 }
 
 const repository = makeRepository();
+/** What the hub's fake file picker picks (e2e/fake-gh/osascript, zenity, kdialog). */
+const picked = realpathSync(new URL('fake-gh/picked/notes.md', import.meta.url));
 const claudeDir = fakeClaudeDirFor(composerHubPort);
 
 /** Exactly what the fake Claude Code got as its brief, the last time a session started. */
@@ -189,7 +191,7 @@ test('AC-1, AC-4, AC-24: my words alone start a session on its own branch, and C
   await expect(box(page)).toHaveValue('');
 });
 
-test('AC-6 to AC-8, AC-11, AC-12, AC-14, AC-20: a ticket, a pasted pull request and a file reach Claude with my words', async ({
+test('AC-6 to AC-8, AC-11, AC-14, AC-20, 022 AC-9, AC-10: a ticket, a pasted pull request and a picked file reach Claude with my words', async ({
   page,
 }) => {
   await page.goto('/');
@@ -206,14 +208,12 @@ test('AC-6 to AC-8, AC-11, AC-12, AC-14, AC-20: a ticket, a pasted pull request 
     element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
   }, 'https://github.com/acme/web-app/pull/2836');
 
-  const chooser = page.waitForEvent('filechooser');
+  // The hub's fake file picker picks e2e/fake-gh/picked/notes.md (spec 022): the page gets its path, not its text.
   await page.getByRole('button', { name: 'Add context' }).click();
   await page.getByRole('menuitem', { name: /File from this computer/ }).click();
-  await (
-    await chooser
-  ).setFiles({ name: 'notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Notes\n\nExport every column.') });
 
-  await expect(chips(page)).toHaveText(['PROJ-1423', 'web-app #2836', 'notes.md']);
+  // Two chips show, then +1 for the third (spec 022, AC-19).
+  await expect(chips(page)).toHaveText(['PROJ-1423', 'web-app #2836', '+1: Show all 3 items of context']);
   await box(page).fill('Use the notes');
   await page.getByRole('button', { name: 'Send to Claude' }).click();
 
@@ -228,7 +228,51 @@ test('AC-6 to AC-8, AC-11, AC-12, AC-14, AC-20: a ticket, a pasted pull request 
   expect(brief).toContain('Pull request acme/web-app #2836: Lazy-load the people directory');
   expect(brief).toContain('Loads 50 people at a time.');
   expect(brief).toContain(`\`\`\`diff\n${diff}\n\`\`\``);
-  expect(brief.endsWith('File notes.md\n\n# Notes\n\nExport every column.')).toBe(true);
+  // Its title names the path as the hub shows it (with ~ under its home); Claude reads the real one.
+  expect(brief).toMatch(/\n\nFile \S*fake-gh\/picked\/notes\.md\n\nThe user added this file from their computer\./);
+  expect(brief).toContain(`Read it at ${picked}.`);
+  expect(brief).not.toContain('Export every column.');
+});
+
+test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Home’s rows reach Claude, and +1 opens them all', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const panel = page.getByRole('region', { name: 'Needs your attention' });
+  await panel.getByRole('button', { name: 'Add PROJ-1377 to the composer' }).click();
+  await panel.getByRole('button', { name: 'Add web-app #2836 to the composer' }).click();
+  await expect(panel.getByRole('button', { name: 'Remove PROJ-1377 from the composer' })).toBeVisible();
+  // PROJ-1423 has a live session from the test before, so its row has Open session; it comes from the list, second,
+  // since only the first ticket's session stops a start (AC-5).
+  const jira = await openKind(page, /Jira ticket/, 'Jira ticket');
+  await jira.getByRole('combobox').fill('bulk');
+  await jira.getByRole('option', { name: /PROJ-1423/ }).click();
+
+  await expect(chips(page)).toHaveText(['PROJ-1377', 'web-app #2836', '+1: Show all 3 items of context']);
+  await expect(box(page)).toHaveAttribute('placeholder', 'What should Claude do with these 2 tickets?');
+  await page.getByRole('button', { name: '+1: Show all 3 items of context' }).click();
+  const all = page.getByRole('dialog', { name: 'Context for Claude' });
+  await expect(all.getByRole('tab')).toHaveText(['Tickets 2', 'Pull requests 1', 'Files 0']);
+  await expect(all.getByRole('tab', { name: 'Tickets 2' })).toHaveAttribute('aria-selected', 'true');
+  await expect(all.getByRole('tabpanel').getByRole('listitem')).toHaveText([
+    /^PROJ-1377Fix the header on small screens/,
+    /^PROJ-1423Add bulk archive to the content list/,
+  ]);
+  expect(await axe(page, '[role="dialog"]')).toEqual([]);
+  await all.getByRole('button', { name: 'Done' }).click();
+  await expect(page.getByRole('button', { name: '+1: Show all 3 items of context' })).toBeFocused();
+
+  await box(page).fill('Do both');
+  await page.getByRole('button', { name: 'Send to Claude' }).click();
+
+  await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Fix the header on small screens' })).toBeVisible();
+  await expect.poll(lastBrief).toMatch(/^Do both\n\nJira ticket PROJ-1377 /);
+  expect(lastBrief()).toContain('Pull request acme/web-app #2836: Lazy-load the people directory');
+  expect(lastBrief()).toContain('Jira ticket PROJ-1423 (Story): Add bulk archive to the content list');
+  await expect(
+    page.getByRole('region', { name: "Claude's progress" }).getByText('Your message, PROJ-1377, PROJ-1423 and 1 more'),
+  ).toBeVisible();
 });
 
 test('AC-10, AC-21: a ticket Jira can’t find stops Send, says which, and keeps the draft', async ({ page }) => {

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { apiPaths, apiRoutes, OpenSprintsSchema, TicketsChoiceSchema, TicketSchema, TicketsSchema } from './index.ts';
-import { makeOpenSprint, makeTicket, makeTickets } from './testing.ts';
+import {
+  apiPaths,
+  apiRoutes,
+  OpenSprintsSchema,
+  TicketDetailAnswerSchema,
+  TicketKeyParamsSchema,
+  TicketsChoiceSchema,
+  TicketSchema,
+  TicketsSchema,
+} from './index.ts';
+import { makeOpenSprint, makeTicket, makeTicketDetail, makeTickets } from './testing.ts';
 
 describe('TicketsSchema', () => {
   it('AC-1: carries the sprint, its tickets in rank order and where Jira’s sprint read stands', () => {
@@ -121,5 +130,57 @@ describe('TicketsChoiceSchema (spec 020)', () => {
   it('lists open sprints with their dates', () => {
     expect(OpenSprintsSchema.parse({ sprints: [makeOpenSprint()] }).sprints[0]?.name).toBe('Sprint 43');
     expect(OpenSprintsSchema.safeParse({ sprints: [{ ...makeOpenSprint(), state: 'closed' }] }).success).toBe(false);
+  });
+});
+
+describe('one ticket in full (spec 022)', () => {
+  it('AC-40: carries what the ticket dialog shows, as data', () => {
+    const ticket = makeTicketDetail({
+      labels: ['archive'],
+      links: [{ relation: 'blocks', key: 'PROJ-1400', title: 'Release 4.2', status: 'In Progress' }],
+      comments: [{ author: 'Neha K.', created: '2026-10-18T09:30:00.000Z', body: 'Use the **list** view.' }],
+    });
+    expect(TicketDetailAnswerSchema.parse({ result: 'found', ticket })).toEqual({ result: 'found', ticket });
+    expect(ticket).toMatchObject({
+      key: 'PROJ-1423',
+      status: { name: 'In Progress', column: 'in_progress' },
+      priority: 'High',
+      assignee: 'Rakesh Dhariwal',
+      dueDate: '2026-10-23',
+      session: null,
+    });
+  });
+
+  it('AC-44, AC-45: says why it has no ticket, and takes one with nothing but its key and title', () => {
+    for (const result of ['not_found', 'not_connected', 'unreachable'] as const) {
+      expect(TicketDetailAnswerSchema.parse({ result })).toEqual({ result });
+    }
+    const bare = makeTicketDetail({
+      type: null,
+      status: null,
+      priority: null,
+      assignee: null,
+      reporter: null,
+      dueDate: null,
+      created: null,
+      updated: null,
+      description: null,
+    });
+    expect(TicketDetailAnswerSchema.safeParse({ result: 'found', ticket: bare }).success).toBe(true);
+  });
+
+  it('links only to https on a Jira Cloud site, and is read by a key Jira makes', () => {
+    expect(
+      TicketDetailAnswerSchema.safeParse({
+        result: 'found',
+        ticket: { ...makeTicketDetail(), url: 'https://evil.example/browse/PROJ-1423' },
+      }).success,
+    ).toBe(false);
+    expect(TicketKeyParamsSchema.safeParse({ key: 'PROJ-1423' }).success).toBe(true);
+    for (const key of ['proj-1423', 'PROJ', '../PROJ-1', 'PROJ-0']) {
+      expect(TicketKeyParamsSchema.safeParse({ key }).success).toBe(false);
+    }
+    expect(apiRoutes.ticket).toBe(`/api${apiPaths.ticket}`);
+    expect(apiPaths.ticket).toBe('/tickets/:key');
   });
 });

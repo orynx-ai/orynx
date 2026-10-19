@@ -18,7 +18,12 @@ import { createInboxService } from './inbox/inbox-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
-import { createFolderPicker, type FolderPicker } from './folder-picker/folder-picker.ts';
+import {
+  createFilePicker,
+  createFolderPicker,
+  type FilePicker,
+  type FolderPicker,
+} from './folder-picker/folder-picker.ts';
 import { claudeRoutes } from './routes/claude.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
@@ -26,6 +31,9 @@ import { inboxRoutes } from './routes/inbox.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
+import { filesRoutes } from './routes/files.ts';
+import { skillsRoutes } from './routes/skills.ts';
+import { createSkillsService } from './skills/skills-service.ts';
 import { folderPickerRoutes } from './routes/folder-picker.ts';
 import { searchRoutes } from './routes/search.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
@@ -97,6 +105,8 @@ export interface CoreOptions {
    * tests pass a folder with a fake one. Left out, none is found, so no test opens a real picker.
    */
   folderPicker?: FolderPicker;
+  /** The computer's file picker, for the composer's File from this computer (spec 022); found as the folder one is. */
+  filePicker?: FilePicker;
   /** The person's home folder, which Settings › Repositories shows as `~`. The OS's by default. */
   userHome?: string;
   /** DEVHUB_HOME, which Settings › Repositories never adds. `~/.devhub` by default. */
@@ -304,13 +314,16 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const userHome = options.userHome ?? homedir();
   const devhubHome = options.dataDir ?? join(homedir(), '.devhub');
   const repositories = createRepositoryService({ settings, events, home: userHome, devhubHome });
+  const skills = createSkillsService({ repositories, home: userHome });
   const sessionService = createSessionService({
+    skills,
     records: sessions,
     repositories,
     claude,
     connection: jira,
     jira: jiraClient,
     context: createContextReader({
+      home: userHome,
       jira: jiraClient,
       jiraConnection: jira,
       github: githubClient,
@@ -447,6 +460,11 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(repositoriesRoutes, { repositories });
       await api.register(folderPickerRoutes, {
         picker: options.folderPicker ?? createFolderPicker({ searchPath: '', platform: process.platform }),
+        home: userHome,
+      });
+      await api.register(skillsRoutes, { skills });
+      await api.register(filesRoutes, {
+        picker: options.filePicker ?? createFilePicker({ searchPath: '', platform: process.platform }),
         home: userHome,
       });
       await api.register(eventsRoutes, {

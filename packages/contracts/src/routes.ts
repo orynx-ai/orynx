@@ -24,15 +24,19 @@ export const apiPaths = {
   repositories: '/repositories',
   repository: '/repositories/:id',
   folderPicker: '/folder-picker',
+  filePicker: '/file-picker',
+  fileCheck: '/files/check',
   inbox: '/inbox',
   inboxRefresh: '/inbox/refresh',
   inboxCache: '/inbox/cache',
   tickets: '/tickets',
   ticketsSprints: '/tickets/sprints',
   ticketsChoice: '/tickets/choice',
+  ticket: '/tickets/:key',
   claudeLogin: '/claude/login',
   claudeLoginCheck: '/claude/login/check',
   search: '/search',
+  skills: '/skills',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -60,15 +64,19 @@ export const apiRoutes = {
   repositories: `${apiPrefix}${apiPaths.repositories}`,
   repository: `${apiPrefix}${apiPaths.repository}`,
   folderPicker: `${apiPrefix}${apiPaths.folderPicker}`,
+  filePicker: `${apiPrefix}${apiPaths.filePicker}`,
+  fileCheck: `${apiPrefix}${apiPaths.fileCheck}`,
   inbox: `${apiPrefix}${apiPaths.inbox}`,
   inboxRefresh: `${apiPrefix}${apiPaths.inboxRefresh}`,
   inboxCache: `${apiPrefix}${apiPaths.inboxCache}`,
   tickets: `${apiPrefix}${apiPaths.tickets}`,
   ticketsSprints: `${apiPrefix}${apiPaths.ticketsSprints}`,
   ticketsChoice: `${apiPrefix}${apiPaths.ticketsChoice}`,
+  ticket: `${apiPrefix}${apiPaths.ticket}`,
   claudeLogin: `${apiPrefix}${apiPaths.claudeLogin}`,
   claudeLoginCheck: `${apiPrefix}${apiPaths.claudeLoginCheck}`,
   search: `${apiPrefix}${apiPaths.search}`,
+  skills: `${apiPrefix}${apiPaths.skills}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];

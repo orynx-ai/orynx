@@ -4,7 +4,14 @@ import { join } from 'node:path';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { apiRoutes, ApiErrorSchema, OpenSprintsSchema, TicketsSchema, tokenHeader } from '@devhub/contracts';
+import {
+  apiRoutes,
+  ApiErrorSchema,
+  OpenSprintsSchema,
+  TicketDetailAnswerSchema,
+  TicketsSchema,
+  tokenHeader,
+} from '@devhub/contracts';
 import { makeSessionSummary } from '@devhub/contracts/testing';
 import { createServer, type CoreOptions } from '../create-server.ts';
 import { cacheFilePath, openInboxCache } from '../inbox/inbox-cache.ts';
@@ -12,6 +19,7 @@ import { createMemoryKeychain } from '../secrets/memory-keychain.ts';
 import { createMemorySessionStore } from '../sessions/session-store.ts';
 import { createMemorySettingsStore, type Settings } from '../settings/settings-store.ts';
 import {
+  acceptingIssue,
   acceptingProjectSprints,
   acceptingPrioritySearch,
   acceptingBoardConfiguration,
@@ -240,5 +248,45 @@ describe('/api/tickets/sprints and /api/tickets/choice (spec 020)', () => {
       payload: { projectKey: null, sprintId: null },
     });
     expect(anonymous.statusCode).toBe(401);
+  });
+});
+
+describe('/api/tickets/:key (spec 022)', () => {
+  const url = (key: string) => apiRoutes.ticket.replace(':key', key);
+
+  it('refuses a request without the session token', async () => {
+    const app = await server();
+    const response = await app.inject({ method: 'GET', url: url('PROJ-1423'), headers: { host: headers.host } });
+    expect(response.statusCode).toBe(401);
+    expect(ApiErrorSchema.parse(response.json()).code).toBe('unauthorized');
+  });
+
+  it('AC-40: answers the ticket as Jira gives it now', async () => {
+    outside.use(acceptingIssue({ key: 'PROJ-1423', summary: 'Add bulk archive', priority: 'High' }));
+    const app = await server({ settings: createMemorySettingsStore(jiraConnected) });
+
+    const response = await app.inject({ method: 'GET', url: url('PROJ-1423'), headers });
+
+    expect(response.statusCode).toBe(200);
+    expect(TicketDetailAnswerSchema.parse(response.json())).toMatchObject({
+      result: 'found',
+      ticket: {
+        key: 'PROJ-1423',
+        title: 'Add bulk archive',
+        priority: 'High',
+        url: `https://${jiraSite}/browse/PROJ-1423`,
+      },
+    });
+  });
+
+  it('AC-44: says when Jira can’t find it, and refuses a key Jira never makes', async () => {
+    outside.use(acceptingIssue({ key: 'PROJ-1423' }));
+    const app = await server({ settings: createMemorySettingsStore(jiraConnected) });
+
+    const missing = await app.inject({ method: 'GET', url: url('PROJ-9999'), headers });
+    expect(TicketDetailAnswerSchema.parse(missing.json())).toEqual({ result: 'not_found' });
+
+    const odd = await app.inject({ method: 'GET', url: url('proj-1'), headers });
+    expect(odd.statusCode).toBe(400);
   });
 });

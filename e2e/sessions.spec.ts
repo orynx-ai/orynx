@@ -80,6 +80,13 @@ function makeRepository() {
 const repository = makeRepository();
 
 /** Sends a request to the hub with the page's token, as the page does. */
+/** Ship adds the ticket to Home's composer (spec 022); the composer's Send is what starts Claude. */
+async function shipToComposer(page: Page, key: string): Promise<void> {
+  await page.goto('/tickets');
+  await page.getByRole('button', { name: `Ship ${key}` }).click();
+  await page.waitForURL((url) => url.pathname === '/');
+}
+
 async function api(page: Page, method: string, path: string, body?: unknown) {
   return page.evaluate(
     async ({ method, path, body }) => {
@@ -137,14 +144,15 @@ test.afterAll(() => {
   rmSync(repository.root, { recursive: true, force: true });
 });
 
-test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8: Ship on a card starts Claude, and every tab watches it finish', async ({
+test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35: Ship then Send starts Claude, and every tab watches it finish', async ({
   page,
   context,
 }) => {
   const before = repository.git(repository.clone, 'status', '--porcelain=v1', '--branch');
-  await page.goto('/tickets');
+  await shipToComposer(page, 'PROJ-1423');
+  await expect(page.getByRole('textbox', { name: 'Describe a task for Claude' })).toBeFocused();
 
-  await page.getByRole('button', { name: 'Ship PROJ-1423' }).click();
+  await page.keyboard.press('Enter');
 
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   seen.done = page.url();
@@ -181,8 +189,8 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8: Ship on a card starts Claude, and ever
 });
 
 test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its branch after asking', async ({ page }) => {
-  await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Ship PROJ-1424' }).click();
+  await shipToComposer(page, 'PROJ-1424');
+  await page.getByRole('button', { name: 'Send to Claude' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   seen.discarded = page.url();
   const progress = page.getByRole('region', { name: "Claude's progress" });
@@ -207,7 +215,7 @@ test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its bran
   expect(repository.git(repository.clone, 'branch', '--list', 'feat/PROJ-1424')).toBe('');
 });
 
-test('AC-11, AC-18: with two folders, Ship asks which with the keyboard, and starts in the one picked', async ({
+test('AC-11, AC-18, 022 AC-39: with two folders, the composer asks which, picked with the keyboard, and Claude starts there', async ({
   page,
 }) => {
   const mobile = join(repository.root, 'mobile');
@@ -215,16 +223,16 @@ test('AC-11, AC-18: with two folders, Ship asks which with the keyboard, and sta
   await page.goto('/tickets');
   const added = (await api(page, 'POST', '/api/repositories', { path: mobile, jiraProject: 'PROJ' })) as { id: string };
 
-  const build = page.getByRole('button', { name: 'Ship PROJ-1425' });
-  await build.focus();
+  await shipToComposer(page, 'PROJ-1425');
+  // Ship opens no folder menu; with two folders for PROJ, Home's picker asks.
+  const picker = page.getByRole('button', { name: 'Choose folder' });
+  await picker.focus();
   await page.keyboard.press('Enter');
-  const menu = page.getByRole('menu', { name: 'Start in' });
-  // The two folders, then Add local folder (spec 020, AC-24).
-  await expect(menu.getByRole('menuitem')).toHaveCount(3);
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('ArrowDown');
-  await expect(menu.getByRole('menuitem', { name: /mobile/ })).toBeFocused();
+  const menu = page.getByRole('menu', { name: 'Repository' });
+  await menu.getByRole('menuitemradio', { name: /mobile/ }).focus();
   await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Repository: mobile' })).toBeVisible();
+  await page.getByRole('button', { name: 'Send to Claude' }).click();
 
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   await expect(
@@ -238,24 +246,16 @@ test('AC-11, AC-18: with two folders, Ship asks which with the keyboard, and sta
   await api(page, 'DELETE', `/api/repositories/${added.id}`);
 });
 
-test('AC-12 (Q4), AC-22 (spec 020): Ship says why it can’t start, and offers the fix', async ({ page }) => {
-  await page.goto('/tickets');
-
-  const mob = page.getByRole('button', { name: 'Ship MOB-1' });
-  await mob.click();
-  const noFolder = page.getByRole('menu', { name: 'Ship MOB-1' });
-  await expect(noFolder.getByText('No folder is set for MOB.')).toBeVisible();
-  await expect(noFolder.getByRole('menuitem', { name: 'Add local folder' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(mob).toBeFocused();
-
+test('AC-12 (Q4): with Claude Code signed out, Send says so and offers the fix', async ({ page }) => {
   await answerClaudeAs('signed_out', fakeClaudeDirFor(sessionsHubPort));
+  await page.goto('/tickets');
   await api(page, 'POST', '/api/claude/login/check');
-  await page.reload();
-  await page.getByRole('button', { name: 'Ship PROJ-1426' }).click();
-  const signedOut = page.getByRole('menu', { name: 'Ship PROJ-1426' });
-  await expect(signedOut.getByText("Claude Code isn't signed in.")).toBeVisible();
-  await signedOut.getByRole('menuitem', { name: 'Open Settings › Coding agent' }).click();
+  await shipToComposer(page, 'PROJ-1426');
+  await page.getByRole('button', { name: 'Send to Claude' }).click();
+
+  const said = page.getByRole('alert').filter({ hasText: "Claude Code isn't signed in." });
+  await expect(said).toBeVisible();
+  await said.getByRole('link', { name: 'Open Settings › Coding agent' }).click();
   await expect(page).toHaveURL(/\/settings\/coding-agent$/);
 
   await answerClaudeAs('signed_in', fakeClaudeDirFor(sessionsHubPort));
@@ -263,9 +263,11 @@ test('AC-12 (Q4), AC-22 (spec 020): Ship says why it can’t start, and offers t
 });
 
 test('AC-13: when Jira won’t give the ticket, the session says it couldn’t start, and why', async ({ page }) => {
+  // Ship's start reads the ticket once its session is made; the composer reads it first and makes nothing (spec
+  // 015, AC-21), so this start goes to the server as Ship's own did.
   await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Ship PROJ-1427' }).click();
-  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  const started = (await api(page, 'POST', '/api/sessions', { ticketKey: 'PROJ-1427' })) as { sessionId: string };
+  await page.goto(`/sessions/${started.sessionId}`);
   seen.failed = page.url();
 
   const alert = page.getByRole('region', { name: "Claude's progress" }).getByRole('alert');
@@ -276,7 +278,7 @@ test('AC-13: when Jira won’t give the ticket, the session says it couldn’t s
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible();
 });
 
-test('AC-15, AC-18: Home opens a live session, and Ship, Stop and Discard all work from the keyboard', async ({
+test('AC-15, AC-18, 022 AC-28: Home opens a live session, and a row’s +, Send, Stop and Discard all work from the keyboard', async ({
   page,
 }) => {
   await api(await page.goto('/').then(() => page), 'POST', '/api/inbox/refresh');
@@ -287,8 +289,11 @@ test('AC-15, AC-18: Home opens a live session, and Ship, Stop and Discard all wo
     new URL(seen.done ?? '').pathname,
   );
 
-  const build = panel.getByRole('button', { name: 'Ship PROJ-1428' });
-  await build.focus();
+  const add = panel.getByRole('button', { name: 'Add PROJ-1428 to the composer' });
+  await add.focus();
+  await page.keyboard.press('Enter');
+  await expect(panel.getByRole('button', { name: 'Remove PROJ-1428 from the composer' })).toBeFocused();
+  await page.getByRole('textbox', { name: 'Describe a task for Claude' }).focus();
   await page.keyboard.press('Enter');
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   await expect(page.getByRole('region', { name: "Claude's progress" }).getByText('Editing files')).toBeVisible({
@@ -339,10 +344,11 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
     }
   }
 
-  // An open menu hides the rest of the page from screen readers, so it is checked on its own.
+  // An open dialog hides the rest of the page from screen readers, so it is checked on its own (spec 022, AC-61).
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Ship MOB-1' }).click();
-  await expect(page.getByRole('menu')).toBeVisible();
-  expect(await check('[role="menu"]')).toEqual([]);
+  const card = page.getByRole('article', { name: 'Speed up the site picker' });
+  await card.getByRole('button', { name: 'Speed up the site picker' }).click();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Description' })).toBeVisible();
+  expect(await check('[role="dialog"]')).toEqual([]);
 });

@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest';
 import { useComposerStore } from '../features/home/store.ts';
 import { useSearchStore } from '../features/search/store.ts';
 import { useTicketsStore } from '../features/tickets/store.ts';
+import { useTicketDialogStore } from '../features/tickets/ticket-dialog-store.ts';
 import { useConnectionStore } from '../stores/connection-store.ts';
 import { useThemeStore } from '../stores/theme-store.ts';
 import { useUiStore } from '../stores/ui-store.ts';
@@ -59,6 +60,7 @@ afterEach(() => {
   useTicketsStore.setState(useTicketsStore.getInitialState());
   useSearchStore.setState(useSearchStore.getInitialState());
   useComposerStore.setState(useComposerStore.getInitialState());
+  useTicketDialogStore.setState(useTicketDialogStore.getInitialState());
   FakeEventSource.instances = [];
   FakeIntersectionObserver.instances = [];
 });

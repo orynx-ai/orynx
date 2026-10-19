@@ -8,6 +8,7 @@ import {
   WorkItemCard,
   WorkItemCardSkeleton,
   WorkItemTitle,
+  WorkItemTitleButton,
   WorkItemKey,
   WorkItemPriority,
 } from './work-item-card.tsx';
@@ -84,6 +85,24 @@ describe('WorkItemCard', () => {
     const link = screen.getByRole('link', { name: 'Add bulk archive to the content list' });
     expect(link.querySelector('svg')).not.toBeNull();
     expect(screen.getByRole('article', { name: /Add bulk archive to the content list/ })).toBeVisible();
+    await expectNoAxeViolations(container);
+  });
+
+  it('spec 022: a title that opens the ticket dialog is a button with the same name, the card’s too', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const { container } = render(
+      <WorkItemCard
+        itemKey="PROJ-1423"
+        type="Story"
+        title={<WorkItemTitleButton onClick={onOpen}>Add bulk archive to the content list</WorkItemTitleButton>}
+      />,
+    );
+    const title = screen.getByRole('button', { name: 'Add bulk archive to the content list' });
+    expect(title.querySelector('svg')).toBeNull();
+    expect(screen.getByRole('article', { name: /Add bulk archive to the content list/ })).toBeVisible();
+    await user.click(title);
+    expect(onOpen).toHaveBeenCalledOnce();
     await expectNoAxeViolations(container);
   });
 

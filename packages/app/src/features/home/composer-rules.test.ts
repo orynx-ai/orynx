@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ComposerChip } from '@devhub/contracts';
 import { makeRepository } from '@devhub/contracts/testing';
-import { addChip, chipFromPaste, fileChipFrom, folderFor } from './composer-rules.ts';
-
-const bytes = (text: string) => new TextEncoder().encode(text);
+import { addChip, chipFromPaste, fileChipFor, folderFor } from './composer-rules.ts';
 
 describe('a paste that becomes a chip (spec 015, Q6)', () => {
   it.each([
@@ -44,44 +42,42 @@ describe('a paste that becomes a chip (spec 015, Q6)', () => {
   });
 });
 
-describe('a file the composer takes (spec 015, Q5)', () => {
-  it('AC-12: takes UTF-8 text of up to 100 KB, under its name', () => {
-    expect(fileChipFrom('notes.md', bytes('# Notes\n\nExport every column.'))).toEqual({
-      kind: 'file',
-      name: 'notes.md',
-      text: '# Notes\n\nExport every column.',
-    });
-    expect(fileChipFrom('full.log', bytes('x'.repeat(102_400)))).toMatchObject({ kind: 'file' });
+describe('a file the composer takes (spec 022, Q4)', () => {
+  it('AC-10: takes any file by its path', () => {
+    for (const path of ['~/Movies/demo.mov', '/Users/dev/notes/plan.pdf', '~/.env.example']) {
+      expect(fileChipFor(path)).toEqual({ kind: 'file', path });
+    }
   });
 
-  it('AC-12: refuses a file over 100 KB, one that isn’t UTF-8, and one with a NUL byte', () => {
-    expect(fileChipFrom('big.log', bytes('x'.repeat(102_401)))).toEqual({ kind: 'too_big', name: 'big.log' });
-    expect(fileChipFrom('logo.png', new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0xff, 0xfe]))).toEqual({
-      kind: 'not_text',
-      name: 'logo.png',
-    });
-    expect(fileChipFrom('data.bin', bytes('a\u0000b'))).toEqual({ kind: 'not_text', name: 'data.bin' });
+  it('AC-13: refuses a file whose name looks like a secret, naming it', () => {
+    expect(fileChipFor('~/.ssh/id_rsa')).toEqual({ kind: 'secret', name: 'id_rsa' });
+    expect(fileChipFor('/Users/dev/web-app/.env.local')).toEqual({ kind: 'secret', name: '.env.local' });
   });
 });
 
 describe('adding a chip (spec 015)', () => {
   const ticket = { kind: 'jira', key: 'PROJ-1423' } as const;
   const pull = (number: number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number }) as const;
-  const file = (name: string) => ({ kind: 'file', name, text: name }) as const;
+  const file = (name: string) => ({ kind: 'file', path: `~/${name}` }) as const;
 
-  it('AC-9 (Q2): a second ticket takes the first one’s place', () => {
+  it('022 AC-1 (Q2): a second ticket is added after the first; the same one twice changes nothing', () => {
     const chips: ComposerChip[] = [file('a.md'), ticket, pull(1)];
     expect(addChip(chips, { kind: 'jira', key: 'PROJ-7' })).toEqual({
       ok: true,
-      chips: [file('a.md'), { kind: 'jira', key: 'PROJ-7' }, pull(1)],
+      chips: [file('a.md'), ticket, pull(1), { kind: 'jira', key: 'PROJ-7' }],
     });
+    expect(addChip(chips, ticket)).toEqual({ ok: true, chips });
   });
 
-  it('AC-11, AC-12: the same pull request or file twice changes nothing, and limits are said', () => {
+  it('022 AC-3 (Q5): up to 10 tickets, 10 pull requests and 20 files, and each limit is said', () => {
+    const upTo = (count: number) => Array.from({ length: count }, (_, n) => n + 1);
+    const tickets = upTo(10).map((n): ComposerChip => ({ kind: 'jira', key: `PROJ-${String(n)}` }));
+    expect(addChip(tickets, { kind: 'jira', key: 'PROJ-11' })).toEqual({ ok: false, refusal: 'too_many_tickets' });
+    expect(addChip(upTo(9).map(pull), pull(10)).ok).toBe(true);
+    expect(addChip(upTo(10).map(pull), pull(11))).toEqual({ ok: false, refusal: 'too_many_pull_requests' });
+    const files = upTo(20).map((n) => file(`${String(n)}.md`));
+    expect(addChip(files, file('21.md'))).toEqual({ ok: false, refusal: 'too_many_files' });
     expect(addChip([pull(1)], pull(1))).toEqual({ ok: true, chips: [pull(1)] });
-    expect(addChip([pull(1), pull(2), pull(3)], pull(4))).toEqual({ ok: false, refusal: 'too_many_pull_requests' });
-    const five = ['1', '2', '3', '4', '5'].map((n) => file(`${n}.md`));
-    expect(addChip(five, file('6.md'))).toEqual({ ok: false, refusal: 'too_many_files' });
     expect(addChip([file('a.md')], file('a.md'))).toEqual({ ok: true, chips: [file('a.md')] });
     expect(addChip([], ticket)).toEqual({ ok: true, chips: [ticket] });
   });

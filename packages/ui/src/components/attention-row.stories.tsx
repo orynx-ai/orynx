@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ArrowUpRight01Icon, SparklesIcon } from '@hugeicons/core-free-icons';
+import { ArrowUpRight01Icon, PlusSignIcon, SparklesIcon } from '@hugeicons/core-free-icons';
 import {
   AttentionActions,
   AttentionList,
   AttentionRow,
   AttentionRowSkeleton,
   AttentionTitle,
+  AttentionTitleButton,
 } from './attention-row.tsx';
 import { Icon } from './icon.tsx';
 import { IconButton } from './icon-button.tsx';
@@ -60,6 +61,25 @@ export const OpensOutside: Story = {
       <AttentionTitle external href="https://github.com/acme/web-app/pull/2841">
         Lazy-load the people directory so the first paint stays under a second on slow laptops
       </AttentionTitle>
+    ),
+  },
+};
+/**
+ * Home's row since spec 022: a Jira title that opens the ticket dialog (a button, no arrow) and one action, Add to
+ * composer.
+ */
+export const OneAction: Story = {
+  args: {
+    source: 'jira',
+    title: <AttentionTitleButton>Add bulk archive to the content list</AttentionTitleButton>,
+    sub: 'PROJ-1423 · In progress',
+    reason: 'Due Mon',
+    action: (
+      <AttentionActions>
+        <IconButton variant="ghost" size="sm" label="Add to composer" aria-label="Add PROJ-1423 to the composer">
+          <Icon icon={PlusSignIcon} aria-hidden />
+        </IconButton>
+      </AttentionActions>
     ),
   },
 };

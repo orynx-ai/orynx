@@ -37,10 +37,13 @@ async function openHome(route = '/') {
   return { ...rendered, panel };
 }
 
+/** A row's title: its first link, or on a Jira ticket's row, where the title is a button, its first button. */
+function titleText(row: HTMLElement) {
+  return (within(row).queryAllByRole('link')[0] ?? within(row).queryAllByRole('button')[0])?.textContent;
+}
+
 function titles(panel: HTMLElement) {
-  return within(panel)
-    .getAllByRole('listitem')
-    .map((row) => within(row).getAllByRole('link')[0]?.textContent);
+  return within(panel).getAllByRole('listitem').map(titleText);
 }
 
 describe('OrderMenu', () => {

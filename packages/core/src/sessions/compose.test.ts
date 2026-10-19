@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setupServer } from 'msw/node';
@@ -29,6 +29,7 @@ import { useTestRepositories } from '../test/git-repository.ts';
 import { briefText, composerBrief, type BriefChip } from './brief.ts';
 import { createChangesReader } from './changes.ts';
 import { chooseFolder, composerPlan } from './compose.ts';
+import { createSkillsService } from '../skills/skills-service.ts';
 import { createContextReader } from './context-reader.ts';
 import { openFileSessionStore } from './file-session-store.ts';
 import type { SessionRecords } from './session-store.ts';
@@ -40,7 +41,15 @@ const proj = makeRepository({ id: '00000000000000aa', name: 'web-app', jiraProje
 const api = makeRepository({ id: '00000000000000bb', name: 'api', path: '/Users/priya/code/api', jiraProject: null });
 const ticketChip = { kind: 'jira', key: 'PROJ-1423' } as const;
 const pullChip = { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 } as const;
-const fileChip = { kind: 'file', name: 'notes.md', text: '# Notes\n\nExport every column.' } as const;
+/** A file you picked, in the test repositories' folder, which stands for your home folder here (spec 022). */
+const fileChip = { kind: 'file', path: '~/notes.md' } as const;
+const mob = makeRepository({
+  id: '00000000000000cc',
+  name: 'mobile',
+  path: '/Users/priya/code/mobile',
+  jiraProject: 'MOB',
+});
+const mobChip = { kind: 'jira', key: 'MOB-7' } as const;
 
 describe('which folder a composer start works in (spec 015, Q7)', () => {
   const start = (change: { repositoryId?: string; context?: ComposerChip[] }) => {
@@ -56,6 +65,7 @@ describe('which folder a composer start works in (spec 015, Q7)', () => {
     ['nothing, for a folder that’s gone', [proj], start({ repositoryId: api.id }), 'choose_folder'],
     ['nothing, with two folders and no ticket', [proj, api], start({}), 'choose_folder'],
     ['nothing, with no folder for the ticket’s project', [api], start({ context: [ticketChip] }), 'choose_folder'],
+    ['the first ticket’s folder (spec 022, AC-7)', [proj, mob], start({ context: [mobChip, ticketChip] }), mob],
   ] as const)('AC-17, AC-18: picks %s', (_case, folders, request, folder) => {
     expect(chooseFolder(folders, request)).toEqual(folder);
   });
@@ -73,13 +83,19 @@ describe('what a composer start makes (spec 015, Q8)', () => {
   };
 
   it('AC-4: names a session with no ticket from your message, on its own branch, with Claude told to do what you ask', () => {
-    expect(composerPlan('Add a CSV export to the reports page', [fileChip])).toMatchObject({
+    expect(
+      composerPlan('Add a CSV export to the reports page', [
+        { kind: 'file', path: '~/notes.md', real: '/Users/dev/notes.md' },
+      ]),
+    ).toMatchObject({
       title: 'Add a CSV export to the reports page',
       ticket: null,
       plan: {
         branchName: 'add-a-csv-export-to',
-        briefStep: { key: null, message: true, pullRequests: [], files: ['notes.md'] },
+        briefStep: { key: null, message: true, pullRequests: [], files: ['~/notes.md'] },
         ticketNote: false,
+        // 022 AC-15: the file is one Claude may read where it is.
+        reads: { files: ['/Users/dev/notes.md'], folders: [] },
       },
     });
   });
@@ -90,6 +106,19 @@ describe('what a composer start makes (spec 015, Q8)', () => {
       plan: { branchName: 'PROJ-1423', briefStep: { key: 'PROJ-1423', message: false }, ticketNote: true },
     });
     expect(composerPlan('Only the tests', [ticket]).plan.ticketNote).toBe(false);
+  });
+
+  it('AC-4 (spec 022, Q2): the first ticket names the session and its branch; the others are listed after it', () => {
+    const other: BriefChip = { ...ticket, key: 'PROJ-1424', summary: 'Archive from the list' };
+    expect(composerPlan('Do both', [other, ticket])).toMatchObject({
+      title: 'Archive from the list',
+      ticket: { key: 'PROJ-1424' },
+      plan: {
+        branchName: 'PROJ-1424',
+        briefStep: { key: 'PROJ-1424', tickets: ['PROJ-1423'], message: true },
+        ticketNote: false,
+      },
+    });
   });
 });
 
@@ -122,6 +151,7 @@ async function setUp({
   folders = true,
 }: { login?: 'signed_in' | 'signed_out'; script?: readonly FakeTurn[]; folders?: boolean } = {}) {
   const repos = await repositories();
+  await writeFile(join(repos.root, 'notes.md'), '# Notes\n\nExport every column.');
   const home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-compose-home-')));
   homes.push(home);
   const events = createEventBus();
@@ -156,7 +186,9 @@ async function setUp({
     }),
     connection,
     jira,
+    skills: createSkillsService({ repositories: service, home: repos.root }),
     context: createContextReader({
+      home: repos.root,
       jira,
       jiraConnection: connection,
       github,
@@ -197,7 +229,7 @@ async function setUp({
     ]),
     acceptingPullDiff([{ number: 2836, diff: 'diff --git a/a.ts b/a.ts\n+x' }]),
   );
-  return { sessions, records, home, heard, sdk, folder: added[0] };
+  return { sessions, records, home, heard, sdk, folder: added[0], outside, root: repos.root };
 }
 
 /** Waits until the session isn't Working or waiting for you any more. */
@@ -238,6 +270,34 @@ describe('a composer start that can’t happen (spec 015)', () => {
 
     expect(answer).toEqual({ result: 'existing', sessionId: '0000000000000001' });
     await nothingMade(set, 1, heardBefore);
+  });
+
+  it('AC-5 (spec 022): a live session on a ticket after the first doesn’t stop the start', async () => {
+    const set = await setUp();
+    await set.sessions.start({ ticketKey: 'PROJ-1423' });
+    await settled(set.records);
+    set.outside.use(
+      acceptingIssue([
+        { key: 'PROJ-1424', summary: 'Archive from the list', type: 'Task' },
+        { key: 'PROJ-1423', summary: 'Add bulk archive to the content list', type: 'Story' },
+      ]),
+    );
+
+    const answer = await set.sessions.start(
+      makeComposerStart({
+        message: 'Do both',
+        repositoryId: set.folder?.id,
+        context: [{ kind: 'jira', key: 'PROJ-1424' }, ticketChip],
+      }),
+    );
+
+    expect(answer).toEqual({ result: 'started', sessionId: '0000000000000002' });
+    const record = await settled(set.records, '0000000000000002');
+    expect(record.session).toMatchObject({ source: { kind: 'jira', key: 'PROJ-1424' }, branch: 'feat/PROJ-1424' });
+    const brief = await set.records.readBrief('0000000000000002');
+    expect(brief).toMatch(
+      /^Do both\n\nJira ticket PROJ-1424 \(Task\): Archive from the list\n\n[^]*\nJira ticket PROJ-1423 \(Story\)/,
+    );
   });
 
   it('AC-22: Claude Code signed out makes nothing', async () => {
@@ -287,6 +347,86 @@ describe('a composer start that can’t happen (spec 015)', () => {
     );
     expect(answer).toEqual({ result: 'context_failed', chip: 1, problem: 'not_found' });
     await nothingMade(set);
+  });
+});
+
+describe('a file by its path (spec 022)', () => {
+  it('AC-15: Claude may read the file you picked, where it is, and nothing beside it, nor change it', async () => {
+    // `~` is the test repositories' folder here, as the adapter's home and the reader's.
+    const set = await setUp({
+      script: [
+        { tool: 'Read', input: { file_path: '~/notes.md' } },
+        { tool: 'Read', input: { file_path: '~/other.md' } },
+        { tool: 'Edit', input: { file_path: '~/notes.md', old_string: 'Notes', new_string: 'Mine' } },
+        { finish: 'Done.' },
+      ],
+    });
+
+    await set.sessions.start(
+      makeComposerStart({ message: 'Use the notes', repositoryId: set.folder?.id, context: [fileChip] }),
+    );
+
+    const record = await settled(set.records);
+    expect(record.reads).toEqual({ files: [await realpath(join(set.root, 'notes.md'))], folders: [] });
+    const decided = [
+      ['Read', 'allow'],
+      ['Read', 'deny'],
+      ['Edit', 'deny'],
+    ];
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual(decided);
+
+    // A follow-up resumes Claude Code, and the file is still one it may read (the record keeps it).
+    await started(set.records, '0000000000000001');
+    expect(await set.sessions.send('0000000000000001', 'Read them again')).toEqual({ result: 'sent' });
+    await settled(set.records);
+    expect(set.sdk.runs[1]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual(decided);
+  });
+
+  it('AC-16: a file that’s gone by Send makes nothing, and says which chip', async () => {
+    const set = await setUp();
+    const answer = await set.sessions.start(
+      makeComposerStart({ repositoryId: set.folder?.id, context: [ticketChip, { kind: 'file', path: '~/gone.md' }] }),
+    );
+    expect(answer).toEqual({ result: 'context_failed', chip: 1, problem: 'not_found' });
+    await nothingMade(set);
+  });
+});
+
+describe('skills your message names (spec 022)', () => {
+  it('AC-53: adds the skill’s text after the chips, lists it in the brief step, and lets Claude read its folder', async () => {
+    const set = await setUp({
+      script: [
+        { tool: 'Read', input: { file_path: '~/web-app/.claude/skills/review/SKILL.md' } },
+        { tool: 'Write', input: { file_path: '~/web-app/.claude/skills/review/SKILL.md', content: 'x' } },
+        { finish: 'Reviewed.' },
+      ],
+    });
+    const skillFolder = join(set.root, 'web-app', '.claude', 'skills', 'review');
+    await mkdir(skillFolder, { recursive: true });
+    await writeFile(
+      join(skillFolder, 'SKILL.md'),
+      '---\nname: review\ndescription: Review it\n---\n\nCheck the tests first.',
+    );
+
+    await set.sessions.start(
+      makeComposerStart({ message: 'Use /review on it, and /nope', repositoryId: set.folder?.id, context: [fileChip] }),
+    );
+
+    const record = await settled(set.records);
+    const brief = await set.records.readBrief('0000000000000001');
+    expect(brief).toMatch(
+      /^Use \/review on it, and \/nope\n\nFile ~\/notes\.md\n\n[^]*\n\nSkill \/review\n\nThe user asked for this skill with \/review\. Follow it for this task\./,
+    );
+    expect(brief).toContain('Check the tests first.');
+    expect(brief).not.toContain('description: Review it');
+    expect(record.session.activities.find((activity) => activity.kind === 'brief')).toMatchObject({
+      skills: ['/review'],
+    });
+    expect(record.reads?.folders).toEqual([await realpath(skillFolder)]);
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([
+      ['Read', 'allow'],
+      ['Write', 'deny'],
+    ]);
   });
 });
 
@@ -345,12 +485,15 @@ describe('a composer start (spec 015)', () => {
       key: 'PROJ-1423',
       message: true,
       pullRequests: ['web-app #2836'],
-      files: ['notes.md'],
+      files: ['~/notes.md'],
     });
     const brief = await records.readBrief('0000000000000001');
+    // 022 AC-4: a file goes as its path, which Claude reads where it is; its text never goes in the brief.
     expect(brief).toMatch(
-      /^Use the notes\n\nFile notes\.md\n\n# Notes\n\nExport every column\.\n\nJira ticket PROJ-1423 \(Story\)/,
+      /^Use the notes\n\nFile ~\/notes\.md\n\nThe user added this file from their computer\. Read it at /,
     );
+    expect(brief).not.toContain('Export every column.');
+    expect(brief).toMatch(/\n\nJira ticket PROJ-1423 \(Story\)/);
     expect(brief).toContain('Pull request acme/web-app #2836: Lazy-load the people directory');
     expect(brief).toContain('```diff\ndiff --git a/a.ts b/a.ts\n+x\n```');
     expect(sdk.runs[0]?.prompts).toEqual([brief]);

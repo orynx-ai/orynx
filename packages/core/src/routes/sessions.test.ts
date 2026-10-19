@@ -270,13 +270,20 @@ describe('POST /api/sessions from the composer (spec 015)', () => {
       payload: JSON.stringify(payload),
     });
 
-  it('AC-4: takes the most the composer can send, even text JSON writes six times over', async () => {
+  it('AC-4, 022 AC-3: takes the most the composer can send, even text JSON writes six times over', async () => {
     const { app, store } = await serverWith();
-    // Every escape character in a coloured log becomes six characters in JSON: the worst case the limits allow.
-    const full = '\u001b'.repeat(102_400);
-    const files = [1, 2, 3, 4, 5].map((n) => ({ kind: 'file', name: `build-${String(n)}.log`, text: full }));
-    const payload = { message: '\u001b'.repeat(10_000), context: [{ kind: 'jira', key: 'PROJ-1423' }, ...files] };
-    expect(JSON.stringify(payload).length).toBeGreaterThan(3_000_000);
+    // 10 tickets, 10 pull requests and 20 files at the longest path (spec 022, Q5), and a message whose every
+    // character is one JSON writes six times over: the worst case the limits allow.
+    const upTo = (count: number) => Array.from({ length: count }, (_, n) => n + 1);
+    const payload = {
+      message: '\u001b'.repeat(10_000),
+      context: [
+        ...upTo(10).map((n) => ({ kind: 'jira', key: `PROJ-${String(n)}` })),
+        ...upTo(10).map((number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number })),
+        ...upTo(20).map((n) => ({ kind: 'file', path: `/${String(n).padStart(4095, 'a')}` })),
+      ],
+    };
+    expect(JSON.stringify(payload).length).toBeGreaterThan(140_000);
 
     const res = await post(app, payload);
 
@@ -293,12 +300,13 @@ describe('POST /api/sessions from the composer (spec 015)', () => {
 
   it('answers 400 for a body the composer could never send, and 413 past what it ever could', async () => {
     const { app } = await serverWith();
-    const sixFiles = [1, 2, 3, 4, 5, 6].map((n) => ({ kind: 'file', name: `${String(n)}.md`, text: 'x' }));
+    const files = Array.from({ length: 21 }, (_, n) => ({ kind: 'file', path: `~/${String(n)}.md` }));
     for (const payload of [
       { message: '  ', context: [] },
-      { message: 'Go', context: sixFiles },
+      { message: 'Go', context: files },
       { message: 'Go', context: [{ kind: 'slack_thread', ts: '1' }] },
-      { message: 'Go', context: [{ kind: 'file', name: '../.ssh/id_rsa', text: 'x' }] },
+      { message: 'Go', context: [{ kind: 'file', path: '~/.ssh/id_rsa' }] },
+      { message: 'Go', context: [{ kind: 'file', name: 'notes.md', text: 'The shape before spec 022' }] },
     ]) {
       expect((await post(app, payload)).statusCode).toBe(400);
     }

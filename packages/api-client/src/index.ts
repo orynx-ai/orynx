@@ -20,6 +20,8 @@ export {
   sessionPagesQueryOptions,
   sessionsQueryOptions,
   statusQueryOptions,
+  skillsQueryOptions,
+  ticketQueryOptions,
   ticketsQueryOptions,
   ticketsSprintsQueryOptions,
 } from './queries.ts';

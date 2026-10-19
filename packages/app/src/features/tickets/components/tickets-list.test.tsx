@@ -48,13 +48,14 @@ describe('TicketsList', () => {
     expect(screen.queryByRole('region', { name: 'Board' })).toBeNull();
   });
 
-  it('AC-13: a row’s title opens the issue in Jira when it has no session', async () => {
+  it('022 AC-40: a row’s title opens the ticket dialog, with or without a session', async () => {
     server.use(ticketsHandler());
     const { user, platform } = await openList();
 
-    await user.click(screen.getByRole('link', { name: 'Add empty state to saved searches' }));
+    await user.click(screen.getByRole('button', { name: 'Add empty state to saved searches' }));
 
-    expect(platform.openExternal).toHaveBeenCalledWith('https://your-team.atlassian.net/browse/PROJ-1402');
+    expect(await screen.findByRole('dialog', { name: 'Add empty state to saved searches' })).toBeVisible();
+    expect(platform.openExternal).not.toHaveBeenCalled();
   });
 
   it('AC-1 (spec 011): a row without a live session has Ship, named for its ticket (spec 020, AC-16)', async () => {

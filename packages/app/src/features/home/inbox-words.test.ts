@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultPreferences, type Inbox, type InboxItem, type InboxReason } from '@devhub/contracts';
 import { makeInbox, makeInboxItem } from '@devhub/contracts/testing';
-import { emptyText, reasonPill, rowActions, subLine, syncLine, tabCounts, toolLine, waitText } from './inbox-words.ts';
+import { emptyText, reasonPill, rowAction, subLine, syncLine, tabCounts, toolLine, waitText } from './inbox-words.ts';
 
 // Saturday 17 October 2026, 10:00 on the laptop's own clock, whatever its time zone.
 const now = new Date(2026, 9, 17, 10, 0);
@@ -108,27 +108,23 @@ describe('Home’s words', () => {
     ).toBe('PROJ-1');
   });
 
-  it('AC-15 (spec 020): a pull request’s one action opens it in GitHub, where its reason points, named for it', () => {
+  it('022 AC-30: a pull request’s one action adds it to the composer, named for it', () => {
     for (const reason of [
       { kind: 'review_requested' },
       { kind: 'checks_failing' },
       { kind: 'unresolved_comments', count: 2 },
     ] as const) {
-      expect(rowActions(makeInboxItem({ reason }))).toEqual({
-        ship: null,
-        open: {
-          kind: 'external',
-          url: 'https://github.com/acme/web-app/pull/2841/files',
-          label: 'Open in GitHub',
-          name: 'Open web-app #2841 in GitHub',
-        },
+      expect(rowAction(makeInboxItem({ reason }))).toEqual({
+        kind: 'compose',
+        chip: { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2841 },
+        label: 'web-app #2841',
       });
     }
   });
 
-  it('AC-14 (spec 020): an assigned issue has Ship then Open in Jira, or only Open session once its session is live', () => {
+  it('022 AC-26, AC-32: an issue’s one action adds it to the composer, or opens its session once that’s live', () => {
     const issue = (target: InboxItem['target'], reason: InboxReason = { kind: 'status', category: 'to_do' }) =>
-      rowActions(
+      rowAction(
         makeInboxItem({
           source: 'jira',
           tab: 'jira',
@@ -144,14 +140,13 @@ describe('Home’s words', () => {
       { kind: 'status', category: 'to_do' },
       { kind: 'due', on: '2026-10-19', highPriorityBug: false },
     ] as const) {
-      expect(issue(jira, reason)).toEqual({
-        ship: 'PROJ-1',
-        open: { kind: 'external', url: jira.url, label: 'Open in Jira', name: 'Open PROJ-1 in Jira' },
-      });
+      expect(issue(jira, reason)).toEqual({ kind: 'compose', chip: { kind: 'jira', key: 'PROJ-1' }, label: 'PROJ-1' });
     }
     const live = {
-      ship: null,
-      open: { kind: 'session', sessionId: 'session-1', label: 'Open session', name: 'Open session: Add bulk archive' },
+      kind: 'session',
+      sessionId: 'session-1',
+      label: 'Open session',
+      name: 'Open session: Add bulk archive',
     };
     expect(issue({ kind: 'session', sessionId: 'session-1' })).toEqual(live);
     expect(issue({ kind: 'session', sessionId: 'session-1' }, { kind: 'approval' })).toEqual(live);

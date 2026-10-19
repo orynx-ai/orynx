@@ -7,6 +7,7 @@ import {
   makeSearchPullRequest,
   makeSearchTicket,
   makeSessionSummary,
+  makeTicketDetail,
 } from '../packages/contracts/src/testing.ts';
 
 declare global {
@@ -62,6 +63,10 @@ async function answerSearch(page: Page, more = 0) {
     sessions: [makeSessionSummary({ id: 'session-1', title: 'Archive old sites', state: 'needs_you', source: null })],
   });
   await page.route('**/api/search', (route) => route.fulfill({ json: index }));
+  // A picked ticket opens the ticket dialog (spec 022), which reads the ticket in full.
+  await page.route('**/api/tickets/PROJ-1423', (route) =>
+    route.fulfill({ json: { result: 'found', ticket: makeTicketDetail({ title: 'Add bulk archive' }) } }),
+  );
   // Jira itself is never reached: the new tab gets a stand-in page.
   await page
     .context()
@@ -125,7 +130,7 @@ async function axeViolations(page: Page): Promise<string[]> {
   });
 }
 
-test('AC-1, AC-6, AC-11, AC-12: Given tickets to find, when I press the search key, type and pick one with the arrow keys and Enter, then it opens in Jira in a new tab and search closes', async ({
+test('AC-1, AC-6, AC-11, AC-12, 022 AC-40: Given tickets to find, when I press the search key, type and pick one with the arrow keys and Enter, then search closes and the ticket dialog opens, whose Open in Jira opens a new tab', async ({
   page,
 }) => {
   await answerSearch(page);
@@ -152,11 +157,14 @@ test('AC-1, AC-6, AC-11, AC-12: Given tickets to find, when I press the search k
     namedInOrder('PROJ-1423', 'Add bulk archive', 'In Progress'),
   );
 
-  const opened = page.context().waitForEvent('page');
   await page.keyboard.press('Enter');
 
+  const ticket = page.getByRole('dialog', { name: 'Add bulk archive' });
+  await expect(ticket).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  const opened = page.context().waitForEvent('page');
+  await ticket.getByRole('link', { name: 'Open in Jira' }).click();
   expect((await opened).url()).toBe(jiraLink);
-  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page).toHaveURL(/\/tickets$/);
 });
 

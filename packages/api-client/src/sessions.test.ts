@@ -204,7 +204,7 @@ describe('createApiClient().startSession() from the composer (spec 015)', () => 
     const start = makeComposerStart({
       message: 'Use the notes',
       context: [
-        { kind: 'file', name: 'notes.md', text: 'Export every column.' },
+        { kind: 'file', path: '~/notes/plan.pdf' },
         { kind: 'jira', key: 'PROJ-1423' },
         { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 },
       ],

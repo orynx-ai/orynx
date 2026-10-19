@@ -60,6 +60,11 @@ export const StoredSessionSchema = z.object({
     .default(null),
   /** Every call that asked, in order (spec 012). A session saved before spec 012 has none. */
   approvalLog: z.array(ApprovalRecordSchema).default([]),
+  /**
+   * What outside the worktree the brief named, as real paths, which Claude may read on every run, a follow-up's
+   * too (spec 022): the files you picked and skills' folders. A session saved before spec 022 has none.
+   */
+  reads: z.object({ files: z.array(z.string().min(1)), folders: z.array(z.string().min(1)) }).optional(),
 });
 export type StoredSession = z.infer<typeof StoredSessionSchema>;
 

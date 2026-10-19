@@ -103,7 +103,10 @@ describe('TicketsScreen', () => {
       'Board',
       'Search returns archived sites for guest users',
     ]);
-    expect(document.activeElement).toHaveAttribute('href', 'https://your-team.atlassian.net/browse/PROJ-1377');
+    // The card's title opens the ticket dialog (spec 022), so it's a button.
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Search returns archived sites for guest users' }),
+    );
   });
 
   it('AC-20: the Tickets crumb looks the same whether or not its link leads to this very page', async () => {

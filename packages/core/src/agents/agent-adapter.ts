@@ -16,13 +16,28 @@ export interface AgentPermissions {
   mode: PermissionMode;
   /** Commands that run without asking in `edit_and_run_allowed`, e.g. "npm test". */
   allowedCommands: readonly string[];
+  /** What outside the worktree the brief named, for the agent to read and never edit (spec 022). */
+  reads?: AgentReads;
+}
+
+/**
+ * Files and folders outside the worktree that the brief named (spec 022): the files you picked and the folders of
+ * the skills your message named, as real paths with every symlink followed. The agent may read them, never edit.
+ */
+export interface AgentReads {
+  files: readonly string[];
+  folders: readonly string[];
 }
 
 export interface AgentBrief {
   /** What the user typed in the composer. */
   message: string;
   /** Exactly the context chips the user added: nothing else is sent. */
-  context: readonly { kind: 'jira' | 'pull_request' | 'slack_thread' | 'file'; title: string; body: string }[];
+  context: readonly {
+    kind: 'jira' | 'pull_request' | 'slack_thread' | 'file' | 'skill';
+    title: string;
+    body: string;
+  }[];
 }
 
 /** Your answer to a waiting call. `always` runs the call as `allow` does; the session saves the entry first. */

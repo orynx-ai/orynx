@@ -12,8 +12,10 @@ export {
   AttentionRow,
   AttentionRowSkeleton,
   AttentionTitle,
+  AttentionTitleButton,
   type AttentionActionsProps,
   type AttentionRowProps,
+  type AttentionTitleButtonProps,
   type AttentionTitleProps,
 } from './components/attention-row.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
@@ -46,7 +48,15 @@ export {
   type ComposerTextareaProps,
 } from './components/composer.tsx';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './components/combobox.tsx';
-export { ContextChip, ContextList, type ContextChipProps, type ContextListProps } from './components/context-chip.tsx';
+export { SuggestionList, type SuggestionListProps, type SuggestionOption } from './components/suggestion-list.tsx';
+export {
+  ContextChip,
+  ContextList,
+  ContextMore,
+  type ContextChipProps,
+  type ContextListProps,
+  type ContextMoreProps,
+} from './components/context-chip.tsx';
 export {
   ContextKindItem,
   ContextPicker,
@@ -161,10 +171,12 @@ export {
   WorkItemPriority,
   WorkItemShip,
   WorkItemTitle,
+  WorkItemTitleButton,
   type WorkItemCardProps,
   type WorkItemPriorityLevel,
   type WorkItemPriorityProps,
   type WorkItemShipProps,
+  type WorkItemTitleButtonProps,
   type WorkItemTitleProps,
 } from './components/work-item-card.tsx';
 export { bundledFontFaces } from './fonts.ts';

@@ -4,6 +4,8 @@ import {
   apiPaths,
   OpenSprintsQuerySchema,
   OpenSprintsSchema,
+  TicketDetailAnswerSchema,
+  TicketKeyParamsSchema,
   TicketsChoiceSchema,
   TicketsSchema,
 } from '@devhub/contracts';
@@ -15,6 +17,7 @@ import type { TicketsService } from '../tickets/tickets-service.ts';
  * Tickets' sprint (spec 008), from the cache. It syncs with the inbox, so Refresh and Clear cache live there.
  * Spec 020 adds the project's open sprints for the Sprint menu, asked of Jira now, and the choice of sprint,
  * whose first sync starts at once. A Jira problem is a JiraConnectionError, which the /api error handler answers.
+ * Spec 022 adds one ticket in full for the ticket dialog.
  */
 export const ticketsRoutes: FastifyPluginCallbackZod<{
   tickets: TicketsService;
@@ -27,6 +30,13 @@ export const ticketsRoutes: FastifyPluginCallbackZod<{
     apiPaths.ticketsSprints,
     { schema: { querystring: OpenSprintsQuerySchema, response: { 200: OpenSprintsSchema } } },
     async (request) => ({ sprints: await jira.openSprints(request.query.project) }),
+  );
+
+  // One ticket in full for the ticket dialog (spec 022), asked of Jira now; why there's none is in the answer.
+  app.get(
+    apiPaths.ticket,
+    { schema: { params: TicketKeyParamsSchema, response: { 200: TicketDetailAnswerSchema } } },
+    (request) => tickets.detail(request.params.key),
   );
 
   app.put(

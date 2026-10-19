@@ -11,27 +11,34 @@ import {
   ComposerTextarea,
   ContextChip,
   ContextList,
+  ContextMore,
   Icon,
   SourceMark,
 } from '@devhub/ui';
 import { newTaskTargetId } from '../../../shell/main-content.ts';
 import { useRepositories, useStatus } from '../../settings/queries.ts';
-import { chipFromPaste, folderFor } from '../composer-rules.ts';
+import { chipFromPaste, firstTicket, folderFor } from '../composer-rules.ts';
 import {
   cannotStartLine,
   chipLabel,
   composerWords,
   contextFailedLine,
   placeholderFor,
+  refusedLine,
   removedLine,
   type SettingsLink,
 } from '../composer-words.ts';
 import { useStartFromComposer } from '../queries.ts';
 import { AddContext } from './add-context.tsx';
 import { AgentPicker } from './agent-picker.tsx';
+import { ContextDialog } from './context-dialog.tsx';
+import { useSkillSuggestions } from './skill-suggestions.tsx';
 import { FolderPicker } from './folder-picker.tsx';
 import { composerFormSchema, type ComposerFormValues } from '../schemas.ts';
 import { useComposerStore } from '../store.ts';
+
+/** The composer shows this many chips, then +N (spec 022, Q6). */
+const shownChips = 2;
 
 /** The chip's mark: the tool's own for a ticket or a pull request, a file icon for a file. */
 function chipIcon(chip: ComposerChip) {
@@ -51,10 +58,9 @@ function saidFor(answer: StartSessionAnswer, chips: readonly ComposerChip[]): Sa
   switch (answer.result) {
     case 'started':
       return null;
-    case 'existing': {
-      const ticket = chips.find((chip) => chip.kind === 'jira');
-      return { line: composerWords.existing(ticket?.key ?? ''), link: null, session: answer.sessionId };
-    }
+    case 'existing':
+      // Only the first ticket's session stops a start (spec 022, Q2).
+      return { line: composerWords.existing(firstTicket(chips) ?? ''), link: null, session: answer.sessionId };
     case 'cannot_start':
       return { ...cannotStartLine(answer.reason), session: null };
     case 'context_failed': {
@@ -90,34 +96,52 @@ export function HomeComposer() {
   // Why a file wasn't added (AC-12); it goes when the draft changes or another file is added.
   const [refused, setRefused] = useState<string | null>(null);
   const box = useRef<HTMLTextAreaElement | null>(null);
+  const more = useRef<HTMLButtonElement | null>(null);
+  // Whether the dialog with every chip is open (spec 022, AC-20).
+  const [allContext, setAllContext] = useState(false);
 
   const form = useForm<ComposerFormValues, unknown, { message: string }>({
     resolver: zodResolver(composerFormSchema),
     defaultValues: { message: text },
   });
+  const message = useWatch({ control: form.control, name: 'message' });
+  const ticketKeys = chips.flatMap((chip) => (chip.kind === 'jira' ? [chip.key] : []));
+  const ticketKey = firstTicket(chips);
+  const shown = folderFor({ folders: repositories.data?.repositories ?? [], picked, ticketKey, lastUsed });
+  const suggestions = useSkillSuggestions({
+    folder: shown.kind === 'folder' ? { id: shown.folder.id, name: shown.folder.name } : null,
+    text: message,
+    box: () => box.current,
+    onChoose: (next, caret) => {
+      form.setValue('message', next);
+      setText(next);
+      box.current?.setSelectionRange(caret, caret);
+    },
+  });
   const field = form.register('message', {
-    onChange: (event: { target: { value: string } }) => {
+    onChange: (event: { target: HTMLTextAreaElement }) => {
       setText(event.target.value);
+      suggestions.track(event.target);
       setRefused(null);
       // What was said about the last try no longer fits once the draft changes.
       if (start.isError || start.data !== undefined) start.reset();
     },
   });
-  const message = useWatch({ control: form.control, name: 'message' });
-  const ticketKey = chips.find((chip) => chip.kind === 'jira')?.key ?? null;
-  const shown = folderFor({ folders: repositories.data?.repositories ?? [], picked, ticketKey, lastUsed });
-  const canSend = message.trim() !== '' || ticketKey !== null;
+  // More than 5 skills named waits until some go (spec 022, Q5).
+  const canSend = (message.trim() !== '' || ticketKey !== null) && !suggestions.tooMany;
 
   const answered = start.data === undefined ? null : saidFor(start.data, start.variables.context);
   const tooLong = form.formState.errors.message?.message;
   const said: Said | null =
     refused !== null
       ? { line: refused, link: null, session: null }
-      : tooLong === undefined
-        ? start.isError
-          ? { line: composerWords.failed, link: null, session: null }
-          : answered
-        : { line: tooLong, link: null, session: null };
+      : suggestions.tooMany
+        ? { line: composerWords.skills.tooMany, link: null, session: null }
+        : tooLong === undefined
+          ? start.isError
+            ? { line: composerWords.failed, link: null, session: null }
+            : answered
+          : { line: tooLong, link: null, session: null };
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -139,66 +163,90 @@ export function HomeComposer() {
 
   return (
     <div className="flex flex-col gap-2">
-      <Composer canSend={canSend} pending={start.isPending} onSubmit={submit}>
-        {chips.length === 0 ? null : (
-          <ContextList aria-label={composerWords.contextList}>
-            {chips.map((chip, index) => {
-              const label = chipLabel(chip);
-              return (
-                <ContextChip
-                  key={`${chip.kind}:${label}`}
-                  label={label}
-                  icon={chipIcon(chip)}
-                  onRemove={() => {
-                    removeChip(index);
-                    setRemoved(removedLine(label));
+      {/* The / list sits over the page under the composer, so nothing moves when it opens (spec 022, G). */}
+      <div className="relative">
+        <Composer canSend={canSend} pending={start.isPending} onSubmit={submit}>
+          {chips.length === 0 ? null : (
+            <ContextList aria-label={composerWords.contextList}>
+              {/* The first two in the order added, then +N for the rest (spec 022, Q6). */}
+              {chips.slice(0, shownChips).map((chip, index) => {
+                const label = chipLabel(chip);
+                return (
+                  <ContextChip
+                    key={`${chip.kind}:${label}`}
+                    label={label}
+                    icon={chipIcon(chip)}
+                    onRemove={() => {
+                      removeChip(index);
+                      setRemoved(removedLine(label));
+                    }}
+                  />
+                );
+              })}
+              {chips.length > shownChips ? (
+                <ContextMore
+                  ref={more}
+                  count={chips.length - shownChips}
+                  label={composerWords.more.label(chips.length)}
+                  tooltip={composerWords.more.tooltip}
+                  onClick={() => {
+                    setAllContext(true);
                   }}
                 />
-              );
-            })}
-          </ContextList>
-        )}
-        <ComposerTextarea
-          id={newTaskTargetId}
-          label={composerWords.label}
-          placeholder={placeholderFor(ticketKey)}
-          readOnly={start.isPending}
-          {...field}
-          onPaste={(event) => {
-            // A paste that is exactly one key or pull request link becomes its chip (AC-14, Q6).
-            const chip = chipFromPaste(event.clipboardData.getData('text/plain'));
-            if (chip === null) return;
-            event.preventDefault();
-            setRefused(addChip(chip) === null ? null : composerWords.tooManyPullRequests);
-          }}
-          ref={(element) => {
-            field.ref(element);
-            box.current = element;
-          }}
-        />
-        <ComposerBar>
-          <AddContext
-            onPicked={() => {
-              box.current?.focus();
+              ) : null}
+            </ContextList>
+          )}
+          <ComposerTextarea
+            {...suggestions.boxProps}
+            id={newTaskTargetId}
+            label={composerWords.label}
+            placeholder={placeholderFor(ticketKeys)}
+            readOnly={start.isPending}
+            {...field}
+            onPaste={(event) => {
+              // A paste that is exactly one key or pull request link becomes its chip (AC-14, Q6).
+              const chip = chipFromPaste(event.clipboardData.getData('text/plain'));
+              if (chip === null) return;
+              event.preventDefault();
+              const refusal = addChip(chip);
+              setRefused(refusal === null ? null : refusedLine(refusal));
             }}
-            onRefused={setRefused}
+            ref={(element) => {
+              field.ref(element);
+              box.current = element;
+            }}
           />
-          {/* The pickers' own row under 640 px, there from the first paint, so the box never grows when they
+          <ComposerBar>
+            <AddContext
+              onPicked={() => {
+                box.current?.focus();
+              }}
+              onRefused={setRefused}
+              box={() => box.current}
+            />
+            {/* The pickers' own row under 640 px, there from the first paint, so the box never grows when they
               arrive (AC-1, AC-30); in a wider window they sit between + and Send. */}
-          <div className="flex min-h-8 min-w-0 items-center gap-2 max-sm:order-last max-sm:basis-full">
-            {pickers ? (
-              <>
-                <FolderPicker />
-                <AgentPicker />
-              </>
-            ) : null}
-          </div>
-          <ComposerSend label={start.isPending ? composerWords.sending : composerWords.send} />
-        </ComposerBar>
-      </Composer>
+            <div className="flex min-h-8 min-w-0 items-center gap-2 max-sm:order-last max-sm:basis-full">
+              {pickers ? (
+                <>
+                  <FolderPicker />
+                  <AgentPicker />
+                </>
+              ) : null}
+            </div>
+            <ComposerSend label={start.isPending ? composerWords.sending : composerWords.send} />
+          </ComposerBar>
+        </Composer>
+        {suggestions.list}
+      </div>
       <p role="status" className="sr-only">
         {removed}
       </p>
+      <ContextDialog
+        open={allContext}
+        onOpenChange={setAllContext}
+        returnFocusTo={() => (more.current?.isConnected === true ? more.current : box.current)}
+      />
       {said === null ? null : (
         <p role="alert" className="m-0 text-small text-danger">
           {said.line}

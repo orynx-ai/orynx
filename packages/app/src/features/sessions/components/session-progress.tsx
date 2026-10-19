@@ -161,7 +161,14 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
                 state={state}
                 icon={icon}
                 title={titleOf(activity, words.title)}
-                detail={words.detail}
+                detail={
+                  // The brief's files show by name; their full paths are the tooltip (spec 022, AC-17).
+                  activity.kind === 'brief' && activity.files.length > 0 ? (
+                    <span title={activity.files.join('\n')}>{words.detail}</span>
+                  ) : (
+                    words.detail
+                  )
+                }
               />
             );
           })}

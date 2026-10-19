@@ -113,18 +113,41 @@ export function AttentionTitle({
   );
 }
 
+export type AttentionTitleButtonProps = Omit<ComponentProps<'button'>, 'type'>;
+
+/**
+ * The row's title as a button, for a title that opens something in the page rather than going somewhere: the
+ * ticket dialog (spec 022, Q8). It looks as the title link does, on one line cut off with an ellipsis, and has no
+ * arrow, since it stays inside Orynx.
+ */
+export function AttentionTitleButton({ className, children, ...props }: AttentionTitleButtonProps) {
+  return (
+    <button
+      type="button"
+      data-slot="attention-title"
+      className={cn(
+        'w-fit max-w-full min-w-0 cursor-pointer truncate rounded-xs border-0 bg-transparent p-0 text-start font-medium text-foreground hover:underline',
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
 export type AttentionActionsProps = ComponentProps<'div'>;
 
 /**
- * The row's actions at its end (spec 020): icon buttons (`IconButton`), each with its words in a tooltip,
- * such as Ship then Open in Jira. Always as wide as two, so the reason pills line up down the list
- * whether a row has one action or two.
+ * The row's actions at its end: icon buttons (`IconButton`), each with its words in a tooltip. Since spec 022 a
+ * row has one, such as Add to composer or Open session, so it's always as wide as one and the reason pills line
+ * up down the list.
  */
 export function AttentionActions({ className, ...props }: AttentionActionsProps) {
   return (
     <div
       data-slot="attention-actions"
-      className={cn('flex min-w-17 shrink-0 items-center justify-end gap-1', className)}
+      className={cn('flex min-w-8 shrink-0 items-center justify-end gap-1', className)}
       {...props}
     />
   );
@@ -149,7 +172,7 @@ export function AttentionRowSkeleton({ className, ...props }: Omit<ComponentProp
       <span className={cn('flex', reasonClass)}>
         <Skeleton className="h-6 w-28" />
       </span>
-      <Skeleton className="h-8 w-17" />
+      <Skeleton className="size-8" />
     </li>
   );
 }
