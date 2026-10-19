@@ -55,7 +55,7 @@ export function settingsFilePath(home: string): string {
 }
 
 /** Runs each change after the one before has finished, whether or not that one failed. */
-function oneAtATime(): <T>(work: () => Promise<T>) => Promise<T> {
+export function oneAtATime(): <T>(work: () => Promise<T>) => Promise<T> {
   let last: Promise<unknown> = Promise.resolve();
   return (work) => {
     const next = last.then(work, work);
