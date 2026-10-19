@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { defaultNotificationSettings, type Notification } from '@devhub/contracts';
 import { Toast, ToastRegion } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
+import { announce, becomeSpeaker, watchLooking } from '../alerts.ts';
 import { useMarkNotificationsRead, useNotificationSettings, useNotifications } from '../queries.ts';
 import { delivery } from '../quiet.ts';
 import { notificationPlace, notificationWords } from '../words.ts';
@@ -17,16 +18,47 @@ const most = 3;
 /**
  * Pop-ups (spec 029): a notification that comes while this tab is open pops up in the bottom-right corner, as
  * Settings › Notifications says. Those already there when the tab opened don't. Which are showing is this tab's
- * own; the notifications themselves come from the list.
+ * own; the notifications themselves come from the list. If this tab is the one that speaks for all, it also
+ * sounds and raises desktop notifications (`alerts.ts`).
  */
 export function PopUps() {
   const notifications = useNotifications();
   const settings = useNotificationSettings();
-  const markRead = useMarkNotificationsRead();
   const navigate = useNavigate();
   const platform = usePlatform();
   const seen = useRef<Set<string> | null>(null);
+  const speaking = useRef(false);
   const [queued, setQueued] = useState<readonly string[]>([]);
+
+  useEffect(() => {
+    const tab = new AbortController();
+    becomeSpeaker(() => {
+      speaking.current = true;
+    }, tab.signal);
+    watchLooking(tab.signal);
+    return () => {
+      speaking.current = false;
+      tab.abort();
+    };
+  }, []);
+
+  // Stable, so a pop-up's timer doesn't start again each time the list changes.
+  const close = useCallback((id: string) => {
+    setQueued((ids) => ids.filter((queuedId) => queuedId !== id));
+  }, []);
+
+  const { mutate: markRead } = useMarkNotificationsRead();
+  const open = useCallback(
+    (notification: Notification) => {
+      close(notification.id);
+      if (!notification.read) markRead({ ids: [notification.id] });
+      const place = notificationPlace(notification.what);
+      if (place.kind === 'session') {
+        void navigate({ to: '/sessions/$sessionId', params: { sessionId: place.sessionId } });
+      } else platform.openExternal(place.url);
+    },
+    [close, markRead, navigate, platform],
+  );
 
   const list = notifications.data?.notifications;
   useEffect(() => {
@@ -41,24 +73,13 @@ export function PopUps() {
     const arrived = list.filter((notification) => !known.has(notification.id)).reverse();
     for (const notification of arrived) known.add(notification.id);
     const chosen = settings.data ?? defaultNotificationSettings;
+    const now = new Date();
     const popping = arrived.filter(
-      (notification) => !notification.read && delivery(notification.what, chosen, new Date()).popUp,
+      (notification) => !notification.read && delivery(notification.what, chosen, now).popUp,
     );
     if (popping.length > 0) setQueued((ids) => [...ids, ...popping.map((notification) => notification.id)]);
-  }, [list, settings.data]);
-
-  // Stable, so a pop-up's timer doesn't start again each time the list changes.
-  const close = useCallback((id: string) => {
-    setQueued((ids) => ids.filter((queuedId) => queuedId !== id));
-  }, []);
-
-  function open(notification: Notification) {
-    close(notification.id);
-    if (!notification.read) markRead.mutate({ ids: [notification.id] });
-    const place = notificationPlace(notification.what);
-    if (place.kind === 'session') void navigate({ to: '/sessions/$sessionId', params: { sessionId: place.sessionId } });
-    else platform.openExternal(place.url);
-  }
+    if (speaking.current && arrived.length > 0) void announce(arrived, chosen, now, open);
+  }, [list, settings.data, open]);
 
   const byId = new Map((list ?? []).map((notification) => [notification.id, notification]));
   // An approval answered anywhere has nothing left to ask, so its pop-up goes (AC-23).
@@ -80,7 +101,7 @@ export function PopUps() {
           close={close}
           onAllowed={() => {
             close(notification.id);
-            markRead.mutate({ ids: [notification.id] });
+            markRead({ ids: [notification.id] });
           }}
         />
       ))}

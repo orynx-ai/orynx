@@ -76,9 +76,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 20: Pop-ups: new notifications pop up per the settings, approvals stay, others go after 8 s, three at most; mounted once in the shell (AC-23, AC-24, AC-25, AC-26, AC-29)
       Check: pnpm test packages/app/src/features/notifications/components/pop-ups.test.tsx
       Files: packages/app/src/features/notifications/components/pop-ups.tsx, packages/app/src/features/notifications/components/pop-ups.test.tsx, packages/app/src/shell/app-shell.tsx
-- [ ] Task 21: Desktop notifications and sounds once for every tab: the Web Lock, visible tabs, "only when Orynx isn't the tab you're looking at", clicking one opens its place (AC-27, AC-28, AC-29)
-      Check: pnpm test packages/app/src/features/notifications/alerts.test.ts
-      Files: packages/app/src/features/notifications/alerts.ts, packages/app/src/features/notifications/alerts.test.ts, packages/app/src/features/notifications/components/pop-ups.tsx, packages/app/src/test/browser-fakes.ts
+- [x] Task 21: Desktop notifications and sounds once for every tab: the Web Lock, visible tabs, "only when Orynx isn't the tab you're looking at", clicking one opens its place (AC-27, AC-28, AC-29)
+      Check: pnpm test packages/app/src/features/notifications/alerts.test.ts packages/app/src/features/notifications/components/pop-ups.test.tsx
+      Files: packages/app/src/features/notifications/alerts.ts, packages/app/src/features/notifications/alerts.test.ts, packages/app/src/features/notifications/components/pop-ups.tsx, packages/app/src/features/notifications/components/pop-ups.test.tsx, packages/app/src/test/fake-notifications.ts
 
 **App: Settings › Notifications**
 

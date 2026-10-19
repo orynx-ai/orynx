@@ -8,7 +8,9 @@ import {
   type NotificationSettings,
 } from '@devhub/contracts';
 import { makeNotification, makeNotificationList } from '@devhub/contracts/testing';
+import { FakeAudioContext } from '../../../test/fake-audio-context.ts';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
+import { FakeLocks, FakeNotification, installLocks } from '../../../test/fake-notifications.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -64,6 +66,8 @@ function popUps() {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('pop-ups (spec 029)', () => {
@@ -179,5 +183,27 @@ describe('pop-ups (spec 029)', () => {
 
     expect(await within(popUps()).findByRole('alert')).toBeVisible();
     expect(within(popUps()).queryByRole('status')).toBeNull();
+  });
+});
+
+describe('sound and the desktop (spec 029)', () => {
+  it('AC-27, AC-28: the tab that speaks knocks and shows Claude waiting on the desktop, without the command', async () => {
+    choosing(awake);
+    FakeAudioContext.reset();
+    FakeNotification.reset();
+    vi.stubGlobal('AudioContext', FakeAudioContext);
+    vi.stubGlobal('Notification', FakeNotification);
+    const uninstall = installLocks(new FakeLocks());
+    vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+
+    await arrive([approval]);
+
+    await waitFor(() => {
+      expect(FakeNotification.shown.map(({ title, options }) => [title, options.body])).toEqual([
+        ['Claude wants to run a command', 'PROJ-1423 · Add bulk archive'],
+      ]);
+    });
+    expect(FakeAudioContext.instances[0]?.played.map((note) => note.frequency)).toEqual([392, 392]);
+    uninstall();
   });
 });
