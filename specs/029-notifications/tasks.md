@@ -61,9 +61,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: Allow once and Review in the panel; an answered approval drops its buttons (AC-9, AC-10, AC-11, AC-12)
       Check: pnpm test packages/app/src/features/notifications/components/notification-actions.test.tsx
       Files: packages/app/src/features/notifications/components/notification-actions.tsx, packages/app/src/features/notifications/components/notification-actions.test.tsx, packages/app/src/features/notifications/components/notification-centre.tsx
-- [ ] Task 17: The panel's foot: Do not disturb and Sounds switches, All settings and the gear (AC-17)
-      Check: pnpm test packages/app/src/features/notifications/components/notification-centre.test.tsx
-      Files: packages/app/src/features/notifications/components/notification-centre.tsx, packages/app/src/features/notifications/components/notification-centre.test.tsx, packages/app/src/features/notifications/queries.ts
+- [x] Task 17: The panel's foot: Do not disturb and Sounds switches, All settings and the gear; `pauseUntil` and `pausedNow` start `quiet.ts` (AC-17, AC-31)
+      Check: pnpm test packages/app/src/features/notifications/components/notification-centre.test.tsx packages/app/src/features/notifications/quiet.test.ts
+      Files: packages/app/src/features/notifications/components/notification-centre.tsx, packages/app/src/features/notifications/components/notification-centre.test.tsx, packages/app/src/features/notifications/quiet.ts, packages/app/src/features/notifications/quiet.test.ts
 
 **App: reaching you**
 

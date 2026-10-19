@@ -1,9 +1,18 @@
-import { useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { Alert02Icon, GitPullRequestIcon, PauseIcon, Ticket01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
+import { useId, useState } from 'react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import {
+  Alert02Icon,
+  GitPullRequestIcon,
+  PauseIcon,
+  Settings02Icon,
+  Ticket01Icon,
+  Tick02Icon,
+} from '@hugeicons/core-free-icons';
 import type { Notification, NotificationKind } from '@devhub/contracts';
 import {
   Button,
+  Icon,
+  IconButton,
   NotificationGroup,
   NotificationItem,
   NotificationPanel,
@@ -14,6 +23,7 @@ import {
   NotificationTabs,
   NotificationTabsContent,
   NotificationTabsList,
+  Switch,
   TabsTrigger,
   type IconSvgElement,
   type NotificationTone,
@@ -21,7 +31,13 @@ import {
 } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { useNow } from '../../../words/use-now.ts';
-import { useMarkNotificationsRead, useNotifications } from '../queries.ts';
+import {
+  useChangeNotificationSettings,
+  useMarkNotificationsRead,
+  useNotificationSettings,
+  useNotifications,
+} from '../queries.ts';
+import { pausedNow, pauseUntil } from '../quiet.ts';
 import { NotificationActions } from './notification-actions.tsx';
 import { notificationGroups, notificationPlace, notificationTime, notificationWords } from '../words.ts';
 
@@ -58,6 +74,9 @@ export function NotificationCentre({ side = 'right', tooltipSide }: Notification
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState('all');
   const unread = notifications.data?.unread ?? 0;
+  const settings = useNotificationSettings();
+  const change = useChangeNotificationSettings();
+  const ids = { pause: useId(), sounds: useId() };
 
   function openNotification(notification: Notification) {
     setOpen(false);
@@ -131,16 +150,67 @@ export function NotificationCentre({ side = 'right', tooltipSide }: Notification
         side={side}
         align="end"
         actions={
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={unread === 0}
-            onClick={() => {
-              markRead.mutate({ all: true });
-            }}
-          >
-            Mark all read
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={unread === 0}
+              onClick={() => {
+                markRead.mutate({ all: true });
+              }}
+            >
+              Mark all read
+            </Button>
+            <IconButton variant="ghost" size="sm" label="Notification settings" asChild>
+              <Link
+                to="/settings/$tab"
+                params={{ tab: 'notifications' }}
+                onClick={() => {
+                  setOpen(false);
+                }}
+              >
+                <Icon icon={Settings02Icon} aria-hidden />
+              </Link>
+            </IconButton>
+          </>
+        }
+        foot={
+          // Saved as Settings › Notifications saves them, so both show the same (AC-17).
+          settings.data === undefined ? undefined : (
+            <>
+              <span className="flex items-center gap-2">
+                <Switch
+                  id={ids.pause}
+                  checked={pausedNow(settings.data.doNotDisturb, now)}
+                  onCheckedChange={(on) => {
+                    const { length } = settings.data.doNotDisturb;
+                    change.mutate({ doNotDisturb: { on, length, until: on ? pauseUntil(length, new Date()) : null } });
+                  }}
+                />
+                <label htmlFor={ids.pause}>Do not disturb</label>
+              </span>
+              <span className="flex items-center gap-2">
+                <Switch
+                  id={ids.sounds}
+                  checked={settings.data.sounds}
+                  onCheckedChange={(sounds) => {
+                    change.mutate({ sounds });
+                  }}
+                />
+                <label htmlFor={ids.sounds}>Sounds</label>
+              </span>
+              <Link
+                to="/settings/$tab"
+                params={{ tab: 'notifications' }}
+                className="ms-auto text-info underline underline-offset-2 hover:text-foreground"
+                onClick={() => {
+                  setOpen(false);
+                }}
+              >
+                All settings
+              </Link>
+            </>
+          )
         }
       >
         <NotificationTabs value={tab} onValueChange={setTab}>

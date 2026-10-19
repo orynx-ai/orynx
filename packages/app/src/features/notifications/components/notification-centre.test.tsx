@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
-import { apiRoutes, type Notification } from '@devhub/contracts';
+import { apiRoutes, defaultNotificationSettings, withNotificationChange, type Notification } from '@devhub/contracts';
 import { makeNotification, makeNotificationList } from '@devhub/contracts/testing';
 import { useUiStore } from '../../../stores/ui-store.ts';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
@@ -287,4 +287,66 @@ describe('the panel (spec 029)', () => {
       await within(panel).findByRole('button', { name: 'Session finished, ready for a pull request, unread' }),
     ).toBeVisible();
   });
+});
+
+describe('the panel’s foot (spec 029)', () => {
+  it('AC-17: Do not disturb and Sounds save at once, as Settings saves them', async () => {
+    const changes: unknown[] = [];
+    let saved = defaultNotificationSettings;
+    server.use(
+      http.get(apiUrl(apiRoutes.notificationSettings), () => HttpResponse.json(saved)),
+      http.patch(apiUrl(apiRoutes.notificationSettings), async ({ request }) => {
+        const change = (await request.json()) as Parameters<typeof withNotificationChange>[1];
+        changes.push(change);
+        saved = withNotificationChange(saved, change);
+        return HttpResponse.json(saved);
+      }),
+    );
+    const { user } = await renderApp();
+    const panel = await openPanel(user);
+    const pause = await within(panel).findByRole('switch', { name: 'Do not disturb' });
+    const sounds = within(panel).getByRole('switch', { name: 'Sounds' });
+    expect(pause).not.toBeChecked();
+    expect(sounds).toBeChecked();
+
+    await user.click(pause);
+    await user.click(sounds);
+
+    await waitFor(() => {
+      expect(changes).toEqual([
+        { doNotDisturb: { on: true, length: 'hour', until: expect.any(String) as string } },
+        { sounds: false },
+      ]);
+    });
+    expect(pause).toBeChecked();
+    expect(sounds).not.toBeChecked();
+  });
+
+  it('AC-31: Do not disturb past its end shows off', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.notificationSettings), () =>
+        HttpResponse.json({
+          ...defaultNotificationSettings,
+          doNotDisturb: { on: true, length: 'hour', until: new Date(Date.now() - 60_000).toISOString() },
+        }),
+      ),
+    );
+    const { user } = await renderApp();
+    const panel = await openPanel(user);
+
+    expect(await within(panel).findByRole('switch', { name: 'Do not disturb' })).not.toBeChecked();
+  });
+
+  it.each(['All settings', 'Notification settings'])(
+    'AC-17: %s opens Settings › Notifications and closes the panel',
+    async (name) => {
+      const { user, history } = await renderApp();
+      const panel = await openPanel(user);
+
+      await user.click(await within(panel).findByRole('link', { name }));
+
+      expect(history.location.pathname).toBe('/settings/notifications');
+      expect(screen.queryByRole('dialog')).toBeNull();
+    },
+  );
 });
