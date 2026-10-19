@@ -3,10 +3,19 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
 import { BrandMark } from './brand-mark.tsx';
 
-/** A tool, or Orynx itself for a Claude session on neither a ticket nor a pull request (spec 015, Q15b). */
-export type Source = 'jira' | 'github' | 'slack' | 'orynx';
+/**
+ * A tool, Orynx itself for a Claude session on neither a ticket nor a pull request (spec 015, Q15b), or one of your
+ * skills (spec 023).
+ */
+export type Source = 'jira' | 'github' | 'slack' | 'orynx' | 'skill';
 
-const sourceNames: Record<Source, string> = { jira: 'Jira', github: 'GitHub', slack: 'Slack', orynx: 'Orynx' };
+const sourceNames: Record<Source, string> = {
+  jira: 'Jira',
+  github: 'GitHub',
+  slack: 'Slack',
+  orynx: 'Orynx',
+  skill: 'Skill',
+};
 
 // The logo shapes come from Simple Icons (CC0), and Slack's four-colour mark from Slack's own 2019 logo.
 
@@ -79,11 +88,17 @@ function OrynxLogo({ className }: { className: string }) {
   return <BrandMark className={className} />;
 }
 
+/** A skill has no logo: the design's `dh-source--skill` draws an S. */
+function SkillLetter({ className }: { className: string }) {
+  return <span className={cn('inline-flex items-center justify-center font-medium', className)}>S</span>;
+}
+
 const logos: Record<Source, (props: { className: string }) => ReactElement> = {
   jira: JiraLogo,
   github: GitHubLogo,
   slack: SlackLogo,
   orynx: OrynxLogo,
+  skill: SkillLetter,
 };
 
 const markVariants = cva('inline-flex shrink-0 items-center justify-center', {
@@ -93,6 +108,7 @@ const markVariants = cva('inline-flex shrink-0 items-center justify-center', {
       github: 'text-github',
       slack: '',
       orynx: 'text-foreground',
+      skill: 'rounded-xs bg-info-subtle text-info-foreground',
     },
     // The large mark sits on a neutral tile, so every logo keeps its own colours in both themes.
     size: {
@@ -100,10 +116,14 @@ const markVariants = cva('inline-flex shrink-0 items-center justify-center', {
       lg: 'size-10 rounded-sm bg-subtle',
     },
   },
+  // The skill's own wash wins over the large mark's neutral tile.
+  compoundVariants: [{ source: 'skill', size: 'lg', className: 'rounded-sm bg-info-subtle' }],
   defaultVariants: { size: 'default' },
 });
 
 const logoSizes = { default: 'size-4', lg: 'size-6' } as const;
+/** The S's size, for a skill: as a pill's label in the small mark, as body text in the large one. */
+const letterSizes = { default: 'text-label', lg: 'text-body' } as const;
 
 export type SourceMarkProps = Omit<ComponentProps<'span'>, 'children'> &
   Omit<VariantProps<typeof markVariants>, 'source'> & {
@@ -121,7 +141,9 @@ export type SourceMarkProps = Omit<ComponentProps<'span'>, 'children'> &
  */
 export function SourceMark({ source, size, label = 'visible', className, ...props }: SourceMarkProps) {
   const Logo = logos[source];
-  const logo = <Logo className={logoSizes[size ?? 'default']} />;
+  const logo = (
+    <Logo className={cn(logoSizes[size ?? 'default'], source === 'skill' && letterSizes[size ?? 'default'])} />
+  );
   if (label === 'none') {
     return (
       <span aria-hidden className={cn(markVariants({ source, size }), className)} {...props}>
@@ -134,7 +156,7 @@ export function SourceMark({ source, size, label = 'visible', className, ...prop
       className={cn('inline-flex items-center gap-1.5 text-small font-medium text-muted-foreground', className)}
       {...props}
     >
-      <span aria-hidden className={markVariants({ source, size })}>
+      <span aria-hidden className={cn(markVariants({ source, size }))}>
         {logo}
       </span>
       <span className={label === 'hidden' ? 'sr-only' : undefined}>{sourceNames[source]}</span>

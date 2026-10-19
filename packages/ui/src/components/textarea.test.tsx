@@ -56,6 +56,14 @@ describe('Textarea (spec 014, Q10b)', () => {
     expect(screen.getByRole('textbox', { name: 'Creating' })).toHaveValue('Kept too');
   });
 
+  it('AC-2 (spec 023): can draw text Claude reads as written, in the mono face, at least 300 px tall, unchecked for spelling', () => {
+    render(<Textarea aria-label="Instructions for Claude" mono />);
+    const box = screen.getByRole('textbox', { name: 'Instructions for Claude' });
+    expect(box).toHaveClass('font-mono', 'text-code', 'min-h-75', 'resize-y');
+    expect(box).not.toHaveClass('text-body');
+    expect(box).toHaveAttribute('spellcheck', 'false');
+  });
+
   it('has no accessibility violations in a field', async () => {
     const { container } = render(
       <Field label="Description" help="Markdown, as on GitHub.">

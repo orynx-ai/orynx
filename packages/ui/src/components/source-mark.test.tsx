@@ -82,6 +82,18 @@ describe('SourceMark', () => {
     expect(logo(container).parentElement).toHaveClass('text-foreground', 'size-5');
   });
 
+  it('AC-2 (spec 023): marks one of your skills with an S on the info wash, named Skill, at either size', () => {
+    const { container, rerender } = render(<SourceMark source="skill" />);
+    expect(screen.getByText('Skill')).toBeVisible();
+    const tile = screen.getByText('S').closest('[aria-hidden="true"]');
+    expect(tile).toHaveClass('bg-info-subtle', 'text-info-foreground');
+
+    rerender(<SourceMark source="skill" size="lg" label="none" />);
+    // The large mark's neutral tile gives way to the skill's own wash.
+    expect(container.firstElementChild).toHaveClass('size-10', 'bg-info-subtle');
+    expect(container.firstElementChild).not.toHaveClass('bg-subtle');
+  });
+
   it('has no accessibility violations at either size, with or without the name', async () => {
     const { container } = render(
       <>
