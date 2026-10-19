@@ -324,3 +324,91 @@ describe('Settings › Notifications: what you’re told about (spec 029)', () =
     ).toBeDisabled();
   });
 });
+
+describe('Settings › Notifications: do not disturb (spec 029)', () => {
+  it('AC-40: picking Until 9:00 tomorrow and turning Pause now on says so, and saves when it ends', async () => {
+    browserSays('granted');
+    const changes = serving();
+    const { user } = await renderApp({ route: '/settings/notifications' });
+    const section = await screen.findByRole('region', { name: 'Do not disturb' });
+    const pauseNow = within(section).getByRole('switch', { name: 'Pause now' });
+    await waitFor(() => {
+      expect(pauseNow).toBeEnabled();
+    });
+    expect(within(section).getByText('Off. Notifications and sounds are on.')).toBeVisible();
+
+    await user.selectOptions(within(section).getByRole('combobox', { name: 'Pause for' }), 'Until 9:00 tomorrow');
+    await user.click(pauseNow);
+
+    expect(await within(section).findByText('Paused until 9:00 tomorrow.')).toBeVisible();
+    const now = new Date();
+    const nine = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0).toISOString();
+    expect(changes).toEqual([
+      { doNotDisturb: { on: false, length: 'tomorrow', until: null } },
+      { doNotDisturb: { on: true, length: 'tomorrow', until: nine } },
+    ]);
+  });
+
+  it('AC-41: quiet hours save each change, and a day reads as pressed', async () => {
+    browserSays('granted');
+    const changes = serving();
+    const { user } = await renderApp({ route: '/settings/notifications' });
+    const section = await screen.findByRole('region', { name: 'Do not disturb' });
+    const saturday = within(section).getByRole('button', { name: 'Sat' });
+    await waitFor(() => {
+      expect(saturday).toBeEnabled();
+    });
+    expect(saturday).toHaveAttribute('aria-pressed', 'false');
+    expect(within(section).getByRole('button', { name: 'Mon' })).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(saturday);
+    fireEvent.change(within(section).getByLabelText('From'), { target: { value: '20:30' } });
+    await user.click(within(section).getByRole('switch', { name: 'Quiet hours' }));
+
+    await waitFor(() => {
+      expect(changes).toEqual([
+        { quietHours: { on: true, from: '19:00', to: '09:00', days: [true, true, true, true, true, true, false] } },
+        { quietHours: { on: true, from: '20:30', to: '09:00', days: [true, true, true, true, true, true, false] } },
+        { quietHours: { on: false, from: '20:30', to: '09:00', days: [true, true, true, true, true, true, false] } },
+      ]);
+    });
+    expect(saturday).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('AC-41: From equal to to says why on to, and saves nothing', async () => {
+    browserSays('granted');
+    const changes = serving();
+    await renderApp({ route: '/settings/notifications' });
+    const section = await screen.findByRole('region', { name: 'Do not disturb' });
+    const to = within(section).getByLabelText('to');
+    await waitFor(() => {
+      expect(to).toBeEnabled();
+    });
+
+    fireEvent.change(to, { target: { value: '19:00' } });
+
+    expect(await within(section).findByText('Quiet hours need a different start and end.')).toBeVisible();
+    expect(to).toHaveAttribute('aria-invalid', 'true');
+    expect(to).toHaveValue('19:00');
+    expect(changes).toEqual([]);
+  });
+
+  it('AC-29: Still tell me when Claude is waiting saves as you change it', async () => {
+    browserSays('granted');
+    const changes = serving();
+    const { user } = await renderApp({ route: '/settings/notifications' });
+    const still = within(await screen.findByRole('region', { name: 'Do not disturb' })).getByRole('checkbox', {
+      name: 'Still tell me when Claude is waiting for approval',
+    });
+    await waitFor(() => {
+      expect(still).toBeEnabled();
+    });
+    expect(still).toHaveAccessibleDescription('Otherwise a session can sit paused all night.');
+
+    await user.click(still);
+
+    await waitFor(() => {
+      expect(changes).toEqual([{ approvalsBreakThrough: false }]);
+    });
+  });
+});

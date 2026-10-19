@@ -88,7 +88,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 23: Sound and "What you're told about": Play sounds, Volume, the sound list, the events table and its narrow layout, as sections of the Notifications panel (AC-36, AC-37, AC-38, AC-39, AC-45)
       Check: pnpm test packages/app/src/features/settings/components/notifications-panel.test.tsx
       Files: packages/app/src/features/settings/components/notifications-panel.tsx, packages/app/src/features/settings/components/notifications-panel.test.tsx
-- [ ] Task 24: Do not disturb, quiet hours and "Still tell me when Claude is waiting for approval", as a section of the Notifications panel (AC-40, AC-41)
+- [x] Task 24: Do not disturb, quiet hours and "Still tell me when Claude is waiting for approval", as a section of the Notifications panel (AC-40, AC-41)
       Check: pnpm test packages/app/src/features/settings/components/notifications-panel.test.tsx
       Files: packages/app/src/features/settings/components/notifications-panel.tsx, packages/app/src/features/settings/components/notifications-panel.test.tsx
 - [ ] Task 25: Send a test notification (AC-42)

@@ -1,17 +1,26 @@
 import { useId, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import { PlayIcon, VolumeHighIcon } from '@hugeicons/core-free-icons';
 import {
   defaultNotificationSettings,
   NotificationSoundSchema,
+  PauseLengthSchema,
+  QuietHoursSchema,
   type NotificationEvent,
+  type PauseLength,
+  type QuietHours,
   type NotificationSettings,
   type NotificationSettingsChange,
 } from '@devhub/contracts';
 import {
   Button,
   Checkbox,
+  Field,
+  FilterChip,
   Icon,
   IconButton,
+  Input,
   Pill,
   Select,
   SettingList,
@@ -25,7 +34,9 @@ import {
   TableHeader,
   TableRow,
 } from '@devhub/ui';
+import { pausedNow, pauseUntil } from '../../notifications/quiet.ts';
 import { playSound, soundNames, type PlayableSound } from '../../notifications/sounds.ts';
+import { useNow } from '../../../words/use-now.ts';
 import { askDesktopPermission, desktopPermission, type DesktopPermission } from '../../notifications/desktop.ts';
 import { useChangeNotificationSettings, useNotificationSettings } from '../../notifications/queries.ts';
 import { usePlatform } from '../../../platform.tsx';
@@ -60,6 +71,7 @@ export function NotificationsPanel() {
       <WhereSection {...section} />
       <SoundSection {...section} />
       <EventsSection {...section} />
+      <DoNotDisturbSection {...section} />
       {change.isError ? <SaveError /> : null}
     </div>
   );
@@ -375,6 +387,145 @@ function EventsSection({ saved, loading, save }: SectionProps) {
           ))}
         </Table>
       </div>
+    </section>
+  );
+}
+
+const pauseNames: Record<PauseLength, string> = {
+  hour: 'For 1 hour',
+  tomorrow: 'Until 9:00 tomorrow',
+  until_off: 'Until I turn it off',
+};
+
+const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function DoNotDisturbSection({ saved, loading, save }: SectionProps) {
+  const ids = { section: useId(), pause: useId(), quiet: useId(), breakLine: useId() };
+  const now = useNow();
+  const { length } = saved.doNotDisturb;
+  // Past its end it has turned itself off (AC-31).
+  const paused = pausedNow(saved.doNotDisturb, now);
+  // From and to keep what you typed until it can be saved: equal times say why and aren't sent (AC-41).
+  const form = useForm<QuietHours>({ values: saved.quietHours, resolver: zodResolver(QuietHoursSchema) });
+  const saveHours = form.handleSubmit((quietHours) => {
+    save({ quietHours });
+  });
+  const pause = (on: boolean, picked: PauseLength) => {
+    save({ doNotDisturb: { on, length: picked, until: on ? pauseUntil(picked, new Date()) : null } });
+  };
+
+  return (
+    <section aria-labelledby={ids.section} className="flex flex-col gap-3">
+      <SectionHead
+        id={ids.section}
+        title="Do not disturb"
+        line="Pauses pop-ups, desktop notifications and sounds. They still collect under the bell."
+      />
+      <SettingList>
+        <SettingRow
+          title="Pause now"
+          titleId={ids.pause}
+          description={
+            paused
+              ? `Paused ${pauseNames[length].charAt(0).toLowerCase()}${pauseNames[length].slice(1)}.`
+              : 'Off. Notifications and sounds are on.'
+          }
+          control={
+            <>
+              <Select
+                aria-label="Pause for"
+                className="w-48"
+                value={length}
+                disabled={loading}
+                onChange={(event) => {
+                  pause(paused, PauseLengthSchema.parse(event.currentTarget.value));
+                }}
+              >
+                {PauseLengthSchema.options.map((option) => (
+                  <option key={option} value={option}>
+                    {pauseNames[option]}
+                  </option>
+                ))}
+              </Select>
+              <Switch
+                aria-labelledby={ids.pause}
+                checked={paused}
+                disabled={loading}
+                onCheckedChange={(on) => {
+                  pause(on, length);
+                }}
+              />
+            </>
+          }
+        />
+        <SettingRow
+          title="Quiet hours"
+          titleId={ids.quiet}
+          control={
+            <Switch
+              aria-labelledby={ids.quiet}
+              checked={saved.quietHours.on}
+              disabled={loading}
+              onCheckedChange={(on) => {
+                save({ quietHours: { ...saved.quietHours, on } });
+              }}
+            />
+          }
+        >
+          <form aria-labelledby={ids.quiet} noValidate className="mt-1.5 flex flex-col gap-3">
+            <span className="flex flex-wrap items-start gap-3">
+              <Field label="From" className="w-36">
+                <Input
+                  type="time"
+                  disabled={loading}
+                  {...form.register('from', { onChange: () => void saveHours() })}
+                />
+              </Field>
+              <Field label="to" className="w-36" error={form.formState.errors.to?.message}>
+                <Input type="time" disabled={loading} {...form.register('to', { onChange: () => void saveHours() })} />
+              </Field>
+            </span>
+            <span role="group" aria-label="Days" className="flex flex-wrap gap-1.5">
+              {dayNames.map((day, index) => (
+                <FilterChip
+                  key={day}
+                  pressed={saved.quietHours.days[index] === true}
+                  disabled={loading}
+                  onPressedChange={(on) => {
+                    save({
+                      quietHours: {
+                        ...saved.quietHours,
+                        days: saved.quietHours.days.map((was, at) => (at === index ? on : was)),
+                      },
+                    });
+                  }}
+                >
+                  {day}
+                </FilterChip>
+              ))}
+            </span>
+          </form>
+        </SettingRow>
+        <div className="px-4">
+          <Checkbox
+            aria-label="Still tell me when Claude is waiting for approval"
+            aria-describedby={ids.breakLine}
+            label={
+              <span className="flex flex-col gap-0.5">
+                <span className="font-medium">Still tell me when Claude is waiting for approval</span>
+                <span id={ids.breakLine} className="text-small text-muted-foreground">
+                  Otherwise a session can sit paused all night.
+                </span>
+              </span>
+            }
+            checked={saved.approvalsBreakThrough}
+            disabled={loading}
+            onChange={(event) => {
+              save({ approvalsBreakThrough: event.currentTarget.checked });
+            }}
+          />
+        </div>
+      </SettingList>
     </section>
   );
 }
