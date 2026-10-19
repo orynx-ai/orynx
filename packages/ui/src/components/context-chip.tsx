@@ -9,12 +9,15 @@ export type ContextListProps = ComponentProps<'ul'> & {
   'aria-label': string;
 };
 
-/** The row of context chips above the Composer's text box. It wraps when it runs out of room. */
+/**
+ * The row of context chips above the Composer's text box: at most two chips, then {@link ContextMore} (spec 022,
+ * Q6), on one line at any width. A chip gives up room before +N does, and cuts its text to fit.
+ */
 export function ContextList({ className, ...props }: ContextListProps) {
   return (
     <ul
       data-slot="context-list"
-      className={cn('m-0 flex list-none flex-wrap gap-1.5 p-0 px-0.5 pt-0.5', className)}
+      className={cn('m-0 flex min-w-0 list-none gap-1.5 p-0 px-0.5 pt-0.5', className)}
       {...props}
     />
   );
@@ -50,7 +53,7 @@ export function ContextChip({ label, icon, onRemove, className, ...props }: Cont
     <li
       data-slot="context-chip"
       className={cn(
-        'inline-flex h-8 max-w-75 min-w-0 items-center gap-1.5 rounded-sm border border-border bg-sidebar ps-2 pe-1 text-small font-medium text-foreground [&>svg]:text-muted-foreground',
+        'inline-flex h-8 max-w-75 min-w-0 shrink items-center gap-1.5 rounded-sm border border-border bg-sidebar ps-2 pe-1 text-small font-medium text-foreground [&>svg]:text-muted-foreground',
         className,
       )}
       {...props}
@@ -70,6 +73,40 @@ export function ContextChip({ label, icon, onRemove, className, ...props }: Cont
           className="relative inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-xs border-0 bg-transparent text-muted-foreground after:absolute after:-inset-1 hover:bg-subtle hover:text-foreground [&_svg]:size-3.5 [&_svg]:stroke-2"
         >
           <Icon icon={Cancel01Icon} aria-hidden />
+        </button>
+      </Tooltip>
+    </li>
+  );
+}
+
+export type ContextMoreProps = Omit<ComponentProps<'button'>, 'children' | 'aria-label'> & {
+  /** How many chips aren't shown: "+3". */
+  count: number;
+  /** Its name in full, for screen readers: "Show all 5 items of context". */
+  label: string;
+  /** The words on hover and focus: "Show all context". */
+  tooltip: string;
+};
+
+/**
+ * Not in the design system; spec 022 Q6 draws it as a context chip without its ×: the chips past the first two,
+ * as "+3", a button that opens the dialog listing every one. It never shrinks, so it always shows.
+ */
+export function ContextMore({ count, label, tooltip, className, ...props }: ContextMoreProps) {
+  return (
+    <li data-slot="context-more" className="flex shrink-0">
+      <Tooltip label={tooltip}>
+        <button
+          type="button"
+          aria-label={label}
+          aria-haspopup="dialog"
+          className={cn(
+            'inline-flex h-8 cursor-pointer items-center rounded-sm border border-border bg-sidebar px-2 text-small font-medium text-foreground hover:bg-subtle',
+            className,
+          )}
+          {...props}
+        >
+          +{count}
         </button>
       </Tooltip>
     </li>

@@ -13,7 +13,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **C. Two chips, then +N, and the context dialog**
 
-- [ ] Task 3: Add `ContextMore` to `@devhub/ui`: a chip-shaped button "+3" with its tooltip and name, the height of a chip, with stories for 1, 2 and 5 chips and a test with axe (AC-19, Q6, Q14)
+- [x] Task 3: Add `ContextMore` to `@devhub/ui`: a chip-shaped button "+3" with its tooltip and name, the height of a chip, with stories for 1, 2 and 5 chips and a test with axe (AC-19, Q6, Q14)
       Check: pnpm test packages/ui/src/components/context-chip.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/context-chip.tsx, packages/ui/src/components/context-chip.stories.tsx, packages/ui/src/components/context-chip.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 4: Show two chips, then +N, in the composer: the first two in the order added; removing one brings the next into view; the box doesn't move (AC-18, AC-19, AC-25)

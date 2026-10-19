@@ -46,7 +46,14 @@ export {
   type ComposerTextareaProps,
 } from './components/composer.tsx';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './components/combobox.tsx';
-export { ContextChip, ContextList, type ContextChipProps, type ContextListProps } from './components/context-chip.tsx';
+export {
+  ContextChip,
+  ContextList,
+  ContextMore,
+  type ContextChipProps,
+  type ContextListProps,
+  type ContextMoreProps,
+} from './components/context-chip.tsx';
 export {
   ContextKindItem,
   ContextPicker,
