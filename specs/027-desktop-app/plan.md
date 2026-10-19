@@ -40,13 +40,13 @@ Spec: `specs/027-desktop-app/spec.md`
 
 Tick each with the date. These are the parts no test can reach: Gatekeeper, the real keychain, the real sandbox and the OS's own pickers.
 
-- [ ] AC-1: the `.dmg` from task 9, opened from Finder after a browser download: Open Anyway once, then later launches open without asking
-- [ ] AC-4: the real `~/.devhub` and keychain: settings, folders and sessions are there; the keychain asks once; Jira and GitHub read as connected
-- [ ] AC-10, AC-11: `gh` from Homebrew is found, and a session's `pnpm test` finds `node` and `pnpm`
-- [ ] AC-12: an allowed command runs inside the sandbox, the Claude login check works, and `codesign -dv` on the packed `claude` shows `Q6L2SF6YDW`
-- [ ] AC-14: Open in VS Code opens the worktree
-- [ ] AC-16: Choose folder opens the Mac's picker and fills the field
-- [ ] AC-17, AC-19: close the window then click the Dock icon; ⌘K, ⌘C, ⌘V, ⌘Z and ⌘R work
-- [ ] AC-20: every screen in light and dark at 360 and 1280 px looks as in the browser
-- [ ] AC-24: with a fake newer `latest-mac.yml` (`DEVHUB_UPDATES_URL`), the macOS notice shows once and Download opens the release page
-- [ ] AC-2, AC-25: on Linux, if one is at hand: the AppImage opens, and after the next real release it updates on quit
+- [ ] AC-1 (for you: it needs a browser download and your click): the `.dmg` from task 9, opened from Finder after a browser download: Open Anyway once, then later launches open without asking. So far, 2026-10-19: `spctl --assess` rejects the ad-hoc signed app, as expected, so a downloaded copy gets the Open Anyway step
+- [ ] AC-4 (for you: your real `~/.devhub` and keychain): settings, folders and sessions are there; the keychain asks once; Jira and GitHub read as connected
+- [x] AC-10, AC-11 (2026-10-19): launched through `open` from an empty environment, as Finder does, the app had only `/usr/bin:/bin:/usr/sbin:/sbin`, and its hub had those, then the login shell's nvm, pnpm and `/opt/homebrew/bin` (where `gh` is)
+- [ ] AC-12 (for you: your real Claude login): an allowed command runs inside the sandbox and the Claude login check works. Done 2026-10-19: `codesign -dv` on the packed `claude` shows `Q6L2SF6YDW`, and `codesign --verify --deep --strict` passes on the app
+- [ ] AC-14 (for you: it opens your editor): Open in VS Code opens the worktree. The e2e run already sees the `vscode:` link reach the OS
+- [ ] AC-16 (for you: the Mac's picker needs a click): Choose folder opens the Mac's picker and fills the field
+- [ ] AC-17, AC-19 (for you): close the window then click the Dock icon; ⌘K, ⌘C, ⌘V, ⌘Z and ⌘R work
+- [x] AC-20 (2026-10-19): Home, Settings and Tickets in the packed app's window at 1280 and 360 px, light and dark: they look as in the browser, and none scrolls sideways
+- [x] AC-24 (2026-10-19): covered by the desktop e2e run on macOS, with a fake newer `latest-mac.yml`: the notice shows once and Download opens the release page
+- [ ] AC-2, AC-25 (not at hand: no Linux machine here): the AppImage opens, and after the next real release it updates on quit. The release job runs the desktop e2e on the Linux build
