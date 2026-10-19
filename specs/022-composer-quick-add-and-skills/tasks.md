@@ -43,7 +43,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: `@devhub/ui`: `AttentionActions` one action wide and its skeleton to match, and `AttentionTitle` as a button (asChild) with the title's look and no arrow; stories and tests (AC-26, AC-34)
       Check: pnpm test packages/ui/src/components/attention-row.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/attention-row.tsx, packages/ui/src/components/attention-row.stories.tsx, packages/ui/src/components/attention-row.test.tsx
-- [ ] Task 11: Home's rows: one + toggle (Add to composer, then the check with Remove from composer) on Jira and pull request rows, said to a screen reader; no Ship and no Open arrow; a Jira title opens the ticket dialog, a pull request title opens GitHub with no arrow; a waiting session's row unchanged (AC-26 to AC-33)
+- [x] Task 11: Home's rows: one + toggle (Add to composer, then the check with Remove from composer) on Jira and pull request rows, said to a screen reader; no Ship and no Open arrow; a Jira title opens the ticket dialog, a pull request title opens GitHub with no arrow; a waiting session's row unchanged (AC-26 to AC-33)
       Check: pnpm test packages/app/src/features/home
       Files: packages/app/src/features/home/components/attention-panel.tsx, packages/app/src/features/home/components/attention-panel.test.tsx, packages/app/src/features/home/inbox-words.ts, packages/app/src/features/home/composer-words.ts
 

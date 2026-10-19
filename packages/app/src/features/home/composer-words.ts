@@ -77,6 +77,15 @@ export const composerWords = {
   failed: "Couldn't start Claude. Try again.",
   tooLong: 'Keep it under 10,000 characters.',
   quickStarts: { label: 'Quick starts', ticket: 'Pick up a ticket', review: 'Review a pull request' },
+  /** A Home row's + (spec 022, Q3, Q12): its tooltip, its name for the chip it adds, and what a screen reader hears. */
+  row: {
+    add: 'Add to composer',
+    remove: 'Remove from composer',
+    addName: (label: string) => `Add ${label} to the composer`,
+    removeName: (label: string) => `Remove ${label} from the composer`,
+    added: (label: string) => `${label} added to the composer.`,
+    removed: (label: string) => `${label} removed from the composer.`,
+  },
   /** The +N after the first two chips (spec 022, Q6). */
   more: {
     tooltip: 'Show all context',

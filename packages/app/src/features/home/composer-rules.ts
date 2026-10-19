@@ -45,7 +45,8 @@ export type ChipRefusal = 'too_many_tickets' | 'too_many_pull_requests' | 'too_m
 
 export type AddChip = { ok: true; chips: ComposerChip[] } | { ok: false; refusal: ChipRefusal };
 
-function same(a: ComposerChip, b: ComposerChip): boolean {
+/** Whether two chips name the same ticket, pull request or file. */
+export function sameChip(a: ComposerChip, b: ComposerChip): boolean {
   if (a.kind === 'pull_request' && b.kind === 'pull_request') {
     return `${a.owner}/${a.name}`.toLowerCase() === `${b.owner}/${b.name}`.toLowerCase() && a.number === b.number;
   }
@@ -61,7 +62,7 @@ const limits = {
 
 /** Whether the composer holds this chip already. */
 export function holds(chips: readonly ComposerChip[], chip: ComposerChip): boolean {
-  return chips.some((held) => same(held, chip));
+  return chips.some((held) => sameChip(held, chip));
 }
 
 /**

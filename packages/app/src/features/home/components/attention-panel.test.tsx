@@ -2,10 +2,11 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Inbox, type InboxItem } from '@devhub/contracts';
-import { makeInbox, makeInboxItem, makePreferences, makeRepository, makeStatus } from '@devhub/contracts/testing';
+import { makeInbox, makeInboxItem, makePreferences, makeTicketDetail } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
+import { useComposerStore } from '../store.ts';
 
 // The design's rows, longest wait first as the server sends them, seen at noon on 17 Oct 2026.
 const review = makeInboxItem();
@@ -69,9 +70,19 @@ async function openHome(route = '/') {
   return { ...rendered, panel, list };
 }
 
-/** The row whose title link has this name. */
+/** A row's title: a button on a Jira ticket's row (it opens the ticket dialog, spec 022), else a link. */
+function titleOf(name: string) {
+  return screen.queryByRole('button', { name }) ?? screen.getByRole('link', { name });
+}
+
+/** A row's title: its first link, or on a Jira ticket's row, where the title is a button, its first button. */
+function titleText(row: HTMLElement) {
+  return (within(row).queryAllByRole('link')[0] ?? within(row).queryAllByRole('button')[0])?.textContent;
+}
+
+/** The row whose title has this name. */
 function rowOf(title: string) {
-  const row = screen.getByRole('link', { name: title }).closest('li');
+  const row = titleOf(title).closest('li');
   if (row === null) throw new Error(`No row for "${title}"`);
   return within(row);
 }
@@ -101,9 +112,7 @@ describe('AttentionPanel', () => {
     expect(within(tabs).getByRole('tab', { name: 'All 5' })).toHaveAttribute('aria-selected', 'true');
     expect(within(tabs).queryByRole('tab', { name: /slack/i })).not.toBeInTheDocument();
 
-    const titles = within(list)
-      .getAllByRole('listitem')
-      .map((row) => within(row).getAllByRole('link')[0]?.textContent);
+    const titles = within(list).getAllByRole('listitem').map(titleText);
     expect(titles).toEqual(everyRow.map((item) => item.title).reverse());
   });
 
@@ -119,49 +128,52 @@ describe('AttentionPanel', () => {
     );
   });
 
-  it('AC-2: shows a Jira ticket with its sub line and reason, and its title opens it in Jira', async () => {
+  it('AC-2, 022 AC-40: shows a Jira ticket with its sub line and reason, and its title opens the ticket dialog', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.ticket), () =>
+        HttpResponse.json({ result: 'found', ticket: makeTicketDetail({ title: ticket.title }) }),
+      ),
+    );
     const { user, platform } = await openHome();
     const row = rowOf('Add bulk archive to the content list');
 
     expect(row.getByText('PROJ-1423 · In progress')).toBeVisible();
     expect(row.getByText('In progress · 2 d')).toBeVisible();
 
-    await user.click(row.getByRole('link', { name: 'Add bulk archive to the content list' }));
+    await user.click(row.getByRole('button', { name: 'Add bulk archive to the content list' }));
 
-    expect(platform.openExternal).toHaveBeenCalledWith('https://acme.atlassian.net/browse/PROJ-1423');
+    expect(await screen.findByRole('dialog', { name: 'Add bulk archive to the content list' })).toBeVisible();
+    expect(platform.openExternal).not.toHaveBeenCalled();
   });
 
-  it('AC-14 (spec 020), AC-15 (spec 011): an assigned issue has the Ship icon, which starts Claude on it and opens the session', async () => {
-    const asked: unknown[] = [];
-    server.use(
-      http.get(apiUrl(apiRoutes.status), () =>
-        HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
-      ),
-      http.get(apiUrl(apiRoutes.repositories), () =>
-        HttpResponse.json({ repositories: [makeRepository({ jiraProject: 'PROJ' })] }),
-      ),
-      http.post(apiUrl(apiRoutes.sessions), async ({ request }) => {
-        asked.push(await request.json());
-        return HttpResponse.json({ result: 'started', sessionId: '0123456789abcdef' });
-      }),
-    );
-    const { user, history } = await openHome();
+  it('022 AC-26 to AC-29: a Jira row has one action, +, which adds its ticket to the composer and takes it out again', async () => {
+    const { user } = await openHome();
     const row = rowOf('Add bulk archive to the content list');
-    const ship = row.getByRole('button', { name: 'Ship PROJ-1423' });
-    await user.hover(ship);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Ship');
-    expect(row.getByRole('link', { name: 'Open PROJ-1423 in Jira' })).toHaveAttribute(
-      'href',
-      'https://acme.atlassian.net/browse/PROJ-1423',
+    expect(row.queryByRole('button', { name: /^Ship / })).toBeNull();
+    expect(row.queryByRole('link', { name: /in Jira$/ })).toBeNull();
+    expect(row.getAllByRole('button').map((button) => button.getAttribute('aria-label') ?? button.textContent)).toEqual(
+      ['Add bulk archive to the content list', 'Add PROJ-1423 to the composer'],
     );
+    const add = row.getByRole('button', { name: 'Add PROJ-1423 to the composer' });
+    await user.hover(add);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Add to composer');
 
-    await user.click(ship);
+    await user.click(add);
 
-    expect(asked).toEqual([{ ticketKey: 'PROJ-1423' }]);
-    expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
+    expect(useComposerStore.getState().chips).toEqual([{ kind: 'jira', key: 'PROJ-1423' }]);
+    expect(within(screen.getByRole('list', { name: 'Context for Claude' })).getByText('PROJ-1423')).toBeVisible();
+    const remove = row.getByRole('button', { name: 'Remove PROJ-1423 from the composer' });
+    expect(remove).toHaveFocus();
+    expect(screen.getByText('PROJ-1423 added to the composer.')).toBeInTheDocument();
+
+    await user.click(remove);
+
+    expect(useComposerStore.getState().chips).toEqual([]);
+    expect(row.getByRole('button', { name: 'Add PROJ-1423 to the composer' })).toHaveFocus();
+    expect(screen.getByText('PROJ-1423 removed from the composer.')).toBeInTheDocument();
   });
 
-  it('AC-15: an issue with a live session has only Open session, which opens the session', async () => {
+  it('AC-15, 022 AC-32: an issue with a live session has only Open session, which opens the session', async () => {
     inboxWith([{ ...ticket, target: { kind: 'session', sessionId: '0123456789abcdef' } }]);
     await openHome();
     const row = rowOf('Add bulk archive to the content list');
@@ -169,45 +181,57 @@ describe('AttentionPanel', () => {
       'href',
       '/sessions/0123456789abcdef',
     );
-    expect(row.queryByRole('button', { name: /^Ship / })).toBeNull();
+    expect(row.queryByRole('button', { name: /composer$/ })).toBeNull();
   });
 
-  it("AC-6, AC-15 (spec 020): shows a review request with its author, and Open in GitHub opens the pull request's Files tab", async () => {
+  it('AC-6, 022 AC-30, AC-33: a review request’s + adds the pull request, and its title opens GitHub with no arrow', async () => {
     const { user, platform } = await openHome();
     const row = rowOf('Lazy-load the people directory');
 
     expect(row.getByText('web-app #2841 · by Priya S.')).toBeVisible();
     expect(row.getByText('Review requested · 2 d')).toBeVisible();
-    const action = row.getByRole('link', { name: 'Open web-app #2841 in GitHub' });
-    expect(action).toHaveAttribute('href', 'https://github.com/acme/web-app/pull/2841/files');
+    expect(row.queryByRole('link', { name: /in GitHub$/ })).toBeNull();
+    const title = row.getByRole('link', { name: 'Lazy-load the people directory' });
+    expect(title.querySelector('svg')).toBeNull();
 
-    await user.click(action);
+    await user.click(row.getByRole('button', { name: 'Add web-app #2841 to the composer' }));
+    expect(useComposerStore.getState().chips).toEqual([
+      { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2841 },
+    ]);
 
+    await user.click(title);
     expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/web-app/pull/2841/files');
   });
 
-  it("AC-9: shows your pull request's failing checks, and Open in GitHub goes to its Checks tab", async () => {
-    const { user, platform } = await openHome();
-    const row = rowOf('Fix timezone shift in event cards');
-
-    expect(row.getByText('web-app #2836 · your pull request')).toBeVisible();
-    expect(row.getByText('Checks failing · 3 h')).toBeVisible();
-
-    await user.click(row.getByRole('link', { name: 'Open web-app #2836 in GitHub' }));
-
-    expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/web-app/pull/2836/checks');
+  it('AC-9, AC-10, 022 AC-30: failing checks and unresolved comments rows add their pull requests too', async () => {
+    const { user } = await openHome();
+    await user.click(
+      rowOf('Fix timezone shift in event cards').getByRole('button', { name: 'Add web-app #2836 to the composer' }),
+    );
+    await user.click(
+      rowOf('Return 207 for partial archive failures').getByRole('button', { name: 'Add api #77 to the composer' }),
+    );
+    expect(useComposerStore.getState().chips).toEqual([
+      { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 },
+      { kind: 'pull_request', owner: 'acme', name: 'api', number: 77 },
+    ]);
   });
 
-  it('AC-10: shows the unresolved comments on your pull request, and Open in GitHub goes to the pull request', async () => {
-    const { user, platform } = await openHome();
-    const row = rowOf('Return 207 for partial archive failures');
-
-    expect(row.getByText('api #77 · your pull request')).toBeVisible();
-    expect(row.getByText('2 unresolved comments · 1 d')).toBeVisible();
-
-    await user.click(row.getByRole('link', { name: 'Open api #77 in GitHub' }));
-
-    expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/api/pull/77');
+  it('022 AC-31: with 10 pull requests in the composer, another row’s + adds nothing and says why', async () => {
+    useComposerStore.setState({
+      chips: Array.from({ length: 10 }, (_, n) => ({
+        kind: 'pull_request',
+        owner: 'acme',
+        name: 'other',
+        number: n + 1,
+      })),
+    });
+    const { user } = await openHome();
+    const row = rowOf('Lazy-load the people directory');
+    await user.click(row.getByRole('button', { name: 'Add web-app #2841 to the composer' }));
+    expect(useComposerStore.getState().chips).toHaveLength(10);
+    expect(screen.getByText('A session takes up to 10 pull requests.')).toBeInTheDocument();
+    expect(row.getByRole('button', { name: 'Add web-app #2841 to the composer' })).toHaveFocus();
   });
 
   it("AC-12: shows a session waiting on your ticket in the ticket's row, and Open session goes to the session in Orynx", async () => {
@@ -256,11 +280,7 @@ describe('AttentionPanel', () => {
     expect(within(panel).getByRole('tab', { name: 'Jira 2' })).toHaveAttribute('aria-selected', 'true');
     expect(history.location.search).toBe('?inbox=jira');
     const list = within(panel).getByRole('list');
-    expect(
-      within(list)
-        .getAllByRole('listitem')
-        .map((row) => within(row).getAllByRole('link')[0]?.textContent),
-    ).toEqual([approval.title, ticket.title]);
+    expect(within(list).getAllByRole('listitem').map(titleText)).toEqual([approval.title, ticket.title]);
   });
 
   it("AC-14, AC-45: a reload stays on the tab in the address, and Tab goes from the selected tab into the tab's panel", async () => {
@@ -405,7 +425,7 @@ describe('AttentionPanel states', () => {
     const line = "GitHub didn't answer. These are from 12 min ago.";
 
     expect(within(panel).getByText(line)).toBeVisible();
-    expect(within(panel).getByRole('link', { name: ticket.title })).toBeVisible();
+    expect(within(panel).getByRole('button', { name: ticket.title })).toBeVisible();
 
     await user.click(within(panel).getByRole('tab', { name: 'Pull requests 1' }));
     expect(within(panel).getByText(line)).toBeVisible();
@@ -505,27 +525,27 @@ describe('AttentionPanel when a sync changes the rows', () => {
   it("AC-18: moves focus to the next row's title when the focused row goes", async () => {
     inboxWith([review, ticket, comments]);
     await openHome('/?sort=longest');
-    focusOn(rowOf(ticket.title).getByRole('button', { name: 'Ship PROJ-1423' }));
+    focusOn(rowOf(ticket.title).getByRole('button', { name: 'Add PROJ-1423 to the composer' }));
 
     await syncTo([review, comments]);
 
-    expect(screen.getByRole('link', { name: comments.title })).toHaveFocus();
+    expect(titleOf(comments.title)).toHaveFocus();
   });
 
   it('AC-18: moves focus to the row before when the focused last row goes', async () => {
     inboxWith([review, ticket, comments]);
     await openHome('/?sort=longest');
-    focusOn(screen.getByRole('link', { name: comments.title }));
+    focusOn(titleOf(comments.title));
 
     await syncTo([review, ticket]);
 
-    expect(screen.getByRole('link', { name: ticket.title })).toHaveFocus();
+    expect(titleOf(ticket.title)).toHaveFocus();
   });
 
   it('AC-18: moves focus to the selected tab when no row is left', async () => {
     inboxWith([ticket]);
     const { panel } = await openHome('/?inbox=jira');
-    focusOn(screen.getByRole('link', { name: ticket.title }));
+    focusOn(titleOf(ticket.title));
 
     inboxWith([]);
     act(() => {
@@ -540,7 +560,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
   it('AC-16: keeps focus where it is when rows come and go around it', async () => {
     inboxWith([review, ticket, comments]);
     await openHome('/?sort=longest');
-    const title = screen.getByRole('link', { name: ticket.title });
+    const title = titleOf(ticket.title);
     focusOn(title);
 
     await syncTo([checks, ticket, approval]);
@@ -551,7 +571,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
   it('AC-18: leaves focus alone when it is outside the list', async () => {
     inboxWith([review, ticket]);
     const { user } = await openHome('/?sort=longest');
-    focusOn(screen.getByRole('link', { name: ticket.title }));
+    focusOn(titleOf(ticket.title));
     const search = screen.getByRole('searchbox', { name: 'Search' });
     await user.click(search);
 
@@ -576,9 +596,9 @@ describe('AttentionPanel when a sync changes the rows', () => {
       'Search',
       'Reason',
       review.title,
-      'Open web-app #2841 in GitHub',
+      'Add web-app #2841 to the composer',
       ticket.title,
-      'Ship PROJ-1423',
+      'Add PROJ-1423 to the composer',
     ]);
   });
 });
@@ -601,9 +621,12 @@ describe('AttentionPanel pages', () => {
   }
 
   function shownTitles(panel: HTMLElement) {
-    return within(within(panel).getAllByRole('list')[0] ?? panel)
-      .getAllByRole('listitem')
-      .map((row) => within(row).getAllByRole('link')[0]?.textContent);
+    return (
+      within(within(panel).getAllByRole('list')[0] ?? panel)
+        .getAllByRole('listitem')
+        // A Jira row's title is its first button (spec 022); there's no link left in it.
+        .map((row) => within(row).getAllByRole('button')[0]?.textContent)
+    );
   }
 
   it('AC-40: shows 16 rows, then a pager whose page links go to their page and move focus to its first row', async () => {
@@ -623,7 +646,7 @@ describe('AttentionPanel pages', () => {
     expect(within(pager).getByRole('link', { name: '3' })).toHaveAttribute('aria-current', 'page');
     expect(within(pager).getByRole('link', { name: 'Next page' })).toHaveAttribute('aria-disabled', 'true');
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'Ticket 32' })).toHaveFocus();
+      expect(screen.getByRole('button', { name: 'Ticket 32' })).toHaveFocus();
     });
 
     await user.click(within(pager).getByRole('link', { name: 'Previous page' }));
@@ -675,7 +698,7 @@ describe('AttentionPanel pages', () => {
     inboxWith(tickets(17));
     const { panel } = await openHome('/?sort=longest&page=2');
     act(() => {
-      screen.getByRole('link', { name: 'Ticket 16' }).focus();
+      screen.getByRole('button', { name: 'Ticket 16' }).focus();
     });
 
     inboxWith(tickets(16));
@@ -684,7 +707,7 @@ describe('AttentionPanel pages', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'Ticket 0' })).toHaveFocus();
+      expect(screen.getByRole('button', { name: 'Ticket 0' })).toHaveFocus();
     });
     expect(within(panel).queryByRole('navigation', { name: 'Pages' })).not.toBeInTheDocument();
   });
