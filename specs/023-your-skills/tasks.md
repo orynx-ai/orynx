@@ -37,7 +37,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: The skill editor: fields, the folder name from the Name, save, field errors, a failed save (AC-2, AC-5, AC-6, AC-8, AC-16, AC-18, AC-27)
       Check: pnpm test packages/app/src/features/settings/components/skill-editor.test.tsx
       Files: packages/app/src/features/settings/components/skill-editor.tsx, packages/app/src/features/settings/components/skill-editor.test.tsx, packages/app/src/features/settings/schemas.ts, packages/app/src/features/settings/components/skills-panel.tsx
-- [ ] Task 12: New skill, and a taken name on Name (AC-7, AC-9)
+- [x] Task 12: New skill, and a taken name on Name (AC-7, AC-9)
       Check: pnpm test packages/app/src/features/settings/components/skill-editor.test.tsx packages/app/src/features/settings/components/skills-panel.test.tsx
       Files: packages/app/src/features/settings/components/skill-editor.tsx, packages/app/src/features/settings/components/skills-panel.tsx, their tests
 - [ ] Task 13: Delete skill with its dialog, and focus after it (AC-10)

@@ -151,4 +151,58 @@ describe('Settings › Skills', () => {
 
     expect(await screen.findByRole('button', { name: 'How we review' })).toBeVisible();
   });
+
+  it('AC-9: New skill opens an empty editor with focus in Name, and Save skill adds the skill and opens it', async () => {
+    let list = makeSkillList();
+    let added: unknown;
+    server.use(
+      http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(list)),
+      http.post(apiUrl(apiRoutes.skills), async ({ request }) => {
+        added = await request.json();
+        const skill = makeSkill({
+          folder: 'pr-review',
+          title: 'PR review',
+          description: 'Review it.',
+          instructions: 'Go.',
+        });
+        list = makeSkillList({ skills: [makeSkill(), skill] });
+        return HttpResponse.json(skill, { status: 201 });
+      }),
+    );
+    const { user, history } = await renderApp({ route: '/settings/skills' });
+    await screen.findByRole('heading', { level: 2, name: 'Bug bash' });
+
+    await user.click(within(pageBar()).getByRole('button', { name: 'New skill' }));
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'New skill' })).toBeVisible();
+    const name = screen.getByRole('textbox', { name: 'Name' });
+    await waitFor(() => {
+      expect(name).toHaveFocus();
+    });
+    expect(name).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Bug bash' })).not.toHaveAttribute('aria-current');
+    expect(within(screen.getByRole('list', { name: 'Your skills' })).getAllByRole('button')).toHaveLength(1);
+
+    await user.type(name, 'PR review');
+    expect(screen.getByRole('textbox', { name: 'Folder name' })).toHaveValue('pr-review');
+    await user.type(screen.getByRole('textbox', { name: 'When to use it' }), 'Review it.');
+    await user.type(screen.getByRole('textbox', { name: 'Instructions for Claude' }), 'Go.');
+    await user.click(screen.getByRole('button', { name: 'Save skill' }));
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'PR review' })).toBeVisible();
+    expect(added).toEqual({ title: 'PR review', description: 'Review it.', instructions: 'Go.' });
+    expect(history.location.search).toBe('?skill=pr-review');
+    expect(screen.getByRole('button', { name: 'PR review' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('status')).toHaveTextContent('Saved');
+  });
+
+  it('AC-9: New skill works with no skills yet', async () => {
+    const { user } = await renderApp({ route: '/settings/skills' });
+    await screen.findByText('No skills yet.');
+
+    await user.click(within(pageBar()).getByRole('button', { name: 'New skill' }));
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'New skill' })).toBeVisible();
+    expect(screen.queryByText('No skills yet.')).not.toBeInTheDocument();
+  });
 });

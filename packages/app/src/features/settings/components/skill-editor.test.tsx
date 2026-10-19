@@ -149,4 +149,29 @@ describe('SkillEditor', () => {
     expect(box).toHaveValue(`${makeSkill().instructions} More.`);
     expect(within(editor()).getByRole('status')).toHaveTextContent('Unsaved changes');
   });
+
+  it('AC-7: says under Name that another skill has the folder, with focus there', async () => {
+    skillsServer([makeSkill(), makeSkill({ folder: 'bug-hunt', title: 'Bug hunt' })]);
+    server.use(
+      http.put(apiUrl(apiRoutes.skill), () =>
+        HttpResponse.json(
+          { code: 'skill_rejected', message: 'You already have a skill in bug-hunt.' },
+          { status: 422 },
+        ),
+      ),
+    );
+    const { user } = await openBugBash();
+    const name = within(editor()).getByRole('textbox', { name: 'Name' });
+
+    await user.clear(name);
+    await user.type(name, 'Bug hunt');
+    await user.click(within(editor()).getByRole('button', { name: 'Save skill' }));
+
+    await waitFor(() => {
+      expect(name).toHaveAccessibleDescription('You already have a skill in bug-hunt.');
+    });
+    expect(name).toHaveFocus();
+    expect(within(editor()).queryByRole('alert')).not.toBeInTheDocument();
+    expect(within(editor()).getByRole('status')).toHaveTextContent('Unsaved changes');
+  });
 });

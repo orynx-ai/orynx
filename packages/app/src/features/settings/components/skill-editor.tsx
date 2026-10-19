@@ -1,4 +1,4 @@
-import { useId, useRef, type ComponentProps } from 'react';
+import { useEffect, useId, useRef, type ComponentProps } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
@@ -53,6 +53,12 @@ export function SkillEditor({ skill, pluginFolder, onSaved, className }: SkillEd
   const failure = (skill === null ? add : save).error;
   // A second press while the first save is on its way sends nothing.
   const busy = useRef(false);
+  const isNew = skill === null;
+
+  // New skill starts in Name (AC-9).
+  useEffect(() => {
+    if (isNew) form.setFocus('title');
+  }, [isNew, form]);
 
   function submit(event: SubmitEvent) {
     event.preventDefault();

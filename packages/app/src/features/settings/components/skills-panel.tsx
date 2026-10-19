@@ -78,7 +78,7 @@ export function SkillsPanel() {
           <ListNavSkeleton rows={3} className={listColumn} />
           <SkillEditorSkeleton className={editorColumn} />
         </div>
-      ) : list.length === 0 ? (
+      ) : list.length === 0 && search.new !== true ? (
         <EmptyState
           title="No skills yet."
           action={
@@ -96,7 +96,9 @@ export function SkillsPanel() {
         />
       ) : (
         <div className="flex flex-wrap items-start gap-5">
-          <SkillList skills={list} current={openFolder(list, search)} onPick={open} className={listColumn} />
+          {list.length === 0 ? null : (
+            <SkillList skills={list} current={openFolder(list, search)} onPick={open} className={listColumn} />
+          )}
           {editorFor(list, search, (skill) => (
             <SkillEditor
               // Each skill gets a form of its own, so nothing typed for one shows on another.
