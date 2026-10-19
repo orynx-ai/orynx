@@ -76,5 +76,6 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 23: E2e for a skill in a session: `/` lists it, Send carries it (AC-21, AC-22, AC-23)
       Check: pnpm test:e2e e2e/skills.spec.ts e2e/composer.spec.ts -g "023|AC-23"
       Files: e2e/skills.spec.ts, e2e/composer.spec.ts
-- [ ] Task 24: STOP and run /review
+- [x] Task 24: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
+      Skipped on 19 Oct 2026 at the user's ask; no stamp was written, so the pre-push gate (`review-stamp`) refuses a push until /review runs, and the user pushes past it. `pnpm verify` passed on the whole branch (11 gates, typecheck, lint, 2,964 tests); the skills e2e passed on desktop and phone, and 022's composer e2e still fails at its context dialog's axe check.
