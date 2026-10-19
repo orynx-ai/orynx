@@ -578,7 +578,7 @@ describe("the composer's start (spec 015)", () => {
   it('AC-4 (spec 022): a brief step names the other tickets Claude got, after the session’s own', () => {
     const step = { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423', tickets: ['PROJ-1424'] };
     expect(SessionSchema.parse(makeSession({ activities: [step] as SessionActivity[] })).activities).toEqual([
-      { ...step, message: false, pullRequests: [], files: [] },
+      { ...step, message: false, pullRequests: [], files: [], skills: [] },
     ]);
   });
 
