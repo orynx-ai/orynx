@@ -1,16 +1,19 @@
 import { useEffect, useEffectEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { usePlatform } from '../platform.tsx';
-import { focusMainContent } from './main-content.ts';
+import { focusMainContent, focusNewTask } from './main-content.ts';
 import { useSearchStore } from '../features/search/store.ts';
 import { newTaskShortcut, searchShortcut } from './shortcuts.ts';
 
-/** New task: open Home and put focus on its content (the composer, once spec 015 ships). */
+/** New task: open Home and put focus in its composer (spec 015, AC-2), keeping what's typed there. */
 export function useNewTask(): () => void {
   const navigate = useNavigate();
   return () => {
+    // Focus leaves the page being left at once; the composer takes it once Home is drawn.
     focusMainContent();
-    void navigate({ to: '/' });
+    void navigate({ to: '/' }).then(() => {
+      requestAnimationFrame(focusNewTask);
+    });
   };
 }
 

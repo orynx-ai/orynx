@@ -3,6 +3,7 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { apiRoutes, tokenHeader } from '@devhub/contracts';
 import {
+  makeComposerStart,
   makeFileDiff,
   makePullRequestDraft,
   makePushDraft,
@@ -187,6 +188,40 @@ describe('createApiClient().startSession()', () => {
     expect(await createApiClient({ baseURL, token: 't' }).startSession({ ticketKey: 'PROJ-1423' })).toEqual({
       result: 'cannot_start',
       reason: 'too_many',
+    });
+  });
+});
+
+describe('createApiClient().startSession() from the composer (spec 015)', () => {
+  it('AC-4, AC-20: sends your message, the folder and the chips in order, and returns the answer', async () => {
+    let body: unknown = null;
+    server.use(
+      http.post(sessionsUrl, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ result: 'started', sessionId: '0123456789abcdef' });
+      }),
+    );
+    const start = makeComposerStart({
+      message: 'Use the notes',
+      context: [
+        { kind: 'file', name: 'notes.md', text: 'Export every column.' },
+        { kind: 'jira', key: 'PROJ-1423' },
+        { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 },
+      ],
+    });
+    const answer = await createApiClient({ baseURL, token: 't' }).startSession(start);
+    expect(body).toEqual(start);
+    expect(answer).toEqual({ result: 'started', sessionId: '0123456789abcdef' });
+  });
+
+  it('AC-21: returns which chip failed and how', async () => {
+    server.use(
+      http.post(sessionsUrl, () => HttpResponse.json({ result: 'context_failed', chip: 1, problem: 'unreachable' })),
+    );
+    expect(await createApiClient({ baseURL, token: 't' }).startSession(makeComposerStart())).toEqual({
+      result: 'context_failed',
+      chip: 1,
+      problem: 'unreachable',
     });
   });
 });

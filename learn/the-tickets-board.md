@@ -28,6 +28,8 @@ page ── GET /api/tickets ──▶ tickets-service.read()   cache + each tic
 
 No sprint skips the board: `client.account()` says who you are, then `client.issuesWithoutSprint()` reads the tickets (below).
 
+`client.ts` also reads one issue's comments and links for Home's composer (spec 015, `issueContext()`); Tickets doesn't use them, and the sprint's reads are unchanged.
+
 ## Your sprint (Q1)
 
 A site has a sprint per team board, so until you pick one, Orynx works out yours. It asks for your issues in open sprints (`assignee = currentUser() AND sprint in openSprints() AND sprint not in futureSprints()`), with the sprint field. That field is a custom field whose id differs from site to site, so `/rest/api/3/field` finds it by its type (`com.pyxis.greenhopper.jira:gh-sprint`). `openSprints()` brings future sprints too, so the search leaves them out (an issue sits in one open sprint at a time) and `pickSprint()` keeps only active ones as well, then picks the one holding most of your issues, and the one that ends first on a tie. A site with no sprint field (no Jira Software), or none of your issues in an active sprint, shows "None of your tickets is in an active sprint".

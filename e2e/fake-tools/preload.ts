@@ -19,6 +19,8 @@ import {
 } from '../../packages/core/src/test/fake-jira.ts';
 import {
   acceptingInboxQuery,
+  acceptingPullContext,
+  acceptingPullDiff,
   acceptingPulls,
   acceptingRepository,
   acceptingUser,
@@ -61,6 +63,15 @@ function handlers() {
         })),
     ),
     acceptingUser(),
+    // The composer's pull requests (spec 015); this handler answers only its own query.
+    acceptingPullContext(
+      (tools.pullRequests ?? []).map(({ number, title, body }) => ({
+        number,
+        title,
+        ...(body === undefined ? {} : { body }),
+      })),
+    ),
+    acceptingPullDiff((tools.pullRequests ?? []).map(({ number, diff }) => ({ number, diff }))),
     acceptingInboxQuery({ reviews: tools.reviews, mine: tools.mine }),
     // Create pull request (spec 014): the pull requests GitHub opens join the spec's list.
     ...acceptingPulls({ opened: (tools.pulls ??= []) }),

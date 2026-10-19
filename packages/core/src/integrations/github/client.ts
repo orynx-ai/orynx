@@ -29,6 +29,37 @@ export type GitHubPull = z.infer<typeof PullSchema>;
 export type GitHubInbox =
   { ok: true; login: string; reviews: GitHubPull[]; mine: GitHubPull[] } | { ok: false; problem: GitHubProblem };
 
+/** The pull request a composer chip names (spec 015). */
+export interface GitHubPullRef {
+  owner: string;
+  name: string;
+  number: number;
+}
+
+/** A pull request as the composer's brief needs it (spec 015, Q4); its diff is read on its own. */
+export interface GitHubPullContext {
+  title: string;
+  body: string | null;
+  base: string;
+  head: string;
+  /** The head commit's checks and statuses that failed, with GitHub's conclusion in plain words. */
+  failingChecks: { name: string; conclusion: string }[];
+  /** Every comment in the review threads that aren't resolved; `line` is null for one on a whole file. */
+  comments: { author: string; path: string; line: number | null; body: string }[];
+  /** The changed files with their counts, the first 100, for a diff GitHub finds too large to send. */
+  files: { path: string; additions: number; deletions: number }[];
+}
+
+/** A pull request that's missing, or hidden from this token (single sign-on included), is `not_found`. */
+export type GitHubPullProblem = GitHubProblem | { kind: 'not_found' };
+
+export type GitHubPullContextAnswer = { ok: true; pull: GitHubPullContext } | { ok: false; problem: GitHubPullProblem };
+
+/** A pull request's unified diff, or `too_large` when GitHub won't send it whole (spec 015, Q4). */
+export type GitHubPullDiffAnswer =
+  | { ok: true; diff: { kind: 'text'; text: string } | { kind: 'too_large' } }
+  | { ok: false; problem: GitHubPullProblem };
+
 /**
  * Why GitHub didn't open a pull request (spec 014): it already has an open one from this branch, there's nothing
  * between the base and the branch, the token isn't authorized for the organisation's single sign-on (with
@@ -65,6 +96,13 @@ export interface GitHubClient {
    * 100 of each.
    */
   inbox(token: string): Promise<GitHubInbox>;
+  /**
+   * One GraphQL query for a pull request a composer chip names (spec 015): its title, description, branches,
+   * the head commit's failed checks, its unresolved review threads and its changed files.
+   */
+  pullContext(token: string, pull: GitHubPullRef): Promise<GitHubPullContextAnswer>;
+  /** The pull request's diff (`GET /repos/{o}/{r}/pulls/{n}` as `diff`), for the composer's brief (spec 015). */
+  pullDiff(token: string, pull: GitHubPullRef): Promise<GitHubPullDiffAnswer>;
   /** Opens a pull request (`POST /repos/{owner}/{repo}/pulls`), only on your press (spec 014). */
   openPull(token: string, pull: GitHubPullTarget & { title: string; body: string }): Promise<GitHubOpened>;
   /** The open pull request from `head` in the repository, if GitHub has one (AC-11). */
@@ -149,6 +187,126 @@ const GraphqlFailureSchema = z.object({
   data: z.unknown(),
   headers: z.record(z.string(), z.unknown()).optional(),
 });
+
+// The composer's pull request (spec 015). A one-off read at Send: 100 files, 100 check contexts and 50 review
+// threads of 20 comments, about 12 points.
+const pullContextQuery = `
+  query DevHubPullContext($owner: String!, $name: String!, $number: Int!) {
+    repository(owner: $owner, name: $name) {
+      pullRequest(number: $number) {
+        title body baseRefName headRefName
+        files(first: 100) { nodes { path additions deletions } }
+        commits(last: 1) {
+          nodes {
+            commit {
+              statusCheckRollup {
+                contexts(first: 100) {
+                  nodes {
+                    __typename
+                    ... on CheckRun { name conclusion }
+                    ... on StatusContext { context state }
+                  }
+                }
+              }
+            }
+          }
+        }
+        reviewThreads(first: 50) {
+          nodes { isResolved path line comments(first: 20) { nodes { author { login } body } } }
+        }
+      }
+    }
+  }
+`;
+
+const PullContextDataSchema = z.object({
+  repository: z
+    .object({
+      pullRequest: z
+        .object({
+          title: z.string(),
+          body: z.string().nullish(),
+          baseRefName: z.string(),
+          headRefName: z.string(),
+          files: z.object({ nodes: z.array(z.unknown()) }).nullish(),
+          commits: z.object({
+            nodes: z.array(
+              z.object({
+                commit: z.object({
+                  statusCheckRollup: z.object({ contexts: z.object({ nodes: z.array(z.unknown()) }) }).nullish(),
+                }),
+              }),
+            ),
+          }),
+          reviewThreads: z.object({ nodes: z.array(z.unknown()) }),
+        })
+        .nullable(),
+    })
+    .nullable(),
+});
+
+const FailedContextSchema = z.discriminatedUnion('__typename', [
+  z.object({
+    __typename: z.literal('CheckRun'),
+    name: z.string(),
+    conclusion: z.enum(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE']),
+  }),
+  z.object({ __typename: z.literal('StatusContext'), context: z.string(), state: z.enum(['FAILURE', 'ERROR']) }),
+]);
+const ThreadSchema = z.object({
+  isResolved: z.boolean(),
+  path: z.string(),
+  line: z.int().nullish(),
+  comments: z.object({
+    nodes: z.array(z.object({ author: z.object({ login: z.string() }).nullish(), body: z.string() })),
+  }),
+});
+const FileCountSchema = z.object({ path: z.string(), additions: z.int(), deletions: z.int() });
+
+/** `TIMED_OUT` reads as "timed out". */
+function plainWords(conclusion: string): string {
+  return conclusion.toLowerCase().replaceAll('_', ' ');
+}
+
+function pullContextOf(data: z.infer<typeof PullContextDataSchema>): GitHubPullContextAnswer {
+  const pull = data.repository?.pullRequest;
+  if (pull === null || pull === undefined) return { ok: false, problem: { kind: 'not_found' } };
+  const contexts = pull.commits.nodes.at(-1)?.commit.statusCheckRollup?.contexts.nodes ?? [];
+  const failingChecks = contexts.flatMap((node) => {
+    const failed = FailedContextSchema.safeParse(node);
+    if (!failed.success) return [];
+    return failed.data.__typename === 'CheckRun'
+      ? [{ name: failed.data.name, conclusion: plainWords(failed.data.conclusion) }]
+      : [{ name: failed.data.context, conclusion: plainWords(failed.data.state) }];
+  });
+  const comments = pull.reviewThreads.nodes.flatMap((node) => {
+    const thread = ThreadSchema.safeParse(node);
+    if (!thread.success || thread.data.isResolved) return [];
+    const { path, line } = thread.data;
+    return thread.data.comments.nodes.map((comment) => ({
+      author: comment.author?.login ?? 'Someone',
+      path,
+      line: line ?? null,
+      body: comment.body,
+    }));
+  });
+  const files = (pull.files?.nodes ?? []).flatMap((node) => {
+    const file = FileCountSchema.safeParse(node);
+    return file.success ? [file.data] : [];
+  });
+  return {
+    ok: true,
+    pull: {
+      title: pull.title,
+      body: pull.body ?? null,
+      base: pull.baseRefName,
+      head: pull.headRefName,
+      failingChecks,
+      comments,
+      files,
+    },
+  };
+}
 
 const searchFilters = 'is:pr is:open draft:false archived:false';
 
@@ -340,6 +498,54 @@ export function createGitHubClient({
         // Some data and some errors, as for a repository behind single sign-on: take what came, as GitHub does.
         const partial = InboxDataSchema.safeParse(data);
         return partial.success ? inboxOf(partial.data) : { ok: false, problem: { kind: 'github_error', status: 200 } };
+      }
+    },
+
+    async pullContext(token, { owner, name, number }) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const data = await octokit.graphql(pullContextQuery, { owner, name, number });
+        const answer = PullContextDataSchema.safeParse(data);
+        return answer.success
+          ? pullContextOf(answer.data)
+          : { ok: false, problem: { kind: 'unreachable', code: undefined } };
+      } catch (error) {
+        const graphql = GraphqlFailureSchema.safeParse(error);
+        if (!graphql.success) return failed(error, signal);
+        const { errors = [], headers = {} } = graphql.data;
+        if (errors.some((reported) => reported.type === 'RATE_LIMITED')) {
+          return { ok: false, problem: { kind: 'rate_limited', resetAt: resetTime(headers, now) } };
+        }
+        // Missing, or hidden from this token: single sign-on answers FORBIDDEN with no pull request.
+        if (errors.some((reported) => reported.type === 'NOT_FOUND' || reported.type === 'FORBIDDEN')) {
+          return { ok: false, problem: { kind: 'not_found' } };
+        }
+        return { ok: false, problem: { kind: 'github_error', status: 200 } };
+      }
+    },
+
+    async pullDiff(token, { owner, name, number }) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const answer = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+          owner,
+          repo: name,
+          pull_number: number,
+          mediaType: { format: 'diff' },
+        });
+        // Asked for as a diff, the body is text, whatever octokit's types say.
+        const text: unknown = answer.data;
+        return typeof text === 'string'
+          ? { ok: true, diff: { kind: 'text', text } }
+          : { ok: false, problem: { kind: 'unreachable', code: undefined } };
+      } catch (error) {
+        const failure = FailureSchema.safeParse(error);
+        // GitHub refuses a diff past its own limit with 406; a missing or hidden pull request is 404.
+        if (failure.success && failure.data.status === 406) return { ok: true, diff: { kind: 'too_large' } };
+        if (failure.success && failure.data.status === 404) return { ok: false, problem: { kind: 'not_found' } };
+        return failed(error, signal);
       }
     },
 

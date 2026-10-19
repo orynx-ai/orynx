@@ -25,6 +25,8 @@ That alone is not enough: a page on `evil.example` running in the developer's br
 
 **Why can't another page read the token?** The browser's same-origin policy stops `evil.example` from reading the HTML of `http://127.0.0.1:4317`, so it cannot see the meta tag. Which leads to the third check.
 
+**Request size.** Fastify refuses a body over 1 MiB on every route but one. `POST /api/sessions` takes up to 4 MiB, because the composer's start (spec 015) can carry five 100 KB files that JSON writes up to six times over. A body past a route's limit, or JSON Fastify can't read, is answered with Fastify's own 4xx status and `bad_request` (`create-server.ts`), never as a server error.
+
 ## 3. Check the Host header (DNS rebinding)
 
 The same-origin policy compares _names_, not addresses. In a DNS-rebinding attack:

@@ -16,7 +16,15 @@ import { createFileSettingsStore, settingsFilePath } from '../settings/settings-
 import { claudeEmail, claudeOrganisation, useFakeClaudeFolder } from '../test/fake-claude.ts';
 import { fakeClaudeSdk, type FakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
 import { http, HttpResponse } from 'msw';
-import { acceptingPulls, acceptingRepository, pullsUrl, type FakeOpenedPull } from '../test/fake-github.ts';
+import {
+  acceptingPullContext,
+  acceptingPullDiff,
+  acceptingPulls,
+  acceptingRepository,
+  githubToken,
+  pullsUrl,
+  type FakeOpenedPull,
+} from '../test/fake-github.ts';
 import { acceptingIssue, goodToken, jiraEmail, jiraSite, useFakeJira } from '../test/fake-jira.ts';
 import { gitSearchPath, useTestRepositories } from '../test/git-repository.ts';
 import { openFileSessionStore } from './file-session-store.ts';
@@ -464,5 +472,124 @@ describe.skipIf(process.platform === 'win32')('spec 014 stays out of the log and
     expect(told).toContain('Create pull request ended');
     expect(told).toContain('Push changes ended');
     expect(told).toContain('"outcome":"forbidden"');
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('spec 015 stays out of the log and the event stream', () => {
+  it('AC-35: a composer start leaks nothing of your message, the ticket, the pull request or the file, nor a token', async () => {
+    const message = 'fake-composer-message-for-leaks';
+    const fileText = 'fake-file-text-for-leaks';
+    const comment = 'fake-jira-comment-for-leaks';
+    const pullBody = 'fake-pull-body-for-leaks';
+    const diffLine = 'fake-diff-line-for-leaks';
+    const review = 'fake-review-comment-for-leaks';
+    const said = [message, fileText, comment, pullBody, diffLine, review, description, githubToken, goodToken];
+    const doc = (words: string) => ({
+      type: 'doc',
+      version: 1,
+      content: [{ type: 'paragraph', content: [{ type: 'text', text: words }] }],
+    });
+    const repos = await repositories();
+    home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-leaks-015-')));
+    const folder = await fakeClaudeFolder();
+    await folder.install({ kind: 'signed_in' });
+    jira.use(
+      acceptingIssue({
+        key: 'PROJ-1',
+        summary: 'Work on PROJ-1',
+        description: doc(description),
+        comments: [{ author: 'Priya', created: '2026-10-14T09:00:00.000+0100', body: doc(comment) }],
+      }),
+      acceptingPullContext([
+        {
+          number: 2836,
+          body: pullBody,
+          threads: [{ resolved: false, path: 'src/a.ts', line: 1, comments: [{ author: 'octocat', body: review }] }],
+        },
+      ]),
+      acceptingPullDiff([{ number: 2836, diff: `diff --git a/src/a.ts b/src/a.ts\n+${diffLine}` }]),
+    );
+    const log: string[] = [];
+    const bus = createEventBus();
+    const events: ServerEvent[] = [];
+    bus.subscribe((event) => events.push(event));
+    const settings = createFileSettingsStore(home);
+    await settings.update(() => ({ jira: { site: jiraSite, email: jiraEmail }, github: { method: 'token' } }));
+    const keychain: Keychain = {
+      get: (account) => Promise.resolve(account === 'jira' ? goodToken : account === 'github' ? githubToken : null),
+      set: () => Promise.resolve(),
+      delete: () => Promise.resolve(),
+    };
+    const sdk = fakeClaudeSdk([{ finish: summary }]);
+    const shell = { HOME: repos.root, PATH: gitSearchPath };
+
+    app = await createServer({
+      token: sessionToken,
+      port,
+      version: 'test',
+      events: bus,
+      userName: () => Promise.resolve(null),
+      keychain,
+      settings,
+      dataDir: home,
+      userHome: repos.root,
+      sessions: await openFileSessionStore(home),
+      claudeCode: createClaudeCode({
+        program: folder.program,
+        env: { PATH: '/usr/bin:/bin' },
+        workFolder: folder.workFolder,
+      }),
+      agent: { query: sdk.query, program: '/opt/claude/claude', env: agentEnvironment(shell) },
+      gitEnvironment: gitEnvironment({ ...repos.env, ...shell }),
+      logger: {
+        level: 'trace',
+        stream: new Writable({
+          write(chunk: Buffer, _encoding, done) {
+            log.push(chunk.toString());
+            done();
+          },
+        }),
+      },
+    });
+    const hub = app;
+    await hub.inject({
+      method: 'POST',
+      url: apiRoutes.repositories,
+      headers,
+      payload: { path: repos.clone, jiraProject: 'PROJ' },
+    });
+    const context = [
+      { kind: 'jira', key: 'PROJ-1' },
+      { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 },
+      { kind: 'file', name: 'notes.md', text: fileText },
+    ];
+    const failed = await hub.inject({
+      method: 'POST',
+      url: apiRoutes.sessions,
+      headers,
+      payload: { message, context: [...context, { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 9 }] },
+    });
+    expect(failed.json()).toEqual({ result: 'context_failed', chip: 3, problem: 'not_found' });
+    const started = await hub.inject({
+      method: 'POST',
+      url: apiRoutes.sessions,
+      headers,
+      payload: { message, context },
+    });
+    const id = started.json<{ sessionId: string }>().sessionId;
+    await until(async () => {
+      const session = await hub.inject({ method: 'GET', url: apiRoutes.session.replace(':id', id), headers });
+      return session.json<{ state: string }>().state === 'done';
+    });
+    // Claude got all of it; nothing else did.
+    const brief = sdk.runs[0]?.prompts[0] ?? '';
+    for (const secret of [message, fileText, comment, pullBody, diffLine, review, description]) {
+      expect(brief).toContain(secret);
+    }
+    await hub.close();
+
+    const told = log.join('') + JSON.stringify(events);
+    for (const secret of said) expect(told).not.toContain(secret);
+    expect(told).toContain('Claude started a session');
   });
 });

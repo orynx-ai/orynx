@@ -37,6 +37,7 @@ import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import type { SessionRecords } from './session-store.ts';
 import { createChangesReader } from './changes.ts';
+import { createContextReader } from './context-reader.ts';
 import { createSessionService, type SessionReport } from './session-service.ts';
 
 // Real git, a real Claude Code login check and a real Jira client behind a fake Jira: each test does a lot.
@@ -163,6 +164,20 @@ async function setUp({
     claude,
     connection,
     jira: createJiraClient({ timeoutMs: 500 }),
+    // GitHub isn't connected here; spec 015's composer starts are tested in compose.test.ts.
+    context: createContextReader({
+      jira: createJiraClient({ timeoutMs: 500 }),
+      jiraConnection: connection,
+      github: createGitHubClient(),
+      githubConnection: createGitHubConnection({
+        settings,
+        tokens,
+        github: createGitHubClient(),
+        gh: createGhCli({ searchPath: '' }),
+        events,
+        envToken: false,
+      }),
+    }),
     describeTicket: () => Promise.resolve(cached === null ? null : { status: null, dueDate: null, ...cached }),
     preferences: createPreferencesService({
       // The settings file, slow to answer when the test says so.
@@ -369,7 +384,7 @@ describe('running a session', () => {
     });
     expect(record.session.activities).toEqual([
       { id: 'step-1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true },
-      { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423' },
+      { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
       { id: 'step-3', state: 'done', kind: 'explore', files: ['README.md'] },
       { id: 'step-4', state: 'done', kind: 'plan', items: ['Add a toolbar button'] },
       { id: 'step-5', state: 'done', kind: 'edit', files: ['src/toolbar.ts'] },

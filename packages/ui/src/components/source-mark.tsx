@@ -1,10 +1,12 @@
 import { useId, type ComponentProps, type ReactElement } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
+import { BrandMark } from './brand-mark.tsx';
 
-export type Source = 'jira' | 'github' | 'slack';
+/** A tool, or Orynx itself for a Claude session on neither a ticket nor a pull request (spec 015, Q15b). */
+export type Source = 'jira' | 'github' | 'slack' | 'orynx';
 
-const sourceNames: Record<Source, string> = { jira: 'Jira', github: 'GitHub', slack: 'Slack' };
+const sourceNames: Record<Source, string> = { jira: 'Jira', github: 'GitHub', slack: 'Slack', orynx: 'Orynx' };
 
 // The logo shapes come from Simple Icons (CC0), and Slack's four-colour mark from Slack's own 2019 logo.
 
@@ -72,10 +74,16 @@ function SlackLogo({ className }: { className: string }) {
   );
 }
 
+/** Orynx's own mark, in the text colour, fitted to the logo's square. */
+function OrynxLogo({ className }: { className: string }) {
+  return <BrandMark className={className} />;
+}
+
 const logos: Record<Source, (props: { className: string }) => ReactElement> = {
   jira: JiraLogo,
   github: GitHubLogo,
   slack: SlackLogo,
+  orynx: OrynxLogo,
 };
 
 const markVariants = cva('inline-flex shrink-0 items-center justify-center', {
@@ -84,6 +92,7 @@ const markVariants = cva('inline-flex shrink-0 items-center justify-center', {
       jira: '',
       github: 'text-github',
       slack: '',
+      orynx: 'text-foreground',
     },
     // The large mark sits on a neutral tile, so every logo keeps its own colours in both themes.
     size: {

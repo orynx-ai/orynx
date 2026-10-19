@@ -222,6 +222,28 @@ describe('the file session store', () => {
     expect(read?.startCommit).toBeNull();
   });
 
+  it('015 AC-24: reads a brief step saved before spec 015 as the ticket alone', async () => {
+    const folder = join(sessionsFolder(home), '0123456789abcdef');
+    await mkdir(folder, { recursive: true });
+    const saved = record();
+    const session = {
+      ...saved.session,
+      activities: [{ id: 'step-1', state: 'done', kind: 'brief', key: 'PROJ-1423' }],
+    };
+    await writeFile(join(folder, 'session.json'), JSON.stringify({ ...saved, session }));
+
+    const read = await (await openFileSessionStore(home, { now })).get('0123456789abcdef');
+    expect(read?.session.activities[0]).toEqual({
+      id: 'step-1',
+      state: 'done',
+      kind: 'brief',
+      key: 'PROJ-1423',
+      message: false,
+      pullRequests: [],
+      files: [],
+    });
+  });
+
   it('014: reads a session saved by spec 013, with no pull request and nothing pushed', async () => {
     const folder = join(sessionsFolder(home), '0123456789abcdef');
     await mkdir(folder, { recursive: true });

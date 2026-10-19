@@ -65,9 +65,10 @@ describe('SessionDetails', () => {
     expect(screen.getByRole('tab', { name: 'Changes' })).toBeVisible();
   });
 
-  it('013 AC-9: names the Ticket tab with no key when the session has no ticket', async () => {
+  it('015 Q8d (in place of 013 AC-9): a session with no ticket has no Ticket tab, even when the address asks', async () => {
     server.use(sessionHandler({ ...done, source: null }));
-    await renderApp({ route });
-    expect(await screen.findByRole('tab', { name: 'Ticket' })).toHaveAttribute('aria-selected', 'false');
+    await renderApp({ route: `${route}?tab=ticket` });
+    expect(await screen.findByRole('tab', { name: /Changes/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('tab', { name: /Ticket/ })).toBeNull();
   });
 });

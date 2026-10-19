@@ -43,7 +43,10 @@ export async function getSession(http: AxiosInstance, id: string): Promise<Sessi
   return SessionSchema.parse(res.data);
 }
 
-/** Starts Claude on a ticket, or says why it can't (spec 011, Q4); the server creates nothing then. */
+/**
+ * Starts Claude on a ticket (spec 011) or from the composer with its chips (spec 015), or says why it can't (Q4),
+ * including which chip Jira or GitHub couldn't give; the server creates nothing then.
+ */
 export async function postSession(http: AxiosInstance, request: StartSessionRequest): Promise<StartSessionAnswer> {
   const res = await http.post<unknown>(apiRoutes.sessions, request);
   return StartSessionAnswerSchema.parse(res.data);

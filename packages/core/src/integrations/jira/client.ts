@@ -88,6 +88,17 @@ export interface JiraIssueDetail {
 
 export type JiraIssue = { ok: true; issue: JiraIssueDetail } | { ok: false; problem: JiraProblem };
 
+/**
+ * One issue as the composer's brief needs it (spec 015, Q3): 011's fields, the last 20 comments oldest first
+ * as Markdown, and each linked issue named by the link's own words from this issue's side.
+ */
+export interface JiraIssueContext extends JiraIssueDetail {
+  comments: { author: string; created: string; body: string }[];
+  links: { relation: string; key: string; summary: string; status: string | null }[];
+}
+
+export type JiraIssueContextAnswer = { ok: true; issue: JiraIssueContext } | { ok: false; problem: JiraProblem };
+
 /** Who the credentials belong to, for "Assigned to you" on a sprint Tickets reads by its id (spec 020). */
 export type JiraAccount = { ok: true; accountId: string } | { ok: false; problem: JiraProblem };
 
@@ -144,6 +155,11 @@ export interface JiraClient {
    * (spec 011). The only read that asks for a description; it's never cached or logged.
    */
   issue(request: JiraCheckRequest, key: string): Promise<JiraIssue>;
+  /**
+   * One issue for the composer's brief (`GET /rest/api/3/issue/{key}`, spec 015): what `issue()` reads, plus its
+   * comments and linked issues. Never cached or logged.
+   */
+  issueContext(request: JiraCheckRequest, key: string): Promise<JiraIssueContextAnswer>;
   /** Who these credentials belong to (`GET /rest/api/3/myself`), for a sprint Tickets reads by its id (spec 020). */
   account(request: JiraCheckRequest): Promise<JiraAccount>;
   /**
@@ -286,6 +302,60 @@ const IssueDetailSchema = z.object({
   }),
 });
 const issueFields = ['summary', 'issuetype', 'description'];
+
+// The composer's brief also reads comments and links (spec 015); each one is checked on its own, so an odd one
+// is left out rather than failing the ticket.
+const IssueContextSchema = IssueDetailSchema.extend({
+  fields: IssueDetailSchema.shape.fields.extend({
+    comment: z.object({ comments: z.array(z.unknown()) }).nullish(),
+    issuelinks: z.array(z.unknown()).nullish(),
+  }),
+});
+const issueContextFields = [...issueFields, 'comment', 'issuelinks'];
+const CommentSchema = z.object({
+  author: z.object({ displayName: z.string() }).nullish(),
+  created: z.string(),
+  body: z.unknown(),
+});
+const LinkedIssueSchema = z.object({
+  key: z.string(),
+  fields: z.object({ summary: z.string().nullish(), status: z.object({ name: z.string() }).nullish() }).nullish(),
+});
+const IssueLinkSchema = z.object({
+  type: z.object({ inward: z.string(), outward: z.string() }),
+  inwardIssue: LinkedIssueSchema.nullish(),
+  outwardIssue: LinkedIssueSchema.nullish(),
+});
+/** The brief takes at most this many of a ticket's comments, the newest (Q3). */
+const mostComments = 20;
+
+function issueComments(found: readonly unknown[]): JiraIssueContext['comments'] {
+  return found.slice(-mostComments).flatMap((item) => {
+    const comment = CommentSchema.safeParse(item);
+    if (!comment.success) return [];
+    const body = adfToMarkdown(comment.data.body);
+    if (body === null || body.trim() === '') return [];
+    return [{ author: comment.data.author?.displayName ?? 'Someone', created: comment.data.created, body }];
+  });
+}
+
+function issueLinks(found: readonly unknown[]): JiraIssueContext['links'] {
+  return found.flatMap((item) => {
+    const link = IssueLinkSchema.safeParse(item);
+    if (!link.success) return [];
+    const { type, outwardIssue, inwardIssue } = link.data;
+    const other = outwardIssue ?? inwardIssue;
+    if (other === null || other === undefined) return [];
+    return [
+      {
+        relation: outwardIssue ? type.outward : type.inward,
+        key: other.key,
+        summary: other.fields?.summary ?? '',
+        status: other.fields?.status?.name ?? null,
+      },
+    ];
+  });
+}
 
 // Each issue is checked on its own, so one odd issue is left out instead of failing the whole read.
 const IssueSearchSchema = z.object({ issues: z.array(z.unknown()) });
@@ -556,6 +626,31 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
           summary: fields.summary ?? '',
           type: fields.issuetype?.name ?? null,
           description: adfToMarkdown(fields.description),
+        },
+      };
+    },
+
+    async issueContext(request, key) {
+      const answer = await withJira(request, (client) =>
+        client.sendRequest({
+          url: `/rest/api/3/issue/${encodeURIComponent(key)}`,
+          method: 'GET',
+          searchParams: { fields: issueContextFields.join(',') },
+          schema: IssueContextSchema,
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+      if (!answer.ok) return answer;
+      const { fields } = answer.value;
+      return {
+        ok: true,
+        issue: {
+          key: answer.value.key,
+          summary: fields.summary ?? '',
+          type: fields.issuetype?.name ?? null,
+          description: adfToMarkdown(fields.description),
+          comments: issueComments(fields.comment?.comments ?? []),
+          links: issueLinks(fields.issuelinks ?? []),
         },
       };
     },

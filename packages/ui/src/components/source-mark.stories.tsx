@@ -11,6 +11,8 @@ type Story = StoryObj<typeof meta>;
 export const Jira: Story = {};
 export const GitHub: Story = { args: { source: 'github' } };
 export const Slack: Story = { args: { source: 'slack' } };
+/** A Claude session on neither a ticket nor a pull request (spec 015, Q15b). */
+export const Orynx: Story = { args: { source: 'orynx' } };
 export const Large: Story = { args: { source: 'slack', size: 'lg' } };
 export const MarkOnly: Story = { args: { source: 'jira', size: 'lg', label: 'none' } };
 export const NameForScreenReadersOnly: Story = { args: { source: 'github', label: 'hidden' } };

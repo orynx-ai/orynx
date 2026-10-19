@@ -211,6 +211,12 @@ function commandsFor(brief: string): (() => Promise<void>)[] {
  * when it says "(waits)".
  */
 async function play(brief: string): Promise<void> {
+  // What Claude got, so a spec can read it back (spec 015, AC-20).
+  const configDir = process.env['CLAUDE_CONFIG_DIR'];
+  if (configDir !== undefined) {
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(join(configDir, 'last-brief.txt'), brief);
+  }
   send({
     type: 'system',
     subtype: 'init',

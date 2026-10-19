@@ -784,6 +784,102 @@ describe('Jira client: one issue (spec 011)', () => {
   });
 });
 
+describe('Jira client: a ticket for the composer (spec 015)', () => {
+  const text = (words: string) => ({
+    type: 'doc',
+    version: 1,
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: words }] }],
+  });
+
+  it('AC-20 (Q3): reads the ticket with its last 20 comments, oldest first, and its linked issues, asking for only those fields', async () => {
+    const seen: Request[] = [];
+    jira.events.on('request:start', ({ request }) => {
+      seen.push(request.clone());
+    });
+    const comments = Array.from({ length: 25 }, (_, n) => ({
+      author: n === 24 ? null : `Person ${String(n)}`,
+      created: `2026-10-${String(n + 1).padStart(2, '0')}T09:00:00.000+0100`,
+      body: text(`Comment ${String(n)}`),
+    }));
+    jira.use(
+      acceptingIssue({
+        key: 'PROJ-1423',
+        summary: 'Add bulk archive to the content list',
+        comments,
+        links: [
+          {
+            type: { inward: 'is blocked by', outward: 'blocks' },
+            outwardIssue: { key: 'PROJ-1400', summary: 'Release 4.2', status: 'In progress' },
+          },
+          {
+            type: { inward: 'is cloned by', outward: 'clones' },
+            inwardIssue: { key: 'PROJ-1500', summary: 'Bulk archive on mobile', status: null },
+          },
+          { type: { inward: 'relates to', outward: 'relates to' } },
+        ],
+      }),
+    );
+
+    const answer = await client.issueContext(credentials, 'PROJ-1423');
+    expect(answer).toMatchObject({
+      ok: true,
+      issue: {
+        key: 'PROJ-1423',
+        summary: 'Add bulk archive to the content list',
+        type: 'Story',
+        links: [
+          { relation: 'blocks', key: 'PROJ-1400', summary: 'Release 4.2', status: 'In progress' },
+          { relation: 'is cloned by', key: 'PROJ-1500', summary: 'Bulk archive on mobile', status: null },
+        ],
+      },
+    });
+    const read = answer.ok ? answer.issue.comments : [];
+    expect(read).toHaveLength(20);
+    expect(read[0]).toEqual({ author: 'Person 5', created: '2026-10-06T09:00:00.000+0100', body: 'Comment 5' });
+    expect(read.at(-1)).toEqual({ author: 'Someone', created: '2026-10-25T09:00:00.000+0100', body: 'Comment 24' });
+    expect(new URL(seen[0]?.url ?? '').searchParams.get('fields')).toBe(
+      'summary,issuetype,description,comment,issuelinks',
+    );
+  });
+
+  it('AC-20: a ticket with no comments or links has none, and an empty comment is left out', async () => {
+    jira.use(
+      http.get(issueUrl('PROJ-7'), () =>
+        HttpResponse.json({
+          key: 'PROJ-7',
+          fields: {
+            summary: 'Fix it',
+            issuetype: null,
+            description: null,
+            comment: {
+              comments: [{ author: { displayName: 'Sam' }, created: '2026-10-01T09:00:00.000Z', body: null }],
+            },
+          },
+        }),
+      ),
+    );
+    expect(await client.issueContext(credentials, 'PROJ-7')).toEqual({
+      ok: true,
+      issue: { key: 'PROJ-7', summary: 'Fix it', type: null, description: null, comments: [], links: [] },
+    });
+  });
+
+  it('AC-21: a ticket Jira hides, refused credentials and a slow Jira are problems, without the token', async () => {
+    jira.use(acceptingIssue({ key: 'PROJ-1423' }));
+    expect(await client.issueContext(credentials, 'PROJ-9999')).toEqual({ ok: false, problem: { kind: 'not_found' } });
+    const refused = await client.issueContext({ ...credentials, apiToken: 'fake-wrong-token' }, 'PROJ-1423');
+    expect(refused).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(refused)).not.toContain('fake-wrong-token');
+    jira.use(
+      http.get(issueUrl('PROJ-1423'), async () => {
+        await delay(1000);
+        return HttpResponse.json({});
+      }),
+    );
+    expect(await client.issueContext(credentials, 'PROJ-1423')).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+});
+
 describe('Jira client: a project’s sprints (spec 020)', () => {
   it('AC-26: lists a project’s active sprints ending soonest, then its future ones starting soonest, each once', async () => {
     jira.use(

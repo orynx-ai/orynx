@@ -5,6 +5,7 @@ import {
   coAuthorLine,
   commitMessage,
   draftInstructions,
+  draftInstructionsFor,
   draftPrompt,
   fallbackDraft,
   pushInstructions,
@@ -196,5 +197,39 @@ describe('commit messages (spec 014, Q5, Q7)', () => {
   it('AC-17: reads nothing from an empty answer, and keeps a message to 256 characters', () => {
     expect(readCommitMessage(' \n ')).toBeNull();
     expect(readCommitMessage('m'.repeat(300))).toHaveLength(256);
+  });
+});
+
+describe('a pull request for a session with no ticket (spec 015, AC-34)', () => {
+  const task = { key: null, title: 'Add a CSV export to the reports page', jiraUrl: null };
+
+  it('tells Claude about the task, not a ticket, and asks for no key', () => {
+    const prompt = draftPrompt(inputs({ ticket: task, brief: 'Add a CSV export to the reports page' }));
+    expect(prompt.startsWith('The task, as Claude got it\n\nAdd a CSV export to the reports page')).toBe(true);
+    expect(prompt).not.toContain('The ticket');
+    expect(draftInstructionsFor(task)).not.toContain('key');
+    expect(draftInstructionsFor(ticket)).toBe(draftInstructions);
+    expect(draftPrompt(inputs({ ticket: task, brief: null }))).toContain(
+      'The task, as Claude got it\n\nAdd a CSV export to the reports page',
+    );
+  });
+
+  it('keeps the drafted title as it is, with no Jira line', () => {
+    expect(readDraft('Add a CSV export\n\nAdds an Export button.', task)).toEqual({
+      title: 'Add a CSV export',
+      body: 'Adds an Export button.',
+    });
+  });
+
+  it("starts from the session's title and Claude's last summary when Claude can't draft", () => {
+    expect(fallbackDraft(task, ['Added the export.'])).toEqual({
+      title: 'Add a CSV export to the reports page',
+      body: 'Added the export.',
+    });
+  });
+
+  it('names the task, not a ticket, when Claude writes a Push changes message', () => {
+    const prompt = pushPrompt({ ticket: task, summaries: ['Fixed the header.'], files: [], moreFiles: 0, diffs: [] });
+    expect(prompt.startsWith('The task\n\nAdd a CSV export to the reports page')).toBe(true);
   });
 });

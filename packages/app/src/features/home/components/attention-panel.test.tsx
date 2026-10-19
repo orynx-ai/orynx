@@ -224,6 +224,26 @@ describe('AttentionPanel', () => {
     expect(platform.openExternal).not.toHaveBeenCalled();
   });
 
+  it('015 AC-24: a waiting session on no ticket or pull request leads with Orynx’s mark, in All', async () => {
+    inboxWith([
+      ...everyRow,
+      makeInboxItem({
+        id: 'session:session-9',
+        source: null,
+        tab: null,
+        title: 'Add a CSV export to the reports page',
+        subject: { kind: 'session', source: null },
+        reason: { kind: 'approval' },
+        waitingSince: '2026-10-17T11:50:00.000Z',
+        target: { kind: 'session', sessionId: 'session-9' },
+      }),
+    ]);
+    await openHome();
+    const row = rowOf('Open session: Add a CSV export to the reports page');
+    expect(row.getByText('Orynx')).toHaveClass('sr-only');
+    expect(row.getByText('Approve command · 10 min')).toBeVisible();
+  });
+
   it('AC-14: picks Jira with the arrow keys and Enter, shows only its rows, and puts it in the address', async () => {
     const { user, history, panel } = await openHome();
     const all = within(panel).getByRole('tab', { name: 'All 5' });

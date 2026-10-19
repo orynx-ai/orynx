@@ -86,8 +86,18 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     base: z.string().min(1),
     fetched: z.boolean(),
   }),
-  /** Orynx sent Claude the brief: this ticket and its description (Q5). */
-  ActivityBaseSchema.extend({ kind: z.literal('brief'), key: JiraIssueKeySchema }),
+  /**
+   * Orynx sent Claude the brief (Q5): the ticket and its description, or none, then what the composer added
+   * (spec 015): whether you wrote a message, each pull request as its chip reads, and each file's name. A step
+   * saved before spec 015 is the ticket alone.
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('brief'),
+    key: JiraIssueKeySchema.nullable(),
+    message: z.boolean().default(false),
+    pullRequests: z.array(z.string().min(1)).default([]),
+    files: z.array(z.string().min(1)).default([]),
+  }),
   ActivityBaseSchema.extend({ kind: z.literal('explore'), files: FilesSchema }),
   /** The plan's items, from Claude's to-do list. */
   ActivityBaseSchema.extend({ kind: z.literal('plan'), items: z.array(z.string().min(1)) }),
@@ -272,17 +282,95 @@ export const SessionSchema = SessionSummarySchema.extend({
 });
 export type Session = z.infer<typeof SessionSchema>;
 
-/** POST /api/sessions: start Claude on a ticket. `repositoryId` picks the folder when its project has several (Q3). */
-export const StartSessionRequestSchema = z.object({
+/** Ship's start (spec 011): Claude on a ticket. `repositoryId` picks the folder when its project has several (Q3). */
+export const TicketStartSchema = z.object({
   ticketKey: JiraIssueKeySchema,
   repositoryId: RepositoryIdSchema.optional(),
 });
+export type TicketStart = z.infer<typeof TicketStartSchema>;
+
+/** A follow-up, or the composer's message, holds at most this many characters (spec 013, spec 015). */
+export const mostMessageCharacters = 10_000;
+
+/** What one session can take from + Add context (spec 015): one ticket (Q2), and a file's text in UTF-8 bytes (Q5). */
+export const composerLimits = { tickets: 1, pullRequests: 3, files: 5, fileBytes: 100 * 1024 } as const;
+
+/** GitHub's own rules for a user or organisation and for a repository's name, so neither can be read as a path. */
+const GitHubOwnerSchema = z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/);
+const GitHubRepositoryNameSchema = z.string().regex(/^(?!\.\.?$)[A-Za-z0-9._-]{1,100}$/);
+
+/** A text's length in UTF-8, as the browser's `File` counts it; a lone surrogate counts as U+FFFD would. */
+function utf8Bytes(text: string): number {
+  let bytes = 0;
+  for (const char of text) {
+    const point = char.codePointAt(0) ?? 0;
+    bytes += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
+  }
+  return bytes;
+}
+
+/**
+ * One thing the composer adds to the brief (spec 015). The server reads a ticket from Jira and a pull request
+ * from GitHub at Send; a file comes as the text the browser read, under the name it had on this computer.
+ */
+export const ComposerChipSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('jira'), key: JiraIssueKeySchema }),
+  z.object({
+    kind: z.literal('pull_request'),
+    owner: GitHubOwnerSchema,
+    name: GitHubRepositoryNameSchema,
+    number: z.int().positive(),
+  }),
+  z.object({
+    kind: z.literal('file'),
+    name: z
+      .string()
+      .min(1)
+      .max(255)
+      .regex(/^[^/\\\p{Cc}]+$/u),
+    text: z.string().refine((text) => utf8Bytes(text) <= composerLimits.fileBytes),
+  }),
+]);
+export type ComposerChip = z.infer<typeof ComposerChipSchema>;
+
+function pullRequestId(chip: Extract<ComposerChip, { kind: 'pull_request' }>): string {
+  return `${chip.owner}/${chip.name}#${String(chip.number)}`.toLowerCase();
+}
+
+/**
+ * The composer's start (spec 015): your message, the folder, and the chips in the order you added them. The
+ * message can be empty only when a ticket is the brief (AC-8). Without `repositoryId`, the server picks the
+ * ticket's project's only folder, or asks (Q7).
+ */
+export const ComposerStartSchema = z
+  .object({
+    message: z.string().trim().max(mostMessageCharacters),
+    repositoryId: RepositoryIdSchema.optional(),
+    context: z.array(ComposerChipSchema),
+  })
+  .superRefine(({ message, context }, check) => {
+    const tickets = context.filter((chip) => chip.kind === 'jira');
+    const pulls = context.filter((chip) => chip.kind === 'pull_request');
+    const files = context.filter((chip) => chip.kind === 'file');
+    if (tickets.length > composerLimits.tickets) check.addIssue({ code: 'custom', message: 'One ticket at most.' });
+    if (pulls.length > composerLimits.pullRequests)
+      check.addIssue({ code: 'custom', message: 'Three pull requests at most.' });
+    if (new Set(pulls.map(pullRequestId)).size < pulls.length)
+      check.addIssue({ code: 'custom', message: 'The same pull request twice.' });
+    if (files.length > composerLimits.files) check.addIssue({ code: 'custom', message: 'Five files at most.' });
+    if (message === '' && tickets.length === 0)
+      check.addIssue({ code: 'custom', message: 'A message, or a ticket as the brief.' });
+  });
+export type ComposerStart = z.infer<typeof ComposerStartSchema>;
+
+/** POST /api/sessions: Ship's start on a ticket, or the composer's (spec 015). */
+export const StartSessionRequestSchema = z.union([TicketStartSchema, ComposerStartSchema]);
 export type StartSessionRequest = z.infer<typeof StartSessionRequestSchema>;
 
 /**
  * The answer to POST /api/sessions. A ticket with a live session answers `existing` with it. A start
  * that can't happen creates nothing and says why (Q4): no folder for the project, a folder still to
- * pick, Claude Code signed out, or three sessions already working (Q11).
+ * pick, Claude Code signed out, three sessions already working (Q11), or a chip that couldn't be read.
  */
 export const StartSessionAnswerSchema = z.discriminatedUnion('result', [
   z.object({ result: z.literal('started'), sessionId: SessionIdSchema }),
@@ -291,9 +379,19 @@ export const StartSessionAnswerSchema = z.discriminatedUnion('result', [
     result: z.literal('cannot_start'),
     reason: z.enum(['no_folder', 'choose_folder', 'signed_out', 'too_many']),
   }),
+  /**
+   * The composer's start (spec 015, AC-21): Jira or GitHub couldn't give a chip, so nothing was made. `chip` is
+   * its place in `context`.
+   */
+  z.object({
+    result: z.literal('context_failed'),
+    chip: z.int().nonnegative(),
+    problem: z.enum(['not_connected', 'not_found', 'unreachable', 'other']),
+  }),
 ]);
 export type StartSessionAnswer = z.infer<typeof StartSessionAnswerSchema>;
 export type CannotStartReason = Extract<StartSessionAnswer, { result: 'cannot_start' }>['reason'];
+export type ContextProblem = Extract<StartSessionAnswer, { result: 'context_failed' }>['problem'];
 
 /** POST /api/sessions/:id/approvals/:approvalId: your answer to a waiting call (spec 012). */
 export const ApprovalDecisionSchema = z.enum(['allow_once', 'always_allow', 'deny']);
@@ -301,9 +399,6 @@ export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 
 export const RespondToApprovalRequestSchema = z.object({ decision: ApprovalDecisionSchema });
 export type RespondToApprovalRequest = z.infer<typeof RespondToApprovalRequestSchema>;
-
-/** A follow-up holds at most this many characters (spec 013). */
-export const mostMessageCharacters = 10_000;
 
 /** POST /api/sessions/:id/messages: what you typed in the follow-up box, exactly as Claude gets it (spec 013). */
 export const SendMessageRequestSchema = z.object({

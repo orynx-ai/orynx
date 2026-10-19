@@ -29,6 +29,12 @@ export const changesHubPort = 4392;
  */
 export const pullRequestsHubPort = 4390;
 
+/**
+ * The seventh, for Home's composer (spec 015): its sessions start from your words and chips, and its fakes give
+ * pull requests' details and diffs. 014's hub takes 4390.
+ */
+export const composerHubPort = 4388;
+
 /** Where a spec tells a hub's fakes what Jira and GitHub hold, with `PUT /tools`: the port below the hub's. */
 export function controlPortFor(hubPort: number): number {
   return hubPort - 1;
@@ -47,4 +53,6 @@ export interface FakeTools {
   brokenIssues?: string[];
   /** The pull requests GitHub has (spec 014): it opens more into this list, which `GET /tools` gives back. */
   pulls?: FakeOpenedPull[];
+  /** Pull requests whose details and diff GitHub gives the composer, in acme/web-app (spec 015). */
+  pullRequests?: { number: number; title: string; body?: string; diff: string }[];
 }

@@ -284,12 +284,36 @@ const refused = () =>
   );
 
 /** One issue as `GET /rest/api/3/issue/{key}` answers it, with a description in Atlassian's document format. */
+/** An issue linked to another, as Jira nests it under `issuelinks` (spec 015). */
+interface FakeLinkedIssue {
+  key: string;
+  summary: string;
+  status: string | null;
+}
+
 export interface FakeIssueDetail {
   key: string;
   summary?: string;
   type?: string;
   /** The description as Jira stores it; null for none. */
   description?: unknown;
+  /** Oldest first, as Jira gives them (spec 015); `author: null` is a comment by someone Jira no longer names. */
+  comments?: readonly { author: string | null; created: string; body: unknown }[];
+  /** The link's type names it from each side; one of `outwardIssue` or `inwardIssue` is the other ticket. */
+  links?: readonly {
+    type: { inward: string; outward: string };
+    outwardIssue?: FakeLinkedIssue;
+    inwardIssue?: FakeLinkedIssue;
+  }[];
+}
+
+function linkedIssue(issue: FakeLinkedIssue | undefined) {
+  if (issue === undefined) return undefined;
+  return {
+    id: '10500',
+    key: issue.key,
+    fields: { summary: issue.summary, status: issue.status === null ? undefined : { name: issue.status } },
+  };
 }
 
 /** A description of two paragraphs and a list, as Jira's editor saves it. */
@@ -341,6 +365,23 @@ export function acceptingIssue(
         summary: issue.summary ?? `Summary of ${issue.key}`,
         issuetype: { id: '10001', name: issue.type ?? 'Story' },
         description: issue.description === undefined ? designDescription : issue.description,
+        comment: {
+          startAt: 0,
+          maxResults: 5000,
+          total: issue.comments?.length ?? 0,
+          comments: (issue.comments ?? []).map((comment, n) => ({
+            id: String(20000 + n),
+            author: comment.author === null ? undefined : { displayName: comment.author },
+            created: comment.created,
+            body: comment.body,
+          })),
+        },
+        issuelinks: (issue.links ?? []).map((link, n) => ({
+          id: String(30000 + n),
+          type: { id: '10000', name: 'Link', ...link.type },
+          outwardIssue: linkedIssue(link.outwardIssue),
+          inwardIssue: linkedIssue(link.inwardIssue),
+        })),
       },
     });
   });

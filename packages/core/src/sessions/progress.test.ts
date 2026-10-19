@@ -174,10 +174,10 @@ describe('Orynx’s own steps', () => {
   it('AC-3: a step of Orynx’s ends the running one, and Claude’s work follows it', () => {
     const progress = fold(
       [{ kind: 'explore', file: 'src/a.ts' }],
-      addStep(emptyProgress, { kind: 'brief', key: 'PROJ-1423' }),
+      addStep(emptyProgress, { kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] }),
     );
     expect(progress.activities).toEqual([
-      { id: 'step-1', state: 'done', kind: 'brief', key: 'PROJ-1423' },
+      { id: 'step-1', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
       { id: 'step-2', state: 'running', kind: 'explore', files: ['src/a.ts'] },
     ]);
   });

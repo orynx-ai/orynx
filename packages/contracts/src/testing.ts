@@ -32,12 +32,14 @@ import {
   type SearchTicket,
 } from './search.ts';
 import {
+  ComposerStartSchema,
   SessionListSchema,
   SessionApprovalSchema,
   SessionSchema,
   SessionSummarySchema,
   SessionPullRequestSchema,
   SessionTicketSchema,
+  type ComposerStart,
   type Session,
   type SessionApproval,
   type SessionList,
@@ -110,6 +112,16 @@ export function makeSession(overrides: Partial<Session> = {}): Session {
     jiraUrl: 'https://your-team.atlassian.net/browse/PROJ-1423',
     sprint: 'Sprint 42',
     approvals: [],
+    ...overrides,
+  });
+}
+
+/** The composer's start (spec 015): a message for web-app's folder, with no chips. */
+export function makeComposerStart(overrides: Partial<ComposerStart> = {}): ComposerStart {
+  return ComposerStartSchema.parse({
+    message: 'Add a CSV export to the reports page',
+    repositoryId: '00000000000000aa',
+    context: [],
     ...overrides,
   });
 }

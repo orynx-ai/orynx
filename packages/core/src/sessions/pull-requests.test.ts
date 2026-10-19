@@ -94,7 +94,7 @@ async function setUp({
       jiraUrl,
       activities: [
         { id: 'step-1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base, fetched: true },
-        { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423' },
+        { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
         { id: 'step-3', state: 'done', kind: 'edit', files: ['README.md'] },
         { id: 'step-4', state: 'done', kind: 'finished', summary: 'Added row selection. `npm test` passes.' },
       ],
@@ -198,6 +198,43 @@ describe('drafting the pull request (spec 014)', () => {
     const noClaude = await setUp({ noClaude: true });
     await writeFile(join(noClaude.worktree, 'README.md'), 'changed\n');
     expect(await noClaude.pulls.draft(id)).toMatchObject(fallback);
+  });
+
+  it('015 AC-34: a session with no ticket gets a title with no key, no Jira line, and Claude is asked for no key', async () => {
+    const noTicket: Partial<Session> = {
+      title: 'Add a CSV export to the reports page',
+      source: null,
+      jiraUrl: null,
+      activities: [
+        { id: 'step-1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true },
+        { id: 'step-2', state: 'done', kind: 'brief', key: null, message: true, pullRequests: [], files: [] },
+        { id: 'step-3', state: 'done', kind: 'finished', summary: 'Added the CSV export.' },
+      ],
+    };
+    const drafted = await setUp({
+      draft: [{ finish: 'Add a CSV export\n\nAdds an Export button.' }],
+      session: noTicket,
+    });
+    await writeFile(join(drafted.worktree, 'README.md'), 'changed\n');
+    expect(await drafted.pulls.draft(id)).toMatchObject({
+      result: 'draft',
+      title: 'Add a CSV export',
+      body: 'Adds an Export button.',
+      byClaude: true,
+    });
+    const [prompt = ''] = drafted.sdk.runs[0]?.prompts ?? [];
+    expect(prompt).toMatch(/^The task, as Claude got it\n\n/);
+    const instructions = JSON.stringify(drafted.sdk.runs[0]?.options.systemPrompt);
+    expect(instructions).toContain('pull request');
+    expect(instructions).not.toContain('key');
+
+    const fallback = await setUp({ noClaude: true, session: noTicket });
+    await writeFile(join(fallback.worktree, 'README.md'), 'changed\n');
+    expect(await fallback.pulls.draft(id)).toMatchObject({
+      title: 'Add a CSV export to the reports page',
+      body: 'Added the CSV export.',
+      byClaude: false,
+    });
   });
 
   it('AC-6: an empty answer from Claude starts from the ticket too', async () => {

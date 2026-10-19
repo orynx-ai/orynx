@@ -30,10 +30,27 @@ describe('stepWords (Q10a)', () => {
   });
 
   it('AC-3: the brief', () => {
-    expect(step({ kind: 'brief', state: 'done', key: 'PROJ-1423' })).toEqual({
+    expect(
+      step({ kind: 'brief', state: 'done', key: 'PROJ-1423', message: false, pullRequests: [], files: [] }),
+    ).toEqual({
       title: 'Sent Claude the brief',
       detail: 'PROJ-1423 and its description',
     });
+  });
+
+  it('015 AC-24: the brief names your message, the ticket, the pull requests and the files Claude got', () => {
+    const brief = { kind: 'brief', state: 'done' } as const;
+    expect(step({ ...brief, key: null, message: true, pullRequests: [], files: [] }).detail).toBe('Your message');
+    expect(step({ ...brief, key: 'PROJ-1423', message: true, pullRequests: [], files: [] }).detail).toBe(
+      'Your message and PROJ-1423',
+    );
+    expect(
+      step({ ...brief, key: null, message: true, pullRequests: ['web-app #2836', 'api #12'], files: ['notes.md'] })
+        .detail,
+    ).toBe('Your message, web-app #2836, api #12 and 1 more');
+    expect(step({ ...brief, key: null, message: false, pullRequests: [], files: ['a.md', 'b.md'] }).detail).toBe(
+      'a.md and b.md',
+    );
   });
 
   it('AC-4: explore, in the present tense while running, with the files’ own names', () => {

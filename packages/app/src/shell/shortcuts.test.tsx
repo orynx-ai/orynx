@@ -1,5 +1,6 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { useComposerStore } from '../features/home/store.ts';
 import { renderApp } from '../test/render.tsx';
 
 function mainNav() {
@@ -27,7 +28,23 @@ describe('The New task shortcut', () => {
 
     await screen.findByRole('heading', { name: 'What should we build today?' });
     expect(history.location.pathname).toBe('/');
-    expect(screen.getByRole('main')).toHaveFocus();
+    // Spec 015, AC-2: in the composer, with the draft kept.
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: 'Describe a task for Claude' })).toHaveFocus();
+    });
+  });
+
+  it('AC-2 (spec 015): puts focus in the composer on Home too, with what was typed still there', async () => {
+    useComposerStore.setState({ text: 'Fix the header' });
+    await renderApp();
+    const box = await screen.findByRole('textbox', { name: 'Describe a task for Claude' });
+
+    press(optionCommandN);
+
+    await waitFor(() => {
+      expect(box).toHaveFocus();
+    });
+    expect(box).toHaveValue('Fix the header');
   });
 
   it('AC-6: works while typing in a text field', async () => {

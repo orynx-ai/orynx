@@ -157,6 +157,150 @@ export function acceptingInboxQuery({
   });
 }
 
+/** A pull request as the composer reads it for a brief (spec 015, Q4). */
+export interface FakePullContext {
+  owner?: string;
+  repository?: string;
+  number: number;
+  title?: string;
+  body?: string | null;
+  base?: string;
+  head?: string;
+  files?: readonly { path: string; additions: number; deletions: number }[];
+  /** The head commit's checks and statuses. */
+  contexts?: readonly (
+    | { type: 'CheckRun'; name: string; conclusion: string | null }
+    | { type: 'StatusContext'; context: string; state: string }
+  )[];
+  threads?: readonly {
+    resolved: boolean;
+    path: string;
+    line: number | null;
+    comments: readonly { author: string | null; body: string }[];
+  }[];
+}
+
+/** GitHub's answer when a repository or pull request is missing or hidden from the token. */
+function notFound(owner: string, repository: string) {
+  return HttpResponse.json({
+    data: { repository: null },
+    errors: [
+      {
+        type: 'NOT_FOUND',
+        path: ['repository'],
+        message: `Could not resolve to a Repository with the name '${owner}/${repository}'.`,
+      },
+    ],
+  });
+}
+
+/**
+ * GitHub's GraphQL API answering the composer's pull request query (spec 015) for a good token, for these pull
+ * requests only. Any other query falls through to the next handler, such as the inbox's.
+ */
+export function acceptingPullContext(
+  pulls: readonly FakePullContext[],
+  { tokens = [githubToken, ghToken] }: { tokens?: readonly string[] } = {},
+) {
+  return http.post(graphqlUrl, async ({ request }) => {
+    const sent = (await request.clone().json()) as { query?: unknown; variables?: Record<string, unknown> };
+    if (typeof sent.query !== 'string' || !sent.query.includes('DevHubPullContext')) return undefined;
+    if (!tokens.some((token) => request.headers.get('authorization') === `token ${token}`)) {
+      return HttpResponse.json({ message: 'Bad credentials', status: '401' }, { status: 401 });
+    }
+    const { owner, name, number } = sent.variables ?? {};
+    const pull = pulls.find(
+      (candidate) =>
+        (candidate.owner ?? 'acme') === owner &&
+        (candidate.repository ?? 'web-app') === name &&
+        candidate.number === number,
+    );
+    if (pull === undefined) return notFound(String(owner), String(name));
+    return HttpResponse.json({
+      data: {
+        repository: {
+          pullRequest: {
+            title: pull.title ?? `Pull request ${String(pull.number)}`,
+            body: pull.body === undefined ? 'What this pull request changes.' : pull.body,
+            baseRefName: pull.base ?? 'main',
+            headRefName: pull.head ?? `feat/pull-${String(pull.number)}`,
+            files: { nodes: pull.files ?? [] },
+            commits: {
+              nodes: [
+                {
+                  commit: {
+                    statusCheckRollup: {
+                      contexts: {
+                        nodes: (pull.contexts ?? []).map(({ type, ...context }) => ({ __typename: type, ...context })),
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+            reviewThreads: {
+              nodes: (pull.threads ?? []).map((thread) => ({
+                isResolved: thread.resolved,
+                path: thread.path,
+                line: thread.line,
+                comments: {
+                  nodes: thread.comments.map((comment) => ({
+                    author: comment.author === null ? null : { login: comment.author },
+                    body: comment.body,
+                  })),
+                },
+              })),
+            },
+          },
+        },
+      },
+    });
+  });
+}
+
+/** The REST address of one pull request. */
+export function pullUrl(owner: string, repository: string, number: number): string {
+  return `https://api.github.com/repos/${owner}/${repository}/pulls/${String(number)}`;
+}
+
+/**
+ * GitHub's REST API giving these pull requests' diffs (spec 015) for a good token that asks for the diff media
+ * type. `tooLarge` answers 406, as GitHub does past its own limit.
+ */
+export function acceptingPullDiff(
+  pulls: readonly { owner?: string; repository?: string; number: number; diff?: string; tooLarge?: boolean }[],
+  { tokens = [githubToken, ghToken] }: { tokens?: readonly string[] } = {},
+) {
+  return http.get('https://api.github.com/repos/:owner/:repository/pulls/:number', ({ request, params }) => {
+    if (!tokens.some((token) => request.headers.get('authorization') === `token ${token}`)) {
+      return HttpResponse.json({ message: 'Bad credentials', status: '401' }, { status: 401 });
+    }
+    const pull = pulls.find(
+      (candidate) =>
+        (candidate.owner ?? 'acme') === params['owner'] &&
+        (candidate.repository ?? 'web-app') === params['repository'] &&
+        String(candidate.number) === params['number'],
+    );
+    if (pull === undefined) return HttpResponse.json({ message: 'Not Found', status: '404' }, { status: 404 });
+    if (!(request.headers.get('accept') ?? '').includes('diff')) {
+      return HttpResponse.json({ message: 'Ask for the diff media type', status: '415' }, { status: 415 });
+    }
+    if (pull.tooLarge === true) {
+      return HttpResponse.json(
+        {
+          message: 'Sorry, the diff exceeded the maximum number of lines (20000)',
+          errors: [{ resource: 'PullRequest', field: 'diff', code: 'too_large' }],
+          status: '406',
+        },
+        { status: 406 },
+      );
+    }
+    return new HttpResponse(pull.diff ?? '', {
+      headers: { 'content-type': 'application/vnd.github.diff; charset=utf-8' },
+    });
+  });
+}
+
 /** A pull request GitHub holds, as the fake opens and lists them (spec 014). */
 export interface FakeOpenedPull {
   owner: string;

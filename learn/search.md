@@ -45,7 +45,7 @@ The whole index is small (about 700 rows at most), so `GET /api/search` sends it
 
 ## How ⌘K gets through
 
-`useGlobalShortcuts` listens on `window` in the capture phase, so a widget that stops keydown can't swallow the key. It calls `preventDefault`, because Chrome and Firefox both use Ctrl+K for their own search, and a page may take it, as GitHub and Slack do. The matcher wants exactly ⌘ (or Ctrl), no Shift and no AltGr, so ⇧⌘K and AltGr+K stay the browser's. Pressing it again closes the dialog (Q2d); a held key's repeats don't count, or it would flicker open and shut. The Search button shows the same key from `searchShortcut()`, with `aria-keyshortcuts`, and says it opens a dialog. A click focuses it first, because Safari doesn't focus a clicked button, and closing search gives focus back to what had it.
+`useGlobalShortcuts` listens on `window` in the capture phase, so a widget that stops keydown can't swallow the key. It calls `preventDefault`, because Chrome and Firefox both use Ctrl+K for their own search, and a page may take it, as GitHub and Slack do. The matcher wants exactly ⌘ (or Ctrl), no Shift and no AltGr, so ⇧⌘K and AltGr+K stay the browser's. Pressing it again closes the dialog (Q2d); a held key's repeats don't count, or it would flicker open and shut. New task (⌥⌘N, or Ctrl+Alt+N elsewhere) goes through the same listener; since spec 015 it opens Home with focus in the composer (`focusNewTask()`). The Search button shows the same key from `searchShortcut()`, with `aria-keyshortcuts`, and says it opens a dialog. A click focuses it first, because Safari doesn't focus a clicked button, and closing search gives focus back to what had it.
 
 ## The dialog
 

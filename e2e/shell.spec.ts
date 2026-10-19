@@ -37,7 +37,7 @@ function playwrightKeys(ariaKeyShortcuts: string): string {
   return ariaKeyShortcuts.replace(/\+N$/, '+KeyN');
 }
 
-test('Given any page, when I press the New task shortcut, then Home opens with focus on its content', async ({
+test('Given any page, when I press the New task shortcut, then Home opens with focus in its composer', async ({
   page,
 }) => {
   await page.goto('/tickets');
@@ -50,7 +50,8 @@ test('Given any page, when I press the New task shortcut, then Home opens with f
 
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { name: 'What should we build today?' })).toBeVisible();
-  await expect(page.getByRole('main')).toBeFocused();
+  // Spec 015, AC-2: in the composer's box.
+  await expect(page.getByRole('textbox', { name: 'Describe a task for Claude' })).toBeFocused();
 });
 
 test('Given DevHub is opening, when the status and sessions arrive, then nothing on the page moves', async ({

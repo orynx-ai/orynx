@@ -261,6 +261,51 @@ describe('POST /api/sessions', () => {
   });
 });
 
+describe('POST /api/sessions from the composer (spec 015)', () => {
+  const post = (app: FastifyInstance, payload: unknown) =>
+    app.inject({
+      method: 'POST',
+      url: apiRoutes.sessions,
+      headers: { ...headers, 'content-type': 'application/json' },
+      payload: JSON.stringify(payload),
+    });
+
+  it('AC-4: takes the most the composer can send, even text JSON writes six times over', async () => {
+    const { app, store } = await serverWith();
+    // Every escape character in a coloured log becomes six characters in JSON: the worst case the limits allow.
+    const full = '\u001b'.repeat(102_400);
+    const files = [1, 2, 3, 4, 5].map((n) => ({ kind: 'file', name: `build-${String(n)}.log`, text: full }));
+    const payload = { message: '\u001b'.repeat(10_000), context: [{ kind: 'jira', key: 'PROJ-1423' }, ...files] };
+    expect(JSON.stringify(payload).length).toBeGreaterThan(3_000_000);
+
+    const res = await post(app, payload);
+
+    expect(res.statusCode).toBe(200);
+    expect(StartSessionAnswerSchema.parse(res.json())).toEqual({ result: 'cannot_start', reason: 'signed_out' });
+    expect(await store.list()).toEqual([]);
+  });
+
+  it('AC-23: answers the ticket’s live session when the composer adds that ticket', async () => {
+    const { app } = await serverWith({ id: '0123456789abcdef', state: 'done' });
+    const res = await post(app, { message: 'Only the tests', context: [{ kind: 'jira', key: 'PROJ-1423' }] });
+    expect(res.json()).toEqual({ result: 'existing', sessionId: '0123456789abcdef' });
+  });
+
+  it('answers 400 for a body the composer could never send, and 413 past what it ever could', async () => {
+    const { app } = await serverWith();
+    const sixFiles = [1, 2, 3, 4, 5, 6].map((n) => ({ kind: 'file', name: `${String(n)}.md`, text: 'x' }));
+    for (const payload of [
+      { message: '  ', context: [] },
+      { message: 'Go', context: sixFiles },
+      { message: 'Go', context: [{ kind: 'slack_thread', ts: '1' }] },
+      { message: 'Go', context: [{ kind: 'file', name: '../.ssh/id_rsa', text: 'x' }] },
+    ]) {
+      expect((await post(app, payload)).statusCode).toBe(400);
+    }
+    expect((await post(app, { message: 'x'.repeat(5 * 1024 * 1024), context: [] })).statusCode).toBe(413);
+  });
+});
+
 describe('POST /api/sessions/:id/stop and /discard', () => {
   it('AC-9, AC-10: answer 204 for a session it has', async () => {
     const { app, store } = await serverWith({ id: '0123456789abcdef', state: 'stopped' });
