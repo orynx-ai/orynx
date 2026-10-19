@@ -1,4 +1,4 @@
-// Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list; Refresh, the ticket checkboxes and Ship for several: Design: none, the user's call (19 Oct 2026)
+// Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list; Refresh, the ticket checkboxes and the floating bar to Ship several: Design: none, the user's call (19 Oct 2026)
 import { useRef, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -179,13 +179,6 @@ export function TicketsScreen() {
         assigneeRef={assignee}
         pickers={<SprintPickers choice={choice} sprint={sprint} loading={loading} />}
         pickersOnly={noSprint}
-        selection={
-          <ShipSelected
-            onCleared={() => {
-              assignee.current?.focus();
-            }}
-          />
-        }
         {...(wide ? {} : { search: searchField })}
       />
       <PageBody width={noSprint ? 'wide' : 'full'}>
@@ -199,6 +192,11 @@ export function TicketsScreen() {
           </div>
         )}
         {body}
+        <ShipSelected
+          onCleared={() => {
+            assignee.current?.focus();
+          }}
+        />
       </PageBody>
     </>
   );
