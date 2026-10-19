@@ -21,10 +21,9 @@ describe('ListNav', () => {
 
     const list = screen.getByRole('list', { name: 'Your skills' });
     const items = within(list).getAllByRole('button');
-    expect(items.map((item) => item.textContent)).toEqual([
-      'Bug bashUsed 4 timesHunt for bugs in the code a ticket touches.',
-      'How we reviewReview a pull request.',
-    ]);
+    // The button shows only its label, so its name is what it shows; the rest is its description.
+    expect(items.map((item) => item.textContent)).toEqual(['Bug bash', 'How we review']);
+    expect(within(list).getByText('Hunt for bugs in the code a ticket touches.')).toBeVisible();
     expect(items[0]).toHaveAccessibleName('Bug bash');
     expect(items[0]).toHaveAccessibleDescription('Used 4 times Hunt for bugs in the code a ticket touches.');
     expect(items[1]).toHaveAccessibleDescription('Review a pull request.');

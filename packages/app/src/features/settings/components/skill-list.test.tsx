@@ -46,15 +46,15 @@ describe('SkillList', () => {
     render(<SkillList skills={skills} current="bug-bash" onPick={() => undefined} />);
 
     await user.type(screen.getByRole('searchbox', { name: 'Search skills' }), 'REV');
-    expect(names()).toEqual(['How we reviewCorrectness, tests, then nits.']);
+    expect(names()).toEqual(['How we review']);
 
     await user.clear(screen.getByRole('searchbox', { name: 'Search skills' }));
     await user.type(screen.getByRole('searchbox', { name: 'Search skills' }), 'before');
-    expect(names()).toEqual(['Write tests firstBefore changing any code.']);
+    expect(names()).toEqual(['Write tests first']);
 
     await user.clear(screen.getByRole('searchbox', { name: 'Search skills' }));
     await user.type(screen.getByRole('searchbox', { name: 'Search skills' }), 'brok');
-    expect(names()).toEqual(["brokenOrynx can't read this skill."]);
+    expect(names()).toEqual(['broken']);
   });
 
   it('AC-4: says when nothing matches', async () => {
