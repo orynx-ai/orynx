@@ -19,9 +19,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Skills routes in the server, with 401, 400 for a bad folder and 422 for a taken name (AC-7, AC-20, AC-28)
       Check: pnpm test packages/core/src/routes/skills.test.ts
       Files: packages/core/src/routes/skills.ts, packages/core/src/routes/skills.test.ts, packages/core/src/create-server.ts
-- [ ] Task 6: API client for skills, and `skills.changed` refreshing them (AC-19)
-      Check: pnpm test packages/api-client/src/skills.test.ts packages/app/src/live-updates.test.tsx
-      Files: packages/api-client/src/endpoints/skills.ts, packages/api-client/src/skills.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/app/src/live-updates.tsx, packages/app/src/live-updates.test.tsx
+- [x] Task 6: API client for skills; `skills.changed` keys the list (its screen test is task 10's AC-19)
+      Check: pnpm test packages/api-client/src/skills.test.ts
+      Files: packages/api-client/src/endpoints/skills.ts, packages/api-client/src/skills.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts
 - [ ] Task 7: `ListNav` in `@devhub/ui` (AC-3, AC-26)
       Check: pnpm test packages/ui/src/components/list-nav.test.tsx
       Files: packages/ui/src/components/list-nav.tsx, packages/ui/src/components/list-nav.stories.tsx, packages/ui/src/components/list-nav.test.tsx, packages/ui/src/index.ts, docs/design-map.md
@@ -31,7 +31,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 9: The Skills tab after Coding agent, the page bar's count and New skill, the callout, and the loading, error and empty states (AC-1, AC-2, AC-12, AC-15)
       Check: pnpm test packages/app/src/features/settings/settings-screen.test.tsx packages/app/src/features/settings/components/skills-panel.test.tsx
       Files: packages/app/src/features/settings/tabs.ts, packages/app/src/features/settings/settings-screen.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/features/settings/components/skills-panel.tsx, packages/app/src/features/settings/components/skills-panel.test.tsx
-- [ ] Task 10: The skill list with search (AC-2, AC-3, AC-4)
+- [ ] Task 10: The skill list with search, refreshed by `skills.changed` (AC-2, AC-3, AC-4, AC-19)
       Check: pnpm test packages/app/src/features/settings/components/skill-list.test.tsx
       Files: packages/app/src/features/settings/components/skill-list.tsx, packages/app/src/features/settings/components/skill-list.test.tsx, packages/app/src/features/settings/components/skills-panel.tsx
 - [ ] Task 11: The skill editor: fields, the folder name from the Name, save, field errors, a failed save (AC-2, AC-5, AC-6, AC-8, AC-16, AC-18, AC-27)

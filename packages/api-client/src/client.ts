@@ -15,6 +15,10 @@ import {
   type Repository,
   type RepositoryId,
   type RepositoryList,
+  type ReadySkill,
+  type SaveSkillRequest,
+  type SkillFolder,
+  type SkillList,
   type UpdateRepositoryRequest,
   type SearchIndex,
   type ServerEvent,
@@ -49,6 +53,7 @@ import {
   postFolderPicker,
   postRepository,
 } from './endpoints/repositories.ts';
+import { deleteSkill, getSkills, postSkill, postStarterSkills, putSkill } from './endpoints/skills.ts';
 import { getSearch } from './endpoints/search.ts';
 import {
   getFileDiff,
@@ -137,6 +142,15 @@ export interface ApiClient {
   removeRepository(id: RepositoryId): Promise<void>;
   /** Opens the computer's folder picker (spec 020); rejects with picker_unavailable where none can open. */
   pickFolder(): Promise<FolderPick>;
+  /** Settings › Skills (spec 023): your skills by Name, and the plugin folder they live in. */
+  skills(): Promise<SkillList>;
+  /** Writes a new skill; rejects with skill_rejected and the words for Name when its folder is taken. */
+  addSkill(request: SaveSkillRequest): Promise<ReadySkill>;
+  /** Saves a skill, moving its folder on a rename; rejects with skill_rejected, or not_found when it went. */
+  saveSkill(folder: SkillFolder, request: SaveSkillRequest): Promise<ReadySkill>;
+  removeSkill(folder: SkillFolder): Promise<void>;
+  /** Adds the four starter skills whose folders are free. */
+  addStarterSkills(): Promise<void>;
   /** Home's "Needs your attention" list, from the server's cache. */
   inbox(): Promise<Inbox>;
   /** Syncs the inbox now; resolves once the sync has ended. */
@@ -222,6 +236,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     removeRepository: (id) =>
       deleteRepository(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     pickFolder: () => postFolderPicker(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    skills: () => getSkills(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    addSkill: (request) => postSkill(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    saveSkill: (folder, request) =>
+      putSkill(http, folder, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    removeSkill: (folder) =>
+      deleteSkill(http, folder).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    addStarterSkills: () => postStarterSkills(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     inbox: () => getInbox(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     refreshInbox: () => postInboxRefresh(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

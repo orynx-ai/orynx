@@ -137,6 +137,15 @@ export function repositoriesQueryOptions(api: ApiClient) {
   });
 }
 
+export function skillsQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.skills,
+    queryFn: () => api.skills(),
+    // Every add, save and delete publishes skills.changed, which refreshes this in every open tab (spec 023).
+    staleTime: Infinity,
+  });
+}
+
 export function jiraProjectsQueryOptions(api: ApiClient) {
   return queryOptions({
     queryKey: queryKeys.jiraProjects,
