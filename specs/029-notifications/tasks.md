@@ -22,9 +22,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: The notification settings service: read with defaults, save one change, keep unknown keys, `settings.changed` (AC-39, AC-41, AC-44)
       Check: pnpm test packages/core/src/notifications/notification-settings.test.ts
       Files: packages/core/src/notifications/notification-settings.ts, packages/core/src/notifications/notification-settings.test.ts, packages/core/src/settings/settings-store.ts
-- [ ] Task 7: Routes: `GET /api/notifications`, `POST /api/notifications/read`, `GET`/`PATCH /api/notifications/settings`, wired in the server; ids only in logs and events (AC-7, AC-13, AC-47)
-      Check: pnpm test packages/core/src/routes/notifications.test.ts packages/core/src/notifications/no-leaks.test.ts
-      Files: packages/core/src/routes/notifications.ts, packages/core/src/routes/notifications.test.ts, packages/core/src/notifications/no-leaks.test.ts, packages/core/src/create-server.ts
+- [x] Task 7: Routes: `GET /api/notifications`, `POST /api/notifications/read`, `GET`/`PATCH /api/notifications/settings`, wired in the server; Clear cache empties the list; ids only in logs and events (AC-7, AC-13, AC-47)
+      Check: pnpm test packages/core/src/routes/notifications.test.ts packages/core/src/sessions/no-leaks.test.ts (a session's approval now raises a notification, and its command still reaches no log or event)
+      Files: packages/core/src/routes/notifications.ts, packages/core/src/routes/notifications.test.ts, packages/core/src/create-server.ts, packages/core/src/inbox/inbox-service.ts
 
 **API client**
 

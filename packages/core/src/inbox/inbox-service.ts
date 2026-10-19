@@ -317,6 +317,8 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     clear() {
       cache.clear();
       events.publish({ type: 'inbox.changed' });
+      // The notifications live in the cache too (spec 029).
+      events.publish({ type: 'notifications.changed' });
       syncAfterChange().catch((error: unknown) => options.onError?.(error));
       return Promise.resolve();
     },
