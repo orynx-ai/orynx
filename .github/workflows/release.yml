@@ -28,6 +28,8 @@ jobs:
           fetch-depth: 0
       - name: release points at a commit on main
         run: |
+          # Ensure we have the latest main ref so merge-base can compare against origin/main.
+          git fetch origin main
           if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
             echo "::error::release must point at a commit on main: git push origin main:release"
             exit 1
