@@ -32,6 +32,8 @@ import { jiraRoutes } from './routes/jira.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
 import { filesRoutes } from './routes/files.ts';
+import { skillsRoutes } from './routes/skills.ts';
+import { createSkillsService } from './skills/skills-service.ts';
 import { folderPickerRoutes } from './routes/folder-picker.ts';
 import { searchRoutes } from './routes/search.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
@@ -458,6 +460,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
         picker: options.folderPicker ?? createFolderPicker({ searchPath: '', platform: process.platform }),
         home: userHome,
       });
+      await api.register(skillsRoutes, { skills: createSkillsService({ repositories, home: userHome }) });
       await api.register(filesRoutes, {
         picker: options.filePicker ?? createFilePicker({ searchPath: '', platform: process.platform }),
         home: userHome,

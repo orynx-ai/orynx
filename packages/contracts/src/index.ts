@@ -14,5 +14,6 @@ export * from './routes.ts';
 export * from './search.ts';
 export * from './secret-names.ts';
 export * from './session.ts';
+export * from './skills.ts';
 export * from './status.ts';
 export * from './tickets.ts';
