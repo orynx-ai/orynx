@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Book02Icon } from '@hugeicons/core-free-icons';
 import type { ReadySkill, SkillEntry, SkillFolder } from '@devhub/contracts';
@@ -41,9 +41,34 @@ export function SkillsPanel() {
   const search = useSearch({ from: '/settings/$tab' });
   const navigate = useNavigate();
   const list = skills.data?.skills;
+  const items = useRef(new Map<SkillFolder, HTMLButtonElement>());
+  const startersButton = useRef<HTMLButtonElement>(null);
+  // Where focus goes once the list shows it: a skill, the starters when none is left, or nowhere yet.
+  const [focusNext, setFocusNext] = useState<SkillFolder | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (focusNext === undefined) return;
+    const target = focusNext === null ? startersButton.current : items.current.get(focusNext);
+    if (target === null || target === undefined) return;
+    target.focus();
+    setFocusNext(undefined);
+  }, [focusNext, list]);
 
   function open(folder: SkillFolder) {
     void navigate({ to: '/settings/$tab', params: { tab: 'skills' }, search: { skill: folder } });
+  }
+
+  /** After a delete, the skill after it opens (the one before when it was last), with focus on it (AC-10). */
+  function deleted(folder: SkillFolder) {
+    const index = list?.findIndex((skill) => skill.folder === folder) ?? -1;
+    const next = list?.[index + 1] ?? list?.[index - 1];
+    void navigate({
+      to: '/settings/$tab',
+      params: { tab: 'skills' },
+      search: next === undefined ? {} : { skill: next.folder },
+      replace: true,
+    });
+    setFocusNext(next?.folder ?? null);
   }
 
   /** A new skill, or a rename, is saved under another folder: the address follows it. */
@@ -83,6 +108,7 @@ export function SkillsPanel() {
           title="No skills yet."
           action={
             <Button
+              ref={startersButton}
               variant="secondary"
               size="sm"
               pending={starters.isPending}
@@ -97,7 +123,16 @@ export function SkillsPanel() {
       ) : (
         <div className="flex flex-wrap items-start gap-5">
           {list.length === 0 ? null : (
-            <SkillList skills={list} current={openFolder(list, search)} onPick={open} className={listColumn} />
+            <SkillList
+              skills={list}
+              current={openFolder(list, search)}
+              onPick={open}
+              itemRef={(folder, button) => {
+                if (button === null) items.current.delete(folder);
+                else items.current.set(folder, button);
+              }}
+              className={listColumn}
+            />
           )}
           {editorFor(list, search, (skill) => (
             <SkillEditor
@@ -106,6 +141,9 @@ export function SkillsPanel() {
               skill={skill}
               pluginFolder={skills.data?.pluginFolder ?? ''}
               onSaved={saved}
+              onDeleted={() => {
+                if (skill !== null) deleted(skill.folder);
+              }}
               className={editorColumn}
             />
           ))}

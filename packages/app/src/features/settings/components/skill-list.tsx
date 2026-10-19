@@ -7,6 +7,8 @@ export interface SkillListProps {
   /** The open skill's folder; none while a new skill is open. */
   current: SkillFolder | null;
   onPick: (folder: SkillFolder) => void;
+  /** Each item's button, so focus can move to a skill (after a delete, AC-10). */
+  itemRef?: (folder: SkillFolder, button: HTMLButtonElement | null) => void;
   className?: string;
 }
 
@@ -19,7 +21,7 @@ function searchText(skill: SkillEntry): string {
  * Settings › Skills' list (spec 023): each skill's Name and when to use it, the open one current, under Search
  * skills, which keeps the skills that hold what you type (AC-4). The open skill stays open while you search.
  */
-export function SkillList({ skills, current, onPick, className }: SkillListProps) {
+export function SkillList({ skills, current, onPick, itemRef, className }: SkillListProps) {
   const form = useForm({ defaultValues: { query: '' } });
   const query = form.watch('query').trim();
   const shown = query === '' ? skills : skills.filter((skill) => searchText(skill).includes(query.toLowerCase()));
@@ -54,6 +56,9 @@ export function SkillList({ skills, current, onPick, className }: SkillListProps
           label={skill.state === 'ready' ? skill.title : skill.folder}
           description={skill.state === 'ready' ? skill.description : "Orynx can't read this skill."}
           current={skill.folder === current}
+          ref={(button) => {
+            itemRef?.(skill.folder, button);
+          }}
           onClick={() => {
             onPick(skill.folder);
           }}

@@ -40,9 +40,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: New skill, and a taken name on Name (AC-7, AC-9)
       Check: pnpm test packages/app/src/features/settings/components/skill-editor.test.tsx packages/app/src/features/settings/components/skills-panel.test.tsx
       Files: packages/app/src/features/settings/components/skill-editor.tsx, packages/app/src/features/settings/components/skills-panel.tsx, their tests
-- [ ] Task 13: Delete skill with its dialog, and focus after it (AC-10)
+- [x] Task 13: Delete skill with its dialog, and focus after it (AC-10)
       Check: pnpm test packages/app/src/features/settings/components/skills-panel.test.tsx
-      Files: packages/app/src/features/settings/components/delete-skill-dialog.tsx, packages/app/src/features/settings/components/skills-panel.tsx, their tests
+      Files: packages/app/src/features/settings/components/delete-skill.tsx, packages/app/src/features/settings/components/skills-panel.tsx, their tests
 - [ ] Task 14: Discard changes when picking another skill, pressing New skill or leaving the tab (AC-11)
       Check: pnpm test packages/app/src/features/settings/components/skills-panel.test.tsx
       Files: packages/app/src/features/settings/components/discard-skill-dialog.tsx, packages/app/src/features/settings/components/skills-panel.tsx, their tests

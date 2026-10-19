@@ -5,6 +5,7 @@ import type { z } from 'zod';
 import { folderFromName, SaveSkillRequestSchema, type ReadySkill, type SaveSkillRequest } from '@devhub/contracts';
 import { Button, Field, Input, Panel, Skeleton, SourceMark, Textarea } from '@devhub/ui';
 import { useAddSkill, useSaveSkill } from '../queries.ts';
+import { DeleteSkill } from './delete-skill.tsx';
 
 type SubmitEvent = Parameters<NonNullable<ComponentProps<'form'>['onSubmit']>>[0];
 
@@ -15,6 +16,8 @@ export interface SkillEditorProps {
   pluginFolder: string;
   /** After a save, with the skill as the server wrote it: a rename comes back under its new folder. */
   onSaved: (skill: ReadySkill) => void;
+  /** After Delete skill removed it. */
+  onDeleted: () => void;
   className?: string;
 }
 
@@ -38,7 +41,7 @@ const foot = 'flex flex-wrap items-center gap-2 border-t border-border bg-sideba
  * whose folder is taken comes back from the server under Name (AC-7). Changes from another tab show unless you
  * changed the same field here (AC-19).
  */
-export function SkillEditor({ skill, pluginFolder, onSaved, className }: SkillEditorProps) {
+export function SkillEditor({ skill, pluginFolder, onSaved, onDeleted, className }: SkillEditorProps) {
   const headingId = useId();
   const save = useSaveSkill();
   const add = useAddSkill();
@@ -127,6 +130,9 @@ export function SkillEditor({ skill, pluginFolder, onSaved, className }: SkillEd
           </Field>
         </div>
         <div className={foot}>
+          {skill === null ? null : (
+            <DeleteSkill folder={skill.folder} name={skill.title} pluginFolder={pluginFolder} onDeleted={onDeleted} />
+          )}
           <span role="status" className="ms-auto text-small text-muted-foreground">
             {status}
           </span>

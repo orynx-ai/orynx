@@ -411,3 +411,14 @@ export function useAddSkill() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
   });
 }
+
+/** Deletes a skill's folder; the list reads itself again before the delete settles. */
+export function useRemoveSkill() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<unknown, ApiRequestError, SkillFolder>({
+    mutationKey: [...queryKeys.skills, 'remove'],
+    mutationFn: (folder) => api.removeSkill(folder),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
+  });
+}
