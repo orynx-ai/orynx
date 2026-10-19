@@ -76,7 +76,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **G. Skills**
 
-- [ ] Task 19: Read the skills: add `yaml` to `@devhub/core` and `docs/architecture.md`; a skills reader for a folder's `.claude/skills/*/SKILL.md` and `.claude/commands/**/*.md` and the same under `~/.claude`, with `name` and `description` from the frontmatter (first 64 KB), the folder's name when there's no `name`, unreadable files skipped, and the folder's winning over yours (AC-57, AC-58)
+- [x] Task 19: Read the skills: add `yaml` to `@devhub/core` and `docs/architecture.md`; a skills reader for a folder's `.claude/skills/*/SKILL.md` and `.claude/commands/**/*.md` and the same under `~/.claude`, with `name` and `description` from the frontmatter (first 64 KB), the folder's name when there's no `name`, unreadable files skipped, and the folder's winning over yours (AC-57, AC-58)
       Check: pnpm test packages/core/src/skills
       Files: packages/core/package.json, pnpm-lock.yaml (through pnpm add), docs/architecture.md, packages/core/src/skills/skills-reader.ts, packages/core/src/skills/skills-reader.test.ts
 - [ ] Task 20: Serve the skills: `SkillListSchema` and `GET /api/skills?repositoryId=` in the contracts, the route over the reader with the folder from Settings › Repositories (yours only without one), 404 for an unknown folder; route tests with temporary folders as the repository and `~` (AC-49, AC-55, AC-59)
