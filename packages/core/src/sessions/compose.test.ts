@@ -41,6 +41,13 @@ const api = makeRepository({ id: '00000000000000bb', name: 'api', path: '/Users/
 const ticketChip = { kind: 'jira', key: 'PROJ-1423' } as const;
 const pullChip = { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 } as const;
 const fileChip = { kind: 'file', name: 'notes.md', text: '# Notes\n\nExport every column.' } as const;
+const mob = makeRepository({
+  id: '00000000000000cc',
+  name: 'mobile',
+  path: '/Users/priya/code/mobile',
+  jiraProject: 'MOB',
+});
+const mobChip = { kind: 'jira', key: 'MOB-7' } as const;
 
 describe('which folder a composer start works in (spec 015, Q7)', () => {
   const start = (change: { repositoryId?: string; context?: ComposerChip[] }) => {
@@ -56,6 +63,7 @@ describe('which folder a composer start works in (spec 015, Q7)', () => {
     ['nothing, for a folder that’s gone', [proj], start({ repositoryId: api.id }), 'choose_folder'],
     ['nothing, with two folders and no ticket', [proj, api], start({}), 'choose_folder'],
     ['nothing, with no folder for the ticket’s project', [api], start({ context: [ticketChip] }), 'choose_folder'],
+    ['the first ticket’s folder (spec 022, AC-7)', [proj, mob], start({ context: [mobChip, ticketChip] }), mob],
   ] as const)('AC-17, AC-18: picks %s', (_case, folders, request, folder) => {
     expect(chooseFolder(folders, request)).toEqual(folder);
   });
@@ -90,6 +98,19 @@ describe('what a composer start makes (spec 015, Q8)', () => {
       plan: { branchName: 'PROJ-1423', briefStep: { key: 'PROJ-1423', message: false }, ticketNote: true },
     });
     expect(composerPlan('Only the tests', [ticket]).plan.ticketNote).toBe(false);
+  });
+
+  it('AC-4 (spec 022, Q2): the first ticket names the session and its branch; the others are listed after it', () => {
+    const other: BriefChip = { ...ticket, key: 'PROJ-1424', summary: 'Archive from the list' };
+    expect(composerPlan('Do both', [other, ticket])).toMatchObject({
+      title: 'Archive from the list',
+      ticket: { key: 'PROJ-1424' },
+      plan: {
+        branchName: 'PROJ-1424',
+        briefStep: { key: 'PROJ-1424', tickets: ['PROJ-1423'], message: true },
+        ticketNote: false,
+      },
+    });
   });
 });
 
@@ -197,7 +218,7 @@ async function setUp({
     ]),
     acceptingPullDiff([{ number: 2836, diff: 'diff --git a/a.ts b/a.ts\n+x' }]),
   );
-  return { sessions, records, home, heard, sdk, folder: added[0] };
+  return { sessions, records, home, heard, sdk, folder: added[0], outside };
 }
 
 /** Waits until the session isn't Working or waiting for you any more. */
@@ -238,6 +259,34 @@ describe('a composer start that can’t happen (spec 015)', () => {
 
     expect(answer).toEqual({ result: 'existing', sessionId: '0000000000000001' });
     await nothingMade(set, 1, heardBefore);
+  });
+
+  it('AC-5 (spec 022): a live session on a ticket after the first doesn’t stop the start', async () => {
+    const set = await setUp();
+    await set.sessions.start({ ticketKey: 'PROJ-1423' });
+    await settled(set.records);
+    set.outside.use(
+      acceptingIssue([
+        { key: 'PROJ-1424', summary: 'Archive from the list', type: 'Task' },
+        { key: 'PROJ-1423', summary: 'Add bulk archive to the content list', type: 'Story' },
+      ]),
+    );
+
+    const answer = await set.sessions.start(
+      makeComposerStart({
+        message: 'Do both',
+        repositoryId: set.folder?.id,
+        context: [{ kind: 'jira', key: 'PROJ-1424' }, ticketChip],
+      }),
+    );
+
+    expect(answer).toEqual({ result: 'started', sessionId: '0000000000000002' });
+    const record = await settled(set.records, '0000000000000002');
+    expect(record.session).toMatchObject({ source: { kind: 'jira', key: 'PROJ-1424' }, branch: 'feat/PROJ-1424' });
+    const brief = await set.records.readBrief('0000000000000002');
+    expect(brief).toMatch(
+      /^Do both\n\nJira ticket PROJ-1424 \(Task\): Archive from the list\n\n[^]*\nJira ticket PROJ-1423 \(Story\)/,
+    );
   });
 
   it('AC-22: Claude Code signed out makes nothing', async () => {

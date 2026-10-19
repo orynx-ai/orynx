@@ -94,6 +94,8 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({
     kind: z.literal('brief'),
     key: JiraIssueKeySchema.nullable(),
+    /** The other tickets Claude got, after the session's own (spec 022, Q2); none before spec 022. */
+    tickets: z.array(JiraIssueKeySchema).default([]),
     message: z.boolean().default(false),
     pullRequests: z.array(z.string().min(1)).default([]),
     files: z.array(z.string().min(1)).default([]),
@@ -292,8 +294,11 @@ export type TicketStart = z.infer<typeof TicketStartSchema>;
 /** A follow-up, or the composer's message, holds at most this many characters (spec 013, spec 015). */
 export const mostMessageCharacters = 10_000;
 
-/** What one session can take from + Add context (spec 015): one ticket (Q2), and a file's text in UTF-8 bytes (Q5). */
-export const composerLimits = { tickets: 1, pullRequests: 3, files: 5, fileBytes: 100 * 1024 } as const;
+/**
+ * What one session can take from the composer (spec 022, Q5): its tickets, pull requests, files and the skills its
+ * message names, and a file's text in UTF-8 bytes (spec 015, Q5).
+ */
+export const composerLimits = { tickets: 10, pullRequests: 10, files: 20, skills: 5, fileBytes: 100 * 1024 } as const;
 
 /** GitHub's own rules for a user or organisation and for a repository's name, so neither can be read as a path. */
 const GitHubOwnerSchema = z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/);
@@ -352,12 +357,14 @@ export const ComposerStartSchema = z
     const tickets = context.filter((chip) => chip.kind === 'jira');
     const pulls = context.filter((chip) => chip.kind === 'pull_request');
     const files = context.filter((chip) => chip.kind === 'file');
-    if (tickets.length > composerLimits.tickets) check.addIssue({ code: 'custom', message: 'One ticket at most.' });
+    if (tickets.length > composerLimits.tickets) check.addIssue({ code: 'custom', message: 'Ten tickets at most.' });
+    if (new Set(tickets.map((chip) => chip.key)).size < tickets.length)
+      check.addIssue({ code: 'custom', message: 'The same ticket twice.' });
     if (pulls.length > composerLimits.pullRequests)
-      check.addIssue({ code: 'custom', message: 'Three pull requests at most.' });
+      check.addIssue({ code: 'custom', message: 'Ten pull requests at most.' });
     if (new Set(pulls.map(pullRequestId)).size < pulls.length)
       check.addIssue({ code: 'custom', message: 'The same pull request twice.' });
-    if (files.length > composerLimits.files) check.addIssue({ code: 'custom', message: 'Five files at most.' });
+    if (files.length > composerLimits.files) check.addIssue({ code: 'custom', message: 'Twenty files at most.' });
     if (message === '' && tickets.length === 0)
       check.addIssue({ code: 'custom', message: 'A message, or a ticket as the brief.' });
   });

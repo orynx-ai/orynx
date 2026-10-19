@@ -94,7 +94,16 @@ async function setUp({
       jiraUrl,
       activities: [
         { id: 'step-1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base, fetched: true },
-        { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
+        {
+          id: 'step-2',
+          state: 'done',
+          kind: 'brief',
+          key: 'PROJ-1423',
+          tickets: [],
+          message: false,
+          pullRequests: [],
+          files: [],
+        },
         { id: 'step-3', state: 'done', kind: 'edit', files: ['README.md'] },
         { id: 'step-4', state: 'done', kind: 'finished', summary: 'Added row selection. `npm test` passes.' },
       ],
@@ -207,7 +216,16 @@ describe('drafting the pull request (spec 014)', () => {
       jiraUrl: null,
       activities: [
         { id: 'step-1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true },
-        { id: 'step-2', state: 'done', kind: 'brief', key: null, message: true, pullRequests: [], files: [] },
+        {
+          id: 'step-2',
+          state: 'done',
+          kind: 'brief',
+          key: null,
+          tickets: [],
+          message: true,
+          pullRequests: [],
+          files: [],
+        },
         { id: 'step-3', state: 'done', kind: 'finished', summary: 'Added the CSV export.' },
       ],
     };

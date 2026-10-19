@@ -91,6 +91,7 @@ describe('SessionScreen', () => {
             state: 'done',
             kind: 'brief',
             key: null,
+            tickets: [],
             message: true,
             pullRequests: ['web-app #2836'],
             files: ['notes.md'],

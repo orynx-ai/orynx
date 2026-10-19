@@ -176,16 +176,60 @@ describe('pasting and removing chips (spec 015)', () => {
     expect(within(screen.getByRole('list', { name: 'Context for Claude' })).getAllByRole('listitem')).toHaveLength(2);
   });
 
-  it('AC-11: a fourth pasted pull request is said, not added', async () => {
+  it('022 AC-3: an eleventh pasted pull request or ticket is said, not added', async () => {
     serve();
-    useComposerStore.setState({
-      chips: [1, 2, 3].map((number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number })),
-    });
+    const pulls = Array.from({ length: 10 }, (_, n) => ({
+      kind: 'pull_request' as const,
+      owner: 'acme',
+      name: 'web-app',
+      number: n + 1,
+    }));
+    useComposerStore.setState({ chips: pulls });
     const { user } = await renderApp();
     await user.click(await screen.findByRole('textbox', { name: 'Describe a task for Claude' }));
     await user.paste('https://github.com/acme/web-app/pull/2836');
-    expect(await screen.findByRole('alert')).toHaveTextContent('A session takes up to 3 pull requests.');
-    expect(useComposerStore.getState().chips).toHaveLength(3);
+    expect(await screen.findByRole('alert')).toHaveTextContent('A session takes up to 10 pull requests.');
+    expect(useComposerStore.getState().chips).toHaveLength(10);
+
+    useComposerStore.setState({
+      chips: Array.from({ length: 10 }, (_, n) => ({ kind: 'jira' as const, key: `OPS-${String(n + 1)}` })),
+    });
+    await user.paste('PROJ-1423');
+    expect(await screen.findByRole('alert')).toHaveTextContent('A session takes up to 10 tickets.');
+  });
+
+  it('022 AC-2: pasting a key that’s there already adds nothing', async () => {
+    serve();
+    useComposerStore.setState({ chips: [{ kind: 'jira', key: 'PROJ-1423' }] });
+    const { user } = await renderApp();
+    await user.click(await screen.findByRole('textbox', { name: 'Describe a task for Claude' }));
+    await user.paste('PROJ-1423');
+    expect(useComposerStore.getState().chips).toEqual([{ kind: 'jira', key: 'PROJ-1423' }]);
+    expect(box()).toHaveValue('');
+  });
+
+  it('022 AC-7: removing the first ticket makes the next one lead the folder', async () => {
+    const mobile = makeRepository({
+      id: '00000000000000cc',
+      name: 'mobile',
+      displayPath: '~/code/mobile',
+      jiraProject: 'MOB',
+    });
+    serve();
+    server.use(http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: [web, mobile] })));
+    useComposerStore.setState({
+      chips: [
+        { kind: 'jira', key: 'PROJ-1423' },
+        { kind: 'jira', key: 'MOB-7' },
+      ],
+    });
+    const { user } = await renderApp();
+    expect(await screen.findByRole('button', { name: 'Repository: web-app' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Remove PROJ-1423' }));
+
+    expect(await screen.findByRole('button', { name: 'Repository: mobile' })).toBeVisible();
+    expect(box()).toHaveAttribute('placeholder', 'What should Claude do with MOB-7?');
   });
 
   it('AC-15: a chip’s × by keyboard removes it, moves focus on and says so', async () => {

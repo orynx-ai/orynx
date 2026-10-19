@@ -79,7 +79,7 @@ describe('+ Add context (spec 015)', () => {
     expect(box()).toHaveAttribute('placeholder', 'What should Claude do with PROJ-1377?');
   });
 
-  it('AC-9: the ticket added is checked, and picking another takes its place', async () => {
+  it('022 AC-1: the ticket added is checked, and picking another adds it after the first', async () => {
     serve();
     useComposerStore.setState({ chips: [{ kind: 'jira', key: 'PROJ-1423' }] });
     const { user } = await renderApp();
@@ -89,8 +89,31 @@ describe('+ Add context (spec 015)', () => {
     expect(within(dialog).getByRole('option', { name: /PROJ-1423/ })).toHaveAttribute('aria-selected', 'true');
     await user.click(within(dialog).getByRole('option', { name: /PROJ-1377/ }));
     await waitFor(() => {
-      expect(chips().map((chip) => chip.textContent)).toEqual(['PROJ-1377']);
+      expect(chips().map((chip) => chip.textContent)).toEqual(['PROJ-1423', 'PROJ-1377']);
     });
+    expect(box()).toHaveAttribute('placeholder', 'What should Claude do with these 2 tickets?');
+
+    await openKind(user, /Jira ticket/);
+    const again = await screen.findByRole('dialog', { name: 'Jira ticket' });
+    expect(within(again).getByRole('option', { name: /PROJ-1377/ })).toHaveAttribute('aria-selected', 'true');
+    // 022 AC-2: picking a ticket that's there already adds nothing.
+    await user.click(within(again).getByRole('option', { name: /PROJ-1423/ }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Jira ticket' })).toBeNull();
+    });
+    expect(chips().map((chip) => chip.textContent)).toEqual(['PROJ-1423', 'PROJ-1377']);
+  });
+
+  it('022 AC-3: the Jira list says why an eleventh ticket can’t be added', async () => {
+    serve();
+    useComposerStore.setState({
+      chips: Array.from({ length: 10 }, (_, n) => ({ kind: 'jira', key: `OPS-${String(n + 1)}` })),
+    });
+    const { user } = await renderApp();
+    await openKind(user, /Jira ticket/);
+    const dialog = await screen.findByRole('dialog', { name: 'Jira ticket' });
+    expect(within(dialog).getByText('A session takes up to 10 tickets.')).toBeVisible();
+    expect(within(dialog).queryAllByRole('option')).toEqual([]);
   });
 
   it('AC-10: offers a key the list doesn’t hold, and says when nothing matches', async () => {
@@ -110,7 +133,7 @@ describe('+ Add context (spec 015)', () => {
     });
   });
 
-  it('AC-11: adds a pull request, and says why a fourth can’t be added', async () => {
+  it('022 AC-3: adds a pull request, and says why an eleventh can’t be added', async () => {
     serve();
     const { user } = await renderApp();
     await openKind(user, /Pull request/);
@@ -120,11 +143,16 @@ describe('+ Add context (spec 015)', () => {
     });
 
     useComposerStore.setState({
-      chips: [1, 2, 3].map((number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number })),
+      chips: Array.from({ length: 10 }, (_, n) => ({
+        kind: 'pull_request',
+        owner: 'acme',
+        name: 'web-app',
+        number: n + 1,
+      })),
     });
     await openKind(user, /Pull request/);
     const dialog = await screen.findByRole('dialog', { name: 'Pull request' });
-    expect(within(dialog).getByText('A session takes up to 3 pull requests.')).toBeVisible();
+    expect(within(dialog).getByText('A session takes up to 10 pull requests.')).toBeVisible();
     expect(within(dialog).queryAllByRole('option')).toEqual([]);
   });
 
@@ -140,7 +168,7 @@ describe('+ Add context (spec 015)', () => {
     expect(screen.queryByRole('list', { name: 'Context for Claude' })).toBeNull();
   });
 
-  it('AC-12: a text file becomes a chip; a binary, a large file or a sixth file is said under the composer', async () => {
+  it('AC-12: a text file becomes a chip; a binary, a large file or a 21st file is said under the composer', async () => {
     serve();
     const { user } = await renderApp();
     await openKind(user, /File from this computer/);
@@ -158,10 +186,10 @@ describe('+ Add context (spec 015)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('big.log is over 100 KB.');
 
     useComposerStore.setState({
-      chips: [1, 2, 3, 4, 5].map((n) => ({ kind: 'file', name: `${String(n)}.md`, text: 'x' })),
+      chips: Array.from({ length: 20 }, (_, n) => ({ kind: 'file', name: `${String(n + 1)}.md`, text: 'x' })),
     });
-    await user.upload(input, new File(['six'], '6.md'));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Add up to 5 files.');
+    await user.upload(input, new File(['more'], '21.md'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Add up to 20 files.');
   });
 
   it('AC-32: a tool that isn’t connected says so with the way to Settings; a first sync shows loading rows', async () => {

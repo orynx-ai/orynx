@@ -24,17 +24,22 @@ describe('the composer’s draft (spec 015, Q14)', () => {
     });
   });
 
-  it('AC-9 (Q2): a second ticket takes the first one’s place; a fourth pull request is refused', () => {
+  it('022 AC-1, AC-3: a second ticket is added after the first; an eleventh pull request is refused', () => {
     const composer = useComposerStore.getState();
     composer.addChip({ kind: 'jira', key: 'PROJ-1423' });
     composer.addChip({ kind: 'jira', key: 'PROJ-7' });
-    expect(useComposerStore.getState().chips).toEqual([{ kind: 'jira', key: 'PROJ-7' }]);
+    expect(useComposerStore.getState().chips).toEqual([
+      { kind: 'jira', key: 'PROJ-1423' },
+      { kind: 'jira', key: 'PROJ-7' },
+    ]);
 
-    for (const number of [1, 2, 3]) composer.addChip({ kind: 'pull_request', owner: 'acme', name: 'web-app', number });
-    expect(composer.addChip({ kind: 'pull_request', owner: 'acme', name: 'web-app', number: 4 })).toBe(
+    for (let number = 1; number <= 10; number++) {
+      composer.addChip({ kind: 'pull_request', owner: 'acme', name: 'web-app', number });
+    }
+    expect(composer.addChip({ kind: 'pull_request', owner: 'acme', name: 'web-app', number: 11 })).toBe(
       'too_many_pull_requests',
     );
-    expect(useComposerStore.getState().chips).toHaveLength(4);
+    expect(useComposerStore.getState().chips).toHaveLength(12);
   });
 
   it('AC-15: removes one chip by its place', () => {

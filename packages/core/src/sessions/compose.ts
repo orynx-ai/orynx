@@ -23,7 +23,7 @@ export function ticketPlan(issue: JiraIssueDetail): StartPlan {
   return {
     brief: ticketBrief(issue),
     branchName: issue.key,
-    briefStep: { key: issue.key, message: false, pullRequests: [], files: [] },
+    briefStep: { key: issue.key, tickets: [], message: false, pullRequests: [], files: [] },
     ticketNote: true,
   };
 }
@@ -32,7 +32,7 @@ function projectOf(key: string): string {
   return key.slice(0, key.lastIndexOf('-'));
 }
 
-/** The ticket chip's key, if the composer added one (Q2: at most one). */
+/** The session's own ticket: the first the composer added (spec 022, Q2). The others are context only. */
 export function ticketKeyOf(request: ComposerStart): string | null {
   return request.context.find((chip) => chip.kind === 'jira')?.key ?? null;
 }
@@ -57,7 +57,7 @@ export function chooseFolder(
 /** What a composer start makes from your message and the chips as read (Q8). */
 export interface ComposerPlan {
   title: string;
-  /** The ticket chip as read, for the session's source, title and Ticket tab; null without one. */
+  /** The first ticket chip as read, for the session's source, title and Ticket tab; null without one (spec 022, Q2). */
   ticket: BriefTicket | null;
   plan: StartPlan;
 }
@@ -73,6 +73,7 @@ export function composerPlan(message: string, chips: readonly BriefChip[]): Comp
       branchName: ticket === null ? branchSlug(title) : ticket.key,
       briefStep: {
         key: ticket?.key ?? null,
+        tickets: chips.flatMap((chip) => (chip.kind === 'jira' && chip !== ticket ? [chip.key] : [])),
         message: message !== '',
         pullRequests: chips.flatMap((chip) =>
           chip.kind === 'pull_request' ? [`${chip.name} #${String(chip.number)}`] : [],

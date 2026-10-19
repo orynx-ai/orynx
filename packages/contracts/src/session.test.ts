@@ -11,6 +11,7 @@ import {
   SessionListSchema,
   SessionSchema,
   ComposerStartSchema,
+  composerLimits,
   StartSessionAnswerSchema,
   StartSessionRequestSchema,
   type SessionActivity,
@@ -92,7 +93,16 @@ describe('SessionSchema', () => {
       step: 'build',
       activities: [
         { id: 'a1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true },
-        { id: 'a2', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
+        {
+          id: 'a2',
+          state: 'done',
+          kind: 'brief',
+          key: 'PROJ-1423',
+          tickets: [],
+          message: false,
+          pullRequests: [],
+          files: [],
+        },
         { id: 'a3', state: 'done', kind: 'explore', files: ['src/content/ContentList.tsx', 'src/api/contentApi.ts'] },
         { id: 'a4', state: 'done', kind: 'plan', items: ['Row selection', 'A bulkArchive API call'] },
         { id: 'a5', state: 'done', kind: 'refused', access: 'edit', reason: 'outside_worktree', path: '/etc/hosts' },
@@ -476,18 +486,22 @@ describe("the composer's start (spec 015)", () => {
     }
   });
 
-  it('AC-11, AC-12: refuses more than 1 ticket, 3 pull requests or 5 files, or the same pull request twice', () => {
+  it('AC-3, AC-6 (spec 022, Q5): takes up to 10 tickets, 10 pull requests and 20 files, never the same one twice', () => {
+    const key = (n: number) => ({ kind: 'jira', key: `PROJ-${String(n)}` }) as const;
+    const upTo = (count: number) => Array.from({ length: count }, (_, n) => n + 1);
     const tooMany = [
-      [ticket, { kind: 'jira', key: 'PROJ-1424' }],
-      [pull(1), pull(2), pull(3), pull(4)],
-      [1, 2, 3, 4, 5, 6].map((n) => file(`notes-${String(n)}.md`)),
+      upTo(11).map(key),
+      upTo(11).map(pull),
+      upTo(21).map((n) => file(`notes-${String(n)}.md`)),
       [pull(2836), pull(2836)],
+      [ticket, pull(1), ticket],
     ];
     for (const context of tooMany) {
       expect(ComposerStartSchema.safeParse(body({ context })).success).toBe(false);
     }
-    const most = [ticket, pull(1), pull(2), pull(3), ...[1, 2, 3, 4, 5].map((n) => file(`notes-${String(n)}.md`))];
+    const most = [...upTo(10).map(key), ...upTo(10).map(pull), ...upTo(20).map((n) => file(`notes-${String(n)}.md`))];
     expect(ComposerStartSchema.safeParse(body({ context: most })).success).toBe(true);
+    expect(composerLimits).toEqual({ tickets: 10, pullRequests: 10, files: 20, skills: 5, fileBytes: 100 * 1024 });
   });
 
   it('AC-12: takes a file of up to 100 KB of UTF-8, counted in bytes, not characters', () => {
@@ -528,6 +542,7 @@ describe("the composer's start (spec 015)", () => {
       state: 'done',
       kind: 'brief',
       key: null,
+      tickets: [],
       message: true,
       pullRequests: ['web-app #2836'],
       files: ['notes.md'],
@@ -542,7 +557,23 @@ describe("the composer's start (spec 015)", () => {
         }),
       ).activities,
     ).toEqual([
-      { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
+      {
+        id: 'step-2',
+        state: 'done',
+        kind: 'brief',
+        key: 'PROJ-1423',
+        tickets: [],
+        message: false,
+        pullRequests: [],
+        files: [],
+      },
+    ]);
+  });
+
+  it('AC-4 (spec 022): a brief step names the other tickets Claude got, after the session’s own', () => {
+    const step = { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423', tickets: ['PROJ-1424'] };
+    expect(SessionSchema.parse(makeSession({ activities: [step] as SessionActivity[] })).activities).toEqual([
+      { ...step, message: false, pullRequests: [], files: [] },
     ]);
   });
 

@@ -17,8 +17,8 @@ import { matchesWords } from '../../../words/match-words.ts';
 import { useSearchIndex } from '../../search/queries.ts';
 import { FolderDialog } from '../../settings/components/folder-dialog.tsx';
 import { useRepositories } from '../../settings/queries.ts';
-import { chipFromPaste, fileChipFrom, folderFor } from '../composer-rules.ts';
-import { addRow, composerWords, countOf, fileRefusedLine } from '../composer-words.ts';
+import { chipFromPaste, fileChipFrom, firstTicket, folderFor, refusalFor } from '../composer-rules.ts';
+import { addRow, composerWords, countOf, fileRefusedLine, refusedLine } from '../composer-words.ts';
 import { useComposerStore } from '../store.ts';
 
 const words = composerWords.kinds;
@@ -113,10 +113,9 @@ function ToolList({ kind, query, onQueryChange, onBack, onPicked }: ListProps & 
           },
         ];
   const options = [...typedOption, ...shown];
-  const full =
-    kind === 'pull_request' && chips.filter((chip) => chip.kind === 'pull_request').length >= 3
-      ? composerWords.tooManyPullRequests
-      : undefined;
+  // A kind that's full says so in place of its list (spec 022, Q5).
+  const refusal = refusalFor(chips, kind);
+  const full = refusal === null ? undefined : refusedLine(refusal);
 
   return (
     <ContextSearch
@@ -148,7 +147,7 @@ function FolderList({ query, onQueryChange, onBack, onPicked, onAddFolder }: Lis
   const lastUsed = useComposerStore((state) => state.lastUsed);
   const pickFolder = useComposerStore((state) => state.pickFolder);
   const folders = repositories.data?.repositories ?? [];
-  const ticketKey = chips.find((chip) => chip.kind === 'jira')?.key ?? null;
+  const ticketKey = firstTicket(chips);
   const shownFolder = folderFor({ folders, picked, ticketKey, lastUsed });
   const options = folders
     .filter((folder) => matchesWords(`${folder.name} ${folder.displayPath}`, query))

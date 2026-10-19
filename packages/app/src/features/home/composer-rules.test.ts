@@ -69,19 +69,24 @@ describe('adding a chip (spec 015)', () => {
   const pull = (number: number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number }) as const;
   const file = (name: string) => ({ kind: 'file', name, text: name }) as const;
 
-  it('AC-9 (Q2): a second ticket takes the first one’s place', () => {
+  it('022 AC-1 (Q2): a second ticket is added after the first; the same one twice changes nothing', () => {
     const chips: ComposerChip[] = [file('a.md'), ticket, pull(1)];
     expect(addChip(chips, { kind: 'jira', key: 'PROJ-7' })).toEqual({
       ok: true,
-      chips: [file('a.md'), { kind: 'jira', key: 'PROJ-7' }, pull(1)],
+      chips: [file('a.md'), ticket, pull(1), { kind: 'jira', key: 'PROJ-7' }],
     });
+    expect(addChip(chips, ticket)).toEqual({ ok: true, chips });
   });
 
-  it('AC-11, AC-12: the same pull request or file twice changes nothing, and limits are said', () => {
+  it('022 AC-3 (Q5): up to 10 tickets, 10 pull requests and 20 files, and each limit is said', () => {
+    const upTo = (count: number) => Array.from({ length: count }, (_, n) => n + 1);
+    const tickets = upTo(10).map((n): ComposerChip => ({ kind: 'jira', key: `PROJ-${String(n)}` }));
+    expect(addChip(tickets, { kind: 'jira', key: 'PROJ-11' })).toEqual({ ok: false, refusal: 'too_many_tickets' });
+    expect(addChip(upTo(9).map(pull), pull(10)).ok).toBe(true);
+    expect(addChip(upTo(10).map(pull), pull(11))).toEqual({ ok: false, refusal: 'too_many_pull_requests' });
+    const files = upTo(20).map((n) => file(`${String(n)}.md`));
+    expect(addChip(files, file('21.md'))).toEqual({ ok: false, refusal: 'too_many_files' });
     expect(addChip([pull(1)], pull(1))).toEqual({ ok: true, chips: [pull(1)] });
-    expect(addChip([pull(1), pull(2), pull(3)], pull(4))).toEqual({ ok: false, refusal: 'too_many_pull_requests' });
-    const five = ['1', '2', '3', '4', '5'].map((n) => file(`${n}.md`));
-    expect(addChip(five, file('6.md'))).toEqual({ ok: false, refusal: 'too_many_files' });
     expect(addChip([file('a.md')], file('a.md'))).toEqual({ ok: true, chips: [file('a.md')] });
     expect(addChip([], ticket)).toEqual({ ok: true, chips: [ticket] });
   });

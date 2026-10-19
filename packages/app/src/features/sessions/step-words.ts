@@ -78,6 +78,8 @@ export function stepWords(activity: SessionActivity): StepWords {
       const parts = [
         ...(activity.message ? ['your message'] : []),
         ...(activity.key === null ? [] : [activity.key]),
+        // The other tickets, after the session's own (spec 022, Q2).
+        ...activity.tickets,
         ...activity.pullRequests,
         ...activity.files,
       ];

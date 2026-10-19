@@ -11,14 +11,17 @@ import {
   countOf,
   fileRefusedLine,
   placeholderFor,
+  refusedLine,
   removedLine,
   shortFileName,
 } from './composer-words.ts';
 
 describe('the composer’s words (spec 015, Q13)', () => {
   it('AC-3, AC-8: the placeholder asks for a task, or what to do with the ticket added', () => {
-    expect(placeholderFor(null)).toBe('Describe a task, or paste a Jira key like PROJ-1423');
-    expect(placeholderFor('PROJ-1423')).toBe('What should Claude do with PROJ-1423?');
+    expect(placeholderFor([])).toBe('Describe a task, or paste a Jira key like PROJ-1423');
+    expect(placeholderFor(['PROJ-1423'])).toBe('What should Claude do with PROJ-1423?');
+    // 022 Q12: several tickets.
+    expect(placeholderFor(['PROJ-1423', 'PROJ-1424', 'MOB-7'])).toBe('What should Claude do with these 3 tickets?');
     expect(composerWords.send).toBe('Send to Claude');
     expect(composerWords.sending).toBe('Sending to Claude');
   });
@@ -69,11 +72,13 @@ describe('the composer’s words (spec 015, Q13)', () => {
     expect(chipLabel({ kind: 'file', name: 'release-notes-for-the-people-directory.md', text: '' })).toHaveLength(28);
   });
 
-  it('AC-11, AC-12: says why a file or pull request wasn’t added', () => {
+  it('AC-12, 022 AC-3: says why a file, a ticket or a pull request wasn’t added', () => {
     expect(fileRefusedLine({ kind: 'not_text', name: 'notes.pdf' })).toBe("notes.pdf isn't a text file.");
     expect(fileRefusedLine({ kind: 'too_big', name: 'big.log' })).toBe('big.log is over 100 KB.');
-    expect(fileRefusedLine({ kind: 'too_many' })).toBe('Add up to 5 files.');
-    expect(composerWords.tooManyPullRequests).toBe('A session takes up to 3 pull requests.');
+    expect(fileRefusedLine({ kind: 'too_many' })).toBe('Add up to 20 files.');
+    expect(refusedLine('too_many_tickets')).toBe('A session takes up to 10 tickets.');
+    expect(refusedLine('too_many_pull_requests')).toBe('A session takes up to 10 pull requests.');
+    expect(refusedLine('too_many_files')).toBe('Add up to 20 files.');
   });
 
   it('AC-18, AC-22, AC-23: says why Send started nothing, and where to fix it', () => {

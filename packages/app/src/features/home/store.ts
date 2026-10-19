@@ -15,7 +15,7 @@ interface ComposerState {
   picked: string | null;
   lastUsed: string | null;
   setText: (text: string) => void;
-  /** Adds a chip, or says why not; a second ticket takes the first one's place (Q2). */
+  /** Adds a chip after the others, or says why not (spec 022, Q2, Q5). */
   addChip: (chip: ComposerChip) => Extract<AddChip, { ok: false }>['refusal'] | null;
   removeChip: (index: number) => void;
   pickFolder: (id: string) => void;

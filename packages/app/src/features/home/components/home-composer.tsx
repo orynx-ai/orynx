@@ -16,13 +16,14 @@ import {
 } from '@devhub/ui';
 import { newTaskTargetId } from '../../../shell/main-content.ts';
 import { useRepositories, useStatus } from '../../settings/queries.ts';
-import { chipFromPaste, folderFor } from '../composer-rules.ts';
+import { chipFromPaste, firstTicket, folderFor } from '../composer-rules.ts';
 import {
   cannotStartLine,
   chipLabel,
   composerWords,
   contextFailedLine,
   placeholderFor,
+  refusedLine,
   removedLine,
   type SettingsLink,
 } from '../composer-words.ts';
@@ -51,10 +52,9 @@ function saidFor(answer: StartSessionAnswer, chips: readonly ComposerChip[]): Sa
   switch (answer.result) {
     case 'started':
       return null;
-    case 'existing': {
-      const ticket = chips.find((chip) => chip.kind === 'jira');
-      return { line: composerWords.existing(ticket?.key ?? ''), link: null, session: answer.sessionId };
-    }
+    case 'existing':
+      // Only the first ticket's session stops a start (spec 022, Q2).
+      return { line: composerWords.existing(firstTicket(chips) ?? ''), link: null, session: answer.sessionId };
     case 'cannot_start':
       return { ...cannotStartLine(answer.reason), session: null };
     case 'context_failed': {
@@ -104,7 +104,8 @@ export function HomeComposer() {
     },
   });
   const message = useWatch({ control: form.control, name: 'message' });
-  const ticketKey = chips.find((chip) => chip.kind === 'jira')?.key ?? null;
+  const ticketKeys = chips.flatMap((chip) => (chip.kind === 'jira' ? [chip.key] : []));
+  const ticketKey = firstTicket(chips);
   const shown = folderFor({ folders: repositories.data?.repositories ?? [], picked, ticketKey, lastUsed });
   const canSend = message.trim() !== '' || ticketKey !== null;
 
@@ -161,7 +162,7 @@ export function HomeComposer() {
         <ComposerTextarea
           id={newTaskTargetId}
           label={composerWords.label}
-          placeholder={placeholderFor(ticketKey)}
+          placeholder={placeholderFor(ticketKeys)}
           readOnly={start.isPending}
           {...field}
           onPaste={(event) => {
@@ -169,7 +170,8 @@ export function HomeComposer() {
             const chip = chipFromPaste(event.clipboardData.getData('text/plain'));
             if (chip === null) return;
             event.preventDefault();
-            setRefused(addChip(chip) === null ? null : composerWords.tooManyPullRequests);
+            const refusal = addChip(chip);
+            setRefused(refusal === null ? null : refusedLine(refusal));
           }}
           ref={(element) => {
             field.ref(element);

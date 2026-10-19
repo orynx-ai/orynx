@@ -40,8 +40,10 @@ export function fileChipFrom(
   return { kind: 'file', name, text };
 }
 
-export type AddChip =
-  { ok: true; chips: ComposerChip[] } | { ok: false; refusal: 'too_many_pull_requests' | 'too_many_files' };
+/** Why a chip wasn't added: its kind is full (spec 022, Q5). */
+export type ChipRefusal = 'too_many_tickets' | 'too_many_pull_requests' | 'too_many_files';
+
+export type AddChip = { ok: true; chips: ComposerChip[] } | { ok: false; refusal: ChipRefusal };
 
 function same(a: ComposerChip, b: ComposerChip): boolean {
   if (a.kind === 'pull_request' && b.kind === 'pull_request') {
@@ -51,19 +53,36 @@ function same(a: ComposerChip, b: ComposerChip): boolean {
   return a.kind === 'jira' && b.kind === 'jira' && a.key === b.key;
 }
 
-/** Adds a chip at the end: a ticket takes the place of the one there (Q2), the same chip twice changes nothing. */
+const limits = {
+  jira: { most: composerLimits.tickets, refusal: 'too_many_tickets' },
+  pull_request: { most: composerLimits.pullRequests, refusal: 'too_many_pull_requests' },
+  file: { most: composerLimits.files, refusal: 'too_many_files' },
+} as const satisfies Record<ComposerChip['kind'], { most: number; refusal: ChipRefusal }>;
+
+/** Whether the composer holds this chip already. */
+export function holds(chips: readonly ComposerChip[], chip: ComposerChip): boolean {
+  return chips.some((held) => same(held, chip));
+}
+
+/**
+ * Adds a chip at the end (spec 022): another ticket goes after the first, which stays the session's (Q2); the same
+ * chip twice changes nothing, and a full kind says why (Q5).
+ */
 export function addChip(chips: readonly ComposerChip[], chip: ComposerChip): AddChip {
-  if (chips.some((held) => same(held, chip))) return { ok: true, chips: [...chips] };
-  if (chip.kind === 'jira') {
-    const at = chips.findIndex((held) => held.kind === 'jira');
-    return { ok: true, chips: at === -1 ? [...chips, chip] : chips.map((held, n) => (n === at ? chip : held)) };
-  }
-  const count = chips.filter((held) => held.kind === chip.kind).length;
-  if (chip.kind === 'pull_request' && count >= composerLimits.pullRequests) {
-    return { ok: false, refusal: 'too_many_pull_requests' };
-  }
-  if (chip.kind === 'file' && count >= composerLimits.files) return { ok: false, refusal: 'too_many_files' };
-  return { ok: true, chips: [...chips, chip] };
+  if (holds(chips, chip)) return { ok: true, chips: [...chips] };
+  const refusal = refusalFor(chips, chip.kind);
+  return refusal === null ? { ok: true, chips: [...chips, chip] } : { ok: false, refusal };
+}
+
+/** Why no more chips of this kind can be added, or null while there's room (spec 022, Q5). */
+export function refusalFor(chips: readonly ComposerChip[], kind: ComposerChip['kind']): ChipRefusal | null {
+  const { most, refusal } = limits[kind];
+  return chips.filter((held) => held.kind === kind).length >= most ? refusal : null;
+}
+
+/** The session's own ticket: the first one added (spec 022, Q2), or null. */
+export function firstTicket(chips: readonly ComposerChip[]): string | null {
+  return chips.find((chip) => chip.kind === 'jira')?.key ?? null;
 }
 
 export type ShownFolder = { kind: 'folder'; folder: Repository } | { kind: 'choose' } | { kind: 'none' };

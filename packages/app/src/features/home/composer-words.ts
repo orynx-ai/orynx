@@ -1,4 +1,11 @@
-import type { CannotStartReason, ComposerChip, ContextProblem, SessionApproval } from '@devhub/contracts';
+import {
+  composerLimits,
+  type CannotStartReason,
+  type ComposerChip,
+  type ContextProblem,
+  type SessionApproval,
+} from '@devhub/contracts';
+import type { ChipRefusal } from './composer-rules.ts';
 
 /**
  * Home's composer in words (spec 015, Q13): the box, the + menu and its lists, the pickers, what Send says when it
@@ -48,7 +55,6 @@ export const composerWords = {
     file: { title: 'File from this computer', description: 'Text files up to 100 KB' },
   },
   noMatches: 'No matches. Try a key like PROJ-1423 or a repo name.',
-  tooManyPullRequests: 'A session takes up to 3 pull requests.',
   folder: {
     menu: 'Repository',
     section: 'On this computer',
@@ -74,11 +80,24 @@ export const composerWords = {
   banner: { title: 'Claude is waiting for your approval', action: 'Review' },
 } as const;
 
-/** AC-3, AC-8: with a ticket added, Send works with the box empty, and the box says so. */
-export function placeholderFor(ticketKey: string | null): string {
-  return ticketKey === null
-    ? 'Describe a task, or paste a Jira key like PROJ-1423'
-    : `What should Claude do with ${ticketKey}?`;
+/** Why a chip of a full kind wasn't added (spec 022, Q5, Q12). */
+export function refusedLine(refusal: ChipRefusal): string {
+  switch (refusal) {
+    case 'too_many_tickets':
+      return `A session takes up to ${String(composerLimits.tickets)} tickets.`;
+    case 'too_many_pull_requests':
+      return `A session takes up to ${String(composerLimits.pullRequests)} pull requests.`;
+    case 'too_many_files':
+      return `Add up to ${String(composerLimits.files)} files.`;
+  }
+}
+
+/** AC-3, AC-8: with a ticket added, Send works with the box empty, and the box says so; with several, how many (022 Q12). */
+export function placeholderFor(ticketKeys: readonly string[]): string {
+  const [first] = ticketKeys;
+  if (first === undefined) return 'Describe a task, or paste a Jira key like PROJ-1423';
+  if (ticketKeys.length === 1) return `What should Claude do with ${first}?`;
+  return `What should Claude do with these ${String(ticketKeys.length)} tickets?`;
 }
 
 /** A file's name longer than this is cut in the middle, so its extension still shows (Q15d). */
@@ -130,7 +149,7 @@ export function fileRefusedLine(refusal: FileRefusal): string {
     case 'too_big':
       return `${refusal.name} is over 100 KB.`;
     case 'too_many':
-      return 'Add up to 5 files.';
+      return refusedLine('too_many_files');
   }
 }
 
