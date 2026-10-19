@@ -39,6 +39,18 @@ export {
   type NotificationItemProps,
   type NotificationTone,
 } from './components/notification-item.tsx';
+export {
+  NotificationGroup,
+  NotificationPanel,
+  NotificationPanelContent,
+  NotificationPanelNote,
+  NotificationPanelSkeleton,
+  NotificationPanelTrigger,
+  NotificationTabs,
+  NotificationTabsContent,
+  NotificationTabsList,
+  type NotificationPanelContentProps,
+} from './components/notification-panel.tsx';
 export { Slider, type SliderProps } from './components/slider.tsx';
 export { Switch, type SwitchProps } from './components/switch.tsx';
 export { Chip, FilterChip, type ChipProps, type FilterChipProps } from './components/chip.tsx';

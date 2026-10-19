@@ -40,7 +40,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: `NotificationBell` (the count, 99+) and `NotificationItem` (icon tone, title, detail, time, unread dot, buttons) (AC-1, AC-2, AC-4, AC-9, AC-11)
       Check: pnpm test packages/ui/src/components/notification-bell.test.tsx packages/ui/src/components/notification-item.test.tsx
       Files: packages/ui/src/components/notification-bell.tsx, packages/ui/src/components/notification-bell.stories.tsx, packages/ui/src/components/notification-bell.test.tsx, packages/ui/src/components/notification-item.tsx, packages/ui/src/components/notification-item.stories.tsx, packages/ui/src/components/notification-item.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 11: `NotificationPanel`: the popover with its head, tabs, groups, foot, skeleton, empty and error lines (AC-4, AC-5, AC-6, AC-14, AC-15, AC-16)
+- [x] Task 11: `NotificationPanel`: the popover with its head, tabs, groups, foot, skeleton, empty and error lines (AC-4, AC-5, AC-6, AC-14, AC-15, AC-16)
       Check: pnpm test packages/ui/src/components/notification-panel.test.tsx
       Files: packages/ui/src/components/notification-panel.tsx, packages/ui/src/components/notification-panel.stories.tsx, packages/ui/src/components/notification-panel.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 12: `Toast` and `ToastRegion`: the card, alert or status, bottom-right, at most three (AC-23, AC-24, AC-25)
