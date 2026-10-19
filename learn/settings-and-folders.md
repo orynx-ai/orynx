@@ -2,7 +2,7 @@
 
 # Settings: how a change saves, and how a folder is checked
 
-Spec 005 added three Settings tabs: Coding agent (what Claude may do without asking; spec 010 put the Claude and "More agents" cards above the modes, `learn/checking-claude.md`), Repositories (the folders Claude may work in, each with a Jira project) and Inbox rules (what counts as "needs you" on Home). None of them has a Save button. A change saves the moment you make it. Spec 020 put a folder's actions in a menu, opened adding and editing in a dialog, and let Choose folder open the computer's own folder picker. Spec 023 added Skills after Coding agent, the one tab with a Save button, since a skill is a file you edit (`learn/your-skills.md`); its store shares `oneAtATime()` with `settings-store.ts`.
+Spec 005 added three Settings tabs: Coding agent (what Claude may do without asking; spec 010 put the Claude and "More agents" cards above the modes, which spec 026 made one row for each kind of call, `learn/checking-claude.md`), Repositories (the folders Claude may work in, each with a Jira project) and Inbox rules (what counts as "needs you" on Home). None of them has a Save button. A change saves the moment you make it. Spec 020 put a folder's actions in a menu, opened adding and editing in a dialog, and let Choose folder open the computer's own folder picker. Spec 023 added Skills after Coding agent, the one tab with a Save button, since a skill is a file you edit (`learn/your-skills.md`); its store shares `oneAtATime()` with `settings-store.ts`.
 
 ## Where it lives
 
@@ -11,7 +11,15 @@ Everything goes in `<DEVHUB_HOME>/settings.json`, next to Jira's site and email 
 ```json
 {
   "agent": {
-    "permissionMode": "edit_and_run_allowed",
+    "permissions": {
+      "edits": "allow",
+      "commands": "allowed_list",
+      "network": "ask",
+      "deleteOutside": "ask",
+      "unsandboxed": "ask",
+      "push": "never",
+      "pullRequest": "never"
+    },
     "allowedCommands": ["npm test", "npm run lint"],
     "editor": "cursor"
   },
@@ -22,16 +30,16 @@ Everything goes in `<DEVHUB_HOME>/settings.json`, next to Jira's site and email 
 ```
 
 - Only what you changed is written. A rule you never touched isn't in the file, and `PreferencesService.read()` fills it in from `defaultPreferences` in contracts. So when Slack's rule arrives in spec 016, it starts on for everyone without a migration.
-- `settings-store.ts` keeps `agent`, `inbox`, `repositories` and `tickets` (the sprint Tickets shows, spec 020, `learn/the-tickets-board.md`) as they were written. The services take what they can read (`PermissionModeSchema.safeParse`, booleans only for rules, `SavedRepositorySchema` per folder, `TicketsChoiceSchema`) and keep everything else through every save. So a value a newer DevHub wrote, such as a new rule or a folder in a new shape, survives this version, and one bad value can't make Orynx treat the whole file as broken and forget Jira's settings next to it.
+- `settings-store.ts` keeps `agent`, `inbox`, `repositories` and `tickets` (the sprint Tickets shows, spec 020, `learn/the-tickets-board.md`) as they were written. The services take what they can read (each permission row on its own, with an older `permissionMode` read as rows by `permissionsFromMode` until a row is saved (spec 026), booleans only for rules, `SavedRepositorySchema` per folder, `TicketsChoiceSchema`) and keep everything else through every save. So a value a newer DevHub wrote, such as a new rule or a folder in a new shape, survives this version, and one bad value can't make Orynx treat the whole file as broken and forget Jira's settings next to it.
 - A folder's name and its `~` path aren't stored. They're worked out on every read from the real path and the real home folder.
 
 ## One change, end to end
 
 ```
-click a mode ─▶ useChangePreferences().mutate({ permissionMode })
+pick a row     ─▶ useChangePreferences().mutate({ permissions: { push: 'ask' } })
                  │ onMutate: cancel a refetch on its way, show the new value in the cache at once
                  ▼
-              PATCH /api/preferences { permissionMode }      only the field that changed
+              PATCH /api/preferences { permissions: { push } }   only the row that changed
                  │
               PreferencesService.change ─▶ settings.update(…)   one change at a time, file 0600
                  │                     └─▶ events.publish({ type: 'settings.changed' })
@@ -84,7 +92,7 @@ Security notes for the pickers are in `learn/local-security.md`. The e2e run put
 
 ## The allow list (spec 012)
 
-Under the modes, Coding agent shows "Allowed commands": the commands that run without asking in "Edit files and run allowed commands". It shows in every mode, so you can fill it before you switch. An entry is one command, read by contracts' `AllowedCommandSchema`, the same reading a session uses (`readCommand` in `commands.ts`): words a single space apart, no `&&`, `;` or `|`, and nothing that always asks (`git push`, `curl …`, a delete outside the worktree). The Add form refuses those, and an entry already on the list, with the line that says why, before anything is sent.
+Under the permission rows, Coding agent shows "Allowed commands": the commands that run without asking while Run commands is Only allowed commands. It shows whatever that row says, so you can fill it before you switch. An entry is one command, read by contracts' `AllowedCommandSchema`, the same reading a session uses (`readCommand` in `commands.ts`): words a single space apart, no `&&`, `;` or `|`, and nothing that always asks (`git push`, `curl …`, a delete outside the worktree). The Add form refuses those, and an entry already on the list, with the line that says why, before anything is sent.
 
 Adding and removing send one entry each (`{ allowCommand }`, `{ disallowCommand }`), so two quick changes can't undo each other, and both show at once through `useChangePreferences`; a failed one is taken back alone, at its place. Remove moves focus to the next row's Remove, or to the field. Always allow in a session's callout adds through the same service, and `settings.changed` brings it to every open tab.
 
@@ -130,4 +138,4 @@ While a tab's values load, it draws its real controls with nothing picked and tu
 - `folder-picker.test.ts` never opens a real picker. `test/fake-picker.ts` puts real programs named `osascript`, `zenity` or `kdialog` in a temporary folder, all links to one shell script (`test/fake-picker/picker`) that logs how it was run and picks, cancels, fails or hangs as the test says. The picker finds and starts them as it would the real ones.
 - Route tests use `createServer({ userHome, dataDir })` with a temporary home. Left out, both default to the OS's home folder and `~/.devhub`.
 - The app tests render the real app with MSW standing in for the server, and hold answers back to prove the change shows before the save returns.
-- `e2e/settings.spec.ts` drives the real server at 360 and 1280 px. The desktop and phone runs share one `settings.json`, so each test changes only what it owns: its own folder, its own rule, and the mode on desktop alone.
+- `e2e/settings.spec.ts` drives the real server at 360 and 1280 px. The desktop and phone runs share one `settings.json`, so each test changes only what it owns: its own folder, its own rule, and the permission rows on desktop alone.
