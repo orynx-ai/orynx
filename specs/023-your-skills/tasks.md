@@ -10,7 +10,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Read and write a `SKILL.md`: `name`, `description`, `metadata.title`, unknown keys kept; add `yaml` to core (AC-5, AC-17, AC-18)
       Check: pnpm test packages/core/src/skills/skill-file.test.ts
       Files: packages/core/src/skills/skill-file.ts, packages/core/src/skills/skill-file.test.ts, packages/core/package.json, docs/architecture.md
-- [ ] Task 3: The skill store, reading: list and read under `<DEVHUB_HOME>/plugin/skills`, unreadable folders, links skipped, 64 KB cap (AC-2, AC-12, AC-17, AC-20)
+- [x] Task 3: The skill store, reading: list and read under `<DEVHUB_HOME>/plugin/skills`, unreadable folders, links skipped, 64 KB cap (AC-2, AC-12, AC-17, AC-20)
       Check: pnpm test packages/core/src/skills/skill-store.test.ts
       Files: packages/core/src/skills/skill-store.ts, packages/core/src/skills/skill-store.test.ts
 - [ ] Task 4: The skill store, writing: add, save with rename, delete and the starters; 0700 and 0600, atomic writes, one at a time, `skills.changed` (AC-5, AC-6, AC-7, AC-9, AC-10, AC-13)
