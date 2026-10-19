@@ -77,6 +77,15 @@ function makeRepository() {
 const repository = makeRepository();
 
 /** Sends a request to the hub with the page's token, as the page does. */
+/** Ship adds the ticket to Home's composer (spec 022); Send starts Claude on it and opens its Session screen. */
+async function ship(page: Page, key: string): Promise<void> {
+  await page.goto('/tickets');
+  await page.getByRole('button', { name: `Ship ${key}` }).click();
+  await page.waitForURL((url) => url.pathname === '/');
+  await page.getByRole('button', { name: 'Send to Claude' }).click();
+  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+}
+
 async function api(page: Page, method: string, path: string, body?: unknown) {
   return page.evaluate(
     async ({ method, path, body }) => {
@@ -165,9 +174,7 @@ test('AC-1, AC-2, AC-18: the Changes tab lists Claude’s edit as it lands, in e
   page,
   context,
 }) => {
-  await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Ship CHG-1' }).click();
-  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  await ship(page, 'CHG-1');
   seen.working = page.url();
   const other = await context.newPage();
   await other.goto(page.url());
@@ -289,9 +296,7 @@ test('AC-11, AC-12, AC-18: after Done, a follow-up carries on where Claude left 
   page,
   context,
 }) => {
-  await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Ship CHG-2' }).click();
-  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  await ship(page, 'CHG-2');
   seen.done = page.url();
   await expect(page.getByRole('main').getByText('Done, ready for PR')).toBeVisible({ timeout: 15_000 });
   const other = await context.newPage();
@@ -337,9 +342,7 @@ test('AC-11, AC-12, AC-18: after Done, a follow-up carries on where Claude left 
 });
 
 test('AC-13: after Stop, a follow-up carries on as well', async ({ page }) => {
-  await page.goto('/tickets');
-  await page.getByRole('button', { name: 'Ship CHG-3' }).click();
-  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  await ship(page, 'CHG-3');
   await expect(progressOf(page).getByText('Editing files')).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Stop Claude' }).click();
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });

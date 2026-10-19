@@ -52,7 +52,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: Ship on Tickets' cards and list adds the ticket's chip and opens Home with focus in the box, and the ticket dialog's Add to composer does the same from Tickets and ⌘K; Ship's folder menu, Add local folder and start go, with their tests (AC-35 to AC-39, AC-42)
       Check: pnpm test packages/app/src/features/tickets packages/app/src/features/sessions packages/app/src/features/home
       Files: packages/app/src/features/tickets/components/ship-button.tsx, packages/app/src/features/tickets/components/ship-button.test.tsx, packages/app/src/features/sessions/components/ship-with-claude.tsx (removed), packages/app/src/features/sessions/components/ship-with-claude.test.tsx (removed), packages/app/src/features/tickets/components/ticket-card.tsx, packages/app/src/features/tickets/components/tickets-list.tsx
-- [ ] Task 13: e2e: start sessions through the composer where they pressed Ship (sessions, approvals, changes), and add composer e2e for several tickets, a row's + and the +N dialog (AC-1, AC-4, AC-20, AC-28, AC-35)
+- [x] Task 13: e2e: start sessions through the composer where they pressed Ship (sessions, approvals, changes), and add composer e2e for several tickets, a row's + and the +N dialog (AC-1, AC-4, AC-20, AC-28, AC-35)
       Check: pnpm test:e2e e2e/sessions.spec.ts e2e/approvals.spec.ts e2e/changes.spec.ts e2e/composer.spec.ts e2e/home-inbox.spec.ts e2e/tickets.spec.ts
       Files: e2e/sessions.spec.ts, e2e/approvals.spec.ts, e2e/changes.spec.ts, e2e/composer.spec.ts, e2e/home-inbox.spec.ts, e2e/tickets.spec.ts
 
