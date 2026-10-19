@@ -7,9 +7,9 @@ import { mostPullRequestBodyCharacters, mostPullRequestTitleCharacters } from '@
  * messages. Pure, so each shape of answer is a row in a table.
  */
 
-/** The ticket the session started from, as the session keeps it. */
+/** The ticket the session started from, as the session keeps it; a session with no ticket has no key (spec 015). */
 export interface DraftTicket {
-  key: string;
+  key: string | null;
   title: string;
   /** Null when Jira wasn't connected as the session started. */
   jiraUrl: string | null;
@@ -51,6 +51,16 @@ export const draftInstructions = [
   "Use only what the ticket, the summaries, the commits and the diff show. Don't invent checks that weren't run.",
   "Don't add a Jira link: Orynx adds it.",
 ].join(' ');
+
+/** The instructions for this session's draft: a session with no ticket has no key to name (spec 015, AC-34). */
+export function draftInstructionsFor(ticket: DraftTicket): string {
+  return ticket.key === null
+    ? draftInstructions.replace(
+        " in the style of the base branch's recent commit subjects, and names the ticket's key.",
+        " in the style of the base branch's recent commit subjects.",
+      )
+    : draftInstructions;
+}
 
 /** Claude's instructions for a Push changes commit message (Q7). */
 export const pushInstructions = [
@@ -104,10 +114,16 @@ function listed(items: readonly string[]): string {
   return items.map((item) => `- ${item}`).join('\n');
 }
 
+/** `PROJ-1423: Add bulk archive`, or the title alone for a session with no ticket (spec 015). */
+function named(ticket: DraftTicket): string {
+  return ticket.key === null ? ticket.title : `${ticket.key}: ${ticket.title}`;
+}
+
 export function draftPrompt(inputs: DraftInputs): string {
   const { ticket } = inputs;
+  const heading = ticket.key === null ? 'The task, as Claude got it' : `The ticket, ${ticket.key}, as Claude got it`;
   return [
-    section(`The ticket, ${ticket.key}, as Claude got it`, inputs.brief ?? `${ticket.key}: ${ticket.title}`),
+    section(heading, inputs.brief ?? named(ticket)),
     section(
       "Claude's summaries of its work",
       inputs.summaries.map((summary, index) => `${String(index + 1)}. ${summary}`).join('\n'),
@@ -136,7 +152,7 @@ export interface PushInputs {
 
 export function pushPrompt(inputs: PushInputs): string {
   return [
-    section(`The ticket`, `${inputs.ticket.key}: ${inputs.ticket.title}`),
+    section(inputs.ticket.key === null ? 'The task' : 'The ticket', named(inputs.ticket)),
     section("Claude's summaries since the last push", inputs.summaries.join('\n\n')),
     section('Changed files since the last push', filesSection(inputs.files, inputs.moreFiles)),
     section('The diff', diffSection(inputs.diffs)),
@@ -155,15 +171,20 @@ function plainLine(line: string): string {
   }
 }
 
-/** The title with the ticket's key in front when it doesn't hold it already (Q5), at most 256 characters. */
-function withKey(title: string, key: string): string {
-  const keyed = title.toUpperCase().includes(key.toUpperCase()) ? title : `${key}: ${title}`;
+/**
+ * The title with the ticket's key in front when it doesn't hold it already (Q5), at most 256 characters. A
+ * session with no ticket keeps its title as it is (spec 015, AC-34).
+ */
+function withKey(title: string, key: string | null): string {
+  const keyed = key === null || title.toUpperCase().includes(key.toUpperCase()) ? title : `${key}: ${title}`;
   return keyed.slice(0, mostPullRequestTitleCharacters);
 }
 
 /** The description with "Jira: [KEY](link)" at its end when it doesn't link the ticket already (Q5). */
 function withJiraLine(body: string, ticket: DraftTicket): string {
-  if (ticket.jiraUrl === null || body.includes(ticket.jiraUrl)) return body.slice(0, mostPullRequestBodyCharacters);
+  if (ticket.key === null || ticket.jiraUrl === null || body.includes(ticket.jiraUrl)) {
+    return body.slice(0, mostPullRequestBodyCharacters);
+  }
   const line = `Jira: [${ticket.key}](${ticket.jiraUrl})`;
   if (body === '') return line;
   const room = mostPullRequestBodyCharacters - line.length - 2;

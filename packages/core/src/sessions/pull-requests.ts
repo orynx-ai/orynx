@@ -20,7 +20,7 @@ import type { ChangesReader, ReadyChanges, StartPoint } from './changes.ts';
 import { addPullRequestStep } from './progress.ts';
 import {
   commitMessage,
-  draftInstructions,
+  draftInstructionsFor,
   draftPrompt,
   fallbackDraft,
   pushInstructions,
@@ -87,9 +87,10 @@ function isWorking(session: Session): boolean {
   return session.state === 'working' || session.state === 'needs_you';
 }
 
+/** The session's ticket; a session started from the composer with no ticket has no key (spec 015, AC-34). */
 function ticketOf(session: Session): DraftTicket {
-  const key = session.source?.kind === 'jira' ? session.source.key : '';
-  return { key, title: session.title, jiraUrl: session.jiraUrl };
+  const key = session.source?.kind === 'jira' ? session.source.key : null;
+  return { key, title: session.title, jiraUrl: key === null ? null : session.jiraUrl };
 }
 
 /** Claude's "Finished" summaries, oldest first. */
@@ -182,7 +183,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     options.onReport?.({
       what: 'pull_request',
       session: record.session.id,
-      ticket: ticketOf(record.session).key,
+      ticket: ticketOf(record.session).key ?? '',
       step,
       outcome,
       number,
@@ -257,7 +258,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
         baseSubjects,
         base,
       });
-      const written = adapter === null ? null : await adapter.write(prompt, draftInstructions);
+      const written = adapter === null ? null : await adapter.write(prompt, draftInstructionsFor(ticket));
       const drafted = written?.ok === true ? readDraft(written.text, ticket) : null;
       const text = drafted ?? fallbackDraft(ticket, summaries);
       return {
