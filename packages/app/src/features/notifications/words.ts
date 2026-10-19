@@ -60,6 +60,12 @@ export function notificationWords(what: NotificationWhat): NotificationWords {
   }
 }
 
+/** Send a test notification's words (Q6). */
+export const testWords = {
+  title: 'Test notification',
+  detail: 'This is how Orynx tells you Claude is waiting.',
+} as const;
+
 export type NotificationPlace = { kind: 'session'; sessionId: string } | { kind: 'external'; url: string };
 
 /** Where opening a notification goes: its Session screen, or the pull request or ticket outside Orynx. */

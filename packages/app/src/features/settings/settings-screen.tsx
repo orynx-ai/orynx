@@ -11,6 +11,7 @@ import { InboxRulesPanel } from './components/inbox-rules-panel.tsx';
 import { NotificationsPanel } from './components/notifications-panel.tsx';
 import { RepositoriesPanel } from './components/repositories-panel.tsx';
 import { SkillsBarActions } from './components/skills-bar-actions.tsx';
+import { TestNotification } from './components/test-notification.tsx';
 import { SkillsPanel } from './components/skills-panel.tsx';
 import { ConnectionsPanel } from './components/connections-panel.tsx';
 import { SettingsTabSchema, settingsTabLabels } from './tabs.ts';
@@ -31,6 +32,8 @@ export function SettingsScreen() {
         actions={
           tab === 'skills' ? (
             <SkillsBarActions />
+          ) : tab === 'notifications' ? (
+            <TestNotification />
           ) : (
             // Under 768 px the bar has room only for the crumbs.
             <span className="text-small text-muted-foreground max-md:hidden">Changes save automatically</span>

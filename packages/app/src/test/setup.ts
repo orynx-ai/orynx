@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { useComposerStore } from '../features/home/store.ts';
+import { useTestPopUpStore } from '../features/notifications/store.ts';
 import { useSearchStore } from '../features/search/store.ts';
 import { useTicketsStore } from '../features/tickets/store.ts';
 import { useTicketDialogStore } from '../features/tickets/ticket-dialog-store.ts';
@@ -61,6 +62,7 @@ afterEach(() => {
   useSearchStore.setState(useSearchStore.getInitialState());
   useComposerStore.setState(useComposerStore.getInitialState());
   useTicketDialogStore.setState(useTicketDialogStore.getInitialState());
+  useTestPopUpStore.setState(useTestPopUpStore.getInitialState());
   FakeEventSource.instances = [];
   FakeIntersectionObserver.instances = [];
 });

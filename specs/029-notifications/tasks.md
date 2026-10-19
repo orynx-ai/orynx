@@ -91,9 +91,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 24: Do not disturb, quiet hours and "Still tell me when Claude is waiting for approval", as a section of the Notifications panel (AC-40, AC-41)
       Check: pnpm test packages/app/src/features/settings/components/notifications-panel.test.tsx
       Files: packages/app/src/features/settings/components/notifications-panel.tsx, packages/app/src/features/settings/components/notifications-panel.test.tsx
-- [ ] Task 25: Send a test notification (AC-42)
+- [x] Task 25: Send a test notification: a pop-up (a small UI store, never a notification), a desktop notification and a sound as the approval row says, ignoring Do not disturb (AC-42)
       Check: pnpm test packages/app/src/features/settings/components/test-notification.test.tsx
-      Files: packages/app/src/features/settings/components/test-notification.tsx, packages/app/src/features/settings/components/test-notification.test.tsx, packages/app/src/features/settings/settings-screen.tsx
+      Files: packages/app/src/features/settings/components/test-notification.tsx, packages/app/src/features/settings/components/test-notification.test.tsx, packages/app/src/features/settings/settings-screen.tsx, packages/app/src/features/notifications/store.ts, packages/app/src/features/notifications/components/pop-ups.tsx, packages/app/src/features/notifications/words.ts, packages/app/src/test/setup.ts
 
 **End to end**
 

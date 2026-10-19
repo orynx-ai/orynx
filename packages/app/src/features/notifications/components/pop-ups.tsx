@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { defaultNotificationSettings, type Notification } from '@devhub/contracts';
+import { Notification01Icon } from '@hugeicons/core-free-icons';
 import { Toast, ToastRegion } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { announce, becomeSpeaker, watchLooking } from '../alerts.ts';
 import { useMarkNotificationsRead, useNotificationSettings, useNotifications } from '../queries.ts';
 import { delivery } from '../quiet.ts';
-import { notificationPlace, notificationWords } from '../words.ts';
+import { useTestPopUpStore } from '../store.ts';
+import { notificationPlace, notificationWords, testWords } from '../words.ts';
 import { isWaiting, notificationLooks } from './notification-centre.tsx';
 import { NotificationActions } from './notification-actions.tsx';
 
@@ -91,6 +93,7 @@ export function PopUps() {
 
   return (
     <ToastRegion>
+      <TestPopUp />
       {showing.map((notification) => (
         <PopUp
           key={notification.id}
@@ -160,6 +163,34 @@ function PopUp({
       {...(waiting
         ? { actions: <NotificationActions notification={notification} onReview={onOpen} onAllowed={onAllowed} /> }
         : {})}
+    />
+  );
+}
+
+/** Send a test notification's pop-up, as a finished session's goes: after 8 seconds (AC-42). */
+function TestPopUp() {
+  const shown = useTestPopUpStore((state) => state.shown);
+  const hide = useTestPopUpStore((state) => state.hide);
+
+  useEffect(() => {
+    if (shown === 0) return;
+    const timer = setTimeout(hide, stays);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [shown, hide]);
+
+  if (shown === 0) return null;
+  return (
+    <Toast
+      key={shown}
+      icon={Notification01Icon}
+      tone="neutral"
+      role="status"
+      title={testWords.title}
+      detail={testWords.detail}
+      onOpen={hide}
+      onClose={hide}
     />
   );
 }
