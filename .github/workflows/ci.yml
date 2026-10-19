@@ -62,6 +62,7 @@ jobs:
           - { name: api-client, dir: packages/api-client }
           - { name: server, dir: apps/server }
           - { name: web, dir: apps/web }
+          - { name: desktop, dir: apps/desktop }
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup

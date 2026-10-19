@@ -1,0 +1,23 @@
+{
+  "name": "@devhub/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The desktop host: Electron starts the built @devhub/server hub on a free port and opens its page in a window.",
+  "type": "module",
+  "main": "dist/main.mjs",
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.1",
+    "@types/node": "^24.19.2",
+    "electron": "44.9.0",
+    "electron-builder": "^26.15.3",
+    "electron-updater": "^6.8.9",
+    "tsdown": "^0.23.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5",
+    "zod": "^4.6.7"
+  }
+}

@@ -8,6 +8,10 @@ onlyBuiltDependencies:
   - esbuild
   - msw
 
+# electron-builder's Windows installer, which Orynx doesn't build (spec 027: macOS and Linux only).
+ignoredBuiltDependencies:
+  - electron-winstaller
+
 # eslint-plugin-jsx-a11y's peer range stops at ESLint 9, but its rules run on ESLint 10
 # (checked by linting a file with known a11y violations). Remove once the plugin widens its range.
 peerDependencyRules:
