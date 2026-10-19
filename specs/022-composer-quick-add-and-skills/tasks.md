@@ -58,7 +58,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **B. Files by path**
 
-- [ ] Task 14: The computer's file picker: 020's picker learns to pick several files (`osascript` `choose file with multiple selections allowed`, `zenity --file-selection --multiple`, `kdialog --getopenfilename --multiple --separate-output`), and `POST /api/file-picker` answers the paths with `~`, or null on Cancel, or 503; `POST /api/files/check` answers a typed path when it's a file, else 422. Fake programs in tests (AC-9, AC-11, AC-12)
+- [x] Task 14: The computer's file picker: 020's picker learns to pick several files (`osascript` `choose file with multiple selections allowed`, `zenity --file-selection --multiple`, `kdialog --getopenfilename --multiple --separate-output`), and `POST /api/file-picker` answers the paths with `~`, or null on Cancel, or 503; `POST /api/files/check` answers a typed path when it's a file, else 422. Fake programs in tests (AC-9, AC-11, AC-12)
       Check: pnpm test packages/core/src/folder-picker packages/core/src/routes/folder-picker.test.ts packages/core/src/routes/files.test.ts
       Files: packages/contracts/src/repositories.ts, packages/contracts/src/routes.ts, packages/core/src/folder-picker/folder-picker.ts, packages/core/src/folder-picker/folder-picker.test.ts, packages/core/src/routes/folder-picker.ts, packages/core/src/routes/files.ts, packages/core/src/routes/files.test.ts, packages/core/src/create-server.ts, e2e/fake-gh/*
 - [ ] Task 15: A file chip by path: `{ kind: 'file', path }` (absolute or `~/`, no control characters, at most 4,096 characters), the secret-name rule moved to contracts and refused there, the same path twice refused; the brief step's `files` hold paths (AC-10, AC-13, AC-14, AC-17)

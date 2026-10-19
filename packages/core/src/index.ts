@@ -4,7 +4,12 @@ export { sandboxAvailable } from './agents/claude/sandbox.ts';
 export { createServer, redactToken, type CoreOptions } from './create-server.ts';
 export { createEventBus, type EventBus, type EventListener } from './events/event-bus.ts';
 export { createGhCli, type GhCli } from './integrations/github/gh.ts';
-export { createFolderPicker, type FolderPicker } from './folder-picker/folder-picker.ts';
+export {
+  createFilePicker,
+  createFolderPicker,
+  type FilePicker,
+  type FolderPicker,
+} from './folder-picker/folder-picker.ts';
 export { cacheFilePath, openInboxCache, type InboxCache } from './inbox/inbox-cache.ts';
 export { openFileSessionStore } from './sessions/file-session-store.ts';
 export { createMemorySessionStore, type SessionRecords, type SessionStore } from './sessions/session-store.ts';

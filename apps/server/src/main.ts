@@ -7,6 +7,7 @@ import {
   claudeWorkFolder,
   createClaudeCode,
   createFileSettingsStore,
+  createFilePicker,
   createFolderPicker,
   createGhCli,
   createMemoryKeychain,
@@ -68,6 +69,7 @@ const app = await createServer({
   gh: createGhCli({ searchPath: config.ghSearchPath }),
   // The computer's folder picker from that same PATH, for Choose folder (spec 020).
   folderPicker: createFolderPicker({ searchPath: config.ghSearchPath, platform: process.platform }),
+  filePicker: createFilePicker({ searchPath: config.ghSearchPath, platform: process.platform }),
   // The Claude Code inside the Agent SDK, with only the allowed part of the shell's environment (spec 010).
   // The e2e run names a fake with DEVHUB_CLAUDE_CODE.
   claudeCode: createClaudeCode({
