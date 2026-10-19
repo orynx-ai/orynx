@@ -11,6 +11,9 @@ export const queryKeys = {
   jiraProjects: ['jira', 'projects'] as const,
   githubConnection: ['github', 'connection'] as const,
   preferences: ['preferences'] as const,
+  notifications: ['notifications'] as const,
+  /** Not under `notifications`, so a new notification never reads the settings again. */
+  notificationSettings: ['notification-settings'] as const,
   repositories: ['repositories'] as const,
   orynxSkills: ['skills', 'orynx'] as const,
   inbox: ['inbox'] as const,
@@ -133,6 +136,24 @@ export function preferencesQueryOptions(api: ApiClient) {
   return queryOptions({
     queryKey: queryKeys.preferences,
     queryFn: () => api.preferences(),
+    // Every save publishes settings.changed, which refreshes this in every open tab.
+    staleTime: Infinity,
+  });
+}
+
+export function notificationsQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.notifications,
+    queryFn: () => api.notifications(),
+    // Freshness comes from the event stream (notifications.changed), not from polling.
+    staleTime: Infinity,
+  });
+}
+
+export function notificationSettingsQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.notificationSettings,
+    queryFn: () => api.notificationSettings(),
     // Every save publishes settings.changed, which refreshes this in every open tab.
     staleTime: Infinity,
   });

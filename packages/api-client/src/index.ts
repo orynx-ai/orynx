@@ -8,6 +8,8 @@ export {
   inboxQueryOptions,
   jiraConnectionQueryOptions,
   jiraProjectsQueryOptions,
+  notificationSettingsQueryOptions,
+  notificationsQueryOptions,
   preferencesQueryOptions,
   queryKeys,
   repositoriesQueryOptions,

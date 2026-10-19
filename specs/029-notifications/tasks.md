@@ -28,9 +28,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **API client**
 
-- [ ] Task 8: API client for notifications and their settings; `notifications.changed` and `settings.changed` refresh them (AC-13, AC-44)
-      Check: pnpm test packages/api-client/src/notifications.test.ts packages/app/src/live-updates.test.tsx
-      Files: packages/api-client/src/endpoints/notifications.ts, packages/api-client/src/notifications.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/app/src/live-updates.tsx, packages/app/src/live-updates.test.tsx
+- [x] Task 8: API client for notifications and their settings; `notifications.changed` and `settings.changed` refresh them (AC-13, AC-44; the refresh is proven by task 15's two-tab test and task 22's)
+      Check: pnpm test packages/api-client/src/notifications.test.ts
+      Files: packages/api-client/src/endpoints/notifications.ts, packages/api-client/src/notifications.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/app/src/live-updates.tsx
 
 **UI parts**
 

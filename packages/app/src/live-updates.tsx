@@ -34,8 +34,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // An edit or a command ended: that session's Changes tab, list and diff, reads again (spec 013, AC-2).
       return [sessionChangesQueryKey(event.sessionId)];
     case 'settings.changed':
-      // The inbox rules apply when the server reads the list (spec 007).
-      return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];
+      // The inbox rules apply when the server reads the list (spec 007). Settings › Notifications too (spec 029).
+      return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox, queryKeys.notificationSettings];
     case 'inbox.changed':
       // A sync ended: Tickets' sprint syncs with the inbox (spec 008), and search reads both (spec 009).
       return [queryKeys.inbox, queryKeys.tickets, queryKeys.search];
@@ -44,7 +44,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // Settings › Skills and the composer's `/` lists, which show your skills too.
       return [queryKeys.skills];
     case 'notifications.changed':
-      return [];
+      // One came, was read, or its approval ended: the bell, its panel and the pop-ups read the list again (spec 029).
+      return [queryKeys.notifications];
   }
 }
 

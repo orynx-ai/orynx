@@ -14,6 +14,10 @@ import {
   type JiraConnection,
   type JiraConnectionRequest,
   type JiraProjectList,
+  type MarkNotificationsRead,
+  type NotificationList,
+  type NotificationSettings,
+  type NotificationSettingsChange,
   type Preferences,
   type PreferencesChange,
   type Repository,
@@ -53,6 +57,12 @@ import { getAgentModels, getClaudeLogin, postClaudeLoginCheck } from './endpoint
 import { deleteGitHubConnection, getGitHubConnection, putGitHubConnection } from './endpoints/github.ts';
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
 import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnection } from './endpoints/jira.ts';
+import {
+  getNotifications,
+  getNotificationSettings,
+  patchNotificationSettings,
+  postNotificationsRead,
+} from './endpoints/notifications.ts';
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
 import {
   deleteRepository,
@@ -151,6 +161,14 @@ export interface ApiClient {
   preferences(): Promise<Preferences>;
   /** Saves one change and returns every preference. */
   changePreferences(change: PreferencesChange): Promise<Preferences>;
+  /** The bell's list, newest first, with the unread and waiting counts (spec 029). */
+  notifications(): Promise<NotificationList>;
+  /** Marks some notifications read, or all of them. */
+  markNotificationsRead(request: MarkNotificationsRead): Promise<void>;
+  /** Settings › Notifications, with the default for anything never chosen. */
+  notificationSettings(): Promise<NotificationSettings>;
+  /** Saves one change and returns every setting. */
+  changeNotificationSettings(change: NotificationSettingsChange): Promise<NotificationSettings>;
   /** Settings › Repositories, in the order the folders were added. */
   repositories(): Promise<RepositoryList>;
   /** Checks the folder on disk, then saves it; rejects with folder_rejected and the message for the Folder field. */
@@ -258,6 +276,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     preferences: () => getPreferences(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     changePreferences: (change) =>
       patchPreferences(http, change).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    notifications: () => getNotifications(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    markNotificationsRead: (request) =>
+      postNotificationsRead(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    notificationSettings: () =>
+      getNotificationSettings(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    changeNotificationSettings: (change) =>
+      patchNotificationSettings(http, change).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     repositories: () => getRepositories(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     addRepository: (request) =>
       postRepository(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
