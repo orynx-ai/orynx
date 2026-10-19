@@ -21,7 +21,8 @@ export type SettingRowProps = Omit<ComponentProps<'div'>, 'title'> & {
 
 /**
  * Design system: `dh-perm` (spec 029). A setting's title, its one-line description and anything under it (a pill,
- * a checkbox, a slider) on the left, its control at the end.
+ * a checkbox, a slider) on the left, its control at the end. When the words would get narrower than 192 px, as a
+ * picker and a switch at 360 px make them, the control moves under them.
  */
 export function SettingRow({
   title,
@@ -35,8 +36,8 @@ export function SettingRow({
 }: SettingRowProps) {
   const Title = titleFor === undefined ? 'span' : 'label';
   return (
-    <div className={cn('flex items-center gap-x-5 gap-y-2 px-4 py-3.5', className)} {...props}>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+    <div className={cn('flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3.5', className)} {...props}>
+      <div className="flex min-w-48 flex-1 flex-col gap-0.5">
         <Title id={titleId} htmlFor={titleFor} className="font-medium">
           {title}
         </Title>
