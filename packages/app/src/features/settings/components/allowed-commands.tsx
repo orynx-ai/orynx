@@ -32,6 +32,8 @@ export function AllowedCommands() {
     resolver: (values, context, options) =>
       zodResolver(allowedCommandFormSchema(saved ?? []))(values, context, options),
     defaultValues: { command: '' },
+    // Focused below at once on a refusal: react-hook-form's own focus also fires a tick later, after a chip may have it.
+    shouldFocusError: false,
   });
   const { errors } = form.formState;
   const field = form.register('command');
@@ -39,11 +41,16 @@ export function AllowedCommands() {
 
   function add(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    void form.handleSubmit(({ command }) => {
-      change.mutate({ allowCommand: command });
-      form.reset();
-      input.current?.focus();
-    })(event);
+    void form.handleSubmit(
+      ({ command }) => {
+        change.mutate({ allowCommand: command });
+        form.reset();
+        input.current?.focus();
+      },
+      () => {
+        input.current?.focus();
+      },
+    )(event);
   }
 
   return (
