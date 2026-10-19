@@ -6,6 +6,7 @@ import {
   type FileCheckRequest,
   type FilePicks,
   type FolderPick,
+  type AgentModels,
   type ClaudeLogin,
   type GitHubConnection,
   type GitHubConnectionRequest,
@@ -29,6 +30,7 @@ import {
   type PushAnswer,
   type PushDraftAnswer,
   type SendMessageAnswer,
+  type SendMessageInput,
   type Session,
   type SessionChanges,
   type SessionList,
@@ -42,7 +44,7 @@ import {
   type Tickets,
   type TicketsChoice,
 } from '@devhub/contracts';
-import { getClaudeLogin, postClaudeLoginCheck } from './endpoints/claude.ts';
+import { getAgentModels, getClaudeLogin, postClaudeLoginCheck } from './endpoints/claude.ts';
 import { deleteGitHubConnection, getGitHubConnection, putGitHubConnection } from './endpoints/github.ts';
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
 import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnection } from './endpoints/jira.ts';
@@ -105,7 +107,7 @@ export interface ApiClient {
    */
   respondToApproval(id: string, approvalId: string, decision: ApprovalDecision): Promise<void>;
   /** A follow-up (spec 013): answers sent, or why it can't go. */
-  sendMessage(id: string, text: string): Promise<SendMessageAnswer>;
+  sendMessage(id: string, request: SendMessageInput): Promise<SendMessageAnswer>;
   /** What changed in the session's worktree (spec 013). */
   sessionChanges(id: string): Promise<SessionChanges>;
   /** One changed file's diff; rejects with not_found for a path that isn't among the changes. */
@@ -168,6 +170,8 @@ export interface ApiClient {
   claudeLogin(): Promise<ClaudeLogin>;
   /** Check again: the server asks Claude Code now, or shares a check that's running. */
   checkClaudeLogin(): Promise<ClaudeLogin>;
+  /** The models Claude offers now, with their effort levels, for the composer's agent picker. */
+  agentModels(): Promise<AgentModels>;
   /** Everything ⌘K search can find, from the server's cache and sessions (spec 009). */
   search(): Promise<SearchIndex>;
   /** Opens the live event stream; returns a function that closes it. */
@@ -201,8 +205,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       postSessionDiscard(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     respondToApproval: (id, approvalId, decision) =>
       postApproval(http, id, approvalId, decision).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    sendMessage: (id, text) =>
-      postSessionMessage(http, id, text).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    sendMessage: (id, request) =>
+      postSessionMessage(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sessionChanges: (id) =>
       getSessionChanges(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sessionDiff: (id, path) =>
@@ -254,6 +258,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     claudeLogin: () => getClaudeLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkClaudeLogin: () =>
       postClaudeLoginCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    agentModels: () => getAgentModels(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     search: () => getSearch(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     subscribe: (onEvent, onError) =>
       subscribeToEvents({

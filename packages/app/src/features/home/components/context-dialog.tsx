@@ -3,6 +3,7 @@ import { Cancel01Icon, File01Icon } from '@hugeicons/core-free-icons';
 import type { ComposerChip } from '@devhub/contracts';
 import {
   AttentionList,
+  AttentionTitleButton,
   Button,
   Dialog,
   DialogContent,
@@ -16,8 +17,9 @@ import {
   TabsTrigger,
 } from '@devhub/ui';
 import { useSearchIndex } from '../../search/queries.ts';
+import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
 import { chipLabel, composerWords, removedLine } from '../composer-words.ts';
-import { useComposerStore } from '../store.ts';
+import { useComposerChips } from '../composer-chips.tsx';
 
 const words = composerWords.dialog;
 type Tab = keyof typeof words.tabs;
@@ -60,9 +62,9 @@ export interface ContextDialogProps {
 }
 
 /**
- * Everything the composer holds, by kind (spec 022, AC-20 to AC-24): the tabs Tickets, Pull requests and Files,
- * each row with what it is and Remove. It opens on the first tab that holds something, and closes by itself
- * once nothing's left.
+ * Everything the composer holds, by kind (spec 022, AC-20 to AC-24): a tab for each of Tickets, Pull requests and
+ * Files that holds something, each row with what it is and Remove; a ticket's key opens the ticket dialog. It
+ * opens on the first tab, and closes by itself once nothing's left.
  */
 export function ContextDialog({ open, onOpenChange, returnFocusTo }: ContextDialogProps) {
   return (
@@ -74,20 +76,27 @@ export function ContextDialog({ open, onOpenChange, returnFocusTo }: ContextDial
 }
 
 function ContextDialogContent({ onOpenChange, returnFocusTo }: Omit<ContextDialogProps, 'open'>) {
-  const chips = useComposerStore((state) => state.chips);
-  const removeChip = useComposerStore((state) => state.removeChip);
+  const { chips, removeChip } = useComposerChips();
   const subLine = useSubLine();
-  const [tab, setTab] = useState<Tab>(
-    () => tabs.find((name) => chips.some((chip) => chip.kind === kindOf[name])) ?? 'tickets',
-  );
+  const showTicket = useTicketDialogStore((state) => state.show);
+  // A kind with nothing in it has no tab (the user's call, 19 Oct 2026).
+  const shown = tabs.filter((name) => chips.some((chip) => chip.kind === kindOf[name]));
+  const [picked, setTab] = useState<Tab>(() => shown[0] ?? 'tickets');
+  const tab = shown.includes(picked) ? picked : (shown[0] ?? picked);
   const [removed, setRemoved] = useState('');
   const content = useRef<HTMLDivElement>(null);
 
   function remove(event: MouseEvent<HTMLButtonElement>, index: number, label: string) {
-    // Focus moves on before the row goes: to the next row's Remove, else to the tab (AC-21).
-    const next = event.currentTarget.closest('li')?.nextElementSibling?.querySelector('button');
-    const selected = content.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-    (next ?? selected)?.focus();
+    // Focus moves on before the row goes: to the next row's Remove, else to the tab (AC-21), or to the first other
+    // tab when this tab goes with its last row.
+    const row = event.currentTarget.closest('li');
+    // Remove is the row's last button; a ticket's key is a button before it.
+    const next = [...(row?.nextElementSibling?.querySelectorAll<HTMLElement>('button') ?? [])].at(-1);
+    const lastOfTab = row?.parentElement?.children.length === 1;
+    const tabTo = content.current?.querySelector<HTMLElement>(
+      `[role="tab"][aria-selected="${lastOfTab ? 'false' : 'true'}"]`,
+    );
+    (next ?? tabTo)?.focus();
     const last = chips.length === 1;
     removeChip(index);
     setRemoved(removedLine(label));
@@ -114,48 +123,52 @@ function ContextDialogContent({ onOpenChange, returnFocusTo }: Omit<ContextDialo
         className="flex min-h-0 flex-col"
       >
         <TabsList className="shrink-0 px-6">
-          {tabs.map((name) => (
+          {shown.map((name) => (
             <TabsTrigger key={name} value={name} count={chips.filter((chip) => chip.kind === kindOf[name]).length}>
               {words.tabs[name]}
             </TabsTrigger>
           ))}
         </TabsList>
-        {tabs.map((name) => {
+        {shown.map((name) => {
           const rows = chips.flatMap((chip, index) => (chip.kind === kindOf[name] ? [{ chip, index }] : []));
           return (
             <TabsContent key={name} value={name} className="min-h-0 overflow-y-auto">
-              {rows.length === 0 ? (
-                <p className="m-0 px-6 py-4 text-muted-foreground">{words.empty[name]}</p>
-              ) : (
-                <AttentionList>
-                  {rows.map(({ chip, index }) => {
-                    const label = chipLabel(chip);
-                    const sub = subLine(chip);
-                    return (
-                      <li key={`${chip.kind}:${label}`} className="flex min-h-14 items-center gap-3 px-6 py-2.5">
-                        {mark(chip)}
-                        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <AttentionList>
+                {rows.map(({ chip, index }) => {
+                  const label = chipLabel(chip);
+                  const sub = subLine(chip);
+                  return (
+                    <li key={`${chip.kind}:${label}`} className="flex min-h-14 items-center gap-3 px-6 py-2.5">
+                      {mark(chip)}
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        {chip.kind === 'jira' ? (
+                          <AttentionTitleButton
+                            onClick={() => {
+                              showTicket({ key: chip.key, title: null, type: null, url: null });
+                            }}
+                          >
+                            {label}
+                          </AttentionTitleButton>
+                        ) : (
                           <span className="truncate font-medium">{label}</span>
-                          {sub === null ? null : (
-                            <span className="truncate text-small text-muted-foreground">{sub}</span>
-                          )}
-                        </div>
-                        <IconButton
-                          variant="ghost"
-                          size="sm"
-                          label={words.remove}
-                          aria-label={composerWords.remove(label)}
-                          onClick={(event) => {
-                            remove(event, index, label);
-                          }}
-                        >
-                          <Icon icon={Cancel01Icon} aria-hidden />
-                        </IconButton>
-                      </li>
-                    );
-                  })}
-                </AttentionList>
-              )}
+                        )}
+                        {sub === null ? null : <span className="truncate text-small text-muted-foreground">{sub}</span>}
+                      </div>
+                      <IconButton
+                        variant="ghost"
+                        size="sm"
+                        label={words.remove}
+                        aria-label={composerWords.remove(label)}
+                        onClick={(event) => {
+                          remove(event, index, label);
+                        }}
+                      >
+                        <Icon icon={Cancel01Icon} aria-hidden />
+                      </IconButton>
+                    </li>
+                  );
+                })}
+              </AttentionList>
             </TabsContent>
           );
         })}

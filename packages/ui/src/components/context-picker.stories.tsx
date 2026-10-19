@@ -111,6 +111,7 @@ function List(props: Partial<ContextSearchProps> & { all?: ContextSearchOption[]
           query={query}
           onQueryChange={setQuery}
           options={options}
+          select="many"
           onPick={() => undefined}
           emptyText="No matches. Try a key like PROJ-1423 or a repo name."
           note="Claude gets the summary, description, comments and linked issues."
@@ -144,10 +145,11 @@ export const NotConnected: Story = {
   ),
 };
 
-/** The folders, ending in Add local folder (AC-13, AC-16). */
+/** The folders, ending in Add local folder (AC-13, AC-16): one is picked, so each has a radio. */
 export const Folders: Story = {
   render: () => (
     <List
+      select="one"
       title="Git repository"
       count="2 folders"
       searchLabel="Search folders"

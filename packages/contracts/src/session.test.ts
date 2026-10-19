@@ -432,7 +432,22 @@ describe('a follow-up (spec 013)', () => {
   it('AC-11: takes your text, trimmed', () => {
     expect(SendMessageRequestSchema.parse({ text: '  Use the existing useSelection hook instead\n' })).toEqual({
       text: 'Use the existing useSelection hook instead',
+      context: [],
     });
+  });
+
+  it('spec 025: takes chips as the composer’s start does, within the same limits and never the same one twice', () => {
+    const chip = { kind: 'jira', key: 'PROJ-1423' } as const;
+    expect(SendMessageRequestSchema.parse({ text: 'And this', context: [chip] })).toEqual({
+      text: 'And this',
+      context: [chip],
+    });
+    expect(SendMessageRequestSchema.safeParse({ text: 'And this', context: [chip, chip] }).success).toBe(false);
+    const files = Array.from({ length: 101 }, (_, n) => ({ kind: 'file', path: `~/${String(n)}.md` }));
+    expect(SendMessageRequestSchema.safeParse({ text: 'And this', context: files }).success).toBe(false);
+    expect(
+      SendMessageRequestSchema.safeParse({ text: 'And this', context: [{ kind: 'file', path: '~/.env' }] }).success,
+    ).toBe(false);
   });
 
   it('AC-15, AC-21: refuses an empty message and one longer than 10,000 characters', () => {
@@ -487,22 +502,26 @@ describe("the composer's start (spec 015)", () => {
     }
   });
 
-  it('AC-3, AC-6 (spec 022, Q5): takes up to 10 tickets, 10 pull requests and 20 files, never the same one twice', () => {
+  it('AC-3, AC-6 (spec 022, Q5): takes up to 100 tickets, 100 pull requests and 100 files, never the same one twice', () => {
     const key = (n: number) => ({ kind: 'jira', key: `PROJ-${String(n)}` }) as const;
     const upTo = (count: number) => Array.from({ length: count }, (_, n) => n + 1);
     const tooMany = [
-      upTo(11).map(key),
-      upTo(11).map(pull),
-      upTo(21).map((n) => file(`notes-${String(n)}.md`)),
+      upTo(101).map(key),
+      upTo(101).map(pull),
+      upTo(101).map((n) => file(`notes-${String(n)}.md`)),
       [pull(2836), pull(2836)],
       [ticket, pull(1), ticket],
     ];
     for (const context of tooMany) {
       expect(ComposerStartSchema.safeParse(body({ context })).success).toBe(false);
     }
-    const most = [...upTo(10).map(key), ...upTo(10).map(pull), ...upTo(20).map((n) => file(`notes-${String(n)}.md`))];
+    const most = [
+      ...upTo(100).map(key),
+      ...upTo(100).map(pull),
+      ...upTo(100).map((n) => file(`notes-${String(n)}.md`)),
+    ];
     expect(ComposerStartSchema.safeParse(body({ context: most })).success).toBe(true);
-    expect(composerLimits).toEqual({ tickets: 10, pullRequests: 10, files: 20, skills: 5 });
+    expect(composerLimits).toEqual({ tickets: 100, pullRequests: 100, files: 100, skills: 5 });
   });
 
   it('022 AC-10, AC-13, AC-14: a file is its path, of any kind; never one that looks like a secret, or the same twice', () => {

@@ -55,7 +55,7 @@ describe('+ Add context (spec 015)', () => {
     expect(menu).toHaveAccessibleDescription('Tip: you can also paste a Jira key or a pull request link into the box.');
   });
 
-  it('AC-7, AC-8: picks a ticket from your tickets; the popup closes and the box asks what to do with it', async () => {
+  it('AC-7, AC-8: ticks a ticket from your tickets; the list stays open, and once closed the box asks what to do with it', async () => {
     serve();
     const { user } = await renderApp();
     await openKind(user, /Jira ticket/);
@@ -71,15 +71,18 @@ describe('+ Add context (spec 015)', () => {
     ).toEqual(['PROJ-1377Fix the header · To do']);
     await user.keyboard('{Enter}');
 
+    // A checkbox: the list stays open for the next one (the user's call, 19 Oct 2026).
+    expect(within(dialog).getByRole('option', { name: /PROJ-1377/ })).toHaveAttribute('aria-selected', 'true');
+    expect(chips().map((chip) => chip.textContent)).toEqual(['PROJ-1377']);
+    await user.keyboard('{Escape}');
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Jira ticket' })).toBeNull();
     });
     expect(box()).toHaveFocus();
-    expect(chips().map((chip) => chip.textContent)).toEqual(['PROJ-1377']);
     expect(box()).toHaveAttribute('placeholder', 'What should Claude do with PROJ-1377?');
   });
 
-  it('022 AC-1: the ticket added is checked, and picking another adds it after the first', async () => {
+  it('022 AC-1: the ticket added is ticked, ticking another adds it after the first, and unticking takes it out', async () => {
     serve();
     useComposerStore.setState({ chips: [{ kind: 'jira', key: 'PROJ-1423' }] });
     const { user } = await renderApp();
@@ -92,27 +95,24 @@ describe('+ Add context (spec 015)', () => {
       expect(chips().map((chip) => chip.textContent)).toEqual(['PROJ-1423', 'PROJ-1377']);
     });
     expect(box()).toHaveAttribute('placeholder', 'What should Claude do with these 2 tickets?');
+    expect(within(dialog).getByRole('option', { name: /PROJ-1377/ })).toHaveAttribute('aria-selected', 'true');
 
-    await openKind(user, /Jira ticket/);
-    const again = await screen.findByRole('dialog', { name: 'Jira ticket' });
-    expect(within(again).getByRole('option', { name: /PROJ-1377/ })).toHaveAttribute('aria-selected', 'true');
-    // 022 AC-2: picking a ticket that's there already adds nothing.
-    await user.click(within(again).getByRole('option', { name: /PROJ-1423/ }));
+    await user.click(within(dialog).getByRole('option', { name: /PROJ-1423/ }));
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Jira ticket' })).toBeNull();
+      expect(chips().map((chip) => chip.textContent)).toEqual(['PROJ-1377']);
     });
-    expect(chips().map((chip) => chip.textContent)).toEqual(['PROJ-1423', 'PROJ-1377']);
+    expect(within(dialog).getByRole('option', { name: /PROJ-1423/ })).toHaveAttribute('aria-selected', 'false');
   });
 
-  it('022 AC-3: the Jira list says why an eleventh ticket can’t be added', async () => {
+  it('022 AC-3: the Jira list says why a 101st ticket can’t be added', async () => {
     serve();
     useComposerStore.setState({
-      chips: Array.from({ length: 10 }, (_, n) => ({ kind: 'jira', key: `OPS-${String(n + 1)}` })),
+      chips: Array.from({ length: 100 }, (_, n) => ({ kind: 'jira', key: `OPS-${String(n + 1)}` })),
     });
     const { user } = await renderApp();
     await openKind(user, /Jira ticket/);
     const dialog = await screen.findByRole('dialog', { name: 'Jira ticket' });
-    expect(within(dialog).getByText('A session takes up to 10 tickets.')).toBeVisible();
+    expect(within(dialog).getByText('A session takes up to 100 tickets.')).toBeVisible();
     expect(within(dialog).queryAllByRole('option')).toEqual([]);
   });
 
@@ -133,7 +133,7 @@ describe('+ Add context (spec 015)', () => {
     });
   });
 
-  it('022 AC-3: adds a pull request, and says why an eleventh can’t be added', async () => {
+  it('022 AC-3: adds a pull request, and says why a 101st can’t be added', async () => {
     serve();
     const { user } = await renderApp();
     await openKind(user, /Pull request/);
@@ -142,8 +142,9 @@ describe('+ Add context (spec 015)', () => {
       expect(chips().map((chip) => chip.textContent)).toEqual(['web-app #2841']);
     });
 
+    await user.keyboard('{Escape}');
     useComposerStore.setState({
-      chips: Array.from({ length: 10 }, (_, n) => ({
+      chips: Array.from({ length: 100 }, (_, n) => ({
         kind: 'pull_request',
         owner: 'acme',
         name: 'web-app',
@@ -152,7 +153,7 @@ describe('+ Add context (spec 015)', () => {
     });
     await openKind(user, /Pull request/);
     const dialog = await screen.findByRole('dialog', { name: 'Pull request' });
-    expect(within(dialog).getByText('A session takes up to 10 pull requests.')).toBeVisible();
+    expect(within(dialog).getByText('A session takes up to 100 pull requests.')).toBeVisible();
     expect(within(dialog).queryAllByRole('option')).toEqual([]);
   });
 
@@ -210,7 +211,7 @@ describe('+ Add context (spec 015)', () => {
     expect(useComposerStore.getState().chips).toEqual([]);
   });
 
-  it('022 AC-13: a file that looks like a secret isn’t added, and a 21st file is said', async () => {
+  it('022 AC-13: a file that looks like a secret isn’t added, and a 101st file is said', async () => {
     serve();
     server.use(
       http.post(apiUrl(apiRoutes.filePicker), () => HttpResponse.json({ paths: ['~/.ssh/id_rsa', '~/a.md'] })),
@@ -222,12 +223,12 @@ describe('+ Add context (spec 015)', () => {
     expect(useComposerStore.getState().chips).toEqual([{ kind: 'file', path: '~/a.md' }]);
 
     useComposerStore.setState({
-      chips: Array.from({ length: 20 }, (_, n) => ({ kind: 'file', path: `~/${String(n + 1)}.md` })),
+      chips: Array.from({ length: 100 }, (_, n) => ({ kind: 'file', path: `~/${String(n + 1)}.md` })),
     });
-    server.use(http.post(apiUrl(apiRoutes.filePicker), () => HttpResponse.json({ paths: ['~/21.md'] })));
+    server.use(http.post(apiUrl(apiRoutes.filePicker), () => HttpResponse.json({ paths: ['~/101.md'] })));
     await openKind(user, /File from this computer/);
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('Add up to 20 files.');
+      expect(screen.getByRole('alert')).toHaveTextContent('Add up to 100 files.');
     });
   });
 

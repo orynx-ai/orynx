@@ -30,6 +30,8 @@ export type ContextChipProps = Omit<ComponentProps<'li'>, 'children'> & {
   icon?: ReactNode;
   /** Called when the person removes the chip. The screen takes it out of the list. */
   onRemove: () => void;
+  /** Makes the text a button that opens what the chip is, such as a ticket in the ticket dialog. */
+  onOpen?: (() => void) | undefined;
 };
 
 /**
@@ -38,7 +40,8 @@ export type ContextChipProps = Omit<ComponentProps<'li'>, 'children'> & {
  */
 function focusAfterRemoving(event: MouseEvent<HTMLButtonElement>): void {
   const chip = event.currentTarget.closest('li');
-  const next = chip?.nextElementSibling?.querySelector('button');
+  // Remove is a chip's last button; an openable chip's text is a button before it.
+  const next = [...(chip?.nextElementSibling?.querySelectorAll('button') ?? [])].at(-1);
   const textBox = event.currentTarget.closest('form')?.querySelector('textarea');
   (next ?? textBox)?.focus();
 }
@@ -48,7 +51,7 @@ function focusAfterRemoving(event: MouseEvent<HTMLButtonElement>): void {
  * context. From shadcn's `attachment`, drawn as the design system's 32 px chip: the mark or icon,
  * the text, and a 24 px remove button whose clickable area is 32 px (spec 006 Q2b).
  */
-export function ContextChip({ label, icon, onRemove, className, ...props }: ContextChipProps) {
+export function ContextChip({ label, icon, onRemove, onOpen, className, ...props }: ContextChipProps) {
   return (
     <li
       data-slot="context-chip"
@@ -59,9 +62,20 @@ export function ContextChip({ label, icon, onRemove, className, ...props }: Cont
       {...props}
     >
       {icon}
-      <span title={label} className="min-w-0 truncate">
-        {label}
-      </span>
+      {onOpen === undefined ? (
+        <span title={label} className="min-w-0 truncate">
+          {label}
+        </span>
+      ) : (
+        <button
+          type="button"
+          title={label}
+          onClick={onOpen}
+          className="min-w-0 cursor-pointer truncate rounded-xs border-0 bg-transparent p-0 text-start font-medium text-foreground hover:underline"
+        >
+          {label}
+        </button>
+      )}
       <Tooltip label="Remove">
         <button
           type="button"

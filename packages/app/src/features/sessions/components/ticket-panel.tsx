@@ -1,15 +1,15 @@
 import type { Session } from '@devhub/contracts';
-import { Callout, ExternalLink, Markdown, Pill, SourceMark } from '@devhub/ui';
+import { ExternalLink, Markdown, Pill, SourceMark } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { duePill } from '../../../words/due.ts';
 import { statusTones } from '../../../words/status-tone.ts';
 import { useNow } from '../../../words/use-now.ts';
-import { briefNote, noDescription } from '../ticket-tab-words.ts';
+import { noDescription } from '../ticket-tab-words.ts';
 
 /**
- * The Ticket tab (spec 013, Q7): the ticket as Claude got it, its description laid out, with its status and due
- * date as the cache knows them now and Open in Jira, then what Claude was and wasn't sent. As `session.html`
- * draws it, at most 640 px wide.
+ * The session's own ticket, at the top of the Context tab (spec 013, Q7): the ticket as Claude got it, its
+ * description laid out, with its status and due date as the cache knows them now and Open in Jira. As
+ * `session.html` draws it, at most 640 px wide.
  */
 export function TicketPanel({ session }: { session: Session }) {
   const platform = usePlatform();
@@ -44,17 +44,10 @@ export function TicketPanel({ session }: { session: Session }) {
           </ExternalLink>
         )}
       </div>
-      {ticket === null ? null : (
-        <>
-          {ticket.description === null ? (
-            <p className="m-0 text-muted-foreground">{noDescription}</p>
-          ) : (
-            <Markdown text={ticket.description} onOpenLink={open} />
-          )}
-          <Callout tone="info" title={briefNote.title}>
-            {briefNote.body}
-          </Callout>
-        </>
+      {ticket === null ? null : ticket.description === null ? (
+        <p className="m-0 text-muted-foreground">{noDescription}</p>
+      ) : (
+        <Markdown text={ticket.description} onOpenLink={open} />
       )}
     </div>
   );

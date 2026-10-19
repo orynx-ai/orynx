@@ -40,9 +40,14 @@ function sandboxFor(path: string): SandboxSettings {
 interface SetUpOptions {
   stopGraceMs?: number;
   sandbox?: ((worktree: string) => SandboxSettings) | null;
+  modelsTimeoutMs?: number;
+  now?: () => number;
 }
 
-function setUp(script: readonly FakeTurn[], { stopGraceMs = 5_000, sandbox = sandboxFor }: SetUpOptions = {}) {
+function setUp(
+  script: readonly FakeTurn[],
+  { stopGraceMs = 5_000, sandbox = sandboxFor, modelsTimeoutMs, now }: SetUpOptions = {},
+) {
   const sdk = fakeClaudeSdk(script);
   const adapter = createClaudeAdapter({
     query: sdk.query,
@@ -51,6 +56,8 @@ function setUp(script: readonly FakeTurn[], { stopGraceMs = 5_000, sandbox = san
     home: root,
     stopGraceMs,
     sandbox,
+    ...(modelsTimeoutMs === undefined ? {} : { modelsTimeoutMs }),
+    ...(now === undefined ? {} : { now }),
   });
   return { sdk, adapter };
 }
@@ -626,6 +633,23 @@ describe('the Claude adapter', () => {
     expect(works(events)).toEqual([{ kind: 'finished', summary: 'Used the hook.' }]);
   });
 
+  it('starts Claude Code with the model and effort the composer picked, and with its own default otherwise', async () => {
+    const { sdk, adapter } = setUp([{ finish: 'Done.' }]);
+    await runToEnd(adapter);
+    const id = await adapter.startSession(brief, worktree, editFreely, 'x', { model: 'opus', effort: 'high' });
+    await new Promise<void>((resolve) => {
+      adapter.onEvent(id, (event) => {
+        if (event.type === 'ended') resolve();
+      });
+    });
+
+    const [plain, picked] = sdk.runs;
+    expect(plain?.options).not.toHaveProperty('model');
+    expect(plain?.options).not.toHaveProperty('effort');
+    expect(picked?.options).toMatchObject({ model: 'opus', effort: 'high' });
+    expect(picked?.options.resume).toBeUndefined();
+  });
+
   it('013 AC-16: a resume that ends before Claude Code starts is Claude Code missing the conversation', async () => {
     const { sdk, adapter } = setUp([{ finish: 'Never.' }]);
     sdk.onResume = 'no_conversation';
@@ -741,5 +765,71 @@ describe('writing text with no tools (spec 014)', () => {
     expect(await adapter.write(prompt, instructions, { timeoutMs: 50 })).toEqual({ ok: false, problem: 'timeout' });
     expect(sdk.runs[0]?.interrupts).toBe(1);
     expect(sdk.runs[0]?.closes).toBe(1);
+  });
+});
+
+describe('listing models', () => {
+  const opus = {
+    value: 'opus',
+    displayName: 'Opus',
+    description: 'Most capable',
+    supportedEffortLevels: ['low', 'medium', 'high', 'xhigh', 'max'] as ('low' | 'medium' | 'high' | 'xhigh' | 'max')[],
+  };
+  const haiku = { value: 'haiku', displayName: 'Haiku', description: 'Fastest' };
+
+  it('lists what Claude Code offers with each model’s effort levels, from a Claude Code that is sent nothing', async () => {
+    const { sdk, adapter } = setUp([]);
+    sdk.models = [opus, haiku, { value: '--not-a-model', displayName: 'Odd', description: '' }];
+
+    expect(await adapter.models()).toEqual({
+      state: 'ready',
+      models: [
+        { value: 'opus', displayName: 'Opus', description: 'Most capable', efforts: opus.supportedEffortLevels },
+        { value: 'haiku', displayName: 'Haiku', description: 'Fastest', efforts: [] },
+      ],
+    });
+    const [run] = sdk.runs;
+    expect(run?.prompts).toEqual([]);
+    expect(run?.closes).toBe(1);
+    expect(run?.options).toMatchObject({
+      pathToClaudeCodeExecutable: '/opt/claude/claude',
+      env: { ...env, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' },
+      tools: [],
+      persistSession: false,
+      settingSources: [],
+      settings: { disableAllHooks: true },
+      strictMcpConfig: true,
+      mcpServers: {},
+    });
+    // An empty folder of its own, gone once Claude Code has answered.
+    await expect(realpath(run?.options.cwd ?? '')).rejects.toThrow();
+  });
+
+  it('keeps the list for 10 minutes, and shares a read under way', async () => {
+    let at = 0;
+    const { sdk, adapter } = setUp([], { now: () => at });
+    sdk.models = [opus];
+
+    const [first, second] = await Promise.all([adapter.models(), adapter.models()]);
+    expect(second).toEqual(first);
+    at = 9 * 60_000;
+    await adapter.models();
+    expect(sdk.runs).toHaveLength(1);
+    at = 10 * 60_000;
+    sdk.models = [haiku];
+    expect(await adapter.models()).toMatchObject({ models: [{ value: 'haiku' }] });
+    expect(sdk.runs).toHaveLength(2);
+  });
+
+  it('is unavailable when Claude Code fails or doesn’t answer in time, and asks again next time', async () => {
+    const { sdk, adapter } = setUp([], { modelsTimeoutMs: 20 });
+    sdk.models = 'fails';
+    expect(await adapter.models()).toEqual({ state: 'unavailable' });
+    sdk.models = 'hangs';
+    expect(await adapter.models()).toEqual({ state: 'unavailable' });
+    expect(sdk.runs[1]?.closes).toBe(1);
+    sdk.models = [haiku];
+    expect(await adapter.models()).toMatchObject({ state: 'ready' });
+    expect(sdk.runs).toHaveLength(3);
   });
 });

@@ -392,6 +392,71 @@ describe('a file by its path (spec 022)', () => {
   });
 });
 
+describe('what a session was sent (spec 025)', () => {
+  it('keeps every chip a composer start was sent, in the order added', async () => {
+    const set = await setUp();
+    await set.sessions.start(
+      makeComposerStart({ message: 'Do it', repositoryId: set.folder?.id, context: [ticketChip, pullChip, fileChip] }),
+    );
+    expect((await settled(set.records)).session.context).toEqual([ticketChip, pullChip, fileChip]);
+  });
+
+  it('a follow-up’s chips are read and sent after its message, join the session’s context, and Claude may read its files', async () => {
+    const set = await setUp({
+      script: [{ finish: 'Done.' }, { tool: 'Read', input: { file_path: '~/notes.md' } }, { finish: 'Read it.' }],
+    });
+    await set.sessions.start(makeComposerStart({ message: 'Fix the header', repositoryId: set.folder?.id }));
+    await settled(set.records);
+    await started(set.records, '0000000000000001');
+
+    expect(await set.sessions.send('0000000000000001', 'Use these too', [ticketChip, fileChip])).toEqual({
+      result: 'sent',
+    });
+
+    const record = await settled(set.records);
+    expect(record.session.context).toEqual([ticketChip, fileChip]);
+    expect(record.reads?.files).toEqual([await realpath(join(set.root, 'notes.md'))]);
+    const prompt = set.sdk.runs[1]?.prompts[0] ?? '';
+    expect(prompt).toMatch(/^Use these too\n\nJira ticket PROJ-1423 \(Story\): /);
+    expect(prompt).toContain('File ~/notes.md');
+    expect(set.sdk.runs[1]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([['Read', 'allow']]);
+    // The message step shows what you typed.
+    expect(record.session.activities.filter((step) => step.kind === 'message')).toMatchObject([
+      { kind: 'message', text: 'Use these too' },
+    ]);
+  });
+
+  it('a follow-up that resumes Claude Code starts it with the model and effort you picked', async () => {
+    const set = await setUp({ script: [{ finish: 'Done.' }, { finish: 'Done again.' }] });
+    await set.sessions.start(makeComposerStart({ message: 'Fix the header', repositoryId: set.folder?.id }));
+    await settled(set.records);
+    await started(set.records, '0000000000000001');
+
+    expect(await set.sessions.send('0000000000000001', 'Again', [], { model: 'haiku', effort: 'low' })).toEqual({
+      result: 'sent',
+    });
+
+    await settled(set.records);
+    expect(set.sdk.runs[0]?.options).not.toHaveProperty('model');
+    expect(set.sdk.runs[1]?.options).toMatchObject({ model: 'haiku', effort: 'low' });
+  });
+
+  it('a follow-up chip that can’t be read sends nothing, and says which', async () => {
+    const set = await setUp();
+    await set.sessions.start(makeComposerStart({ message: 'Fix the header', repositoryId: set.folder?.id }));
+    await settled(set.records);
+    await started(set.records, '0000000000000001');
+
+    expect(await set.sessions.send('0000000000000001', 'And this', [fileChip, { ...pullChip, number: 9 }])).toEqual({
+      result: 'context_failed',
+      chip: 1,
+      problem: 'not_found',
+    });
+    expect(set.sdk.runs).toHaveLength(1);
+    expect((await set.records.get('0000000000000001'))?.session.context).toEqual([]);
+  });
+});
+
 describe('skills your message names (spec 022)', () => {
   it('AC-53: adds the skill’s text after the chips, lists it in the brief step, and lets Claude read its folder', async () => {
     const set = await setUp({
@@ -459,6 +524,18 @@ describe('a composer start (spec 015)', () => {
     expect(await records.readBrief('0000000000000001')).toBe('Add a CSV export to the reports page');
     expect(sdk.runs[0]?.prompts).toEqual(['Add a CSV export to the reports page']);
     expect(JSON.stringify(sdk.runs[0]?.options.systemPrompt)).toContain('Do what the user asks in the brief.');
+    expect(sdk.runs[0]?.options).not.toHaveProperty('model');
+  });
+
+  it('starts Claude Code with the model and effort the composer picked', async () => {
+    const { sessions, records, sdk, folder } = await setUp();
+
+    await sessions.start(
+      makeComposerStart({ message: 'Add a CSV export', repositoryId: folder?.id, model: 'opus', effort: 'max' }),
+    );
+
+    await settled(records);
+    expect(sdk.runs[0]?.options).toMatchObject({ model: 'opus', effort: 'max' });
   });
 
   it('AC-20: sends your message, the ticket, the pull request and the file in the order you added them, and nothing else', async () => {

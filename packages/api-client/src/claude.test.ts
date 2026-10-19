@@ -3,7 +3,13 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { apiRoutes, tokenHeader } from '@devhub/contracts';
 import { makeClaudeSignedIn } from '@devhub/contracts/testing';
-import { ApiRequestError, claudeLoginQueryOptions, createApiClient, queryKeys } from './index.ts';
+import {
+  agentModelsQueryOptions,
+  ApiRequestError,
+  claudeLoginQueryOptions,
+  createApiClient,
+  queryKeys,
+} from './index.ts';
 
 const baseURL = 'http://127.0.0.1:4317';
 const loginUrl = `${baseURL}${apiRoutes.claudeLogin}`;
@@ -64,5 +70,33 @@ describe('Claude login endpoints', () => {
     const options = claudeLoginQueryOptions(api);
     expect(options.queryKey).toEqual(queryKeys.claudeLogin);
     expect(options.staleTime).toBe(Infinity);
+  });
+});
+
+describe('agent models endpoint', () => {
+  const modelsUrl = `${baseURL}${apiRoutes.agentModels}`;
+
+  it('reads the models Claude offers, each with its effort levels', async () => {
+    const listed = {
+      state: 'ready',
+      models: [{ value: 'opus', displayName: 'Opus', description: 'Most capable', efforts: ['low', 'max'] }],
+    };
+    server.use(http.get(modelsUrl, () => HttpResponse.json(listed)));
+
+    expect(await api.agentModels()).toEqual(listed);
+  });
+
+  it('rejects an answer that is not a list of models, as an ApiRequestError when the server is unreachable', async () => {
+    server.use(http.get(modelsUrl, () => HttpResponse.json({ state: 'ready', models: [{ value: '--x' }] })));
+    await expect(api.agentModels()).rejects.toThrow();
+
+    server.use(http.get(modelsUrl, () => HttpResponse.error()));
+    await expect(api.agentModels()).rejects.toBeInstanceOf(ApiRequestError);
+  });
+
+  it('keeps the list under its own key for 10 minutes', () => {
+    const options = agentModelsQueryOptions(api);
+    expect(options.queryKey).toEqual(queryKeys.agentModels);
+    expect(options.staleTime).toBe(10 * 60_000);
   });
 });

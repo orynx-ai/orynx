@@ -1,4 +1,4 @@
-/** The Ticket tab's words (spec 013, Q10f). */
+/** The Context tab's words (spec 013, Q10f; the Context tab and full screen, the user's call, 19 Oct 2026). */
 
 export const briefNote = {
   title: "Claude's brief",
@@ -6,3 +6,10 @@ export const briefNote = {
 };
 
 export const noDescription = 'This ticket has no description.';
+
+export const contextWords = {
+  tab: 'Context',
+  list: 'Context Claude was sent',
+  fullScreen: 'Full screen',
+  close: 'Close',
+} as const;

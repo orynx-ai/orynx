@@ -235,7 +235,10 @@ export function MenuRadioGroup(props: ComponentProps<typeof MenuPrimitive.RadioG
 
 export type MenuRadioItemProps = ComponentProps<typeof MenuPrimitive.RadioItem> & ItemContentProps;
 
-/** One choice in a MenuRadioGroup. The picked one is announced as checked and shows an ink check. */
+/**
+ * One choice in a MenuRadioGroup. Every choice leads with a 20 px radio, so a menu of them reads as pick-one (the
+ * user's call, 19 Oct 2026); the picked one is announced as checked and its radio fills with an ink dot.
+ */
 export function MenuRadioItem({
   icon,
   description,
@@ -250,15 +253,18 @@ export function MenuRadioItem({
     <MenuPrimitive.RadioItem
       data-slot="menu-radio-item"
       textValue={nameOf(children, textValue)}
-      className={cn(menuItemClass, size === 'sm' && smallItemClass, className)}
+      className={cn(menuItemClass, 'group', size === 'sm' && smallItemClass, className)}
       {...props}
     >
+      <span
+        aria-hidden
+        className="mt-0.5 flex size-5 shrink-0 items-center justify-center self-start rounded-full border border-control bg-raised group-data-[state=checked]:border-primary motion-safe:transition-colors"
+      >
+        <MenuPrimitive.ItemIndicator className="size-2.5 rounded-full bg-primary motion-safe:animate-fade-in" />
+      </span>
       <ItemBody icon={icon} description={description} path={path}>
         {children}
       </ItemBody>
-      <MenuPrimitive.ItemIndicator className="ms-auto inline-flex">
-        <Icon icon={Tick02Icon} aria-hidden className="text-info" />
-      </MenuPrimitive.ItemIndicator>
     </MenuPrimitive.RadioItem>
   );
 }
@@ -305,6 +311,26 @@ export function MenuCheckboxItem({
         {children}
       </ItemBody>
     </MenuPrimitive.CheckboxItem>
+  );
+}
+
+/**
+ * An option's checkbox (`many`) or radio (`one`) for a list that isn't a Menu, such as a searchable list's: drawn
+ * as MenuCheckboxItem's and MenuRadioItem's are.
+ */
+export function OptionMark({ select, picked }: { select: 'one' | 'many'; picked: boolean }) {
+  const box = 'mt-0.5 flex size-5 shrink-0 items-center justify-center self-start border bg-raised';
+  if (select === 'many') {
+    return (
+      <span aria-hidden className={cn(box, 'rounded-sm', picked ? 'border-primary bg-primary' : 'border-control')}>
+        {picked ? <Icon icon={Tick02Icon} className="size-3.5 text-primary-foreground" /> : null}
+      </span>
+    );
+  }
+  return (
+    <span aria-hidden className={cn(box, 'rounded-full', picked ? 'border-primary' : 'border-control')}>
+      {picked ? <span className="size-2.5 rounded-full bg-primary" /> : null}
+    </span>
   );
 }
 

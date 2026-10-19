@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
-import { ArrowLeft01Icon, ArrowRight01Icon, PlusSignIcon, Search01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
+import { ArrowLeft01Icon, ArrowRight01Icon, PlusSignIcon, Search01Icon } from '@hugeicons/core-free-icons';
 import { Popover } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { Icon } from './icon.tsx';
 import { IconButton, type IconButtonProps } from './icon-button.tsx';
-import { menuItemClass } from './menu.tsx';
+import { menuItemClass, OptionMark } from './menu.tsx';
 import { Skeleton } from './skeleton.tsx';
 
 /**
@@ -189,9 +189,16 @@ export interface ContextSearchOption {
   description?: string | undefined;
   /** The tool's mark or an icon before it. */
   mark?: ReactNode | undefined;
-  /** Already added, so it shows a check (spec 015, AC-9). */
+  /** Already added, so its checkbox is ticked, or its radio picked (spec 015, AC-9). */
   added?: boolean | undefined;
 }
+
+/**
+ * How the options are picked, each leading with its box (the user's call, 19 Oct 2026): `many` ticks and unticks
+ * checkboxes and the page keeps the list open, as for tickets and pull requests; `one` picks a radio, as for a
+ * folder.
+ */
+export type ContextSearchSelect = 'one' | 'many';
 
 export interface ContextSearchProps {
   /** The kind: "Jira ticket". The list is named by it too. */
@@ -206,6 +213,8 @@ export interface ContextSearchProps {
   onQueryChange: (query: string) => void;
   /** The options as the page has narrowed them by `query`. */
   options: readonly ContextSearchOption[];
+  /** `one` by default. */
+  select?: ContextSearchSelect | undefined;
   onPick: (value: string) => void;
   /** Said when nothing matches: "No matches. Try a key like PROJ-1423 or a repo name." */
   emptyText: string;
@@ -233,6 +242,7 @@ export function ContextSearch({
   query,
   onQueryChange,
   options,
+  select = 'one',
   onPick,
   emptyText,
   loading = false,
@@ -319,7 +329,7 @@ export function ContextSearch({
             id={listboxId}
             role="listbox"
             aria-label={title}
-            aria-multiselectable
+            aria-multiselectable={select === 'many'}
             aria-busy={loading || undefined}
             className="flex min-h-0 flex-col overflow-y-auto"
           >
@@ -345,6 +355,7 @@ export function ContextSearch({
                   onPick(option.value);
                 }}
               >
+                <OptionMark select={select} picked={option.added === true} />
                 {option.mark}
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate">{option.label}</span>
@@ -352,7 +363,6 @@ export function ContextSearch({
                     <span className="truncate text-small text-muted-foreground">{option.description}</span>
                   )}
                 </span>
-                {option.added === true ? <Icon icon={Tick02Icon} aria-hidden className="shrink-0" /> : null}
               </div>
             ))}
           </div>

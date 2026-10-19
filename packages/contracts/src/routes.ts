@@ -37,6 +37,7 @@ export const apiPaths = {
   claudeLoginCheck: '/claude/login/check',
   search: '/search',
   skills: '/skills',
+  agentModels: '/agent/models',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -77,6 +78,7 @@ export const apiRoutes = {
   claudeLoginCheck: `${apiPrefix}${apiPaths.claudeLoginCheck}`,
   search: `${apiPrefix}${apiPaths.search}`,
   skills: `${apiPrefix}${apiPaths.skills}`,
+  agentModels: `${apiPrefix}${apiPaths.agentModels}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];

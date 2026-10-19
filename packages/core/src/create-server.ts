@@ -24,6 +24,7 @@ import {
   type FilePicker,
   type FolderPicker,
 } from './folder-picker/folder-picker.ts';
+import { agentRoutes } from './routes/agent.ts';
 import { claudeRoutes } from './routes/claude.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
@@ -315,6 +316,27 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const devhubHome = options.dataDir ?? join(homedir(), '.devhub');
   const repositories = createRepositoryService({ settings, events, home: userHome, devhubHome });
   const skills = createSkillsService({ repositories, home: userHome });
+  const adapter =
+    options.agent === undefined
+      ? null
+      : createClaudeAdapter({
+          query: options.agent.query,
+          program: options.agent.program,
+          env: options.agent.env,
+          home: userHome,
+          // Every command runs sandboxed, writing only in its own worktree (spec 012, Q2a).
+          sandbox:
+            options.agent.sandbox === true
+              ? (worktree) =>
+                  sandboxSettings({
+                    platform: process.platform,
+                    worktree,
+                    devhubHome,
+                    home: userHome,
+                    temporary: tmpdir(),
+                  })
+              : null,
+        });
   const sessionService = createSessionService({
     skills,
     records: sessions,
@@ -358,27 +380,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     // The pull request's token, the gh way or the token way, and the client that opens it (spec 014).
     github,
     githubClient,
-    adapter:
-      options.agent === undefined
-        ? null
-        : createClaudeAdapter({
-            query: options.agent.query,
-            program: options.agent.program,
-            env: options.agent.env,
-            home: userHome,
-            // Every command runs sandboxed, writing only in its own worktree (spec 012, Q2a).
-            sandbox:
-              options.agent.sandbox === true
-                ? (worktree) =>
-                    sandboxSettings({
-                      platform: process.platform,
-                      worktree,
-                      devhubHome,
-                      home: userHome,
-                      temporary: tmpdir(),
-                    })
-                : null,
-          }),
+    adapter,
     events,
     // Kinds, ids and codes only: never the ticket's text or Claude's words (AC-21).
     onReport: (report) => {
@@ -453,6 +455,11 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
       await api.register(claudeRoutes, { claude });
+      await api.register(agentRoutes, {
+        // Signed out, Claude Code has nothing to offer, so it isn't started.
+        models: async () =>
+          adapter === null || !(await claude.connected()) ? { state: 'unavailable' } : adapter.models(),
+      });
       await api.register(preferencesRoutes, { preferences });
       await api.register(inboxRoutes, { inbox });
       await api.register(ticketsRoutes, { tickets, inbox, jira });

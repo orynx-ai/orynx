@@ -1,10 +1,10 @@
 import { useId, useRef, useState, type KeyboardEvent, type ReactElement, type Ref } from 'react';
-import { ArrowDown01Icon, Search01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
+import { ArrowDown01Icon, Search01Icon } from '@hugeicons/core-free-icons';
 import { Popover } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { useFieldControl } from './field.tsx';
 import { Icon } from './icon.tsx';
-import { menuItemClass } from './menu.tsx';
+import { menuItemClass, OptionMark } from './menu.tsx';
 import { Skeleton } from './skeleton.tsx';
 
 export interface ComboboxOption {
@@ -247,8 +247,9 @@ export function Combobox({
                     pick(option);
                   }}
                 >
+                  {/* Pick-one, so a radio leads each option (the user's call, 19 Oct 2026). */}
+                  <OptionMark select="one" picked={selected} />
                   <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                  {selected ? <Icon icon={Tick02Icon} aria-hidden className="shrink-0" /> : null}
                 </div>
               );
             })}

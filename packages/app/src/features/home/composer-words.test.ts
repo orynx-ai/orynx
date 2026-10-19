@@ -76,10 +76,10 @@ describe('the composer’s words (spec 015, Q13)', () => {
     expect(fileRefusedLine({ kind: 'secret', name: 'id_rsa' })).toBe(
       "id_rsa looks like a secret, so Claude doesn't get it.",
     );
-    expect(fileRefusedLine({ kind: 'too_many' })).toBe('Add up to 20 files.');
-    expect(refusedLine('too_many_tickets')).toBe('A session takes up to 10 tickets.');
-    expect(refusedLine('too_many_pull_requests')).toBe('A session takes up to 10 pull requests.');
-    expect(refusedLine('too_many_files')).toBe('Add up to 20 files.');
+    expect(fileRefusedLine({ kind: 'too_many' })).toBe('Add up to 100 files.');
+    expect(refusedLine('too_many_tickets')).toBe('A session takes up to 100 tickets.');
+    expect(refusedLine('too_many_pull_requests')).toBe('A session takes up to 100 pull requests.');
+    expect(refusedLine('too_many_files')).toBe('Add up to 100 files.');
   });
 
   it('AC-18, AC-22, AC-23: says why Send started nothing, and where to fix it', () => {

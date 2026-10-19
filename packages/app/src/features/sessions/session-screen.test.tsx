@@ -35,7 +35,7 @@ function pageBar() {
 }
 
 describe('SessionScreen', () => {
-  it('013 AC-1: puts Claude’s progress, with the follow-up box, beside the Changes and Ticket tabs, Changes open', async () => {
+  it('013 AC-1: puts Claude’s progress, with the follow-up box, beside the Changes and Context tabs, Changes open', async () => {
     server.use(
       sessionHandler({ ...working, ticket: makeSessionTicket() }),
       http.get(apiUrl(apiRoutes.sessionChanges), () => HttpResponse.json(makeSessionChanges())),
@@ -47,7 +47,7 @@ describe('SessionScreen', () => {
     const details = screen.getByRole('region', { name: 'Work details' });
     const tabs = within(details).getByRole('tablist', { name: 'Session details' });
     expect(await within(tabs).findByRole('tab', { name: 'Changes 4' })).toHaveAttribute('aria-selected', 'true');
-    expect(within(tabs).getByRole('tab', { name: 'Ticket PROJ-1423' })).toHaveAttribute('aria-selected', 'false');
+    expect(within(tabs).getByRole('tab', { name: 'Context 1' })).toHaveAttribute('aria-selected', 'false');
     expect(within(details).getByRole('tabpanel', { name: 'Changes 4' })).toBeVisible();
     expect(within(details).getByRole('button', { name: 'Discard changes' })).toBeVisible();
   });
@@ -76,7 +76,7 @@ describe('SessionScreen', () => {
     expect(within(crumbs).getByRole('link', { name: 'Sessions' })).toHaveAttribute('href', '/sessions');
   });
 
-  it('015 AC-24: a session with no ticket says Sessions / its title, has no Ticket tab, and names what Claude got', async () => {
+  it('015 AC-24: a session with no ticket says Sessions / its title, has no Context tab, and names what Claude got', async () => {
     server.use(
       sessionHandler({
         ...working,
@@ -100,7 +100,7 @@ describe('SessionScreen', () => {
         ],
       }),
     );
-    await renderApp({ route: `${route}?tab=ticket` });
+    await renderApp({ route: `${route}?tab=context` });
 
     const crumbs = within(pageBar()).getByRole('navigation', { name: 'Breadcrumb' });
     expect(await within(crumbs).findByText('Add a CSV export to the reports page')).toHaveAttribute(

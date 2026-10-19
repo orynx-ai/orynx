@@ -6,7 +6,6 @@ describe('the follow-up box’s words (spec 013, Q10d)', () => {
     expect(followUpBox).toEqual({
       label: 'Message Claude',
       placeholder: 'Ask Claude to change something',
-      hint: 'Enter to send · Shift+Enter for a new line',
       send: 'Send message',
     });
   });

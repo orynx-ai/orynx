@@ -1,4 +1,4 @@
-import type { Options, PermissionResult, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { ModelInfo, Options, PermissionResult, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { QueryFunction } from '../agents/claude/claude-adapter.ts';
 
 /**
@@ -62,6 +62,8 @@ export interface FakeClaudeSdk {
    * or a new one under another id, as Claude Code might when it can't find the old one.
    */
   onResume: 'resumes' | 'no_conversation' | 'starts_afresh';
+  /** What `supportedModels()` answers: these models, a failure, or nothing at all. */
+  models: ModelInfo[] | 'fails' | 'hangs';
 }
 
 const sessionFields = {
@@ -89,6 +91,7 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
     runs: [],
     ignoreInterrupt: false,
     onResume: 'resumes',
+    models: [],
     query: ({ prompt, options }) => {
       /** The calls waiting for `canUseTool`: Claude Code cancels them when it's interrupted. */
       const asking = new Set<AbortController>();
@@ -295,6 +298,11 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
         close() {
           run.closes += 1;
           endNow();
+        },
+        supportedModels() {
+          if (fake.models === 'fails') return Promise.reject(new Error('Claude Code exited'));
+          if (fake.models === 'hangs') return new Promise<ModelInfo[]>(() => undefined);
+          return Promise.resolve(fake.models);
         },
       };
     },
