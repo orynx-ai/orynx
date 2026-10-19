@@ -1,5 +1,6 @@
 import { Outlet } from '@tanstack/react-router';
 import { Button, Callout, cn } from '@devhub/ui';
+import { PopUps } from '../features/notifications/components/pop-ups.tsx';
 import { SearchDialog } from '../features/search/components/search-dialog.tsx';
 import { TicketDialog } from '../features/tickets/components/ticket-dialog.tsx';
 import { usePlatform } from '../platform.tsx';
@@ -34,6 +35,8 @@ export function AppShell() {
       <SearchDialog />
       {/* One for every page, so it stays open after ⌘K closes (spec 022). */}
       <TicketDialog />
+      {/* New notifications pop up in the corner on every page (spec 029). */}
+      <PopUps />
     </div>
   );
 }
