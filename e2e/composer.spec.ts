@@ -213,7 +213,7 @@ test('AC-6 to AC-8, AC-11, AC-14, AC-20, 022 AC-9, AC-10: a ticket, a pasted pul
   await page.getByRole('menuitem', { name: /File from this computer/ }).click();
 
   // Two chips show, then +1 for the third (spec 022, AC-19).
-  await expect(chips(page)).toHaveText(['PROJ-1423', 'web-app #2836', '+1']);
+  await expect(chips(page)).toHaveText(['PROJ-1423', 'web-app #2836', '+1: Show all 3 items of context']);
   await box(page).fill('Use the notes');
   await page.getByRole('button', { name: 'Send to Claude' }).click();
 
@@ -248,9 +248,9 @@ test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Ho
   await jira.getByRole('combobox').fill('bulk');
   await jira.getByRole('option', { name: /PROJ-1423/ }).click();
 
-  await expect(chips(page)).toHaveText(['PROJ-1377', 'web-app #2836', '+1']);
+  await expect(chips(page)).toHaveText(['PROJ-1377', 'web-app #2836', '+1: Show all 3 items of context']);
   await expect(box(page)).toHaveAttribute('placeholder', 'What should Claude do with these 2 tickets?');
-  await page.getByRole('button', { name: 'Show all 3 items of context' }).click();
+  await page.getByRole('button', { name: '+1: Show all 3 items of context' }).click();
   const all = page.getByRole('dialog', { name: 'Context for Claude' });
   await expect(all.getByRole('tab')).toHaveText(['Tickets 2', 'Pull requests 1', 'Files 0']);
   await expect(all.getByRole('tab', { name: 'Tickets 2' })).toHaveAttribute('aria-selected', 'true');
@@ -260,7 +260,7 @@ test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Ho
   ]);
   expect(await axe(page, '[role="dialog"]')).toEqual([]);
   await all.getByRole('button', { name: 'Done' }).click();
-  await expect(page.getByRole('button', { name: 'Show all 3 items of context' })).toBeFocused();
+  await expect(page.getByRole('button', { name: '+1: Show all 3 items of context' })).toBeFocused();
 
   await box(page).fill('Do both');
   await page.getByRole('button', { name: 'Send to Claude' }).click();

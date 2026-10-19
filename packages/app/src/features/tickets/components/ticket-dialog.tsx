@@ -49,6 +49,7 @@ export function TicketDialog() {
 }
 
 function TicketDialogContent({ shown, onClose }: { shown: ShownTicket; onClose: () => void }) {
+  const titleId = useId();
   const ticket = useTicket(shown.key);
   const found = ticket.data?.result === 'found' ? ticket.data.ticket : null;
   const title = found?.title === undefined || found.title === '' ? (shown.title ?? shown.key) : found.title;
@@ -70,13 +71,20 @@ function TicketDialogContent({ shown, onClose }: { shown: ShownTicket; onClose: 
             <span className="font-mono text-code text-foreground">{shown.key}</span>
             {type === null ? null : <span>{type}</span>}
           </div>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle id={titleId}>{title}</DialogTitle>
         </div>
         <IconButton variant="ghost" size="sm" label={words.close} onClick={onClose}>
           <Icon icon={Cancel01Icon} aria-hidden />
         </IconButton>
       </div>
-      <div aria-busy={ticket.isPending} className="flex min-h-0 flex-col gap-6 overflow-y-auto px-6 py-4">
+      {/* It scrolls when the ticket is long, so it takes focus to scroll by keyboard (AC-47); the ring is drawn inside. */}
+      <div
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrolling region must take keyboard focus (WCAG 2.1.1)
+        tabIndex={0}
+        aria-labelledby={titleId}
+        aria-busy={ticket.isPending}
+        className="flex min-h-0 flex-col gap-6 overflow-y-auto px-6 py-4 focus-visible:-outline-offset-2"
+      >
         {found !== null ? (
           <TicketBody ticket={found} />
         ) : ticket.data !== undefined && ticket.data.result !== 'found' ? (
@@ -272,12 +280,13 @@ function Actions({
           </Button>
         )}
         {held ? (
-          <Button disabled>
+          <Button variant="primary" disabled>
             <Icon icon={Tick02Icon} aria-hidden />
             {words.inComposer}
           </Button>
         ) : (
           <Button
+            variant="primary"
             onClick={() => {
               const refusal = addChip(chip);
               if (refusal !== null) {

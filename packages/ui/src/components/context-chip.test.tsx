@@ -129,7 +129,7 @@ describe('ContextMore (spec 022)', () => {
 
     const list = screen.getByRole('list', { name: 'Context for Claude' });
     expect(within(list).getAllByRole('listitem')).toHaveLength(3);
-    const more = within(list).getByRole('button', { name: 'Show all 5 items of context' });
+    const more = within(list).getByRole('button', { name: '+3: Show all 5 items of context' });
     expect(more).toHaveTextContent('+3');
     expect(more).toHaveAttribute('aria-haspopup', 'dialog');
 

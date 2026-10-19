@@ -48,19 +48,19 @@ describe('two chips, then +N (spec 022)', () => {
         .getAllByRole('listitem')
         .map((item) => item.textContent),
     ).toEqual(['PROJ-1423', 'web-app #2836']);
-    expect(within(strip()).queryByRole('button', { name: /^Show all/ })).toBeNull();
+    expect(within(strip()).queryByRole('button', { name: /Show all/ })).toBeNull();
   });
 
   it('AC-19: five chips show the first two added, then +3', async () => {
     serve();
     useComposerStore.setState({ chips: five });
     const { user } = await renderApp();
-    const more = await screen.findByRole('button', { name: 'Show all 5 items of context' });
+    const more = await screen.findByRole('button', { name: '+3: Show all 5 items of context' });
     expect(
       within(strip())
         .getAllByRole('listitem')
         .map((item) => item.textContent),
-    ).toEqual(['PROJ-1423', 'web-app #2836', '+3']);
+    ).toEqual(['PROJ-1423', 'web-app #2836', '+3: Show all 5 items of context']);
 
     // Removing a shown chip brings the next one into view.
     await user.click(screen.getByRole('button', { name: 'Remove PROJ-1423' }));
@@ -68,8 +68,8 @@ describe('two chips, then +N (spec 022)', () => {
       within(strip())
         .getAllByRole('listitem')
         .map((item) => item.textContent),
-    ).toEqual(['web-app #2836', 'PROJ-1424', '+2']);
-    expect(more).toHaveAccessibleName('Show all 4 items of context');
+    ).toEqual(['web-app #2836', 'PROJ-1424', '+2: Show all 4 items of context']);
+    expect(more).toHaveAccessibleName('+2: Show all 4 items of context');
   });
 });
 
@@ -78,7 +78,7 @@ describe('the context dialog (spec 022)', () => {
     serve();
     useComposerStore.setState({ chips: five });
     const { user } = await renderApp();
-    await user.click(await screen.findByRole('button', { name: 'Show all 5 items of context' }));
+    await user.click(await screen.findByRole('button', { name: '+3: Show all 5 items of context' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Context for Claude' });
     expect(
@@ -115,7 +115,7 @@ describe('the context dialog (spec 022)', () => {
     serve();
     useComposerStore.setState({ chips: five });
     const { user } = await renderApp();
-    await user.click(await screen.findByRole('button', { name: 'Show all 5 items of context' }));
+    await user.click(await screen.findByRole('button', { name: '+3: Show all 5 items of context' }));
     const dialog = await screen.findByRole('dialog', { name: 'Context for Claude' });
 
     await user.click(within(dialog).getByRole('button', { name: 'Remove PROJ-1423' }));
@@ -135,7 +135,7 @@ describe('the context dialog (spec 022)', () => {
     serve();
     useComposerStore.setState({ chips: [file('a.md'), file('b.md'), file('c.md')] });
     const { user } = await renderApp();
-    await user.click(await screen.findByRole('button', { name: 'Show all 3 items of context' }));
+    await user.click(await screen.findByRole('button', { name: '+1: Show all 3 items of context' }));
     const dialog = await screen.findByRole('dialog', { name: 'Context for Claude' });
     expect(within(dialog).getByRole('tab', { name: 'Files 3' })).toHaveAttribute('aria-selected', 'true');
     await user.click(within(dialog).getByRole('tab', { name: 'Pull requests 0' }));
@@ -146,7 +146,7 @@ describe('the context dialog (spec 022)', () => {
     serve();
     useComposerStore.setState({ chips: [file('a.md'), file('b.md'), file('c.md')] });
     const { user } = await renderApp();
-    await user.click(await screen.findByRole('button', { name: 'Show all 3 items of context' }));
+    await user.click(await screen.findByRole('button', { name: '+1: Show all 3 items of context' }));
     const dialog = await screen.findByRole('dialog', { name: 'Context for Claude' });
     for (const name of ['a.md', 'b.md', 'c.md']) {
       await user.click(within(dialog).getByRole('button', { name: `Remove ${name}` }));
@@ -161,7 +161,7 @@ describe('the context dialog (spec 022)', () => {
     serve();
     useComposerStore.setState({ chips: five });
     const { user } = await renderApp();
-    const more = await screen.findByRole('button', { name: 'Show all 5 items of context' });
+    const more = await screen.findByRole('button', { name: '+3: Show all 5 items of context' });
     await user.click(more);
     await screen.findByRole('dialog', { name: 'Context for Claude' });
     await user.keyboard('{Escape}');

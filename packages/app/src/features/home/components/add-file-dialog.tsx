@@ -92,7 +92,7 @@ function AddFileForm({ onCancel, onAdded }: { onCancel: () => void; onAdded: (pa
         <Button type="button" variant="secondary" onClick={onCancel}>
           {words.cancel}
         </Button>
-        <Button type="submit" pending={check.isPending}>
+        <Button type="submit" variant="primary" pending={check.isPending}>
           {words.add}
         </Button>
       </div>

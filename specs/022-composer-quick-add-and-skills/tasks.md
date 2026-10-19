@@ -100,8 +100,15 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 25: Docs: `learn/composer-and-context.md` (several chips, files by path, skills, what Claude may read), `learn/the-inbox.md` and `learn/the-tickets-board.md` (one action, Ship, the ticket dialog), the roadmap's 022 line, and a script for the user's `docs/product/spec.md` changes in `specs/022-composer-quick-add-and-skills/product-spec-edits.md`
       Check: pnpm gate learn-freshness specs handbook-size
       Files: learn/composer-and-context.md, learn/the-inbox.md, learn/the-tickets-board.md, docs/product/roadmap.md, specs/022-composer-quick-add-and-skills/product-spec-edits.md
-- [ ] Task 26: Open every changed screen in a real browser (Home with 5 chips, the context dialog, Home's rows, Tickets, the ticket dialog, the skills list) at 360 and 1280 px in light and dark, with `/api` faked by `page.route`; measure CLS on load; fix what it finds; note it in the spec (AC-25, AC-34, AC-47, AC-60, AC-61)
+- [x] Task 26: Open every changed screen in a real browser (Home with 5 chips, the context dialog, Home's rows, Tickets, the ticket dialog, the skills list) at 360 and 1280 px in light and dark, with `/api` faked by `page.route`; measure CLS on load; fix what it finds; note it in the spec (AC-25, AC-34, AC-47, AC-60, AC-61)
       Check: the browser check's notes in spec.md; pnpm verify
       Files: whatever the check finds; specs/022-composer-quick-add-and-skills/spec.md
+      Checked (19 Oct 2026, headless Chromium against `pnpm dev`, `/api` faked with `page.route`): Home with five
+      rows, each row's + to five chips, the +3 dialog (Tickets, Pull requests), the `/` list, the ticket dialog from a
+      row's title, and from a Tickets card while Jira answers; at 1280 and 360 px, light and dark. CLS on load 0.0001
+      (1280) and 0.0003 (360); no sideways scroll; the strip one line (34 px) at both widths. axe found two problems,
+      both fixed: +N's name didn't hold the "+3" it shows (WCAG 2.5.3), and the ticket dialog's scrolling body at
+      360 px couldn't be reached by keyboard. Add to composer and Add a file's Add are now primary, as the folder
+      dialog's Save is.
 - [ ] Task 27: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)

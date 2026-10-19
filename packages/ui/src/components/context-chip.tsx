@@ -82,7 +82,7 @@ export function ContextChip({ label, icon, onRemove, className, ...props }: Cont
 export type ContextMoreProps = Omit<ComponentProps<'button'>, 'children' | 'aria-label'> & {
   /** How many chips aren't shown: "+3". */
   count: number;
-  /** Its name in full, for screen readers: "Show all 5 items of context". */
+  /** What it opens, for screen readers, after the "+3" it shows: "Show all 5 items of context". */
   label: string;
   /** The words on hover and focus: "Show all context". */
   tooltip: string;
@@ -98,15 +98,15 @@ export function ContextMore({ count, label, tooltip, className, ...props }: Cont
       <Tooltip label={tooltip}>
         <button
           type="button"
-          aria-label={label}
           aria-haspopup="dialog"
           className={cn(
-            'inline-flex h-8 cursor-pointer items-center rounded-sm border border-border bg-sidebar px-2 text-small font-medium text-foreground hover:bg-subtle',
+            'relative inline-flex h-8 cursor-pointer items-center rounded-sm border border-border bg-sidebar px-2 text-small font-medium text-foreground hover:bg-subtle',
             className,
           )}
           {...props}
         >
-          +{count}
+          {/* Its name starts with what it shows, so a voice command for "+3" finds it (WCAG 2.5.3). */}+{count}
+          <span className="sr-only">: {label}</span>
         </button>
       </Tooltip>
     </li>
