@@ -42,11 +42,15 @@ The composer's start goes to the same `POST /api/sessions` with `{ message, repo
 
 The brief step names everything Claude got, in the order it got it: your message, the session's ticket, the other tickets (`tickets`), the pull requests, the files by name and the skills (`/review`), as "Your message, PROJ-1377, PROJ-1423 and 1 more". The files' full paths are the step's tooltip (`session-progress.tsx`). A step saved before spec 022 reads with no other tickets and no skills.
 
+## Ask sessions (spec 026)
+
+The composer's start carries `mode`: `build` (left out, as Ship's and older pages' starts are) or `ask`. An Ask session makes no worktree and no branch: its stored `worktree` stays null, so Discard can never touch the real folder, and Claude Code runs in `repository.path` with `AgentPermissions.readOnly` set. `decideToolUse()` checks that flag before anything else: reads and searches inside the folder go through, and every edit, write and command is refused as an `ask_session` step, whatever Settings say. Its system-prompt note (`askNote()` in `brief.ts`) says it answers in place and changes nothing. Follow-ups resume in the same folder, still read-only. Changes, push and the pull request have no worktree to work from, so the server refuses them, and the Session screen shows no stepper, Changes, Create pull request, Push, Open in the editor or Discard. An Ask session never holds its ticket: `liveSessionOn()` and `sessionsByTicket()` skip it, so it never stops a Build on that ticket or shows as the ticket's session.
+
 ## Ship (spec 022)
 
 "Ship" names the action on a ticket on Tickets (spec 020; spec 011 called it Build with Claude). It's `ShipButton` (`features/tickets/components/ship-button.tsx`), drawn two ways: the sparkle `IconButton` on a card (`WorkItemShip`) and "Ship" in the list. Its name says which ticket ("Ship PROJ-1423"), and its tooltip says "Ship".
 
-Since spec 022 it starts nothing. It adds the ticket's chip after any chips already in Home's composer, and opens Home with focus in the box (`useNewTask()`), so you can add context and say what you want first. A ticket already there stays one chip. Its old folder menu (Start in, Add local folder) went: the composer's folder picker does that job, and Send's line says why a start can't go, with the link that fixes it. Home's rows have no Ship any more: a row's + adds its ticket or pull request to the composer on the same page (`learn/the-inbox.md`).
+Since spec 022 it starts nothing. It adds the ticket's chip after any chips already in Home's composer, and opens Home with focus in the box (`useNewTask()`), so you can add context and say what you want first. A ticket already there stays one chip. Since spec 026 you can tick several tickets on Tickets (a checkbox on each card and row, in the order ticked) and Ship them together: they all go to the composer in that order, so Send starts one session whose own ticket is the first. Its old folder menu (Start in, Add local folder) went: the composer's folder picker does that job, and Send's line says why a start can't go, with the link that fixes it. Home's rows have no Ship any more: a row's + adds its ticket or pull request to the composer on the same page (`learn/the-inbox.md`).
 
 ## Sessions in the sidebar (spec 020)
 
