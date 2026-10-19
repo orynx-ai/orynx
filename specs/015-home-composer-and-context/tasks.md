@@ -95,3 +95,4 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
       Files: packages/core/src/sessions/pull-request-text.ts, packages/core/src/sessions/pull-request-text.test.ts, packages/core/src/sessions/pull-requests.ts, packages/core/src/sessions/pull-requests.test.ts
 - [ ] Task 31: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
+      Skipped on 19 Oct 2026 at the user's ask, while the code, security and design reviewers had just started; no stamp was written, so the pre-push gate (`review-stamp`) will refuse a push until /review runs. `pnpm verify` passed on the whole branch (11 gates, typecheck, lint, 2,754 tests).
