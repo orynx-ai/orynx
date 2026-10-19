@@ -97,7 +97,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **Docs, browser and review**
 
-- [ ] Task 25: Docs: `learn/composer-and-context.md` (several chips, files by path, skills, what Claude may read), `learn/the-inbox.md` and `learn/the-tickets-board.md` (one action, Ship, the ticket dialog), the roadmap's 022 line, and a script for the user's `docs/product/spec.md` changes in `specs/022-composer-quick-add-and-skills/product-spec-edits.md`
+- [x] Task 25: Docs: `learn/composer-and-context.md` (several chips, files by path, skills, what Claude may read), `learn/the-inbox.md` and `learn/the-tickets-board.md` (one action, Ship, the ticket dialog), the roadmap's 022 line, and a script for the user's `docs/product/spec.md` changes in `specs/022-composer-quick-add-and-skills/product-spec-edits.md`
       Check: pnpm gate learn-freshness specs handbook-size
       Files: learn/composer-and-context.md, learn/the-inbox.md, learn/the-tickets-board.md, docs/product/roadmap.md, specs/022-composer-quick-add-and-skills/product-spec-edits.md
 - [x] Task 26: Open every changed screen in a real browser (Home with 5 chips, the context dialog, Home's rows, Tickets, the ticket dialog, the skills list) at 360 and 1280 px in light and dark, with `/api` faked by `page.route`; measure CLS on load; fix what it finds; note it in the spec (AC-25, AC-34, AC-47, AC-60, AC-61)
