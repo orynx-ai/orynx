@@ -115,12 +115,15 @@ canUseTool(tool, input)                              claude-adapter.ts; one call
 - **Waiting.** A call waits with no time limit. Calls asked together wait in the order asked; the Session screen shows the oldest. Settings are read for every call, so a change applies from Claude's next one. The first answer counts: a late one gets 409, and the page says nothing.
 - **Deny** tells Claude "The user denied this. Don't try it another way…" and Claude carries on. Stop, Discard and Orynx closing deny every waiting call. Each call that asked is kept in `session.json`'s `approvalLog` (the command or path, the answer, who gave it), never in the log: the terminal hears only kinds and answers.
 - **The callout** (`approval-callout.tsx`) is `role="alert"` and never takes focus, so no key pressed for something else answers it. After you answer, focus moves to the next waiting call's first button, or to Claude's progress.
+- **Always in reach** (spec 026). While a call waits and its callout is scrolled out of view, a bar pinned to the window's bottom says Claude is waiting for your approval, shows the command or file as code, and has Review, which scrolls the callout into view and focuses Allow once. It watches the callout with an `IntersectionObserver`, isn't a second alert, and goes once the callout is in view or the call ends.
 
 ## Steps and the stepper
 
 `sdk-messages.ts` pairs each tool call with its result, so only calls that worked become work: a read or search is explore, `Edit`/`Write`/`NotebookEdit` is edit, `TodoWrite` is the plan, and the result ends the turn with Claude's summary. `progress.ts` folds them into steps: one step per run of the same kind of work, the latest one running until another kind starts. A later to-do update changes the plan's items without a new step. A command is shown when Orynx lets it run, so "Running a command" shows while it runs; one Claude Code ran without asking Orynx is shown from its result, so nothing runs unseen. A call waiting for you is a running step in the amber look until it's answered. The stepper moves from Plan to Build at the first edit, to Test at the first command after that, to Review when Claude finishes, and to Pull request when the PR opens or changes are pushed to it (spec 014). It moves back only when a follow-up starts Claude again after Review or Pull request: to Build (spec 013, Q3a).
 
-The server sends structured steps, never words. The page says them (`step-words.ts`): "Sent Claude the brief" with "Your message, PROJ-1377, PROJ-1423 and 1 more", "Explored the code" with "ContentList.tsx, contentApi.ts and 6 more", "Edited 4 files", "Finished" with Claude's summary.
+The server sends structured steps, never words. The page says them (`step-words.ts`): "Sent Claude the brief" with "Your message, PROJ-1377, PROJ-1423 and 1 more", "Explored the code" with "ContentList.tsx, contentApi.ts and 6 more", "Edited 4 files", "Finished" with Claude's summary. A command shows as code wherever it shows.
+
+Since spec 026 a step with more to show has a title you can press (`ActivityStep`'s `onOpen`), which opens it in full (`step-details.tsx`): the brief as Markdown, exactly as Claude got it, from `GET /api/sessions/:id/brief` (the saved `brief.md`; "Nothing was sent to Claude yet." before there is one), every file explored or edited (an edited one opens its diff in Changes), the plan, the whole command, Claude's whole summary and your whole message. Claude's progress follows its end while you're there; scroll up and it stays put, with a round "Jump to latest" button that takes you back and follows again. Opening a session doesn't move the page.
 
 ## The Changes tab (spec 013)
 
@@ -137,7 +140,8 @@ GET /api/sessions/:id/changes/diff?path=<file>      one file's diff: git's 3 lin
 - **Only listed paths.** The diff route reads a path only when it's in the list, so `../../runtime.json`, an absolute path or anything else gets 404 (AC-24). Logs redact `?path=` from request URLs.
 - **The states.** `ready` (maybe with no files yet), `no_worktree` (it stopped before git made one), `discarded`, and `missing` (deleted outside Orynx). git failing is a 500 the page says as "Couldn't read the changes." with Try again.
 - **Live.** `session.files.changed` makes the page read the list and the shown diff again (`staleTime: 0`); the file you're looking at stays, by its path in the address (`?file=`). Discard sends it too, because discarding a session that had already stopped doesn't change its state.
-- **Open in VS Code or Cursor** is a plain `vscode://file/<worktree>` or `cursor://file/<worktree>` link, the editor Settings › Coding agent picks. Orynx runs no program for it.
+- **Open in VS Code or Cursor** is a plain `vscode://file/<worktree>` or `cursor://file/<worktree>` link, the editor Settings › Coding agent picks. Orynx runs no program for it. Since spec 026 it sits in the title row with Discard changes, so neither waits at the bottom of a long list.
+- **Copy path.** Every file path the screen shows (the changed files, a diff's header, a step's files, the Context tab) has `@devhub/ui`'s `CopyButton` on hover or focus, as GitHub has: "Copy path", then "Copied" for 2 seconds.
 
 The Ticket tab shows the ticket as Claude got it: the description saved in `session.json` when the session started (or, for an older session, read back from `brief.md`), laid out by `@devhub/ui`'s `Markdown`, with the status and due date as the inbox cache knows them now.
 
@@ -151,6 +155,8 @@ The Ticket tab shows the ticket as Claude got it: the description saved in `sess
 - **The log** hears "You sent Claude a follow-up" with the session and ticket, never the text.
 
 ## Create pull request and Push changes (spec 014)
+
+Create pull request shows only once the worktree holds a change (spec 026).
 
 ```
 Create pull request (the title row, once Claude isn't working, the worktree is there and no PR is open)
