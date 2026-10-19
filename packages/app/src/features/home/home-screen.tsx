@@ -18,7 +18,7 @@ export function HomeScreen() {
       <PageBody width="narrow">
         <WaitingBanner />
         {/* 48 px above the greeting (design system, --space-12): the body's 24 px plus 24 px here. */}
-        <h1 className="m-0 mt-6 text-center font-serif text-display font-normal">What should we build today?</h1>
+        <h1 className="m-0 mt-6 text-center font-serif text-display font-normal">What should we ship today?</h1>
         <HomeComposer />
         <QuickStarts />
 

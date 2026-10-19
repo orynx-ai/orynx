@@ -83,14 +83,6 @@ export const composerWords = {
       max: 'Max',
     },
   },
-  /** Ask or Build (spec 026): the switch's name, its two options, and what each does, in their tooltips. */
-  mode: {
-    label: 'Session',
-    ask: 'Ask',
-    build: 'Build',
-    askHint: 'Claude reads the folder where it is and changes nothing',
-    buildHint: 'Claude works on a new branch in its own worktree',
-  },
   existing: (key: string) => `${key} already has a session.`,
   openSession: 'Open session',
   failed: "Couldn't start Claude. Try again.",
