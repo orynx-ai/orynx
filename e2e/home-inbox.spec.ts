@@ -194,6 +194,9 @@ test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it
     { name: 'Refresh', ring: true },
     { name: 'Describe a task for Claude', ring: true },
     { name: 'Add context', ring: true },
+    // Spec 026: Ask or Build.
+    { name: 'Ask', ring: true },
+    { name: 'Build', ring: true },
     { name: 'Add a folder', ring: true },
     // Claude's state here depends on which spec last answered for this hub's fake Claude Code.
     { name: expect.stringMatching(/^Agent: Claude, (connected|signed out)$/) as unknown as string, ring: true },
