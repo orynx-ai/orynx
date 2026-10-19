@@ -1,13 +1,14 @@
 import { z } from 'zod';
 
 /**
- * Settings tabs, in the product spec's order with Skills after Coding agent (spec 023); each is part of the address
- * (`/settings/coding-agent`).
+ * Settings tabs, in the product spec's order with Skills after Coding agent (spec 023) and Notifications after Skills
+ * (spec 029); each is part of the address (`/settings/coding-agent`).
  */
 export const SettingsTabSchema = z.enum([
   'connections',
   'coding-agent',
   'skills',
+  'notifications',
   'repositories',
   'inbox-rules',
   'appearance',
@@ -18,6 +19,7 @@ export const settingsTabLabels: Record<SettingsTab, string> = {
   connections: 'Connections',
   'coding-agent': 'Coding agent',
   skills: 'Skills',
+  notifications: 'Notifications',
   repositories: 'Repositories',
   'inbox-rules': 'Inbox rules',
   appearance: 'Appearance',

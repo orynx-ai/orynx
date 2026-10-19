@@ -1,13 +1,14 @@
 import { chmodSync, lstatSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, notInArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { InboxProblemSchema, type InboxProblem } from '@devhub/contracts';
+import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { InboxProblemSchema, notificationLimits, type InboxProblem } from '@devhub/contracts';
 
 /**
- * `<DEVHUB_HOME>/cache.db` (spec 007): what the last sync read from each tool, so Home opens at once.
+ * `<DEVHUB_HOME>/cache.db` (spec 007): what the last sync read from each tool, so Home opens at once, and the
+ * notifications under the bell (spec 029).
  * Records are titles and metadata only, never descriptions or comment text. It's a cache: a file DevHub
  * can't read, or one another version wrote, is deleted and made again.
  */
@@ -18,7 +19,7 @@ export type InboxTool = 'jira' | 'github';
 export type CachePart = InboxTool | 'jira_sprint';
 
 /** Goes up whenever the tables or a record's shape change, so an older file is made again. */
-const version = 1;
+const version = 2;
 
 const records = sqliteTable(
   'records',
@@ -43,10 +44,19 @@ const tools = sqliteTable('tools', {
 
 const meta = sqliteTable('meta', { key: text('key').primaryKey(), value: text('value').notNull() });
 
+const notifications = sqliteTable('notifications', {
+  id: text('id').primaryKey(),
+  at: text('at').notNull(),
+  read: integer('read', { mode: 'boolean' }).notNull(),
+  /** What it is about as JSON; the notification service checks it with the contract on the way out. */
+  data: text('data').notNull(),
+});
+
 const createTables = `
   CREATE TABLE records (tool TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (tool, id));
   CREATE TABLE tools (tool TEXT PRIMARY KEY, connection TEXT NOT NULL, synced_at TEXT, problem TEXT);
   CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+  CREATE TABLE notifications (id TEXT PRIMARY KEY, at TEXT NOT NULL, read INTEGER NOT NULL, data TEXT NOT NULL);
   PRAGMA user_version = ${String(version)};
 `;
 
@@ -68,6 +78,14 @@ export interface CacheRecord {
   data: unknown;
 }
 
+/** A notification as the cache keeps it (spec 029). */
+export interface CachedNotification {
+  id: string;
+  at: string;
+  read: boolean;
+  data: unknown;
+}
+
 export interface InboxCache {
   /** The tool's records and last sync, or null when it never synced. */
   tool(tool: CachePart): CachedTool | null;
@@ -80,7 +98,18 @@ export interface InboxCache {
   setSyncedAt(at: string): void;
   /** Disconnect: the tool's records and sync go. */
   forget(tool: CachePart): void;
-  /** Clear cache: everything goes. */
+  /** The notifications, newest first (spec 029). */
+  notifications(): CachedNotification[];
+  /**
+   * Adds notifications, unread; an id already kept is left as it is. Then only the newest 200 stay, and none
+   * from before `before`.
+   */
+  addNotifications(added: readonly Omit<CachedNotification, 'read'>[], keep?: { before: string }): void;
+  /** Marks these notifications read, or all of them, and says how many were unread. */
+  markNotificationsRead(ids: readonly string[] | 'all'): number;
+  /** Rewrites what one notification holds; false when it isn't kept. */
+  changeNotification(id: string, change: (data: unknown) => unknown): boolean;
+  /** Clear cache: everything goes, the notifications too. */
   clear(): void;
   close(): void;
 }
@@ -283,12 +312,65 @@ export function openInboxCache(path: string, options: InboxCacheOptions = {}): I
       });
     },
 
+    notifications() {
+      return guard(() =>
+        db
+          .select()
+          .from(notifications)
+          .orderBy(desc(notifications.at), desc(notifications.id))
+          .all()
+          .flatMap(({ data, ...row }) => {
+            const read = parsed(data);
+            return read === undefined ? [] : [{ ...row, data: read }];
+          }),
+      );
+    },
+
+    addNotifications(added, keep) {
+      guard(() => {
+        db.transaction((tx) => {
+          if (added.length > 0) {
+            tx.insert(notifications)
+              .values(added.map((row) => ({ ...row, read: false, data: JSON.stringify(row.data) })))
+              .onConflictDoNothing()
+              .run();
+          }
+          if (keep !== undefined) tx.delete(notifications).where(lt(notifications.at, keep.before)).run();
+          const newest = tx
+            .select({ id: notifications.id })
+            .from(notifications)
+            .orderBy(desc(notifications.at), desc(notifications.id))
+            .limit(notificationLimits.kept);
+          tx.delete(notifications).where(notInArray(notifications.id, newest)).run();
+        });
+      });
+    },
+
+    markNotificationsRead(ids) {
+      return guard(() => {
+        const unread = eq(notifications.read, false);
+        const which = ids === 'all' ? unread : and(unread, inArray(notifications.id, [...ids]));
+        return db.update(notifications).set({ read: true }).where(which).run().changes;
+      });
+    },
+
+    changeNotification(id, change) {
+      return guard(() => {
+        const row = db.select().from(notifications).where(eq(notifications.id, id)).get();
+        if (row === undefined) return false;
+        const data = JSON.stringify(change(parsed(row.data)));
+        db.update(notifications).set({ data }).where(eq(notifications.id, id)).run();
+        return true;
+      });
+    },
+
     clear() {
       guard(() => {
         db.transaction((tx) => {
           tx.delete(records).run();
           tx.delete(tools).run();
           tx.delete(meta).run();
+          tx.delete(notifications).run();
         });
       });
     },

@@ -171,6 +171,11 @@ export interface SessionServiceOptions {
   adapter: AgentAdapter | null;
   events: EventBus;
   onReport?: (report: SessionReport) => void;
+  /**
+   * Told after every saved change to a session, for the notifications (spec 029). `quiet` is a change Orynx made
+   * itself, Discard or Orynx closing, which you know about already.
+   */
+  onChange?: (before: Session, after: Session, change: { quiet: boolean }) => void;
   now?: () => number;
   newId?: () => string;
   /** The Session screen hears about new steps at most this often; 250 ms (AC-4). */
@@ -376,16 +381,22 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   }
 
   /** Changes a session; the lists hear at once when its state or title changed, the Session screen always. */
-  async function change(id: string, update: (record: StoredSession) => StoredSession): Promise<StoredSession | null> {
-    const seen = { listsChanged: false };
+  async function change(
+    id: string,
+    update: (record: StoredSession) => StoredSession,
+    { quiet = false } = {},
+  ): Promise<StoredSession | null> {
+    const seen: { listsChanged: boolean; before: Session | null } = { listsChanged: false, before: null };
     const saved = await records.update(id, (current) => {
       const next = update(current);
       seen.listsChanged = next.session.state !== current.session.state || next.session.title !== current.session.title;
+      seen.before = current.session;
       return { ...next, session: { ...next.session, updatedAt: new Date(now()).toISOString() } };
     });
     if (saved === null) return null;
     if (seen.listsChanged) events.publish({ type: 'sessions.changed' });
     stepsChanged(id);
+    if (seen.before !== null) options.onChange?.(seen.before, saved.session, { quiet });
     return saved;
   }
 
@@ -417,11 +428,15 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     by: ApprovalEnd,
   ): Promise<StoredSession | null> {
     let ended: ApprovalRecord[] = [];
-    const saved = await change(id, (record) => {
-      const result = endApprovals(update(record), which, answer, by, new Date(now()).toISOString());
-      ended = result.ended;
-      return result.record;
-    });
+    const saved = await change(
+      id,
+      (record) => {
+        const result = endApprovals(update(record), which, answer, by, new Date(now()).toISOString());
+        ended = result.ended;
+        return result.record;
+      },
+      { quiet: by === 'discarded' || by === 'closed' },
+    );
     if (saved !== null) reportAnswered(id, ticketOf(saved), ended);
     return saved;
   }

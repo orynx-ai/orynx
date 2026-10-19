@@ -27,6 +27,8 @@ export const ServerEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('inbox.changed') }),
   /** A skill was added, saved or deleted in Settings › Skills; refetch GET /api/skills (spec 023). */
   z.object({ type: z.literal('skills.changed') }),
+  /** A notification came, was read, or an approval it holds ended; refetch GET /api/notifications (spec 029). */
+  z.object({ type: z.literal('notifications.changed') }),
 ]);
 export type ServerEvent = z.infer<typeof ServerEventSchema>;
 export type ServerEventType = ServerEvent['type'];

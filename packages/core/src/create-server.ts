@@ -16,6 +16,8 @@ import { openInboxCache, type InboxCache } from './inbox/inbox-cache.ts';
 import { startInboxSchedule } from './inbox/inbox-schedule.ts';
 import { createInboxService } from './inbox/inbox-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
+import { createNotificationService } from './notifications/notification-service.ts';
+import { createNotificationSettingsService } from './notifications/notification-settings.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
 import { createSkillStore, orynxSkillsFolder, SkillRejectedError } from './skills/skill-store.ts';
@@ -32,6 +34,7 @@ import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
 import { inboxRoutes } from './routes/inbox.ts';
 import { jiraRoutes } from './routes/jira.ts';
+import { notificationsRoutes } from './routes/notifications.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
 import { filesRoutes } from './routes/files.ts';
@@ -268,6 +271,14 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const sessions = options.sessions ?? createMemorySessionStore();
   const preferences = createPreferencesService({ settings, events });
   const cache = options.cache ?? openInboxCache(':memory:');
+  // Spec 029: what sessions and syncs raise. Its failures go to the terminal as the error alone, never the text.
+  const notifications = createNotificationService({
+    cache,
+    events,
+    onError: (error) => {
+      app.log.error(error, 'A notification could not be saved');
+    },
+  });
   const tickets = createTicketsService({
     cache,
     settings,
@@ -296,6 +307,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     },
     onError: (error) => {
       app.log.error(error, 'The inbox sync failed');
+    },
+    onSynced: (tool, before, after) => {
+      notifications.inboxSynced(tool, before, after);
     },
   });
   const schedule =
@@ -391,6 +405,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     githubClient,
     adapter,
     events,
+    onChange: (before, after, change) => {
+      notifications.sessionChanged(before, after, change);
+    },
     // Kinds, ids and codes only: never the ticket's text or Claude's words (AC-21).
     onReport: (report) => {
       switch (report.what) {
@@ -470,6 +487,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
           adapter === null || !(await claude.connected()) ? { state: 'unavailable' } : adapter.models(),
       });
       await api.register(preferencesRoutes, { preferences });
+      await api.register(notificationsRoutes, {
+        notifications,
+        settings: createNotificationSettingsService({ settings, events }),
+      });
       await api.register(inboxRoutes, { inbox });
       await api.register(ticketsRoutes, { tickets, inbox, jira });
       await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });

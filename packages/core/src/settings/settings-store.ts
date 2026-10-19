@@ -40,6 +40,8 @@ const SettingsSchema = z.looseObject({
   repositories: z.array(z.unknown()).optional().catch(undefined),
   /** Which sprint Tickets shows (spec 020), kept as written; the tickets service reads what it can. */
   tickets: WrittenObjectSchema.optional().catch(undefined),
+  /** Settings › Notifications (spec 029), kept as written; the notification settings service reads what it can. */
+  notifications: WrittenObjectSchema.optional().catch(undefined),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

@@ -1,8 +1,9 @@
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { apiRoutes, type Session, type SessionList } from '@devhub/contracts';
+import { apiRoutes, defaultNotificationSettings, type Session, type SessionList } from '@devhub/contracts';
 import {
   makeGitHubConnection,
+  makeNotificationList,
   makeInbox,
   makeJiraConnection,
   makePreferences,
@@ -83,6 +84,9 @@ export const server = setupServer(
   http.post(apiUrl(apiRoutes.claudeLoginCheck), () => HttpResponse.json({ state: 'signed_out' })),
   // Signed out, Claude offers no models.
   http.get(apiUrl(apiRoutes.agentModels), () => HttpResponse.json({ state: 'unavailable' })),
+  // Nothing to tell you yet, and Settings › Notifications as a fresh Orynx has it (spec 029).
+  http.get(apiUrl(apiRoutes.notifications), () => HttpResponse.json(makeNotificationList())),
+  http.get(apiUrl(apiRoutes.notificationSettings), () => HttpResponse.json(defaultNotificationSettings)),
   http.get(apiUrl(apiRoutes.search), () =>
     HttpResponse.json(
       makeSearchIndex({ tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } } }),

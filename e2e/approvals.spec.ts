@@ -42,6 +42,8 @@ const tools: FakeTools = {
     { key: 'PROJ-2012', summary: 'Look at a command (runs tests)', status: 'To Do', category: 'new' },
     { key: 'PROJ-2013', summary: 'Look at the network line (fetches)', status: 'To Do', category: 'new' },
     { key: 'PROJ-2014', summary: 'Look at an edit', status: 'To Do', category: 'new' },
+    { key: 'PROJ-2015', summary: 'Ask from the bell (runs tests)', status: 'To Do', category: 'new' },
+    { key: 'PROJ-2016', summary: 'Ask in a pop-up (runs tests)', status: 'To Do', category: 'new' },
   ],
   reviews: [],
   mine: [],
@@ -449,4 +451,58 @@ test('AC-19: the callouts and the allow list have no axe violations, at 1280 and
     },
     'the allow list with an entry and a refusal',
   );
+});
+
+test('spec 029, AC-1, AC-4, AC-9, AC-45, AC-46: the bell counts Claude waiting, and Allow once in its panel runs the command', async ({
+  page,
+}) => {
+  const url = await build(page, 'PROJ-2015');
+  await expect(progress(page).getByRole('alert')).toBeVisible({ timeout: 15_000 });
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const panel = page.getByRole('dialog', { name: 'Notifications' });
+  const asking = panel
+    .getByRole('listitem')
+    .filter({ hasText: 'PROJ-2015 · Ask from the bell (runs tests) · npm test -- content-list' });
+  const openPanel = async () => {
+    await page.goto('/');
+    await nav.getByRole('button', { name: /^Notifications, \d+ unread$/ }).click();
+    await expect(asking.getByRole('button', { name: 'Allow once' })).toBeVisible();
+  };
+  await openPanel();
+  await expect(asking.getByRole('button', { name: 'Claude wants to run a command, unread' })).toBeVisible();
+  await checkEverywhere(page, openPanel, 'the bell’s panel');
+  // Back at 1280 px the bell is in the sidebar's foot again, a new one, so its panel opens afresh.
+  await openPanel();
+
+  await asking.getByRole('button', { name: 'Allow once' }).click();
+
+  await page.goto(url);
+  await finished(page);
+  expect(ran('PROJ-2015')).toEqual(['npm test -- content-list']);
+});
+
+test('spec 029, AC-23, AC-46: Claude asking pops up on another page, and Allow once there runs the command', async ({
+  page,
+  context,
+}) => {
+  const home = await context.newPage();
+  await home.goto('/');
+  await expect(home.getByRole('region', { name: 'Pop-ups' })).toBeAttached();
+  const url = await build(page, 'PROJ-2016');
+  await expect(progress(page).getByRole('alert')).toBeVisible({ timeout: 15_000 });
+  // Its own Session screen shows the callout, so it pops up only elsewhere.
+  await expect(page.getByRole('region', { name: 'Pop-ups' }).getByRole('alert')).toHaveCount(0);
+
+  const popUp = home
+    .getByRole('region', { name: 'Pop-ups' })
+    .getByRole('alert', { name: 'Claude wants to run a command' });
+  await expect(popUp).toContainText('PROJ-2016 · Ask in a pop-up (runs tests) · npm test -- content-list');
+  expect(await axe(home, 'section[aria-label="Pop-ups"]')).toEqual([]);
+  await popUp.getByRole('button', { name: 'Allow once' }).click();
+  await expect(popUp).toBeHidden({ timeout: 5_000 });
+
+  await page.goto(url);
+  await finished(page);
+  expect(ran('PROJ-2016')).toEqual(['npm test -- content-list']);
+  await home.close();
 });

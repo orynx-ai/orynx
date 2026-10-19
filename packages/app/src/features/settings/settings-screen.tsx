@@ -1,10 +1,11 @@
-// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023); the Coding agent tab and the tabs' icons: Design: none — the user's redesign mockup 4a · Settings › Coding agent (redesign), 19 Oct 2026
+// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023); docs/design/screens/notification-settings/NotificationSettings.dc.html — the Notifications tab (spec 029); the Coding agent tab and the tabs' icons: Design: none — the user's redesign mockup 4a · Settings › Coding agent (redesign), 19 Oct 2026
 import { useRef } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import {
   Book02Icon,
   Folder01Icon,
   InboxIcon,
+  Notification01Icon,
   PaintBrush02Icon,
   Plug01Icon,
   RoboticIcon,
@@ -16,8 +17,10 @@ import { useUiStore } from '../../stores/ui-store.ts';
 import { AppearancePanel } from './components/appearance-panel.tsx';
 import { CodingAgentPanel } from './components/coding-agent-panel.tsx';
 import { InboxRulesPanel } from './components/inbox-rules-panel.tsx';
+import { NotificationsPanel } from './components/notifications-panel.tsx';
 import { RepositoriesPanel } from './components/repositories-panel.tsx';
 import { SkillsBarActions } from './components/skills-bar-actions.tsx';
+import { TestNotification } from './components/test-notification.tsx';
 import { SkillsPanel } from './components/skills-panel.tsx';
 import { ConnectionsPanel } from './components/connections-panel.tsx';
 import { SettingsTabSchema, settingsTabLabels, type SettingsTab } from './tabs.ts';
@@ -27,6 +30,7 @@ const tabIcons: Record<SettingsTab, IconSvgElement> = {
   connections: Plug01Icon,
   'coding-agent': RoboticIcon,
   skills: Book02Icon,
+  notifications: Notification01Icon,
   repositories: Folder01Icon,
   'inbox-rules': InboxIcon,
   appearance: PaintBrush02Icon,
@@ -48,6 +52,8 @@ export function SettingsScreen() {
         actions={
           tab === 'skills' ? (
             <SkillsBarActions />
+          ) : tab === 'notifications' ? (
+            <TestNotification />
           ) : (
             // Under 768 px the bar has room only for the crumbs.
             <span className="text-small text-muted-foreground max-md:hidden">Changes save automatically</span>
@@ -101,6 +107,9 @@ export function SettingsScreen() {
           </TabsContent>
           <TabsContent value="skills" className="pt-6">
             <SkillsPanel />
+          </TabsContent>
+          <TabsContent value="notifications" className="pt-6">
+            <NotificationsPanel />
           </TabsContent>
           <TabsContent value="repositories" className="pt-6">
             <RepositoriesPanel />

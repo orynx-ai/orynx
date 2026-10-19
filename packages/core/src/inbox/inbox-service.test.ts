@@ -84,6 +84,7 @@ function setup({
     events,
   });
   const preferences = createPreferencesService({ settings, events });
+  const synced: { tool: string; before: unknown[] | null; after: unknown[] }[] = [];
   const jiraConnection = createJiraConnection({ settings, tokens, jira: createJiraClient(), events, envToken: false });
   const tickets = createTicketsService({
     cache,
@@ -113,9 +114,10 @@ function setup({
     sessions: createMemorySessionStore(sessions),
     preferences,
     events,
+    onSynced: (tool, before, after) => synced.push({ tool, before: before && [...before], after: [...after] }),
     now: () => clock,
   });
-  return { inbox, tickets, settings, preferences, seen, cache };
+  return { inbox, tickets, settings, preferences, seen, cache, synced };
 }
 
 /** Jira answering every read of the sprint (spec 008): you, the sprint field, your sprint, its board and issues. */
@@ -183,6 +185,23 @@ describe('inbox service', () => {
     });
     expect(read.syncedAt).toBe('2026-10-17T10:00:00.000Z');
     expect(seen).toEqual([{ type: 'inbox.changed' }]);
+  });
+
+  it('spec 029: each answered sync hands on what the last one kept for that account, and nothing after Clear cache', async () => {
+    outside.use(acceptingIssueSearch([issue]));
+    const { inbox, synced } = setup({ settings: jiraConnected });
+    await inbox.sync();
+    outside.use(acceptingIssueSearch([issue, { key: 'PROJ-7' }]));
+    await inbox.sync();
+    await inbox.clear();
+    await inbox.idle();
+
+    const keys = (records: unknown[] | null) => records?.map((record) => (record as { key: string }).key) ?? null;
+    expect(synced.map(({ tool, before, after }) => [tool, keys(before), keys(after)])).toEqual([
+      ['jira', null, ['PROJ-1423']],
+      ['jira', ['PROJ-1423'], ['PROJ-1423', 'PROJ-7']],
+      ['jira', null, ['PROJ-1423', 'PROJ-7']],
+    ]);
   });
 
   it('AC-3: an issue that no longer comes back loses its row at the next sync', async () => {

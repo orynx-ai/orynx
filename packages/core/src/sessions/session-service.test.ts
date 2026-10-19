@@ -157,6 +157,7 @@ async function setUp({
   const sdk = fakeClaudeSdk(script, ...later);
   const records = await openFileSessionStore(home, { now });
   const reports: SessionReport[] = [];
+  const changes: { from: string; to: string; quiet: boolean }[] = [];
   let ids = 0;
   const service = createSessionService({
     records,
@@ -212,6 +213,9 @@ async function setUp({
         }),
     events,
     onReport: (report) => reports.push(report),
+    onChange: (before, after, { quiet }) => {
+      if (before.state !== after.state) changes.push({ from: before.state, to: after.state, quiet });
+    },
     now,
     newId: () => {
       ids += 1;
@@ -220,7 +224,7 @@ async function setUp({
   });
   services.push(service);
   jira.use(acceptingIssue({ key: 'PROJ-1423', summary: 'Add bulk archive to the content list' }));
-  return { service, records, repos, home, heard, reports, sdk, folders: added, settings };
+  return { service, records, repos, home, heard, reports, changes, sdk, folders: added, settings };
 }
 
 /** Waits until the session has sent Claude its brief: from there a hanging Claude writes nothing more. */
@@ -920,6 +924,35 @@ describe('stopping a session', () => {
     expect(await service.stop('0000000000000001')).toBe('stopped');
     expect((await records.get('0000000000000001'))?.session).toEqual(done.session);
     expect(await service.stop('fedcba9876543210')).toBe('not_found');
+  });
+});
+
+describe('telling the notifications (spec 029)', () => {
+  it('AC-19: each change of state reaches the hook; Stop by you is not quiet', async () => {
+    const { service, records, changes } = await setUp({ script: [{ hang: true }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await hasStep(records, 'brief');
+
+    await service.stop('0000000000000001');
+
+    expect(changes).toContainEqual({ from: 'working', to: 'stopped', quiet: false });
+  });
+
+  it('Discard and closing Orynx stop a working session quietly', async () => {
+    const discarded = await setUp({ script: [{ hang: true }] });
+    await discarded.service.start({ ticketKey: 'PROJ-1423' });
+    await hasStep(discarded.records, 'brief');
+    await discarded.service.discard('0000000000000001');
+
+    const closed = await setUp({ script: [{ hang: true }] });
+    await closed.service.start({ ticketKey: 'PROJ-1423' });
+    await hasStep(closed.records, 'brief');
+    await closed.service.close();
+
+    for (const { changes } of [discarded, closed]) {
+      expect(changes.filter((change) => change.to === 'stopped').every((change) => change.quiet)).toBe(true);
+      expect(changes.some((change) => change.to === 'stopped')).toBe(true);
+    }
   });
 });
 

@@ -21,7 +21,7 @@ service in core ──publish(event)──▶ event bus ──▶ GET /api/event
 
 ## 1. The event union
 
-`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed`, `sessions.changed` (a session started, or one changed its state or title), `session.changed { sessionId }` (one session's steps changed, spec 011), `session.files.changed { sessionId }` (its worktree's files may have changed, spec 013), `settings.changed` (a value in Settings › Coding agent, Repositories or Inbox rules was saved, spec 005) `inbox.changed` (a sync ended, the cache was cleared or a tool's rows went, spec 007) and `skills.changed` (a skill was added, saved or deleted in Settings › Skills, spec 023, `learn/your-skills.md`). Tickets' sprint syncs with the inbox (spec 008), so `inbox.changed` refreshes it too, with no event of its own. ⌘K search (spec 009) reads the same cache and the sessions, so `inbox.changed`, `status.changed` and `sessions.changed` refresh it, and `settings.changed` doesn't: the inbox rules never hide anything from search. Every new kind of change adds a member here first, so the server and the page agree on the payload.
+`ServerEventSchema` in `packages/contracts/src/events.ts` is a zod discriminated union on `type`. Today it has `hello` (sent when a stream opens), `status.changed`, `sessions.changed` (a session started, or one changed its state or title), `session.changed { sessionId }` (one session's steps changed, spec 011), `session.files.changed { sessionId }` (its worktree's files may have changed, spec 013), `settings.changed` (a value in Settings › Coding agent, Repositories or Inbox rules was saved, spec 005) `inbox.changed` (a sync ended, the cache was cleared or a tool's rows went, spec 007) `skills.changed` (a skill was added, saved or deleted in Settings › Skills, spec 023, `learn/your-skills.md`) and `notifications.changed` (a notification came, was read, its approval ended, or Clear cache emptied them, spec 029, `learn/notifications.md`). `settings.changed` also covers Settings › Notifications. Tickets' sprint syncs with the inbox (spec 008), so `inbox.changed` refreshes it too, with no event of its own. ⌘K search (spec 009) reads the same cache and the sessions, so `inbox.changed`, `status.changed` and `sessions.changed` refresh it, and `settings.changed` doesn't: the inbox rules never hide anything from search. Every new kind of change adds a member here first, so the server and the page agree on the payload.
 
 ## 2. The event bus
 
@@ -69,14 +69,17 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // An edit or a command ended: that session's Changes tab, list and diff, reads again (spec 013, AC-2).
       return [sessionChangesQueryKey(event.sessionId)];
     case 'settings.changed':
-      // The inbox rules apply when the server reads the list (spec 007).
-      return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox];
+      // The inbox rules apply when the server reads the list (spec 007). Settings › Notifications too (spec 029).
+      return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox, queryKeys.notificationSettings];
     case 'inbox.changed':
       // A sync ended: Tickets' sprint syncs with the inbox (spec 008), and search reads both (spec 009).
       return [queryKeys.inbox, queryKeys.tickets, queryKeys.search];
     case 'skills.changed':
       // Another tab, or this one, added, saved or deleted a skill (spec 023, AC-19).
       return [queryKeys.skills];
+    case 'notifications.changed':
+      // One came, was read, or its approval ended: the bell, its panel and the pop-ups read the list again (spec 029).
+      return [queryKeys.notifications];
   }
 }
 ```
@@ -88,6 +91,8 @@ The switch has no `default`, so TypeScript refuses to compile until a new event 
 `session.files.changed` (spec 013) is its own event, because a step can end without touching a file and a command can change files without a new step. The session service sends it when an edit or a command ends, at once and then at most once a second, and when Discard deletes the worktree. Its key, `['sessions', 'changes', id]`, covers the list and every file's diff under it (`[..., path]`), so one event reads both again. The diffs keep `staleTime: 0`, so a file you open again is read again. Like `session.changed`, it carries only the id: never a path or a line.
 
 One exception sits in the subscriber: for `settings.changed`, a key with a change still on its way is skipped. That change refetches when it settles (`refetchAfterLast` in `features/settings/queries.ts`); refetching earlier could read the server before the change is written and flip the control back for a moment (spec 005 review).
+
+`notifications.changed` carries only its type, never a title or a command. The pop-ups (spec 029) find what's new by comparing the list they read with the one before, so the event needs nothing more.
 
 TanStack Query then refetches only the queries that are on screen.
 

@@ -1,0 +1,25 @@
+<!-- learn-sources: packages/contracts/src/notifications.ts packages/core/src/notifications/notification-service.ts packages/core/src/notifications/session-notifications.ts packages/core/src/notifications/inbox-notifications.ts packages/core/src/notifications/notification-settings.ts packages/core/src/routes/notifications.ts packages/app/src/features/notifications/components/notification-centre.tsx packages/app/src/features/notifications/components/pop-ups.tsx packages/app/src/features/notifications/alerts.ts packages/app/src/features/notifications/quiet.ts packages/app/src/features/notifications/sounds.ts packages/app/src/features/settings/components/notifications-panel.tsx -->
+
+# Notifications: what raises one, and how it reaches you
+
+Spec 029 added a bell to the sidebar, pop-ups in the window's corner, sounds, desktop notifications, and Settings › Notifications. The design draws the bell beside the logo, but the user moved it to the bottom: it sits in the sidebar's footer, after the person and Claude's state. On the collapsed rail it sits above the avatar, and under 768 px, where the footer is hidden, it sits in the top bar before Search.
+
+## What raises one (core)
+
+The server makes notifications, so every tab and the desktop app see the same list and the same unread dots.
+
+- **Sessions.** The session service calls `onChange(before, after, { quiet })` after every saved change, from its one `change()` function. `sessionNotifications()` turns that into notifications: a new waiting call (an approval, which knows whether it's a command, an edit, a push or a pull request), finished, stopped, failed, or Claude's usage limit. A call that ends anywhere marks its notification `waiting: false`, so it drops its buttons and leaves Needs you. Discard and Orynx closing are `quiet`: they only end waiting calls.
+- **The inbox.** The inbox service calls `onSynced(tool, before, after)` after each sync a tool answered, with what the last answered sync kept for the same account. `githubNotifications()` and `jiraNotifications()` compare the two: a review asked of you (or asked again), checks that started failing on your own pull request, a newly assigned ticket. The first answered sync of each tool since Orynx started raises nothing, and nor does one with nothing before it (a new account, or after Clear cache), so a restart never floods the bell.
+- **Where they live.** A `notifications` table in `cache.db` (the cache's version went to 2, so an older file is made again). The newest 200 stay, none older than 30 days. Ids are made from what they're about (`approval:<session>:<call>`), so the same change twice adds one. Clear cache empties them and says `notifications.changed`.
+- **What leaves the server.** `GET /api/notifications` (the list, unread and waiting counts) and `POST /api/notifications/read` (some ids, or all). Events carry only their type; logs carry nothing of a notification's text. Allow once from the panel or a pop-up is the session's own `POST /api/sessions/:id/approvals/:approvalId`, so it goes through the same checks as the Session screen.
+
+## How it reaches you (app)
+
+- **The panel** (`notification-centre.tsx`): All and Needs you, grouped Today and Earlier on the laptop's calendar. Opening one marks it read and goes to its Session screen, or opens the pull request or ticket outside Orynx. A waiting command has Allow once and Review; an edit, a push or a pull request has Review only.
+- **Pop-ups** (`pop-ups.tsx`, mounted once in the shell): only notifications that arrive while the tab is open, never those already there. An approval is an `alert` and stays until it's answered or closed; anything else is a `status` and goes after 8 s unless the pointer or focus is on it. Three at most, newest at the bottom. None pops up for the session whose screen you're on, which already shows it.
+- **Sounds and the desktop** (`alerts.ts`): only one tab speaks for all, the one holding the `orynx-notify` Web Lock. It plays one sound per batch (`sounds.ts`: Knock, Chime and Ping, made with Web Audio, skipped if the browser refuses sound before a click) and raises a desktop notification for each that asks for one. The tab you're looking at holds an `orynx-looking-*` lock, which is how the speaking tab knows not to show desktop notifications while you're in Orynx. A desktop notification never shows a command.
+- **When to be quiet** (`quiet.ts`): `delivery()` applies a notification's row in Settings, the three switches, Do not disturb (until its end) and quiet hours. Hours that cross midnight belong to the day they start. An approval breaks through when "Still tell me when Claude is waiting for approval" is on.
+
+## Settings › Notifications
+
+Saved in `settings.json` under `notifications`, with its own route (`GET`/`PATCH /api/notifications/settings`) and `settings.changed`, so every tab shows a change. `withNotificationChange()` in contracts applies one change on both sides. The browser's own permission for desktop notifications isn't saved: each browser keeps it, and the desktop app always has it.

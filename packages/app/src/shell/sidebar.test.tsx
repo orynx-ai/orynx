@@ -142,6 +142,8 @@ describe('Sidebar', () => {
       'Tickets',
       'Settings',
       'Sessions',
+      // Spec 029: the bell sits above the avatar.
+      'Notifications',
       'You · Claude not connected · runs locally',
     ]);
     // No control on the rail draws a title attribute: the tooltip is the one place its name shows.
