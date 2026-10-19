@@ -34,7 +34,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **UI parts**
 
-- [ ] Task 9: `Switch` and `Slider` in `@devhub/ui` (AC-17, AC-33, AC-36, AC-37)
+- [x] Task 9: `Switch` and `Slider` in `@devhub/ui` (AC-17, AC-33, AC-36, AC-37)
       Check: pnpm test packages/ui/src/components/switch.test.tsx packages/ui/src/components/slider.test.tsx
       Files: packages/ui/src/components/switch.tsx, packages/ui/src/components/switch.stories.tsx, packages/ui/src/components/switch.test.tsx, packages/ui/src/components/slider.tsx, packages/ui/src/components/slider.stories.tsx, packages/ui/src/components/slider.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 10: `NotificationBell` (the count, 99+) and `NotificationItem` (icon tone, title, detail, time, unread dot, buttons) (AC-1, AC-2, AC-4, AC-9, AC-11)

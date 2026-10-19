@@ -33,6 +33,8 @@ export { Button, buttonVariants, type ButtonProps } from './components/button.ts
 export { Callout, CalloutCode, type CalloutCodeProps, type CalloutProps } from './components/callout.tsx';
 export { Card, type CardLook, type CardProps } from './components/card.tsx';
 export { Checkbox, type CheckboxProps } from './components/checkbox.tsx';
+export { Slider, type SliderProps } from './components/slider.tsx';
+export { Switch, type SwitchProps } from './components/switch.tsx';
 export { Chip, FilterChip, type ChipProps, type FilterChipProps } from './components/chip.tsx';
 export { ChoiceCard, type ChoiceCardProps } from './components/choice-card.tsx';
 export { ChoiceGroup, type ChoiceGroupProps } from './components/choice-group.tsx';
