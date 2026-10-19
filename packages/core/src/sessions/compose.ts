@@ -1,4 +1,4 @@
-import type { ComposerStart, Repository, SessionActivity } from '@devhub/contracts';
+import type { AgentChoice, ComposerChip, ComposerStart, Repository, Session, SessionActivity } from '@devhub/contracts';
 import type { AgentBrief, AgentReads } from '../agents/agent-adapter.ts';
 import { composerBrief, ticketBrief, type BriefChip, type BriefSkill, type BriefTicket } from './brief.ts';
 import { branchSlug, titleFrom } from './composer-names.ts';
@@ -18,6 +18,8 @@ export interface StartPlan {
   ticketNote: boolean;
   /** What outside the worktree Claude may read: the files you picked, skills' folders (spec 022). */
   reads: AgentReads;
+  /** The model and effort the composer picked; left out, Claude Code's own default. */
+  choice?: AgentChoice;
 }
 
 /** Nothing outside the worktree, as for Ship's start. */
@@ -102,4 +104,35 @@ export function composerPlan(
       },
     },
   };
+}
+
+/** A chip as the composer tells two apart: a repository's owner and name in any case. */
+function chipId(chip: ComposerChip): string {
+  if (chip.kind === 'jira') return `jira:${chip.key}`;
+  if (chip.kind === 'pull_request') return `pr:${chip.owner}/${chip.name}#${String(chip.number)}`.toLowerCase();
+  return `file:${chip.path}`;
+}
+
+/**
+ * What the session was sent once a follow-up adds `added` (spec 025): what it held, or its ticket alone for a
+ * session saved before it kept a list, then each new chip once.
+ */
+export function contextAfter(session: Session, added: readonly ComposerChip[]): ComposerChip[] {
+  const held: ComposerChip[] =
+    session.context.length === 0 && session.source?.kind === 'jira'
+      ? [{ kind: 'jira', key: session.source.key }]
+      : [...session.context];
+  const seen = new Set(held.map(chipId));
+  for (const chip of added) {
+    if (seen.has(chipId(chip))) continue;
+    seen.add(chipId(chip));
+    held.push(chip);
+  }
+  return held;
+}
+
+/** What Claude may read once a follow-up adds files: the files picked before, then these, each once (spec 022). */
+export function readsAfter(reads: AgentReads, chips: readonly BriefChip[]): { files: string[]; folders: string[] } {
+  const files = chips.flatMap((chip) => (chip.kind === 'file' ? [chip.real] : []));
+  return { files: [...new Set([...reads.files, ...files])], folders: [...reads.folders] };
 }

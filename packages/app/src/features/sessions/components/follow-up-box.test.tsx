@@ -40,14 +40,13 @@ describe('FollowUpBox', () => {
     await user.type(await screen.findByRole('textbox', { name: 'Message Claude' }), 'Use the existing hook{Enter}');
 
     await waitFor(() => {
-      expect(sent).toEqual([{ text: 'Use the existing hook' }]);
+      expect(sent).toEqual([{ text: 'Use the existing hook', context: [] }]);
     });
     await waitFor(() => {
       expect(box()).toHaveValue('');
     });
     expect(box()).toHaveFocus();
     expect(screen.getByPlaceholderText('Ask Claude to change something')).toBe(box());
-    expect(screen.getByText('Enter to send · Shift+Enter for a new line')).toBeVisible();
   });
 
   it('AC-21: Shift+Enter adds a line, Enter while an input method composes sends nothing, and an empty box sends nothing', async () => {
@@ -63,7 +62,7 @@ describe('FollowUpBox', () => {
 
     await user.click(screen.getByRole('button', { name: 'Send message' }));
     await waitFor(() => {
-      expect(sent).toEqual([{ text: 'First line\nsecond line' }]);
+      expect(sent).toEqual([{ text: 'First line\nsecond line', context: [] }]);
     });
   });
 
@@ -131,6 +130,53 @@ describe('FollowUpBox', () => {
     await renderApp({ route });
     expect(await screen.findByText(line)).toBeVisible();
     expect(screen.queryByRole('textbox', { name: 'Message Claude' })).toBeNull();
+  });
+
+  it('spec 025: a pasted key is a chip, sent with the message, and the chips go once it’s sent', async () => {
+    const sent = serve(done);
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('textbox', { name: 'Message Claude' }));
+    await user.paste('PROJ-1500');
+    const strip = screen.getByRole('list', { name: 'Context for Claude' });
+    expect(within(strip).getByRole('button', { name: 'PROJ-1500' })).toBeVisible();
+
+    await user.type(box(), 'Do this one too{Enter}');
+
+    await waitFor(() => {
+      expect(sent).toEqual([{ text: 'Do this one too', context: [{ kind: 'jira', key: 'PROJ-1500' }] }]);
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('list', { name: 'Context for Claude' })).toBeNull();
+    });
+  });
+
+  it('spec 025: + offers tickets, pull requests and files, not a folder: the session has its own', async () => {
+    serve(done);
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('button', { name: 'Add context' }));
+    const menu = await screen.findByRole('menu', { name: 'Add context' });
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(
+      [
+        'Jira ticketSearch by key or title',
+        'Pull requestSearch by repo, number or title',
+        'File from this computer',
+      ].map((start) => expect.stringContaining(start) as unknown as string),
+    );
+  });
+
+  it('spec 025: says which chip Jira couldn’t give, and keeps the message and the chip', async () => {
+    serve(done, { result: 'context_failed', chip: 0, problem: 'not_found' });
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('textbox', { name: 'Message Claude' }));
+    await user.paste('PROJ-9999');
+    await user.type(box(), 'And this{Enter}');
+    expect(await screen.findByRole('alert')).toHaveTextContent("Jira can't find PROJ-9999, or you can't see it.");
+    expect(box()).toHaveValue('And this');
+    expect(screen.getByRole('list', { name: 'Context for Claude' })).toBeVisible();
   });
 
   it('AC-19: keeps a message you haven’t sent while you look at another page', async () => {

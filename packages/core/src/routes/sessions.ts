@@ -125,7 +125,8 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
       },
     },
     async (request, reply) => {
-      const answer = await service.send(request.params.id, request.body.text);
+      const { text, context, model, effort } = request.body;
+      const answer = await service.send(request.params.id, text, context, { model, effort });
       return answer.result === 'not_found' ? reply.code(404).send(notFound) : answer;
     },
   );

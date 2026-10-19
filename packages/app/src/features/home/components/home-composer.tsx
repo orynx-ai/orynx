@@ -1,51 +1,28 @@
 import { useRef, useState, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { File01Icon } from '@hugeicons/core-free-icons';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useForm, useWatch } from 'react-hook-form';
 import type { ComposerChip, StartSessionAnswer } from '@devhub/contracts';
-import {
-  Composer,
-  ComposerBar,
-  ComposerSend,
-  ComposerTextarea,
-  ContextChip,
-  ContextList,
-  ContextMore,
-  Icon,
-  SourceMark,
-} from '@devhub/ui';
+import { Composer, ComposerBar, ComposerSend, ComposerTextarea } from '@devhub/ui';
 import { newTaskTargetId } from '../../../shell/main-content.ts';
 import { useRepositories, useStatus } from '../../settings/queries.ts';
 import { chipFromPaste, firstTicket, folderFor } from '../composer-rules.ts';
 import {
   cannotStartLine,
-  chipLabel,
   composerWords,
   contextFailedLine,
   placeholderFor,
   refusedLine,
-  removedLine,
   type SettingsLink,
 } from '../composer-words.ts';
 import { useStartFromComposer } from '../queries.ts';
 import { AddContext } from './add-context.tsx';
-import { AgentPicker } from './agent-picker.tsx';
-import { ContextDialog } from './context-dialog.tsx';
+import { AgentPicker, useAgentChoice } from './agent-picker.tsx';
+import { ContextStrip } from './context-strip.tsx';
 import { useSkillSuggestions } from './skill-suggestions.tsx';
 import { FolderPicker } from './folder-picker.tsx';
 import { composerFormSchema, type ComposerFormValues } from '../schemas.ts';
 import { useComposerStore } from '../store.ts';
-
-/** The composer shows this many chips, then +N (spec 022, Q6). */
-const shownChips = 2;
-
-/** The chip's mark: the tool's own for a ticket or a pull request, a file icon for a file. */
-function chipIcon(chip: ComposerChip) {
-  if (chip.kind === 'jira') return <SourceMark source="jira" label="none" />;
-  if (chip.kind === 'pull_request') return <SourceMark source="github" label="none" />;
-  return <Icon icon={File01Icon} aria-hidden />;
-}
 
 interface Said {
   line: string;
@@ -84,21 +61,21 @@ export function HomeComposer() {
   const picked = useComposerStore((state) => state.picked);
   const lastUsed = useComposerStore((state) => state.lastUsed);
   const setText = useComposerStore((state) => state.setText);
-  const removeChip = useComposerStore((state) => state.removeChip);
   const addChip = useComposerStore((state) => state.addChip);
   const sent = useComposerStore((state) => state.sent);
+  const model = useComposerStore((state) => state.model);
+  const effort = useComposerStore((state) => state.effort);
+  const setModel = useComposerStore((state) => state.setModel);
+  const setEffort = useComposerStore((state) => state.setEffort);
+  const choice = useAgentChoice(model, effort);
   const repositories = useRepositories();
   const status = useStatus();
   const start = useStartFromComposer();
   // Both pickers come at once, when both have what they need: one arriving first would move the other (AC-1).
   const pickers = repositories.data !== undefined && status.data !== undefined;
-  const [removed, setRemoved] = useState('');
   // Why a file wasn't added (AC-12); it goes when the draft changes or another file is added.
   const [refused, setRefused] = useState<string | null>(null);
   const box = useRef<HTMLTextAreaElement | null>(null);
-  const more = useRef<HTMLButtonElement | null>(null);
-  // Whether the dialog with every chip is open (spec 022, AC-20).
-  const [allContext, setAllContext] = useState(false);
 
   const form = useForm<ComposerFormValues, unknown, { message: string }>({
     resolver: zodResolver(composerFormSchema),
@@ -148,7 +125,7 @@ export function HomeComposer() {
     void form.handleSubmit(({ message: words }) => {
       const repositoryId = shown.kind === 'folder' ? shown.folder.id : undefined;
       start.mutate(
-        { message: words, context: chips, ...(repositoryId === undefined ? {} : { repositoryId }) },
+        { message: words, context: chips, ...(repositoryId === undefined ? {} : { repositoryId }), ...choice },
         {
           onSuccess: (answer) => {
             if (answer.result !== 'started') return;
@@ -166,36 +143,7 @@ export function HomeComposer() {
       {/* The / list sits over the page under the composer, so nothing moves when it opens (spec 022, G). */}
       <div className="relative">
         <Composer canSend={canSend} pending={start.isPending} onSubmit={submit}>
-          {chips.length === 0 ? null : (
-            <ContextList aria-label={composerWords.contextList}>
-              {/* The first two in the order added, then +N for the rest (spec 022, Q6). */}
-              {chips.slice(0, shownChips).map((chip, index) => {
-                const label = chipLabel(chip);
-                return (
-                  <ContextChip
-                    key={`${chip.kind}:${label}`}
-                    label={label}
-                    icon={chipIcon(chip)}
-                    onRemove={() => {
-                      removeChip(index);
-                      setRemoved(removedLine(label));
-                    }}
-                  />
-                );
-              })}
-              {chips.length > shownChips ? (
-                <ContextMore
-                  ref={more}
-                  count={chips.length - shownChips}
-                  label={composerWords.more.label(chips.length)}
-                  tooltip={composerWords.more.tooltip}
-                  onClick={() => {
-                    setAllContext(true);
-                  }}
-                />
-              ) : null}
-            </ContextList>
-          )}
+          <ContextStrip box={() => box.current} />
           <ComposerTextarea
             {...suggestions.boxProps}
             id={newTaskTargetId}
@@ -230,7 +178,7 @@ export function HomeComposer() {
               {pickers ? (
                 <>
                   <FolderPicker />
-                  <AgentPicker />
+                  <AgentPicker model={model} effort={effort} onModelChange={setModel} onEffortChange={setEffort} />
                 </>
               ) : null}
             </div>
@@ -239,14 +187,6 @@ export function HomeComposer() {
         </Composer>
         {suggestions.list}
       </div>
-      <p role="status" className="sr-only">
-        {removed}
-      </p>
-      <ContextDialog
-        open={allContext}
-        onOpenChange={setAllContext}
-        returnFocusTo={() => (more.current?.isConnected === true ? more.current : box.current)}
-      />
       {said === null ? null : (
         <p role="alert" className="m-0 text-small text-danger">
           {said.line}

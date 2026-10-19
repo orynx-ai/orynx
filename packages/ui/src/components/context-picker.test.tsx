@@ -191,6 +191,7 @@ function Tickets({
             query={query}
             onQueryChange={setQuery}
             options={shown}
+            select="many"
             onPick={onPick}
             emptyText="No matches. Try a key like PROJ-1423 or a repo name."
             loading={loading}
@@ -251,7 +252,7 @@ describe('ContextPicker: one kind’s list (spec 015)', () => {
     expect(picked).toEqual(['PROJ-1290', 'PROJ-1377']);
   });
 
-  it('AC-9: an item already added shows a check and reads as selected', async () => {
+  it('AC-9: an item already added shows a ticked checkbox and reads as selected', async () => {
     const user = userEvent.setup();
     render(<Tickets added={['PROJ-1423']} />);
     await openTickets(user);

@@ -1,4 +1,4 @@
-// Design: docs/design/screens/session.html — page bar, title row with Stop Claude and Create pull request (spec 014's dialog and PR-open row: Design: none, settled in its Q10), stepper, Claude's progress with the approval callout and the follow-up box, the Changes and Ticket tabs
+// Design: docs/design/screens/session.html — page bar, title row with Stop Claude and Create pull request (spec 014's dialog and PR-open row: Design: none, settled in its Q10), stepper, Claude's progress with the approval callout and the follow-up box, the Changes tab; the Context tab (in place of Ticket), the details held in view and the full-screen view: Design: none — the user's call, 19 Oct 2026
 import { useRef, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import type { Session } from '@devhub/contracts';
@@ -52,14 +52,21 @@ function OpenInJira({ url }: { url: string }) {
 
 /**
  * Claude's progress and the work beside it (spec 013, Q6): side by side when there's room, each its own height,
- * the progress first when they stack. As `session.html` sizes them: 360 and 480 px to start, grown 2 to 3.
+ * the progress first when they stack. As `session.html` sizes them: 360 and 480 px to start, grown 2 to 3. Side
+ * by side, the details stay in view under the page bar while the progress scrolls, and scroll on their own (the
+ * user's call, 19 Oct 2026).
  */
 function Panes({ progress, details }: { progress: ReactNode; details: ReactNode }) {
   return (
     // A container, so the loading form can tell side by side (896 px and up) from stacked.
     <div className="@container flex flex-wrap items-start gap-5">
       <div className="min-w-0 grow-2 basis-90">{progress}</div>
-      <section aria-label="Work details" className="min-w-0 grow-3 basis-120">
+      <section
+        aria-label="Work details"
+        // 24 px under the 56 px page bar, and as tall as the window less those 80 px and 32 px under it.
+        // style-policy-ignore-next-line: the window's height less the page bar and its gaps has no scale step
+        className="min-w-0 grow-3 basis-120 @4xl:sticky @4xl:top-20 @4xl:flex @4xl:max-h-[calc(100svh-7rem)] @4xl:flex-col"
+      >
         {details}
       </section>
     </div>

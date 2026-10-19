@@ -21,6 +21,7 @@ export const queryKeys = {
   /** The composer's skills, per folder (spec 022). */
   skills: ['skills'] as const,
   claudeLogin: ['claude', 'login'] as const,
+  agentModels: ['agent', 'models'] as const,
   search: ['search'] as const,
 };
 
@@ -202,6 +203,16 @@ export function claudeLoginQueryOptions(api: ApiClient) {
     queryFn: () => api.claudeLogin(),
     // Freshness comes from the event stream (status.changed when the server's check finds a change).
     staleTime: Infinity,
+  });
+}
+
+/** The models Claude offers now, for the composer's agent picker: kept 10 minutes, as the server keeps them. */
+export function agentModelsQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.agentModels,
+    queryFn: () => api.agentModels(),
+    staleTime: 10 * 60_000,
+    retry: false,
   });
 }
 

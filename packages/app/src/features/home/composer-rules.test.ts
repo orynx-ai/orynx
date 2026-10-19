@@ -69,14 +69,14 @@ describe('adding a chip (spec 015)', () => {
     expect(addChip(chips, ticket)).toEqual({ ok: true, chips });
   });
 
-  it('022 AC-3 (Q5): up to 10 tickets, 10 pull requests and 20 files, and each limit is said', () => {
+  it('022 AC-3 (Q5): up to 100 tickets, 100 pull requests and 100 files, and each limit is said', () => {
     const upTo = (count: number) => Array.from({ length: count }, (_, n) => n + 1);
-    const tickets = upTo(10).map((n): ComposerChip => ({ kind: 'jira', key: `PROJ-${String(n)}` }));
-    expect(addChip(tickets, { kind: 'jira', key: 'PROJ-11' })).toEqual({ ok: false, refusal: 'too_many_tickets' });
-    expect(addChip(upTo(9).map(pull), pull(10)).ok).toBe(true);
-    expect(addChip(upTo(10).map(pull), pull(11))).toEqual({ ok: false, refusal: 'too_many_pull_requests' });
-    const files = upTo(20).map((n) => file(`${String(n)}.md`));
-    expect(addChip(files, file('21.md'))).toEqual({ ok: false, refusal: 'too_many_files' });
+    const tickets = upTo(100).map((n): ComposerChip => ({ kind: 'jira', key: `PROJ-${String(n)}` }));
+    expect(addChip(tickets, { kind: 'jira', key: 'PROJ-101' })).toEqual({ ok: false, refusal: 'too_many_tickets' });
+    expect(addChip(upTo(99).map(pull), pull(100)).ok).toBe(true);
+    expect(addChip(upTo(100).map(pull), pull(101))).toEqual({ ok: false, refusal: 'too_many_pull_requests' });
+    const files = upTo(100).map((n) => file(`${String(n)}.md`));
+    expect(addChip(files, file('101.md'))).toEqual({ ok: false, refusal: 'too_many_files' });
     expect(addChip([pull(1)], pull(1))).toEqual({ ok: true, chips: [pull(1)] });
     expect(addChip([file('a.md')], file('a.md'))).toEqual({ ok: true, chips: [file('a.md')] });
     expect(addChip([], ticket)).toEqual({ ok: true, chips: [ticket] });

@@ -275,6 +275,8 @@ describe('starting a session', () => {
         jiraUrl: `https://${jiraSite}/browse/PROJ-1423`,
         sprint: 'Sprint 42',
         discardedAt: null,
+        // Spec 025: Ship's ticket is all the session was sent.
+        context: [{ kind: 'jira', key: 'PROJ-1423' }],
       },
     });
     expect(heard).toContainEqual({ type: 'sessions.changed' });

@@ -24,7 +24,10 @@ export function DialogTitle({ className, ...props }: ComponentProps<typeof Dialo
   );
 }
 
-export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content>;
+export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content> & {
+  /** `full` fills the window, keeping the 16 px gutter on every side at every width, for reading a whole diff. */
+  size?: 'default' | 'full';
+};
 
 /**
  * The dialog itself, in a portal: `bg-raised`, a hairline, `radius-lg` (the design system's radius for
@@ -33,11 +36,12 @@ export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content>;
  * it fills the width with the 16 px gutter, 16 px from the top. Past its height it doesn't scroll: give
  * the part that should scroll `min-h-0 overflow-y-auto`.
  *
- * There's no dimmed backdrop, because the design system has no token for one, and no scroll lock, so
- * the page behind never jumps. It fades in with the shared `animate-fade-in`, unless the person asks for
- * reduced motion.
+ * Behind it, the page fades towards the canvas (`bg-canvas` at 70%, the user's call, 19 Oct 2026: the
+ * design system has no backdrop token) and doesn't scroll while it's open; the dialog's own content still
+ * does. Both fade in with the shared `animate-fade-in`, unless the person asks for reduced motion.
  */
 export function DialogContent({
+  size = 'default',
   className,
   children,
   onOpenAutoFocus,
@@ -48,8 +52,18 @@ export function DialogContent({
   const returnFocusTo = useRef<HTMLElement | null>(null);
   return (
     <DialogPrimitive.Portal>
+      {/* Radix locks the page's scroll while its overlay is there. */}
+      <DialogPrimitive.Overlay
+        data-slot="dialog-overlay"
+        className="fixed inset-0 z-50 bg-canvas/70 motion-safe:animate-fade-in"
+      />
       {/* Lays the dialog out over the window; clicks pass through it, so a click beside the dialog closes it. */}
-      <div className="pointer-events-none fixed inset-0 z-50 flex items-start justify-center p-4 md:py-20">
+      <div
+        className={cn(
+          'pointer-events-none fixed inset-0 z-50 flex items-start justify-center p-4',
+          size === 'default' && 'md:py-20',
+        )}
+      >
         <DialogPrimitive.Content
           data-slot="dialog"
           // Nothing describes it unless the caller says so; Radix would otherwise warn.
@@ -67,6 +81,7 @@ export function DialogContent({
           }}
           className={cn(
             'pointer-events-auto flex max-h-full w-full max-w-180 flex-col overflow-hidden rounded-lg border border-border bg-raised text-body text-foreground shadow-overlay outline-none motion-safe:animate-fade-in max-md:max-w-none',
+            size === 'full' && 'h-full max-w-none',
             className,
           )}
           {...props}

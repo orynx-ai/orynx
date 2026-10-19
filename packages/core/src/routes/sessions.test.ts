@@ -272,18 +272,18 @@ describe('POST /api/sessions from the composer (spec 015)', () => {
 
   it('AC-4, 022 AC-3: takes the most the composer can send, even text JSON writes six times over', async () => {
     const { app, store } = await serverWith();
-    // 10 tickets, 10 pull requests and 20 files at the longest path (spec 022, Q5), and a message whose every
+    // 100 tickets, 100 pull requests and 100 files at the longest path (spec 022, Q5), and a message whose every
     // character is one JSON writes six times over: the worst case the limits allow.
     const upTo = (count: number) => Array.from({ length: count }, (_, n) => n + 1);
     const payload = {
       message: '\u001b'.repeat(10_000),
       context: [
-        ...upTo(10).map((n) => ({ kind: 'jira', key: `PROJ-${String(n)}` })),
-        ...upTo(10).map((number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number })),
-        ...upTo(20).map((n) => ({ kind: 'file', path: `/${String(n).padStart(4095, 'a')}` })),
+        ...upTo(100).map((n) => ({ kind: 'jira', key: `PROJ-${String(n)}` })),
+        ...upTo(100).map((number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number })),
+        ...upTo(100).map((n) => ({ kind: 'file', path: `/${String(n).padStart(4095, 'a')}` })),
       ],
     };
-    expect(JSON.stringify(payload).length).toBeGreaterThan(140_000);
+    expect(JSON.stringify(payload).length).toBeGreaterThan(470_000);
 
     const res = await post(app, payload);
 
@@ -300,7 +300,7 @@ describe('POST /api/sessions from the composer (spec 015)', () => {
 
   it('answers 400 for a body the composer could never send, and 413 past what it ever could', async () => {
     const { app } = await serverWith();
-    const files = Array.from({ length: 21 }, (_, n) => ({ kind: 'file', path: `~/${String(n)}.md` }));
+    const files = Array.from({ length: 101 }, (_, n) => ({ kind: 'file', path: `~/${String(n)}.md` }));
     for (const payload of [
       { message: '  ', context: [] },
       { message: 'Go', context: files },

@@ -304,7 +304,7 @@ describe('sessionQueryOptions', () => {
 const at = (route: string, id: string) => `${baseURL}${route.replace(':id', id)}`;
 
 describe('createApiClient().sendMessage() (spec 013)', () => {
-  it('AC-11: sends your text with the token, and answers sent', async () => {
+  it('AC-11: sends your text and the chips added to it, with the token, and answers sent', async () => {
     let body: unknown = null;
     let token: string | null = null;
     server.use(
@@ -314,9 +314,13 @@ describe('createApiClient().sendMessage() (spec 013)', () => {
         return HttpResponse.json({ result: 'sent' });
       }),
     );
-    const answer = await createApiClient({ baseURL, token: 'abc' }).sendMessage('0123456789abcdef', 'Use the hook');
+    const answer = await createApiClient({ baseURL, token: 'abc' }).sendMessage('0123456789abcdef', {
+      text: 'Use the hook',
+      context: [{ kind: 'jira', key: 'PROJ-1423' }],
+      model: 'opus',
+    });
     expect(answer).toEqual({ result: 'sent' });
-    expect(body).toEqual({ text: 'Use the hook' });
+    expect(body).toEqual({ text: 'Use the hook', context: [{ kind: 'jira', key: 'PROJ-1423' }], model: 'opus' });
     expect(token).toBe('abc');
   });
 
@@ -326,7 +330,7 @@ describe('createApiClient().sendMessage() (spec 013)', () => {
         HttpResponse.json({ result: 'cannot_send', reason: 'too_many' }),
       ),
     );
-    expect(await createApiClient({ baseURL, token: 'abc' }).sendMessage('0123456789abcdef', 'More')).toEqual({
+    expect(await createApiClient({ baseURL, token: 'abc' }).sendMessage('0123456789abcdef', { text: 'More' })).toEqual({
       result: 'cannot_send',
       reason: 'too_many',
     });

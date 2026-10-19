@@ -104,6 +104,40 @@ describe('ContextChip', () => {
   });
 });
 
+describe('ContextChip with onOpen', () => {
+  it('makes its text a button that opens it, and Remove still moves focus to the next chip’s Remove', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    function Two() {
+      const [items, setItems] = useState(['PROJ-1423', 'PROJ-1424']);
+      return (
+        <ContextList aria-label="Context for Claude">
+          {items.map((label) => (
+            <ContextChip
+              key={label}
+              label={label}
+              onOpen={() => {
+                onOpen(label);
+              }}
+              onRemove={() => {
+                setItems((now) => now.filter((other) => other !== label));
+              }}
+            />
+          ))}
+        </ContextList>
+      );
+    }
+    const { container } = render(<Two />);
+
+    await user.click(screen.getByRole('button', { name: 'PROJ-1424' }));
+    expect(onOpen).toHaveBeenCalledWith('PROJ-1424');
+
+    await user.click(screen.getByRole('button', { name: 'Remove PROJ-1423' }));
+    expect(screen.getByRole('button', { name: 'Remove PROJ-1424' })).toHaveFocus();
+    await expectNoAxeViolations(container);
+  });
+});
+
 describe('ContextMore (spec 022)', () => {
   function Strip({ onOpen }: { onOpen: () => void }) {
     return (

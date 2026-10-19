@@ -180,7 +180,7 @@ test('AC-1, AC-2, AC-18: the Changes tab lists Claude’s edit as it lands, in e
   await other.goto(page.url());
 
   const tabs = page.getByRole('tablist', { name: 'Session details' });
-  await expect(tabs.getByRole('tab', { name: 'Ticket CHG-1' })).toHaveAttribute('aria-selected', 'false');
+  await expect(tabs.getByRole('tab', { name: 'Context 1' })).toHaveAttribute('aria-selected', 'false');
   for (const tab of [page, other]) {
     await expect(changedFiles(tab).getByRole('button', { name: /^src\/archive\.ts/ })).toBeVisible({
       timeout: 15_000,
@@ -225,9 +225,9 @@ test('AC-3, AC-4: picking a file shows its diff, a reload keeps it, and reading 
 test('AC-9: the Ticket tab shows the ticket as Claude got it, and the address keeps the tab', async ({ page }) => {
   await page.goto(seen.working ?? '');
 
-  await page.getByRole('tab', { name: 'Ticket CHG-1' }).click();
+  await page.getByRole('tab', { name: 'Context 1' }).click();
 
-  const panel = page.getByRole('tabpanel', { name: 'Ticket CHG-1' });
+  const panel = page.getByRole('tabpanel', { name: 'Context 1' });
   await expect(panel.getByText('Story', { exact: true })).toBeVisible();
   await expect(panel.getByText('In Progress', { exact: true })).toBeVisible();
   await expect(panel.getByText('Due 15 Jan 2030')).toBeVisible();
@@ -238,9 +238,9 @@ test('AC-9: the Ticket tab shows the ticket as Claude got it, and the address ke
     'https://your-team.atlassian.net/browse/CHG-1',
   );
   await expect(panel.getByText("Claude's brief")).toBeVisible();
-  await expect(page).toHaveURL(/[?&]tab=ticket/);
+  await expect(page).toHaveURL(/[?&]tab=context/);
   await page.reload();
-  await expect(page.getByRole('tab', { name: 'Ticket CHG-1' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: 'Context 1' })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('AC-20, AC-26: picking Cursor in Settings turns Open in VS Code into Open in Cursor, in every open tab', async ({
@@ -376,14 +376,19 @@ test('AC-21: the box, the tabs and the file list all work from the keyboard, in 
   // An empty box sends nothing.
   await expect(progressOf(page).getByText('You asked Claude')).toHaveCount(2);
 
+  // The follow-up is Home's composer now (19 Oct 2026): + and the agent picker come before Send.
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Add context' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: /^Agent: / })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Send message' })).toBeFocused();
   await page.keyboard.press('Tab');
   const changes = page.getByRole('tab', { name: /^Changes/ });
   await expect(changes).toBeFocused();
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('tab', { name: 'Ticket CHG-2' })).toBeFocused();
-  await expect(page.getByRole('tab', { name: 'Ticket CHG-2' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: 'Context 1' })).toBeFocused();
+  await expect(page.getByRole('tab', { name: 'Context 1' })).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('ArrowLeft');
   await expect(changes).toHaveAttribute('aria-selected', 'true');
 
@@ -413,8 +418,8 @@ test('AC-22: the Session screen has no axe violations, at 1280 and 360 px, in li
   const states = [
     { name: 'Done, with its changes', url: seen.done, shows: (p: Page) => changedFiles(p) },
     {
-      name: 'its Ticket tab',
-      url: `${seen.done ?? ''}?tab=ticket`,
+      name: 'its Context tab',
+      url: `${seen.done ?? ''}?tab=context`,
       shows: (p: Page) => p.getByText('Content managers need to archive many items at once.'),
     },
     { name: 'discarded', url: seen.working, shows: (p: Page) => p.getByText('The changes are gone') },

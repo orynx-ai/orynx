@@ -217,9 +217,9 @@ describe('AttentionPanel', () => {
     ]);
   });
 
-  it('022 AC-31: with 10 pull requests in the composer, another row’s + adds nothing and says why', async () => {
+  it('022 AC-31: with 100 pull requests in the composer, another row’s + adds nothing and says why', async () => {
     useComposerStore.setState({
-      chips: Array.from({ length: 10 }, (_, n) => ({
+      chips: Array.from({ length: 100 }, (_, n) => ({
         kind: 'pull_request',
         owner: 'acme',
         name: 'other',
@@ -229,8 +229,8 @@ describe('AttentionPanel', () => {
     const { user } = await openHome();
     const row = rowOf('Lazy-load the people directory');
     await user.click(row.getByRole('button', { name: 'Add web-app #2841 to the composer' }));
-    expect(useComposerStore.getState().chips).toHaveLength(10);
-    expect(screen.getByText('A session takes up to 10 pull requests.')).toBeInTheDocument();
+    expect(useComposerStore.getState().chips).toHaveLength(100);
+    expect(screen.getByText('A session takes up to 100 pull requests.')).toBeInTheDocument();
     expect(row.getByRole('button', { name: 'Add web-app #2841 to the composer' })).toHaveFocus();
   });
 

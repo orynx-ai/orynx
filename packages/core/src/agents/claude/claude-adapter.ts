@@ -3,12 +3,14 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
+  ModelInfo,
   Options,
   PermissionResult,
   SandboxSettings,
   SDKMessage,
   SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
+import { AgentModelIdSchema, EffortLevelSchema, type AgentModel, type AgentModels } from '@devhub/contracts';
 import { briefText } from '../../sessions/brief.ts';
 import type { AgentAdapter, AgentAsk, AgentEvent, AgentWritten } from '../agent-adapter.ts';
 import { createMessageReader } from './sdk-messages.ts';
@@ -42,6 +44,8 @@ import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool
 export interface SessionQuery extends AsyncIterable<SDKMessage> {
   interrupt(): Promise<unknown>;
   close(): void;
+  /** The models Claude Code offers, from its start-up answer: no turn is needed. */
+  supportedModels(): Promise<ModelInfo[]>;
 }
 
 /** The SDK's `query()`, or a fake at its boundary in tests. */
@@ -64,6 +68,32 @@ export interface ClaudeAdapterOptions {
    * a session gets no commands (spec 012, Q2b). Null by default, so nothing runs a command unsandboxed.
    */
   sandbox?: ((worktree: string) => SandboxSettings) | null;
+  /** How long Claude Code may take to list its models; 15 seconds. */
+  modelsTimeoutMs?: number;
+  /** How long a list of models is kept before Claude Code is asked again; 10 minutes. */
+  modelsMaxAgeMs?: number;
+  /** The clock, in milliseconds. */
+  now?: () => number;
+}
+
+const unavailable: AgentModels = { state: 'unavailable' };
+
+/** A model as Claude Code listed it, or nothing when its id isn't one Orynx can pass back safely. */
+function agentModel(info: ModelInfo): AgentModel[] {
+  const value = AgentModelIdSchema.safeParse(info.value);
+  if (!value.success) return [];
+  const efforts = (info.supportedEffortLevels ?? []).flatMap((level) => {
+    const effort = EffortLevelSchema.safeParse(level);
+    return effort.success ? [effort.data] : [];
+  });
+  return [
+    {
+      value: value.data,
+      displayName: info.displayName.trim() === '' ? value.data : info.displayName,
+      description: info.description,
+      efforts,
+    },
+  ];
 }
 
 /** How a waiting call ended: your answer, Stop, or Claude Code dropping it. */
@@ -106,8 +136,14 @@ export function createClaudeAdapter({
   stopGraceMs = 5_000,
   writeTimeoutMs = 60_000,
   sandbox = null,
+  modelsTimeoutMs = 15_000,
+  modelsMaxAgeMs = 10 * 60_000,
+  now = Date.now,
 }: ClaudeAdapterOptions): AgentAdapter {
   const sessions = new Map<string, Running>();
+  /** The last list Claude Code gave, and when; a read under way is shared. */
+  let listed: { at: number; models: AgentModels } | null = null;
+  let listing: Promise<AgentModels> | null = null;
 
   function emit(running: Running, event: AgentEvent) {
     if (running.waiting !== null) running.waiting.push(event);
@@ -210,16 +246,75 @@ export function createClaudeAdapter({
     }
   }
 
+  /** Starts Claude Code with no message at all, takes the models it says it offers, and closes it before any turn. */
+  async function listModels(): Promise<AgentModels> {
+    const folder = await mkdtemp(join(tmpdir(), 'orynx-models-'));
+    let endInput: () => void = () => undefined;
+    const inputOver = new Promise<IteratorReturnResult<undefined>>((resolve) => {
+      endInput = () => {
+        resolve({ done: true, value: undefined });
+      };
+    });
+    const prompt: AsyncIterable<SDKUserMessage> = { [Symbol.asyncIterator]: () => ({ next: () => inputOver }) };
+    const running = query({
+      prompt,
+      options: {
+        cwd: folder,
+        pathToClaudeCodeExecutable: program,
+        env: { ...env, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' },
+        permissionMode: 'default',
+        tools: [],
+        canUseTool: () => Promise.resolve({ behavior: 'deny', message: 'No tools here.' }),
+        persistSession: false,
+        settingSources: [],
+        settings: { disableAllHooks: true },
+        strictMcpConfig: true,
+        mcpServers: {},
+        stderr: () => undefined,
+      },
+    });
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<'late'>((resolve) => {
+      timer = setTimeout(resolve, modelsTimeoutMs, 'late');
+    });
+    try {
+      const said = await Promise.race([running.supportedModels(), late]);
+      return said === 'late' ? unavailable : { state: 'ready', models: said.flatMap(agentModel) };
+    } catch {
+      // Claude Code couldn't start or say: its words can hold anything, so only the fact is kept.
+      return unavailable;
+    } finally {
+      clearTimeout(timer);
+      running.close();
+      endInput();
+      await rm(folder, { recursive: true, force: true });
+    }
+  }
+
   return {
     id: 'claude',
     runsCommands: sandbox !== null,
+
+    models() {
+      if (listed !== null && now() - listed.at < modelsMaxAgeMs) return Promise.resolve(listed.models);
+      listing ??= listModels()
+        .catch(() => unavailable)
+        .then((models) => {
+          // Only a list is kept: after a failure, the next picker asks again.
+          if (models.state === 'ready') listed = { at: now(), models };
+          return models;
+        })
+        .finally(() => {
+          listing = null;
+        });
+      return listing;
+    },
 
     write(text, instructions, { timeoutMs = writeTimeoutMs } = {}) {
       return writeText(text, instructions, timeoutMs);
     },
 
-    startSession(brief, worktree, permissions, instructions, resuming) {
-      const resume = resuming?.resume;
+    startSession(brief, worktree, permissions, instructions, { resume, model, effort } = {}) {
       const id = randomUUID();
       // The prompt stream: the brief, then each follow-up as it's given, until the input is over.
       const given: SDKUserMessage[] = [];
@@ -267,6 +362,9 @@ export function createClaudeAdapter({
         settings: { disableAllHooks: true },
         // A follow-up carries on Claude Code's own session, with its conversation (spec 013).
         ...(resume === undefined ? {} : { resume }),
+        // What the composer picked; left out, Claude Code's own default.
+        ...(model === undefined ? {} : { model }),
+        ...(effort === undefined ? {} : { effort }),
         strictMcpConfig: true,
         mcpServers: {},
         systemPrompt: { type: 'preset', preset: 'claude_code', append: instructions },

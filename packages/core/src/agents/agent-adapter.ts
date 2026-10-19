@@ -7,7 +7,7 @@
  * work only inside the session worktree, never push or open a PR on its own, and ask
  * before network calls, pushes and deletes outside the worktree whatever the mode.
  */
-import type { AlwaysAskReason, ChangeLine, PermissionMode } from '@devhub/contracts';
+import type { AgentModels, AlwaysAskReason, ChangeLine, EffortLevel, PermissionMode } from '@devhub/contracts';
 
 /** Saved in Settings › Coding agent (spec 005); the schema lives in contracts. */
 export type { PermissionMode };
@@ -109,6 +109,13 @@ export type AgentEvent =
 /** What `write()` gives back: the agent's text, or why there's none, with `timeout` when it didn't answer in time. */
 export type AgentWritten = { ok: true; text: string } | { ok: false; problem: AgentProblemKind | 'timeout' };
 
+/** How one run starts: carrying on the agent's own session, and with the model and effort you picked. */
+export interface AgentRunOptions {
+  resume?: string | undefined;
+  model?: string | undefined;
+  effort?: EffortLevel | undefined;
+}
+
 export interface AgentAdapter {
   readonly id: 'claude';
   /** Whether a session's agent can run commands here: only inside a sandbox (spec 012, Q2b). */
@@ -116,8 +123,9 @@ export interface AgentAdapter {
   /**
    * Starts the agent in `worktreePath` with the brief. `instructions` go into the agent's system prompt
    * (spec 011, Q5). With `resume`, the agent carries on its own earlier session, given as the `agentSessionId`
-   * it said when it started, and the brief is your follow-up (spec 013). Events that come before a handler is
-   * added are kept for the first one.
+   * it said when it started, and the brief is your follow-up (spec 013). `model` and `effort` are what the
+   * composer picked; left out, the agent's own default. Events that come before a handler is added are kept for
+   * the first one.
    */
   startSession(
     brief: AgentBrief,
@@ -125,8 +133,10 @@ export interface AgentAdapter {
     /** Read on every call, so a change in Settings applies from the agent's next call (spec 012, AC-11). */
     permissions: () => Promise<AgentPermissions>,
     instructions: string,
-    resuming?: { resume: string },
+    run?: AgentRunOptions,
   ): Promise<string>;
+  /** The models the agent offers now, with their effort levels, for the composer's picker. */
+  models(): Promise<AgentModels>;
   /** Returns a function that removes the handler. */
   onEvent(sessionId: string, handler: (event: AgentEvent) => void): () => void;
   /** Answers a waiting call; false when no such call is waiting (answered already, or never asked). */
