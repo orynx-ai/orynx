@@ -70,9 +70,10 @@ function horizontalOverflow(page: Page): Promise<number> {
 }
 
 /** Waits until a tab shows its saved values, not its loading chrome. */
-async function waitForTab(page: Page, tab: 'coding-agent' | 'repositories' | 'inbox-rules') {
+async function waitForTab(page: Page, tab: 'coding-agent' | 'repositories' | 'inbox-rules' | 'notifications') {
   if (tab === 'coding-agent') await expect(page.getByRole('radio').first()).toBeEnabled();
   if (tab === 'inbox-rules') await expect(page.getByRole('checkbox').first()).toBeEnabled();
+  if (tab === 'notifications') await expect(page.getByRole('switch', { name: 'Pop-ups inside Orynx' })).toBeEnabled();
   if (tab === 'repositories') {
     await expect(page.getByRole('list', { name: 'Folders' }).or(page.getByText('No folders yet'))).toBeVisible();
   }
@@ -94,10 +95,19 @@ test('AC-1: Given Settings, when I pick each tab, then the address follows it an
 }) => {
   await page.goto('/settings/connections');
   const tabs = page.getByRole('tablist', { name: 'Settings sections' }).getByRole('tab');
-  await expect(tabs).toHaveText(['Connections', 'Coding agent', 'Repositories', 'Inbox rules', 'Appearance']);
+  await expect(tabs).toHaveText([
+    'Connections',
+    'Coding agent',
+    'Skills',
+    'Notifications',
+    'Repositories',
+    'Inbox rules',
+    'Appearance',
+  ]);
 
   for (const [name, path] of [
     ['Coding agent', '/settings/coding-agent'],
+    ['Notifications', '/settings/notifications'],
     ['Repositories', '/settings/repositories'],
     ['Inbox rules', '/settings/inbox-rules'],
   ] as const) {
@@ -135,7 +145,7 @@ test('AC-20: Given a narrow window, when Settings opens on its last tab, then th
   expect(firstBox.x).toBeGreaterThanOrEqual(listAfter.x - 0.5);
 });
 
-for (const tab of ['coding-agent', 'repositories', 'inbox-rules'] as const) {
+for (const tab of ['coding-agent', 'repositories', 'inbox-rules', 'notifications'] as const) {
   test(`AC-15: Given Settings is opening on ${tab}, when its values arrive, then nothing on the page moves`, async ({
     page,
   }) => {
@@ -181,6 +191,28 @@ test('AC-3, spec 026: Given Coding agent, when I change a row, then it saves and
   await secondSave;
   await page.reload();
   await expect(page.getByRole('combobox', { name: 'Edit files' })).toHaveValue('allow');
+});
+
+test('spec 029, AC-32, AC-39: Given Notifications, when I untick a pop-up, then it saves and a reload keeps it', async ({
+  page,
+}) => {
+  await page.goto('/settings/notifications');
+  await waitForTab(page, 'notifications');
+  const popUp = page.getByRole('checkbox', { name: 'Pop-up for Session finished' });
+  await expect(popUp).toBeChecked();
+  const saving = page.waitForResponse(
+    (response) => response.url().endsWith('/api/notifications/settings') && response.request().method() === 'PATCH',
+  );
+
+  await popUp.click();
+  await saving;
+  await page.reload();
+  await waitForTab(page, 'notifications');
+
+  await expect(popUp).not.toBeChecked();
+  // Back as it was, for the rest of the run.
+  await popUp.click();
+  await expect(popUp).toBeChecked();
 });
 
 test('AC-13, AC-19: Given Inbox rules, when I press Space on a rule, then it saves and a reload keeps it', async ({
@@ -325,7 +357,7 @@ test('AC-7, AC-10: Given the Add a folder dialog, when the folder is not a repos
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
-  for (const tab of ['coding-agent', 'repositories', 'inbox-rules'] as const) {
+  for (const tab of ['coding-agent', 'repositories', 'inbox-rules', 'notifications'] as const) {
     test(`AC-20: Given ${tab} in ${colorScheme}, when axe checks the page, then it finds no violations, contrast included`, async ({
       page,
     }) => {
