@@ -2,7 +2,7 @@ import { builtinModules } from 'node:module';
 import { makeLineLookup, type Finding } from '../gate.ts';
 import { scanSource } from '../source-scan.ts';
 
-export type PackageKey = 'contracts' | 'ui' | 'api-client' | 'app' | 'core' | 'web' | 'server' | 'desktop';
+export type PackageKey = 'contracts' | 'ui' | 'api-client' | 'app' | 'core' | 'web' | 'server' | 'desktop' | 'landing';
 
 interface Layer {
   dir: string;
@@ -27,6 +27,8 @@ export const LAYERS: Readonly<Record<PackageKey, Layer>> = {
   server: { dir: 'apps/server', internal: ['core', 'contracts'], browser: false },
   // Starts apps/server's bundle by its path, so it imports no @devhub package (spec 027).
   desktop: { dir: 'apps/desktop', internal: [], browser: false },
+  // The public landing page stands alone: static HTML, no app code.
+  landing: { dir: 'apps/landing', internal: [], browser: true },
 };
 
 const ARCH = 'docs/architecture.md';

@@ -17,7 +17,7 @@ Keep this file under 10 KB (`pnpm gate handbook-size`). Put detail in the linked
 
 ## Layout
 
-`apps/web` (Vite host) · `apps/server` (Node host) · `apps/desktop` (Electron host) · `packages/contracts` (zod schemas) · `packages/api-client` (axios + query options) · `packages/ui` (design system) · `packages/app` (screens, routes, stores) · `packages/core` (Fastify routes, integrations, agent runtime). Each feature follows `docs/feature-layout.md`.
+`apps/web` (Vite host) · `apps/server` (Node host) · `apps/desktop` (Electron host) · `apps/landing` (public landing page, static, no tests) · `packages/contracts` (zod schemas) · `packages/api-client` (axios + query options) · `packages/ui` (design system) · `packages/app` (screens, routes, stores) · `packages/core` (Fastify routes, integrations, agent runtime). Each feature follows `docs/feature-layout.md`.
 
 ## Workflow
 

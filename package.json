@@ -8,7 +8,7 @@
     "node": ">=24.15.0"
   },
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --filter=!@devhub/landing",
     "build": "turbo run build",
     "start": "turbo run build --filter=@devhub/server... --filter=@devhub/web && pnpm --filter @devhub/server start",
     "typecheck": "turbo run typecheck && tsc -p tsconfig.json",

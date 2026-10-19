@@ -17,7 +17,7 @@ DevHub has two halves, both on the developer's laptop: a React web app and a Nod
 
 ## Packages
 
-Each package's source is TypeScript that the consuming bundler or `tsx` compiles directly. There is no per-package build step: `exports` points at `src/`. Only the two hosts in `apps/` build.
+Each package's source is TypeScript that the consuming bundler or `tsx` compiles directly. There is no per-package build step: `exports` points at `src/`. Only the hosts in `apps/` build, plus the static landing page beside them.
 
 | Package                            | What it owns                                                                                                                              | May import (internal)     | Key libraries                                                                                               |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -29,6 +29,7 @@ Each package's source is TypeScript that the consuming bundler or `tsx` compiles
 | `@devhub/web` (`apps/web`)         | the browser host: Vite, `index.html`, the web `Platform`, the token meta tag                                                              | app, ui, api-client       | vite, @tailwindcss/vite                                                                                     |
 | `@devhub/server` (`apps/server`)   | the Node host: env config, data dir, session token, static files, `listen()`                                                              | core, contracts           | @fastify/static, tsdown                                                                                     |
 | `@devhub/desktop` (`apps/desktop`) | the desktop host: Electron starts `apps/server`'s bundle on a free port and opens its page in a window, and checks for updates (spec 027) | no other @devhub package  | electron, electron-builder, electron-updater, tsdown                                                        |
+| `@devhub/landing` (`apps/landing`) | the public landing page: one static `index.html`, its styles and screenshots of the app on made-up data                                   | nothing                   | vite, @fontsource/geist, geist-mono and newsreader                                                          |
 
 `pnpm gate boundaries` enforces the "may import" column, and blocks Node built-ins and server libraries in browser packages.
 
