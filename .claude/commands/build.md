@@ -22,6 +22,7 @@ Build the next task of `specs/$ARGUMENTS/`.
    pnpm gate style-policy        # UI changes
    pnpm gate design-source       # new or changed screens
    pnpm gate boundaries          # new imports
+   pnpm gate component-coverage  # new components: each needs its own test file
    ```
 
    Leave these out of a task. Each one runs later, once per branch:
