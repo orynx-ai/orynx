@@ -14,11 +14,11 @@ Plan the spec in `specs/$ARGUMENTS/`.
 4. Write `tasks.md` as small steps. Each task:
    - is about one commit's worth of work (usually under ~200 changed lines),
    - names the acceptance criteria it proves (`AC-2`),
-   - has a **Check** (the exact test or gate that proves it) and **Files** (the paths it creates or changes).
+   - has a **Check** (the exact test or gate that proves it) and **Files** (the paths it creates or changes). A Check names test files or a feature folder, never a whole package, `pnpm verify` or the whole e2e suite: those run once, in `/review`. Name an e2e file only in the task that writes or changes it.
 
    ```
    - [ ] Task 1: Add the inbox item schema and route path (AC-1)
-         Check: pnpm test packages/contracts; pnpm typecheck
+         Check: pnpm test packages/contracts/src/inbox.test.ts; pnpm typecheck
          Files: packages/contracts/src/inbox.ts, packages/contracts/src/routes.ts
    ```
 

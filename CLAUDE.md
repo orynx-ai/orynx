@@ -12,8 +12,8 @@ Keep this file under 10 KB (`pnpm gate handbook-size`). Put detail in the linked
 
 - Node 24 (`nvm use`), pnpm 10 (`corepack enable`), then `pnpm install`.
 - `pnpm dev` — server on 127.0.0.1:4317, web (Vite) on localhost:4318. `pnpm start` — production build, one port: 4317.
-- `pnpm verify` — gates, typecheck, lint, all tests. It must pass before you say a task is done.
-- While working, run only what you touched: `pnpm test <path>`, `pnpm gate <name>`, `pnpm storybook`.
+- `pnpm verify` — gates, typecheck, lint, all tests. It must pass before you say a branch is done; `/review` runs it, with the e2e suite.
+- While working, and in each `/build` task, run only what you touched: `pnpm test <path>`, `pnpm gate <name>`, `pnpm storybook`. No whole-package runs, `pnpm lint` or e2e per commit: the git hooks and `/review` run them.
 
 ## Layout
 
