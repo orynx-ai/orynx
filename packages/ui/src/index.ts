@@ -51,6 +51,7 @@ export {
   NotificationTabsList,
   type NotificationPanelContentProps,
 } from './components/notification-panel.tsx';
+export { SettingList, SettingRow, type SettingRowProps } from './components/setting-row.tsx';
 export { Slider, type SliderProps } from './components/slider.tsx';
 export { Switch, type SwitchProps } from './components/switch.tsx';
 export { Toast, ToastRegion, type ToastProps } from './components/toast.tsx';

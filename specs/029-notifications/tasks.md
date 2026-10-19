@@ -82,9 +82,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **App: Settings › Notifications**
 
-- [ ] Task 22: The Notifications tab after Skills, its page bar, loading and save errors, and "Where you get notified" with the browser's permission and the desktop app's words (AC-32, AC-33, AC-34, AC-35, AC-43, AC-44)
-      Check: pnpm test packages/app/src/features/settings/settings-screen.test.tsx packages/app/src/features/settings/components/notifications-panel.test.tsx
-      Files: packages/app/src/features/settings/tabs.ts, packages/app/src/features/settings/settings-screen.tsx, packages/app/src/features/settings/components/notifications-panel.tsx, packages/app/src/features/settings/components/notifications-panel.test.tsx, packages/app/src/features/notifications/queries.ts
+- [x] Task 22: The Notifications tab after Skills, its page bar, loading and save errors, and "Where you get notified" with the browser's permission and the desktop app's words; a `SettingList`/`SettingRow` in `@devhub/ui` for the design's `dh-perm` rows. Built before task 17, whose links need the tab. While loading, the controls show the defaults disabled, as every Settings tab does, rather than skeletons (AC-32, AC-33, AC-34, AC-35, AC-43, AC-44)
+      Check: pnpm test packages/app/src/features/settings/settings-screen.test.tsx packages/app/src/features/settings/components/notifications-panel.test.tsx packages/ui/src/components/setting-row.test.tsx
+      Files: packages/app/src/features/settings/tabs.ts, packages/app/src/features/settings/settings-screen.tsx, packages/app/src/features/settings/components/notifications-panel.tsx, packages/app/src/features/settings/components/notifications-panel.test.tsx, packages/app/src/features/notifications/queries.ts, packages/app/src/features/notifications/desktop.ts, packages/ui/src/components/setting-row.tsx, packages/ui/src/components/setting-row.stories.tsx, packages/ui/src/components/setting-row.test.tsx, docs/design-map.md
 - [ ] Task 23: Sound and "What you're told about": Play sounds, Volume, the sound list, the events table and its narrow layout (AC-36, AC-37, AC-38, AC-39, AC-45)
       Check: pnpm test packages/app/src/features/settings/components/notification-events.test.tsx
       Files: packages/app/src/features/settings/components/notification-events.tsx, packages/app/src/features/settings/components/notification-events.test.tsx, packages/app/src/features/settings/components/notifications-panel.tsx

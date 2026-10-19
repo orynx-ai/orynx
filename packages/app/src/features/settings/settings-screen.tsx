@@ -1,4 +1,4 @@
-// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Coding agent (agent cards and modes), Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023)
+// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Coding agent (agent cards and modes), Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023); docs/design/screens/notification-settings.html — the Notifications tab (spec 029)
 import { useRef } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { SquareLock02Icon } from '@hugeicons/core-free-icons';
@@ -8,6 +8,7 @@ import { useUiStore } from '../../stores/ui-store.ts';
 import { AppearancePanel } from './components/appearance-panel.tsx';
 import { CodingAgentPanel } from './components/coding-agent-panel.tsx';
 import { InboxRulesPanel } from './components/inbox-rules-panel.tsx';
+import { NotificationsPanel } from './components/notifications-panel.tsx';
 import { RepositoriesPanel } from './components/repositories-panel.tsx';
 import { SkillsBarActions } from './components/skills-bar-actions.tsx';
 import { SkillsPanel } from './components/skills-panel.tsx';
@@ -82,6 +83,9 @@ export function SettingsScreen() {
           </TabsContent>
           <TabsContent value="skills" className="pt-6">
             <SkillsPanel />
+          </TabsContent>
+          <TabsContent value="notifications" className="pt-6">
+            <NotificationsPanel />
           </TabsContent>
           <TabsContent value="repositories" className="pt-6">
             <RepositoriesPanel />
