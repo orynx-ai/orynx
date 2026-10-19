@@ -100,8 +100,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 26: E2e: Claude asks, the bell counts it, Allow once from the panel runs it; the Notifications tab saves and axe finds nothing (AC-1, AC-4, AC-9, AC-32, AC-46)
       Check: pnpm test:e2e e2e/approvals.spec.ts e2e/settings.spec.ts
       Files: e2e/approvals.spec.ts, e2e/settings.spec.ts
-- [ ] Task 27: Browser check of the panel, a pop-up and the tab at 360 and 1280 px in light and dark; a `learn/` page; the script for `docs/design/screens/`, `design-system.md` and `docs/product/spec.md` (AC-45, AC-46)
+- [x] Task 27: Browser check of the panel, a pop-up and the tab at 360 and 1280 px in light and dark (axe, sideways scroll, the panel and pop-up inside the window: no problems, after fitting the tab to 360 px); a `learn/` page; the script for `docs/design/screens/`, `design-system.md` and `docs/product/spec.md`, tried on a copy (AC-45, AC-46)
       Check: pnpm gate design-source; pnpm gate learn-freshness
-      Files: learn/notifications.md, specs/029-notifications/people-files.sh
+      Files: learn/notifications.md, specs/029-notifications/people-files.sh, packages/ui/src/components/setting-row.tsx, packages/app/src/features/settings/components/test-notification.tsx
 - [ ] Task 28: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
