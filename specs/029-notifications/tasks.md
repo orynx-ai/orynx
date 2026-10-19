@@ -70,9 +70,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: `quiet.ts`: Do not disturb and its end, quiet hours across midnight on the chosen days, approvals breaking through (AC-29, AC-30, AC-31)
       Check: pnpm test packages/app/src/features/notifications/quiet.test.ts
       Files: packages/app/src/features/notifications/quiet.ts, packages/app/src/features/notifications/quiet.test.ts
-- [ ] Task 19: `sounds.ts`: Knock, Chime and Ping with Web Audio at a volume, skipped when the browser refuses (AC-28, AC-37)
+- [x] Task 19: `sounds.ts`: Knock, Chime and Ping with Web Audio at a volume, skipped when the browser refuses (AC-28, AC-37)
       Check: pnpm test packages/app/src/features/notifications/sounds.test.ts
-      Files: packages/app/src/features/notifications/sounds.ts, packages/app/src/features/notifications/sounds.test.ts, packages/app/src/test/browser-fakes.ts
+      Files: packages/app/src/features/notifications/sounds.ts, packages/app/src/features/notifications/sounds.test.ts, packages/app/src/test/fake-audio-context.ts
 - [ ] Task 20: Pop-ups: new notifications pop up per the settings, approvals stay, others go after 8 s, three at most; mounted once in the shell (AC-23, AC-24, AC-25, AC-26, AC-29)
       Check: pnpm test packages/app/src/features/notifications/components/pop-ups.test.tsx
       Files: packages/app/src/features/notifications/components/pop-ups.tsx, packages/app/src/features/notifications/components/pop-ups.test.tsx, packages/app/src/shell/app-shell.tsx
