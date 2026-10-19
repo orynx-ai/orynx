@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type PreferencesChange } from '@devhub/contracts';
@@ -10,7 +10,16 @@ import { renderApp } from '../../../test/render.tsx';
 
 const heading = 'What Claude can do without asking';
 const saveFailed = "Couldn't save that change. Check that Orynx is still running, then try again.";
-const row = (name: string) => screen.getByRole('combobox', { name });
+/** A row's options, named by the row. */
+const row = (name: string) => screen.getByRole('group', { name });
+/** The option a row has pressed, or undefined when none is. */
+const pressed = (name: string) =>
+  within(row(name))
+    .getAllByRole('button')
+    .find((option) => option.getAttribute('aria-pressed') === 'true')?.textContent;
+const option = (name: string, label: string) => within(row(name)).getByRole('button', { name: label });
+const level = (name: string) =>
+  within(screen.getByRole('radiogroup', { name: 'Permission level' })).getByRole('radio', { name });
 
 /** Answers PATCH /api/preferences once `release` is called, and records what was sent. */
 function slowSave() {
@@ -34,78 +43,136 @@ function slowSave() {
 async function openRows() {
   const rendered = await renderApp({ route: '/settings/coding-agent' });
   await waitFor(() => {
-    expect(row('Push the branch')).toBeEnabled();
+    expect(option('Push the branch', 'Allow')).toBeEnabled();
   });
   return rendered;
 }
 
 describe('CodingAgentPanel', () => {
-  it('AC-14, AC-15: shows the Claude card and "More agents" above the rows, in that order', async () => {
+  it('AC-14, AC-15: shows the agent, the line about more agents, then the rows, in that order', async () => {
     await renderApp({ route: '/settings/coding-agent' });
 
     const claude = await screen.findByRole('group', { name: 'Claude' });
-    const more = screen.getByRole('group', { name: 'More agents' });
-    expect(more).toHaveTextContent('Coming later. Each agent plugs in through one small adapter.');
+    const more = screen.getByText(
+      'More agents are coming later. Each one plugs in through the same small adapter, so these settings will apply to them too.',
+    );
     const rows = screen.getByRole('region', { name: heading });
     expect(claude.compareDocumentPosition(more) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(more.compareDocumentPosition(rows) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('spec 026: one row for each kind of call, each with its line, starting as edit freely and ask before commands', async () => {
+  it('spec 026: one row for each kind of call in three groups, each with its line, starting as edit freely and ask before commands', async () => {
     const { container } = await openRows();
 
+    const groups = [
+      ["Inside the session's copy", 'Contained', ['Edit files', 'Run commands']],
+      [
+        'On your computer',
+        'Can change your machine',
+        ['Commands that use the network', 'Commands outside the sandbox', "Deleting outside the session's copy"],
+      ],
+      ['On GitHub', 'Your team sees it', ['Push the branch', 'Open a pull request']],
+    ] as const;
+    for (const [name, risk, rows] of groups) {
+      const group = screen.getByRole('region', { name });
+      expect(within(group).getByText(risk)).toBeVisible();
+      for (const name of rows) expect(group).toContainElement(row(name));
+    }
     const shown = [
       ['Edit files', 'Allow', "In the session's own copy of the repository. Edits anywhere else are refused."],
-      ['Run commands', 'Ask first', "In a sandbox with no network that writes only to the session's copy."],
+      ['Run commands', 'Ask', "In a sandbox with no network that writes only to the session's copy."],
       [
         'Commands that use the network',
-        'Ask first',
+        'Ask',
         'Such as npm install, curl or git fetch. Allowed, they run outside the sandbox.',
       ],
-      [
-        "Deleting outside the session's copy",
-        'Ask first',
-        'Such as rm ~/notes.txt. Allowed, it runs outside the sandbox.',
-      ],
-      [
-        'Commands outside the sandbox',
-        'Ask first',
-        "When Claude asks to run one there. One Orynx can't read always asks.",
-      ],
-      ['Push the branch', 'Never', "Only the session's branch to origin, never forced, with your own git login."],
-      ['Open a pull request', 'Never', "With gh pr create for the session's branch, as you on GitHub."],
-    ];
+      ["Deleting outside the session's copy", 'Ask', 'Such as rm ~/notes.txt. Allowed, it runs outside the sandbox.'],
+      ['Commands outside the sandbox', 'Ask', "When Claude asks to run one there. One Orynx can't read always asks."],
+      ['Push the branch', 'Block', "Only the session's branch to origin, never forced, with your own git login."],
+      ['Open a pull request', 'Block', "With gh pr create for the session's branch, as you on GitHub."],
+    ] as const;
     for (const [name, picked, line] of shown) {
-      const select = row(name ?? '');
-      expect(select).toHaveDisplayValue(picked ?? '');
-      expect(select).toHaveAccessibleDescription(line ?? '');
+      expect(pressed(name)).toBe(picked);
+      expect(row(name)).toHaveAccessibleDescription(line);
     }
-    expect([...row('Run commands').querySelectorAll('option')].map((option) => option.textContent)).toEqual([
-      'Ask first',
-      'Only allowed commands',
-      'Any command',
-    ]);
-    expect([...row('Push the branch').querySelectorAll('option')].map((option) => option.textContent)).toEqual([
-      'Never',
-      'Ask first',
-      'Allow',
-    ]);
+    const labels = (name: string) =>
+      within(row(name))
+        .getAllByRole('button')
+        .map((button) => button.textContent);
+    expect(labels('Run commands')).toEqual(['Any', 'Allowed only', 'Ask']);
+    expect(labels('Push the branch')).toEqual(['Allow', 'Ask', 'Block']);
+    expect(labels('Commands that use the network')).toEqual(['Allow', 'Ask']);
+    // A fresh Orynx asks before commands and never pushes: no level has that, so it's Custom.
+    expect(level('Custom')).toBeChecked();
+    expect(level('Balanced')).not.toBeChecked();
     await expectNoAxeViolations(container);
+  });
+
+  it('sums the rows up in three lines, and warns under a row set to Allow', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.preferences), () =>
+        HttpResponse.json(makePreferences({ permissions: { network: 'allow', push: 'never', pullRequest: 'ask' } })),
+      ),
+    );
+    await openRows();
+
+    const summary = screen.getByRole('region', { name: 'Summary' });
+    expect(summary).toHaveTextContent('Without askingEdit files, use the network.');
+    expect(summary).toHaveTextContent(
+      'Asks you firstRun commands, run outside the sandbox, delete outside its copy, open pull requests.',
+    );
+    expect(summary).toHaveTextContent('NeverPush the branch.');
+    expect(screen.getByText('Anything Claude downloads runs on your computer.')).toBeVisible();
+    expect(screen.queryByText('These can change files and settings anywhere on your computer.')).toBeNull();
+  });
+
+  it('picks a level: all seven rows change at once, in one save, and the level shows as picked', async () => {
+    const save = slowSave();
+    const { user } = await openRows();
+    expect(level('Balanced')).toHaveAccessibleDescription(
+      'Edits freely, runs your allowed commands, asks for the rest.',
+    );
+    expect(level('Custom')).toBeEnabled();
+
+    await user.click(level('Hands-off'));
+
+    expect(level('Hands-off')).toBeChecked();
+    expect(pressed('Run commands')).toBe('Any');
+    expect(pressed('Push the branch')).toBe('Allow');
+    expect(pressed("Deleting outside the session's copy")).toBe('Ask');
+    // No row of your own now, so Custom waits until one changes.
+    expect(level('Custom')).toBeDisabled();
+    await waitFor(() => {
+      expect(save.sent).toEqual([
+        {
+          permissions: {
+            edits: 'allow',
+            commands: 'any',
+            network: 'allow',
+            unsandboxed: 'allow',
+            deleteOutside: 'ask',
+            push: 'allow',
+            pullRequest: 'allow',
+          },
+        },
+      ]);
+    });
+    save.release();
   });
 
   it('AC-3: shows a row’s new choice at once, before the server answers, and sends only that row', async () => {
     const save = slowSave();
     const { user } = await openRows();
 
-    await user.selectOptions(row('Push the branch'), 'Allow');
+    await user.click(option('Push the branch', 'Allow'));
 
-    expect(row('Push the branch')).toHaveDisplayValue('Allow');
+    expect(pressed('Push the branch')).toBe('Allow');
     await waitFor(() => {
       expect(save.sent).toEqual([{ permissions: { push: 'allow' } }]);
     });
     save.release();
     await waitFor(() => {
-      expect(row('Push the branch')).toHaveDisplayValue('Allow');
+      expect(pressed('Push the branch')).toBe('Allow');
     });
   });
 
@@ -117,11 +184,11 @@ describe('CodingAgentPanel', () => {
     );
     const { user } = await openRows();
 
-    await user.selectOptions(row('Edit files'), 'Ask first');
+    await user.click(option('Edit files', 'Ask'));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(saveFailed);
-    expect(row('Edit files')).toHaveDisplayValue('Allow');
-    expect(row('Edit files')).toHaveFocus();
+    expect(pressed('Edit files')).toBe('Allow');
+    expect(option('Edit files', 'Ask')).toHaveFocus();
   });
 
   it('AC-14: the line goes away with the next change', async () => {
@@ -134,11 +201,11 @@ describe('CodingAgentPanel', () => {
       ),
     );
     const { user } = await openRows();
-    await user.selectOptions(row('Edit files'), 'Ask first');
+    await user.click(option('Edit files', 'Ask'));
     await screen.findByRole('alert');
 
     fail = false;
-    await user.selectOptions(row('Run commands'), 'Any command');
+    await user.click(option('Run commands', 'Any'));
 
     await waitFor(() => {
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -154,12 +221,14 @@ describe('CodingAgentPanel', () => {
     );
     await renderApp({ route: '/settings/coding-agent' });
 
-    await screen.findByRole('region', { name: heading });
-    const selects = screen.getAllByRole('combobox');
-    expect(selects).toHaveLength(7);
-    for (const select of selects) {
-      expect(select).toBeDisabled();
-      expect(select).toHaveDisplayValue('');
+    const rows = await screen.findByRole('region', { name: heading });
+    for (const name of ['Edit files', 'Run commands', 'Open a pull request']) {
+      expect(pressed(name)).toBeUndefined();
+      for (const button of within(row(name)).getAllByRole('button')) expect(button).toBeDisabled();
+    }
+    for (const radio of within(rows).getAllByRole('radio')) {
+      expect(radio).toBeDisabled();
+      expect(radio).not.toBeChecked();
     }
   });
 
@@ -195,21 +264,21 @@ describe('CodingAgentPanel', () => {
       }),
     );
     const { user } = await openRows();
-    await user.selectOptions(row('Edit files'), 'Ask first');
+    await user.click(option('Edit files', 'Ask'));
     await waitFor(() => {
       expect(saved).toEqual({ edits: 'ask' });
     });
 
-    await user.selectOptions(row('Edit files'), 'Allow');
+    await user.click(option('Edit files', 'Allow'));
     FakeEventSource.latest().emit({ type: 'settings.changed' });
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    expect(row('Edit files')).toHaveDisplayValue('Allow');
+    expect(pressed('Edit files')).toBe('Allow');
     release();
     await waitFor(() => {
       expect(saved).toEqual({ edits: 'allow' });
     });
-    expect(row('Edit files')).toHaveDisplayValue('Allow');
+    expect(pressed('Edit files')).toBe('Allow');
   });
 
   it('AC-14: when the server stops answering and two quick changes both fail, the saved choices come back', async () => {
@@ -223,13 +292,13 @@ describe('CodingAgentPanel', () => {
       }),
     );
 
-    await user.selectOptions(row('Push the branch'), 'Ask first');
-    await user.selectOptions(row('Open a pull request'), 'Allow');
+    await user.click(option('Push the branch', 'Ask'));
+    await user.click(option('Open a pull request', 'Allow'));
 
     await screen.findByRole('alert');
     await waitFor(() => {
-      expect(row('Push the branch')).toHaveDisplayValue('Never');
+      expect(pressed('Push the branch')).toBe('Block');
     });
-    expect(row('Open a pull request')).toHaveDisplayValue('Never');
+    expect(pressed('Open a pull request')).toBe('Block');
   });
 });

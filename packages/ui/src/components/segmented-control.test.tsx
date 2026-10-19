@@ -89,6 +89,28 @@ describe('SegmentedControl', () => {
     expect(scrolled.mock.contexts.at(-1)).toBe(screen.getByRole('button', { name: 'List' }));
   });
 
+  it('draws a danger option in the danger colour only once it is pressed', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <SegmentedControl aria-label="Push the branch" defaultValue="ask">
+        <SegmentedControlItem value="ask">Ask</SegmentedControlItem>
+        <SegmentedControlItem value="never" tone="danger">
+          Block
+        </SegmentedControlItem>
+      </SegmentedControl>,
+    );
+    const block = screen.getByRole('button', { name: 'Block' });
+    // jsdom draws no colours, so the class stands in: the danger colour replaces the pressed one's ink.
+    expect(block).toHaveClass('data-[state=on]:text-danger');
+    expect(block).not.toHaveClass('data-[state=on]:text-foreground');
+    expect(block).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(block);
+
+    expect(block).toHaveAttribute('aria-pressed', 'true');
+    await expectNoAxeViolations(container);
+  });
+
   it('follows the value the screen holds', async () => {
     const user = userEvent.setup();
     const { rerender } = render(

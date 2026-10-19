@@ -6,6 +6,8 @@ export interface ChoiceCardProps extends Omit<ComponentProps<'input'>, 'type' | 
   title: string;
   /** One line under the title that says what picking it means; it describes the radio. */
   detail?: ReactNode;
+  /** Beside the title, such as a "Recommended" pill; it doesn't name the radio. */
+  aside?: ReactNode;
 }
 
 /**
@@ -13,7 +15,7 @@ export interface ChoiceCardProps extends Omit<ComponentProps<'input'>, 'type' | 
  * detail line; the whole card picks it. Put the cards of one choice inside `<ChoiceGroup>`, which
  * names them and gives arrow-key movement for free. The checked card takes the `info` border and wash.
  */
-export function ChoiceCard({ title, detail, className, id, ...props }: ChoiceCardProps) {
+export function ChoiceCard({ title, detail, aside, className, id, ...props }: ChoiceCardProps) {
   const madeUpId = useId();
   const radioId = id ?? `${madeUpId}-radio`;
   const titleId = `${radioId}-title`;
@@ -39,8 +41,11 @@ export function ChoiceCard({ title, detail, className, id, ...props }: ChoiceCar
         {...props}
       />
       <span className="flex min-w-0 flex-col gap-1">
-        <span id={titleId} className="font-medium">
-          {title}
+        <span className="flex flex-wrap items-center gap-2">
+          <span id={titleId} className="font-medium">
+            {title}
+          </span>
+          {aside}
         </span>
         {hasDetail ? (
           <span id={detailId} className="text-small text-muted-foreground">

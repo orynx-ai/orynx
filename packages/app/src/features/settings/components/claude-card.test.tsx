@@ -7,7 +7,7 @@ import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
-const designLine = 'Uses your company Claude login through the Claude Agent SDK. No separate API key.';
+const designLine = 'Company login through the Claude Agent SDK. No API key needed.';
 const notSignedIn =
   "Claude Code isn't signed in on this computer. Run claude in a terminal and sign in with your company login, then check again.";
 const checkFailed = "Orynx couldn't run Claude Code's login check. See the terminal for details.";

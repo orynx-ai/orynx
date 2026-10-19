@@ -263,7 +263,7 @@ test('AC-20, AC-26: picking Cursor in Settings turns Open in VS Code into Open i
   expect(await opensFolder(page, 'Open in VS Code')).toBe(worktree);
   const settings = await context.newPage();
   await settings.goto('/settings/coding-agent');
-  const editor = settings.getByRole('radiogroup', { name: 'Editor' });
+  const editor = settings.getByRole('radiogroup', { name: 'Open changes in' });
   await expect(editor.getByRole('radio', { name: 'VS Code' })).toBeChecked();
 
   // The arrow keys move between the choices, and each saves as it's picked.
