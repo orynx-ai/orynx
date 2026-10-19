@@ -5,7 +5,7 @@ import { File02Icon } from '@hugeicons/core-free-icons';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Composer, ComposerBar, ComposerSend, ComposerTextarea } from './composer.tsx';
-import { ContextChip, ContextList } from './context-chip.tsx';
+import { ContextChip, ContextList, ContextMore } from './context-chip.tsx';
 import { SourceMark } from './source-mark.tsx';
 import { Icon } from './icon.tsx';
 
@@ -101,5 +101,42 @@ describe('ContextChip', () => {
     await user.tab();
     expect(screen.getByRole('button', { name: 'Send to Claude' })).toHaveFocus();
     expect(screen.getByRole('tooltip')).toHaveTextContent('Send to Claude');
+  });
+});
+
+describe('ContextMore (spec 022)', () => {
+  function Strip({ onOpen }: { onOpen: () => void }) {
+    return (
+      <Composer>
+        <ContextList aria-label="Context for Claude">
+          <ContextChip label="PROJ-1423" icon={<SourceMark source="jira" label="none" />} onRemove={() => undefined} />
+          <ContextChip
+            label="web-app #2836"
+            icon={<SourceMark source="github" label="none" />}
+            onRemove={() => undefined}
+          />
+          <ContextMore count={3} label="Show all 5 items of context" tooltip="Show all context" onClick={onOpen} />
+        </ContextList>
+        <ComposerTextarea label="Describe a task for Claude" />
+      </Composer>
+    );
+  }
+
+  it('AC-19: after two chips, says how many more as "+3", named in full, with its tooltip on focus', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const { container } = render(<Strip onOpen={onOpen} />);
+
+    const list = screen.getByRole('list', { name: 'Context for Claude' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(3);
+    const more = within(list).getByRole('button', { name: '+3: Show all 5 items of context' });
+    expect(more).toHaveTextContent('+3');
+    expect(more).toHaveAttribute('aria-haspopup', 'dialog');
+
+    more.focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Show all context');
+    await user.keyboard('{Enter}');
+    expect(onOpen).toHaveBeenCalledOnce();
+    await expectNoAxeViolations(container);
   });
 });

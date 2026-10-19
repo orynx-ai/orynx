@@ -12,11 +12,15 @@ export const queryKeys = {
   githubConnection: ['github', 'connection'] as const,
   preferences: ['preferences'] as const,
   repositories: ['repositories'] as const,
-  skills: ['skills'] as const,
+  orynxSkills: ['skills', 'orynx'] as const,
   inbox: ['inbox'] as const,
   tickets: ['tickets'] as const,
   /** Not under `tickets`, so a sync's inbox.changed never asks Jira for a project's sprints again. */
   ticketsSprints: ['jira', 'sprints'] as const,
+  /** One ticket in full (spec 022); not under `tickets` either, for the same reason. */
+  ticket: ['jira', 'ticket'] as const,
+  /** The composer's skills, per folder (spec 022). */
+  skills: ['skills'] as const,
   claudeLogin: ['claude', 'login'] as const,
   search: ['search'] as const,
 };
@@ -137,10 +141,11 @@ export function repositoriesQueryOptions(api: ApiClient) {
   });
 }
 
-export function skillsQueryOptions(api: ApiClient) {
+export function orynxSkillsQueryOptions(api: ApiClient) {
   return queryOptions({
-    queryKey: queryKeys.skills,
-    queryFn: () => api.skills(),
+    // Under the composer's skills, so skills.changed refreshes both with one key (spec 023).
+    queryKey: queryKeys.orynxSkills,
+    queryFn: () => api.orynxSkills(),
     // Every add, save and delete publishes skills.changed, which refreshes this in every open tab (spec 023).
     staleTime: Infinity,
   });
@@ -179,6 +184,19 @@ export function ticketsSprintsQueryOptions(api: ApiClient, project: string) {
   });
 }
 
+/**
+ * One ticket in full, for the ticket dialog (spec 022, Q8): asked of Jira each time the dialog opens, never on a
+ * timer, and not again by itself when it fails, so the dialog's Try again asks.
+ */
+export function ticketQueryOptions(api: ApiClient, key: string) {
+  return queryOptions({
+    queryKey: [...queryKeys.ticket, key] as const,
+    queryFn: () => api.ticket(key),
+    staleTime: 0,
+    retry: false,
+  });
+}
+
 export function ticketsQueryOptions(api: ApiClient) {
   return queryOptions({
     queryKey: queryKeys.tickets,
@@ -205,5 +223,18 @@ export function searchQueryOptions(api: ApiClient) {
     // Freshness comes from the event stream (inbox.changed when a sync ends, sessions.changed, status.changed),
     // not from polling, and typing never asks again: the browser matches (spec 009).
     staleTime: Infinity,
+  });
+}
+
+/**
+ * The composer's skills for the shown folder, or yours alone (spec 022): read when `/` is first typed, then kept
+ * while the page is open; a new folder asks again.
+ */
+export function skillsQueryOptions(api: ApiClient, repositoryId: string | null) {
+  return queryOptions({
+    queryKey: [...queryKeys.skills, repositoryId] as const,
+    queryFn: () => api.skills(repositoryId),
+    staleTime: Infinity,
+    retry: false,
   });
 }

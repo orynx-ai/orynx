@@ -1,8 +1,10 @@
-<!-- learn-sources: packages/contracts/src/skills.ts packages/core/src/skills/skill-file.ts packages/core/src/skills/skill-store.ts packages/core/src/skills/starters.ts packages/core/src/routes/skills.ts packages/api-client/src/endpoints/skills.ts packages/app/src/features/settings/components/skills-panel.tsx packages/app/src/features/settings/components/skill-list.tsx packages/app/src/features/settings/components/skill-editor.tsx packages/app/src/features/settings/components/delete-skill.tsx packages/app/src/features/settings/components/discard-skill-changes.tsx packages/app/src/features/settings/components/skills-bar-actions.tsx packages/ui/src/components/list-nav.tsx -->
+<!-- learn-sources: packages/contracts/src/orynx-skills.ts packages/core/src/skills/skill-file.ts packages/core/src/skills/skill-store.ts packages/core/src/skills/starters.ts packages/core/src/routes/orynx-skills.ts packages/api-client/src/endpoints/orynx-skills.ts packages/app/src/features/settings/components/skills-panel.tsx packages/app/src/features/settings/components/skill-list.tsx packages/app/src/features/settings/components/skill-editor.tsx packages/app/src/features/settings/components/delete-skill.tsx packages/app/src/features/settings/components/discard-skill-changes.tsx packages/app/src/features/settings/components/skills-bar-actions.tsx packages/ui/src/components/list-nav.tsx -->
 
 # Your skills: where they live, and how the editor saves them
 
 Spec 023 added Settings › Skills, after Coding agent. A skill tells Claude how to do one kind of work ("Bug bash", "How we review"). You write it once in Orynx; in a session you name it with `/bug-bash` in the composer (Part B, built on spec 022's `/` list). Unlike the other Settings tabs, a skill doesn't save as you type: it saves when you press Save skill.
+
+The API lives under `/api/skills/orynx` (`orynx-skills.ts` in contracts, core and the client); `GET /api/skills` is the composer's `/` list from spec 022 (`skills.ts`).
 
 ## Where it lives
 
@@ -32,7 +34,7 @@ metadata:
 ```
 Save skill ─▶ react-hook-form + SaveSkillRequestSchema     the contract's words under each field
                ▼
-            PUT /api/skills/bug-bash { title, description, instructions }
+            PUT /api/skills/orynx/bug-bash { title, description, instructions }
                │  the folder in the URL passes SkillFolderSchema, or 400
                ▼
             SkillStore.save ─▶ folder taken? SkillRejectedError → 422 under Name

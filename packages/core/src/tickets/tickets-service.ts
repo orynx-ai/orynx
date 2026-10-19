@@ -3,6 +3,7 @@ import {
   defaultTicketsChoice,
   TicketsChoiceSchema,
   type InboxProblem,
+  type TicketDetailAnswer,
   type Tickets,
   type TicketsChoice,
 } from '@devhub/contracts';
@@ -11,6 +12,7 @@ import { toolState } from '../inbox/tool-state.ts';
 import type { JiraClient, JiraSprintRef } from '../integrations/jira/client.ts';
 import { jiraAccount, type JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { jiraInboxProblem } from '../integrations/jira/map.ts';
+import { ticketDetailOf } from '../integrations/jira/ticket-map.ts';
 import {
   boardLayout,
   pickSprint,
@@ -40,6 +42,8 @@ export interface TicketsService {
    * say `syncing` until the next sync has read the new one.
    */
   choose(choice: TicketsChoice): Promise<void>;
+  /** One ticket in full for the ticket dialog (spec 022), asked of Jira now; nothing is kept. */
+  detail(key: string): Promise<TicketDetailAnswer>;
 }
 
 /** How a sprint sync ended, as the inbox's sync counts its tools. */
@@ -283,6 +287,37 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     forget() {
       cache.forget(part);
       known = undefined;
+    },
+
+    async detail(key) {
+      const credentials = await connection.credentials();
+      if (credentials === null) return { result: 'not_connected' };
+      if (!credentials.ok) return { result: 'unreachable' };
+      const [answer, held, sessions] = await Promise.all([
+        jira.issueContext(credentials.request, key),
+        this.read(),
+        options.sessions.list(),
+      ]);
+      if (!answer.ok) {
+        switch (answer.problem.kind) {
+          case 'not_found':
+            return { result: 'not_found' };
+          case 'rejected':
+          case 'sign_in_needed':
+            return { result: 'not_connected' };
+          default:
+            return { result: 'unreachable' };
+        }
+      }
+      return {
+        result: 'found',
+        ticket: ticketDetailOf(answer.issue, {
+          site: credentials.site,
+          // The board's column when Tickets holds the ticket, so In review reads as the board says (spec 008, Q2).
+          column: held.tickets.find((ticket) => ticket.key === answer.issue.key)?.column ?? null,
+          session: sessionsByTicket(sessions).get(answer.issue.key) ?? null,
+        }),
+      };
     },
 
     async choose(choice) {

@@ -205,7 +205,8 @@ test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it
     { name: 'Search', ring: true },
     { name: 'Reason', ring: true },
     { name: 'Fix timezone shift in event cards', ring: true },
-    { name: 'Open web-app #2836 in GitHub', ring: true },
+    // A row's one action adds it to the composer (spec 022, AC-26).
+    { name: 'Add web-app #2836 to the composer', ring: true },
     { name: 'Lazy-load the people directory', ring: true },
   ]);
 });
@@ -218,7 +219,7 @@ test('AC-16: Given a row has focus, when a sync brings a new item and takes anot
     window.scrollTo(0, document.documentElement.scrollHeight);
   });
   // Newest first, so the tickets run from the 9-day wait (summaries[11]) down to the 20-day one (summaries[0]).
-  const kept = attentionPanel(page).getByRole('link', { name: summaries[2] });
+  const kept = attentionPanel(page).getByRole('button', { name: summaries[2] });
   await kept.focus();
   const before = await kept.boundingBox();
 
@@ -232,7 +233,7 @@ test('AC-16: Given a row has focus, when a sync brings a new item and takes anot
   await syncNow(page);
 
   await expect(rows(page).first()).toContainText('Archive the old intranet theme');
-  await expect(attentionPanel(page).getByRole('link', { name: summaries[10] })).toHaveCount(0);
+  await expect(attentionPanel(page).getByRole('button', { name: summaries[10] })).toHaveCount(0);
   await expect(kept).toBeFocused();
   expect((await kept.boundingBox())?.y).toBe(before?.y);
 });
@@ -245,14 +246,14 @@ test("AC-16, AC-18: Given a row has focus, when a sync takes it away, then focus
   await page.evaluate(() => {
     window.scrollTo(0, document.documentElement.scrollHeight - window.innerHeight - 100);
   });
-  await attentionPanel(page).getByRole('link', { name: summaries[2] }).focus();
+  await attentionPanel(page).getByRole('button', { name: summaries[2] }).focus();
   const scrolled = await page.evaluate(() => window.scrollY);
 
   await holdInTools(page, { ...everything, issues: tickets.filter((_, index) => index !== 2) });
   await syncNow(page);
 
   // Newest first, the next row down is the ticket that has waited a day longer.
-  await expect(attentionPanel(page).getByRole('link', { name: summaries[1] })).toBeFocused();
+  await expect(attentionPanel(page).getByRole('button', { name: summaries[1] })).toBeFocused();
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
 });
 
@@ -266,7 +267,8 @@ test('AC-36, AC-37, AC-39, AC-40, AC-41: Given two pages of rows, when I pick a 
   await pager.getByRole('link', { name: '2' }).click();
   await expect(page).toHaveURL(/page=2/);
   await expect(rows(page)).toHaveCount(6);
-  await expect(rows(page).first().getByRole('link').first()).toBeFocused();
+  // The first row is a Jira ticket, whose title is a button that opens the ticket dialog (spec 022).
+  await expect(rows(page).first().getByRole('button').first()).toBeFocused();
 
   const search = panel.getByRole('searchbox', { name: 'Search' });
   await search.fill('people');

@@ -10,7 +10,7 @@ import {
   type SaveSkillRequestSchema,
   type SkillEntry,
   type SkillFolder,
-  type SkillList,
+  type OrynxSkillList,
 } from '@devhub/contracts';
 import type { z } from 'zod';
 import type { EventBus } from '../events/event-bus.ts';
@@ -35,7 +35,7 @@ export type SkillFields = z.output<typeof SaveSkillRequestSchema>;
 /** Settings › Skills (spec 023): your skills, one `SKILL.md` each under `<DEVHUB_HOME>/plugin/skills`. */
 export interface SkillStore {
   /** Every skill folder, by Name; a folder Orynx can't read is listed as such (AC-17). */
-  list(): Promise<SkillList>;
+  list(): Promise<OrynxSkillList>;
   /** Writes a new skill in the folder its Name makes. A folder already there is a {@link SkillRejectedError}. */
   add(fields: SkillFields): Promise<ReadySkill>;
   /**

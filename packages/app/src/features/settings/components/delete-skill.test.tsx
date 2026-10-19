@@ -1,19 +1,19 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { apiRoutes, type SkillList } from '@devhub/contracts';
-import { makeSkill, makeSkillList } from '@devhub/contracts/testing';
+import { apiRoutes, type OrynxSkillList } from '@devhub/contracts';
+import { makeOrynxSkill, makeOrynxSkillList } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
-const howWeReview = makeSkill({
+const howWeReview = makeOrynxSkill({
   folder: 'how-we-review',
   title: 'How we review',
   description: 'Review a pull request the way our team does.',
 });
 
-function skills(list: SkillList) {
-  server.use(http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(list)));
+function skills(list: OrynxSkillList) {
+  server.use(http.get(apiUrl(apiRoutes.orynxSkills), () => HttpResponse.json(list)));
 }
 
 /** The page bar: the strip with the breadcrumb, above the page. */
@@ -26,14 +26,14 @@ function pageBar() {
 
 describe('DeleteSkill', () => {
   it('AC-10: Delete skill asks first, deletes the folder, opens the next skill and puts focus on it', async () => {
-    const writeTestsFirst = makeSkill({ folder: 'write-tests-first', title: 'Write tests first' });
-    let list = makeSkillList({ skills: [makeSkill(), howWeReview, writeTestsFirst] });
+    const writeTestsFirst = makeOrynxSkill({ folder: 'write-tests-first', title: 'Write tests first' });
+    let list = makeOrynxSkillList({ skills: [makeOrynxSkill(), howWeReview, writeTestsFirst] });
     let deleted: string | undefined;
     server.use(
-      http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(list)),
-      http.delete(apiUrl(apiRoutes.skill), ({ params }) => {
+      http.get(apiUrl(apiRoutes.orynxSkills), () => HttpResponse.json(list)),
+      http.delete(apiUrl(apiRoutes.orynxSkill), ({ params }) => {
         deleted = String(params['folder']);
-        list = makeSkillList({ skills: list.skills.filter((skill) => skill.folder !== deleted) });
+        list = makeOrynxSkillList({ skills: list.skills.filter((skill) => skill.folder !== deleted) });
         return new HttpResponse(null, { status: 204 });
       }),
     );
@@ -62,11 +62,11 @@ describe('DeleteSkill', () => {
   });
 
   it('AC-10: deleting the last skill in the list opens the one before it', async () => {
-    let list = makeSkillList({ skills: [makeSkill(), howWeReview] });
+    let list = makeOrynxSkillList({ skills: [makeOrynxSkill(), howWeReview] });
     server.use(
-      http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(list)),
-      http.delete(apiUrl(apiRoutes.skill), () => {
-        list = makeSkillList();
+      http.get(apiUrl(apiRoutes.orynxSkills), () => HttpResponse.json(list)),
+      http.delete(apiUrl(apiRoutes.orynxSkill), () => {
+        list = makeOrynxSkillList();
         return new HttpResponse(null, { status: 204 });
       }),
     );
@@ -83,7 +83,7 @@ describe('DeleteSkill', () => {
   });
 
   it('AC-10: Cancel keeps the skill and puts focus back on Delete skill; a new skill has no Delete skill', async () => {
-    skills(makeSkillList());
+    skills(makeOrynxSkillList());
     const { user } = await renderApp({ route: '/settings/skills' });
     await screen.findByRole('heading', { level: 2, name: 'Bug bash' });
 
@@ -99,9 +99,9 @@ describe('DeleteSkill', () => {
   });
 
   it("AC-10: says the skill wasn't deleted when the delete fails, and keeps it", async () => {
-    skills(makeSkillList());
+    skills(makeOrynxSkillList());
     server.use(
-      http.delete(apiUrl(apiRoutes.skill), () =>
+      http.delete(apiUrl(apiRoutes.orynxSkill), () =>
         HttpResponse.json({ code: 'internal', message: 'Disk said no.' }, { status: 500 }),
       ),
     );

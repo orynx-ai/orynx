@@ -1,4 +1,11 @@
-import type { CannotStartReason, ComposerChip, ContextProblem, SessionApproval } from '@devhub/contracts';
+import {
+  composerLimits,
+  type CannotStartReason,
+  type ComposerChip,
+  type ContextProblem,
+  type SessionApproval,
+} from '@devhub/contracts';
+import type { ChipRefusal } from './composer-rules.ts';
 
 /**
  * Home's composer in words (spec 015, Q13): the box, the + menu and its lists, the pickers, what Send says when it
@@ -45,10 +52,9 @@ export const composerWords = {
       empty: 'No open pull requests of yours or waiting for your review. Paste a link to add one.',
       notConnected: 'Connect GitHub in Settings to add pull requests.',
     },
-    file: { title: 'File from this computer', description: 'Text files up to 100 KB' },
+    file: { title: 'File from this computer', description: 'Any file. Claude reads it where it is.' },
   },
   noMatches: 'No matches. Try a key like PROJ-1423 or a repo name.',
-  tooManyPullRequests: 'A session takes up to 3 pull requests.',
   folder: {
     menu: 'Repository',
     section: 'On this computer',
@@ -71,14 +77,58 @@ export const composerWords = {
   failed: "Couldn't start Claude. Try again.",
   tooLong: 'Keep it under 10,000 characters.',
   quickStarts: { label: 'Quick starts', ticket: 'Pick up a ticket', review: 'Review a pull request' },
+  /** A Home row's + (spec 022, Q3, Q12): its tooltip, its name for the chip it adds, and what a screen reader hears. */
+  row: {
+    add: 'Add to composer',
+    remove: 'Remove from composer',
+    addName: (label: string) => `Add ${label} to the composer`,
+    removeName: (label: string) => `Remove ${label} from the composer`,
+    added: (label: string) => `${label} added to the composer.`,
+    removed: (label: string) => `${label} removed from the composer.`,
+  },
+  /** The `/` list of skills (spec 022, G, Q12). */
+  skills: {
+    label: 'Skills',
+    yours: 'Yours',
+    empty: (folder: string | null) =>
+      folder === null ? 'No skills in ~/.claude.' : `No skills in ${folder} or in ~/.claude.`,
+    failed: "Orynx couldn't read the skills.",
+    tooMany: 'Use up to 5 skills.',
+  },
+  /** The +N after the first two chips (spec 022, Q6). */
+  more: {
+    tooltip: 'Show all context',
+    label: (count: number) => `Show all ${String(count)} ${count === 1 ? 'item' : 'items'} of context`,
+  },
+  /** The dialog +N opens (spec 022, Q7, Q12). */
+  dialog: {
+    title: 'Context for Claude',
+    tabs: { tickets: 'Tickets', pull_requests: 'Pull requests', files: 'Files' },
+    empty: { tickets: 'No tickets added.', pull_requests: 'No pull requests added.', files: 'No files added.' },
+    remove: 'Remove',
+    done: 'Done',
+  },
   banner: { title: 'Claude is waiting for your approval', action: 'Review' },
 } as const;
 
-/** AC-3, AC-8: with a ticket added, Send works with the box empty, and the box says so. */
-export function placeholderFor(ticketKey: string | null): string {
-  return ticketKey === null
-    ? 'Describe a task, or paste a Jira key like PROJ-1423'
-    : `What should Claude do with ${ticketKey}?`;
+/** Why a chip of a full kind wasn't added (spec 022, Q5, Q12). */
+export function refusedLine(refusal: ChipRefusal): string {
+  switch (refusal) {
+    case 'too_many_tickets':
+      return `A session takes up to ${String(composerLimits.tickets)} tickets.`;
+    case 'too_many_pull_requests':
+      return `A session takes up to ${String(composerLimits.pullRequests)} pull requests.`;
+    case 'too_many_files':
+      return `Add up to ${String(composerLimits.files)} files.`;
+  }
+}
+
+/** AC-3, AC-8: with a ticket added, Send works with the box empty, and the box says so; with several, how many (022 Q12). */
+export function placeholderFor(ticketKeys: readonly string[]): string {
+  const [first] = ticketKeys;
+  if (first === undefined) return 'Describe a task, or paste a Jira key like PROJ-1423';
+  if (ticketKeys.length === 1) return `What should Claude do with ${first}?`;
+  return `What should Claude do with these ${String(ticketKeys.length)} tickets?`;
 }
 
 /** A file's name longer than this is cut in the middle, so its extension still shows (Q15d). */
@@ -92,7 +142,12 @@ export function shortFileName(name: string): string {
   return `${name.slice(0, mostFileNameCharacters - tail - 1)}…${name.slice(-tail)}`;
 }
 
-/** How a chip reads: `PROJ-1423`, `web-app #2836`, `notes.md`. */
+/** A path's last part, its file's name: `~/notes/plan.pdf` → `plan.pdf`. */
+export function fileName(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1);
+}
+
+/** How a chip reads: `PROJ-1423`, `web-app #2836`, `plan.pdf` (cut in the middle when long). */
 export function chipLabel(chip: ComposerChip): string {
   switch (chip.kind) {
     case 'jira':
@@ -100,7 +155,7 @@ export function chipLabel(chip: ComposerChip): string {
     case 'pull_request':
       return `${chip.name} #${String(chip.number)}`;
     case 'file':
-      return shortFileName(chip.name);
+      return shortFileName(fileName(chip.path));
   }
 }
 
@@ -120,19 +175,28 @@ export function addRow(label: string): string {
   return `Add ${label}`;
 }
 
-/** Why a file wasn't added (Q5). */
-export type FileRefusal = { kind: 'not_text'; name: string } | { kind: 'too_big'; name: string } | { kind: 'too_many' };
+/** Why a file wasn't added (spec 022, Q4, Q12): its name looks like a secret, or there are 20 already. */
+export type FileRefusal = { kind: 'secret'; name: string } | { kind: 'too_many' };
 
 export function fileRefusedLine(refusal: FileRefusal): string {
   switch (refusal.kind) {
-    case 'not_text':
-      return `${refusal.name} isn't a text file.`;
-    case 'too_big':
-      return `${refusal.name} is over 100 KB.`;
+    case 'secret':
+      return `${refusal.name} looks like a secret, so Claude doesn't get it.`;
     case 'too_many':
-      return 'Add up to 5 files.';
+      return refusedLine('too_many_files');
   }
 }
+
+/** Add a file, when no picker can open (spec 022, AC-12, Q12). */
+export const addFileWords = {
+  title: 'Add a file',
+  path: 'Path',
+  help: "The file's full path, for example ~/notes/plan.pdf.",
+  notAPath: "Type the file's full path, from / or ~/.",
+  add: 'Add',
+  cancel: 'Cancel',
+  notFound: (path: string) => `Orynx can't find ${path}.`,
+} as const;
 
 /** Why Send started nothing (011 Q4, as Ship says it), and the Settings tab that fixes it. */
 export function cannotStartLine(reason: CannotStartReason): { line: string; link: SettingsLink | null } {
@@ -159,14 +223,11 @@ export function contextFailedLine(
   chip: ComposerChip,
   problem: ContextProblem,
 ): { line: string; link: SettingsLink | null } {
+  // A file is checked on this computer, and only for being there (spec 022, AC-16).
+  if (chip.kind === 'file') return { line: addFileWords.notFound(chip.path), link: null };
   const jira = chip.kind === 'jira';
   const tool = jira ? 'Jira' : 'GitHub';
-  const name =
-    chip.kind === 'jira'
-      ? chip.key
-      : chip.kind === 'pull_request'
-        ? `${chip.owner}/${chip.name} #${String(chip.number)}`
-        : chip.name;
+  const name = chip.kind === 'jira' ? chip.key : `${chip.owner}/${chip.name} #${String(chip.number)}`;
   switch (problem) {
     case 'not_found':
       return { line: `${tool} can't find ${name}, or you can't see it.`, link: null };

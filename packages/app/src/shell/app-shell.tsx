@@ -1,6 +1,7 @@
 import { Outlet } from '@tanstack/react-router';
 import { Button, Callout, cn } from '@devhub/ui';
 import { SearchDialog } from '../features/search/components/search-dialog.tsx';
+import { TicketDialog } from '../features/tickets/components/ticket-dialog.tsx';
 import { usePlatform } from '../platform.tsx';
 import { useConnectionStore } from '../stores/connection-store.ts';
 import { focusMainContent, mainContentId } from './main-content.ts';
@@ -31,6 +32,8 @@ export function AppShell() {
         <Outlet />
       </main>
       <SearchDialog />
+      {/* One for every page, so it stays open after ⌘K closes (spec 022). */}
+      <TicketDialog />
     </div>
   );
 }

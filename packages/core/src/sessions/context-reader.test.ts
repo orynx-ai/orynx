@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { delay, http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -39,6 +42,7 @@ function setUp(initial: Settings = connected) {
   const jira = createJiraClient({ timeoutMs: 300 });
   const github = createGitHubClient({ timeoutMs: 300 });
   return createContextReader({
+    home,
     jira,
     jiraConnection: createJiraConnection({ settings, tokens, jira, events, envToken: false }),
     github,
@@ -55,7 +59,17 @@ function setUp(initial: Settings = connected) {
 
 const ticket = { kind: 'jira', key: 'PROJ-1423' } as const;
 const pull = { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 } as const;
-const file = { kind: 'file', name: 'notes.md', text: 'Export every column.' } as const;
+/** A file you picked, in a home folder of the test's own (spec 022). */
+const file = { kind: 'file', path: '~/notes.md' } as const;
+let home = '';
+beforeAll(async () => {
+  home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-context-home-')));
+  await writeFile(join(home, 'notes.md'), 'Export every column.');
+  await mkdir(join(home, 'folder'));
+});
+afterAll(async () => {
+  await rm(home, { recursive: true, force: true });
+});
 const diff = 'diff --git a/src/people.ts b/src/people.ts\n@@ -1 +1 @@\n-const page = 20;\n+const page = 50;';
 
 describe('the context reader (spec 015)', () => {
@@ -71,7 +85,7 @@ describe('the context reader (spec 015)', () => {
     expect(await setUp().read([file, pull, ticket])).toEqual({
       ok: true,
       chips: [
-        { kind: 'file', name: 'notes.md', text: 'Export every column.' },
+        { kind: 'file', path: '~/notes.md', real: join(home, 'notes.md') },
         {
           kind: 'pull_request',
           owner: 'acme',
@@ -113,8 +127,21 @@ describe('the context reader (spec 015)', () => {
   it('AC-4: asks nothing of Jira or GitHub for files alone, even with neither connected', async () => {
     const asked: string[] = [];
     outside.events.on('request:start', ({ request }) => asked.push(request.url));
-    expect(await setUp({}).read([file])).toEqual({ ok: true, chips: [file] });
+    expect(await setUp({}).read([file])).toEqual({
+      ok: true,
+      chips: [{ kind: 'file', path: '~/notes.md', real: join(home, 'notes.md') }],
+    });
     expect(asked).toEqual([]);
+  });
+
+  it('022 AC-16: a file that isn’t there, or is a folder, fails as not found, by its place', async () => {
+    for (const path of ['~/gone.md', '~/folder', join(home, 'gone.md')]) {
+      expect(await setUp({}).read([file, { kind: 'file', path }])).toEqual({
+        ok: false,
+        chip: 1,
+        problem: 'not_found',
+      });
+    }
   });
 
   it.each<[string, Settings, ComposerChip]>([

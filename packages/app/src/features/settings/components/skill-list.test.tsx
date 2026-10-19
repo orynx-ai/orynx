@@ -1,13 +1,13 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { makeSkill } from '@devhub/contracts/testing';
+import { makeOrynxSkill } from '@devhub/contracts/testing';
 import { SkillList } from './skill-list.tsx';
 
 const skills = [
-  makeSkill(),
-  makeSkill({ folder: 'how-we-review', title: 'How we review', description: 'Correctness, tests, then nits.' }),
-  makeSkill({ folder: 'write-tests-first', title: 'Write tests first', description: 'Before changing any code.' }),
+  makeOrynxSkill(),
+  makeOrynxSkill({ folder: 'how-we-review', title: 'How we review', description: 'Correctness, tests, then nits.' }),
+  makeOrynxSkill({ folder: 'write-tests-first', title: 'Write tests first', description: 'Before changing any code.' }),
   { state: 'unreadable' as const, folder: 'broken' },
 ];
 

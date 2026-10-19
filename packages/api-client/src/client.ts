@@ -2,6 +2,9 @@ import axios, { type AxiosInstance } from 'axios';
 import {
   tokenHeader,
   type AddRepositoryRequest,
+  type FileCheckAnswer,
+  type FileCheckRequest,
+  type FilePicks,
   type FolderPick,
   type ClaudeLogin,
   type GitHubConnection,
@@ -15,10 +18,10 @@ import {
   type Repository,
   type RepositoryId,
   type RepositoryList,
+  type OrynxSkillList,
   type ReadySkill,
   type SaveSkillRequest,
   type SkillFolder,
-  type SkillList,
   type UpdateRepositoryRequest,
   type SearchIndex,
   type ServerEvent,
@@ -38,6 +41,8 @@ import {
   type StartSessionRequest,
   type Status,
   type OpenSprints,
+  type SkillList,
+  type TicketDetailAnswer,
   type Tickets,
   type TicketsChoice,
 } from '@devhub/contracts';
@@ -53,7 +58,13 @@ import {
   postFolderPicker,
   postRepository,
 } from './endpoints/repositories.ts';
-import { deleteSkill, getSkills, postSkill, postStarterSkills, putSkill } from './endpoints/skills.ts';
+import {
+  deleteOrynxSkill,
+  getOrynxSkills,
+  postOrynxSkill,
+  postStarterSkills,
+  putOrynxSkill,
+} from './endpoints/orynx-skills.ts';
 import { getSearch } from './endpoints/search.ts';
 import {
   getFileDiff,
@@ -71,7 +82,9 @@ import {
   postSessionStop,
 } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
-import { getTickets, getTicketsSprints, putTicketsChoice } from './endpoints/tickets.ts';
+import { getTicket, getTickets, getTicketsSprints, putTicketsChoice } from './endpoints/tickets.ts';
+import { postFileCheck, postFilePicker } from './endpoints/files.ts';
+import { getSkills } from './endpoints/skills.ts';
 import { toApiRequestError } from './errors.ts';
 import { subscribeToEvents, type EventSourceConstructor } from './events.ts';
 
@@ -142,13 +155,17 @@ export interface ApiClient {
   removeRepository(id: RepositoryId): Promise<void>;
   /** Opens the computer's folder picker (spec 020); rejects with picker_unavailable where none can open. */
   pickFolder(): Promise<FolderPick>;
-  /** Settings › Skills (spec 023): your skills by Name, and the plugin folder they live in. */
-  skills(): Promise<SkillList>;
+  /** Opens the computer's file picker, several files at once (spec 022). */
+  pickFiles(): Promise<FilePicks>;
+  /** Checks a typed path is a file Claude can read (spec 022). */
+  checkFile(request: FileCheckRequest): Promise<FileCheckAnswer>;
+  /** Settings › Skills (spec 023): your own skills by Name, and the plugin folder they live in. */
+  orynxSkills(): Promise<OrynxSkillList>;
   /** Writes a new skill; rejects with skill_rejected and the words for Name when its folder is taken. */
-  addSkill(request: SaveSkillRequest): Promise<ReadySkill>;
+  addOrynxSkill(request: SaveSkillRequest): Promise<ReadySkill>;
   /** Saves a skill, moving its folder on a rename; rejects with skill_rejected, or not_found when it went. */
-  saveSkill(folder: SkillFolder, request: SaveSkillRequest): Promise<ReadySkill>;
-  removeSkill(folder: SkillFolder): Promise<void>;
+  saveOrynxSkill(folder: SkillFolder, request: SaveSkillRequest): Promise<ReadySkill>;
+  removeOrynxSkill(folder: SkillFolder): Promise<void>;
   /** Adds the four starter skills whose folders are free. */
   addStarterSkills(): Promise<void>;
   /** Home's "Needs your attention" list, from the server's cache. */
@@ -163,6 +180,10 @@ export interface ApiClient {
   ticketsSprints(project: string): Promise<OpenSprints>;
   /** Saves which sprint Tickets shows (spec 020). */
   chooseTicketsSprint(choice: TicketsChoice): Promise<void>;
+  /** One ticket in full for the ticket dialog (spec 022), asked of Jira now, or why there's none. */
+  ticket(key: string): Promise<TicketDetailAnswer>;
+  /** The composer's skills for a folder, or yours alone (spec 022). */
+  skills(repositoryId: string | null): Promise<SkillList>;
   /** Claude Code's login on this computer, as the server last checked it (spec 010). */
   claudeLogin(): Promise<ClaudeLogin>;
   /** Check again: the server asks Claude Code now, or shares a check that's running. */
@@ -236,12 +257,16 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     removeRepository: (id) =>
       deleteRepository(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     pickFolder: () => postFolderPicker(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    skills: () => getSkills(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    addSkill: (request) => postSkill(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    saveSkill: (folder, request) =>
-      putSkill(http, folder, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    removeSkill: (folder) =>
-      deleteSkill(http, folder).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    pickFiles: () => postFilePicker(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    checkFile: (request) =>
+      postFileCheck(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    orynxSkills: () => getOrynxSkills(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    addOrynxSkill: (request) =>
+      postOrynxSkill(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    saveOrynxSkill: (folder, request) =>
+      putOrynxSkill(http, folder, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    removeOrynxSkill: (folder) =>
+      deleteOrynxSkill(http, folder).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     addStarterSkills: () => postStarterSkills(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     inbox: () => getInbox(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     refreshInbox: () => postInboxRefresh(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
@@ -251,6 +276,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       getTicketsSprints(http, project).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     chooseTicketsSprint: (choice) =>
       putTicketsChoice(http, choice).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    ticket: (key) => getTicket(http, key).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    skills: (repositoryId) =>
+      getSkills(http, repositoryId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     claudeLogin: () => getClaudeLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkClaudeLogin: () =>
       postClaudeLoginCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

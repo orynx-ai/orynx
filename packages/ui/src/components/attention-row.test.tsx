@@ -11,6 +11,7 @@ import {
   AttentionRow,
   AttentionRowSkeleton,
   AttentionTitle,
+  AttentionTitleButton,
 } from './attention-row.tsx';
 
 function Inbox() {
@@ -127,6 +128,41 @@ describe('AttentionRow', () => {
     );
     const link = screen.getByRole('link', { name: 'Lazy-load the people directory' });
     expect(link.querySelector('svg')).not.toBeNull();
+    await expectNoAxeViolations(container);
+  });
+
+  it('spec 022: a title that opens the ticket dialog is a button with the title’s look and no arrow', async () => {
+    const user = userEvent.setup();
+    let opened = 0;
+    const { container } = render(
+      <AttentionList aria-label="Needs your attention">
+        <AttentionRow
+          source="jira"
+          title={
+            <AttentionTitleButton
+              onClick={() => {
+                opened += 1;
+              }}
+            >
+              Add bulk archive to the content list
+            </AttentionTitleButton>
+          }
+          sub="PROJ-1423 · In progress"
+          reason="Due Mon"
+          action={
+            <AttentionActions>
+              <IconButton variant="ghost" size="sm" label="Add to composer" aria-label="Add PROJ-1423 to the composer">
+                <Icon icon={SparklesIcon} aria-hidden />
+              </IconButton>
+            </AttentionActions>
+          }
+        />
+      </AttentionList>,
+    );
+    const title = screen.getByRole('button', { name: 'Add bulk archive to the content list' });
+    expect(title.querySelector('svg')).toBeNull();
+    await user.click(title);
+    expect(opened).toBe(1);
     await expectNoAxeViolations(container);
   });
 

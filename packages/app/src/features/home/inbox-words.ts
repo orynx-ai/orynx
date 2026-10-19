@@ -1,9 +1,11 @@
-import type { Inbox, InboxItem, InboxRules, InboxTab } from '@devhub/contracts';
+import type { ComposerChip, Inbox, InboxItem, InboxRules, InboxTab } from '@devhub/contracts';
 import type { PillTone } from '@devhub/ui';
 import { personName } from '../../shell/person-name.ts';
 import { agoText } from '../../words/ago.ts';
 import { calendarDay, day, daysUntil, months, plural, weekdays } from '../../words/calendar.ts';
 import { waitText } from '../../words/tool-line.ts';
+import { chipFromPaste } from './composer-rules.ts';
+import { chipLabel } from './composer-words.ts';
 
 // Moved to `words/` so Tickets writes them the same way (spec 008); Home's own importers keep these.
 export { toolLine, waitText, type ToolLine } from '../../words/tool-line.ts';
@@ -94,47 +96,26 @@ export function subLine(item: InboxItem): string {
   }
 }
 
-/** Where a row's Open icon goes, and its words: the tooltip, and a name that says which item (spec 020, Q4). */
-export type RowOpen =
-  | { kind: 'session'; sessionId: string; label: 'Open session'; name: string }
-  | { kind: 'external'; url: string; label: 'Open in Jira' | 'Open in GitHub'; name: string };
-
-export interface RowActions {
-  /** The ticket Ship starts Claude on: an assigned issue with no live session (spec 011, AC-15). */
-  ship: string | null;
-  open: RowOpen;
-}
-
 /**
- * Spec 020: a row's icon actions. An assigned issue with no live session has Ship, then Open in Jira; a
- * pull request has Open in GitHub, to the page its reason is about (Files, Checks); a session, or an issue
- * whose session is live, has Open session.
+ * A row's one action (spec 022, D): Open session for a session, or a ticket's or a pull request's chip for + Add to
+ * composer, with how the chip reads ("PROJ-1423", "web-app #2841"). A pull request whose link can't be read as one
+ * has none.
  */
-export function rowActions(item: InboxItem): RowActions {
+export type RowAction =
+  | { kind: 'session'; sessionId: string; label: 'Open session'; name: string }
+  | { kind: 'compose'; chip: ComposerChip; label: string }
+  | { kind: 'none' };
+
+export function rowAction(item: InboxItem): RowAction {
   const { subject, target } = item;
   if (target.kind === 'session') {
-    return {
-      ship: null,
-      open: {
-        kind: 'session',
-        sessionId: target.sessionId,
-        label: 'Open session',
-        name: `Open session: ${item.title}`,
-      },
-    };
+    return { kind: 'session', sessionId: target.sessionId, label: 'Open session', name: `Open session: ${item.title}` };
   }
-  if (subject.kind === 'pull_request') {
-    const pull = `${subject.repository} #${String(subject.number)}`;
-    return {
-      ship: null,
-      open: { kind: 'external', url: target.url, label: 'Open in GitHub', name: `Open ${pull} in GitHub` },
-    };
-  }
-  const key = subject.kind === 'issue' ? subject.key : item.title;
-  return {
-    ship: subject.kind === 'issue' ? subject.key : null,
-    open: { kind: 'external', url: target.url, label: 'Open in Jira', name: `Open ${key} in Jira` },
-  };
+  if (subject.kind === 'issue')
+    return { kind: 'compose', chip: { kind: 'jira', key: subject.key }, label: subject.key };
+  // A pull request's link, to whichever tab its reason points at, names it as a pasted link does.
+  const chip = chipFromPaste(target.url);
+  return chip?.kind === 'pull_request' ? { kind: 'compose', chip, label: chipLabel(chip) } : { kind: 'none' };
 }
 
 /** How many rows each tab counts; All counts every row. */

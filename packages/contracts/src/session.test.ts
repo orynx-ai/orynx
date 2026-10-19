@@ -11,6 +11,7 @@ import {
   SessionListSchema,
   SessionSchema,
   ComposerStartSchema,
+  composerLimits,
   StartSessionAnswerSchema,
   StartSessionRequestSchema,
   type SessionActivity,
@@ -92,7 +93,17 @@ describe('SessionSchema', () => {
       step: 'build',
       activities: [
         { id: 'a1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true },
-        { id: 'a2', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
+        {
+          id: 'a2',
+          state: 'done',
+          kind: 'brief',
+          key: 'PROJ-1423',
+          tickets: [],
+          message: false,
+          pullRequests: [],
+          files: [],
+          skills: [],
+        },
         { id: 'a3', state: 'done', kind: 'explore', files: ['src/content/ContentList.tsx', 'src/api/contentApi.ts'] },
         { id: 'a4', state: 'done', kind: 'plan', items: ['Row selection', 'A bulkArchive API call'] },
         { id: 'a5', state: 'done', kind: 'refused', access: 'edit', reason: 'outside_worktree', path: '/etc/hosts' },
@@ -450,7 +461,7 @@ describe('a follow-up (spec 013)', () => {
 describe("the composer's start (spec 015)", () => {
   const ticket = { kind: 'jira', key: 'PROJ-1423' } as const;
   const pull = (number: number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number }) as const;
-  const file = (name: string, text = 'Export every column.') => ({ kind: 'file', name, text }) as const;
+  const file = (name: string) => ({ kind: 'file', path: `~/notes/${name}` }) as const;
   // A body as the page would send it, changed only where a test says, so a refused one can be built too.
   const body = (change: object) => ({ ...makeComposerStart(), ...change });
 
@@ -476,27 +487,32 @@ describe("the composer's start (spec 015)", () => {
     }
   });
 
-  it('AC-11, AC-12: refuses more than 1 ticket, 3 pull requests or 5 files, or the same pull request twice', () => {
+  it('AC-3, AC-6 (spec 022, Q5): takes up to 10 tickets, 10 pull requests and 20 files, never the same one twice', () => {
+    const key = (n: number) => ({ kind: 'jira', key: `PROJ-${String(n)}` }) as const;
+    const upTo = (count: number) => Array.from({ length: count }, (_, n) => n + 1);
     const tooMany = [
-      [ticket, { kind: 'jira', key: 'PROJ-1424' }],
-      [pull(1), pull(2), pull(3), pull(4)],
-      [1, 2, 3, 4, 5, 6].map((n) => file(`notes-${String(n)}.md`)),
+      upTo(11).map(key),
+      upTo(11).map(pull),
+      upTo(21).map((n) => file(`notes-${String(n)}.md`)),
       [pull(2836), pull(2836)],
+      [ticket, pull(1), ticket],
     ];
     for (const context of tooMany) {
       expect(ComposerStartSchema.safeParse(body({ context })).success).toBe(false);
     }
-    const most = [ticket, pull(1), pull(2), pull(3), ...[1, 2, 3, 4, 5].map((n) => file(`notes-${String(n)}.md`))];
+    const most = [...upTo(10).map(key), ...upTo(10).map(pull), ...upTo(20).map((n) => file(`notes-${String(n)}.md`))];
     expect(ComposerStartSchema.safeParse(body({ context: most })).success).toBe(true);
+    expect(composerLimits).toEqual({ tickets: 10, pullRequests: 10, files: 20, skills: 5 });
   });
 
-  it('AC-12: takes a file of up to 100 KB of UTF-8, counted in bytes, not characters', () => {
-    expect(ComposerStartSchema.safeParse(body({ context: [file('a.md', '😀'.repeat(25_600))] })).success).toBe(true);
-    expect(ComposerStartSchema.safeParse(body({ context: [file('a.md', '😀'.repeat(25_601))] })).success).toBe(false);
-    expect(ComposerStartSchema.safeParse(body({ context: [file('a.log', 'x'.repeat(102_400))] })).success).toBe(true);
-    for (const text of ['x'.repeat(102_401), 'é'.repeat(51_201)]) {
-      expect(ComposerStartSchema.safeParse(body({ context: [file('a.log', text)] })).success).toBe(false);
+  it('022 AC-10, AC-13, AC-14: a file is its path, of any kind; never one that looks like a secret, or the same twice', () => {
+    for (const path of ['~/Movies/demo.mov', '/Users/dev/notes/plan.pdf', '~/shot.png']) {
+      expect(ComposerStartSchema.safeParse(body({ context: [{ kind: 'file', path }] })).success).toBe(true);
     }
+    for (const path of ['~/.ssh/id_rsa', '/Users/dev/web-app/.env', '~/certs/server.pem']) {
+      expect(ComposerStartSchema.safeParse(body({ context: [{ kind: 'file', path }] })).success).toBe(false);
+    }
+    expect(ComposerStartSchema.safeParse(body({ context: [file('a.md'), file('a.md')] })).success).toBe(false);
   });
 
   it('refuses a message over 10,000 characters, and names that could be read as paths', () => {
@@ -506,9 +522,10 @@ describe("the composer's start (spec 015)", () => {
       { ...pull(2836), name: '..' },
       { ...pull(2836), name: 'web app' },
       { ...pull(2836), number: 0 },
-      file(''),
-      file('notes/../../.ssh/id_rsa'),
-      file('two\nlines.md'),
+      { kind: 'file', path: '' },
+      { kind: 'file', path: 'notes/plan.md' },
+      { kind: 'file', path: '/two\nlines.md' },
+      { kind: 'file', name: 'notes.md', text: 'The shape before spec 022' },
       { kind: 'jira', key: 'proj-1423' },
       { kind: 'slack_thread', ts: '1' },
     ]) {
@@ -528,9 +545,11 @@ describe("the composer's start (spec 015)", () => {
       state: 'done',
       kind: 'brief',
       key: null,
+      tickets: [],
       message: true,
       pullRequests: ['web-app #2836'],
-      files: ['notes.md'],
+      files: ['~/notes/plan.pdf'],
+      skills: [],
     };
     expect(
       SessionSchema.parse(makeSession({ source: null, activities: [step] as SessionActivity[] })).activities,
@@ -542,7 +561,24 @@ describe("the composer's start (spec 015)", () => {
         }),
       ).activities,
     ).toEqual([
-      { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423', message: false, pullRequests: [], files: [] },
+      {
+        id: 'step-2',
+        state: 'done',
+        kind: 'brief',
+        key: 'PROJ-1423',
+        tickets: [],
+        message: false,
+        pullRequests: [],
+        files: [],
+        skills: [],
+      },
+    ]);
+  });
+
+  it('AC-4 (spec 022): a brief step names the other tickets Claude got, after the session’s own', () => {
+    const step = { id: 'step-2', state: 'done', kind: 'brief', key: 'PROJ-1423', tickets: ['PROJ-1424'] };
+    expect(SessionSchema.parse(makeSession({ activities: [step] as SessionActivity[] })).activities).toEqual([
+      { ...step, message: false, pullRequests: [], files: [], skills: [] },
     ]);
   });
 

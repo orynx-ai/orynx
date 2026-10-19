@@ -78,8 +78,13 @@ export function stepWords(activity: SessionActivity): StepWords {
       const parts = [
         ...(activity.message ? ['your message'] : []),
         ...(activity.key === null ? [] : [activity.key]),
+        // The other tickets, after the session's own (spec 022, Q2).
+        ...activity.tickets,
         ...activity.pullRequests,
-        ...activity.files,
+        // A file by its name; its full path shows in the step's tooltip (spec 022, AC-17).
+        ...activity.files.map(nameOf),
+        // Then the skills your message named (spec 022, AC-53).
+        ...activity.skills,
       ];
       const ticketAlone = activity.key !== null && parts.length === 1;
       const said = ticketAlone ? `${activity.key} and its description` : listOf(parts);

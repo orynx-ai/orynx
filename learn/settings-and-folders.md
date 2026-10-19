@@ -78,7 +78,9 @@ A browser never tells a page a folder's full path, so a file input can't fill Fo
 - **Windows has none yet.** A folder's path in Orynx starts with `/` or `~` (`RepositoryPathSchema`), which a Windows path never does, so on Windows the button says no picker can open.
 - **When none can open** (Linux without zenity or kdialog, no screen, or a picker that fails with words on stderr), the server answers 503 `picker_unavailable`, and the dialog says "Orynx can't open a folder picker on this computer. Type the folder's path instead." Folder still takes a typed path.
 
-Security notes for the picker are in `learn/local-security.md`. The e2e run puts fake pickers that always cancel in `e2e/fake-gh/`, first on every hub's `PATH`, so no run can open a real dialog.
+The same file builds the composer's file picker (spec 022, `createFilePicker()`): one runner, `createPicker()`, with each OS's programs and arguments for files and its own way of reading their answer, several paths at once. It finds, runs and times out its program exactly as above. See `learn/composer-and-context.md`.
+
+Security notes for the pickers are in `learn/local-security.md`. The e2e run puts fake pickers in `e2e/fake-gh/`, first on every hub's `PATH`, so no run can open a real dialog: a folder pick always cancels, and a file pick (spec 022) picks `e2e/fake-gh/picked/notes.md`.
 
 ## The allow list (spec 012)
 

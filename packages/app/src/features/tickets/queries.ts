@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys, ticketsQueryOptions, ticketsSprintsQueryOptions } from '@devhub/api-client';
+import { queryKeys, ticketQueryOptions, ticketsQueryOptions, ticketsSprintsQueryOptions } from '@devhub/api-client';
 import type { Tickets, TicketsChoice } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
@@ -45,4 +45,10 @@ export function useChooseTicketsSprint() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.tickets }),
   });
+}
+
+/** One ticket in full for the ticket dialog (spec 022), asked of Jira each time the dialog opens. */
+export function useTicket(key: string) {
+  const api = useApi();
+  return useQuery(ticketQueryOptions(api, key));
 }

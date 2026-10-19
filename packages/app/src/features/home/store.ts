@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ComposerChip } from '@devhub/contracts';
-import { addChip, type AddChip } from './composer-rules.ts';
+import { addChip, sameChip, type AddChip } from './composer-rules.ts';
 
 /**
  * Home's composer draft (spec 015, Q14): what you typed, the chips in the order you added them, and the folder you
@@ -15,9 +15,11 @@ interface ComposerState {
   picked: string | null;
   lastUsed: string | null;
   setText: (text: string) => void;
-  /** Adds a chip, or says why not; a second ticket takes the first one's place (Q2). */
+  /** Adds a chip after the others, or says why not (spec 022, Q2, Q5). */
   addChip: (chip: ComposerChip) => Extract<AddChip, { ok: false }>['refusal'] | null;
   removeChip: (index: number) => void;
+  /** Takes this chip out, wherever it is: a row's + pressed again (spec 022, AC-29). */
+  dropChip: (chip: ComposerChip) => void;
   pickFolder: (id: string) => void;
   /** A task started, in this folder if the page named one: the draft goes, and the folder is remembered. */
   sent: (folderId: string | null) => void;
@@ -45,6 +47,9 @@ export const useComposerStore = create<ComposerState>()(
       },
       removeChip: (index) => {
         set((state) => ({ chips: state.chips.filter((_, at) => at !== index) }));
+      },
+      dropChip: (chip) => {
+        set((state) => ({ chips: state.chips.filter((held) => !sameChip(held, chip)) }));
       },
       pickFolder: (id) => {
         set({ picked: id });

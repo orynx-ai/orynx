@@ -1,20 +1,20 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { apiRoutes, type SkillList } from '@devhub/contracts';
-import { makeSkill, makeSkillList } from '@devhub/contracts/testing';
+import { apiRoutes, type OrynxSkillList } from '@devhub/contracts';
+import { makeOrynxSkill, makeOrynxSkillList } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
-const howWeReview = makeSkill({
+const howWeReview = makeOrynxSkill({
   folder: 'how-we-review',
   title: 'How we review',
   description: 'Review a pull request the way our team does.',
 });
 
-function skills(list: SkillList) {
-  server.use(http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(list)));
+function skills(list: OrynxSkillList) {
+  server.use(http.get(apiUrl(apiRoutes.orynxSkills), () => HttpResponse.json(list)));
 }
 
 /** The page bar: the strip with the breadcrumb, above the page. */
@@ -27,7 +27,7 @@ function pageBar() {
 
 describe('Settings › Skills', () => {
   it('AC-2: shows the count and New skill in the page bar, the callout, and your skills by Name', async () => {
-    skills(makeSkillList({ skills: [makeSkill(), howWeReview] }));
+    skills(makeOrynxSkillList({ skills: [makeOrynxSkill(), howWeReview] }));
     await renderApp({ route: '/settings/skills' });
 
     const list = await screen.findByRole('list', { name: 'Your skills' });
@@ -56,11 +56,11 @@ describe('Settings › Skills', () => {
   });
 
   it('AC-13: Add the starter skills adds them, and the list shows them', async () => {
-    let list = makeSkillList({ skills: [] });
+    let list = makeOrynxSkillList({ skills: [] });
     server.use(
-      http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(list)),
-      http.post(apiUrl(apiRoutes.skillStarters), () => {
-        list = makeSkillList({ skills: [makeSkill(), howWeReview] });
+      http.get(apiUrl(apiRoutes.orynxSkills), () => HttpResponse.json(list)),
+      http.post(apiUrl(apiRoutes.orynxSkillStarters), () => {
+        list = makeOrynxSkillList({ skills: [makeOrynxSkill(), howWeReview] });
         return new HttpResponse(null, { status: 204 });
       }),
     );
@@ -76,9 +76,9 @@ describe('Settings › Skills', () => {
 
   it('AC-15: keeps the callout and shows no list while the skills load', async () => {
     server.use(
-      http.get(apiUrl(apiRoutes.skills), async () => {
+      http.get(apiUrl(apiRoutes.orynxSkills), async () => {
         await delay(150);
-        return HttpResponse.json(makeSkillList());
+        return HttpResponse.json(makeOrynxSkillList());
       }),
     );
     await renderApp({ route: '/settings/skills' });
@@ -92,10 +92,10 @@ describe('Settings › Skills', () => {
   it("AC-15: says the skills didn't load, and Try again reads them again", async () => {
     let fail = true;
     server.use(
-      http.get(apiUrl(apiRoutes.skills), () =>
+      http.get(apiUrl(apiRoutes.orynxSkills), () =>
         fail
           ? HttpResponse.json({ code: 'internal', message: 'Disk said no.' }, { status: 500 })
-          : HttpResponse.json(makeSkillList()),
+          : HttpResponse.json(makeOrynxSkillList()),
       ),
     );
     const { user } = await renderApp({ route: '/settings/skills' });
@@ -111,7 +111,7 @@ describe('Settings › Skills', () => {
   });
 
   it('AC-3: opens the first skill, and the one you pick, in the address', async () => {
-    skills(makeSkillList({ skills: [makeSkill(), howWeReview] }));
+    skills(makeOrynxSkillList({ skills: [makeOrynxSkill(), howWeReview] }));
     const { user, history } = await renderApp({ route: '/settings/skills' });
 
     const list = await screen.findByRole('list', { name: 'Your skills' });
@@ -125,7 +125,7 @@ describe('Settings › Skills', () => {
   });
 
   it('AC-3: opens the skill the address names, and the first one when it names none listed', async () => {
-    skills(makeSkillList({ skills: [makeSkill(), howWeReview] }));
+    skills(makeOrynxSkillList({ skills: [makeOrynxSkill(), howWeReview] }));
     const { unmount } = await renderApp({ route: '/settings/skills?skill=how-we-review' });
     expect(await screen.findByRole('button', { name: 'How we review' })).toHaveAttribute('aria-current', 'true');
     unmount();
@@ -135,31 +135,31 @@ describe('Settings › Skills', () => {
   });
 
   it('AC-19: shows a change made in another tab when the server says skills changed', async () => {
-    let list = makeSkillList();
-    server.use(http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(list)));
+    let list = makeOrynxSkillList();
+    server.use(http.get(apiUrl(apiRoutes.orynxSkills), () => HttpResponse.json(list)));
     await renderApp({ route: '/settings/skills' });
     await screen.findByRole('button', { name: 'Bug bash' });
 
-    list = makeSkillList({ skills: [makeSkill(), howWeReview] });
+    list = makeOrynxSkillList({ skills: [makeOrynxSkill(), howWeReview] });
     FakeEventSource.latest().emit({ type: 'skills.changed' });
 
     expect(await screen.findByRole('button', { name: 'How we review' })).toBeVisible();
   });
 
   it('AC-9: New skill opens an empty editor with focus in Name, and Save skill adds the skill and opens it', async () => {
-    let list = makeSkillList();
+    let list = makeOrynxSkillList();
     let added: unknown;
     server.use(
-      http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(list)),
-      http.post(apiUrl(apiRoutes.skills), async ({ request }) => {
+      http.get(apiUrl(apiRoutes.orynxSkills), () => HttpResponse.json(list)),
+      http.post(apiUrl(apiRoutes.orynxSkills), async ({ request }) => {
         added = await request.json();
-        const skill = makeSkill({
+        const skill = makeOrynxSkill({
           folder: 'pr-review',
           title: 'PR review',
           description: 'Review it.',
           instructions: 'Go.',
         });
-        list = makeSkillList({ skills: [makeSkill(), skill] });
+        list = makeOrynxSkillList({ skills: [makeOrynxSkill(), skill] });
         return HttpResponse.json(skill, { status: 201 });
       }),
     );
@@ -201,7 +201,7 @@ describe('Settings › Skills', () => {
   });
 
   it("AC-17: opens a skill Orynx can't read with that line and Delete skill only", async () => {
-    skills(makeSkillList({ skills: [makeSkill(), { state: 'unreadable', folder: 'broken' }] }));
+    skills(makeOrynxSkillList({ skills: [makeOrynxSkill(), { state: 'unreadable', folder: 'broken' }] }));
     const { user } = await renderApp({ route: '/settings/skills' });
     await screen.findByRole('heading', { level: 2, name: 'Bug bash' });
 

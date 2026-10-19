@@ -1,6 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { AgentChip } from './agent-chip.tsx';
-import { WorkItemShip, WorkItemCard, WorkItemCardSkeleton, WorkItemTitle } from './work-item-card.tsx';
+import {
+  WorkItemShip,
+  WorkItemCard,
+  WorkItemCardSkeleton,
+  WorkItemTitle,
+  WorkItemTitleButton,
+} from './work-item-card.tsx';
 
 const meta = {
   title: 'Components/WorkItemCard',
@@ -60,6 +66,17 @@ export const OpensInJira: Story = {
       </WorkItemTitle>
     ),
     action: undefined,
+  },
+};
+
+/** A title that opens the ticket dialog (spec 022): a button that looks as the link does, with no arrow. */
+export const OpensTheTicket: Story = {
+  args: {
+    title: (
+      <WorkItemTitleButton>
+        Add bulk archive to the content list, with a title long enough to need its second line
+      </WorkItemTitleButton>
+    ),
   },
 };
 

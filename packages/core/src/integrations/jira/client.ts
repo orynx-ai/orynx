@@ -95,6 +95,18 @@ export type JiraIssue = { ok: true; issue: JiraIssueDetail } | { ok: false; prob
 export interface JiraIssueContext extends JiraIssueDetail {
   comments: { author: string; created: string; body: string }[];
   links: { relation: string; key: string; summary: string; status: string | null }[];
+  /**
+   * What the ticket dialog shows besides (spec 022, Q8): the status's own name and Jira's category for it (`new`,
+   * `indeterminate`, `done`), the priority's and people's names, the due day, labels, and Jira's own times.
+   */
+  status: { name: string; category: string } | null;
+  priority: string | null;
+  assignee: string | null;
+  reporter: string | null;
+  dueDate: string | null;
+  labels: string[];
+  created: string | null;
+  updated: string | null;
 }
 
 export type JiraIssueContextAnswer = { ok: true; issue: JiraIssueContext } | { ok: false; problem: JiraProblem };
@@ -305,13 +317,44 @@ const issueFields = ['summary', 'issuetype', 'description'];
 
 // The composer's brief also reads comments and links (spec 015); each one is checked on its own, so an odd one
 // is left out rather than failing the ticket.
+const named = z
+  .object({ displayName: z.string().min(1) })
+  .nullish()
+  .catch(null);
 const IssueContextSchema = IssueDetailSchema.extend({
   fields: IssueDetailSchema.shape.fields.extend({
     comment: z.object({ comments: z.array(z.unknown()) }).nullish(),
     issuelinks: z.array(z.unknown()).nullish(),
+    // The ticket dialog's fields (spec 022); an odd one reads as missing rather than failing the ticket.
+    status: z
+      .object({ name: z.string().min(1), statusCategory: z.object({ key: z.string() }) })
+      .nullish()
+      .catch(null),
+    priority: z
+      .object({ name: z.string().min(1) })
+      .nullish()
+      .catch(null),
+    assignee: named,
+    reporter: named,
+    duedate: z.iso.date().nullish().catch(null),
+    labels: z.array(z.string().min(1)).nullish().catch(null),
+    created: z.string().nullish().catch(null),
+    updated: z.string().nullish().catch(null),
   }),
 });
-const issueContextFields = [...issueFields, 'comment', 'issuelinks'];
+const issueContextFields = [
+  ...issueFields,
+  'comment',
+  'issuelinks',
+  'status',
+  'priority',
+  'assignee',
+  'reporter',
+  'duedate',
+  'labels',
+  'created',
+  'updated',
+];
 const CommentSchema = z.object({
   author: z.object({ displayName: z.string() }).nullish(),
   created: z.string(),
@@ -651,6 +694,15 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
           description: adfToMarkdown(fields.description),
           comments: issueComments(fields.comment?.comments ?? []),
           links: issueLinks(fields.issuelinks ?? []),
+          status:
+            fields.status == null ? null : { name: fields.status.name, category: fields.status.statusCategory.key },
+          priority: fields.priority?.name ?? null,
+          assignee: fields.assignee?.displayName ?? null,
+          reporter: fields.reporter?.displayName ?? null,
+          dueDate: fields.duedate ?? null,
+          labels: fields.labels ?? [],
+          created: fields.created ?? null,
+          updated: fields.updated ?? null,
         },
       };
     },

@@ -1,13 +1,14 @@
-import { useEffect, useLayoutEffect, useRef, type FocusEvent, type MouseEvent, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type MouseEvent, type RefObject } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { defaultPreferences, type Inbox, type InboxRules, type InboxTarget } from '@devhub/contracts';
-import { ArrowRight01Icon, ArrowUpRight01Icon } from '@hugeicons/core-free-icons';
+import { defaultPreferences, type ComposerChip, type Inbox, type InboxRules } from '@devhub/contracts';
+import { ArrowRight01Icon, PlusSignIcon, Tick02Icon } from '@hugeicons/core-free-icons';
 import {
   AttentionActions,
   AttentionList,
   AttentionRow,
   AttentionRowSkeleton,
   AttentionTitle,
+  AttentionTitleButton,
   Button,
   EmptyState,
   Icon,
@@ -21,13 +22,16 @@ import {
 } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { countKey, homeTabLabels, homeTabs, itemsInTab, tabTools, type HomeTab } from '../inbox-tabs.ts';
-import { emptyText, reasonPill, rowActions, subLine, tabCounts, toolLine, type ToolLine } from '../inbox-words.ts';
+import { emptyText, reasonPill, rowAction, subLine, tabCounts, toolLine, type ToolLine } from '../inbox-words.ts';
 import { defaultView, filterMenus, searchFor, showView, searchForTab, viewOf, type HomeView } from '../inbox-view.ts';
 import { useInbox, useInboxRules, type HomeItem } from '../queries.ts';
 import { useNow } from '../use-now.ts';
 import { InboxToolbar } from './inbox-toolbar.tsx';
 import { OrderMenu } from './order-menu.tsx';
-import { ShipWithClaude } from '../../sessions/components/ship-with-claude.tsx';
+import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
+import { holds } from '../composer-rules.ts';
+import { composerWords, refusedLine } from '../composer-words.ts';
+import { useComposerStore } from '../store.ts';
 
 const panelTitle = 'Needs your attention';
 
@@ -246,6 +250,8 @@ function TabBody({
   const connected = tabTools[tab].some((tool) => inbox.tools[tool].state !== 'not_connected');
   const keepFocus = useFocusAfterSync(rows);
   const firstRowAfterPaging = useFirstRowAfterPaging(shown.page, keepFocus.ref);
+  // What a row's + did, for screen readers (spec 022, AC-28).
+  const [said, setSaid] = useState('');
 
   return (
     <>
@@ -260,7 +266,7 @@ function TabBody({
         {rows.length > 0 ? (
           <AttentionList>
             {rows.map((item) => (
-              <Row key={item.id} item={item} now={now} />
+              <Row key={item.id} item={item} now={now} onSaid={setSaid} />
             ))}
           </AttentionList>
         ) : anyRows ? (
@@ -269,6 +275,9 @@ function TabBody({
           <NothingHere tab={tab} rules={rules} />
         ) : null}
       </div>
+      <p role="status" className="sr-only">
+        {said}
+      </p>
       {/* Outside the rows' box, so its list is never taken for theirs. */}
       {shown.pageCount > 1 ? (
         <div className="border-t border-border px-4 py-3">
@@ -308,7 +317,7 @@ function useFirstRowAfterPaging(
     asked.current = null;
     if (target !== page) return;
     const list = box.current?.querySelector('ul');
-    list?.querySelector('a')?.focus({ preventScroll: true });
+    list?.querySelector<HTMLElement>(rowTitleSelector)?.focus({ preventScroll: true });
     list?.scrollIntoView({ block: 'start' });
   }, [page, box]);
   return (target) => (event) => {
@@ -388,8 +397,11 @@ function useFocusAfterSync(rows: readonly HomeItem[]) {
   };
 }
 
+/** A row's title: a link, or a button for a Jira ticket's (spec 022). */
+const rowTitleSelector = '[data-slot="attention-title"]';
+
 function rowTitle(box: HTMLElement | null, index: number): HTMLElement | null {
-  return box?.querySelector('ul')?.children[index]?.querySelector('a') ?? null;
+  return box?.querySelector('ul')?.children[index]?.querySelector<HTMLElement>(rowTitleSelector) ?? null;
 }
 
 /** Radix names the tab panel after its tab. */
@@ -432,13 +444,13 @@ function NothingHere({ tab, rules }: { tab: HomeTab; rules: InboxRules }) {
   );
 }
 
-function Row({ item, now }: { item: HomeItem; now: Date }) {
+function Row({ item, now, onSaid }: { item: HomeItem; now: Date; onSaid: (said: string) => void }) {
   const pill = reasonPill(item, now);
   return (
     <AttentionRow
       // Orynx's own mark leads a session on neither a ticket nor a pull request (spec 015, Q15b).
       source={item.source ?? 'orynx'}
-      title={<TargetLink target={item.target} title={item.title} />}
+      title={<RowTitle item={item} />}
       sub={subLine(item)}
       reason={
         <>
@@ -447,71 +459,103 @@ function Row({ item, now }: { item: HomeItem; now: Date }) {
         </>
       }
       reasonTone={pill.tone}
-      action={<RowActionButtons item={item} />}
+      action={<RowActionButton item={item} onSaid={onSaid} />}
     />
   );
 }
 
-/** Spec 020: the row's actions as icon buttons, each with its words in a tooltip (Ship, then Open in …). */
-function RowActionButtons({ item }: { item: HomeItem }) {
-  const platform = usePlatform();
-  const { ship, open } = rowActions(item);
-  return (
-    <AttentionActions>
-      {ship === null ? null : <ShipWithClaude ticketKey={ship} look="row" />}
-      {open.kind === 'session' ? (
-        <IconButton asChild variant="ghost" size="sm" label={open.label} aria-label={open.name}>
-          <Link to="/sessions/$sessionId" params={{ sessionId: open.sessionId }}>
+/**
+ * Spec 022, D: a row's one action. A ticket or a pull request has +, which adds its chip to the composer above and
+ * takes it out again, saying so to a screen reader; a session has Open session, which stays inside Orynx.
+ */
+function RowActionButton({ item, onSaid }: { item: HomeItem; onSaid: (said: string) => void }) {
+  const action = rowAction(item);
+  if (action.kind === 'none') return <AttentionActions />;
+  if (action.kind === 'session') {
+    return (
+      <AttentionActions>
+        <IconButton asChild variant="ghost" size="sm" label={action.label} aria-label={action.name}>
+          <Link to="/sessions/$sessionId" params={{ sessionId: action.sessionId }}>
             <Icon icon={ArrowRight01Icon} aria-hidden />
           </Link>
         </IconButton>
-      ) : (
-        <IconButton asChild variant="ghost" size="sm" label={open.label} aria-label={open.name}>
-          <a
-            href={open.url}
-            rel="noreferrer"
-            onClick={(event) => {
-              event.preventDefault();
-              platform.openExternal(open.url);
-            }}
-          >
-            {/* Leaves Orynx, so it draws the external link's arrow (spec 013, the user's call 18 Oct 2026). */}
-            <Icon icon={ArrowUpRight01Icon} aria-hidden />
-          </a>
-        </IconButton>
-      )}
+      </AttentionActions>
+    );
+  }
+  return (
+    <AttentionActions>
+      <AddToComposer chip={action.chip} label={action.label} onSaid={onSaid} />
     </AttentionActions>
   );
 }
 
+function AddToComposer({ chip, label, onSaid }: { chip: ComposerChip; label: string; onSaid: (said: string) => void }) {
+  const held = useComposerStore((state) => holds(state.chips, chip));
+  const addChip = useComposerStore((state) => state.addChip);
+  const dropChip = useComposerStore((state) => state.dropChip);
+  const words = composerWords.row;
+  return (
+    <IconButton
+      variant="ghost"
+      size="sm"
+      label={held ? words.remove : words.add}
+      aria-label={held ? words.removeName(label) : words.addName(label)}
+      onClick={() => {
+        if (held) {
+          dropChip(chip);
+          onSaid(words.removed(label));
+          return;
+        }
+        const refusal = addChip(chip);
+        // A kind that's full says why, and the button stays + (AC-31).
+        onSaid(refusal === null ? words.added(label) : refusedLine(refusal));
+      }}
+    >
+      <Icon icon={held ? Tick02Icon : PlusSignIcon} aria-hidden />
+    </IconButton>
+  );
+}
+
 /**
- * A row's title: out to Jira or GitHub in a new tab, or to the session inside Orynx, as its Open icon goes
- * (006 AC-18).
+ * A row's title (spec 022): a Jira ticket's opens the ticket dialog; a pull request's opens it on GitHub, with no
+ * arrow now that it's the row's only way out (AC-33); a session's opens it in Orynx.
  */
-function TargetLink({ target, title }: { target: InboxTarget; title: string }) {
+function RowTitle({ item }: { item: HomeItem }) {
   const platform = usePlatform();
+  const show = useTicketDialogStore((state) => state.show);
+  const { target, subject } = item;
   if (target.kind === 'session') {
     return (
-      <AttentionTitle asChild title={title}>
+      <AttentionTitle asChild title={item.title}>
         <Link to="/sessions/$sessionId" params={{ sessionId: target.sessionId }}>
-          {title}
+          {item.title}
         </Link>
       </AttentionTitle>
+    );
+  }
+  if (subject.kind === 'issue') {
+    return (
+      <AttentionTitleButton
+        title={item.title}
+        onClick={() => {
+          show({ key: subject.key, title: item.title, type: null, url: target.url });
+        }}
+      >
+        {item.title}
+      </AttentionTitleButton>
     );
   }
   return (
     <AttentionTitle
       href={target.url}
       rel="noreferrer"
-      title={title}
-      // A title that leaves Orynx says so with the external link's arrow (the user's call, 18 Oct 2026).
-      external
+      title={item.title}
       onClick={(event) => {
         event.preventDefault();
         platform.openExternal(target.url);
       }}
     >
-      {title}
+      {item.title}
     </AttentionTitle>
   );
 }

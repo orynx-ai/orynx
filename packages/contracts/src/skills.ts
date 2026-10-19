@@ -1,85 +1,39 @@
 import { z } from 'zod';
+import { RepositoryIdSchema } from './repositories.ts';
 
 /**
- * Your skills' limits (spec 023): the Name, "When to use it" (Claude Code's limit for a description), the
- * instructions, and the largest `SKILL.md` Orynx reads.
+ * Skills, for the composer's `/` list (spec 022, G): a folder's `.claude/skills` and `.claude/commands`, then
+ * yours under `~/.claude`, as Claude Code's terminal lists them.
  */
-export const skillLimits = { title: 64, description: 1024, instructions: 20_000, fileBytes: 65_536 } as const;
 
-/**
- * A skill's folder under `<DEVHUB_HOME>/plugin/skills`, which is also its `name` in `SKILL.md`: Claude Code's rule,
- * lowercase letters and digits in runs joined by single hyphens. It can't hold `/` or `..`, so it never leaves the
- * skills folder.
- */
-export const SkillFolderSchema = z
-  .string()
-  .max(skillLimits.title)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
-export type SkillFolder = z.infer<typeof SkillFolderSchema>;
+/** What follows `/`: letters, digits, `-`, `_`, `.`, and `:` between a command's folders. */
+export const SkillNameSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/);
 
-/**
- * The folder a Name makes (spec 023): lowercase, accents dropped, every run of other characters one `-`, no `-` at
- * either end, at most 64 characters. Empty when the Name has no letter or digit. The form shows it as you type, and
- * the server saves to it.
- */
-export function folderFromName(name: string): string {
-  return name
-    .normalize('NFKD')
-    .replace(/\p{Mn}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+/, '')
-    .slice(0, skillLimits.title)
-    .replace(/-+$/, '');
-}
-
-/** A skill Orynx read: its folder, and the Name, "When to use it" and instructions from its `SKILL.md`. */
-export const ReadySkillSchema = z.object({
-  state: z.literal('ready'),
-  folder: SkillFolderSchema,
-  /** The Name: `metadata.title`, or the folder when the file has none. */
-  title: z.string().min(1),
-  /** "When to use it": the file's `description`, empty when a hand-written file has none. */
-  description: z.string(),
-  /** Everything after the frontmatter. */
-  instructions: z.string(),
+export const SkillSchema = z.object({
+  name: SkillNameSchema,
+  description: z.string().min(1).nullable(),
+  /** The folder the composer shows, or yours. */
+  source: z.enum(['folder', 'yours']),
 });
-export type ReadySkill = z.infer<typeof ReadySkillSchema>;
+export type Skill = z.infer<typeof SkillSchema>;
 
-/** A folder whose `SKILL.md` is missing, unreadable, too big or has no frontmatter (AC-17): you can only delete it. */
-export const UnreadableSkillSchema = z.object({ state: z.literal('unreadable'), folder: SkillFolderSchema });
-export type UnreadableSkill = z.infer<typeof UnreadableSkillSchema>;
-
-export const SkillEntrySchema = z.discriminatedUnion('state', [ReadySkillSchema, UnreadableSkillSchema]);
-export type SkillEntry = z.infer<typeof SkillEntrySchema>;
-
-/** GET /api/skills: your skills by Name, and the plugin folder as the page bar shows it ("~/.devhub/plugin"). */
-export const SkillListSchema = z.object({
-  pluginFolder: z.string(),
-  skills: z.array(SkillEntrySchema),
-});
+/** GET /api/skills?repositoryId=: the shown folder's skills, then yours; yours alone without a folder (AC-59). */
+export const SkillListSchema = z.object({ skills: z.array(SkillSchema) });
 export type SkillList = z.infer<typeof SkillListSchema>;
 
+export const SkillListQuerySchema = z.object({ repositoryId: RepositoryIdSchema.optional() });
+export type SkillListQuery = z.infer<typeof SkillListQuerySchema>;
+
 /**
- * POST /api/skills and PUT /api/skills/:folder: the editor's fields. The folder comes from the Name, so a rename
- * moves it. The form and the server refuse the same values, with the same words.
+ * The skill names a message asks for, each once, in the order it names them (spec 022, AC-53): `/name` at the start
+ * or after a space or a new line. A full stop or colon after one ends a sentence, not the name. Whether a name is a
+ * skill is the server's to say at Send.
  */
-export const SaveSkillRequestSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    // `abort` keeps one message per field: an empty Name says only that it's empty.
-    .min(1, { message: 'Give the skill a name.', abort: true })
-    .max(skillLimits.title, { message: 'At most 64 characters.', abort: true })
-    .refine((title) => folderFromName(title) !== '', 'Use at least one letter or digit.'),
-  description: z
-    .string()
-    .trim()
-    .min(1, 'Say when to use it.')
-    .max(skillLimits.description, 'At most 1,024 characters.'),
-  instructions: z
-    .string()
-    .max(skillLimits.instructions, 'At most 20,000 characters.')
-    .refine((instructions) => instructions.trim() !== '', 'Write the instructions.'),
-});
-export type SaveSkillRequest = z.input<typeof SaveSkillRequestSchema>;
+export function skillsNamedIn(message: string): string[] {
+  const named: string[] = [];
+  for (const match of message.matchAll(/(?:^|\s)\/([A-Za-z0-9][A-Za-z0-9._:-]*)/g)) {
+    const name = (match[1] ?? '').replace(/[.:]+$/, '');
+    if (SkillNameSchema.safeParse(name).success && !named.includes(name)) named.push(name);
+  }
+  return named;
+}

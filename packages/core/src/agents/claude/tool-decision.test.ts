@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -23,6 +23,14 @@ beforeAll(async () => {
   await symlink(outside, join(worktree, 'linked-folder'));
   // A symlink to a file that doesn't exist yet: writing to it would create that file outside.
   await symlink(join(outside, 'not-yet.txt'), join(worktree, 'src', 'dangling.txt'));
+  // Spec 022: a file you picked, one beside it, a skill's folder and one whose name starts the same.
+  await writeFile(join(outside, 'plan.pdf'), '%PDF-1.7');
+  await writeFile(join(outside, 'other.pdf'), '%PDF-1.7');
+  await mkdir(join(outside, 'skills', 'review'), { recursive: true });
+  await mkdir(join(outside, 'skills', 'review-2'), { recursive: true });
+  await writeFile(join(outside, 'skills', 'review', 'SKILL.md'), '# Review');
+  await writeFile(join(outside, 'skills', 'review-2', 'SKILL.md'), '# Not this one');
+  await symlink(join(outside, 'plan.pdf'), join(root, 'link-to-plan.pdf'));
 });
 
 afterAll(async () => {
@@ -244,5 +252,61 @@ describe('decideToolUse', () => {
   it('refuses a call whose path it can’t read', async () => {
     expect(await decide('Read', {})).toMatchObject({ behavior: 'deny', refusal: null });
     expect(await decide('Edit', { file_path: 42 })).toMatchObject({ behavior: 'deny', refusal: null });
+  });
+});
+
+describe('files and folders the brief named (spec 022)', () => {
+  const readsFor = async () => ({
+    files: [await realpath(join(outside, 'plan.pdf'))],
+    folders: [await realpath(join(outside, 'skills', 'review'))],
+  });
+  const decideWithReads = async (tool: string, input: Record<string, unknown>) =>
+    decideToolUse(tool, input, {
+      worktree,
+      mode: 'edit_freely_ask_commands',
+      home: join(root, 'home'),
+      allowedCommands: [],
+      reads: await readsFor(),
+    });
+
+  it('AC-15: lets Claude read a file you picked, wherever it is, by any path that leads to it', async () => {
+    for (const path of [
+      join(outside, 'plan.pdf'),
+      join('..', '..', 'elsewhere', 'plan.pdf'),
+      join(root, 'link-to-plan.pdf'),
+    ]) {
+      expect(await decideWithReads('Read', { file_path: path })).toEqual({ behavior: 'allow' });
+    }
+  });
+
+  it('AC-15: never lets Claude change a file you picked, or read the one beside it', async () => {
+    const refused = { behavior: 'deny', refusal: { reason: 'outside_worktree' } };
+    expect(
+      await decideWithReads('Edit', { file_path: join(outside, 'plan.pdf'), old_string: 'a', new_string: 'b' }),
+    ).toMatchObject({ ...refused, refusal: { ...refused.refusal, access: 'edit' } });
+    expect(await decideWithReads('Write', { file_path: join(outside, 'plan.pdf'), content: 'x' })).toMatchObject(
+      refused,
+    );
+    expect(await decideWithReads('Read', { file_path: join(outside, 'other.pdf') })).toMatchObject(refused);
+    expect(await decideWithReads('Glob', { pattern: '*', path: outside })).toMatchObject(refused);
+  });
+
+  it('AC-53: lets Claude read and search inside a skill’s folder, and nowhere that only starts the same', async () => {
+    const folder = join(outside, 'skills', 'review');
+    expect(await decideWithReads('Read', { file_path: join(folder, 'SKILL.md') })).toEqual({ behavior: 'allow' });
+    expect(await decideWithReads('Grep', { pattern: 'Review', path: folder })).toEqual({ behavior: 'allow' });
+    expect(await decideWithReads('Glob', { pattern: `${folder}/**/*.md` })).toEqual({ behavior: 'allow' });
+    expect(await decideWithReads('Read', { file_path: join(outside, 'skills', 'review-2', 'SKILL.md') })).toMatchObject(
+      {
+        behavior: 'deny',
+      },
+    );
+    expect(await decideWithReads('Write', { file_path: join(folder, 'SKILL.md'), content: 'x' })).toMatchObject({
+      behavior: 'deny',
+    });
+  });
+
+  it('without anything named, reads outside the worktree stay refused, as before', async () => {
+    expect(await decide('Read', { file_path: join(outside, 'plan.pdf') })).toMatchObject({ behavior: 'deny' });
   });
 });

@@ -58,7 +58,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **Part B: your skills in a session** (after 022 merges; refined then)
 
-- [ ] Task 18: Merge `origin/main` with 022, keeping one `yaml` line
+- [x] Task 18: Merge `origin/main` with 022, keeping one `yaml` line
       Check: pnpm typecheck; pnpm test packages/core/src/skills
       Files: whatever the merge touches
 - [ ] Task 19: Your skills in 022's `/` list as "Orynx", after the folder's and `~/.claude`'s (AC-21)

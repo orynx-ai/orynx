@@ -7,7 +7,7 @@ import {
   preferencesQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
-  skillsQueryOptions,
+  orynxSkillsQueryOptions,
   statusQueryOptions,
   type ApiRequestError,
 } from '@devhub/api-client';
@@ -373,7 +373,7 @@ export function useClearInboxCache() {
 /** Settings › Skills (spec 023): your skills by Name. Kept fresh by `skills.changed`, not polling. */
 export function useSkills() {
   const api = useApi();
-  return useQuery(skillsQueryOptions(api));
+  return useQuery(orynxSkillsQueryOptions(api));
 }
 
 /** Adds the four starter skills whose folders are free (AC-13); the list reads them again when it lands. */
@@ -381,7 +381,7 @@ export function useAddStarterSkills() {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationKey: [...queryKeys.skills, 'starters'],
+    mutationKey: [...queryKeys.orynxSkills, 'starters'],
     mutationFn: () => api.addStarterSkills(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
   });
@@ -395,8 +395,8 @@ export function useSaveSkill() {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation<ReadySkill, ApiRequestError, { folder: SkillFolder; request: SaveSkillRequest }>({
-    mutationKey: [...queryKeys.skills, 'save'],
-    mutationFn: ({ folder, request }) => api.saveSkill(folder, request),
+    mutationKey: [...queryKeys.orynxSkills, 'save'],
+    mutationFn: ({ folder, request }) => api.saveOrynxSkill(folder, request),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
   });
 }
@@ -406,8 +406,8 @@ export function useAddSkill() {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation<ReadySkill, ApiRequestError, SaveSkillRequest>({
-    mutationKey: [...queryKeys.skills, 'add'],
-    mutationFn: (request) => api.addSkill(request),
+    mutationKey: [...queryKeys.orynxSkills, 'add'],
+    mutationFn: (request) => api.addOrynxSkill(request),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
   });
 }
@@ -417,8 +417,8 @@ export function useRemoveSkill() {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation<unknown, ApiRequestError, SkillFolder>({
-    mutationKey: [...queryKeys.skills, 'remove'],
-    mutationFn: (folder) => api.removeSkill(folder),
+    mutationKey: [...queryKeys.orynxSkills, 'remove'],
+    mutationFn: (folder) => api.removeOrynxSkill(folder),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
   });
 }

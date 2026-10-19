@@ -2,21 +2,21 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, folderFromName, type ReadySkill, type SaveSkillRequest } from '@devhub/contracts';
-import { makeSkill, makeSkillList } from '@devhub/contracts/testing';
+import { makeOrynxSkill, makeOrynxSkillList } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
 /** A skills folder on the fake server: the list, and saves that change it as the real one would. */
-function skillsServer(start: ReadySkill[] = [makeSkill()]) {
+function skillsServer(start: ReadySkill[] = [makeOrynxSkill()]) {
   let skills = start;
   const saves: { folder: string; body: SaveSkillRequest }[] = [];
   server.use(
-    http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(makeSkillList({ skills }))),
-    http.put(apiUrl(apiRoutes.skill), async ({ params, request }) => {
+    http.get(apiUrl(apiRoutes.orynxSkills), () => HttpResponse.json(makeOrynxSkillList({ skills }))),
+    http.put(apiUrl(apiRoutes.orynxSkill), async ({ params, request }) => {
       const body = (await request.json()) as SaveSkillRequest;
       const folder = String(params['folder']);
       saves.push({ folder, body });
-      const saved = makeSkill({ ...body, folder: folderFromName(body.title) });
+      const saved = makeOrynxSkill({ ...body, folder: folderFromName(body.title) });
       skills = skills.map((skill) => (skill.folder === folder ? saved : skill));
       return HttpResponse.json(saved);
     }),
@@ -53,12 +53,12 @@ describe('SkillEditor', () => {
     expect(folder).toHaveValue('bug-bash');
     expect(folder).toHaveAttribute('readonly');
     expect(folder).toHaveAccessibleDescription('Made from the name. Letters, numbers and dashes.');
-    expect(within(panel).getByRole('textbox', { name: 'When to use it' })).toHaveValue(makeSkill().description);
+    expect(within(panel).getByRole('textbox', { name: 'When to use it' })).toHaveValue(makeOrynxSkill().description);
     expect(within(panel).getByRole('textbox', { name: 'When to use it' })).toHaveAccessibleDescription(
       'One sentence. You see it when picking a skill.',
     );
     expect(within(panel).getByRole('textbox', { name: 'Instructions for Claude' })).toHaveValue(
-      makeSkill().instructions,
+      makeOrynxSkill().instructions,
     );
     expect(within(panel).getByRole('textbox', { name: 'Instructions for Claude' })).toHaveAccessibleDescription(
       'Markdown. Steps, what good output looks like, what not to do.',
@@ -83,7 +83,7 @@ describe('SkillEditor', () => {
     expect(saves).toEqual([
       {
         folder: 'bug-bash',
-        body: { title: 'Bug bash', description: makeSkill().description, instructions: 'Report only.' },
+        body: { title: 'Bug bash', description: makeOrynxSkill().description, instructions: 'Report only.' },
       },
     ]);
   });
@@ -135,7 +135,7 @@ describe('SkillEditor', () => {
   it("AC-16: keeps your changes and says the skill wasn't saved when the save fails", async () => {
     skillsServer();
     server.use(
-      http.put(apiUrl(apiRoutes.skill), () =>
+      http.put(apiUrl(apiRoutes.orynxSkill), () =>
         HttpResponse.json({ code: 'not_found', message: 'This skill is no longer in the folder.' }, { status: 404 }),
       ),
     );
@@ -146,14 +146,14 @@ describe('SkillEditor', () => {
     await user.click(within(editor()).getByRole('button', { name: 'Save skill' }));
 
     expect(await within(editor()).findByRole('alert')).toHaveTextContent("The skill wasn't saved. Try again.");
-    expect(box).toHaveValue(`${makeSkill().instructions} More.`);
+    expect(box).toHaveValue(`${makeOrynxSkill().instructions} More.`);
     expect(within(editor()).getByRole('status')).toHaveTextContent('Unsaved changes');
   });
 
   it('AC-7: says under Name that another skill has the folder, with focus there', async () => {
-    skillsServer([makeSkill(), makeSkill({ folder: 'bug-hunt', title: 'Bug hunt' })]);
+    skillsServer([makeOrynxSkill(), makeOrynxSkill({ folder: 'bug-hunt', title: 'Bug hunt' })]);
     server.use(
-      http.put(apiUrl(apiRoutes.skill), () =>
+      http.put(apiUrl(apiRoutes.orynxSkill), () =>
         HttpResponse.json(
           { code: 'skill_rejected', message: 'You already have a skill in bug-hunt.' },
           { status: 422 },
@@ -176,7 +176,7 @@ describe('SkillEditor', () => {
   });
 
   it("AC-14: says under Bug bash's instructions what it can and can't do today, and only there", async () => {
-    skillsServer([makeSkill(), makeSkill({ folder: 'how-we-review', title: 'How we review' })]);
+    skillsServer([makeOrynxSkill(), makeOrynxSkill({ folder: 'how-we-review', title: 'How we review' })]);
     const { user } = await openBugBash();
 
     const callout = within(editor()).getByText("What this skill can and can't do today");

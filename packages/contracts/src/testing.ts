@@ -47,14 +47,16 @@ import {
   type SessionSummary,
   type SessionTicket,
 } from './session.ts';
-import { ReadySkillSchema, SkillListSchema, type ReadySkill, type SkillList } from './skills.ts';
+import { OrynxSkillListSchema, ReadySkillSchema, type OrynxSkillList, type ReadySkill } from './orynx-skills.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 import {
   OpenSprintSchema,
+  TicketDetailSchema,
   TicketSchema,
   TicketsSchema,
   type OpenSprint,
   type Ticket,
+  type TicketDetail,
   type Tickets,
 } from './tickets.ts';
 
@@ -320,7 +322,7 @@ export function makeRepository(overrides: Partial<Repository> = {}): Repository 
 }
 
 /** Your skill "Bug bash", with the design's words, unless the override says otherwise (spec 023). */
-export function makeSkill(overrides: Partial<Omit<ReadySkill, 'state'>> = {}): ReadySkill {
+export function makeOrynxSkill(overrides: Partial<Omit<ReadySkill, 'state'>> = {}): ReadySkill {
   return ReadySkillSchema.parse({
     state: 'ready',
     folder: 'bug-bash',
@@ -333,8 +335,8 @@ export function makeSkill(overrides: Partial<Omit<ReadySkill, 'state'>> = {}): R
 }
 
 /** Settings › Skills with Bug bash in ~/.devhub/plugin, unless the override says otherwise. */
-export function makeSkillList(overrides: Partial<SkillList> = {}): SkillList {
-  return SkillListSchema.parse({ pluginFolder: '~/.devhub/plugin', skills: [makeSkill()], ...overrides });
+export function makeOrynxSkillList(overrides: Partial<OrynxSkillList> = {}): OrynxSkillList {
+  return OrynxSkillListSchema.parse({ pluginFolder: '~/.devhub/plugin', skills: [makeOrynxSkill()], ...overrides });
 }
 
 /**
@@ -383,6 +385,30 @@ export function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     priority: { name: 'High', level: 'high', rank: 1 },
     dueDate: '2026-10-23',
     assignee: { name: 'Rakesh Dhariwal', mine: true },
+    session: null,
+    ...overrides,
+  });
+}
+
+/** PROJ-1423 in full, as the ticket dialog reads it (spec 022), unless the override says otherwise. */
+export function makeTicketDetail(overrides: Partial<TicketDetail> = {}): TicketDetail {
+  const key = overrides.key ?? 'PROJ-1423';
+  return TicketDetailSchema.parse({
+    key,
+    url: `https://your-team.atlassian.net/browse/${key}`,
+    title: 'Add bulk archive to the content list',
+    type: 'Story',
+    status: { name: 'In Progress', column: 'in_progress' },
+    priority: 'High',
+    assignee: 'Rakesh Dhariwal',
+    reporter: 'Neha K.',
+    dueDate: '2026-10-23',
+    labels: [],
+    created: '2026-10-01T08:00:00.000Z',
+    updated: '2026-10-18T09:30:00.000Z',
+    description: 'Archive several items at once from the content list.',
+    links: [],
+    comments: [],
     session: null,
     ...overrides,
   });

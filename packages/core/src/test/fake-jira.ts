@@ -305,6 +305,17 @@ export interface FakeIssueDetail {
     outwardIssue?: FakeLinkedIssue;
     inwardIssue?: FakeLinkedIssue;
   }[];
+  /** What the ticket dialog shows besides (spec 022); each left out is missing from Jira's answer. */
+  status?: { name: string; category: 'new' | 'indeterminate' | 'done' };
+  priority?: string;
+  assignee?: string;
+  reporter?: string;
+  /** A calendar day, as Jira gives a due date. */
+  dueDate?: string;
+  labels?: readonly string[];
+  /** Jira's own times, such as `2026-10-01T09:00:00.000+0100`. */
+  created?: string;
+  updated?: string;
 }
 
 function linkedIssue(issue: FakeLinkedIssue | undefined) {
@@ -382,6 +393,17 @@ export function acceptingIssue(
           outwardIssue: linkedIssue(link.outwardIssue),
           inwardIssue: linkedIssue(link.inwardIssue),
         })),
+        status:
+          issue.status === undefined
+            ? undefined
+            : { id: '3', name: issue.status.name, statusCategory: { id: 4, key: issue.status.category } },
+        priority: issue.priority === undefined ? undefined : { id: '2', name: issue.priority },
+        assignee: issue.assignee === undefined ? null : { accountId: 'fake-account', displayName: issue.assignee },
+        reporter: issue.reporter === undefined ? null : { accountId: 'fake-reporter', displayName: issue.reporter },
+        duedate: issue.dueDate ?? null,
+        labels: issue.labels ?? [],
+        created: issue.created,
+        updated: issue.updated,
       },
     });
   });

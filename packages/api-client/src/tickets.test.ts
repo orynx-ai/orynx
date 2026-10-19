@@ -2,11 +2,12 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { apiRoutes, tokenHeader } from '@devhub/contracts';
-import { makeOpenSprint, makeTicket, makeTickets } from '@devhub/contracts/testing';
+import { makeOpenSprint, makeTicket, makeTicketDetail, makeTickets } from '@devhub/contracts/testing';
 import {
   ApiRequestError,
   createApiClient,
   queryKeys,
+  ticketQueryOptions,
   ticketsQueryOptions,
   ticketsSprintsQueryOptions,
 } from './index.ts';
@@ -99,5 +100,32 @@ describe('a project’s sprints and the choice (spec 020)', () => {
     );
 
     await expect(api.ticketsSprints('WEB')).rejects.toMatchObject({ code: 'integration_unreachable' });
+  });
+});
+
+describe('one ticket in full (spec 022)', () => {
+  it('AC-40: reads the ticket by its key, under a key of its own that a sync never refreshes', async () => {
+    const ticket = makeTicketDetail();
+    let path = '';
+    server.use(
+      http.get(url(apiRoutes.ticket), ({ request }) => {
+        path = new URL(request.url).pathname;
+        return HttpResponse.json({ result: 'found', ticket });
+      }),
+    );
+
+    expect(await api.ticket('PROJ-1423')).toEqual({ result: 'found', ticket });
+    expect(path).toBe('/api/tickets/PROJ-1423');
+    const options = ticketQueryOptions(api, 'PROJ-1423');
+    expect(options.queryKey).toEqual([...queryKeys.ticket, 'PROJ-1423']);
+    expect(options.queryKey.slice(0, queryKeys.tickets.length)).not.toEqual(queryKeys.tickets);
+  });
+
+  it('AC-44: passes on why there is no ticket, and refuses an answer of the wrong shape', async () => {
+    server.use(http.get(url(apiRoutes.ticket), () => HttpResponse.json({ result: 'not_found' })));
+    expect(await api.ticket('PROJ-9999')).toEqual({ result: 'not_found' });
+
+    server.use(http.get(url(apiRoutes.ticket), () => HttpResponse.json({ result: 'found', ticket: { key: 'x' } })));
+    await expect(api.ticket('PROJ-1423')).rejects.toBeInstanceOf(ApiRequestError);
   });
 });

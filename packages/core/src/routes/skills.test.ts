@@ -1,231 +1,88 @@
-import { lstat, mkdir, mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Writable } from 'node:stream';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import {
-  apiRoutes,
-  ApiErrorSchema,
-  ReadySkillSchema,
-  SkillListSchema,
-  tokenHeader,
-  type ServerEvent,
-} from '@devhub/contracts';
-import { createServer, type CoreOptions } from '../create-server.ts';
-import { createEventBus } from '../events/event-bus.ts';
+import { apiRoutes, ApiErrorSchema, SkillListSchema, tokenHeader } from '@devhub/contracts';
+import { makeRepository } from '@devhub/contracts/testing';
+import { createServer } from '../create-server.ts';
 import { createMemorySettingsStore } from '../settings/settings-store.ts';
 
 const token = 'test-token-0123456789';
 const port = 4317;
 const headers = { host: `127.0.0.1:${String(port)}`, [tokenHeader]: token };
-
-let root: string;
-let home: string;
-let dataDir: string;
-let skills: string;
-const servers: FastifyInstance[] = [];
-
-beforeAll(async () => {
-  root = await realpath(await mkdtemp(join(tmpdir(), 'devhub-skill-routes-')));
-  home = join(root, 'home');
-  dataDir = join(home, '.devhub');
-  skills = join(dataDir, 'plugin', 'skills');
-});
+let app: FastifyInstance | undefined;
+const roots: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(servers.splice(0).map((app) => app.close()));
-  await rm(dataDir, { recursive: true, force: true });
+  await app?.close();
+  app = undefined;
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-afterAll(async () => {
-  await rm(root, { recursive: true, force: true });
-});
+async function write(path: string, text: string) {
+  await mkdir(join(path, '..'), { recursive: true });
+  await writeFile(path, text);
+}
 
-async function server(options: Partial<CoreOptions> = {}) {
-  const events = createEventBus();
-  const seen: ServerEvent[] = [];
-  events.subscribe((event) => seen.push(event));
-  const app = await createServer({
+/** A hub whose one folder, web-app, has a review skill, and whose home has a notes skill and a standup command. */
+async function serverWithSkills() {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'devhub-skills-route-')));
+  roots.push(root);
+  const folder = join(root, 'web-app');
+  const home = join(root, 'home');
+  await write(
+    join(folder, '.claude/skills/review/SKILL.md'),
+    '---\nname: review\ndescription: Review the branch\n---\nBody',
+  );
+  await write(join(home, '.claude/skills/notes/SKILL.md'), '---\ndescription: Keep notes\n---\nBody');
+  await write(join(home, '.claude/commands/standup.md'), 'Write my standup.');
+  const web = makeRepository({ id: '00000000000000aa', name: 'web-app', path: folder });
+  app = await createServer({
     token,
     port,
     version: '1.2.3',
-    events,
-    settings: createMemorySettingsStore(),
     userHome: home,
-    dataDir,
-    ...options,
+    settings: createMemorySettingsStore({ repositories: [{ id: web.id, path: folder, jiraProject: null }] }),
   });
-  servers.push(app);
-  return { app, seen };
+  return app;
 }
 
-const bugBash = {
-  title: 'Bug bash',
-  description: 'Secret-sounding description for the log check.',
-  instructions: '# Bug bash\n\nInstructions nobody should log.\n',
-};
-
-function skillUrl(folder: string): string {
-  return apiRoutes.skill.replace(':folder', folder);
-}
-
-async function exists(path: string) {
-  return lstat(path).then(
-    () => true,
-    () => false,
-  );
-}
-
-describe('/api/skills', () => {
+describe('GET /api/skills (spec 022)', () => {
   it('answers 401 without the session token', async () => {
-    const { app } = await server();
-    for (const [method, url] of [
-      ['GET', apiRoutes.skills],
-      ['POST', apiRoutes.skills],
-      ['POST', apiRoutes.skillStarters],
-      ['PUT', skillUrl('bug-bash')],
-      ['DELETE', skillUrl('bug-bash')],
-    ] as const) {
-      const response = await app.inject({ method, url, headers: { host: headers.host } });
-      expect(response.statusCode, `${method} ${url}`).toBe(401);
-    }
+    const server = await serverWithSkills();
+    const res = await server.inject({ method: 'GET', url: apiRoutes.skills, headers: { host: headers.host } });
+    expect(res.statusCode).toBe(401);
   });
 
-  it('AC-12: lists no skills, with the plugin folder under ~, before any is added', async () => {
-    const { app } = await server();
-    const response = await app.inject({ method: 'GET', url: apiRoutes.skills, headers });
-    expect(response.statusCode).toBe(200);
-    expect(SkillListSchema.parse(response.json())).toEqual({ pluginFolder: '~/.devhub/plugin', skills: [] });
-  });
-
-  it('AC-5: adds a skill, answers with it, lists it and says skills changed', async () => {
-    const { app, seen } = await server();
-
-    const added = await app.inject({ method: 'POST', url: apiRoutes.skills, headers, payload: bugBash });
-
-    expect(added.statusCode).toBe(201);
-    expect(ReadySkillSchema.parse(added.json())).toEqual({ state: 'ready', folder: 'bug-bash', ...bugBash });
-    expect(await readFile(join(skills, 'bug-bash', 'SKILL.md'), 'utf8')).toContain('title: Bug bash');
-    expect(seen).toContainEqual({ type: 'skills.changed' });
-    const list = await app.inject({ method: 'GET', url: apiRoutes.skills, headers });
-    expect(SkillListSchema.parse(list.json()).skills).toHaveLength(1);
-  });
-
-  it('AC-8: refuses fields the contract refuses, with 400', async () => {
-    const { app } = await server();
-    const response = await app.inject({
-      method: 'POST',
-      url: apiRoutes.skills,
+  it('AC-49, AC-59: lists the folder’s skills, then yours', async () => {
+    const server = await serverWithSkills();
+    const res = await server.inject({
+      method: 'GET',
+      url: `${apiRoutes.skills}?repositoryId=00000000000000aa`,
       headers,
-      payload: { ...bugBash, title: '!!!' },
     });
-    expect(response.statusCode).toBe(400);
-    expect(ApiErrorSchema.parse(response.json()).code).toBe('bad_request');
-    expect(await exists(skills)).toBe(false);
+    expect(res.statusCode).toBe(200);
+    expect(SkillListSchema.parse(res.json())).toEqual({
+      skills: [
+        { name: 'review', description: 'Review the branch', source: 'folder' },
+        { name: 'notes', description: 'Keep notes', source: 'yours' },
+        { name: 'standup', description: null, source: 'yours' },
+      ],
+    });
   });
 
-  it('AC-7: answers 422 with the words for Name when another skill has the folder', async () => {
-    const { app } = await server();
-    await app.inject({ method: 'POST', url: apiRoutes.skills, headers, payload: bugBash });
+  it('AC-59: without a folder, yours alone; an unknown folder is 404', async () => {
+    const server = await serverWithSkills();
+    const yours = await server.inject({ method: 'GET', url: apiRoutes.skills, headers });
+    expect(SkillListSchema.parse(yours.json()).skills.map((skill) => skill.name)).toEqual(['notes', 'standup']);
 
-    const again = await app.inject({
-      method: 'POST',
-      url: apiRoutes.skills,
+    const gone = await server.inject({
+      method: 'GET',
+      url: `${apiRoutes.skills}?repositoryId=00000000000000bb`,
       headers,
-      payload: { ...bugBash, title: 'BUG BASH' },
     });
-
-    expect(again.statusCode).toBe(422);
-    expect(again.json()).toEqual({ code: 'skill_rejected', message: 'You already have a skill in bug-bash.' });
-  });
-
-  it('AC-6: saves under the folder the new Name makes', async () => {
-    const { app } = await server();
-    await app.inject({ method: 'POST', url: apiRoutes.skills, headers, payload: bugBash });
-
-    const saved = await app.inject({
-      method: 'PUT',
-      url: skillUrl('bug-bash'),
-      headers,
-      payload: { ...bugBash, title: 'Bug hunt' },
-    });
-
-    expect(saved.statusCode).toBe(200);
-    expect(ReadySkillSchema.parse(saved.json()).folder).toBe('bug-hunt');
-    expect(await exists(join(skills, 'bug-bash'))).toBe(false);
-  });
-
-  it('AC-16: answers 404 when the skill went', async () => {
-    const { app } = await server();
-    const response = await app.inject({ method: 'PUT', url: skillUrl('gone'), headers, payload: bugBash });
-    expect(response.statusCode).toBe(404);
-    expect(response.json()).toEqual({ code: 'not_found', message: 'This skill is no longer in the folder.' });
-  });
-
-  it('AC-20: refuses a folder a Name never makes, and touches nothing outside the skills folder', async () => {
-    const { app } = await server();
-    await mkdir(join(dataDir, 'x'), { recursive: true });
-    for (const folder of ['Bug%20Bash', '..%2Fx', 'bug_bash']) {
-      const put = await app.inject({ method: 'PUT', url: skillUrl(folder), headers, payload: bugBash });
-      const remove = await app.inject({ method: 'DELETE', url: skillUrl(folder), headers });
-      expect(put.statusCode, folder).toBe(400);
-      expect(remove.statusCode, folder).toBe(400);
-    }
-    // A bare `..` is resolved before routing, so it reaches no skill route at all.
-    expect((await app.inject({ method: 'DELETE', url: skillUrl('..'), headers })).statusCode).toBe(404);
-    expect(await exists(join(dataDir, 'x'))).toBe(true);
-  });
-
-  it('AC-10: deletes a skill', async () => {
-    const { app, seen } = await server();
-    await app.inject({ method: 'POST', url: apiRoutes.skills, headers, payload: bugBash });
-
-    const response = await app.inject({ method: 'DELETE', url: skillUrl('bug-bash'), headers });
-
-    expect(response.statusCode).toBe(204);
-    expect(await exists(join(skills, 'bug-bash'))).toBe(false);
-    expect(seen.filter((event) => event.type === 'skills.changed')).toHaveLength(2);
-  });
-
-  it('AC-13: adds the starter skills', async () => {
-    const { app } = await server();
-
-    const response = await app.inject({ method: 'POST', url: apiRoutes.skillStarters, headers });
-
-    expect(response.statusCode).toBe(204);
-    const list = SkillListSchema.parse((await app.inject({ method: 'GET', url: apiRoutes.skills, headers })).json());
-    expect(list.skills.map((skill) => skill.folder)).toEqual([
-      'bug-bash',
-      'explain-this-code',
-      'how-we-review',
-      'write-tests-first',
-    ]);
-  });
-
-  it("AC-28: logs a skill's folder at most, never its Name, description or instructions", async () => {
-    const log: string[] = [];
-    const { app } = await server({
-      logger: {
-        level: 'trace',
-        stream: new Writable({
-          write(chunk: Buffer, _encoding, done) {
-            log.push(chunk.toString());
-            done();
-          },
-        }),
-      },
-    });
-
-    await app.inject({ method: 'POST', url: apiRoutes.skills, headers, payload: bugBash });
-    await app.inject({ method: 'PUT', url: skillUrl('bug-bash'), headers, payload: { ...bugBash, title: 'Bug hunt' } });
-    await app.inject({ method: 'POST', url: apiRoutes.skills, headers, payload: { ...bugBash, title: 'Bug hunt' } });
-    await app.inject({ method: 'DELETE', url: skillUrl('bug-hunt'), headers });
-
-    const written = log.join('');
-    expect(written).toContain('/api/skills/bug-hunt');
-    for (const secret of ['Bug bash', 'Bug hunt', bugBash.description, 'Instructions nobody should log']) {
-      expect(written).not.toContain(secret);
-    }
+    expect(gone.statusCode).toBe(404);
+    expect(ApiErrorSchema.parse(gone.json()).code).toBe('not_found');
   });
 });

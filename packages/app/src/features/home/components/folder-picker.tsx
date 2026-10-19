@@ -15,7 +15,7 @@ import {
 } from '@devhub/ui';
 import { FolderDialog } from '../../settings/components/folder-dialog.tsx';
 import { useRepositories } from '../../settings/queries.ts';
-import { folderFor } from '../composer-rules.ts';
+import { firstTicket, folderFor } from '../composer-rules.ts';
 import { composerWords } from '../composer-words.ts';
 import { useComposerStore } from '../store.ts';
 
@@ -40,7 +40,7 @@ export function FolderPicker() {
   // Add local folder opens the dialog once the menu has closed and let go of focus.
   const addAfterClose = useRef(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const ticketKey = chips.find((chip) => chip.kind === 'jira')?.key ?? null;
+  const ticketKey = firstTicket(chips);
 
   // The composer shows its pickers once both have what they need, so the bar never moves (AC-1).
   if (repositories.data === undefined) return null;

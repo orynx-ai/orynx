@@ -238,9 +238,11 @@ describe('the file session store', () => {
       state: 'done',
       kind: 'brief',
       key: 'PROJ-1423',
+      tickets: [],
       message: false,
       pullRequests: [],
       files: [],
+      skills: [],
     });
   });
 

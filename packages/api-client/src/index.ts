@@ -10,7 +10,7 @@ export {
   preferencesQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
-  skillsQueryOptions,
+  orynxSkillsQueryOptions,
   searchQueryOptions,
   sessionChangesQueryKey,
   sessionChangesQueryOptions,
@@ -21,6 +21,8 @@ export {
   sessionPagesQueryOptions,
   sessionsQueryOptions,
   statusQueryOptions,
+  skillsQueryOptions,
+  ticketQueryOptions,
   ticketsQueryOptions,
   ticketsSprintsQueryOptions,
 } from './queries.ts';
