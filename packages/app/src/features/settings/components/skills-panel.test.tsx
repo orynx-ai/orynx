@@ -3,6 +3,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type SkillList } from '@devhub/contracts';
 import { makeSkill, makeSkillList } from '@devhub/contracts/testing';
+import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -113,5 +114,41 @@ describe('Settings › Skills', () => {
       expect(screen.getByRole('list', { name: 'Your skills' })).toBeVisible();
     });
     expect(screen.queryByText("Skills didn't load.")).not.toBeInTheDocument();
+  });
+
+  it('AC-3: opens the first skill, and the one you pick, in the address', async () => {
+    skills(makeSkillList({ skills: [makeSkill(), howWeReview] }));
+    const { user, history } = await renderApp({ route: '/settings/skills' });
+
+    const list = await screen.findByRole('list', { name: 'Your skills' });
+    expect(within(list).getByRole('button', { name: 'Bug bash' })).toHaveAttribute('aria-current', 'true');
+
+    await user.click(within(list).getByRole('button', { name: 'How we review' }));
+
+    expect(history.location.search).toBe('?skill=how-we-review');
+    expect(within(list).getByRole('button', { name: 'How we review' })).toHaveAttribute('aria-current', 'true');
+    expect(within(list).getByRole('button', { name: 'Bug bash' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('AC-3: opens the skill the address names, and the first one when it names none listed', async () => {
+    skills(makeSkillList({ skills: [makeSkill(), howWeReview] }));
+    const { unmount } = await renderApp({ route: '/settings/skills?skill=how-we-review' });
+    expect(await screen.findByRole('button', { name: 'How we review' })).toHaveAttribute('aria-current', 'true');
+    unmount();
+
+    await renderApp({ route: '/settings/skills?skill=deleted-elsewhere' });
+    expect(await screen.findByRole('button', { name: 'Bug bash' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('AC-19: shows a change made in another tab when the server says skills changed', async () => {
+    let list = makeSkillList();
+    server.use(http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(list)));
+    await renderApp({ route: '/settings/skills' });
+    await screen.findByRole('button', { name: 'Bug bash' });
+
+    list = makeSkillList({ skills: [makeSkill(), howWeReview] });
+    FakeEventSource.latest().emit({ type: 'skills.changed' });
+
+    expect(await screen.findByRole('button', { name: 'How we review' })).toBeVisible();
   });
 });

@@ -1,11 +1,21 @@
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Book02Icon } from '@hugeicons/core-free-icons';
-import { Button, Callout, EmptyState, Icon, ListNav, ListNavItem, ListNavSkeleton } from '@devhub/ui';
+import type { SkillEntry, SkillFolder } from '@devhub/contracts';
+import { Button, Callout, EmptyState, Icon, ListNavSkeleton } from '@devhub/ui';
 import { useAddStarterSkills, useSkills } from '../queries.ts';
+import type { SettingsSearch } from '../tabs.ts';
+import { SkillList } from './skill-list.tsx';
 
 /** The list's column: 260 px to 320 px beside the editor, the whole width once they stack. */
 const listColumn = 'min-w-0 grow basis-65 md:max-w-80';
 /** The editor's column: at least 520 px beside the list, taking the rest. */
 const editorColumn = 'min-w-0 grow-3 basis-130';
+
+/** The open skill: none for New skill, the one the address names while it's listed, or else the first. */
+function openFolder(skills: readonly SkillEntry[], search: SettingsSearch): SkillFolder | null {
+  if (search.new === true) return null;
+  return skills.find((skill) => skill.folder === search.skill)?.folder ?? skills[0]?.folder ?? null;
+}
 
 /**
  * Settings › Skills (spec 023): your skills, a list beside the open one's editor, under the design's callout.
@@ -14,7 +24,13 @@ const editorColumn = 'min-w-0 grow-3 basis-130';
 export function SkillsPanel() {
   const skills = useSkills();
   const starters = useAddStarterSkills();
+  const search = useSearch({ from: '/settings/$tab' });
+  const navigate = useNavigate();
   const list = skills.data?.skills;
+
+  function open(folder: SkillFolder) {
+    void navigate({ to: '/settings/$tab', params: { tab: 'skills' }, search: { skill: folder } });
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -60,15 +76,7 @@ export function SkillsPanel() {
         />
       ) : (
         <div className="flex flex-wrap items-start gap-5">
-          <ListNav aria-label="Your skills" className={listColumn}>
-            {list.map((skill) => (
-              <ListNavItem
-                key={skill.folder}
-                label={skill.state === 'ready' ? skill.title : skill.folder}
-                description={skill.state === 'ready' ? skill.description : "Orynx can't read this skill."}
-              />
-            ))}
-          </ListNav>
+          <SkillList skills={list} current={openFolder(list, search)} onPick={open} className={listColumn} />
         </div>
       )}
     </div>

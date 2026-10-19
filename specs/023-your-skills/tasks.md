@@ -31,7 +31,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: The Skills tab after Coding agent, the page bar's count and New skill, the callout, and the loading, error and empty states (AC-1, AC-2, AC-12, AC-15)
       Check: pnpm test packages/app/src/features/settings/settings-screen.test.tsx packages/app/src/features/settings/components/skills-panel.test.tsx
       Files: packages/app/src/features/settings/tabs.ts, packages/app/src/features/settings/settings-screen.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/features/settings/components/skills-panel.tsx, packages/app/src/features/settings/components/skills-panel.test.tsx
-- [ ] Task 10: The skill list with search, refreshed by `skills.changed` (AC-2, AC-3, AC-4, AC-19)
+- [x] Task 10: The skill list with search, refreshed by `skills.changed` (AC-2, AC-3, AC-4, AC-19)
       Check: pnpm test packages/app/src/features/settings/components/skill-list.test.tsx
       Files: packages/app/src/features/settings/components/skill-list.tsx, packages/app/src/features/settings/components/skill-list.test.tsx, packages/app/src/features/settings/components/skills-panel.tsx
 - [ ] Task 11: The skill editor: fields, the folder name from the Name, save, field errors, a failed save (AC-2, AC-5, AC-6, AC-8, AC-16, AC-18, AC-27)
