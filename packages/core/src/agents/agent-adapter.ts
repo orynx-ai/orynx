@@ -46,14 +46,14 @@ export interface AgentBrief {
 /** Your answer to a waiting call. `always` runs the call as `allow` does; the session saves the entry first. */
 export type ApprovalDecision = 'allow' | 'deny' | 'always';
 
-/** A call waiting for your answer (spec 012): a command, or an edit while Ask before everything is on. */
+/** A call waiting for your answer (spec 012): a command, or an edit while Edit files is on Ask first (spec 026). */
 export type AgentAsk =
   | {
       kind: 'command';
       command: string;
       /** The agent's own line about the command, when it gave one. */
       description: string | null;
-      /** Why it asks in every mode; null when it asks only because of the mode or the list. */
+      /** Why it asks with Allow once and Deny only (its row says Ask first); null when it asks because of the commands row or the list. */
       alwaysAsk: AlwaysAskReason | null;
       /** The entry Always allow would save, when it's offered (Q1, Q4). */
       alwaysAllow: string | null;
