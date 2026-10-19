@@ -20,6 +20,7 @@ export {
   sessionPagesQueryOptions,
   sessionsQueryOptions,
   statusQueryOptions,
+  skillsQueryOptions,
   ticketQueryOptions,
   ticketsQueryOptions,
   ticketsSprintsQueryOptions,

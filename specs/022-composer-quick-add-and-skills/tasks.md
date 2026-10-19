@@ -85,7 +85,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 21: Skills in the brief: at Send, each `/name` in the message that is a listed skill for the session's folder (at most 5) adds "Skill /name" with its file's text after the chips, the brief step lists them, and Claude may read inside each skill's folder (read tools only); no settings, hooks or MCP from the skill (AC-53, AC-54)
       Check: pnpm test packages/core/src/sessions packages/core/src/agents/claude/tool-decision.test.ts
       Files: packages/contracts/src/session.ts, packages/core/src/sessions/brief.ts, packages/core/src/sessions/brief.test.ts, packages/core/src/sessions/compose.ts, packages/core/src/sessions/compose.test.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/no-leaks.test.ts
-- [ ] Task 22: Let the api-client read the skills: `getSkills(repositoryId?)` and `skillsQueryOptions` under `queryKeys.skills(repositoryId)`; MSW tests (AC-49, AC-56)
+- [x] Task 22: Let the api-client read the skills: `getSkills(repositoryId?)` and `skillsQueryOptions` under `queryKeys.skills(repositoryId)`; MSW tests (AC-49, AC-56)
       Check: pnpm test packages/api-client
       Files: packages/api-client/src/endpoints/skills.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/skills.test.ts
 - [ ] Task 23: Add `SuggestionList` to `@devhub/ui`: a listbox under the composer's box with an active row, each row's name, description and source, three skeleton rows while loading, one line when empty or failed; the box's `aria-autocomplete`, `aria-controls` and `aria-activedescendant`; stories for each state and a test with axe (AC-49, AC-55, AC-56, AC-60, Q14)

@@ -37,6 +37,7 @@ import {
   type StartSessionRequest,
   type Status,
   type OpenSprints,
+  type SkillList,
   type TicketDetailAnswer,
   type Tickets,
   type TicketsChoice,
@@ -72,6 +73,7 @@ import {
 import { getStatus } from './endpoints/status.ts';
 import { getTicket, getTickets, getTicketsSprints, putTicketsChoice } from './endpoints/tickets.ts';
 import { postFileCheck, postFilePicker } from './endpoints/files.ts';
+import { getSkills } from './endpoints/skills.ts';
 import { toApiRequestError } from './errors.ts';
 import { subscribeToEvents, type EventSourceConstructor } from './events.ts';
 
@@ -160,6 +162,8 @@ export interface ApiClient {
   chooseTicketsSprint(choice: TicketsChoice): Promise<void>;
   /** One ticket in full for the ticket dialog (spec 022), asked of Jira now, or why there's none. */
   ticket(key: string): Promise<TicketDetailAnswer>;
+  /** The composer's skills for a folder, or yours alone (spec 022). */
+  skills(repositoryId: string | null): Promise<SkillList>;
   /** Claude Code's login on this computer, as the server last checked it (spec 010). */
   claudeLogin(): Promise<ClaudeLogin>;
   /** Check again: the server asks Claude Code now, or shares a check that's running. */
@@ -245,6 +249,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     chooseTicketsSprint: (choice) =>
       putTicketsChoice(http, choice).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     ticket: (key) => getTicket(http, key).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    skills: (repositoryId) =>
+      getSkills(http, repositoryId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     claudeLogin: () => getClaudeLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkClaudeLogin: () =>
       postClaudeLoginCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
