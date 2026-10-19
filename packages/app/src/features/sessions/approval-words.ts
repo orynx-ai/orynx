@@ -47,3 +47,6 @@ export function moreLinesText(count: number): string {
 
 /** The Session screen's pill while a call waits (Q8d); the sidebar and Home say "Needs you". */
 export const needsApprovalLabel = 'Needs your approval';
+
+/** The bar pinned to the window's bottom while the waiting call is out of view (the user's call, 19 Oct 2026). */
+export const approvalBar = { title: 'Claude is waiting for your approval', review: 'Review' };

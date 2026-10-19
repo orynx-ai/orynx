@@ -1,9 +1,10 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Session, type SessionApproval } from '@devhub/contracts';
 import { makeSession, makeSessionApproval } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
+import { FakeIntersectionObserver } from '../../../test/fake-intersection-observer.ts';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -192,5 +193,43 @@ describe('ApprovalCallout (spec 012)', () => {
     await renderApp({ route });
     expect(await screen.findByRole('region', { name: "Claude's progress" })).toBeVisible();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('out of view, a bar pinned to the window’s bottom says Claude waits, and Review brings the call back', async () => {
+    const { answered } = setUp([lint]);
+    const { user } = await renderApp({ route });
+    const callout = await screen.findByRole('alert');
+    const bar = () => screen.queryByRole('button', { name: /^Claude is waiting for your approval/ });
+    expect(bar()).toBeNull();
+
+    act(() => {
+      FakeIntersectionObserver.scrollOutOfView();
+    });
+    const shown = await screen.findByRole('button', { name: /^Claude is waiting for your approval/ });
+    expect(within(shown).getByText('npm run lint').tagName).toBe('CODE');
+    // The callout already said it; the bar isn't a second alert.
+    expect(screen.getAllByRole('alert')).toEqual([callout]);
+
+    // jsdom can't scroll; the browser's own scrollIntoView is watched to see where the page is asked to go.
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    await user.click(shown);
+    expect(scrolled).toHaveBeenCalledWith({ block: 'center', behavior: 'auto' });
+    expect(within(callout).getByRole('button', { name: 'Allow once' })).toHaveFocus();
+    act(() => {
+      FakeIntersectionObserver.scrollIntoView();
+    });
+    await waitFor(() => {
+      expect(bar()).toBeNull();
+    });
+
+    // Once nothing waits, there's no bar, whatever is in view.
+    act(() => {
+      FakeIntersectionObserver.scrollOutOfView();
+    });
+    expect(await screen.findByRole('button', { name: /^Claude is waiting for your approval/ })).toBeVisible();
+    answered();
+    await waitFor(() => {
+      expect(bar()).toBeNull();
+    });
   });
 });
