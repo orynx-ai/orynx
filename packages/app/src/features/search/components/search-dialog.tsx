@@ -16,6 +16,7 @@ import {
 import { usePlatform } from '../../../platform.tsx';
 import { useSearchIndex } from '../queries.ts';
 import { hitText, resultCount, searchResults, type SearchHit } from '../search-results.ts';
+import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
 import { useSearchStore } from '../store.ts';
 
 const boxLabel = 'Search tickets, pull requests and sessions';
@@ -74,6 +75,7 @@ function SearchBody() {
   const query = useWatch({ control: form.control, name: 'query' });
   const index = useSearchIndex();
   const setOpen = useSearchStore((state) => state.setOpen);
+  const showTicket = useTicketDialogStore((state) => state.show);
   const platform = usePlatform();
   const navigate = useNavigate();
 
@@ -95,22 +97,20 @@ function SearchBody() {
     }),
   }));
 
-  /** Where Home and Tickets go (Q2c): a ticket's session, else Jira; a pull request on GitHub; a session in DevHub. */
+  /**
+   * A ticket opens the ticket dialog, which has Open in Jira and Open session (spec 022, Q8); a pull request opens
+   * on GitHub; a session in DevHub (Q2c).
+   */
   function open(id: string) {
     const hit = hits.get(id);
     if (hit === undefined) return;
     setOpen(false);
-    const sessionId =
-      hit.kind === 'session'
-        ? hit.session.id
-        : hit.kind === 'ticket' && hit.ticket.target.kind === 'session'
-          ? hit.ticket.target.sessionId
-          : null;
-    if (sessionId !== null) {
-      void navigate({ to: '/sessions/$sessionId', params: { sessionId } });
-    } else if (hit.kind === 'ticket' && hit.ticket.target.kind === 'external') {
-      platform.openExternal(hit.ticket.target.url);
-    } else if (hit.kind === 'pull_request') {
+    if (hit.kind === 'ticket') {
+      const { key, title, target } = hit.ticket;
+      showTicket({ key, title, type: null, url: target.kind === 'external' ? target.url : null });
+    } else if (hit.kind === 'session') {
+      void navigate({ to: '/sessions/$sessionId', params: { sessionId: hit.session.id } });
+    } else {
       platform.openExternal(hit.pullRequest.url);
     }
   }

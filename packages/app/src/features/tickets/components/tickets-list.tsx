@@ -16,7 +16,7 @@ import {
 import { inListOrder } from '../filters.ts';
 import { statusTones } from '../../../words/status-tone.ts';
 import { listCaption, listEmptyText } from '../ticket-words.ts';
-import { dueLabel, TicketAgentChip, TicketTitleLink } from './ticket-card.tsx';
+import { dueLabel, TicketAgentChip, TicketTitleButton } from './ticket-card.tsx';
 import { ShipWithClaude } from '../../sessions/components/ship-with-claude.tsx';
 
 export interface TicketsListProps {
@@ -56,7 +56,7 @@ export function TicketsList({ shown, sprintName, filtered, onlyMine, now }: Tick
               {/* The title is the one cell that wraps; keys, dates and chips stay on one line, as shadcn's table keeps them. */}
               {/* At the board's size: the same title looks the same everywhere (Clean UI). */}
               <TableCell className="text-body whitespace-normal">
-                <TicketTitleLink ticket={ticket} />
+                <TicketTitleButton ticket={ticket} />
               </TableCell>
               <TableCell>
                 <Pill tone={statusTones[ticket.column]}>{ticket.status}</Pill>

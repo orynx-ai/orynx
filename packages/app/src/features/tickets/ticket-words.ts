@@ -126,3 +126,43 @@ export const unreachableText = {
 export function tooManyLine(sprintName: string): string {
   return `Showing the first 300 tickets in ${sprintName}, in Jira's order.`;
 }
+
+/** The ticket dialog's words (spec 022, Q12). */
+export const ticketDialogWords = {
+  details: 'Ticket details',
+  fields: {
+    status: 'Status',
+    priority: 'Priority',
+    assignee: 'Assignee',
+    reporter: 'Reporter',
+    due: 'Due',
+    labels: 'Labels',
+    created: 'Created',
+    updated: 'Updated',
+  },
+  unassigned: 'Unassigned',
+  description: 'Description',
+  links: 'Linked issues',
+  comments: 'Comments',
+  noLinks: 'No linked issues.',
+  noComments: 'No comments.',
+  loading: 'Loading the ticket…',
+  close: 'Close',
+  openInJira: 'Open in Jira',
+  addToComposer: 'Add to composer',
+  inComposer: 'In the composer',
+  openSession: 'Open session',
+  tryAgain: 'Try again',
+} as const;
+
+/** AC-44: why the dialog has no ticket. */
+export function ticketProblemLine(key: string, result: 'not_found' | 'not_connected' | 'unreachable'): string {
+  switch (result) {
+    case 'not_found':
+      return `Jira can't find ${key}, or you can't see it.`;
+    case 'not_connected':
+      return 'Jira is not connected. Connect it in Settings.';
+    case 'unreachable':
+      return "Jira didn't answer.";
+  }
+}

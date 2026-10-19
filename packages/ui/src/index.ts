@@ -168,10 +168,12 @@ export {
   WorkItemPriority,
   WorkItemShip,
   WorkItemTitle,
+  WorkItemTitleButton,
   type WorkItemCardProps,
   type WorkItemPriorityLevel,
   type WorkItemPriorityProps,
   type WorkItemShipProps,
+  type WorkItemTitleButtonProps,
   type WorkItemTitleProps,
 } from './components/work-item-card.tsx';
 export { bundledFontFaces } from './fonts.ts';

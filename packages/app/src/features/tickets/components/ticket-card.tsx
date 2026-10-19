@@ -1,40 +1,26 @@
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import type { Ticket } from '@devhub/contracts';
-import { AgentChip, WorkItemCard, WorkItemTitle } from '@devhub/ui';
-import { usePlatform } from '../../../platform.tsx';
+import { AgentChip, WorkItemCard, WorkItemTitleButton } from '@devhub/ui';
 import { dueText } from '../../../words/due.ts';
 import { assigneeAvatar } from '../ticket-words.ts';
 import { ShipWithClaude } from '../../sessions/components/ship-with-claude.tsx';
+import { useTicketDialogStore } from '../ticket-dialog-store.ts';
 
 /**
- * A ticket's title as a link (Q4a): to its session inside DevHub when it has one, otherwise to the issue in
- * Jira, opened by the host (a new tab, or the system's browser).
+ * A ticket's title opens the ticket dialog (spec 022, Q8), with or without a session: the dialog has Open in
+ * Jira, and Open session when there is one. Claude's state chip still opens the session (AC-48).
  */
-export function TicketTitleLink({ ticket }: { ticket: Ticket }) {
-  const platform = usePlatform();
-  if (ticket.session !== null) {
-    return (
-      <WorkItemTitle asChild>
-        <Link to="/sessions/$sessionId" params={{ sessionId: ticket.session.id }}>
-          {ticket.title}
-        </Link>
-      </WorkItemTitle>
-    );
-  }
+export function TicketTitleButton({ ticket }: { ticket: Ticket }) {
+  const show = useTicketDialogStore((state) => state.show);
   return (
-    // It leaves Orynx, so it has the external link's arrow (the user's call, 18 Oct 2026).
-    <WorkItemTitle
-      external
-      href={ticket.url}
-      rel="noreferrer"
-      onClick={(event) => {
-        event.preventDefault();
-        platform.openExternal(ticket.url);
+    <WorkItemTitleButton
+      onClick={() => {
+        show({ key: ticket.key, title: ticket.title, type: ticket.type, url: ticket.url });
       }}
     >
       {ticket.title}
-    </WorkItemTitle>
+    </WorkItemTitleButton>
   );
 }
 
@@ -77,7 +63,7 @@ export function TicketCard({ ticket, now }: { ticket: Ticket; now: Date }) {
       assignee={avatar ?? undefined}
       priority={ticket.priority === null ? undefined : { level: ticket.priority.level, label: ticket.priority.name }}
       due={due ?? undefined}
-      title={<TicketTitleLink ticket={ticket} />}
+      title={<TicketTitleButton ticket={ticket} />}
       // A ticket with a live session shows its chip; one without, Ship (spec 011, named in spec 020).
       action={
         ticket.session === null ? (

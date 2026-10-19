@@ -213,6 +213,31 @@ export function WorkItemTitle({
   );
 }
 
+export type WorkItemTitleButtonProps = Omit<ComponentProps<'button'>, 'type'>;
+
+/**
+ * The card's title as a button, for a title that opens something in the page rather than going somewhere: the
+ * ticket dialog (spec 022, Q8). It looks as the link does, cut off with an ellipsis after two lines, and names
+ * the card the same way.
+ */
+export function WorkItemTitleButton({ className, children, ...props }: WorkItemTitleButtonProps) {
+  const titleId = useContext(TitleIdContext);
+  return (
+    <button
+      id={titleId}
+      type="button"
+      data-slot="work-item-title"
+      className={cn(
+        'cursor-pointer rounded-xs border-0 bg-transparent p-0 text-start font-medium text-foreground hover:underline',
+        className,
+      )}
+      {...props}
+    >
+      <span className="line-clamp-2">{children}</span>
+    </button>
+  );
+}
+
 export type WorkItemShipProps = Omit<IconButtonProps, 'variant' | 'size' | 'label'> & {
   /** The ticket's key, so the button's name says which ticket: "Ship PROJ-1377". */
   itemKey: string;

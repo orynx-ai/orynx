@@ -7,6 +7,7 @@ import {
   makeSearchPullRequest,
   makeSearchTicket,
   makeSessionSummary,
+  makeTicketDetail,
 } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -124,8 +125,13 @@ describe('Search dialog', () => {
     expect(asked()).toBe(1);
   });
 
-  it('AC-12: Enter on a ticket with no session opens it in Jira, closes search and gives focus back', async () => {
+  it('022 AC-40: Enter on a ticket closes search and opens the ticket dialog, with Open in Jira', async () => {
     holding();
+    server.use(
+      http.get(apiUrl(apiRoutes.ticket), () =>
+        HttpResponse.json({ result: 'found', ticket: makeTicketDetail({ title: 'Add bulk archive' }) }),
+      ),
+    );
     const { user, platform } = await renderApp({ route: '/tickets' });
     await openSearch(user);
     await user.type(await screen.findByRole('combobox'), 'archive');
@@ -133,15 +139,26 @@ describe('Search dialog', () => {
 
     await user.keyboard('{Enter}');
 
+    const ticket = await screen.findByRole('dialog', { name: 'Add bulk archive' });
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    await user.click(within(ticket).getByRole('link', { name: 'Open in Jira' }));
     expect(platform.openExternal).toHaveBeenCalledWith('https://your-team.atlassian.net/browse/PROJ-1423');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(
-      within(screen.getByRole('navigation', { name: 'Main' })).getByRole('button', { name: /Search/ }),
-    ).toHaveFocus();
   });
 
-  it('AC-11, AC-13: ↓ then Enter on a ticket with a session opens that session in DevHub', async () => {
+  it('AC-11, 022 AC-48: ↓ then Enter on a ticket with a session opens the dialog, whose Open session opens it', async () => {
     holding();
+    server.use(
+      http.get(apiUrl(apiRoutes.ticket), () =>
+        HttpResponse.json({
+          result: 'found',
+          ticket: makeTicketDetail({
+            key: 'PROJ-1377',
+            title: 'Fix archive search',
+            session: { id: 'session-9', state: 'working' },
+          }),
+        }),
+      ),
+    );
     const { user, history, platform } = await renderApp({ route: '/tickets' });
     await openSearch(user);
     await user.type(await screen.findByRole('combobox'), 'archive');
@@ -149,9 +166,13 @@ describe('Search dialog', () => {
 
     await user.keyboard('{ArrowDown}{Enter}');
 
+    const ticket = await screen.findByRole('dialog', { name: 'Fix archive search' });
+    await user.click(await within(ticket).findByRole('link', { name: 'Open session' }));
     expect(history.location.pathname).toBe('/sessions/session-9');
     expect(platform.openExternal).not.toHaveBeenCalled();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 
   it('AC-14: a click on a pull request opens it on GitHub', async () => {

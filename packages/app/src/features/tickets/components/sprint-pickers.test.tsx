@@ -103,7 +103,7 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
     });
     await user.keyboard('site{Enter}');
 
-    expect(await screen.findByRole('link', { name: 'Ship the new footer' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Ship the new footer' })).toBeVisible();
     expect(save.saved).toEqual([{ projectKey: 'WEB', sprintId: null }]);
     expect(project()).toHaveTextContent('Project WEB');
     expect(sprint()).toHaveTextContent('Sprint Sprint 43');
@@ -175,7 +175,7 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
 
     await user.keyboard('{Enter}');
     await user.keyboard('web{Enter}');
-    await screen.findByRole('link', { name: 'Ship the new footer' });
+    await screen.findByRole('button', { name: 'Ship the new footer' });
     expect(project()).toHaveFocus();
   });
 
@@ -218,7 +218,7 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
     await screen.findByText('6 tickets');
     await user.click(project());
     await user.keyboard('web{Enter}');
-    await screen.findByRole('link', { name: 'Ship the new footer' });
+    await screen.findByRole('button', { name: 'Ship the new footer' });
 
     await user.click(project());
     await user.click(screen.getByRole('option', { name: 'Your sprint' }));
@@ -237,7 +237,7 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
     const menu = await screen.findByRole('menu', { name: 'Sprint' });
     await user.click(within(menu).getByRole('menuitemradio', { name: 'No sprint' }));
 
-    expect(await screen.findByRole('link', { name: 'Write the release notes' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Write the release notes' })).toBeVisible();
     // From Your sprint, No sprint means your own tickets in no sprint, in any project.
     expect(save.saved).toEqual([{ projectKey: null, sprintId: 'none' }]);
     expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('No sprint')).toBeVisible();
@@ -251,12 +251,12 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
     await screen.findByText('6 tickets');
     await user.click(project());
     await user.keyboard('web{Enter}');
-    await screen.findByRole('link', { name: 'Ship the new footer' });
+    await screen.findByRole('button', { name: 'Ship the new footer' });
 
     await user.click(sprint());
     await user.click(await screen.findByRole('menuitemradio', { name: 'No sprint' }));
 
-    await screen.findByRole('link', { name: 'Write the release notes' });
+    await screen.findByRole('button', { name: 'Write the release notes' });
     expect(save.saved.at(-1)).toEqual({ projectKey: 'WEB', sprintId: 'none' });
   });
 });

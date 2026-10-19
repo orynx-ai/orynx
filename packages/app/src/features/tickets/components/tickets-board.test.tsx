@@ -73,7 +73,7 @@ describe('TicketsBoard', () => {
     }
 
     function title(name: string) {
-      return screen.getByRole('link', { name });
+      return screen.getByRole('button', { name });
     }
 
     const keys = ['PROJ-1423', 'PROJ-1411'] as const;
@@ -104,7 +104,7 @@ describe('TicketsBoard', () => {
       await waitFor(() => {
         expect(title('Keyboard navigation for the mega menu')).toHaveFocus();
       });
-      expect(within(column(/^In review/)).getByRole('link', { name: 'Keyboard navigation for the mega menu' })).toBe(
+      expect(within(column(/^In review/)).getByRole('button', { name: 'Keyboard navigation for the mega menu' })).toBe(
         document.activeElement,
       );
     });
