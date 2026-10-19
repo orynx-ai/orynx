@@ -1,4 +1,14 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type SubmitEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type Ref,
+  type RefObject,
+  type SubmitEvent,
+} from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { GitPullRequestIcon } from '@hugeicons/core-free-icons';
 import { Link } from '@tanstack/react-router';
@@ -209,20 +219,27 @@ function NoPullRequest({
 }
 
 /**
- * Create pull request (spec 014): the title row's primary button, as `session.html` draws it, and its dialog.
- * Opening it asks Claude for a draft, which changes nothing (AC-14); Create in the dialog commits, pushes and
- * opens the pull request, and only that press does (AC-4). Closing keeps your edits while the page is open (Q10h).
+ * Create pull request (spec 014): the page's primary button, in the page bar since the user's call of 19 Oct 2026,
+ * and its dialog. Opening it asks Claude for a draft, which changes nothing (AC-14); Create in the dialog commits,
+ * pushes and opens the pull request, and only that press does (AC-4). Closing keeps your edits while the page is
+ * open (Q10h).
  */
 export function CreatePullRequest({
   session,
   show,
   onOpened,
+  menu,
+  ref,
 }: {
   session: Session;
-  /** Whether the title row offers it (Q2). An open dialog stays until it closes itself, even once the PR shows. */
+  /** Whether the page offers it (Q2). An open dialog stays until it closes itself, even once the PR shows. */
   show: boolean;
   /** Called once the dialog has closed after the pull request opened, so focus can move on (AC-4). */
   onOpened: () => void;
+  /** Opened from this menu's item rather than a button of its own (under 768 px); closing gives the menu focus. */
+  menu?: RefObject<HTMLElement | null>;
+  /** Opens the dialog, for the menu's item. */
+  ref?: Ref<{ open: () => void }>;
 }) {
   const [open, setOpen] = useState(false);
   /** The dialog is closing because the pull request opened. */
@@ -255,6 +272,12 @@ export function CreatePullRequest({
     }
     if (current === undefined) askForDraft();
   }
+
+  useImperativeHandle(ref, () => ({
+    open: () => {
+      openChange(true);
+    },
+  }));
 
   function createNow(values: { title: string; body: string }) {
     create.mutate(values, {
@@ -302,9 +325,9 @@ export function CreatePullRequest({
   if (!show && !open) return null;
   return (
     <Dialog open={open} onOpenChange={openChange}>
-      {show ? (
+      {show && menu === undefined ? (
         <DialogTrigger asChild>
-          <Button variant="primary">
+          <Button variant="primary" size="sm">
             <Icon icon={GitPullRequestIcon} aria-hidden />
             {pullRequestWords.create}
           </Button>
@@ -314,11 +337,16 @@ export function CreatePullRequest({
         aria-describedby={describedBy}
         className="gap-4 p-6"
         onCloseAutoFocus={(event) => {
-          if (!created.current) return;
-          // Not back to Create pull request, which goes: on to Open PR, once the dialog has let focus go.
-          created.current = false;
+          if (created.current) {
+            // Not back to Create pull request, which goes: on to Open PR, once the dialog has let focus go.
+            created.current = false;
+            event.preventDefault();
+            onOpened();
+            return;
+          }
+          if (menu === undefined) return;
           event.preventDefault();
-          onOpened();
+          menu.current?.focus();
         }}
       >
         <div className="flex flex-col gap-1">

@@ -1,4 +1,4 @@
-// Design: docs/design/screens/session.html — page bar, title row with Stop Claude and Create pull request (spec 014's dialog and PR-open row: Design: none, settled in its Q10), stepper, Claude's progress with the approval callout and the follow-up box, the Changes tab; the Context tab (in place of Ticket), the details held in view, the full-screen view and an Ask session's page with no stepper or Changes: Design: none — the user's call, 19 Oct 2026
+// Design: docs/design/screens/session.html — page bar, title row, stepper, Claude's progress with the approval callout and the follow-up box, the Changes tab; spec 014's dialog and PR-open buttons: Design: none, settled in its Q10; the Context tab (in place of Ticket), the details held in view, the full-screen view, an Ask session's page with no stepper or Changes, and the session's buttons small in the page bar with Open in the editor and Discard changes in More actions (everything but Stop Claude in it under 768 px): Design: none — the user's call, 19 Oct 2026
 import { useRef, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import type { Session } from '@devhub/contracts';
@@ -12,7 +12,7 @@ import { ChangesSkeleton } from './components/changes-panel.tsx';
 import { contextOf } from './components/context-panel.tsx';
 import { FollowUpBox } from './components/follow-up-box.tsx';
 import { SessionDetails } from './components/session-details.tsx';
-import { SessionHeader, SessionHeaderSkeleton } from './components/session-header.tsx';
+import { SessionActions, SessionHeader, SessionHeaderSkeleton } from './components/session-header.tsx';
 import {
   SessionProgress,
   SessionProgressSkeleton,
@@ -127,7 +127,12 @@ export function SessionScreen() {
       <PageBar
         breadcrumb={<PageBreadcrumb crumbs={crumbsFor(found)} />}
         meta={`Started ${agoText(now.getTime() - Date.parse(found.startedAt))}`}
-        {...(found.jiraUrl === null ? {} : { actions: <OpenInJira url={found.jiraUrl} /> })}
+        actions={
+          <>
+            {found.jiraUrl === null ? null : <OpenInJira url={found.jiraUrl} />}
+            <SessionActions session={found} title={title} />
+          </>
+        }
       />
       <PageBody width="full">
         <SessionHeader session={found} title={title} />

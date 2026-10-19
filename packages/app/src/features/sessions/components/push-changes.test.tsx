@@ -42,7 +42,7 @@ function serve(
 const dialog = () => screen.getByRole('dialog', { name: 'Push changes' });
 
 describe('Push changes (spec 014, Q7)', () => {
-  it('AC-17: sits in the title row once the pull request is open, and not while Claude works or after Discard', async () => {
+  it('AC-17: sits in the page bar once the pull request is open, and not while Claude works or after Discard', async () => {
     serve(open);
     const first = await renderApp({ route });
     expect(await screen.findByRole('button', { name: 'Push changes' })).toBeVisible();
