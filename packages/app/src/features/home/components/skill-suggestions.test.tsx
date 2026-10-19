@@ -147,7 +147,8 @@ describe('the composer’s / list (spec 022, G)', () => {
     });
     await user.keyboard('{Enter}');
     await waitFor(() => {
-      expect(posted).toEqual([{ message: 'Try /nope', repositoryId: web.id, context: [] }]);
+      // No ticket, so the composer starts an Ask (spec 026).
+      expect(posted).toEqual([{ message: 'Try /nope', repositoryId: web.id, context: [], mode: 'ask' }]);
     });
   });
 

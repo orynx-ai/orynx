@@ -251,6 +251,19 @@ async function started(records: SessionRecords, id: string) {
   throw new Error('Claude Code never started');
 }
 
+/**
+ * How many events were heard once they stopped coming: a session's last event can trail its record by a moment under
+ * load, so a count taken as soon as it settles may miss it.
+ */
+async function quietCount(heard: readonly unknown[]): Promise<number> {
+  let count = -1;
+  while (count !== heard.length) {
+    count = heard.length;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return count;
+}
+
 /** Nothing was made: no new session or worktree, and no tab was told of one since `heardBefore` events. */
 async function nothingMade({ records, home, heard }: Awaited<ReturnType<typeof setUp>>, before = 0, heardBefore = 0) {
   expect(await records.list()).toHaveLength(before);
@@ -264,7 +277,7 @@ describe('a composer start that can’t happen (spec 015)', () => {
     const set = await setUp();
     await set.sessions.start({ ticketKey: 'PROJ-1423' });
     await settled(set.records);
-    const heardBefore = set.heard.length;
+    const heardBefore = await quietCount(set.heard);
 
     const answer = await set.sessions.start(makeComposerStart({ message: 'Only the tests', context: [ticketChip] }));
 
