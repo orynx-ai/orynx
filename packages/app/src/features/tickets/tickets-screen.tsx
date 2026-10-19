@@ -1,4 +1,4 @@
-// Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list
+// Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list; Refresh, the ticket checkboxes and Ship for several: Design: none, the user's call (19 Oct 2026)
 import { useRef, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -13,6 +13,8 @@ import { TicketsBoard, TicketsBoardSkeleton } from './components/tickets-board.t
 import { TicketsList, TicketsListSkeleton } from './components/tickets-list.tsx';
 import { SprintPickers } from './components/sprint-pickers.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
+import { ShipSelected } from './components/ship-button.tsx';
+import { RefreshButton } from '../home/components/sync-status.tsx';
 import {
   defaultFilters,
   filterOptions,
@@ -30,6 +32,7 @@ import {
   noSprintText,
   pageHeading,
   sprintMeta,
+  syncedLine,
   tooManyLine,
   unreachableText,
 } from './ticket-words.ts';
@@ -85,6 +88,7 @@ export function TicketsScreen() {
   const crumbs: Crumb[] =
     shownName === null ? [ticketsCrumb] : [{ ...ticketsCrumb, to: '/tickets' }, { label: shownName }];
   const line = data === undefined ? null : toolLine('jira', data.jira, now);
+  const synced = data === undefined ? null : syncedLine(data.jira, now);
 
   function changeFilters(next: AddressFilters) {
     void navigate({ search: searchFromFilters(next), replace: true });
@@ -139,27 +143,31 @@ export function TicketsScreen() {
             : (sprintMeta(sprint, now) ?? undefined)
         }
         actions={
-          noSprint ? undefined : (
-            <>
-              {wide ? searchField : null}
-              <SegmentedControl
-                aria-label="View"
-                value={view}
-                onValueChange={(picked) => {
-                  if (picked === 'board' || picked === 'list') setView(picked);
-                }}
-              >
-                <SegmentedControlItem value="board">
-                  <Icon icon={KanbanIcon} aria-hidden />
-                  Board
-                </SegmentedControlItem>
-                <SegmentedControlItem value="list">
-                  <Icon icon={LeftToRightListBulletIcon} aria-hidden />
-                  List
-                </SegmentedControlItem>
-              </SegmentedControl>
-            </>
-          )
+          <>
+            {synced === null ? null : <span className="text-small text-muted-foreground max-md:hidden">{synced}</span>}
+            <RefreshButton />
+            {noSprint ? null : (
+              <>
+                {wide ? searchField : null}
+                <SegmentedControl
+                  aria-label="View"
+                  value={view}
+                  onValueChange={(picked) => {
+                    if (picked === 'board' || picked === 'list') setView(picked);
+                  }}
+                >
+                  <SegmentedControlItem value="board">
+                    <Icon icon={KanbanIcon} aria-hidden />
+                    Board
+                  </SegmentedControlItem>
+                  <SegmentedControlItem value="list">
+                    <Icon icon={LeftToRightListBulletIcon} aria-hidden />
+                    List
+                  </SegmentedControlItem>
+                </SegmentedControl>
+              </>
+            )}
+          </>
         }
       />
       <TicketsToolbar
@@ -171,6 +179,13 @@ export function TicketsScreen() {
         assigneeRef={assignee}
         pickers={<SprintPickers choice={choice} sprint={sprint} loading={loading} />}
         pickersOnly={noSprint}
+        selection={
+          <ShipSelected
+            onCleared={() => {
+              assignee.current?.focus();
+            }}
+          />
+        }
         {...(wide ? {} : { search: searchField })}
       />
       <PageBody width={noSprint ? 'wide' : 'full'}>

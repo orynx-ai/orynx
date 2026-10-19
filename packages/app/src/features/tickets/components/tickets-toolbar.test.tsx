@@ -24,11 +24,18 @@ function count() {
   return within(toolbar()).getByRole('status');
 }
 
-/** Opens a filter, ticks or unticks these options, and closes it again with Escape. */
-async function tick(user: UserEvent, name: RegExp, options: string[]) {
+/**
+ * Opens a filter, ticks or unticks these options, and closes it again with Escape. Assignee searches its people,
+ * so its options are a list's (`option`); the others are a menu's.
+ */
+async function tick(
+  user: UserEvent,
+  name: RegExp,
+  options: string[],
+  role: 'menuitemcheckbox' | 'option' = 'menuitemcheckbox',
+) {
   await user.click(within(toolbar()).getByRole('button', { name }));
-  const menu = await screen.findByRole('menu');
-  for (const option of options) await user.click(within(menu).getByRole('menuitemcheckbox', { name: option }));
+  for (const option of options) await user.click(await screen.findByRole(role, { name: option }));
   await user.keyboard('{Escape}');
 }
 
@@ -48,7 +55,7 @@ describe('TicketsToolbar (spec 020)', () => {
     const { user, history } = await renderApp({ route: '/tickets' });
     await screen.findByText('6 tickets');
 
-    await tick(user, /^Assignee/, ['Me']);
+    await tick(user, /^Assignee/, ['Me'], 'option');
 
     expect(filter('Assignee')).toHaveFocus();
     expect(count()).toHaveTextContent('9 tickets');

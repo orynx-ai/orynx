@@ -1,11 +1,27 @@
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import type { Ticket } from '@devhub/contracts';
-import { AgentChip, WorkItemCard, WorkItemTitleButton } from '@devhub/ui';
+import { AgentChip, WorkItemCard, WorkItemSelect, WorkItemTitleButton } from '@devhub/ui';
 import { dueText } from '../../../words/due.ts';
+import { useTicketsStore } from '../store.ts';
 import { assigneeAvatar } from '../ticket-words.ts';
 import { ShipButton } from './ship-button.tsx';
 import { useTicketDialogStore } from '../ticket-dialog-store.ts';
+
+/** Ticks the ticket to Ship with others (the user's call, 19 Oct 2026), on its card or its list row. */
+export function TicketSelect({ ticketKey }: { ticketKey: string }) {
+  const checked = useTicketsStore((state) => state.selected.includes(ticketKey));
+  const toggle = useTicketsStore((state) => state.toggleSelected);
+  return (
+    <WorkItemSelect
+      itemKey={ticketKey}
+      checked={checked}
+      onChange={() => {
+        toggle(ticketKey);
+      }}
+    />
+  );
+}
 
 /**
  * A ticket's title opens the ticket dialog (spec 022, Q8), with or without a session: the dialog has Open in
@@ -64,6 +80,7 @@ export function TicketCard({ ticket, now }: { ticket: Ticket; now: Date }) {
       priority={ticket.priority === null ? undefined : { level: ticket.priority.level, label: ticket.priority.name }}
       due={due ?? undefined}
       title={<TicketTitleButton ticket={ticket} />}
+      select={<TicketSelect ticketKey={ticket.key} />}
       // A ticket with a live session shows its chip; one without, Ship (spec 011, named in spec 020).
       action={
         ticket.session === null ? (

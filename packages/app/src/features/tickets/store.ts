@@ -8,6 +8,10 @@ export type TicketsView = 'board' | 'list';
 interface TicketsState {
   view: TicketsView;
   setView: (view: TicketsView) => void;
+  /** The tickets ticked to Ship together, by key, in the order ticked; kept only while Orynx is open. */
+  selected: string[];
+  toggleSelected: (key: string) => void;
+  clearSelected: () => void;
 }
 
 export const useTicketsStore = create<TicketsState>()(
@@ -17,7 +21,18 @@ export const useTicketsStore = create<TicketsState>()(
       setView: (view) => {
         set({ view });
       },
+      selected: [],
+      toggleSelected: (key) => {
+        set((state) => ({
+          selected: state.selected.includes(key)
+            ? state.selected.filter((held) => held !== key)
+            : [...state.selected, key],
+        }));
+      },
+      clearSelected: () => {
+        set({ selected: [] });
+      },
     }),
-    { name: 'devhub.tickets' },
+    { name: 'devhub.tickets', partialize: (state) => ({ view: state.view }) },
   ),
 );

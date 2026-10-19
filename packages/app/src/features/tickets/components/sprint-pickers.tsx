@@ -68,7 +68,7 @@ export function SprintPickers({
         loading={projects.isPending && projects.fetchStatus !== 'idle'}
         onOpenChange={setListing}
       >
-        <Picker className={pickerWidth}>
+        <Picker variant="plain" className={pickerWidth}>
           <span className="text-muted-foreground">Project</span> {choice.projectKey ?? yourSprintText}
         </Picker>
       </Combobox>
@@ -111,7 +111,7 @@ function SprintMenu({
   return (
     <Menu open={open} onOpenChange={setOpen}>
       <MenuTrigger asChild>
-        <Picker className={pickerWidth}>
+        <Picker variant="plain" className={pickerWidth}>
           <span className="text-muted-foreground">Sprint</span>{' '}
           {name ?? (
             // While the sprint loads: a bar where its name goes, the picker as wide as ever.
@@ -122,6 +122,11 @@ function SprintMenu({
       {/* A menu holds menu items alone (ARIA), and while open it hides the page around it, so the menu itself
             says it's busy; the loading rows are only drawn. */}
       <MenuContent heading="Sprint" align="start" size="sm" aria-busy={loading || undefined}>
+        {/* No sprint first, so it never moves however the sprints load (the user's call, 19 Oct 2026). */}
+        <MenuRadioGroup value={current === 'none' ? 'none' : ''} onValueChange={() => { onPick('none'); }}>
+          <MenuRadioItem value="none">{noSprintName}</MenuRadioItem>
+        </MenuRadioGroup>
+        {project === null ? null : <MenuSeparator />}
         {project === null ? null : sprints.isPending ? (
           // Two rows the size of a sprint's (its name over its dates), so the list doesn't jump when they arrive.
           <div aria-hidden className="flex flex-col">
@@ -155,7 +160,7 @@ function SprintMenu({
         <MenuRadioGroup
           value={current === null ? '' : String(current)}
           onValueChange={(value) => {
-            onPick(value === 'none' ? 'none' : Number(value));
+            onPick(Number(value));
           }}
         >
           {project === null || !sprints.isSuccess
@@ -165,8 +170,6 @@ function SprintMenu({
                   {found.name}
                 </MenuRadioItem>
               ))}
-          {project === null ? null : <MenuSeparator />}
-          <MenuRadioItem value="none">{noSprintName}</MenuRadioItem>
         </MenuRadioGroup>
       </MenuContent>
     </Menu>
