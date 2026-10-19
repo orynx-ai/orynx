@@ -58,6 +58,10 @@ async function layoutShiftScore(page: Page): Promise<number> {
 }
 
 async function axeViolations(page: Page): Promise<string[]> {
+  // Controls fade from their loading look (Coding agent's rows); mid-fade colours aren't the page's real ones.
+  await page.evaluate(() =>
+    Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined))),
+  );
   await page.addScriptTag({ path: axePath });
   return page.evaluate(async () => {
     const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
@@ -94,7 +98,7 @@ test('AC-1: Given Settings, when I pick each tab, then the address follows it an
 }) => {
   await page.goto('/settings/connections');
   const tabs = page.getByRole('tablist', { name: 'Settings sections' }).getByRole('tab');
-  await expect(tabs).toHaveText(['Connections', 'Coding agent', 'Repositories', 'Inbox rules', 'Appearance']);
+  await expect(tabs).toHaveText(['Connections', 'Coding agent', 'Skills', 'Repositories', 'Inbox rules', 'Appearance']);
 
   for (const [name, path] of [
     ['Coding agent', '/settings/coding-agent'],
