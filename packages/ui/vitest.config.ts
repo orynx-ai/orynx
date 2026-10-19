@@ -9,5 +9,7 @@ export default defineProject({
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // The icon set is ~6,000 files behind one index; bundled once, each test file loads it fast instead of file by file.
+    deps: { optimizer: { client: { enabled: true, include: ['@hugeicons/core-free-icons'] } } },
   },
 });
