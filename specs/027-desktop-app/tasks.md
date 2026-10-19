@@ -17,7 +17,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Finding the hub: another live hub on this home (pid alive and `GET /` answers), an ended one ignored, then waiting for this hub's `runtime.json` and `GET /`, 30 seconds at most (AC-6, AC-8, AC-9)
       Check: pnpm test apps/desktop/src/hub.test.ts
       Files: apps/desktop/src/hub.ts, apps/desktop/src/hub.test.ts
-- [ ] Task 6: The log file (`logs/orynx.log`, the last launch's as `orynx.old.log`, folder 0700, files 0600) and the link rules (https new windows and `vscode:`/`cursor:` to the OS, everything else refused) (AC-13, AC-14, AC-15, AC-21)
+- [x] Task 6: The log file (`logs/orynx.log`, the last launch's as `orynx.old.log`, folder 0700, files 0600) and the link rules (https new windows and `vscode:`/`cursor:` to the OS, everything else refused) (AC-13, AC-14, AC-15, AC-21)
       Check: pnpm test apps/desktop/src/log-file.test.ts apps/desktop/src/links.test.ts
       Files: apps/desktop/src/log-file.ts, apps/desktop/src/log-file.test.ts, apps/desktop/src/links.ts, apps/desktop/src/links.test.ts
 - [ ] Task 7: The dialogs' words (Q1–Q3, AC-8's) and the update notices: once per launch, quiet on 404 or no network, macOS never downloads, Linux downloads and installs only on quit, no token or header (AC-23, AC-24, AC-25, AC-26, AC-27, AC-28, AC-29)
