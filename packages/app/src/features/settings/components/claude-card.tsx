@@ -101,7 +101,13 @@ export function ClaudeCard() {
           <Skeleton className="my-0.5 h-4 w-48 max-w-full" />
         ) : null}
         {login.data?.state === 'signed_in' ? (
-          <p ref={lineRef} tabIndex={-1} className="m-0 text-small wrap-anywhere text-muted-foreground">
+          // One line, as its skeleton, so the answer moves nothing at 360 px; the whole line on hover.
+          <p
+            ref={lineRef}
+            tabIndex={-1}
+            title={accountLine(login.data)}
+            className="m-0 truncate text-small text-muted-foreground"
+          >
             {accountLine(login.data)}
           </p>
         ) : null}
