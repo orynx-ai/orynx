@@ -23,7 +23,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: The dialogs' words (Q1–Q3, AC-8's) and the update notices: once per launch, quiet on 404 or no network, macOS never downloads, Linux downloads and installs only on quit, no token or header (AC-23, AC-24, AC-25, AC-26, AC-27, AC-28, AC-29)
       Check: pnpm test apps/desktop/src/dialogs.test.ts apps/desktop/src/updates.test.ts
       Files: apps/desktop/src/dialogs.ts, apps/desktop/src/dialogs.test.ts, apps/desktop/src/updates.ts, apps/desktop/src/updates.test.ts
-- [ ] Task 8: `main.ts`: one copy, the hub in a `utilityProcess` with `--serve-web` and `DEVHUB_PORT=0`, the window (1280 × 800, shown once drawn, no Node), links, the Dock, quit, the update checks at launch and every 6 hours (AC-3, AC-5, AC-17, AC-18, AC-22, AC-41)
+- [x] Task 8: `main.ts`: one copy, the hub in a `utilityProcess` with `--serve-web` and `DEVHUB_PORT=0`, the window (1280 × 800, shown once drawn, no Node), links, the Dock, quit, the update checks at launch and every 6 hours (AC-3, AC-5, AC-17, AC-18, AC-22, AC-41)
       Check: pnpm typecheck; pnpm --filter @devhub/desktop build
       Files: apps/desktop/src/main.ts
 - [ ] Task 9: Packing: the server deployed with its production `node_modules` (hoisted), better-sqlite3 rebuilt for Electron, the web build, Claude Code left unsigned by us, ad-hoc signing, `.dmg` + `.zip` (arm64) and AppImage, the GitHub feed files (AC-1, AC-2, AC-12)
