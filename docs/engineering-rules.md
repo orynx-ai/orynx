@@ -160,8 +160,8 @@ const port = Number(process.env.DEVHUB_PORT);
 | Stories    | Every component in every state                                      | Storybook 10 + addon-a11y (`test: "error"`); theme and width are toolbar switches | `*.stories.tsx`                  |
 | End to end | Real browser, real server, real web app                             | Playwright; names read "Given …, when …, then …"                                  | `e2e/`                           |
 
-- **While working**, run only what you touched: `pnpm test <paths>` or `pnpm test:changed`.
-- **Before you say done**, run `pnpm verify`.
+- **While working**, and in each `/build` task, run only what you touched: `pnpm test <paths>`, and an e2e file only when you changed it. The pre-commit hook lints the staged files.
+- **Before you say a branch is done**, `/review` runs `pnpm verify` and the whole e2e suite, once.
 - **On every PR**, CI runs the full suite with coverage and the e2e tests.
 
 ### Coverage

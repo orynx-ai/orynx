@@ -35,13 +35,17 @@ Run this at the highest effort. The stamp records the model and effort that sign
 
    Sort findings into **critical** (must fix: bugs, broken rules, security), **important** (should fix) and **suggestion**, each with `file:line`.
 
-4. **Run the checks**:
+4. **Run the checks**, the only time the branch runs everything (`/build` runs only each task's own tests):
 
    ```sh
    pnpm verify
+   lsof -nP -iTCP:4393-4399 -sTCP:LISTEN   # empty, or another worktree's e2e run holds the ports: wait for it
+   pnpm test:e2e
    ```
 
-5. **If there is any critical finding, or `pnpm verify` fails:** the review fails. Fix the critical findings (and the important ones that are quick), commit the fixes, and start again from step 1.
+   When an e2e test fails, rerun only that file before you change code: the suite has known flakes under load.
+
+5. **If there is any critical finding, or `pnpm verify` or `pnpm test:e2e` fails:** the review fails. Fix the critical findings (and the important ones that are quick), commit the fixes, and start again from step 1.
 
 6. **If it passes:** commit any pending changes so the working tree is clean, then write the stamp:
 

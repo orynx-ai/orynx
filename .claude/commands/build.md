@@ -14,17 +14,22 @@ Build the next task of `specs/$ARGUMENTS/`.
    ```
 
 4. **Code.** Write the smallest change that makes the test pass, following `CLAUDE.md`. If you hit anything on the "Stop and ask" list, stop and ask.
-5. **Check.** Run the task's Check, the tests for the files you touched, and the gates that cover them:
+5. **Check, once, just before the commit.** Run each line once. After a fix, rerun only the line that failed.
 
    ```sh
-   pnpm test <paths you touched>
-   pnpm gate style-policy      # UI changes
-   pnpm gate design-source     # new or changed screens
-   pnpm gate boundaries        # new imports
-   pnpm typecheck
+   pnpm test <the task's test files and folders>
+   pnpm typecheck                # turbo skips the packages you didn't touch
+   pnpm gate style-policy        # UI changes
+   pnpm gate design-source       # new or changed screens
+   pnpm gate boundaries          # new imports
+   pnpm gate component-coverage  # new components: each needs its own test file
    ```
 
-   For UI, open it in a real browser (`pnpm dev`) at 360 px and 1280 px, light and dark.
+   Leave these out of a task. Each one runs later, once per branch:
+   - `pnpm lint`: the pre-commit hook lints the files you stage, and the pre-push hook lints everything.
+   - A whole package (`pnpm test packages/app`), `pnpm verify` and coverage: `/review` and the pre-push hook run them.
+   - `pnpm test:e2e`: run an e2e file only when this task changes it or its Check names it, and run only that file. `/review` runs the whole e2e suite.
+   - The real-browser check (360 px and 1280 px, light and dark): do it once per screen, in the task that finishes it, or when the Check asks for it.
 
 6. Tick the task in `tasks.md` (`- [x]`).
 7. Commit once, Conventional Commits with a scope, and mention the spec:
