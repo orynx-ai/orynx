@@ -67,6 +67,14 @@ export function oneAtATime(): <T>(work: () => Promise<T>) => Promise<T> {
 export interface FileSettingsStoreOptions {
   /** Called when settings.json is not valid; DevHub then treats it as empty until the next save. */
   onUnreadable?: () => void;
+  /** Called with the path the next save moved an unreadable settings.json to (spec 027, AC-37). */
+  onKept?: (path: string) => void;
+}
+
+/** `settings-20261019-081233.unreadable.json`, from the time of the save, in UTC. */
+function keptFilePath(home: string): string {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+  return join(home, `settings-${stamp}.unreadable.json`);
 }
 
 /**
@@ -77,19 +85,20 @@ export function createFileSettingsStore(home: string, options: FileSettingsStore
   const path = settingsFilePath(home);
   const queue = oneAtATime();
 
-  async function read(): Promise<Settings> {
+  async function load(): Promise<{ settings: Settings; unreadable: boolean }> {
     let text: string;
     try {
       text = await readFile(path, 'utf8');
     } catch (error) {
-      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return {};
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT')
+        return { settings: {}, unreadable: false };
       throw error;
     }
     try {
-      return SettingsSchema.parse(JSON.parse(text));
+      return { settings: SettingsSchema.parse(JSON.parse(text)), unreadable: false };
     } catch {
       options.onUnreadable?.();
-      return {};
+      return { settings: {}, unreadable: true };
     }
   }
 
@@ -107,10 +116,18 @@ export function createFileSettingsStore(home: string, options: FileSettingsStore
   }
 
   return {
-    read,
+    read: async () => (await load()).settings,
     update: (change) =>
       queue(async () => {
-        const next = SettingsSchema.parse(change(await read()));
+        const { settings, unreadable } = await load();
+        const next = SettingsSchema.parse(change(settings));
+        // A newer or older Orynx may have written a file this one can't read: keep it rather than save over it.
+        if (unreadable) {
+          const kept = keptFilePath(home);
+          await rename(path, kept);
+          await chmod(kept, 0o600);
+          options.onKept?.(kept);
+        }
         await write(next);
         return next;
       }),

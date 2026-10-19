@@ -90,7 +90,12 @@ const app = await createServer({
   dataDir: config.home,
   settings: createFileSettingsStore(config.home, {
     onUnreadable: () => {
-      app.log.warn(`${settingsFilePath(config.home)} is not valid; Orynx ignores it until the next save.`);
+      app.log.warn(
+        `${settingsFilePath(config.home)} is not valid; Orynx keeps it beside the new one when settings next save.`,
+      );
+    },
+    onKept: (kept) => {
+      app.log.warn(`Orynx kept the settings it couldn't read as ${kept}.`);
     },
   }),
   cache,

@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: The hub takes `DEVHUB_PORT=0` and writes the port it got to `runtime.json` and its log line (AC-7, AC-39)
       Check: pnpm test apps/server/src/config.test.ts apps/server/src/runtime-file.test.ts; pnpm typecheck; pnpm gate env-policy. The port written by `main.ts` (no unit test, like the rest of it) was checked by running the built hub with `DEVHUB_PORT=0`; task 10's e2e test keeps it covered
       Files: apps/server/src/config.ts, apps/server/src/config.test.ts, apps/server/src/main.ts, .env.example
-- [ ] Task 2: Saving over an unreadable `settings.json` keeps it as `settings-<date-time>.unreadable.json` (0600), and the log names it (AC-37, AC-38)
+- [x] Task 2: Saving over an unreadable `settings.json` keeps it as `settings-<date-time>.unreadable.json` (0600), and the log names it (AC-37, AC-38)
       Check: pnpm test packages/core/src/settings/settings-store.test.ts; pnpm typecheck
       Files: packages/core/src/settings/settings-store.ts, packages/core/src/settings/settings-store.test.ts, apps/server/src/main.ts
 - [ ] Task 3: The `apps/desktop` host: package (Electron 44.9.0, electron-builder, electron-updater, @electron/rebuild), tsconfig, vitest and tsdown configs, `LAYERS` row, coverage exclude for `main.ts`, CI matrix row, `onlyBuiltDependencies`, `ELECTRON_SKIP_BINARY_DOWNLOAD` in the setup action, and `src/config.ts` (the hub's environment, `DEVHUB_UPDATES_URL`) (AC-40)
