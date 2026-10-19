@@ -1,10 +1,31 @@
 import { useId, useState } from 'react';
+import { PlayIcon, VolumeHighIcon } from '@hugeicons/core-free-icons';
 import {
   defaultNotificationSettings,
+  NotificationSoundSchema,
+  type NotificationEvent,
   type NotificationSettings,
   type NotificationSettingsChange,
 } from '@devhub/contracts';
-import { Button, Checkbox, Pill, SettingList, SettingRow, Switch } from '@devhub/ui';
+import {
+  Button,
+  Checkbox,
+  Icon,
+  IconButton,
+  Pill,
+  Select,
+  SettingList,
+  SettingRow,
+  Slider,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@devhub/ui';
+import { playSound, soundNames, type PlayableSound } from '../../notifications/sounds.ts';
 import { askDesktopPermission, desktopPermission, type DesktopPermission } from '../../notifications/desktop.ts';
 import { useChangeNotificationSettings, useNotificationSettings } from '../../notifications/queries.ts';
 import { usePlatform } from '../../../platform.tsx';
@@ -37,6 +58,8 @@ export function NotificationsPanel() {
   return (
     <div className="flex flex-col gap-8">
       <WhereSection {...section} />
+      <SoundSection {...section} />
+      <EventsSection {...section} />
       {change.isError ? <SaveError /> : null}
     </div>
   );
@@ -141,6 +164,217 @@ function WhereSection({ saved, loading, save }: SectionProps) {
           />
         </SettingRow>
       </SettingList>
+    </section>
+  );
+}
+
+const playable = NotificationSoundSchema.options.filter((sound): sound is PlayableSound => sound !== 'none');
+
+function SoundSection({ saved, loading, save }: SectionProps) {
+  const ids = { section: useId(), sounds: useId(), volume: useId(), library: useId() };
+  const off = loading || !saved.sounds;
+  const volume = `${String(saved.volume)}%`;
+
+  return (
+    <section aria-labelledby={ids.section} className="flex flex-col gap-3">
+      <SectionHead
+        id={ids.section}
+        title="Sound"
+        line="Each kind of notification can have its own sound. Press Play to hear one."
+      />
+      <SettingList>
+        <SettingRow
+          title="Play sounds"
+          titleId={ids.sounds}
+          description="Turns every sound on or off. Do not disturb also silences them."
+          control={
+            <Switch
+              aria-labelledby={ids.sounds}
+              checked={saved.sounds}
+              disabled={loading}
+              onCheckedChange={(sounds) => {
+                save({ sounds });
+              }}
+            />
+          }
+        />
+        <SettingRow title="Volume" titleFor={ids.volume}>
+          <span className="mt-1.5 flex items-center gap-3">
+            <Icon icon={VolumeHighIcon} aria-hidden className="text-muted-foreground" />
+            <Slider
+              id={ids.volume}
+              min={0}
+              max={100}
+              step={5}
+              value={saved.volume}
+              aria-valuetext={volume}
+              disabled={off}
+              className="max-w-80"
+              onChange={(event) => {
+                save({ volume: Number(event.currentTarget.value) });
+              }}
+            />
+            <span className="w-10 text-small text-muted-foreground">{volume}</span>
+          </span>
+        </SettingRow>
+        <SettingRow title="Sounds" titleId={ids.library}>
+          <ul aria-labelledby={ids.library} className="mt-1.5 flex flex-wrap gap-2">
+            {playable.map((sound) => (
+              <li key={sound} className="flex items-center gap-1 rounded-sm border border-border ps-3 pe-1">
+                {soundNames[sound]}
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  label={`Play ${soundNames[sound]}`}
+                  disabled={off}
+                  onClick={() => {
+                    playSound(sound, saved.volume);
+                  }}
+                >
+                  <Icon icon={PlayIcon} aria-hidden />
+                </IconButton>
+              </li>
+            ))}
+          </ul>
+        </SettingRow>
+      </SettingList>
+    </section>
+  );
+}
+
+/** Settings' rows, grouped as the design draws them; automations (024) and Slack (016) join with their features. */
+const eventGroups: readonly {
+  heading: string;
+  events: readonly { id: NotificationEvent; label: string; line: string }[];
+}[] = [
+  {
+    heading: 'Claude sessions',
+    events: [
+      {
+        id: 'approval',
+        label: 'Claude is waiting for your approval',
+        line: 'A command, an edit, a push or a pull request needs your click',
+      },
+      { id: 'session_finished', label: 'Session finished', line: 'Ready for you to review the changes' },
+      { id: 'session_ended', label: 'Session failed or stopped', line: 'An error, or you pressed Stop' },
+      { id: 'session_limit', label: 'Session hit a limit', line: 'Claude’s usage limit ended it' },
+    ],
+  },
+  {
+    heading: 'Inbox',
+    events: [
+      { id: 'review_requested', label: 'Someone asked for your review', line: 'On GitHub' },
+      { id: 'checks_failed', label: 'Checks failed on your pull request', line: 'On GitHub' },
+      { id: 'jira_assigned', label: 'Jira ticket assigned to you', line: 'In Jira' },
+    ],
+  },
+];
+
+function EventsSection({ saved, loading, save }: SectionProps) {
+  const id = useId();
+  return (
+    <section aria-labelledby={id} className="flex flex-col gap-3">
+      <SectionHead
+        id={id}
+        title="What you’re told about"
+        line="Everything is always listed under the bell. These choose what also pops up, shows on your desktop, or plays a sound."
+      />
+      <div className="rounded-md border border-border bg-raised">
+        <Table caption="Notification choices by event">
+          <TableHeader className="max-sm:sr-only">
+            <TableRow>
+              <TableHead>Event</TableHead>
+              <TableHead>Pop-up</TableHead>
+              <TableHead>Desktop</TableHead>
+              <TableHead>Sound</TableHead>
+            </TableRow>
+          </TableHeader>
+          {eventGroups.map((group) => (
+            <TableBody key={group.heading}>
+              <TableRow>
+                <TableHead scope="colgroup" colSpan={4} className="bg-sidebar text-label">
+                  {group.heading}
+                </TableHead>
+              </TableRow>
+              {group.events.map((event) => {
+                const choice = saved.events[event.id];
+                return (
+                  // Under 640 px each event is a block: its name, then its three choices on one line (Q6).
+                  <TableRow
+                    key={event.id}
+                    className="max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-x-4 max-sm:py-2"
+                  >
+                    <TableCell className="whitespace-normal max-sm:basis-full">
+                      <span className="flex flex-wrap items-center gap-2 font-medium text-foreground">
+                        {event.label}
+                        {event.id === 'approval' ? <Pill tone="warning">Needs you</Pill> : null}
+                      </span>
+                      <span>{event.line}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Checkbox
+                        aria-label={`Pop-up for ${event.label}`}
+                        label={<span className="sm:sr-only">Pop-up</span>}
+                        className="min-h-10 py-0"
+                        checked={choice.popUp}
+                        disabled={loading}
+                        onChange={(change) => {
+                          save({ events: { [event.id]: { popUp: change.currentTarget.checked } } });
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Checkbox
+                        aria-label={`Desktop notification for ${event.label}`}
+                        label={<span className="sm:sr-only">Desktop</span>}
+                        className="min-h-10 py-0"
+                        checked={choice.desktop}
+                        disabled={loading}
+                        onChange={(change) => {
+                          save({ events: { [event.id]: { desktop: change.currentTarget.checked } } });
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <span className="flex items-center gap-1">
+                        <Select
+                          aria-label={`Sound for ${event.label}`}
+                          className="w-32"
+                          value={choice.sound}
+                          disabled={loading || !saved.sounds}
+                          onChange={(change) => {
+                            const sound = NotificationSoundSchema.parse(change.currentTarget.value);
+                            save({ events: { [event.id]: { sound } } });
+                            // Picking a sound plays it (AC-39).
+                            if (sound !== 'none') playSound(sound, saved.volume);
+                          }}
+                        >
+                          {NotificationSoundSchema.options.map((sound) => (
+                            <option key={sound} value={sound}>
+                              {soundNames[sound]}
+                            </option>
+                          ))}
+                        </Select>
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          label={`Play the sound for ${event.label}`}
+                          disabled={loading || !saved.sounds || choice.sound === 'none'}
+                          onClick={() => {
+                            if (choice.sound !== 'none') playSound(choice.sound, saved.volume);
+                          }}
+                        >
+                          <Icon icon={PlayIcon} aria-hidden />
+                        </IconButton>
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          ))}
+        </Table>
+      </div>
     </section>
   );
 }

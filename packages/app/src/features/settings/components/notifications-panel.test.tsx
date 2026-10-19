@@ -1,7 +1,8 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, defaultNotificationSettings, withNotificationChange } from '@devhub/contracts';
+import { FakeAudioContext } from '../../../test/fake-audio-context.ts';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -165,5 +166,161 @@ describe('Settings › Notifications: where you get notified (spec 029)', () => 
     await waitFor(() => {
       expect(popUps).not.toBeChecked();
     });
+  });
+});
+
+/** Answers GET and PATCH from one copy, so the page reads back what it saved. */
+function serving(start = defaultNotificationSettings) {
+  let saved = start;
+  const changes: unknown[] = [];
+  server.use(
+    http.get(apiUrl(apiRoutes.notificationSettings), () => HttpResponse.json(saved)),
+    http.patch(apiUrl(apiRoutes.notificationSettings), async ({ request }) => {
+      const change = (await request.json()) as Parameters<typeof withNotificationChange>[1];
+      changes.push(change);
+      saved = withNotificationChange(saved, change);
+      return HttpResponse.json(saved);
+    }),
+  );
+  return changes;
+}
+
+function hearing() {
+  FakeAudioContext.reset();
+  vi.stubGlobal('AudioContext', FakeAudioContext);
+  return () => FakeAudioContext.instances.map((context) => context.played[0]?.frequency);
+}
+
+describe('Settings › Notifications: sound (spec 029)', () => {
+  it('AC-37: Volume reads and says its value; Play beside Chime plays it at that volume', async () => {
+    browserSays('granted');
+    const played = hearing();
+    serving({ ...defaultNotificationSettings, volume: 35 });
+    const { user } = await renderApp({ route: '/settings/notifications' });
+    const section = await screen.findByRole('region', { name: 'Sound' });
+    const volume = within(section).getByRole('slider', { name: 'Volume' });
+
+    await waitFor(() => {
+      expect(volume).toHaveAttribute('aria-valuetext', '35%');
+    });
+    expect(within(section).getByText('35%')).toBeVisible();
+    await user.click(within(section).getByRole('button', { name: 'Play Chime' }));
+
+    expect(played()).toEqual([880]);
+    expect(FakeAudioContext.instances[0]?.played[0]?.peak).toBeCloseTo(0.1225);
+  });
+
+  it('AC-37: moving Volume saves it', async () => {
+    browserSays('granted');
+    const changes = serving();
+    await renderApp({ route: '/settings/notifications' });
+    const volume = within(await screen.findByRole('region', { name: 'Sound' })).getByRole('slider', { name: 'Volume' });
+    await waitFor(() => {
+      expect(volume).toBeEnabled();
+    });
+
+    fireEvent.change(volume, { target: { value: '35' } });
+
+    await waitFor(() => {
+      expect(changes).toEqual([{ volume: 35 }]);
+    });
+  });
+
+  it('AC-36: Play sounds off disables the volume, every Play and every sound picker; on again, they return', async () => {
+    browserSays('granted');
+    serving();
+    const { user } = await renderApp({ route: '/settings/notifications' });
+    const sound = await screen.findByRole('region', { name: 'Sound' });
+    const toggle = within(sound).getByRole('switch', { name: 'Play sounds' });
+    await waitFor(() => {
+      expect(toggle).toBeEnabled();
+    });
+
+    await user.click(toggle);
+
+    const events = screen.getByRole('region', { name: 'What you’re told about' });
+    await waitFor(() => {
+      expect(within(sound).getByRole('slider', { name: 'Volume' })).toBeDisabled();
+    });
+    expect(within(sound).getByRole('button', { name: 'Play Knock' })).toBeDisabled();
+    expect(within(events).getByRole('combobox', { name: 'Sound for Session finished' })).toBeDisabled();
+
+    await user.click(toggle);
+
+    await waitFor(() => {
+      expect(within(sound).getByRole('slider', { name: 'Volume' })).toBeEnabled();
+    });
+    expect(within(events).getByRole('combobox', { name: 'Sound for Session finished' })).toBeEnabled();
+  });
+});
+
+describe('Settings › Notifications: what you’re told about (spec 029)', () => {
+  it('AC-38: a table of the events by group, each with its choices named for it', async () => {
+    browserSays('granted');
+    serving();
+    await renderApp({ route: '/settings/notifications' });
+    const table = within(await screen.findByRole('region', { name: 'What you’re told about' })).getByRole('table', {
+      name: 'Notification choices by event',
+    });
+
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((head) => head.textContent),
+    ).toEqual(['Event', 'Pop-up', 'Desktop', 'Sound', 'Claude sessions', 'Inbox']);
+    expect(within(table).getByRole('columnheader', { name: 'Claude sessions' })).toBeVisible();
+    expect(within(table).getByRole('columnheader', { name: 'Inbox' })).toBeVisible();
+    const approval = within(table).getByRole('row', { name: /Claude is waiting for your approval/ });
+    expect(within(approval).getByText('Needs you')).toBeVisible();
+    await waitFor(() => {
+      expect(within(table).getByRole('checkbox', { name: 'Pop-up for Session finished' })).toBeChecked();
+    });
+    expect(
+      within(table).getByRole('checkbox', { name: 'Desktop notification for Session hit a limit' }),
+    ).not.toBeChecked();
+    expect(
+      within(table).getByRole('combobox', { name: 'Sound for Claude is waiting for your approval' }),
+    ).toHaveDisplayValue('Knock');
+    expect(within(table).getByRole('combobox', { name: 'Sound for Jira ticket assigned to you' })).toHaveDisplayValue(
+      'None',
+    );
+  });
+
+  it('AC-39: unticking Pop-up saves it; picking a sound saves it and plays it', async () => {
+    browserSays('granted');
+    const played = hearing();
+    const changes = serving();
+    const { user } = await renderApp({ route: '/settings/notifications' });
+    const table = within(await screen.findByRole('region', { name: 'What you’re told about' })).getByRole('table');
+    const popUp = within(table).getByRole('checkbox', { name: 'Pop-up for Session finished' });
+    await waitFor(() => {
+      expect(popUp).toBeEnabled();
+    });
+
+    await user.click(popUp);
+    await user.selectOptions(within(table).getByRole('combobox', { name: 'Sound for Session finished' }), 'Ping');
+
+    await waitFor(() => {
+      expect(changes).toEqual([
+        { events: { session_finished: { popUp: false } } },
+        { events: { session_finished: { sound: 'ping' } } },
+      ]);
+    });
+    expect(played()).toEqual([1568]);
+    expect(popUp).not.toBeChecked();
+  });
+
+  it('AC-39: a row with no sound can’t play one', async () => {
+    browserSays('granted');
+    serving();
+    await renderApp({ route: '/settings/notifications' });
+    const table = within(await screen.findByRole('region', { name: 'What you’re told about' })).getByRole('table');
+
+    await waitFor(() => {
+      expect(within(table).getByRole('button', { name: 'Play the sound for Session finished' })).toBeEnabled();
+    });
+    expect(
+      within(table).getByRole('button', { name: 'Play the sound for Jira ticket assigned to you' }),
+    ).toBeDisabled();
   });
 });
