@@ -404,6 +404,8 @@ test('AC-15, AC-18: the allow list in Settings adds by Enter, refuses with its l
 test('AC-19: the callouts and the allow list have no axe violations, at 1280 and 360 px, in light and dark', async ({
   page,
 }) => {
+  // 20 page loads, each with axe: with CI's trace on, that runs past 30 s.
+  test.slow();
   const waiting = async (key: string, title: string) => {
     const url = await build(page, key);
     await expect(progress(page).getByRole('alert').getByText(title)).toBeVisible({ timeout: 15_000 });

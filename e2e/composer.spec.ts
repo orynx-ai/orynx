@@ -352,8 +352,6 @@ test('AC-25, AC-26: a session waiting for my approval shows at the top of Home a
 }) => {
   await page.goto('/');
   await box(page).fill('Check the content list (runs tests)');
-  // Spec 026: with no ticket, the composer starts an Ask, which runs no command; this one builds.
-  await page.getByRole('group', { name: 'Session' }).getByRole('button', { name: 'Build' }).click();
   await box(page).press('Enter');
   await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);
   const session = page.url();
