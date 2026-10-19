@@ -58,7 +58,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: The panel: tabs, groups, opening a notification marks it read, Mark all read, loading, empty and error (AC-4, AC-5, AC-6, AC-7, AC-8, AC-13, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/notifications/components/notification-centre.test.tsx
       Files: packages/app/src/features/notifications/components/notification-centre.tsx, packages/app/src/features/notifications/components/notification-centre.test.tsx, packages/app/src/features/notifications/queries.ts
-- [ ] Task 16: Allow once and Review in the panel; an answered approval drops its buttons (AC-9, AC-10, AC-11, AC-12)
+- [x] Task 16: Allow once and Review in the panel; an answered approval drops its buttons (AC-9, AC-10, AC-11, AC-12)
       Check: pnpm test packages/app/src/features/notifications/components/notification-actions.test.tsx
       Files: packages/app/src/features/notifications/components/notification-actions.tsx, packages/app/src/features/notifications/components/notification-actions.test.tsx, packages/app/src/features/notifications/components/notification-centre.tsx
 - [ ] Task 17: The panel's foot: Do not disturb and Sounds switches, All settings and the gear (AC-17)

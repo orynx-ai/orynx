@@ -22,6 +22,7 @@ import {
 import { usePlatform } from '../../../platform.tsx';
 import { useNow } from '../../../words/use-now.ts';
 import { useMarkNotificationsRead, useNotifications } from '../queries.ts';
+import { NotificationActions } from './notification-actions.tsx';
 import { notificationGroups, notificationPlace, notificationTime, notificationWords } from '../words.ts';
 
 /** Each kind's icon and tone, beside words that say the same. */
@@ -98,6 +99,21 @@ export function NotificationCentre({ side = 'right', tooltipSide }: Notification
               onOpen={() => {
                 openNotification(notification);
               }}
+              {...(isWaiting(notification)
+                ? {
+                    actions: (
+                      <NotificationActions
+                        notification={notification}
+                        onReview={() => {
+                          openNotification(notification);
+                        }}
+                        onAllowed={() => {
+                          if (!notification.read) markRead.mutate({ ids: [notification.id] });
+                        }}
+                      />
+                    ),
+                  }
+                : {})}
             />
           );
         })}
