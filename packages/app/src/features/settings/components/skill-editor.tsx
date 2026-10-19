@@ -10,7 +10,8 @@ import {
   type SaveSkillRequest,
   type SkillFolder,
 } from '@devhub/contracts';
-import { Button, Callout, Field, Input, Panel, Skeleton, SourceMark, Textarea } from '@devhub/ui';
+import { SparklesIcon } from '@hugeicons/core-free-icons';
+import { Button, Callout, Field, Icon, Input, Panel, Skeleton, SourceMark, Textarea } from '@devhub/ui';
 import { focusMainContent, newTaskTargetId } from '../../../shell/main-content.ts';
 import { plural } from '../../../words/calendar.ts';
 import { useComposerStore } from '../../home/store.ts';
@@ -218,6 +219,7 @@ export function SkillEditor({ skill, pluginFolder, onSaved, onDeleted, className
                 tryInSession(skill.folder);
               }}
             >
+              <Icon icon={SparklesIcon} aria-hidden />
               Try in a new session
             </Button>
           )}

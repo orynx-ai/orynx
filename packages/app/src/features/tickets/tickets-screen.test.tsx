@@ -30,6 +30,11 @@ function toolbar() {
   return screen.getByRole('group', { name: 'Filters' });
 }
 
+/** The bar floating at the bottom while tickets are ticked. */
+function bar() {
+  return screen.getByRole('group', { name: 'Selected tickets' });
+}
+
 function filter(name: string) {
   return within(toolbar()).getByRole('button', { name });
 }
@@ -335,18 +340,20 @@ describe('Refresh, the people search and Ship for several (the user’s call, 19
     expect(count()).toHaveTextContent('8 tickets');
   });
 
-  it('ticks tickets on the board and the list; Ship puts them in Home’s composer in the order ticked', async () => {
+  it('ticks tickets on the board and the list; the floating bar’s Ship all puts them in Home’s composer in the order ticked', async () => {
     server.use(ticketsHandler());
     const { user, history } = await renderApp({ route: '/tickets' });
     await screen.findByText('6 tickets');
+    expect(screen.queryByRole('group', { name: 'Selected tickets' })).toBeNull();
 
     await user.click(screen.getByRole('checkbox', { name: 'Select PROJ-1423' }));
     await user.click(screen.getByRole('button', { name: 'List' }));
     await user.click(await screen.findByRole('checkbox', { name: 'Select PROJ-1377' }));
     expect(screen.getByRole('checkbox', { name: 'Select PROJ-1423' })).toBeChecked();
-    expect(within(toolbar()).getByText('2 selected')).toBeVisible();
+    expect(within(bar()).getByRole('status')).toHaveTextContent('2 selected');
+    expect(within(toolbar()).queryByText(/selected$/)).toBeNull();
 
-    await user.click(within(toolbar()).getByRole('button', { name: 'Ship' }));
+    await user.click(within(bar()).getByRole('button', { name: 'Ship all' }));
 
     await waitFor(() => {
       expect(history.location.pathname).toBe('/');
@@ -357,16 +364,18 @@ describe('Refresh, the people search and Ship for several (the user’s call, 19
     ]);
   });
 
-  it('Clear unticks every ticket and puts focus on Assignee', async () => {
+  it('Unselect all unticks every ticket, takes the bar away and puts focus on Assignee', async () => {
     server.use(ticketsHandler());
     const { user } = await renderApp({ route: '/tickets' });
     await screen.findByText('6 tickets');
 
     await user.click(screen.getByRole('checkbox', { name: 'Select PROJ-1402' }));
-    await user.click(within(toolbar()).getByRole('button', { name: 'Clear' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select PROJ-1377' }));
+    await user.click(within(bar()).getByRole('button', { name: 'Unselect all' }));
 
     expect(screen.getByRole('checkbox', { name: 'Select PROJ-1402' })).not.toBeChecked();
-    expect(within(toolbar()).queryByText(/selected$/)).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'Select PROJ-1377' })).not.toBeChecked();
+    expect(screen.queryByRole('group', { name: 'Selected tickets' })).toBeNull();
     expect(filter('Assignee · 1')).toHaveFocus();
   });
 });

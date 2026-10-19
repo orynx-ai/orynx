@@ -16,7 +16,7 @@ export function TicketSelect({ ticketKey }: { ticketKey: string }) {
     <WorkItemSelect
       itemKey={ticketKey}
       checked={checked}
-      onChange={() => {
+      onCheckedChange={() => {
         toggle(ticketKey);
       }}
     />

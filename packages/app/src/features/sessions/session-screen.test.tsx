@@ -40,7 +40,7 @@ describe('SessionScreen', () => {
       sessionHandler({ ...working, ticket: makeSessionTicket(), worktreePath: '/Users/you/.devhub/worktrees/x' }),
       http.get(apiUrl(apiRoutes.sessionChanges), () => HttpResponse.json(makeSessionChanges())),
     );
-    await renderApp({ route });
+    const { user } = await renderApp({ route });
 
     const progress = await screen.findByRole('region', { name: "Claude's progress" });
     expect(within(progress).getByRole('textbox', { name: 'Message Claude' })).toBeVisible();
@@ -49,10 +49,10 @@ describe('SessionScreen', () => {
     expect(await within(tabs).findByRole('tab', { name: 'Changes 4' })).toHaveAttribute('aria-selected', 'true');
     expect(within(tabs).getByRole('tab', { name: 'Context 1' })).toHaveAttribute('aria-selected', 'false');
     expect(within(details).getByRole('tabpanel', { name: 'Changes 4' })).toBeVisible();
-    // Open in the editor and Discard changes are in the title row, at hand from the top (19 Oct 2026).
-    expect(within(details).queryByRole('button', { name: 'Discard changes' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Discard changes' })).toBeVisible();
-    expect(await screen.findByRole('link', { name: 'Open in VS Code' })).toHaveAttribute(
+    // Open in the editor and Discard changes are in the page bar's More actions, at hand from the top (19 Oct 2026).
+    await user.click(within(pageBar()).getByRole('button', { name: 'More actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Discard changes' })).toBeVisible();
+    expect(await screen.findByRole('menuitem', { name: 'Open in VS Code' })).toHaveAttribute(
       'href',
       'vscode://file/Users/you/.devhub/worktrees/x',
     );

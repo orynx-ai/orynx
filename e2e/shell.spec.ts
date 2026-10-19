@@ -50,7 +50,7 @@ test('Given any page, when I press the New task shortcut, then Home opens with f
   await page.keyboard.press(playwrightKeys(keys ?? ''));
 
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'What should we build today?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What should we ship today?' })).toBeVisible();
   // Spec 015, AC-2: in the composer's box.
   await expect(page.getByRole('textbox', { name: 'Describe a task for Claude' })).toBeFocused();
 });
@@ -59,7 +59,7 @@ test('Given DevHub is opening, when the status and sessions arrive, then nothing
   page,
 }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'What should we build today?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What should we ship today?' })).toBeVisible();
 
   expect(await layoutShiftScore(page)).toBe(0);
 });
@@ -112,7 +112,7 @@ test.describe('wide window', () => {
     expect(await navWidth()).toBe(400);
 
     await page.reload();
-    await expect(page.getByRole('heading', { name: 'What should we build today?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'What should we ship today?' })).toBeVisible();
     expect(await navWidth()).toBe(400);
     expect(await layoutShiftScore(page)).toBe(0);
 
@@ -246,7 +246,7 @@ test.describe('narrow window', () => {
     page,
   }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'What should we build today?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'What should we ship today?' })).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Main' });
 
     for (const name of ['Home', 'Tickets', 'Settings', 'Sessions']) {

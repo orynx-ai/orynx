@@ -67,7 +67,7 @@ export function ChangesSkeleton() {
 /**
  * The Changes tab (spec 013): what differs in the worktree from where its branch started, live while Claude
  * works. The summary line, the files (8 rows, then the list scrolls, Q6c) and the shown file's diff, which is
- * the one the address names or the first. Open in the editor and Discard changes are in the title row.
+ * the one the address names or the first. Open in the editor and Discard changes are in the page bar's More actions.
  */
 export function ChangesPanel({ session }: { session: Session }) {
   const changes = useSessionChanges(session.id);

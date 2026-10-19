@@ -44,8 +44,8 @@ export function InboxRulesPanel() {
             label={rule.label}
             checked={saved?.[rule.id] ?? false}
             disabled={saved === undefined}
-            onChange={(event) => {
-              change.mutate({ inboxRules: { [rule.id]: event.currentTarget.checked } });
+            onCheckedChange={(checked) => {
+              change.mutate({ inboxRules: { [rule.id]: checked === true } });
             }}
           />
         ))}

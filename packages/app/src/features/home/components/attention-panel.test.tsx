@@ -494,7 +494,7 @@ describe('AttentionPanel states', () => {
     const { user, panel } = await openTab('/', "Couldn't load the list");
 
     expect(within(panel).getByText('Check that Orynx is still running, then try again.')).toBeVisible();
-    expect(screen.getByRole('heading', { level: 1, name: 'What should we build today?' })).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'What should we ship today?' })).toBeVisible();
 
     inboxWith([review]);
     await user.click(within(panel).getByRole('button', { name: 'Try again' }));

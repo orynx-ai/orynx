@@ -43,21 +43,15 @@ function footer(page: Page): Locator {
   return page.getByRole('navigation', { name: 'Main' });
 }
 
-/** The page has no sideways scroll, and both cards sit side by side when there's room, or stack. */
+/** The page has no sideways scroll, and the line about more agents sits under Claude's card at every width. */
 async function expectCardsLaidOut(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(
     0,
   );
   const claude = await claudeCard(page).boundingBox();
-  const more = await page.getByRole('group', { name: 'More agents' }).boundingBox();
-  if (claude === null || more === null) throw new Error('a card is not on screen');
-  if ((page.viewportSize()?.width ?? 0) >= 1024) {
-    // One row, each card as tall as the taller one.
-    expect(more.y).toBe(claude.y);
-    expect(more.height).toBe(claude.height);
-  } else {
-    expect(more.y).toBeGreaterThanOrEqual(claude.y + claude.height);
-  }
+  const more = await page.getByText('More agents are coming later.').boundingBox();
+  if (claude === null || more === null) throw new Error('the card or its line is not on screen');
+  expect(more.y).toBeGreaterThanOrEqual(claude.y + claude.height);
 }
 
 /** The outline the browser draws around what has focus. */
@@ -79,7 +73,9 @@ test.describe('the first hub, whose Claude Code is never signed in', () => {
     await expect(claudeCard(page).getByText('Not signed in')).toBeVisible();
     await expect(claudeCard(page).getByText(notSignedIn)).toBeVisible();
     await expect(claudeCard(page).getByRole('button', { name: 'Check again' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Run commands' })).toHaveValue('ask');
+    await expect(
+      page.getByRole('group', { name: 'Run commands' }).getByRole('button', { name: 'Ask', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('tab', { name: 'Connections' }).click();
     await expect(page.getByRole('button', { name: 'Connect' }).first()).toBeVisible();
   });

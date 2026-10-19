@@ -32,8 +32,6 @@ export interface TicketsToolbarProps {
    * stay the same elements either way, so a pick that empties or fills the page keeps focus where it was.
    */
   pickersOnly?: boolean;
-  /** With tickets ticked: how many, Ship and Clear, before the count (the user's call, 19 Oct 2026). */
-  selection?: ReactNode;
 }
 
 const filterLabels: Record<FilterKey, string> = {
@@ -58,7 +56,6 @@ export function TicketsToolbar({
   search,
   pickers,
   pickersOnly = false,
-  selection,
 }: TicketsToolbarProps) {
   const { text: _, ...address } = filters;
   return (
@@ -87,7 +84,6 @@ export function TicketsToolbar({
           ))}
       {pickersOnly ? null : (
         <span className="ms-auto flex items-center gap-2">
-          {selection}
           {hasExtraFilters(filters) ? (
             <Button variant="ghost" size="sm" onClick={onClear}>
               Clear filters

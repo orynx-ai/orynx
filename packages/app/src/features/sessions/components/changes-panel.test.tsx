@@ -177,8 +177,8 @@ describe('ChangesPanel', () => {
     await renderApp({ route: `/sessions/${id}` });
     expect(await screen.findByText('The changes are gone')).toBeVisible();
     expect(screen.getByText('The worktree and feat/PROJ-1423 were deleted.')).toBeVisible();
-    expect(screen.queryByRole('link', { name: 'Open in VS Code' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull();
+    // Nothing to open or discard, so no More actions.
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
 
   it('AC-7: says the changes couldn’t be read, and Try again reads them', async () => {
@@ -193,19 +193,21 @@ describe('ChangesPanel', () => {
 
   it('AC-20, AC-26: opens the worktree in the editor Settings picks, beside Discard changes', async () => {
     serve(done, makeSessionChanges(), { [contentList.path]: contentList });
-    await renderApp({ route: `/sessions/${id}` });
-    expect(await screen.findByRole('link', { name: 'Open in VS Code' })).toHaveAttribute(
+    const { user } = await renderApp({ route: `/sessions/${id}` });
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Open in VS Code' })).toHaveAttribute(
       'href',
       `vscode://file${worktreePath}`,
     );
-    expect(screen.getByRole('button', { name: 'Discard changes' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Discard changes' })).toBeVisible();
   });
 
   it('AC-26: says Open in Cursor when Settings picks Cursor', async () => {
     serve(done, makeSessionChanges(), { [contentList.path]: contentList });
     server.use(http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences({ editor: 'cursor' }))));
-    await renderApp({ route: `/sessions/${id}` });
-    expect(await screen.findByRole('link', { name: 'Open in Cursor' })).toHaveAttribute(
+    const { user } = await renderApp({ route: `/sessions/${id}` });
+    await user.click(await screen.findByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Open in Cursor' })).toHaveAttribute(
       'href',
       `cursor://file${worktreePath}`,
     );

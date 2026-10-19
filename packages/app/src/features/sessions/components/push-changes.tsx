@@ -1,4 +1,13 @@
-import { useEffect, useId, useState, type KeyboardEvent, type SubmitEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useState,
+  type KeyboardEvent,
+  type Ref,
+  type RefObject,
+  type SubmitEvent,
+} from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import type { DraftedPush, PushAnswer, Session } from '@devhub/contracts';
@@ -92,7 +101,19 @@ function NoPush({ line, onCancel }: { line: string; onCancel: () => void }) {
  * Push changes (spec 014, Q7): once the pull request is open, commits what's new and pushes it to the same branch,
  * so the pull request updates, only on your press in its dialog. Opening it asks Claude for a commit message.
  */
-export function PushChanges({ session, repository }: { session: Session; repository: string }) {
+export function PushChanges({
+  session,
+  repository,
+  menu,
+  ref,
+}: {
+  session: Session;
+  repository: string;
+  /** Opened from this menu's item rather than a button of its own (under 768 px); closing gives the menu focus. */
+  menu?: RefObject<HTMLElement | null>;
+  /** Opens the dialog, for the menu's item. */
+  ref?: Ref<{ open: () => void }>;
+}) {
   const [open, setOpen] = useState(false);
   const describedBy = useId();
   const drafting = useDraftPush(session.id);
@@ -109,6 +130,11 @@ export function PushChanges({ session, repository }: { session: Session; reposit
   const cancel = () => {
     openChange(false);
   };
+  useImperativeHandle(ref, () => ({
+    open: () => {
+      openChange(true);
+    },
+  }));
 
   function pushNow(message: string) {
     push.mutate(message, {
@@ -165,10 +191,22 @@ export function PushChanges({ session, repository }: { session: Session; reposit
 
   return (
     <Dialog open={open} onOpenChange={openChange}>
-      <DialogTrigger asChild>
-        <Button variant="secondary">{pullRequestWords.push}</Button>
-      </DialogTrigger>
-      <DialogContent aria-describedby={describedBy} className="gap-4 p-6">
+      {menu === undefined ? (
+        <DialogTrigger asChild>
+          <Button variant="secondary" size="sm">
+            {pullRequestWords.push}
+          </Button>
+        </DialogTrigger>
+      ) : null}
+      <DialogContent
+        aria-describedby={describedBy}
+        className="gap-4 p-6"
+        onCloseAutoFocus={(event) => {
+          if (menu === undefined) return;
+          event.preventDefault();
+          menu.current?.focus();
+        }}
+      >
         <div className="flex flex-col gap-1">
           <DialogTitle>{pullRequestWords.push}</DialogTitle>
           <p id={describedBy} className="m-0 font-mono text-code text-muted-foreground">

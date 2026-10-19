@@ -65,10 +65,12 @@ export type SegmentedControlItemProps = Omit<
   'pressed' | 'defaultPressed' | 'onPressedChange' | 'value'
 > & {
   value: string;
+  /** `danger` for an option that forbids something, such as Block: its word turns `danger` once pressed. */
+  tone?: 'danger';
 };
 
 /** One option: an icon (`aria-hidden`) and a word. The pressed one sits on `bg-raised` with a hairline. */
-export function SegmentedControlItem({ value, className, onFocus, ...props }: SegmentedControlItemProps) {
+export function SegmentedControlItem({ value, tone, className, onFocus, ...props }: SegmentedControlItemProps) {
   const { value: current, pick } = useContext(SegmentedControlContext);
   return (
     <TogglePrimitive.Root
@@ -86,7 +88,8 @@ export function SegmentedControlItem({ value, className, onFocus, ...props }: Se
       }}
       className={cn(
         // The group can scroll, which clips anything outside it, so the focus ring is drawn inside the option (as in Tabs).
-        'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xs border-0 bg-transparent px-3 text-small font-medium whitespace-nowrap text-muted-foreground focus-visible:-outline-offset-2 data-[state=on]:bg-raised data-[state=on]:text-foreground data-[state=on]:ring-1 data-[state=on]:ring-border',
+        'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xs border-0 bg-transparent px-3 text-small font-medium whitespace-nowrap text-muted-foreground focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-45 data-[state=on]:bg-raised data-[state=on]:text-foreground data-[state=on]:ring-1 data-[state=on]:ring-border',
+        tone === 'danger' && 'data-[state=on]:text-danger',
         className,
       )}
       {...props}

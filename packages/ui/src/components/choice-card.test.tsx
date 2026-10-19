@@ -28,6 +28,13 @@ describe('ChoiceCard', () => {
     expect(onChange).toHaveBeenCalledOnce();
   });
 
+  it('shows its aside beside the title, without it joining the name', () => {
+    render(<ChoiceCard name="level" value="balanced" title="Balanced" aside={<span>Recommended</span>} />);
+
+    expect(screen.getByRole('radio', { name: 'Balanced' })).toBeInTheDocument();
+    expect(screen.getByText('Recommended')).toBeVisible();
+  });
+
   it('works without a detail line', () => {
     render(<ChoiceCard name="theme" value="light" title="Light" defaultChecked />);
 
