@@ -6,8 +6,11 @@ import { Button, Icon, Pill, Skeleton, sessionStateLabels, type PillTone } from 
 import { useApi } from '../../../api.tsx';
 import { usePlatform } from '../../../platform.tsx';
 import { needsApprovalLabel } from '../approval-words.ts';
+import { editorLink, openInLabel } from '../change-words.ts';
 import { openPullRequestLabel } from '../pull-request-words.ts';
+import { useEditor, useSessionChanges } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
+import { DiscardSession } from './discard-session.tsx';
 import { PushChanges } from './push-changes.tsx';
 
 /** The state pill's colour, as the sidebar colours each state (Q10b). */
@@ -35,10 +38,32 @@ function canPush(session: Session): boolean {
 }
 
 /**
+ * Whether the worktree holds anything a pull request could take: a file that differs from where the branch
+ * started. Not known yet, or not readable, is no (the user's call, 19 Oct 2026: no Create pull request for nothing).
+ */
+function useHasChanges(sessionId: string): boolean {
+  const changes = useSessionChanges(sessionId);
+  return changes.data?.state === 'ready' && changes.data.files.length + changes.data.moreFiles > 0;
+}
+
+/** Open in the editor Settings picks, VS Code until Settings answers otherwise (spec 013, Q9). */
+function OpenInEditor({ session }: { session: Session }) {
+  const editor = useEditor();
+  const picked = editor.data ?? (editor.isError ? 'vscode' : null);
+  if (picked === null || session.worktreePath === null || session.discardedAt !== null) return null;
+  return (
+    <Button asChild variant="secondary">
+      <a href={editorLink(picked, session.worktreePath)}>{openInLabel(picked)}</a>
+    </Button>
+  );
+}
+
+/**
  * The Session screen's title row (`session.html`): the title, the state, the branch and where Claude works,
  * with Stop Claude while it works (AC-9). Stop keeps focus while it runs; once the session has stopped, the
- * title takes focus, because the button is gone. Once Claude is done, Create pull request; once the pull request
- * is open, Open PR and Push changes, with no primary button (spec 014, Q10e).
+ * title takes focus, because the button is gone. Once Claude is done, Create pull request when there's something
+ * to put in one; once the pull request is open, Open PR and Push changes, with no primary button (spec 014,
+ * Q10e). Open in the editor and Discard changes are here too, at hand from the top (the user's call, 19 Oct 2026).
  */
 export function SessionHeader({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
   const platform = usePlatform();
@@ -55,6 +80,7 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
   const stop = useMutation({ mutationFn: () => api.stopSession(session.id) });
   const working = session.state === 'working' || session.state === 'needs_you';
   const stopping = stop.isPending || (stop.isSuccess && working);
+  const hasChanges = useHasChanges(session.id);
 
   useEffect(() => {
     if (stop.isSuccess && !working) title.current?.focus();
@@ -83,7 +109,7 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
       </div>
       <CreatePullRequest
         session={session}
-        show={canCreatePullRequest(session)}
+        show={canCreatePullRequest(session) && hasChanges}
         onOpened={() => {
           if (openPullRequest.current === null) justOpened.current = true;
           else openPullRequest.current.focus();
@@ -108,6 +134,13 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
       {pullRequest !== null && canPush(session) ? (
         <PushChanges session={session} repository={pullRequest.repository} />
       ) : null}
+      {/* An Ask session has no worktree to open or discard (spec 026). */}
+      {session.mode === 'ask' ? null : (
+        <>
+          <OpenInEditor session={session} />
+          <DiscardSession session={session} title={title} />
+        </>
+      )}
       {working ? (
         <Button
           variant="secondary"

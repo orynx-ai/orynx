@@ -1,4 +1,3 @@
-import type { RefObject } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import type { ChangedFile, Editor, FileDiff, Session } from '@devhub/contracts';
 import {
@@ -15,15 +14,12 @@ import {
   binaryLine,
   changesSummary,
   cutLine,
-  editorLink,
   emptyChanges,
   moreFilesLine,
-  openInLabel,
   renamedLine,
   unreadableLine,
 } from '../change-words.ts';
 import { useEditor, useSessionChanges, useSessionDiff } from '../queries.ts';
-import { DiscardSession } from './discard-session.tsx';
 
 /** "Couldn't read the changes." with Try again, as the sessions list says it couldn't load. */
 function Unreadable({ onRetry }: { onRetry: () => void }) {
@@ -71,9 +67,9 @@ export function ChangesSkeleton() {
 /**
  * The Changes tab (spec 013): what differs in the worktree from where its branch started, live while Claude
  * works. The summary line, the files (8 rows, then the list scrolls, Q6c) and the shown file's diff, which is
- * the one the address names or the first. Under them, Open in the editor Settings picks, and Discard changes.
+ * the one the address names or the first. Open in the editor and Discard changes are in the title row.
  */
-export function ChangesPanel({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
+export function ChangesPanel({ session }: { session: Session }) {
   const changes = useSessionChanges(session.id);
   const editor = useEditor();
   const { file } = useSearch({ from: '/sessions/$sessionId' });
@@ -136,20 +132,5 @@ export function ChangesPanel({ session, title }: { session: Session; title: RefO
     );
   }
 
-  return (
-    <div className="flex min-w-0 flex-col gap-3">
-      {body}
-      {/* With the changes, not before: the diff's real length would move them as it arrives. */}
-      {changes.isPending ? null : (
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {picked !== null && session.worktreePath !== null ? (
-            <Button asChild variant="ghost" size="sm">
-              <a href={editorLink(picked, session.worktreePath)}>{openInLabel(picked)}</a>
-            </Button>
-          ) : null}
-          <DiscardSession session={session} title={title} />
-        </div>
-      )}
-    </div>
-  );
+  return <div className="flex min-w-0 flex-col gap-3">{body}</div>;
 }

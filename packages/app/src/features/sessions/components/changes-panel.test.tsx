@@ -57,7 +57,7 @@ describe('ChangesPanel', () => {
     await renderApp({ route: `/sessions/${id}` });
 
     const list = await screen.findByRole('list', { name: 'Changed files' });
-    expect(within(list).getAllByRole('button')).toHaveLength(4);
+    expect(within(list).getAllByRole('button', { name: /^src\// })).toHaveLength(4);
     expect(screen.getByText('in 4 files · updates live as Claude edits')).toBeVisible();
     expect(screen.getByText('142 lines added, 18 lines removed in 4 files')).toBeInTheDocument();
     expect(within(list).getByRole('button', { name: /^src\/content\/ContentList\.tsx/ })).toHaveAttribute(
@@ -108,7 +108,7 @@ describe('ChangesPanel', () => {
 
     const list = screen.getByRole('list', { name: 'Changed files' });
     await waitFor(() => {
-      expect(within(list).getAllByRole('button')).toHaveLength(4);
+      expect(within(list).getAllByRole('button', { name: /^src\// })).toHaveLength(4);
     });
     expect(state.reads).toBe(2);
     expect(within(list).getByRole('button', { name: /^src\/content\/ContentList\.tsx/ })).toHaveAttribute(

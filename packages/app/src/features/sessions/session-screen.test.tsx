@@ -37,7 +37,7 @@ function pageBar() {
 describe('SessionScreen', () => {
   it('013 AC-1: puts Claude’s progress, with the follow-up box, beside the Changes and Context tabs, Changes open', async () => {
     server.use(
-      sessionHandler({ ...working, ticket: makeSessionTicket() }),
+      sessionHandler({ ...working, ticket: makeSessionTicket(), worktreePath: '/Users/you/.devhub/worktrees/x' }),
       http.get(apiUrl(apiRoutes.sessionChanges), () => HttpResponse.json(makeSessionChanges())),
     );
     await renderApp({ route });
@@ -49,7 +49,13 @@ describe('SessionScreen', () => {
     expect(await within(tabs).findByRole('tab', { name: 'Changes 4' })).toHaveAttribute('aria-selected', 'true');
     expect(within(tabs).getByRole('tab', { name: 'Context 1' })).toHaveAttribute('aria-selected', 'false');
     expect(within(details).getByRole('tabpanel', { name: 'Changes 4' })).toBeVisible();
-    expect(within(details).getByRole('button', { name: 'Discard changes' })).toBeVisible();
+    // Open in the editor and Discard changes are in the title row, at hand from the top (19 Oct 2026).
+    expect(within(details).queryByRole('button', { name: 'Discard changes' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Discard changes' })).toBeVisible();
+    expect(await screen.findByRole('link', { name: 'Open in VS Code' })).toHaveAttribute(
+      'href',
+      'vscode://file/Users/you/.devhub/worktrees/x',
+    );
   });
 
   it('spec 026: an Ask session has no stepper, worktree or Changes: it says it reads the folder in place', async () => {

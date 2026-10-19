@@ -135,11 +135,7 @@ export function SessionScreen() {
         {found.mode === 'ask' ? null : <SessionStepper session={found} />}
         <Panes
           progress={<SessionProgress session={found} footer={<FollowUpBox session={found} />} />}
-          details={
-            found.mode === 'ask' && contextOf(found).length === 0 ? null : (
-              <SessionDetails session={found} title={title} />
-            )
-          }
+          details={found.mode === 'ask' && contextOf(found).length === 0 ? null : <SessionDetails session={found} />}
         />
       </PageBody>
     </>

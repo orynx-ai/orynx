@@ -6,8 +6,8 @@ import { useApi } from '../../../api.tsx';
 import { discardKeepsPullRequest } from '../pull-request-words.ts';
 
 /**
- * Discard changes (AC-10): the quiet danger button `session.html` draws, under Claude's progress until the
- * Changes tab comes (Q9c), and its confirm step in the page, never the browser's. Cancel has focus first, so
+ * Discard changes (AC-10): the quiet danger button `session.html` draws, in the title row (the user's call, 19 Oct
+ * 2026), and its confirm step in the page, never the browser's. Cancel has focus first, so
  * Enter never deletes by accident. Once the session says its changes are gone, the button goes and the
  * title takes focus.
  */
@@ -32,7 +32,7 @@ export function DiscardSession({ session, title }: { session: Session; title: Re
   if (discarded || session.branch === null) return null;
 
   return (
-    <div className="flex justify-end">
+    <div className="flex">
       <Dialog
         open={open}
         onOpenChange={(next) => {
@@ -41,9 +41,7 @@ export function DiscardSession({ session, title }: { session: Session; title: Re
         }}
       >
         <DialogTrigger asChild>
-          <Button variant="danger-ghost" size="sm">
-            Discard changes
-          </Button>
+          <Button variant="danger-ghost">Discard changes</Button>
         </DialogTrigger>
         <DialogContent
           aria-describedby={describedBy}
