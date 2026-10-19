@@ -1,9 +1,10 @@
-import { screen, within } from '@testing-library/react';
-import { http, HttpResponse } from 'msw';
+import { screen, waitFor, within } from '@testing-library/react';
+import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
-import { apiRoutes } from '@devhub/contracts';
+import { apiRoutes, type Notification } from '@devhub/contracts';
 import { makeNotification, makeNotificationList } from '@devhub/contracts/testing';
 import { useUiStore } from '../../../stores/ui-store.ts';
+import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -75,5 +76,215 @@ describe('the bell (spec 029)', () => {
     await user.click(await within(mainNav()).findByRole('button', { name: 'Notifications, 1 unread' }));
 
     expect(screen.getByRole('dialog', { name: 'Notifications' })).toBeVisible();
+  });
+});
+
+const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+const session = {
+  id: '00000000000000aa',
+  title: 'Add bulk archive',
+  source: { kind: 'jira' as const, key: 'PROJ-1423' },
+};
+
+const approval = makeNotification({
+  id: 'approval',
+  at: minutesAgo(2),
+  what: {
+    kind: 'approval',
+    session,
+    approvalId: 'call-1',
+    about: 'command',
+    command: 'npm test -- content-list',
+    waiting: true,
+  },
+});
+const finished = makeNotification({ id: 'finished', at: minutesAgo(40) });
+const review = makeNotification({
+  id: 'review',
+  at: minutesAgo(60),
+  what: {
+    kind: 'review_requested',
+    pullRequest: {
+      repository: 'api',
+      number: 977,
+      title: 'Rate-limit the export endpoint',
+      url: 'https://github.com/acme/api/pull/977',
+    },
+    by: 'Arjun Mehta',
+  },
+});
+const checks = makeNotification({
+  id: 'checks',
+  at: new Date(Date.now() - 3 * 24 * 60 * 60_000).toISOString(),
+  read: true,
+  what: {
+    kind: 'checks_failed',
+    pullRequest: {
+      repository: 'web-app',
+      number: 2836,
+      title: 'Fix the export',
+      url: 'https://github.com/acme/web-app/pull/2836',
+    },
+  },
+});
+
+function listing(notifications: Notification[]) {
+  server.use(http.get(apiUrl(apiRoutes.notifications), () => HttpResponse.json(makeNotificationList(notifications))));
+}
+
+/** Answers POST /api/notifications/read, keeping what each request asked. */
+function reading() {
+  const asked: unknown[] = [];
+  server.use(
+    http.post(apiUrl(apiRoutes.notificationsRead), async ({ request }) => {
+      asked.push(await request.json());
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  return asked;
+}
+
+async function openPanel(user: Awaited<ReturnType<typeof renderApp>>['user']) {
+  await user.click(await within(mainNav()).findByRole('button', { name: /^Notifications/ }));
+  return screen.getByRole('dialog', { name: 'Notifications' });
+}
+
+describe('the panel (spec 029)', () => {
+  it('AC-4: has All with the unread count and Needs you with the waiting count, grouped Today and Earlier', async () => {
+    listing([approval, finished, review, checks]);
+    const { user } = await renderApp();
+    await within(mainNav()).findByRole('button', { name: 'Notifications, 3 unread' });
+
+    const panel = await openPanel(user);
+
+    expect(within(panel).getByRole('tab', { name: 'All 3', selected: true })).toBeVisible();
+    expect(within(panel).getByRole('tab', { name: 'Needs you 1' })).toBeVisible();
+    const today = within(panel).getByRole('region', { name: 'Today' });
+    expect(
+      within(today)
+        .getAllByRole('listitem')
+        .map((row) => within(row).getAllByRole('button')[0]?.textContent),
+    ).toEqual([
+      'Claude wants to run a command',
+      'Session finished, ready for a pull request',
+      'Arjun M. requested your review',
+    ]);
+    expect(
+      within(today).getByRole('button', { name: 'Claude wants to run a command, unread' }),
+    ).toHaveAccessibleDescription('PROJ-1423 · Add bulk archive · npm test -- content-list 2 min ago');
+    const earlier = within(panel).getByRole('region', { name: 'Earlier' });
+    expect(within(earlier).getByRole('button', { name: 'Checks failed on your pull request' })).toBeVisible();
+  });
+
+  it('AC-5: opening the panel marks nothing read', async () => {
+    listing([finished]);
+    const asked = reading();
+    const { user } = await renderApp();
+    await openPanel(user);
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(asked).toEqual([]);
+    expect(within(mainNav()).getByRole('button', { name: 'Notifications, 1 unread' })).toHaveFocus();
+  });
+
+  it('AC-7: opening a session’s notification goes to its Session screen, closes the panel and marks it read', async () => {
+    listing([finished]);
+    const asked = reading();
+    const { user, history } = await renderApp();
+    const panel = await openPanel(user);
+
+    await user.click(within(panel).getByRole('button', { name: 'Session finished, ready for a pull request, unread' }));
+
+    expect(history.location.pathname).toBe('/sessions/00000000000000bb');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(asked).toEqual([{ ids: ['finished'] }]);
+    expect(within(mainNav()).getByRole('button', { name: 'Notifications' })).toBeVisible();
+  });
+
+  it('AC-8: opening a review request opens the pull request outside Orynx', async () => {
+    listing([review]);
+    reading();
+    const { user, platform } = await renderApp();
+    const panel = await openPanel(user);
+
+    await user.click(within(panel).getByRole('button', { name: 'Arjun M. requested your review, unread' }));
+
+    expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/api/pull/977');
+  });
+
+  it('AC-13: Mark all read clears every dot and the count, and another tab hears it from the server', async () => {
+    listing([approval, finished]);
+    const asked = reading();
+    const { user } = await renderApp();
+    const panel = await openPanel(user);
+
+    await user.click(within(panel).getByRole('button', { name: 'Mark all read' }));
+
+    expect(asked).toEqual([{ all: true }]);
+    expect(within(panel).getByRole('tab', { name: 'All' })).toBeVisible();
+    expect(within(panel).getByRole('button', { name: 'Session finished, ready for a pull request' })).toBeVisible();
+
+    // The server now says one came in from elsewhere.
+    listing([
+      { ...finished, id: 'new' },
+      { ...approval, read: true },
+      { ...finished, read: true },
+    ]);
+    FakeEventSource.latest().emit({ type: 'notifications.changed' });
+    await waitFor(() => {
+      expect(within(mainNav()).getByRole('button', { name: 'Notifications, 1 unread' })).toBeVisible();
+    });
+  });
+
+  it('AC-14: Needs you says when nothing waits', async () => {
+    listing([finished]);
+    const { user } = await renderApp();
+    const panel = await openPanel(user);
+
+    await user.click(within(panel).getByRole('tab', { name: 'Needs you' }));
+
+    expect(within(panel).getByText('Nothing is waiting for you.')).toBeVisible();
+  });
+
+  it('AC-15: with none at all it says so, and Mark all read is disabled', async () => {
+    const { user } = await renderApp();
+    const panel = await openPanel(user);
+
+    expect(within(panel).getByText('No notifications yet.')).toBeVisible();
+    expect(within(panel).getByRole('button', { name: 'Mark all read' })).toBeDisabled();
+  });
+
+  it('AC-16: three skeleton rows while the list is on its way', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.notifications), async () => {
+        await delay('infinite');
+        return HttpResponse.json(makeNotificationList());
+      }),
+    );
+    const { user } = await renderApp();
+    const panel = await openPanel(user);
+
+    expect(
+      within(within(panel).getByRole('list', { name: 'Notifications loading' })).getAllByRole('listitem'),
+    ).toHaveLength(3);
+  });
+
+  it('AC-16: says when the list didn’t load, and Try again reads it again', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.notifications), () =>
+        HttpResponse.json({ code: 'internal', message: 'Something went wrong.' }, { status: 500 }),
+      ),
+    );
+    const { user } = await renderApp();
+    const panel = await openPanel(user);
+    expect(await within(panel).findByRole('alert')).toHaveTextContent('Notifications didn’t load.');
+
+    listing([finished]);
+    await user.click(within(panel).getByRole('button', { name: 'Try again' }));
+
+    expect(
+      await within(panel).findByRole('button', { name: 'Session finished, ready for a pull request, unread' }),
+    ).toBeVisible();
   });
 });
