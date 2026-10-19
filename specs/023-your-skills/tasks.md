@@ -22,7 +22,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: API client for skills; `skills.changed` keys the list (its screen test is task 10's AC-19)
       Check: pnpm test packages/api-client/src/skills.test.ts
       Files: packages/api-client/src/endpoints/skills.ts, packages/api-client/src/skills.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts
-- [ ] Task 7: `ListNav` in `@devhub/ui` (AC-3, AC-26)
+- [x] Task 7: `ListNav` in `@devhub/ui` (AC-3, AC-26)
       Check: pnpm test packages/ui/src/components/list-nav.test.tsx
       Files: packages/ui/src/components/list-nav.tsx, packages/ui/src/components/list-nav.stories.tsx, packages/ui/src/components/list-nav.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 8: A `mono` Textarea and a `skill` SourceMark (AC-2)
