@@ -53,8 +53,38 @@ describe('Home’s composer (spec 015)', () => {
     await waitFor(() => {
       expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
     });
-    expect(posted).toEqual([{ message: 'Add a CSV export', repositoryId: web.id, context: [] }]);
-    expect(useComposerStore.getState()).toMatchObject({ text: '', chips: [], lastUsed: web.id });
+    // Spec 026: with no ticket, an Ask until you pick Build.
+    expect(posted).toEqual([{ message: 'Add a CSV export', repositoryId: web.id, context: [], mode: 'ask' }]);
+    expect(useComposerStore.getState()).toMatchObject({ text: '', chips: [], lastUsed: web.id, mode: null });
+  });
+
+  it('spec 026: Ask or Build follows the chips until you pick, says what each does, and sends your pick', async () => {
+    const posted = serve();
+    const { user } = await renderApp();
+    const mode = await screen.findByRole('group', { name: 'Session' });
+    expect(within(mode).getByRole('button', { name: 'Ask' })).toHaveAttribute('aria-pressed', 'true');
+    useComposerStore.setState({ chips: [{ kind: 'jira', key: 'PROJ-1423' }] });
+    await waitFor(() => {
+      expect(within(mode).getByRole('button', { name: 'Build' })).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    within(mode).getByRole('button', { name: 'Ask' }).focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Claude reads the folder where it is and changes nothing',
+    );
+    await user.click(within(mode).getByRole('button', { name: 'Ask' }));
+    await user.type(box(), 'What does it ask for?{Enter}');
+
+    await waitFor(() => {
+      expect(posted).toEqual([
+        {
+          message: 'What does it ask for?',
+          repositoryId: web.id,
+          context: [{ kind: 'jira', key: 'PROJ-1423' }],
+          mode: 'ask',
+        },
+      ]);
+    });
   });
 
   it('AC-5: Shift+Enter starts a new line and sends nothing', async () => {
@@ -79,7 +109,9 @@ describe('Home’s composer (spec 015)', () => {
     await user.click(send());
 
     await waitFor(() => {
-      expect(posted).toEqual([{ message: '', repositoryId: web.id, context: [{ kind: 'jira', key: 'PROJ-1423' }] }]);
+      expect(posted).toEqual([
+        { message: '', repositoryId: web.id, context: [{ kind: 'jira', key: 'PROJ-1423' }], mode: 'build' },
+      ]);
     });
   });
 

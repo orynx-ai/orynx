@@ -8,17 +8,21 @@ import { z } from 'zod';
  */
 
 /**
- * Why a command asks in every mode (Q3), whatever the list says: it reaches the network, deletes outside
- * the worktree, or asked to run outside the sandbox (which only the call's input can say).
+ * Why a command asks with Allow once and Deny only, whatever the list says (Q3): it reaches the network, deletes
+ * outside the worktree, asked to run outside the sandbox (which only the call's input can say), pushes the
+ * session's branch or opens its pull request (spec 026). Each asks while its row in Settings says Ask first.
  */
-export const AlwaysAskReasonSchema = z.enum(['network', 'delete_outside', 'unsandboxed']);
+export const AlwaysAskReasonSchema = z.enum(['network', 'delete_outside', 'unsandboxed', 'push', 'pull_request']);
 export type AlwaysAskReason = z.infer<typeof AlwaysAskReasonSchema>;
 
 export type CommandReading =
-  /** Pushes or opens a pull request: refused, never asked (Q7). */
-  | { kind: 'push' }
-  /** Asks in every mode, with Allow once and Deny only, and can't go on the list. */
-  | { kind: 'always_asks'; reason: Exclude<AlwaysAskReason, 'unsandboxed'> }
+  /**
+   * Pushes (`git push`) or opens a pull request (`gh pr create`), which its own row in Settings decides (spec
+   * 026). `parts` are the line's commands, so a push on its own can be told from one among others.
+   */
+  | { kind: 'push'; what: 'push' | 'pull_request'; parts: string[][] }
+  /** Reaches the network or deletes outside the worktree: its row decides, and it can't go on the list. */
+  | { kind: 'always_asks'; reason: 'network' | 'delete_outside' }
   /**
    * The words of each command in the line, split at `&&`, `||`, `;`, `|` and newlines. `entry` is what
    * Always allow saves (Q4); null when the line holds several commands, or an option comes before the
@@ -171,9 +175,11 @@ function subcommandOf(words: readonly string[]): string | null {
 }
 
 function pushes(words: readonly string[]): boolean {
-  const program = programOf(words);
-  if (program === 'git') return gitSubcommand(words) === 'push';
-  return program === 'gh' && words[1] === 'pr' && words[2] === 'create';
+  return programOf(words) === 'git' && gitSubcommand(words) === 'push';
+}
+
+function opensPullRequest(words: readonly string[]): boolean {
+  return programOf(words) === 'gh' && words[1] === 'pr' && words[2] === 'create';
 }
 
 const networkPrograms = new Set([
@@ -257,7 +263,8 @@ function entryOf(words: readonly string[]): string | null {
 export function readCommand(line: string): CommandReading {
   const parts = scan(line);
   if (parts === null) return opaque;
-  if (parts.some(pushes)) return { kind: 'push' };
+  if (parts.some(pushes)) return { kind: 'push', what: 'push', parts };
+  if (parts.some(opensPullRequest)) return { kind: 'push', what: 'pull_request', parts };
   // A command the reader can't follow runs only in the sandbox, so it's never promoted to one that runs outside it.
   if (parts.some(unfollowed)) return opaque;
   if (url.test(line) || parts.some(reachesNetwork)) return { kind: 'always_asks', reason: 'network' };

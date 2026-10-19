@@ -16,8 +16,14 @@ export interface ComboboxOption {
 export interface ComboboxProps {
   options: readonly ComboboxOption[];
   /** The picked option's value; one no option has shows `placeholder`. */
-  value: string;
-  onValueChange: (value: string) => void;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  /**
+   * Pick several instead (a filter's people, the user's call, 19 Oct 2026): the ticked options' values. Each option
+   * leads with a checkbox, a pick ticks or unticks it, and the list stays open for the next.
+   */
+  values?: readonly string[];
+  onValuesChange?: (values: string[]) => void;
   /** The search box's name for screen readers, and its placeholder: "Search Jira projects". */
   searchLabel: string;
   /** The line shown when nothing matches the search: "No projects match". */
@@ -68,8 +74,10 @@ function matching(options: readonly ComboboxOption[], query: string): ComboboxOp
  */
 export function Combobox({
   options,
-  value,
+  value = '',
   onValueChange,
+  values,
+  onValuesChange,
   searchLabel,
   emptyText,
   placeholder = '',
@@ -94,12 +102,9 @@ export function Combobox({
   const optionId = useId();
   const list = useRef<HTMLDivElement>(null);
   const shown = matching(options, query);
-  const active =
-    moved ??
-    Math.max(
-      0,
-      shown.findIndex((option) => option.value === value),
-    );
+  const many = values !== undefined;
+  const isPicked = (option: ComboboxOption) => (many ? values.includes(option.value) : option.value === value);
+  const active = moved ?? Math.max(0, shown.findIndex(isPicked));
   const small = size === 'sm';
   const picked = options.find((option) => option.value === value);
 
@@ -117,7 +122,13 @@ export function Combobox({
   }
 
   function pick(option: ComboboxOption) {
-    onValueChange(option.value);
+    if (many) {
+      onValuesChange?.(
+        values.includes(option.value) ? values.filter((ticked) => ticked !== option.value) : [...values, option.value],
+      );
+      return;
+    }
+    onValueChange?.(option.value);
     changeOpen(false);
   }
 
@@ -220,11 +231,12 @@ export function Combobox({
             id={listboxId}
             role="listbox"
             aria-label={searchLabel}
+            aria-multiselectable={many || undefined}
             aria-busy={loading || undefined}
             className="flex min-h-0 flex-col overflow-y-auto"
           >
             {shown.map((option, index) => {
-              const selected = option.value === value;
+              const selected = isPicked(option);
               return (
                 // The keyboard reaches options from the search box (↓ ↑ Enter, aria-activedescendant), as
                 // ARIA's combobox pattern asks, so an option takes no focus or keys of its own.
@@ -247,8 +259,8 @@ export function Combobox({
                     pick(option);
                   }}
                 >
-                  {/* Pick-one, so a radio leads each option (the user's call, 19 Oct 2026). */}
-                  <OptionMark select="one" picked={selected} />
+                  {/* A radio leads each option, or a checkbox when several can be picked (the user's call, 19 Oct 2026). */}
+                  <OptionMark select={many ? 'many' : 'one'} picked={selected} />
                   <span className="min-w-0 flex-1 truncate">{option.label}</span>
                 </div>
               );

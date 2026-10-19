@@ -1,14 +1,14 @@
 import { lstat, readlink, realpath } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import type { PermissionMode } from '@devhub/contracts';
+import type { Permissions } from '@devhub/contracts';
 import type { AgentAsk, AgentReads, AgentRefusal } from '../agent-adapter.ts';
 import { decideCommand } from './command-decision.ts';
 import { previewEdit, type EditTool } from './edit-preview.ts';
 
 /**
  * What Claude may do in a session: read, search, plan and edit inside the session's worktree (spec 011,
- * Q6), and run commands that the mode, the allow list and the always-ask rules let through or that you
- * approve (spec 012). Nothing else: no web, no MCP tools, no sub-agents and no questions. Claude Code's
+ * Q6), and run commands that Settings › Coding agent's rows and the allow list let through (spec 026) or
+ * that you approve (spec 012). Nothing else: no web, no MCP tools, no sub-agents and no questions. Claude Code's
  * `canUseTool` asks this file about every call it doesn't allow by itself, and gets one of three answers:
  * allow, ask you, or deny with the reason Claude is told.
  */
@@ -34,19 +34,24 @@ export type ToolRefusal = AgentRefusal;
 export type ToolAsk = AgentAsk;
 
 export type ToolDecision =
-  | { behavior: 'allow' }
+  /** `outsideSandbox`: a command its row allowed outside the sandbox, this once (spec 026). */
+  | { behavior: 'allow'; outsideSandbox?: boolean }
   | { behavior: 'ask'; ask: ToolAsk }
   /** `message` is for Claude. `refusal` is null for a call nobody needs to see, like a tool it doesn't have. */
   | { behavior: 'deny'; message: string; refusal: ToolRefusal | null };
 
-export interface ToolContext {
+/** Settings › Coding agent's rows (spec 026), read again for every call. */
+export interface ToolContext extends Permissions {
   /** The session's worktree, Claude's working folder. */
   worktree: string;
+  /** The session's branch, the only one a push may name; null before the worktree is made. */
+  branch?: string | null | undefined;
   /** Files and folders outside the worktree the brief named, which Claude may read and never edit (spec 022). */
   reads?: AgentReads | undefined;
-  mode: PermissionMode;
   /** Settings › Coding agent's allow list, as saved. */
   allowedCommands: readonly string[];
+  /** An Ask session (spec 026): checked before the mode, so no setting lets an edit or a command through. */
+  readOnly?: boolean | undefined;
   /** What `~` means in a path Claude gives. */
   home: string;
 }
@@ -78,9 +83,9 @@ function decideBash(input: Readonly<Record<string, unknown>>, context: ToolConte
       runInBackground: input['run_in_background'] === true,
       unsandboxed: input['dangerouslyDisableSandbox'] === true,
     },
-    { mode: context.mode, allowedCommands: context.allowedCommands, worktree: context.worktree },
+    { ...context, branch: context.branch ?? null },
   );
-  if (decision.behavior === 'allow') return { behavior: 'allow' };
+  if (decision.behavior === 'allow') return { behavior: 'allow', outsideSandbox: decision.outsideSandbox };
   if (decision.behavior === 'refuse') {
     return {
       behavior: 'deny',
@@ -100,6 +105,14 @@ function decideBash(input: Readonly<Record<string, unknown>>, context: ToolConte
   };
 }
 
+const askSessionMessage =
+  "This is an Ask session: Orynx lets you read this folder, not change files or run commands. Answer from what you've read.";
+
+/** An edit or a command in an Ask session: refused, and shown as a step (spec 026). */
+function readOnlyRefusal(access: 'edit' | 'run', path: string): ToolDecision {
+  return { behavior: 'deny', message: askSessionMessage, refusal: { access, reason: 'ask_session', path } };
+}
+
 function isSessionTool(tool: string): tool is SessionTool {
   return (sessionTools as readonly string[]).includes(tool);
 }
@@ -109,11 +122,15 @@ export async function decideToolUse(
   input: Readonly<Record<string, unknown>>,
   context: ToolContext,
 ): Promise<ToolDecision> {
-  const { worktree, mode, home } = context;
+  const { worktree, edits, home } = context;
   if (!isSessionTool(tool)) {
     return { behavior: 'deny', message: `${tool} isn't available in this session.`, refusal: null };
   }
-  if (tool === 'Bash') return decideBash(input, context);
+  if (tool === 'Bash') {
+    const command = input['command'];
+    if (context.readOnly !== true) return decideBash(input, context);
+    return typeof command === 'string' && command !== '' ? readOnlyRefusal('run', command) : unreadable('Bash');
+  }
   const target = targets[tool];
   if (target === null) return { behavior: 'allow' };
 
@@ -127,6 +144,7 @@ export async function decideToolUse(
   if (tool === 'Glob' && typeof pattern === 'string') asked = absolute(fixedStart(pattern), asked, home);
 
   const shown = shownPath(asked, worktree);
+  if (context.readOnly === true && target.access === 'edit') return readOnlyRefusal('edit', shown);
   if (!(await insideWorktree(asked, worktree))) {
     // A file you picked, or a skill's folder, may be read where it is, and never changed (spec 022, AC-15, AC-53).
     if (target.access === 'read' && (await namedByBrief(asked, context.reads))) return { behavior: 'allow' };
@@ -137,7 +155,7 @@ export async function decideToolUse(
       refusal: { access: target.access, reason: 'outside_worktree', path: shown },
     };
   }
-  if (target.access === 'edit' && mode === 'ask_everything' && isEditTool(tool)) {
+  if (target.access === 'edit' && edits === 'ask' && isEditTool(tool)) {
     // Every edit waits for your click (spec 012, AC-8), shown with the change it would make (Q9).
     return { behavior: 'ask', ask: { kind: 'edit', path: shown, ...(await previewEdit(tool, input, asked)) } };
   }

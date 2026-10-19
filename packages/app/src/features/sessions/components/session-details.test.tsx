@@ -43,8 +43,8 @@ describe('SessionDetails', () => {
     await user.click(context);
     expect(new URLSearchParams(history.location.search).get('tab')).toBe('context');
     expect(screen.getByRole('tabpanel', { name: 'Context 1' })).toBeVisible();
-    // Discard sits under the Changes tab only (Q6e).
-    expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull();
+    // Discard sits in the title row, whichever tab is open (19 Oct 2026).
+    expect(screen.getByRole('button', { name: 'Discard changes' })).toBeVisible();
 
     await user.keyboard('{ArrowLeft}');
     expect(screen.getByRole('tab', { name: /^Changes/ })).toHaveFocus();

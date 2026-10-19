@@ -31,9 +31,23 @@ export class FakeIntersectionObserver {
 
   /** Every watched element scrolls into view, as when the person scrolls a list to its end. */
   static scrollIntoView(): void {
+    FakeIntersectionObserver.#report(true);
+  }
+
+  /** Every watched element scrolls out of view, as when the person scrolls back up the page. */
+  static scrollOutOfView(): void {
+    FakeIntersectionObserver.#report(false);
+  }
+
+  static #report(inView: boolean): void {
     for (const observer of FakeIntersectionObserver.instances) {
       const entries = [...observer.targets].map(
-        (target) => ({ target, isIntersecting: true, intersectionRatio: 1 }) as unknown as IntersectionObserverEntry,
+        (target) =>
+          ({
+            target,
+            isIntersecting: inView,
+            intersectionRatio: inView ? 1 : 0,
+          }) as unknown as IntersectionObserverEntry,
       );
       if (entries.length > 0) observer.#callback(entries, observer as unknown as IntersectionObserver);
     }

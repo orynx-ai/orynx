@@ -2,7 +2,12 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { apiRoutes, type CreatePullRequestAnswer, type PullRequestDraftAnswer, type Session } from '@devhub/contracts';
-import { makePullRequestDraft, makeSession, makeSessionPullRequest } from '@devhub/contracts/testing';
+import {
+  makePullRequestDraft,
+  makeSession,
+  makeSessionChanges,
+  makeSessionPullRequest,
+} from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -17,8 +22,12 @@ const done = makeSession({
   worktreePath: '/Users/you/.devhub/worktrees/0123456789abcdef',
 });
 
+const withChanges = () => http.get(apiUrl(apiRoutes.sessionChanges), () => HttpResponse.json(makeSessionChanges()));
+
 beforeEach(() => {
   usePullRequestDrafts.setState(initialPullRequestDrafts);
+  // Claude changed files, so there's something to put in a pull request.
+  server.use(withChanges());
 });
 
 type Answer<T> = T | 'fails' | 'slow';
@@ -76,6 +85,17 @@ describe('Create pull request (spec 014)', () => {
       expect(screen.queryByRole('button', { name: 'Create pull request' })).toBeNull();
       unmount();
     }
+
+    // Nothing changed in the worktree: nothing to put in a pull request (the user's call, 19 Oct 2026).
+    serve(done);
+    server.use(
+      http.get(apiUrl(apiRoutes.sessionChanges), () =>
+        HttpResponse.json({ state: 'ready', files: [], moreFiles: 0, added: 0, removed: 0 }),
+      ),
+    );
+    await renderApp({ route });
+    expect(await screen.findByText('No changes yet')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Create pull request' })).toBeNull();
   });
 
   it('AC-2, AC-3, AC-23: opens at once, drafts with skeletons, then fills the fields and starts on the title', async () => {

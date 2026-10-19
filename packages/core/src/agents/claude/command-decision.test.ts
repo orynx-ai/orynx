@@ -1,29 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import type { PermissionMode } from '@devhub/contracts';
-import { decideCommand, type CommandRequest } from './command-decision.ts';
+import { defaultPermissions, type Permissions } from '@devhub/contracts';
+import { decideCommand, type CommandContext, type CommandRequest } from './command-decision.ts';
 
 const worktree = '/Users/dev/.devhub/worktrees/0123456789abcdef';
+const branch = 'feat/PROJ-1423';
 const allowedCommands = ['npm test', 'pnpm lint'];
 
-function decide(command: string, mode: PermissionMode = 'edit_and_run_allowed', rest: Partial<CommandRequest> = {}) {
+function context(rows: Partial<Permissions> = {}, list: readonly string[] = allowedCommands): CommandContext {
+  return { ...defaultPermissions, ...rows, allowedCommands: list, worktree, branch };
+}
+
+function decide(
+  command: string,
+  commands: Permissions['commands'] = 'allowed_list',
+  rest: Partial<CommandRequest> = {},
+  rows: Partial<Permissions> = {},
+) {
   return decideCommand(
     { command, runInBackground: false, unsandboxed: false, ...rest },
-    { mode, allowedCommands, worktree },
+    context({ commands, ...rows }),
   );
 }
 
-/** In Edit files and run allowed commands, with this allow list. */
+/** With Only allowed commands, and this allow list. */
 function decideWith(command: string, list: readonly string[]) {
   return decideCommand(
     { command, runInBackground: false, unsandboxed: false },
-    { mode: 'edit_and_run_allowed', allowedCommands: list, worktree },
+    context({ commands: 'allowed_list' }, list),
   );
 }
 
+const runs = { behavior: 'allow', outsideSandbox: false };
+const runsOutside = { behavior: 'allow', outsideSandbox: true };
 const asks = (alwaysAllow: string | null = null) => ({ behavior: 'ask', alwaysAsk: null, alwaysAllow });
+const asksBecause = (alwaysAsk: string) => ({ behavior: 'ask', alwaysAsk, alwaysAllow: null });
 
 describe('decideCommand', () => {
-  describe('in Edit files and run allowed commands', () => {
+  describe('with Run commands: Only allowed commands', () => {
     it.each([
       'npm test',
       'npm test -- content-list',
@@ -35,11 +48,11 @@ describe('decideCommand', () => {
       '/usr/local/bin/npm test',
       'npm test && pnpm lint',
     ])('AC-4, Q3: runs %j, every part on the list, a cd inside the worktree, or a filter', (command) => {
-      expect(decide(command)).toEqual({ behavior: 'allow' });
+      expect(decide(command)).toEqual(runs);
     });
 
     it('AC-4, Q3: runs a cd to an absolute path inside the worktree', () => {
-      expect(decide(`cd ${worktree}/packages/app && pnpm lint`)).toEqual({ behavior: 'allow' });
+      expect(decide(`cd ${worktree}/packages/app && pnpm lint`)).toEqual(runs);
     });
 
     it.each([
@@ -63,7 +76,7 @@ describe('decideCommand', () => {
       const offered = decideWith(command, []);
       const entry = offered.behavior === 'ask' ? offered.alwaysAllow : null;
       expect(entry).not.toBeNull();
-      expect(decideWith(command, [entry ?? ''])).toEqual({ behavior: 'allow' });
+      expect(decideWith(command, [entry ?? ''])).toEqual(runs);
     });
 
     it.each(['ls -la src', 'git --no-pager diff', 'npm --silent test', 'npm run --silent lint', 'npm -w pkg test'])(
@@ -107,73 +120,141 @@ describe('decideCommand', () => {
     );
   });
 
-  it.each(['edit_freely_ask_commands', 'ask_everything'] as const)(
-    'AC-1, AC-8, Q1: in %s every command asks, with no Always allow, even one on the list',
-    (mode) => {
-      expect(decide('npm test', mode)).toEqual(asks(null));
-      expect(decide('ls', mode)).toEqual(asks(null));
+  it('AC-1, AC-8, Q1: with Run commands: Ask first, every command asks, with no Always allow, even one on the list', () => {
+    expect(decide('npm test', 'ask')).toEqual(asks(null));
+    expect(decide('ls', 'ask')).toEqual(asks(null));
+  });
+
+  it.each(['npm test', 'make build', 'npm test > out.txt', 'echo $(date)', 'cd /tmp && ls'])(
+    'spec 026: with Run commands: Any command, %j runs in the sandbox without asking',
+    (command) => {
+      expect(decide(command, 'any')).toEqual(runs);
     },
   );
 
-  describe('whatever the mode and the list', () => {
-    const modes: PermissionMode[] = ['ask_everything', 'edit_freely_ask_commands', 'edit_and_run_allowed'];
+  describe('the network, delete and sandbox rows', () => {
+    const lists = ['ask', 'allowed_list', 'any'] as const;
 
-    it.each(modes)(
-      'AC-6, Q3: in %s a command that reaches the network asks, saying why, with no Always allow',
-      (mode) => {
-        expect(decide('npm test && npm install', mode)).toEqual({
-          behavior: 'ask',
-          alwaysAsk: 'network',
-          alwaysAllow: null,
-        });
-        expect(decide('curl https://x.test', mode)).toEqual({
-          behavior: 'ask',
-          alwaysAsk: 'network',
-          alwaysAllow: null,
-        });
-      },
-    );
-
-    it.each(modes)('AC-6, Q3: in %s a command that deletes outside the worktree asks, saying why', (mode) => {
-      expect(decide('rm -rf ~/.cache', mode)).toEqual({
-        behavior: 'ask',
-        alwaysAsk: 'delete_outside',
-        alwaysAllow: null,
-      });
+    it.each(lists)('AC-6, Q3: with commands %s, a command that reaches the network asks, saying why', (commands) => {
+      expect(decide('npm test && npm install', commands)).toEqual(asksBecause('network'));
+      expect(decide('curl https://x.test', commands)).toEqual(asksBecause('network'));
     });
 
-    it.each(modes)(
-      'AC-6, Q3: in %s a command Claude wants outside the sandbox asks, saying why, even one on the list',
-      (mode) => {
-        expect(decide('npm test', mode, { unsandboxed: true })).toEqual({
-          behavior: 'ask',
-          alwaysAsk: 'unsandboxed',
-          alwaysAllow: null,
-        });
+    it.each(lists)('AC-6, Q3: with commands %s, a command that deletes outside the worktree asks', (commands) => {
+      expect(decide('rm -rf ~/.cache', commands)).toEqual(asksBecause('delete_outside'));
+    });
+
+    it.each(lists)('AC-6, Q3: with commands %s, a command Claude wants outside the sandbox asks', (commands) => {
+      expect(decide('npm test', commands, { unsandboxed: true })).toEqual(asksBecause('unsandboxed'));
+    });
+
+    it.each(lists)(
+      'spec 026: with commands %s, Allow on the network and delete rows runs those commands outside the sandbox',
+      (commands) => {
+        expect(decide('curl https://x.test', commands, {}, { network: 'allow' })).toEqual(runsOutside);
+        expect(decide('rm -rf ~/.cache', commands, {}, { deleteOutside: 'allow' })).toEqual(runsOutside);
+        // Each row decides only its own kind.
+        expect(decide('rm -rf ~/.cache', commands, {}, { network: 'allow' })).toEqual(asksBecause('delete_outside'));
       },
     );
 
-    it.each(modes)('AC-7, Q7: in %s a push or a pull request is refused without asking', (mode) => {
-      for (const command of ['git push', 'git push --force origin feat/x', 'gh pr create -f', 'npm test; git push']) {
-        const decision = decide(command, mode);
-        expect(decision).toMatchObject({ behavior: 'refuse', reason: 'push' });
-        expect(decision.behavior === 'refuse' && decision.message).toMatch(/Create pull request/);
+    it('spec 026: Allow outside the sandbox lets the commands row decide, and what it runs leaves the sandbox', () => {
+      const rows = { unsandboxed: 'allow' } as const;
+      expect(decide('npm test', 'allowed_list', { unsandboxed: true }, rows)).toEqual(runsOutside);
+      expect(decide('make build', 'any', { unsandboxed: true }, rows)).toEqual(runsOutside);
+      expect(decide('make build', 'allowed_list', { unsandboxed: true }, rows)).toEqual(asks('make build'));
+      expect(decide('npm test', 'ask', { unsandboxed: true }, rows)).toEqual(asks(null));
+    });
+
+    it('spec 026: a line Orynx cannot read never leaves the sandbox without asking, even with every row on Allow', () => {
+      const rows = { unsandboxed: 'allow', network: 'allow' } as const;
+      expect(decide('echo $(date)', 'any', { unsandboxed: true }, rows)).toEqual(asksBecause('unsandboxed'));
+    });
+
+    it('in every row a background command is refused, and told to run in the foreground', () => {
+      for (const commands of lists) {
+        const decision = decide('npm test', commands, { runInBackground: true });
+        expect(decision).toMatchObject({ behavior: 'refuse', reason: 'background' });
+        expect(decision.behavior === 'refuse' && decision.message).toMatch(/foreground/);
       }
     });
 
-    it.each(modes)('in %s a background command is refused, and told to run in the foreground', (mode) => {
-      const decision = decide('npm test', mode, { runInBackground: true });
-      expect(decision).toMatchObject({ behavior: 'refuse', reason: 'background' });
-      expect(decision.behavior === 'refuse' && decision.message).toMatch(/foreground/);
-    });
-
-    it('says push before background, when both apply', () => {
-      expect(decide('git push', 'edit_and_run_allowed', { runInBackground: true })).toMatchObject({ reason: 'push' });
-    });
-
     it('says why it always asks before the sandbox flag, when both apply', () => {
-      expect(decide('curl https://x.test', 'edit_and_run_allowed', { unsandboxed: true })).toMatchObject({
+      expect(decide('curl https://x.test', 'allowed_list', { unsandboxed: true })).toMatchObject({
         alwaysAsk: 'network',
+      });
+    });
+  });
+
+  describe('a push or a pull request (spec 026)', () => {
+    const push = `git push origin ${branch}`;
+    const pull = 'gh pr create --fill';
+
+    it('AC-7, Q7: with Never, the default, both are refused without asking, and Claude is told where the switch is', () => {
+      for (const command of [push, pull, 'git push', 'npm test; git push']) {
+        const decision = decide(command, 'any');
+        expect(decision).toMatchObject({ behavior: 'refuse', reason: 'push' });
+        expect(decision.behavior === 'refuse' && decision.message).toMatch(/off in Settings › Coding agent/);
+      }
+    });
+
+    it('with Ask first, each asks with Allow once and Deny only, saying why', () => {
+      expect(decide(push, 'ask', {}, { push: 'ask' })).toEqual(asksBecause('push'));
+      expect(decide(pull, 'ask', {}, { pullRequest: 'ask' })).toEqual(asksBecause('pull_request'));
+    });
+
+    it('with Allow, each runs outside the sandbox, as it needs the network', () => {
+      expect(decide(push, 'ask', {}, { push: 'allow' })).toEqual(runsOutside);
+      expect(decide(`git push -u origin ${branch}`, 'ask', {}, { push: 'allow' })).toEqual(runsOutside);
+      expect(decide(pull, 'ask', {}, { pullRequest: 'allow' })).toEqual(runsOutside);
+      expect(decide(`gh pr create --head ${branch} --title x`, 'ask', {}, { pullRequest: 'allow' })).toEqual(
+        runsOutside,
+      );
+      expect(decide(`gh pr create --head=${branch}`, 'ask', {}, { pullRequest: 'allow' })).toEqual(runsOutside);
+    });
+
+    it.each([
+      'git push',
+      'git push origin',
+      `git push --force origin ${branch}`,
+      `git push -f origin ${branch}`,
+      `git push --force-with-lease origin ${branch}`,
+      `git push origin +${branch}`,
+      'git push origin main',
+      `git push origin ${branch}:main`,
+      `git push origin :${branch}`,
+      `git push upstream ${branch}`,
+      `git push --tags origin ${branch}`,
+      `git -C ../other push origin ${branch}`,
+      `npm test && git push origin ${branch}`,
+    ])('refuses %j even with Allow: only the session branch, on its own and unforced', (command) => {
+      const decision = decide(command, 'any', {}, { push: 'allow' });
+      expect(decision).toMatchObject({ behavior: 'refuse', reason: 'push' });
+      expect(decision.behavior === 'refuse' && decision.message).toContain(`git push origin ${branch}`);
+    });
+
+    it.each(['gh pr create --repo acme/other', 'gh pr create -R acme/other', 'gh pr create --head main'])(
+      'refuses %j even with Allow: only this session branch’s pull request',
+      (command) => {
+        expect(decide(command, 'any', {}, { pullRequest: 'allow' })).toMatchObject({
+          behavior: 'refuse',
+          reason: 'push',
+        });
+      },
+    );
+
+    it('refuses a push before the session has a branch', () => {
+      const decision = decideCommand(
+        { command: push, runInBackground: false, unsandboxed: false },
+        { ...context({ push: 'allow' }), branch: null },
+      );
+      expect(decision).toMatchObject({ behavior: 'refuse', reason: 'push' });
+    });
+
+    it('says push before background when pushing is off, and background when it is allowed', () => {
+      expect(decide('git push', 'any', { runInBackground: true })).toMatchObject({ reason: 'push' });
+      expect(decide(push, 'any', { runInBackground: true }, { push: 'allow' })).toMatchObject({
+        reason: 'background',
       });
     });
   });

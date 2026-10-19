@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import {
   ApiRequestError,
   preferencesQueryOptions,
+  sessionBriefQueryOptions,
   sessionChangesQueryOptions,
   sessionDiffQueryOptions,
   sessionPagesQueryOptions,
@@ -60,6 +61,12 @@ export function useRespondToApproval(sessionId: string) {
 export function useSessionChanges(sessionId: string) {
   const api = useApi();
   return useQuery(sessionChangesQueryOptions(api, sessionId));
+}
+
+/** Exactly what Claude was sent at the start, read when it's shown (the user's call, 19 Oct 2026). */
+export function useSessionBrief(sessionId: string) {
+  const api = useApi();
+  return useQuery(sessionBriefQueryOptions(api, sessionId));
 }
 
 /** One changed file's diff; nothing is read until there's a file to show. */

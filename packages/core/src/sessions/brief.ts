@@ -1,3 +1,4 @@
+import type { Permissions } from '@devhub/contracts';
 import type { AgentBrief } from '../agents/agent-adapter.ts';
 import type { JiraIssueDetail } from '../integrations/jira/client.ts';
 
@@ -200,12 +201,32 @@ export function briefText(brief: AgentBrief): string {
   return parts.join('\n\n');
 }
 
+/** What the note says about git: no push or pull request, unless Settings › Coding agent lets Claude (spec 026). */
+function gitLines(branch: string, commands: boolean, { push, pullRequest }: PublishRows): string[] {
+  if (!commands || (push === 'never' && pullRequest === 'never')) {
+    return ["Don't push, open pull requests or change git settings."];
+  }
+  const once = (row: 'ask' | 'allow') => (row === 'ask' ? ', once the user allows it' : '');
+  return [
+    push === 'never'
+      ? "Don't push."
+      : `You may push this branch with exactly \`git push origin ${branch}\` on its own${once(push)}. Never force-push or push another branch.`,
+    pullRequest === 'never'
+      ? "Don't open pull requests."
+      : `You may open its pull request with \`gh pr create\`${once(pullRequest)}.`,
+    "Don't change git settings.",
+  ];
+}
+
+export type PublishRows = Pick<Permissions, 'push' | 'pullRequest'>;
+const neverPublish: PublishRows = { push: 'never', pullRequest: 'never' };
+
 /**
  * Added to Claude Code's own system prompt (011 Q5). Where Claude can run commands, the last sentences say
  * how they run (012 Q8g); where the sandbox can't run, that it can't (012 Q2b). Without a ticket, Claude does
- * what the brief asks (spec 015, Q8c).
+ * what the brief asks (spec 015, Q8c). It may push or open the pull request only as Settings says (spec 026).
  */
-export function sessionNote(branch: string, commands: boolean, ticket = true): string {
+export function sessionNote(branch: string, commands: boolean, ticket = true, publish = neverPublish): string {
   const ending = commands
     ? [
         'You can run commands in the worktree.',
@@ -221,10 +242,20 @@ export function sessionNote(branch: string, commands: boolean, ticket = true): s
     `You're working in a separate git worktree on the branch ${branch}.`,
     ticket ? 'Make the change the ticket asks for.' : 'Do what the user asks in the brief.',
     'If the repository has a CLAUDE.md, read it first.',
-    "Don't push, open pull requests or change git settings.",
+    ...gitLines(branch, commands, publish),
     ...ending,
     // Claude can't ask mid-task: it asks in its summary, and you answer in the follow-up box (spec 013, Q2a).
     'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
+  ].join(' ');
+}
+
+/** An Ask session's note (spec 026): Claude answers from the folder as it is, and changes nothing. */
+export function askNote(): string {
+  return [
+    "You're answering in the user's own folder, as it is: this is an Ask session.",
+    "You can read and search the files here. You can't change files or run commands, and nothing you try will be allowed.",
+    'If the repository has a CLAUDE.md, read it first.',
+    'Answer what the user asks. If it needs changes, describe them; the user can start a Build session to make them.',
   ].join(' ');
 }
 

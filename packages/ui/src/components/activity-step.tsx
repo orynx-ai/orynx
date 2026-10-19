@@ -47,14 +47,16 @@ export type ActivityStepProps = Omit<ComponentProps<'li'>, 'title'> & {
   title: ReactNode;
   /** One line more: which files, the counts, why it waits. */
   detail?: ReactNode;
+  /** Makes the title a button that shows the step in full, such as everything Claude was sent. */
+  onOpen?: (() => void) | undefined;
 };
 
 /**
  * Design system: activity step (`dh-step`). One step in Claude's progress: a 24 px dot with the
  * step's icon, a title and a detail line. From shadcn's `TraceLine`, without its shimmer: the
- * product needs no motion.
+ * product needs no motion. A step with more to show has a title you can press (the user's call, 19 Oct 2026).
  */
-export function ActivityStep({ state, icon, title, detail, className, ...props }: ActivityStepProps) {
+export function ActivityStep({ state, icon, title, detail, onOpen, className, ...props }: ActivityStepProps) {
   const look = state ?? 'plain';
   return (
     <li data-slot="activity-step" data-state={look} className={cn('flex gap-3', className)} {...props}>
@@ -63,7 +65,17 @@ export function ActivityStep({ state, icon, title, detail, className, ...props }
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="font-medium">
-          {title}
+          {onOpen === undefined ? (
+            title
+          ) : (
+            <button
+              type="button"
+              onClick={onOpen}
+              className="cursor-pointer rounded-xs border-0 bg-transparent p-0 text-start font-medium text-foreground hover:underline"
+            >
+              {title}
+            </button>
+          )}
           {/* The dot's colour tells the state to the eye; these words tell it to screen readers. */}
           {state ? <span className="sr-only">{spokenStates[state]}</span> : null}
         </span>

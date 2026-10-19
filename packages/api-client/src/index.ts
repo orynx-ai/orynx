@@ -13,6 +13,7 @@ export {
   repositoriesQueryOptions,
   orynxSkillsQueryOptions,
   searchQueryOptions,
+  sessionBriefQueryOptions,
   sessionChangesQueryKey,
   sessionChangesQueryOptions,
   sessionDiffQueryKey,

@@ -85,6 +85,7 @@ export {
   type DialogContentProps,
   type DialogProps,
 } from './components/dialog.tsx';
+export { CopyButton, type CopyButtonProps } from './components/copy-button.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { ExternalLink, type ExternalLinkProps } from './components/external-link.tsx';
 export { Field, useFieldControl, type FieldProps } from './components/field.tsx';
@@ -176,12 +177,14 @@ export {
   WorkItemCardSkeleton,
   WorkItemKey,
   WorkItemPriority,
+  WorkItemSelect,
   WorkItemShip,
   WorkItemTitle,
   WorkItemTitleButton,
   type WorkItemCardProps,
   type WorkItemPriorityLevel,
   type WorkItemPriorityProps,
+  type WorkItemSelectProps,
   type WorkItemShipProps,
   type WorkItemTitleButtonProps,
   type WorkItemTitleProps,

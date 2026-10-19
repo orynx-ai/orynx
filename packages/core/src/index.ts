@@ -33,5 +33,5 @@ export type {
   AgentRefusal,
   AgentWork,
   ApprovalDecision,
-  PermissionMode,
+  Permissions,
 } from './agents/agent-adapter.ts';

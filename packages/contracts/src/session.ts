@@ -17,6 +17,13 @@ export type SessionState = z.infer<typeof SessionStateSchema>;
 
 /** The five steps of a session (spec: "Agent sessions"). */
 export const SessionStepSchema = z.enum(['plan', 'build', 'test', 'review', 'pull_request']);
+
+/**
+ * How a session works (spec 026): `build` makes a worktree and a branch, where Claude changes files; `ask` reads the
+ * folder where it is and changes nothing, so it has no worktree, branch, Changes or pull request.
+ */
+export const SessionModeSchema = z.enum(['ask', 'build']);
+export type SessionMode = z.infer<typeof SessionModeSchema>;
 export type SessionStep = z.infer<typeof SessionStepSchema>;
 
 /** What a session was started from: shown as `PROJ-1423` or `PR #2836` under its title. */
@@ -116,13 +123,13 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({ kind: z.literal('edit'), files: FilesSchema }),
   /**
    * A call Orynx refused: outside the worktree (spec 011, Q6), a push or a background command (spec 012,
-   * Q7). `path` holds the command for a `run`. `ask_everything` is from before spec 012, when an edit in
-   * Ask before everything was refused instead of asked.
+   * Q7), or any edit or command in an Ask session (spec 026). `path` holds the command for a `run`.
+   * `ask_everything` is from before spec 012, when an edit in Ask before everything was refused instead of asked.
    */
   ActivityBaseSchema.extend({
     kind: z.literal('refused'),
     access: z.enum(['read', 'edit', 'run']),
-    reason: z.enum(['outside_worktree', 'ask_everything', 'push', 'background']),
+    reason: z.enum(['outside_worktree', 'ask_everything', 'push', 'background', 'ask_session']),
     path: z.string().min(1),
   }),
   /** A call waiting for your answer (spec 012): `text` is Claude's line about the command, or the edit's path. */
@@ -320,6 +327,8 @@ export const SessionSchema = SessionSummarySchema.extend({
    * then each follow-up's new ones. A session saved before this kept none, so it shows its ticket alone.
    */
   context: z.array(ComposerChipSchema).default([]),
+  /** Ask or Build (spec 026); a session saved before it was a Build. */
+  mode: SessionModeSchema.default('build'),
 });
 export type Session = z.infer<typeof SessionSchema>;
 
@@ -372,6 +381,8 @@ export const ComposerStartSchema = z
     context: z.array(ComposerChipSchema),
     // The model and effort the composer picked; left out, Claude Code's own default.
     ...AgentChoiceSchema.shape,
+    /** Ask or Build (spec 026); left out, Build, as before. */
+    mode: SessionModeSchema.optional(),
   })
   .superRefine(({ message, context }, check) => {
     checkChips(context, check);

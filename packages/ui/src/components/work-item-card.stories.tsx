@@ -4,6 +4,7 @@ import {
   WorkItemShip,
   WorkItemCard,
   WorkItemCardSkeleton,
+  WorkItemSelect,
   WorkItemTitle,
   WorkItemTitleButton,
 } from './work-item-card.tsx';
@@ -53,6 +54,14 @@ export const BugToBuild: Story = {
     priority: { level: 'medium', label: 'Medium' },
     due: { label: 'Oct 28' },
     title: <WorkItemTitle href="#ticket">Search returns archived sites for guest users</WorkItemTitle>,
+    action: <WorkItemShip itemKey="PROJ-1377" />,
+  },
+};
+/** Picked among several: a ticked checkbox before the key (the user's call, 19 Oct 2026). */
+export const Selected: Story = {
+  args: {
+    itemKey: 'PROJ-1377',
+    select: <WorkItemSelect itemKey="PROJ-1377" defaultChecked />,
     action: <WorkItemShip itemKey="PROJ-1377" />,
   },
 };

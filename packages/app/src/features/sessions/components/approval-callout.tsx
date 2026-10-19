@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { ApiRequestError } from '@devhub/api-client';
 import type { ApprovalDecision, Session, SessionApproval } from '@devhub/contracts';
-import { Button, Callout, CalloutCode, DiffView } from '@devhub/ui';
+import { Button, Callout, CalloutCode, DiffView, ResumeBanner } from '@devhub/ui';
 import {
   alwaysAllowLabel,
   alwaysAskLine,
+  approvalBar,
   answerErrorLine,
   approvalButtons,
   approvalTitle,
@@ -54,6 +55,21 @@ export function ApprovalCallout({
   const answered = useRef<string | null>(null);
   const shown = useRef<string | undefined>(approval?.id);
   const firstButton = useRef<HTMLButtonElement>(null);
+  // Whether the callout is in view; out of it, a bar pinned to the window's bottom leads back (19 Oct 2026).
+  const box = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(true);
+  const waiting = approval !== undefined;
+  useEffect(() => {
+    const element = box.current;
+    if (!waiting || element === null) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry !== undefined) setInView(entry.isIntersecting);
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, [waiting]);
 
   /** Focus moves to the next waiting call's first button, or to Claude's progress when none is left. */
   const moveOn = useCallback(() => {
@@ -101,52 +117,79 @@ export function ApprovalCallout({
 
   const alwaysAllow = approval.kind === 'command' ? approval.alwaysAllow : null;
   return (
-    <Callout
-      key={approval.id}
-      tone="warning"
-      role="alert"
-      title={approvalTitle(approval)}
-      actions={
-        <>
-          <Button
-            ref={firstButton}
-            size="sm"
-            pending={busy === 'allow_once'}
-            disabled={busy !== null && busy !== 'allow_once'}
-            onClick={() => {
-              answer('allow_once');
-            }}
-          >
-            {approvalButtons.allowOnce}
-          </Button>
-          {alwaysAllow === null ? null : (
+    <div ref={box}>
+      <Callout
+        key={approval.id}
+        tone="warning"
+        role="alert"
+        title={approvalTitle(approval)}
+        actions={
+          <>
             <Button
+              ref={firstButton}
               size="sm"
-              pending={busy === 'always_allow'}
-              disabled={busy !== null && busy !== 'always_allow'}
+              pending={busy === 'allow_once'}
+              disabled={busy !== null && busy !== 'allow_once'}
               onClick={() => {
-                answer('always_allow');
+                answer('allow_once');
               }}
             >
-              {alwaysAllowLabel(alwaysAllow)}
+              {approvalButtons.allowOnce}
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            pending={busy === 'deny'}
-            disabled={busy !== null && busy !== 'deny'}
-            onClick={() => {
-              answer('deny');
-            }}
+            {alwaysAllow === null ? null : (
+              <Button
+                size="sm"
+                pending={busy === 'always_allow'}
+                disabled={busy !== null && busy !== 'always_allow'}
+                onClick={() => {
+                  answer('always_allow');
+                }}
+              >
+                {alwaysAllowLabel(alwaysAllow)}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              pending={busy === 'deny'}
+              disabled={busy !== null && busy !== 'deny'}
+              onClick={() => {
+                answer('deny');
+              }}
+            >
+              {approvalButtons.deny}
+            </Button>
+          </>
+        }
+      >
+        <What approval={approval} />
+        {error === null ? null : <p className="m-0 text-small text-danger">{answerErrorLine(error)}</p>}
+      </Callout>
+      {inView ? null : (
+        // Not a second alert: the callout already said it. Review brings it into view, on its first answer.
+        <div className="fixed inset-x-4 bottom-4 z-20 mx-auto max-w-180 rounded-md shadow-overlay">
+          <ResumeBanner
+            asChild
+            title={approvalBar.title}
+            detail={
+              <code className="font-mono text-code">
+                {approval.kind === 'command' ? approval.command : approval.path}
+              </code>
+            }
+            action={approvalBar.review}
+            className="w-full cursor-pointer border-0 text-start text-body"
           >
-            {approvalButtons.deny}
-          </Button>
-        </>
-      }
-    >
-      <What approval={approval} />
-      {error === null ? null : <p className="m-0 text-small text-danger">{answerErrorLine(error)}</p>}
-    </Callout>
+            <button
+              type="button"
+              onClick={() => {
+                const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                box.current?.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
+                firstButton.current?.focus({ preventScroll: true });
+              }}
+            />
+          </ResumeBanner>
+        </div>
+      )}
+    </div>
   );
 }

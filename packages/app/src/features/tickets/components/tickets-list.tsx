@@ -16,7 +16,7 @@ import {
 import { inListOrder } from '../filters.ts';
 import { statusTones } from '../../../words/status-tone.ts';
 import { listCaption, listEmptyText } from '../ticket-words.ts';
-import { dueLabel, TicketAgentChip, TicketTitleButton } from './ticket-card.tsx';
+import { dueLabel, TicketAgentChip, TicketSelect, TicketTitleButton } from './ticket-card.tsx';
 import { ShipButton } from './ship-button.tsx';
 
 export interface TicketsListProps {
@@ -51,7 +51,10 @@ export function TicketsList({ shown, sprintName, filtered, onlyMine, now }: Tick
           {inListOrder(shown).map((ticket) => (
             <TableRow key={ticket.key}>
               <TableCell>
-                <WorkItemKey>{ticket.key}</WorkItemKey>
+                <span className="inline-flex items-center gap-2">
+                  <TicketSelect ticketKey={ticket.key} />
+                  <WorkItemKey>{ticket.key}</WorkItemKey>
+                </span>
               </TableCell>
               {/* The title is the one cell that wraps; keys, dates and chips stay on one line, as shadcn's table keeps them. */}
               {/* At the board's size: the same title looks the same everywhere (Clean UI). */}

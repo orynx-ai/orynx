@@ -91,6 +91,7 @@ export function FolderPicker() {
           </Picker>
         </MenuTrigger>
         <MenuContent
+          size="sm"
           aria-label={words.menu}
           onCloseAutoFocus={(event) => {
             if (!addAfterClose.current) return;

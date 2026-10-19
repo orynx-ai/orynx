@@ -19,15 +19,44 @@ describe('preferences service', () => {
     expect(await service().preferences.read()).toEqual(defaultPreferences);
   });
 
-  it('AC-3: saves a new permission mode and says settings changed', async () => {
+  it('AC-3, spec 026: saves a row that changed, writing every row, and says settings changed', async () => {
     const { preferences, settings, seen } = service();
 
-    const answer = await preferences.change({ permissionMode: 'ask_everything' });
+    const answer = await preferences.change({ permissions: { push: 'ask' } });
 
-    expect(answer.permissionMode).toBe('ask_everything');
-    expect((await settings.read()).agent).toEqual({ permissionMode: 'ask_everything' });
+    expect(answer.permissions).toEqual({ ...defaultPreferences.permissions, push: 'ask' });
+    expect((await settings.read()).agent).toEqual({ permissions: { ...defaultPreferences.permissions, push: 'ask' } });
     expect(await preferences.read()).toEqual(answer);
     expect(seen).toEqual([{ type: 'settings.changed' }]);
+  });
+
+  it('spec 026: carries a mode an older Orynx saved over to the rows, and keeps it as written until a row changes', async () => {
+    const { preferences, settings } = service({ agent: { permissionMode: 'ask_everything' } });
+    expect((await preferences.read()).permissions).toEqual({ ...defaultPreferences.permissions, edits: 'ask' });
+
+    const answer = await preferences.change({ permissions: { commands: 'any' } });
+
+    expect(answer.permissions).toEqual({ ...defaultPreferences.permissions, edits: 'ask', commands: 'any' });
+    expect((await settings.read()).agent).toEqual({
+      permissionMode: 'ask_everything',
+      permissions: { ...defaultPreferences.permissions, edits: 'ask', commands: 'any' },
+    });
+  });
+
+  it('spec 026: reads each row it can, and falls back on the others, keeping what it cannot read', async () => {
+    const { preferences, settings } = service({
+      agent: {
+        permissionMode: 'edit_and_run_allowed',
+        permissions: { push: 'allow', network: 'sometimes', sudo: 'allow' },
+      },
+    });
+    expect((await preferences.read()).permissions).toEqual({
+      ...defaultPreferences.permissions,
+      commands: 'allowed_list',
+      push: 'allow',
+    });
+    await preferences.change({ editor: 'cursor' });
+    expect((await settings.read()).agent).toMatchObject({ permissions: { network: 'sometimes', sudo: 'allow' } });
   });
 
   it('AC-13: saves only the rule that changed, so the others keep their own values', async () => {
@@ -66,7 +95,7 @@ describe('preferences service', () => {
       agent: { permissionMode: 'edit_and_run_allowed', allowedCommands: ['npm test', '', 7] },
     });
     expect(await preferences.read()).toMatchObject({
-      permissionMode: 'edit_and_run_allowed',
+      permissions: { commands: 'allowed_list' },
       allowedCommands: ['npm test'],
     });
     expect((await preferences.change({ allowCommand: 'pnpm lint' })).allowedCommands).toEqual([
@@ -80,7 +109,7 @@ describe('preferences service', () => {
   it('013 AC-26: saves the editor beside the mode, and says settings changed', async () => {
     const { preferences, settings, seen } = service({ agent: { permissionMode: 'ask_everything' } });
     const answer = await preferences.change({ editor: 'cursor' });
-    expect(answer).toMatchObject({ editor: 'cursor', permissionMode: 'ask_everything' });
+    expect(answer).toMatchObject({ editor: 'cursor', permissions: { edits: 'ask' } });
     expect((await settings.read()).agent).toEqual({ permissionMode: 'ask_everything', editor: 'cursor' });
     expect(seen).toEqual([{ type: 'settings.changed' }]);
   });
@@ -94,7 +123,7 @@ describe('preferences service', () => {
   it('AC-18: leaves the Jira and GitHub settings as they were', async () => {
     const { preferences, settings } = service({ jira, github: { method: 'gh' } });
 
-    await preferences.change({ permissionMode: 'edit_and_run_allowed' });
+    await preferences.change({ permissions: { commands: 'allowed_list' } });
     await preferences.change({ inboxRules: { jira_assigned: false } });
 
     expect(await settings.read()).toMatchObject({ jira, github: { method: 'gh' } });

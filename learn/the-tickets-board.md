@@ -108,6 +108,12 @@ a ticket's title ── useTicketDialogStore.show({ key, title, type, url })    
 - **Its actions.** Open in Jira (an `ExternalLink`, with the arrow), Open session when the ticket has one, then Add to composer, or a turned-off "In the composer" once it's there. Add to composer from Tickets or ⌘K opens Home with focus in the box, as Ship does; on Home the dialog only closes.
 - **Focus.** The dialog takes focus itself when it opens, not its Close button, whose tooltip would take the first Esc. Esc or Close gives focus back to the title that opened it.
 
+## Refresh, the toolbar and Ship for several (19 Oct 2026)
+
+- **Refresh.** The page bar has Home's Refresh (`RefreshButton` in `home/components/sync-status.tsx`), beside "Synced 2 min ago" from the sprint's own Jira state (`syncedLine()`). It's the same `POST /api/inbox/refresh`: one sync reads Home's rows and the sprint, and `inbox.changed` brings the new tickets.
+- **The toolbar.** The filter icon sits at the far left, then Project and Sprint in the plain (ghost) picker look, then the five filters, each a compact menu at most 360 px tall (`size="sm"`). The Sprint menu lists No sprint first, in its own radio group, so it never moves while sprints load. Assignee searches its people: `FilterMenu` with a `searchLabel` opens `Combobox` with `values`, each option a checkbox, the list open for the next.
+- **Ship for several.** Each card and list row has a checkbox (`WorkItemSelect`, "Select PROJ-1423"). What's ticked lives in the tickets store, in the order ticked, and isn't saved. While any are ticked the toolbar shows "3 selected", Ship and Clear. Ship does what one ticket's Ship does, for all of them: each goes into Home's composer in that order, and Home opens with focus in the box, so Send starts one session with every ticket, the first its own (spec 022, Q2). Clear unticks them and puts focus on Assignee.
+
 ## Testing
 
 - `sprint-map.ts`, `ticket-words.ts` and `filters.ts` are pure and tested with plain data and a fixed local clock (Saturday 17 Oct 2026).

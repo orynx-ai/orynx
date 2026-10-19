@@ -251,6 +251,19 @@ async function started(records: SessionRecords, id: string) {
   throw new Error('Claude Code never started');
 }
 
+/**
+ * How many events were heard once they stopped coming: a session's last event can trail its record by a moment under
+ * load, so a count taken as soon as it settles may miss it.
+ */
+async function quietCount(heard: readonly unknown[]): Promise<number> {
+  let count = -1;
+  while (count !== heard.length) {
+    count = heard.length;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return count;
+}
+
 /** Nothing was made: no new session or worktree, and no tab was told of one since `heardBefore` events. */
 async function nothingMade({ records, home, heard }: Awaited<ReturnType<typeof setUp>>, before = 0, heardBefore = 0) {
   expect(await records.list()).toHaveLength(before);
@@ -264,7 +277,7 @@ describe('a composer start that can’t happen (spec 015)', () => {
     const set = await setUp();
     await set.sessions.start({ ticketKey: 'PROJ-1423' });
     await settled(set.records);
-    const heardBefore = set.heard.length;
+    const heardBefore = await quietCount(set.heard);
 
     const answer = await set.sessions.start(makeComposerStart({ message: 'Only the tests', context: [ticketChip] }));
 
@@ -347,6 +360,76 @@ describe('a composer start that can’t happen (spec 015)', () => {
     );
     expect(answer).toEqual({ result: 'context_failed', chip: 1, problem: 'not_found' });
     await nothingMade(set);
+  });
+});
+
+describe('an Ask session (spec 026)', () => {
+  const asking = [
+    { tool: 'Grep', input: { pattern: 'export' } },
+    { tool: 'Edit', input: { file_path: 'a.ts', old_string: 'x', new_string: 'y' } },
+    { tool: 'Bash', input: { command: 'ls' } },
+    { finish: 'The header reads its title from the route.' },
+  ] as const satisfies readonly FakeTurn[];
+
+  it('makes no worktree or branch: Claude reads the folder where it is, and every edit and command is refused', async () => {
+    const set = await setUp({ script: asking });
+
+    const answer = await set.sessions.start(
+      makeComposerStart({ message: 'How does the header work?', repositoryId: set.folder?.id, mode: 'ask' }),
+    );
+
+    expect(answer).toEqual({ result: 'started', sessionId: '0000000000000001' });
+    const record = await settled(set.records);
+    expect(record).toMatchObject({ worktree: null, session: { mode: 'ask', branch: null, worktreePath: null } });
+    expect(record.session.activities.map((step) => step.kind)).not.toContain('worktree');
+    expect(await readdir(join(set.home, 'worktrees')).catch(() => [])).toEqual([]);
+    expect(set.sdk.runs[0]?.options.cwd).toBe(set.folder?.path);
+    expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain('this is an Ask session');
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([
+      ['Grep', 'allow'],
+      ['Edit', 'deny'],
+      ['Bash', 'deny'],
+    ]);
+    expect(record.session.activities.filter((step) => step.kind === 'refused')).toMatchObject([
+      { access: 'edit', reason: 'ask_session', path: 'a.ts' },
+      { access: 'run', reason: 'ask_session', path: 'ls' },
+    ]);
+    // No Changes and no pull request: there's no worktree.
+    expect(await set.sessions.changes('0000000000000001')).toEqual({ state: 'no_worktree' });
+  });
+
+  it('a follow-up carries on in the same folder, still reading only', async () => {
+    const set = await setUp({ script: asking });
+    await set.sessions.start(
+      makeComposerStart({ message: 'How does the header work?', repositoryId: set.folder?.id, mode: 'ask' }),
+    );
+    await settled(set.records);
+    await started(set.records, '0000000000000001');
+
+    expect(await set.sessions.send('0000000000000001', 'And the footer?')).toEqual({ result: 'sent' });
+
+    await settled(set.records);
+    expect(set.sdk.runs[1]?.options).toMatchObject({ cwd: set.folder?.path, resume: expect.any(String) as unknown });
+    expect(set.sdk.runs[1]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([
+      ['Grep', 'allow'],
+      ['Edit', 'deny'],
+      ['Bash', 'deny'],
+    ]);
+  });
+
+  it('never holds its ticket: a Build starts beside a live Ask, and an Ask beside a live Build', async () => {
+    const set = await setUp();
+    const on = (mode: 'ask' | 'build') =>
+      set.sessions.start(
+        makeComposerStart({ message: 'About the ticket', context: [ticketChip], repositoryId: set.folder?.id, mode }),
+      );
+
+    expect(await on('ask')).toEqual({ result: 'started', sessionId: '0000000000000001' });
+    expect(await on('build')).toEqual({ result: 'started', sessionId: '0000000000000002' });
+    expect(await on('ask')).toEqual({ result: 'started', sessionId: '0000000000000003' });
+    await settled(set.records, '0000000000000001');
+    await settled(set.records, '0000000000000002');
+    await settled(set.records, '0000000000000003');
   });
 });
 

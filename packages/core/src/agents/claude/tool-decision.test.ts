@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { PermissionMode } from '@devhub/contracts';
+import { defaultPermissions, permissionsFromMode, type PermissionMode } from '@devhub/contracts';
 import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool-decision.ts';
 
 let root: string;
@@ -42,7 +42,8 @@ const decide = (
   input: Record<string, unknown>,
   mode: PermissionMode = 'edit_freely_ask_commands',
   allowedCommands: readonly string[] = [],
-) => decideToolUse(tool, input, { worktree, mode, home: join(root, 'home'), allowedCommands });
+  // The modes before spec 026 still name the rows these tests need.
+) => decideToolUse(tool, input, { worktree, ...permissionsFromMode(mode), home: join(root, 'home'), allowedCommands });
 
 describe('sessionTools', () => {
   it('AC-20 (011 Q6, 012 Q2b): is exactly the tools a session gets, with commands and without', () => {
@@ -198,10 +199,30 @@ describe('decideToolUse', () => {
     it('AC-4, AC-5: in Edit files and run allowed commands, runs one on the list and asks about the rest with Always allow', async () => {
       expect(await command({ command: 'npm test' }, 'edit_and_run_allowed', ['npm test'])).toEqual({
         behavior: 'allow',
+        outsideSandbox: false,
       });
       expect(await command({ command: 'npm run lint -- --fix' }, 'edit_and_run_allowed', ['npm test'])).toMatchObject({
         behavior: 'ask',
         ask: { alwaysAsk: null, alwaysAllow: 'npm run lint' },
+      });
+    });
+
+    it('spec 026: lets a push its row allows leave the sandbox, naming only the session branch', async () => {
+      const context = {
+        ...defaultPermissions,
+        push: 'allow',
+        worktree,
+        branch: 'feat/PROJ-1423',
+        home: join(root, 'home'),
+        allowedCommands: [],
+      } as const;
+      expect(await decideToolUse('Bash', { command: 'git push origin feat/PROJ-1423' }, context)).toEqual({
+        behavior: 'allow',
+        outsideSandbox: true,
+      });
+      expect(await decideToolUse('Bash', { command: 'git push origin main' }, context)).toMatchObject({
+        behavior: 'deny',
+        refusal: { access: 'run', reason: 'push', path: 'git push origin main' },
       });
     });
 
@@ -263,7 +284,7 @@ describe('files and folders the brief named (spec 022)', () => {
   const decideWithReads = async (tool: string, input: Record<string, unknown>) =>
     decideToolUse(tool, input, {
       worktree,
-      mode: 'edit_freely_ask_commands',
+      ...defaultPermissions,
       home: join(root, 'home'),
       allowedCommands: [],
       reads: await readsFor(),
@@ -308,5 +329,70 @@ describe('files and folders the brief named (spec 022)', () => {
 
   it('without anything named, reads outside the worktree stay refused, as before', async () => {
     expect(await decide('Read', { file_path: join(outside, 'plan.pdf') })).toMatchObject({ behavior: 'deny' });
+  });
+});
+
+describe('an Ask session (spec 026)', () => {
+  const ask = (tool: string, input: Record<string, unknown>, mode: PermissionMode = 'edit_and_run_allowed') =>
+    decideToolUse(tool, input, {
+      worktree,
+      ...permissionsFromMode(mode),
+      home: join(root, 'home'),
+      allowedCommands: ['npm test'],
+      readOnly: true,
+    });
+
+  it('lets Claude read and search the folder, as in any session', async () => {
+    expect(await ask('Read', { file_path: 'src/a.ts' })).toEqual({ behavior: 'allow' });
+    expect(await ask('Glob', { pattern: '**/*.ts' })).toEqual({ behavior: 'allow' });
+    expect(await ask('Grep', { pattern: 'export' })).toEqual({ behavior: 'allow' });
+  });
+
+  it('refuses every edit and every command, even one on the allow list, as a step that says why', async () => {
+    expect(await ask('Edit', { file_path: 'src/a.ts', old_string: 'a = 1', new_string: 'a = 2' })).toMatchObject({
+      behavior: 'deny',
+      message: expect.stringContaining('Ask session') as unknown,
+      refusal: { access: 'edit', reason: 'ask_session', path: 'src/a.ts' },
+    });
+    expect(await ask('Write', { file_path: 'src/new.ts', content: 'x' })).toMatchObject({
+      refusal: { access: 'edit', reason: 'ask_session', path: 'src/new.ts' },
+    });
+    expect(await ask('NotebookEdit', { notebook_path: 'src/n.ipynb', new_source: 'x' })).toMatchObject({
+      refusal: { access: 'edit', reason: 'ask_session', path: 'src/n.ipynb' },
+    });
+    expect(await ask('Bash', { command: 'npm test' })).toMatchObject({
+      behavior: 'deny',
+      refusal: { access: 'run', reason: 'ask_session', path: 'npm test' },
+    });
+    // Ask before everything would ask about the edit; an Ask session refuses it first.
+    expect(
+      await ask('Edit', { file_path: 'src/a.ts', old_string: 'a', new_string: 'b' }, 'ask_everything'),
+    ).toMatchObject({ behavior: 'deny', refusal: { reason: 'ask_session' } });
+  });
+
+  it('stays read-only with every row on Allow: no command, push or pull request runs', async () => {
+    const everything = {
+      worktree,
+      edits: 'allow',
+      commands: 'any',
+      network: 'allow',
+      deleteOutside: 'allow',
+      unsandboxed: 'allow',
+      push: 'allow',
+      pullRequest: 'allow',
+      branch: 'feat/PROJ-1423',
+      home: join(root, 'home'),
+      allowedCommands: [],
+      readOnly: true,
+    } as const;
+    for (const command of ['git push origin feat/PROJ-1423', 'gh pr create --fill', 'curl https://x.test', 'ls']) {
+      expect(await decideToolUse('Bash', { command }, everything)).toMatchObject({
+        behavior: 'deny',
+        refusal: { reason: 'ask_session' },
+      });
+    }
+    expect(await decideToolUse('Write', { file_path: 'src/a.ts', content: 'x' }, everything)).toMatchObject({
+      refusal: { reason: 'ask_session' },
+    });
   });
 });

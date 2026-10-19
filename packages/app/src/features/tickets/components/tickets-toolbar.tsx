@@ -10,7 +10,7 @@ import {
   type FilterOptions,
   type TicketFilters,
 } from '../filters.ts';
-import { ticketCount } from '../ticket-words.ts';
+import { assigneeSearch, ticketCount } from '../ticket-words.ts';
 
 export interface TicketsToolbarProps {
   filters: TicketFilters;
@@ -32,6 +32,8 @@ export interface TicketsToolbarProps {
    * stay the same elements either way, so a pick that empties or fills the page keeps focus where it was.
    */
   pickersOnly?: boolean;
+  /** With tickets ticked: how many, Ship and Clear, before the count (the user's call, 19 Oct 2026). */
+  selection?: ReactNode;
 }
 
 const filterLabels: Record<FilterKey, string> = {
@@ -56,13 +58,15 @@ export function TicketsToolbar({
   search,
   pickers,
   pickersOnly = false,
+  selection,
 }: TicketsToolbarProps) {
   const { text: _, ...address } = filters;
   return (
     <Toolbar role="group" aria-label={pickersOnly ? 'Sprint' : 'Filters'}>
       {search === undefined || pickersOnly ? null : <div className="basis-full">{search}</div>}
-      {pickers}
+      {/* At the far left, before the pickers (the user's call, 19 Oct 2026). */}
       {pickersOnly ? null : <Icon icon={FilterIcon} aria-hidden className="text-muted-foreground" />}
+      {pickers}
       {pickersOnly
         ? null
         : filterKeys.map((key) => (
@@ -75,10 +79,15 @@ export function TicketsToolbar({
               onTickedChange={(ticked) => {
                 onFiltersChange({ ...address, [key]: ticked });
               }}
+              // Compact, at most 360 px tall, as the pickers beside them (spec 020, AC-40).
+              size="sm"
+              // People can be many, so Assignee searches them (the user's call, 19 Oct 2026).
+              {...(key === 'assignee' ? { searchLabel: assigneeSearch.label, emptyText: assigneeSearch.empty } : {})}
             />
           ))}
       {pickersOnly ? null : (
         <span className="ms-auto flex items-center gap-2">
+          {selection}
           {hasExtraFilters(filters) ? (
             <Button variant="ghost" size="sm" onClick={onClear}>
               Clear filters

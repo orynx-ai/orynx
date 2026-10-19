@@ -337,6 +337,18 @@ describe('createApiClient().sendMessage() (spec 013)', () => {
   });
 });
 
+describe('createApiClient().sessionBrief()', () => {
+  it('reads what Claude was sent, parsed by the contract, and rejects a body that breaks it', async () => {
+    server.use(
+      http.get(at(apiRoutes.sessionBrief, '0123456789abcdef'), () => HttpResponse.json({ text: 'Only the tests' })),
+    );
+    const api = createApiClient({ baseURL, token: 'abc' });
+    expect(await api.sessionBrief('0123456789abcdef')).toEqual({ text: 'Only the tests' });
+    server.use(http.get(at(apiRoutes.sessionBrief, '0123456789abcdef'), () => HttpResponse.json({ text: 4 })));
+    await expect(api.sessionBrief('0123456789abcdef')).rejects.toThrow();
+  });
+});
+
 describe('createApiClient().sessionChanges() and sessionDiff() (spec 013)', () => {
   it('AC-2: reads the changes, parsed by the contract', async () => {
     server.use(

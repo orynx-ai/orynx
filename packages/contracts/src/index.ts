@@ -1,5 +1,6 @@
 export * from './agent-models.ts';
 export * from './changes.ts';
+export * from './session-brief.ts';
 export * from './claude.ts';
 export * from './commands.ts';
 export * from './errors.ts';

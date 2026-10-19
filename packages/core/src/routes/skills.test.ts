@@ -43,6 +43,8 @@ async function serverWithSkills() {
     port,
     version: '1.2.3',
     userHome: home,
+    // Orynx's own skills live under DEVHUB_HOME: a folder of the test's own, never the real ~/.devhub.
+    dataDir: join(root, 'devhub'),
     settings: createMemorySettingsStore({ repositories: [{ id: web.id, path: folder, jiraProject: null }] }),
   });
   return app;

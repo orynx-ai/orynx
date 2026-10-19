@@ -206,6 +206,10 @@ test('AC-1, AC-4, AC-24: my words alone start a session on its own branch, and C
   await expect(page.getByRole('button', { name: 'Send to Claude' })).toHaveAttribute('aria-disabled', 'true');
 
   await box(page).fill('Add a CSV export to the reports page');
+  // Spec 026: with no ticket, the composer starts an Ask; this one builds.
+  const mode = page.getByRole('group', { name: 'Session' });
+  await expect(mode.getByRole('button', { name: 'Ask' })).toHaveAttribute('aria-pressed', 'true');
+  await mode.getByRole('button', { name: 'Build' }).click();
   await box(page).press('Enter');
 
   await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);

@@ -54,6 +54,26 @@ export const NothingPicked: Story = { render: () => <ProjectField start="" /> };
 /** Jira isn't connected, so there's nothing to pick. */
 export const Disabled: Story = { render: () => <ProjectField start="" disabled /> };
 
+/** Several picks, as a filter's people: each option leads with a checkbox, and the list stays open. */
+export const Several: Story = {
+  render: () => (
+    <Combobox
+      defaultOpen
+      size="sm"
+      options={[
+        { value: 'me', label: 'Me' },
+        { value: 'neha', label: 'Neha Kapoor' },
+        { value: 'sam', label: 'Sam Lee' },
+      ]}
+      values={['me', 'sam']}
+      onValuesChange={() => undefined}
+      searchLabel="Search people"
+      emptyText="No one matches"
+      aria-label="Assignee"
+    />
+  ),
+};
+
 /** The list open on the pick, so Storybook's axe check sees it. */
 export const Open: Story = {
   render: () => (

@@ -19,15 +19,19 @@ export function alwaysAllowLabel(entry: string): string {
 
 const runsOutside = 'If you allow it, it runs once outside the sandbox.';
 
-/** Why a command asks in every mode (Q8b). */
+/** Why a command asks with Allow once and Deny only (Q8b): its row in Settings › Coding agent says Ask first (spec 026). */
 export function alwaysAskLine(reason: AlwaysAskReason): string {
   switch (reason) {
     case 'network':
-      return `This reaches the network, so it always asks. ${runsOutside}`;
+      return `This reaches the network, so it asks first. ${runsOutside}`;
     case 'delete_outside':
-      return `This deletes outside the worktree, so it always asks. ${runsOutside}`;
+      return `This deletes outside the worktree, so it asks first. ${runsOutside}`;
     case 'unsandboxed':
-      return 'Claude asked to run this outside the sandbox, so it always asks.';
+      return 'Claude asked to run this outside the sandbox, so it asks first.';
+    case 'push':
+      return `This pushes the branch to GitHub, so it asks first. ${runsOutside}`;
+    case 'pull_request':
+      return `This opens a pull request on GitHub, so it asks first. ${runsOutside}`;
   }
 }
 
@@ -47,3 +51,6 @@ export function moreLinesText(count: number): string {
 
 /** The Session screen's pill while a call waits (Q8d); the sidebar and Home say "Needs you". */
 export const needsApprovalLabel = 'Needs your approval';
+
+/** The bar pinned to the window's bottom while the waiting call is out of view (the user's call, 19 Oct 2026). */
+export const approvalBar = { title: 'Claude is waiting for your approval', review: 'Review' };

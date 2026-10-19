@@ -1,4 +1,4 @@
-import { useState, type RefObject } from 'react';
+import { useState } from 'react';
 import { ArrowExpand01Icon, Cancel01Icon } from '@hugeicons/core-free-icons';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import type { Session } from '@devhub/contracts';
@@ -32,14 +32,16 @@ function useChangedCount(sessionId: string): number | null | undefined {
  * Side by side with the progress, it stays in view and scrolls on its own; Full screen shows the open tab in a
  * dialog that fills the window (the user's call, 19 Oct 2026).
  */
-export function SessionDetails({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
+export function SessionDetails({ session }: { session: Session }) {
   const { tab } = useSearch({ from: '/sessions/$sessionId' });
   const navigate = useNavigate({ from: '/sessions/$sessionId' });
   const count = useChangedCount(session.id);
   const [full, setFull] = useState(false);
   const items = contextOf(session).length;
-  const shown = items > 0 && tab === 'context' ? 'context' : 'changes';
-  const changes = <ChangesPanel session={session} title={title} />;
+  // An Ask session changes nothing, so it has Context alone (spec 026).
+  const ask = session.mode === 'ask';
+  const shown = ask || (items > 0 && tab === 'context') ? 'context' : 'changes';
+  const changes = <ChangesPanel session={session} />;
   const context = <ContextPanel session={session} />;
   return (
     <>
@@ -55,9 +57,11 @@ export function SessionDetails({ session, title }: { session: Session; title: Re
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-border">
           <TabsList aria-label="Session details" className="min-w-0 flex-1 border-b-0">
-            <TabsTrigger value="changes" {...(count === undefined ? {} : { count })}>
-              Changes
-            </TabsTrigger>
+            {ask ? null : (
+              <TabsTrigger value="changes" {...(count === undefined ? {} : { count })}>
+                Changes
+              </TabsTrigger>
+            )}
             {items > 0 ? (
               <TabsTrigger value="context" count={items}>
                 {contextWords.tab}
@@ -76,9 +80,11 @@ export function SessionDetails({ session, title }: { session: Session; title: Re
           </IconButton>
         </div>
         {/* Each tab scrolls on its own while the pane is held in view. */}
-        <TabsContent value="changes" className="min-h-0 overflow-y-auto pt-3">
-          {changes}
-        </TabsContent>
+        {ask ? null : (
+          <TabsContent value="changes" className="min-h-0 overflow-y-auto pt-3">
+            {changes}
+          </TabsContent>
+        )}
         {items > 0 ? (
           <TabsContent value="context" className="min-h-0 overflow-y-auto pt-3">
             {context}

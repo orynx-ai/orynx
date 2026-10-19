@@ -1,6 +1,6 @@
 import { File01Icon } from '@hugeicons/core-free-icons';
 import type { ComposerChip, Session } from '@devhub/contracts';
-import { AttentionList, AttentionTitleButton, Callout, ExternalLink, Icon, SourceMark } from '@devhub/ui';
+import { AttentionList, AttentionTitleButton, Callout, CopyButton, ExternalLink, Icon, SourceMark } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { chipLabel } from '../../home/composer-words.ts';
 import { useSearchIndex } from '../../search/queries.ts';
@@ -76,7 +76,7 @@ export function ContextPanel({ session }: { session: Session }) {
         {contextOf(session).map((chip) => {
           const sub = subLine(chip);
           return (
-            <li key={`${chip.kind}:${chipLabel(chip)}`} className="flex min-h-14 items-center gap-3 py-2.5">
+            <li key={`${chip.kind}:${chipLabel(chip)}`} className="group flex min-h-14 items-center gap-3 py-2.5">
               {chip.kind === 'file' ? (
                 <Icon icon={File01Icon} aria-hidden className="text-muted-foreground" />
               ) : (
@@ -86,6 +86,8 @@ export function ContextPanel({ session }: { session: Session }) {
                 <Name chip={chip} />
                 {sub === null ? null : <span className="truncate text-small text-muted-foreground">{sub}</span>}
               </div>
+              {/* A file's path can be copied, as every path on this screen (the user's call, 19 Oct 2026). */}
+              {chip.kind === 'file' ? <CopyButton text={chip.path} reveal="hover" /> : null}
             </li>
           );
         })}

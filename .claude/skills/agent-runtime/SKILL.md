@@ -1,6 +1,6 @@
 ---
 name: agent-runtime
-description: Use when working on Claude sessions in the product: the AgentAdapter, worktrees, permission modes, approvals, the session event stream, or creating the pull request. Forbids product code that pushes, opens a PR or runs a risky command without the user's click, edits outside the session worktree, or sends Claude anything beyond the brief.
+description: Use when working on Claude sessions in the product: the AgentAdapter, worktrees, the permission rows in Settings › Coding agent, approvals, the session event stream, or creating the pull request. Forbids product code that pushes, opens a PR or runs a risky command without the user's click or a permission the user turned on, edits outside the session worktree, or sends Claude anything beyond the brief.
 ---
 
 # The agent runtime (Claude sessions)
@@ -10,12 +10,14 @@ A session is one piece of work Claude does for the user: one task, one repo, one
 ## Safety rules (from the spec, all mandatory)
 
 1. **Worktree only.** Each session runs in its own git worktree under `~/.devhub/worktrees/`, on a branch named after the ticket (`feat/PROJ-1423`). Claude's working folder is that worktree. It must never edit the user's main checkout.
-2. **Permission modes** (Settings › Coding agent, saved since spec 005 as `agent.permissionMode` in `settings.json`; read it through `createPreferencesService().read()`, never the file):
-   - Ask before everything: every file edit and every command needs a click.
-   - Edit files freely, ask before commands (default, recommended): edits stay in the worktree; commands ask.
-   - Edit files and run allowed commands: commands on the allow list (`agent.allowedCommands`) run; anything else asks. "Always allow" adds to the list, and is offered only in this mode (spec 012, Q1).
-3. **Always ask, whatever the mode:** commands that touch the network, delete outside the worktree, or ask to run outside the sandbox; Allow once and Deny only, and the list can't hold them. A push or `gh pr create` is refused without asking (spec 012, Q7). The reading lives in `packages/contracts/src/commands.ts`, the decision in `packages/core/src/agents/claude/command-decision.ts`.
-4. **The PR is always the user's click.** DevHub pushes the branch and opens the PR only after Create pull request. Claude never pushes or opens a PR by itself.
+2. **Permission rows** (Settings › Coding agent, spec 026, saved as `agent.permissions` in `settings.json`; read them through `createPreferencesService().read()`, never the file). One row for each kind of call, read again for every call (`PermissionsSchema` in `packages/contracts/src/preferences.ts`):
+   - `edits` (Ask first / Allow, default Allow): edits inside the worktree. Outside it they're refused, whatever the row.
+   - `commands` (Ask first / Only allowed commands / Any command, default Ask first): commands in the sandbox. With Only allowed commands, those on the allow list (`agent.allowedCommands`) run and Always allow adds to it (spec 012, Q1).
+   - `network`, `deleteOutside`, `unsandboxed` (Ask first / Allow, default Ask first): each decides its own kind, whatever `commands` says. Ask first is Allow once and Deny only, and the list can't hold them. Allowed, the command runs outside the sandbox that once.
+   - `push`, `pullRequest` (Never / Ask first / Allow, default Never): `git push origin <the session's branch>` (with `-u` at most) and `gh pr create` for that branch, each on its own in the line, run outside the sandbox. A forced push, another branch or remote, `--repo`, another `--head`, or a push joined to other commands is refused whatever the row.
+   - A line the reader can't follow never leaves the sandbox without a click. An older `agent.permissionMode` is read as rows (`permissionsFromMode`) until a row is saved.
+3. **The reading and the decision.** The reading lives in `packages/contracts/src/commands.ts`, the decision in `packages/core/src/agents/claude/command-decision.ts` (a pure table over the rows) and `tool-decision.ts`. A row that allows a call outside the sandbox makes `canUseTool` answer with `dangerouslyDisableSandbox: true` for that call alone.
+4. **The PR is the user's say-so.** Orynx pushes and opens the PR from Create pull request. Claude pushes or opens one only when the user set Push the branch or Open a pull request to Ask first (then clicks Allow) or Allow. The session note tells Claude exactly what it may run (`sessionNote()` in `brief.ts`). Claude's `git push` uses the user's own git login and `gh` its own login: Orynx never hands Claude its keychain tokens.
 5. **The brief is exactly the chips.** What goes to Claude is the composer text plus every context chip (ticket, PR diff, Slack thread, files), in the order the user added them, built by `brief.ts` `composerBrief()` from what `context-reader.ts` read at Send. Ship's brief is the ticket alone (`ticketBrief()`). Slack data goes only when the user added that thread.
 6. **Credentials.** The Claude login is Claude Code's own. DevHub only checks it with `auth status --json` and never stores it (spec 010, `learn/checking-claude.md`). Claude Code gets only the allow-listed environment in `packages/core/src/agents/agent-environment.ts`, never DevHub's, for the login check and for sessions alike; `AWS_*` passes only with `CLAUDE_CODE_USE_BEDROCK` and `GOOGLE_*` only with `CLAUDE_CODE_USE_VERTEX` (spec 011, Q8b), and `CLAUDE_*` stays a prefix less the variables of a Claude Code session (Q8c). A session's git gets `gitEnvironment()`: the same list, `SSH_AUTH_SOCK`, `GIT_TERMINAL_PROMPT=0` (Q8d). Any command Claude runs as `node` could read DevHub's "DevHub" keychain items without a macOS prompt, and any command could read `<DEVHUB_HOME>/runtime.json` and call `/api` with the session token. Every command runs in Claude Code's own sandbox (spec 012, Q2; `packages/core/src/agents/claude/sandbox.ts`): writes only in the worktree and the temporary folder, no reads under `DEVHUB_HOME` but the worktree, none of the keychain's files, no network (127.0.0.1 too). Never loosen those settings, and never give a session `Bash` without them: where the sandbox can't run, sessions get no commands (`learn/sessions-and-worktrees.md`).
 7. **Stop** works at any step. The worktree keeps the changes. Discard deletes the worktree and branch after a confirm step in the page (never a browser dialog).
@@ -69,8 +71,8 @@ States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `w
 
 ## Approvals
 
-1. The SDK's permission callback (`canUseTool`) asks `tool-decision.ts` whether a call may run, with the mode and the allow list read again for this call.
-2. The decision checks the always-ask rules first, then the mode and the list: allow, ask, or refuse.
+1. The SDK's permission callback (`canUseTool`) asks `tool-decision.ts` whether a call may run, with the rows, the allow list and the session's branch read again for this call.
+2. The decision checks the push and pull request rows first, then the network, delete and sandbox rows, then the commands row and the list: allow (in or outside the sandbox), ask, or refuse.
 3. An ask parks the call in the adapter, which says `approval`. `session-service.ts` adds it to `session.approvals` and a waiting step, the session becomes `needs_you`, and `sessions.changed` and `session.changed` go out. The call waits with no time limit.
 4. The Session screen shows the oldest waiting call in the amber callout (`role="alert"`, never focused by itself) with Allow once, Always allow <entry> (only where offered) and Deny.
 5. `POST /api/sessions/:id/approvals/:approvalId` reaches `SessionService.respond()`: Always allow saves the entry first (a failed save decides nothing), then `adapter.respond()` ends the wait. The first answer counts; a late one is 409. Stop, Discard and closing deny every waiting call. Each call is kept in `session.json`'s `approvalLog`; the log names only kinds and answers.
@@ -85,14 +87,14 @@ States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `w
 
 ## Testing
 
-- Test the permission decision as a pure function: every mode × command kind, including network, push and delete-outside-worktree always asking.
+- Test the permission decision as a pure function: every row × command kind, including network, push and delete-outside-worktree asking by default, and a push of another branch or a forced one refused even with Allow.
 - Test worktree creation against a real temporary git repo in a temp `DEVHUB_HOME`. Never touch the real `~/.devhub` or a real repo.
 - Fake the Claude Agent SDK only at its boundary (it is an outside service). Never fake our runtime modules.
 
 ## Don't
 
-- Don't add an automatic push, PR or merge anywhere.
-- Don't widen the always-ask rules, and don't let a mode skip them.
+- Don't add a push, PR or merge that no click or row allowed, and never a merge or a forced push.
+- Don't change a row's safe default, and don't let one row decide another's kind of call.
 - Don't add context to the brief that the user did not put in a chip.
 - Don't run anything against the user's real repos or `~/.devhub` while developing. Stop and ask.
 

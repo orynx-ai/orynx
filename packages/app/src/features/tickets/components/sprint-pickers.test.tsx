@@ -110,7 +110,7 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
     expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Sprint 43')).toBeVisible();
   });
 
-  it('AC-26: Sprint lists the project’s active then future sprints with their dates; picking one holds it', async () => {
+  it('AC-26: Sprint lists No sprint first (19 Oct 2026), then the project’s active and future sprints with their dates; picking one holds it', async () => {
     const save = pickingServer();
     const { user } = await renderApp({ route: '/tickets' });
     await screen.findByText('6 tickets');
@@ -122,7 +122,7 @@ describe('Tickets: Project and Sprint (spec 020)', () => {
       within(menu)
         .getAllByRole('menuitemradio')
         .map((item) => item.textContent),
-    ).toEqual(['Sprint 43Active · ends 24 Oct', 'Sprint 44Future · starts 27 Oct', 'No sprint']);
+    ).toEqual(['No sprint', 'Sprint 43Active · ends 24 Oct', 'Sprint 44Future · starts 27 Oct']);
     await user.click(within(menu).getByRole('menuitemradio', { name: /Sprint 44/ }));
 
     await waitFor(() => {

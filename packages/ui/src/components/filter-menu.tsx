@@ -1,4 +1,5 @@
 import type { Ref } from 'react';
+import { Combobox } from './combobox.tsx';
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger, type MenuSize } from './menu.tsx';
 import { Picker } from './picker.tsx';
 
@@ -16,6 +17,13 @@ export interface FilterMenuProps {
   onTickedChange: (ticked: string[]) => void;
   /** As Menu's `size`. */
   size?: MenuSize;
+  /**
+   * A search box over the options, named and placeheld by this ("Search people"), for a long list such as
+   * Assignee (the user's call, 19 Oct 2026). The options then open as Combobox's checkboxes.
+   */
+  searchLabel?: string;
+  /** With `searchLabel`: the line when nothing matches the search ("No one matches"). */
+  emptyText?: string;
   /** The picker, so a page can put focus on it (Clear filters). */
   ref?: Ref<HTMLButtonElement>;
 }
@@ -25,14 +33,41 @@ export interface FilterMenuProps {
  * how many options are ticked, opening its options as checkboxes under its name. Ticking keeps the menu open.
  * With nothing to offer, the picker is disabled (spec 007 Q11b).
  */
-export function FilterMenu({ label, options, ticked, onTickedChange, size, ref }: FilterMenuProps) {
+export function FilterMenu({
+  label,
+  options,
+  ticked,
+  onTickedChange,
+  size,
+  searchLabel,
+  emptyText = '',
+  ref,
+}: FilterMenuProps) {
+  const picker = (
+    <Picker ref={ref} variant="plain" count={ticked.length}>
+      {label}
+    </Picker>
+  );
+  if (searchLabel !== undefined) {
+    return (
+      <Combobox
+        options={options}
+        values={ticked}
+        onValuesChange={onTickedChange}
+        searchLabel={searchLabel}
+        emptyText={emptyText}
+        disabled={options.length === 0}
+        {...(size === undefined ? {} : { size })}
+      >
+        {picker}
+      </Combobox>
+    );
+  }
   return (
     <Menu>
       {/* Radix reads `disabled` on the trigger. */}
       <MenuTrigger asChild disabled={options.length === 0}>
-        <Picker ref={ref} variant="plain" count={ticked.length}>
-          {label}
-        </Picker>
+        {picker}
       </MenuTrigger>
       <MenuContent heading={label} {...(size === undefined ? {} : { size })}>
         {options.map((option) => (

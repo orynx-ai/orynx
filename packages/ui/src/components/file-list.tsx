@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react';
 import { cn } from '../lib/cn.ts';
+import { CopyButton } from './copy-button.tsx';
 import { Skeleton } from './skeleton.tsx';
 
 export interface ChangedFile {
@@ -50,7 +51,8 @@ function splitPath(path: string): { folder: string; name: string } {
  * Design system: FileList (`dh-filelist`). The files Claude changed, with their + and − counts;
  * picking one shows its diff. Each file is a 40 px button; the shown one has `aria-current` and an
  * `info` edge and tint. The path is mono; when it's too long, only the folder part is cut off, so
- * the file name stays whole (spec 006 Q3b), and the full path shows on hover.
+ * the file name stays whole (spec 006 Q3b), and the full path shows on hover. Beside each file, a copy
+ * button for its path shows on hover or focus (the user's call, 19 Oct 2026).
  */
 export function FileList({ files, current, onSelect, maxRows, className, ...props }: FileListProps) {
   return (
@@ -68,14 +70,18 @@ export function FileList({ files, current, onSelect, maxRows, className, ...prop
         const { folder, name } = splitPath(file.path);
         const spoken = spokenCounts(file.added, file.removed);
         return (
-          <li key={file.path} className="flex">
+          // The row takes the shown file's tint, so the copy button beside the file's button sits on it too.
+          <li
+            key={file.path}
+            className="group flex items-center bg-raised pe-1 hover:bg-subtle has-aria-[current=true]:bg-info-subtle"
+          >
             <button
               type="button"
               aria-current={file.path === current ? 'true' : undefined}
               onClick={() => {
                 onSelect(file.path);
               }}
-              className="flex min-h-10 w-full min-w-0 cursor-pointer items-center gap-2 border-0 border-s-2 border-transparent bg-raised px-3 text-start text-small text-foreground hover:bg-subtle focus-visible:-outline-offset-2 aria-current:border-info aria-current:bg-info-subtle"
+              className="flex min-h-10 w-full min-w-0 cursor-pointer items-center gap-2 border-0 border-s-2 border-transparent bg-transparent px-3 text-start text-small text-foreground focus-visible:-outline-offset-2 aria-current:border-info"
             >
               {/* Named by its content: the whole path, then the counts as words. The drawn path and counts
                   aren't read out (the two path parts would read with a gap between them), and the
@@ -96,6 +102,7 @@ export function FileList({ files, current, onSelect, maxRows, className, ...prop
               </span>
               {spoken ? <span className="sr-only">{spoken}</span> : null}
             </button>
+            <CopyButton text={file.path} reveal="hover" />
           </li>
         );
       })}

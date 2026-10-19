@@ -1,7 +1,9 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@devhub/contracts';
 import { makeSession } from '@devhub/contracts/testing';
+import { FakeEventSource } from '../../../test/fake-event-source.ts';
+import { FakeIntersectionObserver } from '../../../test/fake-intersection-observer.ts';
 import { server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -217,5 +219,56 @@ describe('SessionProgress', () => {
     expect(pane.getByText('Orynx closed while Claude was working')).toBeVisible();
     expect(pane.getByText('The worktree keeps the changes.')).toBeVisible();
     expect(pane.queryByRole('alert')).toBeNull();
+  });
+
+  it('follows new steps while its end is in view; scrolled up, it stays put and Jump to latest takes you back', async () => {
+    // jsdom can't scroll; the browser's own scrollIntoView is watched to see where the page is asked to go.
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    let shown = session();
+    server.use(sessionHandler(shown));
+    const { user } = await renderApp({ route });
+    const pane = await progress();
+    expect(pane.queryByRole('button', { name: 'Jump to latest' })).toBeNull();
+    // Opening the session doesn't move the page.
+    expect(scrolled).not.toHaveBeenCalled();
+
+    const step = (n: number, at: string) => {
+      shown = session({
+        updatedAt: at,
+        activities: [
+          ...shown.activities,
+          { id: `step-${String(n)}`, state: 'running', kind: 'explore', files: ['b.ts'] },
+        ],
+      });
+      server.use(sessionHandler(shown));
+      act(() => {
+        FakeEventSource.latest().emit({ type: 'session.changed', sessionId: id });
+      });
+    };
+    step(5, '2026-10-16T10:00:01.000Z');
+    await waitFor(() => {
+      expect(scrolled).toHaveBeenCalledWith({ block: 'end' });
+    });
+
+    act(() => {
+      FakeIntersectionObserver.scrollOutOfView();
+    });
+    const jump = await pane.findByRole('button', { name: 'Jump to latest' });
+    scrolled.mockClear();
+    step(6, '2026-10-16T10:00:02.000Z');
+    await waitFor(() => {
+      expect(pane.getAllByRole('listitem')).toHaveLength(6);
+    });
+    expect(scrolled).not.toHaveBeenCalled();
+
+    await user.click(jump);
+    // The test window asks for reduced motion, so the jump is instant.
+    expect(scrolled).toHaveBeenCalledWith({ block: 'end', behavior: 'auto' });
+    act(() => {
+      FakeIntersectionObserver.scrollIntoView();
+    });
+    await waitFor(() => {
+      expect(pane.queryByRole('button', { name: 'Jump to latest' })).toBeNull();
+    });
   });
 });

@@ -39,11 +39,15 @@ function refusedTitle(activity: Extract<SessionActivity, { kind: 'refused' }>): 
     case 'ask_everything':
       return "Couldn't edit files: Ask before everything is on";
     case 'push':
-      return "Couldn't push: that waits for Create pull request";
+      return "Couldn't push or open a pull request: Settings didn't allow it";
     case 'background':
       return "Couldn't run a command in the background";
     case 'outside_worktree':
       return `Couldn't ${activity.access} outside the worktree`;
+    case 'ask_session':
+      return activity.access === 'run'
+        ? "Couldn't run a command: this is an Ask session"
+        : "Couldn't edit files: this is an Ask session";
   }
 }
 
@@ -144,6 +148,19 @@ export function stepWords(activity: SessionActivity): StepWords {
       return { title: 'Discarded the changes', detail: `The worktree and ${activity.branch} are deleted.` };
   }
 }
+
+/** Jump to latest, once you've scrolled up from the end of Claude's progress (the user's call, 19 Oct 2026). */
+export const followWords = { jump: 'Jump to latest' };
+
+/** The words of a step shown in full (the user's call, 19 Oct 2026). */
+export const stepDetailWords = {
+  briefTitle: 'What Claude was sent',
+  close: 'Close',
+  briefNone: 'Nothing was sent to Claude yet.',
+  briefFailed: "Couldn't read what Claude was sent.",
+  tryAgain: 'Try again',
+  showChanges: (path: string) => `Show the changes in ${path}`,
+};
 
 export interface ProblemWords {
   title: string;

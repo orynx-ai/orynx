@@ -198,4 +198,43 @@ describe('Combobox', () => {
 
     expect(picked).toBe('MOB');
   });
+
+  it('with `values`, ticks and unticks several, each a checkbox, and stays open for the next', async () => {
+    const user = userEvent.setup();
+    function People() {
+      const [values, setValues] = useState<string[]>(['me']);
+      return (
+        <>
+          <Combobox
+            options={[
+              { value: 'me', label: 'Me' },
+              { value: 'neha', label: 'Neha Kapoor' },
+              { value: 'sam', label: 'Sam Lee' },
+            ]}
+            values={values}
+            onValuesChange={setValues}
+            searchLabel="Search people"
+            emptyText="No one matches"
+            size="sm"
+          >
+            <Picker>Assignee</Picker>
+          </Combobox>
+          <output>{values.join(',')}</output>
+        </>
+      );
+    }
+    render(<People />);
+    await user.click(screen.getByRole('button', { name: 'Assignee' }));
+    expect(screen.getByRole('listbox', { name: 'Search people' })).toHaveAttribute('aria-multiselectable', 'true');
+
+    await user.keyboard('ne{Enter}');
+    expect(screen.getByText('me,neha')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Neha Kapoor' })).toHaveAttribute('aria-selected', 'true');
+
+    await user.clear(screen.getByRole('combobox', { name: 'Search people' }));
+    await user.click(screen.getByRole('option', { name: 'Me' }));
+    expect(screen.getByText('neha')).toBeInTheDocument();
+    expect(screen.getByRole('listbox', { name: 'Search people' })).toBeVisible();
+    await expectNoAxeViolations(document.body);
+  });
 });

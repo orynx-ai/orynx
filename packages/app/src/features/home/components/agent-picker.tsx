@@ -96,7 +96,7 @@ export function AgentPicker({ model, effort, onModelChange, onEffortChange }: Ag
           {choice ?? words.name}
         </Picker>
       </MenuTrigger>
-      <MenuContent aria-label={words.menu}>
+      <MenuContent size="sm" aria-label={words.menu}>
         {models.length === 0 ? (
           <MenuRadioGroup value="claude">
             <MenuRadioItem value="claude" description={connected ? words.connected : words.signedOut}>

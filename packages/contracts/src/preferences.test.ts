@@ -4,7 +4,8 @@ import {
   defaultPreferences,
   EditorSchema,
   InboxRuleIdSchema,
-  PermissionModeSchema,
+  permissionsFromMode,
+  PermissionsSchema,
   PreferencesChangeSchema,
   PreferencesSchema,
   ServerEventSchema,
@@ -12,17 +13,40 @@ import {
 import { makePreferences } from './testing.ts';
 
 describe('PreferencesSchema', () => {
-  it('AC-2: offers the three permission modes from the product spec, in its order', () => {
-    expect(PermissionModeSchema.options).toEqual([
-      'ask_everything',
-      'edit_freely_ask_commands',
-      'edit_and_run_allowed',
-    ]);
+  it('spec 026: one row for each kind of call, each with its choices', () => {
+    expect(
+      Object.fromEntries(Object.entries(PermissionsSchema.shape).map(([row, choice]) => [row, choice.options])),
+    ).toEqual({
+      edits: ['ask', 'allow'],
+      commands: ['ask', 'allowed_list', 'any'],
+      network: ['ask', 'allow'],
+      deleteOutside: ['ask', 'allow'],
+      unsandboxed: ['ask', 'allow'],
+      push: ['never', 'ask', 'allow'],
+      pullRequest: ['never', 'ask', 'allow'],
+    });
   });
 
-  it('AC-2, AC-12: starts at "Edit files freely, ask before commands" with every inbox rule on', () => {
+  it('spec 026: carries an older saved mode over to the rows, every other row at its default', () => {
+    expect(permissionsFromMode('edit_freely_ask_commands')).toEqual(defaultPreferences.permissions);
+    expect(permissionsFromMode('ask_everything')).toEqual({ ...defaultPreferences.permissions, edits: 'ask' });
+    expect(permissionsFromMode('edit_and_run_allowed')).toEqual({
+      ...defaultPreferences.permissions,
+      commands: 'allowed_list',
+    });
+  });
+
+  it('AC-2, AC-12: starts as "Edit files freely, ask before commands" did, never pushing, with every inbox rule on', () => {
     expect(defaultPreferences).toEqual({
-      permissionMode: 'edit_freely_ask_commands',
+      permissions: {
+        edits: 'allow',
+        commands: 'ask',
+        network: 'ask',
+        deleteOutside: 'ask',
+        unsandboxed: 'ask',
+        push: 'never',
+        pullRequest: 'never',
+      },
       inboxRules: {
         jira_assigned: true,
         review_requested: true,
@@ -60,7 +84,10 @@ describe('PreferencesSchema', () => {
 
   it('builds valid preferences for tests', () => {
     expect(makePreferences()).toEqual(defaultPreferences);
-    expect(makePreferences({ permissionMode: 'ask_everything' }).permissionMode).toBe('ask_everything');
+    expect(makePreferences({ permissions: { push: 'ask' } }).permissions).toEqual({
+      ...defaultPreferences.permissions,
+      push: 'ask',
+    });
     expect(makePreferences({ inboxRules: { checks_failing: false } }).inboxRules).toEqual({
       ...defaultPreferences.inboxRules,
       checks_failing: false,
@@ -69,9 +96,9 @@ describe('PreferencesSchema', () => {
 });
 
 describe('PreferencesChangeSchema', () => {
-  it('AC-3, AC-13: takes the mode alone, or only the rules that changed', () => {
-    expect(PreferencesChangeSchema.parse({ permissionMode: 'ask_everything' })).toEqual({
-      permissionMode: 'ask_everything',
+  it('AC-3, AC-13, spec 026: takes only the rows or the rules that changed', () => {
+    expect(PreferencesChangeSchema.parse({ permissions: { push: 'allow' } })).toEqual({
+      permissions: { push: 'allow' },
     });
     expect(PreferencesChangeSchema.parse({ inboxRules: { checks_failing: false } })).toEqual({
       inboxRules: { checks_failing: false },
@@ -91,10 +118,13 @@ describe('PreferencesChangeSchema', () => {
     expect(PreferencesChangeSchema.safeParse({ editor: 'zed' }).success).toBe(false);
   });
 
-  it('refuses an empty change, an unknown mode, an unknown rule and an unknown key', () => {
+  it('refuses an empty change, the old mode, an unknown row or choice, an unknown rule and an unknown key', () => {
     for (const body of [
       {},
-      { permissionMode: 'yolo' },
+      { permissionMode: 'ask_everything' },
+      { permissions: { push: 'yes' } },
+      { permissions: { commands: 'everything' } },
+      { permissions: { sudo: 'allow' } },
       { inboxRules: { slack_no_reply: false } },
       { inboxRules: { checks_failing: 'no' } },
       { allowCommand: '' },

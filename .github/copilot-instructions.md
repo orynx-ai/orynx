@@ -26,7 +26,7 @@ DevHub is a local web app plus a small local server, both on the developer's lap
    Checked by: `pnpm gate env-policy`
 10. **No secrets in git or the browser.** Tokens live in the OS keychain. Never commit `.env` or a token. The server listens on 127.0.0.1 only and checks the Host header and session token.
     Checked by: `pnpm gate secrets`, pre-commit · Guide: `learn/local-security.md`
-11. **Claude never acts for the user.** Product code must never push, open a PR or run a risky command without the user's click, and it must only edit inside the session worktree.
+11. **Claude acts only as far as the user allowed.** Product code must never push, open a PR or run a risky command unless the user clicked for it or turned that permission on in Settings › Coding agent (the defaults ask, or never push), and it must only edit inside the session worktree.
     Checked by: `/review` · Guide: `.claude/skills/agent-runtime/SKILL.md`
 12. **Forms use react-hook-form with a zod schema.** Never keep input values in `useState`.
     Checked by: `/review` (gate planned) · Guide: `.claude/skills/forms/SKILL.md`

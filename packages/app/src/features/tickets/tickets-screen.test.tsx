@@ -7,6 +7,7 @@ import { FakeEventSource } from '../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
 import { designTickets, ticketsHandler, ticketsToday } from '../../test/tickets.ts';
+import { useComposerStore } from '../home/store.ts';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'], now: ticketsToday });
@@ -73,7 +74,7 @@ describe('TicketsScreen', () => {
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
 
-  it('AC-30: Tab goes through the search, Board / List, Project and Sprint (spec 020), the filters, Clear filters, the board, then each card', async () => {
+  it('AC-30: Tab goes through Refresh, the search, Board / List, Project and Sprint (spec 020), the filters, Clear filters, the board, then each card’s checkbox and title', async () => {
     server.use(ticketsHandler());
     const { user } = await renderApp({ route: '/tickets?type=bug' });
     await screen.findByText('1 ticket');
@@ -82,13 +83,14 @@ describe('TicketsScreen', () => {
       .focus();
     const stops: string[] = [];
 
-    for (let stop = 0; stop < 13; stop += 1) {
+    for (let stop = 0; stop < 15; stop += 1) {
       await user.tab();
       const focused = document.activeElement;
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent.trim() ?? '');
     }
 
     expect(stops).toEqual([
+      'Refresh',
       'Search tickets',
       'Board',
       'List',
@@ -101,6 +103,7 @@ describe('TicketsScreen', () => {
       'Due',
       'Clear filters',
       'Board',
+      'Select PROJ-1377',
       'Search returns archived sites for guest users',
     ]);
     // The card's title opens the ticket dialog (spec 022), so it's a button.
@@ -118,7 +121,7 @@ describe('TicketsScreen', () => {
     const onThisPage = crumb().className;
 
     await user.click(filter('Assignee · 1'));
-    await user.click(await screen.findByRole('menuitemcheckbox', { name: 'Me' }));
+    await user.click(await screen.findByRole('option', { name: 'Me' }));
     await user.keyboard('{Escape}');
 
     expect(crumb().className).toBe(onThisPage);
@@ -296,5 +299,74 @@ describe('TicketsScreen', () => {
 
     expect(within(toolbar()).getByRole('searchbox', { name: 'Search tickets' })).toBeVisible();
     expect(screen.getAllByRole('searchbox')).toHaveLength(1);
+  });
+});
+
+describe('Refresh, the people search and Ship for several (the user’s call, 19 Oct 2026)', () => {
+  it('Refresh syncs Jira now, beside when it last did', async () => {
+    let refreshes = 0;
+    server.use(
+      ticketsHandler(),
+      http.post(apiUrl(apiRoutes.inboxRefresh), () => {
+        refreshes += 1;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+
+    expect(screen.getByText(/^Synced /)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => {
+      expect(refreshes).toBe(1);
+    });
+  });
+
+  it('Assignee searches its people', async () => {
+    server.use(ticketsHandler());
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+
+    await user.click(filter('Assignee · 1'));
+    await user.keyboard('pri');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Priya Shah']);
+    await user.keyboard('{Enter}{Escape}');
+
+    expect(count()).toHaveTextContent('8 tickets');
+  });
+
+  it('ticks tickets on the board and the list; Ship puts them in Home’s composer in the order ticked', async () => {
+    server.use(ticketsHandler());
+    const { user, history } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select PROJ-1423' }));
+    await user.click(screen.getByRole('button', { name: 'List' }));
+    await user.click(await screen.findByRole('checkbox', { name: 'Select PROJ-1377' }));
+    expect(screen.getByRole('checkbox', { name: 'Select PROJ-1423' })).toBeChecked();
+    expect(within(toolbar()).getByText('2 selected')).toBeVisible();
+
+    await user.click(within(toolbar()).getByRole('button', { name: 'Ship' }));
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/');
+    });
+    expect(useComposerStore.getState().chips).toEqual([
+      { kind: 'jira', key: 'PROJ-1423' },
+      { kind: 'jira', key: 'PROJ-1377' },
+    ]);
+  });
+
+  it('Clear unticks every ticket and puts focus on Assignee', async () => {
+    server.use(ticketsHandler());
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select PROJ-1402' }));
+    await user.click(within(toolbar()).getByRole('button', { name: 'Clear' }));
+
+    expect(screen.getByRole('checkbox', { name: 'Select PROJ-1402' })).not.toBeChecked();
+    expect(within(toolbar()).queryByText(/selected$/)).toBeNull();
+    expect(filter('Assignee · 1')).toHaveFocus();
   });
 });

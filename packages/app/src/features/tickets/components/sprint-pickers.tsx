@@ -26,8 +26,8 @@ const pickerWidth = 'w-48 justify-between';
  * Tickets' Project and Sprint pickers (spec 020). Project searches the Jira projects you can see, with Your
  * sprint first (AC-38); picking one shows its current sprint. Sprint lists that project's active then future
  * sprints, asked of Jira when it opens; picking one holds it. With Your sprint, Sprint lists the sprint's own
- * project when its board has one. No sprint ends the list (AC-39): the picked project's tickets in no sprint,
- * or with Your sprint, your own.
+ * project when its board has one. No sprint heads the list (AC-39; first since the user's call, 19 Oct 2026):
+ * the picked project's tickets in no sprint, or with Your sprint, your own.
  */
 export function SprintPickers({
   choice,
@@ -68,7 +68,7 @@ export function SprintPickers({
         loading={projects.isPending && projects.fetchStatus !== 'idle'}
         onOpenChange={setListing}
       >
-        <Picker className={pickerWidth}>
+        <Picker variant="plain" className={pickerWidth}>
           <span className="text-muted-foreground">Project</span> {choice.projectKey ?? yourSprintText}
         </Picker>
       </Combobox>
@@ -111,7 +111,7 @@ function SprintMenu({
   return (
     <Menu open={open} onOpenChange={setOpen}>
       <MenuTrigger asChild>
-        <Picker className={pickerWidth}>
+        <Picker variant="plain" className={pickerWidth}>
           <span className="text-muted-foreground">Sprint</span>{' '}
           {name ?? (
             // While the sprint loads: a bar where its name goes, the picker as wide as ever.
@@ -122,6 +122,16 @@ function SprintMenu({
       {/* A menu holds menu items alone (ARIA), and while open it hides the page around it, so the menu itself
             says it's busy; the loading rows are only drawn. */}
       <MenuContent heading="Sprint" align="start" size="sm" aria-busy={loading || undefined}>
+        {/* No sprint first, so it never moves however the sprints load (the user's call, 19 Oct 2026). */}
+        <MenuRadioGroup
+          value={current === 'none' ? 'none' : ''}
+          onValueChange={() => {
+            onPick('none');
+          }}
+        >
+          <MenuRadioItem value="none">{noSprintName}</MenuRadioItem>
+        </MenuRadioGroup>
+        {project === null ? null : <MenuSeparator />}
         {project === null ? null : sprints.isPending ? (
           // Two rows the size of a sprint's (its name over its dates), so the list doesn't jump when they arrive.
           <div aria-hidden className="flex flex-col">
@@ -155,7 +165,7 @@ function SprintMenu({
         <MenuRadioGroup
           value={current === null ? '' : String(current)}
           onValueChange={(value) => {
-            onPick(value === 'none' ? 'none' : Number(value));
+            onPick(Number(value));
           }}
         >
           {project === null || !sprints.isSuccess
@@ -165,8 +175,6 @@ function SprintMenu({
                   {found.name}
                 </MenuRadioItem>
               ))}
-          {project === null ? null : <MenuSeparator />}
-          <MenuRadioItem value="none">{noSprintName}</MenuRadioItem>
         </MenuRadioGroup>
       </MenuContent>
     </Menu>

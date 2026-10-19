@@ -4,20 +4,23 @@
  * to this interface, so another agent can follow without changing them.
  *
  * Safety rules every adapter must keep (CLAUDE.md rule 11, .claude/skills/agent-runtime):
- * work only inside the session worktree, never push or open a PR on its own, and ask
- * before network calls, pushes and deletes outside the worktree whatever the mode.
+ * work only inside the session worktree, and push, open a PR, reach the network or delete
+ * outside the worktree only as far as the user's rows in Settings › Coding agent allow.
  */
-import type { AgentModels, AlwaysAskReason, ChangeLine, EffortLevel, PermissionMode } from '@devhub/contracts';
+import type { AgentModels, AlwaysAskReason, ChangeLine, EffortLevel, Permissions } from '@devhub/contracts';
 
-/** Saved in Settings › Coding agent (spec 005); the schema lives in contracts. */
-export type { PermissionMode };
+/** Saved in Settings › Coding agent (spec 026): one row for each kind of call. The schema lives in contracts. */
+export type { Permissions };
 
-export interface AgentPermissions {
-  mode: PermissionMode;
-  /** Commands that run without asking in `edit_and_run_allowed`, e.g. "npm test". */
+export interface AgentPermissions extends Permissions {
+  /** Commands that run without asking while `commands` is `allowed_list`, e.g. "npm test". */
   allowedCommands: readonly string[];
+  /** The session's branch, the only one a push may name; null before the worktree is made (spec 026). */
+  branch?: string | null;
   /** What outside the worktree the brief named, for the agent to read and never edit (spec 022). */
   reads?: AgentReads;
+  /** An Ask session (spec 026): reads only, whatever the rows say; every edit and command is refused. */
+  readOnly?: boolean;
 }
 
 /**
@@ -43,14 +46,14 @@ export interface AgentBrief {
 /** Your answer to a waiting call. `always` runs the call as `allow` does; the session saves the entry first. */
 export type ApprovalDecision = 'allow' | 'deny' | 'always';
 
-/** A call waiting for your answer (spec 012): a command, or an edit while Ask before everything is on. */
+/** A call waiting for your answer (spec 012): a command, or an edit while Edit files is on Ask first (spec 026). */
 export type AgentAsk =
   | {
       kind: 'command';
       command: string;
       /** The agent's own line about the command, when it gave one. */
       description: string | null;
-      /** Why it asks in every mode; null when it asks only because of the mode or the list. */
+      /** Why it asks with Allow once and Deny only (its row says Ask first); null when it asks because of the commands row or the list. */
       alwaysAsk: AlwaysAskReason | null;
       /** The entry Always allow would save, when it's offered (Q1, Q4). */
       alwaysAllow: string | null;
@@ -60,7 +63,7 @@ export type AgentAsk =
 /** A call the adapter refused, which the session shows as a step (spec 011 Q6, spec 012 Q7). */
 export interface AgentRefusal {
   access: 'read' | 'edit' | 'run';
-  reason: 'outside_worktree' | 'ask_everything' | 'push' | 'background';
+  reason: 'outside_worktree' | 'ask_everything' | 'push' | 'background' | 'ask_session';
   /** As the agent asked for it: relative to the worktree when it's inside, otherwise absolute; the command for a `run`. */
   path: string;
 }

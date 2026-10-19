@@ -3,7 +3,10 @@ import {
   EditorSchema,
   InboxRuleIdSchema,
   PermissionModeSchema,
+  permissionsFromMode,
+  PermissionsSchema,
   type InboxRules,
+  type Permissions,
   type Preferences,
   type PreferencesChange,
 } from '@devhub/contracts';
@@ -33,6 +36,23 @@ function writtenRules(settings: Settings): Record<string, unknown> {
   return isObject(rules) ? rules : {};
 }
 
+/**
+ * Settings › Coding agent's rows (spec 026): each as written, else as an older saved mode set it, else its default.
+ * A row this version can't read keeps that fallback, so nothing written is lost.
+ */
+function writtenPermissions(settings: Settings): Permissions {
+  const mode = PermissionModeSchema.safeParse(settings.agent?.['permissionMode']);
+  const permissions = { ...(mode.success ? permissionsFromMode(mode.data) : defaultPreferences.permissions) };
+  const written = settings.agent?.['permissions'];
+  if (!isObject(written)) return permissions;
+  const rows = PermissionsSchema.shape;
+  for (const row of Object.keys(rows) as (keyof Permissions)[]) {
+    const value = rows[row].safeParse(written[row]);
+    if (value.success) Object.assign(permissions, { [row]: value.data });
+  }
+  return permissions;
+}
+
 /** What can be read, with the default for anything never chosen or not readable. */
 function fromSettings(settings: Settings): Preferences {
   const saved = writtenRules(settings);
@@ -41,10 +61,9 @@ function fromSettings(settings: Settings): Preferences {
     const on = saved[rule];
     if (typeof on === 'boolean') inboxRules[rule] = on;
   }
-  const mode = PermissionModeSchema.safeParse(settings.agent?.['permissionMode']);
   const editor = EditorSchema.safeParse(settings.agent?.['editor']);
   return {
-    permissionMode: mode.success ? mode.data : defaultPreferences.permissionMode,
+    permissions: writtenPermissions(settings),
     inboxRules,
     allowedCommands: writtenCommands(settings),
     editor: editor.success ? editor.data : defaultPreferences.editor,
@@ -60,7 +79,10 @@ function writtenCommands(settings: Settings): string[] {
 /** The change on top of what was written, keeping every key this version doesn't know. */
 function applied(current: Settings, change: PreferencesChange): Settings {
   const next = { ...current };
-  if (change.permissionMode !== undefined) next.agent = { ...current.agent, permissionMode: change.permissionMode };
+  // Every row is written, so an older saved mode no longer counts once a row changes (spec 026).
+  if (change.permissions !== undefined) {
+    next.agent = { ...current.agent, permissions: { ...writtenPermissions(current), ...change.permissions } };
+  }
   if (change.editor !== undefined) next.agent = { ...next.agent, editor: change.editor };
   if (change.inboxRules !== undefined) {
     next.inbox = { ...current.inbox, rules: { ...writtenRules(current), ...change.inboxRules } };

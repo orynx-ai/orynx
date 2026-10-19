@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ComposerChip, EffortLevel } from '@devhub/contracts';
+import type { ComposerChip, EffortLevel, SessionMode } from '@devhub/contracts';
 import { addChip, sameChip, type AddChip } from './composer-rules.ts';
 
 /**
@@ -17,6 +17,8 @@ interface ComposerState {
   lastUsed: string | null;
   /** The model you picked in the agent picker; null is Claude Code's own default. */
   model: string | null;
+  /** Ask or Build, once you've picked (spec 026); null follows the chips: Build with a ticket, else Ask. */
+  mode: SessionMode | null;
   /** The effort you picked for that model; null is the model's own default. */
   effort: EffortLevel | null;
   setText: (text: string) => void;
@@ -27,17 +29,22 @@ interface ComposerState {
   dropChip: (chip: ComposerChip) => void;
   pickFolder: (id: string) => void;
   setModel: (model: string | null) => void;
+  setMode: (mode: SessionMode) => void;
   setEffort: (effort: EffortLevel | null) => void;
   /** A task started, in this folder if the page named one: the draft goes, and the folder is remembered. */
   sent: (folderId: string | null) => void;
 }
 
-export const initialComposer: Pick<ComposerState, 'text' | 'chips' | 'picked' | 'lastUsed' | 'model' | 'effort'> = {
+export const initialComposer: Pick<
+  ComposerState,
+  'text' | 'chips' | 'picked' | 'lastUsed' | 'model' | 'effort' | 'mode'
+> = {
   text: '',
   chips: [],
   picked: null,
   lastUsed: null,
   model: null,
+  mode: null,
   effort: null,
 };
 
@@ -63,6 +70,9 @@ export const useComposerStore = create<ComposerState>()(
       pickFolder: (id) => {
         set({ picked: id });
       },
+      setMode: (mode) => {
+        set({ mode });
+      },
       setModel: (model) => {
         set({ model });
       },
@@ -70,7 +80,7 @@ export const useComposerStore = create<ComposerState>()(
         set({ effort });
       },
       sent: (folderId) => {
-        set((state) => ({ text: '', chips: [], picked: null, lastUsed: folderId ?? state.lastUsed }));
+        set((state) => ({ text: '', chips: [], picked: null, mode: null, lastUsed: folderId ?? state.lastUsed }));
       },
     }),
     {
