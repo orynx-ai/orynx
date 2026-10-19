@@ -101,6 +101,8 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     message: z.boolean().default(false),
     pullRequests: z.array(z.string().min(1)).default([]),
     files: z.array(z.string().min(1)).default([]),
+    /** The skills your message named, as `/review` (spec 022, AC-53); none before spec 022. */
+    skills: z.array(z.string().min(1)).default([]),
   }),
   ActivityBaseSchema.extend({ kind: z.literal('explore'), files: FilesSchema }),
   /** The plan's items, from Claude's to-do list. */

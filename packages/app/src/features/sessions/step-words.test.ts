@@ -39,6 +39,7 @@ describe('stepWords (Q10a)', () => {
         message: false,
         pullRequests: [],
         files: [],
+        skills: [],
       }),
     ).toEqual({
       title: 'Sent Claude the brief',
@@ -47,7 +48,7 @@ describe('stepWords (Q10a)', () => {
   });
 
   it('015 AC-24: the brief names your message, the ticket, the pull requests and the files Claude got', () => {
-    const brief = { kind: 'brief', state: 'done', tickets: [] as string[] } as const;
+    const brief = { kind: 'brief', state: 'done', tickets: [] as string[], skills: [] as string[] } as const;
     expect(step({ ...brief, key: null, message: true, pullRequests: [], files: [] }).detail).toBe('Your message');
     expect(step({ ...brief, key: 'PROJ-1423', message: true, pullRequests: [], files: [] }).detail).toBe(
       'Your message and PROJ-1423',
@@ -61,6 +62,21 @@ describe('stepWords (Q10a)', () => {
     );
   });
 
+  it('022 AC-53: the brief names the skills your message asked for, last', () => {
+    expect(
+      step({
+        kind: 'brief',
+        state: 'done',
+        key: null,
+        tickets: [],
+        message: true,
+        pullRequests: [],
+        files: [],
+        skills: ['/review'],
+      }).detail,
+    ).toBe('Your message and /review');
+  });
+
   it('022 AC-17: the brief names files you picked by their names, wherever they are', () => {
     expect(
       step({
@@ -71,6 +87,7 @@ describe('stepWords (Q10a)', () => {
         message: true,
         pullRequests: [],
         files: ['~/notes/plan.pdf', '/Users/dev/Movies/demo.mov'],
+        skills: [],
       }).detail,
     ).toBe('Your message, plan.pdf and demo.mov');
   });
@@ -85,6 +102,7 @@ describe('stepWords (Q10a)', () => {
         message: true,
         pullRequests: [],
         files: [],
+        skills: [],
       }).detail,
     ).toBe('Your message, PROJ-1423 and PROJ-1424');
     expect(
@@ -96,6 +114,7 @@ describe('stepWords (Q10a)', () => {
         message: false,
         pullRequests: [],
         files: [],
+        skills: [],
       }).detail,
     ).toBe('PROJ-1423 and PROJ-1424');
   });

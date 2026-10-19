@@ -1,4 +1,6 @@
-import type { SkillList } from '@devhub/contracts';
+import { readFile, realpath } from 'node:fs/promises';
+import { composerLimits, skillsNamedIn, type SkillList } from '@devhub/contracts';
+import type { BriefSkill } from '../sessions/brief.ts';
 import type { RepositoryService } from '../repositories/repository-service.ts';
 import { readSkills, type FoundSkill } from './skills-reader.ts';
 
@@ -8,6 +10,19 @@ export interface SkillsService {
   list(repositoryId: string | undefined): Promise<SkillList | null>;
   /** Every skill for a folder on disk, with its file and folder, for Send (null: yours alone). */
   found(folderPath: string | null): Promise<FoundSkill[]>;
+  /**
+   * The skills a message names that the folder or you have, at most 5, in the order named (AC-53), each with its
+   * text and real paths. A `/name` that's no skill is just words (AC-54).
+   */
+  named(message: string, folderPath: string | null): Promise<BriefSkill[]>;
+}
+
+/** A skill's text goes to Claude up to this many bytes; skills are short, and the rest of the folder can be read. */
+const mostSkillBytes = 256 * 1024;
+
+/** A skill's text without the frontmatter at its top, which only names and describes it. */
+function bodyOf(text: string): string {
+  return text.replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '').trim();
 }
 
 export function createSkillsService({
@@ -31,6 +46,29 @@ export function createSkillsService({
     },
     found(folderPath) {
       return readSkills({ folder: folderPath, home });
+    },
+    async named(message, folderPath) {
+      const names = skillsNamedIn(message);
+      if (names.length === 0) return [];
+      const skills = await readSkills({ folder: folderPath, home });
+      const picked = names.flatMap((name) => skills.filter((skill) => skill.name === name));
+      const read = await Promise.all(
+        picked.map(async (skill): Promise<BriefSkill | null> => {
+          try {
+            const text = (await readFile(skill.file)).subarray(0, mostSkillBytes).toString('utf8');
+            return {
+              name: skill.name,
+              text: bodyOf(text),
+              file: await realpath(skill.file),
+              folder: skill.folder === null ? null : await realpath(skill.folder),
+            };
+          } catch {
+            // Gone since it was listed: it's just words now.
+            return null;
+          }
+        }),
+      );
+      return read.filter((skill) => skill !== null).slice(0, composerLimits.skills);
     },
   };
 }

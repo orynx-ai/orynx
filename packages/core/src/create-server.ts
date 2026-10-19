@@ -314,7 +314,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const userHome = options.userHome ?? homedir();
   const devhubHome = options.dataDir ?? join(homedir(), '.devhub');
   const repositories = createRepositoryService({ settings, events, home: userHome, devhubHome });
+  const skills = createSkillsService({ repositories, home: userHome });
   const sessionService = createSessionService({
+    skills,
     records: sessions,
     repositories,
     claude,
@@ -460,7 +462,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
         picker: options.folderPicker ?? createFolderPicker({ searchPath: '', platform: process.platform }),
         home: userHome,
       });
-      await api.register(skillsRoutes, { skills: createSkillsService({ repositories, home: userHome }) });
+      await api.register(skillsRoutes, { skills });
       await api.register(filesRoutes, {
         picker: options.filePicker ?? createFilePicker({ searchPath: '', platform: process.platform }),
         home: userHome,

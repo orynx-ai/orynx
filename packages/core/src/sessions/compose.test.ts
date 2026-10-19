@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setupServer } from 'msw/node';
@@ -29,6 +29,7 @@ import { useTestRepositories } from '../test/git-repository.ts';
 import { briefText, composerBrief, type BriefChip } from './brief.ts';
 import { createChangesReader } from './changes.ts';
 import { chooseFolder, composerPlan } from './compose.ts';
+import { createSkillsService } from '../skills/skills-service.ts';
 import { createContextReader } from './context-reader.ts';
 import { openFileSessionStore } from './file-session-store.ts';
 import type { SessionRecords } from './session-store.ts';
@@ -185,6 +186,7 @@ async function setUp({
     }),
     connection,
     jira,
+    skills: createSkillsService({ repositories: service, home: repos.root }),
     context: createContextReader({
       home: repos.root,
       jira,
@@ -387,6 +389,44 @@ describe('a file by its path (spec 022)', () => {
     );
     expect(answer).toEqual({ result: 'context_failed', chip: 1, problem: 'not_found' });
     await nothingMade(set);
+  });
+});
+
+describe('skills your message names (spec 022)', () => {
+  it('AC-53: adds the skill’s text after the chips, lists it in the brief step, and lets Claude read its folder', async () => {
+    const set = await setUp({
+      script: [
+        { tool: 'Read', input: { file_path: '~/web-app/.claude/skills/review/SKILL.md' } },
+        { tool: 'Write', input: { file_path: '~/web-app/.claude/skills/review/SKILL.md', content: 'x' } },
+        { finish: 'Reviewed.' },
+      ],
+    });
+    const skillFolder = join(set.root, 'web-app', '.claude', 'skills', 'review');
+    await mkdir(skillFolder, { recursive: true });
+    await writeFile(
+      join(skillFolder, 'SKILL.md'),
+      '---\nname: review\ndescription: Review it\n---\n\nCheck the tests first.',
+    );
+
+    await set.sessions.start(
+      makeComposerStart({ message: 'Use /review on it, and /nope', repositoryId: set.folder?.id, context: [fileChip] }),
+    );
+
+    const record = await settled(set.records);
+    const brief = await set.records.readBrief('0000000000000001');
+    expect(brief).toMatch(
+      /^Use \/review on it, and \/nope\n\nFile ~\/notes\.md\n\n[^]*\n\nSkill \/review\n\nThe user asked for this skill with \/review\. Follow it for this task\./,
+    );
+    expect(brief).toContain('Check the tests first.');
+    expect(brief).not.toContain('description: Review it');
+    expect(record.session.activities.find((activity) => activity.kind === 'brief')).toMatchObject({
+      skills: ['/review'],
+    });
+    expect(record.reads?.folders).toEqual([await realpath(skillFolder)]);
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([
+      ['Read', 'allow'],
+      ['Write', 'deny'],
+    ]);
   });
 });
 

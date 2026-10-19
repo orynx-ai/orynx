@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiRoutes, SkillListQuerySchema, SkillListSchema, SkillNameSchema } from './index.ts';
+import { apiRoutes, SkillListQuerySchema, SkillListSchema, SkillNameSchema, skillsNamedIn } from './index.ts';
 
 describe('skills (spec 022)', () => {
   it('AC-49: lists each skill’s name, description and where it’s from', () => {
@@ -26,5 +26,17 @@ describe('skills (spec 022)', () => {
     expect(SkillListQuerySchema.parse({})).toEqual({});
     expect(SkillListQuerySchema.safeParse({ repositoryId: '../x' }).success).toBe(false);
     expect(apiRoutes.skills).toBe('/api/skills');
+  });
+});
+
+describe('the skills a message names (spec 022)', () => {
+  it('AC-53, AC-54: finds /name at the start or after a space or line, each once, in order', () => {
+    expect(skillsNamedIn('/review the auth change, then /build.\n/review again and /release:notes:')).toEqual([
+      'review',
+      'build',
+      'release:notes',
+    ]);
+    expect(skillsNamedIn('Open src/app/main.ts and https://x.dev/path, not a/skill')).toEqual([]);
+    expect(skillsNamedIn('Try /nope')).toEqual(['nope']);
   });
 });

@@ -242,6 +242,7 @@ describe('the file session store', () => {
       message: false,
       pullRequests: [],
       files: [],
+      skills: [],
     });
   });
 

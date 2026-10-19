@@ -394,6 +394,7 @@ describe('running a session', () => {
         message: false,
         pullRequests: [],
         files: [],
+        skills: [],
       },
       { id: 'step-3', state: 'done', kind: 'explore', files: ['README.md'] },
       { id: 'step-4', state: 'done', kind: 'plan', items: ['Add a toolbar button'] },

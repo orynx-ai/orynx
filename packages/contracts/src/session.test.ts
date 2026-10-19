@@ -102,6 +102,7 @@ describe('SessionSchema', () => {
           message: false,
           pullRequests: [],
           files: [],
+          skills: [],
         },
         { id: 'a3', state: 'done', kind: 'explore', files: ['src/content/ContentList.tsx', 'src/api/contentApi.ts'] },
         { id: 'a4', state: 'done', kind: 'plan', items: ['Row selection', 'A bulkArchive API call'] },
@@ -548,6 +549,7 @@ describe("the composer's start (spec 015)", () => {
       message: true,
       pullRequests: ['web-app #2836'],
       files: ['~/notes/plan.pdf'],
+      skills: [],
     };
     expect(
       SessionSchema.parse(makeSession({ source: null, activities: [step] as SessionActivity[] })).activities,
@@ -568,6 +570,7 @@ describe("the composer's start (spec 015)", () => {
         message: false,
         pullRequests: [],
         files: [],
+        skills: [],
       },
     ]);
   });

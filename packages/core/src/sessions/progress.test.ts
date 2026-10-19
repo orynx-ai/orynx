@@ -181,6 +181,7 @@ describe('Orynx’s own steps', () => {
         message: false,
         pullRequests: [],
         files: [],
+        skills: [],
       }),
     );
     expect(progress.activities).toEqual([
@@ -193,6 +194,7 @@ describe('Orynx’s own steps', () => {
         message: false,
         pullRequests: [],
         files: [],
+        skills: [],
       },
       { id: 'step-2', state: 'running', kind: 'explore', files: ['src/a.ts'] },
     ]);

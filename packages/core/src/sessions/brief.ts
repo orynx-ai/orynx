@@ -50,6 +50,17 @@ export interface BriefFile {
   real: string;
 }
 
+/**
+ * A skill your message named, as Send read it (spec 022, Q9): its text without the frontmatter, its file's real
+ * path, and its folder's, which Claude may read; null for a command, a file on its own.
+ */
+export interface BriefSkill {
+  name: string;
+  text: string;
+  file: string;
+  folder: string | null;
+}
+
 /** One chip as the server read it, in the order you added it. */
 export type BriefChip =
   ({ kind: 'jira' } & BriefTicket) | ({ kind: 'pull_request' } & BriefPullRequest) | ({ kind: 'file' } & BriefFile);
@@ -145,18 +156,38 @@ function pullRequestChip(pull: BriefPullRequest): AgentBrief['context'][number] 
  * What Claude is sent when a session starts from the composer (spec 015): your message, then each chip in the
  * order you added it, and nothing else (agent-runtime rule 5).
  */
-export function composerBrief(message: string, chips: readonly BriefChip[]): AgentBrief {
+export function composerBrief(
+  message: string,
+  chips: readonly BriefChip[],
+  skills: readonly BriefSkill[] = [],
+): AgentBrief {
   return {
     message,
-    context: chips.map((chip) => {
-      if (chip.kind === 'jira') return ticketChip(chip);
-      if (chip.kind === 'pull_request') return pullRequestChip(chip);
-      return {
-        kind: 'file',
-        title: `File ${chip.path}`,
-        body: `The user added this file from their computer. Read it at ${chip.real}. It's outside your worktree: you can read it, not change it.`,
-      };
-    }),
+    context: [
+      ...chips.map((chip): AgentBrief['context'][number] => {
+        if (chip.kind === 'jira') return ticketChip(chip);
+        if (chip.kind === 'pull_request') return pullRequestChip(chip);
+        return {
+          kind: 'file',
+          title: `File ${chip.path}`,
+          body: `The user added this file from their computer. Read it at ${chip.real}. It's outside your worktree: you can read it, not change it.`,
+        };
+      }),
+      // Then each skill your message named (spec 022, AC-53): its text, and where the rest of it is.
+      ...skills.map((skill): AgentBrief['context'][number] => ({
+        kind: 'skill',
+        title: `Skill /${skill.name}`,
+        body: [
+          `The user asked for this skill with /${skill.name}. Follow it for this task.`,
+          skill.folder === null
+            ? null
+            : `Its folder is ${skill.folder}: you can read the files in it, not change them.`,
+          skill.text,
+        ]
+          .filter((part) => part !== null && part !== '')
+          .join('\n\n'),
+      })),
+    ],
   };
 }
 

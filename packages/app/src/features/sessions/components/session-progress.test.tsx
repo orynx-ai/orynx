@@ -30,6 +30,7 @@ function session(overrides: Partial<Session> = {}): Session {
         message: false,
         pullRequests: [],
         files: [],
+        skills: [],
       },
       {
         id: 'step-3',

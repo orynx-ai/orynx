@@ -95,6 +95,7 @@ describe('SessionScreen', () => {
             message: true,
             pullRequests: ['web-app #2836'],
             files: ['~/notes/notes.md'],
+            skills: [],
           },
         ],
       }),

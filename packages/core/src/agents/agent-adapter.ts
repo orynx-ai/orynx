@@ -33,7 +33,11 @@ export interface AgentBrief {
   /** What the user typed in the composer. */
   message: string;
   /** Exactly the context chips the user added: nothing else is sent. */
-  context: readonly { kind: 'jira' | 'pull_request' | 'slack_thread' | 'file'; title: string; body: string }[];
+  context: readonly {
+    kind: 'jira' | 'pull_request' | 'slack_thread' | 'file' | 'skill';
+    title: string;
+    body: string;
+  }[];
 }
 
 /** Your answer to a waiting call. `always` runs the call as `allow` does; the session saves the entry first. */

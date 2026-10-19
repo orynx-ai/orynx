@@ -1,6 +1,6 @@
 import type { ComposerStart, Repository, SessionActivity } from '@devhub/contracts';
 import type { AgentBrief, AgentReads } from '../agents/agent-adapter.ts';
-import { composerBrief, ticketBrief, type BriefChip, type BriefTicket } from './brief.ts';
+import { composerBrief, ticketBrief, type BriefChip, type BriefSkill, type BriefTicket } from './brief.ts';
 import { branchSlug, titleFrom } from './composer-names.ts';
 import type { JiraIssueDetail } from '../integrations/jira/client.ts';
 
@@ -28,7 +28,7 @@ export function ticketPlan(issue: JiraIssueDetail): StartPlan {
   return {
     brief: ticketBrief(issue),
     branchName: issue.key,
-    briefStep: { key: issue.key, tickets: [], message: false, pullRequests: [], files: [] },
+    briefStep: { key: issue.key, tickets: [], message: false, pullRequests: [], files: [], skills: [] },
     ticketNote: true,
     reads: noReads,
   };
@@ -68,14 +68,18 @@ export interface ComposerPlan {
   plan: StartPlan;
 }
 
-export function composerPlan(message: string, chips: readonly BriefChip[]): ComposerPlan {
+export function composerPlan(
+  message: string,
+  chips: readonly BriefChip[],
+  skills: readonly BriefSkill[] = [],
+): ComposerPlan {
   const ticket = chips.find((chip) => chip.kind === 'jira') ?? null;
   const title = ticket === null || ticket.summary.trim() === '' ? titleFrom(message) : ticket.summary;
   return {
     title: title === '' && ticket !== null ? ticket.key : title,
     ticket,
     plan: {
-      brief: composerBrief(message, chips),
+      brief: composerBrief(message, chips, skills),
       branchName: ticket === null ? branchSlug(title) : ticket.key,
       briefStep: {
         key: ticket?.key ?? null,
@@ -85,9 +89,17 @@ export function composerPlan(message: string, chips: readonly BriefChip[]): Comp
           chip.kind === 'pull_request' ? [`${chip.name} #${String(chip.number)}`] : [],
         ),
         files: chips.flatMap((chip) => (chip.kind === 'file' ? [chip.path] : [])),
+        skills: skills.map((skill) => `/${skill.name}`),
       },
       ticketNote: ticket !== null && message === '',
-      reads: { files: chips.flatMap((chip) => (chip.kind === 'file' ? [chip.real] : [])), folders: [] },
+      // The files you picked, a command's own file, and each skill's folder, which Claude may read (spec 022).
+      reads: {
+        files: [
+          ...chips.flatMap((chip) => (chip.kind === 'file' ? [chip.real] : [])),
+          ...skills.flatMap((skill) => (skill.folder === null ? [skill.file] : [])),
+        ],
+        folders: skills.flatMap((skill) => (skill.folder === null ? [] : [skill.folder])),
+      },
     },
   };
 }

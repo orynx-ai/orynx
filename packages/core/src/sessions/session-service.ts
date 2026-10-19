@@ -32,6 +32,7 @@ import { createBranchGit } from './branch-git.ts';
 import { briefText, sessionNote, ticketFromBrief } from './brief.ts';
 import type { ChangesReader, StartPoint } from './changes.ts';
 import { chooseFolder, composerPlan, noReads, ticketKeyOf, ticketPlan, type StartPlan } from './compose.ts';
+import type { SkillsService } from '../skills/skills-service.ts';
 import type { ContextReader } from './context-reader.ts';
 import {
   addStep,
@@ -128,6 +129,8 @@ export interface SessionServiceOptions {
   jira: JiraClient;
   /** Reads the composer's chips from Jira and GitHub before a composer start makes anything (spec 015). */
   context: ContextReader;
+  /** Finds the skills a composer message names (spec 022); without it, `/name` is only words. */
+  skills?: Pick<SkillsService, 'named'>;
   /**
    * What the cache already knows about a ticket: the title and breadcrumb before Jira answers (spec 011), and
    * its status and due date now, for the Ticket tab (spec 013).
@@ -885,7 +888,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     const read = await options.context.read(request.context);
     if (!read.ok) return { result: 'context_failed', chip: read.chip, problem: read.problem };
-    const { title, ticket, plan } = composerPlan(request.message, read.chips);
+    // The skills your message names, for this folder (spec 022, AC-53); none without the service.
+    const skills = (await options.skills?.named(request.message, folder.path)) ?? [];
+    const { title, ticket, plan } = composerPlan(request.message, read.chips, skills);
 
     const id = newId();
     const at = new Date(now()).toISOString();

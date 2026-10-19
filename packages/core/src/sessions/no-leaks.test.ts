@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -483,7 +483,19 @@ describe.skipIf(process.platform === 'win32')('spec 015 stays out of the log and
     const pullBody = 'fake-pull-body-for-leaks';
     const diffLine = 'fake-diff-line-for-leaks';
     const review = 'fake-review-comment-for-leaks';
-    const said = [message, fileText, comment, pullBody, diffLine, review, description, githubToken, goodToken];
+    const skillText = 'fake-skill-text-for-leaks';
+    const said = [
+      message,
+      fileText,
+      comment,
+      pullBody,
+      diffLine,
+      review,
+      skillText,
+      description,
+      githubToken,
+      goodToken,
+    ];
     const doc = (words: string) => ({
       type: 'doc',
       version: 1,
@@ -560,6 +572,9 @@ describe.skipIf(process.platform === 'win32')('spec 015 stays out of the log and
     });
     // A file goes by its path (spec 022): Claude reads it where it is, so its text is in no brief, log or event.
     await writeFile(join(repos.root, 'notes.md'), fileText);
+    // And a skill the message names (spec 022): its text goes to Claude alone.
+    await mkdir(join(repos.clone, '.claude', 'skills', 'leaky'), { recursive: true });
+    await writeFile(join(repos.clone, '.claude', 'skills', 'leaky', 'SKILL.md'), `---\nname: leaky\n---\n${skillText}`);
     const context = [
       { kind: 'jira', key: 'PROJ-1' },
       { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 },
@@ -576,7 +591,7 @@ describe.skipIf(process.platform === 'win32')('spec 015 stays out of the log and
       method: 'POST',
       url: apiRoutes.sessions,
       headers,
-      payload: { message, context },
+      payload: { message: `${message} /leaky`, context },
     });
     const id = started.json<{ sessionId: string }>().sessionId;
     await until(async () => {
@@ -585,7 +600,7 @@ describe.skipIf(process.platform === 'win32')('spec 015 stays out of the log and
     });
     // Claude got all of it; nothing else did.
     const brief = sdk.runs[0]?.prompts[0] ?? '';
-    for (const secret of [message, comment, pullBody, diffLine, review, description]) {
+    for (const secret of [message, comment, pullBody, diffLine, review, skillText, description]) {
       expect(brief).toContain(secret);
     }
     expect(brief).toContain(join(await realpath(repos.root), 'notes.md'));

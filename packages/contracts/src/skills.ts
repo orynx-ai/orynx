@@ -23,3 +23,17 @@ export type SkillList = z.infer<typeof SkillListSchema>;
 
 export const SkillListQuerySchema = z.object({ repositoryId: RepositoryIdSchema.optional() });
 export type SkillListQuery = z.infer<typeof SkillListQuerySchema>;
+
+/**
+ * The skill names a message asks for, each once, in the order it names them (spec 022, AC-53): `/name` at the start
+ * or after a space or a new line. A full stop or colon after one ends a sentence, not the name. Whether a name is a
+ * skill is the server's to say at Send.
+ */
+export function skillsNamedIn(message: string): string[] {
+  const named: string[] = [];
+  for (const match of message.matchAll(/(?:^|\s)\/([A-Za-z0-9][A-Za-z0-9._:-]*)/g)) {
+    const name = (match[1] ?? '').replace(/[.:]+$/, '');
+    if (SkillNameSchema.safeParse(name).success && !named.includes(name)) named.push(name);
+  }
+  return named;
+}
