@@ -1,4 +1,4 @@
-import { Button, WorkItemShip } from '@devhub/ui';
+import { Button, FloatingBar, WorkItemShip } from '@devhub/ui';
 import { useNewTask } from '../../../shell/use-shortcuts.ts';
 import { useComposerStore } from '../../home/store.ts';
 import { useTicketsStore } from '../store.ts';
@@ -25,9 +25,10 @@ export function ShipButton({ ticketKey, look }: { ticketKey: string; look: 'spar
 }
 
 /**
- * The tickets ticked, Ship and Clear (the user's call, 19 Oct 2026). Ship does what one ticket's Ship does, for
- * all of them in the order ticked, so Send starts one session with every ticket, the first its own (spec 022, Q2).
- * Clear puts focus where `onCleared` says, since its own button goes.
+ * The tickets ticked, in a bar floating at the bottom of the page: how many, Unselect all and Ship all (the user's
+ * call, 19 Oct 2026). Ship all does what one ticket's Ship does, for all of them in the order ticked, so Send starts
+ * one session with every ticket, the first its own (spec 022, Q2). Unselect all puts focus where `onCleared` says,
+ * since the bar goes. Put it at the end of the page body: it keeps room there so the bar never hides the last ticket.
  */
 export function ShipSelected({ onCleared }: { onCleared: () => void }) {
   const selected = useTicketsStore((state) => state.selected);
@@ -37,27 +38,33 @@ export function ShipSelected({ onCleared }: { onCleared: () => void }) {
   if (selected.length === 0) return null;
   return (
     <>
-      <span className="text-small text-muted-foreground">{selectionWords.count(selected.length)}</span>
-      <Button
-        size="sm"
-        onClick={() => {
-          for (const key of selected) addChip({ kind: 'jira', key });
-          clear();
-          newTask();
-        }}
-      >
-        {selectionWords.ship}
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => {
-          clear();
-          onCleared();
-        }}
-      >
-        {selectionWords.clear}
-      </Button>
+      {/* With the page's own 32 px below, room for the 46 px bar and its 16 px from the window's bottom. */}
+      <div aria-hidden className="h-4 shrink-0" />
+      <FloatingBar aria-label={selectionWords.bar}>
+        <span role="status" className="text-small whitespace-nowrap text-muted-foreground">
+          {selectionWords.count(selected.length)}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            clear();
+            onCleared();
+          }}
+        >
+          {selectionWords.clear}
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => {
+            for (const key of selected) addChip({ kind: 'jira', key });
+            clear();
+            newTask();
+          }}
+        >
+          {selectionWords.ship}
+        </Button>
+      </FloatingBar>
     </>
   );
 }
