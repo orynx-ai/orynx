@@ -28,7 +28,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: A `mono` Textarea and a `skill` SourceMark (AC-2)
       Check: pnpm test packages/ui/src/components/textarea.test.tsx packages/ui/src/components/source-mark.test.tsx
       Files: packages/ui/src/components/textarea.tsx, packages/ui/src/components/textarea.stories.tsx, packages/ui/src/components/textarea.test.tsx, packages/ui/src/components/source-mark.tsx, packages/ui/src/components/source-mark.stories.tsx, packages/ui/src/components/source-mark.test.tsx, docs/design-map.md
-- [ ] Task 9: The Skills tab after Coding agent, the page bar's count and New skill, the callout, and the loading, error and empty states (AC-1, AC-2, AC-12, AC-15)
+- [x] Task 9: The Skills tab after Coding agent, the page bar's count and New skill, the callout, and the loading, error and empty states (AC-1, AC-2, AC-12, AC-15)
       Check: pnpm test packages/app/src/features/settings/settings-screen.test.tsx packages/app/src/features/settings/components/skills-panel.test.tsx
       Files: packages/app/src/features/settings/tabs.ts, packages/app/src/features/settings/settings-screen.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/features/settings/components/skills-panel.tsx, packages/app/src/features/settings/components/skills-panel.test.tsx
 - [ ] Task 10: The skill list with search, refreshed by `skills.changed` (AC-2, AC-3, AC-4, AC-19)

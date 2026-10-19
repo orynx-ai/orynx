@@ -7,6 +7,7 @@ import {
   preferencesQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
+  skillsQueryOptions,
   statusQueryOptions,
   type ApiRequestError,
 } from '@devhub/api-client';
@@ -364,4 +365,21 @@ export function useRemoveRepository() {
 export function useClearInboxCache() {
   const api = useApi();
   return useMutation({ mutationKey: [...queryKeys.inbox, 'clear'], mutationFn: () => api.clearInboxCache() });
+}
+
+/** Settings › Skills (spec 023): your skills by Name. Kept fresh by `skills.changed`, not polling. */
+export function useSkills() {
+  const api = useApi();
+  return useQuery(skillsQueryOptions(api));
+}
+
+/** Adds the four starter skills whose folders are free (AC-13); the list reads them again when it lands. */
+export function useAddStarterSkills() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: [...queryKeys.skills, 'starters'],
+    mutationFn: () => api.addStarterSkills(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
+  });
 }

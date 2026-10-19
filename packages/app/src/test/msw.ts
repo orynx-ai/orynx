@@ -8,6 +8,7 @@ import {
   makePreferences,
   makeSearchIndex,
   makeSessionList,
+  makeSkillList,
   makeStatus,
   makeTickets,
 } from '@devhub/contracts/testing';
@@ -66,6 +67,7 @@ export const server = setupServer(
   http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(makeGitHubConnection())),
   http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences())),
   http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: [] })),
+  http.get(apiUrl(apiRoutes.skills), () => HttpResponse.json(makeSkillList({ skills: [] }))),
   http.get(apiUrl(apiRoutes.jiraProjects), () => HttpResponse.json({ projects: [] })),
   // Nothing connected yet, so nothing needs you.
   http.get(apiUrl(apiRoutes.inbox), () =>
