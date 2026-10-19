@@ -77,6 +77,19 @@ export const composerWords = {
   failed: "Couldn't start Claude. Try again.",
   tooLong: 'Keep it under 10,000 characters.',
   quickStarts: { label: 'Quick starts', ticket: 'Pick up a ticket', review: 'Review a pull request' },
+  /** The +N after the first two chips (spec 022, Q6). */
+  more: {
+    tooltip: 'Show all context',
+    label: (count: number) => `Show all ${String(count)} ${count === 1 ? 'item' : 'items'} of context`,
+  },
+  /** The dialog +N opens (spec 022, Q7, Q12). */
+  dialog: {
+    title: 'Context for Claude',
+    tabs: { tickets: 'Tickets', pull_requests: 'Pull requests', files: 'Files' },
+    empty: { tickets: 'No tickets added.', pull_requests: 'No pull requests added.', files: 'No files added.' },
+    remove: 'Remove',
+    done: 'Done',
+  },
   banner: { title: 'Claude is waiting for your approval', action: 'Review' },
 } as const;
 

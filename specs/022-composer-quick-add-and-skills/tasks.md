@@ -16,10 +16,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Add `ContextMore` to `@devhub/ui`: a chip-shaped button "+3" with its tooltip and name, the height of a chip, with stories for 1, 2 and 5 chips and a test with axe (AC-19, Q6, Q14)
       Check: pnpm test packages/ui/src/components/context-chip.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/context-chip.tsx, packages/ui/src/components/context-chip.stories.tsx, packages/ui/src/components/context-chip.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 4: Show two chips, then +N, in the composer: the first two in the order added; removing one brings the next into view; the box doesn't move (AC-18, AC-19, AC-25)
+- [x] Task 4: Show two chips, then +N, in the composer: the first two in the order added; removing one brings the next into view; the box doesn't move (AC-18, AC-19, AC-25)
       Check: pnpm test packages/app/src/features/home/components/home-composer.test.tsx
       Files: packages/app/src/features/home/components/home-composer.tsx, packages/app/src/features/home/components/home-composer.test.tsx, packages/app/src/features/home/composer-words.ts
-- [ ] Task 5: The context dialog: "Context for Claude" with the tabs Tickets, Pull requests and Files and their counts, opening on the first that holds something; each row's mark, label, sub line (from the search index for tickets and pull requests) and Remove; the empty tab's line; focus after a removal; closes when empty; Done; Esc returns focus to +N or the box (AC-20 to AC-24)
+- [x] Task 5: The context dialog: "Context for Claude" with the tabs Tickets, Pull requests and Files and their counts, opening on the first that holds something; each row's mark, label, sub line (from the search index for tickets and pull requests) and Remove; the empty tab's line; focus after a removal; closes when empty; Done; Esc returns focus to +N or the box (AC-20 to AC-24)
       Check: pnpm test packages/app/src/features/home/components/context-dialog.test.tsx
       Files: packages/app/src/features/home/components/context-dialog.tsx, packages/app/src/features/home/components/context-dialog.test.tsx, packages/app/src/features/home/components/home-composer.tsx, packages/app/src/features/home/composer-words.ts
 
