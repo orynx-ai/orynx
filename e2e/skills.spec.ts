@@ -168,3 +168,18 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect(await axeViolations(page)).toEqual([]);
   });
 }
+
+test('AC-23: Given a saved skill, when I press Try in a new session, then Home opens with its / name at the start of the box', async ({
+  page,
+}, testInfo) => {
+  const name = nameFor(testInfo, 'Try it');
+  await openSkills(page);
+  await addSkill(page, name);
+
+  await page.getByRole('button', { name: 'Try in a new session' }).click();
+
+  await expect(page).toHaveURL(/\/$/);
+  const box = page.getByRole('textbox', { name: 'Describe a task for Claude' });
+  await expect(box).toBeFocused();
+  await expect(box).toHaveValue(`/${folderOf(name)} `);
+});

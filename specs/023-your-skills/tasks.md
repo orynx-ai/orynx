@@ -73,8 +73,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 22: "Used 4 times", "Used in 4 sessions", "Not used yet", and Try in a new session (AC-23, AC-24)
       Check: pnpm test packages/app/src/features/settings/components/skill-list.test.tsx packages/app/src/features/settings/components/skill-editor.test.tsx
       Files: packages/app/src/features/settings/components/skill-list.tsx, packages/app/src/features/settings/components/skill-editor.tsx, their tests
-- [ ] Task 23: E2e for a skill in a session: `/` lists it, Send carries it (AC-21, AC-22, AC-23)
-      Check: pnpm test:e2e e2e/skills.spec.ts
-      Files: e2e/skills.spec.ts
+- [x] Task 23: E2e for a skill in a session: `/` lists it, Send carries it (AC-21, AC-22, AC-23)
+      Check: pnpm test:e2e e2e/skills.spec.ts e2e/composer.spec.ts -g "023|AC-23"
+      Files: e2e/skills.spec.ts, e2e/composer.spec.ts
 - [ ] Task 24: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
