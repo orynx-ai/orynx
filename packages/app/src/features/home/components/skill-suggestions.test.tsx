@@ -211,4 +211,21 @@ describe('the composer’s / list (spec 022, G)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Use up to 5 skills.');
     expect(screen.getByRole('button', { name: 'Send to Claude' })).toHaveAttribute('aria-disabled', 'true');
   });
+
+  it('AC-21 (spec 023): lists your Orynx skills last, from "Orynx"', async () => {
+    serve({ skills: [...skills.skills, { name: 'bug-bash', description: 'Hunt for bugs', source: 'orynx' }] });
+    const { user } = await renderApp();
+    await user.click(box());
+
+    await user.keyboard('/');
+
+    await waitFor(() => {
+      expect(names()).toEqual([
+        '/build, Build the next task, web-app',
+        '/review, Review the branch, web-app',
+        '/notes, , Yours',
+        '/bug-bash, Hunt for bugs, Orynx',
+      ]);
+    });
+  });
 });

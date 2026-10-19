@@ -113,7 +113,8 @@ export function useSkillSuggestions({
     mark: <Icon icon={BookOpen01Icon} className="text-muted-foreground" />,
     code: `/${skill.name}`,
     title: skill.description ?? '',
-    meta: skill.source === 'yours' ? words.yours : (folder?.name ?? words.yours),
+    meta:
+      skill.source === 'orynx' ? words.orynx : skill.source === 'yours' ? words.yours : (folder?.name ?? words.yours),
   }));
 
   return {

@@ -59,4 +59,21 @@ describe('the skills a message names, at Send (spec 022)', () => {
     ]);
     expect(await service.named('No slashes here', folder)).toEqual([]);
   });
+
+  it('AC-21 (spec 023): lists your Orynx skills after yours', async () => {
+    const { home } = await setUp();
+    const orynx = join(home, '..', 'devhub', 'plugin', 'skills');
+    await write(
+      join(orynx, 'bug-bash/SKILL.md'),
+      '---\nname: bug-bash\ndescription: Hunt for bugs\n---\n\nReport only.',
+    );
+    const service = createSkillsService({ repositories: { list: () => Promise.resolve([]) }, home, orynx });
+
+    expect(await service.list(undefined)).toEqual({
+      skills: [
+        { name: 'standup', description: null, source: 'yours' },
+        { name: 'bug-bash', description: 'Hunt for bugs', source: 'orynx' },
+      ],
+    });
+  });
 });

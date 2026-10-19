@@ -61,19 +61,19 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: Merge `origin/main` with 022, keeping one `yaml` line
       Check: pnpm typecheck; pnpm test packages/core/src/skills
       Files: whatever the merge touches
-- [ ] Task 19: Your skills in 022's `/` list as "Orynx", after the folder's and `~/.claude`'s (AC-21)
-      Check: 022's skill-list test file, with Orynx skills added
-      Files: 022's skill reader in packages/core, its test
-- [ ] Task 20: The brief carries an Orynx skill's whole file, and Claude can't read `<DEVHUB_HOME>` (AC-22)
-      Check: 022's brief test file
-      Files: 022's brief builder in packages/core, its test
-- [ ] Task 21: Use counts from the sessions' briefs (AC-24)
-      Check: pnpm test packages/core/src/skills packages/contracts/src/skills.test.ts
-      Files: packages/core/src/skills/skill-store.ts, packages/contracts/src/skills.ts, their tests
-- [ ] Task 22: "Used 4 times", "Not used yet" and Try in a new session (AC-23, AC-24)
-      Check: pnpm test packages/app/src/features/settings/components
+- [x] Task 19: Your skills in 022's `/` list with source `orynx` ("Orynx"), after the folder's and `~/.claude`'s, which win on a name; links skipped (AC-21)
+      Check: pnpm test packages/core/src/skills/skills-reader.test.ts packages/core/src/skills/skills-service.test.ts packages/app/src/features/home/components/skill-suggestions.test.tsx
+      Files: packages/contracts/src/skills.ts, packages/core/src/skills/skills-reader.ts, packages/core/src/skills/skills-service.ts, packages/core/src/create-server.ts, packages/app/src/features/home/components/skill-suggestions.tsx, packages/app/src/features/home/composer-words.ts, their tests
+- [ ] Task 20: An Orynx skill's text goes in the brief with no folder Claude may read (`denyRead` keeps `<DEVHUB_HOME>` shut), and the brief step records which skills came from Orynx (AC-22)
+      Check: pnpm test packages/core/src/skills/skills-service.test.ts packages/core/src/sessions/brief.test.ts packages/contracts/src/session.test.ts
+      Files: packages/core/src/skills/skills-service.ts, packages/core/src/sessions/brief.ts, packages/core/src/sessions/session-service.ts, packages/contracts/src/session.ts, their tests
+- [ ] Task 21: Use counts: each ready skill's `uses`, the sessions whose brief named it from Orynx (AC-24)
+      Check: pnpm test packages/core/src/skills/skill-store.test.ts packages/contracts/src/orynx-skills.test.ts
+      Files: packages/contracts/src/orynx-skills.ts, packages/core/src/skills/skill-store.ts, packages/core/src/create-server.ts, their tests
+- [ ] Task 22: "Used 4 times", "Used in 4 sessions", "Not used yet", and Try in a new session (AC-23, AC-24)
+      Check: pnpm test packages/app/src/features/settings/components/skill-list.test.tsx packages/app/src/features/settings/components/skill-editor.test.tsx
       Files: packages/app/src/features/settings/components/skill-list.tsx, packages/app/src/features/settings/components/skill-editor.tsx, their tests
-- [ ] Task 23: E2e for a skill in a session (AC-21, AC-22, AC-23)
+- [ ] Task 23: E2e for a skill in a session: `/` lists it, Send carries it (AC-21, AC-22, AC-23)
       Check: pnpm test:e2e e2e/skills.spec.ts
       Files: e2e/skills.spec.ts
 - [ ] Task 24: STOP and run /review

@@ -57,6 +57,11 @@ export interface SkillStoreOptions {
   events: EventBus;
 }
 
+/** Where Settings › Skills keeps your skills: `<DEVHUB_HOME>/plugin/skills`. */
+export function orynxSkillsFolder(devhubHome: string): string {
+  return join(devhubHome, 'plugin', 'skills');
+}
+
 function isMissing(error: unknown): boolean {
   return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
@@ -74,7 +79,7 @@ function taken(folder: string): SkillRejectedError {
 export function createSkillStore(options: SkillStoreOptions): SkillStore {
   const { events } = options;
   const plugin = join(options.devhubHome, 'plugin');
-  const skills = join(plugin, 'skills');
+  const skills = orynxSkillsFolder(options.devhubHome);
   // Changes run one at a time, so two saves can't both take a free folder.
   const queue = oneAtATime();
   const folderPath = (folder: string) => join(skills, folder);
