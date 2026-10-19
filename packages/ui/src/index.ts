@@ -12,8 +12,10 @@ export {
   AttentionRow,
   AttentionRowSkeleton,
   AttentionTitle,
+  AttentionTitleButton,
   type AttentionActionsProps,
   type AttentionRowProps,
+  type AttentionTitleButtonProps,
   type AttentionTitleProps,
 } from './components/attention-row.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
