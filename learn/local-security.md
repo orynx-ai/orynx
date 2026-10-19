@@ -35,7 +35,7 @@ The same-origin policy compares _names_, not addresses. In a DNS-rebinding attac
 2. The attacker then changes the DNS answer for `evil.example` to `127.0.0.1`.
 3. The script fetches `http://evil.example:4317/`. The name is the same, so the browser treats it as same-origin, but the request now lands on **DevHub's** server, and the script could read the page and its token.
 
-The browser still sends `Host: evil.example:4317`. So `local-only.ts` rejects (403) any request whose Host is not exactly `127.0.0.1:<port>` or `localhost:<port>`. The rebinding page never gets the HTML, so it never gets the token.
+The browser still sends `Host: evil.example:4317`. So `local-only.ts` rejects (403) any request whose Host is not exactly `127.0.0.1:<port>` or `localhost:<port>`. `<port>` is the one the server actually listens on, read from the socket, so the desktop app's free port (`DEVHUB_PORT=0`, spec 027) is checked the same way. The rebinding page never gets the HTML, so it never gets the token.
 
 In dev, Vite's own `server.allowedHosts` check protects port 4318 the same way, and the proxy rewrites the Host it forwards to the server (`changeOrigin`).
 
