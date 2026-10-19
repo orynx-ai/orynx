@@ -34,6 +34,7 @@ import {
   type StartSessionRequest,
   type Status,
   type OpenSprints,
+  type TicketDetailAnswer,
   type Tickets,
   type TicketsChoice,
 } from '@devhub/contracts';
@@ -66,7 +67,7 @@ import {
   postSessionStop,
 } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
-import { getTickets, getTicketsSprints, putTicketsChoice } from './endpoints/tickets.ts';
+import { getTicket, getTickets, getTicketsSprints, putTicketsChoice } from './endpoints/tickets.ts';
 import { toApiRequestError } from './errors.ts';
 import { subscribeToEvents, type EventSourceConstructor } from './events.ts';
 
@@ -149,6 +150,8 @@ export interface ApiClient {
   ticketsSprints(project: string): Promise<OpenSprints>;
   /** Saves which sprint Tickets shows (spec 020). */
   chooseTicketsSprint(choice: TicketsChoice): Promise<void>;
+  /** One ticket in full for the ticket dialog (spec 022), asked of Jira now, or why there's none. */
+  ticket(key: string): Promise<TicketDetailAnswer>;
   /** Claude Code's login on this computer, as the server last checked it (spec 010). */
   claudeLogin(): Promise<ClaudeLogin>;
   /** Check again: the server asks Claude Code now, or shares a check that's running. */
@@ -230,6 +233,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       getTicketsSprints(http, project).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     chooseTicketsSprint: (choice) =>
       putTicketsChoice(http, choice).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    ticket: (key) => getTicket(http, key).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     claudeLogin: () => getClaudeLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkClaudeLogin: () =>
       postClaudeLoginCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

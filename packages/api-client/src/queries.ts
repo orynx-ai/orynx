@@ -16,6 +16,8 @@ export const queryKeys = {
   tickets: ['tickets'] as const,
   /** Not under `tickets`, so a sync's inbox.changed never asks Jira for a project's sprints again. */
   ticketsSprints: ['jira', 'sprints'] as const,
+  /** One ticket in full (spec 022); not under `tickets` either, for the same reason. */
+  ticket: ['jira', 'ticket'] as const,
   claudeLogin: ['claude', 'login'] as const,
   search: ['search'] as const,
 };
@@ -166,6 +168,19 @@ export function ticketsSprintsQueryOptions(api: ApiClient, project: string) {
     queryKey: [...queryKeys.ticketsSprints, project] as const,
     queryFn: () => api.ticketsSprints(project),
     staleTime: 60_000,
+  });
+}
+
+/**
+ * One ticket in full, for the ticket dialog (spec 022, Q8): asked of Jira each time the dialog opens, never on a
+ * timer, and not again by itself when it fails, so the dialog's Try again asks.
+ */
+export function ticketQueryOptions(api: ApiClient, key: string) {
+  return queryOptions({
+    queryKey: [...queryKeys.ticket, key] as const,
+    queryFn: () => api.ticket(key),
+    staleTime: 0,
+    retry: false,
   });
 }
 
