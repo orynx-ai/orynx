@@ -201,6 +201,71 @@ describe('inbox cache', () => {
     expect(again.tool('jira')).toBeNull();
   });
 
+  it('spec 029, AC-18: keeps notifications newest first, unread, each id once', () => {
+    const cache = open();
+    cache.addNotifications([
+      { id: 'a', at: '2026-10-19T09:00:00.000Z', data: { kind: 'one' } },
+      { id: 'b', at: '2026-10-19T10:00:00.000Z', data: { kind: 'two' } },
+    ]);
+    cache.addNotifications([{ id: 'a', at: '2026-10-19T11:00:00.000Z', data: { kind: 'again' } }]);
+
+    expect(cache.notifications()).toEqual([
+      { id: 'b', at: '2026-10-19T10:00:00.000Z', read: false, data: { kind: 'two' } },
+      { id: 'a', at: '2026-10-19T09:00:00.000Z', read: false, data: { kind: 'one' } },
+    ]);
+  });
+
+  it('spec 029, AC-18: keeps the newest 200, and none from before the cut-off', () => {
+    const cache = open();
+    const at = (minute: number) => new Date(Date.UTC(2026, 9, 19, 0, minute)).toISOString();
+    cache.addNotifications(
+      Array.from({ length: 201 }, (_, minute) => ({ id: `n${String(minute)}`, at: at(minute), data: {} })),
+    );
+    expect(cache.notifications()).toHaveLength(200);
+    expect(cache.notifications().at(-1)?.id).toBe('n1');
+
+    cache.addNotifications([], { before: at(150) });
+    expect(cache.notifications()).toHaveLength(51);
+    expect(cache.notifications().at(-1)?.id).toBe('n150');
+  });
+
+  it('spec 029, AC-13: marks some notifications read, or all, and says how many changed', () => {
+    const cache = open();
+    cache.addNotifications([
+      { id: 'a', at: '2026-10-19T09:00:00.000Z', data: {} },
+      { id: 'b', at: '2026-10-19T10:00:00.000Z', data: {} },
+      { id: 'c', at: '2026-10-19T11:00:00.000Z', data: {} },
+    ]);
+
+    expect(cache.markNotificationsRead(['a', 'missing'])).toBe(1);
+    expect(cache.markNotificationsRead(['a'])).toBe(0);
+    expect(cache.notifications().map((row) => row.read)).toEqual([false, false, true]);
+    expect(cache.markNotificationsRead('all')).toBe(2);
+    expect(cache.notifications().every((row) => row.read)).toBe(true);
+  });
+
+  it('spec 029, AC-12: changes what a notification holds, and leaves the rest alone', () => {
+    const cache = open();
+    cache.addNotifications([{ id: 'a', at: '2026-10-19T09:00:00.000Z', data: { waiting: true } }]);
+
+    expect(cache.changeNotification('a', (data) => ({ ...(data as object), waiting: false }))).toBe(true);
+    expect(cache.changeNotification('missing', (data) => data)).toBe(false);
+    expect(cache.notifications()).toEqual([
+      { id: 'a', at: '2026-10-19T09:00:00.000Z', read: false, data: { waiting: false } },
+    ]);
+  });
+
+  it('spec 029: Clear cache empties the notifications too', async () => {
+    const cache = open();
+    cache.addNotifications([{ id: 'a', at: '2026-10-19T09:00:00.000Z', data: { title: 'Rate-limit the export' } }]);
+
+    cache.clear();
+
+    expect(cache.notifications()).toEqual([]);
+    cache.close();
+    expect(await readFile(cacheFilePath(home))).not.toContain(Buffer.from('Rate-limit'));
+  });
+
   it('reads a problem it can’t make sense of as no problem, rather than failing', () => {
     const cache = open();
     cache.failed('jira', { connection: jiraAccount, problem: { kind: 'no_answer' } });
