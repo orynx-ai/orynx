@@ -52,7 +52,7 @@ export const composerWords = {
       empty: 'No open pull requests of yours or waiting for your review. Paste a link to add one.',
       notConnected: 'Connect GitHub in Settings to add pull requests.',
     },
-    file: { title: 'File from this computer', description: 'Text files up to 100 KB' },
+    file: { title: 'File from this computer', description: 'Any file. Claude reads it where it is.' },
   },
   noMatches: 'No matches. Try a key like PROJ-1423 or a repo name.',
   folder: {
@@ -133,7 +133,12 @@ export function shortFileName(name: string): string {
   return `${name.slice(0, mostFileNameCharacters - tail - 1)}…${name.slice(-tail)}`;
 }
 
-/** How a chip reads: `PROJ-1423`, `web-app #2836`, `notes.md`. */
+/** A path's last part, its file's name: `~/notes/plan.pdf` → `plan.pdf`. */
+export function fileName(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1);
+}
+
+/** How a chip reads: `PROJ-1423`, `web-app #2836`, `plan.pdf` (cut in the middle when long). */
 export function chipLabel(chip: ComposerChip): string {
   switch (chip.kind) {
     case 'jira':
@@ -141,7 +146,7 @@ export function chipLabel(chip: ComposerChip): string {
     case 'pull_request':
       return `${chip.name} #${String(chip.number)}`;
     case 'file':
-      return shortFileName(chip.name);
+      return shortFileName(fileName(chip.path));
   }
 }
 
@@ -161,19 +166,28 @@ export function addRow(label: string): string {
   return `Add ${label}`;
 }
 
-/** Why a file wasn't added (Q5). */
-export type FileRefusal = { kind: 'not_text'; name: string } | { kind: 'too_big'; name: string } | { kind: 'too_many' };
+/** Why a file wasn't added (spec 022, Q4, Q12): its name looks like a secret, or there are 20 already. */
+export type FileRefusal = { kind: 'secret'; name: string } | { kind: 'too_many' };
 
 export function fileRefusedLine(refusal: FileRefusal): string {
   switch (refusal.kind) {
-    case 'not_text':
-      return `${refusal.name} isn't a text file.`;
-    case 'too_big':
-      return `${refusal.name} is over 100 KB.`;
+    case 'secret':
+      return `${refusal.name} looks like a secret, so Claude doesn't get it.`;
     case 'too_many':
       return refusedLine('too_many_files');
   }
 }
+
+/** Add a file, when no picker can open (spec 022, AC-12, Q12). */
+export const addFileWords = {
+  title: 'Add a file',
+  path: 'Path',
+  help: "The file's full path, for example ~/notes/plan.pdf.",
+  notAPath: "Type the file's full path, from / or ~/.",
+  add: 'Add',
+  cancel: 'Cancel',
+  notFound: (path: string) => `Orynx can't find ${path}.`,
+} as const;
 
 /** Why Send started nothing (011 Q4, as Ship says it), and the Settings tab that fixes it. */
 export function cannotStartLine(reason: CannotStartReason): { line: string; link: SettingsLink | null } {
@@ -200,14 +214,11 @@ export function contextFailedLine(
   chip: ComposerChip,
   problem: ContextProblem,
 ): { line: string; link: SettingsLink | null } {
+  // A file is checked on this computer, and only for being there (spec 022, AC-16).
+  if (chip.kind === 'file') return { line: addFileWords.notFound(chip.path), link: null };
   const jira = chip.kind === 'jira';
   const tool = jira ? 'Jira' : 'GitHub';
-  const name =
-    chip.kind === 'jira'
-      ? chip.key
-      : chip.kind === 'pull_request'
-        ? `${chip.owner}/${chip.name} #${String(chip.number)}`
-        : chip.name;
+  const name = chip.kind === 'jira' ? chip.key : `${chip.owner}/${chip.name} #${String(chip.number)}`;
   switch (problem) {
     case 'not_found':
       return { line: `${tool} can't find ${name}, or you can't see it.`, link: null };

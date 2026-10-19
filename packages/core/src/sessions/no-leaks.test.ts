@@ -558,10 +558,12 @@ describe.skipIf(process.platform === 'win32')('spec 015 stays out of the log and
       headers,
       payload: { path: repos.clone, jiraProject: 'PROJ' },
     });
+    // A file goes by its path (spec 022): Claude reads it where it is, so its text is in no brief, log or event.
+    await writeFile(join(repos.root, 'notes.md'), fileText);
     const context = [
       { kind: 'jira', key: 'PROJ-1' },
       { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 },
-      { kind: 'file', name: 'notes.md', text: fileText },
+      { kind: 'file', path: '~/notes.md' },
     ];
     const failed = await hub.inject({
       method: 'POST',
@@ -583,9 +585,11 @@ describe.skipIf(process.platform === 'win32')('spec 015 stays out of the log and
     });
     // Claude got all of it; nothing else did.
     const brief = sdk.runs[0]?.prompts[0] ?? '';
-    for (const secret of [message, fileText, comment, pullBody, diffLine, review, description]) {
+    for (const secret of [message, comment, pullBody, diffLine, review, description]) {
       expect(brief).toContain(secret);
     }
+    expect(brief).toContain(join(await realpath(repos.root), 'notes.md'));
+    expect(brief).not.toContain(fileText);
     await hub.close();
 
     const told = log.join('') + JSON.stringify(events);

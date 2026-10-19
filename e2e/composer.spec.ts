@@ -75,6 +75,8 @@ function makeRepository() {
 }
 
 const repository = makeRepository();
+/** What the hub's fake file picker picks (e2e/fake-gh/osascript, zenity, kdialog). */
+const picked = realpathSync(new URL('fake-gh/picked/notes.md', import.meta.url));
 const claudeDir = fakeClaudeDirFor(composerHubPort);
 
 /** Exactly what the fake Claude Code got as its brief, the last time a session started. */
@@ -189,7 +191,7 @@ test('AC-1, AC-4, AC-24: my words alone start a session on its own branch, and C
   await expect(box(page)).toHaveValue('');
 });
 
-test('AC-6 to AC-8, AC-11, AC-12, AC-14, AC-20: a ticket, a pasted pull request and a file reach Claude with my words', async ({
+test('AC-6 to AC-8, AC-11, AC-14, AC-20, 022 AC-9, AC-10: a ticket, a pasted pull request and a picked file reach Claude with my words', async ({
   page,
 }) => {
   await page.goto('/');
@@ -206,12 +208,9 @@ test('AC-6 to AC-8, AC-11, AC-12, AC-14, AC-20: a ticket, a pasted pull request 
     element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
   }, 'https://github.com/acme/web-app/pull/2836');
 
-  const chooser = page.waitForEvent('filechooser');
+  // The hub's fake file picker picks e2e/fake-gh/picked/notes.md (spec 022): the page gets its path, not its text.
   await page.getByRole('button', { name: 'Add context' }).click();
   await page.getByRole('menuitem', { name: /File from this computer/ }).click();
-  await (
-    await chooser
-  ).setFiles({ name: 'notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Notes\n\nExport every column.') });
 
   // Two chips show, then +1 for the third (spec 022, AC-19).
   await expect(chips(page)).toHaveText(['PROJ-1423', 'web-app #2836', '+1']);
@@ -229,7 +228,10 @@ test('AC-6 to AC-8, AC-11, AC-12, AC-14, AC-20: a ticket, a pasted pull request 
   expect(brief).toContain('Pull request acme/web-app #2836: Lazy-load the people directory');
   expect(brief).toContain('Loads 50 people at a time.');
   expect(brief).toContain(`\`\`\`diff\n${diff}\n\`\`\``);
-  expect(brief.endsWith('File notes.md\n\n# Notes\n\nExport every column.')).toBe(true);
+  // Its title names the path as the hub shows it (with ~ under its home); Claude reads the real one.
+  expect(brief).toMatch(/\n\nFile \S*fake-gh\/picked\/notes\.md\n\nThe user added this file from their computer\./);
+  expect(brief).toContain(`Read it at ${picked}.`);
+  expect(brief).not.toContain('Export every column.');
 });
 
 test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Home’s rows reach Claude, and +1 opens them all', async ({

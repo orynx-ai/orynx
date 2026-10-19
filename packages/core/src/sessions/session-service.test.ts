@@ -166,6 +166,7 @@ async function setUp({
     jira: createJiraClient({ timeoutMs: 500 }),
     // GitHub isn't connected here; spec 015's composer starts are tested in compose.test.ts.
     context: createContextReader({
+      home: tmpdir(),
       jira: createJiraClient({ timeoutMs: 500 }),
       jiraConnection: connection,
       github: createGitHubClient(),

@@ -81,7 +81,8 @@ export function stepWords(activity: SessionActivity): StepWords {
         // The other tickets, after the session's own (spec 022, Q2).
         ...activity.tickets,
         ...activity.pullRequests,
-        ...activity.files,
+        // A file by its name; its full path shows in the step's tooltip (spec 022, AC-17).
+        ...activity.files.map(nameOf),
       ];
       const ticketAlone = activity.key !== null && parts.length === 1;
       const said = ticketAlone ? `${activity.key} and its description` : listOf(parts);

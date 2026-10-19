@@ -101,7 +101,7 @@ describe('Home’s composer (spec 015)', () => {
     useComposerStore.setState({
       text: 'Use the notes',
       chips: [
-        { kind: 'file', name: 'notes.md', text: 'x' },
+        { kind: 'file', path: '~/notes.md' },
         { kind: 'jira', key: 'PROJ-9999' },
       ],
     });
@@ -237,7 +237,7 @@ describe('pasting and removing chips (spec 015)', () => {
     useComposerStore.setState({
       chips: [
         { kind: 'jira', key: 'PROJ-1423' },
-        { kind: 'file', name: 'notes.md', text: 'x' },
+        { kind: 'file', path: '~/notes.md' },
       ],
     });
     const { user } = await renderApp();

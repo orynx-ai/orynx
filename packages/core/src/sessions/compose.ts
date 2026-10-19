@@ -1,5 +1,5 @@
 import type { ComposerStart, Repository, SessionActivity } from '@devhub/contracts';
-import type { AgentBrief } from '../agents/agent-adapter.ts';
+import type { AgentBrief, AgentReads } from '../agents/agent-adapter.ts';
 import { composerBrief, ticketBrief, type BriefChip, type BriefTicket } from './brief.ts';
 import { branchSlug, titleFrom } from './composer-names.ts';
 import type { JiraIssueDetail } from '../integrations/jira/client.ts';
@@ -16,7 +16,12 @@ export interface StartPlan {
   briefStep: Omit<Extract<SessionActivity, { kind: 'brief' }>, 'id' | 'state' | 'kind'>;
   /** True when the ticket alone is the brief, so the note says "Make the change the ticket asks for." */
   ticketNote: boolean;
+  /** What outside the worktree Claude may read: the files you picked, skills' folders (spec 022). */
+  reads: AgentReads;
 }
+
+/** Nothing outside the worktree, as for Ship's start. */
+export const noReads: AgentReads = { files: [], folders: [] };
 
 /** Ship's plan: the ticket is the brief (spec 011, Q5). */
 export function ticketPlan(issue: JiraIssueDetail): StartPlan {
@@ -25,6 +30,7 @@ export function ticketPlan(issue: JiraIssueDetail): StartPlan {
     branchName: issue.key,
     briefStep: { key: issue.key, tickets: [], message: false, pullRequests: [], files: [] },
     ticketNote: true,
+    reads: noReads,
   };
 }
 
@@ -78,9 +84,10 @@ export function composerPlan(message: string, chips: readonly BriefChip[]): Comp
         pullRequests: chips.flatMap((chip) =>
           chip.kind === 'pull_request' ? [`${chip.name} #${String(chip.number)}`] : [],
         ),
-        files: chips.flatMap((chip) => (chip.kind === 'file' ? [chip.name] : [])),
+        files: chips.flatMap((chip) => (chip.kind === 'file' ? [chip.path] : [])),
       },
       ticketNote: ticket !== null && message === '',
+      reads: { files: chips.flatMap((chip) => (chip.kind === 'file' ? [chip.real] : [])), folders: [] },
     },
   };
 }

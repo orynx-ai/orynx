@@ -44,10 +44,10 @@ export interface BriefPullRequest {
   diff: { kind: 'text'; text: string } | { kind: 'too_large'; files: readonly BriefFileCount[] };
 }
 
-/** A file the browser read, as you picked it (spec 015, Q5). */
+/** A file you picked, by its path (spec 022, Q4): as the composer held it, and its real path, which Claude reads. */
 export interface BriefFile {
-  name: string;
-  text: string;
+  path: string;
+  real: string;
 }
 
 /** One chip as the server read it, in the order you added it. */
@@ -151,7 +151,11 @@ export function composerBrief(message: string, chips: readonly BriefChip[]): Age
     context: chips.map((chip) => {
       if (chip.kind === 'jira') return ticketChip(chip);
       if (chip.kind === 'pull_request') return pullRequestChip(chip);
-      return { kind: 'file', title: `File ${chip.name}`, body: chip.text };
+      return {
+        kind: 'file',
+        title: `File ${chip.path}`,
+        body: `The user added this file from their computer. Read it at ${chip.real}. It's outside your worktree: you can read it, not change it.`,
+      };
     }),
   };
 }

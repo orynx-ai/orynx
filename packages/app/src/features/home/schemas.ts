@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { mostMessageCharacters } from '@devhub/contracts';
-import { composerWords } from './composer-words.ts';
+import { FilePathSchema, mostMessageCharacters } from '@devhub/contracts';
+import { addFileWords, composerWords } from './composer-words.ts';
 
 /** The search box in Home's toolbar (spec 007, Q10a, Q10b): free text, matched word by word. */
 export const SearchFormSchema = z.object({ q: z.string() });
@@ -14,3 +14,12 @@ export const composerFormSchema = z.object({
   message: z.string().trim().max(mostMessageCharacters, composerWords.tooLong),
 });
 export type ComposerFormValues = z.input<typeof composerFormSchema>;
+
+/** Add a file's Path (spec 022, AC-12): from `/` or `~/`, as the contract takes it; the server finds the file. */
+export const addFileFormSchema = z.object({
+  path: z
+    .string()
+    .trim()
+    .refine((path) => FilePathSchema.safeParse(path).success, addFileWords.notAPath),
+});
+export type AddFileFormValues = z.input<typeof addFileFormSchema>;

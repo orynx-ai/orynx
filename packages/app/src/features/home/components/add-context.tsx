@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useRef, useState } from 'react';
 import { File01Icon, Folder01Icon, GitBranchIcon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import { Link } from '@tanstack/react-router';
 import type { ComposerChip, InboxToolState } from '@devhub/contracts';
@@ -17,9 +17,11 @@ import { matchesWords } from '../../../words/match-words.ts';
 import { useSearchIndex } from '../../search/queries.ts';
 import { FolderDialog } from '../../settings/components/folder-dialog.tsx';
 import { useRepositories } from '../../settings/queries.ts';
-import { chipFromPaste, fileChipFrom, firstTicket, folderFor, refusalFor } from '../composer-rules.ts';
+import { chipFromPaste, fileChipFor, firstTicket, folderFor, refusalFor } from '../composer-rules.ts';
 import { addRow, composerWords, countOf, fileRefusedLine, refusedLine } from '../composer-words.ts';
+import { usePickFiles } from '../queries.ts';
 import { useComposerStore } from '../store.ts';
+import { AddFileDialog } from './add-file-dialog.tsx';
 
 const words = composerWords.kinds;
 type ListKind = 'repository' | 'jira' | 'pull_request';
@@ -182,15 +184,18 @@ function FolderList({ query, onQueryChange, onBack, onPicked, onAddFolder }: Lis
 /**
  * The composer's + (spec 015, AC-6 to AC-13): the kinds of context, then one kind's list in the same popup. A
  * ticket or pull request becomes a chip, a folder sets the folder picker, and a file opens the computer's own file
- * dialog. A pick closes the popup and puts focus back in the box (`onPicked`); a file that can't be added is said
- * under the composer (`onRefused`).
+ * picker through the server, each file picked a chip by its path (spec 022). A pick closes the popup and puts focus
+ * back in the box (`onPicked`); a file that can't be added is said under the composer (`onRefused`).
  */
 export function AddContext({
   onPicked,
   onRefused,
+  box,
 }: {
   onPicked: () => void;
   onRefused: (line: string | null) => void;
+  /** The composer's box, where focus goes after Add a file (spec 022). */
+  box: () => HTMLElement | null;
 }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'kinds' | ListKind>('kinds');
@@ -198,7 +203,9 @@ export function AddContext({
   const [addingFolder, setAddingFolder] = useState(false);
   const pickFolder = useComposerStore((state) => state.pickFolder);
   const addChip = useComposerStore((state) => state.addChip);
-  const files = useRef<HTMLInputElement>(null);
+  const pickFiles = usePickFiles();
+  // Why Add a file opened: the server's line that no picker can open here (AC-12); null while it's closed.
+  const [typing, setTyping] = useState<string | null>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   // Set by a pick, so closing puts focus in the box (AC-8); Esc leaves it on +.
   const toBox = useRef(false);
@@ -221,23 +228,35 @@ export function AddContext({
     setOpen(false);
   }
 
-  async function addFiles(event: ChangeEvent<HTMLInputElement>) {
-    const chosen = [...(event.target.files ?? [])];
-    // The same file can be picked again later.
-    event.target.value = '';
-    onRefused(null);
-    for (const file of chosen) {
-      const chip = fileChipFrom(file.name, new Uint8Array(await file.arrayBuffer()));
-      if (chip.kind !== 'file') {
+  /** Adds each path picked or typed as a chip, saying why one isn't (AC-13), then puts focus back in the box. */
+  function addPaths(paths: readonly string[]) {
+    for (const path of paths) {
+      const chip = fileChipFor(path);
+      if (chip.kind === 'secret') {
         onRefused(fileRefusedLine(chip));
         continue;
       }
       if (addChip(chip) !== null) {
         onRefused(fileRefusedLine({ kind: 'too_many' }));
-        return;
+        break;
       }
     }
     onPicked();
+  }
+
+  /** File from this computer (spec 022, AC-9): the computer's own picker, through the server; Add a file without one. */
+  function chooseFiles() {
+    onRefused(null);
+    pickFiles.mutate(undefined, {
+      onSuccess: ({ paths }) => {
+        // Cancel adds nothing (AC-11).
+        addPaths(paths ?? []);
+      },
+      onError: (error) => {
+        if (error.code === 'picker_unavailable') setTyping(error.message);
+        else onRefused(error.message);
+      },
+    });
   }
 
   const listProps: ListProps = {
@@ -312,8 +331,7 @@ export function AddContext({
                 description={words.file.description}
                 onSelect={() => {
                   setOpen(false);
-                  // The computer's own file dialog, from this click (Q5).
-                  files.current?.click();
+                  chooseFiles();
                 }}
               >
                 {words.file.title}
@@ -326,14 +344,17 @@ export function AddContext({
           )}
         </ContextPickerContent>
       </ContextPicker>
-      <input
-        ref={files}
-        type="file"
-        multiple
-        tabIndex={-1}
-        aria-label={words.file.title}
-        className="sr-only"
-        onChange={(event) => void addFiles(event)}
+      <AddFileDialog
+        open={typing !== null}
+        reason={typing ?? ''}
+        onClose={() => {
+          setTyping(null);
+        }}
+        onAdded={(path) => {
+          setTyping(null);
+          addPaths([path]);
+        }}
+        returnFocusTo={box}
       />
       <FolderDialog
         task={addingFolder ? { kind: 'add' } : null}

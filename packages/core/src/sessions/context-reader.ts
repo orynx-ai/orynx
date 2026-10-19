@@ -1,4 +1,6 @@
+import { realpath } from 'node:fs/promises';
 import type { ComposerChip, ContextProblem } from '@devhub/contracts';
+import { readableFile } from '../files/file-paths.ts';
 import type { GitHubClient, GitHubPullProblem } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
 import type { JiraClient, JiraProblem } from '../integrations/jira/client.ts';
@@ -7,7 +9,7 @@ import type { BriefChip } from './brief.ts';
 
 /**
  * Reads what the composer's chips name before a session starts (spec 015): the ticket from Jira and each pull
- * request from GitHub, all at once. A file passes through as the browser read it. Nothing is cached, and
+ * request from GitHub, all at once, and checks each file is still there (spec 022). Nothing is cached, and
  * nothing read here is logged.
  */
 export interface ContextReader {
@@ -18,6 +20,8 @@ export interface ContextReader {
 export type ContextRead = { ok: true; chips: BriefChip[] } | { ok: false; chip: number; problem: ContextProblem };
 
 export interface ContextReaderOptions {
+  /** The person's home folder, which a file's `~` stands for (spec 022). */
+  home: string;
   jira: JiraClient;
   jiraConnection: { credentials(): Promise<JiraSyncCredentials | null> };
   github: GitHubClient;
@@ -58,6 +62,7 @@ function fromGitHub(problem: GitHubPullProblem): ContextProblem {
 }
 
 export function createContextReader({
+  home,
   jira,
   jiraConnection,
   github,
@@ -95,10 +100,20 @@ export function createContextReader({
     };
   }
 
+  /**
+   * A file you picked (spec 022, B): only that there's one Claude can read there, and its real path, which the
+   * session lets Claude read. Its contents are never read here.
+   */
+  async function readFile(chip: Extract<ComposerChip, { kind: 'file' }>): Promise<ChipRead> {
+    const found = await readableFile(chip.path, home);
+    if (found === null) return { ok: false, problem: 'not_found' };
+    return { ok: true, chip: { kind: 'file', path: chip.path, real: await realpath(found) } };
+  }
+
   function readChip(chip: ComposerChip): Promise<ChipRead> {
     if (chip.kind === 'jira') return readTicket(chip.key);
     if (chip.kind === 'pull_request') return readPull(chip);
-    return Promise.resolve({ ok: true, chip: { kind: 'file', name: chip.name, text: chip.text } });
+    return readFile(chip);
   }
 
   return {

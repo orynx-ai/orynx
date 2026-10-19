@@ -2,6 +2,9 @@ import axios, { type AxiosInstance } from 'axios';
 import {
   tokenHeader,
   type AddRepositoryRequest,
+  type FileCheckAnswer,
+  type FileCheckRequest,
+  type FilePicks,
   type FolderPick,
   type ClaudeLogin,
   type GitHubConnection,
@@ -68,6 +71,7 @@ import {
 } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
 import { getTicket, getTickets, getTicketsSprints, putTicketsChoice } from './endpoints/tickets.ts';
+import { postFileCheck, postFilePicker } from './endpoints/files.ts';
 import { toApiRequestError } from './errors.ts';
 import { subscribeToEvents, type EventSourceConstructor } from './events.ts';
 
@@ -138,6 +142,10 @@ export interface ApiClient {
   removeRepository(id: RepositoryId): Promise<void>;
   /** Opens the computer's folder picker (spec 020); rejects with picker_unavailable where none can open. */
   pickFolder(): Promise<FolderPick>;
+  /** Opens the computer's file picker, several files at once (spec 022). */
+  pickFiles(): Promise<FilePicks>;
+  /** Checks a typed path is a file Claude can read (spec 022). */
+  checkFile(request: FileCheckRequest): Promise<FileCheckAnswer>;
   /** Home's "Needs your attention" list, from the server's cache. */
   inbox(): Promise<Inbox>;
   /** Syncs the inbox now; resolves once the sync has ended. */
@@ -225,6 +233,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     removeRepository: (id) =>
       deleteRepository(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     pickFolder: () => postFolderPicker(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    pickFiles: () => postFilePicker(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    checkFile: (request) =>
+      postFileCheck(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     inbox: () => getInbox(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     refreshInbox: () => postInboxRefresh(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

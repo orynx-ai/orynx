@@ -61,6 +61,20 @@ describe('stepWords (Q10a)', () => {
     );
   });
 
+  it('022 AC-17: the brief names files you picked by their names, wherever they are', () => {
+    expect(
+      step({
+        kind: 'brief',
+        state: 'done',
+        key: null,
+        tickets: [],
+        message: true,
+        pullRequests: [],
+        files: ['~/notes/plan.pdf', '/Users/dev/Movies/demo.mov'],
+      }).detail,
+    ).toBe('Your message, plan.pdf and demo.mov');
+  });
+
   it('022 AC-4: the brief names the other tickets after the session’s own', () => {
     expect(
       step({

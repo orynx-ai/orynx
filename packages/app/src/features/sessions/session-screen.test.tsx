@@ -94,7 +94,7 @@ describe('SessionScreen', () => {
             tickets: [],
             message: true,
             pullRequests: ['web-app #2836'],
-            files: ['notes.md'],
+            files: ['~/notes/notes.md'],
           },
         ],
       }),
@@ -116,7 +116,11 @@ describe('SessionScreen', () => {
     ).toEqual(['Changes']);
     expect(within(tabs).getByRole('tab', { name: /Changes/ })).toHaveAttribute('aria-selected', 'true');
     const progress = screen.getByRole('region', { name: "Claude's progress" });
-    expect(within(progress).getByText('Your message, web-app #2836 and notes.md')).toBeVisible();
+    // 022 AC-17: a file by its name, with its full path in the tooltip.
+    expect(within(progress).getByText('Your message, web-app #2836 and notes.md')).toHaveAttribute(
+      'title',
+      '~/notes/notes.md',
+    );
   });
 
   it('AC-16: shows the page bar and skeletons in the page’s shape while the session loads', async () => {

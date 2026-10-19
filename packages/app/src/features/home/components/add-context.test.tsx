@@ -50,7 +50,7 @@ describe('+ Add context (spec 015)', () => {
       'Git repositoryThe folder Claude works in',
       'Jira ticketSearch by key or title',
       'Pull requestSearch by repo, number or title',
-      'File from this computerText files up to 100 KB',
+      'File from this computerAny file. Claude reads it where it is.',
     ]);
     expect(menu).toHaveAccessibleDescription('Tip: you can also paste a Jira key or a pull request link into the box.');
   });
@@ -168,28 +168,105 @@ describe('+ Add context (spec 015)', () => {
     expect(screen.queryByRole('list', { name: 'Context for Claude' })).toBeNull();
   });
 
-  it('AC-12: a text file becomes a chip; a binary, a large file or a 21st file is said under the composer', async () => {
+  it('022 AC-9, AC-10: File from this computer opens the computer’s picker; each file picked of any kind is a chip', async () => {
     serve();
+    let picks = 0;
+    server.use(
+      http.post(apiUrl(apiRoutes.filePicker), () => {
+        picks += 1;
+        return HttpResponse.json({
+          paths: ['~/Movies/demo.mov', '~/notes/release-notes-for-the-people-directory.pdf'],
+        });
+      }),
+    );
     const { user } = await renderApp();
     await openKind(user, /File from this computer/);
-    const input = screen.getByLabelText('File from this computer', { selector: 'input' });
 
-    await user.upload(input, new File(['# Notes'], 'notes.md', { type: 'text/markdown' }));
     await waitFor(() => {
-      expect(chips().map((chip) => chip.textContent)).toEqual(['notes.md']);
+      expect(chips().map((chip) => chip.textContent)).toEqual(['demo.mov', 'release-notes-f…irectory.pdf']);
     });
+    expect(useComposerStore.getState().chips).toEqual([
+      { kind: 'file', path: '~/Movies/demo.mov' },
+      { kind: 'file', path: '~/notes/release-notes-for-the-people-directory.pdf' },
+    ]);
+    expect(box()).toHaveFocus();
+    expect(picks).toBe(1);
+    // AC-14: the same file again is still one chip.
+    await openKind(user, /File from this computer/);
+    await waitFor(() => {
+      expect(picks).toBe(2);
+    });
+    expect(useComposerStore.getState().chips).toHaveLength(2);
+  });
 
-    await user.upload(input, new File([new Uint8Array([0x89, 0x50, 0xff, 0xfe])], 'logo.png', { type: 'image/png' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent("logo.png isn't a text file.");
+  it('022 AC-11: Cancel in the picker adds nothing', async () => {
+    serve();
+    server.use(http.post(apiUrl(apiRoutes.filePicker), () => HttpResponse.json({ paths: null })));
+    const { user } = await renderApp();
+    await openKind(user, /File from this computer/);
+    await waitFor(() => {
+      expect(box()).toHaveFocus();
+    });
+    expect(useComposerStore.getState().chips).toEqual([]);
+  });
 
-    await user.upload(input, new File(['x'.repeat(102_401)], 'big.log'));
-    expect(await screen.findByRole('alert')).toHaveTextContent('big.log is over 100 KB.');
+  it('022 AC-13: a file that looks like a secret isn’t added, and a 21st file is said', async () => {
+    serve();
+    server.use(
+      http.post(apiUrl(apiRoutes.filePicker), () => HttpResponse.json({ paths: ['~/.ssh/id_rsa', '~/a.md'] })),
+    );
+    const { user } = await renderApp();
+    await openKind(user, /File from this computer/);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("id_rsa looks like a secret, so Claude doesn't get it.");
+    expect(useComposerStore.getState().chips).toEqual([{ kind: 'file', path: '~/a.md' }]);
 
     useComposerStore.setState({
-      chips: Array.from({ length: 20 }, (_, n) => ({ kind: 'file', name: `${String(n + 1)}.md`, text: 'x' })),
+      chips: Array.from({ length: 20 }, (_, n) => ({ kind: 'file', path: `~/${String(n + 1)}.md` })),
     });
-    await user.upload(input, new File(['more'], '21.md'));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Add up to 20 files.');
+    server.use(http.post(apiUrl(apiRoutes.filePicker), () => HttpResponse.json({ paths: ['~/21.md'] })));
+    await openKind(user, /File from this computer/);
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Add up to 20 files.');
+    });
+  });
+
+  it('022 AC-12: with no picker, Add a file takes a typed path, which the server finds, or says it can’t', async () => {
+    serve();
+    server.use(
+      http.post(apiUrl(apiRoutes.filePicker), () =>
+        HttpResponse.json(
+          {
+            code: 'picker_unavailable',
+            message: "Orynx can't open a file picker on this computer. Type the file's path instead.",
+          },
+          { status: 503 },
+        ),
+      ),
+      http.post(apiUrl(apiRoutes.fileCheck), async ({ request }) => {
+        const { path } = (await request.json()) as { path: string };
+        return HttpResponse.json(path === '~/notes/plan.pdf' ? { result: 'found', path } : { result: 'not_found' });
+      }),
+    );
+    const { user } = await renderApp();
+    await openKind(user, /File from this computer/);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Add a file' });
+    expect(dialog).toHaveTextContent("Orynx can't open a file picker on this computer. Type the file's path instead.");
+    const path = within(dialog).getByRole('textbox', { name: 'Path' });
+    await user.type(path, '~/notes/gone.pdf');
+    await user.click(within(dialog).getByRole('button', { name: 'Add' }));
+    expect(await within(dialog).findByText("Orynx can't find ~/notes/gone.pdf.")).toBeVisible();
+
+    await user.clear(path);
+    await user.type(path, '~/notes/plan.pdf');
+    await user.click(within(dialog).getByRole('button', { name: 'Add' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Add a file' })).toBeNull();
+    });
+    expect(useComposerStore.getState().chips).toEqual([{ kind: 'file', path: '~/notes/plan.pdf' }]);
+    expect(box()).toHaveFocus();
   });
 
   it('AC-32: a tool that isn’t connected says so with the way to Settings; a first sync shows loading rows', async () => {

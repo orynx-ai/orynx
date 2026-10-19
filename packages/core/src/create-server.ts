@@ -319,6 +319,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     connection: jira,
     jira: jiraClient,
     context: createContextReader({
+      home: userHome,
       jira: jiraClient,
       jiraConnection: jira,
       github: githubClient,

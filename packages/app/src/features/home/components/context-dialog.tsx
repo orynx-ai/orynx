@@ -33,7 +33,10 @@ function mark(chip: ComposerChip) {
   return <Icon icon={File01Icon} aria-hidden className="text-muted-foreground" />;
 }
 
-/** The second line: what search knows of a ticket or a pull request; nothing for one it doesn't hold. */
+/**
+ * The second line: what search knows of a ticket or a pull request, nothing for one it doesn't hold; a file's full
+ * path (spec 022, AC-20).
+ */
 function useSubLine(): (chip: ComposerChip) => string | null {
   const index = useSearchIndex();
   return (chip) => {
@@ -45,7 +48,7 @@ function useSubLine(): (chip: ComposerChip) => string | null {
       const id = `${chip.owner}/${chip.name}#${String(chip.number)}`.toLowerCase();
       return index.data?.pullRequests.find((known) => known.id.toLowerCase() === id)?.title ?? null;
     }
-    return null;
+    return chip.path;
   };
 }
 

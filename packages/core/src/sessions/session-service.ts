@@ -31,7 +31,7 @@ import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
 import { briefText, sessionNote, ticketFromBrief } from './brief.ts';
 import type { ChangesReader, StartPoint } from './changes.ts';
-import { chooseFolder, composerPlan, ticketKeyOf, ticketPlan, type StartPlan } from './compose.ts';
+import { chooseFolder, composerPlan, noReads, ticketKeyOf, ticketPlan, type StartPlan } from './compose.ts';
 import type { ContextReader } from './context-reader.ts';
 import {
   addStep,
@@ -610,8 +610,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (adapter === null) return fail(id, 'other', 'no_claude_code');
     // Settings are read before Claude starts, and again for each call it makes (spec 012, AC-11).
     const permissions = async () => {
-      const { permissionMode, allowedCommands } = await options.preferences.read();
-      return { mode: permissionMode, allowedCommands };
+      const [{ permissionMode, allowedCommands }, current] = await Promise.all([
+        options.preferences.read(),
+        records.get(id),
+      ]);
+      // The files and folders the brief named, which Claude may read on this run and every follow-up (spec 022).
+      return { mode: permissionMode, allowedCommands, reads: current?.reads ?? noReads };
     };
     await permissions();
     // Stop can come while they're read: then Claude never starts.
@@ -918,6 +922,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       pushedCommit: null,
       claudeSessionId: null,
       approvalLog: [],
+      reads: { files: [...plan.reads.files], folders: [...plan.reads.folders] },
     };
     startPlans.set(id, plan);
     await records.create(record);

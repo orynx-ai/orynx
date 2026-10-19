@@ -1,5 +1,11 @@
 #!/bin/sh
-# A stand-in for the computer's folder picker, for the e2e run only (spec 020): every hub finds it before
-# the real one on its PATH, so no test can open a dialog on the screen. It answers as Cancel does.
+# A stand-in for the computer's pickers, for the e2e run only: every hub finds it before the real one on its
+# PATH, so no test can open a dialog on the screen. The folder picker (spec 020) answers as Cancel does; the file
+# picker (spec 022, JavaScript for Automation) picks picked/notes.md beside this file, as JSON.
+here=$(cd "$(dirname "$0")" && pwd)
+if [ "$1" = "-l" ]; then
+  printf '["%s"]\n' "$here/picked/notes.md"
+  exit 0
+fi
 echo 'User canceled. (-128)' >&2
 exit 1

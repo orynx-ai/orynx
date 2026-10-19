@@ -198,17 +198,17 @@ describe("the composer's brief (spec 015)", () => {
     );
   });
 
-  it('AC-20 (Q5): gives each file under its name, and keeps every chip in the order you added it', () => {
+  it('022 AC-4 (Q4): gives each file by its path, for Claude to read where it is, in the order you added it', () => {
     const brief = composerBrief('Use the notes', [
-      { kind: 'file', name: 'notes.md', text: '# Notes\n\nExport every column.' },
+      { kind: 'file', path: '~/notes/plan.pdf', real: '/Users/dev/notes/plan.pdf' },
       { kind: 'jira', ...ticket, comments: [], links: [] },
     ]);
     expect(brief.context.map((chip) => [chip.kind, chip.title])).toEqual([
-      ['file', 'File notes.md'],
+      ['file', 'File ~/notes/plan.pdf'],
       ['jira', 'Jira ticket PROJ-1423 (Story): Add bulk archive to the content list'],
     ]);
     expect(briefText(brief)).toMatch(
-      /^Use the notes\n\nFile notes\.md\n\n# Notes\n\nExport every column\.\n\nJira ticket/,
+      /^Use the notes\n\nFile ~\/notes\/plan\.pdf\n\nThe user added this file from their computer\. Read it at \/Users\/dev\/notes\/plan\.pdf\. It's outside your worktree: you can read it, not change it\.\n\nJira ticket/,
     );
   });
 });

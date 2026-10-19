@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ComposerStart, InboxItem } from '@devhub/contracts';
-import { inboxQueryOptions, preferencesQueryOptions, queryKeys } from '@devhub/api-client';
+import type { ComposerStart, FileCheckAnswer, FileCheckRequest, FilePicks, InboxItem } from '@devhub/contracts';
+import { inboxQueryOptions, preferencesQueryOptions, queryKeys, type ApiRequestError } from '@devhub/api-client';
 import { useApi } from '../../api.tsx';
 
 /** A row of Home's list. A Claude session on neither a ticket nor a pull request has no tool (spec 015, AC-24). */
@@ -42,4 +42,18 @@ export function useRefreshInbox() {
 export function useStartFromComposer() {
   const api = useApi();
   return useMutation({ mutationFn: (request: ComposerStart) => api.startSession(request) });
+}
+
+/** File from this computer (spec 022): the computer's own file picker, through the server. */
+export function usePickFiles() {
+  const api = useApi();
+  return useMutation<FilePicks, ApiRequestError>({ mutationFn: () => api.pickFiles() });
+}
+
+/** Add a file's check of a typed path, when no picker can open (spec 022, AC-12). */
+export function useCheckFile() {
+  const api = useApi();
+  return useMutation<FileCheckAnswer, ApiRequestError, FileCheckRequest>({
+    mutationFn: (request) => api.checkFile(request),
+  });
 }

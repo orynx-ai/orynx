@@ -1,7 +1,7 @@
 import { lstat, readlink, realpath } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { PermissionMode } from '@devhub/contracts';
-import type { AgentAsk, AgentRefusal } from '../agent-adapter.ts';
+import type { AgentAsk, AgentReads, AgentRefusal } from '../agent-adapter.ts';
 import { decideCommand } from './command-decision.ts';
 import { previewEdit, type EditTool } from './edit-preview.ts';
 
@@ -42,6 +42,8 @@ export type ToolDecision =
 export interface ToolContext {
   /** The session's worktree, Claude's working folder. */
   worktree: string;
+  /** Files and folders outside the worktree the brief named, which Claude may read and never edit (spec 022). */
+  reads?: AgentReads | undefined;
   mode: PermissionMode;
   /** Settings › Coding agent's allow list, as saved. */
   allowedCommands: readonly string[];
@@ -126,6 +128,8 @@ export async function decideToolUse(
 
   const shown = shownPath(asked, worktree);
   if (!(await insideWorktree(asked, worktree))) {
+    // A file you picked, or a skill's folder, may be read where it is, and never changed (spec 022, AC-15, AC-53).
+    if (target.access === 'read' && (await namedByBrief(asked, context.reads))) return { behavior: 'allow' };
     const where = await realPath(worktree);
     return {
       behavior: 'deny',
@@ -175,6 +179,14 @@ async function insideWorktree(path: string, worktree: string): Promise<boolean> 
   if (real !== root && !real.startsWith(root + sep)) return false;
   const [first] = relative(root, real).split(sep);
   return first !== '.git';
+}
+
+/** Whether a path leads, once every symlink is followed, to a file the brief named or into a folder it named. */
+async function namedByBrief(path: string, reads: AgentReads | undefined): Promise<boolean> {
+  if (reads === undefined || (reads.files.length === 0 && reads.folders.length === 0)) return false;
+  const real = await realPath(path);
+  if (real === null) return false;
+  return reads.files.includes(real) || reads.folders.some((folder) => real === folder || real.startsWith(folder + sep));
 }
 
 function missing(error: unknown): boolean {

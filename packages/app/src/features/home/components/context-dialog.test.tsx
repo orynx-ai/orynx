@@ -31,7 +31,7 @@ function serve() {
 
 const ticket = (key: string): ComposerChip => ({ kind: 'jira', key });
 const pull = (number: number): ComposerChip => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number });
-const file = (name: string): ComposerChip => ({ kind: 'file', name, text: 'x' });
+const file = (name: string): ComposerChip => ({ kind: 'file', path: `~/notes/${name}` });
 const five = [ticket('PROJ-1423'), pull(2836), ticket('PROJ-1424'), pull(2841), file('notes.md')];
 
 const box = () => screen.getByRole('textbox', { name: 'Describe a task for Claude' });
@@ -103,6 +103,11 @@ describe('the context dialog (spec 022)', () => {
         .getAllByRole('listitem')
         .map((row) => row.textContent),
     ).toEqual(['web-app #2836Lazy-load people', 'web-app #2841']);
+    // A file's second line is its full path.
+    await user.click(within(dialog).getByRole('tab', { name: 'Files 1' }));
+    expect(within(within(dialog).getByRole('tabpanel')).getByRole('listitem')).toHaveTextContent(
+      'notes.md~/notes/notes.md',
+    );
     await expectNoAxeViolations(dialog);
   });
 

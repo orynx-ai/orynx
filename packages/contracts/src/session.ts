@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { AlwaysAskReasonSchema } from './commands.ts';
+import { FilePathSchema } from './files.ts';
 import { GitHubLinkSchema, GitHubRepositorySchema } from './github.ts';
 import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
 import { RepositoryIdSchema } from './repositories.ts';
+import { looksLikeSecret } from './secret-names.ts';
 import { TicketColumnSchema } from './ticket-column.ts';
 
 /**
@@ -295,28 +297,19 @@ export type TicketStart = z.infer<typeof TicketStartSchema>;
 export const mostMessageCharacters = 10_000;
 
 /**
- * What one session can take from the composer (spec 022, Q5): its tickets, pull requests, files and the skills its
- * message names, and a file's text in UTF-8 bytes (spec 015, Q5).
+ * What one session can take from the composer (spec 022, Q5): its tickets, pull requests and files, and the skills
+ * its message names. A file has no size or type limit: Claude reads it where it is.
  */
-export const composerLimits = { tickets: 10, pullRequests: 10, files: 20, skills: 5, fileBytes: 100 * 1024 } as const;
+export const composerLimits = { tickets: 10, pullRequests: 10, files: 20, skills: 5 } as const;
 
 /** GitHub's own rules for a user or organisation and for a repository's name, so neither can be read as a path. */
 const GitHubOwnerSchema = z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/);
 const GitHubRepositoryNameSchema = z.string().regex(/^(?!\.\.?$)[A-Za-z0-9._-]{1,100}$/);
 
-/** A text's length in UTF-8, as the browser's `File` counts it; a lone surrogate counts as U+FFFD would. */
-function utf8Bytes(text: string): number {
-  let bytes = 0;
-  for (const char of text) {
-    const point = char.codePointAt(0) ?? 0;
-    bytes += point < 0x80 ? 1 : point < 0x800 ? 2 : point < 0x10000 ? 3 : 4;
-  }
-  return bytes;
-}
-
 /**
  * One thing the composer adds to the brief (spec 015). The server reads a ticket from Jira and a pull request
- * from GitHub at Send; a file comes as the text the browser read, under the name it had on this computer.
+ * from GitHub at Send; a file is its path on this computer, which Claude reads where it is (spec 022, Q4). A file
+ * whose name looks like a secret is never one.
  */
 export const ComposerChipSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('jira'), key: JiraIssueKeySchema }),
@@ -328,12 +321,7 @@ export const ComposerChipSchema = z.discriminatedUnion('kind', [
   }),
   z.object({
     kind: z.literal('file'),
-    name: z
-      .string()
-      .min(1)
-      .max(255)
-      .regex(/^[^/\\\p{Cc}]+$/u),
-    text: z.string().refine((text) => utf8Bytes(text) <= composerLimits.fileBytes),
+    path: FilePathSchema.refine((path) => !looksLikeSecret(path), { message: 'A file that looks like a secret.' }),
   }),
 ]);
 export type ComposerChip = z.infer<typeof ComposerChipSchema>;
@@ -365,6 +353,8 @@ export const ComposerStartSchema = z
     if (new Set(pulls.map(pullRequestId)).size < pulls.length)
       check.addIssue({ code: 'custom', message: 'The same pull request twice.' });
     if (files.length > composerLimits.files) check.addIssue({ code: 'custom', message: 'Twenty files at most.' });
+    if (new Set(files.map((chip) => chip.path)).size < files.length)
+      check.addIssue({ code: 'custom', message: 'The same file twice.' });
     if (message === '' && tickets.length === 0)
       check.addIssue({ code: 'custom', message: 'A message, or a ticket as the brief.' });
   });

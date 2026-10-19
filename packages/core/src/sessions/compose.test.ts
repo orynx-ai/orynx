@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, realpath, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setupServer } from 'msw/node';
@@ -40,7 +40,8 @@ const proj = makeRepository({ id: '00000000000000aa', name: 'web-app', jiraProje
 const api = makeRepository({ id: '00000000000000bb', name: 'api', path: '/Users/priya/code/api', jiraProject: null });
 const ticketChip = { kind: 'jira', key: 'PROJ-1423' } as const;
 const pullChip = { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 } as const;
-const fileChip = { kind: 'file', name: 'notes.md', text: '# Notes\n\nExport every column.' } as const;
+/** A file you picked, in the test repositories' folder, which stands for your home folder here (spec 022). */
+const fileChip = { kind: 'file', path: '~/notes.md' } as const;
 const mob = makeRepository({
   id: '00000000000000cc',
   name: 'mobile',
@@ -81,13 +82,19 @@ describe('what a composer start makes (spec 015, Q8)', () => {
   };
 
   it('AC-4: names a session with no ticket from your message, on its own branch, with Claude told to do what you ask', () => {
-    expect(composerPlan('Add a CSV export to the reports page', [fileChip])).toMatchObject({
+    expect(
+      composerPlan('Add a CSV export to the reports page', [
+        { kind: 'file', path: '~/notes.md', real: '/Users/dev/notes.md' },
+      ]),
+    ).toMatchObject({
       title: 'Add a CSV export to the reports page',
       ticket: null,
       plan: {
         branchName: 'add-a-csv-export-to',
-        briefStep: { key: null, message: true, pullRequests: [], files: ['notes.md'] },
+        briefStep: { key: null, message: true, pullRequests: [], files: ['~/notes.md'] },
         ticketNote: false,
+        // 022 AC-15: the file is one Claude may read where it is.
+        reads: { files: ['/Users/dev/notes.md'], folders: [] },
       },
     });
   });
@@ -143,6 +150,7 @@ async function setUp({
   folders = true,
 }: { login?: 'signed_in' | 'signed_out'; script?: readonly FakeTurn[]; folders?: boolean } = {}) {
   const repos = await repositories();
+  await writeFile(join(repos.root, 'notes.md'), '# Notes\n\nExport every column.');
   const home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-compose-home-')));
   homes.push(home);
   const events = createEventBus();
@@ -178,6 +186,7 @@ async function setUp({
     connection,
     jira,
     context: createContextReader({
+      home: repos.root,
       jira,
       jiraConnection: connection,
       github,
@@ -218,7 +227,7 @@ async function setUp({
     ]),
     acceptingPullDiff([{ number: 2836, diff: 'diff --git a/a.ts b/a.ts\n+x' }]),
   );
-  return { sessions, records, home, heard, sdk, folder: added[0], outside };
+  return { sessions, records, home, heard, sdk, folder: added[0], outside, root: repos.root };
 }
 
 /** Waits until the session isn't Working or waiting for you any more. */
@@ -339,6 +348,48 @@ describe('a composer start that can’t happen (spec 015)', () => {
   });
 });
 
+describe('a file by its path (spec 022)', () => {
+  it('AC-15: Claude may read the file you picked, where it is, and nothing beside it, nor change it', async () => {
+    // `~` is the test repositories' folder here, as the adapter's home and the reader's.
+    const set = await setUp({
+      script: [
+        { tool: 'Read', input: { file_path: '~/notes.md' } },
+        { tool: 'Read', input: { file_path: '~/other.md' } },
+        { tool: 'Edit', input: { file_path: '~/notes.md', old_string: 'Notes', new_string: 'Mine' } },
+        { finish: 'Done.' },
+      ],
+    });
+
+    await set.sessions.start(
+      makeComposerStart({ message: 'Use the notes', repositoryId: set.folder?.id, context: [fileChip] }),
+    );
+
+    const record = await settled(set.records);
+    expect(record.reads).toEqual({ files: [await realpath(join(set.root, 'notes.md'))], folders: [] });
+    const decided = [
+      ['Read', 'allow'],
+      ['Read', 'deny'],
+      ['Edit', 'deny'],
+    ];
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual(decided);
+
+    // A follow-up resumes Claude Code, and the file is still one it may read (the record keeps it).
+    await started(set.records, '0000000000000001');
+    expect(await set.sessions.send('0000000000000001', 'Read them again')).toEqual({ result: 'sent' });
+    await settled(set.records);
+    expect(set.sdk.runs[1]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual(decided);
+  });
+
+  it('AC-16: a file that’s gone by Send makes nothing, and says which chip', async () => {
+    const set = await setUp();
+    const answer = await set.sessions.start(
+      makeComposerStart({ repositoryId: set.folder?.id, context: [ticketChip, { kind: 'file', path: '~/gone.md' }] }),
+    );
+    expect(answer).toEqual({ result: 'context_failed', chip: 1, problem: 'not_found' });
+    await nothingMade(set);
+  });
+});
+
 describe('a composer start (spec 015)', () => {
   it('AC-4: starts on your message alone, on its own branch, with exactly your message as the brief', async () => {
     const { sessions, records, heard, sdk, folder } = await setUp();
@@ -394,12 +445,15 @@ describe('a composer start (spec 015)', () => {
       key: 'PROJ-1423',
       message: true,
       pullRequests: ['web-app #2836'],
-      files: ['notes.md'],
+      files: ['~/notes.md'],
     });
     const brief = await records.readBrief('0000000000000001');
+    // 022 AC-4: a file goes as its path, which Claude reads where it is; its text never goes in the brief.
     expect(brief).toMatch(
-      /^Use the notes\n\nFile notes\.md\n\n# Notes\n\nExport every column\.\n\nJira ticket PROJ-1423 \(Story\)/,
+      /^Use the notes\n\nFile ~\/notes\.md\n\nThe user added this file from their computer\. Read it at /,
     );
+    expect(brief).not.toContain('Export every column.');
+    expect(brief).toMatch(/\n\nJira ticket PROJ-1423 \(Story\)/);
     expect(brief).toContain('Pull request acme/web-app #2836: Lazy-load the people directory');
     expect(brief).toContain('```diff\ndiff --git a/a.ts b/a.ts\n+x\n```');
     expect(sdk.runs[0]?.prompts).toEqual([brief]);

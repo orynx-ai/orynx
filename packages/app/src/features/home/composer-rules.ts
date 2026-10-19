@@ -1,7 +1,13 @@
-import { ComposerChipSchema, composerLimits, type ComposerChip, type Repository } from '@devhub/contracts';
+import {
+  ComposerChipSchema,
+  composerLimits,
+  looksLikeSecret,
+  type ComposerChip,
+  type Repository,
+} from '@devhub/contracts';
 import type { FileRefusal } from './composer-words.ts';
 
-/** The composer's rules (spec 015): a paste that becomes a chip, a file it takes, adding a chip, and its folder. */
+/** The composer's rules (spec 015): a paste that becomes a chip, a file it takes (spec 022), adding a chip, and its folder. */
 
 const jiraKey = /^[A-Z][A-Z0-9_]{0,99}-[1-9]\d{0,9}$/;
 const pullLink = /^https:\/\/(?:www\.)?github\.com\/([^/\s]+)\/([^/\s]+)\/pull\/([1-9]\d{0,9})(?:[/?#]\S*)?$/;
@@ -24,20 +30,16 @@ export function chipFromPaste(pasted: string): ComposerChip | null {
   return chip.success ? chip.data : null;
 }
 
-/** AC-12 (Q5): a file is text when it decodes as UTF-8 and holds no NUL byte, and it holds at most 100 KB. */
-export function fileChipFrom(
-  name: string,
-  bytes: Uint8Array,
-): Extract<ComposerChip, { kind: 'file' }> | Exclude<FileRefusal, { kind: 'too_many' }> {
-  if (bytes.byteLength > composerLimits.fileBytes) return { kind: 'too_big', name };
-  let text: string;
-  try {
-    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-  } catch {
-    return { kind: 'not_text', name };
-  }
-  if (text.includes('\u0000')) return { kind: 'not_text', name };
-  return { kind: 'file', name, text };
+/**
+ * A file you picked, by its path (spec 022, Q4): any kind and size, since Claude reads it where it is. A name that
+ * looks like a secret is never one (AC-13), as the server says too.
+ */
+export function fileChipFor(
+  path: string,
+): Extract<ComposerChip, { kind: 'file' }> | Extract<FileRefusal, { kind: 'secret' }> {
+  return looksLikeSecret(path)
+    ? { kind: 'secret', name: path.slice(path.lastIndexOf('/') + 1) }
+    : { kind: 'file', path };
 }
 
 /** Why a chip wasn't added: its kind is full (spec 022, Q5). */
@@ -50,7 +52,7 @@ export function sameChip(a: ComposerChip, b: ComposerChip): boolean {
   if (a.kind === 'pull_request' && b.kind === 'pull_request') {
     return `${a.owner}/${a.name}`.toLowerCase() === `${b.owner}/${b.name}`.toLowerCase() && a.number === b.number;
   }
-  if (a.kind === 'file' && b.kind === 'file') return a.name === b.name && a.text === b.text;
+  if (a.kind === 'file' && b.kind === 'file') return a.path === b.path;
   return a.kind === 'jira' && b.kind === 'jira' && a.key === b.key;
 }
 

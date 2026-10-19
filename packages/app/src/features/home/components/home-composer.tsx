@@ -204,6 +204,7 @@ export function HomeComposer() {
               box.current?.focus();
             }}
             onRefused={setRefused}
+            box={() => box.current}
           />
           {/* The pickers' own row under 640 px, there from the first paint, so the box never grows when they
               arrive (AC-1, AC-30); in a wider window they sit between + and Send. */}

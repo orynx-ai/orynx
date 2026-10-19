@@ -460,7 +460,7 @@ describe('a follow-up (spec 013)', () => {
 describe("the composer's start (spec 015)", () => {
   const ticket = { kind: 'jira', key: 'PROJ-1423' } as const;
   const pull = (number: number) => ({ kind: 'pull_request', owner: 'acme', name: 'web-app', number }) as const;
-  const file = (name: string, text = 'Export every column.') => ({ kind: 'file', name, text }) as const;
+  const file = (name: string) => ({ kind: 'file', path: `~/notes/${name}` }) as const;
   // A body as the page would send it, changed only where a test says, so a refused one can be built too.
   const body = (change: object) => ({ ...makeComposerStart(), ...change });
 
@@ -501,16 +501,17 @@ describe("the composer's start (spec 015)", () => {
     }
     const most = [...upTo(10).map(key), ...upTo(10).map(pull), ...upTo(20).map((n) => file(`notes-${String(n)}.md`))];
     expect(ComposerStartSchema.safeParse(body({ context: most })).success).toBe(true);
-    expect(composerLimits).toEqual({ tickets: 10, pullRequests: 10, files: 20, skills: 5, fileBytes: 100 * 1024 });
+    expect(composerLimits).toEqual({ tickets: 10, pullRequests: 10, files: 20, skills: 5 });
   });
 
-  it('AC-12: takes a file of up to 100 KB of UTF-8, counted in bytes, not characters', () => {
-    expect(ComposerStartSchema.safeParse(body({ context: [file('a.md', '😀'.repeat(25_600))] })).success).toBe(true);
-    expect(ComposerStartSchema.safeParse(body({ context: [file('a.md', '😀'.repeat(25_601))] })).success).toBe(false);
-    expect(ComposerStartSchema.safeParse(body({ context: [file('a.log', 'x'.repeat(102_400))] })).success).toBe(true);
-    for (const text of ['x'.repeat(102_401), 'é'.repeat(51_201)]) {
-      expect(ComposerStartSchema.safeParse(body({ context: [file('a.log', text)] })).success).toBe(false);
+  it('022 AC-10, AC-13, AC-14: a file is its path, of any kind; never one that looks like a secret, or the same twice', () => {
+    for (const path of ['~/Movies/demo.mov', '/Users/dev/notes/plan.pdf', '~/shot.png']) {
+      expect(ComposerStartSchema.safeParse(body({ context: [{ kind: 'file', path }] })).success).toBe(true);
     }
+    for (const path of ['~/.ssh/id_rsa', '/Users/dev/web-app/.env', '~/certs/server.pem']) {
+      expect(ComposerStartSchema.safeParse(body({ context: [{ kind: 'file', path }] })).success).toBe(false);
+    }
+    expect(ComposerStartSchema.safeParse(body({ context: [file('a.md'), file('a.md')] })).success).toBe(false);
   });
 
   it('refuses a message over 10,000 characters, and names that could be read as paths', () => {
@@ -520,9 +521,10 @@ describe("the composer's start (spec 015)", () => {
       { ...pull(2836), name: '..' },
       { ...pull(2836), name: 'web app' },
       { ...pull(2836), number: 0 },
-      file(''),
-      file('notes/../../.ssh/id_rsa'),
-      file('two\nlines.md'),
+      { kind: 'file', path: '' },
+      { kind: 'file', path: 'notes/plan.md' },
+      { kind: 'file', path: '/two\nlines.md' },
+      { kind: 'file', name: 'notes.md', text: 'The shape before spec 022' },
       { kind: 'jira', key: 'proj-1423' },
       { kind: 'slack_thread', ts: '1' },
     ]) {
@@ -545,7 +547,7 @@ describe("the composer's start (spec 015)", () => {
       tickets: [],
       message: true,
       pullRequests: ['web-app #2836'],
-      files: ['notes.md'],
+      files: ['~/notes/plan.pdf'],
     };
     expect(
       SessionSchema.parse(makeSession({ source: null, activities: [step] as SessionActivity[] })).activities,
