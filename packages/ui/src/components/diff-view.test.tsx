@@ -22,6 +22,8 @@ describe('DiffView', () => {
     expect(within(region).getByText('+3')).toBeVisible();
     expect(within(region).getByText('−1')).toBeVisible();
     expect(within(region).getByText('3 lines added, 1 line removed')).toBeInTheDocument();
+    // The path can be copied from the header (the user's call, 19 Oct 2026).
+    expect(within(region).getByRole('button', { name: 'Copy src/content/ContentList.tsx' })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 

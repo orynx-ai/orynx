@@ -1,6 +1,7 @@
 import { useId, type ComponentProps } from 'react';
 import { cva } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
+import { CopyButton } from './copy-button.tsx';
 import { spokenCounts } from './file-list.tsx';
 import { Skeleton } from './skeleton.tsx';
 
@@ -63,10 +64,12 @@ export function DiffView({ path, lines, className, ...props }: DiffViewProps) {
       className={cn('min-w-0 overflow-hidden rounded-md border border-border bg-raised', className)}
       {...props}
     >
-      <div className="flex items-center gap-2 border-b border-border bg-sidebar px-3 py-2 font-mono text-code">
-        <span id={pathId} title={path} className="min-w-0 flex-1 truncate">
+      <div className="group flex items-center gap-2 border-b border-border bg-sidebar px-3 py-2 font-mono text-code">
+        <span id={pathId} title={path} className="min-w-0 truncate">
           {path}
         </span>
+        {/* As tall as the path's line, so the header keeps its height (the user's call, 19 Oct 2026). */}
+        <CopyButton text={path} reveal="hover" className="-my-1.5 me-auto" />
         <span aria-hidden className="flex shrink-0 gap-2">
           {added > 0 ? <span className="text-success">+{added}</span> : null}
           {removed > 0 ? <span className="text-danger">−{removed}</span> : null}

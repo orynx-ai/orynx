@@ -23,7 +23,7 @@ describe('FileList', () => {
     );
 
     const list = screen.getByRole('list', { name: 'Changed files' });
-    const buttons = within(list).getAllByRole('button');
+    const buttons = within(list).getAllByRole('button', { name: /^src\// });
     // Each is named by its path and its counts as words; the drawn "+68 −9" isn't read out.
     expect(buttons[0]).toHaveAccessibleName('src/content/ContentList.tsx 68 lines added, 9 lines removed');
     expect(buttons[1]).toHaveAccessibleName('src/content/api/contentApi.ts 31 lines added, 2 lines removed');
@@ -40,6 +40,8 @@ describe('FileList', () => {
     expect(within(list).getByText('/contentApi.ts')).toBeInTheDocument();
     // A path is read once: the hover text doesn't describe the button too.
     expect(buttons[1]).not.toHaveAccessibleDescription();
+    // Beside each file, a button that copies its path (the user's call, 19 Oct 2026).
+    expect(within(list).getByRole('button', { name: 'Copy src/content/api/contentApi.ts' })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -52,9 +54,12 @@ describe('FileList', () => {
     const onSelect = vi.fn();
     const { container } = render(<FileList aria-label="Changed files" files={many} maxRows={8} onSelect={onSelect} />);
     const user = userEvent.setup();
-    const buttons = within(screen.getByRole('list', { name: 'Changed files' })).getAllByRole('button');
+    const buttons = within(screen.getByRole('list', { name: 'Changed files' })).getAllByRole('button', {
+      name: /^src\//,
+    });
     expect(buttons).toHaveLength(20);
-    for (let n = 0; n < 20; n++) await user.tab();
+    // Each file, then its copy button.
+    for (let n = 0; n < 39; n++) await user.tab();
     expect(buttons[19]).toHaveFocus();
     await user.keyboard('{Enter}');
     expect(onSelect).toHaveBeenCalledWith('src/many/file-20.ts');
@@ -75,6 +80,8 @@ describe('FileList', () => {
       'aria-current',
     );
 
+    // Past the file's copy button to the next file.
+    await user.tab();
     await user.tab();
     await user.keyboard('{Enter}');
     expect(onSelect).toHaveBeenLastCalledWith('src/content/useSelection.ts');
