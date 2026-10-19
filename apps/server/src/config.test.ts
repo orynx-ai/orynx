@@ -94,6 +94,11 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ env: { DEVHUB_PORT: 'nope' } })).toThrow(/DEVHUB_PORT/);
   });
 
+  it('AC-7 (spec 027): DEVHUB_PORT=0 asks the OS for a free port, as the desktop app does', () => {
+    expect(loadConfig({ env: { DEVHUB_PORT: '0' } }).port).toBe(0);
+    expect(() => loadConfig({ env: { DEVHUB_PORT: '-1' } })).toThrow(/DEVHUB_PORT/);
+  });
+
   it('AC-12: reads settings from the .env file, and a variable set in the shell wins', () => {
     const envFile = '# my settings\nDEVHUB_PORT=4320\nLOG_LEVEL=debug\n';
 

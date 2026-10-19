@@ -1,6 +1,6 @@
 {
   "name": "@devhub/server",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "The Node host for @devhub/core: reads config, writes the session token, serves the built web app and listens on 127.0.0.1.",
   "type": "module",

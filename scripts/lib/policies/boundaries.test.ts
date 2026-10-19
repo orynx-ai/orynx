@@ -47,6 +47,7 @@ describe('packageNameOf / packageForPath', () => {
   it('maps paths to packages', () => {
     assert.equal(packageForPath('packages/api-client/src/client.ts'), 'api-client');
     assert.equal(packageForPath('apps/web/src/main.tsx'), 'web');
+    assert.equal(packageForPath('apps/desktop/src/main.ts'), 'desktop');
     assert.equal(packageForPath('scripts/run-gates.ts'), null);
   });
 });
@@ -64,6 +65,9 @@ describe('findBoundaryViolations', () => {
       [],
     );
     assert.deepEqual(rules('apps/server/src/main.ts', `import { createServer } from "@devhub/core";`), []);
+    // The desktop host starts the server by its path and imports no @devhub package (spec 027).
+    assert.deepEqual(rules('apps/desktop/src/main.ts', `import { createServer } from "@devhub/core";`), ['layering']);
+    assert.deepEqual(rules('apps/desktop/src/main.ts', `import { app } from "electron";\nimport "node:fs";`), []);
   });
 
   it('keeps Node and server libraries out of browser packages', () => {

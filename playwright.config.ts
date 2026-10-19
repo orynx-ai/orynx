@@ -57,6 +57,8 @@ try {
 
 export default defineConfig({
   testDir: 'e2e',
+  // The desktop app's own run (playwright.desktop.config.ts) launches the packed app instead of these hubs.
+  testIgnore: ['desktop/**'],
   fullyParallel: true,
   forbidOnly: Boolean(process.env['CI']),
   retries: process.env['CI'] ? 1 : 0,
