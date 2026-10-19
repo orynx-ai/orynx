@@ -72,6 +72,9 @@ describe('the Context tab (the user’s call, 19 Oct 2026)', () => {
     await user.click(within(list).getByRole('link', { name: 'web-app #2836' }));
     expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/web-app/pull/2836');
     expect(within(list).queryByRole('button', { name: 'plan.md' })).toBeNull();
+    // A file's path can be copied.
+    await user.click(within(list).getByRole('button', { name: 'Copy ~/notes/plan.md' }));
+    expect(await navigator.clipboard.readText()).toBe('~/notes/plan.md');
   });
 
   it('a ticket’s key opens the ticket dialog', async () => {

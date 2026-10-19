@@ -1,5 +1,6 @@
-import { useRef, type ReactNode } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
+  ArrowDown01Icon,
   BubbleChatIcon,
   Cancel01Icon,
   CheckListIcon,
@@ -20,6 +21,7 @@ import {
   ActivityStep,
   Callout,
   Icon,
+  IconButton,
   Panel,
   Skeleton,
   Stepper,
@@ -28,8 +30,9 @@ import {
 import { usePlatform } from '../../../platform.tsx';
 import { durationText } from '../../../words/duration.ts';
 import { useNow } from '../../../words/use-now.ts';
-import { problemWords, stepWords } from '../step-words.ts';
+import { followWords, problemWords, stepWords } from '../step-words.ts';
 import { ApprovalCallout } from './approval-callout.tsx';
+import { StepDetails, hasDetails } from './step-details.tsx';
 
 const steps = ['Plan', 'Build', 'Test', 'Review', 'Pull request'] as const;
 const stepIndex: Record<SessionStep, number> = { plan: 0, build: 1, test: 2, review: 3, pull_request: 4 };
@@ -110,6 +113,82 @@ function titleOf(activity: SessionActivity, title: string): ReactNode {
   return <PullRequestTitle title={title} number={activity.number} url={activity.url} />;
 }
 
+/** A command, drawn as code wherever a step says one (the user's call, 19 Oct 2026). */
+function Command({ children }: { children: string }) {
+  return <code className="font-mono text-code wrap-anywhere text-foreground">{children}</code>;
+}
+
+/** Commands as the other steps list files, each as code: "a, b and c", then "a, b, c and 2 more". */
+function commandsDetail(commands: readonly string[]): ReactNode {
+  const shown = commands.slice(0, 3);
+  const more = commands.length - shown.length;
+  return (
+    <>
+      {shown.map((command, index) => (
+        // The same command can run twice; their order is fixed.
+        <Fragment key={index}>
+          {index === 0 ? null : index === shown.length - 1 && more === 0 ? ' and ' : ', '}
+          <Command>{command}</Command>
+        </Fragment>
+      ))}
+      {more > 0 ? ` and ${String(more)} more` : null}
+    </>
+  );
+}
+
+/** A step's line under its title: commands as code, the brief's files by name with their paths on hover. */
+function detailOf(activity: SessionActivity, detail: string | null): ReactNode {
+  if (activity.kind === 'command') return commandsDetail(activity.commands);
+  if (activity.kind === 'denied' && activity.about === 'command') return <Command>{activity.text}</Command>;
+  if (activity.kind === 'refused' && activity.access === 'run') return <Command>{activity.path}</Command>;
+  // The brief's files show by name; their full paths are the tooltip (spec 022, AC-17).
+  if (activity.kind === 'brief' && activity.files.length > 0) {
+    return <span title={activity.files.join('\n')}>{detail}</span>;
+  }
+  return detail;
+}
+
+/**
+ * Follows Claude's progress to its end as steps come, while its end is in view; once you scroll up it stops, and
+ * Jump to latest takes you back and follows again (the user's call, 19 Oct 2026). `end` marks the pane's end.
+ */
+function useFollow(changed: string) {
+  const end = useRef<HTMLDivElement>(null);
+  const seen = useRef(changed);
+  const [atEnd, setAtEnd] = useState(true);
+  const following = useRef(true);
+  useEffect(() => {
+    const marker = end.current;
+    if (marker === null) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry === undefined) return;
+      following.current = entry.isIntersecting;
+      setAtEnd(entry.isIntersecting);
+    });
+    observer.observe(marker);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+  // A new or longer step moves the end on; while following, the page goes with it before it's painted. Opening
+  // the session doesn't move it.
+  useLayoutEffect(() => {
+    if (changed === seen.current) return;
+    seen.current = changed;
+    if (following.current) end.current?.scrollIntoView({ block: 'end' });
+  }, [changed]);
+  const reduced =
+    typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  return {
+    end,
+    atEnd,
+    jump: () => {
+      following.current = true;
+      end.current?.scrollIntoView({ block: 'end', behavior: reduced ? 'auto' : 'smooth' });
+    },
+  };
+}
+
 /** A line that holds a command in backticks, with the command shown as code. */
 function withCode(line: string): ReactNode[] {
   return line.split('`').map((part, index) => (index % 2 === 1 ? <code key={part}>{part}</code> : part));
@@ -135,50 +214,79 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
   const problem = session.problem === null ? null : problemWords(session.problem, session);
   // Focus comes here once you've answered the last call waiting for you (spec 012, AC-18).
   const pane = useRef<HTMLElement>(null);
+  // The step shown in full, by its id, so it follows the session as it changes.
+  const [shownId, setShownId] = useState<string | null>(null);
+  const shown = session.activities.find((activity) => activity.id === shownId) ?? null;
+  const { end, atEnd, jump } = useFollow(session.updatedAt);
   return (
-    <Panel
-      ref={pane}
-      tabIndex={-1}
-      title="Claude's progress"
-      actions={<WorkedFor session={session} />}
-      // Clipped without being a scroll box, so the box at its end can stick to the window.
-      className="overflow-clip"
-    >
-      <div className="flex flex-col gap-4 p-4">
-        <ApprovalCallout session={session} afterAll={pane} />
-        {problem === null ? null : (
-          <Callout tone="danger" role="alert" title={problem.title}>
-            <span>{withCode(problem.line)}</span>
-          </Callout>
-        )}
-        <ActivityList>
-          {session.activities.map((activity) => {
-            const words = stepWords(activity);
-            const { state, icon } = look(activity);
-            return (
-              <ActivityStep
-                key={activity.id}
-                state={state}
-                icon={icon}
-                title={titleOf(activity, words.title)}
-                detail={
-                  // The brief's files show by name; their full paths are the tooltip (spec 022, AC-17).
-                  activity.kind === 'brief' && activity.files.length > 0 ? (
-                    <span title={activity.files.join('\n')}>{words.detail}</span>
-                  ) : (
-                    words.detail
-                  )
-                }
-              />
-            );
-          })}
-        </ActivityList>
-        {footer === undefined ? null : (
-          // The steps pass under it, on the pane's own colour.
-          <div className="sticky bottom-0 -mx-4 -mb-4 bg-raised px-4 pt-2 pb-4">{footer}</div>
-        )}
-      </div>
-    </Panel>
+    <>
+      <Panel
+        ref={pane}
+        tabIndex={-1}
+        title="Claude's progress"
+        actions={<WorkedFor session={session} />}
+        // Clipped without being a scroll box, so the box at its end can stick to the window.
+        className="overflow-clip"
+      >
+        <div className="flex flex-col gap-4 p-4">
+          <ApprovalCallout session={session} afterAll={pane} />
+          {problem === null ? null : (
+            <Callout tone="danger" role="alert" title={problem.title}>
+              <span>{withCode(problem.line)}</span>
+            </Callout>
+          )}
+          <ActivityList>
+            {session.activities.map((activity) => {
+              const words = stepWords(activity);
+              const { state, icon } = look(activity);
+              return (
+                <ActivityStep
+                  key={activity.id}
+                  state={state}
+                  icon={icon}
+                  title={titleOf(activity, words.title)}
+                  detail={detailOf(activity, words.detail)}
+                  onOpen={
+                    hasDetails(activity)
+                      ? () => {
+                          setShownId(activity.id);
+                        }
+                      : undefined
+                  }
+                />
+              );
+            })}
+          </ActivityList>
+          {/* The steps pass under the follow-up box, on the pane's own colour; Jump to latest sits over it. */}
+          <div
+            className={
+              footer === undefined ? 'sticky bottom-4 h-0' : 'sticky bottom-0 -mx-4 -mb-4 bg-raised px-4 pt-2 pb-4'
+            }
+          >
+            {atEnd ? null : (
+              <IconButton
+                variant="secondary"
+                label={followWords.jump}
+                onClick={jump}
+                className="absolute end-4 bottom-full mb-2 rounded-full shadow-overlay"
+              >
+                <Icon icon={ArrowDown01Icon} aria-hidden />
+              </IconButton>
+            )}
+            {footer}
+          </div>
+        </div>
+      </Panel>
+      {/* Past the pane's end: in view only once you've scrolled to the end of Claude's progress. */}
+      <div ref={end} aria-hidden />
+      <StepDetails
+        session={session}
+        activity={shown}
+        onClose={() => {
+          setShownId(null);
+        }}
+      />
+    </>
   );
 }
 

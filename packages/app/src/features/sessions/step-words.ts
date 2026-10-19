@@ -149,6 +149,19 @@ export function stepWords(activity: SessionActivity): StepWords {
   }
 }
 
+/** Jump to latest, once you've scrolled up from the end of Claude's progress (the user's call, 19 Oct 2026). */
+export const followWords = { jump: 'Jump to latest' };
+
+/** The words of a step shown in full (the user's call, 19 Oct 2026). */
+export const stepDetailWords = {
+  briefTitle: 'What Claude was sent',
+  close: 'Close',
+  briefNone: 'Nothing was sent to Claude yet.',
+  briefFailed: "Couldn't read what Claude was sent.",
+  tryAgain: 'Try again',
+  showChanges: (path: string) => `Show the changes in ${path}`,
+};
+
 export interface ProblemWords {
   title: string;
   /** May hold a command in backticks, which the screen shows as code. */
