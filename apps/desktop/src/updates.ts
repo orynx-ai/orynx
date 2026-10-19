@@ -24,6 +24,15 @@ export interface WatchUpdatesOptions {
 const everySixHours = 6 * 60 * 60 * 1000;
 
 /**
+ * The HTTP status when there is one, else the error's first line. electron-updater wraps a private repo's
+ * 404 in a long message of its own ("Cannot find channel … HttpError: 404 Not Found …") with no status field.
+ */
+function reason(error: Error): string {
+  if ('statusCode' in error && typeof error.statusCode === 'number') return String(error.statusCode);
+  return /HttpError: (\d{3})/.exec(error.message)?.[1] ?? error.message.split('\n')[0] ?? error.message;
+}
+
+/**
  * Checks this repo's GitHub Releases at launch and every 6 hours, with no token (spec 027, AC-29). An
  * unsigned Mac can't install an update, so it only says one is out (AC-24); Linux's AppImage downloads it
  * and installs it on quit (AC-25). Orynx never restarts itself, so a session is never cut off (AC-26).
@@ -52,8 +61,7 @@ export function watchUpdates({
   if (mac) updater.on('update-available', ({ version }) => void tell(macUpdateDialog(version)));
   else updater.on('update-downloaded', ({ version }) => void tell(linuxUpdateDialog(version)));
   updater.on('error', (error) => {
-    const status = 'statusCode' in error && typeof error.statusCode === 'number' ? String(error.statusCode) : null;
-    log(`Orynx couldn't check for updates (${status ?? error.message}).`);
+    log(`Orynx couldn't check for updates (${reason(error)}).`);
   });
 
   // A failed check also arrives as 'error' above; this only keeps its promise from going unhandled.

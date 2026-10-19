@@ -34,6 +34,7 @@ mac:
 dmg:
   artifactName: Orynx-${version}-${arch}.dmg
 linux:
+  executableName: orynx
   target:
     - target: AppImage
       arch: x64
