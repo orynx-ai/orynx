@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: The log file (`logs/orynx.log`, the last launch's as `orynx.old.log`, folder 0700, files 0600) and the link rules (https new windows and `vscode:`/`cursor:` to the OS, everything else refused) (AC-13, AC-14, AC-15, AC-21)
       Check: pnpm test apps/desktop/src/log-file.test.ts apps/desktop/src/links.test.ts
       Files: apps/desktop/src/log-file.ts, apps/desktop/src/log-file.test.ts, apps/desktop/src/links.ts, apps/desktop/src/links.test.ts
-- [ ] Task 7: The dialogs' words (Q1–Q3, AC-8's) and the update notices: once per launch, quiet on 404 or no network, macOS never downloads, Linux downloads and installs only on quit, no token or header (AC-23, AC-24, AC-25, AC-26, AC-27, AC-28, AC-29)
+- [x] Task 7: The dialogs' words (Q1–Q3, AC-8's) and the update notices: once per launch, quiet on 404 or no network, macOS never downloads, Linux downloads and installs only on quit, no token or header (AC-23, AC-24, AC-25, AC-26, AC-27, AC-28, AC-29)
       Check: pnpm test apps/desktop/src/dialogs.test.ts apps/desktop/src/updates.test.ts
       Files: apps/desktop/src/dialogs.ts, apps/desktop/src/dialogs.test.ts, apps/desktop/src/updates.ts, apps/desktop/src/updates.test.ts
 - [ ] Task 8: `main.ts`: one copy, the hub in a `utilityProcess` with `--serve-web` and `DEVHUB_PORT=0`, the window (1280 × 800, shown once drawn, no Node), links, the Dock, quit, the update checks at launch and every 6 hours (AC-3, AC-5, AC-17, AC-18, AC-22, AC-41)
