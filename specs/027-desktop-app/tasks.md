@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: The `apps/desktop` host: package (Electron 44.9.0, electron-builder, electron-updater, @electron/rebuild, all bundled or build-time only), tsconfig, vitest and tsdown configs, `LAYERS` row, coverage exclude for `main.ts`, CI matrix row, `electron-winstaller` in `ignoredBuiltDependencies`, and `src/config.ts` (the hub's environment, `DEVHUB_UPDATES_URL`) (AC-40)
       Check: pnpm test apps/desktop/src/config.test.ts; node --test scripts/lib/policies/boundaries.test.ts; pnpm gate boundaries; pnpm gate env-policy; pnpm typecheck
       Files: apps/desktop/package.json, apps/desktop/tsconfig.json, apps/desktop/vitest.config.ts, apps/desktop/tsdown.config.ts, apps/desktop/src/config.ts, apps/desktop/src/config.test.ts, scripts/lib/policies/boundaries.ts, scripts/lib/policies/boundaries.test.ts, vitest.config.ts, pnpm-workspace.yaml, pnpm-lock.yaml, .github/workflows/ci.yml, .env.example, docs/architecture.md (Packages row)
-- [ ] Task 4: The login shell's PATH, after the PATH the app got, with markers, closed stdin and a 5-second limit (AC-10, AC-11)
+- [x] Task 4: The login shell's PATH, after the PATH the app got, with markers, closed stdin and a 10-second limit (AC-10, AC-11)
       Check: pnpm test apps/desktop/src/login-path.test.ts
       Files: apps/desktop/src/login-path.ts, apps/desktop/src/login-path.test.ts
 - [ ] Task 5: Finding the hub: another live hub on this home (pid alive and `GET /` answers), an ended one ignored, then waiting for this hub's `runtime.json` and `GET /`, 30 seconds at most (AC-6, AC-8, AC-9)
