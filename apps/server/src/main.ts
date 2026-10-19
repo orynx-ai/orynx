@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import type { AddressInfo } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query } from '@anthropic-ai/claude-agent-sdk';
@@ -119,13 +120,15 @@ if (serveWebApp) {
 
 // 127.0.0.1 only: other machines on the network can never reach the hub.
 await app.listen({ host: '127.0.0.1', port: config.port });
-await writeRuntimeFile(config.home, { port: config.port, token, pid: process.pid });
+// The port the OS gave, which differs from config.port when that is 0.
+const { port } = app.server.address() as AddressInfo;
+await writeRuntimeFile(config.home, { port, token, pid: process.pid });
 
 for (const notice of tokenNotices(config.tokens, envFile)) app.log[notice.level](notice.message);
 app.log.info(
   serveWebApp
-    ? `Orynx is running at http://127.0.0.1:${String(config.port)}`
-    : `Orynx server is ready on 127.0.0.1:${String(config.port)}. Open the web app that "pnpm dev" started.`,
+    ? `Orynx is running at http://127.0.0.1:${String(port)}`
+    : `Orynx server is ready on 127.0.0.1:${String(port)}. Open the web app that "pnpm dev" started.`,
 );
 
 let stopping = false;

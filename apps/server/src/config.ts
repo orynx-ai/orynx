@@ -9,7 +9,8 @@ import { agentEnvironment, gitEnvironment, type EnvTokens } from '@devhub/core';
 
 /** The only place that reads process.env (CLAUDE.md rule 9). Every key is in .env.example. */
 const EnvSchema = z.object({
-  DEVHUB_PORT: z.coerce.number().int().min(1).max(65_535).default(4317),
+  // 0 asks the OS for a free port: the desktop app's hub (spec 027, Q2).
+  DEVHUB_PORT: z.coerce.number().int().min(0).max(65_535).default(4317),
   DEVHUB_HOME: z.string().optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
