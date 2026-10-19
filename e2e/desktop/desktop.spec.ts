@@ -81,7 +81,7 @@ async function launch(answer = 'Later'): Promise<{ app: ElectronApplication; pag
     });
   }, answer);
   const page = await app.firstWindow();
-  await expect(page.getByRole('heading', { name: 'What should we build today?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What should we ship today?' })).toBeVisible();
   return { app, page };
 }
 

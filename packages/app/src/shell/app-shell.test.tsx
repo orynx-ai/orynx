@@ -9,7 +9,7 @@ import { renderApp } from '../test/render.tsx';
 describe('AppShell', () => {
   it('AC-17: makes "Skip to content" the first stop, and Enter moves focus to the main region', async () => {
     const { user } = await renderApp();
-    await screen.findByRole('heading', { name: 'What should we build today?' });
+    await screen.findByRole('heading', { name: 'What should we ship today?' });
 
     await user.tab();
 

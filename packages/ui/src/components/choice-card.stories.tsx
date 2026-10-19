@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ChoiceCard } from './choice-card.tsx';
+import { Pill } from './pill.tsx';
 
 const meta = {
   title: 'Components/ChoiceCard',
@@ -27,6 +28,15 @@ type Story = StoryObj<typeof meta>;
 export const Unchecked: Story = {};
 export const Checked: Story = { args: { defaultChecked: true } };
 export const TitleOnly: Story = { args: { title: 'Match my computer', detail: undefined, defaultChecked: true } };
+/** A pill beside the title, as Settings › Coding agent marks Balanced "Recommended". */
+export const WithAside: Story = {
+  args: {
+    title: 'Balanced',
+    detail: 'Edits freely, runs your allowed commands, asks for the rest.',
+    aside: <Pill plain>Recommended</Pill>,
+    defaultChecked: true,
+  },
+};
 export const LongDetail: Story = {
   args: {
     title: 'Use a personal access token',

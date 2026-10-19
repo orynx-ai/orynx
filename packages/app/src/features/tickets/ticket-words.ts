@@ -57,11 +57,12 @@ export function syncedLine(jira: InboxToolState, now: Date): string | null {
 /** The Assignee filter's search box (the user's call, 19 Oct 2026). */
 export const assigneeSearch = { label: 'Search people', empty: 'No one matches' };
 
-/** Tickets ticked to Ship together (the user's call, 19 Oct 2026): "3 selected", then Ship and Clear. */
+/** Tickets ticked to Ship together (the user's call, 19 Oct 2026): "3 selected", Unselect all and Ship all, in a floating bar. */
 export const selectionWords = {
   count: (count: number) => `${String(count)} selected`,
-  ship: 'Ship',
-  clear: 'Clear',
+  ship: 'Ship all',
+  clear: 'Unselect all',
+  bar: 'Selected tickets',
 };
 
 /** The board's columns, left to right. */

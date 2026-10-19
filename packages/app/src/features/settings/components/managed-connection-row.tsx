@@ -1,5 +1,6 @@
 import { useId, useState, type ReactNode } from 'react';
-import { Button } from '@devhub/ui';
+import { Cancel01Icon, Plug01Icon, Settings02Icon } from '@hugeicons/core-free-icons';
+import { Button, Icon } from '@devhub/ui';
 import { ConnectionRow, type ConnectionRowProps } from './connection-row.tsx';
 
 /** What a row hands its form. */
@@ -80,6 +81,7 @@ export function ManagedConnectionRow({
             }
           }}
         >
+          <Icon icon={open ? Cancel01Icon : configured ? Settings02Icon : Plug01Icon} aria-hidden />
           {open ? 'Close' : configured ? 'Manage' : 'Connect'}
         </Button>
       }
