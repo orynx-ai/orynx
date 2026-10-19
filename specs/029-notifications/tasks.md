@@ -16,7 +16,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: `githubNotifications` and `jiraNotifications`: new review requests, checks that started failing on my pull requests, newly assigned tickets (AC-22)
       Check: pnpm test packages/core/src/notifications/inbox-notifications.test.ts
       Files: packages/core/src/notifications/inbox-notifications.ts, packages/core/src/notifications/inbox-notifications.test.ts
-- [ ] Task 5: The notification service: list with counts, read, read all, session and inbox hooks, the first-sync rule, `notifications.changed`; hooks in the session and inbox services (AC-9, AC-12, AC-13, AC-19, AC-21, AC-22)
+- [x] Task 5: The notification service: list with counts, read, read all, session and inbox hooks, the first-sync rule, `notifications.changed`; hooks in the session and inbox services (AC-9, AC-12, AC-13, AC-19, AC-21, AC-22)
       Check: pnpm test packages/core/src/notifications/notification-service.test.ts packages/core/src/inbox/inbox-service.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/notifications/notification-service.ts, packages/core/src/notifications/notification-service.test.ts, packages/core/src/inbox/inbox-service.ts, packages/core/src/sessions/session-service.ts
 - [ ] Task 6: The notification settings service: read with defaults, save one change, keep unknown keys, `settings.changed` (AC-39, AC-41, AC-44)

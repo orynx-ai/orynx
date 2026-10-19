@@ -85,6 +85,11 @@ export interface InboxServiceOptions {
   onProblem?: (tool: InboxTool, problem: InboxProblem) => void;
   /** Told about anything unexpected while a tool syncs, such as a cache that can't be written. */
   onError?: (error: unknown) => void;
+  /**
+   * Told after each sync a tool answered, with what the last answered sync kept for the same account (null when
+   * none did: the first sync, a new account, or after Clear cache) and what this one kept (spec 029).
+   */
+  onSynced?: (tool: InboxTool, before: readonly unknown[] | null, after: readonly unknown[]) => void;
   /** The clock, in milliseconds. */
   now?: () => number;
 }
@@ -142,7 +147,14 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
 
   async function keep(tool: InboxTool, connection: string, kept: readonly CacheRecord[]): Promise<Outcome> {
     if (!(await stillConnected(tool, connection))) return 'not_connected';
+    const last = cache.tool(tool);
     cache.synced(tool, { connection, at: new Date(now()).toISOString(), records: kept });
+    const before = last?.connection === connection && last.syncedAt !== null ? last.records : null;
+    options.onSynced?.(
+      tool,
+      before,
+      kept.map((record) => record.data),
+    );
     return 'answered';
   }
 
