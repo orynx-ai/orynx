@@ -186,7 +186,7 @@ async function setUp({
     }),
     connection,
     jira,
-    skills: createSkillsService({ repositories: service, home: repos.root }),
+    skills: createSkillsService({ repositories: service, home: repos.root, orynx: join(home, 'plugin', 'skills') }),
     context: createContextReader({
       home: repos.root,
       jira,
@@ -427,6 +427,39 @@ describe('skills your message names (spec 022)', () => {
       ['Read', 'allow'],
       ['Write', 'deny'],
     ]);
+  });
+});
+
+describe('your Orynx skills in a session (spec 023)', () => {
+  it('AC-22: puts an Orynx skill’s text in the brief, records it came from Orynx, and lets Claude read nothing of it', async () => {
+    // Claude tries to read the skill's own file, inside DEVHUB_HOME; its path is known once the set is made.
+    const read = { tool: 'Read', input: { file_path: '' } };
+    const set = await setUp({ script: [read, { finish: 'Done.' }] });
+    const skillFile = join(set.home, 'plugin', 'skills', 'bug-bash', 'SKILL.md');
+    read.input.file_path = skillFile;
+    await mkdir(join(skillFile, '..'), { recursive: true });
+    await writeFile(
+      skillFile,
+      '---\nname: bug-bash\ndescription: Hunt for bugs\nmetadata:\n  title: Bug bash\n---\n\nReport only.',
+    );
+
+    await set.sessions.start(
+      makeComposerStart({ message: 'Use /bug-bash on the date picker', repositoryId: set.folder?.id }),
+    );
+
+    const record = await settled(set.records);
+    const brief = await set.records.readBrief('0000000000000001');
+    expect(brief).toMatch(
+      /^Use \/bug-bash on the date picker\n\nSkill \/bug-bash\n\nThe user asked for this skill with \/bug-bash\. Follow it for this task\.\n\nReport only\.$/,
+    );
+    expect(brief).not.toContain('Its folder is');
+    expect(record.session.activities.find((activity) => activity.kind === 'brief')).toMatchObject({
+      skills: ['/bug-bash'],
+      orynxSkills: ['bug-bash'],
+    });
+    expect(record.reads?.files ?? []).not.toContain(await realpath(skillFile));
+    expect(record.reads?.folders ?? []).toEqual([]);
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([['Read', 'deny']]);
   });
 });
 

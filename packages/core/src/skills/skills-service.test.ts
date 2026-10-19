@@ -42,8 +42,15 @@ describe('the skills a message names, at Send (spec 022)', () => {
         text: 'Check the tests first.',
         file: join(folder, '.claude/skills/review/SKILL.md'),
         folder: join(folder, '.claude/skills/review'),
+        source: 'folder',
       },
-      { name: 'standup', text: 'Write my standup.', file: join(home, '.claude/commands/standup.md'), folder: null },
+      {
+        name: 'standup',
+        text: 'Write my standup.',
+        file: join(home, '.claude/commands/standup.md'),
+        folder: null,
+        source: 'yours',
+      },
     ]);
   });
 
@@ -75,5 +82,19 @@ describe('the skills a message names, at Send (spec 022)', () => {
         { name: 'bug-bash', description: 'Hunt for bugs', source: 'orynx' },
       ],
     });
+  });
+
+  it('AC-22 (spec 023): reads an Orynx skill named in a message, with its text and no folder Claude may read', async () => {
+    const { folder, home } = await setUp();
+    const orynx = join(home, '..', 'devhub', 'plugin', 'skills');
+    await write(
+      join(orynx, 'bug-bash/SKILL.md'),
+      '---\nname: bug-bash\ndescription: Hunt for bugs\n---\n\nReport only.',
+    );
+    const service = createSkillsService({ repositories: { list: () => Promise.resolve([]) }, home, orynx });
+
+    expect(await service.named('Use /bug-bash on the date picker', folder)).toEqual([
+      { name: 'bug-bash', text: 'Report only.', file: join(orynx, 'bug-bash/SKILL.md'), folder: null, source: 'orynx' },
+    ]);
   });
 });

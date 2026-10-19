@@ -64,6 +64,7 @@ export function createSkillsService({
               text: bodyOf(text),
               file: await realpath(skill.file),
               folder: skill.folder === null ? null : await realpath(skill.folder),
+              source: skill.source,
             };
           } catch {
             // Gone since it was listed: it's just words now.

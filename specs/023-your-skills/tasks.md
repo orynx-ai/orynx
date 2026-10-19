@@ -64,9 +64,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 19: Your skills in 022's `/` list with source `orynx` ("Orynx"), after the folder's and `~/.claude`'s, which win on a name; links skipped (AC-21)
       Check: pnpm test packages/core/src/skills/skills-reader.test.ts packages/core/src/skills/skills-service.test.ts packages/app/src/features/home/components/skill-suggestions.test.tsx
       Files: packages/contracts/src/skills.ts, packages/core/src/skills/skills-reader.ts, packages/core/src/skills/skills-service.ts, packages/core/src/create-server.ts, packages/app/src/features/home/components/skill-suggestions.tsx, packages/app/src/features/home/composer-words.ts, their tests
-- [ ] Task 20: An Orynx skill's text goes in the brief with no folder Claude may read (`denyRead` keeps `<DEVHUB_HOME>` shut), and the brief step records which skills came from Orynx (AC-22)
-      Check: pnpm test packages/core/src/skills/skills-service.test.ts packages/core/src/sessions/brief.test.ts packages/contracts/src/session.test.ts
-      Files: packages/core/src/skills/skills-service.ts, packages/core/src/sessions/brief.ts, packages/core/src/sessions/session-service.ts, packages/contracts/src/session.ts, their tests
+- [x] Task 20: An Orynx skill's text goes in the brief with no folder Claude may read (`denyRead` keeps `<DEVHUB_HOME>` shut), and the brief step records which skills came from Orynx (AC-22)
+      Check: pnpm test packages/core/src/skills/skills-service.test.ts packages/core/src/sessions/compose.test.ts
+      Files: packages/core/src/skills/skills-service.ts, packages/core/src/sessions/brief.ts, packages/core/src/sessions/compose.ts, packages/contracts/src/session.ts, their tests
 - [ ] Task 21: Use counts: each ready skill's `uses`, the sessions whose brief named it from Orynx (AC-24)
       Check: pnpm test packages/core/src/skills/skill-store.test.ts packages/contracts/src/orynx-skills.test.ts
       Files: packages/contracts/src/orynx-skills.ts, packages/core/src/skills/skill-store.ts, packages/core/src/create-server.ts, their tests
