@@ -33,6 +33,12 @@ export { Button, buttonVariants, type ButtonProps } from './components/button.ts
 export { Callout, CalloutCode, type CalloutCodeProps, type CalloutProps } from './components/callout.tsx';
 export { Card, type CardLook, type CardProps } from './components/card.tsx';
 export { Checkbox, type CheckboxProps } from './components/checkbox.tsx';
+export { NotificationBell, type NotificationBellProps } from './components/notification-bell.tsx';
+export {
+  NotificationItem,
+  type NotificationItemProps,
+  type NotificationTone,
+} from './components/notification-item.tsx';
 export { Slider, type SliderProps } from './components/slider.tsx';
 export { Switch, type SwitchProps } from './components/switch.tsx';
 export { Chip, FilterChip, type ChipProps, type FilterChipProps } from './components/chip.tsx';
