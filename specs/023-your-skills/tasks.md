@@ -52,9 +52,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: E2e for Settings › Skills on a hub of its own, and the browser check at 360 and 1280 px in both themes (AC-19, AC-25, AC-26, AC-29)
       Check: pnpm test:e2e e2e/skills.spec.ts
       Files: e2e/skills.spec.ts
-- [ ] Task 17: A `learn/` page for skills, and the `docs/product/spec.md` script for the user
-      Check: pnpm gate specs
-      Files: learn/your-skills.md, specs/023-your-skills/product-spec-change.md
+- [x] Task 17: A `learn/` page for skills, and the `docs/product/spec.md` script for the user
+      Check: pnpm gate specs learn-freshness
+      Files: learn/your-skills.md, specs/023-your-skills/product-spec-edits.sh
 
 **Part B: your skills in a session** (after 022 merges; refined then)
 
