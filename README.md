@@ -27,6 +27,7 @@ pnpm start         # http://127.0.0.1:4317
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `apps/web`            | Browser host: Vite, `index.html`, the web `Platform`                                                                    |
 | `apps/server`         | Node host: env config, session token, serves the web app in production                                                  |
+| `apps/landing`        | The public landing page: static Vite site; `pnpm --filter @devhub/landing dev` serves it on localhost:4319              |
 | `packages/contracts`  | zod schemas for every HTTP body and server event                                                                        |
 | `packages/api-client` | axios client, typed endpoints, TanStack Query options, event stream                                                     |
 | `packages/ui`         | The DevHub design system: tokens, Tailwind theme, shadcn-based components, Storybook                                    |
