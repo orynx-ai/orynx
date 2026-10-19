@@ -43,7 +43,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: `NotificationPanel`: the popover with its head, tabs, groups, foot, skeleton, empty and error lines (AC-4, AC-5, AC-6, AC-14, AC-15, AC-16)
       Check: pnpm test packages/ui/src/components/notification-panel.test.tsx
       Files: packages/ui/src/components/notification-panel.tsx, packages/ui/src/components/notification-panel.stories.tsx, packages/ui/src/components/notification-panel.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 12: `Toast` and `ToastRegion`: the card, alert or status, bottom-right, at most three (AC-23, AC-24, AC-25)
+- [x] Task 12: `Toast` and `ToastRegion`: the card, alert or status, bottom-right, at most three (AC-23, AC-24, AC-25)
       Check: pnpm test packages/ui/src/components/toast.test.tsx
       Files: packages/ui/src/components/toast.tsx, packages/ui/src/components/toast.stories.tsx, packages/ui/src/components/toast.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 

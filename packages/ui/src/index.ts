@@ -53,6 +53,7 @@ export {
 } from './components/notification-panel.tsx';
 export { Slider, type SliderProps } from './components/slider.tsx';
 export { Switch, type SwitchProps } from './components/switch.tsx';
+export { Toast, ToastRegion, type ToastProps } from './components/toast.tsx';
 export { Chip, FilterChip, type ChipProps, type FilterChipProps } from './components/chip.tsx';
 export { ChoiceCard, type ChoiceCardProps } from './components/choice-card.tsx';
 export { ChoiceGroup, type ChoiceGroupProps } from './components/choice-group.tsx';

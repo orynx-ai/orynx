@@ -2,14 +2,15 @@ import { useId, type ComponentProps, type ReactNode } from 'react';
 import { cn } from '../lib/cn.ts';
 import { Icon, type IconSvgElement } from './icon.tsx';
 
-const tones = {
+/** The icon circle's colours, shared with `Toast`. */
+export const notificationTones = {
   warning: 'bg-warning-subtle text-warning',
   danger: 'bg-danger-subtle text-danger',
   success: 'bg-success-subtle text-success',
   neutral: 'text-muted-foreground',
 } as const;
 
-export type NotificationTone = keyof typeof tones;
+export type NotificationTone = keyof typeof notificationTones;
 
 export type NotificationItemProps = Omit<ComponentProps<'li'>, 'title'> & {
   icon: IconSvgElement;
@@ -46,7 +47,10 @@ export function NotificationItem({
   const id = useId();
   return (
     <li className={cn('relative flex gap-2.5 px-3.5 py-3 hover:bg-subtle', className)} {...props}>
-      <span aria-hidden className={cn('flex size-7 shrink-0 items-center justify-center rounded-full', tones[tone])}>
+      <span
+        aria-hidden
+        className={cn('flex size-7 shrink-0 items-center justify-center rounded-full', notificationTones[tone])}
+      >
         <Icon icon={icon} className="size-4" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
