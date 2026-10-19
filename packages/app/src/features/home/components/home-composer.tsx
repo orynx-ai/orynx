@@ -3,15 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useForm, useWatch } from 'react-hook-form';
 import type { ComposerChip, StartSessionAnswer } from '@devhub/contracts';
-import {
-  Composer,
-  ComposerBar,
-  ComposerSend,
-  ComposerTextarea,
-  SegmentedControl,
-  SegmentedControlItem,
-  Tooltip,
-} from '@devhub/ui';
+import { Composer, ComposerBar, ComposerSend, ComposerTextarea } from '@devhub/ui';
 import { newTaskTargetId } from '../../../shell/main-content.ts';
 import { useRepositories, useStatus } from '../../settings/queries.ts';
 import { chipFromPaste, firstTicket, folderFor } from '../composer-rules.ts';
@@ -76,8 +68,6 @@ export function HomeComposer() {
   const setModel = useComposerStore((state) => state.setModel);
   const setEffort = useComposerStore((state) => state.setEffort);
   const choice = useAgentChoice(model, effort);
-  const pickedMode = useComposerStore((state) => state.mode);
-  const setMode = useComposerStore((state) => state.setMode);
   const repositories = useRepositories();
   const status = useStatus();
   const start = useStartFromComposer();
@@ -95,8 +85,6 @@ export function HomeComposer() {
   const ticketKeys = chips.flatMap((chip) => (chip.kind === 'jira' ? [chip.key] : []));
   const ticketKey = firstTicket(chips);
   const shown = folderFor({ folders: repositories.data?.repositories ?? [], picked, ticketKey, lastUsed });
-  // Until you pick, a ticket means Build and anything else Ask (spec 026).
-  const mode = pickedMode ?? (ticketKey === null ? 'ask' : 'build');
   const suggestions = useSkillSuggestions({
     folder: shown.kind === 'folder' ? { id: shown.folder.id, name: shown.folder.name } : null,
     text: message,
@@ -137,7 +125,7 @@ export function HomeComposer() {
     void form.handleSubmit(({ message: words }) => {
       const repositoryId = shown.kind === 'folder' ? shown.folder.id : undefined;
       start.mutate(
-        { message: words, context: chips, ...(repositoryId === undefined ? {} : { repositoryId }), ...choice, mode },
+        { message: words, context: chips, ...(repositoryId === undefined ? {} : { repositoryId }), ...choice },
         {
           onSuccess: (answer) => {
             if (answer.result !== 'started') return;
@@ -187,20 +175,6 @@ export function HomeComposer() {
             {/* The pickers' own row under 640 px, there from the first paint, so the box never grows when they
               arrive (AC-1, AC-30); in a wider window they sit between + and Send. */}
             <div className="flex min-h-8 min-w-0 items-center gap-2 max-sm:order-last max-sm:basis-full">
-              <SegmentedControl
-                aria-label={composerWords.mode.label}
-                value={mode}
-                onValueChange={(next) => {
-                  setMode(next === 'ask' ? 'ask' : 'build');
-                }}
-              >
-                <Tooltip label={composerWords.mode.askHint}>
-                  <SegmentedControlItem value="ask">{composerWords.mode.ask}</SegmentedControlItem>
-                </Tooltip>
-                <Tooltip label={composerWords.mode.buildHint}>
-                  <SegmentedControlItem value="build">{composerWords.mode.build}</SegmentedControlItem>
-                </Tooltip>
-              </SegmentedControl>
               {pickers ? (
                 <>
                   <FolderPicker />

@@ -170,8 +170,8 @@ function WhereSection({ saved, loading, save }: SectionProps) {
             }
             checked={saved.onlyInBackground}
             disabled={loading}
-            onChange={(event) => {
-              save({ onlyInBackground: event.currentTarget.checked });
+            onCheckedChange={(checked) => {
+              save({ onlyInBackground: checked === true });
             }}
           />
         </SettingRow>
@@ -330,8 +330,8 @@ function EventsSection({ saved, loading, save }: SectionProps) {
                         className="min-h-10 py-0"
                         checked={choice.popUp}
                         disabled={loading}
-                        onChange={(change) => {
-                          save({ events: { [event.id]: { popUp: change.currentTarget.checked } } });
+                        onCheckedChange={(checked) => {
+                          save({ events: { [event.id]: { popUp: checked === true } } });
                         }}
                       />
                     </TableCell>
@@ -342,8 +342,8 @@ function EventsSection({ saved, loading, save }: SectionProps) {
                         className="min-h-10 py-0"
                         checked={choice.desktop}
                         disabled={loading}
-                        onChange={(change) => {
-                          save({ events: { [event.id]: { desktop: change.currentTarget.checked } } });
+                        onCheckedChange={(checked) => {
+                          save({ events: { [event.id]: { desktop: checked === true } } });
                         }}
                       />
                     </TableCell>
@@ -520,8 +520,8 @@ function DoNotDisturbSection({ saved, loading, save }: SectionProps) {
             }
             checked={saved.approvalsBreakThrough}
             disabled={loading}
-            onChange={(event) => {
-              save({ approvalsBreakThrough: event.currentTarget.checked });
+            onCheckedChange={(checked) => {
+              save({ approvalsBreakThrough: checked === true });
             }}
           />
         </div>

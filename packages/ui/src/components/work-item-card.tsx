@@ -3,6 +3,7 @@ import { ArrowUpRight01Icon, Calendar03Icon, SparklesIcon } from '@hugeicons/cor
 import { Slot } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 import { Avatar } from './avatar.tsx';
+import { CheckboxBox, type CheckboxBoxProps } from './checkbox.tsx';
 import { IconButton, type IconButtonProps } from './icon-button.tsx';
 import { Skeleton } from './skeleton.tsx';
 import { Icon } from './icon.tsx';
@@ -130,24 +131,21 @@ export function WorkItemCard({
   );
 }
 
-export type WorkItemSelectProps = Omit<ComponentProps<'input'>, 'type'> & {
+export type WorkItemSelectProps = Omit<CheckboxBoxProps, 'children'> & {
   /** The ticket's key, so the checkbox's name says which ticket: "Select PROJ-1423". */
   itemKey: string;
 };
 
 /**
- * Picks the ticket among several, on a card or a list row (the user's call, 19 Oct 2026): the browser's own
- * 16 px checkbox in `info` when ticked, as Checkbox draws its box, inside a 28 px label that takes the click.
+ * Picks the ticket among several, on a card or a list row (the user's call, 19 Oct 2026): Checkbox's box at 16 px,
+ * inside a 28 px label that takes the click.
  */
-export function WorkItemSelect({ itemKey, className, ...props }: WorkItemSelectProps) {
+export function WorkItemSelect({ itemKey, className, id, ...props }: WorkItemSelectProps) {
+  const madeUpId = useId();
+  const boxId = id ?? `${madeUpId}-select`;
   return (
-    <label className={cn('-m-1.5 inline-flex shrink-0 cursor-pointer p-1.5', className)}>
-      <input
-        type="checkbox"
-        aria-label={`Select ${itemKey}`}
-        className="m-0 size-4 cursor-pointer accent-info"
-        {...props}
-      />
+    <label htmlFor={boxId} className={cn('-m-1.5 inline-flex shrink-0 cursor-pointer p-1.5', className)}>
+      <CheckboxBox id={boxId} aria-label={`Select ${itemKey}`} className="size-4" {...props} />
     </label>
   );
 }

@@ -135,7 +135,7 @@ async function finished(page: Page) {
 }
 
 /** The callout holds exactly these buttons, by the names a screen reader hears, in this order. */
-async function expectButtons(callout: Locator, names: string[]) {
+async function expectButtons(callout: Locator, names: (string | RegExp)[]) {
   await expect(callout.getByRole('button')).toHaveCount(names.length);
   for (const [index, name] of names.entries()) {
     await expect(callout.getByRole('button').nth(index)).toHaveAccessibleName(name);
@@ -335,7 +335,8 @@ test('AC-8: an edit asks while Ask before everything is on, with its change, and
   await expect(callout.getByText('Claude wants to create a file')).toBeVisible({ timeout: 15_000 });
   const change = callout.getByRole('region', { name: 'Changes in archive.ts' });
   await expect(change.getByText('export const archive = true;')).toBeVisible();
-  await expectButtons(callout, ['Allow once', 'Deny']);
+  // The change's header copies its path (026's CopyButton), before the answers.
+  await expectButtons(callout, [/^Copy .*archive\.ts$/, 'Allow once', 'Deny']);
   expect(existsSync(join(worktreeOf('PROJ-2010'), 'src', 'archive.ts'))).toBe(false);
 
   await callout.getByRole('button', { name: 'Allow once' }).click();
@@ -355,7 +356,8 @@ test('AC-18: a callout leaves focus where it was; Tab reaches its buttons, and f
   await expect(callout).toBeVisible({ timeout: 15_000 });
   expect(await callout.evaluate((element) => element.contains(document.activeElement))).toBe(false);
 
-  await page.getByRole('button', { name: 'Stop Claude' }).focus();
+  // More actions ends the page bar (028), so Tab goes from it straight to the callout.
+  await page.getByRole('button', { name: 'More actions' }).focus();
   await page.keyboard.press('Tab');
   await expect(callout.getByRole('button', { name: 'Allow once' })).toBeFocused();
   await page.keyboard.press('Tab');
@@ -384,6 +386,8 @@ test('AC-15, AC-18: the allow list in Settings adds by Enter, refuses with its l
   await field.fill('git push');
   await field.press('Enter');
   await expect(allowed.getByText("git push always asks, so it can't go on the list.")).toBeVisible();
+  // A refusal keeps focus in the field (react-hook-form focuses it after a tick), so move on only once it has.
+  await expect(field).toBeFocused();
 
   await allowed.getByRole('button', { name: 'Remove npm test' }).focus();
   await page.keyboard.press('Enter');

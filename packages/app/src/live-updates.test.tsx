@@ -63,16 +63,16 @@ describe('LiveUpdates', () => {
       http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences({ permissions: { edits } }))),
     );
     await renderApp({ route: '/settings/coding-agent' });
-    const row = await screen.findByRole('combobox', { name: 'Edit files' });
+    const row = within(await screen.findByRole('group', { name: 'Edit files' }));
     await waitFor(() => {
-      expect(row).toHaveDisplayValue('Allow');
+      expect(row.getByRole('button', { name: 'Allow' })).toHaveAttribute('aria-pressed', 'true');
     });
 
     edits = 'ask';
     FakeEventSource.latest().emit({ type: 'settings.changed' });
 
     await waitFor(() => {
-      expect(row).toHaveDisplayValue('Ask first');
+      expect(row.getByRole('button', { name: 'Ask' })).toHaveAttribute('aria-pressed', 'true');
     });
   });
 

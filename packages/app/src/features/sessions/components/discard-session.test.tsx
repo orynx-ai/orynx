@@ -7,6 +7,8 @@ import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
+type User = Awaited<ReturnType<typeof renderApp>>['user'];
+
 const id = '0123456789abcdef';
 const route = `/sessions/${id}`;
 const done = makeSession({
@@ -40,12 +42,23 @@ function serve(initial: Session, { fails = false } = {}) {
   return state;
 }
 
+const moreActions = () => within(screen.getByRole('banner')).getByRole('button', { name: 'More actions' });
+
+/** Discard changes, from More actions in the page bar (the user's call, 19 Oct 2026). */
+async function pickDiscard(user: User) {
+  await waitFor(() => {
+    expect(moreActions()).toBeVisible();
+  });
+  await user.click(moreActions());
+  await user.click(screen.getByRole('menuitem', { name: 'Discard changes' }));
+}
+
 describe('DiscardSession', () => {
   it('AC-10 (Q10e): asks first in the page, with focus on Cancel', async () => {
     serve(done);
     const { user } = await renderApp({ route });
 
-    await user.click(await screen.findByRole('button', { name: 'Discard changes' }));
+    await pickDiscard(user);
 
     const dialog = screen.getByRole('dialog', { name: "Discard Claude's changes?" });
     expect(dialog).toHaveAccessibleDescription(
@@ -57,7 +70,7 @@ describe('DiscardSession', () => {
   it('AC-10: deletes the worktree and branch on confirm, then says so, and the title takes focus', async () => {
     const held = serve(done);
     const { user } = await renderApp({ route });
-    await user.click(await screen.findByRole('button', { name: 'Discard changes' }));
+    await pickDiscard(user);
 
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Discard changes' }));
     FakeEventSource.latest().emit({ type: 'sessions.changed' });
@@ -66,25 +79,27 @@ describe('DiscardSession', () => {
     expect(await screen.findByText('Discarded the changes')).toBeVisible();
     expect(screen.getByText('The worktree and feat/PROJ-1423 are deleted.')).toBeVisible();
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull();
+    // Nothing is left to open or discard, so More actions goes too.
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+    });
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 1, name: 'Add bulk archive to the content list' })).toHaveFocus();
     });
   });
 
   it.each(['Cancel', 'Esc'])(
-    'AC-10, AC-18: %s closes the dialog, gives focus back, and deletes nothing',
+    'AC-10, AC-18: %s closes the dialog, gives focus back to More actions, and deletes nothing',
     async (how) => {
       const held = serve(done);
       const { user } = await renderApp({ route });
-      const discard = await screen.findByRole('button', { name: 'Discard changes' });
-      await user.click(discard);
+      await pickDiscard(user);
 
       if (how === 'Esc') await user.keyboard('{Escape}');
       else await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
 
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(discard).toHaveFocus();
+      expect(moreActions()).toHaveFocus();
       expect(held.discards).toBe(0);
     },
   );
@@ -92,7 +107,7 @@ describe('DiscardSession', () => {
   it('says when it couldn’t discard, and keeps the dialog open to try again', async () => {
     serve(done, { fails: true });
     const { user } = await renderApp({ route });
-    await user.click(await screen.findByRole('button', { name: 'Discard changes' }));
+    await pickDiscard(user);
     const dialog = screen.getByRole('dialog');
 
     await user.click(within(dialog).getByRole('button', { name: 'Discard changes' }));
@@ -101,20 +116,30 @@ describe('DiscardSession', () => {
     expect(within(dialog).getByRole('button', { name: 'Discard changes' })).toBeVisible();
   });
 
-  it('AC-10: has nothing to discard once discarded', async () => {
+  it('AC-10: has nothing to discard once discarded, so no More actions', async () => {
     server.use(sessionHandler({ ...done, discardedAt: '2026-10-16T10:05:00.000Z', state: 'stopped' }));
     await renderApp({ route });
     await screen.findByRole('heading', { level: 1 });
-    expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
 
   it('has no Discard before the worktree was made', async () => {
     server.use(
-      sessionHandler({ ...done, branch: null, state: 'stopped', problem: { kind: 'jira', stage: 'starting' } }),
+      sessionHandler({
+        ...done,
+        branch: null,
+        worktreePath: '/Users/you/.devhub/worktrees/x',
+        state: 'stopped',
+        problem: { kind: 'jira', stage: 'starting' },
+      }),
     );
-    await renderApp({ route });
-    await screen.findByRole('heading', { level: 1 });
-    expect(screen.queryByRole('button', { name: 'Discard changes' })).toBeNull();
+    const { user } = await renderApp({ route });
+    await waitFor(() => {
+      expect(moreActions()).toBeVisible();
+    });
+    await user.click(moreActions());
+    expect(screen.getByRole('menuitem', { name: 'Open in VS Code' })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: 'Discard changes' })).toBeNull();
   });
 });
 
@@ -122,7 +147,7 @@ describe('Discard once a pull request is open (spec 014)', () => {
   it('AC-18 (Q11g): the confirm says the pull request and the branch on GitHub stay', async () => {
     serve(makeSession({ ...done, state: 'pr_open', pullRequest: makeSessionPullRequest() }));
     const { user } = await renderApp({ route });
-    await user.click(await screen.findByRole('button', { name: 'Discard changes' }));
+    await pickDiscard(user);
     const confirm = screen.getByRole('dialog', { name: "Discard Claude's changes?" });
     expect(confirm).toHaveAccessibleDescription(
       `This deletes the worktree and the branch feat/PROJ-1423. The changes can't be brought back. Pull request #${String(2841)} and the branch on GitHub stay.`,

@@ -44,16 +44,17 @@ async function section() {
 }
 
 describe('AllowedCommands (spec 012, Q6, Q8f)', () => {
-  it('AC-15: lists each allowed command with Remove, under its heading and line', async () => {
+  it('AC-15: lists each allowed command with Remove, under its heading, count and line', async () => {
     setUp(['npm test', 'pnpm lint']);
     await renderApp({ route });
     const allowed = await section();
 
     expect(
       allowed.getByText(
-        'These run without asking while Run commands is set to Only allowed commands. Commands run in a sandbox with no network.',
+        'Run without asking, inside the sandbox with no network. You can also add one by pressing Always allow when Claude asks.',
       ),
     ).toBeVisible();
+    expect(await allowed.findByText('2')).toBeVisible();
     const rows = within(await allowed.findByRole('list', { name: 'Allowed commands' })).getAllByRole('listitem');
     expect(rows.map((row) => within(row).getByText(/^(npm test|pnpm lint)$/).textContent)).toEqual([
       'npm test',
@@ -63,13 +64,32 @@ describe('AllowedCommands (spec 012, Q6, Q8f)', () => {
     expect(allowed.getByRole('button', { name: 'Remove pnpm lint' })).toBeVisible();
   });
 
-  it('AC-15: says how commands get here when there are none', async () => {
+  it('AC-15: says so when there are none', async () => {
     setUp([]);
     await renderApp({ route });
     const allowed = await section();
-    expect(await allowed.findByText('No commands yet')).toBeVisible();
-    expect(allowed.getByText('Add one here, or press Always allow when Claude asks.')).toBeVisible();
+    expect(await allowed.findByText('No commands yet.')).toBeVisible();
     expect(allowed.queryByRole('list')).toBeNull();
+  });
+
+  it('says whether the list is in use, from how Run commands is set', async () => {
+    let saved: Preferences = makePreferences({ permissions: { commands: 'ask' } });
+    server.use(
+      http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(saved)),
+      http.patch(apiUrl(apiRoutes.preferences), () => {
+        saved = makePreferences({ permissions: { commands: 'allowed_list' } });
+        return HttpResponse.json(saved);
+      }),
+    );
+    const { user } = await renderApp({ route });
+    const allowed = await section();
+    expect(await allowed.findByText('Not in use: Run commands is set to Ask')).toBeVisible();
+
+    await user.click(
+      within(screen.getByRole('group', { name: 'Run commands' })).getByRole('button', { name: 'Allowed only' }),
+    );
+
+    expect(await allowed.findByText('In use: Run commands is set to Allowed only')).toBeVisible();
   });
 
   it('AC-15, AC-18: Enter adds the command as the list reads it, shows it at once, and leaves the field empty for the next', async () => {
@@ -140,7 +160,7 @@ describe('AllowedCommands (spec 012, Q6, Q8f)', () => {
     const { changedElsewhere } = setUp([]);
     await renderApp({ route });
     const allowed = await section();
-    await allowed.findByText('No commands yet');
+    await allowed.findByText('No commands yet.');
 
     changedElsewhere(['npm run lint']);
 

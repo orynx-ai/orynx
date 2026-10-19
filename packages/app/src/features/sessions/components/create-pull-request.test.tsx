@@ -67,7 +67,7 @@ const createButton = () => screen.getByRole('button', { name: 'Create pull reque
 const dialog = () => screen.getByRole('dialog', { name: 'Create pull request' });
 
 describe('Create pull request (spec 014)', () => {
-  it('AC-1, Q2: sits in the title row once Claude is done, and not while it works, after Discard or once a PR is open', async () => {
+  it('AC-1, Q2: sits in the page bar once Claude is done, and not while it works, after Discard or once a PR is open', async () => {
     serve(done);
     const first = await renderApp({ route });
     expect(await screen.findByRole('button', { name: 'Create pull request' })).toBeVisible();
@@ -320,7 +320,7 @@ describe('once the pull request is open (spec 014, Q7)', () => {
     ],
   });
 
-  it('AC-4, AC-16: the title row has Open PR, which opens GitHub outside Orynx, and the step links the PR too', async () => {
+  it('AC-4, AC-16: the page bar has Open PR, which opens GitHub outside Orynx, and the step links the PR too', async () => {
     serve(opened);
     const { user, platform } = await renderApp({ route });
     const openPr = await screen.findByRole('link', { name: `Open PR ${pr}` });
@@ -365,7 +365,7 @@ describe('once the pull request is open (spec 014, Q7)', () => {
     await user.click(within(dialog()).getByRole('button', { name: 'Create pull request' }));
     FakeEventSource.latest().emit({ type: 'session.changed', sessionId: id });
     await screen.findByRole('link', { name: `Open PR ${pr}`, hidden: true });
-    // The title row no longer offers Create, but the dialog stays, busy, until the answer comes.
+    // The page bar no longer offers Create, but the dialog stays, busy, until the answer comes.
     expect(within(dialog()).getByRole('button', { name: /Creating…/ })).toBeVisible();
 
     release();

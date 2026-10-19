@@ -1,13 +1,35 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowUpRight01Icon, StopIcon } from '@hugeicons/core-free-icons';
+import {
+  ArrowUpRight01Icon,
+  Delete02Icon,
+  GitPullRequestIcon,
+  MoreHorizontalIcon,
+  SourceCodeIcon,
+  StopIcon,
+  Upload01Icon,
+  VisualStudioCodeIcon,
+} from '@hugeicons/core-free-icons';
 import type { Session, SessionState } from '@devhub/contracts';
-import { Button, Icon, Pill, Skeleton, sessionStateLabels, type PillTone } from '@devhub/ui';
+import {
+  Button,
+  Icon,
+  IconButton,
+  Menu,
+  MenuContent,
+  MenuItem,
+  MenuTrigger,
+  Pill,
+  Skeleton,
+  sessionStateLabels,
+  type PillTone,
+} from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
 import { usePlatform } from '../../../platform.tsx';
+import { useWide } from '../../../shell/use-wide.ts';
 import { needsApprovalLabel } from '../approval-words.ts';
 import { editorLink, openInLabel } from '../change-words.ts';
-import { openPullRequestLabel } from '../pull-request-words.ts';
+import { openPullRequestLabel, pullRequestWords } from '../pull-request-words.ts';
 import { useEditor, useSessionChanges } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
 import { DiscardSession } from './discard-session.tsx';
@@ -46,77 +68,109 @@ function useHasChanges(sessionId: string): boolean {
   return changes.data?.state === 'ready' && changes.data.files.length + changes.data.moreFiles > 0;
 }
 
-/** Open in the editor Settings picks, VS Code until Settings answers otherwise (spec 013, Q9). */
-function OpenInEditor({ session }: { session: Session }) {
-  const editor = useEditor();
-  const picked = editor.data ?? (editor.isError ? 'vscode' : null);
-  if (picked === null || session.worktreePath === null || session.discardedAt !== null) return null;
+/**
+ * The Session screen's title row (`session.html`): the title, the state, the branch and where Claude works. Its
+ * buttons are in the page bar, in {@link SessionActions} (the user's call, 19 Oct 2026).
+ */
+export function SessionHeader({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
   return (
-    <Button asChild variant="secondary">
-      <a href={editorLink(picked, session.worktreePath)}>{openInLabel(picked)}</a>
-    </Button>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <h1 ref={title} tabIndex={-1} className="m-0 text-title-lg font-medium">
+        {session.title}
+      </h1>
+      <div className="flex flex-wrap items-center gap-2 text-small text-muted-foreground">
+        <Pill tone={stateTones[session.state]}>
+          {/* The sidebar's "Needs you" is said in full here, where you answer (spec 012, Q8d). */}
+          {session.state === 'needs_you' ? needsApprovalLabel : sessionStateLabels[session.state]}
+        </Pill>
+        {session.branch === null ? null : (
+          <code className="rounded-sm bg-subtle px-2 font-mono text-code text-foreground">{session.branch}</code>
+        )}
+        {session.mode === 'ask' ? (
+          <span>Ask session · reads {session.folder.name} in place and changes nothing</span>
+        ) : (
+          <span>in {session.folder.name} · separate worktree, your main checkout is untouched</span>
+        )}
+      </div>
+    </div>
   );
 }
 
 /**
- * The Session screen's title row (`session.html`): the title, the state, the branch and where Claude works,
- * with Stop Claude while it works (AC-9). Stop keeps focus while it runs; once the session has stopped, the
- * title takes focus, because the button is gone. Once Claude is done, Create pull request when there's something
- * to put in one; once the pull request is open, Open PR and Push changes, with no primary button (spec 014,
- * Q10e). Open in the editor and Discard changes are here too, at hand from the top (the user's call, 19 Oct 2026).
+ * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop Claude while it works (AC-9);
+ * once Claude is done, Create pull request when there's something to put in one; once the pull request is open,
+ * Open PR and Push changes, with no primary button (spec 014, Q10e). Open in the editor and Discard changes wait in
+ * More actions. Under 768 px everything but Stop Claude moves into More actions, so the bar keeps to one line.
+ * Stop keeps focus while it runs; once the session has stopped, the title takes focus, because the button is gone.
  */
-export function SessionHeader({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
+export function SessionActions({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
   const platform = usePlatform();
-  // Once you've created the pull request, focus goes to Open PR, now or as soon as it shows (spec 014, AC-4).
+  const wide = useWide();
+  const more = useRef<HTMLButtonElement>(null);
+  const createDialog = useRef<{ open: () => void }>(null);
+  const pushDialog = useRef<{ open: () => void }>(null);
+  const discardDialog = useRef<{ open: () => void }>(null);
+  // The dialog an item opens, once the menu has closed and let go of focus.
+  const picked = useRef<'create' | 'push' | 'discard' | null>(null);
+  // Once you've created the pull request, focus goes to Open PR, now or as soon as it shows (spec 014, AC-4);
+  // under 768 px Open PR is in More actions, so to that.
   const justOpened = useRef(false);
   const openPullRequest = useRef<HTMLAnchorElement>(null);
   const { pullRequest } = session;
   useEffect(() => {
     if (pullRequest === null || !justOpened.current) return;
     justOpened.current = false;
-    openPullRequest.current?.focus();
+    (openPullRequest.current ?? more.current)?.focus();
   }, [pullRequest]);
   const api = useApi();
   const stop = useMutation({ mutationFn: () => api.stopSession(session.id) });
   const working = session.state === 'working' || session.state === 'needs_you';
   const stopping = stop.isPending || (stop.isSuccess && working);
   const hasChanges = useHasChanges(session.id);
+  // The editor Settings picks, VS Code until Settings answers otherwise (spec 013, Q9).
+  const preferences = useEditor();
+  const editor = preferences.data ?? (preferences.isError ? 'vscode' : null);
 
   useEffect(() => {
     if (stop.isSuccess && !working) title.current?.focus();
   }, [stop.isSuccess, working, title]);
 
+  const offerCreate = canCreatePullRequest(session) && hasChanges;
+  const offerPush = pullRequest !== null && canPush(session);
+  // An Ask session has no worktree to open or discard (spec 026); nor is there one once discarded or before it's made.
+  const kept = session.mode !== 'ask' && session.discardedAt === null;
+  const editorPath = kept && editor !== null ? session.worktreePath : null;
+  const offerDiscard = kept && session.branch !== null;
+  const menu = wide ? undefined : more;
+  const hasMenu = editorPath !== null || offerDiscard || (!wide && (offerCreate || offerPush || pullRequest !== null));
+
   return (
-    <div className="flex flex-wrap items-start gap-3">
-      <div className="flex min-w-0 flex-1 basis-90 flex-col gap-1.5">
-        <h1 ref={title} tabIndex={-1} className="m-0 text-title-lg font-medium">
-          {session.title}
-        </h1>
-        <div className="flex flex-wrap items-center gap-2 text-small text-muted-foreground">
-          <Pill tone={stateTones[session.state]}>
-            {/* The sidebar's "Needs you" is said in full here, where you answer (spec 012, Q8d). */}
-            {session.state === 'needs_you' ? needsApprovalLabel : sessionStateLabels[session.state]}
-          </Pill>
-          {session.branch === null ? null : (
-            <code className="rounded-sm bg-subtle px-2 font-mono text-code text-foreground">{session.branch}</code>
-          )}
-          {session.mode === 'ask' ? (
-            <span>Ask session · reads {session.folder.name} in place and changes nothing</span>
-          ) : (
-            <span>in {session.folder.name} · separate worktree, your main checkout is untouched</span>
-          )}
-        </div>
-      </div>
+    <>
+      {working ? (
+        <Button
+          variant="secondary"
+          size="sm"
+          pending={stopping}
+          onClick={() => {
+            stop.mutate();
+          }}
+        >
+          {stopping ? null : <Icon icon={StopIcon} aria-hidden />}
+          {stopping ? 'Stopping…' : 'Stop Claude'}
+        </Button>
+      ) : null}
       <CreatePullRequest
+        ref={createDialog}
         session={session}
-        show={canCreatePullRequest(session) && hasChanges}
+        show={offerCreate}
+        {...(menu === undefined ? {} : { menu })}
         onOpened={() => {
-          if (openPullRequest.current === null) justOpened.current = true;
-          else openPullRequest.current.focus();
+          if (pullRequest === null) justOpened.current = true;
+          else (openPullRequest.current ?? more.current)?.focus();
         }}
       />
-      {pullRequest === null ? null : (
-        <Button asChild variant="secondary">
+      {pullRequest === null || !wide ? null : (
+        <Button asChild variant="secondary" size="sm">
           <a
             ref={openPullRequest}
             href={pullRequest.url}
@@ -131,49 +185,98 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
           </a>
         </Button>
       )}
-      {pullRequest !== null && canPush(session) ? (
-        <PushChanges session={session} repository={pullRequest.repository} />
+      {offerPush ? (
+        <PushChanges
+          ref={pushDialog}
+          session={session}
+          repository={pullRequest.repository}
+          {...(menu === undefined ? {} : { menu })}
+        />
       ) : null}
-      {/* An Ask session has no worktree to open or discard (spec 026). */}
-      {session.mode === 'ask' ? null : (
-        <>
-          <OpenInEditor session={session} />
-          <DiscardSession session={session} title={title} />
-        </>
-      )}
-      {working ? (
-        <Button
-          variant="secondary"
-          pending={stopping}
-          onClick={() => {
-            stop.mutate();
-          }}
-        >
-          {stopping ? null : <Icon icon={StopIcon} aria-hidden />}
-          {stopping ? 'Stopping…' : 'Stop Claude'}
-        </Button>
+      {offerDiscard ? <DiscardSession ref={discardDialog} session={session} title={title} menu={more} /> : null}
+      {hasMenu ? (
+        <Menu>
+          <MenuTrigger asChild>
+            <IconButton ref={more} variant="ghost" size="sm" label="More actions">
+              <Icon icon={MoreHorizontalIcon} aria-hidden />
+            </IconButton>
+          </MenuTrigger>
+          <MenuContent
+            size="sm"
+            align="end"
+            onCloseAutoFocus={(event) => {
+              const dialog = picked.current;
+              if (dialog === null) return;
+              picked.current = null;
+              event.preventDefault();
+              const dialogs = { create: createDialog, push: pushDialog, discard: discardDialog };
+              dialogs[dialog].current?.open();
+            }}
+          >
+            {!wide && offerCreate ? (
+              <MenuItem
+                icon={<Icon icon={GitPullRequestIcon} />}
+                onSelect={() => {
+                  picked.current = 'create';
+                }}
+              >
+                {pullRequestWords.create}
+              </MenuItem>
+            ) : null}
+            {!wide && pullRequest !== null ? (
+              // An item, not a link: a link's own click would have to stop the browser, and that stops the menu closing.
+              <MenuItem
+                icon={<Icon icon={ArrowUpRight01Icon} />}
+                onSelect={() => {
+                  platform.openExternal(pullRequest.url);
+                }}
+              >
+                {openPullRequestLabel(pullRequest.number)}
+              </MenuItem>
+            ) : null}
+            {!wide && offerPush ? (
+              <MenuItem
+                icon={<Icon icon={Upload01Icon} />}
+                onSelect={() => {
+                  picked.current = 'push';
+                }}
+              >
+                {pullRequestWords.push}
+              </MenuItem>
+            ) : null}
+            {editor === null || editorPath === null ? null : (
+              <MenuItem asChild icon={<Icon icon={editor === 'vscode' ? VisualStudioCodeIcon : SourceCodeIcon} />}>
+                <a href={editorLink(editor, editorPath)}>{openInLabel(editor)}</a>
+              </MenuItem>
+            )}
+            {offerDiscard ? (
+              <MenuItem
+                icon={<Icon icon={Delete02Icon} />}
+                className="text-danger"
+                onSelect={() => {
+                  picked.current = 'discard';
+                }}
+              >
+                Discard changes
+              </MenuItem>
+            ) : null}
+          </MenuContent>
+        </Menu>
       ) : null}
-    </div>
+    </>
   );
 }
 
-/**
- * The title row's loading form: the same lines, and the button Claude's state offers (Stop Claude, Create pull
- * request or Open PR), wrapping under them on a narrow window as it does, so nothing moves when the session
- * arrives (AC-16; spec 014, AC-23).
- */
+/** The title row's loading form: the same two lines, so nothing moves when the session arrives (AC-16). */
 export function SessionHeaderSkeleton() {
   return (
-    <div aria-hidden className="flex flex-wrap items-start gap-3">
-      <div className="flex min-w-0 flex-1 basis-90 flex-col gap-1.5">
-        <span className="flex h-7 items-center">
-          <Skeleton className="h-5 w-2/3" />
-        </span>
-        <span className="flex h-6 items-center">
-          <Skeleton className="h-4 w-1/2" />
-        </span>
-      </div>
-      <Skeleton className="h-10 w-44" />
+    <div aria-hidden className="flex flex-col gap-1.5">
+      <span className="flex h-7 items-center">
+        <Skeleton className="h-5 w-2/3" />
+      </span>
+      <span className="flex h-6 items-center">
+        <Skeleton className="h-4 w-1/2" />
+      </span>
     </div>
   );
 }

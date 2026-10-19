@@ -58,6 +58,10 @@ async function layoutShiftScore(page: Page): Promise<number> {
 }
 
 async function axeViolations(page: Page): Promise<string[]> {
+  // Controls fade from their loading look (Coding agent's rows); mid-fade colours aren't the page's real ones.
+  await page.evaluate(() =>
+    Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined))),
+  );
   await page.addScriptTag({ path: axePath });
   return page.evaluate(async () => {
     const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
@@ -174,23 +178,24 @@ test('AC-3, spec 026: Given Coding agent, when I change a row, then it saves and
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'The rows are one value for the whole server; one run owns them.');
   await page.goto('/settings/coding-agent');
-  const edits = page.getByRole('combobox', { name: 'Edit files' });
-  await expect(edits).toHaveValue('allow');
+  const option = (name: string) =>
+    page.getByRole('group', { name: 'Edit files' }).getByRole('button', { name, exact: true });
+  await expect(option('Allow')).toHaveAttribute('aria-pressed', 'true');
 
   const firstSave = saved(page);
-  await edits.selectOption('ask');
-  await expect(edits).toBeFocused();
+  await option('Ask').click();
+  await expect(option('Ask')).toBeFocused();
   await firstSave;
 
   await page.reload();
-  await expect(page.getByRole('combobox', { name: 'Edit files' })).toHaveValue('ask');
+  await expect(option('Ask')).toHaveAttribute('aria-pressed', 'true');
 
   // Back to the default, for anyone who runs the suite twice against one server.
   const secondSave = saved(page);
-  await page.getByRole('combobox', { name: 'Edit files' }).selectOption('allow');
+  await option('Allow').click();
   await secondSave;
   await page.reload();
-  await expect(page.getByRole('combobox', { name: 'Edit files' })).toHaveValue('allow');
+  await expect(option('Allow')).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('spec 029, AC-32, AC-39: Given Notifications, when I untick a pop-up, then it saves and a reload keeps it', async ({

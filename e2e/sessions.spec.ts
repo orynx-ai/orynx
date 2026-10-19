@@ -204,7 +204,9 @@ test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its bran
   const kept = worktrees().find((path) => repository.git(path, 'branch', '--show-current') === 'feat/PROJ-1424');
   expect(kept).toBeDefined();
 
-  await page.getByRole('button', { name: 'Discard changes' }).click();
+  // Discard is in the page bar's More actions (19 Oct 2026).
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Discard changes' }).click();
   const dialog = page.getByRole('dialog', { name: "Discard Claude's changes?" });
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await dialog.getByRole('button', { name: 'Discard changes' }).click();
@@ -305,14 +307,18 @@ test('AC-15, AC-18, 022 AC-28: Home opens a live session, and a row’s +, Send,
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused({ timeout: 10_000 });
 
-  const discard = page.getByRole('button', { name: 'Discard changes' });
-  await discard.focus();
+  // Discard is the last item in the page bar's More actions (19 Oct 2026).
+  const more = page.getByRole('button', { name: 'More actions' });
+  await more.focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('End');
+  await expect(page.getByRole('menuitem', { name: 'Discard changes' })).toBeFocused();
   await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog', { name: "Discard Claude's changes?" });
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
-  await expect(discard).toBeFocused();
+  await expect(more).toBeFocused();
 });
 
 test('AC-19: each session state has no axe violations, at 1280 and 360 px, in light and dark', async ({ page }) => {

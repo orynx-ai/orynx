@@ -26,7 +26,7 @@ describe('The New task shortcut', () => {
 
     expect(press(optionCommandN)).toBe(false);
 
-    await screen.findByRole('heading', { name: 'What should we build today?' });
+    await screen.findByRole('heading', { name: 'What should we ship today?' });
     expect(history.location.pathname).toBe('/');
     // Spec 015, AC-2: in the composer, with the draft kept.
     await waitFor(() => {
@@ -56,7 +56,7 @@ describe('The New task shortcut', () => {
 
     press(optionCommandN, field);
 
-    await screen.findByRole('heading', { name: 'What should we build today?' });
+    await screen.findByRole('heading', { name: 'What should we ship today?' });
     expect(history.location.pathname).toBe('/');
   });
 
@@ -81,7 +81,7 @@ describe('The New task shortcut', () => {
     expect(history.location.pathname).toBe('/tickets');
 
     expect(press({ key: 'n', code: 'KeyN', ctrlKey: true, altKey: true })).toBe(false);
-    await screen.findByRole('heading', { name: 'What should we build today?' });
+    await screen.findByRole('heading', { name: 'What should we ship today?' });
   });
 
   it('AC-6: leaves AltGr+N alone, because it types a letter on some keyboards', async () => {
@@ -105,7 +105,7 @@ describe('The New task shortcut', () => {
     expect(within(mainNav()).getByRole('link', { name: 'Home' })).toHaveAttribute('aria-keyshortcuts', 'Meta+N');
 
     expect(press({ key: 'n', code: 'KeyN', metaKey: true })).toBe(false);
-    await screen.findByRole('heading', { name: 'What should we build today?' });
+    await screen.findByRole('heading', { name: 'What should we ship today?' });
     expect(history.location.pathname).toBe('/');
   });
 });

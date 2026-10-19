@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import type { SkillFolder } from '@devhub/contracts';
-import { Button, Dialog, DialogContent, DialogTitle, DialogTrigger } from '@devhub/ui';
+import { Delete02Icon } from '@hugeicons/core-free-icons';
+import { Button, Dialog, DialogContent, DialogTitle, DialogTrigger, Icon } from '@devhub/ui';
 import { useRemoveSkill } from '../queries.ts';
 
 export interface DeleteSkillProps {
@@ -32,6 +33,7 @@ export function DeleteSkill({ folder, name, pluginFolder, onDeleted }: DeleteSki
     >
       <DialogTrigger asChild>
         <Button variant="danger-ghost" size="sm">
+          <Icon icon={Delete02Icon} aria-hidden />
           Delete skill
         </Button>
       </DialogTrigger>

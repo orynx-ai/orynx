@@ -117,6 +117,7 @@ export { IconButton, type IconButtonProps } from './components/icon-button.tsx';
 export { Input } from './components/input.tsx';
 export { Textarea } from './components/textarea.tsx';
 export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from './components/file-list.tsx';
+export { FloatingBar, FloatingBarSeparator, type FloatingBarProps } from './components/floating-bar.tsx';
 export {
   ListNav,
   ListNavItem,

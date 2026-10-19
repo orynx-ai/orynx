@@ -5,7 +5,7 @@ test('Given DevHub is running, when you open it, then Home greets you and the si
 }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'What should we build today?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What should we ship today?' })).toBeVisible();
   const nav = page.getByRole('navigation', { name: 'Main' });
   await expect(nav.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page');
   await expect(nav.getByRole('link', { name: 'Tickets' })).toBeVisible();

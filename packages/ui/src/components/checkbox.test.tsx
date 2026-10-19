@@ -13,13 +13,13 @@ describe('Checkbox', () => {
   });
 
   it('AC-13: toggles when the row is clicked anywhere, the label included', async () => {
-    const onChange = vi.fn();
-    render(<Checkbox label="My pull requests with failing checks" defaultChecked onChange={onChange} />);
+    const onCheckedChange = vi.fn();
+    render(<Checkbox label="My pull requests with failing checks" defaultChecked onCheckedChange={onCheckedChange} />);
 
     await userEvent.click(screen.getByText('My pull requests with failing checks'));
 
     expect(screen.getByRole('checkbox', { name: 'My pull requests with failing checks' })).not.toBeChecked();
-    expect(onChange).toHaveBeenCalledOnce();
+    expect(onCheckedChange).toHaveBeenCalledExactlyOnceWith(false);
   });
 
   it('AC-19: toggles with Space from the keyboard', async () => {
@@ -32,17 +32,19 @@ describe('Checkbox', () => {
   });
 
   it('does nothing while disabled', async () => {
-    const onChange = vi.fn();
-    render(<Checkbox label="Jira tickets assigned to me that aren't done" disabled onChange={onChange} />);
+    const onCheckedChange = vi.fn();
+    render(
+      <Checkbox label="Jira tickets assigned to me that aren't done" disabled onCheckedChange={onCheckedChange} />,
+    );
 
     await userEvent.click(screen.getByText("Jira tickets assigned to me that aren't done"));
 
     expect(screen.getByRole('checkbox')).toBeDisabled();
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onCheckedChange).not.toHaveBeenCalled();
   });
 
   it('hands its ref to the checkbox, so a form library can focus it', () => {
-    const ref = createRef<HTMLInputElement>();
+    const ref = createRef<HTMLButtonElement>();
     render(<Checkbox ref={ref} label="My pull requests with unresolved review comments" />);
 
     expect(ref.current).toBe(screen.getByRole('checkbox'));

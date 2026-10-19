@@ -14,7 +14,7 @@ describe('HomeScreen', () => {
   it('greets you and shows Home as the only breadcrumb', async () => {
     await renderApp();
 
-    expect(await screen.findByRole('heading', { level: 1, name: 'What should we build today?' })).toBeVisible();
+    expect(await screen.findByRole('heading', { level: 1, name: 'What should we ship today?' })).toBeVisible();
     expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Home')).toHaveAttribute(
       'aria-current',
       'page',

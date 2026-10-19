@@ -278,7 +278,14 @@ test('AC-21: the dialog works from the keyboard, and Enter in the title creates 
   expect(repository.git(repository.origin, 'branch', '--list', 'feat/PULL-2')).toBe('');
 });
 
-test('AC-22: the title row and the dialog have no axe violations, at 1280 and 360 px, in light and dark', async ({
+/**
+ * Create pull request and Open PR: their own buttons from 768 px, and under that, items in the page bar's More
+ * actions (the user's call, 19 Oct 2026).
+ */
+const atHand = (p: Page, width: number, name: string, role: 'button' | 'link' = 'button') =>
+  width >= 768 ? p.getByRole(role, { name }) : p.getByRole('button', { name: 'More actions' });
+
+test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360 px, in light and dark', async ({
   page,
 }) => {
   const check = async () => {
@@ -296,20 +303,21 @@ test('AC-22: the title row and the dialog have no axe violations, at 1280 and 36
     {
       name: 'Done, with Create pull request',
       url: seen.secret,
-      show: async (p: Page) => expect(p.getByRole('button', { name: 'Create pull request' })).toBeVisible(),
+      show: async (p: Page, width: number) => expect(atHand(p, width, 'Create pull request')).toBeVisible(),
     },
     {
       name: 'the dialog with the draft',
       url: seen.secret,
-      show: async (p: Page) => {
-        await p.getByRole('button', { name: 'Create pull request' }).click();
+      show: async (p: Page, width: number) => {
+        await atHand(p, width, 'Create pull request').click();
+        if (width < 768) await p.getByRole('menuitem', { name: 'Create pull request' }).click();
         await expect(dialog(p).getByRole('textbox', { name: 'Title' })).toBeVisible({ timeout: 10_000 });
       },
     },
     {
       name: 'PR open',
       url: seen.opened,
-      show: async (p: Page) => expect(p.getByRole('link', { name: `Open PR ${pr}` })).toBeVisible(),
+      show: async (p: Page, width: number) => expect(atHand(p, width, `Open PR ${pr}`, 'link')).toBeVisible(),
     },
   ];
   for (const state of states) {
@@ -319,7 +327,7 @@ test('AC-22: the title row and the dialog have no axe violations, at 1280 and 36
         await page.setViewportSize({ width, height: 800 });
         await page.emulateMedia({ colorScheme });
         await page.goto(state.url);
-        await state.show(page);
+        await state.show(page, width);
         const where = `${state.name} at ${String(width)} px, ${colorScheme}`;
         expect(await check(), where).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth), where).toBeLessThanOrEqual(width);
@@ -332,7 +340,8 @@ test('AC-18: Discard deletes the worktree and the local branch, and the PR and i
   page,
 }) => {
   await page.goto(seen.opened ?? '');
-  await page.getByRole('button', { name: 'Discard changes' }).click();
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Discard changes' }).click();
   const confirm = page.getByRole('dialog', { name: "Discard Claude's changes?" });
   await expect(confirm).toContainText(`Pull request ${pr} and the branch on GitHub stay.`);
   await confirm.getByRole('button', { name: 'Discard changes' }).click();
