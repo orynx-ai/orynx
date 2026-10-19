@@ -80,9 +80,6 @@ importers:
 
   apps/desktop:
     devDependencies:
-      '@electron/rebuild':
-        specifier: ^4.2.1
-        version: 4.2.1
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2

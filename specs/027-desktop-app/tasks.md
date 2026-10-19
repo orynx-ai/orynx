@@ -26,9 +26,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: `main.ts`: one copy, the hub in a `utilityProcess` with `--serve-web` and `DEVHUB_PORT=0`, the window (1280 × 800, shown once drawn, no Node), links, the Dock, quit, the update checks at launch and every 6 hours (AC-3, AC-5, AC-17, AC-18, AC-22, AC-41)
       Check: pnpm typecheck; pnpm --filter @devhub/desktop build
       Files: apps/desktop/src/main.ts
-- [ ] Task 9: Packing: the server deployed with its production `node_modules` (hoisted), better-sqlite3 rebuilt for Electron, the web build, Claude Code left unsigned by us, ad-hoc signing, `.dmg` + `.zip` (arm64) and AppImage, the GitHub feed files (AC-1, AC-2, AC-12)
-      Check: pnpm --filter @devhub/desktop pack; codesign -dv on the packed claude shows TeamIdentifier=Q6L2SF6YDW; latest-mac.yml is in apps/desktop/release
-      Files: apps/desktop/electron-builder.yml, apps/desktop/scripts/pack.ts, apps/desktop/package.json, apps/desktop/build/icon.png (drawn from apps/web/public/favicon.svg), .gitignore
+- [x] Task 9: Packing: the server deployed with its production `node_modules` (hoisted), the web build, Claude Code left unsigned by us, ad-hoc signing, `.dmg` + `.zip` (arm64) and AppImage, the GitHub feed files (AC-1, AC-2, AC-12)
+      Check: pnpm --filter @devhub/desktop package; codesign -dv on the packed claude shows TeamIdentifier=Q6L2SF6YDW; latest-mac.yml is in apps/desktop/release. Also run by hand on a throwaway home: the packed app opened Home on a free port, and quitting stopped the hub and removed runtime.json
+      Files: apps/desktop/electron-builder.yml, scripts/pack-desktop.ts, apps/desktop/package.json, apps/desktop/build/icon.png (drawn from apps/web/public/favicon.svg), .gitignore, pnpm-lock.yaml
 - [ ] Task 10: The desktop e2e test on the packed app: temporary home, memory keychain, fake Claude Code, a fake releases server; Home shows, a second launch focuses the window, another live hub shows AC-8's dialog, links reach the recorder, the window has no Node, quitting removes `runtime.json`, a 404 shows nothing (AC-3, AC-5, AC-7, AC-8, AC-9, AC-13, AC-14, AC-15, AC-18, AC-21, AC-22, AC-23, AC-40, AC-41)
       Check: pnpm --filter @devhub/desktop test:e2e
       Files: apps/desktop/playwright.config.ts, apps/desktop/e2e/desktop.spec.ts, apps/desktop/e2e/fake-releases.ts, eslint.config.ts

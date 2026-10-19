@@ -27,3 +27,7 @@ cache.db-*
 
 # Vitest blob reports, one per package in CI, merged by `vitest --merge-reports`.
 .vitest/
+
+# The desktop app's staged hub and its installers (spec 027).
+apps/desktop/.stage/
+apps/desktop/release/

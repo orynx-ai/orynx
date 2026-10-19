@@ -8,10 +8,10 @@
   "main": "dist/main.cjs",
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "package": "node --disable-warning=ExperimentalWarning ../../scripts/pack-desktop.ts"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.2.1",
     "@types/node": "^24.19.2",
     "electron": "44.9.0",
     "electron-builder": "^26.15.3",
