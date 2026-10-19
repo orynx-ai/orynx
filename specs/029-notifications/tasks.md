@@ -19,7 +19,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: The notification service: list with counts, read, read all, session and inbox hooks, the first-sync rule, `notifications.changed`; hooks in the session and inbox services (AC-9, AC-12, AC-13, AC-19, AC-21, AC-22)
       Check: pnpm test packages/core/src/notifications/notification-service.test.ts packages/core/src/inbox/inbox-service.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/notifications/notification-service.ts, packages/core/src/notifications/notification-service.test.ts, packages/core/src/inbox/inbox-service.ts, packages/core/src/sessions/session-service.ts
-- [ ] Task 6: The notification settings service: read with defaults, save one change, keep unknown keys, `settings.changed` (AC-39, AC-41, AC-44)
+- [x] Task 6: The notification settings service: read with defaults, save one change, keep unknown keys, `settings.changed` (AC-39, AC-41, AC-44)
       Check: pnpm test packages/core/src/notifications/notification-settings.test.ts
       Files: packages/core/src/notifications/notification-settings.ts, packages/core/src/notifications/notification-settings.test.ts, packages/core/src/settings/settings-store.ts
 - [ ] Task 7: Routes: `GET /api/notifications`, `POST /api/notifications/read`, `GET`/`PATCH /api/notifications/settings`, wired in the server; ids only in logs and events (AC-7, AC-13, AC-47)
