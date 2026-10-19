@@ -48,6 +48,7 @@ export {
   type ComposerTextareaProps,
 } from './components/composer.tsx';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './components/combobox.tsx';
+export { SuggestionList, type SuggestionListProps, type SuggestionOption } from './components/suggestion-list.tsx';
 export {
   ContextChip,
   ContextList,
