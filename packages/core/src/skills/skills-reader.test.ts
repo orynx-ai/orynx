@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -109,5 +109,49 @@ describe('the skills a folder and you have (spec 022)', () => {
       folder: { '.claude/skills/big/SKILL.md': skill('big', 'A big skill', 'x'.repeat(1024 * 1024)) },
     });
     expect(await readSkills({ folder, home })).toMatchObject([{ name: 'big', description: 'A big skill' }]);
+  });
+
+  it('AC-21 (spec 023): lists your Orynx skills after yours, by folder, with no folder Claude may read', async () => {
+    const { folder, home } = await folders({
+      folder: { '.claude/skills/review/SKILL.md': skill('review', 'The folder’s review') },
+      home: { '.claude/skills/notes/SKILL.md': skill('notes', 'Keep notes') },
+    });
+    const orynx = join(home, '..', 'devhub', 'plugin', 'skills');
+    const outside = join(home, '..', 'outside');
+    for (const [path, text] of [
+      ['bug-bash/SKILL.md', skill('bug-bash', 'Hunt for bugs')],
+      ['review/SKILL.md', skill('review', 'My own review')],
+      ['notes/SKILL.md', skill('notes', 'My own notes')],
+    ] as const) {
+      await mkdir(join(orynx, path, '..'), { recursive: true });
+      await writeFile(join(orynx, path), text);
+    }
+    await mkdir(outside, { recursive: true });
+    await writeFile(join(outside, 'SKILL.md'), skill('linked', 'Somewhere else'));
+    await symlink(outside, join(orynx, 'linked'));
+
+    const skills = await readSkills({ folder, home, orynx });
+
+    // The folder's and yours win on a name; a link is never followed out of the skills folder.
+    expect(skills.map(({ name, description, source }) => ({ name, description, source }))).toEqual([
+      { name: 'review', description: 'The folder’s review', source: 'folder' },
+      { name: 'notes', description: 'Keep notes', source: 'yours' },
+      { name: 'bug-bash', description: 'Hunt for bugs', source: 'orynx' },
+    ]);
+    expect(skills[2]).toEqual({
+      name: 'bug-bash',
+      description: 'Hunt for bugs',
+      source: 'orynx',
+      file: join(orynx, 'bug-bash', 'SKILL.md'),
+      folder: null,
+    });
+  });
+
+  it('AC-21 (spec 023): with no Orynx skills folder yet, lists the rest as before', async () => {
+    const { home } = await folders({ home: { '.claude/skills/notes/SKILL.md': skill('notes', 'Keep notes') } });
+
+    const skills = await readSkills({ folder: null, home, orynx: join(home, 'nowhere') });
+
+    expect(skills.map((found) => found.name)).toEqual(['notes']);
   });
 });

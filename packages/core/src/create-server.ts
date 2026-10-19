@@ -18,6 +18,8 @@ import { createInboxService } from './inbox/inbox-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createPreferencesService } from './preferences/preferences-service.ts';
 import { createRepositoryService, FolderRejectedError } from './repositories/repository-service.ts';
+import { createSkillStore, orynxSkillsFolder, SkillRejectedError } from './skills/skill-store.ts';
+import { orynxSkillUses } from './skills/skill-uses.ts';
 import {
   createFilePicker,
   createFolderPicker,
@@ -33,6 +35,7 @@ import { jiraRoutes } from './routes/jira.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
 import { filesRoutes } from './routes/files.ts';
+import { orynxSkillsRoutes } from './routes/orynx-skills.ts';
 import { skillsRoutes } from './routes/skills.ts';
 import { createSkillsService } from './skills/skills-service.ts';
 import { folderPickerRoutes } from './routes/folder-picker.ts';
@@ -315,7 +318,13 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const userHome = options.userHome ?? homedir();
   const devhubHome = options.dataDir ?? join(homedir(), '.devhub');
   const repositories = createRepositoryService({ settings, events, home: userHome, devhubHome });
-  const skills = createSkillsService({ repositories, home: userHome });
+  const skills = createSkillsService({ repositories, home: userHome, orynx: orynxSkillsFolder(devhubHome) });
+  const orynxSkills = createSkillStore({
+    devhubHome,
+    home: userHome,
+    events,
+    uses: () => orynxSkillUses(sessions),
+  });
   const adapter =
     options.agent === undefined
       ? null
@@ -429,7 +438,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
           const body: ApiError = { code: 'bad_request', message: error.message };
           return reply.code(400).send(body);
         }
-        if (error instanceof FolderRejectedError) {
+        if (error instanceof FolderRejectedError || error instanceof SkillRejectedError) {
           const body: ApiError = { code: error.code, message: error.message };
           return reply.code(422).send(body);
         }
@@ -465,11 +474,12 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(ticketsRoutes, { tickets, inbox, jira });
       await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });
       await api.register(repositoriesRoutes, { repositories });
+      await api.register(skillsRoutes, { skills });
       await api.register(folderPickerRoutes, {
         picker: options.folderPicker ?? createFolderPicker({ searchPath: '', platform: process.platform }),
         home: userHome,
       });
-      await api.register(skillsRoutes, { skills });
+      await api.register(orynxSkillsRoutes, { store: orynxSkills });
       await api.register(filesRoutes, {
         picker: options.filePicker ?? createFilePicker({ searchPath: '', platform: process.platform }),
         home: userHome,

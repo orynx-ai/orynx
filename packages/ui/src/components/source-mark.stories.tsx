@@ -16,3 +16,6 @@ export const Orynx: Story = { args: { source: 'orynx' } };
 export const Large: Story = { args: { source: 'slack', size: 'lg' } };
 export const MarkOnly: Story = { args: { source: 'jira', size: 'lg', label: 'none' } };
 export const NameForScreenReadersOnly: Story = { args: { source: 'github', label: 'hidden' } };
+/** One of your skills, as Settings › Skills' editor heads it (spec 023). */
+export const Skill: Story = { args: { source: 'skill' } };
+export const SkillLarge: Story = { args: { source: 'skill', size: 'lg', label: 'none' } };

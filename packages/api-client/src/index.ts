@@ -11,6 +11,7 @@ export {
   preferencesQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
+  orynxSkillsQueryOptions,
   searchQueryOptions,
   sessionChangesQueryKey,
   sessionChangesQueryOptions,

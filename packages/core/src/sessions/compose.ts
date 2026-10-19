@@ -30,7 +30,14 @@ export function ticketPlan(issue: JiraIssueDetail): StartPlan {
   return {
     brief: ticketBrief(issue),
     branchName: issue.key,
-    briefStep: { key: issue.key, tickets: [], message: false, pullRequests: [], files: [], skills: [] },
+    briefStep: {
+      key: issue.key,
+      tickets: [],
+      message: false,
+      pullRequests: [],
+      files: [],
+      skills: [],
+    },
     ticketNote: true,
     reads: noReads,
   };
@@ -92,13 +99,15 @@ export function composerPlan(
         ),
         files: chips.flatMap((chip) => (chip.kind === 'file' ? [chip.path] : [])),
         skills: skills.map((skill) => `/${skill.name}`),
+        orynxSkills: skills.flatMap((skill) => (skill.source === 'orynx' ? [skill.name] : [])),
       },
       ticketNote: ticket !== null && message === '',
-      // The files you picked, a command's own file, and each skill's folder, which Claude may read (spec 022).
+      // The files you picked, a command's own file, and each skill's folder, which Claude may read (spec 022). An
+      // Orynx skill's file is in DEVHUB_HOME, which Claude may never read; its text is in the brief (spec 023, AC-22).
       reads: {
         files: [
           ...chips.flatMap((chip) => (chip.kind === 'file' ? [chip.real] : [])),
-          ...skills.flatMap((skill) => (skill.folder === null ? [skill.file] : [])),
+          ...skills.flatMap((skill) => (skill.folder === null && skill.source !== 'orynx' ? [skill.file] : [])),
         ],
         folders: skills.flatMap((skill) => (skill.folder === null ? [] : [skill.folder])),
       },

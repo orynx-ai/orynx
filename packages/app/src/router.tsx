@@ -14,7 +14,7 @@ import { NotFoundScreen } from './features/not-found/not-found-screen.tsx';
 import { SessionScreen } from './features/sessions/session-screen.tsx';
 import { SessionsScreen } from './features/sessions/sessions-screen.tsx';
 import { SettingsScreen } from './features/settings/settings-screen.tsx';
-import { SettingsTabSchema } from './features/settings/tabs.ts';
+import { SettingsSearchSchema, SettingsTabSchema } from './features/settings/tabs.ts';
 import { SessionSearchSchema } from './features/sessions/session-search.ts';
 import { TicketsSearchSchema } from './features/tickets/filters.ts';
 import { TicketsScreen } from './features/tickets/tickets-screen.tsx';
@@ -73,6 +73,7 @@ const settingsRoute = createRoute({
     parse: (raw) => ({ tab: SettingsTabSchema.catch('connections').parse(raw.tab) }),
     stringify: ({ tab }) => ({ tab }),
   },
+  validateSearch: (search) => SettingsSearchSchema.parse(search),
   component: SettingsScreen,
 });
 

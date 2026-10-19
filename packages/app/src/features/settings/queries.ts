@@ -7,6 +7,7 @@ import {
   preferencesQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
+  orynxSkillsQueryOptions,
   statusQueryOptions,
   type ApiRequestError,
 } from '@devhub/api-client';
@@ -21,6 +22,9 @@ import type {
   PreferencesChange,
   AddRepositoryRequest,
   FolderPick,
+  ReadySkill,
+  SaveSkillRequest,
+  SkillFolder,
   Repository,
   RepositoryId,
   RepositoryList,
@@ -364,4 +368,57 @@ export function useRemoveRepository() {
 export function useClearInboxCache() {
   const api = useApi();
   return useMutation({ mutationKey: [...queryKeys.inbox, 'clear'], mutationFn: () => api.clearInboxCache() });
+}
+
+/** Settings › Skills (spec 023): your skills by Name. Kept fresh by `skills.changed`, not polling. */
+export function useSkills() {
+  const api = useApi();
+  return useQuery(orynxSkillsQueryOptions(api));
+}
+
+/** Adds the four starter skills whose folders are free (AC-13); the list reads them again when it lands. */
+export function useAddStarterSkills() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: [...queryKeys.orynxSkills, 'starters'],
+    mutationFn: () => api.addStarterSkills(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
+  });
+}
+
+/**
+ * Saves a skill. The list reads itself again before the save settles, so a rename's new folder is listed by the
+ * time the editor opens it.
+ */
+export function useSaveSkill() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<ReadySkill, ApiRequestError, { folder: SkillFolder; request: SaveSkillRequest }>({
+    mutationKey: [...queryKeys.orynxSkills, 'save'],
+    mutationFn: ({ folder, request }) => api.saveOrynxSkill(folder, request),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
+  });
+}
+
+/** Writes a new skill; listed before the save settles, as {@link useSaveSkill}. */
+export function useAddSkill() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<ReadySkill, ApiRequestError, SaveSkillRequest>({
+    mutationKey: [...queryKeys.orynxSkills, 'add'],
+    mutationFn: (request) => api.addOrynxSkill(request),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
+  });
+}
+
+/** Deletes a skill's folder; the list reads itself again before the delete settles. */
+export function useRemoveSkill() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<unknown, ApiRequestError, SkillFolder>({
+    mutationKey: [...queryKeys.orynxSkills, 'remove'],
+    mutationFn: (folder) => api.removeOrynxSkill(folder),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
+  });
 }

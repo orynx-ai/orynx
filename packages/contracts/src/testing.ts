@@ -47,6 +47,7 @@ import {
   type SessionSummary,
   type SessionTicket,
 } from './session.ts';
+import { OrynxSkillListSchema, ReadySkillSchema, type OrynxSkillList, type ReadySkill } from './orynx-skills.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 import {
   OpenSprintSchema,
@@ -318,6 +319,25 @@ export function makeRepository(overrides: Partial<Repository> = {}): Repository 
     jiraProject: 'PROJ',
     ...overrides,
   });
+}
+
+/** Your skill "Bug bash", with the design's words, unless the override says otherwise (spec 023). */
+export function makeOrynxSkill(overrides: Partial<Omit<ReadySkill, 'state'>> = {}): ReadySkill {
+  return ReadySkillSchema.parse({
+    state: 'ready',
+    folder: 'bug-bash',
+    title: 'Bug bash',
+    description: 'Hunt for bugs in the code a ticket touches and list each one with steps to reproduce.',
+    uses: 0,
+    instructions:
+      '# Bug bash\n\n1. Read the ticket and its acceptance criteria.\n2. Run the existing tests.\n\nDo not change any code. Report only.\n',
+    ...overrides,
+  });
+}
+
+/** Settings › Skills with Bug bash in ~/.devhub/plugin, unless the override says otherwise. */
+export function makeOrynxSkillList(overrides: Partial<OrynxSkillList> = {}): OrynxSkillList {
+  return OrynxSkillListSchema.parse({ pluginFolder: '~/.devhub/plugin', skills: [makeOrynxSkill()], ...overrides });
 }
 
 /**

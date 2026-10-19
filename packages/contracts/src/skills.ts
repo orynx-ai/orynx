@@ -12,8 +12,8 @@ export const SkillNameSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,6
 export const SkillSchema = z.object({
   name: SkillNameSchema,
   description: z.string().min(1).nullable(),
-  /** The folder the composer shows, or yours. */
-  source: z.enum(['folder', 'yours']),
+  /** The folder the composer shows, yours under `~/.claude`, or yours in Orynx (Settings › Skills, spec 023). */
+  source: z.enum(['folder', 'yours', 'orynx']),
 });
 export type Skill = z.infer<typeof SkillSchema>;
 

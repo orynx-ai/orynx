@@ -12,6 +12,7 @@ export const queryKeys = {
   githubConnection: ['github', 'connection'] as const,
   preferences: ['preferences'] as const,
   repositories: ['repositories'] as const,
+  orynxSkills: ['skills', 'orynx'] as const,
   inbox: ['inbox'] as const,
   tickets: ['tickets'] as const,
   /** Not under `tickets`, so a sync's inbox.changed never asks Jira for a project's sprints again. */
@@ -137,6 +138,16 @@ export function repositoriesQueryOptions(api: ApiClient) {
     queryKey: queryKeys.repositories,
     queryFn: () => api.repositories(),
     // Every add and remove publishes settings.changed, which refreshes this in every open tab.
+    staleTime: Infinity,
+  });
+}
+
+export function orynxSkillsQueryOptions(api: ApiClient) {
+  return queryOptions({
+    // Under the composer's skills, so skills.changed refreshes both with one key (spec 023).
+    queryKey: queryKeys.orynxSkills,
+    queryFn: () => api.orynxSkills(),
+    // Every add, save and delete publishes skills.changed, which refreshes this in every open tab (spec 023).
     staleTime: Infinity,
   });
 }

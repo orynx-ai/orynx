@@ -1,4 +1,4 @@
-// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Coding agent (agent cards and modes), Repositories and Inbox rules tabs
+// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Coding agent (agent cards and modes), Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023)
 import { useRef } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { SquareLock02Icon } from '@hugeicons/core-free-icons';
@@ -9,6 +9,8 @@ import { AppearancePanel } from './components/appearance-panel.tsx';
 import { CodingAgentPanel } from './components/coding-agent-panel.tsx';
 import { InboxRulesPanel } from './components/inbox-rules-panel.tsx';
 import { RepositoriesPanel } from './components/repositories-panel.tsx';
+import { SkillsBarActions } from './components/skills-bar-actions.tsx';
+import { SkillsPanel } from './components/skills-panel.tsx';
 import { ConnectionsPanel } from './components/connections-panel.tsx';
 import { SettingsTabSchema, settingsTabLabels } from './tabs.ts';
 
@@ -25,8 +27,14 @@ export function SettingsScreen() {
         breadcrumb={
           <PageBreadcrumb crumbs={[{ label: 'Settings', to: '/settings' }, { label: settingsTabLabels[tab] }]} />
         }
-        // Under 768 px the bar has room only for the crumbs.
-        actions={<span className="text-small text-muted-foreground max-md:hidden">Changes save automatically</span>}
+        actions={
+          tab === 'skills' ? (
+            <SkillsBarActions />
+          ) : (
+            // Under 768 px the bar has room only for the crumbs.
+            <span className="text-small text-muted-foreground max-md:hidden">Changes save automatically</span>
+          )
+        }
       />
       <PageBody>
         <div className="flex flex-col gap-1">
@@ -71,6 +79,9 @@ export function SettingsScreen() {
           </TabsContent>
           <TabsContent value="coding-agent" className="pt-6">
             <CodingAgentPanel />
+          </TabsContent>
+          <TabsContent value="skills" className="pt-6">
+            <SkillsPanel />
           </TabsContent>
           <TabsContent value="repositories" className="pt-6">
             <RepositoriesPanel />

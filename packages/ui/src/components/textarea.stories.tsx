@@ -40,3 +40,11 @@ export const Invalid: Story = {
     </div>
   ),
 };
+/** A skill's instructions in Settings › Skills (spec 023): the mono face, at least 300 px tall. */
+export const Mono: Story = {
+  args: {
+    mono: true,
+    defaultValue:
+      '# Bug bash\n\n1. Read the ticket and its acceptance criteria.\n2. Run the existing tests.\n\nDo not change any code. Report only.\n',
+  },
+};

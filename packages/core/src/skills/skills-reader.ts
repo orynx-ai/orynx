@@ -1,4 +1,4 @@
-import { open, readdir, stat } from 'node:fs/promises';
+import { lstat, open, readdir, stat } from 'node:fs/promises';
 import { join, relative, sep } from 'node:path';
 import { parse } from 'yaml';
 
@@ -11,10 +11,13 @@ export interface FoundSkill {
   /** What follows `/`: the frontmatter's `name`, else the folder's name; a command's path, folders joined by `:`. */
   name: string;
   description: string | null;
-  source: 'folder' | 'yours';
+  source: 'folder' | 'yours' | 'orynx';
   /** The skill's file, which the brief gives Claude. */
   file: string;
-  /** A skill's own folder, which Claude may read (AC-53); null for a command, which is a file on its own. */
+  /**
+   * A skill's own folder, which Claude may read (AC-53); null for a command, which is a file on its own, and for an
+   * Orynx skill, which lives in DEVHUB_HOME, where Claude may read nothing: its text goes in the brief whole.
+   */
   folder: string | null;
 }
 
@@ -115,18 +118,56 @@ async function commandsIn(base: string, source: FoundSkill['source']): Promise<F
   return found;
 }
 
+/** Whether a path is this kind of thing itself, not through a link: an Orynx skill never leads out of its folder. */
+async function isOwn(path: string, kind: 'folder' | 'file'): Promise<boolean> {
+  return lstat(path).then(
+    (found) => (kind === 'folder' ? found.isDirectory() : found.isFile()),
+    () => false,
+  );
+}
+
+/**
+ * Your skills in Orynx (spec 023): `<root>/<folder>/SKILL.md`, as Settings › Skills writes them, each named by its
+ * folder, as Settings says you type it. Links are skipped.
+ */
+async function orynxSkillsIn(root: string): Promise<FoundSkill[]> {
+  const found: FoundSkill[] = [];
+  for (const entry of (await entries(root)).sort()) {
+    const folder = join(root, entry);
+    const file = join(folder, 'SKILL.md');
+    if (!(await isOwn(folder, 'folder')) || !(await isOwn(file, 'file'))) continue;
+    const text = await head(file);
+    if (text === null) continue;
+    const front = frontmatterOf(text);
+    if (front === null) continue;
+    found.push({ name: entry, description: front.description, source: 'orynx', file, folder: null });
+  }
+  return found;
+}
+
 /**
  * The folder's skills and commands, then yours (AC-49), by name; the folder's wins on a name you share (AC-58).
  * A name `/` can't be typed with, a file that can't be read or whose frontmatter won't parse is left out (AC-57).
+ * Your Orynx skills come last (spec 023, AC-21): a folder's skill or one under `~/.claude` wins on a name.
  */
-export async function readSkills({ folder, home }: { folder: string | null; home: string }): Promise<FoundSkill[]> {
+export async function readSkills({
+  folder,
+  home,
+  orynx = null,
+}: {
+  folder: string | null;
+  home: string;
+  /** `<DEVHUB_HOME>/plugin/skills`, where Settings › Skills keeps yours; none to leave them out. */
+  orynx?: string | null;
+}): Promise<FoundSkill[]> {
   const byName = (a: FoundSkill, b: FoundSkill) => a.name.localeCompare(b.name);
   const theFolder =
     folder === null ? [] : [...(await skillsIn(folder, 'folder')), ...(await commandsIn(folder, 'folder'))];
   const yours = [...(await skillsIn(home, 'yours')), ...(await commandsIn(home, 'yours'))];
+  const inOrynx = orynx === null ? [] : await orynxSkillsIn(orynx);
   const seen = new Set<string>();
   const kept: FoundSkill[] = [];
-  for (const skill of [...theFolder.sort(byName), ...yours.sort(byName)]) {
+  for (const skill of [...theFolder.sort(byName), ...yours.sort(byName), ...inOrynx.sort(byName)]) {
     if (!skillName.test(skill.name) || seen.has(skill.name)) continue;
     seen.add(skill.name);
     kept.push(skill);

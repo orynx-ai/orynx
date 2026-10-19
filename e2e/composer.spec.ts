@@ -166,6 +166,37 @@ test.afterAll(() => {
   rmSync(repository.root, { recursive: true, force: true });
 });
 
+test('023 AC-21, AC-22: a skill from Settings › Skills is in the / list as Orynx, and Claude gets its text', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await api(page, 'POST', '/api/skills/orynx', {
+    title: 'Bug bash e2e',
+    description: 'Hunt for bugs in the date picker',
+    instructions: '# Bug bash\n\nList each bug. Report only, e2e.',
+  });
+  await expect(page.getByRole('button', { name: 'Repository: web-app' })).toBeVisible();
+
+  await box(page).click();
+  await page.keyboard.type('/bug-bash-e');
+  const option = page.getByRole('listbox', { name: 'Skills' }).getByRole('option').filter({ hasText: '/bug-bash-e2e' });
+  await expect(option).toContainText('Hunt for bugs in the date picker');
+  await expect(option).toContainText('Orynx');
+  await page.keyboard.press('Enter');
+  await expect(box(page)).toHaveValue('/bug-bash-e2e ');
+  await page.keyboard.type('on the date picker');
+  await page.keyboard.press('Enter');
+
+  await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);
+  await expect.poll(lastBrief).toContain('Skill /bug-bash-e2e');
+  const brief = lastBrief();
+  expect(brief).toMatch(/^\/bug-bash-e2e on the date picker\n/);
+  expect(brief).toContain('List each bug. Report only, e2e.');
+  // An Orynx skill lives in DEVHUB_HOME, where Claude may read nothing: its text is all it gets.
+  expect(brief).not.toContain('Its folder is');
+  expect(brief).not.toContain('title: Bug bash e2e');
+});
+
 test('AC-1, AC-4, AC-24: my words alone start a session on its own branch, and Claude gets exactly them', async ({
   page,
 }) => {
@@ -216,7 +247,7 @@ test('AC-6 to AC-8, AC-11, AC-14, AC-20, 022 AC-9, AC-10: a ticket, a pasted pul
   await page.getByRole('menuitem', { name: /File from this computer/ }).click();
 
   // Two chips show, then +1 for the third (spec 022, AC-19).
-  await expect(chips(page)).toHaveText(['PROJ-1423', 'web-app #2836', '+1: Show all 3 items of context']);
+  await expect(chips(page)).toHaveText(['PROJ-1423', 'web-app #2836', '+1']);
   await box(page).fill('Use the notes');
   await page.getByRole('button', { name: 'Send to Claude' }).click();
 
@@ -252,7 +283,7 @@ test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Ho
   await jira.getByRole('option', { name: /PROJ-1423/ }).click();
   await page.keyboard.press('Escape');
 
-  await expect(chips(page)).toHaveText(['PROJ-1377', 'web-app #2836', '+1: Show all 3 items of context']);
+  await expect(chips(page)).toHaveText(['PROJ-1377', 'web-app #2836', '+1']);
   await expect(box(page)).toHaveAttribute('placeholder', 'What should Claude do with these 2 tickets?');
   await page.getByRole('button', { name: '+1: Show all 3 items of context' }).click();
   const all = page.getByRole('dialog', { name: 'Context for Claude' });

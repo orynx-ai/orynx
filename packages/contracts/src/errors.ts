@@ -19,6 +19,8 @@ export const ApiErrorCodeSchema = z.enum([
   'settings_unsaved',
   /** No folder picker can open on this computer, so the path is typed instead (spec 020, AC-36). */
   'picker_unavailable',
+  /** A skill can't be saved under that Name: another of your skills has its folder (spec 023, AC-7). */
+  'skill_rejected',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;

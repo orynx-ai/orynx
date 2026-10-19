@@ -28,10 +28,13 @@ function bodyOf(text: string): string {
 export function createSkillsService({
   repositories,
   home,
+  orynx = null,
 }: {
   repositories: Pick<RepositoryService, 'list'>;
   /** The person's home folder, whose `.claude` holds your skills. */
   home: string;
+  /** `<DEVHUB_HOME>/plugin/skills`: the skills you write in Settings › Skills (spec 023), listed after the rest. */
+  orynx?: string | null;
 }): SkillsService {
   return {
     async list(repositoryId) {
@@ -41,16 +44,16 @@ export function createSkillsService({
         if (repository === undefined) return null;
         folder = repository.path;
       }
-      const skills = await readSkills({ folder, home });
+      const skills = await readSkills({ folder, home, orynx });
       return { skills: skills.map(({ name, description, source }) => ({ name, description, source })) };
     },
     found(folderPath) {
-      return readSkills({ folder: folderPath, home });
+      return readSkills({ folder: folderPath, home, orynx });
     },
     async named(message, folderPath) {
       const names = skillsNamedIn(message);
       if (names.length === 0) return [];
-      const skills = await readSkills({ folder: folderPath, home });
+      const skills = await readSkills({ folder: folderPath, home, orynx });
       const picked = names.flatMap((name) => skills.filter((skill) => skill.name === name));
       const read = await Promise.all(
         picked.map(async (skill): Promise<BriefSkill | null> => {
@@ -61,6 +64,7 @@ export function createSkillsService({
               text: bodyOf(text),
               file: await realpath(skill.file),
               folder: skill.folder === null ? null : await realpath(skill.folder),
+              source: skill.source,
             };
           } catch {
             // Gone since it was listed: it's just words now.

@@ -104,6 +104,11 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     files: z.array(z.string().min(1)).default([]),
     /** The skills your message named, as `/review` (spec 022, AC-53); none before spec 022. */
     skills: z.array(z.string().min(1)).default([]),
+    /**
+     * The folders of your Orynx skills among them (spec 023), for Settings › Skills' use counts. Absent means none,
+     * as in every session from before spec 023. A folder's skill with the same name isn't one.
+     */
+    orynxSkills: z.array(z.string().min(1)).optional(),
   }),
   ActivityBaseSchema.extend({ kind: z.literal('explore'), files: FilesSchema }),
   /** The plan's items, from Claude's to-do list. */

@@ -1,4 +1,4 @@
-<!-- learn-sources: packages/core/src/plugins/local-only.ts apps/server/src/runtime-file.ts apps/web/vite.config.ts packages/api-client/src/client.ts packages/api-client/src/endpoints/repositories.ts packages/core/src/folder-picker/folder-picker.ts packages/core/src/routes/folder-picker.ts packages/api-client/src/endpoints/files.ts packages/core/src/routes/files.ts packages/core/src/files/file-paths.ts packages/core/src/skills/skills-reader.ts packages/core/src/routes/skills.ts packages/contracts/src/secret-names.ts packages/core/src/create-server.ts packages/core/src/agents/agent-environment.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/sessions/worktrees.ts packages/core/src/sessions/branch-git.ts packages/core/src/sessions/secret-files.ts -->
+<!-- learn-sources: packages/core/src/plugins/local-only.ts apps/server/src/runtime-file.ts apps/web/vite.config.ts packages/api-client/src/client.ts packages/api-client/src/endpoints/repositories.ts packages/core/src/folder-picker/folder-picker.ts packages/core/src/routes/folder-picker.ts packages/api-client/src/endpoints/files.ts packages/core/src/routes/files.ts packages/core/src/files/file-paths.ts packages/core/src/skills/skills-reader.ts packages/core/src/routes/skills.ts packages/contracts/src/secret-names.ts packages/core/src/create-server.ts packages/core/src/agents/agent-environment.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/sessions/worktrees.ts packages/core/src/sessions/branch-git.ts packages/core/src/sessions/secret-files.ts packages/core/src/skills/skill-store.ts packages/core/src/routes/orynx-skills.ts -->
 
 # Local security: why only this tab can call the server
 
@@ -59,6 +59,14 @@ Not here. Those live in the OS keychain, are read only by `packages/core` (throu
 - **One at a time, and not forever.** A second request while one is open shares its answer, and a picker left open 10 minutes is killed.
 - **Paths, whole.** Folder output that holds a line break inside it is refused rather than cut at the first line, so a folder planted with a newline in its name can't fill Folder with another, real folder. macOS's file picker answers JSON, so such a name stays one file; on Linux, where files come one a line, an answer with any line that isn't an absolute path is refused whole.
 - **They read and save nothing.** A folder's answer is a path for the Folder field, and saving the folder checks it on disk as a typed path is checked. A file's answer is a path for a chip: the server never opens the file, and neither does the page. `POST /api/files/check`, for a typed path when no picker opens, only asks whether a file this process can read is there.
+
+## Your skills' files (spec 023)
+
+Settings › Skills writes files on the laptop, so the routes take nothing they could be steered with:
+
+- **A folder name, never a path.** `/api/skills/orynx/:folder` takes only a name `SkillFolderSchema` allows (lowercase letters and digits joined by single hyphens), so `..`, `/` and capitals get 400 before the disk is touched. New names come from `folderFromName()`, which can't make anything else.
+- **Inside `<DEVHUB_HOME>/plugin/skills` only.** Folders are 0700 and files 0600, written as a temporary file renamed into place. A link is skipped when listing and never written through or deleted through (`lstat`, not `stat`).
+- **No skill text in the log.** Logs and events carry folder names and counts, never a Name, a description or instructions (spec 023, AC-28).
 
 ## What a Claude session can reach (specs 011 and 012)
 

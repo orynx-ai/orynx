@@ -59,6 +59,8 @@ export interface BriefSkill {
   text: string;
   file: string;
   folder: string | null;
+  /** Where it was found; an Orynx skill (spec 023) lives in DEVHUB_HOME, so Claude gets its text and nothing to read. */
+  source: 'folder' | 'yours' | 'orynx';
 }
 
 /** One chip as the server read it, in the order you added it. */

@@ -19,6 +19,10 @@ import {
   type Repository,
   type RepositoryId,
   type RepositoryList,
+  type OrynxSkillList,
+  type ReadySkill,
+  type SaveSkillRequest,
+  type SkillFolder,
   type UpdateRepositoryRequest,
   type SearchIndex,
   type ServerEvent,
@@ -56,6 +60,13 @@ import {
   postFolderPicker,
   postRepository,
 } from './endpoints/repositories.ts';
+import {
+  deleteOrynxSkill,
+  getOrynxSkills,
+  postOrynxSkill,
+  postStarterSkills,
+  putOrynxSkill,
+} from './endpoints/orynx-skills.ts';
 import { getSearch } from './endpoints/search.ts';
 import {
   getFileDiff,
@@ -150,6 +161,15 @@ export interface ApiClient {
   pickFiles(): Promise<FilePicks>;
   /** Checks a typed path is a file Claude can read (spec 022). */
   checkFile(request: FileCheckRequest): Promise<FileCheckAnswer>;
+  /** Settings › Skills (spec 023): your own skills by Name, and the plugin folder they live in. */
+  orynxSkills(): Promise<OrynxSkillList>;
+  /** Writes a new skill; rejects with skill_rejected and the words for Name when its folder is taken. */
+  addOrynxSkill(request: SaveSkillRequest): Promise<ReadySkill>;
+  /** Saves a skill, moving its folder on a rename; rejects with skill_rejected, or not_found when it went. */
+  saveOrynxSkill(folder: SkillFolder, request: SaveSkillRequest): Promise<ReadySkill>;
+  removeOrynxSkill(folder: SkillFolder): Promise<void>;
+  /** Adds the four starter skills whose folders are free. */
+  addStarterSkills(): Promise<void>;
   /** Home's "Needs your attention" list, from the server's cache. */
   inbox(): Promise<Inbox>;
   /** Syncs the inbox now; resolves once the sync has ended. */
@@ -244,6 +264,14 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     pickFiles: () => postFilePicker(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkFile: (request) =>
       postFileCheck(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    orynxSkills: () => getOrynxSkills(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    addOrynxSkill: (request) =>
+      postOrynxSkill(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    saveOrynxSkill: (folder, request) =>
+      putOrynxSkill(http, folder, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    removeOrynxSkill: (folder) =>
+      deleteOrynxSkill(http, folder).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    addStarterSkills: () => postStarterSkills(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     inbox: () => getInbox(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     refreshInbox: () => postInboxRefresh(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

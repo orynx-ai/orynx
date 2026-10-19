@@ -101,6 +101,8 @@ export const composerWords = {
   skills: {
     label: 'Skills',
     yours: 'Yours',
+    /** A skill you wrote in Settings › Skills (spec 023). */
+    orynx: 'Orynx',
     empty: (folder: string | null) =>
       folder === null ? 'No skills in ~/.claude.' : `No skills in ${folder} or in ~/.claude.`,
     failed: "Orynx couldn't read the skills.",
