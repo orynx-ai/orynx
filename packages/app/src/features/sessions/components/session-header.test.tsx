@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Session } from '@devhub/contracts';
-import { makeSession } from '@devhub/contracts/testing';
+import { makePushDraft, makeSession, makeSessionChanges, makeSessionPullRequest } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -29,10 +29,26 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
+const pageBar = () => screen.getByRole('banner');
+
+/** A window under 768 px. */
+function narrow() {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
+}
+
+/** Done, with a change in its worktree, so it offers Create pull request. */
+const done = makeSession({ ...working, state: 'done', worktreePath: '/Users/you/.devhub/worktrees/x' });
+
 describe('SessionHeader', () => {
-  it('AC-6: the title row has the title, the state, the branch and where Claude works, with Stop Claude', async () => {
+  it('AC-6: the title row has the title, the state, the branch and where Claude works; Stop Claude is in the page bar', async () => {
     server.use(sessionHandler(working));
     await renderApp({ route });
 
@@ -43,7 +59,85 @@ describe('SessionHeader', () => {
     expect(within(main).getByText('Working')).toBeVisible();
     expect(within(main).getByText('feat/PROJ-1423')).toBeVisible();
     expect(within(main).getByText('in web-app · separate worktree, your main checkout is untouched')).toBeVisible();
-    expect(within(main).getByRole('button', { name: 'Stop Claude' })).toBeVisible();
+    expect(within(pageBar()).getByRole('button', { name: 'Stop Claude' })).toBeVisible();
+  });
+
+  it('puts Create pull request in the page bar, with Open in the editor and Discard changes in More actions', async () => {
+    server.use(
+      sessionHandler(done),
+      http.get(apiUrl(apiRoutes.sessionChanges), () => HttpResponse.json(makeSessionChanges())),
+    );
+    const { user } = await renderApp({ route });
+
+    expect(await within(pageBar()).findByRole('button', { name: 'Create pull request' })).toBeVisible();
+    const more = within(pageBar()).getByRole('button', { name: 'More actions' });
+    await user.click(more);
+    const menu = screen.getByRole('menu');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Open in VS Code', 'Discard changes']);
+    expect(within(menu).getByRole('menuitem', { name: 'Open in VS Code' })).toHaveAttribute(
+      'href',
+      'vscode://file/Users/you/.devhub/worktrees/x',
+    );
+  });
+
+  it('under 768 px puts Create pull request in More actions too, and Esc on its dialog gives More actions focus', async () => {
+    narrow();
+    server.use(
+      sessionHandler(done),
+      http.get(apiUrl(apiRoutes.sessionChanges), () => HttpResponse.json(makeSessionChanges())),
+      http.post(apiUrl(apiRoutes.sessionPullRequestDraft), () =>
+        HttpResponse.json({ result: 'cannot', reason: 'no_origin' }),
+      ),
+    );
+    const { user } = await renderApp({ route });
+    const more = await within(pageBar()).findByRole('button', { name: 'More actions' });
+    await user.click(more);
+    await waitFor(() => {
+      expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+        'Create pull request',
+        'Open in VS Code',
+        'Discard changes',
+      ]);
+    });
+    expect(screen.queryByRole('button', { name: 'Create pull request' })).toBeNull();
+
+    await user.click(screen.getByRole('menuitem', { name: 'Create pull request' }));
+    expect(await screen.findByRole('dialog', { name: 'Create pull request' })).toBeVisible();
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(more).toHaveFocus();
+  });
+
+  it('under 768 px, once the pull request is open, More actions holds Open PR and Push changes', async () => {
+    narrow();
+    const open = makeSession({
+      ...done,
+      state: 'pr_open',
+      step: 'pull_request',
+      pullRequest: makeSessionPullRequest(),
+    });
+    server.use(
+      sessionHandler(open),
+      http.post(apiUrl(apiRoutes.sessionPushDraft), () => HttpResponse.json(makePushDraft())),
+    );
+    const { user, platform } = await renderApp({ route });
+    const more = await within(pageBar()).findByRole('button', { name: 'More actions' });
+    expect(within(pageBar()).queryByRole('link', { name: /^Open PR/ })).toBeNull();
+    expect(within(pageBar()).queryByRole('button', { name: 'Push changes' })).toBeNull();
+
+    await user.click(more);
+    const pr = `#${String(2841)}`;
+    await user.click(screen.getByRole('menuitem', { name: `Open PR ${pr}` }));
+    expect(platform.openExternal).toHaveBeenCalledWith(open.pullRequest?.url);
+
+    await user.click(more);
+    await user.click(screen.getByRole('menuitem', { name: 'Push changes' }));
+    expect(await screen.findByRole('dialog', { name: 'Push changes' })).toBeVisible();
   });
 
   it('012 AC-1, Q8d: while a call waits, the pill says the session needs your approval, and Stop Claude stays', async () => {

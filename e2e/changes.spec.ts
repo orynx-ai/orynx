@@ -135,11 +135,20 @@ const progressOf = (page: Page) => page.getByRole('region', { name: "Claude's pr
  * on macOS can be `/var` for git's `/private/var`.
  */
 async function opensFolder(page: Page, label: 'Open in VS Code' | 'Open in Cursor'): Promise<string> {
-  const link = page.getByRole('link', { name: label });
+  // The link is in the page bar's More actions (19 Oct 2026).
+  await page.getByRole('button', { name: 'More actions' }).click();
+  const link = page.getByRole('menuitem', { name: label });
   const scheme = label === 'Open in VS Code' ? 'vscode' : 'cursor';
   await expect(link).toHaveAttribute('href', new RegExp(`^${scheme}://file/`));
   const href = (await link.getAttribute('href')) ?? '';
+  await page.keyboard.press('Escape');
   return realpathSync(decodeURIComponent(href.slice(`${scheme}://file`.length)));
+}
+
+/** Discard changes, from the page bar's More actions (19 Oct 2026). */
+async function pickDiscard(page: Page) {
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Discard changes' }).click();
 }
 
 test.beforeAll(async ({ browser }, testInfo) => {
@@ -196,7 +205,9 @@ test('AC-1, AC-2, AC-18: the Changes tab lists Claude’s edit as it lands, in e
   await page.getByRole('button', { name: 'Stop Claude' }).click();
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText('in 1 file', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Discard changes' })).toBeVisible();
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Discard changes' })).toBeVisible();
+  await page.keyboard.press('Escape');
   await other.close();
 });
 
@@ -273,7 +284,7 @@ test('AC-6: once discarded, the Changes tab says the changes are gone, with no O
   page,
 }) => {
   await page.goto(seen.working ?? '');
-  await page.getByRole('button', { name: 'Discard changes' }).click();
+  await pickDiscard(page);
   await page
     .getByRole('dialog', { name: "Discard Claude's changes?" })
     .getByRole('button', { name: 'Discard changes' })
@@ -281,8 +292,8 @@ test('AC-6: once discarded, the Changes tab says the changes are gone, with no O
 
   await expect(page.getByText('The changes are gone')).toBeVisible();
   await expect(page.getByText('The worktree and feat/CHG-1 were deleted.')).toBeVisible();
-  await expect(page.getByRole('link', { name: /^Open in (VS Code|Cursor)$/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Discard changes' })).toHaveCount(0);
+  // Nothing is left to open or discard, so More actions goes too.
+  await expect(page.getByRole('button', { name: 'More actions' })).toHaveCount(0);
   expect(worktreeOf('feat/CHG-1')).toBeUndefined();
 });
 
