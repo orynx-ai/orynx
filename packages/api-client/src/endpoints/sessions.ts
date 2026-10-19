@@ -11,6 +11,7 @@ import {
   RespondToApprovalRequestSchema,
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
+  SessionBriefSchema,
   SessionChangesSchema,
   SessionListSchema,
   SessionSchema,
@@ -24,6 +25,7 @@ import {
   type PushDraftAnswer,
   type SendMessageAnswer,
   type SendMessageInput,
+  type SessionBrief,
   type SessionChanges,
   type Session,
   type SessionList,
@@ -80,6 +82,12 @@ export async function postSessionMessage(
 ): Promise<SendMessageAnswer> {
   const res = await http.post<unknown>(pathFor(apiRoutes.sessionMessages, id), SendMessageRequestSchema.parse(request));
   return SendMessageAnswerSchema.parse(res.data);
+}
+
+/** Exactly what Orynx sent Claude at the start (spec 011, Q5). */
+export async function getSessionBrief(http: AxiosInstance, id: string): Promise<SessionBrief> {
+  const res = await http.get<unknown>(pathFor(apiRoutes.sessionBrief, id));
+  return SessionBriefSchema.parse(res.data);
 }
 
 /** What changed in the session's worktree (spec 013). */

@@ -80,6 +80,11 @@ export function sessionDiffQueryKey(id: string, path: string) {
   return [...sessionChangesQueryKey(id), 'diff', path] as const;
 }
 
+/** What Claude was sent at the start: read when it's shown, outside the session's own key, which steps refresh. */
+export function sessionBriefQueryOptions(api: ApiClient, id: string) {
+  return queryOptions({ queryKey: ['session-brief', id] as const, queryFn: () => api.sessionBrief(id) });
+}
+
 export function sessionChangesQueryOptions(api: ApiClient, id: string) {
   return queryOptions({
     queryKey: sessionChangesQueryKey(id),

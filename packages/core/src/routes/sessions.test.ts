@@ -7,6 +7,7 @@ import {
   ApiErrorSchema,
   FileDiffSchema,
   SendMessageAnswerSchema,
+  SessionBriefSchema,
   SessionChangesSchema,
   SessionListSchema,
   SessionSchema,
@@ -221,6 +222,26 @@ describe('GET /api/sessions/:id', () => {
     const { app } = await serverWith();
     const res = await app.inject({ method: 'GET', url: one('0123456789abcdef'), headers: { host: headers.host } });
     expect(res.statusCode).toBe(401);
+  });
+});
+
+describe('GET /api/sessions/:id/brief', () => {
+  const brief = (id: string) => apiRoutes.sessionBrief.replace(':id', id);
+
+  it('answers exactly what Claude was sent, null before anything was, and 404 for no such session', async () => {
+    const { app, store } = await serverWith({ id: '0123456789abcdef' }, { id: '00000000000000cc' });
+    await store.writeBrief('0123456789abcdef', 'Only the tests\n\nJira ticket PROJ-1423 (Story): Add bulk archive');
+
+    const sent = await app.inject({ method: 'GET', url: brief('0123456789abcdef'), headers });
+    expect(sent.statusCode).toBe(200);
+    expect(SessionBriefSchema.parse(sent.json())).toEqual({
+      text: 'Only the tests\n\nJira ticket PROJ-1423 (Story): Add bulk archive',
+    });
+    expect((await app.inject({ method: 'GET', url: brief('00000000000000cc'), headers })).json()).toEqual({
+      text: null,
+    });
+    const missing = await app.inject({ method: 'GET', url: brief('fedcba9876543210'), headers });
+    expect(missing.statusCode).toBe(404);
   });
 });
 

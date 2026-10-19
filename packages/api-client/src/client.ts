@@ -36,6 +36,7 @@ import {
   type SendMessageAnswer,
   type SendMessageInput,
   type Session,
+  type SessionBrief,
   type SessionChanges,
   type SessionList,
   type SessionListQuery,
@@ -71,6 +72,7 @@ import { getSearch } from './endpoints/search.ts';
 import {
   getFileDiff,
   getSession,
+  getSessionBrief,
   getSessionChanges,
   getSessions,
   postApproval,
@@ -119,6 +121,8 @@ export interface ApiClient {
   respondToApproval(id: string, approvalId: string, decision: ApprovalDecision): Promise<void>;
   /** A follow-up (spec 013): answers sent, or why it can't go. */
   sendMessage(id: string, request: SendMessageInput): Promise<SendMessageAnswer>;
+  /** Exactly what Orynx sent Claude at the start (spec 011, Q5); text null before anything was sent. */
+  sessionBrief(id: string): Promise<SessionBrief>;
   /** What changed in the session's worktree (spec 013). */
   sessionChanges(id: string): Promise<SessionChanges>;
   /** One changed file's diff; rejects with not_found for a path that isn't among the changes. */
@@ -227,6 +231,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       postApproval(http, id, approvalId, decision).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sendMessage: (id, request) =>
       postSessionMessage(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    sessionBrief: (id) => getSessionBrief(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sessionChanges: (id) =>
       getSessionChanges(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sessionDiff: (id, path) =>

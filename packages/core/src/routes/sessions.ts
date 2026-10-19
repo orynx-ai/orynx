@@ -14,6 +14,7 @@ import {
   RespondToApprovalRequestSchema,
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
+  SessionBriefSchema,
   SessionChangesSchema,
   SessionListQuerySchema,
   SessionListSchema,
@@ -129,6 +130,12 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
       const answer = await service.send(request.params.id, text, context, { model, effort });
       return answer.result === 'not_found' ? reply.code(404).send(notFound) : answer;
     },
+  );
+
+  app.get(
+    apiPaths.sessionBrief,
+    { schema: { params: SessionParamsSchema, response: { 200: SessionBriefSchema, 404: ApiErrorSchema } } },
+    async (request, reply) => (await service.brief(request.params.id)) ?? reply.code(404).send(notFound),
   );
 
   app.get(

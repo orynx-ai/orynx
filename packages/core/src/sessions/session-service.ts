@@ -16,6 +16,7 @@ import type {
   SendMessageAnswer,
   Session,
   SessionApproval,
+  SessionBrief,
   SessionChanges,
   SessionFollowUp,
   SessionTicket,
@@ -116,6 +117,8 @@ export interface SessionService {
    */
   /** A follow-up, with the tickets, pull requests and files added to it, read as the composer's are (spec 025). */
   send(id: string, text: string, context?: readonly ComposerChip[], choice?: AgentChoice): Promise<SendResult>;
+  /** Exactly what Claude was sent at the start, as saved (spec 011, Q5); null for no such session. */
+  brief(id: string): Promise<SessionBrief | null>;
   /** What changed in the worktree (spec 013, Q4); null for no such session, `unreadable` when git failed. */
   changes(id: string): Promise<SessionChanges | 'unreadable' | null>;
   /** One changed file's diff; null for no such session or no such changed file (AC-24). */
@@ -1146,6 +1149,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const read = await options.changes.fileDiff(record.worktree, start, path);
       if (read.ok) return read.diff;
       return read.problem === 'git' ? 'unreadable' : null;
+    },
+
+    async brief(id) {
+      if ((await records.get(id)) === null) return null;
+      return { text: await records.readBrief(id) };
     },
 
     send(id, text, context = [], choice = {}) {
