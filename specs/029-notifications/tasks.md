@@ -10,7 +10,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: A `notifications` table in `cache.db`: add, list newest first, mark read, mark all read, end an approval; newest 200, 30 days; Clear cache empties it (AC-13, AC-18)
       Check: pnpm test packages/core/src/inbox/inbox-cache.test.ts
       Files: packages/core/src/inbox/inbox-cache.ts, packages/core/src/inbox/inbox-cache.test.ts
-- [ ] Task 3: `sessionNotifications(before, after)`: approval asked (command, edit, push, pull request) and ended, finished, stopped, failed, usage limit; nothing for Discard (AC-12, AC-19, AC-20)
+- [x] Task 3: `sessionNotifications(before, after)`: approval asked (command, edit, push, pull request) and ended, finished, stopped, failed, usage limit; nothing for Discard (AC-12, AC-19, AC-20)
       Check: pnpm test packages/core/src/notifications/session-notifications.test.ts
       Files: packages/core/src/notifications/session-notifications.ts, packages/core/src/notifications/session-notifications.test.ts
 - [ ] Task 4: `inboxNotifications(before, after)`: new review requests, checks that started failing on my pull requests, newly assigned tickets (AC-22)
