@@ -11,6 +11,7 @@ import {
   WorkItemTitleButton,
   WorkItemKey,
   WorkItemPriority,
+  WorkItemSelect,
 } from './work-item-card.tsx';
 
 function StoryCard() {
@@ -142,6 +143,25 @@ describe('WorkItemCard', () => {
     expect(column).toHaveTextContent('');
     expect(within(column).queryByRole('article')).not.toBeInTheDocument();
     for (const card of column.children) expect(card).toHaveAttribute('aria-hidden', 'true');
+    await expectNoAxeViolations(container);
+  });
+
+  it('a checkbox before the key picks the ticket, named by its key', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const { container } = render(
+      <WorkItemCard
+        itemKey="PROJ-1377"
+        type="Bug"
+        title={<WorkItemTitleButton>Search returns archived sites</WorkItemTitleButton>}
+        select={<WorkItemSelect itemKey="PROJ-1377" onChange={onChange} />}
+      />,
+    );
+    const box = screen.getByRole('checkbox', { name: 'Select PROJ-1377' });
+    expect(box).not.toBeChecked();
+    await user.click(box);
+    expect(box).toBeChecked();
+    expect(onChange).toHaveBeenCalledTimes(1);
     await expectNoAxeViolations(container);
   });
 

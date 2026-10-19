@@ -29,6 +29,8 @@ export type WorkItemCardProps = Omit<ComponentProps<'article'>, 'title' | 'child
   title: ReactNode;
   /** At the end of the meta row: an `AgentChip`, or `<WorkItemShip>` when the ticket has no session. */
   action?: ReactNode;
+  /** Before the key: a `<WorkItemSelect>`, to pick several tickets at once (the user's call, 19 Oct 2026). */
+  select?: ReactNode;
 };
 
 /** Filled bars for each level; the rest are drawn faint. */
@@ -83,6 +85,7 @@ export function WorkItemCard({
   due,
   title,
   action,
+  select,
   className,
   ...props
 }: WorkItemCardProps) {
@@ -99,6 +102,7 @@ export function WorkItemCard({
         {...props}
       >
         <div className="flex min-w-0 items-center gap-2">
+          {select}
           <WorkItemKey>{itemKey}</WorkItemKey>
           <span className={cn('text-label font-medium', bug ? 'text-danger' : 'text-muted-foreground')}>{type}</span>
           {assignee ? (
@@ -123,6 +127,28 @@ export function WorkItemCard({
         </div>
       </article>
     </TitleIdContext>
+  );
+}
+
+export type WorkItemSelectProps = Omit<ComponentProps<'input'>, 'type'> & {
+  /** The ticket's key, so the checkbox's name says which ticket: "Select PROJ-1423". */
+  itemKey: string;
+};
+
+/**
+ * Picks the ticket among several, on a card or a list row (the user's call, 19 Oct 2026): the browser's own
+ * 16 px checkbox in `info` when ticked, as Checkbox draws its box, inside a 28 px label that takes the click.
+ */
+export function WorkItemSelect({ itemKey, className, ...props }: WorkItemSelectProps) {
+  return (
+    <label className={cn('-m-1.5 inline-flex shrink-0 cursor-pointer p-1.5', className)}>
+      <input
+        type="checkbox"
+        aria-label={`Select ${itemKey}`}
+        className="m-0 size-4 cursor-pointer accent-info"
+        {...props}
+      />
+    </label>
   );
 }
 
