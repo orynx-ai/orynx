@@ -35,6 +35,9 @@ export const pullRequestsHubPort = 4390;
  */
 export const composerHubPort = 4388;
 
+/** The eighth, for Sync activity (spec 035): its syncs and their log stay away from Home's inbox spec. */
+export const syncActivityHubPort = 4384;
+
 /** Where a spec tells a hub's fakes what Jira and GitHub hold, with `PUT /tools`: the port below the hub's. */
 export function controlPortFor(hubPort: number): number {
   return hubPort - 1;

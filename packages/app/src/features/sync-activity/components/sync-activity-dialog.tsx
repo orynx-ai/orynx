@@ -80,7 +80,8 @@ export function SyncActivityDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <DialogContent size="wide" aria-describedby={summary.data === undefined ? undefined : headlineId}>
-      <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+      {/* Under 768 px Sync all now takes a row of its own, so the title keeps its line and Close its corner. */}
+      <div className="flex items-center gap-3 border-b border-border px-5 py-4 max-md:flex-wrap">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <DialogTitle className="m-0 text-body font-medium">Sync activity</DialogTitle>
           {summary.data === undefined ? null : (
@@ -89,21 +90,23 @@ export function SyncActivityDialog({ onClose }: { onClose: () => void }) {
             </p>
           )}
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          pending={syncAll.isPending}
-          onClick={() => {
-            setSaid(connected.map((name) => `${toolNames[name]} syncing.`).join(' '));
-            syncAll.mutate(undefined, {
-              onSuccess: (fresh) => {
-                setSaid(outcome(fresh, connected));
-              },
-            });
-          }}
-        >
-          {syncAll.isPending ? 'Syncing…' : 'Sync all now'}
-        </Button>
+        <div className="max-md:order-last max-md:basis-full">
+          <Button
+            variant="secondary"
+            size="sm"
+            pending={syncAll.isPending}
+            onClick={() => {
+              setSaid(connected.map((name) => `${toolNames[name]} syncing.`).join(' '));
+              syncAll.mutate(undefined, {
+                onSuccess: (fresh) => {
+                  setSaid(outcome(fresh, connected));
+                },
+              });
+            }}
+          >
+            {syncAll.isPending ? 'Syncing…' : 'Sync all now'}
+          </Button>
+        </div>
         <IconButton variant="ghost" size="sm" label="Close sync activity" onClick={onClose}>
           <Icon icon={Cancel01Icon} aria-hidden />
         </IconButton>
@@ -213,7 +216,7 @@ function ToolItem({ tool, current, onPick }: { tool: SyncTool; current: boolean;
       aria-label={`${toolNames[tool.tool]}, ${line.state}`}
       label={toolNames[tool.tool]}
       description={<span className={tool.state.state === 'failed' ? 'text-danger' : undefined}>{line.line}</span>}
-      mark={<SourceMark source={tool.tool} />}
+      mark={<SourceMark source={tool.tool} label="none" />}
       status={
         syncing ? (
           <Icon icon={Loading03Icon} className="size-3 text-muted-foreground motion-safe:animate-spin" />
@@ -264,7 +267,7 @@ function ToolDetail({
   return (
     <>
       <div className="flex items-center gap-3">
-        <SourceMark source={tool.tool} size="lg" />
+        <SourceMark source={tool.tool} size="lg" label="none" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h3 id={headingId} className="m-0 text-body font-medium">
             {toolNames[tool.tool]}
