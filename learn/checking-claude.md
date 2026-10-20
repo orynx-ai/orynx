@@ -2,7 +2,7 @@
 
 # Checking Claude: the login Claude Code already has
 
-There is nothing to connect for Claude. Claude Code owns the login ("Already done if Claude Code works on your laptop", product spec), so DevHub only checks it and shows the answer: in the sidebar footer ("Claude connected · runs locally") and on the Claude card in Settings › Coding agent. DevHub never signs you in or out, and saves nothing about it. Spec 010 built it.
+There is nothing to connect for Claude. Claude Code owns the login ("Already done if Claude Code works on your laptop", product spec), so DevHub only checks it and shows the answer: on Home's agent picker ("Connected · runs locally"; the sidebar footer showed it until 20 Oct 2026, when it gave way to your name and bio) and on the Claude card in Settings › Coding agent. DevHub never signs you in or out, and saves nothing about it. Spec 010 built it.
 
 ## The path of one check
 

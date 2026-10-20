@@ -106,7 +106,6 @@ test('AC-1: Given Settings, when I pick each tab, then the address follows it an
     'Notifications',
     'Repositories',
     'Inbox rules',
-    'Appearance',
   ]);
 
   for (const [name, path] of [
@@ -125,9 +124,9 @@ test('AC-1: Given Settings, when I pick each tab, then the address follows it an
 test('AC-20: Given a narrow window, when Settings opens on its last tab, then that tab is in full view in the tab list', async ({
   page,
 }) => {
-  await page.goto('/settings/appearance');
+  await page.goto('/settings/inbox-rules');
   const list = page.getByRole('tablist', { name: 'Settings sections' });
-  const tab = page.getByRole('tab', { name: 'Appearance' });
+  const tab = page.getByRole('tab', { name: 'Inbox rules' });
   await expect(tab).toHaveAttribute('aria-selected', 'true');
 
   const listBox = await list.boundingBox();
@@ -138,8 +137,8 @@ test('AC-20: Given a narrow window, when Settings opens on its last tab, then th
 
   // Back to the first tab without a click on it, in the same page, as the Back button does.
   await page.goto('/settings/connections');
-  await page.getByRole('tab', { name: 'Appearance' }).click();
-  await expect(page).toHaveURL('/settings/appearance');
+  await page.getByRole('tab', { name: 'Inbox rules' }).click();
+  await expect(page).toHaveURL('/settings/inbox-rules');
   await page.goBack();
   const first = page.getByRole('tab', { name: 'Connections' });
   await expect(first).toHaveAttribute('aria-selected', 'true');

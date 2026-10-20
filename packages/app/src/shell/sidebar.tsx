@@ -17,6 +17,7 @@ import { SidebarSessions } from '../features/sessions/components/sidebar-session
 import { usePlatform } from '../platform.tsx';
 import { clampSidebarWidth, sidebarWidthLimits, useUiStore } from '../stores/ui-store.ts';
 import { newTaskShortcut, searchShortcut } from './shortcuts.ts';
+import { PersonAvatar, ProfileMenu } from './profile-menu.tsx';
 import { SidebarFooter } from './sidebar-footer.tsx';
 import { useWide } from './use-wide.ts';
 
@@ -72,10 +73,11 @@ export function Sidebar() {
           <BrandMark />
           <span className={cn('text-title font-medium', collapsed && 'md:sr-only')}>Orynx</span>
         </span>
-        {/* The narrow bar has no footer, so the bell sits here, before Search (spec 029, Q1). */}
+        {/* The narrow bar has no footer, so the bell and the profile menu sit here, before Search (spec 029, Q1). */}
         {wide ? null : (
-          <span className="ms-auto">
+          <span className="ms-auto flex items-center gap-1">
             <NotificationCentre side="bottom" tooltipSide="bottom" />
+            <NarrowProfile />
           </span>
         )}
         <IconButton
@@ -246,5 +248,21 @@ function NavItem({
         ) : null}
       </Link>
     </Tooltip>
+  );
+}
+
+/** The narrow bar's way into the profile menu: the person's avatar, 40 px to tap. */
+function NarrowProfile() {
+  return (
+    <ProfileMenu side="bottom" align="end" tooltip="Profile" tooltipSide="bottom">
+      <button
+        type="button"
+        className="flex size-10 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-subtle data-[state=open]:bg-subtle"
+      >
+        <PersonAvatar />
+        {/* Words, not aria-label: a name must hold what shows (the initials are hidden from it). */}
+        <span className="sr-only">Profile</span>
+      </button>
+    </ProfileMenu>
   );
 }

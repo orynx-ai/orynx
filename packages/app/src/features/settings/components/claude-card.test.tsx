@@ -157,7 +157,7 @@ describe('ClaudeCard', () => {
     expect(await within(card).findByText('Active')).toBeVisible();
   });
 
-  it('AC-5: Check again that finds a login shows Active, the footer says connected, and focus lands on the account', async () => {
+  it('AC-5: Check again that finds a login shows Active, and focus lands on the account', async () => {
     let connected = false;
     server.use(
       http.post(apiUrl(apiRoutes.claudeLoginCheck), () => {
@@ -172,7 +172,5 @@ describe('ClaudeCard', () => {
 
     expect(await within(card).findByText('Active')).toBeVisible();
     expect(within(card).getByText('Signed in as you@company.com · Company')).toHaveFocus();
-    const nav = screen.getByRole('navigation', { name: 'Main' });
-    expect(await within(nav).findByText('Claude connected · runs locally')).toBeVisible();
   });
 });

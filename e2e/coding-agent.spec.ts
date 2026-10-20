@@ -20,8 +20,6 @@ declare global {
 // axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
 const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
-const notConnected = 'Claude not connected · runs locally';
-const connected = 'Claude connected · runs locally';
 const notSignedIn =
   "Claude Code isn't signed in on this computer. Run claude in a terminal and sign in with your company login, then check again.";
 
@@ -37,10 +35,6 @@ async function axeViolations(page: Page): Promise<string[]> {
 
 function claudeCard(page: Page): Locator {
   return page.getByRole('group', { name: 'Claude' });
-}
-
-function footer(page: Page): Locator {
-  return page.getByRole('navigation', { name: 'Main' });
 }
 
 /** The page has no sideways scroll, and the line about more agents sits under Claude's card at every width. */
@@ -63,13 +57,11 @@ function focusOutline(page: Page): Promise<string> {
 }
 
 test.describe('the first hub, whose Claude Code is never signed in', () => {
-  test('Given Claude Code is not signed in, when DevHub opens, then the footer and the card say so and Settings still works', async ({
+  test('Given Claude Code is not signed in, when DevHub opens, then the card says so and Settings still works', async ({
     page,
   }) => {
     await page.goto('/settings/coding-agent');
 
-    // Under 768 px the footer is behind the compact bar's menu (shell.spec.ts).
-    if ((page.viewportSize()?.width ?? 0) >= 768) await expect(footer(page).getByText(notConnected)).toBeVisible();
     await expect(claudeCard(page).getByText('Not signed in')).toBeVisible();
     await expect(claudeCard(page).getByText(notSignedIn)).toBeVisible();
     await expect(claudeCard(page).getByRole('button', { name: 'Check again' })).toBeVisible();
@@ -185,7 +177,6 @@ test.describe('the second hub, whose Claude Code answers what this file writes',
     await other.goto('/settings/coding-agent');
     for (const tab of [page, other]) {
       await expect(claudeCard(tab).getByText('Not signed in')).toBeVisible();
-      await expect(footer(tab).getByText(notConnected)).toBeVisible();
     }
 
     await answerClaudeAs('signed_in');
@@ -201,7 +192,6 @@ test.describe('the second hub, whose Claude Code answers what this file writes',
       await expect(claudeCard(tab).getByText('Signed in as you@company.com · Company')).toBeVisible({
         timeout: 2000,
       });
-      await expect(footer(tab).getByText(connected)).toBeVisible({ timeout: 2000 });
     }
     await other.close();
   });

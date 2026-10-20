@@ -22,7 +22,7 @@ afterEach(() => {
 
 describe('The New task shortcut', () => {
   it('AC-6: ⌥⌘N opens Home from any page and blocks the browser’s own action', async () => {
-    const { history } = await renderApp({ route: '/settings/appearance' });
+    const { history } = await renderApp({ route: '/settings/inbox-rules' });
 
     expect(press(optionCommandN)).toBe(false);
 

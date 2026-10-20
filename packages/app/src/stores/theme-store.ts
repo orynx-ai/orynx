@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-/** Settings › Appearance (spec): Match my computer, Light, Dark. */
+/** The profile menu's Appearance: System (match the computer), Light, Dark. */
 export const ThemeSchema = z.enum(['system', 'light', 'dark']);
 export type Theme = z.infer<typeof ThemeSchema>;
 

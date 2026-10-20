@@ -232,18 +232,15 @@ describe('CodingAgentPanel', () => {
     }
   });
 
-  it('AC-16: says the server is out of reach when the preferences fail to load, and Appearance still works', async () => {
+  it('AC-16: says the server is out of reach when the preferences fail to load', async () => {
     server.use(
       http.get(apiUrl(apiRoutes.preferences), () =>
         HttpResponse.json({ code: 'internal', message: 'Something went wrong.' }, { status: 500 }),
       ),
     );
-    const { user } = await renderApp({ route: '/settings/coding-agent' });
+    await renderApp({ route: '/settings/coding-agent' });
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the Orynx server');
-
-    await user.click(screen.getByRole('tab', { name: 'Appearance' }));
-    expect(await screen.findByRole('radio', { name: 'Dark' })).toBeEnabled();
   });
 
   it("AC-3: a second quick change stays on screen when the first one's settings.changed arrives before it saves", async () => {

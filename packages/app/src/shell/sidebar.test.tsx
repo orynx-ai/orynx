@@ -121,10 +121,10 @@ describe('Sidebar', () => {
   it('AC-7, AC-10, AC-11 (spec 020): every control on the rail shows its name in a tooltip as Tab reaches it', async () => {
     const { user } = await renderApp();
     const nav = mainNav();
-    await within(nav).findByText('Claude not connected · runs locally');
+    await within(nav).findByRole('button', { name: 'Profile: You' });
     await user.click(within(nav).getByRole('button', { name: 'Collapse sidebar' }));
     const expand = within(nav).getByRole('button', { name: 'Expand sidebar' });
-    const footer = within(nav).getByRole('link', { name: 'You Claude not connected · runs locally' });
+    const footer = within(nav).getByRole('button', { name: 'Profile: You' });
 
     // Collapse kept focus on this button; focus it afresh, as Tab would.
     expand.blur();
@@ -144,7 +144,7 @@ describe('Sidebar', () => {
       'Sessions',
       // Spec 029: the bell sits above the avatar.
       'Notifications',
-      'You · Claude not connected · runs locally',
+      'You',
     ]);
     // No control on the rail draws a title attribute: the tooltip is the one place its name shows.
     expect(nav.querySelectorAll('a[title], button[title]')).toHaveLength(0);
@@ -289,7 +289,7 @@ describe('Sidebar', () => {
   it('AC-32: shows no count when nothing needs you', async () => {
     inboxWith(0);
     await renderApp({ route: '/tickets' });
-    await screen.findByText('Claude not connected · runs locally');
+    await screen.findByRole('button', { name: 'Profile: You' });
 
     expect(within(mainNav()).getByRole('link', { name: 'Home' })).toBeVisible();
   });
@@ -298,7 +298,7 @@ describe('Sidebar', () => {
     inboxWith(3);
     useUiStore.setState({ sidebarCollapsed: true });
     await renderApp({ route: '/tickets' });
-    await screen.findByText('Claude not connected · runs locally');
+    await screen.findByRole('button', { name: 'Profile: You' });
 
     expect(within(mainNav()).getByRole('link', { name: 'Home' })).toBeVisible();
     expect(within(mainNav()).queryByText('3')).toBeNull();
@@ -316,7 +316,7 @@ describe('Sidebar', () => {
   it('AC-27: shows no Tickets count when none of the sprint is yours, or Jira isn’t connected', async () => {
     server.use(ticketsHandler({ tickets: designTickets.filter((ticket) => ticket.assignee?.mine !== true) }));
     await renderApp({ route: '/' });
-    await screen.findByText('Claude not connected · runs locally');
+    await screen.findByRole('button', { name: 'Profile: You' });
 
     expect(within(mainNav()).getByRole('link', { name: 'Tickets' })).toBeVisible();
   });
@@ -325,7 +325,7 @@ describe('Sidebar', () => {
     server.use(ticketsHandler());
     useUiStore.setState({ sidebarCollapsed: true });
     await renderApp({ route: '/' });
-    await screen.findByText('Claude not connected · runs locally');
+    await screen.findByRole('button', { name: 'Profile: You' });
 
     expect(within(mainNav()).getByRole('link', { name: 'Tickets' })).toBeVisible();
     expect(within(mainNav()).queryByText('6')).toBeNull();

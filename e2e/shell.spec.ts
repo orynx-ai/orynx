@@ -164,16 +164,17 @@ test.describe('wide window', () => {
 
     expect(await sidebar.boundingBox()).toMatchObject({ y: 0, height: 480 });
     expect((await pageBar(page).boundingBox())?.y).toBe(0);
-    await expect(sidebar.getByText('Claude not connected · runs locally')).toBeInViewport();
+    await expect(sidebar.getByRole('button', { name: /^Profile: / })).toBeInViewport();
   });
 
-  test('Given a wide window, when I open DevHub, then the footer says whether Claude is connected', async ({
+  test('Given a wide window, when I open DevHub, then the footer shows who you are, and Home whether Claude is connected', async ({
     page,
   }) => {
     await page.goto('/');
     await expect(
-      page.getByRole('navigation', { name: 'Main' }).getByText('Claude not connected · runs locally'),
+      page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Profile: / }),
     ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Agent: Claude, signed out' })).toBeVisible();
   });
 });
 
