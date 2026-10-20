@@ -500,6 +500,7 @@ export function makeSearchTicket(overrides: Partial<SearchTicket> = {}): SearchT
     title: 'Add bulk archive',
     status: 'In Progress',
     target: { kind: 'external', url: 'https://your-team.atlassian.net/browse/PROJ-1423' },
+    mine: true,
     ...overrides,
   });
 }

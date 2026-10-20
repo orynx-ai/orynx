@@ -70,15 +70,18 @@ function ToolList({ kind, query, onQueryChange, onBack, onTicked }: ListProps & 
 
   const known: (ContextSearchOption & { chip: ComposerChip; words: string })[] =
     kind === 'jira'
-      ? (index.data?.tickets ?? []).map((ticket) => ({
-          value: ticket.key,
-          label: ticket.key,
-          description: `${ticket.title} · ${ticket.status}`,
-          mark: <SourceMark source={ticketSource(ticket.key)} label="none" />,
-          added: chips.some((chip) => chip.kind === 'jira' && chip.key === ticket.key),
-          chip: { kind: 'jira', key: ticket.key },
-          words: `${ticket.key} ${ticket.title}`,
-        }))
+      ? // Yours and Orynx's own alone, not the whole sprint's (the user's call, 20 Oct 2026).
+        (index.data?.tickets ?? [])
+          .filter((ticket) => ticket.mine)
+          .map((ticket) => ({
+            value: ticket.key,
+            label: ticket.key,
+            description: `${ticket.title} · ${ticket.status}`,
+            mark: <SourceMark source={ticketSource(ticket.key)} label="none" />,
+            added: chips.some((chip) => chip.kind === 'jira' && chip.key === ticket.key),
+            chip: { kind: 'jira', key: ticket.key },
+            words: `${ticket.key} ${ticket.title}`,
+          }))
       : (index.data?.pullRequests ?? []).flatMap((pull) => {
           const chip = chipFromPaste(pull.url);
           if (chip?.kind !== 'pull_request') return [];

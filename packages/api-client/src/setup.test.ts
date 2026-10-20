@@ -65,4 +65,25 @@ describe('setup and profile endpoints (spec 043)', () => {
     expect(profileQueryOptions(api).queryKey).toEqual(queryKeys.profile);
     expect(await api.saveProfile(ada)).toEqual(ada);
   });
+
+  it('changes the password, and turns a wrong current one into an ApiRequestError with its code', async () => {
+    let sent: unknown;
+    server.use(
+      http.put(`${baseURL}${apiRoutes.password}`, async ({ request }) => {
+        sent = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await api.changePassword({ current: 'correct horse battery', next: 'battery staple horse' });
+    expect(sent).toEqual({ current: 'correct horse battery', next: 'battery staple horse' });
+
+    server.use(
+      http.put(`${baseURL}${apiRoutes.password}`, () =>
+        HttpResponse.json({ code: 'wrong_password', message: 'That isn’t your current password.' }, { status: 400 }),
+      ),
+    );
+    await expect(api.changePassword({ current: 'nope', next: 'battery staple horse' })).rejects.toMatchObject({
+      code: 'wrong_password',
+    });
+  });
 });

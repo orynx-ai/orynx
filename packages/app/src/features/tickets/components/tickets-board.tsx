@@ -5,7 +5,7 @@ import { byColumn } from '../filters.ts';
 import { columnEmptyText, columnNames, columnOrder, columnRegionName } from '../ticket-words.ts';
 import { TicketCard } from './ticket-card.tsx';
 
-const statusIcons: Record<TicketColumn, StatusIconStatus> = {
+export const statusIcons: Record<TicketColumn, StatusIconStatus> = {
   to_do: 'todo',
   in_progress: 'in_progress',
   in_review: 'in_review',

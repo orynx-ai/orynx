@@ -1,4 +1,10 @@
-import { defaultProfile, ProfileSchema, type Profile, type SetupRequest } from '@devhub/contracts';
+import {
+  defaultProfile,
+  ProfileSchema,
+  type ChangePasswordRequest,
+  type Profile,
+  type SetupRequest,
+} from '@devhub/contracts';
 import { oneAtATime, type SettingsStore } from '../settings/settings-store.ts';
 import type { PasswordStore } from './password-store.ts';
 
@@ -9,6 +15,8 @@ export interface SetupService {
   complete(request: SetupRequest): Promise<'done' | 'already_set_up'>;
   profile(): Promise<Profile>;
   saveProfile(profile: Profile): Promise<Profile>;
+  /** Edit profile's Change password: saves `next` only when `current` is the saved password. */
+  changePassword(request: ChangePasswordRequest): Promise<'changed' | 'wrong_password' | 'not_set_up'>;
 }
 
 export function createSetupService({
@@ -40,5 +48,13 @@ export function createSetupService({
       }),
     profile,
     saveProfile,
+    // In the setup's queue, so a change and a setup never both save one.
+    changePassword: ({ current, next }) =>
+      queue(async () => {
+        if (!(await password.isSet())) return 'not_set_up';
+        if (!(await password.verify(current))) return 'wrong_password';
+        await password.set(next);
+        return 'changed';
+      }),
   };
 }

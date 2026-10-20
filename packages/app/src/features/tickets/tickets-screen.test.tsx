@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeInbox, makeTicket, makeTickets } from '@devhub/contracts/testing';
+import { makeInbox, makeOrynxTicket, makeTicket, makeTickets } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
@@ -456,6 +456,82 @@ describe('Orynx tickets on Tickets (spec 037)', () => {
     expect(screen.queryByRole('article', { name: 'Archive in bulk' })).toBeNull();
     await user.type(screen.getByRole('searchbox', { name: 'Search tickets' }), 'ORX');
     expect(count()).toHaveTextContent('1 ticket');
+  });
+
+  /** Answers each Orynx ticket's PATCH and DELETE, and keeps what was asked, in order. */
+  function orynxChanges() {
+    const asked: string[] = [];
+    server.use(
+      http.patch(apiUrl(apiRoutes.orynxTicket), async ({ request, params }) => {
+        asked.push(`move ${String(params['key'])} ${JSON.stringify(await request.json())}`);
+        return HttpResponse.json({ result: 'saved', ticket: makeOrynxTicket({ key: String(params['key']) }) });
+      }),
+      http.delete(apiUrl(apiRoutes.orynxTicket), ({ params }) => {
+        asked.push(`delete ${String(params['key'])}`);
+        return HttpResponse.json({ result: 'deleted' });
+      }),
+    );
+    return asked;
+  }
+
+  const moveTo = () => within(bar()).getByRole('button', { name: 'Move to' });
+  const moves = () => screen.getAllByRole('menuitem').map((item) => item.textContent);
+
+  it('the floating bar moves Orynx tickets to any column after the furthest one ticked (the user’s call, 20 Oct 2026)', async () => {
+    server.use(both());
+    const asked = orynxChanges();
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('8 tickets');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select ORX-1' }));
+    await user.click(moveTo());
+    expect(moves()).toEqual(['In progress', 'In review', 'Done']);
+    await user.keyboard('{Escape}');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select ORX-2' }));
+    await user.click(moveTo());
+    expect(moves()).toEqual(['In review', 'Done']);
+    await user.click(screen.getByRole('menuitem', { name: 'In review' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('group', { name: 'Selected tickets' })).toBeNull();
+    });
+    expect(asked).toEqual(['move ORX-1 {"status":"in_review"}', 'move ORX-2 {"status":"in_review"}']);
+    expect(filter('Assignee · 1')).toHaveFocus();
+  });
+
+  it('Delete all deletes every ticked Orynx ticket once you confirm', async () => {
+    server.use(both());
+    const asked = orynxChanges();
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('8 tickets');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select ORX-1' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select ORX-2' }));
+    await user.click(within(bar()).getByRole('button', { name: 'Delete all' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete 2 tickets?' });
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete all' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('group', { name: 'Selected tickets' })).toBeNull();
+    });
+    expect(asked).toEqual(['delete ORX-1', 'delete ORX-2']);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(filter('Assignee · 1')).toHaveFocus();
+  });
+
+  it('with a Jira ticket ticked too, the bar has no Move to or Delete all: Jira’s tickets change in Jira', async () => {
+    server.use(both());
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('8 tickets');
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select ORX-1' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Select PROJ-1423' }));
+
+    expect(within(bar()).getByRole('button', { name: 'Ship all' })).toBeVisible();
+    expect(within(bar()).queryByRole('button', { name: 'Move to' })).toBeNull();
+    expect(within(bar()).queryByRole('button', { name: 'Delete all' })).toBeNull();
   });
 
   const withoutJira = (tickets = orynxTickets, more: Partial<Parameters<typeof makeTickets>[0]> = {}) =>

@@ -13,6 +13,8 @@ const index = makeSearchIndex({
   tickets: [
     makeSearchTicket({ key: 'PROJ-1423', title: 'Add bulk archive', status: 'In progress' }),
     makeSearchTicket({ key: 'PROJ-1377', title: 'Fix the header', status: 'To do' }),
+    // Someone else's ticket in the sprint: search finds it, the composer's list leaves it out (the user's call, 20 Oct 2026).
+    makeSearchTicket({ key: 'PROJ-1500', title: 'Fix the footer', status: 'To do', mine: false }),
   ],
   pullRequests: [
     makeSearchPullRequest(),

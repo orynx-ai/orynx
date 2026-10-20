@@ -25,6 +25,8 @@ export const ApiErrorCodeSchema = z.enum([
   'session_working',
   /** Orynx has its password already; setup runs once (spec 043, AC-4). */
   'already_set_up',
+  /** Change password: the current password typed isn't the saved one, so nothing changed. */
+  'wrong_password',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;

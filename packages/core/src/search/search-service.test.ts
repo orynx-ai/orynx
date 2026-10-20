@@ -96,6 +96,26 @@ describe('search index', () => {
     ]);
   });
 
+  it('marks the tickets that are yours: assigned to you, or Orynx’s own, not the rest of the sprint (the user’s call, 20 Oct 2026)', () => {
+    const found = index({
+      sprint: [
+        makeTicket({ key: 'PROJ-1423' }),
+        makeTicket({ key: 'PROJ-1377', assignee: { name: 'Priya Shah', mine: false } }),
+        makeTicket({ key: 'PROJ-1378', assignee: null }),
+      ],
+      assigned: [assigned('PROJ-7')],
+      orynx: [makeOrynxTicket({ key: 'ORX-1' })],
+    });
+
+    expect(found.tickets.map((ticket) => [ticket.key, ticket.mine])).toEqual([
+      ['PROJ-1423', true],
+      ['PROJ-1377', false],
+      ['PROJ-1378', false],
+      ['PROJ-7', true],
+      ['ORX-1', true],
+    ]);
+  });
+
   it('AC-12: a ticket with no session opens in Jira', () => {
     const found = index({ sprint: [makeTicket({ key: 'PROJ-1423' })], assigned: [assigned('PROJ-7')] });
 

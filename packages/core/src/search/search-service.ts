@@ -69,8 +69,10 @@ export function searchIndex(sources: SearchSources): SearchIndex {
   const inSprint = new Set(sources.sprint.map((ticket) => ticket.key));
   const tickets: SearchTicket[] = [
     // A row with no link is an Orynx ticket (spec 037), which has no page on a Jira site to open.
-    ...sources.sprint.flatMap(({ key, title, status, url }) =>
-      url === null ? [] : [{ key, title, status, target: ticketTarget(url, joined.get(key)) }],
+    ...sources.sprint.flatMap(({ key, title, status, url, assignee }) =>
+      url === null
+        ? []
+        : [{ key, title, status, target: ticketTarget(url, joined.get(key)), mine: assignee?.mine === true }],
     ),
     ...sources.assigned
       .filter((record) => !inSprint.has(record.key))
@@ -80,6 +82,7 @@ export function searchIndex(sources: SearchSources): SearchIndex {
         title: record.summary,
         status: record.status,
         target: ticketTarget(record.url, joined.get(record.key)),
+        mine: true,
       })),
     // Then Orynx's own, newest first, Done ones too (spec 037, AC-21); one with no session opens its dialog.
     ...[...(sources.orynx ?? [])].reverse().map((ticket) => ({
@@ -90,6 +93,7 @@ export function searchIndex(sources: SearchSources): SearchIndex {
         ticket.session === null
           ? { kind: 'ticket' as const }
           : { kind: 'session' as const, sessionId: ticket.session.id },
+      mine: true,
     })),
   ];
   const pullRequests: SearchPullRequest[] = [...sources.pullRequests]

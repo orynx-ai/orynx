@@ -1,6 +1,6 @@
 import { useEffect, useImperativeHandle, useState, type Ref, type RefObject } from 'react';
 import { Cancel01Icon, ComputerTerminal01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
-import { terminalLimits, type Session } from '@devhub/contracts';
+import { homeTerminalId, terminalLimits, type Session } from '@devhub/contracts';
 import {
   Button,
   Dialog,
@@ -25,14 +25,15 @@ import { shellTabName, terminalWords } from './terminal-words.ts';
 /**
  * The session's Terminal (spec 036, spec 038): Terminal in More actions, or `⌃`` anywhere on the Session screen,
  * opens a dialog that fills the window. Close, Esc outside your shell, or `⌃`` again close it, and focus goes back
- * to `returnTo`, More actions. Only a session whose Terminal opens has one (AC-3).
+ * to `returnTo`, More actions. Only a session whose Terminal opens has one (AC-3). With no session it is Home's
+ * Terminal: your shell tabs in Orynx's home folder, without the Claude tab.
  */
 export function SessionTerminal({
   session,
   returnTo,
   ref,
 }: {
-  session: Session;
+  session: Session | null;
   returnTo: RefObject<HTMLButtonElement | null>;
   /** Opens the dialog, for the menu's item. */
   ref: Ref<{ open: () => void }>;
@@ -80,13 +81,14 @@ function TerminalDialog({
   returnTo,
   onClose,
 }: {
-  session: Session;
+  session: Session | null;
   returnTo: RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
-  const terminal = useSessionTerminal(session.id);
-  const actions = useTerminalActions(session.id);
-  const picked = useTerminalTabs((state) => state.picked[session.id]);
+  const shells = session ?? { id: homeTerminalId, branch: null };
+  const terminal = useSessionTerminal(shells.id);
+  const actions = useTerminalActions(shells.id);
+  const picked = useTerminalTabs((state) => state.picked[shells.id]);
   const pick = useTerminalTabs((state) => state.pick);
   // Your shell takes your keys once it's drawn: on opening on your shell, after +, and after a tab closes. Not on
   // picking a tab, so the arrow keys go on moving along the tabs.
@@ -94,19 +96,20 @@ function TerminalDialog({
   const shellTabs = terminal.data?.tabs ?? [];
   // Your shell the first time, or once the tab you had has closed (AC-1).
   const tab =
-    picked === 'claude' || shellTabs.some((shellTab) => shellTab.id === picked)
+    (picked === 'claude' && session !== null) || shellTabs.some((shellTab) => shellTab.id === picked)
       ? picked
       : (shellTabs[0]?.id ?? 'tab-1');
   const shellTab = shellTabs.find((one) => one.id === tab);
-  const waiting = session.approvals.length > 0;
-  const key = session.source?.kind === 'jira' ? session.source.key : null;
-  const about = key === null ? session.title : `${session.title} · ${key}`;
+  const waiting = session !== null && session.approvals.length > 0;
+  const key = session?.source?.kind === 'jira' ? session.source.key : null;
+  const about =
+    session === null ? terminalWords.home.about : key === null ? session.title : `${session.title} · ${key}`;
   const full = shellTabs.length >= terminalLimits.tabs;
 
   /** Picks a tab the server has just made or kept, once the tabs have been read again. */
   const pickOnceRead = async (next: string) => {
     await terminal.refetch();
-    pick(session.id, next);
+    pick(shells.id, next);
     setFocusShell(true);
   };
 
@@ -140,7 +143,7 @@ function TerminalDialog({
             variant="secondary"
             size="sm"
             onClick={() => {
-              pick(session.id, 'claude');
+              pick(shells.id, 'claude');
             }}
           >
             {terminalWords.claudeNeedsYou}
@@ -153,27 +156,29 @@ function TerminalDialog({
       <Tabs
         value={tab}
         onValueChange={(next) => {
-          pick(session.id, next);
+          pick(shells.id, next);
           setFocusShell(false);
         }}
         className="flex min-h-0 flex-1 flex-col"
       >
         <div className="flex shrink-0 items-center gap-1 border-b border-border bg-sidebar px-3">
           <TabsList aria-label={terminalWords.tabs} className="min-w-0 flex-1 gap-5 border-b-0">
-            <TabsTrigger value="claude">
-              {terminalWords.claude}
-              {waiting ? (
-                <>
-                  {' '}
-                  <Pill tone="warning">{terminalWords.needsYou}</Pill>
-                </>
-              ) : null}
-            </TabsTrigger>
+            {session === null ? null : (
+              <TabsTrigger value="claude">
+                {terminalWords.claude}
+                {waiting ? (
+                  <>
+                    {' '}
+                    <Pill tone="warning">{terminalWords.needsYou}</Pill>
+                  </>
+                ) : null}
+              </TabsTrigger>
+            )}
             {terminal.data === undefined
               ? null
               : shellTabs.map((one) => (
                   <TabsTrigger key={one.id} value={one.id}>
-                    {shellTabName(terminal.data.shell, one.number)}
+                    {shellTabName(terminal.data.shell, one.number, shells.id)}
                   </TabsTrigger>
                 ))}
           </TabsList>
@@ -182,7 +187,15 @@ function TerminalDialog({
               variant="ghost"
               size="sm"
               // Not disabled, so its tooltip can say why it does nothing (AC-10).
-              label={full ? terminalWords.tabsFull : terminalWords.newTab}
+              label={
+                session === null
+                  ? full
+                    ? terminalWords.home.tabsFull
+                    : terminalWords.home.newTab
+                  : full
+                    ? terminalWords.tabsFull
+                    : terminalWords.newTab
+              }
               aria-disabled={full || undefined}
               onClick={() => {
                 if (full || actions.add.isPending) return;
@@ -200,7 +213,7 @@ function TerminalDialog({
             <IconButton
               variant="ghost"
               size="sm"
-              label={`${terminalWords.close} ${shellTabName(terminal.data.shell, shellTab.number)}`}
+              label={`${terminalWords.close} ${shellTabName(terminal.data.shell, shellTab.number, shells.id)}`}
               onClick={() => {
                 const before = shellTabs[shellTabs.indexOf(shellTab) - 1]?.id ?? 'tab-1';
                 actions.close.mutate(shellTab.id, {
@@ -214,12 +227,14 @@ function TerminalDialog({
             </IconButton>
           )}
         </div>
-        <TabsContent value="claude" className="min-h-0 flex-1">
-          <ClaudeTab session={session} />
-        </TabsContent>
+        {session === null ? null : (
+          <TabsContent value="claude" className="min-h-0 flex-1">
+            <ClaudeTab session={session} />
+          </TabsContent>
+        )}
         {tab !== 'claude' && terminal.data === undefined ? (
           <ShellTabPending
-            session={session}
+            session={shells}
             failed={terminal.isError}
             onRetry={() => {
               void terminal.refetch();
@@ -230,7 +245,7 @@ function TerminalDialog({
           ? null
           : shellTabs.map((one) => (
               <TabsContent key={one.id} value={one.id} className="min-h-0 flex-1">
-                <ShellTab session={session} terminal={terminal.data} tab={one} takeFocus={focusShell} />
+                <ShellTab session={shells} terminal={terminal.data} tab={one} takeFocus={focusShell} />
               </TabsContent>
             ))}
       </Tabs>

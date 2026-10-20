@@ -1,5 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+import { apiRoutes } from '@devhub/contracts';
+import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 import { mainNav, openSessionMenu, serveSessions } from '../../../test/sessions.ts';
 
@@ -37,5 +40,35 @@ describe('a session’s ⋯ menu in the sidebar (spec 039)', () => {
     });
     await user.click(within(mainNav()).getByRole('button', { name: 'More actions for Add bulk archive' }));
     expect(await screen.findByRole('menuitem', { name: 'Unpin' })).toBeVisible();
+  });
+
+  it('a running session’s ⋯ starts with Stop, which stops it (the user’s call, 20 Oct 2026)', async () => {
+    serveSessions([
+      { id: 'session-working', title: 'Add bulk archive', state: 'working' },
+      { title: 'Tidy the README', state: 'done' },
+    ]);
+    const stopped: string[] = [];
+    server.use(
+      http.post(apiUrl(apiRoutes.sessionStop), ({ params }) => {
+        stopped.push(String(params['id']));
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await renderApp();
+
+    const { menu } = await openSessionMenu(user, 'Add bulk archive');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Stop', 'Rename', 'Pin', 'DeleteStop the session first']);
+    await user.click(within(menu).getByRole('menuitem', { name: 'Stop' }));
+    await waitFor(() => {
+      expect(stopped).toEqual(['session-working']);
+    });
+
+    await user.click(within(mainNav()).getByRole('button', { name: 'More actions for Tidy the README' }));
+    expect(await screen.findByRole('menuitem', { name: 'Rename' })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: 'Stop' })).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeStatus } from '@devhub/contracts/testing';
 import { apiUrl, serveProfile, server } from '../test/msw.ts';
@@ -16,6 +16,10 @@ async function openEditProfile(name = 'Rakesh Dhariwal') {
   await rendered.user.keyboard('{ArrowDown}{Enter}');
   return { ...rendered, nav, dialog: await screen.findByRole('dialog', { name: 'Edit profile' }) };
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('Edit profile', () => {
   it('AC-6: saves a name and bio on the server, and the sidebar shows them at once', async () => {
@@ -87,17 +91,106 @@ describe('Edit profile', () => {
     expect(await within(dialog).findByRole('alert')).toHaveTextContent("That file isn't a picture Orynx can read.");
   });
 
+  it('opens Crop picture over it for a picked file; Escape closes the crop alone', async () => {
+    // jsdom decodes no pictures: the browser's own calls stand in (the real crop is in e2e/smoke.spec.ts).
+    vi.stubGlobal('createImageBitmap', () => Promise.resolve({ width: 2, height: 1, close: vi.fn() }));
+    vi.stubGlobal(
+      'URL',
+      Object.assign(class extends URL {}, { createObjectURL: () => 'blob:me', revokeObjectURL: vi.fn() }),
+    );
+    const { user, dialog } = await openEditProfile();
+
+    await user.upload(
+      within(dialog).getByLabelText('Add picture'),
+      new File(['pixels'], 'me.png', { type: 'image/png' }),
+    );
+    expect(await screen.findByRole('dialog', { name: 'Crop picture' })).toBeVisible();
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog', { name: 'Crop picture' })).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Edit profile' })).toBeVisible();
+    expect(within(dialog).getByLabelText('Add picture')).toHaveFocus();
+  });
+
   it('removes a saved picture, so the initials come back', async () => {
     const profile = serveProfile({ picture: 'data:image/png;base64,AAAA' });
     const { user, nav, dialog } = await openEditProfile();
     expect(within(dialog).getByLabelText('Change picture')).toBeInTheDocument();
 
-    await user.click(within(dialog).getByRole('button', { name: 'Remove' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Remove picture' }));
     expect(within(dialog).getByLabelText('Add picture')).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     expect(await within(nav).findByText('RD')).toBeVisible();
     expect(profile.saved.picture).toBeNull();
+  });
+});
+
+describe('Edit profile › Change password', () => {
+  it('is closed at first; opened, it changes the password first and then saves the profile', async () => {
+    const profile = serveProfile();
+    const sent: unknown[] = [];
+    server.use(
+      http.put(apiUrl(apiRoutes.password), async ({ request }) => {
+        sent.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user, dialog } = await openEditProfile();
+    expect(within(dialog).queryByLabelText('Current password')).toBeNull();
+
+    const toggle = within(dialog).getByRole('button', { name: 'Change password' });
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await user.type(within(dialog).getByLabelText('Current password'), 'correct horse battery');
+    await user.type(within(dialog).getByLabelText('New password'), 'battery staple horse');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Bio' }), 'Ships');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(sent).toEqual([{ current: 'correct horse battery', next: 'battery staple horse' }]);
+    expect(profile.saved.bio).toBe('Ships');
+  });
+
+  it('says on its field when the current password is wrong, stays open and saves nothing', async () => {
+    const profile = serveProfile();
+    server.use(
+      http.put(apiUrl(apiRoutes.password), () =>
+        HttpResponse.json({ code: 'wrong_password', message: 'That isn’t your current password.' }, { status: 400 }),
+      ),
+    );
+    const { user, dialog } = await openEditProfile();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Change password' }));
+    await user.type(within(dialog).getByLabelText('Current password'), 'not my password');
+    await user.type(within(dialog).getByLabelText('New password'), 'battery staple horse');
+    await user.type(within(dialog).getByRole('textbox', { name: 'Bio' }), 'Ships');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    const current = within(dialog).getByLabelText('Current password');
+    await waitFor(() => {
+      expect(current).toHaveAccessibleDescription('That isn’t your current password.');
+    });
+    expect(current).toHaveFocus();
+    expect(screen.getByRole('dialog', { name: 'Edit profile' })).toBeVisible();
+    expect(profile.saved.bio).toBe('');
+  });
+
+  it('wants the current password and a long enough new one before it sends anything', async () => {
+    const { user, dialog } = await openEditProfile();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Change password' }));
+    await user.type(within(dialog).getByLabelText('New password'), 'short');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    expect(within(dialog).getByLabelText('Current password')).toHaveAccessibleDescription(
+      'Enter your current password.',
+    );
+    expect(within(dialog).getByLabelText('New password')).toHaveAccessibleDescription(
+      expect.stringContaining('Use at least 8 characters.'),
+    );
   });
 });
 

@@ -1,4 +1,4 @@
-// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023); docs/design/screens/notification-settings/NotificationSettings.dc.html — the Notifications tab (spec 029); the Coding agent tab and the tabs' icons: Design: none — the user's redesign mockup 4a · Settings › Coding agent (redesign), 19 Oct 2026
+// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023); docs/design/screens/notification-settings/NotificationSettings.dc.html — the Notifications tab (spec 029); the Coding agent tab and the tabs' icons: Design: none — the user's redesign mockup 4a · Settings › Coding agent (redesign), 19 Oct 2026; the title kept for screen readers only and the note under the Connections tab alone: the user's call, 20 Oct 2026 (less noise)
 import { useRef } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import {
@@ -60,29 +60,8 @@ export function SettingsScreen() {
         }
       />
       <PageBody>
-        <div className="flex flex-col gap-1">
-          <h1 className="m-0 text-title-lg font-medium">Settings</h1>
-          <p className="m-0 text-muted-foreground">Connect your tools and choose how Claude works in your repos.</p>
-        </div>
-
-        {noteHidden ? null : (
-          <Callout
-            tone="info"
-            icon={<Icon icon={SquareLock02Icon} aria-hidden />}
-            title="Everything stays on this computer"
-            closeLabel="Hide this note"
-            onClose={() => {
-              // The button goes with the note, so focus moves on to the tab that's open (spec 020, AC-13).
-              tabs.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
-              hideNote();
-            }}
-          >
-            <span>
-              Tokens live in your OS keychain and the cache is a local file. Orynx talks only to Jira, GitHub, Slack and
-              Claude.
-            </span>
-          </Callout>
-        )}
+        {/* The page bar's crumb already says Settings, and the tabs what it holds (the user's call, 20 Oct 2026: less noise). */}
+        <h1 className="sr-only">Settings</h1>
 
         <Tabs
           value={tab}
@@ -98,7 +77,26 @@ export function SettingsScreen() {
               </TabsTrigger>
             ))}
           </TabsList>
-          <TabsContent value="connections" className="pt-6">
+          <TabsContent value="connections" className="flex flex-col gap-6 pt-6">
+            {/* About tokens and tools, so under Connections alone, where the tab strip above it can't move. */}
+            {noteHidden ? null : (
+              <Callout
+                tone="info"
+                icon={<Icon icon={SquareLock02Icon} aria-hidden />}
+                title="Everything stays on this computer"
+                closeLabel="Hide this note"
+                onClose={() => {
+                  // The button goes with the note, so focus moves on to the tab that's open (spec 020, AC-13).
+                  tabs.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus();
+                  hideNote();
+                }}
+              >
+                <span>
+                  Tokens live in your OS keychain and the cache is a local file. Orynx talks only to Jira, GitHub, Slack
+                  and Claude.
+                </span>
+              </Callout>
+            )}
             <ConnectionsPanel />
           </TabsContent>
           <TabsContent value="coding-agent" className="pt-6">

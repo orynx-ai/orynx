@@ -68,9 +68,16 @@ export type TabsTriggerProps = ComponentProps<typeof TabsPrimitive.Trigger> & {
   count?: number | string | null;
 };
 
-export function TabsTrigger({ className, count, children, ...props }: TabsTriggerProps) {
+export function TabsTrigger({ className, count, children, onMouseDown, ...props }: TabsTriggerProps) {
   return (
     <TabsPrimitive.Trigger
+      onMouseDown={(event) => {
+        onMouseDown?.(event);
+        // Radix focuses the tab as it's pressed, which Chrome rings as keyboard focus: a click shows no ring.
+        if (!event.defaultPrevented && event.button === 0 && !event.ctrlKey) {
+          event.currentTarget.focus({ focusVisible: false });
+        }
+      }}
       className={cn(
         // The list scrolls sideways, which clips anything outside it, so the focus ring is drawn inside the tab.
         'relative inline-flex h-12 cursor-pointer items-center gap-2 border-0 bg-transparent px-0.5 font-medium whitespace-nowrap text-muted-foreground hover:text-foreground focus-visible:-outline-offset-2 aria-selected:text-foreground',

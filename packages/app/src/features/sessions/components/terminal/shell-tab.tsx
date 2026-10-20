@@ -3,8 +3,11 @@ import { Button, Pill, Skeleton, TerminalView } from '@devhub/ui';
 import { useShellTab } from '../../queries.ts';
 import { shellTabName, terminalWords } from './terminal-words.ts';
 
+/** Whose shell tabs: a session's, or Home's under `homeTerminalId`, which has no branch. */
+type ShellsOf = Pick<Session, 'id' | 'branch'>;
+
 /** The meta line over a shell tab: whose shell, the branch, and where it runs (Q8h). */
-function ShellMeta({ session, worktree }: { session: Session; worktree: string | null }) {
+function ShellMeta({ session, worktree }: { session: ShellsOf; worktree: string | null }) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border px-3.5 py-2 text-label text-muted-foreground">
       <Pill tone="warning">{terminalWords.yourShell}</Pill>
@@ -24,7 +27,7 @@ export function ShellTabPending({
   failed,
   onRetry,
 }: {
-  session: Session;
+  session: ShellsOf;
   failed: boolean;
   onRetry: () => void;
 }) {
@@ -67,7 +70,7 @@ export function ShellTab({
   tab,
   takeFocus,
 }: {
-  session: Session;
+  session: ShellsOf;
   terminal: Terminal;
   tab: TerminalTab;
   takeFocus: boolean;
@@ -77,7 +80,7 @@ export function ShellTab({
     <div className="flex h-full min-h-0 flex-col">
       <ShellMeta session={session} worktree={terminal.worktree} />
       <TerminalView
-        label={shellTabName(terminal.shell, tab.number)}
+        label={shellTabName(terminal.shell, tab.number, session.id)}
         takeFocus={takeFocus}
         connect={shell.connect}
         onData={shell.send}

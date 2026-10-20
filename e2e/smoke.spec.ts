@@ -55,7 +55,7 @@ test('Given Edit profile, when you add a picture, name and bio, then the sidebar
   await profileButton(page).click();
   await page.getByRole('menu', { name: 'Profile' }).getByRole('menuitem').first().click();
   const dialog = page.getByRole('dialog', { name: 'Edit profile' });
-  // A 2 × 1 red PNG: wider than tall, so the dialog crops it to a square.
+  // A 2 × 1 red PNG: wider than tall, so the crop is a square of it.
   await dialog.getByLabel('Add picture').setInputFiles({
     name: 'me.png',
     mimeType: 'image/png',
@@ -64,7 +64,9 @@ test('Given Edit profile, when you add a picture, name and bio, then the sidebar
       'base64',
     ),
   });
-  await expect(dialog.getByRole('button', { name: 'Remove' })).toBeVisible();
+  // Crop picture opens over it: the real cropper measures the picture, and Apply draws the round crop's square.
+  await page.getByRole('dialog', { name: 'Crop picture' }).getByRole('button', { name: 'Apply' }).click();
+  await expect(dialog.getByRole('button', { name: 'Remove picture' })).toBeAttached();
   await dialog.getByRole('textbox', { name: 'Name' }).fill('Ada Lovelace');
   await dialog.getByRole('textbox', { name: 'Bio' }).fill('Writes the first program');
   await dialog.getByRole('button', { name: 'Save' }).click();

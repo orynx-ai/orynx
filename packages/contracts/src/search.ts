@@ -28,6 +28,8 @@ export const SearchTicketSchema = z.object({
   /** The status's own name, shown as it is. */
   status: z.string(),
   target: SearchTicketTargetSchema,
+  /** Assigned to you, or one of Orynx's own: the composer's ticket list holds these alone (the user's call, 20 Oct 2026). */
+  mine: z.boolean(),
 });
 export type SearchTicket = z.infer<typeof SearchTicketSchema>;
 

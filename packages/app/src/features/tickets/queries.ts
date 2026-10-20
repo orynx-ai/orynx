@@ -9,6 +9,7 @@ import {
 import {
   isOrynxKey,
   type CreateOrynxTicket,
+  type TicketColumn,
   type Tickets,
   type TicketsChoice,
   type UpdateOrynxTicket,
@@ -121,4 +122,26 @@ export function useDeleteOrynxTicket() {
   const api = useApi();
   const changed = useOrynxTicketsChanged();
   return useMutation({ mutationFn: (key: string) => api.deleteOrynxTicket(key), onSuccess: changed });
+}
+
+/** Moves several Orynx tickets to one column, from Tickets' floating bar; the page refreshes once, after all. */
+export function useMoveOrynxTickets() {
+  const api = useApi();
+  const changed = useOrynxTicketsChanged();
+  return useMutation({
+    mutationFn: ({ keys, status }: { keys: readonly string[]; status: TicketColumn }) =>
+      Promise.all(keys.map((key) => api.updateOrynxTicket(key, { status }))),
+    // Settled, not success: some may have moved before one failed.
+    onSettled: changed,
+  });
+}
+
+/** Deletes several Orynx tickets, from Tickets' floating bar. */
+export function useDeleteOrynxTickets() {
+  const api = useApi();
+  const changed = useOrynxTicketsChanged();
+  return useMutation({
+    mutationFn: (keys: readonly string[]) => Promise.all(keys.map((key) => api.deleteOrynxTicket(key))),
+    onSettled: changed,
+  });
 }
