@@ -32,7 +32,8 @@ const toneClass: Record<CommandBlockTone, string> = {
 /**
  * One command in a session's Terminal (spec 036, `dh-term-block`): a head on the sidebar's tint with the command in
  * mono after a `$`, a badge, how it went and its actions, then its output as the command printed it. Drawn with the
- * theme's tokens, so it follows light and dark (Q5). The words come from the caller.
+ * theme's tokens, so it follows light and dark (Q5). A group named by its command, so a screen reader can tell blocks
+ * apart. The words come from the caller.
  */
 export function CommandBlock({
   command,
@@ -48,6 +49,8 @@ export function CommandBlock({
 }: CommandBlockProps) {
   return (
     <div
+      role="group"
+      aria-label={command}
       className={cn(
         'overflow-hidden rounded-md border',
         tone === 'danger' ? 'border-danger' : 'border-border',

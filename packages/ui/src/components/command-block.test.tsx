@@ -16,6 +16,7 @@ describe('CommandBlock', () => {
         output={['On branch feat/PROJ-1423', '  modified:   src/a.ts']}
       />,
     );
+    expect(screen.getByRole('group', { name: 'git status' })).toBeVisible();
     const command = screen.getByText('git status');
     expect(command).toHaveAttribute('title', 'git status');
     expect(screen.getByText('✓ 0.1s')).toBeVisible();
