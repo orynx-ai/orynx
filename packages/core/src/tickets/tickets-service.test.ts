@@ -120,6 +120,7 @@ describe('tickets service', () => {
       sprint: null,
       tickets: [],
       truncated: false,
+      orynx: { kept: null },
       choice: yourSprint,
     });
     expect(asked()).toEqual([]);
@@ -133,6 +134,7 @@ describe('tickets service', () => {
       sprint: null,
       tickets: [],
       truncated: false,
+      orynx: { kept: null },
       choice: yourSprint,
     });
   });
@@ -215,6 +217,7 @@ describe('tickets service', () => {
       sprint: null,
       tickets: [],
       truncated: false,
+      orynx: { kept: null },
       choice: yourSprint,
     });
   });
@@ -485,6 +488,7 @@ describe('tickets service: the sprint you pick (spec 020)', () => {
       sprint: null,
       tickets: [],
       truncated: false,
+      orynx: { kept: null },
     });
     expect(await tickets.sync()).toBe('answered');
     const read = await tickets.read();
@@ -516,6 +520,7 @@ describe('tickets service: the sprint you pick (spec 020)', () => {
       sprint: null,
       tickets: [],
       truncated: false,
+      orynx: { kept: null },
     });
   });
 

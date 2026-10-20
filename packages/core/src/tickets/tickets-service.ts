@@ -66,7 +66,12 @@ export interface TicketsServiceOptions {
 }
 
 const part = 'jira_sprint';
-const nothing: Omit<Tickets, 'jira' | 'choice'> = { sprint: null, tickets: [], truncated: false };
+const nothing: Omit<Tickets, 'jira' | 'choice'> = {
+  sprint: null,
+  tickets: [],
+  truncated: false,
+  orynx: { kept: null },
+};
 
 /**
  * The sprint as the cache keeps it, with the choice it was read for (spec 020): a record, or null when that
@@ -269,6 +274,7 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
           session: joined.get(ticket.key) ?? null,
         })),
         truncated: record.truncated,
+        orynx: { kept: null },
       };
     },
 

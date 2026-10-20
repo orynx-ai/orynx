@@ -39,6 +39,9 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'inbox.changed':
       // A sync ended: Tickets' sprint syncs with the inbox (spec 008), and search reads both (spec 009).
       return [queryKeys.inbox, queryKeys.tickets, queryKeys.search];
+    case 'tickets.changed':
+      // You, another tab or an agent made, changed or deleted an Orynx ticket (spec 037): it's on Tickets and in ⌘K.
+      return [queryKeys.tickets, queryKeys.search];
     case 'skills.changed':
       // Another tab, or this one, added, saved or deleted one of your skills (spec 023, AC-19). The key covers
       // Settings › Skills and the composer's `/` lists, which show your skills too.

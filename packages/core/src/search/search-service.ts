@@ -59,12 +59,10 @@ export function searchIndex(sources: SearchSources): SearchIndex {
   const joined = sessionsByTicket(sources.sessions);
   const inSprint = new Set(sources.sprint.map((ticket) => ticket.key));
   const tickets: SearchTicket[] = [
-    ...sources.sprint.map((ticket) => ({
-      key: ticket.key,
-      title: ticket.title,
-      status: ticket.status,
-      target: ticketTarget(ticket.url, joined.get(ticket.key)),
-    })),
+    // A row with no link is an Orynx ticket (spec 037), which has no page on a Jira site to open.
+    ...sources.sprint.flatMap(({ key, title, status, url }) =>
+      url === null ? [] : [{ key, title, status, target: ticketTarget(url, joined.get(key)) }],
+    ),
     ...sources.assigned
       .filter((record) => !inSprint.has(record.key))
       .sort((a, b) => byKey.compare(a.key, b.key))

@@ -254,6 +254,8 @@ export const SessionTicketSchema = z.object({
   status: z.object({ name: z.string().min(1), column: TicketColumnSchema }).nullable(),
   /** A calendar day, worded by the app ("Due Fri"), as on Tickets. */
   dueDate: z.iso.date().nullable(),
+  /** An Orynx ticket deleted since the session started (spec 037, AC-19); a Jira ticket never is. */
+  deleted: z.boolean().default(false),
 });
 export type SessionTicket = z.infer<typeof SessionTicketSchema>;
 

@@ -600,7 +600,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         ...current.session,
         title: issue.summary.trim() === '' ? current.session.title : issue.summary,
         // The Ticket tab shows the ticket as Claude got it (spec 013, Q7); its status and due date are read live.
-        ticket: { type: issue.type, description: issue.description, status: null, dueDate: null },
+        ticket: { type: issue.type, description: issue.description, status: null, dueDate: null, deleted: false },
       },
     }));
     return ticketPlan(issue);
@@ -1080,7 +1080,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         sprint: known?.sprint ?? null,
         approvals: [],
         ticket:
-          ticket === null ? null : { type: ticket.type, description: ticket.description, status: null, dueDate: null },
+          ticket === null
+            ? null
+            : { type: ticket.type, description: ticket.description, status: null, dueDate: null, deleted: false },
         followUp: { kind: 'open' },
         worktreePath: null,
         workedMs: 0,
@@ -1206,7 +1208,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         followUpOf(record),
       ]);
       const ticket: SessionTicket | null =
-        saved === null ? null : { ...saved, status: known?.status ?? null, dueDate: known?.dueDate ?? null };
+        saved === null
+          ? null
+          : { ...saved, status: known?.status ?? null, dueDate: known?.dueDate ?? null, deleted: false };
       // There's a worktree to open from when it's made until the changes are discarded (spec 013, Q9).
       const made = session.branch !== null && session.discardedAt === null;
       return { ...session, ticket, followUp, worktreePath: made ? record.worktree : null };
