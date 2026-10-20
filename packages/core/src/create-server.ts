@@ -60,6 +60,9 @@ import { createSessionService } from './sessions/session-service.ts';
 import { createMemorySessionStore, type SessionRecords } from './sessions/session-store.ts';
 import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
 import { createTicketsService } from './tickets/tickets-service.ts';
+import { createOrynxTicketService } from './orynx-tickets/ticket-service.ts';
+import { createOrynxTicketStore, type OrynxTicketStore } from './orynx-tickets/ticket-store.ts';
+import { orynxTicketsRoutes } from './routes/orynx-tickets.ts';
 import { readGitUserName } from './status/git-user-name.ts';
 import { createStatusService } from './status/status-service.ts';
 
@@ -77,6 +80,8 @@ export interface CoreOptions {
   eventsKeepAliveMs?: number;
   /** Where sessions are kept. Hosts pass the store under DEVHUB_HOME (spec 011); tests get memory. */
   sessions?: SessionRecords;
+  /** Orynx's own tickets (spec 037). Hosts pass `<DEVHUB_HOME>/tickets.json`; tests get memory. */
+  orynxTickets?: OrynxTicketStore;
   /**
    * What runs Claude in a session (spec 011): the Agent SDK's `query()`, the Claude Code to run and the
    * allow-listed environment. Hosts pass the SDK's; tests pass a fake. Left out, no session can start, so no
@@ -272,6 +277,11 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   });
   const sessions = options.sessions ?? createMemorySessionStore();
   const preferences = createPreferencesService({ settings, events });
+  const orynxTickets = createOrynxTicketService({
+    store: options.orynxTickets ?? createOrynxTicketStore(),
+    sessions,
+    events,
+  });
   const cache = options.cache ?? openInboxCache(':memory:');
   // Spec 029: what sessions and syncs raise. Its failures go to the terminal as the error alone, never the text.
   const notifications = createNotificationService({
@@ -497,6 +507,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(inboxRoutes, { inbox });
       await api.register(syncActivityRoutes, { syncActivity });
       await api.register(ticketsRoutes, { tickets, inbox, jira });
+      await api.register(orynxTicketsRoutes, { tickets: orynxTickets });
       await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });
       await api.register(repositoriesRoutes, { repositories });
       await api.register(skillsRoutes, { skills });
