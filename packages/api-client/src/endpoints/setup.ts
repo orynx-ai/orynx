@@ -3,6 +3,7 @@ import {
   apiRoutes,
   ProfileSchema,
   SetupStateSchema,
+  type ChangePasswordRequest,
   type Profile,
   type SetupRequest,
   type SetupState,
@@ -27,4 +28,9 @@ export async function getProfile(http: AxiosInstance): Promise<Profile> {
 export async function putProfile(http: AxiosInstance, profile: Profile): Promise<Profile> {
   const res = await http.put<unknown>(apiRoutes.profile, profile);
   return ProfileSchema.parse(res.data);
+}
+
+/** A wrong `current` answers 400 `wrong_password`, and nothing changes. */
+export async function putPassword(http: AxiosInstance, request: ChangePasswordRequest): Promise<void> {
+  await http.put(apiRoutes.password, request);
 }

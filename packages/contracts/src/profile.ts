@@ -32,3 +32,10 @@ export const SetupRequestSchema = z.object({
   password: z.string().min(passwordMinLength).max(passwordMaxLength),
 });
 export type SetupRequest = z.infer<typeof SetupRequestSchema>;
+
+/** PUT /api/password: Edit profile's Change password. `current` must match the saved one; 204 once `next` is saved. */
+export const ChangePasswordRequestSchema = z.object({
+  current: z.string().min(1).max(passwordMaxLength),
+  next: z.string().min(passwordMinLength).max(passwordMaxLength),
+});
+export type ChangePasswordRequest = z.infer<typeof ChangePasswordRequestSchema>;

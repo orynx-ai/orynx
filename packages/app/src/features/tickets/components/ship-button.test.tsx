@@ -7,6 +7,7 @@ import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 import { ticketsHandler, ticketsToday } from '../../../test/tickets.ts';
 import { useComposerStore } from '../../home/store.ts';
+import { movesFor } from './ship-button.tsx';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'], now: ticketsToday });
@@ -95,5 +96,25 @@ describe('Ship (spec 022, E)', () => {
     const card = await screen.findByRole('article', { name: 'Add bulk archive to the content list' });
     expect(within(card).getByRole('link', { name: 'Needs you' })).toHaveAttribute('href', '/sessions/session-1423');
     expect(within(card).queryByRole('button', { name: /^Ship / })).toBeNull();
+  });
+});
+
+describe('movesFor (the user’s call, 20 Oct 2026)', () => {
+  const at = new Map([
+    ['ORX-1', 'to_do'],
+    ['ORX-2', 'in_review'],
+    ['ORX-3', 'done'],
+    ['PROJ-1', 'to_do'],
+  ] as const);
+
+  it('offers every column after the furthest one ticked, and nothing past Done', () => {
+    expect(movesFor(['ORX-1'], at)).toEqual(['in_progress', 'in_review', 'done']);
+    expect(movesFor(['ORX-1', 'ORX-2'], at)).toEqual(['done']);
+    expect(movesFor(['ORX-1', 'ORX-3'], at)).toEqual([]);
+  });
+
+  it('offers nothing with a Jira ticket ticked, or one Tickets no longer holds', () => {
+    expect(movesFor(['ORX-1', 'PROJ-1'], at)).toEqual([]);
+    expect(movesFor(['ORX-1', 'ORX-9'], at)).toEqual([]);
   });
 });

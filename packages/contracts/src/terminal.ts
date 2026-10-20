@@ -9,6 +9,12 @@ import { mostMessageCharacters, RefusalReasonSchema } from './session.ts';
 /** Shell tabs per session; lines kept of each of Claude's commands; the most one input request carries. */
 export const terminalLimits = { tabs: 5, claudeLines: 200, inputChars: 65_536 } as const;
 
+/**
+ * Home's Terminal: your shell tabs in Orynx's home folder (DEVHUB_HOME), on the session Terminal's routes under this
+ * id. Never a session's: theirs are 16 hex characters.
+ */
+export const homeTerminalId = 'orynx';
+
 /** A command as typed: something to run, no longer than a follow-up may be. */
 const CommandTextSchema = z.string().regex(/\S/, 'a command needs something to run').max(mostMessageCharacters);
 

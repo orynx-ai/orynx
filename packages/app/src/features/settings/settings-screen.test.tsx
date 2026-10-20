@@ -46,15 +46,13 @@ describe('SettingsScreen', () => {
   });
 
   it('AC-13 (spec 020): Hide this note closes the local-first note for good, with focus on the open tab', async () => {
-    const { user } = await renderApp({ route: '/settings/repositories' });
+    const { user } = await renderApp({ route: '/settings/connections' });
     await screen.findByText('Everything stays on this computer');
 
     await user.click(screen.getByRole('button', { name: 'Hide this note' }));
 
     expect(screen.queryByText('Everything stays on this computer')).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Repositories' })).toHaveFocus();
-    await user.click(screen.getByRole('tab', { name: 'Inbox rules' }));
-    expect(screen.queryByText('Everything stays on this computer')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Connections' })).toHaveFocus();
     expect(JSON.parse(localStorage.getItem('devhub.ui') ?? '{}')).toMatchObject({
       state: { localFirstNoteHidden: true },
     });
@@ -69,9 +67,13 @@ describe('SettingsScreen', () => {
     expect(screen.queryByText('Everything stays on this computer')).not.toBeInTheDocument();
   });
 
-  it('says that everything stays on this computer', async () => {
-    await renderApp({ route: '/settings/connections' });
+  it('says that everything stays on this computer on Connections alone, under a title for screen readers', async () => {
+    const { user } = await renderApp({ route: '/settings/connections' });
     expect(await screen.findByText('Everything stays on this computer')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Settings', level: 1 })).toHaveClass('sr-only');
+
+    await user.click(screen.getByRole('tab', { name: 'Repositories' }));
+    expect(screen.queryByText('Everything stays on this computer')).not.toBeInTheDocument();
   });
 
   it('switches tabs through the URL', async () => {

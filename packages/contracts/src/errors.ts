@@ -27,6 +27,8 @@ export const ApiErrorCodeSchema = z.enum([
   'already_set_up',
   /** lsof couldn't be run, so the session's ports can't be read (spec 042, AC-9). */
   'ports_unreadable',
+  /** Change password: the current password typed isn't the saved one, so nothing changed. */
+  'wrong_password',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;

@@ -4,6 +4,7 @@ import {
   AddTerminalTabAnswerSchema,
   ApiErrorSchema,
   apiPaths,
+  homeTerminalId,
   TerminalInputSchema,
   TerminalSchema,
   TerminalSizeSchema,
@@ -22,15 +23,19 @@ const noTab: ApiError = { code: 'not_found', message: 'This Terminal has no such
 /**
  * Your shell tabs in a session's Terminal (spec 036, spec 038). Every shell starts in the session's own worktree,
  * read from the store, never from the request; `registerLocalOnly` checks the Host and the token first, as on
- * every route. A session with no Terminal (an Ask, a discarded one) answers 404 to all of them.
+ * every route. A session with no Terminal (an Ask, a discarded one) answers 404 to all of them. Under
+ * `homeTerminalId` they are Home's Terminal, whose shells start in Orynx's home folder.
  */
 export const terminalRoutes: FastifyPluginCallbackZod<{
   sessions: Pick<SessionRecords, 'get'>;
   terminal: TerminalService;
+  /** DEVHUB_HOME, where Home's Terminal starts. */
+  orynxHome: string;
   /** How often the output stream sends a comment line, so it stays open while the shell is quiet. */
   keepAliveMs?: number;
-}> = (app, { sessions, terminal, keepAliveMs = 25_000 }, done) => {
+}> = (app, { sessions, terminal, orynxHome, keepAliveMs = 25_000 }, done) => {
   async function worktreeOf(id: string): Promise<string | null> {
+    if (id === homeTerminalId) return orynxHome;
     const record = await sessions.get(id);
     return record === null ? null : terminalWorktree(record);
   }

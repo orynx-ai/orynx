@@ -49,6 +49,7 @@ describe('/api/setup (spec 043)', () => {
       ['POST', apiRoutes.setup],
       ['GET', apiRoutes.profile],
       ['PUT', apiRoutes.profile],
+      ['PUT', apiRoutes.password],
     ] as const) {
       const res = await app.inject({ method, url, headers: { host: headers.host } });
       expect(res.statusCode).toBe(401);
@@ -150,5 +151,53 @@ describe('/api/profile (spec 043)', () => {
     await settings.update((current) => ({ ...current, profile: { name: 42 } }));
     const app = await server({ settings });
     expect((await app.inject({ method: 'GET', url: apiRoutes.profile, headers })).json()).toEqual(defaultProfile);
+  });
+});
+
+describe('/api/password (Edit profile › Change password)', () => {
+  const change = (app: FastifyInstance, current: string, next: string) =>
+    app.inject({ method: 'PUT', url: apiRoutes.password, headers, payload: { current, next } });
+
+  it('saves the new password when the current one matches, so the old one and its cookie stop working', async () => {
+    const folder = await home();
+    const password = createPasswordStore(passwordFilePath(folder));
+    await password.set('correct horse battery');
+    const cookie = await password.cookie();
+    const app = await server({ password });
+
+    const res = await change(app, 'correct horse battery', 'battery staple horse');
+
+    expect(res.statusCode).toBe(204);
+    expect(await password.verify('battery staple horse')).toBe(true);
+    expect(await password.verify('correct horse battery')).toBe(false);
+    expect(await password.cookie()).not.toBe(cookie);
+    expect(await readFile(passwordFilePath(folder), 'utf8')).not.toContain('battery staple');
+  });
+
+  it('refuses a wrong current password, and keeps the saved one', async () => {
+    const password = createPasswordStore();
+    await password.set('correct horse battery');
+    const app = await server({ password });
+
+    const res = await change(app, 'not my password', 'battery staple horse');
+
+    expect(res.statusCode).toBe(400);
+    expect(ApiErrorSchema.parse(res.json())).toEqual({
+      code: 'wrong_password',
+      message: 'That isn’t your current password.',
+    });
+    expect(await password.verify('correct horse battery')).toBe(true);
+  });
+
+  it('refuses a short new password, and answers 409 before Orynx is set up', async () => {
+    const password = createPasswordStore();
+    const app = await server({ password });
+
+    expect((await change(app, 'anything', 'battery staple horse')).statusCode).toBe(409);
+    expect(await password.isSet()).toBe(false);
+
+    await password.set('correct horse battery');
+    expect((await change(app, 'correct horse battery', 'short')).statusCode).toBe(400);
+    expect(await password.verify('correct horse battery')).toBe(true);
   });
 });

@@ -5,7 +5,7 @@ import { cn } from '../lib/cn.ts';
 const avatarVariants = cva(
   'inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-subtle text-label font-medium text-foreground',
   {
-    variants: { size: { default: 'size-7', lg: 'size-9', xl: 'size-16 text-title' } },
+    variants: { size: { default: 'size-7', lg: 'size-9', xl: 'size-16 text-title', '2xl': 'size-24 text-title-lg' } },
     defaultVariants: { size: 'default' },
   },
 );

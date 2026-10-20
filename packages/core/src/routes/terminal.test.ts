@@ -9,6 +9,7 @@ import {
   AddTerminalTabAnswerSchema,
   apiRoutes,
   ApiErrorSchema,
+  homeTerminalId,
   SessionSchema,
   TerminalOutputSchema,
   TerminalSchema,
@@ -63,12 +64,14 @@ async function setUp({ session = {}, terminal = true }: { session?: Partial<Sess
     version: '1.2.3',
     sessions: store,
     userHome: home,
+    dataDir: join(home, '.devhub'),
     ...(terminal ? { terminal: { env } } : {}),
   });
-  return { app, worktree };
+  return { app, worktree, orynxHome: join(home, '.devhub') };
 }
 
-const path = (route: string, tabId = 'tab-1') => route.replace(':id', id).replace(':tabId', tabId);
+const path = (route: string, tabId = 'tab-1', terminalId = id) =>
+  route.replace(':id', terminalId).replace(':tabId', tabId);
 
 async function readTerminal(server: FastifyInstance): Promise<Terminal> {
   const res = await server.inject({ method: 'GET', url: path(apiRoutes.sessionTerminal), headers });
@@ -77,7 +80,7 @@ async function readTerminal(server: FastifyInstance): Promise<Terminal> {
 }
 
 /** Opens a tab's output over a real socket, the way the page's EventSource does, with the token in its URL. */
-async function openOutput(server: FastifyInstance, { tabId = 'tab-1', key = token } = {}) {
+async function openOutput(server: FastifyInstance, { tabId = 'tab-1', key = token, terminalId = id } = {}) {
   await server.listen({ host: '127.0.0.1', port: 0 });
   const { port: real } = server.server.address() as AddressInfo;
   stream = await new Promise<IncomingMessage>((resolve, reject) => {
@@ -85,7 +88,7 @@ async function openOutput(server: FastifyInstance, { tabId = 'tab-1', key = toke
       {
         host: '127.0.0.1',
         port: real,
-        path: `${path(apiRoutes.sessionTerminalOutput, tabId)}?${tokenQueryParam}=${key}`,
+        path: `${path(apiRoutes.sessionTerminalOutput, tabId, terminalId)}?${tokenQueryParam}=${key}`,
       },
       resolve,
     )
@@ -233,5 +236,24 @@ describe('the Terminal’s routes', () => {
     expect((await close('tab-2')).statusCode).toBe(204);
     expect((await close('tab-1')).statusCode).toBe(404);
     expect((await readTerminal(app)).tabs).toEqual([{ id: 'tab-1', number: 1, server: null }]);
+  });
+
+  it('Home’s Terminal: your shell in Orynx’s home folder, under its own id, with the same token checks', async () => {
+    const { app, orynxHome } = await setUp();
+    const home = (route: string) => path(route, 'tab-1', homeTerminalId);
+    const read = await app.inject({ method: 'GET', url: home(apiRoutes.sessionTerminal), headers });
+    expect(TerminalSchema.parse(read.json())).toEqual({
+      shell: 'sh',
+      worktree: '~/.devhub',
+      tabs: [{ id: 'tab-1', number: 1, server: null }],
+    });
+
+    const output = await openOutput(app, { terminalId: homeTerminalId });
+    expect(output.status).toBe(200);
+    const input = (headers: Record<string, string>) =>
+      app.inject({ method: 'POST', url: home(apiRoutes.sessionTerminalInput), headers, payload: { data: 'pwd\r' } });
+    expect((await input({ host: output.hostHeaders.host })).statusCode).toBe(401);
+    expect((await input(output.hostHeaders)).statusCode).toBe(204);
+    await output.shows(`${orynxHome}\r\n`);
   });
 });

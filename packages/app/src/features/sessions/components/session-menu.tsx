@@ -1,7 +1,16 @@
 import { useRef, useState } from 'react';
-import { Delete02Icon, MoreHorizontalIcon, PencilEdit02Icon, PinIcon, PinOffIcon } from '@hugeicons/core-free-icons';
+import { useMutation } from '@tanstack/react-query';
+import {
+  Delete02Icon,
+  MoreHorizontalIcon,
+  PencilEdit02Icon,
+  PinIcon,
+  PinOffIcon,
+  StopIcon,
+} from '@hugeicons/core-free-icons';
 import type { SessionSummary } from '@devhub/contracts';
 import { Icon, IconButton, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@devhub/ui';
+import { useApi } from '../../../api.tsx';
 import { useChangeSession } from '../queries.ts';
 import { DeleteSession } from './delete-session.tsx';
 import { RenameSession } from './rename-session.tsx';
@@ -62,7 +71,8 @@ export function SessionMenuItems({
 
 /**
  * A session row's ⋯ (spec 039, AC-24): the session's menu and the dialogs it opens. Focus goes back to ⋯ when a dialog
- * closes, or to `afterDelete`'s place once the session is gone.
+ * closes, or to `afterDelete`'s place once the session is gone. While Claude works it starts with Stop, as the Session
+ * screen's Stop does (the user's call, 20 Oct 2026); `sessions.changed` then brings the stopped row.
  */
 export function SessionMenu({ session, afterDelete }: { session: SessionMenuSession; afterDelete: () => void }) {
   const more = useRef<HTMLButtonElement>(null);
@@ -71,6 +81,9 @@ export function SessionMenu({ session, afterDelete }: { session: SessionMenuSess
   const close = () => {
     setDialog(null);
   };
+  const api = useApi();
+  const stop = useMutation({ mutationFn: () => api.stopSession(session.id) });
+  const working = session.state === 'working' || session.state === 'needs_you';
 
   return (
     <>
@@ -98,6 +111,19 @@ export function SessionMenu({ session, afterDelete }: { session: SessionMenuSess
             setDialog(pick);
           }}
         >
+          {working ? (
+            <>
+              <MenuItem
+                icon={<Icon icon={StopIcon} />}
+                onSelect={() => {
+                  stop.mutate();
+                }}
+              >
+                Stop
+              </MenuItem>
+              <MenuSeparator />
+            </>
+          ) : null}
           <SessionMenuItems
             session={session}
             onPick={(pick) => {

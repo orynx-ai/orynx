@@ -2,6 +2,7 @@ import axios, { type AxiosInstance } from 'axios';
 import {
   tokenHeader,
   type AddRepositoryRequest,
+  type ChangePasswordRequest,
   type FileCheckAnswer,
   type FileCheckRequest,
   type FilePicks,
@@ -100,7 +101,7 @@ import {
   postNotificationsRead,
 } from './endpoints/notifications.ts';
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
-import { getProfile, getSetup, postSetup, putProfile } from './endpoints/setup.ts';
+import { getProfile, getSetup, postSetup, putPassword, putProfile } from './endpoints/setup.ts';
 import {
   deleteRepository,
   getRepositories,
@@ -248,6 +249,8 @@ export interface ApiClient {
   /** Who uses Orynx, the same on every device (spec 043). */
   profile(): Promise<Profile>;
   saveProfile(profile: Profile): Promise<Profile>;
+  /** Edit profile's Change password: `wrong_password` when `current` isn't the saved one. */
+  changePassword(request: ChangePasswordRequest): Promise<void>;
   /** The bell's list, newest first, with the unread and waiting counts (spec 029). */
   notifications(): Promise<NotificationList>;
   /** Marks some notifications read, or all of them. */
@@ -415,6 +418,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     profile: () => getProfile(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     saveProfile: (profile) =>
       putProfile(http, profile).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    changePassword: (request) =>
+      putPassword(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     notifications: () => getNotifications(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     markNotificationsRead: (request) =>
       postNotificationsRead(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
