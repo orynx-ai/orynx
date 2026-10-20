@@ -65,7 +65,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 21: The New ticket dialog's Orynx line, with and without Jira (AC-40, AC-41)
       Check: pnpm test packages/app/src/features/tickets/components/ticket-form.test.tsx packages/app/src/features/tickets/tickets-screen.test.tsx
       Files: packages/app/src/features/tickets/components/new-ticket.tsx, ticket-form.tsx, ticket-words.ts, their tests
-- [ ] Task 22: e2e for the session menu (rename, pin, delete) and the Sessions page's search, and a real-browser pass at 360 px and 1280 px in light and dark (AC-24–AC-36, AC-42)
+- [x] Task 22: e2e for the session menu (rename, pin, delete) and the Sessions page's search, and a real-browser pass at 360 px and 1280 px in light and dark (AC-24–AC-36, AC-42)
       Check: pnpm test:e2e e2e/sessions.spec.ts
       Files: e2e/sessions.spec.ts
 - [ ] Task 23: STOP and run /review
