@@ -1,5 +1,5 @@
 // Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list; Refresh, the ticket checkboxes and the floating bar to Ship several: Design: none, the user's call (19 Oct 2026)
-import { useRef, type ReactNode } from 'react';
+import { Fragment, useRef, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { KanbanIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
@@ -25,6 +25,7 @@ import {
   searchFromFilters,
   type AddressFilters,
 } from './filters.ts';
+import { useStatus } from '../settings/queries.ts';
 import { useTickets } from './queries.ts';
 import { useTicketsStore } from './store.ts';
 import {
@@ -47,6 +48,7 @@ const ticketsCrumb: Crumb = { label: 'Tickets' };
 /** Your current Jira sprint as a board or a list (spec 008). */
 export function TicketsScreen() {
   const tickets = useTickets();
+  const status = useStatus();
   const search = useSearch({ from: '/tickets' });
   const navigate = useNavigate({ from: '/tickets' });
   const view = useTicketsStore((state) => state.view);
@@ -69,8 +71,10 @@ export function TicketsScreen() {
       />
     );
   }
-  // Without Jira, Tickets holds Orynx's own tickets (spec 037, AC-4).
-  const jiraOff = data?.jira.state === 'not_connected';
+  // Without Jira, Tickets holds Orynx's own tickets (spec 037, AC-4). Until the sprint's answer says so, the status the
+  // shell has already read does, so the page is drawn without Jira's filters from the first paint and nothing moves.
+  const jiraOff =
+    data === undefined ? status.data?.integrations.jira.state === 'not_connected' : data.jira.state === 'not_connected';
   const filters = { ...filtersFromSearch(search), text };
   // Orynx's own tickets alone have no sprint, so the page names them and leaves the pickers out (spec 037, Q7).
   const orynxOnly = jiraOff || (filters.source.length === 1 && filters.source[0] === 'orynx');
@@ -86,11 +90,8 @@ export function TicketsScreen() {
   // keeps its bar and pickers, the same elements, so a pick that empties or fills it keeps focus where it was.
   const noSprint = !orynxOnly && !loading && sprint === null && !withoutSprint;
   // What the page calls what it shows; null while it loads.
-  const shownName = orynxOnly
-    ? loading
-      ? null
-      : orynxName
-    : (sprint?.name ?? (withoutSprint && !loading ? noSprintName : null));
+  // Orynx's own tickets alone are named Orynx from the first paint: they have no sprint to wait for.
+  const shownName = orynxOnly ? orynxName : (sprint?.name ?? (withoutSprint && !loading ? noSprintName : null));
 
   const all = data?.tickets ?? [];
   const shown = all.filter((ticket) => matches(ticket, filters, now));
@@ -103,8 +104,7 @@ export function TicketsScreen() {
   const crumbs: Crumb[] =
     shownName === null ? [ticketsCrumb] : [{ ...ticketsCrumb, to: '/tickets' }, { label: shownName }];
   // A line about Jira's sprint, unless the page shows Orynx's tickets alone by choice.
-  const line =
-    data === undefined ? null : jiraOff ? withoutJiraLine : orynxOnly ? null : toolLine('jira', data.jira, now);
+  const line = jiraOff ? withoutJiraLine : data === undefined || orynxOnly ? null : toolLine('jira', data.jira, now);
   const kept = data?.orynx.kept ?? null;
   const truncated = !orynxOnly && shownName !== null && data?.truncated === true;
   const noOrynxTickets = orynxOnly && !loading && !all.some((ticket) => isOrynxKey(ticket.key));
@@ -177,7 +177,7 @@ export function TicketsScreen() {
           <>
             {synced === null ? null : <span className="text-small text-muted-foreground max-md:hidden">{synced}</span>}
             <RefreshButton />
-            {orynxShown && !noSprint && !noOrynxTickets ? <NewTicketButton inPageBar /> : null}
+            {orynxShown && !noSprint ? <NewTicketButton inPageBar compact={!wide} /> : null}
             {noSprint ? null : (
               <>
                 {wide ? searchField : null}
@@ -202,35 +202,41 @@ export function TicketsScreen() {
           </>
         }
       />
-      <TicketsToolbar
-        filters={filters}
-        onFiltersChange={changeFilters}
-        onClear={clearFilters}
-        options={options}
-        count={loading ? undefined : shown.length}
-        assigneeRef={assignee}
-        {...(orynxOnly ? {} : { pickers: <SprintPickers choice={choice} sprint={sprint} loading={loading} /> })}
-        pickersOnly={noSprint}
-        sources={!jiraOff}
-        {...(wide ? {} : { search: searchField })}
-      />
-      <PageBody width={noSprint ? 'wide' : 'full'}>
-        <h1 className="sr-only">{shownName === null ? 'Tickets' : pageHeading(shownName)}</h1>
-        {line === null && !truncated && kept === null ? null : (
-          <div className="flex flex-col gap-1">
-            {line === null ? null : <Note message={line.message} action={line.action} />}
-            {truncated ? <Note message={tooManyLine(shownName)} action={null} /> : null}
-            {kept === null ? null : <Note message={keptFileLine(kept)} action={null} />}
-          </div>
-        )}
-        {body}
-        <ShipSelected
-          onCleared={() => {
-            assignee.current?.focus();
-          }}
+      {/*
+        Without Jira, the toolbar and the board are another page's: new elements in place of the sprint's, so the
+        sprint's filters and pickers never slide away as the answer comes (spec 037, AC-36).
+      */}
+      <Fragment key={jiraOff ? 'without-jira' : 'with-jira'}>
+        <TicketsToolbar
+          filters={filters}
+          onFiltersChange={changeFilters}
+          onClear={clearFilters}
+          options={options}
+          count={loading ? undefined : shown.length}
+          assigneeRef={assignee}
+          {...(orynxOnly ? {} : { pickers: <SprintPickers choice={choice} sprint={sprint} loading={loading} /> })}
+          pickersOnly={noSprint}
+          sources={!jiraOff}
+          {...(wide ? {} : { search: searchField })}
         />
-        <NewTicketDialog />
-      </PageBody>
+        <PageBody width={noSprint ? 'wide' : 'full'}>
+          <h1 className="sr-only">{shownName === null ? 'Tickets' : pageHeading(shownName)}</h1>
+          {line === null && !truncated && kept === null ? null : (
+            <div className="flex flex-col gap-1">
+              {line === null ? null : <Note message={line.message} action={line.action} />}
+              {truncated ? <Note message={tooManyLine(shownName)} action={null} /> : null}
+              {kept === null ? null : <Note message={keptFileLine(kept)} action={null} />}
+            </div>
+          )}
+          {body}
+          <ShipSelected
+            onCleared={() => {
+              assignee.current?.focus();
+            }}
+          />
+          <NewTicketDialog />
+        </PageBody>
+      </Fragment>
     </>
   );
 }

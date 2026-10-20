@@ -31,6 +31,8 @@ describe('DatePicker', () => {
     const calendar = screen.getByRole('dialog', { name: 'Pick a date' });
     expect(calendar).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Clear date' })).not.toBeInTheDocument();
+    // With no day picked, the calendar opens on today, focused.
+    expect(screen.getByRole('button', { name: /today/ })).toHaveFocus();
     await expectNoAxeViolations(container);
     await expectNoAxeViolations(calendar);
   });
@@ -42,8 +44,8 @@ describe('DatePicker', () => {
 
     await user.click(field());
     expect(screen.getByRole('grid', { name: 'October 2026' })).toBeVisible();
-    expect(screen.getByRole('button', { name: /October 24th, 2026/ })).toHaveFocus();
-    await user.click(screen.getByRole('button', { name: /October 28th, 2026/ }));
+    expect(screen.getByRole('button', { name: /^24 October 2026/ })).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: /^28 October 2026/ }));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'Value' })).toHaveTextContent('2026-10-28');

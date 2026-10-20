@@ -84,12 +84,23 @@ export function DatePicker({
           <Icon icon={Calendar03Icon} aria-hidden className="text-muted-foreground" />
         </button>
       </PopoverTrigger>
-      <PopoverContent aria-label={placeholder} className="flex flex-col gap-2">
+      <PopoverContent
+        aria-label={placeholder}
+        className="flex flex-col gap-2"
+        // Focus goes to the picked day, else today, else the month's first, not the popover's first button: the date
+        // picker dialog pattern (WAI-ARIA APG), so the arrows move between days at once.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          const grid = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+          const day =
+            grid?.querySelector<HTMLButtonElement>('[role="grid"] button[data-picked]') ??
+            grid?.querySelector<HTMLButtonElement>('[role="grid"] button[data-today]') ??
+            grid?.querySelector<HTMLButtonElement>('[role="grid"] button:not([disabled])');
+          day?.focus();
+        }}
+      >
         <Calendar
           mode="single"
-          // The date picker dialog pattern (WAI-ARIA APG): opened by your press, the calendar takes focus on its day.
-          // eslint-disable-next-line jsx-a11y/no-autofocus -- focus moves only because you opened it
-          autoFocus
           {...(picked === undefined ? {} : { selected: picked, defaultMonth: picked })}
           onSelect={(day) => {
             if (day !== undefined) onValueChange(valueOf(day));

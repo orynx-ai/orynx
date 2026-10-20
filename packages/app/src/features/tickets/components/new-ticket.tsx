@@ -15,18 +15,40 @@ function newTicketFields(column: TicketColumn): OrynxTicketFields {
 /** The page bar's New ticket, where focus goes once a ticket is deleted, its card gone (AC-18). */
 export const pageNewTicket: { current: HTMLButtonElement | null } = { current: null };
 
-/** New ticket in the page bar, or under an empty board (spec 037, AC-5, AC-6): a ticket that starts in To do. */
-export function NewTicketButton({ size = 'sm', inPageBar = false }: { size?: 'default' | 'sm'; inPageBar?: boolean }) {
+/**
+ * New ticket in the page bar, or under an empty board (spec 037, AC-5, AC-6): a ticket that starts in To do. Under
+ * 768 px the page bar's is its icon alone, with its tooltip, so the bar keeps to the window's width (AC-36).
+ */
+export function NewTicketButton({
+  size = 'sm',
+  inPageBar = false,
+  compact = false,
+}: {
+  size?: 'default' | 'sm';
+  inPageBar?: boolean;
+  compact?: boolean;
+}) {
   const open = useTicketsStore((state) => state.openNewTicket);
+  const remember = (button: HTMLButtonElement | null) => {
+    if (inPageBar) pageNewTicket.current = button;
+  };
+  if (compact) {
+    return (
+      <IconButton
+        ref={remember}
+        size="sm"
+        label={words.newTicket}
+        onClick={() => {
+          open('to_do');
+        }}
+      >
+        <Icon icon={PlusSignIcon} aria-hidden />
+      </IconButton>
+    );
+  }
   return (
     <Button
-      {...(inPageBar
-        ? {
-            ref: (button: HTMLButtonElement | null) => {
-              pageNewTicket.current = button;
-            },
-          }
-        : {})}
+      ref={remember}
       size={size}
       onClick={() => {
         open('to_do');

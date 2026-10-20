@@ -38,6 +38,12 @@ export const composerHubPort = 4388;
 /** The eighth, for Sync activity (spec 035): its syncs and their log stay away from Home's inbox spec. */
 export const syncActivityHubPort = 4384;
 
+/**
+ * The ninth, for Orynx's own tickets (spec 037): with no Jira, as the first hub, but its tickets and its agents' door
+ * stay away from the Tickets spec, which expects none. No fakes inside it.
+ */
+export const orynxTicketsHubPort = 4382;
+
 /** Where a spec tells a hub's fakes what Jira and GitHub hold, with `PUT /tools`: the port below the hub's. */
 export function controlPortFor(hubPort: number): number {
   return hubPort - 1;

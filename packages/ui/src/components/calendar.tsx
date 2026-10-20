@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ComponentProps } from 'react';
 import { ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
-import { DayPicker, type DayButtonProps } from 'react-day-picker';
+import { DayPicker, type DayButtonProps, type Modifiers } from 'react-day-picker';
 import { cn } from '../lib/cn.ts';
 import { Icon } from './icon.tsx';
 import { IconButton } from './icon-button.tsx';
@@ -14,11 +14,23 @@ export type CalendarProps = ComponentProps<typeof DayPicker>;
  * The keyboard is react-day-picker's: the arrows move a day or a week, Page Up and Page Down a month, Home and End
  * to the week's ends, Enter or Space picks.
  */
-export function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+/**
+ * A day's name for screen readers, starting with the number it shows, so what's read matches what's seen (WCAG
+ * 2.5.3): "24 October 2026, today, selected".
+ */
+function dayName(date: Date, modifiers: Modifiers): string {
+  const day = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  return [day, modifiers['today'] ? 'today' : null, modifiers['selected'] ? 'selected' : null]
+    .filter((part) => part !== null)
+    .join(', ');
+}
+
+export function Calendar({ className, classNames, labels, showOutsideDays = true, ...props }: CalendarProps) {
   return (
     <DayPicker
       data-slot="calendar"
       showOutsideDays={showOutsideDays}
+      labels={{ labelDayButton: dayName, ...labels }}
       className={cn('w-fit', className)}
       classNames={{
         months: 'relative flex flex-col',

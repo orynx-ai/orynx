@@ -169,7 +169,12 @@ describe('New ticket (spec 037)', () => {
     const { user } = await renderApp({ route: '/tickets?source=orynx' });
 
     await screen.findByText('No Orynx tickets yet.');
-    await user.click(screen.getByRole('button', { name: 'New ticket' }));
+    // The page bar's, which stays where it is from the first paint, and the empty board's own.
+    const buttons = screen.getAllByRole('button', { name: 'New ticket' });
+    expect(buttons).toHaveLength(2);
+    const below = buttons.at(-1);
+    if (below === undefined) throw new Error('No New ticket under the empty line');
+    await user.click(below);
     expect(dialog()).toBeVisible();
   });
 });

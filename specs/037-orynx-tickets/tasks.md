@@ -94,7 +94,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **End to end and docs**
 
-- [ ] Task 27: e2e across the whole flow (AC-1 to AC-38) - Create through + and New ticket, then the status picker, edit, delete and the Source filter. - Tickets without Jira. - An outside agent through the real bridge. - axe and no sideways scroll at 360 and 1280 px, in light and dark.
+- [x] Task 27: e2e across the whole flow (AC-1 to AC-38) - Create through + and New ticket, then the status picker, edit, delete and the Source filter. - Tickets without Jira. - An outside agent through the real bridge. - axe and no sideways scroll at 360 and 1280 px, in light and dark.
       Check: pnpm exec playwright test e2e/orynx-tickets.spec.ts
       Files: e2e/orynx-tickets.spec.ts, e2e/fake-tools/* if needed
 - [ ] Task 28: Docs - `architecture.md` (tickets.json, the two doors, react-day-picker), `design-map.md`, the roadmap row and `learn/orynx-tickets.md`. - The Tickets learn page. - A scratchpad script for the people-owned `docs/product/spec.md` lines (Q1, Q13).

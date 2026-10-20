@@ -23,10 +23,10 @@ describe('Calendar', () => {
     const { container } = render(<Pick />);
 
     expect(screen.getByRole('grid', { name: 'October 2026' })).toBeVisible();
-    await user.click(dayButton(/October 24th, 2026/));
+    await user.click(dayButton(/^24 October 2026/));
 
     expect(screen.getByText('Sat Oct 24 2026')).toBeVisible();
-    expect(dayButton(/October 24th, 2026/)).toHaveAttribute('data-picked');
+    expect(dayButton(/^24 October 2026/)).toHaveAttribute('data-picked');
     await expectNoAxeViolations(container);
   });
 
@@ -34,14 +34,14 @@ describe('Calendar', () => {
     const user = userEvent.setup();
     render(<Pick initial={new Date(2026, 9, 20)} />);
 
-    await user.click(dayButton(/October 20th, 2026/));
+    await user.click(dayButton(/^20 October 2026/));
     await user.keyboard('{ArrowRight}');
-    expect(dayButton(/October 21st, 2026/)).toHaveFocus();
+    expect(dayButton(/^21 October 2026/)).toHaveFocus();
     await user.keyboard('{ArrowDown}');
-    expect(dayButton(/October 28th, 2026/)).toHaveFocus();
+    expect(dayButton(/^28 October 2026/)).toHaveFocus();
     await user.keyboard('{PageDown}');
     expect(screen.getByRole('grid', { name: 'November 2026' })).toBeVisible();
-    expect(dayButton(/November 28th, 2026/)).toHaveFocus();
+    expect(dayButton(/^28 November 2026/)).toHaveFocus();
     await user.keyboard('{Enter}');
 
     expect(screen.getByText('Sat Nov 28 2026')).toBeVisible();
