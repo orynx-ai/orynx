@@ -65,7 +65,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 17: `Stepper` narrower than 36rem (a container query) shows only the current step's words and the others' marks, with no lines between, so five steps stay on one line; every step's words stay for screen readers (AC-34)
       Check: pnpm test packages/ui/src/components/stepper.test.tsx; pnpm gate style-policy
       Files: packages/ui/src/components/stepper.tsx, packages/ui/src/components/stepper.test.tsx, packages/ui/src/components/stepper.stories.tsx
-- [ ] Task 18: `PortRow`: address, what it is, who started it, how long, and an actions slot; its loading look has the same height (AC-8, AC-9, AC-35)
+- [x] Task 18: `PortRow`: address, what it is, who started it, how long, and an actions slot; its loading look has the same height (AC-8, AC-9, AC-35)
       Check: pnpm test packages/ui/src/components/port-row.test.tsx; pnpm gate component-coverage icon-buttons
       Files: packages/ui/src/components/port-row.tsx, packages/ui/src/components/port-row.test.tsx, packages/ui/src/components/port-row.stories.tsx, packages/ui/src/index.ts, docs/design-map.md
 

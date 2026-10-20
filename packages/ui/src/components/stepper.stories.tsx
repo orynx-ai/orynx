@@ -33,8 +33,16 @@ export const Narrow: Story = {
   ],
 };
 /** Claude's own words for a run that grew into a fix (spec 042): five steps, labels up to 16 characters. */
-export const ClaudesSteps: Story = {
-  args: { steps: ['Set up', 'Start server', 'Fix env key', 'Run the tests', 'Pull request'], current: 2 },
-};
+const claudesSteps = { steps: ['Set up', 'Start server', 'Fix env key', 'Run the tests', 'Pull request'], current: 2 };
+export const ClaudesSteps: Story = { args: claudesSteps };
 /** The same on a phone: the current step's words, and the others' marks. */
-export const ClaudesStepsNarrow: Story = { ...ClaudesSteps, decorators: Narrow.decorators };
+export const ClaudesStepsNarrow: Story = {
+  args: claudesSteps,
+  decorators: [
+    (Story) => (
+      <div className="max-w-72">
+        <Story />
+      </div>
+    ),
+  ],
+};
