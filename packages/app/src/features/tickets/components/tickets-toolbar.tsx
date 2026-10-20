@@ -93,7 +93,8 @@ export function TicketsToolbar({
         sources={sources}
         labels={filterLabels}
       />
-      <span className="ms-auto flex items-center gap-2">
+      {/* As wide and tall as its count from the first paint, so the row it lands on never changes as the count comes. */}
+      <span className="ms-auto flex min-h-8 min-w-20 items-center justify-end gap-2">
         {hasExtraFilters(filters) ? (
           <Button variant="ghost" size="sm" onClick={onClear}>
             Clear filters

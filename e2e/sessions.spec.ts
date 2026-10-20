@@ -376,9 +376,10 @@ test('039 AC-18, AC-21, AC-24-AC-28, AC-32, AC-35: a row’s ⋯ shows on hover;
   const more = row.locator('xpath=..').getByRole('button', { name: /^More actions for / });
 
   // AC-24: out of sight until the pointer is over the row, beside the link rather than in it.
-  await expect(more).toHaveCSS('opacity', '0');
+  const actions = more.locator('..');
+  await expect(actions).toHaveCSS('opacity', '0');
   await row.hover();
-  await expect(more).toHaveCSS('opacity', '1');
+  await expect(actions).toHaveCSS('opacity', '1');
 
   // AC-28: Rename opens with the name selected, so typing replaces it.
   await more.click();
