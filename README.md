@@ -51,7 +51,7 @@ Pick a level in Settings › Coding agent, then set any kind of call to Allow, A
 There is no Orynx cloud. Orynx is a small server and a web app, both on your laptop.
 
 - **Tokens in your OS keychain.** Jira and GitHub tokens are saved in your keychain and never reach the browser.
-- **Bound to 127.0.0.1.** The server listens only on this computer and checks a token on every request.
+- **Bound to 127.0.0.1.** The server listens only on this computer and checks a token on every request. Your other devices reach it at `https://orynx.local` through a front door that asks for an access code (see [Install](#install)).
 - **A local cache.** Synced tickets and pull requests live in one file on your disk.
 - **Only what you connect.** Orynx talks only to the connectors and agent you plug in: Jira, GitHub and Claude today, Slack and more next.
 
@@ -68,9 +68,73 @@ There is no Orynx cloud. Orynx is a small server and a web app, both on your lap
 
 Inside the repo the code name is DevHub: the `@devhub/*` packages, the `DEVHUB_*` settings, the `~/.devhub` folder and the keychain item keep that name, so saved tokens and settings carry over.
 
+## Install
+
+On macOS or Linux, from a clone of this repository:
+
+```sh
+./install.sh
+```
+
+It uses Node 24 (through nvm, if you have it), builds Orynx, makes a certificate for `orynx.local` in `~/.devhub/tls` and asks for your password once so this computer trusts it. Then it starts Orynx whenever you log in (a LaunchAgent on macOS, a systemd user service on Linux) and prints an access code for your other devices.
+
+- **On this computer:** http://127.0.0.1:4317 or https://orynx.local
+- **On any phone or computer on the same wifi:** https://orynx.local. The first time, enter the access code `./install.sh` printed. `cat ~/.devhub/lan-access-code` shows it again.
+
+To update, run `git pull && ./install.sh`. You still need Claude Code signed in on this computer, and a Jira Cloud API token and GitHub (the gh CLI or a token) to connect in Settings.
+
+### Keep it as an app
+
+Orynx installs as an app from the browser (a PWA), with its own window and icon:
+
+- **Chrome or Edge:** the install icon at the end of the address bar, or ⋮ › Cast, save and share › Install page as app.
+- **Safari on a Mac:** File › Add to Dock.
+- **iPhone or iPad:** Share › Add to Home Screen.
+- **Android:** Chrome's ⋮ › Add to Home screen.
+
+### Other devices: trust the certificate once
+
+The certificate comes from a certificate authority made on your computer, so each other device trusts it once. Until it does, the browser warns before opening Orynx and won't install it as an app. On the device, open http://orynx.local/orynx-ca.crt, then:
+
+- **iPhone or iPad:** Settings › General › VPN & Device Management › install the Orynx profile, then Settings › General › About › Certificate Trust Settings › turn on Orynx local CA.
+- **Android:** Settings › Security › Encryption & credentials › Install a certificate › CA certificate, and pick the file.
+- **Mac:** open the file to add it to the System keychain, then in Keychain Access open it › Trust › Always Trust.
+- **Windows:** open the file › Install Certificate › Local Machine › Trusted Root Certification Authorities.
+- **Linux:** copy it to `/usr/local/share/ca-certificates/` and run `sudo update-ca-certificates`. Chrome and Firefox may want it imported in their own settings too.
+
+The certificate authority can sign only for `orynx.local` and `localhost`, so trusting it lets nobody pose as any other site.
+
+### Safe on a shared wifi
+
+- Orynx itself still listens only on 127.0.0.1. The wifi reaches it through a front door on ports 443 and 80 that answers only the name `orynx.local`.
+- A device sees nothing of Orynx until it enters the access code. A cookie then keeps it signed in for a year. Treat the code like a password: whoever has it can use Orynx as you, Claude's sessions included.
+- To sign every device out, delete `~/.devhub/lan-access-code` and restart Orynx (`launchctl kickstart -k gui/$(id -u)/dev.orynx.server` on macOS, `systemctl --user restart orynx` on Linux). It makes a new code.
+- Everything goes over https. `http://orynx.local` only hands out the certificate and redirects to https.
+
+See `learn/local-security.md` for how the front door works.
+
+### Uninstall
+
+macOS:
+
+```sh
+launchctl bootout gui/$(id -u)/dev.orynx.server
+rm ~/Library/LaunchAgents/dev.orynx.server.plist
+sudo security remove-trusted-cert -d ~/.devhub/tls/ca.crt
+```
+
+Linux:
+
+```sh
+systemctl --user disable --now orynx && rm ~/.config/systemd/user/orynx.service
+sudo rm /usr/local/share/ca-certificates/orynx-local-ca.crt /etc/sysctl.d/60-orynx.conf && sudo update-ca-certificates
+```
+
+Your settings, cache and certificate stay in `~/.devhub` until you delete it.
+
 ## Quick start
 
-On macOS or Linux you need:
+To work on Orynx, or try it without installing, on macOS or Linux you need:
 
 - Node 24 and pnpm 10
 - Claude Code, signed in on this computer
@@ -129,6 +193,7 @@ People still decide what to build, answer the spec's questions, design the scree
 
 | Command                         | What it does                                                             |
 | ------------------------------- | ------------------------------------------------------------------------ |
+| `./install.sh`                  | Install or update Orynx as a service, on your wifi at orynx.local        |
 | `pnpm dev`                      | Server and web app with hot reload                                       |
 | `pnpm start`                    | Production build, served on 127.0.0.1:4317                               |
 | `pnpm verify`                   | Everything a push needs: gates, typecheck, lint, tests                   |
@@ -149,6 +214,8 @@ People still decide what to build, answer the spec's questions, design the scree
 - **`pnpm exec playwright install` fails with `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`.** A proxy on your network re-signs TLS. Let Node trust the macOS keychain: `NODE_OPTIONS=--use-system-ca pnpm exec playwright install chromium`.
 - **Settings says "Can't reach your-team.atlassian.net".** Check the VPN first. The terminal's warn line names the cause; `UNABLE_TO_GET_ISSUER_CERT_LOCALLY` means a proxy re-signs TLS with a root your OS doesn't trust either. See `learn/connecting-jira.md`.
 - **Settings says "Orynx can't find the gh command".** Orynx looks for gh on the PATH of the terminal that started it. Run `which gh` there, or connect with a personal access token. See `learn/connecting-github.md`.
+- **`./install.sh` says Orynx didn't answer.** Read `~/.devhub/orynx.log` (macOS) or `journalctl --user -u orynx` (Linux). "can't listen on port 443" or "80" means another web server holds it. A `pnpm start` left running holds 4317.
+- **Another device can't open orynx.local.** Check it's on the same wifi: guest and office networks often keep devices from seeing each other. Android finds `.local` names from Android 12. A second computer running Orynx on the same wifi can't take the name; its log says so.
 - **Trying things without touching your real data.** Point `DEVHUB_HOME` at a temporary folder: `DEVHUB_HOME=$(mktemp -d) pnpm dev`.
 
 ## Read next

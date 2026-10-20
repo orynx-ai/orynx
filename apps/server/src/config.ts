@@ -20,6 +20,7 @@ const EnvSchema = z.object({
   DEVHUB_SLACK_USER_TOKEN: z.string().optional(),
   DEVHUB_KEYCHAIN: z.enum(['os', 'memory']).default('os'),
   DEVHUB_SANDBOX: z.enum(['required', 'assume']).default('required'),
+  DEVHUB_LAN: z.enum(['true', 'false']).default('false'),
 });
 
 /** Settings read from the shell only, never from `.env`: a file must not decide which program DevHub starts. */
@@ -64,6 +65,8 @@ export interface ServerConfig {
    * refuses to run commands without a sandbox.
    */
   sandbox: z.infer<typeof EnvSchema>['DEVHUB_SANDBOX'];
+  /** DEVHUB_LAN: also answer devices on your wifi at https://orynx.local, behind an access code (spec 040). */
+  lan: boolean;
   /** The part of the shell's environment Claude Code may see (spec 010, AC-10). Nothing from `.env`. */
   agentEnvironment: Record<string, string>;
   /** The same for the git that makes a session's worktree, with your SSH agent and no prompts (spec 011, Q8d). */
@@ -146,6 +149,7 @@ export function loadConfig({
     ghSearchPath: shell.data.PATH,
     claudeCode: shell.data.DEVHUB_CLAUDE_CODE ?? null,
     sandbox: settings.DEVHUB_SANDBOX,
+    lan: settings.DEVHUB_LAN === 'true',
     agentEnvironment: agentEnvironment(env),
     gitEnvironment: gitEnvironment(env),
     terminalEnvironment: terminalEnvironment(env),

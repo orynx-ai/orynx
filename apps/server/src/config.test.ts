@@ -20,6 +20,7 @@ describe('loadConfig', () => {
       ghSearchPath: '',
       claudeCode: null,
       sandbox: 'required',
+      lan: false,
       agentEnvironment: {},
       gitEnvironment: { GIT_TERMINAL_PROMPT: '0' },
       terminalEnvironment: { TERM: 'xterm-256color', COLORTERM: 'truecolor' },
@@ -37,6 +38,12 @@ describe('loadConfig', () => {
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
     });
+  });
+
+  it('040 AC-1: answers your wifi only when DEVHUB_LAN=true, which ./install.sh sets', () => {
+    expect(loadConfig({ env: { DEVHUB_LAN: 'true' } }).lan).toBe(true);
+    expect(loadConfig({ env: {}, envFile: 'DEVHUB_LAN=true\n' }).lan).toBe(true);
+    expect(() => loadConfig({ env: { DEVHUB_LAN: 'yes' } })).toThrow(/DEVHUB_LAN/);
   });
 
   it('012 AC-20, AC-23: checks for Claude Code’s sandbox unless DEVHUB_SANDBOX=assume, which the e2e run sets', () => {

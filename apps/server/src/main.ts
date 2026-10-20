@@ -22,6 +22,7 @@ import {
   settingsFilePath,
 } from '@devhub/core';
 import { forgetTokenSettings, loadConfig, readEnvFile, repoEnvFile } from './config.ts';
+import { startLan } from './lan.ts';
 import { createSessionToken, removeRuntimeFile, writeRuntimeFile } from './runtime-file.ts';
 import { trustSystemCertificates } from './system-certificates.ts';
 import { tokenNotices } from './token-notices.ts';
@@ -35,6 +36,7 @@ const config = loadConfig(envFile === undefined ? {} : { envFile: envFile.text }
 forgetTokenSettings();
 const token = createSessionToken();
 const serveWebApp = process.argv.includes('--serve-web');
+const distDir = join(here, '..', '..', 'web', 'dist');
 trustSystemCertificates();
 
 // The inbox's cache (spec 007). It opens before the server, so a reset is told once the log exists.
@@ -125,7 +127,7 @@ if (config.claudeCode !== null) {
 }
 
 if (serveWebApp) {
-  await serveWeb(app, { distDir: join(here, '..', '..', 'web', 'dist'), token });
+  await serveWeb(app, { distDir, token });
 }
 
 // 127.0.0.1 only: other machines on the network can never reach the hub.
@@ -133,6 +135,23 @@ await app.listen({ host: '127.0.0.1', port: config.port });
 // The port the OS gave, which differs from config.port when that is 0.
 const { port } = app.server.address() as AddressInfo;
 await writeRuntimeFile(config.home, { port, token, pid: process.pid });
+
+// DEVHUB_LAN (spec 040): the hub stays on 127.0.0.1; your wifi reaches it through a front door that wants a code.
+if (config.lan && !serveWebApp)
+  app.log.warn('DEVHUB_LAN works with "pnpm start" only, so your wifi can’t reach this run.');
+const stopLan =
+  config.lan && serveWebApp
+    ? await startLan({
+        home: config.home,
+        distDir,
+        hubPort: port,
+        forward: (request, response) => {
+          app.routing(request, response);
+        },
+        platform: process.platform,
+        log: app.log,
+      })
+    : undefined;
 
 for (const notice of tokenNotices(config.tokens, envFile)) app.log[notice.level](notice.message);
 app.log.info(
@@ -147,6 +166,7 @@ async function stop(signal: string): Promise<void> {
   stopping = true;
   app.log.info(`${signal}: stopping Orynx`);
   await removeRuntimeFile(config.home);
+  stopLan?.();
   await app.close();
   process.exit(0);
 }

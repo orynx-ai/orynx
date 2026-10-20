@@ -2,7 +2,7 @@
   "name": "@devhub/server",
   "version": "0.1.0",
   "private": true,
-  "description": "The Node host for @devhub/core: reads config, writes the session token, serves the built web app and listens on 127.0.0.1.",
+  "description": "The Node host for @devhub/core: reads config, writes the session token, serves the built web app and listens on 127.0.0.1, with an opt-in front door for orynx.local.",
   "type": "module",
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/main.ts",

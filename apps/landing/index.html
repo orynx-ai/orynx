@@ -75,7 +75,7 @@
           <figure class="window hero-window">
             <div class="window-bar" aria-hidden="true">
               <span class="window-dots"><i></i><i></i><i></i></span>
-              <span class="window-address">127.0.0.1:4317</span>
+              <span class="window-address">orynx.local</span>
             </div>
             <img
               src="./src/assets/screens/home-1440.webp"
@@ -363,7 +363,10 @@
                 </svg>
                 <div>
                   <h3>Bound to 127.0.0.1</h3>
-                  <p>The server listens only on this computer and checks a token on every request.</p>
+                  <p>
+                    The server listens only on this computer and checks a token on every request. Your phone and other
+                    laptops reach it at orynx.local, over https, with an access code.
+                  </p>
                 </div>
               </li>
               <li>
@@ -470,34 +473,27 @@
               <p>From a copy of the Orynx repository, on macOS or Linux:</p>
             </div>
             <ul class="needs">
-              <li>Node 24 and pnpm 10</li>
+              <li>Node 24, or nvm to install it</li>
               <li>Claude Code, signed in on this computer</li>
               <li>A Jira Cloud API token, and GitHub through the gh CLI or a token</li>
             </ul>
             <p class="after">
-              Then connect Jira and GitHub in Settings, add a repository, and start your first session from Home.
+              The script builds Orynx and starts it whenever you log in. Open https://orynx.local here, or on any phone
+              or laptop on your wifi with the access code it prints, and install it as an app from the browser. Then
+              connect Jira and GitHub in Settings, add a repository, and start your first session from Home.
             </p>
           </div>
           <figure class="terminal reveal" aria-label="Commands to install and start Orynx">
             <div class="terminal-bar">
               <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <button
-                class="copy"
-                type="button"
-                data-copy="nvm use&#10;corepack enable&#10;pnpm install&#10;pnpm start"
-              >
-                Copy
-              </button>
+              <button class="copy" type="button" data-copy="./install.sh">Copy</button>
               <span class="sr-only" role="status" data-copy-status></span>
             </div>
-            <pre><code><span class="dim"># Node 24 and pnpm 10</span>
-nvm use
-corepack enable
-pnpm install
+            <pre><code><span class="dim"># Build, start at log-in, open to your wifi</span>
+./install.sh
 
-<span class="dim"># Build once and serve on one port</span>
-pnpm start
-<span class="dim"># → open http://127.0.0.1:4317</span></code></pre>
+<span class="dim"># → https://orynx.local, here and on your wifi</span>
+<span class="dim"># → update later: git pull &amp;&amp; ./install.sh</span></code></pre>
           </figure>
         </div>
       </section>
@@ -530,6 +526,15 @@ pnpm start
                 If you allow it. A fresh Orynx never pushes. In Settings › Coding agent, pick Hands-off, or set Push the
                 branch and Open a pull request to Allow, and the agent pushes the session's branch and opens the pull
                 request on its own. Set them to Ask to click for each one, or Block to keep them off.
+              </p>
+            </details>
+            <details>
+              <summary>Can I use it from my phone or another laptop?</summary>
+              <p>
+                Yes, on the same wifi. The install script announces Orynx as orynx.local: open https://orynx.local,
+                enter the access code once, and add it to your home screen or dock as an app. Each device trusts Orynx's
+                certificate once, from http://orynx.local/orynx-ca.crt. Your code, tokens and sessions stay on the
+                computer that runs Orynx.
               </p>
             </details>
             <details>
