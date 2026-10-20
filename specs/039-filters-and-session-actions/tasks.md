@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Session service and routes. `change` renames or pins and keeps the activity time. `delete` refuses while Claude works, ends terminals, removes the worktree but keeps the branch, then removes the record and says `sessions.changed` (AC-26–AC-28, AC-32, AC-33, AC-36)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/routes/sessions.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/routes/sessions.ts, their tests
-- [ ] Task 4: api-client: `changeSession`, `deleteSession` and the `pinned` list option (AC-26, AC-28, AC-32)
+- [x] Task 4: api-client: `changeSession`, `deleteSession` and the `pinned` list option (AC-26, AC-28, AC-32)
       Check: pnpm test packages/api-client/src/sessions.test.ts
       Files: packages/api-client/src/sessions.ts, packages/api-client/src/sessions.test.ts
 - [ ] Task 5: `Sheet` in `@devhub/ui`, on the right, from shadcn's Sheet, restyled to the dialog tokens, with stories and a test. Add it to the design system and the design map (Q6) (AC-2, AC-4)
