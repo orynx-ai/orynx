@@ -65,7 +65,7 @@ export interface ServerConfig {
    * refuses to run commands without a sandbox.
    */
   sandbox: z.infer<typeof EnvSchema>['DEVHUB_SANDBOX'];
-  /** DEVHUB_LAN: also answer devices on your wifi at https://orynx.local, behind an access code (spec 040). */
+  /** DEVHUB_LAN: also answer devices on your wifi at https://orynx.local, behind your Orynx password (specs 040, 043). */
   lan: boolean;
   /** The part of the shell's environment Claude Code may see (spec 010, AC-10). Nothing from `.env`. */
   agentEnvironment: Record<string, string>;
