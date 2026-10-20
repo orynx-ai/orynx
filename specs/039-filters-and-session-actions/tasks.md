@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Session stores: `remove(id)` in the file and memory stores, `pinnedAt` in listed sessions, and `pinned` filtering in `listSessions` (AC-26, AC-27, AC-32)
       Check: pnpm test packages/core/src/sessions/file-session-store.test.ts
       Files: packages/core/src/sessions/session-store.ts, packages/core/src/sessions/file-session-store.ts, file-session-store.test.ts
-- [ ] Task 3: Session service and routes. `change` renames or pins and keeps the activity time. `delete` refuses while Claude works, ends terminals, removes the worktree but keeps the branch, then removes the record and says `sessions.changed` (AC-26–AC-28, AC-32, AC-33, AC-36)
+- [x] Task 3: Session service and routes. `change` renames or pins and keeps the activity time. `delete` refuses while Claude works, ends terminals, removes the worktree but keeps the branch, then removes the record and says `sessions.changed` (AC-26–AC-28, AC-32, AC-33, AC-36)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/routes/sessions.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/routes/sessions.ts, their tests
 - [ ] Task 4: api-client: `changeSession`, `deleteSession` and the `pinned` list option (AC-26, AC-28, AC-32)

@@ -387,6 +387,70 @@ describe('POST /api/sessions/:id/stop and /discard', () => {
   });
 });
 
+describe('PATCH and DELETE /api/sessions/:id (spec 039)', () => {
+  it('AC-28: renames a session, trimmed, and answers 204', async () => {
+    const { app, store } = await serverWith({ id: '0123456789abcdef', state: 'done' });
+    const res = await app.inject({
+      method: 'PATCH',
+      url: one('0123456789abcdef'),
+      headers,
+      payload: { title: '  Fix the login page ' },
+    });
+    expect(res.statusCode).toBe(204);
+    expect((await store.get('0123456789abcdef'))?.session.title).toBe('Fix the login page');
+  });
+
+  it('AC-26: pins a session, and the pinned list holds it', async () => {
+    const { app } = await serverWith({ id: '0123456789abcdef', state: 'done' }, { id: '0123456789abcde0' });
+    await app.inject({ method: 'PATCH', url: one('0123456789abcdef'), headers, payload: { pinned: true } });
+    const res = await app.inject({ method: 'GET', url: `${apiRoutes.sessions}?pinned=true`, headers });
+    expect(SessionListSchema.parse(res.json()).sessions.map((session) => session.id)).toEqual(['0123456789abcdef']);
+  });
+
+  it('AC-29: refuses a name of only spaces with 400, and saves nothing', async () => {
+    const { app, store } = await serverWith({ id: '0123456789abcdef', title: 'Add bulk archive', state: 'done' });
+    const res = await app.inject({ method: 'PATCH', url: one('0123456789abcdef'), headers, payload: { title: '  ' } });
+    expect(res.statusCode).toBe(400);
+    expect((await store.get('0123456789abcdef'))?.session.title).toBe('Add bulk archive');
+  });
+
+  it('AC-32: deletes a stopped session and answers 204; then it is not found', async () => {
+    const { app, store } = await serverWith({ id: '0123456789abcdef', state: 'stopped' });
+    const res = await app.inject({ method: 'DELETE', url: one('0123456789abcdef'), headers });
+    expect(res.statusCode).toBe(204);
+    expect(await store.get('0123456789abcdef')).toBeNull();
+    const again = await app.inject({ method: 'GET', url: one('0123456789abcdef'), headers });
+    expect(again.statusCode).toBe(404);
+  });
+
+  it('AC-33: refuses to delete while Claude works, with 409 session_working', async () => {
+    const { app, store } = await serverWith({ id: '0123456789abcdef', state: 'working' });
+    const res = await app.inject({ method: 'DELETE', url: one('0123456789abcdef'), headers });
+    expect(res.statusCode).toBe(409);
+    expect(ApiErrorSchema.parse(res.json()).code).toBe('session_working');
+    expect(await store.get('0123456789abcdef')).not.toBeNull();
+  });
+
+  it('answer 404 for a session they don’t have, and 401 without the token', async () => {
+    const { app } = await serverWith();
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: one('fedcba9876543210'),
+      headers,
+      payload: { pinned: true },
+    });
+    expect(patch.statusCode).toBe(404);
+    const remove = await app.inject({ method: 'DELETE', url: one('fedcba9876543210'), headers });
+    expect(remove.statusCode).toBe(404);
+    const anonymous = await app.inject({
+      method: 'DELETE',
+      url: one('fedcba9876543210'),
+      headers: { host: headers.host },
+    });
+    expect(anonymous.statusCode).toBe(401);
+  });
+});
+
 const repositories = useTestRepositories();
 const changesOf = (id: string) => apiRoutes.sessionChanges.replace(':id', id);
 const diffOf = (id: string, path: string) =>

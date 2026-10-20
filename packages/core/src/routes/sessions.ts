@@ -16,6 +16,7 @@ import {
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
   SessionBriefSchema,
+  SessionChangeRequestSchema,
   SessionChangesSchema,
   SessionListQuerySchema,
   SessionListSchema,
@@ -30,6 +31,14 @@ import { listSessions, type SessionStore } from '../sessions/session-store.ts';
 const SessionParamsSchema = z.object({ id: z.string().min(1).max(64) });
 
 const notFound: ApiError = { code: 'not_found', message: 'There is no session with this id.' };
+
+/** A delete while Claude works (spec 039, AC-33); the page words it itself. */
+const stillWorking: ApiError = { code: 'session_working', message: 'Stop the session first.' };
+
+const serverFailed: ApiError = {
+  code: 'internal',
+  message: 'Something went wrong in the local server. See the terminal for details.',
+};
 
 const ApprovalParamsSchema = SessionParamsSchema.extend({ approvalId: z.string().min(1).max(64) });
 
@@ -92,6 +101,39 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
     },
   );
 
+  app.patch(
+    apiPaths.session,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        body: SessionChangeRequestSchema,
+        response: { 204: z.undefined(), 404: ApiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const changed = await service.edit(request.params.id, request.body);
+      return changed === 'not_found' ? reply.code(404).send(notFound) : reply.code(204).send();
+    },
+  );
+
+  app.delete(
+    apiPaths.session,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        response: { 204: z.undefined(), 404: ApiErrorSchema, 409: ApiErrorSchema, 500: ApiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const removed = await service.remove(request.params.id);
+      if (removed === 'not_found') return reply.code(404).send(notFound);
+      if (removed === 'working') return reply.code(409).send(stillWorking);
+      // The session service told the terminal what failed.
+      if (removed === 'failed') return reply.code(500).send(serverFailed);
+      return reply.code(204).send();
+    },
+  );
+
   app.post(
     apiPaths.sessionStop,
     { schema: { params: SessionParamsSchema, response: { 204: z.undefined(), 404: ApiErrorSchema } } },
@@ -112,14 +154,8 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
     async (request, reply) => {
       const discarded = await service.discard(request.params.id);
       if (discarded === 'not_found') return reply.code(404).send(notFound);
-      if (discarded === 'failed') {
-        // The session service told the terminal what failed.
-        const body: ApiError = {
-          code: 'internal',
-          message: 'Something went wrong in the local server. See the terminal for details.',
-        };
-        return reply.code(500).send(body);
-      }
+      // The session service told the terminal what failed.
+      if (discarded === 'failed') return reply.code(500).send(serverFailed);
       return reply.code(204).send();
     },
   );

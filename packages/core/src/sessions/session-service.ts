@@ -22,6 +22,7 @@ import type {
   Session,
   SessionApproval,
   SessionBrief,
+  SessionChangeRequest,
   SessionChanges,
   SessionFollowUp,
   SessionTicket,
@@ -130,6 +131,13 @@ export interface SessionService {
   stop(id: string): Promise<'stopped' | 'not_found'>;
   /** Stops the session if it's working, then deletes its worktree and branch (AC-10). */
   discard(id: string): Promise<'discarded' | 'not_found' | 'failed'>;
+  /** A new title or a pin (spec 039). Neither moves the session's activity time. */
+  edit(id: string, change: SessionChangeRequest): Promise<'changed' | 'not_found'>;
+  /**
+   * Deletes the session, its brief and its worktree, keeping its branch (spec 039, Q1). Refused while Claude works:
+   * Stop comes first.
+   */
+  remove(id: string): Promise<'deleted' | 'not_found' | 'working' | 'failed'>;
   /** Your answer to a call waiting in this session (spec 012). The first answer counts. */
   respond(id: string, approvalId: string, decision: ApprovalDecision): Promise<RespondResult>;
   /**
@@ -1207,6 +1215,30 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return 'discarded';
   }
 
+  async function removeNow(id: string): Promise<'deleted' | 'not_found' | 'working' | 'failed'> {
+    // A push under way finishes first, so git never pushes from a worktree that's being deleted (spec 014).
+    await publishing.get(id);
+    const record = await records.get(id);
+    if (record === null) return 'not_found';
+    if (isWorking(record.session)) return 'working';
+    // Your commands end first: nothing of yours runs from a folder that's going (spec 036, AC-28).
+    await options.terminal?.stopAll(id);
+    // Discard leaves a folderless Ask's own folder (it isn't a worktree), so a delete takes it either way.
+    if (record.worktree !== null && (record.session.discardedAt === null || record.repository === null)) {
+      // No branch: it stays in your repository, so committed work can still be found (Q1). An Ask with no folder has
+      // an empty folder of its own, which isn't a repository, so remove() deletes it as long as it's under the root.
+      const removed = await worktrees.remove(record.repository?.path ?? record.worktree, record.worktree, null);
+      if (!removed.ok) {
+        report(record, 'git', 'remove');
+        return 'failed';
+      }
+    }
+    await records.remove(id);
+    events.publish({ type: 'sessions.changed' });
+    events.publish({ type: 'session.changed', sessionId: id });
+    return 'deleted';
+  }
+
   const branchGit = createBranchGit({ env: options.worktrees.env });
   const pullRequests = createPullRequests({
     records,
@@ -1300,6 +1332,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     discard(id) {
       return whileEnding(id, discardNow(id));
+    },
+
+    async edit(id, { title, pinned }) {
+      const at = new Date(now()).toISOString();
+      // Not through change(): a new name or a pin isn't activity, so the session keeps its place in the lists.
+      const saved = await records.update(id, (current) => {
+        const pinnedAt =
+          pinned === undefined ? current.session.pinnedAt : pinned ? (current.session.pinnedAt ?? at) : null;
+        return { ...current, session: { ...current.session, title: title ?? current.session.title, pinnedAt } };
+      });
+      if (saved === null) return 'not_found';
+      events.publish({ type: 'sessions.changed' });
+      events.publish({ type: 'session.changed', sessionId: id });
+      return 'changed';
+    },
+
+    remove(id) {
+      return whileEnding(id, removeNow(id));
     },
 
     async changes(id) {
