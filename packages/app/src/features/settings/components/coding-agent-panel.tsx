@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import {
   Alert02Icon,
   Cancel01Icon,
@@ -10,8 +10,15 @@ import {
   SecurityCheckIcon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons';
-import { PermissionsSchema, type Permissions, type PreferencesChange } from '@devhub/contracts';
 import {
+  permissionsFor,
+  PermissionsSchema,
+  type Permissions,
+  type PreferencesChange,
+  type RepositoryId,
+} from '@devhub/contracts';
+import {
+  Button,
   ChoiceCard,
   cn,
   Icon,
@@ -19,10 +26,15 @@ import {
   Pill,
   SegmentedControl,
   SegmentedControlItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   type IconProps,
 } from '@devhub/ui';
-import { useChangePreferences, usePreferences } from '../queries.ts';
+import { useChangePreferences, usePreferences, useRepositories } from '../queries.ts';
 import {
   customLevel,
   levelOf,
@@ -49,20 +61,27 @@ const groupIcons: Record<(typeof permissionGroups)[number]['id'], IconProps['ico
 /**
  * Settings › Coding agent, as the user's redesign draws it (19 Oct 2026): the agent (spec 010), what Claude may do
  * without asking (spec 026) as a level to start from, a summary and one row for each kind of call in three groups,
- * the allowed commands (spec 012) and the editor a session opens in (spec 013). Each is saved as you pick, and read
+ * for All repositories or one with its own rules (spec 041), the allowed commands (spec 012) and the editor a session
+ * opens in (spec 013). Each is saved as you pick, and read
  * again for every call a session makes.
  */
 export function CodingAgentPanel() {
   const preferences = usePreferences();
   const change = useChangePreferences();
+  const repositories = useRepositories().data?.repositories ?? [];
+  // A repository's id, or 'all'.
+  const [scope, setScope] = useState<string>('all');
   const agentId = useId();
   const headingId = useId();
 
   if (preferences.data === undefined && preferences.isError) return <ServerUnreachable />;
+  // A repository removed while picked leaves All repositories picked.
+  const repository = repositories.find((one) => one.id === scope) ?? null;
+  const own = (id: RepositoryId) => preferences.data?.repositoryPermissions[id] !== undefined;
   // While loading, the same rows with nothing picked, so nothing moves when the answer comes.
-  const picked = preferences.data?.permissions;
+  const picked = preferences.data && permissionsFor(preferences.data, repository?.id ?? null);
   const save = (permissions: NonNullable<PreferencesChange['permissions']>) => {
-    change.mutate({ permissions });
+    change.mutate(repository === null ? { permissions } : { permissions, repository: repository.id });
   };
 
   return (
@@ -81,7 +100,47 @@ export function CodingAgentPanel() {
           id={headingId}
           icon={SecurityCheckIcon}
           title="What Claude can do without asking"
-          line="Start from a level, then change any row. Anything set to Ask waits for your click in the session."
+          line={
+            repository === null ? (
+              'Start from a level, then change any row. Anything set to Ask waits for your click in the session.'
+            ) : own(repository.id) ? (
+              <>
+                {repository.name} has its own rules, so changes to All repositories don't reach it.{' '}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="-my-1.5"
+                  onClick={() => {
+                    change.mutate({ followAll: repository.id });
+                  }}
+                >
+                  Use All repositories
+                </Button>
+              </>
+            ) : (
+              `${repository.name} follows All repositories. Changing a row gives it its own rules.`
+            )
+          }
+          action={
+            <Select
+              value={repository?.id ?? 'all'}
+              onValueChange={(next) => {
+                setScope(next);
+              }}
+            >
+              <SelectTrigger aria-label="Rules for" className="w-60 max-w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All repositories</SelectItem>
+                {repositories.map((one) => (
+                  <SelectItem key={one.id} value={one.id}>
+                    {own(one.id) ? `${one.name} · Own rules` : one.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
         />
         <Levels picked={picked} onPick={save} />
         <Summary picked={picked} />

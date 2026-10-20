@@ -318,6 +318,8 @@ export function makeGitHubConnection(overrides: Partial<GitHubConnection> = {}):
 export interface PreferencesOverrides {
   /** Override some rows and keep the others at their defaults, as a change sends them. */
   permissions?: PreferencesChange['permissions'];
+  /** The repositories with rows of their own (spec 041); none unless given. */
+  repositoryPermissions?: Preferences['repositoryPermissions'];
   /** Override some rules and keep the others on. */
   inboxRules?: Partial<InboxRules>;
   allowedCommands?: string[];
@@ -331,6 +333,7 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
       ...defaultPreferences.permissions,
       ...Object.fromEntries(Object.entries(overrides.permissions ?? {}).filter(([, set]) => set !== undefined)),
     },
+    repositoryPermissions: overrides.repositoryPermissions ?? {},
     inboxRules: { ...defaultPreferences.inboxRules, ...overrides.inboxRules },
     allowedCommands: overrides.allowedCommands ?? [],
     editor: overrides.editor ?? defaultPreferences.editor,

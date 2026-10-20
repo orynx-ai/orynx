@@ -13,7 +13,7 @@ import {
   statusQueryOptions,
   type ApiRequestError,
 } from '@devhub/api-client';
-import { InboxRuleIdSchema } from '@devhub/contracts';
+import { InboxRuleIdSchema, permissionsFor } from '@devhub/contracts';
 import type {
   ClaudeLogin,
   ConnectionCheck,
@@ -21,6 +21,7 @@ import type {
   GitHubConnectionRequest,
   JiraConnection,
   JiraConnectionRequest,
+  Permissions,
   Preferences,
   PreferencesChange,
   AddRepositoryRequest,
@@ -189,13 +190,28 @@ function withCommandChange(list: readonly string[], change: PreferencesChange): 
   return added === undefined || kept.includes(added) ? kept : [...kept, added];
 }
 
+/** The rows with the ones a change set. */
+function withRows(rows: Permissions, set: PreferencesChange['permissions']): Permissions {
+  const next = { ...rows };
+  for (const [row, value] of Object.entries(set ?? {})) {
+    if (value !== undefined) Object.assign(next, { [row]: value });
+  }
+  return next;
+}
+
 function withChange(preferences: Preferences, change: PreferencesChange): Preferences {
-  const permissions = { ...preferences.permissions };
-  for (const [row, set] of Object.entries(change.permissions ?? {})) {
-    if (set !== undefined) Object.assign(permissions, { [row]: set });
+  const { repository, followAll } = change;
+  const repositoryPermissions = Object.fromEntries(
+    Object.entries(preferences.repositoryPermissions).filter(([id]) => id !== followAll),
+  );
+  // A repository's first change copies All repositories' rows, as the server does (spec 041).
+  if (repository !== undefined) {
+    repositoryPermissions[repository] = withRows(permissionsFor(preferences, repository), change.permissions);
   }
   return {
-    permissions,
+    permissions:
+      repository === undefined ? withRows(preferences.permissions, change.permissions) : preferences.permissions,
+    repositoryPermissions,
     inboxRules: { ...preferences.inboxRules, ...change.inboxRules },
     allowedCommands: withCommandChange(preferences.allowedCommands, change),
     editor: change.editor ?? preferences.editor,
@@ -213,10 +229,20 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
     if (set !== undefined && inboxRules[rule] === set) inboxRules[rule] = saved.inboxRules[rule];
   }
   // A row it set goes back to the saved one, unless a later change has set that row again since.
-  const permissions = { ...current.permissions };
-  for (const [row, set] of Object.entries(change.permissions ?? {})) {
-    const key = row as keyof Preferences['permissions'];
-    if (permissions[key] === set) Object.assign(permissions, { [key]: saved.permissions[key] });
+  const { repository, followAll } = change;
+  const permissions =
+    repository === undefined
+      ? withoutRows(current.permissions, change.permissions, saved.permissions)
+      : current.permissions;
+  const repositoryPermissions = { ...current.repositoryPermissions };
+  const own = repository === undefined ? undefined : repositoryPermissions[repository];
+  if (repository !== undefined && own !== undefined) {
+    repositoryPermissions[repository] = withoutRows(own, change.permissions, permissionsFor(saved, repository));
+  }
+  // The rows it dropped come back, unless a later change has given that repository rows again.
+  const dropped = followAll === undefined ? undefined : saved.repositoryPermissions[followAll];
+  if (followAll !== undefined && dropped !== undefined && repositoryPermissions[followAll] === undefined) {
+    repositoryPermissions[followAll] = dropped;
   }
   // An entry it added goes, and one it took off comes back where the server has it, unless a later change moved it.
   let allowedCommands = current.allowedCommands;
@@ -233,10 +259,21 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
   const editorStillSet = change.editor !== undefined && current.editor === change.editor;
   return {
     permissions,
+    repositoryPermissions,
     inboxRules,
     allowedCommands,
     editor: editorStillSet ? saved.editor : current.editor,
   };
+}
+
+/** Each row a change set goes back to the saved one, unless a later change has set that row again since. */
+function withoutRows(current: Permissions, set: PreferencesChange['permissions'], saved: Permissions): Permissions {
+  const next = { ...current };
+  for (const [row, value] of Object.entries(set ?? {})) {
+    const key = row as keyof Permissions;
+    if (next[key] === value) Object.assign(next, { [key]: saved[key] });
+  }
+  return next;
 }
 
 interface PreferencesChangeContext {

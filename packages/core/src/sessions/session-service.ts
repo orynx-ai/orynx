@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isOrynxKey } from '@devhub/contracts';
+import { isOrynxKey, permissionsFor } from '@devhub/contracts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import { ticketTools } from '../orynx-tickets/tools.ts';
 import type {
@@ -191,7 +191,11 @@ export interface SessionServiceOptions {
     dueDate: string | null;
   } | null>;
   preferences: {
-    read(): Promise<{ permissions: Permissions; allowedCommands: readonly string[] }>;
+    read(): Promise<{
+      permissions: Permissions;
+      repositoryPermissions: Record<string, Permissions>;
+      allowedCommands: readonly string[];
+    }>;
     /** Saves Always allow's entry to the list (spec 012, AC-5). */
     change(change: { allowCommand: string }): Promise<unknown>;
   };
@@ -740,16 +744,14 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (adapter === null) return fail(id, 'other', 'no_claude_code');
     // Settings are read before Claude starts, and again for each call it makes (spec 012, AC-11).
     const permissions = async () => {
-      const [{ permissions: rows, allowedCommands }, current] = await Promise.all([
-        options.preferences.read(),
-        records.get(id),
-      ]);
+      const [preferences, current] = await Promise.all([options.preferences.read(), records.get(id)]);
       // The files and folders the brief named, which Claude may read on this run and every follow-up (spec 022);
       // the branch, the only one a push may name (spec 026). An Ask session reads only, whatever the rows say; a
       // record that's gone reads only too.
+      // The repository's own rows when it has them, else All repositories' (spec 041).
       return {
-        ...rows,
-        allowedCommands,
+        ...permissionsFor(preferences, current?.repository?.id ?? null),
+        allowedCommands: preferences.allowedCommands,
         branch,
         reads: current?.reads ?? noReads,
         readOnly: current?.session.mode !== 'build',

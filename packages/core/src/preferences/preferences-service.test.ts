@@ -59,6 +59,42 @@ describe('preferences service', () => {
     expect((await settings.read()).agent).toMatchObject({ permissions: { network: 'sometimes', sudo: 'allow' } });
   });
 
+  it('041: a repository’s first change copies All repositories’ rows, then All’s changes leave it alone', async () => {
+    const repository = '0123456789abcdef';
+    const { preferences, settings, seen } = service({ agent: { permissions: { push: 'ask' } } });
+
+    const own = await preferences.change({ permissions: { push: 'never' }, repository });
+    expect(own.repositoryPermissions).toEqual({
+      [repository]: { ...defaultPreferences.permissions, push: 'never' },
+    });
+    expect(own.permissions.push).toBe('ask');
+
+    const all = await preferences.change({ permissions: { push: 'allow', edits: 'ask' } });
+    expect(all.permissions).toMatchObject({ push: 'allow', edits: 'ask' });
+    expect(all.repositoryPermissions[repository]).toEqual({ ...defaultPreferences.permissions, push: 'never' });
+    expect(await preferences.read()).toEqual(all);
+    expect(seen).toEqual([{ type: 'settings.changed' }, { type: 'settings.changed' }]);
+
+    const back = await preferences.change({ followAll: repository });
+    expect(back.repositoryPermissions).toEqual({});
+    expect((await settings.read()).agent).toMatchObject({ repositoryPermissions: {} });
+  });
+
+  it('041: reads a repository’s rows it can, falls back on All’s for the others, and drops a key that isn’t an id', async () => {
+    const { preferences } = service({
+      agent: {
+        permissions: { edits: 'ask' },
+        repositoryPermissions: {
+          '0123456789abcdef': { push: 'allow', network: 'sometimes' },
+          orynx: { push: 'allow' },
+        },
+      },
+    });
+    expect((await preferences.read()).repositoryPermissions).toEqual({
+      '0123456789abcdef': { ...defaultPreferences.permissions, edits: 'ask', push: 'allow' },
+    });
+  });
+
   it('AC-13: saves only the rule that changed, so the others keep their own values', async () => {
     const { preferences, settings } = service();
 

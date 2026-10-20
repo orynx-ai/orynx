@@ -1,8 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { apiRoutes, type PreferencesChange } from '@devhub/contracts';
-import { makePreferences } from '@devhub/contracts/testing';
+import { apiRoutes, defaultPreferences, type PreferencesChange } from '@devhub/contracts';
+import { makePreferences, makeRepository } from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
@@ -297,5 +297,109 @@ describe('CodingAgentPanel', () => {
       expect(pressed('Push the branch')).toBe('Block');
     });
     expect(pressed('Open a pull request')).toBe('Block');
+  });
+
+  describe('041: rules for one repository', () => {
+    const web = makeRepository({ id: '0123456789abcdef', name: 'intranet-web' });
+    const api = makeRepository({ id: 'fedcba9876543210', name: 'intranet-api', path: '/Users/dev/code/intranet-api' });
+    const ownRules = { ...defaultPreferences.permissions, push: 'allow' } as const;
+
+    /** Serves the two folders and these preferences, and records each change sent. */
+    function serve(preferences = makePreferences()) {
+      const sent: PreferencesChange[] = [];
+      server.use(
+        http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: [web, api] })),
+        http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(preferences)),
+        http.patch(apiUrl(apiRoutes.preferences), async ({ request }) => {
+          sent.push((await request.json()) as PreferencesChange);
+          return HttpResponse.json(preferences);
+        }),
+      );
+      return sent;
+    }
+
+    async function pick(user: Awaited<ReturnType<typeof openRows>>['user'], name: string) {
+      await user.click(screen.getByRole('combobox', { name: 'Rules for' }));
+      await user.click(await screen.findByRole('option', { name }));
+    }
+
+    it('starts on All repositories, and a repository with its own rules says so in the list', async () => {
+      serve(makePreferences({ repositoryPermissions: { [web.id]: ownRules } }));
+      const { user } = await openRows();
+      expect(screen.getByRole('combobox', { name: 'Rules for' })).toHaveTextContent('All repositories');
+
+      await user.click(screen.getByRole('combobox', { name: 'Rules for' }));
+
+      expect(screen.getAllByRole('option').map((one) => one.textContent)).toEqual([
+        'All repositories',
+        'intranet-web · Own rules',
+        'intranet-api',
+      ]);
+    });
+
+    it('a repository that follows All shows All’s rows, and its first change is saved for it alone', async () => {
+      const sent = serve();
+      const { user } = await openRows();
+
+      await pick(user, 'intranet-api');
+
+      expect(
+        screen.getByText('intranet-api follows All repositories. Changing a row gives it its own rules.'),
+      ).toBeVisible();
+      expect(pressed('Push the branch')).toBe('Block');
+      await user.click(option('Push the branch', 'Allow'));
+
+      expect(pressed('Push the branch')).toBe('Allow');
+      expect(screen.getByText(/intranet-api has its own rules/)).toBeVisible();
+      await waitFor(() => {
+        expect(sent).toEqual([{ permissions: { push: 'allow' }, repository: api.id }]);
+      });
+    });
+
+    it('a repository with its own rules shows them, and Use All repositories sends it back', async () => {
+      const sent = serve(makePreferences({ repositoryPermissions: { [web.id]: ownRules } }));
+      const { user } = await openRows();
+      expect(pressed('Push the branch')).toBe('Block');
+
+      await pick(user, 'intranet-web · Own rules');
+
+      expect(pressed('Push the branch')).toBe('Allow');
+      expect(
+        screen.getByText("intranet-web has its own rules, so changes to All repositories don't reach it."),
+      ).toBeVisible();
+      await user.click(screen.getByRole('button', { name: 'Use All repositories' }));
+
+      expect(pressed('Push the branch')).toBe('Block');
+      expect(
+        screen.getByText('intranet-web follows All repositories. Changing a row gives it its own rules.'),
+      ).toBeVisible();
+      await waitFor(() => {
+        expect(sent).toEqual([{ followAll: web.id }]);
+      });
+    });
+
+    it('when a repository’s save fails, its rows and All’s go back as they were', async () => {
+      serve(makePreferences({ repositoryPermissions: { [web.id]: ownRules } }));
+      const { user } = await openRows();
+      await pick(user, 'intranet-web · Own rules');
+      server.use(
+        http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.error()),
+        http.patch(apiUrl(apiRoutes.preferences), () => HttpResponse.error()),
+      );
+
+      await user.click(option('Push the branch', 'Ask'));
+      await screen.findByRole('alert');
+      await waitFor(() => {
+        expect(pressed('Push the branch')).toBe('Allow');
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Use All repositories' }));
+      await waitFor(() => {
+        expect(screen.getByText(/intranet-web has its own rules/)).toBeVisible();
+      });
+      expect(pressed('Push the branch')).toBe('Allow');
+      await pick(user, 'All repositories');
+      expect(pressed('Push the branch')).toBe('Block');
+    });
   });
 });

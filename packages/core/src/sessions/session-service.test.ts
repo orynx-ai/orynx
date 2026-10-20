@@ -804,6 +804,23 @@ describe('approvals (spec 012)', () => {
     expect((await settled(records)).session.state).toBe('done');
   });
 
+  it('041: Claude follows its repository’s own rows over All repositories’', async () => {
+    const { service, records, settings, folders } = await setUp({
+      script: [{ tool: 'Bash', input: { command: 'npm test' } }, { finish: 'Ran the tests.' }],
+    });
+    const repository = folders[0]?.id ?? '';
+    await settings.update((current) => ({
+      ...current,
+      agent: { ...current.agent, repositoryPermissions: { [repository]: { commands: 'any' } } },
+    }));
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+    expect(record.approvalLog).toEqual([]);
+    expect(record.session.activities).toContainEqual(
+      expect.objectContaining({ kind: 'command', commands: ['npm test'] }) as unknown,
+    );
+  });
+
   it('AC-11: a change in Settings applies to Claude’s next call', async () => {
     const { service, records, settings } = await setUp({
       script: [

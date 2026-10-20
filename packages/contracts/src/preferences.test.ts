@@ -4,6 +4,7 @@ import {
   defaultPreferences,
   EditorSchema,
   InboxRuleIdSchema,
+  permissionsFor,
   permissionsFromMode,
   PermissionsSchema,
   PreferencesChangeSchema,
@@ -47,6 +48,7 @@ describe('PreferencesSchema', () => {
         push: 'never',
         pullRequest: 'never',
       },
+      repositoryPermissions: {},
       inboxRules: {
         jira_assigned: true,
         review_requested: true,
@@ -113,6 +115,19 @@ describe('PreferencesChangeSchema', () => {
     expect(refused.error?.issues[0]?.message).toBe("git push always asks, so it can't go on the list.");
   });
 
+  it('041: changes a repository’s own rows, or sends it back to All repositories', () => {
+    const repository = '0123456789abcdef';
+    expect(PreferencesChangeSchema.parse({ permissions: { push: 'never' }, repository })).toEqual({
+      permissions: { push: 'never' },
+      repository,
+    });
+    expect(PreferencesChangeSchema.parse({ followAll: repository })).toEqual({ followAll: repository });
+    expect(PreferencesChangeSchema.safeParse({ repository }).success).toBe(false);
+    expect(PreferencesChangeSchema.safeParse({ permissions: { push: 'never' }, repository: 'orynx' }).success).toBe(
+      false,
+    );
+  });
+
   it('013 AC-26: takes the editor alone', () => {
     expect(PreferencesChangeSchema.parse({ editor: 'cursor' })).toEqual({ editor: 'cursor' });
     expect(PreferencesChangeSchema.safeParse({ editor: 'zed' }).success).toBe(false);
@@ -138,6 +153,16 @@ describe('PreferencesChangeSchema', () => {
 
   it('lives at /api/preferences', () => {
     expect(apiRoutes.preferences).toBe('/api/preferences');
+  });
+});
+
+describe('permissionsFor', () => {
+  it('041: a repository with its own rows follows them; any other, or none, follows All repositories', () => {
+    const own = { ...defaultPreferences.permissions, push: 'allow' } as const;
+    const preferences = makePreferences({ repositoryPermissions: { '0123456789abcdef': own } });
+    expect(permissionsFor(preferences, '0123456789abcdef')).toEqual(own);
+    expect(permissionsFor(preferences, 'fedcba9876543210')).toEqual(defaultPreferences.permissions);
+    expect(permissionsFor(preferences, null)).toEqual(defaultPreferences.permissions);
   });
 });
 

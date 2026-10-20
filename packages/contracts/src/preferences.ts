@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AllowedCommandSchema } from './commands.ts';
+import { RepositoryIdSchema, type RepositoryId } from './repositories.ts';
 
 /**
  * The three permission modes saved before spec 026 (spec 005, 012). Read only to carry an older setting over to
@@ -72,7 +73,10 @@ export type InboxRules = z.infer<typeof InboxRulesSchema>;
 
 /** GET /api/preferences, and the answer to PATCH: the saved values, or the defaults for anything never set. */
 export const PreferencesSchema = z.object({
+  /** All repositories' rows: what every repository without its own rows follows. */
   permissions: PermissionsSchema,
+  /** The repositories with rows of their own (spec 041), which they keep whatever All repositories says. */
+  repositoryPermissions: z.record(RepositoryIdSchema, PermissionsSchema),
   inboxRules: InboxRulesSchema,
   /** Commands that run without asking while `permissions.commands` is `allowed_list` (spec 012), as saved, in order. */
   allowedCommands: z.array(z.string().min(1)),
@@ -83,6 +87,7 @@ export type Preferences = z.infer<typeof PreferencesSchema>;
 /** What a fresh DevHub starts with (product spec, Settings table). */
 export const defaultPreferences: Preferences = {
   permissions: defaultPermissions,
+  repositoryPermissions: {},
   inboxRules: {
     jira_assigned: true,
     review_requested: true,
@@ -101,6 +106,10 @@ export const defaultPreferences: Preferences = {
 export const PreferencesChangeSchema = z
   .strictObject({
     permissions: z.strictObject(PermissionsSchema.partial().shape).optional(),
+    /** The repository whose own rows `permissions` changes (spec 041); left out, All repositories'. */
+    repository: RepositoryIdSchema.optional(),
+    /** A repository that drops its own rows and follows All repositories again. */
+    followAll: RepositoryIdSchema.optional(),
     inboxRules: z.partialRecord(InboxRuleIdSchema, z.boolean()).optional(),
     /** One command to add to the allow list, read as Settings reads it (spec 012, Q8f). */
     allowCommand: AllowedCommandSchema.optional(),
@@ -110,5 +119,16 @@ export const PreferencesChangeSchema = z
   })
   .refine((change) => Object.values(change).some((value) => value !== undefined), {
     message: 'Send a permission, at least one rule, a command, or the editor.',
+  })
+  .refine((change) => change.repository === undefined || change.permissions !== undefined, {
+    message: 'Send the permissions to change for that repository.',
   });
 export type PreferencesChange = z.infer<typeof PreferencesChangeSchema>;
+
+/** The rows a session in this repository follows (spec 041): its own, else All repositories'. */
+export function permissionsFor(
+  preferences: Pick<Preferences, 'permissions' | 'repositoryPermissions'>,
+  repository: RepositoryId | null,
+): Permissions {
+  return (repository === null ? undefined : preferences.repositoryPermissions[repository]) ?? preferences.permissions;
+}

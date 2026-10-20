@@ -5,6 +5,7 @@ import {
   PermissionModeSchema,
   permissionsFromMode,
   PermissionsSchema,
+  RepositoryIdSchema,
   type InboxRules,
   type Permissions,
   type Preferences,
@@ -42,8 +43,15 @@ function writtenRules(settings: Settings): Record<string, unknown> {
  */
 function writtenPermissions(settings: Settings): Permissions {
   const mode = PermissionModeSchema.safeParse(settings.agent?.['permissionMode']);
-  const permissions = { ...(mode.success ? permissionsFromMode(mode.data) : defaultPreferences.permissions) };
-  const written = settings.agent?.['permissions'];
+  return readableRows(
+    mode.success ? permissionsFromMode(mode.data) : defaultPreferences.permissions,
+    settings.agent?.['permissions'],
+  );
+}
+
+/** Each row as written, else as `fallback` has it. */
+function readableRows(fallback: Permissions, written: unknown): Permissions {
+  const permissions = { ...fallback };
   if (!isObject(written)) return permissions;
   const rows = PermissionsSchema.shape;
   for (const row of Object.keys(rows) as (keyof Permissions)[]) {
@@ -51,6 +59,21 @@ function writtenPermissions(settings: Settings): Permissions {
     if (value.success) Object.assign(permissions, { [row]: value.data });
   }
   return permissions;
+}
+
+/**
+ * The repositories with rows of their own (spec 041), each row as written, else as All repositories has it. An entry
+ * whose key isn't a repository id is left out.
+ */
+function writtenRepositoryPermissions(settings: Settings): Record<string, Permissions> {
+  const written = settings.agent?.['repositoryPermissions'];
+  if (!isObject(written)) return {};
+  const all = writtenPermissions(settings);
+  return Object.fromEntries(
+    Object.entries(written)
+      .filter(([id, rows]) => RepositoryIdSchema.safeParse(id).success && isObject(rows))
+      .map(([id, rows]) => [id, readableRows(all, rows)]),
+  );
 }
 
 /** What can be read, with the default for anything never chosen or not readable. */
@@ -64,6 +87,7 @@ function fromSettings(settings: Settings): Preferences {
   const editor = EditorSchema.safeParse(settings.agent?.['editor']);
   return {
     permissions: writtenPermissions(settings),
+    repositoryPermissions: writtenRepositoryPermissions(settings),
     inboxRules,
     allowedCommands: writtenCommands(settings),
     editor: editor.success ? editor.data : defaultPreferences.editor,
@@ -80,8 +104,18 @@ function writtenCommands(settings: Settings): string[] {
 function applied(current: Settings, change: PreferencesChange): Settings {
   const next = { ...current };
   // Every row is written, so an older saved mode no longer counts once a row changes (spec 026).
-  if (change.permissions !== undefined) {
+  if (change.permissions !== undefined && change.repository === undefined) {
     next.agent = { ...current.agent, permissions: { ...writtenPermissions(current), ...change.permissions } };
+  }
+  // A repository's first change copies All repositories' rows, so from then on it keeps its own (spec 041).
+  if (change.permissions !== undefined && change.repository !== undefined) {
+    const own = writtenRepositoryPermissions(current);
+    const rows = { ...(own[change.repository] ?? writtenPermissions(current)), ...change.permissions };
+    next.agent = { ...next.agent, repositoryPermissions: { ...own, [change.repository]: rows } };
+  }
+  if (change.followAll !== undefined) {
+    const { [change.followAll]: _dropped, ...own } = writtenRepositoryPermissions(current);
+    next.agent = { ...next.agent, repositoryPermissions: own };
   }
   if (change.editor !== undefined) next.agent = { ...next.agent, editor: change.editor };
   if (change.inboxRules !== undefined) {

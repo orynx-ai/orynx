@@ -87,6 +87,12 @@ describe('/api/preferences', () => {
       headers,
       payload: { permissions: { commands: 'allowed_list' }, inboxRules: { unresolved_comments: false } },
     });
+    await first.app.inject({
+      method: 'PATCH',
+      url: apiRoutes.preferences,
+      headers,
+      payload: { permissions: { push: 'allow' }, repository: '0123456789abcdef' },
+    });
     await first.app.close();
 
     const { app } = await server({ settings: createFileSettingsStore(folder) });
@@ -94,6 +100,9 @@ describe('/api/preferences', () => {
 
     expect(PreferencesSchema.parse(res.json())).toEqual({
       permissions: { ...defaultPreferences.permissions, commands: 'allowed_list' },
+      repositoryPermissions: {
+        '0123456789abcdef': { ...defaultPreferences.permissions, commands: 'allowed_list', push: 'allow' },
+      },
       inboxRules: { ...defaultPreferences.inboxRules, unresolved_comments: false },
       allowedCommands: [],
       editor: 'vscode',
