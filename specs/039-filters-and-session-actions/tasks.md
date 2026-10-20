@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: `SessionItem` `size="sm"` (14 px title, 12 px second line, 20 px state circle, 36 px row) and an `actions` slot beside the link, shown on hover or focus-within and always under 768 px (AC-24, AC-39)
       Check: pnpm test packages/ui/src/components/session-item.test.tsx; pnpm gate style-policy icon-buttons
       Files: packages/ui/src/components/session-item.tsx, session-item.stories.tsx, session-item.test.tsx
-- [ ] Task 7: `RecentSearches` in `@devhub/ui`: a "Recent searches" heading with Clear, and rows to pick and remove, with ↑ and ↓ between rows (AC-21–AC-23)
+- [x] Task 7: `RecentSearches` in `@devhub/ui`: a "Recent searches" heading with Clear, and rows to pick and remove, with ↑ and ↓ between rows (AC-21–AC-23)
       Check: pnpm test packages/ui/src/components/recent-searches.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/recent-searches.tsx, recent-searches.stories.tsx, recent-searches.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 8: The sidebar's smaller type and icons: places, Search and session rows at `small`, second lines at `label`, 16 px icons, 36 px rows. Update the SidebarNav section (Q4, Q6) (AC-39)
