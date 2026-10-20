@@ -11,6 +11,7 @@ import {
   makeSessionList,
   makeOrynxSkillList,
   makeStatus,
+  makeTerminal,
   makeTickets,
 } from '@devhub/contracts/testing';
 
@@ -63,6 +64,11 @@ export const server = setupServer(
   ),
   http.get(apiUrl(apiRoutes.sessionChangesDiff), () =>
     HttpResponse.json({ code: 'not_found', message: 'That file isn’t among this session’s changes.' }, { status: 404 }),
+  ),
+  // Claude has run nothing, and your shell has its one empty tab (spec 036).
+  http.get(apiUrl(apiRoutes.sessionCommands), () => HttpResponse.json({ commands: [] })),
+  http.get(apiUrl(apiRoutes.sessionTerminal), () =>
+    HttpResponse.json(makeTerminal({ tabs: [{ id: 'tab-1', number: 1, blocks: [], cleared: false }], history: [] })),
   ),
   http.get(apiUrl(apiRoutes.jiraConnection), () => HttpResponse.json(makeJiraConnection())),
   http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(makeGitHubConnection())),

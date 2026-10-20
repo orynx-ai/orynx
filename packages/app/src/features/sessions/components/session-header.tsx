@@ -33,6 +33,7 @@ import { openPullRequestLabel, pullRequestWords } from '../pull-request-words.ts
 import { useEditor, useSessionChanges } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
 import { DiscardSession } from './discard-session.tsx';
+import { SessionTerminal } from './terminal/session-terminal.tsx';
 import { PushChanges } from './push-changes.tsx';
 
 /** The state pill's colour, as the sidebar colours each state (Q10b). */
@@ -151,6 +152,7 @@ export function SessionActions({ session, title }: { session: Session; title: Re
 
   return (
     <>
+      {session.terminal ? <SessionTerminal session={session} /> : null}
       {working ? (
         <Button
           variant="secondary"

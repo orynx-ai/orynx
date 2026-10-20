@@ -32,9 +32,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: `CommandInput` in @devhub/ui: prompt, label, hint, ↑/↓ history, ⌃C, busy (AC-8, AC-9, AC-12)
       Check: pnpm test packages/ui/src/components/command-input.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/command-input.tsx, .stories.tsx, .test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 11: Terminal button, `` ⌃` ``, and the full-screen dialog with header, tabs and Back to session (AC-1, AC-2, AC-3)
+- [x] Task 11: Terminal button, `` ⌃` ``, and the full-screen dialog with header, tabs and Back to session (AC-1, AC-2, AC-3)
       Check: pnpm test packages/app/src/features/sessions/components/terminal
-      Files: packages/app/src/features/sessions/components/terminal/terminal-dialog.tsx, terminal-dialog.test.tsx, session-header.tsx, packages/app/src/features/sessions/store.ts
+      Files: packages/app/src/features/sessions/components/terminal/session-terminal.tsx, session-terminal.test.tsx, session-header.tsx, packages/app/src/features/sessions/store.ts
 - [ ] Task 12: The Claude tab: commands with output, waiting approvals with the callout's choices, denied, refused, legacy, empty and loading (AC-19–AC-24, AC-27)
       Check: pnpm test packages/app/src/features/sessions/components/terminal/claude-tab.test.tsx
       Files: packages/app/src/features/sessions/components/terminal/claude-tab.tsx, claude-tab.test.tsx, terminal-words.ts
