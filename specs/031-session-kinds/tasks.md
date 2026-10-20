@@ -37,7 +37,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **UI**
 
-- [ ] Task 11: `Stepper` `skipped` state: a dash in an outlined circle, muted label, ", skipped" for screen readers; a story and a test; a design-map row (AC-11, AC-25)
+- [x] Task 11: `Stepper` `skipped` state: a dash in an outlined circle, muted label, ", skipped" for screen readers; a story and a test; a design-map row (AC-11, AC-25)
       Check: pnpm test packages/ui/src/components/stepper.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/stepper.tsx, packages/ui/src/components/stepper.test.tsx, packages/ui/src/components/stepper.stories.tsx, docs/design-map.md
 
