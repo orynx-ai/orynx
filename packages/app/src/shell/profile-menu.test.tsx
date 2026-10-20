@@ -3,8 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeStatus } from '@devhub/contracts/testing';
-import { useProfileStore } from '../stores/profile-store.ts';
-import { apiUrl, server } from '../test/msw.ts';
+import { apiUrl, serveProfile, server } from '../test/msw.ts';
 import { renderApp } from '../test/render.tsx';
 
 function footer() {
@@ -16,7 +15,7 @@ describe('Profile menu', () => {
     server.use(
       http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(makeStatus({ user: { name: 'Rakesh Dhariwal' } }))),
     );
-    useProfileStore.setState({ bio: 'Ships on Fridays' });
+    serveProfile({ bio: 'Ships on Fridays' });
     const { user } = await renderApp();
 
     await user.click(await footer());

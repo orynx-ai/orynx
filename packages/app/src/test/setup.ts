@@ -9,7 +9,6 @@ import { useTicketsStore } from '../features/tickets/store.ts';
 import { useTicketDialogStore } from '../features/tickets/ticket-dialog-store.ts';
 import { useConnectionStore } from '../stores/connection-store.ts';
 import { useRecentSearches } from '../stores/recent-searches.ts';
-import { useProfileStore } from '../stores/profile-store.ts';
 import { useThemeStore } from '../stores/theme-store.ts';
 import { useUiStore } from '../stores/ui-store.ts';
 import { FakeEventSource } from './fake-event-source.ts';
@@ -69,7 +68,6 @@ afterEach(() => {
   delete document.documentElement.dataset['theme'];
   useUiStore.setState(useUiStore.getInitialState());
   useThemeStore.setState(useThemeStore.getInitialState());
-  useProfileStore.setState(useProfileStore.getInitialState());
   useConnectionStore.setState(useConnectionStore.getInitialState());
   useTicketsStore.setState(useTicketsStore.getInitialState());
   useSearchStore.setState(useSearchStore.getInitialState());

@@ -1,12 +1,20 @@
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { apiRoutes, defaultNotificationSettings, type Session, type SessionList } from '@devhub/contracts';
+import {
+  apiRoutes,
+  defaultNotificationSettings,
+  ProfileSchema,
+  type Profile,
+  type Session,
+  type SessionList,
+} from '@devhub/contracts';
 import {
   makeGitHubConnection,
   makeNotificationList,
   makeInbox,
   makeJiraConnection,
   makePreferences,
+  makeProfile,
   makeSearchIndex,
   makeSessionList,
   makeOrynxSkillList,
@@ -63,6 +71,22 @@ export function sessionHandler(...sessions: Session[]) {
   });
 }
 
+/**
+ * Answers GET and PUT /api/profile as the server does, starting from `start` (spec 043). `saved` is what the
+ * server holds now.
+ */
+export function serveProfile(start: Partial<Profile> = {}) {
+  const state = { saved: makeProfile(start) };
+  server.use(
+    http.get(apiUrl(apiRoutes.profile), () => HttpResponse.json(state.saved)),
+    http.put(apiUrl(apiRoutes.profile), async ({ request }) => {
+      state.saved = ProfileSchema.parse(await request.json());
+      return HttpResponse.json(state.saved);
+    }),
+  );
+  return state;
+}
+
 /** Default answers for every endpoint; a test overrides one with server.use(...). */
 export const server = setupServer(
   http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(makeStatus())),
@@ -82,6 +106,9 @@ export const server = setupServer(
   http.get(apiUrl(apiRoutes.jiraConnection), () => HttpResponse.json(makeJiraConnection())),
   http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(makeGitHubConnection())),
   http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences())),
+  // Orynx is set up, with no name, bio or picture of its own (spec 043).
+  http.get(apiUrl(apiRoutes.setup), () => HttpResponse.json({ done: true })),
+  http.get(apiUrl(apiRoutes.profile), () => HttpResponse.json(makeProfile())),
   http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: [] })),
   http.get(apiUrl(apiRoutes.orynxSkills), () => HttpResponse.json(makeOrynxSkillList({ skills: [] }))),
   http.get(apiUrl(apiRoutes.jiraProjects), () => HttpResponse.json({ projects: [] })),

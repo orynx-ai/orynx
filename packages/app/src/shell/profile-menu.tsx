@@ -20,20 +20,22 @@ import {
   type MenuContentProps,
   type TooltipProps,
 } from '@devhub/ui';
+import { defaultProfile } from '@devhub/contracts';
 import { useStatus } from '../features/settings/queries.ts';
-import { useProfileStore } from '../stores/profile-store.ts';
 import { ThemeSchema, useThemeStore } from '../stores/theme-store.ts';
 import { personName } from './person-name.ts';
 import { ProfileDialog } from './profile-dialog.tsx';
+import { useProfile } from './profile-queries.ts';
 import { useWide } from './use-wide.ts';
 
 /**
  * Who is using Orynx: the name from Edit profile, else the one the server knows. `pending` while neither is known
- * yet, so nothing says "You" before the status arrives.
+ * yet, so nothing says "You" before the profile and the status arrive.
  */
 export function usePerson() {
   const status = useStatus();
-  const profile = useProfileStore();
+  const saved = useProfile();
+  const profile = saved.data ?? defaultProfile;
   const serverName = status.data?.user.name ?? null;
   const name = profile.name === '' ? serverName : profile.name;
   const person = name === null ? null : personName(name);
@@ -44,7 +46,7 @@ export function usePerson() {
     initials: person?.initials ?? '',
     bio: profile.bio,
     picture: profile.picture,
-    pending: profile.name === '' && status.isPending,
+    pending: saved.isPending || (profile.name === '' && status.isPending),
   };
 }
 

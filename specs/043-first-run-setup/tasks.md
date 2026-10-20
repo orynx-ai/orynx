@@ -14,9 +14,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: The api-client calls and query options (AC-3, AC-6)
       Check: pnpm test packages/api-client/src/setup.test.ts
       Files: packages/api-client/src/endpoints/setup.ts, client.ts, queries.ts, index.ts, setup.test.ts
-- [ ] Task 5: Edit profile, the profile menu and the footer use the server's profile (AC-6)
+- [x] Task 5: Edit profile, the profile menu and the footer use the server's profile (AC-6)
       Check: pnpm test packages/app/src/shell
-      Files: packages/app/src/shell/profile-dialog.tsx, profile-menu.tsx, their tests, sidebar-footer.test.tsx, stores/profile-store.ts (deleted), test/setup.ts, test/msw.ts
+      Files: packages/app/src/shell/profile-dialog.tsx, profile-menu.tsx, profile-queries.ts, picture-picker.tsx, their tests, sidebar-footer.test.tsx, stores/profile-store.ts (deleted), test/setup.ts, test/msw.ts
 - [ ] Task 6: The setup page, shown until Orynx is set up (AC-1, AC-2, AC-3, AC-13)
       Check: pnpm test packages/app/src/features/setup packages/app/src/shell/app-shell.test.tsx; pnpm gate design-source style-policy component-coverage; real browser at 360 and 1280 px, light and dark
       Files: packages/app/src/features/setup/setup-screen.tsx, setup-screen.test.tsx, shell/app-shell.tsx, shell/profile-fields.tsx
