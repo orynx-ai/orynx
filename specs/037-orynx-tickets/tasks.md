@@ -40,7 +40,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **api-client**
 
-- [ ] Task 12: Endpoints and queries for Orynx tickets and agents' access; `tickets.changed` invalidates tickets, the ticket, search and the count (AC-14, AC-32)
+- [x] Task 12: Endpoints and queries for Orynx tickets and agents' access; `tickets.changed` invalidates tickets, the ticket, search and the count (AC-14, AC-32)
       Check: pnpm test packages/api-client/src/orynx-tickets.test.ts packages/app/src/live-updates.test.tsx
       Files: packages/api-client/src/endpoints/orynx-tickets.ts, packages/api-client/src/endpoints/agents-access.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/orynx-tickets.test.ts, packages/app/src/live-updates.tsx
 

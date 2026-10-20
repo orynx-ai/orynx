@@ -53,6 +53,14 @@ import {
   type SkillList,
   type SyncActivity,
   type SyncActivityQuery,
+  type AgentsAccess,
+  type CreateOrynxTicket,
+  type McpConfig,
+  type OrynxTicket,
+  type OrynxTicketAnswer,
+  type OrynxTicketDeleteAnswer,
+  type OrynxTicketSaveAnswer,
+  type UpdateOrynxTicket,
   type TicketDetailAnswer,
   type Tickets,
   type TicketsChoice,
@@ -113,6 +121,8 @@ import {
 } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
 import { getTicket, getTickets, getTicketsSprints, putTicketsChoice } from './endpoints/tickets.ts';
+import { deleteOrynxTicket, getOrynxTicket, patchOrynxTicket, postOrynxTicket } from './endpoints/orynx-tickets.ts';
+import { getAgentsAccess, postMcpConfig, putAgentsAccess } from './endpoints/agents-access.ts';
 import { postFileCheck, postFilePicker } from './endpoints/files.ts';
 import { getSkills } from './endpoints/skills.ts';
 import { toApiRequestError } from './errors.ts';
@@ -228,6 +238,16 @@ export interface ApiClient {
   chooseTicketsSprint(choice: TicketsChoice): Promise<void>;
   /** One ticket in full for the ticket dialog (spec 022), asked of Jira now, or why there's none. */
   ticket(key: string): Promise<TicketDetailAnswer>;
+  /** One of Orynx's own tickets (spec 037), or that there's none. */
+  orynxTicket(key: string): Promise<OrynxTicketAnswer>;
+  createOrynxTicket(ticket: CreateOrynxTicket): Promise<OrynxTicket>;
+  updateOrynxTicket(key: string, change: UpdateOrynxTicket): Promise<OrynxTicketSaveAnswer>;
+  deleteOrynxTicket(key: string): Promise<OrynxTicketDeleteAnswer>;
+  /** Whether agents outside Orynx may use its tickets (spec 037). */
+  agentsAccess(): Promise<AgentsAccess>;
+  setAgentsAccess(access: AgentsAccess): Promise<AgentsAccess>;
+  /** Copy MCP config: the server writes the bridge and answers the config that runs it. */
+  mcpConfig(): Promise<McpConfig>;
   /** The composer's skills for a folder, or yours alone (spec 022). */
   skills(repositoryId: string | null): Promise<SkillList>;
   /** Claude Code's login on this computer, as the server last checked it (spec 010). */
@@ -340,6 +360,17 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     chooseTicketsSprint: (choice) =>
       putTicketsChoice(http, choice).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     ticket: (key) => getTicket(http, key).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    orynxTicket: (key) => getOrynxTicket(http, key).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    createOrynxTicket: (ticket) =>
+      postOrynxTicket(http, ticket).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    updateOrynxTicket: (key, change) =>
+      patchOrynxTicket(http, key, change).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    deleteOrynxTicket: (key) =>
+      deleteOrynxTicket(http, key).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    agentsAccess: () => getAgentsAccess(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    setAgentsAccess: (access) =>
+      putAgentsAccess(http, access).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    mcpConfig: () => postMcpConfig(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     skills: (repositoryId) =>
       getSkills(http, repositoryId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     claudeLogin: () => getClaudeLogin(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
