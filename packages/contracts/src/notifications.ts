@@ -34,7 +34,7 @@ export const NotificationWhatSchema = z.discriminatedUnion('kind', [
      * A push or a pull request is a command too, but only the Session screen answers those (Q3), as it does a
      * ticket's delete (spec 037).
      */
-    about: z.enum(['command', 'edit', 'push', 'pull_request', 'ticket']),
+    about: z.enum(['command', 'edit', 'push', 'pull_request', 'ticket', 'server']),
     /** The command as Claude asked to run it; null for an edit. Never shown on the desktop. */
     command: z.string().min(1).nullable(),
     /** False once the call was answered or ended anywhere: it leaves Needs you and loses its buttons. */

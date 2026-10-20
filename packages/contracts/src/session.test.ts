@@ -821,4 +821,25 @@ describe('a session in spec 042', () => {
     ];
     expect(makeSession({ activities }).activities).toEqual(activities);
   });
+
+  it('AC-2: a server approval carries the command, its folder and the Always allow entry', () => {
+    const approval = SessionApprovalSchema.parse({
+      id: 'approval-9',
+      askedAt: '2026-10-20T10:15:00.000Z',
+      kind: 'server',
+      command: 'next dev --port 3005',
+      folder: 'apps/web',
+      alwaysAllow: 'server:2e44184c6076885d',
+    });
+    expect(approval).toMatchObject({ kind: 'server', folder: 'apps/web' });
+    const waiting = {
+      id: 's',
+      state: 'running',
+      kind: 'waiting',
+      approvalId: 'approval-9',
+      about: 'server',
+      text: null,
+    };
+    expect(makeSession({ activities: [waiting as SessionActivity] }).activities[0]).toMatchObject({ about: 'server' });
+  });
 });

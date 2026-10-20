@@ -8,6 +8,7 @@ import type { AlwaysAskReason, SessionApproval } from '@devhub/contracts';
 export function approvalTitle(approval: SessionApproval): string {
   if (approval.kind === 'command') return 'Claude wants to run a command';
   if (approval.kind === 'ticket') return 'Claude wants to delete a ticket';
+  if (approval.kind === 'server') return 'Claude wants to start a server';
   return approval.creates ? 'Claude wants to create a file' : 'Claude wants to edit a file';
 }
 
@@ -16,7 +17,18 @@ export function ticketDeleteLine(approval: Extract<SessionApproval, { kind: 'tic
   return `Delete ${approval.key}${approval.title === null ? '' : ` · ${approval.title}`}?`;
 }
 
-export const approvalButtons = { allowOnce: 'Allow once', deny: 'Deny' } as const;
+export const approvalButtons = {
+  allowOnce: 'Allow once',
+  deny: 'Deny',
+  // A server's Always allow covers the session's repository (spec 042, Q7).
+  alwaysServer: 'Always allow in this repository',
+} as const;
+
+/** Where a server would run, and what that means (spec 042, Q7). */
+export function serverLine(approval: Extract<SessionApproval, { kind: 'server' }>): string {
+  const where = approval.folder === '.' ? 'In the worktree' : `In ${approval.folder}`;
+  return `${where}. It runs in a Terminal tab, outside the sandbox, and keeps running after Claude finishes.`;
+}
 
 /** "Always allow npm test": the entry Always allow would save (Q4). */
 export function alwaysAllowLabel(entry: string): string {

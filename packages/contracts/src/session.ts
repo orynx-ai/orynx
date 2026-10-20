@@ -272,7 +272,7 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({
     kind: z.literal('waiting'),
     approvalId: z.string().min(1),
-    about: z.enum(['command', 'edit', 'ticket']),
+    about: z.enum(['command', 'edit', 'ticket', 'server']),
     text: z.string().nullable(),
   }),
   /** Commands that ran, in the order they were allowed. */
@@ -280,7 +280,7 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   /** You denied a call: `text` is the command, the edit's path, or the ticket's key (spec 037). */
   ActivityBaseSchema.extend({
     kind: z.literal('denied'),
-    about: z.enum(['command', 'edit', 'ticket']),
+    about: z.enum(['command', 'edit', 'ticket', 'server']),
     text: z.string().min(1),
   }),
   /** Claude can't run commands in this session (spec 012, Q2b). */
@@ -378,6 +378,16 @@ export const SessionApprovalSchema = z.discriminatedUnion('kind', [
     /** At most 20 lines of the change; `moreLines` says how many follow them. */
     lines: z.array(ChangeLineSchema),
     moreLines: z.int().nonnegative(),
+  }),
+  /**
+   * Claude asks to start a server (spec 042, Q7): it runs in a Terminal tab, outside Claude's sandbox, so it always
+   * asks. `folder` is where in the worktree, `.` for its top; `alwaysAllow` the entry that allows it in this repository.
+   */
+  ApprovalBaseSchema.extend({
+    kind: z.literal('server'),
+    command: z.string().min(1),
+    folder: z.string().min(1),
+    alwaysAllow: z.string().min(1),
   }),
   /** Claude asks to delete one of Orynx's own tickets (spec 037, AC-30): Allow once or Deny, never Always allow. */
   ApprovalBaseSchema.extend({

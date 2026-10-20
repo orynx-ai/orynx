@@ -10,9 +10,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Describe the new activities (`reading`, `steps_changed`, `branch_made`, `server`) and a worktree row with no branch, with their words and icons (AC-1, AC-15, AC-21, AC-22, AC-23, AC-24)
       Check: pnpm test packages/contracts/src/session.test.ts packages/app/src/features/sessions/step-words.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/app/src/features/sessions/step-words.ts, packages/app/src/features/sessions/step-words.test.ts, packages/app/src/features/sessions/components/session-progress.tsx
-- [ ] Task 3: Describe the quick read's answer, the `server` approval (and its notification) and the ports bodies and paths (AC-2, AC-7)
-      Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/notifications.test.ts packages/contracts/src/ports.test.ts
-      Files: packages/contracts/src/session.ts, packages/contracts/src/notifications.ts, packages/contracts/src/ports.ts, packages/contracts/src/ports.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts
+- [x] Task 3: Describe the `server` approval (with its callout, its words and its notification) and the ports bodies and paths (AC-2, AC-7, AC-10, AC-11)
+      Check: pnpm test packages/contracts/src packages/app/src/features/sessions/components/approval-callout.test.tsx; pnpm typecheck
+      Files: packages/contracts/src/session.ts, packages/contracts/src/notifications.ts, packages/contracts/src/ports.ts, packages/contracts/src/ports.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/core/src/notifications/session-notifications.ts, packages/app/src/features/sessions/approval-words.ts, packages/app/src/features/sessions/components/approval-callout.tsx, packages/app/src/features/home/composer-words.ts, packages/app/src/features/notifications/words.ts
 - [ ] Task 4: Let a session's branch be null until it's made, and make every use compile with it (AC-3)
       Check: pnpm typecheck; pnpm test packages/core/src/sessions/pull-requests.test.ts
       Files: packages/contracts/src/session.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/pull-requests.ts, packages/app/src/features/sessions/components/delete-session.tsx
@@ -83,9 +83,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 22: Tabs read Ports · Changes · Context; the page opens on Ports for a run session or while something listens, and never switches by itself (AC-1, AC-33, AC-34)
       Check: pnpm test packages/app/src/features/sessions/components/session-details.test.tsx packages/app/src/features/sessions/session-screen.test.tsx
       Files: packages/app/src/features/sessions/components/session-details.tsx, packages/app/src/features/sessions/session-search.ts, and their tests
-- [ ] Task 23: The server approval in the callout (Allow once, Always allow in this repository, Deny), and Delete's "Stops 1 server" line (AC-2, AC-13)
-      Check: pnpm test packages/app/src/features/sessions/components/approval-callout.test.tsx packages/app/src/features/sessions/components/delete-session.test.tsx packages/app/src/features/sessions/approval-words.test.ts
-      Files: packages/app/src/features/sessions/components/approval-callout.tsx, packages/app/src/features/sessions/approval-words.ts, packages/app/src/features/sessions/components/delete-session.tsx, and their tests
+- [ ] Task 23: Delete's "Stops 1 server" line (AC-13); the server approval came with task 3
+      Check: pnpm test packages/app/src/features/sessions/components/delete-session.test.tsx
+      Files: packages/app/src/features/sessions/components/delete-session.tsx, packages/app/src/features/sessions/components/delete-session.test.tsx
 
 ## End to end and docs
 

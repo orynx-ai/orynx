@@ -25,7 +25,7 @@ Correct these now, or the work goes ahead on them.
 - **One quick call at Send, for a Build session only, on the model and effort the composer picked** (Q1). Before the worktree, Orynx asks that model one question with no tools, through `AgentAdapter.write()` with new `model` and `effort` options. It gives up after 30 seconds. Ask sessions skip it: they need no branch and no steps.
 - **The page opens at once.** The session exists from Send, as today; the quick read is its first row, so the wait is never a blank screen or a spinning Send button.
 - **What the call gets** (about 2 KB, never file contents): your message; each chip's one line (ticket key, type and summary; PR number, title, branch and whether it's yours; file names); the folder's name, its default branch and its `origin` branch names (up to 200, names only, so "latest develop" can be matched); the repository's branch rules (section 2); and the names of your own last 20 branches in that repository.
-- **What it answers**, parsed with a zod schema in `@devhub/contracts`, so a bad answer is a failed one:
+- **What it answers**, parsed with a zod schema (its steps with `@devhub/contracts`' `SessionStepsSchema`), so a bad answer is a failed one:
 
   | Field    | What it is                                                                                                        |
   | -------- | ----------------------------------------------------------------------------------------------------------------- |

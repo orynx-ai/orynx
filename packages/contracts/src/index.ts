@@ -12,6 +12,7 @@ export * from './jira.ts';
 export * from './notifications.ts';
 export * from './orynx-skills.ts';
 export * from './orynx-tickets.ts';
+export * from './ports.ts';
 export * from './preferences.ts';
 export * from './profile.ts';
 export * from './pull-requests.ts';
