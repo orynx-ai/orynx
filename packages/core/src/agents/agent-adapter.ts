@@ -76,8 +76,8 @@ export type AgentWork =
   | { kind: 'plan'; items: readonly string[] }
   | { kind: 'edit'; file: string }
   | { kind: 'refused'; refusal: AgentRefusal }
-  /** A command is running now: allowed by the list, or by you (spec 012). */
-  | { kind: 'command'; command: string }
+  /** A command is running now: allowed by the list, or by you (spec 012). `id` is its call's, which its end names (spec 036). */
+  | { kind: 'command'; id: string; command: string }
   /** You denied a waiting call; `text` is the command, or the edit's path. */
   | { kind: 'denied'; about: 'command' | 'edit'; text: string }
   /** The agent can't run commands in this session: there's no sandbox on this computer (spec 012, Q2b). */
@@ -102,6 +102,11 @@ export type AgentEvent =
   | { type: 'approval'; sessionId: string; approvalId: string; ask: AgentAsk }
   /** An edit or a command ended, so the worktree's files may have changed (spec 013, AC-2). */
   | { type: 'files_changed'; sessionId: string }
+  /**
+   * A command that ran has ended (spec 036): its output as the agent gave it, whether it failed, and how long it
+   * ran from the moment it was allowed. A command that was denied or refused never ran, so it never ends.
+   */
+  | { type: 'command_ended'; sessionId: string; id: string; output: string; failed: boolean; ms: number }
   /** A waiting call ended: `allowed` only when you allowed it. Comes before the work it lets happen. */
   | { type: 'answered'; sessionId: string; approvalId: string; allowed: boolean }
   /** `code` is safe to log; it never holds the agent's own words. */
