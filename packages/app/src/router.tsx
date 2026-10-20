@@ -13,6 +13,7 @@ import { HomeSearchSchema } from './features/home/inbox-tabs.ts';
 import { NotFoundScreen } from './features/not-found/not-found-screen.tsx';
 import { SessionScreen } from './features/sessions/session-screen.tsx';
 import { SessionsScreen } from './features/sessions/sessions-screen.tsx';
+import { SessionsSearchSchema } from './features/sessions/session-filters.ts';
 import { SettingsScreen } from './features/settings/settings-screen.tsx';
 import { SettingsSearchSchema, SettingsTabSchema } from './features/settings/tabs.ts';
 import { SessionSearchSchema } from './features/sessions/session-search.ts';
@@ -46,7 +47,13 @@ const ticketsRoute = createRoute({
   component: TicketsScreen,
 });
 
-const sessionsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sessions', component: SessionsScreen });
+const sessionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/sessions',
+  // Search sessions, Status and Kind: `/sessions?q=failing&status=done&kind=ask`; the defaults have none (spec 039).
+  validateSearch: (search) => SessionsSearchSchema.parse(search),
+  component: SessionsScreen,
+});
 
 const sessionRoute = createRoute({
   getParentRoute: () => rootRoute,

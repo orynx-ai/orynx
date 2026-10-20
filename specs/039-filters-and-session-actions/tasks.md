@@ -35,7 +35,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: The Session screen's More actions gets Rename, Pin or Unpin, and Delete, above Discard changes; a delete goes to the Sessions page (AC-34, AC-35)
       Check: pnpm test packages/app/src/features/sessions/components/session-header.test.tsx packages/app/src/features/sessions/session-screen.test.tsx
       Files: packages/app/src/features/sessions/components/session-header.tsx, its test, session-screen.test.tsx
-- [ ] Task 12: The Sessions page: Search sessions, Status and Kind filters in the address, a Pinned group, the ⋯ menu on each row, "No sessions match" with Clear filters, and loading and error under the toolbar (AC-18–AC-20, AC-43)
+- [x] Task 12: The Sessions page: Search sessions, Status and Kind filters in the address, a Pinned group, the ⋯ menu on each row, "No sessions match" with Clear filters, and loading and error under the toolbar (AC-18–AC-20, AC-43)
       Check: pnpm test packages/app/src/features/sessions/sessions-screen.test.tsx; pnpm gate design-source
       Files: packages/app/src/features/sessions/sessions-screen.tsx, its test, packages/app/src/features/sessions/session-filters.ts, its test, packages/app/src/router.tsx
 - [ ] Task 13: The recent searches store (one list per place, the last 5, kept on this computer), and Sessions' recent searches (AC-21–AC-23)
