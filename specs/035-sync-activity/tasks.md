@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Keep a sync log in cache.db: a 2 → 3 upgrade that keeps the other tables, 30-day retention, newest-100 reads, per-tool figures, and Clear cache empties it (AC-34, AC-35, AC-36)
       Check: pnpm test packages/core/src/inbox/inbox-cache.test.ts
       Files: packages/core/src/inbox/inbox-cache.ts, packages/core/src/inbox/inbox-cache.test.ts
-- [ ] Task 3: Work out what a sync changed: new, updated, removed, the first 50 kept and the rest counted (AC-33, AC-16)
+- [x] Task 3: Work out what a sync changed: new, updated, removed, the first 50 kept and the rest counted (AC-33, AC-16)
       Check: pnpm test packages/core/src/inbox/sync-changes.test.ts
       Files: packages/core/src/inbox/sync-changes.ts, packages/core/src/inbox/sync-changes.test.ts
 - [ ] Task 4: Write a log row for each tool's part of every sync, and sync one tool on its own (AC-32, AC-20, AC-22)
