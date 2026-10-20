@@ -20,8 +20,11 @@ import {
   type DetailListProps,
 } from '@devhub/ui';
 import { useNow } from '../../../words/use-now.ts';
+import { githubReconnectSchema, jiraReconnectSchema } from '../schemas.ts';
 import {
   useCheckConnection,
+  useConnectGitHub,
+  useConnectJira,
   useDisconnectGitHub,
   useDisconnectJira,
   useGitHubConnection,
@@ -41,8 +44,9 @@ import {
   testedLine,
   toolNames,
 } from './connection-words.ts';
-import { GitHubConnectionForm } from './github-connection-form.tsx';
-import { JiraConnectionForm } from './jira-connection-form.tsx';
+import { GitHubConnectionForm, newTokenUrl } from './github-connection-form.tsx';
+import { apiTokensUrl, JiraConnectionForm } from './jira-connection-form.tsx';
+import { ReconnectTokenForm } from './reconnect-token-form.tsx';
 
 interface ConnectionDialogProps {
   tool: IntegrationId;
@@ -144,6 +148,10 @@ interface ManagedDialogProps extends ToolDialogProps {
   details: DetailListProps['items'];
   /** Reconnecting means signing gh in again, not a new token: GitHub through gh. */
   throughGh: boolean;
+  /** Reconnecting with a new token: the field, once what it sends with has arrived. `done` shuts the dialog. */
+  tokenForm: ((id: string, done: () => void) => ReactNode) | undefined;
+  /** A new token is on its way. */
+  reconnecting: boolean;
   /** The saved settings the form starts from could not be loaded. */
   loadFailed: boolean;
   /** The connect form, once what it starts from has arrived. `close` shuts the dialog, saying `message`. */
@@ -164,6 +172,8 @@ function ManagedDialog({
   announce,
   details,
   throughGh,
+  tokenForm,
+  reconnecting,
   loadFailed: failedToLoad,
   form,
   disconnect,
@@ -176,6 +186,7 @@ function ManagedDialog({
   const check = useCheckConnection(tool);
   const name = toolNames[tool];
   const look = lookOf(status);
+  const tokenFormId = useId();
 
   // Focus moves to Keep connected when the warning shows, and back to Disconnect when it goes.
   const keep = useRef<HTMLButtonElement>(null);
@@ -354,6 +365,28 @@ function ManagedDialog({
         </Button>
       </DialogFoot>
     );
+  } else if (look === 'needs_reconnecting' && tokenForm) {
+    const reason = failed ?? status.detail ?? `Orynx can no longer reach ${name}.`;
+    body = (
+      <Callout
+        key={reason}
+        tone={failed === undefined ? 'warning' : 'danger'}
+        role={failed === undefined ? undefined : 'alert'}
+        title={reason}
+      >
+        {tokenForm(tokenFormId, () => {
+          close(changedLine.reconnected(name));
+        })}
+      </Callout>
+    );
+    foot = (
+      <DialogFoot start={askToDisconnect}>
+        {cancel}
+        <Button type="submit" form={tokenFormId} variant="primary" pending={reconnecting}>
+          Reconnect
+        </Button>
+      </DialogFoot>
+    );
   } else {
     body = (
       <>
@@ -380,6 +413,7 @@ function ManagedDialog({
 /** Jira's status button and dialog. */
 export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
   const connection = useJiraConnection();
+  const connect = useConnectJira();
   const disconnect = useDisconnectJira();
   const now = useNow();
   const formId = useId();
@@ -391,6 +425,22 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
       status={status}
       announce={announce}
       throughGh={false}
+      tokenForm={
+        saved === null
+          ? undefined
+          : (id, done) => (
+              <ReconnectTokenForm
+                id={id}
+                label="API token"
+                schema={jiraReconnectSchema}
+                createUrl={apiTokensUrl}
+                createLabel="Create an API token"
+                send={(apiToken) => connect.mutateAsync({ ...saved, ...(apiToken === undefined ? {} : { apiToken }) })}
+                onReconnected={done}
+              />
+            )
+      }
+      reconnecting={connect.isPending}
       disconnect={disconnect}
       disconnectText={disconnectText.jira}
       disconnectNote={<RunningTicketSessions />}
@@ -430,6 +480,7 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
 /** GitHub's status button and dialog. */
 export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
   const connection = useGitHubConnection();
+  const connect = useConnectGitHub();
   const disconnect = useDisconnectGitHub();
   const now = useNow();
   const formId = useId();
@@ -441,6 +492,22 @@ export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
       status={status}
       announce={announce}
       throughGh={method === 'gh'}
+      tokenForm={
+        method === 'token'
+          ? (id, done) => (
+              <ReconnectTokenForm
+                id={id}
+                label="Personal access token"
+                schema={githubReconnectSchema}
+                createUrl={newTokenUrl}
+                createLabel="Create a token"
+                send={(token) => connect.mutateAsync({ method: 'token', ...(token === undefined ? {} : { token }) })}
+                onReconnected={done}
+              />
+            )
+          : undefined
+      }
+      reconnecting={connect.isPending}
       disconnect={disconnect}
       disconnectText={disconnectText[method ?? 'gh']}
       loadFailed={connection.isLoadingError}

@@ -8,7 +8,7 @@ import { usePlatform } from '../../../platform.tsx';
 import { useConnectJira, useDisconnectJira } from '../queries.ts';
 import { jiraFormSchema, type JiraFormValues } from '../schemas.ts';
 
-const apiTokensUrl = 'https://id.atlassian.com/manage-profile/security/api-tokens';
+export const apiTokensUrl = 'https://id.atlassian.com/manage-profile/security/api-tokens';
 
 const tokenRequired = jiraFormSchema(true);
 const tokenOptional = jiraFormSchema(false);

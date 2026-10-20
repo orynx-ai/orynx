@@ -8,7 +8,7 @@ import { usePlatform } from '../../../platform.tsx';
 import { useConnectGitHub, useDisconnectGitHub } from '../queries.ts';
 import { githubFormSchema, type GitHubFormValues } from '../schemas.ts';
 
-const newTokenUrl = 'https://github.com/settings/tokens/new?scopes=repo&description=Orynx';
+export const newTokenUrl = 'https://github.com/settings/tokens/new?scopes=repo&description=Orynx';
 
 const tokenRequired = githubFormSchema(true);
 const tokenOptional = githubFormSchema(false);

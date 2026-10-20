@@ -35,7 +35,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: Needs reconnecting through gh: the amber callout with the server's reason, `gh auth login` with Copy, Reconnect busy with "Checking your gh login…", success shuts the dialog with "GitHub reconnected. Your inbox is refreshing.", failure shows the new reason; Cancel mid-check still lands the message (AC-15, AC-16, AC-17, AC-18)
       Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx
       Files: connection-dialog.tsx, connection-dialog.test.tsx, connection-words.ts
-- [ ] Task 12: Needs reconnecting with a token (Jira, or GitHub by token): one token field with its Create link inside the callout, Reconnect saves it through today's PUT, empty re-checks the saved one (Q3) (AC-19)
+- [x] Task 12: Needs reconnecting with a token (Jira, or GitHub by token): one token field with its Create link inside the callout, Reconnect saves it through today's PUT, empty re-checks the saved one (Q3) (AC-19)
       Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx packages/app/src/features/settings/components/reconnect-token-form.test.tsx
       Files: reconnect-token-form.tsx, reconnect-token-form.test.tsx, connection-dialog.tsx, connection-dialog.test.tsx, packages/app/src/features/settings/schemas.ts
 - [ ] Task 13: Not connected: today's Jira and GitHub forms in the dialog's body with Cancel · Connect in its foot (`form` attribute), their own Disconnect and button rows gone; Slack: the line, step 1 and Copy request for your admin (Q4), Close (AC-20, AC-21, AC-22)
