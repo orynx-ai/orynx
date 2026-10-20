@@ -1,12 +1,12 @@
-import { Rotate01Icon } from '@hugeicons/core-free-icons';
 import { useState } from 'react';
-import { Button, Dialog, DialogTrigger, Icon, StatusDot } from '@devhub/ui';
+import { Button, Dialog, DialogTrigger, StatusDot } from '@devhub/ui';
 import { buttonName } from '../sync-words.ts';
 import { SyncActivityDialog } from './sync-activity-dialog.tsx';
 
 /**
- * Home's Sync activity button (spec 035, Q1): opens the sync log. A red dot, and its name, say how many
- * tools need attention. The log is read only while the dialog is open.
+ * Home's Sync activity button (spec 035, Q1): opens the sync log. Its dot is green while syncs go well and red, with
+ * its name saying how many, when tools need attention (the user's call, 20 Oct 2026). The log is read only while the
+ * dialog is open.
  */
 export function SyncActivityButton({ attention }: { attention: number }) {
   const [open, setOpen] = useState(false);
@@ -14,9 +14,8 @@ export function SyncActivityButton({ attention }: { attention: number }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="secondary" size="sm" aria-label={buttonName(attention)}>
-          <Icon icon={Rotate01Icon} aria-hidden />
+          <StatusDot tone={attention > 0 ? 'danger' : 'success'} />
           Sync activity
-          {attention > 0 ? <StatusDot tone="danger" /> : null}
         </Button>
       </DialogTrigger>
       {open ? (

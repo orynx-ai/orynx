@@ -23,13 +23,16 @@ function pageBar() {
 const synced = { state: 'synced', at: '2026-10-20T10:41:00.000Z' } as const;
 
 describe('Sync activity button (spec 035)', () => {
-  it('AC-1: sits in Home’s page bar between the Synced line and Refresh', async () => {
+  it('AC-1: sits at the right end of Home’s page bar, after Refresh, with a green dot while syncs go well', async () => {
     inboxWith({ jira: synced, github: synced });
     await renderApp();
 
     const button = await pageBar().findByRole('button', { name: 'Sync activity' });
     const refresh = pageBar().getByRole('button', { name: 'Refresh' });
-    expect(button.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The user's call, 20 Oct 2026: right-most, a dot in place of the icon.
+    expect(refresh.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(button.querySelector('svg')).toBeNull();
+    expect(button.querySelector('.bg-success')).not.toBeNull();
   });
 
   it('AC-2: says how many tools need attention, with a red dot', async () => {
@@ -38,6 +41,7 @@ describe('Sync activity button (spec 035)', () => {
 
     const button = await pageBar().findByRole('button', { name: 'Sync activity, 1 needs attention' });
     expect(button.querySelector('.bg-danger')).not.toBeNull();
+    expect(button.querySelector('.bg-success')).toBeNull();
   });
 
   it('AC-3: isn’t there while no tool is connected', async () => {
