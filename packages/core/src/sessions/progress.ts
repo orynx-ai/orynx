@@ -162,6 +162,18 @@ export function addWork(progress: Progress, work: ClaudeWork): Progress {
       return addStep(progress, { kind: 'denied', about: work.about, text: work.text });
     case 'no_commands':
       return addStep(progress, { kind: 'no_commands', reason: 'no_sandbox' });
+    case 'ticket': {
+      // A ticket tool's call is a step of its own; it moves the stepper nowhere (spec 037).
+      const { done } = work;
+      return addStep(progress, {
+        kind: 'ticket',
+        action: done.action,
+        key: done.action === 'listed' ? null : done.key,
+        title: done.action === 'listed' ? null : done.title,
+        fields: done.action === 'updated' ? done.fields : [],
+        status: done.action === 'updated' ? done.status : null,
+      });
+    }
     case 'finished':
       return {
         ...addStep(progress, { kind: 'finished', summary: work.summary }),

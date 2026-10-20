@@ -8,6 +8,7 @@
  * outside the worktree only as far as the user's rows in Settings › Coding agent allow.
  */
 import type { AgentModels, AlwaysAskReason, ChangeLine, EffortLevel, Permissions } from '@devhub/contracts';
+import type { TicketTool, TicketToolDone } from '../orynx-tickets/tools.ts';
 
 /** Saved in Settings › Coding agent (spec 026): one row for each kind of call. The schema lives in contracts. */
 export type { Permissions };
@@ -82,6 +83,8 @@ export type AgentWork =
   | { kind: 'denied'; about: 'command' | 'edit'; text: string }
   /** The agent can't run commands in this session: there's no sandbox on this computer (spec 012, Q2b). */
   | { kind: 'no_commands' }
+  /** The agent used one of Orynx's ticket tools (spec 037), and this is what it did. */
+  | { kind: 'ticket'; done: TicketToolDone }
   /** The agent ended its turn, with its own summary. */
   | { kind: 'finished'; summary: string };
 
@@ -117,6 +120,11 @@ export interface AgentRunOptions {
   resume?: string | undefined;
   model?: string | undefined;
   effort?: EffortLevel | undefined;
+  /**
+   * Orynx's ticket tools for this run (spec 037), defined once for any agent: each adapter offers them in its own
+   * agent's way, and says `ticket` work for each call that did something. None when left out.
+   */
+  tools?: readonly TicketTool[] | undefined;
 }
 
 export interface AgentAdapter {

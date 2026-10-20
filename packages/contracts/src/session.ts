@@ -179,6 +179,18 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     url: GitHubLinkSchema,
     files: z.int().nonnegative(),
   }),
+  /**
+   * Claude used one of Orynx's ticket tools (spec 037, AC-28, AC-29): listed the tickets, read, made, changed or
+   * deleted one. `fields` are those a change set; `status`, the one it moved the ticket to. The key is an Orynx one.
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('ticket'),
+    action: z.enum(['listed', 'read', 'created', 'updated', 'deleted']),
+    key: JiraIssueKeySchema.nullable(),
+    title: z.string().min(1).nullable(),
+    fields: z.array(z.enum(['title', 'description', 'type', 'priority', 'status', 'dueDate'])).default([]),
+    status: TicketColumnSchema.nullable().default(null),
+  }),
   /** You pressed Stop Claude. */
   ActivityBaseSchema.extend({ kind: z.literal('stopped') }),
   /** Orynx closed while Claude was working (AC-14). */

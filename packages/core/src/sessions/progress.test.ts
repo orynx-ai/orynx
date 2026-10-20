@@ -371,3 +371,47 @@ describe('steps passed over (spec 031, Q5)', () => {
     expect(endProgress(reviewed, { kind: 'interrupted' }).skipped).toEqual(['test']);
   });
 });
+
+describe('Orynx ticket steps (spec 037)', () => {
+  it('AC-28, AC-29: each ticket call is a done step of its own that ends the running one, and moves the stepper nowhere', () => {
+    const progress = fold([
+      { kind: 'explore', file: 'src/date.ts' },
+      { kind: 'ticket', done: { action: 'listed' } },
+      { kind: 'ticket', done: { action: 'created', key: 'ORX-7', title: 'Flaky date test' } },
+      {
+        kind: 'ticket',
+        done: {
+          action: 'updated',
+          key: 'ORX-2',
+          title: 'Fix the date test',
+          fields: ['status', 'priority'],
+          status: 'in_review',
+        },
+      },
+    ]);
+
+    expect(progress.step).toBe('plan');
+    expect(progress.activities.map(({ id: _, ...step }) => step)).toEqual([
+      { kind: 'explore', files: ['src/date.ts'], state: 'done' },
+      { kind: 'ticket', action: 'listed', key: null, title: null, fields: [], status: null, state: 'done' },
+      {
+        kind: 'ticket',
+        action: 'created',
+        key: 'ORX-7',
+        title: 'Flaky date test',
+        fields: [],
+        status: null,
+        state: 'done',
+      },
+      {
+        kind: 'ticket',
+        action: 'updated',
+        key: 'ORX-2',
+        title: 'Fix the date test',
+        fields: ['status', 'priority'],
+        status: 'in_review',
+        state: 'done',
+      },
+    ]);
+  });
+});

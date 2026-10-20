@@ -2,16 +2,20 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type {
-  ModelInfo,
-  Options,
-  PermissionResult,
-  SandboxSettings,
-  SDKMessage,
-  SDKUserMessage,
+import {
+  createSdkMcpServer,
+  tool,
+  type McpSdkServerConfigWithInstance,
+  type ModelInfo,
+  type Options,
+  type PermissionResult,
+  type SandboxSettings,
+  type SDKMessage,
+  type SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
 import { AgentModelIdSchema, EffortLevelSchema, type AgentModel, type AgentModels } from '@devhub/contracts';
 import { briefText } from '../../sessions/brief.ts';
+import type { TicketTool, TicketToolDone } from '../../orynx-tickets/tools.ts';
 import type { AgentAdapter, AgentAsk, AgentEvent, AgentWritten } from '../agent-adapter.ts';
 import { createMessageReader } from './sdk-messages.ts';
 import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool-decision.ts';
@@ -22,7 +26,7 @@ import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool
  * calls by its own rules:
  *
  * - `settingSources: []`, hooks off and `strictMcpConfig`: none of `~/.claude`'s or the repository's
- *   hooks, plugins, MCP servers or allow rules (Q7).
+ *   hooks, plugins, MCP servers or allow rules (Q7). The one MCP server is Orynx's own, for its tickets (spec 037).
  * - `permissionMode: 'default'` and `canUseTool`: every call Claude Code doesn't allow by itself comes to
  *   the tool decision, and `tools` holds only the session's tools.
  * - `sandbox`: every command runs in Claude Code's sandbox (spec 012, Q2a). Without one, `Bash` is left
@@ -94,6 +98,27 @@ function agentModel(info: ModelInfo): AgentModel[] {
       efforts,
     },
   ];
+}
+
+/**
+ * Orynx's ticket tools as Claude Code takes them (spec 037): an MCP server in this process, `orynx`, so Claude Code
+ * names them `mcp__orynx__<tool>` and asks `canUseTool` about each call. `did` hears what each call did.
+ */
+function orynxServer(
+  tools: readonly TicketTool[],
+  did: (done: TicketToolDone) => void,
+): McpSdkServerConfigWithInstance {
+  return createSdkMcpServer({
+    name: 'orynx',
+    version: '1.0.0',
+    tools: tools.map((ticketTool) =>
+      tool(ticketTool.name, ticketTool.description, ticketTool.input.shape, async (input) => {
+        const answer = await ticketTool.run(input);
+        if (answer.error !== true) did(answer.done);
+        return { content: [{ type: 'text', text: answer.text }], ...(answer.error === true ? { isError: true } : {}) };
+      }),
+    ),
+  });
 }
 
 /** How a waiting call ended: your answer, Stop, or Claude Code dropping it. */
@@ -314,7 +339,7 @@ export function createClaudeAdapter({
       return writeText(text, instructions, timeoutMs);
     },
 
-    startSession(brief, worktree, permissions, instructions, { resume, model, effort } = {}) {
+    startSession(brief, worktree, permissions, instructions, { resume, model, effort, tools = [] } = {}) {
       const id = randomUUID();
       // The prompt stream: the brief, then each follow-up as it's given, until the input is over.
       const given: SDKUserMessage[] = [];
@@ -366,7 +391,14 @@ export function createClaudeAdapter({
         ...(model === undefined ? {} : { model }),
         ...(effort === undefined ? {} : { effort }),
         strictMcpConfig: true,
-        mcpServers: {},
+        // Orynx's ticket tools, and no other MCP server (spec 037).
+        mcpServers:
+          tools.length === 0
+            ? {}
+            : {
+                orynx: orynxServer(tools, (done) => { send({ type: 'work', sessionId: id, work: { kind: 'ticket', done } }); },
+                ),
+              },
         systemPrompt: { type: 'preset', preset: 'claude_code', append: instructions },
         // Claude Code's own output can hold the brief or file contents; it never reaches the log.
         stderr: () => undefined,

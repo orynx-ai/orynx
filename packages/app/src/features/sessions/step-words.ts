@@ -1,4 +1,4 @@
-import type { Session, SessionActivity, SessionProblem } from '@devhub/contracts';
+import { orynxStatusNames, type Session, type SessionActivity, type SessionProblem } from '@devhub/contracts';
 
 /**
  * The words for each step of "Claude's progress" and for a session that couldn't start (spec 011, Q10a and
@@ -48,6 +48,38 @@ function refusedTitle(activity: Extract<SessionActivity, { kind: 'refused' }>): 
       return activity.access === 'run'
         ? "Couldn't run a command: this is an Ask session"
         : "Couldn't edit files: this is an Ask session";
+  }
+}
+
+const ticketFieldNames: Record<Extract<SessionActivity, { kind: 'ticket' }>['fields'][number], string> = {
+  title: 'title',
+  description: 'description',
+  type: 'type',
+  priority: 'priority',
+  status: 'status',
+  dueDate: 'due date',
+};
+
+/** What one of Orynx's ticket tools did (spec 037, Q12i): "Created ORX-7", with the title or what changed below. */
+function ticketWords(activity: Extract<SessionActivity, { kind: 'ticket' }>): StepWords {
+  const key = activity.key ?? 'a ticket';
+  switch (activity.action) {
+    case 'listed':
+      return { title: 'Read Orynx tickets', detail: null };
+    case 'read':
+      return { title: `Read ${key}`, detail: activity.title };
+    case 'created':
+      return { title: `Created ${key}`, detail: activity.title };
+    case 'deleted':
+      return { title: `Deleted ${key}`, detail: activity.title };
+    case 'updated': {
+      const others = activity.fields.filter((field) => field !== 'status').map((field) => ticketFieldNames[field]);
+      const parts = [
+        ...(activity.status === null ? [] : [`Status: ${orynxStatusNames[activity.status]}`]),
+        ...(others.length === 0 ? [] : [`Changed the ${listOf(others) ?? ''}`]),
+      ];
+      return { title: `Updated ${key}`, detail: parts.length === 0 ? null : parts.join(' · ') };
+    }
   }
 }
 
@@ -142,6 +174,8 @@ export function stepWords(activity: SessionActivity): StepWords {
         title: `Pushed changes to #${String(activity.number)}`,
         detail: activity.files === 0 ? null : `Committed ${filesText(activity.files)}`,
       };
+    case 'ticket':
+      return ticketWords(activity);
     case 'stopped':
       return { title: 'You stopped Claude', detail: keepsChanges };
     case 'interrupted':

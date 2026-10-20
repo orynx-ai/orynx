@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { CreateOrynxTicketSchema, isOrynxKey, type ComposerChip, type ServerEvent } from '@devhub/contracts';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { makeComposerStart, makeRepository } from '@devhub/contracts/testing';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { createClaudeAdapter } from '../agents/claude/claude-adapter.ts';
@@ -239,6 +241,7 @@ async function setUp({
       sandbox: (worktree) =>
         sandboxSettings({ platform: 'darwin', worktree, devhubHome: home, home: repos.root, temporary: tmpdir() }),
     }),
+    ...(orynx === undefined ? {} : { tickets: orynx }),
     events,
     now: () => clock,
     newId: () => {
@@ -385,6 +388,43 @@ describe('a composer start that can’t happen (spec 015)', () => {
     );
     expect(answer).toEqual({ result: 'context_failed', chip: 1, problem: 'not_found' });
     await nothingMade(set);
+  });
+});
+
+describe('Orynx’s ticket tools in a session (spec 037)', () => {
+  async function toolsGiven(mode: 'ask' | 'build') {
+    const orynx = createOrynxTicketService({
+      store: createOrynxTicketStore(),
+      sessions: createMemorySessionStore(),
+      events: createEventBus(),
+    });
+    const set = await setUp({ orynx, script: [{ tool: 'mcp__orynx__list_tickets', input: {} }, { finish: 'Done.' }] });
+    await set.sessions.start(makeComposerStart({ message: 'What is left?', repositoryId: set.folder?.id, mode }));
+    await settled(set.records);
+    const server = set.sdk.runs[0]?.options.mcpServers?.['orynx'];
+    if (server?.type !== 'sdk' || !('instance' in server)) throw new Error('No orynx server');
+    const [ours, theirs] = InMemoryTransport.createLinkedPair();
+    // The fake's own client used the server for the list call, so this one asks a fresh copy of it.
+    await server.instance.close();
+    await server.instance.connect(theirs);
+    const client = new Client({ name: 'test', version: '0.0.0' });
+    await client.connect(ours);
+    const record = await set.records.get('0000000000000001');
+    return { names: (await client.listTools()).tools.map((tool) => tool.name), record };
+  }
+
+  it('AC-44: a Build session’s agent gets all five tools, and its calls are steps', async () => {
+    const { names, record } = await toolsGiven('build');
+    expect(names).toEqual(['list_tickets', 'get_ticket', 'create_ticket', 'update_ticket', 'delete_ticket']);
+    expect(record?.session.activities.find((activity) => activity.kind === 'ticket')).toMatchObject({
+      action: 'listed',
+      key: null,
+      state: 'done',
+    });
+  });
+
+  it('AC-31, AC-44: an Ask session’s agent gets the reading ones only', async () => {
+    expect((await toolsGiven('ask')).names).toEqual(['list_tickets', 'get_ticket']);
   });
 });
 

@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isOrynxKey } from '@devhub/contracts';
+import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
+import { ticketTools } from '../orynx-tickets/tools.ts';
 import type {
   AgentChoice,
   ApprovalDecision,
@@ -178,6 +180,8 @@ export interface SessionServiceOptions {
   githubClient?: GitHubClient;
   /** Null when the server was built without Claude Code: then no session can start (AC-22). */
   adapter: AgentAdapter | null;
+  /** Orynx's own tickets, whose tools every session's agent gets (spec 037); left out, it gets none. */
+  tickets?: OrynxTicketService;
   events: EventBus;
   onReport?: (report: SessionReport) => void;
   /**
@@ -721,10 +725,18 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       branch === null
         ? askNote(record?.repository != null)
         : sessionNote(branch, adapter.runsCommands, ticketNote, first, pull);
+    // Orynx's ticket tools, made in this session's name; an Ask session gets the reading ones only (spec 037).
+    const tools =
+      options.tickets === undefined || record === null
+        ? []
+        : ticketTools(options.tickets, { kind: 'session', sessionId: id, title: record.session.title }).filter(
+            (tool) => !first.readOnly || tool.access === 'read',
+          );
     const agentId = await adapter.startSession(brief, worktree, permissions, note, {
       ...(resume === null ? {} : { resume }),
       model,
       effort,
+      tools,
     });
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.

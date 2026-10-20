@@ -4,11 +4,13 @@ import type { Permissions } from '@devhub/contracts';
 import type { AgentAsk, AgentReads, AgentRefusal } from '../agent-adapter.ts';
 import { decideCommand } from './command-decision.ts';
 import { previewEdit, type EditTool } from './edit-preview.ts';
+import { isTicketToolName, ticketToolAccess, type TicketToolName } from '../../orynx-tickets/tools.ts';
 
 /**
  * What Claude may do in a session: read, search, plan and edit inside the session's worktree (spec 011,
  * Q6), and run commands that Settings › Coding agent's rows and the allow list let through (spec 026) or
- * that you approve (spec 012). Nothing else: no web, no MCP tools, no sub-agents and no questions. Claude Code's
+ * that you approve (spec 012), and use Orynx's own ticket tools (spec 037). Nothing else: no web, no other MCP tools,
+ * no sub-agents and no questions. Claude Code's
  * `canUseTool` asks this file about every call it doesn't allow by itself, and gets one of three answers:
  * allow, ask you, or deny with the reason Claude is told.
  */
@@ -117,12 +119,35 @@ function isSessionTool(tool: string): tool is SessionTool {
   return (sessionTools as readonly string[]).includes(tool);
 }
 
+/** How Claude Code names an Orynx ticket tool: the `orynx` SDK MCP server's (spec 037). */
+export const orynxToolPrefix = 'mcp__orynx__';
+
+/**
+ * One of Orynx's ticket tools (spec 037): reads and changes run without asking, as they touch only Orynx's own
+ * tickets, never a file or the network. An Ask session only reads.
+ */
+function decideTicketTool(name: TicketToolName, context: ToolContext): ToolDecision {
+  const access = ticketToolAccess[name];
+  if (access === 'read') return { behavior: 'allow' };
+  if (context.readOnly === true) {
+    return {
+      behavior: 'deny',
+      message: 'This is an Ask session: Orynx lets you read its tickets, not change them.',
+      refusal: null,
+    };
+  }
+  if (access === 'write') return { behavior: 'allow' };
+  return { behavior: 'deny', message: 'Deleting an Orynx ticket isn’t available in this session.', refusal: null };
+}
+
 export async function decideToolUse(
   tool: string,
   input: Readonly<Record<string, unknown>>,
   context: ToolContext,
 ): Promise<ToolDecision> {
   const { worktree, edits, home } = context;
+  const ticketTool = tool.startsWith(orynxToolPrefix) ? tool.slice(orynxToolPrefix.length) : null;
+  if (ticketTool !== null && isTicketToolName(ticketTool)) return decideTicketTool(ticketTool, context);
   if (!isSessionTool(tool)) {
     return { behavior: 'deny', message: `${tool} isn't available in this session.`, refusal: null };
   }

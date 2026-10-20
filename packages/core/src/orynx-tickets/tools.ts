@@ -41,6 +41,19 @@ export interface TicketTool {
   run(input: unknown): Promise<TicketToolAnswer>;
 }
 
+/** What each tool may do, so a door can decide on a call by the tool's name alone. */
+export const ticketToolAccess: Record<TicketToolName, TicketToolAccess> = {
+  list_tickets: 'read',
+  get_ticket: 'read',
+  create_ticket: 'write',
+  update_ticket: 'write',
+  delete_ticket: 'delete',
+};
+
+export function isTicketToolName(name: string): name is TicketToolName {
+  return Object.hasOwn(ticketToolAccess, name);
+}
+
 const statuses = 'to_do, in_progress, in_review or done';
 
 const ListInputSchema = z.object({
@@ -77,7 +90,7 @@ export function ticketTools(tickets: OrynxTicketService, actor: OrynxTicketCreat
         "Lists the person's Orynx tickets, oldest first: key, title, type, priority, status, due date and any Orynx " +
         'session working on it. Orynx tickets are kept by Orynx itself, beside Jira; their keys start ORX-.',
       input: ListInputSchema,
-      access: 'read',
+      access: ticketToolAccess.list_tickets,
       async run(input) {
         const parsed = ListInputSchema.safeParse(input);
         if (!parsed.success) return refused(parsed.error);
@@ -98,7 +111,7 @@ export function ticketTools(tickets: OrynxTicketService, actor: OrynxTicketCreat
       name: 'get_ticket',
       description: 'Reads one Orynx ticket in full, with its Markdown description.',
       input: KeyInputSchema,
-      access: 'read',
+      access: ticketToolAccess.get_ticket,
       async run(input) {
         const parsed = KeyInputSchema.safeParse(input);
         if (!parsed.success) return refused(parsed.error);
@@ -114,7 +127,7 @@ export function ticketTools(tickets: OrynxTicketService, actor: OrynxTicketCreat
         `the priority Highest, High, Medium, Low or Lowest (Medium by default), the status ${statuses} (to_do by ` +
         'default), the due date YYYY-MM-DD or null, and the description Markdown. Answers with the new key.',
       input: CreateOrynxTicketSchema,
-      access: 'write',
+      access: ticketToolAccess.create_ticket,
       async run(input) {
         const parsed = CreateOrynxTicketSchema.safeParse(input);
         if (!parsed.success) return refused(parsed.error);
@@ -131,7 +144,7 @@ export function ticketTools(tickets: OrynxTicketService, actor: OrynxTicketCreat
         'Changes an Orynx ticket: give its key and only the fields to change. Moving it to another column is a change ' +
         `of status (${statuses}).`,
       input: UpdateInputSchema,
-      access: 'write',
+      access: ticketToolAccess.update_ticket,
       async run(input) {
         const parsed = UpdateInputSchema.safeParse(input);
         if (!parsed.success) return refused(parsed.error);
@@ -157,7 +170,7 @@ export function ticketTools(tickets: OrynxTicketService, actor: OrynxTicketCreat
       name: 'delete_ticket',
       description: 'Deletes an Orynx ticket for good. The person is asked first, every time.',
       input: KeyInputSchema,
-      access: 'delete',
+      access: ticketToolAccess.delete_ticket,
       async run(input) {
         const parsed = KeyInputSchema.safeParse(input);
         if (!parsed.success) return refused(parsed.error);

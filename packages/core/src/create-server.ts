@@ -420,6 +420,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     github,
     githubClient,
     adapter,
+    tickets: orynxTickets,
     events,
     onChange: (before, after, change) => {
       notifications.sessionChanged(before, after, change);

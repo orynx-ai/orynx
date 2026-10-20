@@ -138,6 +138,9 @@ importers:
       '@fastify/static':
         specifier: ^10.1.6
         version: 10.1.6
+      '@modelcontextprotocol/sdk':
+        specifier: 1.32.1
+        version: 1.32.1(zod@4.6.7)
       '@napi-rs/keyring':
         specifier: ^2.1.1
         version: 2.1.1
@@ -356,6 +359,9 @@ importers:
       '@devhub/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@modelcontextprotocol/sdk':
+        specifier: 1.32.1
+        version: 1.32.1(zod@4.6.7)
       '@napi-rs/keyring':
         specifier: ^2.1.1
         version: 2.1.1
