@@ -76,8 +76,9 @@ Since spec 031 the composer's switch picks Ask or Build again, Build first and t
 
 `worktrees.ts` is the only file that runs git for a session, through `simple-git`:
 
-- **The base.** The branch `origin/HEAD` points at, fetched first (20 seconds at most). Offline, it uses the last fetched one, and the step says "(last fetched, offline)". With no remote, it uses the folder's checked-out branch.
-- **The name.** The first of `feat/PROJ-1423`, `feat/PROJ-1423-2`, … that no local branch and no `origin` branch has. An existing branch is never reused, reset or checked out.
+- **The base.** The branch `origin/HEAD` points at, fetched first (20 seconds at most), or the one the quick read found you named (spec 042, `learn/adaptive-sessions.md`). Offline, it uses the last fetched one, and the step says "(last fetched, offline)". With no remote, it uses the folder's checked-out branch.
+- **Detached until the first edit** (spec 042). The worktree starts on a detached HEAD at the base; `branchPlan` in `session.json` keeps the name, and `worktrees.makeBranch()` makes it just before Claude's first allowed edit, or at Create pull request. A session that only runs or answers leaves no branch.
+- **The name.** The first of `feat/PROJ-1423`, `feat/PROJ-1423-2`, … (or the quick read's name) that no local branch and no `origin` branch has; a branch you named that's on `origin` keeps its name. An existing branch is never reused, reset or checked out.
 - **No tracking.** The new branch doesn't track the default branch, so a later push can't land on it.
 - **No hooks, no prompts.** Every command runs with `core.hooksPath=/dev/null`, so `git worktree add` runs none of the repository's hooks (simple-git asks for `allowUnsafeHooksPath` to allow that setting). The environment is `gitEnvironment()`: the agent's short list, your SSH agent, and `GIT_TERMINAL_PROMPT=0`, because no one is at a terminal to answer.
 - **Your checkout stays as it was.** Only the folder's `.git` gains the branch and the worktree's entry. Its checked-out branch, files and uncommitted changes don't change.

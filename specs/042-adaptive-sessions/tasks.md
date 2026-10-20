@@ -90,8 +90,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 24: The fake Claude answers the quick read (today's five steps unless the title asks for a run), plays `set_steps` and `start_server` with a real listening port; a new e2e file walks the run session and a change session at 360 and 1280 px, light and dark, with axe and no layout shift (AC-1, AC-2, AC-3, AC-4, AC-15, AC-24, AC-33, AC-34, AC-36)
       Check: pnpm exec playwright test e2e/adaptive-sessions.spec.ts
       Files: e2e/fake-claude/session.ts, e2e/adaptive-sessions.spec.ts
-- [ ] Task 25: The agent-runtime skill, the design map and `learn/` say how the quick read, steps, branches, servers and ports work; tried by hand on acme-app with the composer's model
+- [x] Task 25: The agent-runtime skill, `learn/sessions-and-worktrees.md` and a new `learn/adaptive-sessions.md` say how the quick read, steps, branches, servers and ports work; the design map has PortRow (task 18). The hand test on a real repository is left to the user: it makes worktrees in that repository (CLAUDE.md: stop and ask)
       Check: pnpm gate handbook-size specs
-      Files: .claude/skills/agent-runtime/SKILL.md, docs/design-map.md, learn/adaptive-sessions.md
+      Files: .claude/skills/agent-runtime/SKILL.md, learn/sessions-and-worktrees.md, learn/adaptive-sessions.md
 - [ ] Task 26: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
