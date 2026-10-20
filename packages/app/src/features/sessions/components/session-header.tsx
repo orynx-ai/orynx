@@ -4,6 +4,7 @@ import {
   ArrowUpRight01Icon,
   Delete02Icon,
   GitPullRequestIcon,
+  Loading03Icon,
   MoreHorizontalIcon,
   SourceCodeIcon,
   StopIcon,
@@ -102,10 +103,10 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
 }
 
 /**
- * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop Claude while it works (AC-9);
+ * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop while Claude works (AC-9);
  * once Claude is done, Create pull request when there's something to put in one; once the pull request is open,
  * Open PR and Push changes, with no primary button (spec 014, Q10e). Open in the editor and Discard changes wait in
- * More actions. Under 768 px everything but Stop Claude moves into More actions, so the bar keeps to one line.
+ * More actions. Under 768 px everything but Stop moves into More actions, so the bar keeps to one line.
  * Stop keeps focus while it runs; once the session has stopped, the title takes focus, because the button is gone.
  */
 export function SessionActions({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
@@ -160,8 +161,13 @@ export function SessionActions({ session, title }: { session: Session; title: Re
             stop.mutate();
           }}
         >
-          {stopping ? null : <Icon icon={StopIcon} aria-hidden />}
-          {stopping ? 'Stopping…' : 'Stop Claude'}
+          {/* Turning while Claude runs; the stop square while it waits for you (the user's call, 20 Oct 2026). */}
+          {stopping ? null : session.state === 'working' ? (
+            <Icon icon={Loading03Icon} aria-hidden className="motion-safe:animate-spin" />
+          ) : (
+            <Icon icon={StopIcon} aria-hidden />
+          )}
+          {stopping ? 'Stopping…' : 'Stop'}
         </Button>
       ) : null}
       <CreatePullRequest

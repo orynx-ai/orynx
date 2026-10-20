@@ -238,7 +238,6 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
         className="overflow-clip"
       >
         <div className="flex flex-col gap-4 p-4">
-          <ApprovalCallout session={session} afterAll={pane} />
           {problem === null ? null : (
             <Callout tone="danger" role="alert" title={problem.title}>
               <span>{withCode(problem.line)}</span>
@@ -266,6 +265,8 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
               );
             })}
           </ActivityList>
+          {/* Under the last step, as a chat asks, not at the top (the user's call, 20 Oct 2026). */}
+          <ApprovalCallout session={session} afterAll={pane} />
           {/* The steps pass under the follow-up box, on the pane's own colour; Jump to latest sits over it. */}
           <div
             className={

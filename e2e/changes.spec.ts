@@ -198,7 +198,7 @@ test('AC-1, AC-2, AC-18: the Changes tab lists Claude’s edit as it lands, in e
   await expect(page.getByRole('main').getByText('Working', { exact: true })).toBeVisible();
   expect(await opensFolder(page, 'Open in VS Code')).toBe(worktreeOf('feat/CHG-1'));
 
-  await page.getByRole('button', { name: 'Stop Claude' }).click();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText('in 1 file', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'More actions' }).click();
@@ -351,7 +351,7 @@ test('AC-11, AC-12, AC-18: after Done, a follow-up carries on where Claude left 
 test('AC-13: after Stop, a follow-up carries on as well', async ({ page }) => {
   await ship(page, 'CHG-3');
   await expect(progressOf(page).getByText('Editing files')).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: 'Stop Claude' }).click();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
 
   await followUpBox(page).fill('Carry on, please');
