@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { delay, http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import type { ComposerChip } from '@devhub/contracts';
+import { CreateOrynxTicketSchema, type ComposerChip } from '@devhub/contracts';
 import { createEventBus } from '../events/event-bus.ts';
 import { createGitHubClient } from '../integrations/github/client.ts';
 import { createGitHubConnection } from '../integrations/github/connection.ts';
@@ -17,6 +17,9 @@ import { createMemorySettingsStore, type Settings } from '../settings/settings-s
 import { acceptingPullContext, acceptingPullDiff, githubToken, graphqlUrl } from '../test/fake-github.ts';
 import { acceptingIssue, goodToken, issueUrl, jiraEmail, jiraSite } from '../test/fake-jira.ts';
 import { createContextReader } from './context-reader.ts';
+import { createOrynxTicketService, type OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
+import { createOrynxTicketStore } from '../orynx-tickets/ticket-store.ts';
+import { createMemorySessionStore } from './session-store.ts';
 
 /** Jira and GitHub, the outside services, faked for this file only. */
 const outside = setupServer();
@@ -32,7 +35,7 @@ afterAll(() => {
 
 const connected: Settings = { jira: { site: jiraSite, email: jiraEmail }, github: { method: 'token' } };
 
-function setUp(initial: Settings = connected) {
+function setUp(initial: Settings = connected, orynx?: OrynxTicketService) {
   const events = createEventBus();
   const settings = createMemorySettingsStore(initial);
   const tokens = createTokenStore({
@@ -43,6 +46,7 @@ function setUp(initial: Settings = connected) {
   const github = createGitHubClient({ timeoutMs: 300 });
   return createContextReader({
     home,
+    ...(orynx === undefined ? {} : { orynx }),
     jira,
     jiraConnection: createJiraConnection({ settings, tokens, jira, events, envToken: false }),
     github,
@@ -126,6 +130,61 @@ describe('the context reader (spec 015)', () => {
     expect(read.ok && read.chips[0]?.kind === 'pull_request' && read.chips[0].diff).toEqual({
       kind: 'too_large',
       files: [{ path: 'data/people.json', additions: 90_000, deletions: 12 }],
+    });
+  });
+
+  it('AC-24 (spec 037): reads an Orynx ticket from Orynx, asking nothing of Jira, connected or not', async () => {
+    const orynx = createOrynxTicketService({
+      store: createOrynxTicketStore(),
+      sessions: createMemorySessionStore(),
+      events: createEventBus(),
+    });
+    await orynx.create(
+      CreateOrynxTicketSchema.parse({
+        title: 'Fix the date test',
+        type: 'Bug',
+        priority: 'High',
+        status: 'in_progress',
+        dueDate: '2026-10-24',
+      }),
+      { kind: 'you' },
+    );
+    await orynx.create(CreateOrynxTicketSchema.parse({ title: 'Archive', description: 'In bulk.' }), { kind: 'you' });
+
+    expect(
+      await setUp({}, orynx).read([
+        { kind: 'jira', key: 'ORX-1' },
+        { kind: 'jira', key: 'ORX-2' },
+      ]),
+    ).toEqual({
+      ok: true,
+      chips: [
+        {
+          kind: 'jira',
+          key: 'ORX-1',
+          summary: 'Fix the date test',
+          type: 'Bug',
+          description: null,
+          comments: [],
+          links: [],
+          facts: ['Priority: High', 'Status: In progress', 'Due: 2026-10-24'],
+        },
+        {
+          kind: 'jira',
+          key: 'ORX-2',
+          summary: 'Archive',
+          type: 'Task',
+          description: 'In bulk.',
+          comments: [],
+          links: [],
+          facts: ['Priority: Medium', 'Status: To do'],
+        },
+      ],
+    });
+    expect(await setUp({}, orynx).read([file, { kind: 'jira', key: 'ORX-9' }])).toEqual({
+      ok: false,
+      chip: 1,
+      problem: 'not_found',
     });
   });
 

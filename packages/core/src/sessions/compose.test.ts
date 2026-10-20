@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { ComposerChip, ServerEvent } from '@devhub/contracts';
+import { CreateOrynxTicketSchema, isOrynxKey, type ComposerChip, type ServerEvent } from '@devhub/contracts';
 import { makeComposerStart, makeRepository } from '@devhub/contracts/testing';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { createClaudeAdapter } from '../agents/claude/claude-adapter.ts';
@@ -16,6 +16,12 @@ import { createGitHubConnection } from '../integrations/github/connection.ts';
 import { createGhCli } from '../integrations/github/gh.ts';
 import { createJiraClient } from '../integrations/jira/client.ts';
 import { createJiraConnection } from '../integrations/jira/connection.ts';
+import {
+  createOrynxTicketService,
+  describeOrynxTicket,
+  type OrynxTicketService,
+} from '../orynx-tickets/ticket-service.ts';
+import { createOrynxTicketStore } from '../orynx-tickets/ticket-store.ts';
 import { createPreferencesService } from '../preferences/preferences-service.ts';
 import { createRepositoryService } from '../repositories/repository-service.ts';
 import { createMemoryKeychain } from '../secrets/memory-keychain.ts';
@@ -32,7 +38,7 @@ import { chooseFolder, composerPlan, pullToWorkOn } from './compose.ts';
 import { createSkillsService } from '../skills/skills-service.ts';
 import { createContextReader } from './context-reader.ts';
 import { openFileSessionStore } from './file-session-store.ts';
-import type { SessionRecords } from './session-store.ts';
+import { createMemorySessionStore, type SessionRecords } from './session-store.ts';
 import { createSessionService } from './session-service.ts';
 
 vi.setConfig({ testTimeout: 15_000 });
@@ -50,6 +56,8 @@ const mob = makeRepository({
   jiraProject: 'MOB',
 });
 const mobChip = { kind: 'jira', key: 'MOB-7' } as const;
+/** One of Orynx's own tickets (spec 037): it belongs to no Jira project, so to no folder of its own. */
+const orynxChip = { kind: 'jira', key: 'ORX-2' } as const;
 
 describe('which folder a composer start works in (spec 015, Q7)', () => {
   const start = (change: { repositoryId?: string; context?: ComposerChip[] }) => {
@@ -66,6 +74,14 @@ describe('which folder a composer start works in (spec 015, Q7)', () => {
     ['nothing, with two folders and no ticket', [proj, api], start({}), 'choose_folder'],
     ['nothing, with no folder for the ticket’s project', [api], start({ context: [ticketChip] }), 'choose_folder'],
     ['the first ticket’s folder (spec 022, AC-7)', [proj, mob], start({ context: [mobChip, ticketChip] }), mob],
+    ['the only folder, for an Orynx ticket (spec 037)', [api], start({ context: [orynxChip] }), api],
+    [
+      'the folder the page sent, for an Orynx ticket',
+      [proj, api],
+      start({ context: [orynxChip], repositoryId: api.id }),
+      api,
+    ],
+    ['nothing, with two folders and an Orynx ticket', [proj, api], start({ context: [orynxChip] }), 'choose_folder'],
   ] as const)('AC-17, AC-18: picks %s', (_case, folders, request, folder) => {
     expect(chooseFolder(folders, request)).toEqual(folder);
   });
@@ -149,7 +165,13 @@ async function setUp({
   login = 'signed_in',
   script = [{ finish: 'Done.' }],
   folders = true,
-}: { login?: 'signed_in' | 'signed_out'; script?: readonly FakeTurn[]; folders?: boolean } = {}) {
+  orynx,
+}: {
+  login?: 'signed_in' | 'signed_out';
+  script?: readonly FakeTurn[];
+  folders?: boolean;
+  orynx?: OrynxTicketService;
+} = {}) {
   const repos = await repositories();
   await writeFile(join(repos.root, 'notes.md'), '# Notes\n\nExport every column.');
   const home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-compose-home-')));
@@ -189,6 +211,7 @@ async function setUp({
     skills: createSkillsService({ repositories: service, home: repos.root, orynx: join(home, 'plugin', 'skills') }),
     context: createContextReader({
       home: repos.root,
+      ...(orynx === undefined ? {} : { orynx }),
       jira,
       jiraConnection: connection,
       github,
@@ -201,8 +224,10 @@ async function setUp({
         envToken: false,
       }),
     }),
-    describeTicket: () =>
-      Promise.resolve({ title: 'Add bulk archive', sprint: 'Sprint 42', status: null, dueDate: null }),
+    describeTicket: (key) =>
+      orynx !== undefined && isOrynxKey(key)
+        ? describeOrynxTicket(orynx, key)
+        : Promise.resolve({ title: 'Add bulk archive', sprint: 'Sprint 42', status: null, dueDate: null }),
     preferences: createPreferencesService({ settings, events }),
     worktrees: { env: gitEnvironment(repos.env), root: join(home, 'worktrees'), fetchTimeoutMs: 2_000 },
     changes: createChangesReader({ env: gitEnvironment(repos.env) }),
@@ -938,6 +963,40 @@ describe('a composer start (spec 015)', () => {
       ),
     );
     expect(JSON.stringify(sdk.runs[0]?.options.systemPrompt)).toContain('Make the change the ticket asks for.');
+  });
+
+  it('AC-24, AC-27, AC-19 (spec 037): an Orynx ticket starts a session as a Jira one does, with no Jira link; deleted, its tab says so', async () => {
+    const orynx = createOrynxTicketService({
+      store: createOrynxTicketStore(),
+      sessions: createMemorySessionStore(),
+      events: createEventBus(),
+    });
+    await orynx.create(CreateOrynxTicketSchema.parse({ title: 'Add bulk archive', status: 'in_progress' }), {
+      kind: 'you',
+    });
+    const { sessions, records } = await setUp({ orynx });
+    const id = '0000000000000001';
+
+    await sessions.start({ message: '', context: [{ kind: 'jira', key: 'ORX-1' }] });
+
+    const record = await settled(records);
+    expect(record.session).toMatchObject({
+      title: 'Add bulk archive',
+      source: { kind: 'jira', key: 'ORX-1' },
+      branch: 'feat/ORX-1',
+      jiraUrl: null,
+      sprint: null,
+    });
+    expect(await records.readBrief(id)).toBe(
+      'Orynx ticket ORX-1 (Task): Add bulk archive\n\nPriority: Medium · Status: In progress\n\nNo description.',
+    );
+    expect((await sessions.get(id))?.ticket).toMatchObject({
+      status: { name: 'In progress', column: 'in_progress' },
+      deleted: false,
+    });
+
+    await orynx.remove('ORX-1');
+    expect((await sessions.get(id))?.ticket).toMatchObject({ status: null, deleted: true });
   });
 
   it('AC-4: a follow-up on a session with no ticket keeps Claude doing what you asked', async () => {

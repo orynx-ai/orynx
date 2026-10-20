@@ -1,4 +1,4 @@
-import type { Permissions } from '@devhub/contracts';
+import { isOrynxKey, type Permissions } from '@devhub/contracts';
 import type { AgentBrief } from '../agents/agent-adapter.ts';
 import type { JiraIssueDetail } from '../integrations/jira/client.ts';
 
@@ -16,6 +16,8 @@ export function ticketBrief(issue: JiraIssueDetail): AgentBrief {
 
 /** A ticket as the composer's brief gives it (spec 015, Q3): 011's fields, its last comments and its links. */
 export interface BriefTicket extends JiraIssueDetail {
+  /** One of Orynx's own tickets (spec 037): its priority, status and due day, which go before its description. */
+  facts?: readonly string[];
   /** Oldest first; Orynx reads at most the last 20. `created` is Jira's own time, of which the day is shown. */
   comments: readonly { author: string; created: string; body: string }[];
   /** `relation` is Jira's own words for the link from this ticket ("blocks", "is cloned by"). */
@@ -79,7 +81,7 @@ const mostDiffLines = 2000;
 
 function ticketTitle(issue: JiraIssueDetail): string {
   const type = issue.type === null ? '' : ` (${issue.type})`;
-  return `Jira ticket ${issue.key}${type}: ${issue.summary}`;
+  return `${isOrynxKey(issue.key) ? 'Orynx' : 'Jira'} ticket ${issue.key}${type}: ${issue.summary}`;
 }
 
 function countsLine(file: BriefFileCount): string {
@@ -115,7 +117,8 @@ export function diffForBrief(text: string): string {
 }
 
 function ticketChip(ticket: BriefTicket): AgentBrief['context'][number] {
-  const parts = [ticket.description ?? 'No description.'];
+  const facts = ticket.facts === undefined || ticket.facts.length === 0 ? [] : [ticket.facts.join(' · ')];
+  const parts = [...facts, ticket.description ?? 'No description.'];
   if (ticket.comments.length > 0) {
     parts.push('## Comments');
     for (const comment of ticket.comments)

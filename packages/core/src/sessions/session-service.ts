@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { isOrynxKey } from '@devhub/contracts';
 import type {
   AgentChoice,
   ApprovalDecision,
@@ -955,6 +956,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   }
 
   async function jiraLink(key: string): Promise<string | null> {
+    // One of Orynx's own tickets has no page on a Jira site (spec 037).
+    if (isOrynxKey(key)) return null;
     const credentials = await connection.credentials();
     return credentials === null ? null : `https://${credentials.site}/browse/${key}`;
   }
@@ -1210,7 +1213,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const ticket: SessionTicket | null =
         saved === null
           ? null
-          : { ...saved, status: known?.status ?? null, dueDate: known?.dueDate ?? null, deleted: false };
+          : {
+              ...saved,
+              status: known?.status ?? null,
+              dueDate: known?.dueDate ?? null,
+              // Orynx knows every ticket of its own, so one it can't describe was deleted (spec 037, AC-19).
+              deleted: key !== null && isOrynxKey(key) && known === null,
+            };
       // There's a worktree to open from when it's made until the changes are discarded (spec 013, Q9).
       const made = session.branch !== null && session.discardedAt === null;
       return { ...session, ticket, followUp, worktreePath: made ? record.worktree : null };

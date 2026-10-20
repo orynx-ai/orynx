@@ -1,4 +1,12 @@
-import type { AgentChoice, ComposerChip, ComposerStart, Repository, Session, SessionActivity } from '@devhub/contracts';
+import {
+  isOrynxKey,
+  type AgentChoice,
+  type ComposerChip,
+  type ComposerStart,
+  type Repository,
+  type Session,
+  type SessionActivity,
+} from '@devhub/contracts';
 import type { AgentBrief, AgentReads } from '../agents/agent-adapter.ts';
 import { composerBrief, ticketBrief, type BriefChip, type BriefSkill, type BriefTicket } from './brief.ts';
 import { branchSlug, titleFrom } from './composer-names.ts';
@@ -65,7 +73,9 @@ export function chooseFolder(
     return folders.find((folder) => folder.id === request.repositoryId) ?? 'choose_folder';
   }
   const key = ticketKeyOf(request);
-  const candidates = key === null ? folders : folders.filter((folder) => folder.jiraProject === projectOf(key));
+  // One of Orynx's own tickets belongs to no Jira project, so any folder may be its (spec 037).
+  const candidates =
+    key === null || isOrynxKey(key) ? folders : folders.filter((folder) => folder.jiraProject === projectOf(key));
   return candidates.length === 1 && candidates[0] !== undefined ? candidates[0] : 'choose_folder';
 }
 

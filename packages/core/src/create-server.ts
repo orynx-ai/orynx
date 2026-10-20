@@ -2,7 +2,7 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
-import { apiPrefix, tokenQueryParam, type ApiError, type TicketColumn } from '@devhub/contracts';
+import { apiPrefix, isOrynxKey, tokenQueryParam, type ApiError, type TicketColumn } from '@devhub/contracts';
 import { createClaudeCode, type ClaudeCode } from './agents/claude/claude-code.ts';
 import { createClaudeLogin } from './agents/claude/claude-login.ts';
 import { createEventBus, type EventBus } from './events/event-bus.ts';
@@ -60,7 +60,7 @@ import { createSessionService } from './sessions/session-service.ts';
 import { createMemorySessionStore, type SessionRecords } from './sessions/session-store.ts';
 import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
 import { createTicketsService } from './tickets/tickets-service.ts';
-import { createOrynxTicketService } from './orynx-tickets/ticket-service.ts';
+import { createOrynxTicketService, describeOrynxTicket } from './orynx-tickets/ticket-service.ts';
 import { createOrynxTicketStore, type OrynxTicketStore } from './orynx-tickets/ticket-store.ts';
 import { orynxTicketsRoutes } from './routes/orynx-tickets.ts';
 import { readGitUserName } from './status/git-user-name.ts';
@@ -383,12 +383,14 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     jira: jiraClient,
     context: createContextReader({
       home: userHome,
+      orynx: orynxTickets,
       jira: jiraClient,
       jiraConnection: jira,
       github: githubClient,
       githubConnection: github,
     }),
     describeTicket: async (key) => {
+      if (isOrynxKey(key)) return describeOrynxTicket(orynxTickets, key);
       // A status with no name is left out: the Ticket tab can't word it (spec 013).
       const status = (name: string, column: TicketColumn) => (name === '' ? null : { name, column });
       const sprint = await tickets.read();

@@ -1,11 +1,12 @@
-import type {
-  OrynxTicket,
-  OrynxTicketCreator,
-  OrynxTicketDeleteAnswer,
-  OrynxTicketFields,
-  OrynxTicketSaveAnswer,
-  StoredOrynxTicket,
-  UpdateOrynxTicket,
+import {
+  orynxStatusNames,
+  type OrynxTicket,
+  type OrynxTicketCreator,
+  type OrynxTicketDeleteAnswer,
+  type OrynxTicketFields,
+  type OrynxTicketSaveAnswer,
+  type StoredOrynxTicket,
+  type UpdateOrynxTicket,
 } from '@devhub/contracts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { SessionStore } from '../sessions/session-store.ts';
@@ -79,5 +80,20 @@ export function createOrynxTicketService({ store, sessions, events }: OrynxTicke
     },
 
     kept: () => store.kept(),
+  };
+}
+
+/**
+ * What a session shows of its Orynx ticket (spec 037): the title before Claude starts, and the status and due day as
+ * they are now, for the Ticket tab. No sprint, and null once the ticket is deleted (AC-19).
+ */
+export async function describeOrynxTicket(tickets: Pick<OrynxTicketService, 'get'>, key: string) {
+  const ticket = await tickets.get(key);
+  if (ticket === null) return null;
+  return {
+    title: ticket.title,
+    sprint: null,
+    status: { name: orynxStatusNames[ticket.status], column: ticket.status },
+    dueDate: ticket.dueDate,
   };
 }
