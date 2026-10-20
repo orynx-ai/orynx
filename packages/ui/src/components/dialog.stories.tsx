@@ -57,6 +57,21 @@ export const TallerThanTheWindow: Story = {
   ),
 };
 
+/** `size="narrow"`: 520 px, for a dialog about one thing, such as a tool's connection (spec 030). */
+export const Narrow: Story = {
+  render: (args) => (
+    <Dialog {...args}>
+      <DialogTrigger asChild>
+        <Button>Open the dialog</Button>
+      </DialogTrigger>
+      <DialogContent size="narrow" className="gap-2 p-4">
+        <DialogTitle>Jira</DialogTitle>
+        <p className="text-muted-foreground">Orynx is using your Jira login. Nothing here changes Jira itself.</p>
+      </DialogContent>
+    </Dialog>
+  ),
+};
+
 /** `size="full"`: the whole window less the 16 px gutter on every side, for a diff or a ticket read in full. */
 export const FullScreen: Story = {
   render: (args) => (

@@ -107,6 +107,21 @@ describe('Dialog', () => {
     await expectNoAxeViolations(document.body);
   });
 
+  it('AC-25: size narrow is 520 px wide, and fills the width with the 16 px gutter under 768 px', async () => {
+    render(
+      <Dialog defaultOpen>
+        <DialogContent size="narrow">
+          <DialogTitle>Jira</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Jira' });
+    // jsdom draws nothing, so the classes stand in for the sizes; the browser check measures them.
+    expect(dialog).toHaveClass('max-w-130', 'max-md:max-w-none');
+    expect(dialog).not.toHaveClass('max-w-180');
+    expect(dialog.parentElement).toHaveClass('p-4', 'md:py-20');
+  });
+
   it('AC-20: Tab and Shift+Tab stay inside it', async () => {
     const user = userEvent.setup();
     render(<Search />);

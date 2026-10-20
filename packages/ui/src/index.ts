@@ -179,6 +179,7 @@ export {
   type SessionItemState,
 } from './components/session-item.tsx';
 export { Skeleton, type SkeletonProps } from './components/skeleton.tsx';
+export { DetailList, type DetailListProps } from './components/detail-list.tsx';
 export { SourceMark, type Source, type SourceMarkProps } from './components/source-mark.tsx';
 export {
   StatusButton,

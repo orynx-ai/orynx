@@ -25,8 +25,11 @@ export function DialogTitle({ className, ...props }: ComponentProps<typeof Dialo
 }
 
 export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content> & {
-  /** `full` fills the window, keeping the 16 px gutter on every side at every width, for reading a whole diff. */
-  size?: 'default' | 'full';
+  /**
+   * `full` fills the window, keeping the 16 px gutter on every side at every width, for reading a whole diff.
+   * `narrow` is 520 px, for a dialog about one thing, such as a tool's connection (spec 030).
+   */
+  size?: 'default' | 'narrow' | 'full';
 };
 
 /**
@@ -61,7 +64,7 @@ export function DialogContent({
       <div
         className={cn(
           'pointer-events-none fixed inset-0 z-50 flex items-start justify-center p-4',
-          size === 'default' && 'md:py-20',
+          size !== 'full' && 'md:py-20',
         )}
       >
         <DialogPrimitive.Content
@@ -81,6 +84,7 @@ export function DialogContent({
           }}
           className={cn(
             'pointer-events-auto flex max-h-full w-full max-w-180 flex-col overflow-hidden rounded-lg border border-border bg-raised text-body text-foreground shadow-overlay outline-none motion-safe:animate-fade-in max-md:max-w-none',
+            size === 'narrow' && 'max-w-130',
             size === 'full' && 'h-full max-w-none',
             className,
           )}
