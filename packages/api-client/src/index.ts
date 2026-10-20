@@ -26,6 +26,7 @@ export {
   sessionsQueryOptions,
   statusQueryOptions,
   skillsQueryOptions,
+  syncActivityQueryOptions,
   ticketQueryOptions,
   ticketsQueryOptions,
   ticketsSprintsQueryOptions,

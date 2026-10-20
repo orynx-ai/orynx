@@ -121,8 +121,10 @@ export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from
 export { FloatingBar, FloatingBarSeparator, type FloatingBarProps } from './components/floating-bar.tsx';
 export {
   ListNav,
+  ListNavGroup,
   ListNavItem,
   ListNavSkeleton,
+  type ListNavGroupProps,
   type ListNavItemProps,
   type ListNavProps,
 } from './components/list-nav.tsx';
@@ -181,6 +183,9 @@ export {
 } from './components/session-item.tsx';
 export { Skeleton, type SkeletonProps } from './components/skeleton.tsx';
 export { DetailList, type DetailListProps } from './components/detail-list.tsx';
+export { HistoryList, HistoryRow, type HistoryListProps, type HistoryRowProps } from './components/history-row.tsx';
+export { StatTiles, type StatTilesProps } from './components/stat-tiles.tsx';
+export { StatusDot, type StatusDotProps, type StatusDotTone } from './components/status-dot.tsx';
 export { SourceMark, type Source, type SourceMarkProps } from './components/source-mark.tsx';
 export {
   StatusButton,

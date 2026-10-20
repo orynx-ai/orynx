@@ -12,6 +12,7 @@ import {
   type GitHubConnection,
   type GitHubConnectionRequest,
   type Inbox,
+  type InboxSource,
   type JiraConnection,
   type JiraConnectionRequest,
   type JiraProjectList,
@@ -50,6 +51,8 @@ import {
   type Status,
   type OpenSprints,
   type SkillList,
+  type SyncActivity,
+  type SyncActivityQuery,
   type TicketDetailAnswer,
   type Tickets,
   type TicketsChoice,
@@ -62,6 +65,7 @@ import {
   putGitHubConnection,
 } from './endpoints/github.ts';
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
+import { getSyncActivity } from './endpoints/sync-activity.ts';
 import {
   deleteJiraConnection,
   getJiraConnection,
@@ -210,8 +214,10 @@ export interface ApiClient {
   addStarterSkills(): Promise<void>;
   /** Home's "Needs your attention" list, from the server's cache. */
   inbox(): Promise<Inbox>;
-  /** Syncs the inbox now; resolves once the sync has ended. */
-  refreshInbox(): Promise<void>;
+  /** Syncs the inbox now, or one tool of it (spec 035); resolves once the sync has ended. */
+  refreshInbox(tool?: InboxSource): Promise<void>;
+  /** The sync log for the Sync activity modal (spec 035), from the server's cache. */
+  syncActivity(query: SyncActivityQuery): Promise<SyncActivity>;
   /** Empties the inbox's cache; the server syncs again on its own. */
   clearInboxCache(): Promise<void>;
   /** Tickets' sprint and its tickets, from the server's cache (spec 008). It syncs with the inbox. */
@@ -323,7 +329,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       deleteOrynxSkill(http, folder).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     addStarterSkills: () => postStarterSkills(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     inbox: () => getInbox(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    refreshInbox: () => postInboxRefresh(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    refreshInbox: (tool) =>
+      postInboxRefresh(http, tool).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    syncActivity: (query) =>
+      getSyncActivity(http, query).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     tickets: () => getTickets(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     ticketsSprints: (project) =>

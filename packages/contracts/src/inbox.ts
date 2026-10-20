@@ -110,3 +110,7 @@ export const InboxSchema = z.object({
   syncedAt: z.iso.datetime().nullable(),
 });
 export type Inbox = z.infer<typeof InboxSchema>;
+
+/** POST /api/inbox/refresh: one tool's sync now (spec 035), or every connected tool's when left out. */
+export const InboxRefreshQuerySchema = z.object({ tool: InboxSourceSchema.optional() });
+export type InboxRefreshQuery = z.infer<typeof InboxRefreshQuerySchema>;

@@ -122,6 +122,21 @@ describe('Dialog', () => {
     expect(dialog.parentElement).toHaveClass('p-4', 'md:py-20');
   });
 
+  it('spec 035, AC-30, AC-31: size wide is up to 1100 × 860 px, and keeps the 16 px gutter on a smaller window', async () => {
+    render(
+      <Dialog defaultOpen>
+        <DialogContent size="wide">
+          <DialogTitle>Sync activity</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Sync activity' });
+    // jsdom draws nothing, so the classes stand in for the sizes; the browser check measures them.
+    expect(dialog).toHaveClass('max-w-275', 'h-full', 'max-h-215', 'max-md:max-w-none');
+    expect(dialog).not.toHaveClass('max-w-180');
+    expect(dialog.parentElement).toHaveClass('p-4', 'md:py-20');
+  });
+
   it('spec 030: a foot holds the actions at its end, and one action may sit alone at its start', async () => {
     render(
       <Dialog defaultOpen>

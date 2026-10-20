@@ -39,6 +39,13 @@ export type ListNavItemProps = Omit<ComponentProps<'button'>, 'children' | 'titl
   tag?: ReactNode;
   /** The picked item: `bg-raised` with a hairline. */
   current?: boolean;
+  /** Drawn before the name and description, such as a tool's mark (spec 035). Decorative. */
+  mark?: ReactNode;
+  /**
+   * Drawn at the end, such as a status dot or a spinner (spec 035). Decorative: say the state in the label or
+   * the description too.
+   */
+  status?: ReactNode;
 };
 
 /**
@@ -46,7 +53,16 @@ export type ListNavItemProps = Omit<ComponentProps<'button'>, 'children' | 'titl
  * label-in-name rule), and stretches over the whole item, so a click anywhere opens it. The tag and description are
  * the button's description: a screen reader hears "Bug bash" first and the rest after it.
  */
-export function ListNavItem({ label, description, tag, current = false, className, ...props }: ListNavItemProps) {
+export function ListNavItem({
+  label,
+  description,
+  tag,
+  current = false,
+  mark,
+  status,
+  className,
+  ...props
+}: ListNavItemProps) {
   const id = useId();
   const described = [tag === undefined ? null : `${id}-tag`, description === undefined ? null : `${id}-description`]
     .filter((part) => part !== null)
@@ -54,32 +70,75 @@ export function ListNavItem({ label, description, tag, current = false, classNam
   return (
     <li
       data-current={current || undefined}
-      className="relative flex flex-col gap-0.5 rounded-sm px-3 py-2.5 text-foreground hover:bg-subtle data-current:bg-raised data-current:ring-1 data-current:ring-border"
+      className="relative flex items-center gap-2.5 rounded-sm px-3 py-2.5 text-foreground hover:bg-subtle data-current:bg-raised data-current:ring-1 data-current:ring-border"
     >
-      <span className="flex w-full min-w-0 items-center gap-2">
-        <button
-          type="button"
-          aria-current={current ? 'true' : undefined}
-          aria-describedby={described === '' ? undefined : described}
-          className={cn(
-            'min-w-0 cursor-pointer truncate border-0 bg-transparent p-0 text-start text-body font-medium text-foreground after:absolute after:inset-0 after:rounded-sm',
-            className,
+      {mark === undefined ? null : (
+        <span aria-hidden className="flex shrink-0">
+          {mark}
+        </span>
+      )}
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex w-full min-w-0 items-center gap-2">
+          <button
+            type="button"
+            aria-current={current ? 'true' : undefined}
+            aria-describedby={described === '' ? undefined : described}
+            className={cn(
+              'min-w-0 cursor-pointer truncate border-0 bg-transparent p-0 text-start text-body font-medium text-foreground after:absolute after:inset-0 after:rounded-sm',
+              className,
+            )}
+            {...props}
+          >
+            {label}
+          </button>
+          {tag === undefined ? null : (
+            <span id={`${id}-tag`} className="ms-auto shrink-0 text-label font-medium text-muted-foreground">
+              {tag}
+            </span>
           )}
-          {...props}
-        >
-          {label}
-        </button>
-        {tag === undefined ? null : (
-          <span id={`${id}-tag`} className="ms-auto shrink-0 text-label font-medium text-muted-foreground">
-            {tag}
+        </span>
+        {description === undefined ? null : (
+          <span id={`${id}-description`} className="line-clamp-2 text-small text-muted-foreground">
+            {description}
           </span>
         )}
       </span>
-      {description === undefined ? null : (
-        <span id={`${id}-description`} className="line-clamp-2 text-small text-muted-foreground">
-          {description}
+      {status === undefined ? null : (
+        <span aria-hidden className="flex shrink-0">
+          {status}
         </span>
       )}
+    </li>
+  );
+}
+
+export type ListNavGroupProps = Omit<ComponentProps<'li'>, 'children'> & {
+  /** The group's heading, which also names its list: "Needs attention". */
+  label: string;
+  /** How many items it holds, at the heading's end. */
+  count?: number;
+  /** Its {@link ListNavItem}s, and anything that belongs under them, such as a Show more button. */
+  children: ReactNode;
+};
+
+/**
+ * Design: Sync activity's tool list (spec 035 Q4). A heading with its count over a list of {@link ListNavItem}s,
+ * inside a {@link ListNav}. The heading is for the eye; the list it holds is named by it for screen readers,
+ * which count the items themselves.
+ */
+export function ListNavGroup({ label, count, children, className, ...props }: ListNavGroupProps) {
+  return (
+    <li className={cn('flex flex-col gap-0.5', className)} {...props}>
+      <span
+        aria-hidden
+        className="flex items-center gap-1.5 px-2.5 pt-3.5 pb-1 text-label font-medium text-muted-foreground"
+      >
+        <span className="flex-1">{label}</span>
+        {count}
+      </span>
+      <ul aria-label={label} className="m-0 flex list-none flex-col gap-0.5 p-0">
+        {children}
+      </ul>
     </li>
   );
 }
