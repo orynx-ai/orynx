@@ -34,6 +34,8 @@ export const composerWords = {
       description: 'The folder Claude works in',
       search: 'Search folders',
       note: 'Claude works on a new branch in a worktree of this folder.',
+      /** An Ask reads the folder in place (spec 026's words). */
+      askNote: 'Claude reads the folder where it is and changes nothing.',
       empty: 'No folders yet.',
       add: 'Add local folder…',
     },
@@ -63,6 +65,9 @@ export const composerWords = {
     manage: 'Manage folders',
     none: 'Add a folder',
     choose: 'Choose folder',
+    /** An Ask that reads no folder (spec 031, Q8c). */
+    noFolder: 'No folder',
+    noFolderLine: 'Claude reads only what you add',
     name: (folder: string) => `Repository: ${folder}`,
   },
   agent: {

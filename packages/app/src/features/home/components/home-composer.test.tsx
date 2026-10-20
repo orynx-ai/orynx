@@ -84,6 +84,19 @@ describe('Home’s composer (spec 015)', () => {
     expect(useComposerStore.getState().mode).toBe('ask');
   });
 
+  it('AC-3, AC-5 (spec 031): an Ask sends no folder until you pick one', async () => {
+    const posted = serve();
+    useComposerStore.setState({ mode: 'ask', lastUsed: web.id });
+    const { user } = await renderApp();
+    await user.type(await screen.findByRole('textbox', { name: 'Describe a task for Claude' }), 'What does it do?');
+    expect(await screen.findByRole('button', { name: 'Repository: No folder' })).toBeVisible();
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(posted).toEqual([{ message: 'What does it do?', context: [], mode: 'ask' }]);
+    });
+  });
+
   it('AC-5: Shift+Enter starts a new line and sends nothing', async () => {
     const posted = serve();
     const { user } = await renderApp();

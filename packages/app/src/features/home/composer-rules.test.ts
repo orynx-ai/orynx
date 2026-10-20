@@ -128,4 +128,24 @@ describe('which folder the composer shows (spec 015, Q7)', () => {
   ] as const)('AC-17, AC-18: shows %s', (_case, input, shown) => {
     expect(folderFor(input)).toEqual(shown);
   });
+
+  it.each([
+    [
+      'no folder, whatever the ticket or the last used',
+      { folders: [web, api], picked: null, ticketKey: 'PROJ-1', lastUsed: api.id },
+      { kind: 'no_folder' },
+    ],
+    [
+      'no folder, when Settings has none',
+      { folders: [], picked: null, ticketKey: null, lastUsed: null },
+      { kind: 'no_folder' },
+    ],
+    [
+      'the folder you picked',
+      { folders: [web, api], picked: api.id, ticketKey: null, lastUsed: web.id },
+      { kind: 'folder', folder: api },
+    ],
+  ] as const)('AC-2, Q2 (spec 031): in Ask, shows %s', (_case, input, shown) => {
+    expect(folderFor({ ...input, mode: 'ask' })).toEqual(shown);
+  });
 });

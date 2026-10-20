@@ -46,7 +46,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: The Ask / Build switch back in the composer, with tooltips, Build first and then your last pick; the heading and placeholder follow it (AC-1, AC-2)
       Check: pnpm test packages/app/src/features/home/components/home-composer.test.tsx packages/app/src/features/home/store.test.ts packages/app/src/features/home/home-screen.test.tsx
       Files: packages/app/src/features/home/components/home-composer.tsx, packages/app/src/features/home/composer-words.ts, packages/app/src/features/home/store.ts, packages/app/src/features/home/home-screen.tsx, and their tests
-- [ ] Task 13: "No folder" in Ask's folder picker, picked by default there; Send sends no folder (AC-2, AC-3, AC-5, AC-8)
+- [x] Task 13: "No folder" in Ask's folder picker, picked by default there; Send sends no folder (AC-2, AC-3, AC-5, AC-8)
       Check: pnpm test packages/app/src/features/home/components/folder-picker.test.tsx packages/app/src/features/home/composer-rules.test.ts packages/app/src/features/home/components/home-composer.test.tsx
       Files: packages/app/src/features/home/components/folder-picker.tsx, packages/app/src/features/home/composer-rules.ts, packages/app/src/features/home/composer-words.ts, packages/app/src/features/home/components/home-composer.tsx, and their tests
 - [ ] Task 14: The composer's line when your PR already has a session: "#2836 already has a session." with Open session (AC-18)

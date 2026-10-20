@@ -27,7 +27,8 @@ interface ComposerState {
   removeChip: (index: number) => void;
   /** Takes this chip out, wherever it is: a row's + pressed again (spec 022, AC-29). */
   dropChip: (chip: ComposerChip) => void;
-  pickFolder: (id: string) => void;
+  /** A folder by its id, or none: an Ask's No folder (spec 031). */
+  pickFolder: (id: string | null) => void;
   setModel: (model: string | null) => void;
   setEffort: (effort: EffortLevel | null) => void;
   setMode: (mode: SessionMode) => void;

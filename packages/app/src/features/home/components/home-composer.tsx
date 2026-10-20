@@ -94,7 +94,7 @@ export function HomeComposer() {
   const message = useWatch({ control: form.control, name: 'message' });
   const ticketKeys = chips.flatMap((chip) => (chip.kind === 'jira' ? [chip.key] : []));
   const ticketKey = firstTicket(chips);
-  const shown = folderFor({ folders: repositories.data?.repositories ?? [], picked, ticketKey, lastUsed });
+  const shown = folderFor({ folders: repositories.data?.repositories ?? [], picked, ticketKey, lastUsed, mode });
   const suggestions = useSkillSuggestions({
     folder: shown.kind === 'folder' ? { id: shown.folder.id, name: shown.folder.name } : null,
     text: message,
