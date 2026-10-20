@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import {
   Alert02Icon,
   GitPullRequestIcon,
@@ -39,7 +39,13 @@ import {
 } from '../queries.ts';
 import { pausedNow, pauseUntil } from '../quiet.ts';
 import { NotificationActions } from './notification-actions.tsx';
-import { notificationGroups, notificationPlace, notificationTime, notificationWords } from '../words.ts';
+import {
+  aboutOpenSession,
+  notificationGroups,
+  notificationPlace,
+  notificationTime,
+  notificationWords,
+} from '../words.ts';
 
 /** Each kind's icon and tone, beside words that say the same. */
 export const notificationLooks: Record<NotificationKind, { icon: IconSvgElement; tone: NotificationTone }> = {
@@ -69,6 +75,7 @@ export function NotificationCentre({ side = 'right', tooltipSide }: Notification
   const notifications = useNotifications();
   const markRead = useMarkNotificationsRead();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const platform = usePlatform();
   const now = useNow();
   const [open, setOpen] = useState(false);
@@ -140,7 +147,10 @@ export function NotificationCentre({ side = 'right', tooltipSide }: Notification
     ));
   }
 
-  const all = notifications.data?.notifications ?? [];
+  // The session you're on asks in its own callout, so its waiting calls aren't listed here too (20 Oct 2026).
+  const all = (notifications.data?.notifications ?? []).filter(
+    (notification) => !(isWaiting(notification) && aboutOpenSession(notification.what, pathname)),
+  );
   const waiting = all.filter(isWaiting);
 
   return (

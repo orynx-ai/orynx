@@ -68,6 +68,11 @@ export const testWords = {
 
 export type NotificationPlace = { kind: 'session'; sessionId: string } | { kind: 'external'; url: string };
 
+/** Whether it's about the session open at `pathname`, which already shows it, its approval callout included. */
+export function aboutOpenSession(what: NotificationWhat, pathname: string): boolean {
+  return 'session' in what && pathname === `/sessions/${what.session.id}`;
+}
+
 /** Where opening a notification goes: its Session screen, or the pull request or ticket outside Orynx. */
 export function notificationPlace(what: NotificationWhat): NotificationPlace {
   if ('session' in what) return { kind: 'session', sessionId: what.session.id };
