@@ -22,6 +22,7 @@ export {
   type Settings,
   type SettingsStore,
 } from './settings/settings-store.ts';
+export { createPasswordStore, passwordFilePath, type PasswordStore } from './setup/password-store.ts';
 export type { Keychain } from './secrets/keychain.ts';
 export { createMemoryKeychain } from './secrets/memory-keychain.ts';
 export { createOsKeychain } from './secrets/os-keychain.ts';

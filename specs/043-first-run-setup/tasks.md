@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Profile and setup schemas, routes and test builders (AC-4, AC-6)
       Check: pnpm test packages/contracts/src/profile.test.ts; pnpm typecheck
       Files: packages/contracts/src/profile.ts, profile.test.ts, routes.ts, errors.ts, index.ts, testing.ts
-- [ ] Task 2: The password store: scrypt hash in a 0600 file, verify, cookie value (AC-5, AC-12)
+- [x] Task 2: The password store: scrypt hash in a 0600 file, verify, cookie value (AC-5, AC-12)
       Check: pnpm test packages/core/src/setup
       Files: packages/core/src/setup/password-store.ts, password-store.test.ts, packages/core/src/index.ts
 - [ ] Task 3: `/api/profile` and `/api/setup` in core (AC-3, AC-4, AC-6)
