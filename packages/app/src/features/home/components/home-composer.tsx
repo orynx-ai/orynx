@@ -43,9 +43,12 @@ function saidFor(answer: StartSessionAnswer, chips: readonly ComposerChip[]): Sa
   switch (answer.result) {
     case 'started':
       return null;
-    case 'existing':
-      // Only the first ticket's session stops a start (spec 022, Q2).
-      return { line: composerWords.existing(firstTicket(chips) ?? ''), link: null, session: answer.sessionId };
+    case 'existing': {
+      // Only the first ticket's session stops a start (spec 022, Q2); with no ticket, your pull request's (spec 031).
+      const pull = chips.find((chip) => chip.kind === 'pull_request');
+      const held = firstTicket(chips) ?? (pull === undefined ? '' : `#${String(pull.number)}`);
+      return { line: composerWords.existing(held), link: null, session: answer.sessionId };
+    }
     case 'cannot_start':
       return { ...cannotStartLine(answer.reason), session: null };
     case 'context_failed': {

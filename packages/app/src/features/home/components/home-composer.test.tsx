@@ -183,6 +183,25 @@ describe('Home’s composer (spec 015)', () => {
     expect(box()).toHaveValue('Only the tests');
   });
 
+  it('AC-18 (spec 031): your pull request with a live session says so, with Open session, and keeps the draft', async () => {
+    const number = 2836;
+    serve({ result: 'existing', sessionId: '00000000000000ee' });
+    useComposerStore.setState({
+      text: 'Answer the review',
+      chips: [{ kind: 'pull_request', owner: 'acme', name: 'web-app', number }],
+    });
+    const { user } = await renderApp();
+    await user.click(await screen.findByRole('button', { name: 'Send to Claude' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(`#${String(number)} already has a session.`);
+    expect(within(alert).getByRole('link', { name: 'Open session' })).toHaveAttribute(
+      'href',
+      '/sessions/00000000000000ee',
+    );
+    expect(box()).toHaveValue('Answer the review');
+  });
+
   it('AC-21: a send that never reached the server says to try again', async () => {
     serve('network_error');
     useComposerStore.setState({ text: 'Fix the header' });
