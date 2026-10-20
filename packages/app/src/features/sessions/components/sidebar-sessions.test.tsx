@@ -1,4 +1,4 @@
-import { act, screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type SessionSummary } from '@devhub/contracts';
@@ -7,6 +7,7 @@ import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { FakeIntersectionObserver } from '../../../test/fake-intersection-observer.ts';
 import { apiUrl, server, sessionsHandler, sessionsPage } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
+import { openSessionMenu, serveSessions } from '../../../test/sessions.ts';
 
 function mainNav() {
   return screen.getByRole('navigation', { name: 'Main' });
@@ -106,7 +107,11 @@ describe('Sidebar sessions', () => {
 
   it('AC-13: refetches when the server says the sessions changed', async () => {
     let state: SessionSummary['state'] = 'working';
-    server.use(http.get(apiUrl(apiRoutes.sessions), () => HttpResponse.json(makeSessionList([{ state }]))));
+    server.use(
+      http.get(apiUrl(apiRoutes.sessions), ({ request }) =>
+        HttpResponse.json(sessionsPage(makeSessionList([{ state }]), request.url)),
+      ),
+    );
     await renderApp();
     const nav = mainNav();
     await within(nav).findByRole('link', { name: 'Add bulk archive PROJ-1423 Working' });
@@ -243,5 +248,42 @@ describe('Sidebar sessions, 16 at a time (spec 020)', () => {
     await user.click(within(nav).getByRole('button', { name: 'Try again' }));
     await within(nav).findByRole('link', { name: /^Session 32 / });
     expect(within(nav).queryByText("Couldn't load sessions")).toBeNull();
+  });
+});
+
+describe('pinned sessions in the sidebar (spec 039)', () => {
+  it('AC-26: a pinned session sits first, under Pinned, even when it would be on a later page', async () => {
+    serveSessions([
+      ...Array.from({ length: 20 }, (_, n) => ({ title: `Session ${String(n + 1)}`, state: 'done' as const })),
+      { title: 'Pinned long ago', state: 'stopped', pinnedAt: '2026-10-16T09:00:00.000Z' },
+    ]);
+    await renderApp();
+
+    const pinned = await within(mainNav()).findByRole('list', { name: 'Pinned' });
+    expect(within(pinned).getAllByRole('link')).toHaveLength(1);
+    expect(within(pinned).getByRole('link', { name: 'Pinned long ago PROJ-1423 Stopped' })).toBeVisible();
+    const recent = within(mainNav()).getByRole('list', { name: 'Sessions' });
+    expect(within(recent).queryByRole('link', { name: /^Pinned long ago/ })).not.toBeInTheDocument();
+  });
+
+  it('AC-27: unpinning puts it back by activity, and Pinned goes when nothing is pinned', async () => {
+    serveSessions([
+      { title: 'Add bulk archive', state: 'done', pinnedAt: '2026-10-16T09:00:00.000Z' },
+      { title: 'Tidy the README', state: 'done' },
+    ]);
+    const { user } = await renderApp();
+    await within(mainNav()).findByRole('list', { name: 'Pinned' });
+
+    const { menu } = await openSessionMenu(user, 'Add bulk archive');
+    await user.click(within(menu).getByRole('menuitem', { name: 'Unpin' }));
+
+    await waitFor(() => {
+      expect(within(mainNav()).queryByRole('list', { name: 'Pinned' })).not.toBeInTheDocument();
+    });
+    const recent = within(mainNav()).getByRole('list', { name: 'Sessions' });
+    const names = within(recent)
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href'));
+    expect(names).toEqual(['/sessions/session-1', '/sessions/session-2']);
   });
 });

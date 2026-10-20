@@ -29,8 +29,18 @@ export function apiUrl(path: string): string {
 export function sessionsPage(list: SessionList, url: string): SessionList {
   const params = new URL(url).searchParams;
   const cursor = params.get('cursor');
-  const start = cursor === null ? 0 : list.sessions.findIndex((session) => cursor.endsWith(`.${session.id}`)) + 1;
-  const rest = list.sessions.slice(start);
+  // Spec 039: the pinned ones alone, in the order they were pinned, or the rest.
+  const pinned = params.get('pinned');
+  const listed =
+    pinned === null
+      ? list.sessions
+      : pinned === 'true'
+        ? list.sessions
+            .filter((session) => session.pinnedAt !== null)
+            .sort((a, b) => Date.parse(a.pinnedAt ?? '') - Date.parse(b.pinnedAt ?? ''))
+        : list.sessions.filter((session) => session.pinnedAt === null);
+  const start = cursor === null ? 0 : listed.findIndex((session) => cursor.endsWith(`.${session.id}`)) + 1;
+  const rest = listed.slice(start);
   const limit = params.get('limit') === null ? rest.length : Number(params.get('limit'));
   const sessions = rest.slice(0, limit);
   const last = sessions.at(-1);
