@@ -91,6 +91,8 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
           <span>Ask session · changes nothing</span>
         ) : session.mode === 'ask' ? (
           <span>Ask session · reads {session.folder.name} in place and changes nothing</span>
+        ) : session.workOn === 'pull_request' && session.pullRequest !== null ? (
+          <span>{`in ${session.folder.name} · on #${String(session.pullRequest.number)}'s branch, in a separate worktree`}</span>
         ) : (
           <span>in {session.folder.name} · separate worktree, your main checkout is untouched</span>
         )}

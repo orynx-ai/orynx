@@ -35,11 +35,20 @@ import { ApprovalCallout } from './approval-callout.tsx';
 import { StepDetails, hasDetails } from './step-details.tsx';
 
 const steps = ['Plan', 'Build', 'Test', 'Review', 'Pull request'] as const;
+/** On your pull request's own branch, the last step is the push to it (spec 031). */
+const pushSteps = ['Plan', 'Build', 'Test', 'Review', 'Push'] as const;
 const stepIndex: Record<SessionStep, number> = { plan: 0, build: 1, test: 2, review: 3, pull_request: 4 };
 
-/** Where the session is: Plan, Build, Test, Review, Pull request (AC-7). */
+/** Where the session is: Plan, Build, Test, Review, Pull request (AC-7), with the steps it passed over (spec 031). */
 export function SessionStepper({ session }: { session: Session }) {
-  return <Stepper aria-label="Session progress" steps={steps} current={stepIndex[session.step]} />;
+  return (
+    <Stepper
+      aria-label="Session progress"
+      steps={session.workOn === 'pull_request' ? pushSteps : steps}
+      current={stepIndex[session.step]}
+      skipped={session.skipped.map((step) => stepIndex[step])}
+    />
+  );
 }
 
 const kindIcons = {

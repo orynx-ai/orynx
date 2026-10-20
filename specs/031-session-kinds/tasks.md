@@ -52,7 +52,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: The composer's line when your PR already has a session: "#2836 already has a session." with Open session (AC-18)
       Check: pnpm test packages/app/src/features/home/components/home-composer.test.tsx packages/app/src/features/home/composer-words.test.ts
       Files: packages/app/src/features/home/components/home-composer.tsx, packages/app/src/features/home/composer-words.ts, and their tests
-- [ ] Task 15: Session screen: the stepper's steps for each kind (Push on your PR) with skipped ones; header lines for an Ask with no folder and for your PR; the Discard step's words when the branch is kept; the folder problem line without a folder (AC-3, AC-5, AC-11, AC-14, AC-23)
+- [x] Task 15: Session screen: the stepper's steps for each kind (Push on your PR) with skipped ones; header lines for an Ask with no folder and for your PR; the Discard step's words when the branch is kept; the folder problem line without a folder (AC-3, AC-5, AC-11, AC-14, AC-23)
       Check: pnpm test packages/app/src/features/sessions/session-screen.test.tsx packages/app/src/features/sessions/components/session-header.test.tsx packages/app/src/features/sessions/components/session-progress.test.tsx packages/app/src/features/sessions/step-words.test.ts
       Files: packages/app/src/features/sessions/components/session-progress.tsx, packages/app/src/features/sessions/components/session-header.tsx, packages/app/src/features/sessions/step-words.ts, packages/app/src/features/sessions/session-screen.tsx, and their tests
 

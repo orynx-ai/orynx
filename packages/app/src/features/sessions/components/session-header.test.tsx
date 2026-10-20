@@ -62,6 +62,27 @@ describe('SessionHeader', () => {
     expect(within(pageBar()).getByRole('button', { name: 'Stop Claude' })).toBeVisible();
   });
 
+  it('AC-14 (spec 031): a session on your pull request’s branch says so', async () => {
+    const number = 2836;
+    server.use(
+      sessionHandler(
+        makeSession({
+          ...working,
+          workOn: 'pull_request',
+          branch: 'fix/content-list',
+          source: { kind: 'pull_request', number },
+          pullRequest: makeSessionPullRequest({ number }),
+        }),
+      ),
+    );
+    await renderApp({ route });
+    const main = await screen.findByRole('main');
+    expect(
+      await within(main).findByText(`in web-app · on #${String(number)}'s branch, in a separate worktree`),
+    ).toBeVisible();
+    expect(within(main).getByText('fix/content-list')).toBeVisible();
+  });
+
   it('puts Create pull request in the page bar, with Open in the editor and Discard changes in More actions', async () => {
     server.use(
       sessionHandler(done),

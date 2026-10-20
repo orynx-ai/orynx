@@ -72,9 +72,11 @@ export function stepWords(activity: SessionActivity): StepWords {
   switch (activity.kind) {
     case 'worktree': {
       const offline = !activity.fetched && !running && activity.base.startsWith('origin/');
+      // Your pull request's own branch is named by its pull request (spec 031, Q8f).
+      const from = activity.pullRequest === undefined ? activity.base : `#${String(activity.pullRequest)}`;
       return {
         title: running ? 'Making a worktree' : 'Made a worktree',
-        detail: `${activity.branch} from ${activity.base}${offline ? ' (last fetched, offline)' : ''}`,
+        detail: `${activity.branch} from ${from}${offline ? ' (last fetched, offline)' : ''}`,
       };
     }
     case 'brief': {
@@ -145,7 +147,13 @@ export function stepWords(activity: SessionActivity): StepWords {
     case 'interrupted':
       return { title: 'Orynx closed while Claude was working', detail: keepsChanges };
     case 'discarded':
-      return { title: 'Discarded the changes', detail: `The worktree and ${activity.branch} are deleted.` };
+      return {
+        title: 'Discarded the changes',
+        // Your pull request's branch isn't the session's to delete (spec 031).
+        detail: activity.kept
+          ? `The worktree is deleted. ${activity.branch} stays as it is on GitHub.`
+          : `The worktree and ${activity.branch} are deleted.`,
+      };
   }
 }
 
