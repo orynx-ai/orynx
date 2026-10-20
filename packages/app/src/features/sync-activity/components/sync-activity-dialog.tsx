@@ -1,5 +1,5 @@
 // Design: docs/design/screens/sync-activity/SyncAudit.dc.html — the modal: head, tool list, detail with its problem callout and stats, history, foot
-import { Cancel01Icon, Menu01Icon } from '@hugeicons/core-free-icons';
+import { Cancel01Icon, Loading03Icon, Menu01Icon } from '@hugeicons/core-free-icons';
 import { useId, useState } from 'react';
 import type { InboxSource, SyncTool } from '@devhub/contracts';
 import { syncActivityLimits } from '@devhub/contracts';
@@ -21,7 +21,7 @@ import {
   StatusDot,
 } from '@devhub/ui';
 import { useNow } from '../../../words/use-now.ts';
-import { useSyncActivity } from '../queries.ts';
+import { useSyncActivity, useSyncing, useSyncNow } from '../queries.ts';
 import {
   activityHeadline,
   failingLine,
@@ -31,6 +31,7 @@ import {
   toolLine,
   toolNames,
 } from '../sync-words.ts';
+import { SyncHistory, type HistoryShow } from './sync-history.tsx';
 
 type Pick = InboxSource | 'all';
 
@@ -39,6 +40,16 @@ const groups = [
   { label: 'Syncing fine', holds: (tool: SyncTool) => tool.state.state === 'synced' || tool.state.state === 'syncing' },
   { label: 'Not connected', holds: (tool: SyncTool) => tool.state.state === 'not_connected' },
 ];
+
+/** What a screen reader hears when a sync ends: "Jira synced. GitHub still failing." */
+function outcome(tools: readonly SyncTool[], synced: readonly InboxSource[]): string {
+  return synced
+    .map((name) => {
+      const failing = tools.find((tool) => tool.tool === name)?.state.state === 'failed';
+      return `${toolNames[name]} ${failing ? 'still failing' : 'synced'}.`;
+    })
+    .join(' ');
+}
 
 const foot = `Syncs every ${String(syncActivityLimits.everyMinutes)} min while Orynx is open · log kept on this computer for ${String(syncActivityLimits.keptDays)} days`;
 
@@ -51,10 +62,20 @@ export function SyncActivityDialog({ onClose }: { onClose: () => void }) {
   const headlineId = useId();
   const detailId = useId();
   const [picked, setPicked] = useState<Pick | null>(null);
+  const [show, setShow] = useState<HistoryShow>('all');
+  const [said, setSaid] = useState('');
   const summary = useSyncActivity({ show: 'all' });
+  const syncAll = useSyncNow();
   const tools = summary.data?.tools ?? [];
   const pick: Pick = picked ?? tools.find((tool) => tool.state.state === 'failed')?.tool ?? 'all';
   const current = pick === 'all' ? undefined : tools.find((tool) => tool.tool === pick);
+  const connected = tools.filter((tool) => tool.state.state !== 'not_connected').map((tool) => tool.tool);
+
+  function choose(next: Pick) {
+    setPicked(next);
+    // Another tool's history starts from every run again (AC-18).
+    setShow('all');
+  }
 
   return (
     <DialogContent size="wide" aria-describedby={summary.data === undefined ? undefined : headlineId}>
@@ -67,8 +88,20 @@ export function SyncActivityDialog({ onClose }: { onClose: () => void }) {
             </p>
           )}
         </div>
-        <Button variant="secondary" size="sm">
-          Sync all now
+        <Button
+          variant="secondary"
+          size="sm"
+          pending={syncAll.isPending}
+          onClick={() => {
+            setSaid(connected.map((name) => `${toolNames[name]} syncing.`).join(' '));
+            syncAll.mutate(undefined, {
+              onSuccess: (fresh) => {
+                setSaid(outcome(fresh, connected));
+              },
+            });
+          }}
+        >
+          {syncAll.isPending ? 'Syncing…' : 'Sync all now'}
         </Button>
         <IconButton variant="ghost" size="sm" label="Close sync activity" onClick={onClose}>
           <Icon icon={Cancel01Icon} aria-hidden />
@@ -104,7 +137,7 @@ export function SyncActivityDialog({ onClose }: { onClose: () => void }) {
                     </span>
                   }
                   onClick={() => {
-                    setPicked('all');
+                    choose('all');
                   }}
                 />
                 {groups.map(({ label, holds }) => {
@@ -112,31 +145,16 @@ export function SyncActivityDialog({ onClose }: { onClose: () => void }) {
                   if (held.length === 0) return null;
                   return (
                     <ListNavGroup key={label} label={label} count={held.length}>
-                      {held.map((tool) => {
-                        const line = toolLine(tool);
-                        return (
-                          <ListNavItem
-                            key={tool.tool}
-                            label={
-                              <>
-                                {toolNames[tool.tool]}
-                                <span className="sr-only">, {line.state}</span>
-                              </>
-                            }
-                            description={
-                              <span className={tool.state.state === 'failed' ? 'text-danger' : undefined}>
-                                {line.line}
-                              </span>
-                            }
-                            mark={<SourceMark source={tool.tool} />}
-                            status={<StatusDot tone={line.tone} />}
-                            current={pick === tool.tool}
-                            onClick={() => {
-                              setPicked(tool.tool);
-                            }}
-                          />
-                        );
-                      })}
+                      {held.map((tool) => (
+                        <ToolItem
+                          key={tool.tool}
+                          tool={tool}
+                          current={pick === tool.tool}
+                          onPick={() => {
+                            choose(tool.tool);
+                          }}
+                        />
+                      ))}
                     </ListNavGroup>
                   );
                 })}
@@ -162,8 +180,14 @@ export function SyncActivityDialog({ onClose }: { onClose: () => void }) {
                   </span>
                 </div>
               ) : (
-                <ToolDetail tool={current} headingId={detailId} />
+                <ToolDetail tool={current} headingId={detailId} announce={setSaid} />
               )}
+              {summary.data === undefined || current?.state.state === 'not_connected' ? null : (
+                <SyncHistory tool={current?.tool} show={show} onShowChange={setShow} />
+              )}
+              <div role="status" className="sr-only">
+                {said}
+              </div>
             </div>
           </section>
         </div>
@@ -178,11 +202,56 @@ export function SyncActivityDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** One tool's head, problem and stats. */
-function ToolDetail({ tool, headingId }: { tool: SyncTool; headingId: string }) {
+/** A tool in the list: its mark, name, line and dot, or a spinner while this page syncs it. */
+function ToolItem({ tool, current, onPick }: { tool: SyncTool; current: boolean; onPick: () => void }) {
+  const line = toolLine(tool);
+  const syncing = useSyncing(tool.tool);
+  return (
+    <ListNavItem
+      label={
+        <>
+          {toolNames[tool.tool]}
+          <span className="sr-only">, {line.state}</span>
+        </>
+      }
+      description={<span className={tool.state.state === 'failed' ? 'text-danger' : undefined}>{line.line}</span>}
+      mark={<SourceMark source={tool.tool} />}
+      status={
+        syncing ? (
+          <Icon icon={Loading03Icon} className="size-3 text-muted-foreground motion-safe:animate-spin" />
+        ) : (
+          <StatusDot tone={line.tone} />
+        )
+      }
+      current={current}
+      onClick={onPick}
+    />
+  );
+}
+
+/** One tool's head, with Sync now, its problem with Retry, and its stats. */
+function ToolDetail({
+  tool,
+  headingId,
+  announce,
+}: {
+  tool: SyncTool;
+  headingId: string;
+  announce: (said: string) => void;
+}) {
   const now = useNow();
+  const sync = useSyncNow(tool.tool);
   const line = toolLine(tool);
   const problem = tool.state.state === 'failed' ? problemWords(tool.tool, tool.state.problem) : null;
+  const name = toolNames[tool.tool];
+  function syncNow() {
+    announce(`${name} syncing.`);
+    sync.mutate(undefined, {
+      onSuccess: (fresh) => {
+        announce(outcome(fresh, [tool.tool]));
+      },
+    });
+  }
   return (
     <>
       <div className="flex items-center gap-3">
@@ -196,9 +265,23 @@ function ToolDetail({ tool, headingId }: { tool: SyncTool; headingId: string }) 
             {statusLine(tool)}
           </span>
         </div>
+        {problem === null && tool.state.state !== 'not_connected' ? (
+          <Button variant="secondary" size="sm" pending={sync.isPending} onClick={syncNow}>
+            {sync.isPending ? 'Syncing…' : 'Sync now'}
+          </Button>
+        ) : null}
       </div>
       {problem === null ? null : (
-        <Callout role="alert" tone={problem.tone} title={problem.title}>
+        <Callout
+          role="alert"
+          tone={problem.tone}
+          title={problem.title}
+          actions={
+            <Button variant="secondary" size="sm" pending={sync.isPending} onClick={syncNow}>
+              Retry
+            </Button>
+          }
+        >
           <span className="text-small">{problem.fix}</span>
           <span className="text-label text-muted-foreground">{failingLine(tool)}</span>
         </Callout>
