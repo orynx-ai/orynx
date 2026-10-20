@@ -28,9 +28,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Let `AgentAdapter.write()` take the composer's model and effort (AC-1)
       Check: pnpm test packages/core/src/agents/claude/claude-adapter.test.ts
       Files: packages/core/src/agents/agent-adapter.ts, packages/core/src/agents/claude/claude-adapter.ts, packages/core/src/agents/claude/claude-adapter.test.ts
-- [ ] Task 8: The quick read: build its prompt, parse its answer, check the base, branch (format, length, key, taken), title and steps, and fall back on failure or after 30 s (AC-1, AC-19, AC-21, AC-22, AC-23, AC-27)
+- [x] Task 8: The quick read: its instructions and prompt (the ask, chips, folder, branches, rules, never file contents), its JSON answer checked field by field (base on origin, a usable branch holding the ticket's key, a title cut at 80, steps by the rules or the intent's own), and no reading at all for anything else (AC-1, AC-21, AC-22, AC-23, AC-27)
       Check: pnpm test packages/core/src/sessions/ask-reading.test.ts
-      Files: packages/core/src/sessions/ask-reading.ts, packages/core/src/sessions/ask-reading.test.ts, packages/core/src/sessions/composer-names.ts
+      Files: packages/core/src/sessions/ask-reading.ts, packages/core/src/sessions/ask-reading.test.ts
 - [ ] Task 9: A Build session reads the ask first: the reading row, the title, the intent's steps, then a worktree detached at the base; Ask sessions skip it (AC-1, AC-22, AC-23, AC-29, AC-30)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/worktrees.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-service.test.ts, packages/core/src/sessions/worktrees.ts, packages/core/src/sessions/worktrees.test.ts, packages/core/src/test/fake-claude-sdk.ts
