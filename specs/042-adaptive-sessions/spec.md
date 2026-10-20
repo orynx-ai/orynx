@@ -57,25 +57,23 @@ Correct these now, or the work goes ahead on them.
 
 - **Claude names the steps** (Q5), first in the quick read's answer, then while it works. Each step has:
   - a **label**, Claude's words, shown in the stepper;
-  - a **kind**, never shown, from `setup` · `plan` · `build` · `test` · `run` · `answer` · `review` · `pull_request` · `push`. The kind tells Orynx when the step moves on and who moves it.
+  - a **kind**, never shown, from `setup` · `plan` · `build` · `test` · `run` · `answer` · `review` · `pull_request` (shown as Push on your own pull request, as spec 031 does). The kind tells Orynx when the step moves on and who moves it.
 - **The rules are strict. A list that breaks any of them is refused whole, never trimmed or fixed:**
   - 1 to 5 steps in all, Pull request and Push included.
-  - A label is 1 to 3 words and at most 16 characters, starts with a capital letter, and holds only letters, digits and spaces. No two labels in a list are the same.
-  - Pull request and Push are only ever the last step, and their labels are Orynx's ("Pull request", "Push") so they match the page bar's buttons. Claude gives only their kind.
-  - At most one `pull_request` or `push` step.
+  - A label is 1 to 3 words and at most 16 characters, starts with a capital letter, and holds only letters, digits and spaces. No two labels in a list are the same, and no two kinds.
+  - Pull request (Push on your own pull request) is only ever the last step, and its label is Orynx's so it matches the page bar's button. Claude gives only its kind.
 - **How each kind moves**, when Claude doesn't move it itself:
 
-  | Kind           | Moves on when                                                        | Who can mark it done |
-  | -------------- | -------------------------------------------------------------------- | -------------------- |
-  | `setup`        | Claude runs its first command before any edit (install, fetch, copy) | Claude or Orynx      |
-  | `plan`         | as today's Plan                                                      | Claude or Orynx      |
-  | `build`        | the first edit, as today                                             | Claude or Orynx      |
-  | `test`         | a command after an edit, as today                                    | Claude or Orynx      |
-  | `run`          | a port opens for this session (section 4)                            | Orynx                |
-  | `answer`       | Claude finishes with no edit                                         | Orynx                |
-  | `review`       | Claude finishes, as today                                            | Orynx                |
-  | `pull_request` | you press Create pull request, as today                              | You                  |
-  | `push`         | you press Push changes (spec 031)                                    | You                  |
+  | Kind           | Moves on when                                                                      | Who can mark it done |
+  | -------------- | ---------------------------------------------------------------------------------- | -------------------- |
+  | `setup`        | Claude runs its first command before any edit (install, fetch, copy)               | Claude or Orynx      |
+  | `plan`         | as today's Plan                                                                    | Claude or Orynx      |
+  | `build`        | the first edit, as today                                                           | Claude or Orynx      |
+  | `test`         | a command after an edit, as today                                                  | Claude or Orynx      |
+  | `run`          | a port opens for this session (section 4)                                          | Orynx                |
+  | `answer`       | Claude finishes with no edit                                                       | Orynx                |
+  | `review`       | Claude finishes, as today                                                          | Orynx                |
+  | `pull_request` | you press Create pull request, or Push changes on your own pull request (spec 031) | You                  |
 
 - **The default steps for each intent**, used when the quick read failed or its steps broke a rule. Claude's own labels replace these words whenever it gives valid ones:
 

@@ -14,6 +14,9 @@ import {
   SessionListQuerySchema,
   SessionListSchema,
   SessionSchema,
+  SessionStepsSchema,
+  StepLabelSchema,
+  stepsOf,
   ComposerStartSchema,
   composerLimits,
   StartSessionAnswerSchema,
@@ -706,5 +709,71 @@ describe('renaming, pinning and deleting a session (spec 039)', () => {
     expect(ApiErrorSchema.parse({ code: 'session_working', message: 'Stop the session first.' }).code).toBe(
       'session_working',
     );
+  });
+});
+
+describe('a session in spec 042', () => {
+  const steps = (...list: [string, string][]) => list.map(([kind, label]) => ({ kind, label }));
+
+  it("AC-1, AC-24: holds Claude's own steps, its intent and where its branch name came from", () => {
+    const session = makeSession({
+      intent: 'run',
+      branchFrom: 'repo_rules',
+      steps: SessionStepsSchema.parse(steps(['setup', 'Set up'], ['run', 'Start server'])),
+      step: 'run',
+    });
+    expect(session.steps.map((step) => step.label)).toEqual(['Set up', 'Start server']);
+    expect(session.intent).toBe('run');
+    expect(session.branchFrom).toBe('repo_rules');
+  });
+
+  it('AC-28, AC-32: a session saved before spec 042 reads with no steps of its own and no intent', () => {
+    const { steps: _steps, intent: _intent, branchFrom: _from, ...saved } = makeSession();
+    expect(SessionSchema.parse(saved)).toMatchObject({ steps: [], intent: null, branchFrom: null });
+  });
+
+  it('AC-28, AC-32: an older session shows the five steps it always had, the last Push on your pull request', () => {
+    expect(stepsOf(makeSession()).map((step) => step.label)).toEqual([
+      'Plan',
+      'Build',
+      'Test',
+      'Review',
+      'Pull request',
+    ]);
+    expect(stepsOf(makeSession({ workOn: 'pull_request' })).at(-1)).toEqual({ kind: 'pull_request', label: 'Push' });
+    const own = SessionStepsSchema.parse(steps(['answer', 'Answer']));
+    expect(stepsOf(makeSession({ steps: own }))).toEqual(own);
+  });
+
+  it('AC-25: a label is 1 to 3 words, at most 16 characters, starts with a capital, letters and digits only', () => {
+    for (const good of ['Set up', 'Start server', 'Fix env key', 'Test', 'Run e2e', 'Prüfen'])
+      expect(StepLabelSchema.safeParse(good).success, good).toBe(true);
+    for (const bad of ['', 'set up', 'Fix the env key', 'Start the servers', 'Ship it!', 'Set  up', ' Plan', 'Plan '])
+      expect(StepLabelSchema.safeParse(bad).success, bad).toBe(false);
+  });
+
+  it('AC-25: a list has 1 to 5 steps, no two labels or kinds alike, and a pull request only last', () => {
+    expect(SessionStepsSchema.safeParse(steps(['answer', 'Answer'])).success).toBe(true);
+    const five = steps(
+      ['setup', 'Set up'],
+      ['run', 'Start server'],
+      ['build', 'Fix env'],
+      ['test', 'Test'],
+      ['pull_request', 'Pull request'],
+    );
+    expect(SessionStepsSchema.safeParse(five).success).toBe(true);
+    const refused = [
+      [],
+      [...five, { kind: 'review', label: 'Review' }],
+      steps(['build', 'Fix'], ['test', 'Fix']),
+      steps(['build', 'Fix env'], ['build', 'Fix tests']),
+      steps(['pull_request', 'Pull request'], ['review', 'Review']),
+    ];
+    for (const list of refused) expect(SessionStepsSchema.safeParse(list).success, JSON.stringify(list)).toBe(false);
+  });
+
+  it('AC-25: says which rule a list broke, in words Claude can act on', () => {
+    const result = SessionStepsSchema.safeParse(steps(['build', 'Fix'], ['test', 'Fix']));
+    expect(result.error?.issues.map((issue) => issue.message)).toContain('Two steps are both called "Fix".');
   });
 });

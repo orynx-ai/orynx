@@ -4,9 +4,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## Contracts
 
-- [ ] Task 1: Describe a session's steps (`{ kind, label, state }`), its `intent` and `branchFrom`, and read an old `step` + `skipped` as today's five steps (AC-28, AC-32)
-      Check: pnpm test packages/contracts/src/session.test.ts packages/core/src/sessions/file-session-store.test.ts
-      Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/core/src/sessions/file-session-store.ts, packages/core/src/sessions/file-session-store.test.ts
+- [x] Task 1: Describe a session's own steps (`{ kind, label }`, by the strict rules), its `intent` and `branchFrom`; a session saved before reads with today's five steps through `stepsOf` (AC-25, AC-28, AC-32)
+      Check: pnpm test packages/contracts/src/session.test.ts packages/app/src/features/sessions/components/session-progress.test.tsx; pnpm typecheck
+      Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/core/src/sessions/session-service.ts, packages/app/src/features/sessions/components/session-progress.tsx
 - [ ] Task 2: Describe the new activities (`reading`, `steps_changed`, `branch_made`, `server`) and a worktree row with no branch (AC-1, AC-15, AC-24)
       Check: pnpm test packages/contracts/src/session.test.ts
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts
