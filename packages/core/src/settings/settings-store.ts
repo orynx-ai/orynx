@@ -42,6 +42,8 @@ const SettingsSchema = z.looseObject({
   tickets: WrittenObjectSchema.optional().catch(undefined),
   /** Settings › Notifications (spec 029), kept as written; the notification settings service reads what it can. */
   notifications: WrittenObjectSchema.optional().catch(undefined),
+  /** Who uses Orynx (spec 043), kept as written; the setup service reads what it can. */
+  profile: WrittenObjectSchema.optional().catch(undefined),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

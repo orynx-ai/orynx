@@ -8,9 +8,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: The password store: scrypt hash in a 0600 file, verify, cookie value (AC-5, AC-12)
       Check: pnpm test packages/core/src/setup
       Files: packages/core/src/setup/password-store.ts, password-store.test.ts, packages/core/src/index.ts
-- [ ] Task 3: `/api/profile` and `/api/setup` in core (AC-3, AC-4, AC-6)
+- [x] Task 3: `/api/profile` and `/api/setup` in core (AC-3, AC-4, AC-6)
       Check: pnpm test packages/core/src/routes/setup.test.ts
-      Files: packages/core/src/setup/profile-service.ts, routes/setup.ts, routes/setup.test.ts, create-server.ts, settings/settings-store.ts
+      Files: packages/core/src/setup/setup-service.ts, routes/setup.ts, routes/setup.test.ts, create-server.ts, settings/settings-store.ts
 - [ ] Task 4: The api-client calls and query options (AC-3, AC-6)
       Check: pnpm test packages/api-client/src/setup.test.ts
       Files: packages/api-client/src/endpoints/setup.ts, client.ts, queries.ts, index.ts, setup.test.ts
