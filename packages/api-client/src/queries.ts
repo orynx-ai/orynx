@@ -11,6 +11,8 @@ export const queryKeys = {
   jiraProjects: ['jira', 'projects'] as const,
   githubConnection: ['github', 'connection'] as const,
   preferences: ['preferences'] as const,
+  setup: ['setup'] as const,
+  profile: ['profile'] as const,
   notifications: ['notifications'] as const,
   /** Not under `notifications`, so a new notification never reads the settings again. */
   notificationSettings: ['notification-settings'] as const,
@@ -160,6 +162,16 @@ export function githubConnectionQueryOptions(api: ApiClient) {
     // Connect and Disconnect publish status.changed, which refreshes this too.
     staleTime: Infinity,
   });
+}
+
+/** Changes only through Finish setup on this page, which writes the answer into the cache (spec 043). */
+export function setupQueryOptions(api: ApiClient) {
+  return queryOptions({ queryKey: queryKeys.setup, queryFn: () => api.setup(), staleTime: Infinity });
+}
+
+/** Changes through Edit profile and setup, which write the answer into the cache; another device reads it on load. */
+export function profileQueryOptions(api: ApiClient) {
+  return queryOptions({ queryKey: queryKeys.profile, queryFn: () => api.profile(), staleTime: Infinity });
 }
 
 export function preferencesQueryOptions(api: ApiClient) {
