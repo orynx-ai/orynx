@@ -30,6 +30,9 @@ import {
   type Session,
   type SessionList,
   type SessionListQuery,
+  SessionChangeRequestSchema,
+  type SessionChangeRequest,
+  type SessionDeleteQuery,
   type StartSessionAnswer,
   type StartSessionRequest,
 } from '@devhub/contracts';
@@ -61,6 +64,17 @@ export async function postSessionStop(http: AxiosInstance, id: string): Promise<
 
 export async function postSessionDiscard(http: AxiosInstance, id: string): Promise<void> {
   await http.post(pathFor(apiRoutes.sessionDiscard, id));
+}
+
+/** A new title or a pin (spec 039). */
+export async function patchSession(http: AxiosInstance, id: string, change: SessionChangeRequest): Promise<void> {
+  await http.patch(pathFor(apiRoutes.session, id), SessionChangeRequestSchema.parse(change));
+}
+
+/** Deletes the session, its brief and its worktree; its branch stays unless `branch` says so (spec 039). */
+export async function deleteSession(http: AxiosInstance, id: string, query: SessionDeleteQuery = {}): Promise<void> {
+  // Axios writes `true` as the query string's `true`, which the server's schema reads back.
+  await http.delete(pathFor(apiRoutes.session, id), { params: query });
 }
 
 /** Your answer to a call waiting in a session (spec 012). */

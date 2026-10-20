@@ -53,8 +53,9 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
             {person === null ? <Icon icon={UserIcon} /> : <Avatar initials={person.initials} size="lg" />}
           </span>
           <span className={cn('flex min-w-0 flex-col gap-px', collapsed && 'md:sr-only')}>
-            <span className="truncate font-medium">{who}</span>{' '}
-            <span className="flex min-w-0 items-center gap-1.5 text-small text-muted-foreground">
+            {/* One step down the scale, as the rest of the sidebar (spec 039, Q4). */}
+            <span className="truncate text-small font-medium">{who}</span>{' '}
+            <span className="flex min-w-0 items-center gap-1.5 text-label text-muted-foreground">
               <span aria-hidden className={cn('size-2 shrink-0 rounded-full bg-current', dot)} />
               {/* At the default width this line is cut; the tooltip keeps it readable. */}
               <span className="truncate" title={text}>

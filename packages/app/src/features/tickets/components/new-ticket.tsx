@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { PlusSignIcon } from '@hugeicons/core-free-icons';
 import type { OrynxTicketFields, TicketColumn } from '@devhub/contracts';
-import { Button, Dialog, DialogContent, Icon, IconButton } from '@devhub/ui';
+import { BrandMark, Button, Dialog, DialogContent, Icon, IconButton } from '@devhub/ui';
 import { useCreateOrynxTicket } from '../queries.ts';
 import { useTicketsStore } from '../store.ts';
 import { orynxTicketWords as words } from '../ticket-words.ts';
@@ -50,12 +50,14 @@ export function NewTicketButton({
     <Button
       ref={remember}
       size={size}
+      // The page bar's says New, so the bar fits; its name still says what it makes (the user's call, 20 Oct 2026).
+      {...(inPageBar ? { 'aria-label': words.newTicket } : {})}
       onClick={() => {
         open('to_do');
       }}
     >
       <Icon icon={PlusSignIcon} aria-hidden />
-      {words.newTicket}
+      {inPageBar ? words.newShort : words.newTicket}
     </Button>
   );
 }
@@ -82,11 +84,12 @@ export function NewTicketInColumn({ column }: { column: TicketColumn }) {
  * default. It closes once the ticket is made, and focus goes back to the button that opened it; a save that fails
  * keeps it open with your values. While a save is on its way it doesn't close.
  */
-export function NewTicketDialog() {
+export function NewTicketDialog({ jira }: { jira: boolean }) {
   const column = useTicketsStore((state) => state.newTicket);
   const close = useTicketsStore((state) => state.closeNewTicket);
   const create = useCreateOrynxTicket();
   const headingId = useId();
+  const noteId = useId();
 
   return (
     <Dialog
@@ -98,12 +101,19 @@ export function NewTicketDialog() {
       }}
     >
       {column === null ? null : (
-        <DialogContent aria-labelledby={headingId}>
+        <DialogContent aria-labelledby={headingId} aria-describedby={noteId}>
           <TicketForm
             // A fresh form each time it opens, so a closed dialog never leaves its values behind.
             key={column}
             heading={words.newTicket}
             headingId={headingId}
+            // Where the ticket goes, with Orynx's mark (the user's ask, spec 039, AC-40, AC-41).
+            note={
+              <p id={noteId} className="m-0 flex items-center gap-2 text-small text-muted-foreground">
+                <BrandMark className="h-3 w-5" />
+                {words.savedHere(jira)}
+              </p>
+            }
             defaults={newTicketFields(column)}
             submitLabel={words.create}
             saving={create.isPending}

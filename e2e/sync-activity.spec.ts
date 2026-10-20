@@ -67,7 +67,7 @@ test.beforeAll(async ({ browser }) => {
 
 async function openSyncActivity(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: /^Sync activity/ }).click();
+  await page.getByRole('button', { name: /Sync activity/ }).click();
   const dialog = page.getByRole('dialog', { name: 'Sync activity' });
   await expect(dialog.getByRole('list', { name: 'Tools' })).toBeVisible();
   return dialog;
@@ -117,7 +117,7 @@ test('AC-27: Given the modal open, when I use only the keyboard, then Tab goes f
   test.skip((testInfo.project.use.viewport?.width ?? 0) < 768, 'the order is the same at every width');
   // Opened from the keyboard, as a keyboard user does: focus lands on the dialog's first control, with its ring.
   await page.goto('/');
-  await page.getByRole('button', { name: /^Sync activity/ }).focus();
+  await page.getByRole('button', { name: /Sync activity/ }).focus();
   await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog', { name: 'Sync activity' });
   await expect(dialog.getByRole('list', { name: 'Tools' })).toBeVisible();
@@ -142,7 +142,7 @@ test('AC-27: Given the modal open, when I use only the keyboard, then Tab goes f
 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toBeHidden();
-  await expect(page.getByRole('button', { name: /^Sync activity/ })).toBeFocused();
+  await expect(page.getByRole('button', { name: /Sync activity/ })).toBeFocused();
 });
 
 for (const theme of ['light', 'dark'] as const) {

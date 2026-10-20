@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Sprint, TicketsChoice } from '@devhub/contracts';
 import {
+  BreadcrumbItem,
+  BreadcrumbSeparator,
   Combobox,
   Menu,
   MenuContent,
@@ -11,16 +13,20 @@ import {
   MenuSeparator,
   MenuTrigger,
   Picker,
+  SheetRow,
   Skeleton,
 } from '@devhub/ui';
-import { SaveError } from '../../settings/components/save-error.tsx';
 import { useJiraConnection, useJiraProjects } from '../../settings/queries.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { useChooseTicketsSprint, useTicketsSprints } from '../queries.ts';
 import { noOpenSprintsText, noSprintName, openSprintLine, yourSprintText } from '../ticket-words.ts';
 
-/** Both pickers the same width, so neither moves the filters beside them when its words change (spec 020). */
-const pickerWidth = 'w-48 justify-between';
+/**
+ * Where the pickers sit (spec 039): `bar` as the page bar's crumbs, "Tickets / MAI ▾ / No sprint ▾", their names for
+ * screen readers only and a long sprint cut short; `sheet` as the filter sheet's first two rows, which open the same
+ * choices (the user's pattern, 20 Oct 2026).
+ */
+export type PickersPlace = 'bar' | 'sheet';
 
 /**
  * Tickets' Project and Sprint pickers (spec 020). Project searches the Jira projects you can see, with Your
@@ -33,11 +39,13 @@ export function SprintPickers({
   choice,
   sprint,
   loading = false,
+  place,
 }: {
   choice: TicketsChoice;
   sprint: Sprint | null;
   /** The sprint is on its way, so Sprint shows a bar where its name goes. */
   loading?: boolean;
+  place: PickersPlace;
 }) {
   const jira = useJiraConnection();
   // Jira's project list is asked for while Project is open, not on every visit to Tickets or window focus.
@@ -47,47 +55,63 @@ export function SprintPickers({
   // Whose sprints the Sprint menu lists: the picked project, or Your sprint's own.
   const project = choice.projectKey ?? sprint?.projectKey ?? null;
 
+  const projectPicker = (
+    <Combobox
+      options={[
+        { value: '', label: yourSprintText },
+        ...(projects.data?.projects ?? []).map((found) => ({
+          value: found.key,
+          label: `${found.key} · ${found.name}`,
+        })),
+      ]}
+      value={choice.projectKey ?? ''}
+      onValueChange={(key) => {
+        choose.mutate({ projectKey: key === '' ? null : key, sprintId: null });
+      }}
+      searchLabel="Search projects"
+      emptyText="No projects match"
+      // Compact, at most 360 px tall: the user's call for this toolbar (spec 020, AC-40).
+      size="sm"
+      loading={projects.isPending && projects.fetchStatus !== 'idle'}
+      onOpenChange={setListing}
+    >
+      {place === 'sheet' ? (
+        <SheetRow title="Project" summary={choice.projectKey ?? yourSprintText} />
+      ) : (
+        <Picker variant="plain" className="text-body">
+          <span className="sr-only">Project</span> {choice.projectKey ?? yourSprintText}
+        </Picker>
+      )}
+    </Combobox>
+  );
+  const sprintName = choice.sprintId === 'none' ? noSprintName : (sprint?.name ?? (loading ? null : '–'));
+  const sprintPicker = (
+    <SprintMenu
+      project={project}
+      current={choice.sprintId ?? sprint?.id ?? null}
+      name={sprintName}
+      place={place}
+      onPick={(sprintId) => {
+        // No sprint keeps Your sprint's "yours"; a sprint belongs to the project listed.
+        if (sprintId === 'none') choose.mutate({ projectKey: choice.projectKey, sprintId });
+        else if (project !== null) choose.mutate({ projectKey: project, sprintId });
+      }}
+    />
+  );
+  // A pick that doesn't save is said once, by the page (useTicketsChoiceFailed), not beside the pickers.
+  if (place === 'sheet') {
+    return (
+      <>
+        {projectPicker}
+        {sprintPicker}
+      </>
+    );
+  }
   return (
     <>
-      <Combobox
-        options={[
-          { value: '', label: yourSprintText },
-          ...(projects.data?.projects ?? []).map((found) => ({
-            value: found.key,
-            label: `${found.key} · ${found.name}`,
-          })),
-        ]}
-        value={choice.projectKey ?? ''}
-        onValueChange={(key) => {
-          choose.mutate({ projectKey: key === '' ? null : key, sprintId: null });
-        }}
-        searchLabel="Search projects"
-        emptyText="No projects match"
-        // Compact, at most 360 px tall: the user's call for this toolbar (spec 020, AC-40).
-        size="sm"
-        loading={projects.isPending && projects.fetchStatus !== 'idle'}
-        onOpenChange={setListing}
-      >
-        <Picker variant="plain" className={pickerWidth}>
-          <span className="text-muted-foreground">Project</span> {choice.projectKey ?? yourSprintText}
-        </Picker>
-      </Combobox>
-      <SprintMenu
-        project={project}
-        current={choice.sprintId ?? sprint?.id ?? null}
-        name={choice.sprintId === 'none' ? noSprintName : (sprint?.name ?? (loading ? null : '–'))}
-        onPick={(sprintId) => {
-          // No sprint keeps Your sprint's "yours"; a sprint belongs to the project listed.
-          if (sprintId === 'none') choose.mutate({ projectKey: choice.projectKey, sprintId });
-          else if (project !== null) choose.mutate({ projectKey: project, sprintId });
-        }}
-      />
-      {choose.isError ? (
-        // The page has gone back to the sprint it showed; the line stays until the next pick (spec 005, Q7c).
-        <div className="basis-full">
-          <SaveError />
-        </div>
-      ) : null}
+      <BreadcrumbItem className="min-w-0 max-md:hidden">{projectPicker}</BreadcrumbItem>
+      <BreadcrumbSeparator className="max-md:hidden" />
+      <BreadcrumbItem className="min-w-0">{sprintPicker}</BreadcrumbItem>
     </>
   );
 }
@@ -96,11 +120,13 @@ function SprintMenu({
   project,
   current,
   name,
+  place,
   onPick,
 }: {
   project: string | null;
   current: number | 'none' | null;
   name: string | null;
+  place: PickersPlace;
   onPick: (sprintId: number | 'none') => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -111,13 +137,18 @@ function SprintMenu({
   return (
     <Menu open={open} onOpenChange={setOpen}>
       <MenuTrigger asChild>
-        <Picker variant="plain" className={pickerWidth}>
-          <span className="text-muted-foreground">Sprint</span>{' '}
-          {name ?? (
-            // While the sprint loads: a bar where its name goes, the picker as wide as ever.
-            <Skeleton className="inline-block h-3.5 w-16 align-middle" />
-          )}
-        </Picker>
+        {place === 'sheet' ? (
+          <SheetRow title="Sprint" summary={name ?? 'Loading…'} />
+        ) : (
+          // A long sprint name is cut short; its tooltip holds it whole (spec 039, AC-12).
+          <Picker variant="plain" className="min-w-20 text-body" title={name ?? undefined}>
+            <span className="sr-only">Sprint</span>{' '}
+            {name ?? (
+              // While the sprint loads: a bar where its name goes, the picker as wide as ever.
+              <Skeleton className="inline-block h-3.5 w-16 align-middle" />
+            )}
+          </Picker>
+        )}
       </MenuTrigger>
       {/* A menu holds menu items alone (ARIA), and while open it hides the page around it, so the menu itself
             says it's busy; the loading rows are only drawn. */}

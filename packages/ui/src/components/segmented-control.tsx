@@ -52,7 +52,11 @@ export function SegmentedControl({
       role="group"
       data-slot="segmented-control"
       // Four options can be wider than a phone; the group then scrolls sideways, never the page.
-      className={cn('inline-flex max-w-full gap-0.5 overflow-x-auto rounded-sm bg-subtle p-0.75', className)}
+      // Sideways only, as Tabs: a vertical scrollbar has no place in a one-line control.
+      className={cn(
+        'inline-flex max-w-full gap-0.5 overflow-x-auto overflow-y-hidden rounded-sm bg-subtle p-0.75',
+        className,
+      )}
       {...props}
     >
       <SegmentedControlContext value={{ value: current, pick }}>{children}</SegmentedControlContext>

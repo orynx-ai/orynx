@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeSession, makeSessionApproval } from '@devhub/contracts/testing';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
-import { listSessions, type StoredSession } from './session-store.ts';
+import { createMemorySessionStore, listSessions, type StoredSession } from './session-store.ts';
 
 let home: string;
 const now = () => Date.parse('2026-10-18T12:00:00.000Z');
@@ -323,6 +323,9 @@ describe('listSessions', () => {
         source: { kind: 'jira', key: 'PROJ-1423' },
         updatedAt: '2026-10-18T11:00:00.000Z',
         ready: 'nothing',
+        // Spec 039: the pin and the kind, for the lists' Pinned group and Kind filter.
+        pinnedAt: null,
+        mode: 'build',
       },
     ]);
   });
@@ -345,5 +348,69 @@ describe('listSessions', () => {
       Answered: 'nothing',
       'Edited nothing': 'nothing',
     });
+  });
+});
+
+describe('removing and pinning sessions (spec 039)', () => {
+  it('AC-32: remove deletes the session and its brief from disk, and the list forgets it', async () => {
+    const store = await openFileSessionStore(home, { now });
+    await store.create(record({}, '0000000000000001'));
+    await store.writeBrief('0000000000000001', 'Fix the login page');
+    await store.create(record({ title: 'Kept' }, '0000000000000002'));
+
+    expect(await store.remove('0000000000000001')).toBe(true);
+
+    expect(await store.get('0000000000000001')).toBeNull();
+    expect((await store.list()).map((session) => session.title)).toEqual(['Kept']);
+    expect(await readdir(sessionsFolder(home))).toEqual(['0000000000000002']);
+    const reopened = await openFileSessionStore(home, { now });
+    expect(await reopened.get('0000000000000001')).toBeNull();
+  });
+
+  it("AC-32: removing a session that isn't there, or an id that isn't one, changes nothing", async () => {
+    const store = await openFileSessionStore(home, { now });
+    await store.create(record());
+    expect(await store.remove('0000000000000009')).toBe(false);
+    expect(await store.remove('../sessions')).toBe(false);
+    expect(await readdir(sessionsFolder(home))).toEqual(['0123456789abcdef']);
+  });
+
+  it('AC-32: the memory store removes too', async () => {
+    const store = createMemorySessionStore();
+    await store.create(record());
+    expect(await store.remove('0123456789abcdef')).toBe(true);
+    expect(await store.get('0123456789abcdef')).toBeNull();
+    expect(await store.list()).toEqual([]);
+    expect(await store.remove('0123456789abcdef')).toBe(false);
+  });
+
+  it('AC-26: pinned=true lists every pinned session, in the order they were pinned', async () => {
+    const store = await openFileSessionStore(home, { now });
+    await store.create(record({ title: 'Pinned second', pinnedAt: '2026-10-18T09:00:00.000Z' }, '0000000000000001'));
+    await store.create(record({ title: 'Not pinned', updatedAt: '2026-10-18T11:30:00.000Z' }, '0000000000000002'));
+    await store.create(
+      record(
+        { title: 'Pinned first', pinnedAt: '2026-10-18T08:00:00.000Z', updatedAt: '2026-10-18T07:00:00.000Z' },
+        '0000000000000003',
+      ),
+    );
+
+    const pinned = await listSessions(store, { pinned: true, now });
+    expect(pinned.sessions.map((session) => session.title)).toEqual(['Pinned first', 'Pinned second']);
+    expect(pinned.nextCursor).toBeNull();
+  });
+
+  it('AC-27: pinned=false pages the rest by activity, and no pin is left out of an unfiltered list', async () => {
+    const store = await openFileSessionStore(home, { now });
+    await store.create(record({ title: 'Pinned', pinnedAt: '2026-10-18T09:00:00.000Z' }, '0000000000000001'));
+    await store.create(record({ title: 'Older', updatedAt: '2026-10-18T10:00:00.000Z' }, '0000000000000002'));
+    await store.create(record({ title: 'Newer', updatedAt: '2026-10-18T11:00:00.000Z' }, '0000000000000003'));
+
+    const first = await listSessions(store, { pinned: false, limit: 1, now });
+    expect(first.sessions.map((session) => session.title)).toEqual(['Newer']);
+    const second = await listSessions(store, { pinned: false, limit: 1, cursor: first.nextCursor ?? undefined, now });
+    expect(second.sessions.map((session) => session.title)).toEqual(['Older']);
+    expect(second.nextCursor).toBeNull();
+    expect((await listSessions(store, { now })).sessions).toHaveLength(3);
   });
 });

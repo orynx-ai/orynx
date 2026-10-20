@@ -2,12 +2,13 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeTicket, makeTickets } from '@devhub/contracts/testing';
+import { makeInbox, makeTicket, makeTickets } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
 import { designTickets, ticketsHandler, ticketsToday } from '../../test/tickets.ts';
 import { useComposerStore } from '../home/store.ts';
+import { useRecentSearches } from '../../stores/recent-searches.ts';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'], now: ticketsToday });
@@ -16,6 +17,11 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+/** Jira and GitHub synced, so the page bar has Synced and Sync (spec 039). */
+function inboxSynced() {
+  return http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json(makeInbox()));
+}
 
 /** Counts the page's reads of GET /api/tickets. */
 function ticketReads(): () => number {
@@ -47,8 +53,8 @@ describe('TicketsScreen', () => {
   it('AC-1, AC-31: the page bar names the sprint, and the toolbar has the filters and the count', async () => {
     server.use(ticketsHandler());
     await renderApp({ route: '/tickets' });
-    // From 768 px the search field sits in the page bar, as the design draws it.
-    expect(await screen.findByRole('banner')).toContainElement(
+    // Spec 039: the search field leads the toolbar at every width, so the page bar has room for Project and Sprint.
+    expect(await screen.findByRole('group', { name: 'Filters' })).toContainElement(
       screen.getByRole('searchbox', { name: 'Search tickets' }),
     );
 
@@ -56,47 +62,49 @@ describe('TicketsScreen', () => {
     const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' });
     expect(within(crumbs).getByRole('link', { name: 'Tickets' })).toHaveAttribute('href', '/tickets');
     expect(within(crumbs).getByRole('link', { name: 'Tickets' })).not.toHaveAttribute('aria-current');
-    expect(within(crumbs).getByText('Sprint 42')).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByText('PROJ · ends 24 Oct')).toBeInTheDocument();
+    // AC-10 (039): the project and the sprint are crumbs you can pick from, and the sprint's dates stay as meta.
+    expect(within(crumbs).getByRole('button', { name: 'Project Your sprint' })).toBeVisible();
+    expect(within(crumbs).getByRole('button', { name: 'Sprint Sprint 42' })).toHaveAttribute('title', 'Sprint 42');
+    expect(screen.getByText('ends 24 Oct')).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: 'Search tickets' })).toBeVisible();
     const view = screen.getByRole('group', { name: 'View' });
     expect(within(view).getByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true');
     expect(within(view).getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'false');
     expect(filter('Assignee · 1')).toBeVisible();
-    expect(filter('Due')).toBeVisible();
+    expect(filter('Filters · 1')).toBeVisible();
     expect(count()).toHaveTextContent('6 tickets');
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
 
-  it('AC-30: Tab goes through Refresh, New ticket (spec 037), the search, Board / List, Project and Sprint (spec 020), Source (spec 037), the filters, Clear filters, the board, its column’s + (spec 037), then each card’s checkbox and title', async () => {
-    server.use(ticketsHandler());
+  it('AC-30: Tab goes through Project and Sprint (crumbs since spec 039), Synced, Sync, New ticket (spec 037), the search, Board / List, Source (spec 037), Assignee, Filters, Clear filters, the board, its column’s + (spec 037), then each card’s checkbox and title', async () => {
+    server.use(ticketsHandler(), inboxSynced());
     const { user } = await renderApp({ route: '/tickets?type=bug' });
     await screen.findByText('1 ticket');
+    await screen.findByRole('button', { name: /Sync activity$/ });
     within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
       .getByRole('link', { name: 'Tickets' })
       .focus();
     const stops: string[] = [];
 
-    for (let stop = 0; stop < 18; stop += 1) {
+    for (let stop = 0; stop < 16; stop += 1) {
       await user.tab();
       const focused = document.activeElement;
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent.trim() ?? '');
     }
 
     expect(stops).toEqual([
-      'Refresh',
-      'New ticket',
-      'Search tickets',
-      'Board',
-      'List',
+      // Spec 039: Project and Sprint are the page bar's crumbs, and the rest of the filters wait in the sheet.
       'Project Your sprint',
       'Sprint Sprint 42',
+      expect.stringMatching(/^Synced .*, Sync activity$/) as unknown as string,
+      'Sync',
+      'New ticket',
+      'Board',
+      'List',
+      'Search tickets',
       'Source · 2',
       'Assignee · 1',
-      'Status',
-      'Type · 1',
-      'Priority',
-      'Due',
+      'Filters · 2',
       'Clear filters',
       'Board',
       'New ticket in To do',
@@ -300,10 +308,11 @@ describe('TicketsScreen', () => {
 });
 
 describe('Refresh, the people search and Ship for several (the user’s call, 19 Oct 2026)', () => {
-  it('Refresh syncs Jira now, beside when it last did', async () => {
+  it('Sync syncs Jira now, after when it last did, which opens Sync activity (spec 039)', async () => {
     let refreshes = 0;
     server.use(
       ticketsHandler(),
+      inboxSynced(),
       http.post(apiUrl(apiRoutes.inboxRefresh), () => {
         refreshes += 1;
         return new HttpResponse(null, { status: 204 });
@@ -312,8 +321,8 @@ describe('Refresh, the people search and Ship for several (the user’s call, 19
     const { user } = await renderApp({ route: '/tickets' });
     await screen.findByText('6 tickets');
 
-    expect(screen.getByText(/^Synced /)).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByRole('button', { name: /^Synced .*, Sync activity$/ })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Sync' }));
     await waitFor(() => {
       expect(refreshes).toBe(1);
     });
@@ -503,5 +512,88 @@ describe('Orynx tickets on Tickets (spec 037)', () => {
         "Orynx couldn't read its tickets file, so it kept it as tickets-20261020-081233.unreadable.json and started a new one.",
       ),
     ).toBeVisible();
+  });
+});
+
+describe('recent searches on Tickets (spec 039)', () => {
+  it('AC-45: Enter keeps a search, and an empty focused field lists it; Sessions and ⌘K keep their own', async () => {
+    server.use(ticketsHandler());
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+    const search = screen.getByRole('searchbox', { name: 'Search tickets' });
+
+    await user.type(search, 'pagination{Enter}');
+    await user.clear(search);
+
+    const recent = screen.getByRole('group', { name: 'Recent searches' });
+    expect(within(recent).getByRole('button', { name: 'Search for pagination' })).toBeVisible();
+    expect(useRecentSearches.getState().lists).toEqual({ sessions: [], search: [], tickets: ['pagination'] });
+
+    await user.click(within(recent).getByRole('button', { name: 'Search for pagination' }));
+    expect(search).toHaveValue('pagination');
+    expect(count()).toHaveTextContent('0 tickets');
+  });
+});
+
+describe('remembered filters (spec 039)', () => {
+  const mainNav = () => screen.getByRole('navigation', { name: 'Main' });
+
+  it('AC-7: leaving Tickets and coming back from the sidebar keeps the filters', async () => {
+    server.use(ticketsHandler());
+    const { user, history } = await renderApp({ route: '/tickets?assignee=anyone&type=bug' });
+    await screen.findByText('2 tickets');
+
+    await user.click(within(mainNav()).getByRole('link', { name: /^Home/ }));
+    await screen.findByRole('heading', { level: 1, name: /Home|What should we ship/ });
+    await user.click(within(mainNav()).getByRole('link', { name: /^Tickets/ }));
+
+    expect(await screen.findByText('2 tickets')).toBeVisible();
+    const params = new URLSearchParams(history.location.search);
+    expect(params.get('assignee')).toBe('anyone');
+    expect(params.get('type')?.toLowerCase()).toBe('bug');
+  });
+
+  it('AC-8: an address that names filters wins, and is remembered from then on', async () => {
+    server.use(ticketsHandler());
+    const first = await renderApp({ route: '/tickets?type=bug' });
+    await screen.findByText('1 ticket');
+    first.unmount();
+
+    const { user, history } = await renderApp({ route: '/tickets?assignee=unassigned' });
+    expect(await screen.findByText('1 ticket')).toBeVisible();
+    expect(history.location.search).toBe('?assignee=unassigned');
+    await user.click(within(mainNav()).getByRole('link', { name: /^Home/ }));
+    await user.click(within(mainNav()).getByRole('link', { name: /^Tickets/ }));
+    await waitFor(() => {
+      expect(history.location.search).toBe('?assignee=unassigned');
+    });
+  });
+
+  it('AC-6, AC-7: after Clear filters, coming back shows the defaults', async () => {
+    server.use(ticketsHandler());
+    const { user, history } = await renderApp({ route: '/tickets?type=bug' });
+    await screen.findByText('1 ticket');
+    await user.click(
+      within(screen.getByRole('group', { name: 'Filters' })).getByRole('button', { name: 'Clear filters' }),
+    );
+
+    await user.click(within(mainNav()).getByRole('link', { name: /^Home/ }));
+    await user.click(within(mainNav()).getByRole('link', { name: /^Tickets/ }));
+
+    expect(await screen.findByText('6 tickets')).toBeVisible();
+    expect(history.location.search).toBe('');
+  });
+
+  it('AC-9: the search text is for one visit and isn’t kept', async () => {
+    server.use(ticketsHandler());
+    const { user } = await renderApp({ route: '/tickets?type=bug' });
+    await screen.findByText('1 ticket');
+    await user.type(screen.getByRole('searchbox', { name: 'Search tickets' }), '1389');
+
+    await user.click(within(mainNav()).getByRole('link', { name: /^Home/ }));
+    await user.click(within(mainNav()).getByRole('link', { name: /^Tickets/ }));
+
+    expect(await screen.findByRole('searchbox', { name: 'Search tickets' })).toHaveValue('');
+    expect(screen.getByText('1 ticket')).toBeVisible();
   });
 });

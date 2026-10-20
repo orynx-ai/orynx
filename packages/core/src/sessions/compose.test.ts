@@ -534,6 +534,16 @@ describe('an Ask with no folder (spec 031)', () => {
     expect(await set.sessions.changes('0000000000000001')).toEqual({ state: 'no_worktree' });
   });
 
+  it('AC-32 (039): deleting it removes its own empty folder too', async () => {
+    const set = await setUp({ folders: false, script: asking });
+    await set.sessions.start(noFolder());
+    await settled(set.records);
+
+    expect(await set.sessions.remove('0000000000000001')).toBe('deleted');
+
+    await expect(readdir(join(set.home, 'worktrees', '0000000000000001'))).rejects.toThrow();
+  });
+
   it('AC-4, AC-6: reads only the files the brief names; every edit and command is refused', async () => {
     const set = await setUp({ script: asking });
     await set.sessions.start(noFolder([fileChip]));

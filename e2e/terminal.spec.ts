@@ -106,7 +106,7 @@ async function typeLine(page: Page, line: string) {
 /** Terminal, from the page bar's More actions; the shell takes your keys once it's drawn. */
 async function openTerminal(page: Page) {
   await page.goto(sessionUrl);
-  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Terminal' }).click();
   await expect(page.getByRole('dialog', { name: 'Terminal' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: /· worktree$/ })).toBeFocused();
@@ -236,5 +236,5 @@ test('AC-2, AC-31: Esc stays in your shell, Close gives focus back to More actio
 
   await page.getByRole('button', { name: 'Close terminal' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('button', { name: 'More actions' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'More actions', exact: true })).toBeFocused();
 });

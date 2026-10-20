@@ -34,8 +34,10 @@ export function sessionStateLabel(state: SessionItemState, ready: SessionItemRea
   return state === 'done' ? doneLabels[ready] : sessionStateLabels[state];
 }
 
-const iconVariants = cva('inline-flex size-6 shrink-0 items-center justify-center rounded-full', {
+const iconVariants = cva('inline-flex shrink-0 items-center justify-center rounded-full', {
   variants: {
+    // The small row's 20 px circle holds 12 px glyphs (spec 039, Q4).
+    size: { default: 'size-6', sm: 'size-5 [&_svg]:size-3' },
     state: {
       needs_you: 'bg-warning-subtle text-warning',
       working: 'bg-info-subtle text-info-foreground',
@@ -96,13 +98,29 @@ const icons: Record<SessionItemState, ReactNode> = {
 };
 
 /** The state's 24 px circle with its glyph, as the sidebar draws it. For the eye only: say the state in words too. */
-export function SessionStateIcon({ state, className }: { state: SessionItemState; className?: string }) {
+export function SessionStateIcon({
+  state,
+  size = 'default',
+  className,
+}: {
+  state: SessionItemState;
+  size?: SessionItemSize;
+  className?: string;
+}) {
   return (
-    <span aria-hidden className={cn(iconVariants({ state }), className)}>
+    <span aria-hidden className={cn(iconVariants({ state, size }), className)}>
       {icons[state]}
     </span>
   );
 }
+
+/** `sm` is the sidebar's (spec 039, Q4): a 14 px title over a 12 px line, and a 20 px circle. */
+export type SessionItemSize = 'default' | 'sm';
+
+const rowVariants = cva(
+  'flex items-start rounded-sm text-foreground no-underline hover:bg-subtle aria-[current=page]:bg-raised aria-[current=page]:ring-1 aria-[current=page]:ring-border',
+  { variants: { size: { default: 'gap-3 px-3 py-2', sm: 'gap-2.5 px-2.5 py-1.5' } } },
+);
 
 export type SessionItemProps = Omit<ComponentProps<'a'>, 'title'> & {
   title: string;
@@ -113,6 +131,12 @@ export type SessionItemProps = Omit<ComponentProps<'a'>, 'title'> & {
   ready?: SessionItemReady;
   /** Render the child element (for example a router link) as the row. */
   asChild?: boolean;
+  size?: SessionItemSize;
+  /**
+   * Buttons at the row's end, such as its ⋯ menu (spec 039): beside the link, never inside it. They show while the
+   * pointer is over the row, something in it has focus or its menu is open, and always under 768 px (no hover).
+   */
+  actions?: ReactNode;
 };
 
 /**
@@ -126,28 +150,40 @@ export function SessionItem({
   state,
   ready,
   asChild = false,
+  size = 'default',
+  actions,
   className,
   children,
   ...props
 }: SessionItemProps) {
   const Comp = asChild ? Slot.Root : 'a';
-  return (
+  const small = size === 'sm';
+  const row = (
     <Comp
       className={cn(
-        'flex items-start gap-3 rounded-sm px-3 py-2 text-foreground no-underline hover:bg-subtle aria-[current=page]:bg-raised aria-[current=page]:ring-1 aria-[current=page]:ring-border',
+        rowVariants({ size }),
+        // Room for the actions while they show, so the title is cut short before them rather than under them.
+        actions !== undefined &&
+          // style-policy-ignore-next-line: a state variant, not a value; the menu's open trigger keeps the room
+          'group-focus-within/session:pe-10 group-hover/session:pe-10 group-has-data-[state=open]/session:pe-10 max-md:pe-10',
         className,
       )}
       {...props}
     >
       <Slot.Slottable>{children}</Slot.Slottable>
-      <SessionStateIcon state={state} />
+      <SessionStateIcon state={state} size={size} />
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         {/* The spaces keep the link's name readable ("Add bulk archive PROJ-1423 Needs you"); flex drops them visually.
             The tooltip shows a title the row cuts short; the link's name still comes from the text. */}
-        <span className="truncate font-medium" title={title}>
+        <span className={cn('truncate font-medium', small && 'text-small')} title={title}>
           {title}
         </span>{' '}
-        <span className="flex items-center gap-1 overflow-hidden text-small whitespace-nowrap text-muted-foreground">
+        <span
+          className={cn(
+            'flex items-center gap-1 overflow-hidden whitespace-nowrap text-muted-foreground',
+            small ? 'text-label' : 'text-small',
+          )}
+        >
           {source === undefined ? null : (
             <>
               <span className="min-w-0 truncate font-mono">{source}</span>{' '}
@@ -161,27 +197,41 @@ export function SessionItem({
       </span>
     </Comp>
   );
+  if (actions === undefined) return row;
+  return (
+    <div className="group/session relative">
+      {row}
+      <div className="absolute inset-y-0 end-1 flex items-center opacity-0 group-focus-within/session:opacity-100 group-hover/session:opacity-100 has-data-[state=open]:opacity-100 max-md:opacity-100">
+        {actions}
+      </div>
+    </div>
+  );
 }
 
 /**
  * A session row while it loads: the row's own padding, its state circle and its two lines as blank
  * blocks, so nothing moves when the session arrives (spec 020: the sidebar's next 16).
  */
-export function SessionItemSkeleton({ className, ...props }: Omit<ComponentProps<'div'>, 'children'>) {
+export function SessionItemSkeleton({
+  size = 'default',
+  className,
+  ...props
+}: Omit<ComponentProps<'div'>, 'children'> & { size?: SessionItemSize }) {
+  const small = size === 'sm';
   return (
     <div
       data-slot="session-item-skeleton"
       aria-hidden
-      className={cn('flex items-start gap-3 px-3 py-2', className)}
+      className={cn(small ? 'flex items-start gap-2.5 px-2.5 py-1.5' : 'flex items-start gap-3 px-3 py-2', className)}
       {...props}
     >
-      <Skeleton shape="circle" className="size-6" />
+      <Skeleton shape="circle" className={small ? 'size-5' : 'size-6'} />
       <span className="flex min-w-0 flex-1 flex-col gap-px">
-        <span className="flex h-6 items-center">
-          <Skeleton className="h-4 w-3/4" />
+        <span className={cn('flex items-center', small ? 'h-5' : 'h-6')}>
+          <Skeleton className={cn('w-3/4', small ? 'h-3.5' : 'h-4')} />
         </span>
-        <span className="flex h-5 items-center">
-          <Skeleton className="h-3.5 w-1/2" />
+        <span className={cn('flex items-center', small ? 'h-4' : 'h-5')}>
+          <Skeleton className={cn('w-1/2', small ? 'h-3' : 'h-3.5')} />
         </span>
       </span>
     </div>

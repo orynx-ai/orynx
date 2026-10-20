@@ -162,9 +162,10 @@ test.describe('the Project and Sprint pickers (spec 020)', () => {
     await page.goto('/tickets');
     await expect(page.getByText('PROJ-1423').first()).toBeVisible();
 
+    // Spec 039: the page bar's crumbs, each as wide as its words.
     const project = page.getByRole('button', { name: /^Project / });
     const sprint = page.getByRole('button', { name: /^Sprint / });
-    expect((await project.boundingBox())?.width).toBe((await sprint.boundingBox())?.width);
+    await expect(sprint).toBeVisible();
 
     await project.click();
     // The popover the list opens in: its search box over the listbox, and the loading and no-match lines.

@@ -1,9 +1,8 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
   ArrowUpRight01Icon,
   ComputerTerminal01Icon,
-  Delete02Icon,
   GitPullRequestIcon,
   Loading03Icon,
   MoreHorizontalIcon,
@@ -33,9 +32,11 @@ import { useWide } from '../../../shell/use-wide.ts';
 import { needsApprovalLabel } from '../approval-words.ts';
 import { editorLink, openInLabel } from '../change-words.ts';
 import { openPullRequestLabel, pullRequestWords } from '../pull-request-words.ts';
-import { useEditor, useSessionChanges } from '../queries.ts';
+import { useEditor, useHasChanges } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
-import { DiscardSession } from './discard-session.tsx';
+import { DeleteSession } from './delete-session.tsx';
+import { RenameSession } from './rename-session.tsx';
+import { SessionMenuItems, type SessionMenuPick } from './session-menu.tsx';
 import { SessionTerminal } from './terminal/session-terminal.tsx';
 import { terminalWords } from './terminal/terminal-words.ts';
 import { PushChanges } from './push-changes.tsx';
@@ -62,15 +63,6 @@ function canCreatePullRequest(session: Session): boolean {
 function canPush(session: Session): boolean {
   const working = session.state === 'working' || session.state === 'needs_you';
   return !working && session.discardedAt === null && session.worktreePath !== null;
-}
-
-/**
- * Whether the worktree holds anything a pull request could take: a file that differs from where the branch
- * started. Not known yet, or not readable, is no (the user's call, 19 Oct 2026: no Create pull request for nothing).
- */
-function useHasChanges(sessionId: string): boolean {
-  const changes = useSessionChanges(sessionId);
-  return changes.data?.state === 'ready' && changes.data.files.length + changes.data.moreFiles > 0;
 }
 
 /**
@@ -109,9 +101,9 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
 /**
  * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop while Claude works (AC-9);
  * once Claude is done, Create pull request when there's something to put in one; once the pull request is open,
- * Open PR and Push changes, with no primary button (spec 014, Q10e). Terminal, Open in the editor and Discard
- * changes wait in More actions (spec 038). Under 768 px everything but Stop moves into More actions, so the bar
- * keeps to one line.
+ * Open PR and Push changes, with no primary button (spec 014, Q10e). Terminal and Open in the editor wait in More
+ * actions (spec 038), then Rename, Pin and Delete (spec 039, where Delete took Discard changes' place, the user's call,
+ * 20 Oct 2026). Under 768 px everything but Stop moves into More actions, so the bar keeps to one line.
  * Stop keeps focus while it runs; once the session has stopped, the title takes focus, because the button is gone.
  */
 export function SessionActions({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
@@ -120,10 +112,11 @@ export function SessionActions({ session, title }: { session: Session; title: Re
   const more = useRef<HTMLButtonElement>(null);
   const createDialog = useRef<{ open: () => void }>(null);
   const pushDialog = useRef<{ open: () => void }>(null);
-  const discardDialog = useRef<{ open: () => void }>(null);
   const terminalDialog = useRef<{ open: () => void }>(null);
   // The dialog an item opens, once the menu has closed and let go of focus.
-  const picked = useRef<'create' | 'push' | 'discard' | 'terminal' | null>(null);
+  const picked = useRef<'create' | 'push' | 'terminal' | SessionMenuPick | null>(null);
+  // Rename and Delete (spec 039), opened as the sidebar's ⋯ opens them.
+  const [sessionDialog, setSessionDialog] = useState<SessionMenuPick | null>(null);
   // Once you've created the pull request, focus goes to Open PR, now or as soon as it shows (spec 014, AC-4);
   // under 768 px Open PR is in More actions, so to that.
   const justOpened = useRef(false);
@@ -149,16 +142,11 @@ export function SessionActions({ session, title }: { session: Session; title: Re
 
   const offerCreate = canCreatePullRequest(session) && hasChanges;
   const offerPush = pullRequest !== null && canPush(session);
-  // An Ask session has no worktree to open or discard (spec 026); nor is there one once discarded or before it's made.
+  // An Ask session has no worktree to open (spec 026); nor is there one once discarded or before it's made.
   const kept = session.mode !== 'ask' && session.discardedAt === null;
   const editorPath = kept && editor !== null ? session.worktreePath : null;
-  const offerDiscard = kept && session.branch !== null;
   const menu = wide ? undefined : more;
-  const hasMenu =
-    session.terminal ||
-    editorPath !== null ||
-    offerDiscard ||
-    (!wide && (offerCreate || offerPush || pullRequest !== null));
+  // Rename, Pin and Delete are always there (spec 039, AC-34), so More actions is too.
 
   return (
     <>
@@ -215,92 +203,105 @@ export function SessionActions({ session, title }: { session: Session; title: Re
           {...(menu === undefined ? {} : { menu })}
         />
       ) : null}
-      {offerDiscard ? <DiscardSession ref={discardDialog} session={session} title={title} menu={more} /> : null}
-      {hasMenu ? (
-        <Menu>
-          <MenuTrigger asChild>
-            <IconButton ref={more} variant="ghost" size="sm" label="More actions">
-              <Icon icon={MoreHorizontalIcon} aria-hidden />
-            </IconButton>
-          </MenuTrigger>
-          <MenuContent
-            size="sm"
-            align="end"
-            onCloseAutoFocus={(event) => {
-              const dialog = picked.current;
-              if (dialog === null) return;
-              picked.current = null;
-              event.preventDefault();
-              const dialogs = {
-                create: createDialog,
-                push: pushDialog,
-                discard: discardDialog,
-                terminal: terminalDialog,
-              };
-              dialogs[dialog].current?.open();
+      <RenameSession
+        session={session}
+        open={sessionDialog === 'rename'}
+        onClose={() => {
+          setSessionDialog(null);
+        }}
+        returnFocusTo={() => more.current}
+      />
+      <DeleteSession
+        session={session}
+        open={sessionDialog === 'delete'}
+        onClose={() => {
+          setSessionDialog(null);
+        }}
+        returnFocusTo={() => more.current}
+        // It goes to the Sessions page itself, where the page takes focus.
+        onDeleted={() => undefined}
+      />
+      <Menu>
+        <MenuTrigger asChild>
+          <IconButton ref={more} variant="ghost" size="sm" label="More actions">
+            <Icon icon={MoreHorizontalIcon} aria-hidden />
+          </IconButton>
+        </MenuTrigger>
+        <MenuContent
+          size="sm"
+          align="end"
+          onCloseAutoFocus={(event) => {
+            const dialog = picked.current;
+            if (dialog === null) return;
+            picked.current = null;
+            event.preventDefault();
+            if (dialog === 'rename' || dialog === 'delete') {
+              setSessionDialog(dialog);
+              return;
+            }
+            const dialogs = {
+              create: createDialog,
+              push: pushDialog,
+              terminal: terminalDialog,
+            };
+            dialogs[dialog].current?.open();
+          }}
+        >
+          {session.terminal ? (
+            <MenuItem
+              icon={<Icon icon={ComputerTerminal01Icon} />}
+              aria-keyshortcuts={terminalShortcut(platform).ariaKeyShortcuts}
+              onSelect={() => {
+                picked.current = 'terminal';
+              }}
+            >
+              {terminalWords.button}
+            </MenuItem>
+          ) : null}
+          {!wide && offerCreate ? (
+            <MenuItem
+              icon={<Icon icon={GitPullRequestIcon} />}
+              onSelect={() => {
+                picked.current = 'create';
+              }}
+            >
+              {pullRequestWords.create}
+            </MenuItem>
+          ) : null}
+          {!wide && pullRequest !== null ? (
+            // An item, not a link: a link's own click would have to stop the browser, and that stops the menu closing.
+            <MenuItem
+              icon={<Icon icon={ArrowUpRight01Icon} />}
+              onSelect={() => {
+                platform.openExternal(pullRequest.url);
+              }}
+            >
+              {openPullRequestLabel(pullRequest.number)}
+            </MenuItem>
+          ) : null}
+          {!wide && offerPush ? (
+            <MenuItem
+              icon={<Icon icon={Upload01Icon} />}
+              onSelect={() => {
+                picked.current = 'push';
+              }}
+            >
+              {pullRequestWords.push}
+            </MenuItem>
+          ) : null}
+          {editor === null || editorPath === null ? null : (
+            <MenuItem asChild icon={<Icon icon={editor === 'vscode' ? VisualStudioCodeIcon : SourceCodeIcon} />}>
+              <a href={editorLink(editor, editorPath)}>{openInLabel(editor)}</a>
+            </MenuItem>
+          )}
+          <SessionMenuItems
+            session={session}
+            onPick={(pick) => {
+              picked.current = pick;
             }}
-          >
-            {session.terminal ? (
-              <MenuItem
-                icon={<Icon icon={ComputerTerminal01Icon} />}
-                aria-keyshortcuts={terminalShortcut(platform).ariaKeyShortcuts}
-                onSelect={() => {
-                  picked.current = 'terminal';
-                }}
-              >
-                {terminalWords.button}
-              </MenuItem>
-            ) : null}
-            {!wide && offerCreate ? (
-              <MenuItem
-                icon={<Icon icon={GitPullRequestIcon} />}
-                onSelect={() => {
-                  picked.current = 'create';
-                }}
-              >
-                {pullRequestWords.create}
-              </MenuItem>
-            ) : null}
-            {!wide && pullRequest !== null ? (
-              // An item, not a link: a link's own click would have to stop the browser, and that stops the menu closing.
-              <MenuItem
-                icon={<Icon icon={ArrowUpRight01Icon} />}
-                onSelect={() => {
-                  platform.openExternal(pullRequest.url);
-                }}
-              >
-                {openPullRequestLabel(pullRequest.number)}
-              </MenuItem>
-            ) : null}
-            {!wide && offerPush ? (
-              <MenuItem
-                icon={<Icon icon={Upload01Icon} />}
-                onSelect={() => {
-                  picked.current = 'push';
-                }}
-              >
-                {pullRequestWords.push}
-              </MenuItem>
-            ) : null}
-            {editor === null || editorPath === null ? null : (
-              <MenuItem asChild icon={<Icon icon={editor === 'vscode' ? VisualStudioCodeIcon : SourceCodeIcon} />}>
-                <a href={editorLink(editor, editorPath)}>{openInLabel(editor)}</a>
-              </MenuItem>
-            )}
-            {offerDiscard ? (
-              <MenuItem
-                icon={<Icon icon={Delete02Icon} />}
-                className="text-danger"
-                onSelect={() => {
-                  picked.current = 'discard';
-                }}
-              >
-                Discard changes
-              </MenuItem>
-            ) : null}
-          </MenuContent>
-        </Menu>
-      ) : null}
+          />
+        </MenuContent>
+      </Menu>
     </>
   );
 }

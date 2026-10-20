@@ -1,6 +1,5 @@
-import type { InboxToolState, OpenSprint, OrynxTicketCreator, Sprint, Ticket, TicketColumn } from '@devhub/contracts';
+import type { OpenSprint, OrynxTicketCreator, Sprint, Ticket, TicketColumn } from '@devhub/contracts';
 import { personName } from '../../shell/person-name.ts';
-import { agoText } from '../../words/ago.ts';
 import { dayMonth, plural } from '../../words/calendar.ts';
 
 /**
@@ -8,10 +7,9 @@ import { dayMonth, plural } from '../../words/calendar.ts';
  * laptop's calendar, the way Home writes its dates.
  */
 
-/** Q9a, Q7c: "PROJ · ends 24 Oct", "PROJ · ended 24 Oct", "PROJ", or "ends 24 Oct"; null with neither. */
+/** Q9a, Q7c: "ends 24 Oct" or "ended 24 Oct"; null with no end. The project is a crumb of its own (spec 039). */
 export function sprintMeta(sprint: Sprint, now: Date): string | null {
   const parts: string[] = [];
-  if (sprint.projectKey !== null) parts.push(sprint.projectKey);
   if (sprint.endsAt !== null) {
     const ends = new Date(sprint.endsAt);
     parts.push(`${ends.getTime() < now.getTime() ? 'ended' : 'ends'} ${dayMonth(ends, now).short}`);
@@ -63,12 +61,6 @@ export function pageHeading(sprintName: string): string {
 /** Q9b: "9 tickets", "1 ticket", "0 tickets". */
 export function ticketCount(count: number): string {
   return plural(count, 'ticket');
-}
-
-/** The page bar's line beside Refresh, as Home's: when Jira last answered; null before it ever did. */
-export function syncedLine(jira: InboxToolState, now: Date): string | null {
-  const at = jira.state === 'synced' ? jira.at : jira.state === 'failed' ? jira.lastSyncedAt : null;
-  return at === null ? null : `Synced ${agoText(now.getTime() - Date.parse(at))}`;
 }
 
 /** The Assignee filter's search box (the user's call, 19 Oct 2026). */
@@ -205,6 +197,11 @@ export function ticketProblemLine(key: string, result: 'not_found' | 'not_connec
 /** Spec 037, Q12b to Q12f: the words of an Orynx ticket's form and its delete. */
 export const orynxTicketWords = {
   newTicket: 'New ticket',
+  /** The page bar's New ticket, short so the bar fits (the user's call, 20 Oct 2026). */
+  newShort: 'New',
+  /** Under the New ticket dialog's heading: where the ticket goes (the user's ask, 20 Oct 2026, spec 039). */
+  savedHere: (jira: boolean) =>
+    jira ? 'Saved in Orynx on this computer. It isn’t added to Jira.' : 'Saved in Orynx on this computer.',
   newTicketIn: (column: TicketColumn) => `New ticket in ${columnNames[column]}`,
   editTitle: (key: string) => `Edit ${key}`,
   create: 'Create ticket',

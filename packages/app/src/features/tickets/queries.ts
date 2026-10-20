@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   orynxTicketQueryOptions,
   queryKeys,
@@ -48,10 +48,13 @@ export function useTicketsSprints(project: string | null, open: boolean) {
  * was read for the old one, and the server says `syncing` until a pass has read the new one, then
  * `inbox.changed` brings it.
  */
+const chooseKey = ['tickets', 'choice'] as const;
+
 export function useChooseTicketsSprint() {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: chooseKey,
     mutationFn: (choice: TicketsChoice) => api.chooseTicketsSprint(choice),
     onMutate: async (choice) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.tickets });
@@ -62,6 +65,18 @@ export function useChooseTicketsSprint() {
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.tickets }),
   });
+}
+
+/**
+ * Whether the last pick of a project or sprint didn't save, from the page bar or the filter sheet: the page then
+ * says so in one line, until the next pick (spec 005, Q7c; spec 039 moved the pickers out of the toolbar).
+ */
+export function useTicketsChoiceFailed(): boolean {
+  const statuses = useMutationState({
+    filters: { mutationKey: chooseKey },
+    select: (mutation) => mutation.state.status,
+  });
+  return statuses.at(-1) === 'error';
 }
 
 /** One ticket in full for the ticket dialog (spec 022), asked of Jira each time the dialog opens. */

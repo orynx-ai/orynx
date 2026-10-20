@@ -1,4 +1,5 @@
 import type { TicketColumn } from '@devhub/contracts';
+import type { TicketsSearch } from './filters.ts';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -13,6 +14,12 @@ interface TicketsState {
   selected: string[];
   toggleSelected: (key: string) => void;
   clearSelected: () => void;
+  /**
+   * The filters last in the address, as it writes them (only what differs from the default), so Tickets opens on
+   * them again when it's opened with none (spec 039, AC-7). Remembered on this computer; the search text isn't.
+   */
+  filters: TicketsSearch;
+  keepFilters: (filters: TicketsSearch) => void;
   /** The column a new Orynx ticket starts in while the New ticket form is open (spec 037); null while it's closed. */
   newTicket: TicketColumn | null;
   openNewTicket: (column: TicketColumn) => void;
@@ -25,6 +32,10 @@ export const useTicketsStore = create<TicketsState>()(
       view: 'board',
       setView: (view) => {
         set({ view });
+      },
+      filters: {},
+      keepFilters: (filters) => {
+        set({ filters });
       },
       selected: [],
       toggleSelected: (key) => {
@@ -45,6 +56,6 @@ export const useTicketsStore = create<TicketsState>()(
         set({ newTicket: null });
       },
     }),
-    { name: 'devhub.tickets', partialize: (state) => ({ view: state.view }) },
+    { name: 'devhub.tickets', partialize: (state) => ({ view: state.view, filters: state.filters }) },
   ),
 );

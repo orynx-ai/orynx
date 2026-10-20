@@ -52,7 +52,7 @@ describe('SyncStatus', () => {
     await renderApp();
 
     expect(await pageBar().findByText('Syncing')).toBeVisible();
-    expect(pageBar().getByRole('button', { name: 'Refresh' })).toBeVisible();
+    expect(pageBar().getByRole('button', { name: 'Sync' })).toBeVisible();
   });
 
   it('AC-21: has no Synced line and no Refresh when no tool is connected', async () => {
@@ -60,7 +60,7 @@ describe('SyncStatus', () => {
     await screen.findByText('Nothing needs you yet');
 
     expect(pageBar().queryByText(/Synced|Syncing/)).not.toBeInTheDocument();
-    expect(pageBar().queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
+    expect(pageBar().queryByRole('button', { name: 'Sync' })).not.toBeInTheDocument();
   });
 
   it('AC-17: syncs at once on Refresh, ignores presses until the sync ends, then reads "Synced just now"', async () => {
@@ -80,12 +80,14 @@ describe('SyncStatus', () => {
     );
     const { user } = await renderApp();
     await pageBar().findByText('Synced 2 min ago');
-    const refresh = pageBar().getByRole('button', { name: 'Refresh' });
+    const refresh = pageBar().getByRole('button', { name: 'Sync' });
 
     await user.click(refresh);
     await waitFor(() => {
       expect(refresh).toHaveAttribute('aria-disabled', 'true');
     });
+    // AC-15 (spec 039): it says what it's doing while the sync runs, in its name and tooltip (its arrow alone shows).
+    expect(refresh).toHaveAccessibleName('Syncing');
     await user.click(refresh);
     expect(refreshes).toBe(1);
 
@@ -93,6 +95,7 @@ describe('SyncStatus', () => {
 
     expect(await pageBar().findByText('Synced just now')).toBeVisible();
     expect(refresh).not.toHaveAttribute('aria-disabled');
+    expect(refresh).toHaveAccessibleName('Sync');
     expect(refresh).toHaveFocus();
   });
 });

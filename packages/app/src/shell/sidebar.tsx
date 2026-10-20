@@ -33,6 +33,9 @@ import { useWide } from './use-wide.ts';
  */
 const sidebarId = 'sidebar';
 
+/** The places' icons, one step down the scale from 768 px (spec 039, Q4); the narrow bar keeps 20 px. */
+const navIcon = 'md:size-4';
+
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
@@ -101,11 +104,12 @@ export function Sidebar() {
               openSearch(true);
             }}
             className={cn(
-              'flex h-10 w-full cursor-pointer items-center gap-2 rounded-sm border border-border bg-canvas px-3 text-muted-foreground hover:border-control hover:text-foreground max-md:size-10 max-md:justify-center max-md:px-0',
+              // One step down the scale (spec 039, Q4): 36 px, 14 px words, a 16 px icon; 40 px in the narrow bar.
+              'flex h-9 w-full cursor-pointer items-center gap-2 rounded-sm border border-border bg-canvas px-3 text-small text-muted-foreground hover:border-control hover:text-foreground max-md:size-10 max-md:justify-center max-md:px-0',
               collapsed && 'md:justify-center md:px-0',
             )}
           >
-            <Icon icon={Search01Icon} aria-hidden />
+            <Icon icon={Search01Icon} aria-hidden className="size-4" />
             <Label collapsed={collapsed} className="max-md:sr-only">
               Search
             </Label>
@@ -117,7 +121,7 @@ export function Sidebar() {
       <div className="grid w-full grid-cols-4 gap-1 md:flex md:flex-col md:gap-0.5">
         <NavItem
           to="/"
-          icon={<Icon icon={Home03Icon} aria-hidden />}
+          icon={<Icon icon={Home03Icon} aria-hidden className={navIcon} />}
           label="Home"
           collapsed={collapsed}
           // New task's shortcut opens Home with focus on its content (spec 001), so Home carries it now (spec 020).
@@ -129,7 +133,7 @@ export function Sidebar() {
         />
         <NavItem
           to="/tickets"
-          icon={<Icon icon={Ticket01Icon} aria-hidden />}
+          icon={<Icon icon={Ticket01Icon} aria-hidden className={navIcon} />}
           label="Tickets"
           collapsed={collapsed}
           // Spec 008, Q6: your tickets in the sprint, Done included, as the design draws "9".
@@ -139,14 +143,14 @@ export function Sidebar() {
         />
         <NavItem
           to="/settings"
-          icon={<Icon icon={Settings02Icon} aria-hidden />}
+          icon={<Icon icon={Settings02Icon} aria-hidden className={navIcon} />}
           label="Settings"
           collapsed={collapsed}
         />
         {/* Narrow windows and the collapsed rail have no session rows, so the full list gets a place of its own. */}
         <NavItem
           to="/sessions"
-          icon={<Icon icon={HistoryIcon} aria-hidden />}
+          icon={<Icon icon={HistoryIcon} aria-hidden className={navIcon} />}
           label="Sessions"
           collapsed={collapsed}
           className={collapsed ? undefined : 'md:hidden'}
@@ -217,7 +221,8 @@ function NavItem({
         activeOptions={{ exact, includeSearch: false }}
         aria-keyshortcuts={keyShortcuts}
         className={cn(
-          'group flex min-h-10 items-center gap-3 rounded-sm px-3 font-medium text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:text-foreground',
+          // 36 px with 14 px words from 768 px (spec 039, Q4); the narrow bar keeps its own sizes below.
+          'group flex min-h-9 items-center gap-2.5 rounded-sm px-3 text-small font-medium text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:text-foreground',
           // Narrow windows: icon over a 14 px label, four to a row.
           'max-md:flex-col max-md:gap-1 max-md:px-1 max-md:py-1.5 max-md:text-small',
           collapsed && 'md:justify-center md:px-0',

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { chmod, mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SessionIdSchema } from '@devhub/contracts';
 import { endProgress } from './progress.ts';
@@ -144,6 +144,13 @@ export async function openFileSessionStore(
     writeBrief: (id, text) =>
       inTurn(id, async () => {
         await writeAtomically(await folderFor(id), 'brief.md', text);
+      }),
+    remove: (id) =>
+      inTurn(id, async () => {
+        if (!known(id)) return false;
+        records.delete(id);
+        await rm(join(root, id), { recursive: true, force: true });
+        return true;
       }),
     async readBrief(id) {
       if (!known(id)) return null;

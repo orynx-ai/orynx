@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
+import { IconButton } from './icon-button.tsx';
 import {
   SessionItem,
   SessionItemSkeleton,
@@ -97,5 +98,41 @@ describe('SessionItem', () => {
     const { container } = render(<SessionItemSkeleton />);
     expect(container.firstElementChild).toHaveAttribute('aria-hidden', 'true');
     await expectNoAxeViolations(container);
+  });
+});
+
+describe('SessionItem actions and size (spec 039)', () => {
+  const actions = (
+    <IconButton variant="ghost" size="sm" label="More actions for Add bulk archive">
+      ⋯
+    </IconButton>
+  );
+
+  it('AC-24: puts its actions beside the link, never inside it, and has no axe violations', async () => {
+    const { container } = render(
+      <SessionItem href="/sessions/1" title="Add bulk archive" source="PROJ-1423" state="done" actions={actions} />,
+    );
+
+    const link = screen.getByRole('link', { name: 'Add bulk archive PROJ-1423 Done, ready for PR' });
+    const more = screen.getByRole('button', { name: 'More actions for Add bulk archive' });
+    expect(link).not.toContainElement(more);
+    expect(link).toHaveAttribute('href', '/sessions/1');
+    await expectNoAxeViolations(container);
+  });
+
+  it('AC-24: Tab reaches the link, then its actions', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    render(<SessionItem href="/sessions/1" title="Add bulk archive" state="done" actions={actions} />);
+
+    await user.tab();
+    expect(screen.getByRole('link')).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'More actions for Add bulk archive' })).toHaveFocus();
+  });
+
+  it('AC-39: the small size keeps the same words and the same one link', () => {
+    render(<SessionItem href="/sessions/1" size="sm" title="Add bulk archive" source="PROJ-1423" state="working" />);
+    expect(screen.getByRole('link', { name: 'Add bulk archive PROJ-1423 Working' })).toBeVisible();
   });
 });

@@ -369,3 +369,35 @@ describe('Search dialog', () => {
     expect(within(ticket).getByText('Orynx')).toHaveClass('sr-only');
   });
 });
+
+describe('recent searches in ⌘K (spec 039)', () => {
+  it('AC-44: a search that opened a result shows next time in place of the hint, and picking it runs it again', async () => {
+    holding();
+    const { user, history } = await renderApp();
+    await openSearch(user);
+    await user.type(await screen.findByRole('combobox'), 'tidy the');
+    await user.click(await screen.findByRole('option', { name: /Tidy the settings page/ }));
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/sessions/session-1');
+    });
+
+    await openSearch(user);
+    const dialog = await screen.findByRole('dialog', { name: 'Search' });
+    const recent = await within(dialog).findByRole('group', { name: 'Recent searches' });
+    expect(within(dialog).queryByText(/^Find a ticket by key or title/)).not.toBeInTheDocument();
+    await user.click(within(recent).getByRole('button', { name: 'Search for tidy the' }));
+
+    expect(searchBox()).toHaveValue('tidy the');
+    expect(searchBox()).toHaveFocus();
+    expect(await within(dialog).findByRole('option', { name: /Tidy the settings page/ })).toBeVisible();
+  });
+
+  it('AC-44: without recent searches the hint line stays', async () => {
+    holding();
+    const { user } = await renderApp();
+    await openSearch(user);
+    const dialog = await screen.findByRole('dialog', { name: 'Search' });
+    expect(await within(dialog).findByText(/^Find a ticket by key or title/)).toBeVisible();
+    expect(within(dialog).queryByRole('group', { name: 'Recent searches' })).not.toBeInTheDocument();
+  });
+});

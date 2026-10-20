@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer as createNetServer, type Server } from 'node:net';
@@ -1054,6 +1054,96 @@ describe('discarding a session', () => {
     expect(await service.discard('0000000000000001')).toBe('discarded');
     expect(await records.get('0000000000000001')).toEqual(once);
     expect(await service.discard('fedcba9876543210')).toBe('not_found');
+  });
+});
+
+describe('renaming, pinning and deleting a session (spec 039)', () => {
+  it('AC-28: renames a session without moving its activity time, and every list hears', async () => {
+    const { service, records, heard } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const before = await settled(records);
+    const from = heard.length;
+
+    expect(await service.edit('0000000000000001', { title: 'Fix the login page' })).toBe('changed');
+
+    const after = await records.get('0000000000000001');
+    expect(after?.session.title).toBe('Fix the login page');
+    expect(after?.session.updatedAt).toBe(before.session.updatedAt);
+    expect(heard.slice(from)).toEqual(
+      expect.arrayContaining([
+        { type: 'sessions.changed' },
+        { type: 'session.changed', sessionId: '0000000000000001' },
+      ]),
+    );
+  });
+
+  it('AC-26, AC-27: pins once, keeping the first pin, and unpins, without moving the activity time', async () => {
+    const { service, records } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const before = await settled(records);
+
+    await service.edit('0000000000000001', { pinned: true });
+    await service.edit('0000000000000001', { pinned: true });
+    expect((await records.get('0000000000000001'))?.session).toMatchObject({
+      pinnedAt: '2026-10-18T09:56:00.000Z',
+      updatedAt: before.session.updatedAt,
+    });
+
+    await service.edit('0000000000000001', { pinned: false });
+    expect((await records.get('0000000000000001'))?.session.pinnedAt).toBeNull();
+  });
+
+  it('AC-28: an unknown session is not found', async () => {
+    const { service } = await setUp();
+    expect(await service.edit('fedcba9876543210', { title: 'Anything' })).toBe('not_found');
+    expect(await service.remove('fedcba9876543210')).toBe('not_found');
+  });
+
+  it('AC-32: deletes the session and its worktree, keeps its branch, and every list hears', async () => {
+    const { service, records, repos, home, heard } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    const from = heard.length;
+
+    expect(await service.remove('0000000000000001')).toBe('deleted');
+
+    expect(await records.get('0000000000000001')).toBeNull();
+    expect(await service.get('0000000000000001')).toBeNull();
+    await expect(readdir(join(home, 'worktrees', '0000000000000001'))).rejects.toThrow();
+    expect(await readdir(join(home, 'sessions'))).toEqual([]);
+    expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toContain('feat/PROJ-1423');
+    expect(heard.slice(from)).toContainEqual({ type: 'sessions.changed' });
+  });
+
+  it('AC-32: deletes its branch too, when asked', async () => {
+    const { service, records, repos } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+
+    expect(await service.remove('0000000000000001', { branch: true })).toBe('deleted');
+
+    expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toBe('');
+  });
+
+  it('AC-32: deletes a session whose changes were discarded already', async () => {
+    const { service, records } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await service.discard('0000000000000001');
+    expect(await service.remove('0000000000000001')).toBe('deleted');
+    expect(await records.get('0000000000000001')).toBeNull();
+  });
+
+  it('AC-33: refuses while Claude works, and keeps everything', async () => {
+    const { service, records, home } = await setUp({ script: [{ hang: true }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await hasStep(records, 'brief');
+
+    expect(await service.remove('0000000000000001')).toBe('working');
+
+    expect((await records.get('0000000000000001'))?.session.state).toBe('working');
+    expect(await readdir(join(home, 'worktrees', '0000000000000001'))).not.toEqual([]);
+    await service.stop('0000000000000001');
   });
 });
 

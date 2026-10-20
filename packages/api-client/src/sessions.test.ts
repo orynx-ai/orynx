@@ -242,6 +242,58 @@ describe('createApiClient().stopSession() and discardSession()', () => {
   });
 });
 
+describe('createApiClient().changeSession() and deleteSession() (spec 039)', () => {
+  it('AC-26, AC-28: patch the session with the change, parsed by the contract first', async () => {
+    const sent: { method: string; path: string; body: unknown }[] = [];
+    server.use(
+      http.patch(`${baseURL}/api/sessions/:id`, async ({ request }) => {
+        sent.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const api = createApiClient({ baseURL, token: 't' });
+    await api.changeSession('0123456789abcdef', { title: '  Fix the login page ' });
+    await api.changeSession('0123456789abcdef', { pinned: true });
+    expect(sent).toEqual([
+      { method: 'PATCH', path: '/api/sessions/0123456789abcdef', body: { title: 'Fix the login page' } },
+      { method: 'PATCH', path: '/api/sessions/0123456789abcdef', body: { pinned: true } },
+    ]);
+  });
+
+  it('AC-32, AC-33: delete the session, and reject with session_working while Claude works', async () => {
+    const deleted: string[] = [];
+    server.use(
+      http.delete(`${baseURL}/api/sessions/:id`, ({ request, params }) => {
+        if (params['id'] === 'fedcba9876543210') {
+          return HttpResponse.json({ code: 'session_working', message: 'Stop the session first.' }, { status: 409 });
+        }
+        const url = new URL(request.url);
+        deleted.push(url.pathname + url.search);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const api = createApiClient({ baseURL, token: 't' });
+    await api.deleteSession('0123456789abcdef');
+    await api.deleteSession('0123456789abcdef', { branch: true });
+    expect(deleted).toEqual(['/api/sessions/0123456789abcdef', '/api/sessions/0123456789abcdef?branch=true']);
+    await expect(api.deleteSession('fedcba9876543210')).rejects.toMatchObject({ code: 'session_working' });
+  });
+
+  it('AC-26, AC-27: asks for the pinned sessions, or the rest', async () => {
+    const asked: (string | null)[] = [];
+    server.use(
+      http.get(`${baseURL}/api/sessions`, ({ request }) => {
+        asked.push(new URL(request.url).searchParams.get('pinned'));
+        return HttpResponse.json({ sessions: [], nextCursor: null });
+      }),
+    );
+    const api = createApiClient({ baseURL, token: 't' });
+    await api.sessions({ pinned: true });
+    await api.sessions({ pinned: false, limit: 16 });
+    expect(asked).toEqual(['true', 'false']);
+  });
+});
+
 describe('createApiClient().respondToApproval() (spec 012)', () => {
   it('AC-2, AC-3, AC-5: posts the answer to the call’s path under its session', async () => {
     const sent: { path: string; body: unknown }[] = [];

@@ -1,11 +1,14 @@
-// Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list; Refresh, the ticket checkboxes and the floating bar to Ship several: Design: none, the user's call (19 Oct 2026)
-import { Fragment, useRef, type ReactNode } from 'react';
+// Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list; Sync (Refresh until spec 039), the ticket checkboxes and the floating bar to Ship several: Design: none, the user's call (19 Oct 2026)
+import { Fragment, useEffect, useRef, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { KanbanIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
 import { defaultTicketsChoice, isOrynxKey, type InboxToolState, type TicketsChoice } from '@devhub/contracts';
-import { Button, Icon, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
+import { Button, Icon, EmptyState, SearchField, SegmentedControl, SegmentedControlItem, Tooltip } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
+import { RecentSearchBox } from '../../shell/recent-search-box.tsx';
+import { useRecentSearches } from '../../stores/recent-searches.ts';
+import { useTicketDialogStore } from './ticket-dialog-store.ts';
 import { useWide } from '../../shell/use-wide.ts';
 import { toolLine } from '../../words/tool-line.ts';
 import { useNow } from '../../words/use-now.ts';
@@ -15,7 +18,7 @@ import { SprintPickers } from './components/sprint-pickers.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
 import { ShipSelected } from './components/ship-button.tsx';
 import { NewTicketButton, NewTicketDialog, NewTicketInColumn } from './components/new-ticket.tsx';
-import { RefreshButton } from '../home/components/sync-status.tsx';
+import { SyncStatus } from '../home/components/sync-status.tsx';
 import {
   defaultFilters,
   filterOptions,
@@ -26,7 +29,8 @@ import {
   type AddressFilters,
 } from './filters.ts';
 import { useStatus } from '../settings/queries.ts';
-import { useTickets } from './queries.ts';
+import { useTickets, useTicketsChoiceFailed } from './queries.ts';
+import { SaveError } from '../settings/components/save-error.tsx';
 import { useTicketsStore } from './store.ts';
 import {
   noOpenSprintsText,
@@ -38,7 +42,6 @@ import {
   withoutJiraLine,
   pageHeading,
   sprintMeta,
-  syncedLine,
   tooManyLine,
   unreachableText,
 } from './ticket-words.ts';
@@ -57,6 +60,20 @@ export function TicketsScreen() {
   const form = useForm<{ text: string }>({ defaultValues: { text: '' } });
   const text = useWatch({ control: form.control, name: 'text' });
   const assignee = useRef<HTMLButtonElement>(null);
+  const searchBox = useRef<HTMLInputElement | null>(null);
+  // The address's filters are remembered, so Tickets opens on them again (spec 039, AC-7, AC-8).
+  const keepFilters = useTicketsStore((state) => state.keepFilters);
+  useEffect(() => {
+    keepFilters(searchFromFilters(filtersFromSearch(search)));
+  }, [search, keepFilters]);
+  // A pick of project or sprint that didn't save, from the page bar or the sheet (spec 005, Q7c).
+  const choiceFailed = useTicketsChoiceFailed();
+  // A search counts once you press Enter, or open a ticket while it's typed (spec 039, AC-45).
+  const remember = useRecentSearches((state) => state.remember);
+  const opened = useTicketDialogStore((state) => state.shown?.key ?? null);
+  useEffect(() => {
+    if (opened !== null) remember('tickets', form.getValues('text'));
+  }, [opened, remember, form]);
   const now = useNow();
   const wide = useWide();
 
@@ -101,35 +118,71 @@ export function TicketsScreen() {
   );
   const { text: _, ...address } = filters;
   const options = filterOptions(all, address);
-  const crumbs: Crumb[] =
-    shownName === null ? [ticketsCrumb] : [{ ...ticketsCrumb, to: '/tickets' }, { label: shownName }];
+  // Project and Sprint are the page bar's own crumbs, "Tickets / MAI ▾ / No sprint ▾" (spec 039); Orynx's tickets alone
+  // have neither, so the page names them (spec 037, Q7).
+  const crumbs: Crumb[] = orynxOnly
+    ? [{ ...ticketsCrumb, to: '/tickets' }, { label: orynxName }]
+    : [
+        // A phone's page bar holds the sprint alone: Tickets is the place picked above it, and Project is in Filters.
+        { ...ticketsCrumb, to: '/tickets', className: 'max-md:hidden' },
+        {
+          label: 'Project and sprint',
+          className: 'max-md:hidden',
+          items: <SprintPickers place="bar" choice={choice} sprint={sprint} loading={loading} />,
+        },
+      ];
   // A line about Jira's sprint, unless the page shows Orynx's tickets alone by choice.
   const line = jiraOff ? withoutJiraLine : data === undefined || orynxOnly ? null : toolLine('jira', data.jira, now);
   const kept = data?.orynx.kept ?? null;
+  // The sprint's dates; the project is a crumb (spec 039).
+  const meta = orynxOnly || sprint === null ? null : sprintMeta(sprint, now);
   const truncated = !orynxOnly && shownName !== null && data?.truncated === true;
   const noOrynxTickets = orynxOnly && !loading && !all.some((ticket) => isOrynxKey(ticket.key));
-  const synced = data === undefined ? null : syncedLine(data.jira, now);
 
   function changeFilters(next: AddressFilters) {
     void navigate({ search: searchFromFilters(next), replace: true });
   }
 
-  function clearFilters() {
+  /** Back to Assignee: Me alone, with the search emptied; from the filter sheet, focus stays there (spec 039). */
+  function resetFilters() {
     form.reset();
     changeFilters(defaultFilters);
+  }
+
+  function clearFilters() {
+    resetFilters();
     assignee.current?.focus();
   }
 
-  // One search field: in the page bar from 768 px, as the design draws it, and at the start of the toolbar
-  // below that, so the page bar keeps to one line (Q8g).
+  // One search field, at the start of the toolbar at every width (spec 039: the page bar needs the room for Project and
+  // Sprint; under 768 px it was there already, Q8g).
+  const { ref: textRef, ...textField } = form.register('text');
   const searchField = (
-    <SearchField
-      size="sm"
-      aria-label="Search tickets"
-      placeholder="Search tickets"
-      className={wide ? 'w-55' : 'w-full'}
-      {...form.register('text')}
-    />
+    <RecentSearchBox
+      place="tickets"
+      query={text}
+      fieldRef={searchBox}
+      className="w-full"
+      onPick={(picked) => {
+        form.setValue('text', picked);
+        remember('tickets', picked);
+      }}
+    >
+      <SearchField
+        size="sm"
+        aria-label="Search tickets"
+        placeholder="Search tickets"
+        className="w-full"
+        ref={(element) => {
+          textRef(element);
+          searchBox.current = element;
+        }}
+        {...textField}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') remember('tickets', form.getValues('text'));
+        }}
+      />
+    </RecentSearchBox>
   );
 
   let body: ReactNode;
@@ -164,23 +217,16 @@ export function TicketsScreen() {
     <>
       <PageBar
         breadcrumb={<PageBreadcrumb crumbs={crumbs} />}
-        meta={
-          orynxOnly
-            ? undefined
-            : sprint === null
-              ? withoutSprint
-                ? (choice.projectKey ?? undefined)
-                : undefined
-              : (sprintMeta(sprint, now) ?? undefined)
-        }
+        // The project is a crumb now (spec 039); the meta keeps the sprint's dates.
+        // Steps aside under 1280 px, where the crumbs need the room (spec 039, AC-12).
+        meta={meta === null ? undefined : <span className="max-xl:hidden">{meta}</span>}
         actions={
           <>
-            {synced === null ? null : <span className="text-small text-muted-foreground max-md:hidden">{synced}</span>}
-            <RefreshButton />
+            {/* When the tools last synced, as the button that opens Sync activity, then Sync (spec 039, Q2). */}
+            <SyncStatus />
             {orynxShown && !noSprint ? <NewTicketButton inPageBar compact={!wide} /> : null}
             {noSprint ? null : (
               <>
-                {wide ? searchField : null}
                 <SegmentedControl
                   aria-label="View"
                   value={view}
@@ -188,14 +234,17 @@ export function TicketsScreen() {
                     if (picked === 'board' || picked === 'list') setView(picked);
                   }}
                 >
-                  <SegmentedControlItem value="board">
-                    <Icon icon={KanbanIcon} aria-hidden />
-                    Board
-                  </SegmentedControlItem>
-                  <SegmentedControlItem value="list">
-                    <Icon icon={LeftToRightListBulletIcon} aria-hidden />
-                    List
-                  </SegmentedControlItem>
+                  {/* Icons alone, their words in tooltips, so the page bar keeps to one line (the user's call, 20 Oct 2026). */}
+                  <Tooltip label="Board">
+                    <SegmentedControlItem value="board" aria-label="Board">
+                      <Icon icon={KanbanIcon} aria-hidden />
+                    </SegmentedControlItem>
+                  </Tooltip>
+                  <Tooltip label="List">
+                    <SegmentedControlItem value="list" aria-label="List">
+                      <Icon icon={LeftToRightListBulletIcon} aria-hidden />
+                    </SegmentedControlItem>
+                  </Tooltip>
                 </SegmentedControl>
               </>
             )}
@@ -207,20 +256,29 @@ export function TicketsScreen() {
         sprint's filters and pickers never slide away as the answer comes (spec 037, AC-36).
       */}
       <Fragment key={jiraOff ? 'without-jira' : 'with-jira'}>
-        <TicketsToolbar
-          filters={filters}
-          onFiltersChange={changeFilters}
-          onClear={clearFilters}
-          options={options}
-          count={loading ? undefined : shown.length}
-          assigneeRef={assignee}
-          {...(orynxOnly ? {} : { pickers: <SprintPickers choice={choice} sprint={sprint} loading={loading} /> })}
-          pickersOnly={noSprint}
-          sources={!jiraOff}
-          {...(wide ? {} : { search: searchField })}
-        />
+        {/* No sprint to filter (Q8c, spec 020 AC-28): the page bar's pickers are all there is to change. */}
+        {noSprint ? null : (
+          <TicketsToolbar
+            filters={filters}
+            onFiltersChange={changeFilters}
+            onClear={clearFilters}
+            onReset={resetFilters}
+            options={options}
+            count={loading ? undefined : shown.length}
+            assigneeRef={assignee}
+            {...(orynxOnly
+              ? {}
+              : { pickers: <SprintPickers place="sheet" choice={choice} sprint={sprint} loading={loading} /> })}
+            sources={!jiraOff}
+            search={searchField}
+          />
+        )}
         <PageBody width={noSprint ? 'wide' : 'full'}>
           <h1 className="sr-only">{shownName === null ? 'Tickets' : pageHeading(shownName)}</h1>
+          {choiceFailed ? (
+            // The page has gone back to the sprint it showed; the line stays until the next pick (spec 005, Q7c).
+            <SaveError />
+          ) : null}
           {line === null && !truncated && kept === null ? null : (
             <div className="flex flex-col gap-1">
               {line === null ? null : <Note message={line.message} action={line.action} />}
@@ -234,7 +292,7 @@ export function TicketsScreen() {
               assignee.current?.focus();
             }}
           />
-          <NewTicketDialog />
+          <NewTicketDialog jira={!jiraOff} />
         </PageBody>
       </Fragment>
     </>
