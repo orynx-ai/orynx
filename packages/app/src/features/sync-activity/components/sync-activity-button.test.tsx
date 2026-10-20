@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Inbox } from '@devhub/contracts';
 import { makeInbox, makeSyncActivity } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
@@ -23,23 +23,24 @@ function pageBar() {
 const synced = { state: 'synced', at: '2026-10-20T10:41:00.000Z' } as const;
 
 describe('Sync activity button (spec 035)', () => {
-  it('AC-1: sits at the right end of Home’s page bar, after Refresh, with a green dot while syncs go well', async () => {
+  it('AC-1, AC-17 (039): is the "Synced" line itself, before Sync, with a green dot while syncs go well', async () => {
     inboxWith({ jira: synced, github: synced });
     await renderApp();
 
-    const button = await pageBar().findByRole('button', { name: 'Sync activity' });
-    const refresh = pageBar().getByRole('button', { name: 'Sync' });
-    // The user's call, 20 Oct 2026: right-most, a dot in place of the icon.
-    expect(refresh.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(button.querySelector('svg')).toBeNull();
+    const button = await pageBar().findByRole('button', { name: /^Synced .*, Sync activity$/ });
+    const sync = pageBar().getByRole('button', { name: 'Sync' });
+    // Spec 039, Q2: the line is the button, and the separate Sync activity button is gone.
+    expect(button.compareDocumentPosition(sync) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(button).toHaveTextContent(/^Synced /);
     expect(button.querySelector('.bg-success')).not.toBeNull();
+    expect(pageBar().getAllByRole('button', { name: /Sync activity/ })).toHaveLength(1);
   });
 
   it('AC-2: says how many tools need attention, with a red dot', async () => {
     inboxWith({ jira: { state: 'failed', problem: { kind: 'rejected' }, lastSyncedAt: null }, github: synced });
     await renderApp();
 
-    const button = await pageBar().findByRole('button', { name: 'Sync activity, 1 needs attention' });
+    const button = await pageBar().findByRole('button', { name: /, Sync activity, 1 needs attention$/ });
     expect(button.querySelector('.bg-danger')).not.toBeNull();
     expect(button.querySelector('.bg-success')).toBeNull();
   });
@@ -48,13 +49,13 @@ describe('Sync activity button (spec 035)', () => {
     await renderApp();
     await screen.findByText('Nothing needs you yet');
 
-    expect(screen.queryByRole('button', { name: /^Sync activity/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Sync activity/ })).toBeNull();
   });
 
   it('AC-4, AC-26: opens the modal from the keyboard, and Escape, Close or Done give focus back to it', async () => {
     inboxWith({ jira: synced, github: synced });
     const { user } = await renderApp();
-    const button = await pageBar().findByRole('button', { name: 'Sync activity' });
+    const button = await pageBar().findByRole('button', { name: /Sync activity$/ });
 
     for (const close of ['{Escape}', 'Close sync activity', 'Done']) {
       button.focus();
@@ -68,5 +69,29 @@ describe('Sync activity button (spec 035)', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
       expect(button).toHaveFocus();
     }
+  });
+});
+
+describe('Sync activity under 768 px (spec 039)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('AC-17: shows only its dot and the history icon, named and tooltipped Sync activity', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    inboxWith({ jira: synced, github: synced });
+    const { user } = await renderApp();
+
+    const button = await pageBar().findByRole('button', { name: 'Sync activity' });
+    expect(button).not.toHaveTextContent(/Synced/);
+    expect(button.querySelector('svg')).not.toBeNull();
+    expect(button.querySelector('.bg-success')).not.toBeNull();
+    await user.click(button);
+    expect(await screen.findByRole('dialog', { name: 'Sync activity' })).toBeVisible();
   });
 });

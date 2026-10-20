@@ -69,7 +69,7 @@ function serve(log: { tools: SyncTool[]; runs: SyncRun[] }) {
 
 async function open() {
   const app = await renderApp();
-  await app.user.click(await screen.findByRole('button', { name: /^Sync activity/ }));
+  await app.user.click(await screen.findByRole('button', { name: /Sync activity/ }));
   const dialog = await screen.findByRole('dialog', { name: 'Sync activity' });
   return { ...app, dialog: within(dialog) };
 }

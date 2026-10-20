@@ -50,7 +50,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: "Refresh" becomes "Sync" and "Syncing" (AC-14, AC-15)
       Check: pnpm test packages/app/src/features/home/components/sync-status.test.tsx packages/app/src/features/tickets/tickets-screen.test.tsx; pnpm test:e2e e2e/home-inbox.spec.ts
       Files: packages/app/src/features/home/components/sync-status.tsx, its test, tickets-screen.test.tsx, e2e/home-inbox.spec.ts
-- [ ] Task 17: "Synced just now" becomes the Sync activity button with its dot, on Home and on Tickets, and the separate button goes (Q2) (AC-16, AC-17)
+- [x] Task 17: "Synced just now" becomes the Sync activity button with its dot, on Home and on Tickets, and the separate button goes (Q2) (AC-16, AC-17)
       Check: pnpm test packages/app/src/features/sync-activity packages/app/src/features/home/components/sync-status.test.tsx packages/app/src/features/tickets/tickets-screen.test.tsx; pnpm test:e2e e2e/sync-activity.spec.ts
       Files: packages/app/src/features/sync-activity/components/sync-activity-button.tsx, its test, sync-words.ts, packages/app/src/features/home/components/sync-status.tsx, packages/app/src/features/tickets/tickets-screen.tsx, e2e/sync-activity.spec.ts
 - [ ] Task 18: Tickets' toolbar with Source, Assignee and Filters (its count), and the filter sheet with Project, Sprint and every filter, applying as you tick (AC-1–AC-6, AC-13)

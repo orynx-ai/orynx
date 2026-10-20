@@ -18,7 +18,7 @@ import { SprintPickers } from './components/sprint-pickers.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
 import { ShipSelected } from './components/ship-button.tsx';
 import { NewTicketButton, NewTicketDialog, NewTicketInColumn } from './components/new-ticket.tsx';
-import { SyncButton } from '../home/components/sync-status.tsx';
+import { SyncStatus } from '../home/components/sync-status.tsx';
 import {
   defaultFilters,
   filterOptions,
@@ -41,7 +41,6 @@ import {
   withoutJiraLine,
   pageHeading,
   sprintMeta,
-  syncedLine,
   tooManyLine,
   unreachableText,
 } from './ticket-words.ts';
@@ -118,7 +117,6 @@ export function TicketsScreen() {
   const kept = data?.orynx.kept ?? null;
   const truncated = !orynxOnly && shownName !== null && data?.truncated === true;
   const noOrynxTickets = orynxOnly && !loading && !all.some((ticket) => isOrynxKey(ticket.key));
-  const synced = data === undefined ? null : syncedLine(data.jira, now);
 
   function changeFilters(next: AddressFilters) {
     void navigate({ search: searchFromFilters(next), replace: true });
@@ -204,8 +202,8 @@ export function TicketsScreen() {
         }
         actions={
           <>
-            {synced === null ? null : <span className="text-small text-muted-foreground max-md:hidden">{synced}</span>}
-            <SyncButton />
+            {/* When the tools last synced, as the button that opens Sync activity, then Sync (spec 039, Q2). */}
+            <SyncStatus />
             {orynxShown && !noSprint ? <NewTicketButton inPageBar compact={!wide} /> : null}
             {noSprint ? null : (
               <>

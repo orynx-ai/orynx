@@ -1,6 +1,5 @@
-import type { InboxToolState, OpenSprint, OrynxTicketCreator, Sprint, Ticket, TicketColumn } from '@devhub/contracts';
+import type { OpenSprint, OrynxTicketCreator, Sprint, Ticket, TicketColumn } from '@devhub/contracts';
 import { personName } from '../../shell/person-name.ts';
-import { agoText } from '../../words/ago.ts';
 import { dayMonth, plural } from '../../words/calendar.ts';
 
 /**
@@ -63,12 +62,6 @@ export function pageHeading(sprintName: string): string {
 /** Q9b: "9 tickets", "1 ticket", "0 tickets". */
 export function ticketCount(count: number): string {
   return plural(count, 'ticket');
-}
-
-/** The page bar's line beside Refresh, as Home's: when Jira last answered; null before it ever did. */
-export function syncedLine(jira: InboxToolState, now: Date): string | null {
-  const at = jira.state === 'synced' ? jira.at : jira.state === 'failed' ? jira.lastSyncedAt : null;
-  return at === null ? null : `Synced ${agoText(now.getTime() - Date.parse(at))}`;
 }
 
 /** The Assignee filter's search box (the user's call, 19 Oct 2026). */

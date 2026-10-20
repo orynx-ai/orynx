@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeTicket, makeTickets } from '@devhub/contracts/testing';
+import { makeInbox, makeTicket, makeTickets } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
@@ -17,6 +17,11 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+/** Jira and GitHub synced, so the page bar has Synced and Sync (spec 039). */
+function inboxSynced() {
+  return http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json(makeInbox()));
+}
 
 /** Counts the page's reads of GET /api/tickets. */
 function ticketReads(): () => number {
@@ -69,22 +74,24 @@ describe('TicketsScreen', () => {
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
 
-  it('AC-30: Tab goes through Refresh, New ticket (spec 037), the search, Board / List, Project and Sprint (spec 020), Source (spec 037), the filters, Clear filters, the board, its column’s + (spec 037), then each card’s checkbox and title', async () => {
-    server.use(ticketsHandler());
+  it('AC-30: Tab goes through Synced (spec 039), Sync, New ticket (spec 037), the search, Board / List, Project and Sprint (spec 020), Source (spec 037), the filters, Clear filters, the board, its column’s + (spec 037), then each card’s checkbox and title', async () => {
+    server.use(ticketsHandler(), inboxSynced());
     const { user } = await renderApp({ route: '/tickets?type=bug' });
     await screen.findByText('1 ticket');
+    await screen.findByRole('button', { name: /Sync activity$/ });
     within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
       .getByRole('link', { name: 'Tickets' })
       .focus();
     const stops: string[] = [];
 
-    for (let stop = 0; stop < 18; stop += 1) {
+    for (let stop = 0; stop < 19; stop += 1) {
       await user.tab();
       const focused = document.activeElement;
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent.trim() ?? '');
     }
 
     expect(stops).toEqual([
+      expect.stringMatching(/^Synced .*, Sync activity$/) as unknown as string,
       'Sync',
       'New ticket',
       'Search tickets',
@@ -301,10 +308,11 @@ describe('TicketsScreen', () => {
 });
 
 describe('Refresh, the people search and Ship for several (the user’s call, 19 Oct 2026)', () => {
-  it('Refresh syncs Jira now, beside when it last did', async () => {
+  it('Sync syncs Jira now, after when it last did, which opens Sync activity (spec 039)', async () => {
     let refreshes = 0;
     server.use(
       ticketsHandler(),
+      inboxSynced(),
       http.post(apiUrl(apiRoutes.inboxRefresh), () => {
         refreshes += 1;
         return new HttpResponse(null, { status: 204 });
@@ -313,7 +321,7 @@ describe('Refresh, the people search and Ship for several (the user’s call, 19
     const { user } = await renderApp({ route: '/tickets' });
     await screen.findByText('6 tickets');
 
-    expect(screen.getByText(/^Synced /)).toBeVisible();
+    expect(await screen.findByRole('button', { name: /^Synced .*, Sync activity$/ })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Sync' }));
     await waitFor(() => {
       expect(refreshes).toBe(1);
