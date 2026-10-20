@@ -3,8 +3,8 @@ import { createServer, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { EventSource } from 'eventsource';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiRoutes, type ServerEvent } from '@devhub/contracts';
-import { createApiClient, parseServerEvent, subscribeToEvents } from './index.ts';
+import { apiRoutes, type ServerEvent, type TerminalOutput } from '@devhub/contracts';
+import { createApiClient, parseServerEvent, subscribeToEvents, subscribeToTerminalOutput } from './index.ts';
 
 let server: Server | undefined;
 let close: (() => void) | undefined;
@@ -97,5 +97,51 @@ describe('subscribeToEvents', () => {
     expect(() => subscribeToEvents({ baseURL: 'http://127.0.0.1:1', token: 't', onEvent: vi.fn() })).toThrow(
       'EventSource is not available in this environment.',
     );
+  });
+});
+
+describe('subscribeToTerminalOutput (spec 038)', () => {
+  it('AC-5: opens the tab’s output with the token, and passes on its frames, dropping malformed ones', async () => {
+    const { baseURL, seen } = await sseServer([
+      'data: {"kind":"replay","data":"$ "}\n\n',
+      'data: not json\n\n',
+      'data: {"kind":"data","data":""}\n\n',
+      'data: {"kind":"data","data":"ls\\r\\n"}\n\n',
+    ]);
+    const frames: TerminalOutput[] = [];
+    close = subscribeToTerminalOutput({
+      baseURL,
+      token: 'tok',
+      id: 'session one',
+      tabId: 'tab-2',
+      onOutput: (frame) => frames.push(frame),
+      EventSource,
+    });
+
+    await until(() => frames.length === 2);
+    expect(seen[0]).toBe('/api/sessions/session%20one/terminal/tabs/tab-2/output?token=tok');
+    expect(frames).toEqual([
+      { kind: 'replay', data: '$ ' },
+      { kind: 'data', data: 'ls\r\n' },
+    ]);
+  });
+
+  it('is reachable through the api client with the client token, and reports a drop', async () => {
+    const { baseURL, seen, push } = await sseServer([]);
+    const frames: TerminalOutput[] = [];
+    const onError = vi.fn();
+    close = createApiClient({ baseURL, token: 'from-client', EventSource }).terminalOutput(
+      'abc',
+      'tab-1',
+      (frame) => frames.push(frame),
+      onError,
+    );
+    await until(() => seen.length === 1);
+    push('data: {"kind":"replay","data":""}\n\n');
+    await until(() => frames.length === 1);
+    expect(seen[0]).toBe('/api/sessions/abc/terminal/tabs/tab-1/output?token=from-client');
+
+    server?.closeAllConnections();
+    await until(() => onError.mock.calls.length > 0);
   });
 });

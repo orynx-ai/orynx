@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
-import { Cancel01Icon, ComputerTerminal01Icon, Delete02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
+import { useEffect, useImperativeHandle, useState, type Ref, type RefObject } from 'react';
+import { Cancel01Icon, ComputerTerminal01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import { terminalLimits, type Session } from '@devhub/contracts';
 import {
   Button,
@@ -8,7 +8,6 @@ import {
   DialogTitle,
   Icon,
   IconButton,
-  Kbd,
   Pill,
   Tabs,
   TabsContent,
@@ -17,7 +16,6 @@ import {
 } from '@devhub/ui';
 import { usePlatform } from '../../../../platform.tsx';
 import { terminalShortcut } from '../../../../shell/shortcuts.ts';
-import { useWide } from '../../../../shell/use-wide.ts';
 import { useSessionTerminal, useTerminalActions } from '../../queries.ts';
 import { useTerminalTabs } from '../../store.ts';
 import { ClaudeTab } from './claude-tab.tsx';
@@ -25,16 +23,28 @@ import { ShellTab, ShellTabPending } from './shell-tab.tsx';
 import { shellTabName, terminalWords } from './terminal-words.ts';
 
 /**
- * The session's Terminal (spec 036, `docs/design/screens/terminal.html`): Terminal in the page bar, or `⌃``
- * anywhere on the Session screen, opens a dialog that fills the window. Esc, Back to session or `⌃`` again
- * close it, and focus goes back to Terminal. Only a session whose Terminal opens has one (AC-3).
+ * The session's Terminal (spec 036, spec 038): Terminal in More actions, or `⌃`` anywhere on the Session screen,
+ * opens a dialog that fills the window. Close, Esc outside your shell, or `⌃`` again close it, and focus goes back
+ * to `returnTo`, More actions. Only a session whose Terminal opens has one (AC-3).
  */
-export function SessionTerminal({ session }: { session: Session }) {
+export function SessionTerminal({
+  session,
+  returnTo,
+  ref,
+}: {
+  session: Session;
+  returnTo: RefObject<HTMLButtonElement | null>;
+  /** Opens the dialog, for the menu's item. */
+  ref: Ref<{ open: () => void }>;
+}) {
   const platform = usePlatform();
-  const wide = useWide();
   const shortcut = terminalShortcut(platform);
   const [open, setOpen] = useState(false);
-  const button = useRef<HTMLButtonElement>(null);
+  useImperativeHandle(ref, () => ({
+    open: () => {
+      setOpen(true);
+    },
+  }));
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -43,57 +53,25 @@ export function SessionTerminal({ session }: { session: Session }) {
       // A held key repeats; only the first press counts.
       if (!event.repeat) setOpen((was) => !was);
     };
-    // Capture phase, so the field you're typing in can't swallow it.
+    // Capture phase, so the field or the terminal you're typing in can't swallow it.
     window.addEventListener('keydown', onKeyDown, { capture: true });
     return () => {
       window.removeEventListener('keydown', onKeyDown, { capture: true });
     };
   }, [shortcut]);
 
-  const openIt = () => {
-    setOpen(true);
-  };
   return (
-    <>
-      {wide ? (
-        <Button
-          ref={button}
-          variant="ghost"
-          size="sm"
-          aria-haspopup="dialog"
-          aria-keyshortcuts={shortcut.ariaKeyShortcuts}
-          onClick={openIt}
-        >
-          <Icon icon={ComputerTerminal01Icon} aria-hidden />
-          {terminalWords.button}
-          <Kbd aria-hidden>{shortcut.label}</Kbd>
-        </Button>
-      ) : (
-        <IconButton
-          ref={button}
-          variant="ghost"
-          size="sm"
-          label={`${terminalWords.button} (${shortcut.label})`}
-          aria-label={terminalWords.button}
-          aria-haspopup="dialog"
-          aria-keyshortcuts={shortcut.ariaKeyShortcuts}
-          onClick={openIt}
-        >
-          <Icon icon={ComputerTerminal01Icon} aria-hidden />
-        </IconButton>
-      )}
-      <Dialog open={open} onOpenChange={setOpen}>
-        {open ? (
-          <TerminalDialog
-            session={session}
-            returnTo={button}
-            onClose={() => {
-              setOpen(false);
-            }}
-          />
-        ) : null}
-      </Dialog>
-    </>
+    <Dialog open={open} onOpenChange={setOpen}>
+      {open ? (
+        <TerminalDialog
+          session={session}
+          returnTo={returnTo}
+          onClose={() => {
+            setOpen(false);
+          }}
+        />
+      ) : null}
+    </Dialog>
   );
 }
 
@@ -110,8 +88,9 @@ function TerminalDialog({
   const actions = useTerminalActions(session.id);
   const picked = useTerminalTabs((state) => state.picked[session.id]);
   const pick = useTerminalTabs((state) => state.pick);
-  // Your shell's field takes focus once it's drawn: on opening on your shell, after +, and after a tab closes.
-  const [focusField, setFocusField] = useState(picked !== 'claude');
+  // Your shell takes your keys once it's drawn: on opening on your shell, after +, and after a tab closes. Not on
+  // picking a tab, so the arrow keys go on moving along the tabs.
+  const [focusShell, setFocusShell] = useState(picked !== 'claude');
   const shellTabs = terminal.data?.tabs ?? [];
   // Your shell the first time, or once the tab you had has closed (AC-1).
   const tab =
@@ -128,19 +107,24 @@ function TerminalDialog({
   const pickOnceRead = async (next: string) => {
     await terminal.refetch();
     pick(session.id, next);
-    setFocusField(true);
+    setFocusShell(true);
   };
 
   return (
     <DialogContent
       size="full"
       onOpenAutoFocus={(event) => {
-        // Into the dialog, not onto Back to session; your shell's field takes focus once it's drawn.
+        // Into the dialog, not onto Close; your shell takes focus once it's drawn, maybe before this.
         event.preventDefault();
-        if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus();
+        const dialog = event.currentTarget;
+        if (dialog instanceof HTMLElement && !dialog.contains(document.activeElement)) dialog.focus();
+      }}
+      onEscapeKeyDown={(event) => {
+        // Esc in your shell is the shell's (vim, a prompt); the shell's input is the dialog's only textarea.
+        if (event.target instanceof HTMLTextAreaElement) event.preventDefault();
       }}
       onCloseAutoFocus={(event) => {
-        // Back to Terminal, however it was opened: ⌃` leaves no trigger for Radix to go back to.
+        // Back to More actions, however it was opened: ⌃` leaves no trigger for Radix to go back to.
         event.preventDefault();
         returnTo.current?.focus();
       }}
@@ -162,17 +146,15 @@ function TerminalDialog({
             {terminalWords.claudeNeedsYou}
           </Button>
         ) : null}
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          {terminalWords.back}
-          <Kbd aria-hidden className="max-sm:hidden">
-            Esc
-          </Kbd>
-        </Button>
+        <IconButton variant="ghost" size="sm" label={terminalWords.closeTerminal} onClick={onClose}>
+          <Icon icon={Cancel01Icon} aria-hidden />
+        </IconButton>
       </div>
       <Tabs
         value={tab}
         onValueChange={(next) => {
           pick(session.id, next);
+          setFocusShell(false);
         }}
         className="flex min-h-0 flex-1 flex-col"
       >
@@ -231,18 +213,6 @@ function TerminalDialog({
               <Icon icon={Cancel01Icon} aria-hidden />
             </IconButton>
           )}
-          {shellTab === undefined ? null : (
-            <IconButton
-              variant="ghost"
-              size="sm"
-              label={terminalWords.clearOutput}
-              onClick={() => {
-                actions.clear.mutate(shellTab.id);
-              }}
-            >
-              <Icon icon={Delete02Icon} aria-hidden />
-            </IconButton>
-          )}
         </div>
         <TabsContent value="claude" className="min-h-0 flex-1">
           <ClaudeTab session={session} />
@@ -260,18 +230,7 @@ function TerminalDialog({
           ? null
           : shellTabs.map((one) => (
               <TabsContent key={one.id} value={one.id} className="min-h-0 flex-1">
-                <ShellTab
-                  session={session}
-                  terminal={terminal.data}
-                  tab={one}
-                  focusField={focusField}
-                  onFieldFocused={() => {
-                    setFocusField(false);
-                  }}
-                  onAskedToFix={() => {
-                    pick(session.id, 'claude');
-                  }}
-                />
+                <ShellTab session={session} terminal={terminal.data} tab={one} takeFocus={focusShell} />
               </TabsContent>
             ))}
       </Tabs>

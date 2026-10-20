@@ -19,13 +19,19 @@ const session = makeSession({
 });
 
 /** The Session screen with its Terminal open on the Claude tab, Claude's commands as the server has them. */
+/** Terminal, in the page bar's More actions. */
+async function openTerminal(user: Awaited<ReturnType<typeof renderApp>>['user']) {
+  await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Terminal' }));
+}
+
 async function openClaudeTab(found: Session, commands: () => ClaudeCommandList | Promise<ClaudeCommandList>) {
   server.use(
     sessionHandler(found),
     http.get(apiUrl(apiRoutes.sessionCommands), async () => HttpResponse.json(await commands())),
   );
   const rendered = await renderApp({ route });
-  await rendered.user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'Terminal' }));
+  await openTerminal(rendered.user);
   await rendered.user.click(await screen.findByRole('tab', { name: /^Claude/ }));
   return rendered;
 }
@@ -91,7 +97,7 @@ describe('the Terminal’s Claude tab', () => {
     const waiting = makeSession({ ...session, state: 'needs_you', approvals: [makeSessionApproval()] });
     server.use(sessionHandler(waiting));
     const { user } = await renderApp({ route });
-    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'Terminal' }));
+    await openTerminal(user);
 
     await user.click(await screen.findByRole('button', { name: 'Claude needs you' }));
     expect(screen.getByRole('tab', { name: 'Claude Needs you' })).toHaveAttribute('aria-selected', 'true');
@@ -132,7 +138,7 @@ describe('the Terminal’s Claude tab', () => {
       ),
     );
     const { user } = await renderApp({ route });
-    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'Terminal' }));
+    await openTerminal(user);
     await user.click(await screen.findByRole('tab', { name: 'Claude' }));
 
     expect(await screen.findByText("Couldn't load Claude's commands")).toBeVisible();

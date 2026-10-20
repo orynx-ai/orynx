@@ -22,3 +22,19 @@ if (!('hasPointerCapture' in Element.prototype)) {
   Object.defineProperty(Element.prototype, 'hasPointerCapture', { configurable: true, value: () => false });
   Object.defineProperty(Element.prototype, 'releasePointerCapture', { configurable: true, value: () => undefined });
 }
+
+// jsdom has no media queries; xterm asks one for the screen's pixel ratio, and TerminalView one for dark mode.
+if (typeof window.matchMedia !== 'function') {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      // The older names, which xterm still uses.
+      addListener: () => undefined,
+      removeListener: () => undefined,
+    }),
+  });
+}

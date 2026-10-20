@@ -109,7 +109,6 @@ export {
   type DialogProps,
 } from './components/dialog.tsx';
 export { CommandBlock, type CommandBlockProps, type CommandBlockTone } from './components/command-block.tsx';
-export { CommandInput, type CommandInputProps } from './components/command-input.tsx';
 export { CopyButton, type CopyButtonProps } from './components/copy-button.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { ExternalLink, type ExternalLinkProps } from './components/external-link.tsx';
@@ -119,6 +118,12 @@ export { Icon, type IconProps, type IconSvgElement } from './components/icon.tsx
 export { IconButton, type IconButtonProps } from './components/icon-button.tsx';
 export { Input } from './components/input.tsx';
 export { Textarea } from './components/textarea.tsx';
+export {
+  TerminalView,
+  type TerminalScreen,
+  type TerminalViewProps,
+  type TerminalViewSize,
+} from './components/terminal-view.tsx';
 export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from './components/file-list.tsx';
 export { FloatingBar, FloatingBarSeparator, type FloatingBarProps } from './components/floating-bar.tsx';
 export {

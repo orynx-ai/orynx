@@ -16,8 +16,7 @@ import {
 
 const baseURL = 'http://127.0.0.1:4317';
 const id = '0123456789abcdef';
-const url = (route: string, tabId = 'tab-2', blockId = 'block-3') =>
-  `${baseURL}${route.replace(':id', id).replace(':tabId', tabId).replace(':blockId', blockId)}`;
+const url = (route: string, tabId = 'tab-2') => `${baseURL}${route.replace(':id', id).replace(':tabId', tabId)}`;
 const server = setupServer();
 const api = createApiClient({ baseURL, token: 'page-token' });
 
@@ -44,62 +43,45 @@ describe('the Terminal’s calls (spec 036)', () => {
     expect(token).toBe('page-token');
   });
 
-  it('AC-4: reads your shell tabs, and runs a command in one', async () => {
-    let sent: unknown = null;
+  it('AC-1, AC-2, AC-4 (038): reads your shell tabs, types into one and sets its size', async () => {
+    const sent: unknown[] = [];
+    const heard = async ({ request }: { request: Request }) => {
+      sent.push(await request.json());
+      return new HttpResponse(null, { status: 204 });
+    };
     server.use(
       http.get(url(apiRoutes.sessionTerminal), () => HttpResponse.json(makeTerminal())),
-      http.post(url(apiRoutes.sessionTerminalRun), async ({ request }) => {
-        sent = await request.json();
-        return HttpResponse.json({ result: 'started', blockId: 'block-4' });
-      }),
+      http.post(url(apiRoutes.sessionTerminalInput), heard),
+      http.post(url(apiRoutes.sessionTerminalSize), heard),
     );
     expect(await api.terminal(id)).toEqual(makeTerminal());
-    expect(await api.runCommand(id, 'tab-2', 'git status')).toEqual({ result: 'started', blockId: 'block-4' });
-    expect(sent).toEqual({ command: 'git status' });
+    await api.terminalInput(id, 'tab-2', 'git status\r');
+    await api.resizeTerminal(id, 'tab-2', { cols: 120, rows: 40 });
+    expect(sent).toEqual([{ data: 'git status\r' }, { cols: 120, rows: 40 }]);
   });
 
-  it('AC-9, AC-10, AC-11, AC-15: adds, closes and clears a tab, and stops its command', async () => {
+  it('AC-6 (038): adds and closes a tab', async () => {
     const asked: string[] = [];
-    const heard =
-      (method: string) =>
-      ({ request }: { request: Request }) => {
-        asked.push(`${method} ${new URL(request.url).pathname}`);
-        return new HttpResponse(null, { status: 204 });
-      };
     server.use(
       http.post(url(apiRoutes.sessionTerminalTabs), () => HttpResponse.json({ result: 'added', tabId: 'tab-2' })),
-      http.delete(url(apiRoutes.sessionTerminalTab), heard('DELETE')),
-      http.post(url(apiRoutes.sessionTerminalStop), heard('POST')),
-      http.delete(url(apiRoutes.sessionTerminalBlocks), heard('DELETE')),
+      http.delete(url(apiRoutes.sessionTerminalTab), ({ request }) => {
+        asked.push(new URL(request.url).pathname);
+        return new HttpResponse(null, { status: 204 });
+      }),
     );
     expect(await api.addTerminalTab(id)).toEqual({ result: 'added', tabId: 'tab-2' });
-    await api.stopCommand(id, 'tab-2');
-    await api.clearTerminalTab(id, 'tab-2');
     await api.closeTerminalTab(id, 'tab-2');
-    expect(asked).toEqual([
-      `POST /api/sessions/${id}/terminal/tabs/tab-2/stop`,
-      `DELETE /api/sessions/${id}/terminal/tabs/tab-2/blocks`,
-      `DELETE /api/sessions/${id}/terminal/tabs/tab-2`,
-    ]);
+    expect(asked).toEqual([`/api/sessions/${id}/terminal/tabs/tab-2`]);
   });
 
-  it('AC-17: asks Claude to fix a failed block, and says why it can’t', async () => {
+  it('rejects with the server’s error, or a network one when it can’t be reached', async () => {
     server.use(
-      http.post(url(apiRoutes.sessionTerminalFix), () =>
-        HttpResponse.json({ result: 'cannot_send', reason: 'newer_session' }),
-      ),
-    );
-    expect(await api.askToFix(id, 'tab-2', 'block-3')).toEqual({ result: 'cannot_send', reason: 'newer_session' });
-  });
-
-  it('AC-26: rejects with the server’s error, or a network one when it can’t be reached', async () => {
-    server.use(
-      http.post(url(apiRoutes.sessionTerminalRun), () =>
+      http.post(url(apiRoutes.sessionTerminalInput), () =>
         HttpResponse.json({ code: 'not_found', message: 'This session has no Terminal.' }, { status: 404 }),
       ),
       http.get(url(apiRoutes.sessionTerminal), () => HttpResponse.error()),
     );
-    await expect(api.runCommand(id, 'tab-2', 'ls')).rejects.toMatchObject({ code: 'not_found', status: 404 });
+    await expect(api.terminalInput(id, 'tab-2', 'ls')).rejects.toMatchObject({ code: 'not_found', status: 404 });
     await expect(api.terminal(id)).rejects.toBeInstanceOf(ApiRequestError);
   });
 

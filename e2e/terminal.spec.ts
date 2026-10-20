@@ -91,24 +91,25 @@ function worktreeOf(branch: string): string | undefined {
 /** The session the tests share, once Claude has made its worktree. */
 let sessionUrl = '';
 
-/** Runs a command in the open Terminal's shell tab and gives back its block once it has ended. */
-async function run(page: Page, command: string) {
-  const field = page.getByRole('textbox', { name: 'Command' });
-  await field.fill(command);
-  await field.press('Enter');
-  await expect(field).toHaveValue('');
-  const block = page.getByRole('log', { name: 'Terminal output' }).getByRole('group', { name: command }).last();
-  await expect(block.getByText(/^(✓|✗)/)).toBeVisible({ timeout: 15_000 });
-  return block;
+/** The open Terminal's first shell tab: the terminal, and its rows as a screen reader reads them. */
+function shell(page: Page, name = /· worktree$/) {
+  const terminal = page.getByRole('dialog', { name: 'Terminal' }).getByRole('group', { name });
+  return { terminal, rows: terminal.getByRole('list') };
 }
 
+/** Types a line into the focused shell and presses Enter, as you would. */
+async function typeLine(page: Page, line: string) {
+  await page.keyboard.type(line);
+  await page.keyboard.press('Enter');
+}
+
+/** Terminal, from the page bar's More actions; the shell takes your keys once it's drawn. */
 async function openTerminal(page: Page) {
   await page.goto(sessionUrl);
-  const terminal = page.getByRole('button', { name: 'Terminal', exact: true });
-  await expect(terminal).toBeVisible({ timeout: 15_000 });
-  await page.keyboard.press('Control+Backquote');
+  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('menuitem', { name: 'Terminal' }).click();
   await expect(page.getByRole('dialog', { name: 'Terminal' })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Command' })).toBeFocused();
+  await expect(page.getByRole('textbox', { name: /· worktree$/ })).toBeFocused();
 }
 
 test.beforeAll(async ({ browser }, testInfo) => {
@@ -147,63 +148,93 @@ test.afterAll(() => {
   rmSync(repository.root, { recursive: true, force: true });
 });
 
-test('AC-1, AC-4: ⌃` opens your shell on the session’s worktree, and a command runs there', async ({ page }) => {
-  await openTerminal(page);
-
-  const block = await run(page, 'pwd');
-  await expect(block.getByText(/^✓/)).toBeVisible();
-  const printed = (await block.locator('pre').textContent()) ?? '';
-  expect(realpathSync(printed.trim())).toBe(worktreeOf('feat/TRM-1'));
-});
-
-test('AC-29: your command gets your environment without Orynx’s settings, and asks for plain output', async ({
+test('AC-1 (038): your shell starts in the session’s worktree, with your environment less Orynx’s', async ({
   page,
 }) => {
   await openTerminal(page);
+  const { rows } = shell(page);
 
-  const block = await run(page, 'env');
-  const printed = (await block.locator('pre').textContent()) ?? '';
-  expect(printed).toContain('NO_COLOR=1');
-  expect(printed).not.toMatch(/^DEVHUB_/m);
-  expect(printed).not.toMatch(/^NODE_ENV=/m);
+  await typeLine(page, 'pwd -P');
+  await expect(rows).toContainText(worktreeOf('feat/TRM-1') ?? 'no worktree', { timeout: 15_000 });
+  await typeLine(page, 'echo "term=$TERM orynx=$(env | grep -c ^DEVHUB_)"');
+  await expect(rows).toContainText('term=xterm-256color orynx=0');
 });
 
-test('AC-6, AC-8, AC-9: a command that fails says its exit code; one that runs shows Stop, which ends it', async ({
+test('AC-2, AC-3 (038): a command reads what you type, ⌃C stops one, and cd carries over', async ({ page }) => {
+  await openTerminal(page);
+  const { rows } = shell(page);
+
+  await typeLine(page, 'read answer; echo "got:$answer"');
+  await typeLine(page, 'yes');
+  await expect(rows).toContainText('got:yes', { timeout: 15_000 });
+
+  await typeLine(page, 'sleep 60');
+  await page.keyboard.press('Control+c');
+  await typeLine(page, 'echo "after-$((1+1))"');
+  await expect(rows).toContainText('after-2', { timeout: 10_000 });
+
+  await typeLine(page, 'mkdir -p deeper && cd deeper && echo "in-$(basename "$PWD")"');
+  await expect(rows).toContainText('in-deeper');
+  await typeLine(page, 'echo "still-$(basename "$PWD")"');
+  await expect(rows).toContainText('still-deeper');
+});
+
+test('AC-5 (038): it scrolls back through long output, and comes back with it after closing', async ({ page }) => {
+  await openTerminal(page);
+  const { terminal } = shell(page);
+  // A drawn row: the terminal draws only the rows in view.
+  const row = (text: string) => terminal.getByText(text, { exact: true }).first();
+  await typeLine(page, 'clear; seq 1 300');
+  await expect(row('300')).toBeVisible({ timeout: 15_000 });
+  await expect(terminal.getByText('250', { exact: true })).toHaveCount(0);
+
+  // A wheel's notches, as a mouse sends them: each scrolls a couple of lines.
+  await terminal.hover();
+  for (let notch = 0; notch < 20; notch++) await page.mouse.wheel(0, -100);
+  await expect(row('250')).toBeVisible();
+  await page.keyboard.press('Shift+PageDown');
+
+  await page.getByRole('button', { name: 'Close terminal' }).click();
+  await openTerminal(page);
+  await expect(row('300')).toBeVisible();
+});
+
+test('AC-6, AC-7 (038): + opens another shell, and exit closes it', async ({ page }) => {
+  await openTerminal(page);
+  await page.getByRole('button', { name: 'New terminal in this session' }).click();
+  await expect(page.getByRole('textbox', { name: / 2$/ })).toBeFocused();
+  await typeLine(page, 'exit');
+  await expect(page.getByRole('tab', { name: / 2$/ })).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.getByRole('textbox', { name: /· worktree$/ })).toBeVisible();
+});
+
+test('AC-2, AC-31: Esc stays in your shell, Close gives focus back to More actions, and nothing fails axe', async ({
   page,
 }) => {
   await openTerminal(page);
+  await typeLine(page, 'git status');
+  await expect(shell(page).rows).toContainText('On branch', { timeout: 15_000 });
 
-  const missing = await run(page, 'nosuchcommand');
-  await expect(missing.getByText('✗ exit 127', { exact: false })).toBeVisible();
-
-  const field = page.getByRole('textbox', { name: 'Command' });
-  await field.fill('echo ready; sleep 60');
-  await field.press('Enter');
-  const log = page.getByRole('log', { name: 'Terminal output' });
-  await expect(log.getByText('● running')).toBeVisible();
-  await expect(field).toHaveAttribute('placeholder', /is running\. ⌃C stops it/);
-  await log.getByRole('button', { name: 'Stop echo ready; sleep 60' }).click();
-  await expect(log.getByText(/✗ exit 143/)).toBeVisible({ timeout: 10_000 });
-});
-
-test('AC-2, AC-31: Esc gives focus back to Terminal, and the open Terminal has no accessibility violations', async ({
-  page,
-}) => {
-  await openTerminal(page);
-  await run(page, 'git status');
+  await page.keyboard.press('Escape');
+  const dialog = page.getByRole('dialog', { name: 'Terminal' });
+  await expect(dialog).toBeVisible();
 
   await page.addScriptTag({ path: axePath });
-  // The dialog fades in; axe on half-drawn text would read the wrong contrast.
-  const dialog = page.getByRole('dialog', { name: 'Terminal' });
+  // The dialog fades in; axe on half-drawn text would read the wrong contrast. The cursor blinks for ever.
   await dialog.evaluate((element) =>
-    Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)),
+    Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+        .map((animation) => animation.finished),
+    ),
   );
   const results = await dialog.evaluate((element) =>
     window.axe.run(element, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } }),
   );
   expect(results.violations.map((violation) => `${violation.id}: ${violation.help}`)).toEqual([]);
 
-  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Close terminal' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('button', { name: 'Terminal', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'More actions' })).toBeFocused();
 });

@@ -43,7 +43,8 @@ import {
   type SendMessageInput,
   type AddTerminalTabAnswer,
   type ClaudeCommandList,
-  type RunCommandAnswer,
+  type TerminalOutput,
+  type TerminalSize,
   type Session,
   type Terminal,
   type SessionBrief,
@@ -120,17 +121,15 @@ import { getTicket, getTickets, getTicketsSprints, putTicketsChoice } from './en
 import { postFileCheck, postFilePicker } from './endpoints/files.ts';
 import { getSkills } from './endpoints/skills.ts';
 import {
-  deleteTerminalBlocks,
   deleteTerminalTab,
   getSessionCommands,
   getTerminal,
-  postTerminalFix,
-  postTerminalRun,
-  postTerminalStop,
+  postTerminalInput,
+  postTerminalSize,
   postTerminalTab,
 } from './endpoints/terminal.ts';
 import { toApiRequestError } from './errors.ts';
-import { subscribeToEvents, type EventSourceConstructor } from './events.ts';
+import { subscribeToEvents, subscribeToTerminalOutput, type EventSourceConstructor } from './events.ts';
 
 export interface ApiClientOptions {
   /** Origin of the page; /api paths resolve against it (Vite proxies them in dev). */
@@ -173,12 +172,17 @@ export interface ApiClient {
   terminal(id: string): Promise<Terminal>;
   addTerminalTab(id: string): Promise<AddTerminalTabAnswer>;
   closeTerminalTab(id: string, tabId: string): Promise<void>;
-  /** Runs your command in the session's worktree: started, or busy while another runs in the tab. */
-  runCommand(id: string, tabId: string, command: string): Promise<RunCommandAnswer>;
-  stopCommand(id: string, tabId: string): Promise<void>;
-  clearTerminalTab(id: string, tabId: string): Promise<void>;
-  /** Ask Claude to fix: sends a failed block to Claude as a follow-up, or says why it can't go. */
-  askToFix(id: string, tabId: string, blockId: string): Promise<SendMessageAnswer>;
+  /** Types into a shell tab: keys you pressed or text you pasted (spec 038). */
+  terminalInput(id: string, tabId: string, data: string): Promise<void>;
+  /** Sets a shell tab's size in characters (spec 038). */
+  resizeTerminal(id: string, tabId: string, size: TerminalSize): Promise<void>;
+  /** Opens a shell tab's output, replay first (spec 038). Returns a function that closes it. */
+  terminalOutput(
+    id: string,
+    tabId: string,
+    onOutput: (frame: TerminalOutput) => void,
+    onError?: () => void,
+  ): () => void;
   /** Claude's draft of the pull request, or why there can't be one (spec 014). Each call asks Claude. */
   draftPullRequest(id: string): Promise<PullRequestDraftAnswer>;
   /** Commits, pushes and opens the pull request as you left it: opened, cannot, or failed with why (spec 014). */
@@ -309,14 +313,20 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       postTerminalTab(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     closeTerminalTab: (id, tabId) =>
       deleteTerminalTab(http, id, tabId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    runCommand: (id, tabId, command) =>
-      postTerminalRun(http, id, tabId, command).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    stopCommand: (id, tabId) =>
-      postTerminalStop(http, id, tabId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    clearTerminalTab: (id, tabId) =>
-      deleteTerminalBlocks(http, id, tabId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    askToFix: (id, tabId, blockId) =>
-      postTerminalFix(http, id, tabId, blockId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    terminalInput: (id, tabId, data) =>
+      postTerminalInput(http, id, tabId, data).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    resizeTerminal: (id, tabId, size) =>
+      postTerminalSize(http, id, tabId, size).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    terminalOutput: (id, tabId, onOutput, onError) =>
+      subscribeToTerminalOutput({
+        baseURL: options.baseURL,
+        token: options.token,
+        id,
+        tabId,
+        onOutput,
+        ...(onError ? { onError } : {}),
+        ...(options.EventSource ? { EventSource: options.EventSource } : {}),
+      }),
     draftPullRequest: (id) =>
       postPullRequestDraft(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     createPullRequest: (id, request) =>

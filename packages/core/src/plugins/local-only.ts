@@ -53,7 +53,8 @@ export function registerLocalOnly(app: FastifyInstance, options: LocalOnlyOption
 
     const header = request.headers[tokenHeader];
     const fromHeader = typeof header === 'string' ? header : undefined;
-    const fromQuery = paths.includes(apiRoutes.events)
+    // An EventSource can't send a header: the two event streams carry the token in their URL.
+    const fromQuery = paths.some((path) => path === apiRoutes.events || path === apiRoutes.sessionTerminalOutput)
       ? (url.searchParams.get(tokenQueryParam) ?? undefined)
       : undefined;
 

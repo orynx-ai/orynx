@@ -1,4 +1,6 @@
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
+import { request as httpRequest, type IncomingMessage } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -7,14 +9,14 @@ import {
   AddTerminalTabAnswerSchema,
   apiRoutes,
   ApiErrorSchema,
-  ClaudeCommandListSchema,
-  RunCommandAnswerSchema,
-  SendMessageAnswerSchema,
   SessionSchema,
+  TerminalOutputSchema,
   TerminalSchema,
   tokenHeader,
+  tokenQueryParam,
   type Session,
   type Terminal,
+  type TerminalOutput,
 } from '@devhub/contracts';
 import { makeSession } from '@devhub/contracts/testing';
 import { createServer } from '../create-server.ts';
@@ -26,9 +28,12 @@ const headers = { host: `127.0.0.1:${String(port)}`, [tokenHeader]: token };
 const id = '0123456789abcdef';
 
 let app: FastifyInstance | undefined;
+let stream: IncomingMessage | undefined;
 const folders: string[] = [];
 
 afterEach(async () => {
+  stream?.destroy();
+  stream = undefined;
   await app?.close();
   app = undefined;
   for (const folder of folders.splice(0)) await rm(folder, { recursive: true, force: true });
@@ -63,8 +68,7 @@ async function setUp({ session = {}, terminal = true }: { session?: Partial<Sess
   return { app, worktree };
 }
 
-const path = (route: string, tabId = 'tab-1', blockId = '') =>
-  route.replace(':id', id).replace(':tabId', tabId).replace(':blockId', blockId);
+const path = (route: string, tabId = 'tab-1') => route.replace(':id', id).replace(':tabId', tabId);
 
 async function readTerminal(server: FastifyInstance): Promise<Terminal> {
   const res = await server.inject({ method: 'GET', url: path(apiRoutes.sessionTerminal), headers });
@@ -72,34 +76,80 @@ async function readTerminal(server: FastifyInstance): Promise<Terminal> {
   return TerminalSchema.parse(res.json());
 }
 
-/** The first tab's last block once it has ended. */
-async function lastEnded(server: FastifyInstance) {
-  for (let tries = 0; tries < 500; tries++) {
-    const block = (await readTerminal(server)).tabs[0]?.blocks.at(-1);
-    if (block !== undefined && block.state !== 'running') return block;
+/** Opens a tab's output over a real socket, the way the page's EventSource does, with the token in its URL. */
+async function openOutput(server: FastifyInstance, { tabId = 'tab-1', key = token } = {}) {
+  await server.listen({ host: '127.0.0.1', port: 0 });
+  const { port: real } = server.server.address() as AddressInfo;
+  stream = await new Promise<IncomingMessage>((resolve, reject) => {
+    httpRequest(
+      {
+        host: '127.0.0.1',
+        port: real,
+        path: `${path(apiRoutes.sessionTerminalOutput, tabId)}?${tokenQueryParam}=${key}`,
+      },
+      resolve,
+    )
+      .on('error', reject)
+      .end();
+  });
+  stream.setEncoding('utf8');
+  const frames: TerminalOutput[] = [];
+  let buffer = '';
+  stream.on('data', (chunk: string) => {
+    buffer += chunk;
+    for (let end = buffer.indexOf('\n\n'); end !== -1; end = buffer.indexOf('\n\n')) {
+      const frame = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      if (frame.startsWith('data: ')) frames.push(TerminalOutputSchema.parse(JSON.parse(frame.slice(6))));
+    }
+  });
+  const hostHeaders = { ...headers, host: `127.0.0.1:${String(real)}` };
+  // The replay comes first, right after the headers.
+  for (let tries = 0; tries < 500 && stream.statusCode === 200 && frames.length === 0; tries++) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error('The command never ended');
+  return {
+    status: stream.statusCode,
+    frames,
+    hostHeaders,
+    async shows(piece: string): Promise<void> {
+      for (let tries = 0; tries < 500; tries++) {
+        if (
+          frames
+            .map((frame) => frame.data)
+            .join('')
+            .includes(piece)
+        )
+          return;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      throw new Error(`The output never showed ${piece}`);
+    },
+  };
 }
 
 describe('the Terminal’s routes', () => {
-  it('AC-1, AC-4: reads your shell tabs, runs a command in the worktree, and shows its output', async () => {
-    const { app, worktree } = await setUp();
+  it('AC-1 (038): reads your shell tabs, and the first one’s shell starts in the worktree', async () => {
+    const { app } = await setUp();
     expect(await readTerminal(app)).toEqual({
       shell: 'sh',
       worktree: `~/.devhub/worktrees/${id}`,
-      tabs: [{ id: 'tab-1', number: 1, blocks: [], cleared: false }],
-      history: [],
+      tabs: [{ id: 'tab-1', number: 1 }],
     });
+  });
 
-    const run = await app.inject({
-      method: 'POST',
-      url: path(apiRoutes.sessionTerminalRun),
-      headers,
-      payload: { command: 'pwd' },
-    });
-    expect(RunCommandAnswerSchema.parse(run.json())).toEqual({ result: 'started', blockId: 'block-1' });
-    expect(await lastEnded(app)).toMatchObject({ state: 'done', command: 'pwd', output: [worktree] });
+  it('AC-1, AC-2, AC-4 (038): streams the tab’s output, and takes your keys and its size', async () => {
+    const { app, worktree } = await setUp();
+    await readTerminal(app);
+    const output = await openOutput(app);
+    expect(output.status).toBe(200);
+    expect(output.frames[0]?.kind).toBe('replay');
+
+    const send = (route: string, payload: object) =>
+      app.inject({ method: 'POST', url: path(route), headers: output.hostHeaders, payload });
+    expect((await send(apiRoutes.sessionTerminalSize, { cols: 100, rows: 30 })).statusCode).toBe(204);
+    expect((await send(apiRoutes.sessionTerminalInput, { data: 'pwd; stty size\r' })).statusCode).toBe(204);
+    await output.shows(`${worktree}\r\n30 100\r\n`);
   });
 
   it('AC-3: says the Terminal opens on this session, and nothing opens where it can’t', async () => {
@@ -117,13 +167,13 @@ describe('the Terminal’s routes', () => {
     const res = await app.inject({ method: 'GET', url: path(apiRoutes.sessionTerminal), headers });
     expect(res.statusCode).toBe(404);
     expect(ApiErrorSchema.parse(res.json()).code).toBe('not_found');
-    const run = await app.inject({
+    const input = await app.inject({
       method: 'POST',
-      url: path(apiRoutes.sessionTerminalRun),
+      url: path(apiRoutes.sessionTerminalInput),
       headers,
-      payload: { command: 'ls' },
+      payload: { data: 'ls\r' },
     });
-    expect(run.statusCode).toBe(404);
+    expect(input.statusCode).toBe(404);
     const session = await app.inject({ method: 'GET', url: path(apiRoutes.session), headers });
     expect(SessionSchema.parse(session.json()).terminal).toBe(false);
   });
@@ -138,44 +188,41 @@ describe('the Terminal’s routes', () => {
     expect(missing.statusCode).toBe(404);
     const anonymous = await app.inject({
       method: 'POST',
-      url: path(apiRoutes.sessionTerminalRun),
+      url: path(apiRoutes.sessionTerminalInput),
       headers: { host: headers.host },
-      payload: { command: 'touch here' },
+      payload: { data: 'touch here\r' },
     });
     expect(anonymous.statusCode).toBe(401);
-  });
-
-  it('AC-4: refuses a command with nothing in it, and answers 404 for a tab it doesn’t have', async () => {
-    const { app } = await setUp();
-    const empty = await app.inject({
+    // Only the output stream takes the token in its URL.
+    const inUrl = await app.inject({
       method: 'POST',
-      url: path(apiRoutes.sessionTerminalRun),
-      headers,
-      payload: { command: '  ' },
+      url: `${path(apiRoutes.sessionTerminalInput)}?${tokenQueryParam}=${token}`,
+      headers: { host: headers.host },
+      payload: { data: 'touch here\r' },
     });
-    expect(empty.statusCode).toBe(400);
-    const noTab = await app.inject({
-      method: 'POST',
-      url: path(apiRoutes.sessionTerminalRun, 'tab-9'),
-      headers,
-      payload: { command: 'ls' },
-    });
-    expect(noTab.statusCode).toBe(404);
+    expect(inUrl.statusCode).toBe(401);
   });
 
-  it('AC-8, AC-9: a busy tab says so, and Stop ends its command', async () => {
+  it('refuses the output stream with a wrong token', async () => {
     const { app } = await setUp();
-    const run = (command: string) =>
-      app.inject({ method: 'POST', url: path(apiRoutes.sessionTerminalRun), headers, payload: { command } });
-    await run('sleep 30');
-    expect((await run('ls')).json()).toEqual({ result: 'busy' });
-
-    const stop = await app.inject({ method: 'POST', url: path(apiRoutes.sessionTerminalStop), headers });
-    expect(stop.statusCode).toBe(204);
-    expect(await lastEnded(app)).toMatchObject({ state: 'failed', exitCode: 143 });
+    await readTerminal(app);
+    expect((await openOutput(app, { key: 'not-the-token' })).status).toBe(401);
   });
 
-  it('AC-10, AC-11, AC-15: adds a tab, closes it, keeps the first, and clears a tab', async () => {
+  it('answers 404 for a tab it doesn’t have, and 400 for empty keys or a size out of range', async () => {
+    const { app } = await setUp();
+    await readTerminal(app);
+    const post = (route: string, payload: object, tabId = 'tab-1') =>
+      app.inject({ method: 'POST', url: path(route, tabId), headers, payload });
+    expect((await post(apiRoutes.sessionTerminalInput, { data: '' })).statusCode).toBe(400);
+    expect((await post(apiRoutes.sessionTerminalSize, { cols: 0, rows: 24 })).statusCode).toBe(400);
+    expect((await post(apiRoutes.sessionTerminalInput, { data: 'ls\r' }, 'tab-9')).statusCode).toBe(404);
+    expect((await post(apiRoutes.sessionTerminalSize, { cols: 80, rows: 24 }, 'tab-9')).statusCode).toBe(404);
+    const output = await app.inject({ method: 'GET', url: path(apiRoutes.sessionTerminalOutput, 'tab-9'), headers });
+    expect(output.statusCode).toBe(404);
+  });
+
+  it('AC-6 (038): adds a tab, closes it, and keeps the first', async () => {
     const { app } = await setUp();
     await readTerminal(app);
     const added = await app.inject({ method: 'POST', url: path(apiRoutes.sessionTerminalTabs), headers });
@@ -185,28 +232,6 @@ describe('the Terminal’s routes', () => {
       app.inject({ method: 'DELETE', url: path(apiRoutes.sessionTerminalTab, tabId), headers });
     expect((await close('tab-2')).statusCode).toBe(204);
     expect((await close('tab-1')).statusCode).toBe(404);
-
-    const clear = await app.inject({ method: 'DELETE', url: path(apiRoutes.sessionTerminalBlocks), headers });
-    expect(clear.statusCode).toBe(204);
-    expect((await readTerminal(app)).tabs).toEqual([{ id: 'tab-1', number: 1, blocks: [], cleared: true }]);
-  });
-
-  it('AC-17, AC-18: Ask Claude to fix takes only a failed command, and says when the follow-up can’t go', async () => {
-    const { app } = await setUp({ session: { state: 'stopped' } });
-    const run = (command: string) =>
-      app.inject({ method: 'POST', url: path(apiRoutes.sessionTerminalRun), headers, payload: { command } });
-    const fix = (blockId: string) =>
-      app.inject({ method: 'POST', url: path(apiRoutes.sessionTerminalFix, 'tab-1', blockId), headers });
-    await run('echo fine');
-    await lastEnded(app);
-    expect((await fix('block-1')).statusCode).toBe(404);
-
-    await run('exit 1');
-    await lastEnded(app);
-    // Claude never started this session, so there's nothing to carry on.
-    const answer = await fix('block-2');
-    expect(SendMessageAnswerSchema.parse(answer.json())).toEqual({ result: 'cannot_send', reason: 'never_started' });
-    const commands = await app.inject({ method: 'GET', url: path(apiRoutes.sessionCommands), headers });
-    expect(ClaudeCommandListSchema.parse(commands.json())).toEqual({ commands: [] });
+    expect((await readTerminal(app)).tabs).toEqual([{ id: 'tab-1', number: 1 }]);
   });
 });

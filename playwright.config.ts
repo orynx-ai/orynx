@@ -257,6 +257,8 @@ export default defineConfig({
       env: {
         DEVHUB_PORT: String(terminalHubPort),
         DEVHUB_HOME: terminalHome,
+        // env-policy-ignore-next-line: the shell your Terminal runs; /bin/sh keeps your own shell's startup files out
+        SHELL: '/bin/sh',
         LOG_LEVEL: 'warn',
         NODE_ENV: 'production',
         DEVHUB_TOKENS_FROM_ENV: 'false',
