@@ -41,7 +41,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: The recent searches store (one list per place, the last 5, kept on this computer), and Sessions' recent searches (AC-21–AC-23)
       Check: pnpm test packages/app/src/stores/recent-searches.test.ts packages/app/src/features/sessions/sessions-screen.test.tsx
       Files: packages/app/src/stores/recent-searches.ts, its test, packages/app/src/features/sessions/sessions-screen.tsx
-- [ ] Task 14: ⌘K's recent searches, in place of the hint line (AC-44)
+- [x] Task 14: ⌘K's recent searches, in place of the hint line (AC-44)
       Check: pnpm test packages/app/src/features/search/components/search-dialog.test.tsx
       Files: packages/app/src/features/search/components/search-dialog.tsx, its test
 - [ ] Task 15: Tickets' recent searches (AC-45)

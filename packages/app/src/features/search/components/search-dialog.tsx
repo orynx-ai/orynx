@@ -12,8 +12,10 @@ import {
   SessionStateIcon,
   SourceMark,
   type SearchPaletteGroup,
+  RecentSearches,
 } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
+import { useRecentSearches } from '../../../stores/recent-searches.ts';
 import { useSearchIndex } from '../queries.ts';
 import { hitText, resultCount, searchResults, type SearchHit } from '../search-results.ts';
 import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
@@ -80,6 +82,11 @@ function SearchBody() {
   const showTicket = useTicketDialogStore((state) => state.show);
   const platform = usePlatform();
   const navigate = useNavigate();
+  // Searches that opened a result, shown in place of the hint next time (spec 039, AC-44).
+  const recent = useRecentSearches((state) => state.lists.search);
+  const remember = useRecentSearches((state) => state.remember);
+  const forget = useRecentSearches((state) => state.remove);
+  const clearRecent = useRecentSearches((state) => state.clear);
 
   const found = index.data === undefined ? [] : searchResults(index.data, query);
   const hits = new Map(found.flatMap((group) => group.hits.map((hit) => [hit.id, hit] as const)));
@@ -106,6 +113,7 @@ function SearchBody() {
   function open(id: string) {
     const hit = hits.get(id);
     if (hit === undefined) return;
+    remember('search', query);
     setOpen(false);
     if (hit.kind === 'ticket') {
       const { key, title, target } = hit.ticket;
@@ -170,6 +178,23 @@ function SearchBody() {
         >
           <span>Connect Jira or GitHub to search your tickets and pull requests.</span>
         </EmptyState>
+      );
+    }
+    if (!typed && recent.length > 0) {
+      return (
+        <RecentSearches
+          items={recent}
+          className="p-0.5"
+          onPick={(text) => {
+            form.setValue('query', text);
+          }}
+          onRemove={(text) => {
+            forget('search', text);
+          }}
+          onClear={() => {
+            clearRecent('search');
+          }}
+        />
       );
     }
     if (!typed) return <p className="px-2 py-1.5 text-small text-muted-foreground">{hint}</p>;
