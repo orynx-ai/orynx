@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
+  ClaudeCommandList,
   AgentChoice,
   ApprovalDecision,
   ComposerChip,
@@ -35,6 +36,7 @@ import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
 import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
 import type { ChangesReader, StartPoint } from './changes.ts';
+import { logEnd, logRunEnded, logWork } from './command-log.ts';
 import {
   chooseFolder,
   composerPlan,
@@ -127,6 +129,8 @@ export interface SessionService {
   send(id: string, text: string, context?: readonly ComposerChip[], choice?: AgentChoice): Promise<SendResult>;
   /** Exactly what Claude was sent at the start, as saved (spec 011, Q5); null for no such session. */
   brief(id: string): Promise<SessionBrief | null>;
+  /** Every command Claude ran, with its output, for the Terminal's Claude tab (spec 036); null for no such session. */
+  commands(id: string): Promise<ClaudeCommandList | null>;
   /** What changed in the worktree (spec 013, Q4); null for no such session, `unreadable` when git failed. */
   changes(id: string): Promise<SessionChanges | 'unreadable' | null>;
   /** One changed file's diff; null for no such session or no such changed file (AC-24). */
@@ -472,6 +476,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
             endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
             ...endRun(record.session, now()),
           },
+          commandLog: logRunEnded(record.commandLog),
         };
       },
       () => true,
@@ -504,7 +509,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         if (finished) runs.delete(id);
         track(
           change(id, (record) => {
-            const next = withProgress(record, (progress) => addWork(progress, event.work));
+            const next = {
+              ...withProgress(record, (progress) => addWork(progress, event.work)),
+              commandLog: logWork(record.commandLog, event.work),
+            };
             if (!finished) return next;
             const at = now();
             return {
@@ -516,6 +524,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
                 endedAt: new Date(at).toISOString(),
                 ...endRun(next.session, at),
               },
+              commandLog: logRunEnded(next.commandLog),
             };
           }),
         );
@@ -567,6 +576,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       }
       case 'files_changed':
         filesChanged(id);
+        return;
+      case 'command_ended':
+        track(change(id, (record) => ({ ...record, commandLog: logEnd(record.commandLog, event) })));
         return;
       case 'problem':
         track(fail(id, event.kind, event.code));
@@ -786,6 +798,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
             endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
             ...endRun(record.session, now()),
           },
+          commandLog: logRunEnded(record.commandLog),
         };
       },
       () => true,
@@ -1015,6 +1028,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       claudeSessionId: null,
       pushedCommit: null,
       approvalLog: [],
+      commandLog: [],
     };
     await records.create(record);
     events.publish({ type: 'sessions.changed' });
@@ -1103,6 +1117,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       pushedCommit: null,
       claudeSessionId: null,
       approvalLog: [],
+      commandLog: [],
       reads: { files: [...plan.reads.files], folders: [...plan.reads.folders] },
     };
     startPlans.set(id, {
@@ -1212,6 +1227,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       // There's a worktree to open from when it's made until the changes are discarded (spec 013, Q9).
       const made = session.branch !== null && session.discardedAt === null;
       return { ...session, ticket, followUp, worktreePath: made ? record.worktree : null };
+    },
+
+    async commands(id) {
+      const record = await records.get(id);
+      return record === null ? null : { commands: [...record.commandLog] };
     },
 
     async stop(id) {

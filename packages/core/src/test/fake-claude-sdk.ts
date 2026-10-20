@@ -38,6 +38,8 @@ export interface FakeToolCall {
   output?: string;
   /** It ran and failed, as a command that exits with an error does. */
   fails?: boolean;
+  /** Once allowed, it runs until Claude is interrupted, as a server does, and gives no result. */
+  hangs?: boolean;
 }
 
 export interface FakeRun {
@@ -248,9 +250,15 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
             });
             yield useMessage(calls, ids);
             const answers = await Promise.all(calls.map((call, i) => decide(call, ids[i] ?? '')));
+            const runsOn = (call: FakeToolCall, i: number) => call.hangs === true && answers[i]?.behavior === 'allow';
             for (const [i, call] of calls.entries()) {
               const answer = answers[i];
-              if (answer !== undefined) yield resultMessage(call, ids[i] ?? '', answer);
+              if (answer !== undefined && !runsOn(call, i)) yield resultMessage(call, ids[i] ?? '', answer);
+            }
+            if (calls.some(runsOn)) {
+              await interrupted;
+              yield interruptedResult;
+              break;
             }
             if (wasInterrupted) {
               yield interruptedResult;

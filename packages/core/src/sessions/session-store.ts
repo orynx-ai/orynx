@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   ApprovalDecisionSchema,
+  ClaudeCommandSchema,
   RepositoryIdSchema,
   SessionSchema,
   type Session,
@@ -63,6 +64,8 @@ export const StoredSessionSchema = z.object({
     .default(null),
   /** Every call that asked, in order (spec 012). A session saved before spec 012 has none. */
   approvalLog: z.array(ApprovalRecordSchema).default([]),
+  /** The Terminal's Claude tab: every command Claude ran, with its output (spec 036). A session saved before has none. */
+  commandLog: z.array(ClaudeCommandSchema).default([]),
   /**
    * What outside the worktree the brief named, as real paths, which Claude may read on every run, a follow-up's
    * too (spec 022): the files you picked and skills' folders. A session saved before spec 022 has none.

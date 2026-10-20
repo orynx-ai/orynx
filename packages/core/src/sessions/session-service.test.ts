@@ -1494,3 +1494,77 @@ describe('the pull request (spec 014)', () => {
     });
   });
 });
+
+describe('Claude’s commands (spec 036)', () => {
+  const failingTests: FakeTurn = {
+    tool: 'Bash',
+    input: { command: 'npm test' },
+    output: '\u001b[31m FAIL  src/a.test.ts\u001b[0m\nTests: 1 failed',
+    fails: true,
+  };
+
+  it('AC-19, AC-20: keeps each command Claude ran, with its output, and says the session changed', async () => {
+    const { service, records, heard } = await setUp({
+      script: [failingTests, { finish: 'Ran the tests.' }],
+      mode: 'edit_and_run_allowed',
+      allowedCommands: ['npm test'],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+
+    expect(await service.commands('0000000000000001')).toEqual({
+      commands: [
+        {
+          id: 'toolu_1',
+          state: 'failed',
+          command: 'npm test',
+          output: [' FAIL  src/a.test.ts', 'Tests: 1 failed'],
+          cut: false,
+          ms: 0,
+        },
+      ],
+    });
+    expect(heard).toContainEqual({ type: 'session.changed', sessionId: '0000000000000001' });
+  });
+
+  it('AC-22: keeps a command you denied as denied', async () => {
+    const { service, records } = await setUp({ script: [failingTests, { finish: 'Skipped them.' }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    await service.respond('0000000000000001', approval?.id ?? '', 'deny');
+    await settled(records);
+
+    expect((await service.commands('0000000000000001'))?.commands).toEqual([
+      { id: 'denied-1', state: 'denied', command: 'npm test' },
+    ]);
+  });
+
+  it('AC-19: a command still running when you press Stop Claude is stopped', async () => {
+    const { service, records } = await setUp({
+      script: [{ tool: 'Bash', input: { command: 'npm run dev' }, hangs: true }],
+      mode: 'edit_and_run_allowed',
+      allowedCommands: ['npm run dev'],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    for (let tries = 0; tries < 500; tries++) {
+      if ((await records.get('0000000000000001'))?.commandLog.length === 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    expect((await service.commands('0000000000000001'))?.commands).toEqual([
+      { id: 'toolu_1', state: 'running', command: 'npm run dev' },
+    ]);
+
+    await service.stop('0000000000000001');
+    expect((await service.commands('0000000000000001'))?.commands).toEqual([
+      { id: 'toolu_1', state: 'stopped', command: 'npm run dev' },
+    ]);
+  });
+
+  it('AC-24: a session with no commands has none, and there are none for a session that doesn’t exist', async () => {
+    const { service, records } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect(await service.commands('0000000000000001')).toEqual({ commands: [] });
+    expect(await service.commands('ffffffffffffffff')).toBeNull();
+  });
+});

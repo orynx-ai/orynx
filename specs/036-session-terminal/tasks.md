@@ -8,10 +8,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: The SDK reader says each command's end with its output, failure and time; the command work carries its call's id (AC-19)
       Check: pnpm test packages/core/src/agents/claude/sdk-messages.test.ts packages/core/src/agents/claude/claude-adapter.test.ts
       Files: packages/core/src/agents/agent-adapter.ts, packages/core/src/agents/claude/sdk-messages.ts, packages/core/src/agents/claude/claude-adapter.ts, their tests
-- [ ] Task 3: The session keeps a command log (running, ended, denied, refused) and serves it at GET /sessions/:id/commands (AC-19, AC-20, AC-24)
+- [x] Task 3: The session keeps a command log (running, ended, denied, refused) and serves it at GET /sessions/:id/commands (AC-19, AC-20, AC-24)
       Check: pnpm test packages/core/src/sessions/command-log.test.ts packages/core/src/sessions/session-service.test.ts packages/core/src/routes/sessions.test.ts
       Files: packages/core/src/sessions/command-log.ts, command-log.test.ts, session-store.ts, session-service.ts, packages/core/src/routes/sessions.ts, tests
-- [ ] Task 4: Terminal output buffer: lines and blocks capped, colour codes removed, partial lines joined (AC-16)
+- [ ] Task 4: Terminal output buffer: lines and blocks capped, partial lines joined (AC-16). Plain lines and colour codes came with task 3
       Check: pnpm test packages/core/src/terminal/output.test.ts
       Files: packages/core/src/terminal/output.ts, output.test.ts
 - [ ] Task 5: Terminal service runs a command in the worktree as your login shell, one per tab, with Stop, tabs, clear and a clean environment (AC-4–AC-9, AC-11, AC-13, AC-15, AC-25, AC-29)

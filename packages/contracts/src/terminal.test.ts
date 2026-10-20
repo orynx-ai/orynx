@@ -19,9 +19,12 @@ describe('ClaudeCommandListSchema', () => {
     expect(list.commands.map((command) => command.state)).toEqual(['done', 'failed', 'denied', 'refused', 'running']);
   });
 
-  it('AC-17: holds the note Ask Claude to fix leaves', () => {
-    const note = { id: 'note-1', state: 'note', command: 'pnpm test' };
-    expect(ClaudeCommandListSchema.parse({ commands: [note] })).toEqual({ commands: [note] });
+  it('AC-17: holds the note Ask Claude to fix leaves, and a command Claude’s run ended before it did', () => {
+    const commands = [
+      { id: 'note-1', state: 'note', command: 'pnpm test' },
+      { id: 'toolu_9', state: 'stopped', command: 'pnpm build' },
+    ];
+    expect(ClaudeCommandListSchema.parse({ commands })).toEqual({ commands });
   });
 
   it('refuses an ended command with no time, or an empty command', () => {

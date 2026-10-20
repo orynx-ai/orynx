@@ -19,13 +19,15 @@ const ClaudeCommandBaseSchema = z.object({ id: z.string().min(1), command: Comma
 
 /**
  * One of Claude's commands in the Claude tab, oldest first. `ms` runs from the moment the command was allowed.
- * Claude Code gives no exit code, so an ended one is only `done` or `failed`. `note` is Ask Claude to fix's line,
- * "Sent from your terminal", with your command.
+ * Claude Code gives no exit code, so an ended one is only `done` or `failed`. `stopped` never ended: Claude's run
+ * did first (Stop, a problem, Orynx closing). `note` is Ask Claude to fix's line, "Sent from your terminal", with
+ * your command.
  */
 export const ClaudeCommandSchema = z.discriminatedUnion('state', [
   ClaudeCommandBaseSchema.extend({ state: z.literal('running') }),
   ClaudeCommandBaseSchema.extend({ state: z.literal('done'), ...OutputFields, ms: z.int().nonnegative() }),
   ClaudeCommandBaseSchema.extend({ state: z.literal('failed'), ...OutputFields, ms: z.int().nonnegative() }),
+  ClaudeCommandBaseSchema.extend({ state: z.literal('stopped') }),
   ClaudeCommandBaseSchema.extend({ state: z.literal('denied') }),
   ClaudeCommandBaseSchema.extend({ state: z.literal('refused'), reason: RefusalReasonSchema }),
   ClaudeCommandBaseSchema.extend({ state: z.literal('note') }),

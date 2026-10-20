@@ -2,6 +2,7 @@ import type { FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
   ApiErrorSchema,
+  ClaudeCommandListSchema,
   apiPaths,
   CreatePullRequestAnswerSchema,
   CreatePullRequestRequestSchema,
@@ -74,6 +75,12 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
       schema: { body: StartSessionRequestSchema, response: { 200: StartSessionAnswerSchema } },
     },
     (request) => service.start(request.body),
+  );
+
+  app.get(
+    apiPaths.sessionCommands,
+    { schema: { params: SessionParamsSchema, response: { 200: ClaudeCommandListSchema, 404: ApiErrorSchema } } },
+    async (request, reply) => (await service.commands(request.params.id)) ?? reply.code(404).send(notFound),
   );
 
   app.get(
