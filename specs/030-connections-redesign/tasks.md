@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: `IntegrationStatus` gains optional `account` and `checkedAt`; `ConnectionCheckSchema` (`status`, `ms`) and the two check paths (AC-7, AC-8)
       Check: pnpm test packages/contracts/src/status.test.ts; pnpm typecheck
       Files: packages/contracts/src/status.ts, packages/contracts/src/status.test.ts, packages/contracts/src/routes.ts
-- [ ] Task 3: `CheckedStatus.checkedAt()`, kept out of the compared answer; Jira's status names the account and when it was checked; `jira.checkNow()` timed, refused when nothing is saved; `POST /api/jira/connection/check` (AC-8, AC-9)
+- [x] Task 3: `CheckedStatus.checkedAt()`, kept out of the compared answer; Jira's status names the account and when it was checked; `jira.checkNow()` timed, refused when nothing is saved; `POST /api/jira/connection/check` (AC-8, AC-9)
       Check: pnpm test packages/core/src/integrations/checked-status.test.ts packages/core/src/integrations/jira/connection-status.test.ts packages/core/src/routes/jira.test.ts
       Files: packages/core/src/integrations/checked-status.ts, packages/core/src/integrations/jira/connection.ts, packages/core/src/routes/jira.ts, and their tests
 - [ ] Task 4: The same for GitHub: the login as the account when connected, `github.checkNow()`, `POST /api/github/connection/check` (AC-15, AC-17, AC-18)
