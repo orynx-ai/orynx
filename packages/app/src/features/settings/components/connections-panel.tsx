@@ -4,7 +4,7 @@ import type { IntegrationId, IntegrationStatus } from '@devhub/contracts';
 import { Callout, Icon, Panel, Skeleton, SourceMark, StatusSign, type StatusButtonState } from '@devhub/ui';
 import { useStatus } from '../queries.ts';
 import { GitHubConnectionDialog, JiraConnectionDialog, SlackConnectionDialog } from './connection-dialog.tsx';
-import { howToConnect, lookWords, toolNames } from './connection-words.ts';
+import { howToConnect, lookOf, lookWords, toolNames } from './connection-words.ts';
 import { SectionHeading } from './section-heading.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
 
@@ -29,6 +29,24 @@ function ConnectionRow({
       </div>
       {status === undefined ? <Skeleton shape="circle" className="size-9" /> : children}
     </li>
+  );
+}
+
+/**
+ * The page bar on Settings › Connections: "2 of 3 connected · 1 needs attention" (spec 030). Empty until the
+ * status comes, and under 768 px, where the bar has room only for the crumbs.
+ */
+export function ConnectionsSummary() {
+  const tools = useStatus().data?.integrations;
+  if (tools === undefined) return null;
+  const states = Object.values(tools).map((tool) => lookOf(tool));
+  const connected = states.filter((look) => look === 'connected').length;
+  const attention = states.filter((look) => look === 'needs_reconnecting').length;
+  return (
+    <span className="text-small text-muted-foreground max-md:hidden">
+      {`${String(connected)} of ${String(states.length)} connected`}
+      {attention === 0 ? null : ` · ${String(attention)} needs attention`}
+    </span>
   );
 }
 

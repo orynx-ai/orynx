@@ -22,7 +22,7 @@ import { RepositoriesPanel } from './components/repositories-panel.tsx';
 import { SkillsBarActions } from './components/skills-bar-actions.tsx';
 import { TestNotification } from './components/test-notification.tsx';
 import { SkillsPanel } from './components/skills-panel.tsx';
-import { ConnectionsPanel } from './components/connections-panel.tsx';
+import { ConnectionsPanel, ConnectionsSummary } from './components/connections-panel.tsx';
 import { SettingsTabSchema, settingsTabLabels, type SettingsTab } from './tabs.ts';
 
 /** Each tab's icon, before its name (the user's call, 19 Oct 2026: icons wherever they help). */
@@ -54,6 +54,8 @@ export function SettingsScreen() {
             <SkillsBarActions />
           ) : tab === 'notifications' ? (
             <TestNotification />
+          ) : tab === 'connections' ? (
+            <ConnectionsSummary />
           ) : (
             // Under 768 px the bar has room only for the crumbs.
             <span className="text-small text-muted-foreground max-md:hidden">Changes save automatically</span>
