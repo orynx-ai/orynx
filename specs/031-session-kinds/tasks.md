@@ -64,9 +64,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 17: e2e: Build on my PR on the pull-requests hub: the PR's branch, Push changes to it, push rejected when origin moved, Discard keeps the branch (AC-14 to AC-17)
       Check: pnpm test:e2e e2e/pull-requests.spec.ts
       Files: e2e/pull-requests.spec.ts, e2e/fake-tools/config.ts, e2e/fake-tools/preload.ts
-- [ ] Task 18: e2e: a session the fake Claude finishes without a command shows Test skipped (AC-11)
+- [x] Task 18: e2e: a session the fake Claude finishes without a command shows Test skipped (AC-11)
       Check: pnpm test:e2e e2e/sessions.spec.ts
-      Files: e2e/sessions.spec.ts, e2e/fake-claude/session.ts
+      Files: e2e/sessions.spec.ts
 
 **Docs and the browser check**
 

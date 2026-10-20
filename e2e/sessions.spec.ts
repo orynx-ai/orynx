@@ -144,7 +144,7 @@ test.afterAll(() => {
   rmSync(repository.root, { recursive: true, force: true });
 });
 
-test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35: Ship then Send starts Claude, and every tab watches it finish', async ({
+test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35, 031 AC-11: Ship then Send starts Claude, and every tab watches it finish', async ({
   page,
   context,
 }) => {
@@ -174,6 +174,10 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35: Ship then Send starts Claud
   await expect(page.getByRole('list', { name: 'Session progress' }).getByText('Review')).toHaveAttribute(
     'aria-current',
     'step',
+  );
+  // Claude edited and ran no command, so Test was passed over (spec 031).
+  await expect(page.getByRole('list', { name: 'Session progress' }).getByRole('listitem').nth(2)).toHaveText(
+    'Test, skipped',
   );
   await expect(other.getByRole('region', { name: "Claude's progress" }).getByText('Finished')).toBeVisible();
 
