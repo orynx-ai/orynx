@@ -33,6 +33,7 @@ import {
   type FakeOpenedPull,
 } from '../test/fake-github.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
+import { createTerminalService } from '../terminal/terminal-service.ts';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import type { SessionRecords } from './session-store.ts';
@@ -156,6 +157,13 @@ async function setUp({
 
   const sdk = fakeClaudeSdk(script, ...later);
   const records = await openFileSessionStore(home, { now });
+  // Your shell tabs (spec 036), with /bin/sh and none of the real home's profile.
+  const terminal = createTerminalService({
+    events,
+    env: { PATH: '/usr/bin:/bin', HOME: home, SHELL: '/bin/sh' },
+    home,
+  });
+  services.push(terminal);
   const reports: SessionReport[] = [];
   const changes: { from: string; to: string; quiet: boolean }[] = [];
   let ids = 0;
@@ -212,6 +220,7 @@ async function setUp({
             sandboxSettings({ platform: 'darwin', worktree, devhubHome: home, home: repos.root, temporary: tmpdir() }),
         }),
     events,
+    terminal,
     onReport: (report) => reports.push(report),
     onChange: (before, after, { quiet }) => {
       if (before.state !== after.state) changes.push({ from: before.state, to: after.state, quiet });
@@ -224,7 +233,7 @@ async function setUp({
   });
   services.push(service);
   jira.use(acceptingIssue({ key: 'PROJ-1423', summary: 'Add bulk archive to the content list' }));
-  return { service, records, repos, home, heard, reports, changes, sdk, folders: added, settings };
+  return { service, records, repos, home, heard, reports, changes, sdk, folders: added, settings, terminal };
 }
 
 /** Waits until the session has sent Claude its brief: from there a hanging Claude writes nothing more. */
@@ -957,6 +966,34 @@ describe('telling the notifications (spec 029)', () => {
 });
 
 describe('discarding a session', () => {
+  it('AC-28 (036): stops every command in the session’s Terminal before the worktree goes', async () => {
+    const { service, records, terminal, home } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const worktree = (await settled(records)).worktree ?? '';
+    // On Stop, the command writes down whether its worktree was still there.
+    const command = `trap '[ -d "$PWD" ] && echo there > "$HOME/at-stop"; exit 1' TERM; echo ready; while :; do sleep 0.1; done`;
+    await terminal.run('0000000000000001', 'tab-1', command, worktree);
+    for (let tries = 0; tries < 500; tries++) {
+      const block = terminal.read('0000000000000001', worktree).tabs[0]?.blocks[0];
+      if (block?.state === 'running' && block.output.includes('ready')) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    expect(await service.discard('0000000000000001')).toBe('discarded');
+
+    expect(await readFile(join(home, 'at-stop'), 'utf8')).toBe('there\n');
+    expect(terminal.read('0000000000000001', worktree)).toMatchObject({ tabs: [{ blocks: [] }], history: [] });
+  });
+
+  it('AC-3 (036): says the Terminal opens on a Build with a worktree, and not once it’s discarded', async () => {
+    const { service, records } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect((await service.get('0000000000000001'))?.terminal).toBe(true);
+    await service.discard('0000000000000001');
+    expect((await service.get('0000000000000001'))?.terminal).toBe(false);
+  });
+
   it('AC-10: deletes a finished session’s worktree and branch, and keeps the session, Stopped', async () => {
     const { service, records, repos, home } = await setUp();
     await service.start({ ticketKey: 'PROJ-1423' });

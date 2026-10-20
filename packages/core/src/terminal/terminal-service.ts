@@ -10,6 +10,7 @@ import {
   type TerminalBlock,
 } from '@devhub/contracts';
 import type { EventBus } from '../events/event-bus.ts';
+import type { StoredSession } from '../sessions/session-store.ts';
 import { createOutputBuffer, type OutputBuffer } from './output.ts';
 
 /**
@@ -47,6 +48,11 @@ export interface TerminalService {
   stopAll(sessionId: string): Promise<void>;
   /** Stops every command in every session, for the server's shutdown. */
   close(): Promise<void>;
+}
+
+/** Where a session's Terminal runs (spec 036, Q9): a Build's worktree, until it's discarded; null when it has none. */
+export function terminalWorktree({ session, worktree }: Pick<StoredSession, 'session' | 'worktree'>): string | null {
+  return session.mode === 'build' && session.discardedAt === null ? worktree : null;
 }
 
 /** What Orynx's own process is set up with (every key in `.env.example`), which your commands mustn't inherit. */

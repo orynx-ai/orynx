@@ -84,6 +84,8 @@ const app = await createServer({
     ? {}
     : { agent: { query, program: claudeProgram, env: config.agentEnvironment, sandbox } }),
   gitEnvironment: config.gitEnvironment,
+  // Your shell tabs in a session's Terminal (spec 036); Windows has none, as it has no commands for Claude.
+  ...(process.platform === 'win32' ? {} : { terminal: { env: config.terminalEnvironment } }),
   // Under DEVHUB_HOME/sessions, and the worktrees under DEVHUB_HOME/worktrees.
   sessions: await openFileSessionStore(config.home),
   // Settings › Repositories never adds DevHub's own folder (spec 005).
