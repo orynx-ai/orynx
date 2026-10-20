@@ -47,8 +47,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: e2e on a hub of its own: open the Terminal on a real worktree, run, fail, Stop, `env`, Esc and axe (AC-1, AC-2, AC-4, AC-6, AC-8, AC-9, AC-29, AC-31). 360 px and dark are a real-browser check before /review, as the shared hub skips the phone project
       Check: pnpm test:e2e e2e/terminal.spec.ts --project=desktop
       Files: e2e/terminal.spec.ts, e2e/fake-tools/config.ts, playwright.config.ts
-- [ ] Task 16: Docs: architecture (the server runs what the page sends, in a worktree only), learn page, design map
+- [x] Task 16: Docs: architecture (the server runs what the page sends, in a worktree only), learn page, design map
       Check: pnpm gate handbook-size specs
-      Files: docs/architecture.md, learn/sessions-and-worktrees.md, docs/design-map.md
+      Files: docs/architecture.md, learn/sessions-and-worktrees.md, specs/036-session-terminal/spec.md (the design map rows came with tasks 9 and 10)
 - [ ] Task 17: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)

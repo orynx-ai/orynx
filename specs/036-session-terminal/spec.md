@@ -26,6 +26,15 @@ Correct these now, or the work goes ahead on them.
 - **Ask Claude to fix** shows on a failed block in your shell tab while the session can take a follow-up (spec 013). It sends Claude a follow-up with the command, its exit code and the output's last 50 lines (Q8f). It goes into the running Claude, or resumes it, as the follow-up box does. The dialog then moves to the Claude tab, which shows "Sent from your terminal: `<command>`". The output goes to Claude as it is, on your click only.
 - **Output shows within half a second** of the command printing it, over the event stream Orynx already has. Nothing polls.
 - **No new dependency**: commands run with `node:child_process`, and no terminal emulator is added (Q2).
+- **Settled while building** (20 Oct 2026):
+  - A command of Claude's still running when Claude's run ends (Stop, a problem, Orynx closing) shows "stopped".
+  - The Claude tab's load error is "Couldn't load Claude's commands" with Try again. Your shell tab's is Q8e's "Couldn't reach Orynx."
+  - "Close zsh 2" sits in the tab strip beside +, shown while an added tab is picked: a button inside a tab would be a button in a button.
+  - - at five tabs is `aria-disabled` rather than disabled, so its tooltip can still say why.
+  - The field takes focus on opening, after + and after Close, but not on arrowing between tabs, so the tab strip keeps the arrow keys.
+  - Typing `clear` empties the tab rather than running a command.
+  - Ask Claude to fix that can't go says why in the follow-up box's words.
+  - Each block is a group named by its command.
 - **Left out of the drawing** (Q3, Q4): the npm run dev tab with Open localhost, Restart and Stop; the Quick run chips with Edit list; and Search output.
 
 ## Goal
