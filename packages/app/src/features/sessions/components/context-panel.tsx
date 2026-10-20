@@ -65,12 +65,13 @@ function Name({ chip }: { chip: ComposerChip }) {
 /**
  * The Context tab (the user's call, 19 Oct 2026, in place of spec 013's Ticket tab): the session's own ticket as
  * the Ticket tab showed it, then every ticket, pull request and file Claude was sent. A ticket's key opens the
- * ticket dialog and a pull request opens on GitHub.
+ * ticket dialog and a pull request opens on GitHub. It takes the whole width it's given, Full screen's too (the user's
+ * call, 20 Oct 2026).
  */
 export function ContextPanel({ session }: { session: Session }) {
   const subLine = useSubLine();
   return (
-    <div className="flex max-w-160 min-w-0 flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       {session.source?.kind === 'jira' ? <TicketPanel session={session} /> : null}
       <AttentionList aria-label={contextWords.list}>
         {contextOf(session).map((chip) => {
