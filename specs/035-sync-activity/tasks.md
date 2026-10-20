@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Work out what a sync changed: new, updated, removed, the first 50 kept and the rest counted (AC-33, AC-16)
       Check: pnpm test packages/core/src/inbox/sync-changes.test.ts
       Files: packages/core/src/inbox/sync-changes.ts, packages/core/src/inbox/sync-changes.test.ts
-- [ ] Task 4: Write a log row for each tool's part of every sync, and sync one tool on its own (AC-32, AC-20, AC-22)
+- [x] Task 4: Write a log row for each tool's part of every sync, and sync one tool on its own (AC-32, AC-20, AC-22)
       Check: pnpm test packages/core/src/inbox/inbox-service.test.ts packages/core/src/inbox/no-leaks.test.ts
       Files: packages/core/src/inbox/inbox-service.ts, packages/core/src/inbox/inbox-service.test.ts, packages/core/src/inbox/no-leaks.test.ts
 - [ ] Task 5: Serve GET /api/sync-activity, and POST /api/inbox/refresh with a tool (AC-5, AC-6, AC-7, AC-17, AC-18, AC-37)

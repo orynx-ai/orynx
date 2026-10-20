@@ -651,4 +651,103 @@ describe('inbox service', () => {
       expect(asked()).toEqual([]);
     });
   });
+
+  describe('the sync log (spec 035)', () => {
+    const runs = (cache: InboxCache) =>
+      cache.syncRuns({ failedOnly: false, limit: 100 }).map(({ tool, startedAt, tookMs, data }) => ({
+        tool,
+        startedAt,
+        tookMs,
+        data,
+      }));
+
+    it('AC-32: each tool’s part of a sync writes one row: when, how long, its problem and what it found', async () => {
+      outside.use(
+        http.post(issueSearchUrl(), () => {
+          clock += 1200;
+          return HttpResponse.json({ issues: [], isLast: true });
+        }),
+        http.post(graphqlUrl, () => HttpResponse.json({ message: 'Server Error' }, { status: 502 })),
+      );
+      const { inbox, cache } = setup({ settings: bothConnected });
+
+      await inbox.sync();
+
+      expect(runs(cache).sort((a, b) => a.tool.localeCompare(b.tool))).toEqual([
+        {
+          tool: 'github',
+          startedAt: '2026-10-17T10:00:00.000Z',
+          tookMs: expect.any(Number) as number,
+          data: { problem: { kind: 'no_answer' }, changes: [], moreChanges: 0 },
+        },
+        {
+          tool: 'jira',
+          startedAt: '2026-10-17T10:00:00.000Z',
+          tookMs: 1200,
+          data: { problem: null, changes: [], moreChanges: 0 },
+        },
+      ]);
+    });
+
+    it('AC-33: a sync lists what it found new, and the next what changed or left', async () => {
+      outside.use(acceptingIssueSearch([issue]));
+      const { inbox, cache } = setup({ settings: jiraConnected });
+      await inbox.sync();
+      clock += 2 * 60_000;
+      outside.use(acceptingIssueSearch([{ key: 'PROJ-7', summary: 'Rate-limit the export' }]));
+
+      await inbox.sync();
+
+      const kinds = runs(cache).map(({ data }) =>
+        (data as { changes: { kind: string; ref: string }[] }).changes.map(({ kind, ref }) => `${kind} ${ref}`),
+      );
+      expect(kinds).toEqual([['new PROJ-7', 'removed PROJ-1423'], ['new PROJ-1423']]);
+    });
+
+    it('AC-20: Sync now for one tool asks only that tool, logs only it, and leaves Home’s Synced time alone', async () => {
+      outside.use(acceptingIssueSearch([issue]), acceptingInboxQuery({ reviews: [review] }));
+      const asked = requests();
+      const { inbox, cache } = setup({ settings: bothConnected });
+
+      await inbox.sync('jira');
+
+      expect(asked()).toEqual([issueSearchUrl()]);
+      expect(runs(cache).map((run) => run.tool)).toEqual(['jira']);
+      expect((await inbox.read()).tools.github.state).toBe('syncing');
+      expect((await inbox.read()).syncedAt).toBeNull();
+    });
+
+    it('AC-22: a whole sync asked while one tool syncs still syncs the other tool, once', async () => {
+      outside.use(
+        http.post(issueSearchUrl(), async () => {
+          await delay(50);
+          return HttpResponse.json({ issues: [], isLast: true });
+        }),
+        acceptingInboxQuery({ reviews: [review] }),
+      );
+      const asked = requests();
+      const { inbox } = setup({ settings: bothConnected });
+
+      const one = inbox.sync('jira');
+      await delay(10);
+      await Promise.all([inbox.sync(), one]);
+
+      expect(asked()).toEqual([issueSearchUrl(), graphqlUrl]);
+    });
+
+    it('AC-20: Sync now for a tool a running sync already covers waits for it, without asking again', async () => {
+      outside.use(
+        http.post(issueSearchUrl(), async () => {
+          await delay(50);
+          return HttpResponse.json({ issues: [], isLast: true });
+        }),
+      );
+      const asked = requests();
+      const { inbox } = setup({ settings: jiraConnected });
+
+      await Promise.all([inbox.sync(), inbox.sync('jira')]);
+
+      expect(asked()).toEqual([issueSearchUrl()]);
+    });
+  });
 });
