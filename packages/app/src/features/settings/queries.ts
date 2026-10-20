@@ -5,6 +5,7 @@ import {
   jiraConnectionQueryOptions,
   jiraProjectsQueryOptions,
   preferencesQueryOptions,
+  agentsAccessQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
   sessionsQueryOptions,
@@ -462,5 +463,37 @@ export function useRemoveSkill() {
     mutationKey: [...queryKeys.orynxSkills, 'remove'],
     mutationFn: (folder) => api.removeOrynxSkill(folder),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills }),
+  });
+}
+
+/** Whether agents outside Orynx may use its tickets (spec 037, Q14); settings.changed refreshes it. */
+export function useAgentsAccess() {
+  const api = useApi();
+  return useQuery(agentsAccessQueryOptions(api));
+}
+
+export function useSetAgentsAccess() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled: boolean) => api.setAgentsAccess({ enabled }),
+    onSuccess: (access) => {
+      queryClient.setQueryData(queryKeys.agentsAccess, access);
+    },
+  });
+}
+
+/**
+ * The MCP config to paste into another agent while the door is open (spec 037, AC-40): read when the row shows it,
+ * so Copy MCP config copies at once, within your click. The server writes the bridge it runs as it answers.
+ */
+export function useMcpConfig(enabled: boolean) {
+  const api = useApi();
+  return useQuery({
+    queryKey: [...queryKeys.agentsAccess, 'config'] as const,
+    queryFn: () => api.mcpConfig(),
+    enabled,
+    staleTime: Infinity,
+    gcTime: 0,
   });
 }

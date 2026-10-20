@@ -88,7 +88,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 25: The Session screen on an Orynx ticket (AC-19, AC-27, AC-28, AC-29, AC-30) - No Open in Jira; the Ticket tab with the Orynx mark and "ORX-3 was deleted." - The `ticket` step's words, and the approval callout for a delete (Allow once and Deny).
       Check: pnpm test packages/app/src/features/sessions/step-words.test.ts packages/app/src/features/sessions/approval-words.test.ts packages/app/src/features/sessions/components/ticket-panel.test.tsx packages/app/src/features/sessions/components/approval-callout.test.tsx packages/app/src/features/sessions/components/context-panel.test.tsx
       Files: packages/app/src/features/sessions/step-words.ts, approval-words.ts, ticket-tab-words.ts, components/ticket-panel.tsx, components/approval-callout.tsx, components/context-panel.tsx, session-screen.tsx, packages/app/src/features/notifications/*, and their tests
-- [ ] Task 26: Settings › Coding agent's "Other agents" row (AC-39, AC-40) - A Switch; when it is on, Copy MCP config copies the config the server writes. - Turning it off says so, and a failed change says spec 005's line.
+- [x] Task 26: Settings › Coding agent's "Other agents" row (AC-39, AC-40) - A Switch; when it is on, Copy MCP config copies the config the server writes. - Turning it off says so, and a failed change says spec 005's line.
       Check: pnpm test packages/app/src/features/settings/components/other-agents.test.tsx packages/app/src/features/settings/components/coding-agent-panel.test.tsx
       Files: packages/app/src/features/settings/components/other-agents.tsx, coding-agent-panel.tsx, queries.ts, and their tests
 
