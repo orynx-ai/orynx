@@ -43,6 +43,7 @@ export {
 export { Button, buttonVariants, type ButtonProps } from './components/button.tsx';
 export { Callout, CalloutCode, type CalloutCodeProps, type CalloutProps } from './components/callout.tsx';
 export { Calendar, type CalendarProps } from './components/calendar.tsx';
+export { DatePicker, type DatePickerProps } from './components/date-picker.tsx';
 export { Popover, PopoverContent, PopoverTrigger } from './components/popover.tsx';
 export { Card, type CardLook, type CardProps } from './components/card.tsx';
 export { Checkbox, type CheckboxProps } from './components/checkbox.tsx';

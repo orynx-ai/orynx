@@ -52,7 +52,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: `Popover` and `Calendar`, from shadcn, with `react-day-picker` added; arrows, Page Up and Page Down, Enter and Esc (AC-38)
       Check: pnpm test packages/ui/src/components/popover.test.tsx packages/ui/src/components/calendar.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/popover.tsx, packages/ui/src/components/calendar.tsx, and their stories and tests, packages/ui/package.json, packages/ui/src/index.ts, docs/architecture.md, docs/design-map.md
-- [ ] Task 15: `DatePicker`: a field that reads "Pick a date" or the date, opens the calendar, has Clear date, and puts focus back on close (AC-38)
+- [x] Task 15: `DatePicker`: a field that reads "Pick a date" or the date, opens the calendar, has Clear date, and puts focus back on close (AC-38)
       Check: pnpm test packages/ui/src/components/date-picker.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/date-picker.tsx, .stories.tsx, .test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 16: `WorkItemCard` takes a `mark` before its key, with a story (AC-1)
