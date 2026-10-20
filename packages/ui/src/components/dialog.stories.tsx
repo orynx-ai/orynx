@@ -78,6 +78,27 @@ export const Narrow: Story = {
   ),
 };
 
+/** `size="wide"`: up to 1100 × 860 px, for a list beside its detail, such as Sync activity (spec 035). */
+export const Wide: Story = {
+  render: (args) => (
+    <Dialog {...args}>
+      <DialogTrigger asChild>
+        <Button>Open the dialog</Button>
+      </DialogTrigger>
+      <DialogContent size="wide">
+        <DialogTitle className="border-b border-border px-5 py-4">Sync activity</DialogTitle>
+        <div className="flex min-h-0 flex-1 max-md:flex-col">
+          <div className="shrink-0 border-border bg-sidebar p-3 max-md:border-b md:w-70 md:border-e">Tools</div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-5">History</div>
+        </div>
+        <DialogFoot>
+          <Button variant="primary">Done</Button>
+        </DialogFoot>
+      </DialogContent>
+    </Dialog>
+  ),
+};
+
 /** `size="full"`: the whole window less the 16 px gutter on every side, for a diff or a ticket read in full. */
 export const FullScreen: Story = {
   render: (args) => (

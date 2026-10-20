@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Read the sync activity and sync one tool from the api-client (AC-20)
       Check: pnpm test packages/api-client/src/sync-activity.test.ts packages/api-client/src/inbox.test.ts
       Files: packages/api-client/src/endpoints/sync-activity.ts, packages/api-client/src/endpoints/inbox.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/sync-activity.test.ts, packages/api-client/src/inbox.test.ts
-- [ ] Task 7: Add Dialog's wide size: 1100 × 860 px, with the gutter on smaller windows (AC-30, AC-31)
+- [x] Task 7: Add Dialog's wide size: 1100 × 860 px, with the gutter on smaller windows (AC-30, AC-31)
       Check: pnpm test packages/ui/src/components/dialog.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/dialog.tsx, packages/ui/src/components/dialog.stories.tsx, packages/ui/src/components/dialog.test.tsx, docs/design-map.md
 - [ ] Task 8: Add StatusDot and StatTiles (AC-8, AC-9)
