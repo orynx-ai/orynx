@@ -62,11 +62,13 @@ export type AgentAsk =
     }
   | { kind: 'edit'; path: string; creates: boolean; lines: ChangeLine[]; moreLines: number }
   /** Deleting one of Orynx's own tickets (spec 037); `title` is null when it's already gone. */
-  | { kind: 'ticket'; key: string; title: string | null };
+  | { kind: 'ticket'; key: string; title: string | null }
+  /** Claude asks to start a server (spec 042): it runs in a Terminal tab, as you, so it always asks. */
+  | { kind: 'server'; command: string; folder: string; alwaysAllow: string };
 
 /** What a waiting call is about, as the log and a denied step keep it: the command, the edit's path or the key. */
 export function askText(ask: AgentAsk): string {
-  if (ask.kind === 'command') return ask.command;
+  if (ask.kind === 'command' || ask.kind === 'server') return ask.command;
   return ask.kind === 'edit' ? ask.path : ask.key;
 }
 
@@ -138,7 +140,7 @@ export interface OrynxTool {
   /** For the agent: what the tool does and when to use it. */
   description: string;
   input: z.ZodObject;
-  asks(input: Readonly<Record<string, unknown>>): AgentAsk | null;
+  asks(input: Readonly<Record<string, unknown>>): Promise<AgentAsk | null>;
   /** Checks the input itself; `error` when it did nothing. */
   run(input: unknown): Promise<{ text: string; error?: true }>;
 }

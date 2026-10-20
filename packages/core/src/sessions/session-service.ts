@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { isOrynxKey, permissionsFor } from '@devhub/contracts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import { ticketTools } from '../orynx-tickets/tools.ts';
@@ -25,6 +25,7 @@ import type {
   SessionChangeRequest,
   SessionChanges,
   SessionFollowUp,
+  SessionPort,
   SessionStep,
   SessionStepItem,
   SessionTicket,
@@ -64,6 +65,7 @@ import {
 import type { SkillsService } from '../skills/skills-service.ts';
 import type { ContextReader } from './context-reader.ts';
 import {
+  addServerStep,
   addStep,
   addWaiting,
   addWork,
@@ -88,6 +90,7 @@ import { createWorktrees, type Prepared, type WorktreeProblem, type WorktreesOpt
 import { readingFrom, readingInstructions, readingPrompt, type AskInput, type AskReading } from './ask-reading.ts';
 import { readBranchRules } from './branch-rules.ts';
 import { sessionTools } from './session-tools.ts';
+import type { PortService } from '../ports/port-service.ts';
 
 /**
  * Claude sessions (spec 011): starting one on a ticket or from the composer (spec 015), running it, stopping
@@ -216,7 +219,7 @@ export interface SessionServiceOptions {
   /** Orynx's own tickets, whose tools every session's agent gets (spec 037); left out, it gets none. */
   tickets?: OrynxTicketService;
   /** Your shell tabs (spec 036). Left out where there are none (Windows): then no session offers its Terminal. */
-  terminal?: Pick<TerminalService, 'stopAll'>;
+  terminal?: Pick<TerminalService, 'stopAll' | 'read' | 'addServerTab' | 'shells' | 'lastLines'>;
   events: EventBus;
   onReport?: (report: SessionReport) => void;
   /**
@@ -230,6 +233,10 @@ export interface SessionServiceOptions {
   stepEventMs?: number;
   /** Read each Build's ask before its worktree (spec 042); the server does, and so do the tests of it. */
   readAsks?: boolean;
+  /** What listens from each session (spec 042); none on a computer with no Terminal. */
+  ports?: PortService;
+  /** How long a server Claude starts may take to listen before Claude gets its last lines instead; 60 seconds. */
+  serverWaitMs?: number;
 }
 
 /** At most this many sessions work at once (Q11). */
@@ -607,7 +614,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
                     ? ask.description
                     : ask.kind === 'edit'
                       ? ask.path
-                      : `${ask.key}${ask.title === null ? '' : ` · ${ask.title}`}`,
+                      : ask.kind === 'server'
+                        ? ask.command
+                        : `${ask.key}${ask.title === null ? '' : ` · ${ask.title}`}`,
               }),
             );
             return {
@@ -694,6 +703,57 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return changed.ok ? withProgress(current, () => changed.progress) : current;
     });
     return refused;
+  }
+
+  /**
+   * What you're asked before Claude starts a server (spec 042, Q7): always, unless you chose Always allow in this
+   * repository, which the allow list keeps as `server:<repository id>`.
+   */
+  async function serverAsk(id: string, command: string, folder: string): Promise<AgentAsk | null> {
+    const record = await records.get(id);
+    const entry = `server:${record?.repository?.id ?? id}`;
+    const { allowedCommands } = await options.preferences.read();
+    return allowedCommands.includes(entry) ? null : { kind: 'server', command, folder, alwaysAllow: entry };
+  }
+
+  /**
+   * Starts a server Claude asked for in a Terminal tab of its own, in the worktree or a folder inside it, and waits for
+   * a port to listen from that tab (spec 042): then a row, and the stepper at Run.
+   */
+  async function startServer(
+    id: string,
+    command: string,
+    folder: string,
+  ): Promise<{ port: number; url: string | null } | { lines: string[] } | { refused: string }> {
+    const record = await records.get(id);
+    const { terminal, ports } = options;
+    if (record === null || terminal === undefined || ports === undefined) {
+      return { refused: "Servers can't start on this computer." };
+    }
+    const worktree = terminalWorktree(record);
+    if (worktree === null || !worktreeMade(record)) return { refused: 'This session has no worktree to start it in.' };
+    const place = resolve(worktree, folder);
+    if (place !== worktree && !place.startsWith(worktree + sep)) {
+      return { refused: 'A server starts in the worktree or a folder inside it.' };
+    }
+    terminal.read(id, worktree);
+    const added = terminal.addServerTab(id, place, command);
+    if (added.result !== 'added') {
+      return { refused: 'This session has all its Terminal tabs open. Ask the user to close one.' };
+    }
+    const shell = terminal.shells(id).find((one) => one.tabId === added.tabId);
+    const until = now() + (options.serverWaitMs ?? 60_000);
+    let listening: SessionPort | undefined;
+    while (shell !== undefined && listening === undefined && now() < until) {
+      listening = (await ports.list({ worktree, shells: [shell] }))?.find((one) => one.startedBy === 'claude');
+      if (listening === undefined) await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    const port = listening?.port ?? null;
+    await change(id, (current) =>
+      withProgress(current, (progress) => addServerStep(progress, { kind: 'server', event: 'started', port, command })),
+    );
+    if (listening === undefined) return { lines: terminal.lastLines(id, added.tabId, 40) };
+    return { port: listening.port, url: listening.url };
   }
 
   /** Each session's branch while it's being made, so two edits at once make one (spec 042). */
@@ -955,7 +1015,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       tools,
       onEdit: () => makeBranch(id),
       // A Build's own tools (spec 042): Claude changes its steps; an Ask has none.
-      orynxTools: first.readOnly ? [] : sessionTools({ changeSteps: (wanted) => applySteps(id, wanted) }),
+      orynxTools: first.readOnly
+        ? []
+        : sessionTools({
+            changeSteps: (wanted) => applySteps(id, wanted),
+            serverAsk: (command, folder) => serverAsk(id, command, folder),
+            startServer: (command, folder) => startServer(id, command, folder),
+          }),
     });
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.
@@ -1597,7 +1663,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       }
       const run = runs.get(id);
       if (run?.agentId == null || adapter === null || claimed.has(approvalId)) return 'already_answered';
-      const entry = waiting.kind === 'command' ? waiting.alwaysAllow : null;
+      const entry = waiting.kind === 'command' || waiting.kind === 'server' ? waiting.alwaysAllow : null;
       if (decision === 'always_allow' && entry === null) return 'not_offered';
       // The first answer counts (AC-13): from here, before anything waits, any other answer to this call is late.
       claimed.add(approvalId);

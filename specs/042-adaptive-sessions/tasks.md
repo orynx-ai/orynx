@@ -43,12 +43,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: `set_steps`: Claude replaces the steps to come and moves `current`, refused whole with the broken rule; a `steps_changed` row; Claude's note explains it (AC-24, AC-25, AC-26, AC-31)
       Check: pnpm test packages/core/src/sessions/session-tools.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/session-tools.ts, packages/core/src/sessions/session-tools.test.ts, packages/core/src/agents/claude/claude-adapter.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/brief.ts
-- [ ] Task 12: A Terminal tab can start with a command and say its shell's PID; `start_server` asks first, runs in a new tab, answers with the address or the last 40 lines; `stop_server`; `run_in_background`'s refusal names `start_server` (AC-2, AC-12, AC-14, AC-37)
-      Check: pnpm test packages/core/src/terminal/terminal-service.test.ts packages/core/src/sessions/session-tools.test.ts packages/core/src/agents/claude/command-decision.test.ts
-      Files: packages/core/src/terminal/terminal-service.ts, packages/core/src/sessions/session-tools.ts, packages/core/src/agents/claude/command-decision.ts, packages/core/src/agents/claude/claude-adapter.ts, packages/core/src/sessions/session-service.ts, and their tests
-- [ ] Task 13: "Always allow in this repository" for servers, kept in Settings › Coding agent's allow list (AC-2)
-      Check: pnpm test packages/core/src/agents/claude/tool-decision.test.ts packages/core/src/sessions/session-service.test.ts
-      Files: packages/core/src/agents/claude/tool-decision.ts, packages/core/src/sessions/session-service.ts, and their tests
+- [x] Task 12: A Terminal tab can be opened for a server (named after it), restarted, and says its shell's PID; `start_server` asks first, runs in a tab of its own in the worktree or a folder inside it, answers with the address or the last 40 lines, adds a `server` row and moves the stepper to Run; `run_in_background`'s refusal names `start_server` (AC-2, AC-12, AC-14, AC-37)
+      Check: pnpm test packages/core/src/terminal/terminal-service.test.ts packages/core/src/sessions/session-tools.test.ts packages/core/src/sessions/session-service.test.ts packages/core/src/agents/claude/command-decision.test.ts
+      Files: packages/contracts/src/terminal.ts, packages/core/src/terminal/terminal-service.ts, packages/core/src/sessions/session-tools.ts, packages/core/src/sessions/session-service.ts, packages/core/src/agents/agent-adapter.ts, packages/core/src/agents/claude/claude-adapter.ts, packages/core/src/agents/claude/command-decision.ts, packages/core/src/create-server.ts, and their tests
+- [x] Task 13: "Always allow in this repository" for servers, kept in Settings › Coding agent's allow list as `server:<repository id>` (AC-2) — built with task 12
 
 ## Core and api-client: ports
 

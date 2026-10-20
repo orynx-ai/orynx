@@ -171,11 +171,12 @@ describe('decideCommand', () => {
       expect(decide('echo $(date)', 'any', { unsandboxed: true }, rows)).toEqual(asksBecause('unsandboxed'));
     });
 
-    it('in every row a background command is refused, and told to run in the foreground', () => {
+    it('in every row a background command is refused, and told to run in the foreground or use start_server (spec 042, AC-14)', () => {
       for (const commands of lists) {
         const decision = decide('npm test', commands, { runInBackground: true });
         expect(decision).toMatchObject({ behavior: 'refuse', reason: 'background' });
         expect(decision.behavior === 'refuse' && decision.message).toMatch(/foreground/);
+        expect(decision.behavior === 'refuse' && decision.message).toMatch(/start_server/);
       }
     });
 

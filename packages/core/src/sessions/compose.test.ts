@@ -415,7 +415,7 @@ describe('Orynx’s ticket tools in a session (spec 037)', () => {
     return { names: (await client.listTools()).tools.map((tool) => tool.name), record };
   }
 
-  it('AC-44: a Build session’s agent gets all five tools, and set_steps, and its calls are steps', async () => {
+  it('AC-44: a Build session’s agent gets all five tools, and its session tools, and its calls are steps', async () => {
     const { names, record } = await toolsGiven('build');
     expect(names).toEqual([
       'list_tickets',
@@ -424,6 +424,7 @@ describe('Orynx’s ticket tools in a session (spec 037)', () => {
       'update_ticket',
       'delete_ticket',
       'set_steps',
+      'start_server',
     ]);
     expect(record?.session.activities.find((activity) => activity.kind === 'ticket')).toMatchObject({
       action: 'listed',

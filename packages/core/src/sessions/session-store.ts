@@ -22,7 +22,7 @@ import {
  */
 export const ApprovalRecordSchema = z.object({
   id: z.string().min(1),
-  about: z.enum(['command', 'edit', 'ticket']),
+  about: z.enum(['command', 'edit', 'ticket', 'server']),
   /** The command, the edit's path, or the ticket's key (spec 037). */
   text: z.string().min(1),
   askedAt: z.iso.datetime(),

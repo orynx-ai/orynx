@@ -34,6 +34,7 @@ import {
 } from '../test/fake-github.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { createTerminalService } from '../terminal/terminal-service.ts';
+import { createPortService } from '../ports/port-service.ts';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import type { SessionRecords, StoredSession } from './session-store.ts';
@@ -224,6 +225,8 @@ async function setUp({
         }),
     events,
     terminal,
+    ports: createPortService({}),
+    serverWaitMs: 15_000,
     readAsks,
     onReport: (report) => reports.push(report),
     onChange: (before, after, { quiet }) => {
@@ -2034,5 +2037,84 @@ describe('Claude changing its steps (spec 042)', () => {
     const record = await settled(records);
     expect(record.session.steps.map((step) => step.label)).toEqual(['Set up', 'Start server']);
     expect(record.session.activities.some((activity) => activity.kind === 'steps_changed')).toBe(false);
+  });
+});
+
+describe('Claude starting a server (spec 042)', () => {
+  const id = '0000000000000001';
+  // A server like `next dev`, on a port the OS picks; node by its full path, as your shell may not have it.
+  const serve = `${process.execPath} -e "const s = require('net').createServer().listen(0, () => console.log('on', s.address().port))"`;
+  const runReading = JSON.stringify({
+    intent: 'run',
+    title: 'Start the server',
+    branch: null,
+    branchFrom: null,
+    base: null,
+    steps: [
+      { kind: 'setup', label: 'Set up' },
+      { kind: 'run', label: 'Start server' },
+    ],
+  });
+  const startServer: FakeTurn = { tool: 'mcp__orynx__start_server', input: { command: serve } };
+
+  it('AC-2, AC-12: asks first; allowed, it runs in a tab of its own, the stepper reaches Run, and it outlives Claude', async () => {
+    const { service, records, sdk, terminal, home } = await setUp({
+      readAsks: true,
+      script: [startServer, { finish: 'Running.' }],
+    });
+    sdk.reads.push(runReading);
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [asked] = await waitingCalls(records);
+    expect(asked).toMatchObject({
+      kind: 'server',
+      command: serve,
+      folder: '.',
+      alwaysAllow: expect.stringMatching(/^server:[0-9a-f]{16}$/) as unknown,
+    });
+    expect(await service.respond(id, asked?.id ?? '', 'allow_once')).toBe('answered');
+    const record = await settled(records);
+
+    const started = record.session.activities.find((activity) => activity.kind === 'server');
+    expect(started).toMatchObject({ event: 'started', command: serve });
+    expect(started?.kind === 'server' && started.port).toBeGreaterThan(0);
+    expect(record.session.step).toBe('run');
+    const worktree = join(home, 'worktrees', id);
+    expect(terminal.read(id, worktree).tabs.at(-1)).toMatchObject({ server: serve });
+    expect(terminal.shells(id).find((shell) => shell.server === serve)).toBeDefined();
+  });
+
+  it('AC-2: Always allow in this repository saves it, and the next server starts without asking', async () => {
+    const { service, records, sdk, settings } = await setUp({
+      readAsks: true,
+      script: [startServer, { finish: 'Running.' }],
+      later: [[startServer, { finish: 'Again.' }]],
+    });
+    sdk.reads.push(runReading);
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [asked] = await waitingCalls(records);
+    expect(await service.respond(id, asked?.id ?? '', 'always_allow')).toBe('answered');
+    await settled(records);
+    expect((await settings.read()).agent).toMatchObject({
+      allowedCommands: [expect.stringMatching(/^server:[0-9a-f]{16}$/) as unknown],
+    });
+
+    expect(await service.send(id, 'start it again')).toEqual({ result: 'sent' });
+    const record = await settled(records);
+    expect(record.approvalLog).toHaveLength(1);
+    expect(record.session.activities.filter((activity) => activity.kind === 'server')).toHaveLength(2);
+  });
+
+  it('AC-2: a folder outside the worktree is refused, and nothing starts', async () => {
+    const { service, records, sdk, terminal } = await setUp({
+      readAsks: true,
+      script: [{ tool: 'mcp__orynx__start_server', input: { command: serve, folder: '../..' } }, { finish: 'No.' }],
+    });
+    sdk.reads.push(runReading);
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [asked] = await waitingCalls(records);
+    await service.respond(id, asked?.id ?? '', 'allow_once');
+    const record = await settled(records);
+    expect(record.session.activities.some((activity) => activity.kind === 'server')).toBe(false);
+    expect(terminal.shells(id).some((shell) => shell.server !== null)).toBe(false);
   });
 });

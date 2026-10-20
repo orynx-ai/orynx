@@ -1,6 +1,7 @@
 import { statSync } from 'node:fs';
 import { basename, sep } from 'node:path';
 import { spawn, type IPty } from '@lydell/node-pty';
+import { lastLines } from './output.ts';
 import {
   terminalLimits,
   type AddTerminalTabAnswer,
@@ -45,6 +46,17 @@ export interface TerminalService {
   write(sessionId: string, tabId: string, data: string): boolean;
   /** Sets the tab's size, which full-screen programs draw to; false for no such tab. */
   resize(sessionId: string, tabId: string, size: TerminalSize): boolean;
+  /**
+   * Opens a tab that runs `command` in `folder` (spec 042): a server Claude asked for, which the tab is named after.
+   * `full` when the session has its most tabs already.
+   */
+  addServerTab(sessionId: string, folder: string, command: string): AddTerminalTabAnswer;
+  /** Stops what runs in a server's tab (⌃C) and runs its command again; false for a tab that isn't a server's. */
+  restart(sessionId: string, tabId: string): boolean;
+  /** Each tab's shell process, and the server it was opened for, for the Ports tab (spec 042). */
+  shells(sessionId: string): { tabId: string; pid: number; server: string | null }[];
+  /** The tab's last `most` lines, with no colour codes (spec 042). */
+  lastLines(sessionId: string, tabId: string, most: number): string[];
   /** Ends every shell in the session's tabs and forgets them: Discard, before the worktree goes. */
   stopAll(sessionId: string): Promise<void>;
   /** Ends every shell in every session, for the server's shutdown. */
@@ -85,6 +97,8 @@ interface Tab {
   listeners: Set<TerminalListener>;
   /** Set once it's closing, so its shell's end neither starts another nor closes it twice. */
   closing: boolean;
+  /** The server it was opened for (spec 042), run as its shell starts. */
+  server: string | null;
 }
 
 interface SessionTerminal {
@@ -130,6 +144,7 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
     pty.onData((data) => {
       heard(tab, data);
     });
+    if (tab.server !== null) pty.write(`${tab.server}\r`);
     tab.ended = new Promise((resolve) => {
       pty.onExit(() => {
         tab.shell = null;
@@ -142,8 +157,9 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
     });
   }
 
-  function newTab(sessionId: string, number: number, worktree: string): Tab {
+  function newTab(sessionId: string, number: number, worktree: string, server: string | null = null): Tab {
     const tab: Tab = {
+      server,
       id: `tab-${String(number)}`,
       number,
       worktree,
@@ -215,7 +231,7 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
         shell: basename(shell),
         worktree:
           worktree === home ? '~' : worktree.startsWith(home + sep) ? `~${worktree.slice(home.length)}` : worktree,
-        tabs: terminal.tabs.map(({ id, number }) => ({ id, number })),
+        tabs: terminal.tabs.map(({ id, number, server }) => ({ id, number, server })),
       };
     },
 
@@ -227,6 +243,36 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
       terminal.tabs.push(tab);
       tell(sessionId);
       return { result: 'added', tabId: tab.id };
+    },
+
+    addServerTab(sessionId, folder, command) {
+      const terminal = sessions.get(sessionId);
+      if (terminal === undefined) return { result: 'full' };
+      if (terminal.tabs.length >= terminalLimits.tabs) return { result: 'full' };
+      terminal.tabsMade += 1;
+      const tab = newTab(sessionId, terminal.tabsMade, folder, command);
+      terminal.tabs.push(tab);
+      tell(sessionId);
+      return { result: 'added', tabId: tab.id };
+    },
+
+    restart(sessionId, tabId) {
+      const tab = tabOf(sessionId, tabId);
+      if (tab?.server == null || tab.shell === null) return false;
+      // ⌃C, as you'd stop it yourself, then the same command again.
+      tab.shell.write(`\x03${tab.server}\r`);
+      return true;
+    },
+
+    shells(sessionId) {
+      return (sessions.get(sessionId)?.tabs ?? []).flatMap((tab) =>
+        tab.shell === null ? [] : [{ tabId: tab.id, pid: tab.shell.pid, server: tab.server }],
+      );
+    },
+
+    lastLines(sessionId, tabId, most) {
+      const tab = tabOf(sessionId, tabId);
+      return tab === undefined ? [] : lastLines(tab.kept, most).output;
     },
 
     closeTab,

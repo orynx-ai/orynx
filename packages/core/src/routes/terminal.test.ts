@@ -134,7 +134,7 @@ describe('the Terminal’s routes', () => {
     expect(await readTerminal(app)).toEqual({
       shell: 'sh',
       worktree: `~/.devhub/worktrees/${id}`,
-      tabs: [{ id: 'tab-1', number: 1 }],
+      tabs: [{ id: 'tab-1', number: 1, server: null }],
     });
   });
 
@@ -232,6 +232,6 @@ describe('the Terminal’s routes', () => {
       app.inject({ method: 'DELETE', url: path(apiRoutes.sessionTerminalTab, tabId), headers });
     expect((await close('tab-2')).statusCode).toBe(204);
     expect((await close('tab-1')).statusCode).toBe(404);
-    expect((await readTerminal(app)).tabs).toEqual([{ id: 'tab-1', number: 1 }]);
+    expect((await readTerminal(app)).tabs).toEqual([{ id: 'tab-1', number: 1, server: null }]);
   });
 });

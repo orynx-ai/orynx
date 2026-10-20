@@ -153,7 +153,9 @@ function decideByList(read: { parts: string[][]; entry: string | null }, context
 const background: CommandDecision = {
   behavior: 'refuse',
   reason: 'background',
-  message: 'Commands run in the foreground here. Run it again without run_in_background.',
+  // A server has its own way (spec 042), so Claude never hides one in nohup or &.
+  message:
+    'Commands run in the foreground here. To start a server or anything that keeps running, use the start_server tool; otherwise run it again without run_in_background.',
 };
 
 export function decideCommand(request: CommandRequest, context: CommandContext): CommandDecision {

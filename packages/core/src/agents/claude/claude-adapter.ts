@@ -476,13 +476,18 @@ export function createClaudeAdapter({
           const ticketTitleOf = (key: string) => ticketTitle(tools, key);
           // The session's own tools say themselves whether a call asks you first (spec 042).
           const own = orynxTools.find((one) => `${orynxToolPrefix}${one.name}` === tool);
-          const ownAsk = own?.asks(input) ?? null;
-          const decide = async (): Promise<ToolDecision> =>
-            own === undefined
-              ? decideToolUse(tool, input, { worktree, home, ticketTitle: ticketTitleOf, ...(await permissions()) })
-              : ownAsk === null
-                ? { behavior: 'allow' }
-                : { behavior: 'ask', ask: ownAsk };
+          const decide = async (): Promise<ToolDecision> => {
+            if (own === undefined) {
+              return decideToolUse(tool, input, {
+                worktree,
+                home,
+                ticketTitle: ticketTitleOf,
+                ...(await permissions()),
+              });
+            }
+            const ask = await own.asks(input);
+            return ask === null ? { behavior: 'allow' } : { behavior: 'ask', ask };
+          };
           const turn = (current?.deciding ?? Promise.resolve()).then(decide);
           if (current !== undefined) current.deciding = turn.catch(() => undefined);
           const decision = await turn;

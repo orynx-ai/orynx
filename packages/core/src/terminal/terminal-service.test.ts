@@ -60,7 +60,7 @@ describe('the terminal service', () => {
     expect(terminal.read(session, worktree)).toEqual({
       shell: 'sh',
       worktree: '~',
-      tabs: [{ id: 'tab-1', number: 1 }],
+      tabs: [{ id: 'tab-1', number: 1, server: null }],
     });
 
     const tab = screen(terminal);
@@ -166,7 +166,7 @@ describe('the terminal service', () => {
     for (let tries = 0; tries < 500 && terminal.read(session, worktree).tabs.length > 1; tries++) {
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
-    expect(terminal.read(session, worktree).tabs).toEqual([{ id: 'tab-1', number: 1 }]);
+    expect(terminal.read(session, worktree).tabs).toEqual([{ id: 'tab-1', number: 1, server: null }]);
 
     const first = screen(terminal);
     terminal.write(session, 'tab-1', 'exit\r');
@@ -236,5 +236,43 @@ describe('terminalEnvironment', () => {
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
     });
+  });
+});
+
+describe('a server’s tab (spec 042)', () => {
+  it('AC-2: opens a tab named for the server, runs it in its folder, and says the tab’s shell for the Ports tab', async () => {
+    const { terminal, worktree } = await setUp();
+    await mkdir(join(worktree, 'apps', 'web'), { recursive: true });
+    terminal.read(session, worktree);
+    // Typed as "ser"ving, so only what it prints reads serving.
+    const added = terminal.addServerTab(session, join(worktree, 'apps', 'web'), 'pwd; echo "ser"ving');
+    expect(added).toMatchObject({ result: 'added' });
+    const tabId = added.result === 'added' ? added.tabId : '';
+    await screen(terminal, tabId).shows('serving');
+    expect(terminal.read(session, worktree).tabs.at(-1)).toEqual({
+      id: tabId,
+      number: 2,
+      server: 'pwd; echo "ser"ving',
+    });
+    expect(terminal.lastLines(session, tabId, 40).join('\n')).toContain(join(worktree, 'apps', 'web'));
+    const shells = terminal.shells(session);
+    expect(shells.map((shell) => shell.server)).toEqual([null, 'pwd; echo "ser"ving']);
+    expect(shells.every((shell) => shell.pid > 0)).toBe(true);
+    expect(terminal.shells('fedcba9876543210')).toEqual([]);
+  });
+
+  it('AC-5: Restart stops what runs in a server’s tab and runs its command again', async () => {
+    const { terminal, worktree } = await setUp();
+    terminal.read(session, worktree);
+    const added = terminal.addServerTab(session, worktree, 'echo started; sleep 30');
+    const tabId = added.result === 'added' ? added.tabId : '';
+    const shown = screen(terminal, tabId);
+    await shown.shows('started');
+    expect(terminal.restart(session, tabId)).toBe(true);
+    // The command shows twice each run: as typed, then what it printed.
+    for (let tries = 0; tries < 500 && shown.text().split('started').length < 5; tries++)
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(shown.text().split('started').length).toBeGreaterThanOrEqual(5);
+    expect(terminal.restart(session, 'tab-1')).toBe(false);
   });
 });
