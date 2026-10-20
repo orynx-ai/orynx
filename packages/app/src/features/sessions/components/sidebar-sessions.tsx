@@ -1,6 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Link } from '@tanstack/react-router';
 import { SessionItem, SessionItemSkeleton } from '@devhub/ui';
+import { SessionMenu } from './session-menu.tsx';
 import { SessionsLoadError } from './sessions-load-error.tsx';
 import { useSessionPages } from '../queries.ts';
 import { sourceLabel } from '../source-label.ts';
@@ -37,12 +38,15 @@ export function SidebarSessions({ className }: { className?: string }) {
   );
 
   const rows = sessions.data?.pages.flatMap((page) => page.sessions) ?? [];
+  // Where focus goes once a session is deleted from its ⋯, since its row is gone (spec 039, AC-32).
+  const viewAll = useRef<HTMLAnchorElement>(null);
 
   return (
     <div className={className}>
       <div className="flex items-center gap-2 ps-2.5 pe-2 pb-1 text-label text-muted-foreground">
         <h2 className="m-0 text-label font-normal">Sessions</h2>
         <Link
+          ref={viewAll}
           to="/sessions"
           activeOptions={{ exact: true }}
           // A 32 px hit area (dense rows) without moving the heading row.
@@ -67,6 +71,7 @@ export function SidebarSessions({ className }: { className?: string }) {
               source={sourceLabel(session.source)}
               state={session.state}
               ready={session.ready}
+              actions={<SessionMenu session={session} afterDelete={() => viewAll.current?.focus()} />}
             >
               <Link to="/sessions/$sessionId" params={{ sessionId: session.id }} />
             </SessionItem>

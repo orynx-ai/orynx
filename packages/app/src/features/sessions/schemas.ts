@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  sessionTitleLimit,
   mostCommitMessageCharacters,
   mostMessageCharacters,
   mostPullRequestBodyCharacters,
@@ -33,3 +34,13 @@ export const pushFormSchema = z.object({
     .max(mostCommitMessageCharacters, 'Keep the message under 256 characters.'),
 });
 export type PushFormValues = z.input<typeof pushFormSchema>;
+
+/** Rename session (spec 039): the contract's limits, in Q5's words. */
+export const renameSessionSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Give the session a name')
+    .max(sessionTitleLimit, `Keep the name to ${String(sessionTitleLimit)} characters`),
+});
+export type RenameSessionValues = z.input<typeof renameSessionSchema>;

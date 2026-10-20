@@ -26,7 +26,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: The sidebar's smaller type and icons: places, Search and session rows at `small`, second lines at `label`, 16 px icons, 36 px rows. Update the SidebarNav section (Q4, Q6) (AC-39)
       Check: pnpm test packages/app/src/shell packages/app/src/features/sessions/components/sidebar-sessions.test.tsx; pnpm gate style-policy
       Files: packages/app/src/shell/sidebar.tsx, sidebar-footer.tsx, packages/app/src/features/sessions/components/sidebar-sessions.tsx, docs/design/design-system.md
-- [ ] Task 9: `SessionMenu` (⋯ with Rename, Pin or Unpin, and Delete), `RenameSessionDialog` (react-hook-form + the contract) and `DeleteSessionDialog` (the unpushed-changes line, disabled while working, a toast), on each sidebar row (AC-24, AC-25, AC-28–AC-33)
+- [x] Task 9: `SessionMenu` (⋯ with Rename, Pin or Unpin, and Delete), `RenameSessionDialog` (react-hook-form + the contract) and `DeleteSessionDialog` (the unpushed-changes line, disabled while working, a toast), on each sidebar row (AC-24, AC-25, AC-28–AC-33)
       Check: pnpm test packages/app/src/features/sessions/components
       Files: packages/app/src/features/sessions/components/session-menu.tsx, rename-session.tsx, delete-session.tsx, their tests, sidebar-sessions.tsx, packages/app/src/features/sessions/queries.ts
 - [ ] Task 10: Pinned group at the top of the sidebar's sessions: `pinned=true` in full and the paged rest (AC-26, AC-27)

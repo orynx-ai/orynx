@@ -33,7 +33,7 @@ import { useWide } from '../../../shell/use-wide.ts';
 import { needsApprovalLabel } from '../approval-words.ts';
 import { editorLink, openInLabel } from '../change-words.ts';
 import { openPullRequestLabel, pullRequestWords } from '../pull-request-words.ts';
-import { useEditor, useSessionChanges } from '../queries.ts';
+import { useEditor, useHasChanges } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
 import { DiscardSession } from './discard-session.tsx';
 import { SessionTerminal } from './terminal/session-terminal.tsx';
@@ -62,15 +62,6 @@ function canCreatePullRequest(session: Session): boolean {
 function canPush(session: Session): boolean {
   const working = session.state === 'working' || session.state === 'needs_you';
   return !working && session.discardedAt === null && session.worktreePath !== null;
-}
-
-/**
- * Whether the worktree holds anything a pull request could take: a file that differs from where the branch
- * started. Not known yet, or not readable, is no (the user's call, 19 Oct 2026: no Create pull request for nothing).
- */
-function useHasChanges(sessionId: string): boolean {
-  const changes = useSessionChanges(sessionId);
-  return changes.data?.state === 'ready' && changes.data.files.length + changes.data.moreFiles > 0;
 }
 
 /**

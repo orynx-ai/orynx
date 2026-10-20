@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
-import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ApiRequestError,
+  queryKeys,
   preferencesQueryOptions,
   sessionBriefQueryOptions,
   sessionChangesQueryOptions,
@@ -17,6 +18,7 @@ import {
   type ApprovalDecision,
   type SendMessageInput,
   type Session,
+  type SessionChangeRequest,
   type SessionListQuery,
   type TerminalSize,
 } from '@devhub/contracts';
@@ -72,6 +74,39 @@ export function useRespondToApproval(sessionId: string) {
 export function useSessionChanges(sessionId: string) {
   const api = useApi();
   return useQuery(sessionChangesQueryOptions(api, sessionId));
+}
+
+/**
+ * Whether the worktree holds anything a pull request could take: a file that differs from where the branch
+ * started. Not known yet, or not readable, is no (the user's call, 19 Oct 2026: no Create pull request for nothing).
+ */
+export function useHasChanges(sessionId: string, enabled = true): boolean {
+  const api = useApi();
+  const changes = useQuery({ ...sessionChangesQueryOptions(api, sessionId), enabled });
+  return changes.data?.state === 'ready' && changes.data.files.length + changes.data.moreFiles > 0;
+}
+
+/** Renames or pins a session (spec 039); every list and the session itself read again once it's saved. */
+export function useChangeSession() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, change }: { id: string; change: SessionChangeRequest }) => api.changeSession(id, change),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.sessions }),
+  });
+}
+
+/** Deletes a session, its brief and its worktree (spec 039); the lists read again once it's gone. */
+export function useDeleteSession() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteSession(id),
+    // Not awaited: the dialog moves focus on before the lists read again and its row, with the dialog, goes.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+    },
+  });
 }
 
 /** Exactly what Claude was sent at the start, read when it's shown (the user's call, 19 Oct 2026). */
