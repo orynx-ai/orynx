@@ -3,7 +3,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SandboxSettings } from '@anthropic-ai/claude-agent-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { defaultPermissions } from '@devhub/contracts';
+import { CreateOrynxTicketSchema, defaultPermissions } from '@devhub/contracts';
+import { createEventBus } from '../../events/event-bus.ts';
+import { createOrynxTicketService } from '../../orynx-tickets/ticket-service.ts';
+import { createOrynxTicketStore } from '../../orynx-tickets/ticket-store.ts';
+import { ticketTools } from '../../orynx-tickets/tools.ts';
+import { createMemorySessionStore } from '../../sessions/session-store.ts';
 import { fakeClaudeSdk, freshSessionId, type FakeTurn } from '../../test/fake-claude-sdk.ts';
 import type { AgentAdapter, AgentEvent, AgentPermissions } from '../agent-adapter.ts';
 import { createClaudeAdapter } from './claude-adapter.ts';
@@ -893,5 +898,142 @@ describe('listing models', () => {
     sdk.models = [haiku];
     expect(await adapter.models()).toMatchObject({ state: 'ready' });
     expect(sdk.runs).toHaveLength(3);
+  });
+});
+
+describe('Orynx’s ticket tools in a session (spec 037)', () => {
+  const inSession = { kind: 'session', sessionId: 's-1', title: 'Fix the date test' } as const;
+
+  async function tickets() {
+    const service = createOrynxTicketService({
+      store: createOrynxTicketStore(),
+      sessions: createMemorySessionStore(),
+      events: createEventBus(),
+    });
+    await service.create(CreateOrynxTicketSchema.parse({ title: 'Fix the date test', status: 'in_progress' }), {
+      kind: 'you',
+    });
+    return service;
+  }
+
+  async function runWithTools(
+    script: readonly FakeTurn[],
+    tools: Parameters<AgentAdapter['startSession']>[4],
+    permissions = editFreely,
+  ) {
+    const { sdk, adapter } = setUp(script);
+    const id = await adapter.startSession(brief, worktree, permissions, 'x', tools);
+    const events: AgentEvent[] = [];
+    await new Promise<void>((resolve) => {
+      adapter.onEvent(id, (event) => {
+        events.push(event);
+        if (event.type === 'ended') resolve();
+      });
+    });
+    return { sdk, events };
+  }
+
+  it('AC-28, AC-29: Claude makes and moves tickets through Orynx’s own MCP server, and each call is a step', async () => {
+    const service = await tickets();
+    const { sdk, events } = await runWithTools(
+      [
+        { tool: 'mcp__orynx__create_ticket', input: { title: 'Flaky date test', type: 'Bug' } },
+        { tool: 'mcp__orynx__update_ticket', input: { key: 'ORX-1', status: 'in_review' } },
+        { finish: 'Filed ORX-2.' },
+      ],
+      { tools: ticketTools(service, inSession) },
+    );
+
+    expect(Object.keys(sdk.runs[0]?.options.mcpServers ?? {})).toEqual(['orynx']);
+    expect(sdk.runs[0]?.decisions).toEqual([
+      {
+        tool: 'mcp__orynx__create_ticket',
+        result: { behavior: 'allow', updatedInput: { title: 'Flaky date test', type: 'Bug' } },
+      },
+      {
+        tool: 'mcp__orynx__update_ticket',
+        result: { behavior: 'allow', updatedInput: { key: 'ORX-1', status: 'in_review' } },
+      },
+    ]);
+    expect(await service.get('ORX-2')).toMatchObject({ title: 'Flaky date test', type: 'Bug', createdBy: inSession });
+    expect(await service.get('ORX-1')).toMatchObject({ status: 'in_review' });
+    expect(works(events).filter((work) => work.kind === 'ticket')).toEqual([
+      { kind: 'ticket', done: { action: 'created', key: 'ORX-2', title: 'Flaky date test' } },
+      {
+        kind: 'ticket',
+        done: { action: 'updated', key: 'ORX-1', title: 'Fix the date test', fields: ['status'], status: 'in_review' },
+      },
+    ]);
+  });
+
+  it('AC-31: an Ask session may read tickets and change none, whatever tools it was given', async () => {
+    const service = await tickets();
+    const { sdk, events } = await runWithTools(
+      [
+        { tool: 'mcp__orynx__get_ticket', input: { key: 'ORX-1' } },
+        { tool: 'mcp__orynx__update_ticket', input: { key: 'ORX-1', status: 'done' } },
+        { finish: 'Read it.' },
+      ],
+      { tools: ticketTools(service, inSession) },
+      fixed({ ...defaultPermissions, allowedCommands: [], readOnly: true }),
+    );
+
+    expect(sdk.runs[0]?.decisions.map((decision) => decision.result.behavior)).toEqual(['allow', 'deny']);
+    expect(await service.get('ORX-1')).toMatchObject({ status: 'in_progress', version: 1 });
+    expect(works(events).filter((work) => work.kind === 'ticket')).toEqual([
+      { kind: 'ticket', done: { action: 'read', key: 'ORX-1', title: 'Fix the date test' } },
+    ]);
+  });
+
+  it('a call the tool turns down is no step: Claude hears why', async () => {
+    const service = await tickets();
+    const { events } = await runWithTools(
+      [{ tool: 'mcp__orynx__update_ticket', input: { key: 'ORX-9', status: 'done' } }, { finish: 'No such ticket.' }],
+      { tools: ticketTools(service, inSession) },
+    );
+    expect(works(events).filter((work) => work.kind === 'ticket')).toEqual([]);
+  });
+
+  it('AC-30: deleting a ticket waits for you; Deny keeps it, and Allow once deletes it', async () => {
+    const service = await tickets();
+    await service.create(CreateOrynxTicketSchema.parse({ title: 'Flaky date test' }), { kind: 'you' });
+    const { sdk, adapter } = setUp([
+      { tool: 'mcp__orynx__delete_ticket', input: { key: 'ORX-2' } },
+      { tool: 'mcp__orynx__delete_ticket', input: { key: 'ORX-2' } },
+      { finish: 'Deleted it.' },
+    ]);
+    const id = await adapter.startSession(brief, worktree, editFreely, 'x', { tools: ticketTools(service, inSession) });
+    const events: AgentEvent[] = [];
+    adapter.onEvent(id, (event) => events.push(event));
+    const asked = () => events.flatMap((event) => (event.type === 'approval' ? [event] : []));
+
+    await vi.waitFor(() => {
+      expect(asked()).toHaveLength(1);
+    });
+    expect(asked()[0]?.ask).toEqual({ kind: 'ticket', key: 'ORX-2', title: 'Flaky date test' });
+    await adapter.respond(id, asked()[0]?.approvalId ?? '', 'deny');
+    await vi.waitFor(() => {
+      expect(asked()).toHaveLength(2);
+    });
+    expect(await service.get('ORX-2')).not.toBeNull();
+    await adapter.respond(id, asked()[1]?.approvalId ?? '', 'allow');
+    await vi.waitFor(() => {
+      expect(events.at(-1)?.type).toBe('ended');
+    });
+
+    expect(await service.get('ORX-2')).toBeNull();
+    expect(sdk.runs[0]?.decisions.map((decision) => decision.result)).toEqual([
+      { behavior: 'deny', message: deniedMessage },
+      { behavior: 'allow', updatedInput: { key: 'ORX-2' } },
+    ]);
+    expect(works(events).filter((work) => work.kind === 'denied' || work.kind === 'ticket')).toEqual([
+      { kind: 'denied', about: 'ticket', text: 'ORX-2' },
+      { kind: 'ticket', done: { action: 'deleted', key: 'ORX-2', title: 'Flaky date test' } },
+    ]);
+  });
+
+  it('with no tools, Claude Code gets no MCP server at all', async () => {
+    const { sdk } = await runWithTools([{ finish: 'Done.' }], { tools: [] });
+    expect(sdk.runs[0]?.options.mcpServers).toEqual({});
   });
 });

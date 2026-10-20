@@ -8,6 +8,10 @@ export interface LocalOnlyOptions {
   token: string;
   /** The port the server was asked to listen on; the real port is used once listening. */
   port: number;
+  /**
+   * The token agents outside Orynx use on /api/mcp, and only there (spec 037). Left out, nothing gets in there.
+   */
+  agents?: { accepts(token: string | undefined): Promise<boolean> };
 }
 
 /**
@@ -16,7 +20,8 @@ export interface LocalOnlyOptions {
  * 1. Host check on every request: a DNS-rebinding page on evil.example that resolves to
  *    127.0.0.1 sends `Host: evil.example:4317`, so it can never read index.html or the token.
  * 2. Token check on every /api request, so other sites and local processes that cannot read
- *    the page cannot call the API.
+ *    the page cannot call the API. /api/mcp alone takes the agents' token instead, as a bearer token, and
+ *    never the page's: an agent outside Orynx reaches its tickets and nothing else (spec 037).
  *
  * Added to the root instance (not an encapsulated plugin) so it also guards the static files
  * the host registers later.
@@ -50,6 +55,17 @@ export function registerLocalOnly(app: FastifyInstance, options: LocalOnlyOption
     // to /api/status, so a raw-URL check alone would let an encoded path skip the token.
     const paths = [url.pathname, decodedPath(url.pathname), request.routeOptions.url];
     if (!paths.some(isApiPath)) return;
+
+    if (paths.includes(apiRoutes.mcp)) {
+      const authorization = request.headers.authorization;
+      const bearer = authorization?.startsWith('Bearer ') === true ? authorization.slice('Bearer '.length) : undefined;
+      if (await (options.agents?.accepts(bearer) ?? false)) return;
+      const body: ApiError = {
+        code: 'unauthorized',
+        message: 'Orynx doesn’t know this agent. Copy the MCP config from Settings › Coding agent again.',
+      };
+      return reply.code(401).send(body);
+    }
 
     const header = request.headers[tokenHeader];
     const fromHeader = typeof header === 'string' ? header : undefined;

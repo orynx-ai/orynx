@@ -1324,6 +1324,7 @@ describe('the session detail (spec 013)', () => {
       description: expect.stringContaining('Checkbox on each row') as unknown,
       status: { name: 'In progress', column: 'in_progress' },
       dueDate: '2026-10-16',
+      deleted: false,
     });
     expect((await records.get(id))?.session.ticket).toMatchObject({ status: null, dueDate: null });
   });

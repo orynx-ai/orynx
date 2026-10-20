@@ -48,7 +48,7 @@ describe('+ Add context (spec 015)', () => {
         .map((item) => item.textContent),
     ).toEqual([
       'Git repositoryThe folder Claude works in',
-      'Jira ticketSearch by key or title',
+      'TicketSearch by key or title',
       'Pull requestSearch by repo, number or title',
       'File from this computerAny file. Claude reads it where it is.',
     ]);
@@ -58,9 +58,9 @@ describe('+ Add context (spec 015)', () => {
   it('AC-7, AC-8: ticks a ticket from your tickets; the list stays open, and once closed the box asks what to do with it', async () => {
     serve();
     const { user } = await renderApp();
-    await openKind(user, /Jira ticket/);
+    await openKind(user, /^Ticket/);
 
-    const dialog = await screen.findByRole('dialog', { name: 'Jira ticket' });
+    const dialog = await screen.findByRole('dialog', { name: 'Ticket' });
     expect(within(dialog).getByText('2 open')).toBeVisible();
     expect(within(dialog).getByText('Claude gets the summary, description, comments and linked issues.')).toBeVisible();
     await user.type(within(dialog).getByRole('combobox'), 'header');
@@ -76,7 +76,7 @@ describe('+ Add context (spec 015)', () => {
     expect(chips().map((chip) => chip.textContent)).toEqual(['PROJ-1377']);
     await user.keyboard('{Escape}');
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Jira ticket' })).toBeNull();
+      expect(screen.queryByRole('dialog', { name: 'Ticket' })).toBeNull();
     });
     expect(box()).toHaveFocus();
     expect(box()).toHaveAttribute('placeholder', 'What should Claude do with PROJ-1377?');
@@ -86,9 +86,9 @@ describe('+ Add context (spec 015)', () => {
     serve();
     useComposerStore.setState({ chips: [{ kind: 'jira', key: 'PROJ-1423' }] });
     const { user } = await renderApp();
-    await openKind(user, /Jira ticket/);
+    await openKind(user, /^Ticket/);
 
-    const dialog = await screen.findByRole('dialog', { name: 'Jira ticket' });
+    const dialog = await screen.findByRole('dialog', { name: 'Ticket' });
     expect(within(dialog).getByRole('option', { name: /PROJ-1423/ })).toHaveAttribute('aria-selected', 'true');
     await user.click(within(dialog).getByRole('option', { name: /PROJ-1377/ }));
     await waitFor(() => {
@@ -110,8 +110,8 @@ describe('+ Add context (spec 015)', () => {
       chips: Array.from({ length: 100 }, (_, n) => ({ kind: 'jira', key: `OPS-${String(n + 1)}` })),
     });
     const { user } = await renderApp();
-    await openKind(user, /Jira ticket/);
-    const dialog = await screen.findByRole('dialog', { name: 'Jira ticket' });
+    await openKind(user, /^Ticket/);
+    const dialog = await screen.findByRole('dialog', { name: 'Ticket' });
     expect(within(dialog).getByText('A session takes up to 100 tickets.')).toBeVisible();
     expect(within(dialog).queryAllByRole('option')).toEqual([]);
   });
@@ -119,8 +119,8 @@ describe('+ Add context (spec 015)', () => {
   it('AC-10: offers a key the list doesn’t hold, and says when nothing matches', async () => {
     serve();
     const { user } = await renderApp();
-    await openKind(user, /Jira ticket/);
-    const dialog = await screen.findByRole('dialog', { name: 'Jira ticket' });
+    await openKind(user, /^Ticket/);
+    const dialog = await screen.findByRole('dialog', { name: 'Ticket' });
 
     await user.type(within(dialog).getByRole('combobox'), 'nothing like it');
     expect(within(dialog).getByText('No matches. Try a key like PROJ-1423 or a repo name.')).toBeVisible();
@@ -273,8 +273,8 @@ describe('+ Add context (spec 015)', () => {
   it('AC-32: a tool that isn’t connected says so with the way to Settings; a first sync shows loading rows', async () => {
     serve(makeSearchIndex({ tools: { jira: { state: 'not_connected' }, github: { state: 'syncing' } } }));
     const { user } = await renderApp();
-    await openKind(user, /Jira ticket/);
-    const jira = await screen.findByRole('dialog', { name: 'Jira ticket' });
+    await openKind(user, /^Ticket/);
+    const jira = await screen.findByRole('dialog', { name: 'Ticket' });
     expect(within(jira).getByRole('link', { name: 'Connect Jira in Settings to add tickets.' })).toHaveAttribute(
       'href',
       '/settings/connections',
@@ -284,5 +284,32 @@ describe('+ Add context (spec 015)', () => {
     await user.click(await screen.findByRole('menuitem', { name: /Pull request/ }));
     const github = await screen.findByRole('dialog', { name: 'Pull request' });
     expect(within(github).getByRole('status')).toHaveTextContent('Loading');
+  });
+
+  it('AC-25 (spec 037): lists Orynx’s own tickets with their mark beside Jira’s, even with Jira not connected', async () => {
+    serve(
+      makeSearchIndex({
+        tickets: [
+          makeSearchTicket({
+            key: 'ORX-2',
+            title: 'Fix the date test',
+            status: 'In progress',
+            target: { kind: 'ticket' },
+          }),
+        ],
+        pullRequests: [],
+        tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } },
+      }),
+    );
+    const { user } = await renderApp();
+    await openKind(user, /^Ticket/);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Ticket' });
+    const option = within(dialog).getByRole('option', { name: /ORX-2/ });
+    expect(option).toHaveTextContent('ORX-2Fix the date test · In progress');
+    expect(within(dialog).queryByText('Connect Jira in Settings to add tickets.')).toBeNull();
+    await user.click(option);
+
+    expect(chips().map((chip) => chip.textContent)).toEqual(['ORX-2']);
   });
 });

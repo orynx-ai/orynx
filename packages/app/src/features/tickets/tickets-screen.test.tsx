@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeTickets } from '@devhub/contracts/testing';
+import { makeTicket, makeTickets } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
@@ -44,17 +44,6 @@ function count() {
 }
 
 describe('TicketsScreen', () => {
-  it('says Jira is not connected and where to connect it', async () => {
-    const { user, history } = await renderApp({ route: '/tickets' });
-
-    expect(await screen.findByText('Jira is not connected')).toBeVisible();
-    expect(screen.getByText('Connect it in Settings to see your sprint.')).toBeVisible();
-    expect(screen.getByRole('heading', { level: 1, name: 'Tickets' })).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'Open Settings' }));
-
-    expect(history.location.pathname).toBe('/settings/connections');
-  });
-
   it('AC-1, AC-31: the page bar names the sprint, and the toolbar has the filters and the count', async () => {
     server.use(ticketsHandler());
     await renderApp({ route: '/tickets' });
@@ -79,7 +68,7 @@ describe('TicketsScreen', () => {
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
 
-  it('AC-30: Tab goes through Refresh, the search, Board / List, Project and Sprint (spec 020), the filters, Clear filters, the board, then each card’s checkbox and title', async () => {
+  it('AC-30: Tab goes through Refresh, New ticket (spec 037), the search, Board / List, Project and Sprint (spec 020), Source (spec 037), the filters, Clear filters, the board, its column’s + (spec 037), then each card’s checkbox and title', async () => {
     server.use(ticketsHandler());
     const { user } = await renderApp({ route: '/tickets?type=bug' });
     await screen.findByText('1 ticket');
@@ -88,7 +77,7 @@ describe('TicketsScreen', () => {
       .focus();
     const stops: string[] = [];
 
-    for (let stop = 0; stop < 15; stop += 1) {
+    for (let stop = 0; stop < 18; stop += 1) {
       await user.tab();
       const focused = document.activeElement;
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent.trim() ?? '');
@@ -96,11 +85,13 @@ describe('TicketsScreen', () => {
 
     expect(stops).toEqual([
       'Refresh',
+      'New ticket',
       'Search tickets',
       'Board',
       'List',
       'Project Your sprint',
       'Sprint Sprint 42',
+      'Source · 2',
       'Assignee · 1',
       'Status',
       'Type · 1',
@@ -108,6 +99,7 @@ describe('TicketsScreen', () => {
       'Due',
       'Clear filters',
       'Board',
+      'New ticket in To do',
       'Select PROJ-1377',
       'Search returns archived sites for guest users',
     ]);
@@ -377,5 +369,139 @@ describe('Refresh, the people search and Ship for several (the user’s call, 19
     expect(screen.getByRole('checkbox', { name: 'Select PROJ-1377' })).not.toBeChecked();
     expect(screen.queryByRole('group', { name: 'Selected tickets' })).toBeNull();
     expect(filter('Assignee · 1')).toHaveFocus();
+  });
+});
+
+describe('Orynx tickets on Tickets (spec 037)', () => {
+  const orynxTickets = [
+    makeTicket({
+      key: 'ORX-1',
+      url: null,
+      title: 'Archive in bulk',
+      column: 'to_do',
+      status: 'To do',
+      type: 'Task',
+      priority: { name: 'Medium', level: 'medium', rank: 2 },
+      dueDate: null,
+    }),
+    makeTicket({
+      key: 'ORX-2',
+      url: null,
+      title: 'Fix the date test',
+      column: 'in_progress',
+      status: 'In progress',
+      type: 'Bug',
+      bug: true,
+      dueDate: null,
+    }),
+  ];
+  const both = () => ticketsHandler({ tickets: [...designTickets, ...orynxTickets] });
+
+  it('AC-1: the toolbar starts with Source, both ticked, and the columns hold both sources’ tickets', async () => {
+    server.use(both());
+    await renderApp({ route: '/tickets' });
+
+    expect(await screen.findByText('8 tickets')).toBeVisible();
+    expect(filter('Source · 2').compareDocumentPosition(filter('Assignee · 1'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    const toDo = screen.getByRole('region', { name: 'To do, 3 tickets' });
+    expect(within(toDo).getByRole('article', { name: 'Archive in bulk' })).toBeVisible();
+    // The sidebar counts your open Orynx tickets too.
+    expect(
+      within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: /^Tickets, 8/ }),
+    ).toBeVisible();
+  });
+
+  it('AC-2: unticking Orynx leaves Jira’s, and the address keeps it', async () => {
+    server.use(both());
+    const { user, history } = await renderApp({ route: '/tickets' });
+    await screen.findByText('8 tickets');
+
+    await user.click(filter('Source · 2'));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Orynx' }));
+    await user.keyboard('{Escape}');
+
+    expect(count()).toHaveTextContent('6 tickets');
+    expect(screen.queryByRole('article', { name: 'Archive in bulk' })).toBeNull();
+    expect(history.location.search).toContain('source=jira');
+  });
+
+  it('AC-3: Orynx alone hides the project and sprint pickers, and the breadcrumb names Orynx', async () => {
+    server.use(both());
+    await renderApp({ route: '/tickets?source=orynx' });
+
+    expect(await screen.findByText('2 tickets')).toBeVisible();
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Orynx')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(toolbar()).queryByRole('button', { name: /^Project/ })).toBeNull();
+    expect(within(toolbar()).queryByRole('button', { name: /^Sprint/ })).toBeNull();
+    expect(screen.queryByText('PROJ · ends 24 Oct')).toBeNull();
+  });
+
+  it('AC-20: Assignee, Type and the search work on Orynx tickets as on Jira’s', async () => {
+    server.use(both());
+    const { user } = await renderApp({ route: '/tickets?type=Bug' });
+
+    expect(await screen.findByRole('article', { name: 'Fix the date test' })).toBeVisible();
+    expect(screen.queryByRole('article', { name: 'Archive in bulk' })).toBeNull();
+    await user.type(screen.getByRole('searchbox', { name: 'Search tickets' }), 'ORX');
+    expect(count()).toHaveTextContent('1 ticket');
+  });
+
+  const withoutJira = (tickets = orynxTickets, more: Partial<Parameters<typeof makeTickets>[0]> = {}) =>
+    http.get(apiUrl(apiRoutes.tickets), () =>
+      HttpResponse.json(makeTickets({ jira: { state: 'not_connected' }, sprint: null, tickets, ...more })),
+    );
+
+  it('AC-4: with Jira not connected, Tickets shows Orynx’s tickets under a line to connect Jira, with no Source or pickers', async () => {
+    server.use(withoutJira());
+    const { user, history } = await renderApp({ route: '/tickets' });
+
+    expect(await screen.findByRole('article', { name: 'Archive in bulk' })).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Fix the date test' })).toBeVisible();
+    expect(screen.getByText(/Jira isn't connected, so only Orynx tickets show\./)).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'Orynx tickets' })).toBeInTheDocument();
+    expect(within(toolbar()).queryByRole('button', { name: /^Source/ })).toBeNull();
+    expect(within(toolbar()).queryByRole('button', { name: /^Project/ })).toBeNull();
+    await user.click(screen.getByRole('link', { name: 'Connect Jira' }));
+
+    expect(history.location.pathname).toBe('/settings/connections');
+  });
+
+  it('AC-5: Orynx alone with no Orynx tickets says so, with no box', async () => {
+    server.use(withoutJira([]));
+    await renderApp({ route: '/tickets' });
+
+    expect(await screen.findByText('No Orynx tickets yet.')).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Board' })).toBeNull();
+  });
+
+  it('AC-5: Orynx picked alone, with only Jira’s tickets, says there are none', async () => {
+    server.use(ticketsHandler());
+    await renderApp({ route: '/tickets?source=orynx' });
+
+    expect(await screen.findByText('No Orynx tickets yet.')).toBeVisible();
+  });
+
+  it('AC-34: names the tickets file Orynx couldn’t read and kept aside', async () => {
+    server.use(both());
+    server.use(
+      http.get(apiUrl(apiRoutes.tickets), () =>
+        HttpResponse.json(
+          makeTickets({
+            tickets: [...designTickets, ...orynxTickets],
+            orynx: { kept: 'tickets-20261020-081233.unreadable.json' },
+          }),
+        ),
+      ),
+    );
+    await renderApp({ route: '/tickets' });
+
+    expect(
+      await screen.findByText(
+        "Orynx couldn't read its tickets file, so it kept it as tickets-20261020-081233.unreadable.json and started a new one.",
+      ),
+    ).toBeVisible();
   });
 });

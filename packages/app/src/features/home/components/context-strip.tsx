@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { File01Icon } from '@hugeicons/core-free-icons';
-import type { ComposerChip } from '@devhub/contracts';
+import { type ComposerChip, ticketSource } from '@devhub/contracts';
 import { ContextChip, ContextList, ContextMore, Icon, SourceMark } from '@devhub/ui';
 import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
 import { useComposerChips } from '../composer-chips.tsx';
@@ -12,7 +12,7 @@ const shownChips = 2;
 
 /** The chip's mark: the tool's own for a ticket or a pull request, a file icon for a file. */
 function chipIcon(chip: ComposerChip) {
-  if (chip.kind === 'jira') return <SourceMark source="jira" label="none" />;
+  if (chip.kind === 'jira') return <SourceMark source={ticketSource(chip.key)} label="none" />;
   if (chip.kind === 'pull_request') return <SourceMark source="github" label="none" />;
   return <Icon icon={File01Icon} aria-hidden />;
 }

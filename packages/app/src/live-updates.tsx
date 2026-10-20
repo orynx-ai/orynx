@@ -37,11 +37,21 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // Output came, a command ended, or a tab came or went: that session's Terminal reads again (spec 036).
       return [sessionTerminalQueryKey(event.sessionId)];
     case 'settings.changed':
-      // The inbox rules apply when the server reads the list (spec 007). Settings › Notifications too (spec 029).
-      return [queryKeys.preferences, queryKeys.repositories, queryKeys.inbox, queryKeys.notificationSettings];
+      // The inbox rules apply when the server reads the list (spec 007). Settings › Notifications too (spec 029), and
+      // the Other agents row (spec 037).
+      return [
+        queryKeys.preferences,
+        queryKeys.repositories,
+        queryKeys.inbox,
+        queryKeys.notificationSettings,
+        queryKeys.agentsAccess,
+      ];
     case 'inbox.changed':
       // A sync ended: Tickets' sprint syncs with the inbox (spec 008), and search reads both (spec 009).
       return [queryKeys.inbox, queryKeys.tickets, queryKeys.search];
+    case 'tickets.changed':
+      // You, another tab or an agent made, changed or deleted an Orynx ticket (spec 037): it's on Tickets and in ⌘K.
+      return [queryKeys.tickets, queryKeys.orynxTicket, queryKeys.search];
     case 'skills.changed':
       // Another tab, or this one, added, saved or deleted one of your skills (spec 023, AC-19). The key covers
       // Settings › Skills and the composer's `/` lists, which show your skills too.

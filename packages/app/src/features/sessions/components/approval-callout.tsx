@@ -10,11 +10,12 @@ import {
   approvalButtons,
   approvalTitle,
   moreLinesText,
+  ticketDeleteLine,
   type AnswerError,
 } from '../approval-words.ts';
 import { useRespondToApproval } from '../queries.ts';
 
-/** What the callout shows under its title: the command as written, or the edit's change (Q9). */
+/** What the callout shows under its title: the command as written, the edit's change (Q9), or the ticket (spec 037). */
 function What({ approval }: { approval: SessionApproval }) {
   if (approval.kind === 'command') {
     return (
@@ -24,6 +25,7 @@ function What({ approval }: { approval: SessionApproval }) {
       </>
     );
   }
+  if (approval.kind === 'ticket') return <p className="m-0">{ticketDeleteLine(approval)}</p>;
   return (
     <>
       <DiffView path={approval.path} lines={approval.lines} />
@@ -184,7 +186,11 @@ export function ApprovalCallout({
             title={approvalBar.title}
             detail={
               <code className="font-mono text-code">
-                {approval.kind === 'command' ? approval.command : approval.path}
+                {approval.kind === 'command'
+                  ? approval.command
+                  : approval.kind === 'edit'
+                    ? approval.path
+                    : approval.key}
               </code>
             }
             action={approvalBar.review}

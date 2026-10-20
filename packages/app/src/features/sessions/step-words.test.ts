@@ -7,6 +7,33 @@ type WithoutId<T> = T extends unknown ? Omit<T, 'id'> : never;
 const step = (activity: WithoutId<SessionActivity>) => stepWords({ id: 'step-1', ...activity });
 
 describe('stepWords (Q10a)', () => {
+  it('AC-28, AC-29 (spec 037, Q12i): what Claude did with an Orynx ticket', () => {
+    const ticket = {
+      kind: 'ticket' as const,
+      state: 'done' as const,
+      key: 'ORX-7',
+      title: 'Flaky date test',
+      fields: [],
+      status: null,
+    };
+    expect(step({ ...ticket, action: 'listed', key: null, title: null })).toEqual({
+      title: 'Read Orynx tickets',
+      detail: null,
+    });
+    expect(step({ ...ticket, action: 'read' })).toEqual({ title: 'Read ORX-7', detail: 'Flaky date test' });
+    expect(step({ ...ticket, action: 'created' })).toEqual({ title: 'Created ORX-7', detail: 'Flaky date test' });
+    expect(step({ ...ticket, action: 'deleted' })).toEqual({ title: 'Deleted ORX-7', detail: 'Flaky date test' });
+    expect(step({ ...ticket, action: 'updated', fields: ['status'], status: 'in_review' })).toEqual({
+      title: 'Updated ORX-7',
+      detail: 'Status: In review',
+    });
+    expect(step({ ...ticket, action: 'updated', fields: ['priority', 'dueDate', 'status'], status: 'done' })).toEqual({
+      title: 'Updated ORX-7',
+      detail: 'Status: Done · Changed the priority and due date',
+    });
+    expect(step({ ...ticket, action: 'updated' })).toEqual({ title: 'Updated ORX-7', detail: null });
+  });
+
   it('AC-2: the worktree, while git works and once made', () => {
     const worktree = { kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true } as const;
     expect(step({ ...worktree, state: 'running', fetched: false })).toEqual({

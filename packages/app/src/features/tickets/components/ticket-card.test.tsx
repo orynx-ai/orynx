@@ -28,6 +28,18 @@ describe('TicketCard', () => {
     expect(within(done).getByText('14 Oct')).toBeVisible();
   });
 
+  it('AC-1 (spec 037, Q10): an Orynx ticket’s card has the Orynx mark before its key, named Orynx; Jira’s has none', async () => {
+    const orynx = makeTicket({ key: 'ORX-3', url: null, title: 'Archive in bulk', status: 'To do', column: 'to_do' });
+    server.use(ticketsHandler({ tickets: [makeTicket({ key: 'PROJ-1423' }), orynx] }));
+    await renderApp({ route: '/tickets' });
+
+    const card = await screen.findByRole('article', { name: 'Archive in bulk' });
+    expect(within(card).getByText('ORX-3').previousElementSibling).toHaveTextContent('Orynx');
+    expect(within(card).getByText('ORX-3').previousElementSibling).toHaveAttribute('title', 'Orynx');
+    const jira = screen.getByRole('article', { name: 'Add bulk archive to the content list' });
+    expect(within(jira).queryByText('Orynx')).toBeNull();
+  });
+
   it('AC-7: someone else’s card names them, and nobody’s card has no avatar', async () => {
     server.use(ticketsHandler());
     await renderApp({ route: '/tickets?assignee=anyone' });

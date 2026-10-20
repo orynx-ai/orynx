@@ -9,6 +9,8 @@ export {
 } from './events.ts';
 export {
   agentModelsQueryOptions,
+  agentsAccessQueryOptions,
+  orynxTicketQueryOptions,
   claudeLoginQueryOptions,
   githubConnectionQueryOptions,
   inboxQueryOptions,

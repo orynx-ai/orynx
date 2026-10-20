@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type FocusEvent, type RefObject } from 'react';
+import { useLayoutEffect, useRef, type FocusEvent, type ReactNode, type RefObject } from 'react';
 import type { Ticket, TicketColumn } from '@devhub/contracts';
 import { Board, BoardColumn, EmptyState, WorkItemCardSkeleton, type StatusIconStatus } from '@devhub/ui';
 import { byColumn } from '../filters.ts';
@@ -18,10 +18,12 @@ export interface TicketsBoardProps {
   /** The tickets Assignee alone lets through, so an empty column can say why it's empty (Q9d). */
   unfiltered: readonly Ticket[];
   now: Date;
+  /** Each column's +, for a new Orynx ticket in it (spec 037, AC-8); none while Orynx's tickets are filtered out. */
+  addTo?: ((column: TicketColumn) => ReactNode) | undefined;
 }
 
 /** The sprint's four columns (spec 008, Q2), each with its count and cards, or why it's empty. */
-export function TicketsBoard({ shown, unfiltered, now }: TicketsBoardProps) {
+export function TicketsBoard({ shown, unfiltered, now, addTo }: TicketsBoardProps) {
   const columns = byColumn(shown);
   const before = byColumn(unfiltered);
   const board = useRef<HTMLDivElement>(null);
@@ -38,6 +40,7 @@ export function TicketsBoard({ shown, unfiltered, now }: TicketsBoardProps) {
             status={statusIcons[column]}
             title={columnNames[column]}
             count={held.length}
+            action={addTo?.(column)}
             aria-label={columnRegionName(column, held.length)}
           >
             {held.length === 0 ? (

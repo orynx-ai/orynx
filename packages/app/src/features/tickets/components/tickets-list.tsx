@@ -16,7 +16,7 @@ import {
 import { inListOrder } from '../filters.ts';
 import { statusTones } from '../../../words/status-tone.ts';
 import { listCaption, listEmptyText } from '../ticket-words.ts';
-import { dueLabel, TicketAgentChip, TicketSelect, TicketTitleButton } from './ticket-card.tsx';
+import { dueLabel, TicketAgentChip, TicketMark, TicketSelect, TicketTitleButton } from './ticket-card.tsx';
 import { ShipButton } from './ship-button.tsx';
 
 export interface TicketsListProps {
@@ -53,6 +53,7 @@ export function TicketsList({ shown, sprintName, filtered, onlyMine, now }: Tick
               <TableCell>
                 <span className="inline-flex items-center gap-2">
                   <TicketSelect ticketKey={ticket.key} />
+                  <TicketMark ticketKey={ticket.key} />
                   <WorkItemKey>{ticket.key}</WorkItemKey>
                 </span>
               </TableCell>

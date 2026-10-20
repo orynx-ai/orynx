@@ -21,8 +21,8 @@ import {
  */
 export const ApprovalRecordSchema = z.object({
   id: z.string().min(1),
-  about: z.enum(['command', 'edit']),
-  /** The command, or the edit's path. */
+  about: z.enum(['command', 'edit', 'ticket']),
+  /** The command, the edit's path, or the ticket's key (spec 037). */
   text: z.string().min(1),
   askedAt: z.iso.datetime(),
   /** Your answer; null when the call ended without one. */

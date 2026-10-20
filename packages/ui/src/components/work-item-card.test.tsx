@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { AgentChip } from './agent-chip.tsx';
+import { SourceMark } from './source-mark.tsx';
 import {
   WorkItemShip,
   WorkItemCard,
@@ -143,6 +144,22 @@ describe('WorkItemCard', () => {
     expect(column).toHaveTextContent('');
     expect(within(column).queryByRole('article')).not.toBeInTheDocument();
     for (const card of column.children) expect(card).toHaveAttribute('aria-hidden', 'true');
+    await expectNoAxeViolations(container);
+  });
+
+  it('AC-1 (spec 037): a mark just before the key says where the ticket lives, and leaves the card’s name alone', async () => {
+    const { container } = render(
+      <WorkItemCard
+        itemKey="ORX-3"
+        type="Task"
+        mark={<SourceMark source="orynx" label="hidden" title="Orynx" />}
+        title={<WorkItemTitleButton onClick={vi.fn()}>Add bulk archive</WorkItemTitleButton>}
+      />,
+    );
+
+    const card = screen.getByRole('article', { name: 'Add bulk archive' });
+    expect(within(card).getByText('Orynx')).toHaveClass('sr-only');
+    expect(within(card).getByText('ORX-3').previousElementSibling).toHaveTextContent('Orynx');
     await expectNoAxeViolations(container);
   });
 

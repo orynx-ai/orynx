@@ -3,6 +3,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type SearchIndex } from '@devhub/contracts';
 import {
+  makeOrynxTicket,
   makeSearchIndex,
   makeSearchPullRequest,
   makeSearchTicket,
@@ -333,5 +334,38 @@ describe('Search dialog', () => {
 
     expect(await screen.findByRole('option', { name: /web-app #2841/ })).toBeVisible();
     expect(within(screen.getByRole('dialog', { name: 'Search' })).queryByText(/GitHub/)).not.toBeInTheDocument();
+  });
+
+  it('AC-26 (spec 037): finds an Orynx ticket by key, with nothing else connected, and Enter opens its dialog', async () => {
+    holding(
+      makeSearchIndex({
+        tickets: [
+          makeSearchTicket({
+            key: 'ORX-2',
+            title: 'Fix the date test',
+            status: 'In progress',
+            target: { kind: 'ticket' },
+          }),
+        ],
+        pullRequests: [],
+        sessions: [],
+        tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } },
+      }),
+    );
+    server.use(
+      http.get(apiUrl(apiRoutes.orynxTicket), () =>
+        HttpResponse.json({ result: 'found', ticket: makeOrynxTicket({ key: 'ORX-2', title: 'Fix the date test' }) }),
+      ),
+    );
+    const { user } = await renderApp({ route: '/tickets' });
+    await openSearch(user);
+    await user.type(await screen.findByRole('combobox'), 'orx-2');
+    const result = await screen.findByRole('option', { name: /ORX-2/ });
+    expect(result).toBeVisible();
+
+    await user.keyboard('{Enter}');
+
+    const ticket = await screen.findByRole('dialog', { name: 'Fix the date test' });
+    expect(within(ticket).getByText('Orynx')).toHaveClass('sr-only');
   });
 });

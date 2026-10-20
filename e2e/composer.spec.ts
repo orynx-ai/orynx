@@ -263,7 +263,7 @@ test('AC-6 to AC-8, AC-11, AC-14, AC-20, 022 AC-9, AC-10: a ticket, a pasted pul
   page,
 }) => {
   await page.goto('/');
-  const jira = await openKind(page, /Jira ticket/, 'Jira ticket');
+  const jira = await openKind(page, /^Ticket/, 'Ticket');
   await jira.getByRole('combobox', { name: 'Search tickets by key or title' }).fill('bulk');
   await jira.getByRole('option', { name: /PROJ-1423/ }).click();
   // A checkbox: the list stays open for the next one, and closing it puts focus in the box (19 Oct 2026).
@@ -315,7 +315,7 @@ test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Ho
   await expect(panel.getByRole('button', { name: 'Remove PROJ-1377 from the composer' })).toBeVisible();
   // PROJ-1423 has a live session from the test before, so its row has Open session; it comes from the list, second,
   // since only the first ticket's session stops a start (AC-5).
-  const jira = await openKind(page, /Jira ticket/, 'Jira ticket');
+  const jira = await openKind(page, /^Ticket/, 'Ticket');
   await jira.getByRole('combobox').fill('bulk');
   await jira.getByRole('option', { name: /PROJ-1423/ }).click();
   await page.keyboard.press('Escape');
@@ -350,7 +350,7 @@ test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Ho
 
 test('AC-10, AC-21: a ticket Jira can’t find stops Send, says which, and keeps the draft', async ({ page }) => {
   await page.goto('/');
-  const jira = await openKind(page, /Jira ticket/, 'Jira ticket');
+  const jira = await openKind(page, /^Ticket/, 'Ticket');
   await jira.getByRole('combobox').fill('proj-9999');
   await jira.getByRole('option', { name: 'Add PROJ-9999' }).click();
   await page.keyboard.press('Escape');
@@ -412,7 +412,7 @@ test('AC-30, AC-31: Home, its chips and the + popup fit 360 px and have no axe v
       await page.emulateMedia({ colorScheme });
       await page.goto('/');
       if ((await chips(page).count()) === 0) {
-        const jira = await openKind(page, /Jira ticket/, 'Jira ticket');
+        const jira = await openKind(page, /^Ticket/, 'Ticket');
         await jira.getByRole('option', { name: /PROJ-1377/ }).click();
         await page.keyboard.press('Escape');
       }

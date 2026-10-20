@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { AgentChip } from './agent-chip.tsx';
+import { SourceMark } from './source-mark.tsx';
 import {
   WorkItemShip,
   WorkItemCard,
@@ -116,4 +117,15 @@ export const Loading: Story = {
       <WorkItemCard {...args} />
     </div>
   ),
+};
+
+/** One of Orynx's own tickets (spec 037): its mark just before the key. */
+export const OrynxTicket: Story = {
+  args: {
+    itemKey: 'ORX-3',
+    type: 'Task',
+    mark: <SourceMark source="orynx" label="hidden" title="Orynx" />,
+    priority: { level: 'medium', label: 'Medium' },
+    title: <WorkItemTitleButton onClick={() => undefined}>Add bulk archive</WorkItemTitleButton>,
+  },
 };

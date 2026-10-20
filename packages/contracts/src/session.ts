@@ -161,13 +161,17 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({
     kind: z.literal('waiting'),
     approvalId: z.string().min(1),
-    about: z.enum(['command', 'edit']),
+    about: z.enum(['command', 'edit', 'ticket']),
     text: z.string().nullable(),
   }),
   /** Commands that ran, in the order they were allowed. */
   ActivityBaseSchema.extend({ kind: z.literal('command'), commands: z.array(z.string().min(1)) }),
-  /** You denied a call: `text` is the command, or the edit's path. */
-  ActivityBaseSchema.extend({ kind: z.literal('denied'), about: z.enum(['command', 'edit']), text: z.string().min(1) }),
+  /** You denied a call: `text` is the command, the edit's path, or the ticket's key (spec 037). */
+  ActivityBaseSchema.extend({
+    kind: z.literal('denied'),
+    about: z.enum(['command', 'edit', 'ticket']),
+    text: z.string().min(1),
+  }),
   /** Claude can't run commands in this session (spec 012, Q2b). */
   ActivityBaseSchema.extend({ kind: z.literal('no_commands'), reason: z.enum(['no_sandbox']) }),
   /** Claude finished, with its own summary of what it changed. */
@@ -192,6 +196,18 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     number: z.int().positive(),
     url: GitHubLinkSchema,
     files: z.int().nonnegative(),
+  }),
+  /**
+   * Claude used one of Orynx's ticket tools (spec 037, AC-28, AC-29): listed the tickets, read, made, changed or
+   * deleted one. `fields` are those a change set; `status`, the one it moved the ticket to. The key is an Orynx one.
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('ticket'),
+    action: z.enum(['listed', 'read', 'created', 'updated', 'deleted']),
+    key: JiraIssueKeySchema.nullable(),
+    title: z.string().min(1).nullable(),
+    fields: z.array(z.enum(['title', 'description', 'type', 'priority', 'status', 'dueDate'])).default([]),
+    status: TicketColumnSchema.nullable().default(null),
   }),
   /** You pressed Stop Claude. */
   ActivityBaseSchema.extend({ kind: z.literal('stopped') }),
@@ -252,6 +268,13 @@ export const SessionApprovalSchema = z.discriminatedUnion('kind', [
     lines: z.array(ChangeLineSchema),
     moreLines: z.int().nonnegative(),
   }),
+  /** Claude asks to delete one of Orynx's own tickets (spec 037, AC-30): Allow once or Deny, never Always allow. */
+  ApprovalBaseSchema.extend({
+    kind: z.literal('ticket'),
+    key: JiraIssueKeySchema,
+    /** Null when the ticket was already gone when Claude asked. */
+    title: z.string().min(1).nullable(),
+  }),
 ]);
 export type SessionApproval = z.infer<typeof SessionApprovalSchema>;
 
@@ -268,6 +291,8 @@ export const SessionTicketSchema = z.object({
   status: z.object({ name: z.string().min(1), column: TicketColumnSchema }).nullable(),
   /** A calendar day, worded by the app ("Due Fri"), as on Tickets. */
   dueDate: z.iso.date().nullable(),
+  /** An Orynx ticket deleted since the session started (spec 037, AC-19); a Jira ticket never is. */
+  deleted: z.boolean().default(false),
 });
 export type SessionTicket = z.infer<typeof SessionTicketSchema>;
 

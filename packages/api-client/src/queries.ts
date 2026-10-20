@@ -24,6 +24,10 @@ export const queryKeys = {
   ticketsSprints: ['jira', 'sprints'] as const,
   /** One ticket in full (spec 022); not under `tickets` either, for the same reason. */
   ticket: ['jira', 'ticket'] as const,
+  /** Orynx's own tickets, one by one (spec 037); tickets.changed refreshes them. */
+  orynxTicket: ['orynx-tickets'] as const,
+  /** Whether agents outside Orynx may use its tickets (spec 037); settings.changed refreshes it. */
+  agentsAccess: ['agents', 'access'] as const,
   /** The composer's skills, per folder (spec 022). */
   skills: ['skills'] as const,
   claudeLogin: ['claude', 'login'] as const,
@@ -258,6 +262,20 @@ export function ticketQueryOptions(api: ApiClient, key: string) {
     staleTime: 0,
     retry: false,
   });
+}
+
+/** One of Orynx's own tickets (spec 037), kept fresh by tickets.changed rather than asked again on a timer. */
+export function orynxTicketQueryOptions(api: ApiClient, key: string) {
+  return queryOptions({
+    queryKey: [...queryKeys.orynxTicket, key] as const,
+    queryFn: () => api.orynxTicket(key),
+    staleTime: Infinity,
+  });
+}
+
+/** Settings › Coding agent's Other agents row (spec 037). */
+export function agentsAccessQueryOptions(api: ApiClient) {
+  return queryOptions({ queryKey: queryKeys.agentsAccess, queryFn: () => api.agentsAccess(), staleTime: Infinity });
 }
 
 export function ticketsQueryOptions(api: ApiClient) {

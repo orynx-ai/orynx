@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
-import type { Ticket } from '@devhub/contracts';
-import { AgentChip, WorkItemCard, WorkItemSelect, WorkItemTitleButton } from '@devhub/ui';
+import { isOrynxKey, type Ticket } from '@devhub/contracts';
+import { AgentChip, SourceMark, WorkItemCard, WorkItemSelect, WorkItemTitleButton } from '@devhub/ui';
 import { dueText } from '../../../words/due.ts';
 import { useTicketsStore } from '../store.ts';
 import { assigneeAvatar } from '../ticket-words.ts';
@@ -38,6 +38,14 @@ export function TicketTitleButton({ ticket }: { ticket: Ticket }) {
       {ticket.title}
     </WorkItemTitleButton>
   );
+}
+
+/**
+ * Where the ticket lives, for one of Orynx's own (spec 037, Q10): the small Orynx mark, named "Orynx" for screen
+ * readers and on hover; Jira's tickets show none, as drawn.
+ */
+export function TicketMark({ ticketKey }: { ticketKey: string }) {
+  return isOrynxKey(ticketKey) ? <SourceMark source="orynx" label="hidden" title="Orynx" /> : null;
 }
 
 /** Claude's state for the ticket, linking to its session (Q4c); nothing when no session works on it. */
@@ -81,6 +89,7 @@ export function TicketCard({ ticket, now }: { ticket: Ticket; now: Date }) {
       due={due ?? undefined}
       title={<TicketTitleButton ticket={ticket} />}
       select={<TicketSelect ticketKey={ticket.key} />}
+      mark={<TicketMark ticketKey={ticket.key} />}
       // A ticket with a live session shows its chip; one without, Ship (spec 011, named in spec 020).
       action={
         ticket.session === null ? (

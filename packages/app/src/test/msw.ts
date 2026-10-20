@@ -89,6 +89,8 @@ export const server = setupServer(
   http.post(apiUrl(apiRoutes.claudeLoginCheck), () => HttpResponse.json({ state: 'signed_out' })),
   // Signed out, Claude offers no models.
   http.get(apiUrl(apiRoutes.agentModels), () => HttpResponse.json({ state: 'unavailable' })),
+  // Agents outside Orynx may not use its tickets until you turn it on (spec 037).
+  http.get(apiUrl(apiRoutes.agentsAccess), () => HttpResponse.json({ enabled: false })),
   // Nothing to tell you yet, and Settings › Notifications as a fresh Orynx has it (spec 029).
   http.get(apiUrl(apiRoutes.notifications), () => HttpResponse.json(makeNotificationList())),
   http.get(apiUrl(apiRoutes.notificationSettings), () => HttpResponse.json(defaultNotificationSettings)),

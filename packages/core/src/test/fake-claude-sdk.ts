@@ -1,11 +1,14 @@
 import type { ModelInfo, Options, PermissionResult, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { QueryFunction } from '../agents/claude/claude-adapter.ts';
 
 /**
  * The Claude Agent SDK's `query()`, faked at its boundary (agent-runtime skill: Claude is an outside
  * service). It plays a script the way Claude Code would: it starts with the `init` message, asks
  * `canUseTool` about every tool call, sends the call and its result (an error when refused), and ends
- * the turn. It records what it was given, so a test can check the options and the prompt.
+ * the turn. A tool named `mcp__<server>__<tool>` is called on that in-process MCP server once it's allowed, as
+ * Claude Code calls Orynx's ticket tools (spec 037). It records what it was given, so a test can check the options and the prompt.
  *
  * It reads the prompt stream all the time, as Claude Code does (spec 013). A message that arrives while
  * Claude works waits in a queue and is folded into the turn after Claude's next tool call. One still queued
@@ -170,6 +173,30 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
         }
       }
 
+      /** Claude Code's own MCP client for each in-process server, connected at the first call. */
+      const clients = new Map<string, Client>();
+      async function callMcp(call: FakeToolCall): Promise<{ text: string; isError: boolean } | null> {
+        const [, server = '', name = ''] = /^mcp__([^_]+)__(.+)$/.exec(call.tool) ?? [];
+        if (server === '') return null;
+        const config = options.mcpServers?.[server];
+        if (config?.type !== 'sdk' || !('instance' in config))
+          return { text: `No MCP server ${server}.`, isError: true };
+        let client = clients.get(server);
+        if (client === undefined) {
+          const [ours, theirs] = InMemoryTransport.createLinkedPair();
+          await config.instance.connect(theirs);
+          client = new Client({ name: 'fake-claude-code', version: '0.0.0' });
+          await client.connect(ours);
+          clients.set(server, client);
+        }
+        const result = await client.callTool({ name, arguments: call.input });
+        const content = Array.isArray(result.content) ? (result.content as { text?: unknown }[]) : [];
+        return {
+          text: content.map((block) => (typeof block.text === 'string' ? block.text : '')).join(''),
+          isError: result.isError === true,
+        };
+      }
+
       /** Claude's message with its calls, which Claude Code streams before it asks about them. */
       function useMessage(calls: readonly FakeToolCall[], ids: readonly string[]): SDKMessage {
         const content = calls.map((call, i) => ({ type: 'tool_use', id: ids[i], name: call.tool, input: call.input }));
@@ -181,7 +208,12 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
         } as unknown as SDKMessage;
       }
 
-      function resultMessage(call: FakeToolCall, id: string, result: PermissionResult): SDKMessage {
+      function resultMessage(
+        call: FakeToolCall,
+        id: string,
+        result: PermissionResult,
+        mcp: { text: string; isError: boolean } | null = null,
+      ): SDKMessage {
         return {
           type: 'user',
           parent_tool_use_id: null,
@@ -192,8 +224,8 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
               {
                 type: 'tool_result',
                 tool_use_id: id,
-                content: result.behavior === 'allow' ? (call.output ?? 'ok') : result.message,
-                is_error: result.behavior !== 'allow' || call.fails === true,
+                content: result.behavior === 'allow' ? (mcp?.text ?? call.output ?? 'ok') : result.message,
+                is_error: result.behavior !== 'allow' || call.fails === true || mcp?.isError === true,
               },
             ],
           },
@@ -237,7 +269,7 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
           ...(afresh ? { session_id: freshSessionId } : {}),
           cwd: options.cwd,
           tools: Array.isArray(options.tools) ? options.tools : [],
-          mcp_servers: [],
+          mcp_servers: Object.keys(options.mcpServers ?? {}).map((name) => ({ name, status: 'connected' })),
           plugins: [],
         } as unknown as SDKMessage;
 
@@ -253,7 +285,9 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
             const runsOn = (call: FakeToolCall, i: number) => call.hangs === true && answers[i]?.behavior === 'allow';
             for (const [i, call] of calls.entries()) {
               const answer = answers[i];
-              if (answer !== undefined && !runsOn(call, i)) yield resultMessage(call, ids[i] ?? '', answer);
+              if (answer === undefined || runsOn(call, i)) continue;
+              const mcp = answer.behavior === 'allow' ? await callMcp(call) : null;
+              yield resultMessage(call, ids[i] ?? '', answer, mcp);
             }
             if (calls.some(runsOn)) {
               await interrupted;

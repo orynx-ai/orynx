@@ -30,7 +30,7 @@ describe('the composer’s words (spec 015, Q13)', () => {
     expect(composerWords.kinds.heading).toBe('Add context for Claude');
     expect(composerWords.kinds.foot).toBe('Tip: you can also paste a Jira key or a pull request link into the box.');
     expect(composerWords.kinds.jira).toEqual({
-      title: 'Jira ticket',
+      title: 'Ticket',
       description: 'Search by key or title',
       search: 'Search tickets by key or title',
       note: 'Claude gets the summary, description, comments and linked issues.',
@@ -157,6 +157,12 @@ describe('the composer’s words (spec 015, Q13)', () => {
     );
     expect(bannerDetail({ key: 'PROJ-1', title: 'Fix it', approval: null, more: 1 })).toBe(
       'PROJ-1 · Fix it · 1 more waiting',
+    );
+  });
+
+  it('AC-25 (spec 037): an Orynx key Orynx doesn’t hold is said as Orynx’s', () => {
+    expect(contextFailedLine({ kind: 'jira', key: 'ORX-99' }, 'not_found').line).toBe(
+      "Orynx can't find ORX-99, or you can't see it.",
     );
   });
 });

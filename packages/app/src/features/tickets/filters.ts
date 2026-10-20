@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Ticket, TicketColumn } from '@devhub/contracts';
+import { ticketSource, type Ticket, type TicketColumn, type TicketSource } from '@devhub/contracts';
 import { daysUntil } from '../../words/calendar.ts';
 import { dueText } from '../../words/due.ts';
 import { columnOrder } from './ticket-words.ts';
@@ -12,6 +12,7 @@ import { columnOrder } from './ticket-words.ts';
  * default is written. Spec 008's addresses still work: `assignee=anyone`, `due=week`, `type=bug`.
  */
 export const TicketsSearchSchema = z.object({
+  source: z.string().optional().catch(undefined),
   assignee: z.string().optional().catch(undefined),
   status: z.string().optional().catch(undefined),
   type: z.string().optional().catch(undefined),
@@ -24,7 +25,12 @@ export type TicketsSearch = z.infer<typeof TicketsSearchSchema>;
 export const dueOptions = ['overdue', 'week', 'none'] as const;
 export type DueOption = (typeof dueOptions)[number];
 
+/** Source's two options (spec 037). */
+export const ticketSources: readonly TicketSource[] = ['jira', 'orynx'];
+
 export interface TicketFilters {
+  /** Where tickets live: Jira's, Orynx's own, or both, the default (spec 037). Nothing ticked lets both through. */
+  source: TicketSource[];
   /** `me`, `unassigned`, or a person's name as Jira gives it; empty lets everyone through. Me by default. */
   assignee: string[];
   /** Statuses by their own names ("Code Review"). */
@@ -42,6 +48,7 @@ export interface TicketFilters {
 export type AddressFilters = Omit<TicketFilters, 'text'>;
 
 export const defaultFilters: TicketFilters = {
+  source: [...ticketSources],
   assignee: ['me'],
   status: [],
   type: [],
@@ -52,7 +59,7 @@ export const defaultFilters: TicketFilters = {
 
 /** The filters a page can hold in the address (spec 020): every filter, without the search text. */
 export type FilterKey = keyof AddressFilters;
-export const filterKeys: readonly FilterKey[] = ['assignee', 'status', 'type', 'priority', 'due'];
+export const filterKeys: readonly FilterKey[] = ['source', 'assignee', 'status', 'type', 'priority', 'due'];
 
 /**
  * A comma list's values, each once. A value's own comma is written `%2C` (and its `%` as `%25`), so a person
@@ -74,7 +81,11 @@ export function filtersFromSearch(search: TicketsSearch): AddressFilters {
   // Spec 008's `assignee=anyone` let everyone through, as nothing ticked does now.
   const assignee =
     search.assignee === undefined ? ['me'] : commaList(search.assignee).filter((value) => value !== 'anyone');
+  const source = commaList(search.source).filter((value): value is TicketSource =>
+    (ticketSources as readonly string[]).includes(value),
+  );
   return {
+    source: source.length === 0 ? [...ticketSources] : source,
     assignee,
     status: commaList(search.status),
     // Spec 008's `type=bug` was Bugs only.
@@ -87,6 +98,8 @@ export function filtersFromSearch(search: TicketsSearch): AddressFilters {
 export function searchFromFilters(filters: AddressFilters): TicketsSearch {
   const isDefaultAssignee = filters.assignee.length === 1 && filters.assignee[0] === 'me';
   const search: TicketsSearch = {};
+  // One source alone is written; both, or neither, is the default.
+  if (filters.source.length === 1) search.source = commaJoin(filters.source);
   if (!isDefaultAssignee) search.assignee = filters.assignee.length === 0 ? 'anyone' : commaJoin(filters.assignee);
   for (const key of ['status', 'type', 'priority', 'due'] as const) {
     if (filters[key].length > 0) search[key] = commaJoin(filters[key]);
@@ -94,10 +107,11 @@ export function searchFromFilters(filters: AddressFilters): TicketsSearch {
   return search;
 }
 
-/** Clear filters shows when anything differs from Assignee: Me alone with an empty search. */
+/** Clear filters shows when anything differs from both sources and Assignee: Me alone, with an empty search. */
 export function hasExtraFilters(filters: TicketFilters): boolean {
   const isDefaultAssignee = filters.assignee.length === 1 && filters.assignee[0] === 'me';
   return (
+    filters.source.length === 1 ||
     !isDefaultAssignee ||
     filters.status.length > 0 ||
     filters.type.length > 0 ||
@@ -129,6 +143,7 @@ function dueMatches(ticket: Ticket, wanted: readonly DueOption[], now: Date): bo
 
 /** Whether the ticket passes every filter that's on. */
 export function matches(ticket: Ticket, filters: TicketFilters, now: Date): boolean {
+  if (filters.source.length > 0 && !filters.source.includes(ticketSource(ticket.key))) return false;
   if (!assigneeMatches(ticket, filters.assignee)) return false;
   if (filters.status.length > 0 && !filters.status.includes(ticket.status)) return false;
   if (filters.type.length > 0 && !filters.type.some((type) => type.toLowerCase() === ticket.type.toLowerCase())) {
@@ -186,6 +201,10 @@ export function filterOptions(
   ];
   const asOptions = (values: string[]) => values.map((value) => ({ value, label: value }));
   return {
+    source: [
+      { value: 'jira', label: 'Jira' },
+      { value: 'orynx', label: 'Orynx' },
+    ],
     assignee: [
       { value: 'me', label: 'Me' },
       { value: 'unassigned', label: 'Unassigned' },

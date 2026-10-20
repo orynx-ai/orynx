@@ -1,4 +1,4 @@
-import type { InboxToolState, OpenSprint, Sprint, Ticket, TicketColumn } from '@devhub/contracts';
+import type { InboxToolState, OpenSprint, OrynxTicketCreator, Sprint, Ticket, TicketColumn } from '@devhub/contracts';
 import { personName } from '../../shell/person-name.ts';
 import { agoText } from '../../words/ago.ts';
 import { dayMonth, plural } from '../../words/calendar.ts';
@@ -29,6 +29,23 @@ export function openSprintLine(sprint: OpenSprint, now: Date): string {
 
 /** Spec 020, Q4e: the Project picker's first option, and its words while nothing is picked. */
 export const yourSprintText = 'Your sprint';
+
+/** Spec 037, Q12g: Orynx alone, with no Orynx tickets. */
+export const noOrynxTicketsText = 'No Orynx tickets yet.';
+
+/** Spec 037, Q12h: Tickets with Jira not connected shows Orynx's own; the link goes to Settings › Connections. */
+export const withoutJiraLine = {
+  message: "Jira isn't connected, so only Orynx tickets show.",
+  action: { text: 'Connect Jira', tab: 'connections' },
+} as const;
+
+/** Spec 037, Q12j: the tickets file Orynx couldn't read and kept aside at its start. */
+export function keptFileLine(file: string): string {
+  return `Orynx couldn't read its tickets file, so it kept it as ${file} and started a new one.`;
+}
+
+/** Spec 037, Q7: Orynx's own tickets alone, as the breadcrumb names them; they have no sprint. */
+export const orynxName = 'Orynx';
 
 /** Spec 020: the tickets in no sprint that aren't Done, as the page and the Sprint menu name them (AC-39). */
 export const noSprintName = 'No sprint';
@@ -182,5 +199,51 @@ export function ticketProblemLine(key: string, result: 'not_found' | 'not_connec
       return 'Jira is not connected. Connect it in Settings.';
     case 'unreachable':
       return "Jira didn't answer.";
+  }
+}
+
+/** Spec 037, Q12b to Q12f: the words of an Orynx ticket's form and its delete. */
+export const orynxTicketWords = {
+  newTicket: 'New ticket',
+  newTicketIn: (column: TicketColumn) => `New ticket in ${columnNames[column]}`,
+  editTitle: (key: string) => `Edit ${key}`,
+  create: 'Create ticket',
+  saveChanges: 'Save changes',
+  cancel: 'Cancel',
+  edit: 'Edit',
+  fields: {
+    title: 'Title',
+    description: 'Description',
+    type: 'Type',
+    priority: 'Priority',
+    status: 'Status',
+    dueDate: 'Due date',
+  },
+  pickDate: 'Pick a date',
+  clearDate: 'Clear date',
+  saveFailed: "Couldn't save the ticket. Try again.",
+  changed: (key: string) => `${key} changed after you opened it. Save changes again to keep your version.`,
+  deleteTicket: 'Delete ticket',
+  deleteTitle: (key: string) => `Delete ${key}?`,
+  deleteLine: "It's gone for good, and its key isn't used again. Sessions started from it keep their brief.",
+  deleteFailed: "The ticket wasn't deleted. Try again.",
+  deleted: (key: string) => `${key} was deleted.`,
+} as const;
+
+/**
+ * Spec 037, Q12c, Q12n: who made an Orynx ticket. A session's agent is Claude, and the session's title links to it;
+ * an agent outside Orynx goes by its client's name.
+ */
+export function createdByWords(
+  creator: OrynxTicketCreator,
+  day: string,
+): { by: string; session: { id: string; title: string } | null } {
+  switch (creator.kind) {
+    case 'you':
+      return { by: `Created by you · ${day}`, session: null };
+    case 'session':
+      return { by: 'Created by Claude · ', session: { id: creator.sessionId, title: creator.title } };
+    case 'agent':
+      return { by: `Created by ${creator.name ?? 'another agent'} · ${day}`, session: null };
   }
 }

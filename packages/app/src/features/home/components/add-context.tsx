@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { File01Icon, Folder01Icon, GitBranchIcon, PlusSignIcon } from '@hugeicons/core-free-icons';
+import { File01Icon, Folder01Icon, GitBranchIcon, PlusSignIcon, Ticket01Icon } from '@hugeicons/core-free-icons';
 import { Link } from '@tanstack/react-router';
-import type { ComposerChip, InboxToolState } from '@devhub/contracts';
+import { type ComposerChip, type InboxToolState, ticketSource } from '@devhub/contracts';
 import {
   ContextKindItem,
   ContextPicker,
@@ -66,6 +66,7 @@ function ToolList({ kind, query, onQueryChange, onBack, onTicked }: ListProps & 
   const said = lists[kind];
   const tool = index.data?.tools[kind === 'jira' ? 'jira' : 'github'];
   const loading = index.data === undefined || tool?.state === 'syncing';
+  const unavailable = tool?.state === 'not_connected';
 
   const known: (ContextSearchOption & { chip: ComposerChip; words: string })[] =
     kind === 'jira'
@@ -73,7 +74,7 @@ function ToolList({ kind, query, onQueryChange, onBack, onTicked }: ListProps & 
           value: ticket.key,
           label: ticket.key,
           description: `${ticket.title} · ${ticket.status}`,
-          mark: <SourceMark source="jira" label="none" />,
+          mark: <SourceMark source={ticketSource(ticket.key)} label="none" />,
           added: chips.some((chip) => chip.kind === 'jira' && chip.key === ticket.key),
           chip: { kind: 'jira', key: ticket.key },
           words: `${ticket.key} ${ticket.title}`,
@@ -128,7 +129,7 @@ function ToolList({ kind, query, onQueryChange, onBack, onTicked }: ListProps & 
   return (
     <ContextSearch
       title={said.title}
-      count={loading || tool?.state === 'not_connected' ? undefined : countOf(kind, known.length)}
+      count={loading || (unavailable && known.length === 0) ? undefined : countOf(kind, known.length)}
       onBack={onBack}
       searchLabel={said.search}
       query={query}
@@ -148,7 +149,8 @@ function ToolList({ kind, query, onQueryChange, onBack, onTicked }: ListProps & 
       }}
       emptyText={query.trim() === '' ? said.empty : composerWords.noMatches}
       loading={loading}
-      notice={full ?? toolNotice(tool, said.notConnected)}
+      // Orynx's own tickets are listed with Jira not connected (spec 037); the notice stands for an empty list alone.
+      notice={full ?? (known.length === 0 ? toolNotice(tool, said.notConnected) : undefined)}
       note={said.note}
     />
   );
@@ -331,7 +333,8 @@ export function AddContext({
                 </ContextKindItem>
               ) : null}
               <ContextKindItem
-                icon={<SourceMark source="jira" label="none" />}
+                // Jira's tickets and Orynx's own (spec 037), so no one tool's mark.
+                icon={<Icon icon={Ticket01Icon} className="text-muted-foreground" />}
                 description={words.jira.description}
                 leadsOn
                 onSelect={() => {

@@ -102,8 +102,8 @@ describe('LiveUpdates', () => {
     },
   );
 
-  it.each(['inbox.changed', 'status.changed', 'sessions.changed'] as const)(
-    'AC-26 (spec 009): refreshes search’s results when the server says %s, keeping what was typed',
+  it.each(['inbox.changed', 'status.changed', 'sessions.changed', 'tickets.changed'] as const)(
+    'AC-26 (spec 009), AC-32 (spec 037): refreshes search’s results when the server says %s, keeping what was typed',
     async (type) => {
       let count = 1;
       server.use(

@@ -16,12 +16,12 @@ export { TicketColumnSchema, type TicketColumn } from './ticket-column.ts';
 export const PriorityLevelSchema = z.enum(['high', 'medium', 'low']);
 export type PriorityLevel = z.infer<typeof PriorityLevelSchema>;
 
-/** One issue in the sprint. */
+/** One issue in the sprint, or one of Orynx's own tickets (spec 037), which the key tells apart. */
 export const TicketSchema = z.object({
   key: z.string().regex(/^[A-Z][A-Z0-9_]*-\d+$/),
   title: z.string().min(1),
-  /** The issue on its Jira Cloud site: https, and that host only. */
-  url: JiraLinkSchema,
+  /** The issue on its Jira Cloud site: https, and that host only; null for an Orynx ticket (spec 037). */
+  url: JiraLinkSchema.nullable(),
   /** The status's own name, shown as it is in the list ("Code Review"). */
   status: z.string(),
   column: TicketColumnSchema,
@@ -83,7 +83,10 @@ export type TicketsChoice = z.infer<typeof TicketsChoiceSchema>;
 /** Your sprint, until a project is picked. */
 export const defaultTicketsChoice: TicketsChoice = { projectKey: null, sprintId: null };
 
-/** GET /api/tickets: the sprint and every ticket in it, in Jira's rank order. Answers from the cache. */
+/**
+ * GET /api/tickets: the sprint and every ticket in it, in Jira's rank order, from the cache, then Orynx's own tickets
+ * (spec 037).
+ */
 export const TicketsSchema = z.object({
   /** Where Jira's sprint read stands, in the inbox's terms, so a failed read says so in 007's words. */
   jira: InboxToolStateSchema,
@@ -97,6 +100,11 @@ export const TicketsSchema = z.object({
   truncated: z.boolean(),
   /** Which sprint was asked for (spec 020); while its first sync runs, Jira's state is `syncing`. */
   choice: TicketsChoiceSchema.default(defaultTicketsChoice),
+  /**
+   * Orynx's own tickets (spec 037), which come in `tickets` whatever Jira says. `kept` names the unreadable
+   * `tickets.json` Orynx moved aside at its start (AC-34), null when it kept none.
+   */
+  orynx: z.object({ kept: z.string().min(1).nullable() }).default({ kept: null }),
 });
 export type Tickets = z.infer<typeof TicketsSchema>;
 

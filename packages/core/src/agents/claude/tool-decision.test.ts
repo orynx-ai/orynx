@@ -396,3 +396,52 @@ describe('an Ask session (spec 026)', () => {
     });
   });
 });
+
+describe('Orynx’s ticket tools (spec 037)', () => {
+  const context = {
+    worktree,
+    ...defaultPermissions,
+    allowedCommands: [],
+    home: '/Users/you',
+    ticketTitle: (key: string) => Promise.resolve(key === 'ORX-7' ? 'Flaky date test' : null),
+  };
+
+  it('AC-28, AC-29: reads and changes run without asking, whatever the rows say', async () => {
+    for (const tool of ['list_tickets', 'get_ticket', 'create_ticket', 'update_ticket']) {
+      expect(
+        await decideToolUse(`mcp__orynx__${tool}`, {}, { ...context, ...permissionsFromMode('ask_everything') }),
+      ).toEqual({
+        behavior: 'allow',
+      });
+    }
+  });
+
+  it('AC-30: deleting always asks, with the ticket’s key and title', async () => {
+    expect(await decideToolUse('mcp__orynx__delete_ticket', { key: 'ORX-7' }, context)).toEqual({
+      behavior: 'ask',
+      ask: { kind: 'ticket', key: 'ORX-7', title: 'Flaky date test' },
+    });
+    expect(await decideToolUse('mcp__orynx__delete_ticket', { key: 'ORX-8' }, context)).toEqual({
+      behavior: 'ask',
+      ask: { kind: 'ticket', key: 'ORX-8', title: null },
+    });
+    expect(await decideToolUse('mcp__orynx__delete_ticket', { key: 'PROJ-1' }, context)).toMatchObject({
+      behavior: 'deny',
+      refusal: null,
+    });
+  });
+
+  it('AC-31: an Ask session reads tickets and changes none', async () => {
+    const asking = { ...context, readOnly: true };
+    expect(await decideToolUse('mcp__orynx__get_ticket', { key: 'ORX-7' }, asking)).toEqual({ behavior: 'allow' });
+    for (const tool of ['create_ticket', 'update_ticket', 'delete_ticket']) {
+      expect(await decideToolUse(`mcp__orynx__${tool}`, { key: 'ORX-7' }, asking)).toMatchObject({ behavior: 'deny' });
+    }
+  });
+
+  it('no other MCP tool, nor one of Orynx’s server it doesn’t have', async () => {
+    for (const tool of ['mcp__orynx__drop_database', 'mcp__github__create_issue']) {
+      expect(await decideToolUse(tool, {}, context)).toMatchObject({ behavior: 'deny', refusal: null });
+    }
+  });
+});

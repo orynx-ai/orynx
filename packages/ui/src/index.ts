@@ -18,6 +18,17 @@ export {
   type AttentionTitleButtonProps,
   type AttentionTitleProps,
 } from './components/attention-row.tsx';
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogBody,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from './components/alert-dialog.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
 export { Board, BoardColumn, type BoardColumnProps, type BoardProps } from './components/board.tsx';
 export { BrandMark, type BrandMarkProps } from './components/brand-mark.tsx';
@@ -31,6 +42,9 @@ export {
 } from './components/breadcrumb.tsx';
 export { Button, buttonVariants, type ButtonProps } from './components/button.tsx';
 export { Callout, CalloutCode, type CalloutCodeProps, type CalloutProps } from './components/callout.tsx';
+export { Calendar, type CalendarProps } from './components/calendar.tsx';
+export { DatePicker, type DatePickerProps } from './components/date-picker.tsx';
+export { Popover, PopoverContent, PopoverTrigger } from './components/popover.tsx';
 export { Card, type CardLook, type CardProps } from './components/card.tsx';
 export { Checkbox, type CheckboxProps } from './components/checkbox.tsx';
 export { NotificationBell, type NotificationBellProps } from './components/notification-bell.tsx';

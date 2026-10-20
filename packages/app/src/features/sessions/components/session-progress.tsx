@@ -14,6 +14,7 @@ import {
   StopIcon,
   TerminalIcon,
   Tick02Icon,
+  Ticket01Icon,
 } from '@hugeicons/core-free-icons';
 import type { Session, SessionActivity, SessionStep } from '@devhub/contracts';
 import {
@@ -66,6 +67,7 @@ const kindIcons = {
   message: BubbleChatIcon,
   pull_request: GitPullRequestIcon,
   pushed: GitPullRequestIcon,
+  ticket: Ticket01Icon,
   stopped: StopIcon,
   interrupted: PowerIcon,
   discarded: Delete02Icon,
