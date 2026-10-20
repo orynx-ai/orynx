@@ -26,7 +26,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: api-client calls and query options for commands and the terminal (AC-20). The event’s refresh is tested through the shell tab in task 13
       Check: pnpm test packages/api-client/src/terminal.test.ts
       Files: packages/api-client/src/endpoints/terminal.ts, packages/api-client/src/queries.ts, packages/api-client/src/client.ts, packages/api-client/src/terminal.test.ts, packages/app/src/live-updates.tsx
-- [ ] Task 9: `CommandBlock` in @devhub/ui, with a story for each status and a test (AC-5, AC-14, AC-16, AC-19, AC-30, AC-31)
+- [x] Task 9: `CommandBlock` in @devhub/ui, with a story for each status and a test (AC-5, AC-14, AC-16, AC-19, AC-30, AC-31)
       Check: pnpm test packages/ui/src/components/command-block.test.tsx; pnpm gate component-coverage icon-buttons style-policy
       Files: packages/ui/src/components/command-block.tsx, .stories.tsx, .test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 10: `CommandInput` in @devhub/ui: prompt, label, hint, ↑/↓ history, ⌃C, busy (AC-8, AC-9, AC-12)
