@@ -53,6 +53,8 @@ export function createAgentAccess({
 
     async set(enabled) {
       if (enabled) {
+        // On already: the token stays, so a bridge running with it carries on.
+        if ((await current()) !== null) return;
         // A new token every time it's turned on, so a config copied before it was turned off stays dead.
         const token = randomBytes(32).toString('base64url');
         await keychain.set('agents', token);

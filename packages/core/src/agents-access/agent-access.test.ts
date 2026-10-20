@@ -100,6 +100,16 @@ describe('agents’ access to Orynx tickets (spec 037)', () => {
     expect(await access.accepts(first ?? '')).toBe(false);
   });
 
+  it('turning it on again while it’s on keeps the token, so a bridge running with it carries on', async () => {
+    const { access } = setUp();
+    await access.set(true);
+    const token = await access.token();
+
+    await access.set(true);
+
+    expect(await access.token()).toBe(token);
+  });
+
   it('reads a token kept in the keychain from before, as on a restart', async () => {
     const { access } = setUp(createMemoryKeychain({ agents: 'kept-token' }));
     expect(await access.enabled()).toBe(true);
