@@ -79,7 +79,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 22: Edit in the dialog (AC-15, AC-16) - The same form, filled in, and Save changes. - A stale version keeps your edits and says so; Save again writes over.
       Check: pnpm test packages/app/src/features/tickets/components/ticket-dialog.test.tsx
       Files: packages/app/src/features/tickets/components/orynx-ticket-view.tsx, ticket-form.tsx, queries.ts, and their tests
-- [ ] Task 23: Delete ticket through the AlertDialog (AC-17, AC-18) - Cancel changes nothing. Delete removes the ticket and puts focus on New ticket.
+- [x] Task 23: Delete ticket through the AlertDialog (AC-17, AC-18) - Cancel changes nothing. Delete removes the ticket and puts focus on New ticket.
       Check: pnpm test packages/app/src/features/tickets/components/delete-ticket.test.tsx
       Files: packages/app/src/features/tickets/components/delete-ticket.tsx, orynx-ticket-view.tsx, queries.ts, ticket-words.ts, and their tests
 - [ ] Task 24: The composer and ⌘K know Orynx tickets (AC-23, AC-25, AC-26) - The mark by key on chips, the context dialog and the strip. - Add context lists Orynx tickets even without Jira, and its item reads "Ticket". - ⌘K's ticket target opens the dialog.

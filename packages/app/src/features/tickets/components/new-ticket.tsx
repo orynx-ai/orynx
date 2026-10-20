@@ -12,11 +12,21 @@ function newTicketFields(column: TicketColumn): OrynxTicketFields {
   return { title: '', description: '', type: 'Task', priority: 'Medium', status: column, dueDate: null };
 }
 
+/** The page bar's New ticket, where focus goes once a ticket is deleted, its card gone (AC-18). */
+export const pageNewTicket: { current: HTMLButtonElement | null } = { current: null };
+
 /** New ticket in the page bar, or under an empty board (spec 037, AC-5, AC-6): a ticket that starts in To do. */
-export function NewTicketButton({ size = 'sm' }: { size?: 'default' | 'sm' }) {
+export function NewTicketButton({ size = 'sm', inPageBar = false }: { size?: 'default' | 'sm'; inPageBar?: boolean }) {
   const open = useTicketsStore((state) => state.openNewTicket);
   return (
     <Button
+      {...(inPageBar
+        ? {
+            ref: (button: HTMLButtonElement | null) => {
+              pageNewTicket.current = button;
+            },
+          }
+        : {})}
       size={size}
       onClick={() => {
         open('to_do');

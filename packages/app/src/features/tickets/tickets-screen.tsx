@@ -177,7 +177,7 @@ export function TicketsScreen() {
           <>
             {synced === null ? null : <span className="text-small text-muted-foreground max-md:hidden">{synced}</span>}
             <RefreshButton />
-            {orynxShown && !noSprint && !noOrynxTickets ? <NewTicketButton /> : null}
+            {orynxShown && !noSprint && !noOrynxTickets ? <NewTicketButton inPageBar /> : null}
             {noSprint ? null : (
               <>
                 {wide ? searchField : null}

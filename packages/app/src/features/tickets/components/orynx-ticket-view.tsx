@@ -27,6 +27,8 @@ import {
   TicketDialogFrame,
 } from './ticket-dialog-parts.tsx';
 import { TicketForm } from './ticket-form.tsx';
+import { DeleteTicket } from './delete-ticket.tsx';
+import { pageNewTicket } from './new-ticket.tsx';
 
 /**
  * One of Orynx's own tickets in the ticket dialog (spec 037, AC-13, AC-14): the Orynx mark, its fields and Markdown
@@ -44,10 +46,11 @@ export function OrynxTicketContent({ shown, onClose }: { shown: ShownTicket; onC
   const editButton = useRef<HTMLButtonElement>(null);
   const headingId = useId();
 
+  // Back in the view after editing, focus goes back to Edit.
+  const [edited, setEdited] = useState(false);
   function stopEditing() {
     setEditing(null);
-    // Back in the view, focus goes where it left from.
-    requestAnimationFrame(() => editButton.current?.focus());
+    setEdited(true);
   }
 
   if (found !== null && editing !== null) {
@@ -88,6 +91,7 @@ export function OrynxTicketContent({ shown, onClose }: { shown: ShownTicket; onC
       title={found?.title ?? shown.title ?? shown.key}
       busy={ticket.isPending}
       onClose={onClose}
+      initialFocus={edited ? editButton : undefined}
       actions={
         found === null ? null : (
           <TicketActions
@@ -96,6 +100,16 @@ export function OrynxTicketContent({ shown, onClose }: { shown: ShownTicket; onC
             session={found.session}
             onClose={onClose}
             problem={update.isError ? orynxTicketWords.saveFailed : null}
+            start={
+              <DeleteTicket
+                ticketKey={found.key}
+                onDeleted={() => {
+                  onClose();
+                  // Its card is gone with it, so focus goes to New ticket when Tickets is open (AC-18).
+                  requestAnimationFrame(() => pageNewTicket.current?.focus());
+                }}
+              />
+            }
             extra={
               <Button
                 ref={editButton}

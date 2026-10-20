@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode, type RefObject } from 'react';
 import { Cancel01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { Link, useRouterState } from '@tanstack/react-router';
 import type { TicketDetail } from '@devhub/contracts';
@@ -32,8 +32,11 @@ export function TicketDialogFrame({
   busy,
   onClose,
   actions,
+  initialFocus,
   children,
 }: {
+  /** What takes focus when it opens: the dialog itself unless this says otherwise, such as Edit after editing. */
+  initialFocus?: RefObject<HTMLElement | null> | undefined;
   source: Source;
   ticketKey: string;
   type: string | null;
@@ -51,7 +54,8 @@ export function TicketDialogFrame({
       onOpenAutoFocus={(event) => {
         // Focus on the dialog, not on Close: Close's tooltip would take the first Esc (AC-46).
         event.preventDefault();
-        if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus();
+        const target = initialFocus?.current ?? event.currentTarget;
+        if (target instanceof HTMLElement) target.focus();
       }}
     >
       <div className="flex shrink-0 items-start gap-3 px-6 pt-6">
