@@ -1,11 +1,13 @@
-import type {
-  SearchIndex,
-  SearchPullRequest,
-  SearchTicket,
-  SearchTicketTarget,
-  SessionSummary,
-  Ticket,
-  Tickets,
+import {
+  orynxStatusNames,
+  type OrynxTicket,
+  type SearchIndex,
+  type SearchPullRequest,
+  type SearchTicket,
+  type SearchTicketTarget,
+  type SessionSummary,
+  type Ticket,
+  type Tickets,
 } from '@devhub/contracts';
 import type { InboxRecords } from '../inbox/inbox-service.ts';
 import type { PullRequestRecord } from '../integrations/github/map.ts';
@@ -26,6 +28,8 @@ export interface SearchServiceOptions {
   inbox: { records(): Promise<InboxRecords> };
   /** The current sprint (spec 008). */
   tickets: { read(): Promise<Tickets> };
+  /** Orynx's own tickets (spec 037), every one, Done long ago too. */
+  orynx: { list(): Promise<readonly OrynxTicket[]> };
   sessions: SessionStore;
 }
 
@@ -35,6 +39,8 @@ export interface SearchSources {
   assigned: readonly JiraIssueRecord[];
   /** The sprint's tickets in Jira's rank order (spec 008). */
   sprint: readonly Ticket[];
+  /** Orynx's own tickets, oldest first (spec 037). */
+  orynx?: readonly OrynxTicket[];
   pullRequests: readonly PullRequestRecord[];
   sessions: readonly SessionSummary[];
   tools: InboxRecords['tools'];
@@ -54,17 +60,18 @@ function opened(record: PullRequestRecord): number {
   return record.openedAt === null ? Number.NEGATIVE_INFINITY : Date.parse(record.openedAt);
 }
 
-/** Tickets (the sprint, then the other assigned issues by key), pull requests and sessions, each newest first. */
+/**
+ * Tickets (the sprint, then the other assigned issues by key, then Orynx's own), pull requests and sessions, each
+ * newest first.
+ */
 export function searchIndex(sources: SearchSources): SearchIndex {
   const joined = sessionsByTicket(sources.sessions);
   const inSprint = new Set(sources.sprint.map((ticket) => ticket.key));
   const tickets: SearchTicket[] = [
-    ...sources.sprint.map((ticket) => ({
-      key: ticket.key,
-      title: ticket.title,
-      status: ticket.status,
-      target: ticketTarget(ticket.url, joined.get(ticket.key)),
-    })),
+    // A row with no link is an Orynx ticket (spec 037), which has no page on a Jira site to open.
+    ...sources.sprint.flatMap(({ key, title, status, url }) =>
+      url === null ? [] : [{ key, title, status, target: ticketTarget(url, joined.get(key)) }],
+    ),
     ...sources.assigned
       .filter((record) => !inSprint.has(record.key))
       .sort((a, b) => byKey.compare(a.key, b.key))
@@ -74,6 +81,16 @@ export function searchIndex(sources: SearchSources): SearchIndex {
         status: record.status,
         target: ticketTarget(record.url, joined.get(record.key)),
       })),
+    // Then Orynx's own, newest first, Done ones too (spec 037, AC-21); one with no session opens its dialog.
+    ...[...(sources.orynx ?? [])].reverse().map((ticket) => ({
+      key: ticket.key,
+      title: ticket.title,
+      status: orynxStatusNames[ticket.status],
+      target:
+        ticket.session === null
+          ? { kind: 'ticket' as const }
+          : { kind: 'session' as const, sessionId: ticket.session.id },
+    })),
   ];
   const pullRequests: SearchPullRequest[] = [...sources.pullRequests]
     .sort((a, b) => opened(b) - opened(a) || a.id.localeCompare(b.id))
@@ -85,14 +102,16 @@ export function searchIndex(sources: SearchSources): SearchIndex {
 export function createSearchService(options: SearchServiceOptions): SearchService {
   return {
     async read() {
-      const [records, sprint, sessions] = await Promise.all([
+      const [records, sprint, orynx, sessions] = await Promise.all([
         options.inbox.records(),
         options.tickets.read(),
+        options.orynx.list(),
         options.sessions.list(),
       ]);
       return searchIndex({
         assigned: records.jira,
         sprint: sprint.tickets,
+        orynx,
         pullRequests: records.github,
         sessions,
         tools: records.tools,

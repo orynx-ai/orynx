@@ -12,6 +12,7 @@ import {
   createFolderPicker,
   createGhCli,
   createMemoryKeychain,
+  createOrynxTicketStore,
   createOsKeychain,
   createServer,
   findSdkClaudeCode,
@@ -88,6 +89,8 @@ const app = await createServer({
   ...(process.platform === 'win32' ? {} : { terminal: { env: config.terminalEnvironment } }),
   // Under DEVHUB_HOME/sessions, and the worktrees under DEVHUB_HOME/worktrees.
   sessions: await openFileSessionStore(config.home),
+  // Orynx's own tickets, beside settings.json and out of the cache Clear cache wipes (spec 037).
+  orynxTickets: createOrynxTicketStore({ path: join(config.home, 'tickets.json') }),
   // Settings › Repositories never adds DevHub's own folder (spec 005).
   dataDir: config.home,
   settings: createFileSettingsStore(config.home, {

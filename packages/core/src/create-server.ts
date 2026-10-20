@@ -2,7 +2,7 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { hasZodFastifySchemaValidationErrors, serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
-import { apiPrefix, tokenQueryParam, type ApiError, type TicketColumn } from '@devhub/contracts';
+import { apiPrefix, isOrynxKey, tokenQueryParam, type ApiError, type TicketColumn } from '@devhub/contracts';
 import { createClaudeCode, type ClaudeCode } from './agents/claude/claude-code.ts';
 import { createClaudeLogin } from './agents/claude/claude-login.ts';
 import { createEventBus, type EventBus } from './events/event-bus.ts';
@@ -62,6 +62,12 @@ import { createMemorySessionStore, type SessionRecords } from './sessions/sessio
 import { createTerminalService } from './terminal/terminal-service.ts';
 import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
 import { createTicketsService } from './tickets/tickets-service.ts';
+import { createOrynxTicketService, describeOrynxTicket } from './orynx-tickets/ticket-service.ts';
+import { createOrynxTicketStore, type OrynxTicketStore } from './orynx-tickets/ticket-store.ts';
+import { orynxTicketsRoutes } from './routes/orynx-tickets.ts';
+import { createAgentAccess } from './agents-access/agent-access.ts';
+import { agentsAccessRoutes } from './routes/agents-access.ts';
+import { mcpRoutes } from './routes/mcp.ts';
 import { readGitUserName } from './status/git-user-name.ts';
 import { createStatusService } from './status/status-service.ts';
 
@@ -79,6 +85,8 @@ export interface CoreOptions {
   eventsKeepAliveMs?: number;
   /** Where sessions are kept. Hosts pass the store under DEVHUB_HOME (spec 011); tests get memory. */
   sessions?: SessionRecords;
+  /** Orynx's own tickets (spec 037). Hosts pass `<DEVHUB_HOME>/tickets.json`; tests get memory. */
+  orynxTickets?: OrynxTicketStore;
   /**
    * What runs Claude in a session (spec 011): the Agent SDK's `query()`, the Claude Code to run and the
    * allow-listed environment. Hosts pass the SDK's; tests pass a fake. Left out, no session can start, so no
@@ -220,14 +228,21 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
-  registerLocalOnly(app, { token: options.token, port: options.port });
-
   const events = options.events ?? createEventBus();
+  const keychain = options.keychain ?? createMemoryKeychain();
+  // Agents outside Orynx use its tickets with their own token, kept in the keychain (spec 037).
+  const agentAccess = createAgentAccess({
+    keychain,
+    events,
+    devhubHome: options.dataDir ?? join(homedir(), '.devhub'),
+  });
+  registerLocalOnly(app, { token: options.token, port: options.port, agents: agentAccess });
+
   // Nothing reads the keychain here: the first read happens when a route or the inbox's sync needs a token.
   app.decorate(
     'tokens',
     createTokenStore({
-      keychain: options.keychain ?? createMemoryKeychain(),
+      keychain,
       events,
       ...(options.envTokens === undefined ? {} : { envTokens: options.envTokens }),
     }),
@@ -279,6 +294,11 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   });
   const sessions = options.sessions ?? createMemorySessionStore();
   const preferences = createPreferencesService({ settings, events });
+  const orynxTickets = createOrynxTicketService({
+    store: options.orynxTickets ?? createOrynxTicketStore(),
+    sessions,
+    events,
+  });
   const cache = options.cache ?? openInboxCache(':memory:');
   // Spec 029: what sessions and syncs raise. Its failures go to the terminal as the error alone, never the text.
   const notifications = createNotificationService({
@@ -294,6 +314,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     connection: jira,
     jira: jiraClient,
     sessions,
+    orynx: { tickets: orynxTickets, you: options.userName ?? readGitUserName },
     onProblem: (problem) => {
       app.log.warn({ problem }, 'The sprint sync could not read Jira');
     },
@@ -387,12 +408,14 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     jira: jiraClient,
     context: createContextReader({
       home: userHome,
+      orynx: orynxTickets,
       jira: jiraClient,
       jiraConnection: jira,
       github: githubClient,
       githubConnection: github,
     }),
     describeTicket: async (key) => {
+      if (isOrynxKey(key)) return describeOrynxTicket(orynxTickets, key);
       // A status with no name is left out: the Ticket tab can't word it (spec 013).
       const status = (name: string, column: TicketColumn) => (name === '' ? null : { name, column });
       const sprint = await tickets.read();
@@ -422,6 +445,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     github,
     githubClient,
     adapter,
+    tickets: orynxTickets,
     events,
     ...(terminal === null ? {} : { terminal }),
     onChange: (before, after, change) => {
@@ -514,7 +538,12 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(inboxRoutes, { inbox });
       await api.register(syncActivityRoutes, { syncActivity });
       await api.register(ticketsRoutes, { tickets, inbox, jira });
-      await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });
+      await api.register(orynxTicketsRoutes, { tickets: orynxTickets });
+      await api.register(agentsAccessRoutes, { access: agentAccess });
+      await api.register(mcpRoutes, { tickets: orynxTickets });
+      await api.register(searchRoutes, {
+        search: createSearchService({ inbox, tickets, orynx: orynxTickets, sessions }),
+      });
       await api.register(repositoriesRoutes, { repositories });
       await api.register(skillsRoutes, { skills });
       await api.register(folderPickerRoutes, {

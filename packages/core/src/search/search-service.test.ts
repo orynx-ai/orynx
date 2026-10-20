@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InboxToolState } from '@devhub/contracts';
-import { makeSessionSummary, makeTicket } from '@devhub/contracts/testing';
+import { makeOrynxTicket, makeSessionSummary, makeTicket } from '@devhub/contracts/testing';
 import type { PullRequestRecord } from '../integrations/github/map.ts';
 import type { JiraIssueRecord } from '../integrations/jira/map.ts';
 import { searchIndex, type SearchSources } from './search-service.ts';
@@ -50,6 +50,34 @@ function index(sources: Partial<SearchSources>) {
 }
 
 describe('search index', () => {
+  it('AC-21, AC-26: every Orynx ticket follows Jira’s, newest first, Done ones too, once each', () => {
+    const found = index({
+      sprint: [
+        makeTicket({ key: 'PROJ-1423' }),
+        // The board's row for ORX-1 has no link: search takes Orynx's own list instead.
+        makeTicket({ key: 'ORX-1', url: null }),
+      ],
+      assigned: [assigned('PROJ-7')],
+      orynx: [
+        makeOrynxTicket({ key: 'ORX-1', title: 'Add bulk archive', status: 'to_do' }),
+        makeOrynxTicket({
+          key: 'ORX-6',
+          title: 'Fix the date test',
+          status: 'done',
+          doneAt: '2026-09-01T09:00:00.000Z',
+          session: { id: 's-6', state: 'done', ready: 'pull_request' },
+        }),
+      ],
+    });
+
+    expect(found.tickets.map((ticket) => [ticket.key, ticket.status, ticket.target])).toEqual([
+      ['PROJ-1423', 'In Progress', { kind: 'external', url: 'https://your-team.atlassian.net/browse/PROJ-1423' }],
+      ['PROJ-7', 'To Do', { kind: 'external', url: 'https://your-team.atlassian.net/browse/PROJ-7' }],
+      ['ORX-6', 'Done', { kind: 'session', sessionId: 's-6' }],
+      ['ORX-1', 'To do', { kind: 'ticket' }],
+    ]);
+  });
+
   it('AC-16: the sprint comes first in Jira’s rank order, then the other assigned issues by key, each ticket once', () => {
     const found = index({
       sprint: [

@@ -5,6 +5,7 @@ import {
   type ContextProblem,
   type SessionApproval,
   type SessionMode,
+  isOrynxKey,
 } from '@devhub/contracts';
 import type { ChipRefusal } from './composer-rules.ts';
 
@@ -40,7 +41,8 @@ export const composerWords = {
       add: 'Add local folder…',
     },
     jira: {
-      title: 'Jira ticket',
+      // Jira's and Orynx's own (spec 037, Q12k).
+      title: 'Ticket',
       description: 'Search by key or title',
       search: 'Search tickets by key or title',
       note: 'Claude gets the summary, description, comments and linked issues.',
@@ -255,7 +257,8 @@ export function contextFailedLine(
   // A file is checked on this computer, and only for being there (spec 022, AC-16).
   if (chip.kind === 'file') return { line: addFileWords.notFound(chip.path), link: null };
   const jira = chip.kind === 'jira';
-  const tool = jira ? 'Jira' : 'GitHub';
+  // A ticket is Jira's or Orynx's own by its key (spec 037).
+  const tool = chip.kind === 'jira' ? (isOrynxKey(chip.key) ? 'Orynx' : 'Jira') : 'GitHub';
   const name = chip.kind === 'jira' ? chip.key : `${chip.owner}/${chip.name} #${String(chip.number)}`;
   switch (problem) {
     case 'not_found':
@@ -286,7 +289,13 @@ export function bannerDetail({
 }): string {
   const parts = key === null ? [title] : [key, title];
   if (approval !== null) {
-    parts.push(approval.kind === 'command' ? `wants to run ${approval.command}` : `wants to edit ${approval.path}`);
+    parts.push(
+      approval.kind === 'command'
+        ? `wants to run ${approval.command}`
+        : approval.kind === 'edit'
+          ? `wants to edit ${approval.path}`
+          : `wants to delete ${approval.key}`,
+    );
   }
   if (more > 0) parts.push(`${String(more)} more waiting`);
   return parts.join(' · ');

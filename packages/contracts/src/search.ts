@@ -10,14 +10,18 @@ import { SessionSummarySchema } from './session.ts';
  * metadata only, as the inbox's cache holds them.
  */
 
-/** Where a ticket goes: its newest Claude session in DevHub, else the issue on its Jira site (Q2c). */
+/**
+ * Where a ticket goes: its newest Claude session in DevHub, else the issue on its Jira site (Q2c), or for one of
+ * Orynx's own tickets, which has no site, its ticket dialog (spec 037, AC-26).
+ */
 export const SearchTicketTargetSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('external'), url: JiraLinkSchema }),
   z.object({ kind: z.literal('session'), sessionId: z.string().min(1) }),
+  z.object({ kind: z.literal('ticket') }),
 ]);
 export type SearchTicketTarget = z.infer<typeof SearchTicketTargetSchema>;
 
-/** A Jira ticket assigned to you and not Done, or in the current sprint. */
+/** A Jira ticket assigned to you and not Done, or in the current sprint; or any of Orynx's own (spec 037). */
 export const SearchTicketSchema = z.object({
   key: z.string().min(1),
   title: z.string().min(1),

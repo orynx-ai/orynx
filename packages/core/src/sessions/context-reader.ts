@@ -1,14 +1,16 @@
 import { realpath } from 'node:fs/promises';
-import type { ComposerChip, ContextProblem } from '@devhub/contracts';
+import { isOrynxKey, orynxStatusNames, type ComposerChip, type ContextProblem } from '@devhub/contracts';
 import { readableFile } from '../files/file-paths.ts';
 import type { GitHubClient, GitHubPullProblem } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
 import type { JiraClient, JiraProblem } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
+import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import type { BriefChip } from './brief.ts';
 
 /**
- * Reads what the composer's chips name before a session starts (spec 015): the ticket from Jira and each pull
+ * Reads what the composer's chips name before a session starts (spec 015): the ticket from Jira, or from Orynx for
+ * one of its own (spec 037), and each pull
  * request from GitHub, all at once, and checks each file is still there (spec 022). Nothing is cached, and
  * nothing read here is logged.
  */
@@ -26,6 +28,8 @@ export interface ContextReaderOptions {
   jiraConnection: { credentials(): Promise<JiraSyncCredentials | null> };
   github: GitHubClient;
   githubConnection: { credentials(): Promise<GitHubSyncCredentials | null> };
+  /** Orynx's own tickets (spec 037), read for an `ORX-` key instead of Jira. Left out, there are none. */
+  orynx?: Pick<OrynxTicketService, 'get'>;
 }
 
 type ChipRead = { ok: true; chip: BriefChip } | { ok: false; problem: ContextProblem };
@@ -63,12 +67,36 @@ function fromGitHub(problem: GitHubPullProblem): ContextProblem {
 
 export function createContextReader({
   home,
+  orynx,
   jira,
   jiraConnection,
   github,
   githubConnection,
 }: ContextReaderOptions): ContextReader {
+  /** One of Orynx's own tickets, with what Jira would hold in a status and a priority as lines of facts. */
+  async function readOrynxTicket(key: string): Promise<ChipRead> {
+    const ticket = (await orynx?.get(key)) ?? null;
+    if (ticket === null) return { ok: false, problem: 'not_found' };
+    const facts = [`Priority: ${ticket.priority}`, `Status: ${orynxStatusNames[ticket.status]}`];
+    if (ticket.dueDate !== null) facts.push(`Due: ${ticket.dueDate}`);
+    const description = ticket.description === '' ? null : ticket.description;
+    return {
+      ok: true,
+      chip: {
+        kind: 'jira',
+        key,
+        summary: ticket.title,
+        type: ticket.type,
+        description,
+        comments: [],
+        links: [],
+        facts,
+      },
+    };
+  }
+
   async function readTicket(key: string): Promise<ChipRead> {
+    if (isOrynxKey(key)) return readOrynxTicket(key);
     const credentials = await jiraConnection.credentials();
     if (credentials?.ok !== true) return { ok: false, problem: 'not_connected' };
     const answer = await jira.issueContext(credentials.request, key);

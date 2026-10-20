@@ -35,6 +35,7 @@ import {
 import { AllowedCommands } from './allowed-commands.tsx';
 import { ClaudeCard } from './claude-card.tsx';
 import { EditorChoice } from './editor-choice.tsx';
+import { OtherAgents } from './other-agents.tsx';
 import { SaveError } from './save-error.tsx';
 import { SectionHeading } from './section-heading.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
@@ -69,6 +70,7 @@ export function CodingAgentPanel() {
       <section aria-labelledby={agentId} className="flex flex-col gap-2.5">
         <SectionHeading id={agentId} icon={RoboticIcon} title="Agent" />
         <ClaudeCard />
+        <OtherAgents />
         <p className="m-0 text-small text-muted-foreground">
           More agents are coming later. Each one plugs in through the same small adapter, so these settings will apply
           to them too.

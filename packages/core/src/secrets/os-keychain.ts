@@ -1,6 +1,5 @@
 import type { AsyncEntry } from '@napi-rs/keyring';
-import type { IntegrationId } from '@devhub/contracts';
-import type { Keychain } from './keychain.ts';
+import type { Keychain, KeychainAccount } from './keychain.ts';
 
 /** The service DevHub's keychain items are saved under. Keychain Access lists them as "DevHub". */
 export const keychainService = 'DevHub';
@@ -17,7 +16,7 @@ interface Keyring {
  */
 export function createOsKeychain(service: string = keychainService): Keychain {
   let keyring: Promise<Keyring> | undefined;
-  async function entry(account: IntegrationId) {
+  async function entry(account: KeychainAccount) {
     keyring ??= import('@napi-rs/keyring');
     const { AsyncEntry } = await keyring;
     return new AsyncEntry(service, account);

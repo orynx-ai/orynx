@@ -60,6 +60,7 @@ import {
   type SessionTicket,
 } from './session.ts';
 import { OrynxSkillListSchema, ReadySkillSchema, type OrynxSkillList, type ReadySkill } from './orynx-skills.ts';
+import { OrynxTicketSchema, type OrynxTicket } from './orynx-tickets.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 import {
   SyncActivitySchema,
@@ -420,6 +421,29 @@ export function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     priority: { name: 'High', level: 'high', rank: 1 },
     dueDate: '2026-10-23',
     assignee: { name: 'Rakesh Dhariwal', mine: true },
+    session: null,
+    ...overrides,
+  });
+}
+
+/**
+ * One of Orynx's own tickets (spec 037): ORX-3 "Add bulk archive", a Task of yours in To do made on 20 Oct 2026,
+ * unless the override says otherwise.
+ */
+export function makeOrynxTicket(overrides: Partial<OrynxTicket> = {}): OrynxTicket {
+  return OrynxTicketSchema.parse({
+    key: 'ORX-3',
+    title: 'Add bulk archive',
+    description: 'Archive several items at once from the content list.',
+    type: 'Task',
+    priority: 'Medium',
+    status: 'to_do',
+    dueDate: null,
+    version: 1,
+    createdBy: { kind: 'you' },
+    createdAt: '2026-10-20T09:00:00.000Z',
+    updatedAt: '2026-10-20T09:00:00.000Z',
+    doneAt: null,
     session: null,
     ...overrides,
   });

@@ -60,13 +60,14 @@ function horizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 }
 
-test('AC-21: Given Jira is not connected, when Tickets opens, then it says so and nothing on the page moves', async ({
+test('AC-21: Given Jira is not connected, when Tickets opens, then it shows Orynx’s own tickets, says so, and nothing on the page moves (spec 037, AC-4)', async ({
   page,
 }) => {
   await page.goto('/tickets');
 
-  await expect(page.getByText('Jira is not connected')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Open Settings' })).toBeVisible();
+  await expect(page.getByText("Jira isn't connected, so only Orynx tickets show.")).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Connect Jira' })).toBeVisible();
+  await expect(page.getByText('No Orynx tickets yet.')).toBeVisible();
   expect(await layoutShiftScore(page)).toBe(0);
 });
 
@@ -76,7 +77,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
   }) => {
     await page.emulateMedia({ colorScheme });
     await page.goto('/tickets');
-    await expect(page.getByText('Jira is not connected')).toBeVisible();
+    await expect(page.getByText('No Orynx tickets yet.')).toBeVisible();
 
     expect(await axeViolations(page)).toEqual([]);
     expect(await horizontalOverflow(page)).toBe(0);

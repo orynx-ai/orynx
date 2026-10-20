@@ -108,6 +108,7 @@ describe('/api/tickets', () => {
       sprint: null,
       tickets: [],
       truncated: false,
+      orynx: { kept: null },
       choice: { projectKey: null, sprintId: null },
     });
   });

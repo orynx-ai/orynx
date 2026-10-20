@@ -27,6 +27,11 @@ export const ServerEventSchema = z.discriminatedUnion('type', [
    * GET /api/tickets (spec 008), whose sprint syncs with the inbox.
    */
   z.object({ type: z.literal('inbox.changed') }),
+  /**
+   * An Orynx ticket was made, changed or deleted, by you or an agent (spec 037); refetch GET /api/tickets, the
+   * ticket and search.
+   */
+  z.object({ type: z.literal('tickets.changed') }),
   /** A skill was added, saved or deleted in Settings › Skills; refetch GET /api/skills (spec 023). */
   z.object({ type: z.literal('skills.changed') }),
   /** A notification came, was read, or an approval it holds ended; refetch GET /api/notifications (spec 029). */

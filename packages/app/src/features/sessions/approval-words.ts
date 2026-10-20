@@ -7,7 +7,13 @@ import type { AlwaysAskReason, SessionApproval } from '@devhub/contracts';
 
 export function approvalTitle(approval: SessionApproval): string {
   if (approval.kind === 'command') return 'Claude wants to run a command';
+  if (approval.kind === 'ticket') return 'Claude wants to delete a ticket';
   return approval.creates ? 'Claude wants to create a file' : 'Claude wants to edit a file';
+}
+
+/** What a ticket's delete asks (spec 037, Q12i): "Delete ORX-7 · Flaky date test?". */
+export function ticketDeleteLine(approval: Extract<SessionApproval, { kind: 'ticket' }>): string {
+  return `Delete ${approval.key}${approval.title === null ? '' : ` · ${approval.title}`}?`;
 }
 
 export const approvalButtons = { allowOnce: 'Allow once', deny: 'Deny' } as const;

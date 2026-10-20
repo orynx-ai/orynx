@@ -246,7 +246,7 @@ describe('a session in spec 013', () => {
   it('AC-9: carries the ticket as Claude got it, with its status and due date from the cache', () => {
     const ticket = makeSessionTicket();
     expect(SessionSchema.parse(makeSession({ ticket })).ticket).toEqual(ticket);
-    const bare = { type: null, description: null, status: null, dueDate: null };
+    const bare = { type: null, description: null, status: null, dueDate: null, deleted: false };
     expect(SessionSchema.parse(makeSession({ ticket: bare })).ticket).toEqual(bare);
     const badColumn = { ...ticket, status: { name: 'Doing', column: 'doing' } };
     expect(SessionSchema.safeParse({ ...makeSession(), ticket: badColumn }).success).toBe(false);

@@ -199,6 +199,22 @@ describe("the composer's brief (spec 015)", () => {
     );
   });
 
+  it('AC-24 (spec 037): names an Orynx ticket as Orynx’s, with its priority, status and due day before its description', () => {
+    const orynx = {
+      kind: 'jira' as const,
+      key: 'ORX-2',
+      summary: 'Fix the date test',
+      type: 'Bug',
+      description: 'It fails across midnight.',
+      comments: [],
+      links: [],
+      facts: ['Priority: High', 'Status: In progress', 'Due: 2026-10-24'],
+    };
+    expect(briefText(composerBrief('', [orynx]))).toBe(
+      'Orynx ticket ORX-2 (Bug): Fix the date test\n\nPriority: High · Status: In progress · Due: 2026-10-24\n\nIt fails across midnight.',
+    );
+  });
+
   it('AC-20: leaves out comments and links a ticket has none of', () => {
     expect(
       briefText(composerBrief('', [{ kind: 'jira', ...ticket, description: null, comments: [], links: [] }])),

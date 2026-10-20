@@ -8,6 +8,7 @@
  * outside the worktree only as far as the user's rows in Settings › Coding agent allow.
  */
 import type { AgentModels, AlwaysAskReason, ChangeLine, EffortLevel, Permissions } from '@devhub/contracts';
+import type { TicketTool, TicketToolDone } from '../orynx-tickets/tools.ts';
 
 /** Saved in Settings › Coding agent (spec 026): one row for each kind of call. The schema lives in contracts. */
 export type { Permissions };
@@ -58,7 +59,15 @@ export type AgentAsk =
       /** The entry Always allow would save, when it's offered (Q1, Q4). */
       alwaysAllow: string | null;
     }
-  | { kind: 'edit'; path: string; creates: boolean; lines: ChangeLine[]; moreLines: number };
+  | { kind: 'edit'; path: string; creates: boolean; lines: ChangeLine[]; moreLines: number }
+  /** Deleting one of Orynx's own tickets (spec 037); `title` is null when it's already gone. */
+  | { kind: 'ticket'; key: string; title: string | null };
+
+/** What a waiting call is about, as the log and a denied step keep it: the command, the edit's path or the key. */
+export function askText(ask: AgentAsk): string {
+  if (ask.kind === 'command') return ask.command;
+  return ask.kind === 'edit' ? ask.path : ask.key;
+}
 
 /** A call the adapter refused, which the session shows as a step (spec 011 Q6, spec 012 Q7). */
 export interface AgentRefusal {
@@ -78,10 +87,12 @@ export type AgentWork =
   | { kind: 'refused'; refusal: AgentRefusal }
   /** A command is running now: allowed by the list, or by you (spec 012). `id` is its call's, which its end names (spec 036). */
   | { kind: 'command'; id: string; command: string }
-  /** You denied a waiting call; `text` is the command, or the edit's path. */
-  | { kind: 'denied'; about: 'command' | 'edit'; text: string }
+  /** You denied a waiting call; `text` is the command, the edit's path, or the ticket's key. */
+  | { kind: 'denied'; about: AgentAsk['kind']; text: string }
   /** The agent can't run commands in this session: there's no sandbox on this computer (spec 012, Q2b). */
   | { kind: 'no_commands' }
+  /** The agent used one of Orynx's ticket tools (spec 037), and this is what it did. */
+  | { kind: 'ticket'; done: TicketToolDone }
   /** The agent ended its turn, with its own summary. */
   | { kind: 'finished'; summary: string };
 
@@ -122,6 +133,11 @@ export interface AgentRunOptions {
   resume?: string | undefined;
   model?: string | undefined;
   effort?: EffortLevel | undefined;
+  /**
+   * Orynx's ticket tools for this run (spec 037), defined once for any agent: each adapter offers them in its own
+   * agent's way, and says `ticket` work for each call that did something. None when left out.
+   */
+  tools?: readonly TicketTool[] | undefined;
 }
 
 export interface AgentAdapter {

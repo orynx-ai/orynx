@@ -32,6 +32,8 @@ export type WorkItemCardProps = Omit<ComponentProps<'article'>, 'title' | 'child
   action?: ReactNode;
   /** Before the key: a `<WorkItemSelect>`, to pick several tickets at once (the user's call, 19 Oct 2026). */
   select?: ReactNode;
+  /** Just before the key: where the ticket lives, a `<SourceMark>` for one of Orynx's own (spec 037, Q10). */
+  mark?: ReactNode;
 };
 
 /** Filled bars for each level; the rest are drawn faint. */
@@ -87,6 +89,7 @@ export function WorkItemCard({
   title,
   action,
   select,
+  mark,
   className,
   ...props
 }: WorkItemCardProps) {
@@ -104,6 +107,7 @@ export function WorkItemCard({
       >
         <div className="flex min-w-0 items-center gap-2">
           {select}
+          {mark}
           <WorkItemKey>{itemKey}</WorkItemKey>
           <span className={cn('text-label font-medium', bug ? 'text-danger' : 'text-muted-foreground')}>{type}</span>
           {assignee ? (

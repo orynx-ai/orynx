@@ -1,3 +1,4 @@
+import type { TicketColumn } from '@devhub/contracts';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -12,6 +13,10 @@ interface TicketsState {
   selected: string[];
   toggleSelected: (key: string) => void;
   clearSelected: () => void;
+  /** The column a new Orynx ticket starts in while the New ticket form is open (spec 037); null while it's closed. */
+  newTicket: TicketColumn | null;
+  openNewTicket: (column: TicketColumn) => void;
+  closeNewTicket: () => void;
 }
 
 export const useTicketsStore = create<TicketsState>()(
@@ -31,6 +36,13 @@ export const useTicketsStore = create<TicketsState>()(
       },
       clearSelected: () => {
         set({ selected: [] });
+      },
+      newTicket: null,
+      openNewTicket: (column) => {
+        set({ newTicket: column });
+      },
+      closeNewTicket: () => {
+        set({ newTicket: null });
       },
     }),
     { name: 'devhub.tickets', partialize: (state) => ({ view: state.view }) },

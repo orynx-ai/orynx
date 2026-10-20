@@ -1,6 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { isOrynxKey } from '@devhub/contracts';
+import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
+import { ticketTools } from '../orynx-tickets/tools.ts';
 import type {
   ClaudeCommandList,
   AgentChoice,
@@ -27,7 +30,13 @@ import type {
   ComposerStart,
   TicketStart,
 } from '@devhub/contracts';
-import type { AgentAdapter, AgentBrief, AgentEvent } from '../agents/agent-adapter.ts';
+import {
+  askText,
+  type AgentAdapter,
+  type AgentAsk,
+  type AgentBrief,
+  type AgentEvent,
+} from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
 import { createGitHubClient, type GitHubClient } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
@@ -89,12 +98,12 @@ export type ApprovalEnd = NonNullable<ApprovalRecord['by']>;
 export type SessionReport =
   | { what: 'started'; session: string; ticket: string; loaded: { tools: number; mcpServers: number; plugins: number } }
   | { what: 'failed'; session: string; ticket: string; problem: string; code: string | null }
-  | { what: 'asked'; session: string; ticket: string; about: 'command' | 'edit' }
+  | { what: 'asked'; session: string; ticket: string; about: AgentAsk['kind'] }
   | {
       what: 'answered';
       session: string;
       ticket: string;
-      about: 'command' | 'edit';
+      about: AgentAsk['kind'];
       answer: ApprovalDecision | null;
       by: ApprovalEnd;
     }
@@ -185,6 +194,8 @@ export interface SessionServiceOptions {
   githubClient?: GitHubClient;
   /** Null when the server was built without Claude Code: then no session can start (AC-22). */
   adapter: AgentAdapter | null;
+  /** Orynx's own tickets, whose tools every session's agent gets (spec 037); left out, it gets none. */
+  tickets?: OrynxTicketService;
   /** Your shell tabs (spec 036). Left out where there are none (Windows): then no session offers its Terminal. */
   terminal?: Pick<TerminalService, 'stopAll'>;
   events: EventBus;
@@ -540,7 +551,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       }
       case 'approval': {
         const { approvalId, ask } = event;
-        const text = ask.kind === 'command' ? ask.command : ask.path;
+        const text = askText(ask);
         track(
           change(id, (record) => {
             const at = new Date(now()).toISOString();
@@ -549,7 +560,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
               addWaiting(progress, {
                 approvalId,
                 about: ask.kind,
-                text: ask.kind === 'command' ? ask.description : ask.path,
+                // Claude's line about a command; the edit's path; the ticket's key and title (spec 037).
+                text:
+                  ask.kind === 'command'
+                    ? ask.description
+                    : ask.kind === 'edit'
+                      ? ask.path
+                      : `${ask.key}${ask.title === null ? '' : ` · ${ask.title}`}`,
               }),
             );
             return {
@@ -618,7 +635,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         ...current.session,
         title: issue.summary.trim() === '' ? current.session.title : issue.summary,
         // The Ticket tab shows the ticket as Claude got it (spec 013, Q7); its status and due date are read live.
-        ticket: { type: issue.type, description: issue.description, status: null, dueDate: null },
+        ticket: { type: issue.type, description: issue.description, status: null, dueDate: null, deleted: false },
       },
     }));
     return ticketPlan(issue);
@@ -738,10 +755,18 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       branch === null
         ? askNote(record?.repository != null)
         : sessionNote(branch, adapter.runsCommands, ticketNote, first, pull);
+    // Orynx's ticket tools, made in this session's name; an Ask session gets the reading ones only (spec 037).
+    const tools =
+      options.tickets === undefined || record === null
+        ? []
+        : ticketTools(options.tickets, { kind: 'session', sessionId: id, title: record.session.title }).filter(
+            (tool) => !first.readOnly || tool.access === 'read',
+          );
     const agentId = await adapter.startSession(brief, worktree, permissions, note, {
       ...(resume === null ? {} : { resume }),
       model,
       effort,
+      tools,
     });
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.
@@ -974,6 +999,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   }
 
   async function jiraLink(key: string): Promise<string | null> {
+    // One of Orynx's own tickets has no page on a Jira site (spec 037).
+    if (isOrynxKey(key)) return null;
     const credentials = await connection.credentials();
     return credentials === null ? null : `https://${credentials.site}/browse/${key}`;
   }
@@ -1104,7 +1131,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         sprint: known?.sprint ?? null,
         approvals: [],
         ticket:
-          ticket === null ? null : { type: ticket.type, description: ticket.description, status: null, dueDate: null },
+          ticket === null
+            ? null
+            : { type: ticket.type, description: ticket.description, status: null, dueDate: null, deleted: false },
         followUp: { kind: 'open' },
         worktreePath: null,
         workedMs: 0,
@@ -1235,7 +1264,15 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         followUpOf(record),
       ]);
       const ticket: SessionTicket | null =
-        saved === null ? null : { ...saved, status: known?.status ?? null, dueDate: known?.dueDate ?? null };
+        saved === null
+          ? null
+          : {
+              ...saved,
+              status: known?.status ?? null,
+              dueDate: known?.dueDate ?? null,
+              // Orynx knows every ticket of its own, so one it can't describe was deleted (spec 037, AC-19).
+              deleted: key !== null && isOrynxKey(key) && known === null,
+            };
       // There's a worktree to open from when it's made until the changes are discarded (spec 013, Q9).
       const made = session.branch !== null && session.discardedAt === null;
       const terminal = options.terminal !== undefined && terminalWorktree(record) !== null;

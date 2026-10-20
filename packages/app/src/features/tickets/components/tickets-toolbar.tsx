@@ -32,9 +32,12 @@ export interface TicketsToolbarProps {
    * stay the same elements either way, so a pick that empties or fills the page keeps focus where it was.
    */
   pickersOnly?: boolean;
+  /** Whether Source is offered: with Jira not connected, Orynx's are the only tickets there are (spec 037, Q7). */
+  sources?: boolean;
 }
 
 const filterLabels: Record<FilterKey, string> = {
+  source: 'Source',
   assignee: 'Assignee',
   status: 'Status',
   type: 'Type',
@@ -56,6 +59,7 @@ export function TicketsToolbar({
   search,
   pickers,
   pickersOnly = false,
+  sources = true,
 }: TicketsToolbarProps) {
   const { text: _, ...address } = filters;
   return (
@@ -66,22 +70,24 @@ export function TicketsToolbar({
       {pickers}
       {pickersOnly
         ? null
-        : filterKeys.map((key) => (
-            <FilterMenu
-              key={key}
-              {...(key === 'assignee' && assigneeRef !== undefined ? { ref: assigneeRef } : {})}
-              label={filterLabels[key]}
-              options={options[key]}
-              ticked={address[key]}
-              onTickedChange={(ticked) => {
-                onFiltersChange({ ...address, [key]: ticked });
-              }}
-              // Compact, at most 360 px tall, as the pickers beside them (spec 020, AC-40).
-              size="sm"
-              // People can be many, so Assignee searches them (the user's call, 19 Oct 2026).
-              {...(key === 'assignee' ? { searchLabel: assigneeSearch.label, emptyText: assigneeSearch.empty } : {})}
-            />
-          ))}
+        : filterKeys
+            .filter((key) => sources || key !== 'source')
+            .map((key) => (
+              <FilterMenu
+                key={key}
+                {...(key === 'assignee' && assigneeRef !== undefined ? { ref: assigneeRef } : {})}
+                label={filterLabels[key]}
+                options={options[key]}
+                ticked={address[key]}
+                onTickedChange={(ticked) => {
+                  onFiltersChange({ ...address, [key]: ticked });
+                }}
+                // Compact, at most 360 px tall, as the pickers beside them (spec 020, AC-40).
+                size="sm"
+                // People can be many, so Assignee searches them (the user's call, 19 Oct 2026).
+                {...(key === 'assignee' ? { searchLabel: assigneeSearch.label, emptyText: assigneeSearch.empty } : {})}
+              />
+            ))}
       {pickersOnly ? null : (
         <span className="ms-auto flex items-center gap-2">
           {hasExtraFilters(filters) ? (
