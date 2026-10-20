@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Button } from './button.tsx';
-import { Sheet, SheetBody, SheetContent, SheetFoot, SheetTrigger } from './sheet.tsx';
+import { Sheet, SheetBody, SheetContent, SheetFoot, SheetRow, SheetTrigger } from './sheet.tsx';
 
 function Filters() {
   return (
@@ -66,5 +67,73 @@ describe('Sheet', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Filters' })).toHaveFocus();
+  });
+});
+
+/** A list of rows that each open a page inside the sheet, with Back to the list (spec 039). */
+function Pages() {
+  const [page, setPage] = useState<string | null>(null);
+  return (
+    <Sheet defaultOpen>
+      <SheetContent
+        title={page ?? 'Filters'}
+        back={
+          page === null
+            ? undefined
+            : {
+                label: 'Back to filters',
+                onBack: () => {
+                  setPage(null);
+                },
+              }
+        }
+      >
+        <SheetBody className="gap-0 p-0">
+          {page === null ? (
+            <>
+              <SheetRow
+                title="Status"
+                count={2}
+                summary="In review, Done"
+                onClick={() => {
+                  setPage('Status');
+                }}
+              />
+              <SheetRow
+                title="Type"
+                summary="Any"
+                onClick={() => {
+                  setPage('Type');
+                }}
+              />
+            </>
+          ) : (
+            <p>{page} options</p>
+          )}
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+describe('SheetRow and pages (spec 039)', () => {
+  it('names each row with its title, count and what it holds, and has no axe violations', async () => {
+    const { baseElement } = render(<Pages />);
+    expect(screen.getByRole('button', { name: 'Status · 2, In review, Done' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Type, Any' })).toBeVisible();
+    await expectNoAxeViolations(baseElement);
+  });
+
+  it('a row opens its page, named by it, and Back returns to the list', async () => {
+    const user = userEvent.setup();
+    render(<Pages />);
+
+    await user.click(screen.getByRole('button', { name: /^Status/ }));
+    expect(screen.getByRole('dialog', { name: 'Status' })).toBeVisible();
+    expect(screen.getByText('Status options')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Back to filters' }));
+    expect(screen.getByRole('dialog', { name: 'Filters' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Back to filters' })).not.toBeInTheDocument();
   });
 });

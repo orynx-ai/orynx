@@ -127,9 +127,11 @@ export {
   SheetBody,
   SheetContent,
   SheetFoot,
+  SheetRow,
   SheetTrigger,
   type SheetContentProps,
   type SheetProps,
+  type SheetRowProps,
 } from './components/sheet.tsx';
 export { RecentSearches, type RecentSearchesHandle, type RecentSearchesProps } from './components/recent-searches.tsx';
 export { CommandBlock, type CommandBlockProps, type CommandBlockTone } from './components/command-block.tsx';

@@ -43,9 +43,9 @@ async function tick(
 async function tickInSheet(user: UserEvent, group: string, options: string[]) {
   await user.click(within(toolbar()).getByRole('button', { name: /^Filters/ }));
   const sheet = await screen.findByRole('dialog', { name: 'Filters' });
-  for (const option of options) {
-    await user.click(within(within(sheet).getByRole('group', { name: group })).getByRole('checkbox', { name: option }));
-  }
+  await user.click(within(sheet).getByRole('button', { name: new RegExp(`^${group}`) }));
+  const page = screen.getByRole('dialog', { name: group });
+  for (const option of options) await user.click(within(page).getByRole('checkbox', { name: option }));
   await user.keyboard('{Escape}');
 }
 
@@ -57,7 +57,8 @@ describe('TicketsToolbar (spec 020)', () => {
 
     expect(filter('Source · 2')).toBeVisible();
     expect(filter('Assignee · 1')).toBeVisible();
-    expect(filter('Filters')).toBeVisible();
+    // Assignee: Me is on by default, so Filters counts it (the user's call, 20 Oct 2026).
+    expect(filter('Filters · 1')).toBeVisible();
     for (const name of ['Status', 'Type', 'Priority', 'Due']) {
       expect(within(toolbar()).queryByRole('button', { name: new RegExp(`^${name}`) })).toBeNull();
     }

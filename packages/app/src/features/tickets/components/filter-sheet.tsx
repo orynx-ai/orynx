@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { FilterIcon } from '@hugeicons/core-free-icons';
 import {
@@ -11,6 +11,7 @@ import {
   SheetBody,
   SheetContent,
   SheetFoot,
+  SheetRow,
   SheetTrigger,
 } from '@devhub/ui';
 import type { AddressFilters, FilterKey, FilterOptions } from '../filters.ts';
@@ -19,8 +20,8 @@ import { assigneeSearch, ticketCount } from '../ticket-words.ts';
 /** The filters only the sheet holds; Source and Assignee also sit in the toolbar (spec 039). */
 const sheetOnly: readonly FilterKey[] = ['status', 'type', 'priority', 'due'];
 
-/** Past this many people, Assignee gets a search box (spec 039). */
-const mostPeopleUnsearched = 8;
+/** Past this many options, a filter's page has a search box over them, as Assignee's people need. */
+const mostOptionsUnsearched = 6;
 
 export interface FilterSheetProps {
   /** The filters in the address. */
@@ -32,7 +33,7 @@ export interface FilterSheetProps {
   onClear: () => void;
   /** How many tickets the filters let through; left out while the sprint loads. */
   count: number | undefined;
-  /** The Project and Sprint pickers, at the top; left out where there's no sprint to pick (spec 037, Q7). */
+  /** The Project and Sprint rows, first; left out where there's no sprint to pick (spec 037, Q7). */
   pickers?: ReactNode;
   /** Whether Source is offered: with Jira not connected, Orynx's are the only tickets there are. */
   sources: boolean;
@@ -40,9 +41,10 @@ export interface FilterSheetProps {
 }
 
 /**
- * Filters, and the sheet it opens from the right (spec 039): Project and Sprint, then every filter as checkboxes. Each
- * tick applies at once, so the board behind changes as you tick; the foot holds the count and Clear filters. The
- * button counts the filters only the sheet holds that are on.
+ * Filters, and the sheet it opens from the right (spec 039), in the user's pattern (20 Oct 2026): a row for each
+ * filter, with how many of its options are ticked and what they are ("Any" for none), that opens the filter's own page:
+ * Back, its name, a search box when it has many options, and its checkboxes. Each tick applies at once, so the board
+ * behind changes as you tick; the foot holds the count and Clear filters. The button counts every filter that's on.
  */
 export function FilterSheet({
   filters,
@@ -54,36 +56,79 @@ export function FilterSheet({
   sources,
   labels,
 }: FilterSheetProps) {
-  const on = sheetOnly.filter((key) => filters[key].length > 0).length;
+  const [page, setPage] = useState<FilterKey | null>(null);
+  // The row a page was opened from, which takes focus again on Back.
+  const openedFrom = useRef<FilterKey | null>(null);
+  const keys: readonly FilterKey[] = sources ? ['source', 'assignee', ...sheetOnly] : ['assignee', ...sheetOnly];
+  // Every filter that narrows the board, the toolbar's two included (the user's call, 20 Oct 2026): Source once only
+  // one source is ticked, the others once anything is.
+  const on = keys.filter((key) => (key === 'source' ? filters.source.length === 1 : filters[key].length > 0)).length;
+  const summary = (key: FilterKey) =>
+    filters[key].length === 0
+      ? 'Any'
+      : filters[key].map((value) => options[key].find((option) => option.value === value)?.label ?? value).join(', ');
+  const focusOnReturn = useCallback((key: FilterKey, row: HTMLButtonElement | null) => {
+    if (row === null || openedFrom.current !== key) return;
+    openedFrom.current = null;
+    row.focus();
+  }, []);
+
   return (
-    <Sheet>
+    <Sheet
+      onOpenChange={(open) => {
+        if (!open) setPage(null);
+      }}
+    >
       <SheetTrigger asChild>
         <Picker variant="plain" icon={<Icon icon={FilterIcon} aria-hidden className="size-4" />} count={on}>
           Filters
         </Picker>
       </SheetTrigger>
-      <SheetContent title="Filters">
-        <SheetBody>
-          {pickers === undefined ? null : (
-            <div role="group" aria-label="Project and sprint" className="flex flex-col items-start gap-1">
-              {pickers}
-            </div>
-          )}
-          {(sources ? (['source', 'assignee', ...sheetOnly] as const) : (['assignee', ...sheetOnly] as const)).map(
-            (key) => (
-              <Checks
+      <SheetContent
+        title={page === null ? 'Filters' : labels[page]}
+        back={
+          page === null
+            ? undefined
+            : {
+                label: 'Back to filters',
+                onBack: () => {
+                  openedFrom.current = page;
+                  setPage(null);
+                },
+              }
+        }
+      >
+        {page === null ? (
+          <SheetBody className="gap-0 p-0">
+            {pickers}
+            {keys.map((key) => (
+              <SheetRow
                 key={key}
-                legend={labels[key]}
-                options={options[key]}
-                ticked={filters[key]}
-                searchable={key === 'assignee' && options[key].length > mostPeopleUnsearched}
-                onTickedChange={(ticked) => {
-                  onFiltersChange({ ...filters, [key]: ticked });
+                ref={(row) => {
+                  focusOnReturn(key, row);
+                }}
+                title={labels[key]}
+                count={filters[key].length}
+                summary={summary(key)}
+                onClick={() => {
+                  setPage(key);
                 }}
               />
-            ),
-          )}
-        </SheetBody>
+            ))}
+          </SheetBody>
+        ) : (
+          <FilterPage
+            key={page}
+            label={labels[page]}
+            options={options[page]}
+            ticked={filters[page]}
+            searchLabel={page === 'assignee' ? assigneeSearch.label : `Search ${labels[page]}`}
+            emptyText={page === 'assignee' ? assigneeSearch.empty : 'Nothing matches'}
+            onTickedChange={(ticked) => {
+              onFiltersChange({ ...filters, [page]: ticked });
+            }}
+          />
+        )}
         <SheetFoot>
           <span role="status" className="text-small text-muted-foreground">
             {count === undefined ? null : ticketCount(count)}
@@ -97,55 +142,57 @@ export function FilterSheet({
   );
 }
 
-/** One filter's options as checkboxes in a fieldset named by its legend; Assignee's can be searched. */
-function Checks({
-  legend,
+/**
+ * One filter's page: a search box over many options, then its options as checkboxes, named by the filter. Focus
+ * starts in the search box, or on the first option.
+ */
+function FilterPage({
+  label,
   options,
   ticked,
-  searchable,
+  searchLabel,
+  emptyText,
   onTickedChange,
 }: {
-  legend: string;
+  label: string;
   options: FilterOptions['options'];
   ticked: readonly string[];
-  searchable: boolean;
+  searchLabel: string;
+  emptyText: string;
   onTickedChange: (ticked: string[]) => void;
 }) {
   const form = useForm<{ text: string }>({ defaultValues: { text: '' } });
   const text = useWatch({ control: form.control, name: 'text' }).trim().toLowerCase();
+  const searchable = options.length > mostOptionsUnsearched;
   const shown = searchable ? options.filter((option) => option.label.toLowerCase().includes(text)) : options;
-  const legendId = useId();
+  const focusFirst = useCallback((page: HTMLDivElement | null) => {
+    page?.querySelector<HTMLElement>('input, button')?.focus();
+  }, []);
+
   return (
-    <fieldset aria-labelledby={legendId} className="m-0 flex min-w-0 flex-col border-0 p-0">
-      <legend id={legendId} className="mb-1 p-0 text-small font-medium">
-        {legend}
-      </legend>
+    <SheetBody ref={focusFirst} className="gap-2">
       {searchable ? (
-        <SearchField
-          size="sm"
-          aria-label={assigneeSearch.label}
-          placeholder={assigneeSearch.label}
-          className="my-1 w-full"
-          {...form.register('text')}
-        />
+        <SearchField size="sm" aria-label={searchLabel} placeholder={searchLabel} {...form.register('text')} />
       ) : null}
-      {shown.length === 0 ? (
-        <p className="m-0 py-2 text-small text-muted-foreground">{assigneeSearch.empty}</p>
-      ) : (
-        shown.map((option) => (
-          <Checkbox
-            key={option.value}
-            label={option.label}
-            className="min-h-10 py-2"
-            checked={ticked.includes(option.value)}
-            onCheckedChange={(checked) => {
-              onTickedChange(
-                checked === true ? [...ticked, option.value] : ticked.filter((value) => value !== option.value),
-              );
-            }}
-          />
-        ))
-      )}
-    </fieldset>
+      <div role="group" aria-label={label} className="flex flex-col">
+        {shown.length === 0 ? (
+          <p className="m-0 py-2 text-small text-muted-foreground">{emptyText}</p>
+        ) : (
+          shown.map((option) => (
+            <Checkbox
+              key={option.value}
+              label={option.label}
+              className="min-h-10 py-2"
+              checked={ticked.includes(option.value)}
+              onCheckedChange={(checked) => {
+                onTickedChange(
+                  checked === true ? [...ticked, option.value] : ticked.filter((value) => value !== option.value),
+                );
+              }}
+            />
+          ))
+        )}
+      </div>
+    </SheetBody>
   );
 }

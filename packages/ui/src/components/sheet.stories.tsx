@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Button } from './button.tsx';
 import { Checkbox } from './checkbox.tsx';
-import { Sheet, SheetBody, SheetContent, SheetFoot, SheetTrigger } from './sheet.tsx';
+import { Sheet, SheetBody, SheetContent, SheetFoot, SheetRow, SheetTrigger } from './sheet.tsx';
 
 const meta = {
   title: 'Components/Sheet',
@@ -65,6 +65,47 @@ export const TallerThanTheWindow: Story = {
         <SheetFoot>
           <span className="text-small text-muted-foreground">11 tickets</span>
         </SheetFoot>
+      </SheetContent>
+    </Sheet>
+  ),
+};
+
+/** Filters as the user drew it (spec 039): a row for each filter, its count and what it holds, leading to its page. */
+export const Rows: Story = {
+  render: (args) => (
+    <Sheet {...args}>
+      <SheetTrigger asChild>
+        <Button variant="secondary">Filters</Button>
+      </SheetTrigger>
+      <SheetContent title="Filters">
+        <SheetBody className="gap-0 p-0">
+          <SheetRow title="Project" summary="MAI" />
+          <SheetRow title="Sprint" summary="MAI Sprint 20.0" />
+          <SheetRow title="Assignee" count={1} summary="Me" />
+          <SheetRow title="Status" count={2} summary="In review, Done" />
+          <SheetRow title="Type" summary="Any" />
+        </SheetBody>
+        <SheetFoot>
+          <span className="text-small text-muted-foreground">11 tickets</span>
+        </SheetFoot>
+      </SheetContent>
+    </Sheet>
+  ),
+};
+
+/** A filter's own page: Back before its title, then its options. */
+export const Page: Story = {
+  render: (args) => (
+    <Sheet {...args}>
+      <SheetTrigger asChild>
+        <Button variant="secondary">Filters</Button>
+      </SheetTrigger>
+      <SheetContent title="Status" back={{ label: 'Back to filters', onBack: () => undefined }}>
+        <SheetBody className="gap-0">
+          {statuses.map((status) => (
+            <Checkbox key={status} label={status} defaultChecked={status === 'In review'} className="min-h-10 py-2" />
+          ))}
+        </SheetBody>
       </SheetContent>
     </Sheet>
   ),

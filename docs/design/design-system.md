@@ -459,6 +459,7 @@ A panel that slides in from the right edge over the page, for a set of controls 
 - As tall as the window and 400px wide, the whole width when the window is narrower. `bg-raised`, a hairline on its open side and `shadow-overlay`. The page behind fades towards the canvas, as behind a dialog.
 - A head with the title (`title`) and Close, a body that scrolls, and an optional foot on the sidebar's tint with a hairline above, as a dialog's foot.
 - It slides in 24px with a fade over 200ms, and only fades with reduced motion.
+- A list of choices that each need more room is a list of rows (the user's pattern, 20 Oct 2026): each row a title, a count of what's picked in an ink bubble, one quiet line saying what's picked ("Any" for nothing) and a chevron, divided by hairlines. A row opens its own page inside the sheet, with Back before its title.
 
 ### Pill
 
