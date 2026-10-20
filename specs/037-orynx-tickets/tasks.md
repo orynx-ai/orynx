@@ -55,7 +55,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: `DatePicker`: a field that reads "Pick a date" or the date, opens the calendar, has Clear date, and puts focus back on close (AC-38)
       Check: pnpm test packages/ui/src/components/date-picker.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/date-picker.tsx, .stories.tsx, .test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 16: `WorkItemCard` takes a `mark` before its key, with a story (AC-1)
+- [x] Task 16: `WorkItemCard` takes a `mark` before its key, with a story (AC-1)
       Check: pnpm test packages/ui/src/components/work-item-card.test.tsx
       Files: packages/ui/src/components/work-item-card.tsx, .stories.tsx, .test.tsx
 
