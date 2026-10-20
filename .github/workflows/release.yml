@@ -2,7 +2,8 @@ name: Release
 
 # A push to release builds the desktop app and publishes it as a GitHub Release (spec 027). release only
 # ever moves to a commit on main: git push origin main:release. Run it by hand from any branch for a dry
-# run, which builds both apps and publishes nothing.
+# run, which builds both apps and publishes nothing. It runs only in masterghost2002/dev-hub, where the
+# desktop app looks for updates, never in the orynx-ai/orynx mirror.
 on:
   push:
     branches: [release]
@@ -19,7 +20,7 @@ permissions:
 jobs:
   on-main:
     name: The commit is on main
-    if: github.ref == 'refs/heads/release'
+    if: github.repository == 'masterghost2002/dev-hub' && github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -39,7 +40,7 @@ jobs:
     name: CI
     needs: on-main
     # A dry run from another branch skips the main check above.
-    if: ${{ !cancelled() && (needs.on-main.result == 'success' || needs.on-main.result == 'skipped') }}
+    if: ${{ github.repository == 'masterghost2002/dev-hub' && !cancelled() && (needs.on-main.result == 'success' || needs.on-main.result == 'skipped') }}
     uses: ./.github/workflows/ci.yml
 
   build:
