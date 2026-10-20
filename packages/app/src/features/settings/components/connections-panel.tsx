@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from 'react';
-import { Plug01Icon } from '@hugeicons/core-free-icons';
+import { Plug01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import type { IntegrationId, IntegrationStatus } from '@devhub/contracts';
-import { Panel, Skeleton, SourceMark, StatusSign, type StatusButtonState } from '@devhub/ui';
+import { Callout, Icon, Panel, Skeleton, SourceMark, StatusSign, type StatusButtonState } from '@devhub/ui';
 import { useStatus } from '../queries.ts';
 import { GitHubConnectionDialog, JiraConnectionDialog, SlackConnectionDialog } from './connection-dialog.tsx';
 import { howToConnect, lookWords, toolNames } from './connection-words.ts';
@@ -38,8 +38,8 @@ const keyOrder: StatusButtonState[] = ['connected', 'needs_reconnecting', 'not_c
 export function ConnectionsPanel() {
   const status = useStatus();
   const headingId = useId();
-  // One polite live region for every dialog: "Jira is connected.", "GitHub is disconnected."
-  const [announcement, setAnnouncement] = useState('');
+  // What the last change did, under the key until the next one: "Jira disconnected." (spec 030).
+  const [changed, setChanged] = useState('');
 
   if (status.isError) return <ServerUnreachable />;
   const tools = status.data?.integrations;
@@ -59,10 +59,10 @@ export function ConnectionsPanel() {
           className="m-0 list-none divide-y divide-border p-0"
         >
           <ConnectionRow tool="jira" status={tools?.jira}>
-            {tools ? <JiraConnectionDialog status={tools.jira} announce={setAnnouncement} /> : null}
+            {tools ? <JiraConnectionDialog status={tools.jira} announce={setChanged} /> : null}
           </ConnectionRow>
           <ConnectionRow tool="github" status={tools?.github}>
-            {tools ? <GitHubConnectionDialog status={tools.github} announce={setAnnouncement} /> : null}
+            {tools ? <GitHubConnectionDialog status={tools.github} announce={setChanged} /> : null}
           </ConnectionRow>
           <ConnectionRow tool="slack" status={tools?.slack}>
             {tools ? <SlackConnectionDialog status={tools.slack} /> : null}
@@ -77,9 +77,12 @@ export function ConnectionsPanel() {
           </li>
         ))}
       </ul>
-      <p role="status" className="sr-only">
-        {announcement}
-      </p>
+      {/* There from the start, so a screen reader hears each new line. */}
+      <div role="status">
+        {changed === '' ? null : (
+          <Callout tone="success" title={changed} icon={<Icon icon={Tick02Icon} className="text-success" />} />
+        )}
+      </div>
     </section>
   );
 }

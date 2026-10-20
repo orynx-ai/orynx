@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Cancel01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import type { IntegrationId, IntegrationStatus } from '@devhub/contracts';
 import {
@@ -18,14 +18,24 @@ import {
   type DetailListProps,
 } from '@devhub/ui';
 import { useNow } from '../../../words/use-now.ts';
-import { useCheckConnection, useGitHubConnection, useJiraConnection } from '../queries.ts';
 import {
+  useCheckConnection,
+  useDisconnectGitHub,
+  useDisconnectJira,
+  useGitHubConnection,
+  useJiraConnection,
+  useRunningTicketSessions,
+} from '../queries.ts';
+import {
+  changedLine,
+  disconnectText,
   githubWrites,
   lastCheckedText,
   leadLine,
   lookOf,
   lookWords,
   reads,
+  runningSessionsLine,
   testedLine,
   toolNames,
 } from './connection-words.ts';
@@ -117,8 +127,14 @@ function loadFailed() {
 
 export interface ToolDialogProps {
   status: IntegrationStatus;
-  /** Says a message politely; the Connections panel owns the one live region. */
+  /** Says what changed, in the page's line under the list: "Jira disconnected." */
   announce: (message: string) => void;
+}
+
+/** Under Disconnect Jira's warning: running sessions on a ticket keep what they have. Asked only while it shows. */
+function RunningTicketSessions() {
+  const count = useRunningTicketSessions().data ?? 0;
+  return count === 0 ? null : <p className="m-0 text-small text-muted-foreground">{runningSessionsLine(count)}</p>;
 }
 
 interface ManagedDialogProps extends ToolDialogProps {
@@ -129,20 +145,54 @@ interface ManagedDialogProps extends ToolDialogProps {
   loadFailed: boolean;
   /** The connect form, once what it starts from has arrived. `close` shuts the dialog, saying `message`. */
   form: ((close: (message?: string) => void, announce: (message: string) => void) => ReactNode) | undefined;
+  disconnect: ReturnType<typeof useDisconnectJira>;
+  /** What Disconnect takes away, and what it leaves. */
+  disconnectText: string;
+  /** Said under it, if anything. */
+  disconnectNote?: ReactNode;
 }
 
 /** A tool Orynx can connect itself: Jira or GitHub. */
-function ManagedDialog({ tool, status, announce, details, loadFailed: failedToLoad, form }: ManagedDialogProps) {
+function ManagedDialog({
+  tool,
+  status,
+  announce,
+  details,
+  loadFailed: failedToLoad,
+  form,
+  disconnect,
+  disconnectText: goes,
+  disconnectNote,
+}: ManagedDialogProps) {
   const [open, setOpen] = useState(false);
   const [said, setSaid] = useState('');
+  const [confirming, setConfirming] = useState(false);
   const check = useCheckConnection(tool);
   const name = toolNames[tool];
+
+  // Focus moves to Keep connected when the warning shows, and back to Disconnect when it goes.
+  const keep = useRef<HTMLButtonElement>(null);
+  const askAgain = useRef<HTMLButtonElement>(null);
+  const warned = useRef(false);
+  useEffect(() => {
+    if (confirming) {
+      warned.current = true;
+      keep.current?.focus();
+    } else if (warned.current) {
+      warned.current = false;
+      askAgain.current?.focus();
+    }
+  }, [confirming]);
 
   function onOpenChange(next: boolean) {
     setOpen(next);
     setSaid('');
-    // A check still on its way lands in the row all the same.
-    if (!next) check.reset();
+    setConfirming(false);
+    // A check or a disconnect still on its way lands in the row all the same.
+    if (!next) {
+      check.reset();
+      disconnect.reset();
+    }
   }
   function close(message?: string) {
     onOpenChange(false);
@@ -158,7 +208,50 @@ function ManagedDialog({ tool, status, announce, details, loadFailed: failedToLo
   const connected = lookOf(status) === 'connected';
   let body: ReactNode;
   let foot: ReactNode;
-  if (connected) {
+  if (confirming) {
+    body = (
+      <>
+        <Callout tone="danger" role="alert" title={`Disconnect ${name}?`}>
+          <span className="text-small">{goes}</span>
+        </Callout>
+        {disconnectNote}
+        {disconnect.error ? (
+          <p role="alert" className="m-0 text-small text-danger">
+            {disconnect.error.message}
+          </p>
+        ) : null}
+      </>
+    );
+    foot = (
+      <DialogFoot>
+        <Button
+          ref={keep}
+          // Once Disconnect is on its way, Keep connected can't stop it.
+          aria-disabled={disconnect.isPending || undefined}
+          onClick={() => {
+            if (disconnect.isPending) return;
+            disconnect.reset();
+            setConfirming(false);
+          }}
+        >
+          Keep connected
+        </Button>
+        <Button
+          variant="danger"
+          pending={disconnect.isPending}
+          onClick={() => {
+            disconnect.mutate(undefined, {
+              onSuccess: () => {
+                close(changedLine.disconnected(name));
+              },
+            });
+          }}
+        >
+          Disconnect
+        </Button>
+      </DialogFoot>
+    );
+  } else if (connected) {
     body = (
       <>
         <DetailList aria-label={`${name} details`} items={details} />
@@ -178,7 +271,20 @@ function ManagedDialog({ tool, status, announce, details, loadFailed: failedToLo
       </>
     );
     foot = (
-      <DialogFoot>
+      <DialogFoot
+        start={
+          <Button
+            ref={askAgain}
+            variant="danger-ghost"
+            onClick={() => {
+              check.reset();
+              setConfirming(true);
+            }}
+          >
+            Disconnect
+          </Button>
+        }
+      >
         {passed === undefined ? (
           <Button
             onClick={() => {
@@ -226,6 +332,7 @@ function ManagedDialog({ tool, status, announce, details, loadFailed: failedToLo
 /** Jira's status button and dialog. */
 export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
   const connection = useJiraConnection();
+  const disconnect = useDisconnectJira();
   const now = useNow();
   const formId = useId();
   const loaded = connection.data;
@@ -235,6 +342,9 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
       tool="jira"
       status={status}
       announce={announce}
+      disconnect={disconnect}
+      disconnectText={disconnectText.jira}
+      disconnectNote={<RunningTicketSessions />}
       loadFailed={connection.isLoadingError}
       details={[
         ...(saved === null ? [] : [{ term: 'Site', detail: saved.site }]),
@@ -252,10 +362,10 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
                 id={formId}
                 connection={loaded}
                 onConnected={() => {
-                  close('Jira is connected.');
+                  close(changedLine.connected('Jira'));
                 }}
                 onDisconnected={() => {
-                  close('Jira is disconnected.');
+                  close(changedLine.disconnected('Jira'));
                 }}
                 onCancel={() => {
                   close();
@@ -271,6 +381,7 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
 /** GitHub's status button and dialog. */
 export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
   const connection = useGitHubConnection();
+  const disconnect = useDisconnectGitHub();
   const now = useNow();
   const formId = useId();
   const loaded = connection.data;
@@ -280,6 +391,8 @@ export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
       tool="github"
       status={status}
       announce={announce}
+      disconnect={disconnect}
+      disconnectText={disconnectText[method ?? 'gh']}
       loadFailed={connection.isLoadingError}
       details={[
         ...(status.account === undefined ? [] : [{ term: 'Account', detail: status.account }]),
@@ -300,10 +413,10 @@ export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
                 connection={loaded}
                 announce={say}
                 onConnected={() => {
-                  close('GitHub is connected.');
+                  close(changedLine.connected('GitHub'));
                 }}
                 onDisconnected={() => {
-                  close('GitHub is disconnected.');
+                  close(changedLine.disconnected('GitHub'));
                 }}
                 onCancel={() => {
                   close();

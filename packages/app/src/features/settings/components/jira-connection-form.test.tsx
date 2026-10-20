@@ -181,7 +181,7 @@ describe('Jira connection form', () => {
     fireEvent.click(connect);
     fireEvent.click(connect);
 
-    expect(await screen.findByText('Jira is connected.')).toBeInTheDocument();
+    expect(await screen.findByText('Jira connected. Your inbox is refreshing.')).toBeInTheDocument();
     expect(sent).toHaveLength(1);
   });
 

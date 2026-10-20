@@ -7,6 +7,7 @@ import {
   preferencesQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
+  sessionsQueryOptions,
   orynxSkillsQueryOptions,
   statusQueryOptions,
   type ApiRequestError,
@@ -152,6 +153,18 @@ export function useCheckConnection(tool: 'jira' | 'github') {
         (old) => old && { ...old, integrations: { ...old.integrations, [tool]: check.status } },
       );
     },
+  });
+}
+
+/** How many sessions still running started from a Jira ticket, for Disconnect Jira's confirm step (spec 030). */
+export function useRunningTicketSessions() {
+  const api = useApi();
+  return useQuery({
+    ...sessionsQueryOptions(api),
+    select: (list) =>
+      list.sessions.filter(
+        (session) => (session.state === 'working' || session.state === 'needs_you') && session.source?.kind === 'jira',
+      ).length,
   });
 }
 

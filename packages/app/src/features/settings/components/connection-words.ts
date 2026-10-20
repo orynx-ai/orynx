@@ -46,6 +46,28 @@ export const reads: Record<IntegrationId, string> = {
 };
 export const githubWrites = 'Pushes session branches and opens pull requests on your click';
 
+/** What Disconnect takes away, and what it leaves (spec 030, 10a). */
+export const disconnectText = {
+  jira: 'Jira tickets leave your inbox and the Tickets board, and sessions lose ticket context. Your token is removed from the keychain. Jira itself is not changed.',
+  gh: 'Pull requests leave your inbox and sessions can no longer create pull requests. Your gh login on this computer is not changed.',
+  token:
+    'Pull requests leave your inbox and sessions can no longer create pull requests. Your token is removed from the keychain.',
+} as const;
+
+/** Under Disconnect Jira's warning, while sessions on a ticket are running. */
+export function runningSessionsLine(count: number): string {
+  return count === 1
+    ? '1 running session keeps the ticket text it already has.'
+    : `${String(count)} running sessions keep the ticket text they already have.`;
+}
+
+/** The page's line after a change (spec 030). */
+export const changedLine = {
+  connected: (name: string) => `${name} connected. Your inbox is refreshing.`,
+  reconnected: (name: string) => `${name} reconnected. Your inbox is refreshing.`,
+  disconnected: (name: string) => `${name} disconnected.`,
+};
+
 /** After a good Test connection. */
 export function testedLine(name: string, ms: number): string {
   return `Working. ${name} answered in ${String(ms)} ms.`;

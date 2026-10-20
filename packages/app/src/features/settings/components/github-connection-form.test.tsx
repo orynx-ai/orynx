@@ -75,7 +75,7 @@ describe('GitHub connection form', () => {
 
     await user.click(within(form).getByRole('button', { name: 'Connect GitHub' }));
 
-    expect(await screen.findByText('GitHub is connected.')).toBeInTheDocument();
+    expect(await screen.findByText('GitHub connected. Your inbox is refreshing.')).toBeInTheDocument();
     expect(sent).toEqual([{ method: 'gh' }]);
   });
 
@@ -100,7 +100,7 @@ describe('GitHub connection form', () => {
     expect(within(form).getByRole('radio', { name: 'Use a personal access token' })).toBeChecked();
     await user.type(within(form).getByLabelText('Personal access token'), ' fake-token-for-tests {Enter}');
 
-    expect(await screen.findByText('GitHub is connected.')).toBeInTheDocument();
+    expect(await screen.findByText('GitHub connected. Your inbox is refreshing.')).toBeInTheDocument();
     expect(sent).toEqual([{ method: 'token', token: 'fake-token-for-tests' }]);
   });
 
@@ -205,7 +205,7 @@ describe('GitHub connection form', () => {
     fireEvent.click(connect);
     fireEvent.click(connect);
 
-    expect(await screen.findByText('GitHub is connected.')).toBeInTheDocument();
+    expect(await screen.findByText('GitHub connected. Your inbox is refreshing.')).toBeInTheDocument();
     expect(sent).toHaveLength(1);
   });
 

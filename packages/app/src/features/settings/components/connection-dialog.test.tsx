@@ -2,9 +2,10 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type ConnectionCheck } from '@devhub/contracts';
-import { makeStatus } from '@devhub/contracts/testing';
+import { makeSessionSummary, makeStatus } from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
 import { answerWith, mixedStatus } from '../../../test/connections.ts';
+import { jiraServer } from '../../../test/jira.ts';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -146,5 +147,79 @@ describe('ConnectionDialog (spec 030)', () => {
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('Could not reach the Orynx server');
     expect(within(dialog).getByRole('button', { name: 'Test connection' })).not.toHaveAttribute('aria-disabled');
+  });
+
+  describe('Disconnect', () => {
+    async function openJira() {
+      const sent = jiraServer({ connected: true });
+      const app = await renderApp({ route: '/settings/connections' });
+      const button = await screen.findByRole('button', { name: 'Jira: Connected. Manage connection' });
+      await app.user.click(button);
+      const dialog = await screen.findByRole('dialog', { name: 'Jira' });
+      await app.user.click(within(dialog).getByRole('button', { name: 'Disconnect' }));
+      return { ...app, sent, button, dialog };
+    }
+
+    it('AC-11: asks first, saying what goes and what stays, with focus on Keep connected', async () => {
+      const { dialog, sent } = await openJira();
+
+      const alert = within(dialog).getByRole('alert');
+      expect(alert).toHaveTextContent('Disconnect Jira?');
+      expect(alert).toHaveTextContent(
+        'Jira tickets leave your inbox and the Tickets board, and sessions lose ticket context. Your token is removed from the keychain. Jira itself is not changed.',
+      );
+      expect(within(dialog).getByRole('button', { name: 'Keep connected' })).toHaveFocus();
+      expect(within(dialog).queryByRole('button', { name: 'Test connection' })).not.toBeInTheDocument();
+      expect(sent).toEqual([]);
+      await expectNoAxeViolations(dialog);
+    });
+
+    it('AC-12: says running sessions on a ticket keep what they have', async () => {
+      const running = (id: string, key: string) =>
+        makeSessionSummary({ id, state: 'working', source: { kind: 'jira', key } });
+      server.use(
+        http.get(apiUrl(apiRoutes.sessions), () =>
+          HttpResponse.json({
+            sessions: [
+              running('s1', 'PROJ-1'),
+              makeSessionSummary({ id: 's2', state: 'needs_you', source: { kind: 'jira', key: 'PROJ-2' } }),
+              makeSessionSummary({ id: 's3', state: 'done', source: { kind: 'jira', key: 'PROJ-3' } }),
+              makeSessionSummary({ id: 's4', state: 'working', source: null }),
+            ],
+            nextCursor: null,
+          }),
+        ),
+      );
+      const { dialog } = await openJira();
+
+      expect(
+        await within(dialog).findByText('2 running sessions keep the ticket text they already have.'),
+      ).toBeVisible();
+    });
+
+    it('AC-13: Keep connected goes back to the details, with nothing sent', async () => {
+      const { user, dialog, sent } = await openJira();
+
+      await user.click(within(dialog).getByRole('button', { name: 'Keep connected' }));
+
+      expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: 'Test connection' })).toBeInTheDocument();
+      expect(within(dialog).getByRole('button', { name: 'Disconnect' })).toHaveFocus();
+      expect(sent).toEqual([]);
+    });
+
+    it('AC-14: Disconnect shuts the dialog, the row turns Not connected and the page says so', async () => {
+      const { user, dialog, sent } = await openJira();
+
+      await user.click(within(dialog).getByRole('button', { name: 'Disconnect' }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+      expect(sent).toEqual(['DELETE']);
+      const button = await screen.findByRole('button', { name: 'Jira: Not connected. Manage connection' });
+      expect(button).toHaveFocus();
+      expect(await screen.findByText('Jira disconnected.')).toBeVisible();
+    });
   });
 });
