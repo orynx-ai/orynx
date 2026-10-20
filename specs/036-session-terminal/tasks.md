@@ -23,8 +23,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Ask Claude to fix: the server builds the follow-up from its own block, sends it, and notes it in the command log (AC-17, AC-18)
       Check: pnpm test packages/core/src/terminal/ask-to-fix.test.ts packages/core/src/routes/terminal.test.ts
       Files: packages/core/src/terminal/ask-to-fix.ts, ask-to-fix.test.ts, packages/core/src/routes/terminal.ts, packages/core/src/sessions/command-log.ts
-- [ ] Task 8: api-client calls and query options for commands and the terminal; live updates (AC-20)
-      Check: pnpm test packages/api-client/src/terminal.test.ts packages/app/src/live-updates.test.tsx
+- [x] Task 8: api-client calls and query options for commands and the terminal (AC-20). The event’s refresh is tested through the shell tab in task 13
+      Check: pnpm test packages/api-client/src/terminal.test.ts
       Files: packages/api-client/src/endpoints/terminal.ts, packages/api-client/src/queries.ts, packages/api-client/src/client.ts, packages/api-client/src/terminal.test.ts, packages/app/src/live-updates.tsx
 - [ ] Task 9: `CommandBlock` in @devhub/ui, with a story for each status and a test (AC-5, AC-14, AC-16, AC-19, AC-30, AC-31)
       Check: pnpm test packages/ui/src/components/command-block.test.tsx; pnpm gate component-coverage icon-buttons style-policy

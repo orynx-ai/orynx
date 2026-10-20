@@ -98,6 +98,20 @@ export function sessionBriefQueryOptions(api: ApiClient, id: string) {
   return queryOptions({ queryKey: ['session-brief', id] as const, queryFn: () => api.sessionBrief(id) });
 }
 
+/** Claude's commands (spec 036): fresh from the event stream, as the session itself is. */
+export function sessionCommandsQueryOptions(api: ApiClient, id: string) {
+  return queryOptions({
+    queryKey: sessionCommandsQueryKey(id),
+    queryFn: () => api.sessionCommands(id),
+    staleTime: Infinity,
+  });
+}
+
+/** Your shell tabs (spec 036): fresh from `session.terminal.changed`, not from polling. */
+export function sessionTerminalQueryOptions(api: ApiClient, id: string) {
+  return queryOptions({ queryKey: sessionTerminalQueryKey(id), queryFn: () => api.terminal(id), staleTime: Infinity });
+}
+
 export function sessionChangesQueryOptions(api: ApiClient, id: string) {
   return queryOptions({
     queryKey: sessionChangesQueryKey(id),
