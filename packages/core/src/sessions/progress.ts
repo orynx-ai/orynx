@@ -18,6 +18,8 @@ export interface Progress {
   /** Where the stepper is. */
   step: SessionStep;
   activities: readonly SessionActivity[];
+  /** The steps the stepper passed over when Claude finished without them (spec 031, Q5); none when left out. */
+  skipped?: readonly SessionStep[];
 }
 
 export const emptyProgress: Progress = { step: 'plan', activities: [] };
@@ -27,6 +29,11 @@ const stepOrder: readonly SessionStep[] = ['plan', 'build', 'test', 'review', 'p
 /** The stepper only moves forward (Q9b). */
 function atLeast(current: SessionStep, wanted: SessionStep): SessionStep {
   return stepOrder.indexOf(wanted) > stepOrder.indexOf(current) ? wanted : current;
+}
+
+/** The steps between `from` and Review, which finishing there passes over: Test, or Build too with no edit. */
+function passedOver(from: SessionStep): SessionStep[] {
+  return stepOrder.slice(stepOrder.indexOf(from) + 1, stepOrder.indexOf('review'));
 }
 
 /** Whatever was running is done now, except a call still waiting for you: that runs until it's answered. */
@@ -100,7 +107,9 @@ function adding(files: readonly string[], file: string | null): string[] {
  * moves backwards, and so it does once the pull request is open (spec 014, AC-19). From there it moves on as before.
  */
 export function resumeProgress(progress: Progress): Progress {
-  return progress.step === 'review' || progress.step === 'pull_request' ? { ...progress, step: 'build' } : progress;
+  // What was passed over lies ahead again (spec 031).
+  const back = progress.step === 'review' || progress.step === 'pull_request' ? 'build' : progress.step;
+  return { ...progress, step: back, skipped: [] };
 }
 
 /**
@@ -157,6 +166,7 @@ export function addWork(progress: Progress, work: ClaudeWork): Progress {
       return {
         ...addStep(progress, { kind: 'finished', summary: work.summary }),
         step: atLeast(progress.step, 'review'),
+        skipped: [...(progress.skipped ?? []), ...passedOver(progress.step)],
       };
   }
 }

@@ -128,6 +128,28 @@ describe('SessionProgress', () => {
     ).toEqual(['Plan, done', 'Build, done', '3Test', '4Review', '5Pull request']);
   });
 
+  it('AC-11 (spec 031): a step Claude finished without reads as skipped', async () => {
+    server.use(sessionHandler(session({ state: 'done', step: 'review', skipped: ['test'] })));
+    await renderApp({ route });
+    const stepper = await screen.findByRole('list', { name: 'Session progress' });
+    expect(
+      within(stepper)
+        .getAllByRole('listitem')
+        .map((step) => step.textContent),
+    ).toEqual(['Plan, done', 'Build, done', 'Test, skipped', '4Review', '5Pull request']);
+  });
+
+  it('AC-14 (spec 031): a session on your pull request’s branch ends with Push, not Pull request', async () => {
+    server.use(sessionHandler(session({ workOn: 'pull_request', step: 'pull_request', state: 'pr_open' })));
+    await renderApp({ route });
+    const stepper = await screen.findByRole('list', { name: 'Session progress' });
+    expect(
+      within(stepper)
+        .getAllByRole('listitem')
+        .map((step) => step.textContent),
+    ).toEqual(['Plan, done', 'Build, done', 'Test, done', 'Review, done', '5Push']);
+  });
+
   it('AC-8: a finished session shows Claude’s summary and how long it worked, the time stopped', async () => {
     server.use(
       sessionHandler(

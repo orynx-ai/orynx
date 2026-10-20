@@ -62,7 +62,11 @@ export function DiscardSession({
       >
         <DialogTitle>Discard Claude&apos;s changes?</DialogTitle>
         <p id={describedBy} className="m-0 text-muted-foreground">
-          This deletes the worktree and the branch {session.branch}. The changes can&apos;t be brought back.
+          {/* Your pull request's branch isn't the session's to delete (spec 031). */}
+          {session.workOn === 'pull_request'
+            ? 'This deletes the worktree.'
+            : `This deletes the worktree and the branch ${session.branch ?? ''}.`}{' '}
+          The changes can&apos;t be brought back.
           {/* Discard deletes only what's on this computer (spec 014, AC-18). */}
           {session.pullRequest === null ? null : ` ${discardKeepsPullRequest(session.pullRequest.number)}`}
         </p>

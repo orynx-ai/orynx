@@ -3,7 +3,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useForm, useWatch } from 'react-hook-form';
 import type { ComposerChip, StartSessionAnswer } from '@devhub/contracts';
-import { Composer, ComposerBar, ComposerSend, ComposerTextarea } from '@devhub/ui';
+import {
+  Composer,
+  ComposerBar,
+  ComposerSend,
+  ComposerTextarea,
+  SegmentedControl,
+  SegmentedControlItem,
+  Tooltip,
+} from '@devhub/ui';
 import { newTaskTargetId } from '../../../shell/main-content.ts';
 import { useRepositories, useStatus } from '../../settings/queries.ts';
 import { chipFromPaste, firstTicket, folderFor } from '../composer-rules.ts';
@@ -35,9 +43,12 @@ function saidFor(answer: StartSessionAnswer, chips: readonly ComposerChip[]): Sa
   switch (answer.result) {
     case 'started':
       return null;
-    case 'existing':
-      // Only the first ticket's session stops a start (spec 022, Q2).
-      return { line: composerWords.existing(firstTicket(chips) ?? ''), link: null, session: answer.sessionId };
+    case 'existing': {
+      // Only the first ticket's session stops a start (spec 022, Q2); with no ticket, your pull request's (spec 031).
+      const pull = chips.find((chip) => chip.kind === 'pull_request');
+      const held = firstTicket(chips) ?? (pull === undefined ? '' : `#${String(pull.number)}`);
+      return { line: composerWords.existing(held), link: null, session: answer.sessionId };
+    }
     case 'cannot_start':
       return { ...cannotStartLine(answer.reason), session: null };
     case 'context_failed': {
@@ -68,6 +79,8 @@ export function HomeComposer() {
   const setModel = useComposerStore((state) => state.setModel);
   const setEffort = useComposerStore((state) => state.setEffort);
   const choice = useAgentChoice(model, effort);
+  const mode = useComposerStore((state) => state.mode);
+  const setMode = useComposerStore((state) => state.setMode);
   const repositories = useRepositories();
   const status = useStatus();
   const start = useStartFromComposer();
@@ -84,7 +97,7 @@ export function HomeComposer() {
   const message = useWatch({ control: form.control, name: 'message' });
   const ticketKeys = chips.flatMap((chip) => (chip.kind === 'jira' ? [chip.key] : []));
   const ticketKey = firstTicket(chips);
-  const shown = folderFor({ folders: repositories.data?.repositories ?? [], picked, ticketKey, lastUsed });
+  const shown = folderFor({ folders: repositories.data?.repositories ?? [], picked, ticketKey, lastUsed, mode });
   const suggestions = useSkillSuggestions({
     folder: shown.kind === 'folder' ? { id: shown.folder.id, name: shown.folder.name } : null,
     text: message,
@@ -125,7 +138,7 @@ export function HomeComposer() {
     void form.handleSubmit(({ message: words }) => {
       const repositoryId = shown.kind === 'folder' ? shown.folder.id : undefined;
       start.mutate(
-        { message: words, context: chips, ...(repositoryId === undefined ? {} : { repositoryId }), ...choice },
+        { message: words, context: chips, ...(repositoryId === undefined ? {} : { repositoryId }), ...choice, mode },
         {
           onSuccess: (answer) => {
             if (answer.result !== 'started') return;
@@ -148,7 +161,7 @@ export function HomeComposer() {
             {...suggestions.boxProps}
             id={newTaskTargetId}
             label={composerWords.label}
-            placeholder={placeholderFor(ticketKeys)}
+            placeholder={placeholderFor(ticketKeys, mode)}
             readOnly={start.isPending}
             {...field}
             onPaste={(event) => {
@@ -172,6 +185,22 @@ export function HomeComposer() {
               onRefused={setRefused}
               box={() => box.current}
             />
+            {/* Ask or Build (spec 031), beside + from the first paint; under 640 px the pickers keep their own row
+              below, so all three fit 360 px whole. */}
+            <SegmentedControl
+              aria-label={composerWords.mode.label}
+              value={mode}
+              onValueChange={(next) => {
+                setMode(next === 'ask' ? 'ask' : 'build');
+              }}
+            >
+              <Tooltip label={composerWords.mode.askHint}>
+                <SegmentedControlItem value="ask">{composerWords.mode.ask}</SegmentedControlItem>
+              </Tooltip>
+              <Tooltip label={composerWords.mode.buildHint}>
+                <SegmentedControlItem value="build">{composerWords.mode.build}</SegmentedControlItem>
+              </Tooltip>
+            </SegmentedControl>
             {/* The pickers' own row under 640 px, there from the first paint, so the box never grows when they
               arrive (AC-1, AC-30); in a wider window they sit between + and Send. */}
             <div className="flex min-h-8 min-w-0 items-center gap-2 max-sm:order-last max-sm:basis-full">

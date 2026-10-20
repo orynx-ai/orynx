@@ -221,6 +221,44 @@ test('AC-1, AC-4, AC-24: my words alone start a session on its own branch, and C
   await expect(box(page)).toHaveValue('');
 });
 
+test('031 AC-2, AC-3, AC-5, AC-25: Ask, picked with the keyboard, reads no folder until I pick one, and changes nothing', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const mode = page.getByRole('group', { name: 'Session' });
+  await expect(mode.getByRole('button', { name: 'Build' })).toHaveAttribute('aria-pressed', 'true');
+  await mode.getByRole('button', { name: 'Build' }).focus();
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Enter');
+  await expect(mode.getByRole('button', { name: 'Ask' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('heading', { level: 1, name: 'What do you want to know?' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Repository: No folder' })).toBeVisible();
+  expect(await axe(page, 'main')).toEqual([]);
+
+  await box(page).fill('What does the README say?');
+  await box(page).press('Enter');
+  await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);
+  await expect(page.getByText('Ask session · changes nothing')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Session progress' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: /Changes/ })).toHaveCount(0);
+  await expect.poll(lastBrief).toBe('What does the README say?');
+  // Finished, so it no longer counts among the three sessions that may work at once.
+  await expect(page.getByRole('region', { name: "Claude's progress" }).getByText('Finished')).toBeVisible({
+    timeout: 15_000,
+  });
+  expect(await axe(page, 'main')).toEqual([]);
+
+  // Ask stays picked; with a folder, Claude reads it where it is (spec 026).
+  await page.goto('/');
+  await expect(mode.getByRole('button', { name: 'Ask' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Repository: No folder' }).click();
+  await page.getByRole('menuitemradio', { name: /web-app/ }).click();
+  await box(page).fill('How is the README laid out?');
+  await box(page).press('Enter');
+  await expect(page.getByText('Ask session · reads web-app in place and changes nothing')).toBeVisible();
+  await expect.poll(lastBrief).toBe('How is the README laid out?');
+});
+
 test('AC-6 to AC-8, AC-11, AC-14, AC-20, 022 AC-9, AC-10: a ticket, a pasted pull request and a picked file reach Claude with my words', async ({
   page,
 }) => {
@@ -381,6 +419,15 @@ test('AC-30, AC-31: Home, its chips and the + popup fit 360 px and have no axe v
       await expect(chips(page)).toHaveText(['PROJ-1377']);
       expect(await axe(page), `Home at ${String(width)} px, ${colorScheme}`).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      // Ask or Build (spec 031, AC-24): both options whole, with no scrolling inside the switch.
+      const mode = page.getByRole('group', { name: 'Session' });
+      await expect(mode.getByRole('button', { name: 'Ask' })).toBeInViewport({ ratio: 1 });
+      await expect(mode.getByRole('button', { name: 'Build' })).toBeInViewport({ ratio: 1 });
+      expect(await mode.evaluate((group) => group.scrollWidth - group.clientWidth)).toBe(0);
+      // The picked option looks picked, though each sits in a tooltip that sets its own data-state.
+      const look = (name: string) =>
+        mode.getByRole('button', { name }).evaluate((option) => getComputedStyle(option).backgroundColor);
+      expect(await look('Build')).not.toBe(await look('Ask'));
 
       // An open popup hides the rest of the page from screen readers, so it is checked on its own.
       await page.getByRole('button', { name: 'Add context' }).click();

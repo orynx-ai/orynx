@@ -23,12 +23,12 @@ import { createTokenStore } from '../secrets/token-store.ts';
 import { createMemorySettingsStore } from '../settings/settings-store.ts';
 import { useFakeClaudeFolder } from '../test/fake-claude.ts';
 import { fakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
-import { acceptingPullContext, acceptingPullDiff, githubToken } from '../test/fake-github.ts';
+import { acceptingPullContext, acceptingPullDiff, githubLogin, githubToken } from '../test/fake-github.ts';
 import { acceptingIssue, goodToken, jiraEmail, jiraSite } from '../test/fake-jira.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
-import { briefText, composerBrief, type BriefChip } from './brief.ts';
+import { briefText, composerBrief, type BriefChip, type BriefPullRequest } from './brief.ts';
 import { createChangesReader } from './changes.ts';
-import { chooseFolder, composerPlan } from './compose.ts';
+import { chooseFolder, composerPlan, pullToWorkOn } from './compose.ts';
 import { createSkillsService } from '../skills/skills-service.ts';
 import { createContextReader } from './context-reader.ts';
 import { openFileSessionStore } from './file-session-store.ts';
@@ -229,7 +229,7 @@ async function setUp({
     ]),
     acceptingPullDiff([{ number: 2836, diff: 'diff --git a/a.ts b/a.ts\n+x' }]),
   );
-  return { sessions, records, home, heard, sdk, folder: added[0], outside, root: repos.root };
+  return { sessions, records, home, heard, sdk, folder: added[0], outside, root: repos.root, repos };
 }
 
 /** Waits until the session isn't Working or waiting for you any more. */
@@ -430,6 +430,228 @@ describe('an Ask session (spec 026)', () => {
     await settled(set.records, '0000000000000001');
     await settled(set.records, '0000000000000002');
     await settled(set.records, '0000000000000003');
+  });
+});
+
+describe('an Ask with no folder (spec 031)', () => {
+  const asking = [
+    { tool: 'Grep', input: { pattern: 'export' } },
+    { tool: 'Read', input: { file_path: '~/notes.md' } },
+    { tool: 'Read', input: { file_path: '~/other.md' } },
+    { tool: 'Edit', input: { file_path: 'a.ts', old_string: 'x', new_string: 'y' } },
+    { tool: 'Bash', input: { command: 'ls' } },
+    { finish: 'Archive, not delete.' },
+  ] as const satisfies readonly FakeTurn[];
+  const noFolder = (change: Partial<ComposerChip>[] = []) => {
+    const { repositoryId: _id, ...body } = makeComposerStart({
+      message: 'What did we decide about archiving?',
+      mode: 'ask',
+      context: change as ComposerChip[],
+    });
+    return body;
+  };
+
+  it('AC-3: starts with no folder in Settings: Claude in an empty folder of its own, with no worktree or branch', async () => {
+    const set = await setUp({ folders: false, script: asking });
+
+    expect(await set.sessions.start(noFolder())).toEqual({ result: 'started', sessionId: '0000000000000001' });
+
+    const record = await settled(set.records);
+    const own = join(set.home, 'worktrees', '0000000000000001');
+    expect(record).toMatchObject({
+      repository: null,
+      worktree: own,
+      session: { mode: 'ask', folder: null, branch: null, worktreePath: null },
+    });
+    expect(set.sdk.runs[0]?.options.cwd).toBe(own);
+    expect(await readdir(own)).toEqual([]);
+    expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain('this is an Ask session with no folder');
+    expect(await set.sessions.changes('0000000000000001')).toEqual({ state: 'no_worktree' });
+  });
+
+  it('AC-4, AC-6: reads only the files the brief names; every edit and command is refused', async () => {
+    const set = await setUp({ script: asking });
+    await set.sessions.start(noFolder([fileChip]));
+    const record = await settled(set.records);
+    // Settings has a folder, and the Ask still reads none of it.
+    expect(set.sdk.runs[0]?.options.cwd).toBe(join(set.home, 'worktrees', '0000000000000001'));
+
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([
+      ['Grep', 'allow'],
+      ['Read', 'allow'],
+      ['Read', 'deny'],
+      ['Edit', 'deny'],
+      ['Bash', 'deny'],
+    ]);
+    expect(record.session.activities.filter((step) => step.kind === 'refused')).toMatchObject([
+      { access: 'read', reason: 'outside_worktree' },
+      { access: 'edit', reason: 'ask_session', path: 'a.ts' },
+      { access: 'run', reason: 'ask_session', path: 'ls' },
+    ]);
+  });
+
+  it('AC-7: a follow-up carries on in the same empty folder', async () => {
+    const set = await setUp({ folders: false, script: asking });
+    await set.sessions.start(noFolder());
+    await settled(set.records);
+    await started(set.records, '0000000000000001');
+
+    expect(await set.sessions.send('0000000000000001', 'And restoring?')).toEqual({ result: 'sent' });
+
+    await settled(set.records);
+    expect(set.sdk.runs[1]?.options).toMatchObject({
+      cwd: join(set.home, 'worktrees', '0000000000000001'),
+      resume: expect.any(String) as unknown,
+    });
+  });
+
+  it('AC-8: a Build still needs a folder', async () => {
+    const set = await setUp({ folders: false });
+    expect(await set.sessions.start({ ...noFolder(), mode: 'build' })).toEqual({
+      result: 'cannot_start',
+      reason: 'no_folder',
+    });
+  });
+});
+
+describe('a Build on your pull request (spec 031)', () => {
+  /** web-app's folder, whose origin reads as github.com/acme/web-app and is the bare repository standing in for it. */
+  async function onGitHub() {
+    const set = await setUp();
+    const github = 'git@github.com:acme/web-app.git';
+    await set.repos.git(set.repos.clone, 'remote', 'set-url', 'origin', github);
+    await set.repos.git(set.repos.clone, 'config', `url.${set.repos.origin}.insteadOf`, github);
+    return set;
+  }
+  const yours = (change: Record<string, unknown> = {}) =>
+    acceptingPullContext([
+      { number: 2836, title: 'Fix the content list', head: 'fix/content-list', author: githubLogin, ...change },
+    ]);
+  const answer = (set: Awaited<ReturnType<typeof setUp>>) =>
+    set.sessions.start(
+      makeComposerStart({ message: 'Answer the review comments', repositoryId: set.folder?.id, context: [pullChip] }),
+    );
+
+  it('AC-14: works on its own branch, linked from the start, and makes no branch of its own', async () => {
+    const set = await onGitHub();
+    set.outside.use(yours());
+    const newest = await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+
+    expect(await answer(set)).toEqual({ result: 'started', sessionId: '0000000000000001' });
+
+    const record = await settled(set.records);
+    expect(record).toMatchObject({
+      startCommit: newest,
+      session: {
+        source: { kind: 'pull_request', number: 2836 },
+        workOn: 'pull_request',
+        branch: 'fix/content-list',
+        pullRequest: {
+          number: 2836,
+          url: 'https://github.com/acme/web-app/pull/2836',
+          repository: 'acme/web-app',
+          openedAt: '2026-10-15T09:00:00Z',
+        },
+      },
+    });
+    expect(record.session.activities.find((step) => step.kind === 'worktree')).toMatchObject({
+      branch: 'fix/content-list',
+      base: 'origin/fix/content-list',
+      fetched: true,
+      pullRequest: 2836,
+    });
+    expect(await set.repos.git(set.repos.clone, 'branch', '--list', 'fix/content-list')).toBe('');
+    expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain("pull request #2836's own branch");
+  });
+
+  /** A session on #2836's branch that Claude finished, with a change of its own in the worktree to push. */
+  async function finishedOnPull() {
+    const set = await onGitHub();
+    set.outside.use(yours());
+    await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await answer(set);
+    const record = await settled(set.records);
+    if (record.worktree === null) throw new Error('the worktree should be made');
+    await writeFile(join(set.repos.root, '.gitconfig'), '[user]\n\tname = Rakesh D\n\temail = you@company.com\n');
+    await writeFile(join(record.worktree, 'review.ts'), 'fixed\n');
+    return { set, worktree: record.worktree };
+  }
+
+  it('AC-16: Push changes commits and pushes to its branch, and the stepper reaches its last step', async () => {
+    const { set, worktree } = await finishedOnPull();
+
+    expect(await set.sessions.push('0000000000000001', { message: 'Answer the review' })).toEqual({
+      result: 'pushed',
+      files: 1,
+    });
+
+    const head = await set.repos.git(worktree, 'rev-parse', 'HEAD');
+    expect(await set.repos.git(set.repos.origin, 'rev-parse', 'refs/heads/fix/content-list')).toBe(head);
+    const record = await set.records.get('0000000000000001');
+    expect(record?.session).toMatchObject({ state: 'pr_open', step: 'pull_request' });
+    expect(record?.session.activities.at(-1)).toMatchObject({ kind: 'pushed', number: 2836, files: 1 });
+  });
+
+  it('AC-17: when someone pushed to its branch since, nothing is overwritten', async () => {
+    const { set } = await finishedOnPull();
+    const theirs = await set.repos.commitInOrigin('theirs.ts', 'fix/content-list');
+
+    expect(await set.sessions.push('0000000000000001', { message: 'Answer the review' })).toEqual({
+      result: 'failed',
+      problem: { kind: 'push_rejected' },
+    });
+    expect(await set.repos.git(set.repos.origin, 'rev-parse', 'refs/heads/fix/content-list')).toBe(theirs);
+  });
+
+  it('AC-15: Discard deletes the worktree and keeps the branch, yours and on origin', async () => {
+    const { set, worktree } = await finishedOnPull();
+    await set.repos.git(set.repos.clone, 'fetch', 'origin');
+    await set.repos.git(set.repos.clone, 'branch', 'fix/content-list', 'origin/fix/content-list');
+
+    expect(await set.sessions.discard('0000000000000001')).toBe('discarded');
+
+    expect(await readdir(worktree).catch(() => null)).toBeNull();
+    expect(await set.repos.git(set.repos.clone, 'branch', '--list', 'fix/content-list')).toContain('fix/content-list');
+    expect(await set.repos.git(set.repos.origin, 'branch', '--list', 'fix/content-list')).toContain('fix/content-list');
+    const record = await set.records.get('0000000000000001');
+    expect(record?.session.activities.at(-1)).toMatchObject({
+      kind: 'discarded',
+      branch: 'fix/content-list',
+      kept: true,
+    });
+  });
+
+  it('AC-18: a pull request with a live session opens that one, and starts nothing', async () => {
+    const set = await onGitHub();
+    set.outside.use(yours());
+    await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await answer(set);
+    await settled(set.records);
+
+    expect(await answer(set)).toEqual({ result: 'existing', sessionId: '0000000000000001' });
+    expect(await set.records.get('0000000000000002')).toBeNull();
+  });
+
+  it('AC-19: someone else’s pull request is context for a new branch', async () => {
+    const set = await onGitHub();
+    set.outside.use(yours({ author: 'hubot' }));
+    await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await answer(set);
+
+    const record = await settled(set.records);
+    expect(record.session).toMatchObject({ workOn: 'new_branch', pullRequest: null, source: null });
+    expect(record.session.branch).toMatch(/^feat\//);
+  });
+
+  it('AC-22: a branch that can’t be fetched, and was never fetched, can’t start, and leaves no worktree', async () => {
+    const set = await onGitHub();
+    set.outside.use(yours());
+
+    await answer(set);
+
+    const record = await settled(set.records);
+    expect(record.session.problem).toEqual({ kind: 'git', stage: 'starting' });
+    expect(await readdir(join(set.home, 'worktrees')).catch(() => [])).toEqual([]);
   });
 });
 
@@ -698,7 +920,7 @@ describe('a composer start (spec 015)', () => {
     await sessions.start({ message: '', context: [ticketChip] });
 
     const record = await settled(records);
-    expect(record.session.folder.name).toBe('web-app');
+    expect(record.session.folder?.name).toBe('web-app');
     expect(await records.readBrief('0000000000000001')).toBe(
       briefText(
         composerBrief('', [
@@ -728,5 +950,53 @@ describe('a composer start (spec 015)', () => {
 
     await settled(records);
     expect(JSON.stringify(sdk.runs[1]?.options.systemPrompt)).toContain('Do what the user asks in the brief.');
+  });
+});
+
+describe('which branch a Build works on (spec 031)', () => {
+  const pull = (change: Partial<BriefPullRequest> = {}): BriefChip => ({
+    kind: 'pull_request',
+    owner: 'acme',
+    name: 'web-app',
+    number: 2836,
+    title: 'Fix the content list',
+    body: null,
+    base: 'main',
+    head: 'fix/content-list',
+    failingChecks: [],
+    comments: [],
+    diff: { kind: 'text', text: '' },
+    url: 'https://github.com/acme/web-app/pull/2836',
+    openedAt: '2026-10-15T09:00:00Z',
+    open: true,
+    fork: false,
+    mine: true,
+    ...change,
+  });
+  const ticket = { kind: 'jira', key: 'PROJ-1423' } as BriefChip;
+  const file: BriefChip = { kind: 'file', path: '~/notes.md', real: '/Users/priya/notes.md' };
+
+  it('AC-14: your open pull request in the folder’s repository, alone or beside files', () => {
+    expect(pullToWorkOn([pull()], 'acme/web-app')).toMatchObject({ number: 2836, head: 'fix/content-list' });
+    // GitHub's names aren't case-sensitive.
+    expect(pullToWorkOn([file, pull()], 'Acme/Web-App')).toMatchObject({ number: 2836 });
+  });
+
+  it('AC-19: someone else’s, a closed or merged one, a fork’s, or another repository’s is context', () => {
+    for (const other of [pull({ mine: false }), pull({ open: false }), pull({ fork: true }), pull({ name: 'api' })]) {
+      expect(pullToWorkOn([other], 'acme/web-app')).toBeNull();
+    }
+    // A folder whose origin isn't on GitHub holds no pull request.
+    expect(pullToWorkOn([pull()], null)).toBeNull();
+  });
+
+  it('AC-20: a ticket wins, wherever it is', () => {
+    expect(pullToWorkOn([ticket, pull()], 'acme/web-app')).toBeNull();
+    expect(pullToWorkOn([pull(), ticket], 'acme/web-app')).toBeNull();
+  });
+
+  it('only the first pull request counts', () => {
+    expect(pullToWorkOn([pull({ mine: false, number: 1 }), pull({ number: 2 })], 'acme/web-app')).toBeNull();
+    expect(pullToWorkOn([pull({ number: 1 }), pull({ number: 2 })], 'acme/web-app')).toMatchObject({ number: 1 });
   });
 });

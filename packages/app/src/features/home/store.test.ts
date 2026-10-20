@@ -69,8 +69,16 @@ describe('the composer’s draft (spec 015, Q14)', () => {
       effort: 'high',
     });
     expect(JSON.parse(localStorage.getItem('devhub.home') ?? '{}')).toEqual({
-      state: { lastUsed: '00000000000000bb', model: 'sonnet', effort: 'high' },
+      state: { lastUsed: '00000000000000bb', model: 'sonnet', effort: 'high', mode: 'build' },
       version: 0,
     });
+  });
+
+  it('spec 031, Q1: Build the first time, then your last pick, kept after Send and on this computer', () => {
+    expect(useComposerStore.getState().mode).toBe('build');
+    useComposerStore.getState().setMode('ask');
+    useComposerStore.getState().sent(null);
+    expect(useComposerStore.getState().mode).toBe('ask');
+    expect(JSON.parse(localStorage.getItem('devhub.home') ?? '{}')).toMatchObject({ state: { mode: 'ask' } });
   });
 });

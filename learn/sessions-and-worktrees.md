@@ -70,6 +70,8 @@ SidebarSessions ── useSessionPages({ limit: 16, recent: true })   an infinit
 - **The collapsed rail** has no room for rows, so it gets a Sessions place under Settings, as narrow windows have. Every rail icon, Sessions included, shows its name in a tooltip beside it. The rail is collapsed from 768 px only: under that, the narrow bar shows each place's words, so they get no tooltip there.
 - **New task left the sidebar** in spec 020, since Home does the same job. ⌘N (Ctrl+N elsewhere) still opens Home with focus on its content, and the Home place carries that key in `aria-keyshortcuts`.
 
+Since spec 031 the composer's switch picks Ask or Build again, Build first and then your last pick, and an Ask needs no folder. Sent with no `repositoryId`, an Ask reads none, even when Settings has some: the record's `repository` is null and its `worktree` is an empty folder of its own under the worktrees root, which Claude Code runs in. It reads only what the brief names, and `askNote(false)` tells it so. The header says "Ask session · changes nothing".
+
 ## The branch and the worktree
 
 `worktrees.ts` is the only file that runs git for a session, through `simple-git`:
@@ -95,6 +97,12 @@ The SDK's defaults load every settings file (`~/.claude` and the repository's) a
 
 The prompt goes in as a stream that stays open until Claude finishes, because the SDK can interrupt only a session with streaming input.
 
+## Your pull request's own branch (spec 031)
+
+A Build whose first pull request chip is yours, open, not from a fork and in the folder's `origin`, with no ticket chip, works on that pull request's branch (`pullToWorkOn()` in `compose.ts`). GitHub's `viewer.login` and the PR's `author.login` come from the composer's one PR query. The session is linked to the PR from the start (`pullRequest`, source `PR #2836`, `workOn: 'pull_request'`), so it offers Push changes, never Create pull request, and its stepper ends with Push. One live session holds a PR's branch, as one holds a ticket: `ListedSession.pullRequest` names it (`pullKey()`).
+
+The worktree is detached: `worktrees.make()` fetches `+refs/heads/<branch>:refs/remotes/origin/<branch>` (so a clone that fetches only main still gets it), then `git worktree add --detach <path> origin/<branch>`. No local branch is made, so your own checkout may have that branch. Push changes pushes `HEAD:refs/heads/<branch>`, never forced, so commits someone pushed since are kept and the push is refused. Discard removes only the worktree; the discarded step says `kept`. Claude's note says Orynx pushes on your click: a detached worktree has no branch for Claude's own `git push origin <branch>` to send.
+
 ## When Claude asks you (spec 012)
 
 ```
@@ -119,7 +127,7 @@ canUseTool(tool, input)                              claude-adapter.ts; one call
 
 ## Steps and the stepper
 
-`sdk-messages.ts` pairs each tool call with its result, so only calls that worked become work: a read or search is explore, `Edit`/`Write`/`NotebookEdit` is edit, `TodoWrite` is the plan, and the result ends the turn with Claude's summary. `progress.ts` folds them into steps: one step per run of the same kind of work, the latest one running until another kind starts. A later to-do update changes the plan's items without a new step. A command is shown when Orynx lets it run, so "Running a command" shows while it runs; one Claude Code ran without asking Orynx is shown from its result, so nothing runs unseen. A call waiting for you is a running step in the amber look until it's answered. The stepper moves from Plan to Build at the first edit, to Test at the first command after that, to Review when Claude finishes, and to Pull request when the PR opens or changes are pushed to it (spec 014). It moves back only when a follow-up starts Claude again after Review or Pull request: to Build (spec 013, Q3a).
+`sdk-messages.ts` pairs each tool call with its result, so only calls that worked become work: a read or search is explore, `Edit`/`Write`/`NotebookEdit` is edit, `TodoWrite` is the plan, and the result ends the turn with Claude's summary. `progress.ts` folds them into steps: one step per run of the same kind of work, the latest one running until another kind starts. A later to-do update changes the plan's items without a new step. A command is shown when Orynx lets it run, so "Running a command" shows while it runs; one Claude Code ran without asking Orynx is shown from its result, so nothing runs unseen. A call waiting for you is a running step in the amber look until it's answered. The stepper moves from Plan to Build at the first edit, to Test at the first command after that, to Review when Claude finishes, and to Pull request when the PR opens or changes are pushed to it (spec 014). It moves back only when a follow-up starts Claude again after Review or Pull request: to Build (spec 013, Q3a). When Claude finishes, the steps the stepper jumps over to reach Review are `skipped` (spec 031): Test after edits with no command, and Build too with no edit. The `Stepper` draws them with a dash, and a follow-up clears them.
 
 The server sends structured steps, never words. The page says them (`step-words.ts`): "Sent Claude the brief" with "Your message, PROJ-1377, PROJ-1423 and 1 more", "Explored the code" with "ContentList.tsx, contentApi.ts and 6 more", "Edited 4 files", "Finished" with Claude's summary. A command shows as code wherever it shows.
 

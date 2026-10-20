@@ -47,6 +47,16 @@ const tools: FakeTools = {
   reviews: [],
   mine: [],
   pulls: [],
+  // Spec 031: your own pull request, on its own branch; `octocat` is the fake GitHub's login.
+  pullRequests: [
+    {
+      number: 2900,
+      title: 'Fix the content list',
+      diff: 'diff --git a/README.md b/README.md\n+fixed',
+      head: 'fix/content-list',
+      author: 'octocat',
+    },
+  ],
 };
 
 /** The sessions the tests share, once started. */
@@ -350,4 +360,86 @@ test('AC-18: Discard deletes the worktree and the local branch, and the PR and i
   await expect(page.getByRole('button', { name: 'Push changes' })).toHaveCount(0);
   expect(repository.git(repository.origin, 'branch', '--list', 'feat/PULL-1')).toContain('feat/PULL-1');
   expect(repository.git(repository.clone, 'branch', '--list', 'feat/PULL-1')).toBe('');
+});
+
+test.describe('a Build on my own pull request (spec 031)', () => {
+  const yours = `#${String(2900)}`;
+  const branch = 'fix/content-list';
+  const on: { url?: string } = {};
+
+  test('AC-14, AC-16: works on its branch, and Push changes updates it', async ({ page }) => {
+    repository.git(repository.clone, 'push', 'origin', `HEAD:refs/heads/${branch}`);
+    await page.goto('/');
+    const box = page.getByRole('textbox', { name: 'Describe a task for Claude' });
+    // A paste that is exactly a pull request's link becomes its chip (spec 015).
+    await box.evaluate((element, link) => {
+      const data = new DataTransfer();
+      data.setData('text/plain', link);
+      element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }, 'https://github.com/acme/web-app/pull/2900');
+    await expect(page.getByRole('list', { name: 'Context for Claude' }).getByRole('listitem')).toHaveCount(1);
+    await box.fill('Answer the review comments');
+    await box.press('Enter');
+
+    await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);
+    on.url = new URL(page.url()).pathname;
+    await expect(page.getByText(`in web-app · on ${yours}'s branch, in a separate worktree`)).toBeVisible();
+    await expect(progressOf(page).getByText(`${branch} from ${yours}`)).toBeVisible();
+    await expect(page.getByRole('main').getByText('PR open', { exact: true })).toBeVisible({ timeout: 15_000 });
+    const stepper = page.getByRole('list', { name: 'Session progress' });
+    await expect(stepper.getByRole('listitem').last()).toHaveText('5Push');
+    await expect(page.getByRole('button', { name: 'Create pull request' })).toHaveCount(0);
+    expect(repository.git(repository.clone, 'branch', '--list', branch)).toBe('');
+
+    await page.getByRole('button', { name: 'Push changes' }).click();
+    await dialog(page, 'Push changes').getByRole('textbox', { name: 'Commit message' }).fill('Answer the review');
+    await dialog(page, 'Push changes').getByRole('button', { name: 'Push changes' }).click();
+    await expect(dialog(page, 'Push changes')).toHaveCount(0, { timeout: 15_000 });
+    await expect(progressOf(page).getByText(`Pushed changes to ${yours}`)).toBeVisible();
+    const worktree = await worktreeOf(page, on.url);
+    expect(repository.git(repository.origin, 'rev-parse', `refs/heads/${branch}`)).toBe(
+      repository.git(worktree, 'rev-parse', 'HEAD'),
+    );
+  });
+
+  test('AC-17: when someone pushed to its branch since, Push changes overwrites nothing and says so', async ({
+    page,
+  }) => {
+    await page.goto(on.url ?? '');
+    // Someone else's commit on the branch, made in origin itself.
+    const head = repository.git(repository.origin, 'rev-parse', `refs/heads/${branch}`);
+    const tree = repository.git(repository.origin, 'rev-parse', `${head}^{tree}`);
+    const theirs = repository.git(repository.origin, 'commit-tree', tree, '-p', head, '-m', 'Their commit');
+    repository.git(repository.origin, 'update-ref', `refs/heads/${branch}`, theirs);
+    writeFileSync(join(await worktreeOf(page, on.url ?? ''), 'src', 'again.ts'), 'export const again = true;\n');
+
+    await page.getByRole('button', { name: 'Push changes' }).click();
+    await dialog(page, 'Push changes').getByRole('textbox', { name: 'Commit message' }).fill('Again');
+    await dialog(page, 'Push changes').getByRole('button', { name: 'Push changes' }).click();
+    await expect(dialog(page, 'Push changes').getByRole('alert')).toContainText(
+      `acme/web-app already has ${branch} with commits this worktree doesn't have. Orynx never overwrites them.`,
+      { timeout: 15_000 },
+    );
+    expect(repository.git(repository.origin, 'rev-parse', `refs/heads/${branch}`)).toBe(theirs);
+    await page.keyboard.press('Escape');
+  });
+
+  test('AC-15: Discard deletes the worktree and keeps the branch, mine and on GitHub', async ({ page }) => {
+    repository.git(repository.clone, 'fetch', 'origin');
+    repository.git(repository.clone, 'branch', branch, `origin/${branch}`);
+    await page.goto(on.url ?? '');
+    await page.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: 'Discard changes' }).click();
+    const confirm = page.getByRole('dialog', { name: "Discard Claude's changes?" });
+    await expect(confirm).toContainText(
+      `This deletes the worktree. The changes can't be brought back. Pull request ${yours} and the branch on GitHub stay.`,
+    );
+    await confirm.getByRole('button', { name: 'Discard changes' }).click();
+    await expect(page.getByText('The changes are gone')).toBeVisible({ timeout: 10_000 });
+    await expect(
+      progressOf(page).getByText(`The worktree is deleted. ${branch} stays as it is on GitHub.`),
+    ).toBeVisible();
+    expect(repository.git(repository.clone, 'branch', '--list', branch)).toContain(branch);
+    expect(repository.git(repository.origin, 'branch', '--list', branch)).toContain(branch);
+  });
 });

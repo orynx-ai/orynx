@@ -16,6 +16,11 @@ export interface WorktreePlan {
   /** `origin/main` for a remote default branch, else the folder's checked-out branch. */
   base: string;
   remote: boolean;
+  /**
+   * Your pull request's own branch (spec 031): `base` is `origin/<branch>`, and the worktree is a detached HEAD at
+   * it, so no branch is made and the folder's own checkout may have that branch.
+   */
+  detach?: boolean;
 }
 
 export type WorktreeProblem =
@@ -125,8 +130,11 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
       if (plan.remote) {
         const limit = AbortSignal.timeout(fetchTimeoutMs);
         const either = signal === undefined ? limit : AbortSignal.any([signal, limit]);
+        const name = plan.base.replace(/^origin\//, '');
+        // A pull request's branch is fetched into its own remote ref, even where the folder fetches only main.
+        const what = plan.detach === true ? `+refs/heads/${name}:refs/remotes/origin/${name}` : name;
         try {
-          await git(repo, either).raw(['fetch', '--no-tags', 'origin', plan.base.replace(/^origin\//, '')]);
+          await git(repo, either).raw(['fetch', '--no-tags', 'origin', what]);
           fetched = true;
         } catch {
           // Offline, refused or too slow: the last fetched branch will do (Q1a), unless Stop came.
@@ -134,7 +142,11 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
         }
       }
       try {
-        await git(repo, signal).raw(['worktree', 'add', '--no-track', '-b', plan.branch, path, plan.base]);
+        await git(repo, signal).raw(
+          plan.detach === true
+            ? ['worktree', 'add', '--detach', path, plan.base]
+            : ['worktree', 'add', '--no-track', '-b', plan.branch, path, plan.base],
+        );
         const startCommit = (await git(path, signal).raw(['rev-parse', 'HEAD'])).trim();
         return { ok: true, fetched, startCommit };
       } catch {
