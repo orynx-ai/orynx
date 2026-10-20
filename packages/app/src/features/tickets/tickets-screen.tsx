@@ -292,7 +292,7 @@ export function TicketsScreen() {
               assignee.current?.focus();
             }}
           />
-          <NewTicketDialog />
+          <NewTicketDialog jira={!jiraOff} />
         </PageBody>
       </Fragment>
     </>

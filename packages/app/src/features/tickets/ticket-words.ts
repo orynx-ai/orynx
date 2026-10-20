@@ -199,6 +199,9 @@ export const orynxTicketWords = {
   newTicket: 'New ticket',
   /** The page bar's New ticket, short so the bar fits (the user's call, 20 Oct 2026). */
   newShort: 'New',
+  /** Under the New ticket dialog's heading: where the ticket goes (the user's ask, 20 Oct 2026, spec 039). */
+  savedHere: (jira: boolean) =>
+    jira ? 'Saved in Orynx on this computer. It isn’t added to Jira.' : 'Saved in Orynx on this computer.',
   newTicketIn: (column: TicketColumn) => `New ticket in ${columnNames[column]}`,
   editTitle: (key: string) => `Edit ${key}`,
   create: 'Create ticket',

@@ -1,4 +1,4 @@
-import { useRef, type SubmitEvent } from 'react';
+import { useRef, type ReactNode, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import {
@@ -29,6 +29,8 @@ export interface TicketFormProps {
   /** "New ticket", or "Edit ORX-3". */
   heading: string;
   headingId: string;
+  /** One quiet line under the heading, such as where a new ticket goes (spec 039). */
+  note?: ReactNode;
   defaults: OrynxTicketFields;
   /** "Create ticket" or "Save changes". */
   submitLabel: string;
@@ -51,6 +53,7 @@ const statusOptions = TicketColumnSchema.options.map((value) => ({ value, label:
 export function TicketForm({
   heading,
   headingId,
+  note,
   defaults,
   submitLabel,
   saving,
@@ -79,7 +82,10 @@ export function TicketForm({
   return (
     <form noValidate onSubmit={submit} className="flex min-h-0 flex-col">
       <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-6">
-        <DialogTitle id={headingId}>{heading}</DialogTitle>
+        <div className="flex flex-col gap-1">
+          <DialogTitle id={headingId}>{heading}</DialogTitle>
+          {note}
+        </div>
         <Field label={words.fields.title} error={errors.title?.message}>
           <Input autoComplete="off" {...form.register('title')} />
         </Field>
