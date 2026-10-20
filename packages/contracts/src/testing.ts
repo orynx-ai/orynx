@@ -36,6 +36,14 @@ import {
 } from './pull-requests.ts';
 import { RepositorySchema, type Repository } from './repositories.ts';
 import {
+  ClaudeCommandListSchema,
+  TerminalBlockSchema,
+  TerminalSchema,
+  type ClaudeCommandList,
+  type Terminal,
+  type TerminalBlock,
+} from './terminal.ts';
+import {
   SearchIndexSchema,
   SearchPullRequestSchema,
   SearchTicketSchema,
@@ -517,5 +525,56 @@ export function makeNotificationList(notifications: readonly Notification[] = []
     notifications,
     unread: notifications.filter((notification) => !notification.read).length,
     waiting: notifications.filter(({ what }) => what.kind === 'approval' && what.waiting).length,
+  });
+}
+
+/** One command you ran in your shell tab (spec 036): `git status`, done in 0.1 s. */
+export function makeTerminalBlock(overrides: Partial<Record<string, unknown>> = {}): TerminalBlock {
+  return TerminalBlockSchema.parse({
+    id: 'block-1',
+    state: 'done',
+    command: 'git status',
+    output: ['On branch feat/PROJ-1423', 'nothing to commit, working tree clean'],
+    cut: false,
+    ms: 100,
+    ...overrides,
+  });
+}
+
+/** The session's shell tabs (spec 036): zsh, one tab with `git status` in it, and that command for ↑. */
+export function makeTerminal(overrides: Partial<Terminal> = {}): Terminal {
+  return TerminalSchema.parse({
+    shell: 'zsh',
+    worktree: '~/.devhub/worktrees/0123456789abcdef',
+    tabs: [{ id: 'tab-1', number: 1, blocks: [makeTerminalBlock()], cleared: false }],
+    history: ['git status'],
+    ...overrides,
+  });
+}
+
+/** The design's Claude tab (spec 036): five commands, oldest first, the last still running. */
+export function makeClaudeCommands(): ClaudeCommandList {
+  return ClaudeCommandListSchema.parse({
+    commands: [
+      {
+        id: 'toolu_1',
+        state: 'done',
+        command: 'git status',
+        output: ['On branch feat/PROJ-1423'],
+        cut: false,
+        ms: 100,
+      },
+      {
+        id: 'toolu_2',
+        state: 'failed',
+        command: 'npm test -- content-list',
+        output: [' FAIL  src/content/__tests__/bulkArchive.test.ts', 'Tests: 1 failed, 23 passed, 24 total'],
+        cut: false,
+        ms: 3000,
+      },
+      { id: 'toolu_3', state: 'denied', command: 'npm install date-fns@3.6.0' },
+      { id: 'toolu_4', state: 'refused', command: 'git push --force', reason: 'push' },
+      { id: 'toolu_5', state: 'running', command: 'npm run lint' },
+    ],
   });
 }

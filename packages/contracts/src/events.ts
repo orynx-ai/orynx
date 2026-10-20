@@ -18,6 +18,8 @@ export const ServerEventSchema = z.discriminatedUnion('type', [
    * that session's changes. It carries the id only, never a path.
    */
   z.object({ type: z.literal('session.files.changed'), sessionId: z.string().min(1) }),
+  /** Your shell tabs in a session's Terminal changed: output came, a command ended, a tab came or went (spec 036). */
+  z.object({ type: z.literal('session.terminal.changed'), sessionId: z.string().min(1) }),
   /** A setting from Settings › Coding agent, Repositories or Inbox rules was saved; refetch them (spec 005). */
   z.object({ type: z.literal('settings.changed') }),
   /**

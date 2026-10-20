@@ -75,6 +75,16 @@ export function sessionQueryKey(id: string) {
  * A session's changes (spec 013): under the lists' key, so `sessions.changed` refreshes them, but not under the
  * session's own, so its steps changing doesn't run git. `session.files.changed` refreshes them, diffs included.
  */
+/** Claude's commands with their output (spec 036), under the session's own key, so `session.changed` reads them again. */
+export function sessionCommandsQueryKey(id: string) {
+  return [...sessionQueryKey(id), 'commands'] as const;
+}
+
+/** Your shell tabs in the session's Terminal (spec 036), read again on `session.terminal.changed`. */
+export function sessionTerminalQueryKey(id: string) {
+  return [...queryKeys.sessions, 'terminal', id] as const;
+}
+
 export function sessionChangesQueryKey(id: string) {
   return [...queryKeys.sessions, 'changes', id] as const;
 }

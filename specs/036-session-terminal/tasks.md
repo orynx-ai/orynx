@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: Contracts for Claude's commands, the terminal's tabs and blocks, their routes and `session.terminal.changed` (AC-4, AC-19)
+- [x] Task 1: Contracts for Claude’s commands, the terminal’s tabs and blocks, their routes and `session.terminal.changed` (AC-4, AC-19); the two query keys and the event’s mapping came with it, so the app compiles
       Check: pnpm test packages/contracts/src/terminal.test.ts; pnpm typecheck
       Files: packages/contracts/src/terminal.ts, packages/contracts/src/terminal.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/events.ts, packages/contracts/src/index.ts
 - [ ] Task 2: The SDK reader says each command's end with its output, failure and time; the command work carries its call's id (AC-19)
