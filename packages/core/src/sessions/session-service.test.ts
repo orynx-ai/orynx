@@ -403,7 +403,8 @@ describe('running a session', () => {
       endedAt: '2026-10-18T09:56:00.000Z',
     });
     expect(record.session.activities).toEqual([
-      { id: 'step-1', state: 'done', kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true },
+      // The branch comes at Claude's first edit (spec 042).
+      { id: 'step-1', state: 'done', kind: 'worktree', branch: null, base: 'origin/main', fetched: true },
       {
         id: 'step-2',
         state: 'done',
@@ -417,8 +418,9 @@ describe('running a session', () => {
       },
       { id: 'step-3', state: 'done', kind: 'explore', files: ['README.md'] },
       { id: 'step-4', state: 'done', kind: 'plan', items: ['Add a toolbar button'] },
-      { id: 'step-5', state: 'done', kind: 'edit', files: ['src/toolbar.ts'] },
-      { id: 'step-6', state: 'done', kind: 'finished', summary: 'Added a toolbar button.' },
+      { id: 'step-5', state: 'done', kind: 'branch_made', branch: 'feat/PROJ-1423', from: 'orynx' },
+      { id: 'step-6', state: 'done', kind: 'edit', files: ['src/toolbar.ts'] },
+      { id: 'step-7', state: 'done', kind: 'finished', summary: 'Added a toolbar button.' },
     ]);
     expect(record.claudeSessionId).toBe('b2c7e0f4-0000-4000-8000-000000000001');
     // The Changes tab compares the worktree with this commit (spec 013, AC-4).
@@ -1020,7 +1022,7 @@ describe('discarding a session', () => {
   });
 
   it('AC-10: deletes a finished session’s worktree and branch, and keeps the session, Stopped', async () => {
-    const { service, records, repos, home } = await setUp();
+    const { service, records, repos, home } = await setUp({ script: [edit('src/a.ts'), { finish: 'Done.' }] });
     await service.start({ ticketKey: 'PROJ-1423' });
     await settled(records);
 
@@ -1051,7 +1053,8 @@ describe('discarding a session', () => {
     await hasStep(records, 'brief');
     expect(await service.discard('0000000000000001')).toBe('discarded');
     const record = await records.get('0000000000000001');
-    expect(record && kinds(record)).toEqual(['worktree:done', 'brief:done', 'stopped:done', 'discarded:done']);
+    // With no edit there's no branch, so no row names one (spec 042).
+    expect(record && kinds(record)).toEqual(['worktree:done', 'brief:done', 'stopped:done']);
   });
 
   it('AC-10: discards a session that never got a worktree', async () => {
@@ -1121,7 +1124,7 @@ describe('renaming, pinning and deleting a session (spec 039)', () => {
   });
 
   it('AC-32: deletes the session and its worktree, keeps its branch, and every list hears', async () => {
-    const { service, records, repos, home, heard } = await setUp();
+    const { service, records, repos, home, heard } = await setUp({ script: [edit('src/a.ts'), { finish: 'Done.' }] });
     await service.start({ ticketKey: 'PROJ-1423' });
     await settled(records);
     const from = heard.length;
@@ -1137,7 +1140,7 @@ describe('renaming, pinning and deleting a session (spec 039)', () => {
   });
 
   it('AC-32: deletes its branch too, when asked', async () => {
-    const { service, records, repos } = await setUp();
+    const { service, records, repos } = await setUp({ script: [edit('src/a.ts'), { finish: 'Done.' }] });
     await service.start({ ticketKey: 'PROJ-1423' });
     await settled(records);
 
@@ -1232,6 +1235,7 @@ describe('follow-ups (spec 013)', () => {
       'brief:done',
       'explore:done',
       'message:done',
+      'branch_made:done',
       'edit:done',
       'finished:done',
     ]);
@@ -1346,7 +1350,13 @@ describe('follow-ups (spec 013)', () => {
     expect(await service.send(id, 'More')).toEqual({ result: 'sent' });
     const record = await settled(records);
     expect(record.session).toMatchObject({ state: 'stopped', problem: { kind: 'resume', stage: 'working' } });
-    expect(kinds(record).slice(0, 4)).toEqual(['worktree:done', 'brief:done', 'edit:done', 'finished:done']);
+    expect(kinds(record).slice(0, 5)).toEqual([
+      'worktree:done',
+      'brief:done',
+      'branch_made:done',
+      'edit:done',
+      'finished:done',
+    ]);
   });
 
   it("Q3: adds up Claude's working time over each run, and counts nothing while it waits for you to follow up", async () => {
@@ -1528,6 +1538,29 @@ describe('the pull request (spec 014)', () => {
       '[init]\n\tdefaultBranch = main\n[user]\n\tname = Rakesh D\n\temail = you@company.com\n',
     );
   }
+
+  it('AC-31 (spec 042): a change made without Claude’s edit tools gets its branch at Create pull request', async () => {
+    const { service, records, repos, home } = await setUp({
+      script: [{ finish: 'Ran the formatter.' }],
+      later: [[{ finish: 'Format the content list\n\nRan the formatter.' }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await onGitHub(repos);
+    await writeFile(join(home, 'worktrees', id, 'README.md'), '# web-app\n\nFormatted.\n');
+    const opened: FakeOpenedPull[] = [];
+    jira.use(...acceptingPulls({ opened }), acceptingRepository());
+
+    expect(await service.draftPullRequest(id)).toMatchObject({ result: 'draft', branch: 'feat/PROJ-1423' });
+    expect((await records.get(id))?.session.branch).toBeNull();
+    expect(await service.createPullRequest(id, asked)).toMatchObject({ result: 'opened', number: 2841 });
+    const record = await records.get(id);
+    expect(record?.session.branch).toBe('feat/PROJ-1423');
+    expect(record?.session.activities.find((activity) => activity.kind === 'branch_made')).toMatchObject({
+      branch: 'feat/PROJ-1423',
+    });
+    expect(await repos.git(repos.origin, 'branch', '--list', 'feat/PROJ-1423')).toContain('feat/PROJ-1423');
+  });
 
   it('AC-2, AC-4: drafts and creates the pull request: PR open, heard by the lists and the Session screen', async () => {
     const { service, records, repos, home, heard, reports } = await setUp({
@@ -1856,5 +1889,89 @@ describe('the quick read (spec 042)', () => {
     const record = await settled(records);
     expect(sdk.readRuns).toHaveLength(0);
     expect(readingOf(record)).toBeUndefined();
+  });
+});
+
+describe('the branch at the first edit (spec 042)', () => {
+  const id = '0000000000000001';
+  const reading = (branch: string, branchFrom: string) =>
+    JSON.stringify({ intent: 'change', title: 'Fix the tooltip', branch, branchFrom, base: null, steps: [] });
+  const worktreeOf = (home: string) => join(home, 'worktrees', id);
+  const madeRow = (record: StoredSession) =>
+    record.session.activities.find((activity) => activity.kind === 'branch_made');
+
+  it('AC-3: a session that never edits leaves no branch: its worktree is detached, and still has its Changes', async () => {
+    const { service, records, repos, home } = await setUp({
+      script: [{ tool: 'Read', input: { file_path: 'README.md' } }, { finish: 'Ran it.' }],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+    expect(record.session.branch).toBeNull();
+    expect(madeRow(record)).toBeUndefined();
+    expect(await repos.git(worktreeOf(home), 'branch', '--show-current')).toBe('');
+    expect(await repos.git(repos.clone, 'branch', '--list', 'feat/*')).toBe('');
+    expect((await service.get(id))?.worktreePath).toBe(worktreeOf(home));
+  });
+
+  it('AC-15: the first edit makes the branch the quick read named, before the edit, and says where its shape came from', async () => {
+    const { service, records, repos, home, sdk } = await setUp({
+      readAsks: true,
+      script: [edit('src/a.ts'), edit('src/b.ts'), { finish: 'Fixed.' }],
+    });
+    sdk.reads.push(reading('fix/PROJ-1423-login-loop', 'repo_rules'));
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+    expect(record.session).toMatchObject({ branch: 'fix/PROJ-1423-login-loop', branchFrom: 'repo_rules' });
+    expect(madeRow(record)).toMatchObject({ branch: 'fix/PROJ-1423-login-loop', from: 'repo_rules' });
+    expect(kinds(record).filter((kind) => kind.startsWith('branch_made') || kind.startsWith('edit'))).toEqual([
+      'branch_made:done',
+      'edit:done',
+    ]);
+    expect(await repos.git(worktreeOf(home), 'branch', '--show-current')).toBe('fix/PROJ-1423-login-loop');
+  });
+
+  it('AC-18: a branch you named that is on origin is worked on from there, under its own name', async () => {
+    const { service, records, repos, sdk } = await setUp({
+      readAsks: true,
+      script: [edit('src/a.ts'), { finish: 'Fixed.' }],
+    });
+    await repos.commitInOrigin('tooltip.txt', 'fix/PROJ-1423-tooltip');
+    await repos.git(repos.clone, 'fetch', '-q', 'origin');
+    sdk.reads.push(reading('fix/PROJ-1423-tooltip', 'message'));
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+    expect(record.session.activities.find((activity) => activity.kind === 'worktree')).toMatchObject({
+      base: 'origin/fix/PROJ-1423-tooltip',
+    });
+    expect(record.session.branch).toBe('fix/PROJ-1423-tooltip');
+  });
+
+  it('AC-19: a branch you named that is only here takes the next free name, and the reading says it was taken', async () => {
+    const { service, records, repos, sdk } = await setUp({
+      readAsks: true,
+      script: [edit('src/a.ts'), { finish: 'Fixed.' }],
+    });
+    await repos.git(repos.clone, 'branch', 'fix/PROJ-1423-tooltip');
+    sdk.reads.push(reading('fix/PROJ-1423-tooltip', 'message'));
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+    expect(record.session.branch).toBe('fix/PROJ-1423-tooltip-2');
+    expect(record.session.activities.find((activity) => activity.kind === 'reading')).toMatchObject({
+      branch: 'fix/PROJ-1423-tooltip-2',
+      suggested: 'fix/PROJ-1423-tooltip',
+      branchNote: 'taken',
+    });
+  });
+
+  it('AC-31: a follow-up after a session with no edit carries on, and its first edit makes the branch', async () => {
+    const { service, records } = await setUp({
+      script: [{ finish: 'Read it.' }],
+      later: [[edit('src/a.ts'), { finish: 'Changed.' }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect(await service.send(id, 'now change it')).toEqual({ result: 'sent' });
+    await reached(records, 'branch_made');
+    expect((await settled(records)).session.branch).toBe('feat/PROJ-1423');
   });
 });

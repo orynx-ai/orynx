@@ -779,6 +779,46 @@ describe('the Claude adapter', () => {
   });
 });
 
+describe('the first edit (spec 042)', () => {
+  const write = { tool: 'Write', input: { file_path: `${worktree}/src/a.ts`, content: 'x\n' } };
+
+  it('AC-15: asks the session before each edit it allows, reads and commands never', async () => {
+    const { sdk, adapter } = setUp([
+      { tool: 'Read', input: { file_path: `${worktree}/README.md` } },
+      write,
+      write,
+      { finish: 'Done.' },
+    ]);
+    let asked = 0;
+    const id = await adapter.startSession(brief, worktree, editFreely, 'Work in the worktree.', {
+      onEdit: () => {
+        asked += 1;
+        return Promise.resolve(null);
+      },
+    });
+    await new Promise<void>((resolve) => {
+      adapter.onEvent(id, (event) => {
+        if (event.type === 'ended') resolve();
+      });
+    });
+    expect(asked).toBe(2);
+    expect(sdk.runs[0]?.decisions.map((decision) => decision.result.behavior)).toEqual(['allow', 'allow', 'allow']);
+  });
+
+  it('AC-15: an edit the session can’t make a branch for is refused, with its words', async () => {
+    const { sdk, adapter } = setUp([write, { finish: 'Done.' }]);
+    const id = await adapter.startSession(brief, worktree, editFreely, 'Work in the worktree.', {
+      onEdit: () => Promise.resolve("Orynx couldn't make the branch."),
+    });
+    await new Promise<void>((resolve) => {
+      adapter.onEvent(id, (event) => {
+        if (event.type === 'ended') resolve();
+      });
+    });
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({ behavior: 'deny', message: "Orynx couldn't make the branch." });
+  });
+});
+
 describe('writing text with no tools (spec 014)', () => {
   const instructions = "You write a pull request's title and description.";
   const prompt = 'The ticket, PROJ-1423, as Claude got it\n\nAdd bulk archive';

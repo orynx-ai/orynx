@@ -138,6 +138,11 @@ export interface AgentRunOptions {
    * agent's way, and says `ticket` work for each call that did something. None when left out.
    */
   tools?: readonly TicketTool[] | undefined;
+  /**
+   * Asked before each edit the agent is allowed (spec 042): the session makes its branch at the first. A message
+   * refuses the edit with it; null lets it go ahead.
+   */
+  onEdit?: (() => Promise<string | null>) | undefined;
 }
 
 export interface AgentAdapter {

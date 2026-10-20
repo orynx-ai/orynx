@@ -678,6 +678,40 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return ticketPlan(issue);
   }
 
+  /** Each session's branch while it's being made, so two edits at once make one (spec 042). */
+  const branching = new Map<string, Promise<string | null>>();
+
+  /**
+   * Makes the session's branch at Claude's first edit (spec 042), with a row saying so; null once it's there or when
+   * there's none to make. A branch git couldn't make refuses the edit, with words Claude can pass on.
+   */
+  function makeBranch(id: string): Promise<string | null> {
+    const under = branching.get(id);
+    if (under !== undefined) return under;
+    const work = makeBranchNow(id).finally(() => branching.delete(id));
+    branching.set(id, work);
+    return work;
+  }
+
+  async function makeBranchNow(id: string): Promise<string | null> {
+    const record = await records.get(id);
+    const planned = record?.branchPlan ?? null;
+    if (record === null || planned === null || record.session.branch !== null) return null;
+    if (record.worktree === null || record.repository === null) return null;
+    const made = await worktrees.makeBranch(record.repository.path, record.worktree, planned.name, planned.onOrigin);
+    if (!made.ok) {
+      report(record, 'git', 'branch');
+      return "Orynx couldn't make this session's branch, so the edit wasn't made. Say so in your summary.";
+    }
+    await change(id, (current) => {
+      const next = withProgress(current, (progress) =>
+        addStep(progress, { kind: 'branch_made', branch: made.branch, from: planned.from }),
+      );
+      return { ...next, branchPlan: null, session: { ...next.session, branch: made.branch, branchFrom: planned.from } };
+    });
+    return null;
+  }
+
   /**
    * The quick read (spec 042): a running row, one text-only call on the model you picked, then the row with what it
    * read, the session's intent, steps and, with no ticket or pull request, its title. Null when it couldn't read.
@@ -762,7 +796,14 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const pull = record.session.workOn === 'pull_request' ? record.session.pullRequest : null;
     const prepared =
       pull === null
-        ? based(await worktrees.prepare(record.repository.path, reading?.branch ?? `feat/${start.branchName}`, signal))
+        ? based(
+            await worktrees.prepare(
+              record.repository.path,
+              reading?.branch ?? `feat/${start.branchName}`,
+              signal,
+              reading?.onOrigin === true,
+            ),
+          )
         : {
             ok: true as const,
             plan: { branch: start.branchName, base: `origin/${start.branchName}`, remote: true, detach: true },
@@ -771,17 +812,41 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const { plan } = prepared;
     const making = {
       kind: 'worktree',
-      branch: plan.branch,
+      // Your pull request's own branch is there already; any other is made at Claude's first edit (spec 042).
+      branch: pull === null ? null : plan.branch,
       base: plan.base,
       fetched: false,
       ...(pull === null ? {} : { pullRequest: pull.number }),
     } as const;
     const withStep = await change(id, (current) => {
       const next = withProgress(current, (progress) => addStep(progress, making, 'running'));
-      return { ...next, session: { ...next.session, branch: plan.branch } };
+      if (pull !== null) return { ...next, session: { ...next.session, branch: plan.branch } };
+      const branchPlan = {
+        name: plan.branch,
+        from: reading?.branchFrom ?? 'orynx',
+        onOrigin: reading?.onOrigin ?? false,
+      };
+      // A name the quick read gave that another branch has already: the reading says so (spec 042, AC-19).
+      const taken = reading !== null && reading.branchNote === null && plan.branch !== reading.branch;
+      const shown = taken
+        ? withProgress(next, (progress) => ({
+            ...progress,
+            activities: progress.activities.map((activity) =>
+              activity.kind === 'reading'
+                ? { ...activity, branch: plan.branch, suggested: reading.branch, branchNote: 'taken' as const }
+                : activity,
+            ),
+          }))
+        : next;
+      return { ...shown, branchPlan };
     });
     const stepId = withStep?.session.activities.at(-1)?.id ?? '';
-    const made = await worktrees.make(record.repository.path, record.worktree, plan, signal);
+    const made = await worktrees.make(
+      record.repository.path,
+      record.worktree,
+      pull === null ? { ...plan, detach: true } : plan,
+      signal,
+    );
     await change(id, (current) => ({
       ...withProgress(current, (progress) =>
         replaceStep(progress, stepId, { ...making, fetched: made.ok && made.fetched }),
@@ -870,6 +935,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       model,
       effort,
       tools,
+      onEdit: () => makeBranch(id),
     });
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.
@@ -1025,7 +1091,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     // An Ask session carries on in its repository folder, with no branch (spec 026).
     const ask = session.mode === 'ask';
     const folder = ask ? askPlace(record) : record.worktree;
-    if (claudeSessionId === null || folder === null || (!ask && branch === null) || adapter === null) {
+    if (claudeSessionId === null || folder === null || (!ask && !worktreeMade(record)) || adapter === null) {
       return cannot('never_started');
     }
     const key = ticketOf(record);
@@ -1047,7 +1113,17 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     });
     options.onReport?.({ what: 'followed_up', session: id, ticket: key, resumed: true });
     track(
-      startClaude(id, run, brief, folder, branch, claudeSessionId, ticketNote(session), choice)
+      // A Build's branch may still be to make, at its first edit (spec 042).
+      startClaude(
+        id,
+        run,
+        brief,
+        folder,
+        ask ? null : (branch ?? record.branchPlan?.name ?? null),
+        claudeSessionId,
+        ticketNote(session),
+        choice,
+      )
         .catch(() => fail(id, 'other', 'unexpected'))
         .finally(() => {
           run.markStarted(null);
@@ -1355,6 +1431,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     git: branchGit,
     changes: options.changes,
     adapter,
+    ensureBranch: (id) => makeBranch(id),
   });
   /** Each session's create or push under way, which Discard and closing wait for. */
   const publishing = new Map<string, Promise<unknown>>();

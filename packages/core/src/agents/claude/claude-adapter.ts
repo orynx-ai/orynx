@@ -133,6 +133,9 @@ async function ticketTitle(tools: readonly TicketTool[], key: string): Promise<s
   return answer === undefined || answer.error === true || answer.done.action === 'listed' ? null : answer.done.title;
 }
 
+/** The tools that write a file, before the first of which the session makes its branch (spec 042). */
+const editTools = new Set(['Edit', 'Write', 'NotebookEdit']);
+
 /** How a waiting call ended: your answer, Stop, or Claude Code dropping it. */
 type Outcome = 'allow' | 'deny' | 'stopped' | 'dropped';
 
@@ -360,7 +363,7 @@ export function createClaudeAdapter({
       return writeText(text, instructions, { timeoutMs, model, effort });
     },
 
-    startSession(brief, worktree, permissions, instructions, { resume, model, effort, tools = [] } = {}) {
+    startSession(brief, worktree, permissions, instructions, { resume, model, effort, tools = [], onEdit } = {}) {
       const id = randomUUID();
       // The prompt stream: the brief, then each follow-up as it's given, until the input is over.
       const given: SDKUserMessage[] = [];
@@ -437,7 +440,11 @@ export function createClaudeAdapter({
           const turn = (current?.deciding ?? Promise.resolve()).then(decide);
           if (current !== undefined) current.deciding = turn.catch(() => undefined);
           const decision = await turn;
+          // The session makes its branch before the first edit it allows (spec 042).
+          const editing = async () => (editTools.has(tool) ? ((await onEdit?.()) ?? null) : null);
           if (decision.behavior === 'allow') {
+            const refused = await editing();
+            if (refused !== null) return { behavior: 'deny', message: refused };
             const command = input['command'];
             if (tool === 'Bash' && typeof command === 'string') {
               current?.allowed.set(toolUseID, now());
@@ -465,7 +472,12 @@ export function createClaudeAdapter({
             return { behavior: 'deny', message: deniedMessage };
           }
           // An edit, or a ticket's delete, runs as Claude asked (spec 037); only a command can leave the sandbox.
-          if (ask.kind !== 'command') return { behavior: 'allow', updatedInput: input };
+          if (ask.kind !== 'command') {
+            const refused = await editing();
+            return refused === null
+              ? { behavior: 'allow', updatedInput: input }
+              : { behavior: 'deny', message: refused };
+          }
           current?.allowed.set(toolUseID, now());
           send({ type: 'work', sessionId: id, work: { kind: 'command', id: toolUseID, command: ask.command } });
           // A command that always asks runs outside the sandbox, this once (Q2a).

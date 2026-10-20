@@ -46,6 +46,8 @@ export interface AskReading {
   /** What the read suggested when Orynx couldn't use it. */
   suggested: string | null;
   branchNote: 'unusable' | 'taken' | null;
+  /** A branch you named that's on `origin`: the worktree starts from it, and keeps its name (spec 042, Q4). */
+  onOrigin: boolean;
   steps: SessionStepItem[];
 }
 
@@ -129,12 +131,14 @@ export function readingFrom(text: string, input: AskInput): AskReading | null {
     return null;
   }
 
-  const asked = parsed.base?.replace(/^origin\//, '') ?? null;
-  const known = asked !== null && input.hints?.origin.includes(asked) === true;
-  const base = input.hints === null ? null : asked !== null && known ? `origin/${asked}` : input.hints.base;
-
   const named = parsed.branch !== null && parsed.branchFrom !== null;
   const usable = named && usableBranch(parsed.branch ?? '', input.ticketKey);
+  const onOrigin =
+    usable && parsed.branchFrom === 'message' && input.hints?.origin.includes(parsed.branch ?? '') === true;
+
+  const asked = onOrigin ? parsed.branch : (parsed.base?.replace(/^origin\//, '') ?? null);
+  const known = asked !== null && input.hints?.origin.includes(asked) === true;
+  const base = input.hints === null ? null : asked !== null && known ? `origin/${asked}` : input.hints.base;
   // A pull request's words are Orynx's, so they match the page bar's button (spec 042, Q5).
   const pullLabel = input.workOn === 'pull_request' ? 'Push' : 'Pull request';
   const steps = SessionStepsSchema.safeParse(
@@ -149,6 +153,7 @@ export function readingFrom(text: string, input: AskInput): AskReading | null {
     branchFrom: usable ? (parsed.branchFrom ?? 'orynx') : 'orynx',
     suggested: named && !usable ? parsed.branch : null,
     branchNote: named && !usable ? 'unusable' : null,
+    onOrigin,
     steps: steps.success ? steps.data : defaultSteps(parsed.intent, input.workOn),
   };
 }

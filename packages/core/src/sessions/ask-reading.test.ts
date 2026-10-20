@@ -55,6 +55,7 @@ describe('the quick read (spec 042)', () => {
       branchFrom: 'repo_rules',
       suggested: null,
       branchNote: null,
+      onOrigin: false,
       steps: [
         { kind: 'setup', label: 'Set up' },
         { kind: 'run', label: 'Start server' },
@@ -103,6 +104,16 @@ describe('the quick read (spec 042)', () => {
       branchFrom: 'orynx',
       branchNote: null,
     });
+  });
+
+  it('AC-18: a branch you named that is on origin is where the worktree starts, and keeps its name', () => {
+    const named = answer({ branch: 'release/26.10.02', branchFrom: 'message', base: null });
+    expect(readingFrom(named, input)).toMatchObject({
+      base: 'origin/release/26.10.02',
+      branch: 'release/26.10.02',
+      onOrigin: true,
+    });
+    expect(readingFrom(answer({}), input)).toMatchObject({ onOrigin: false });
   });
 
   it('AC-27: steps that break a rule give way to the intent’s own; a pull request’s words are Orynx’s', () => {

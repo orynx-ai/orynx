@@ -64,6 +64,8 @@ export interface PullRequestsOptions {
   changes: ChangesReader;
   /** Null when the server was built without Claude Code: then every draft starts from the ticket (AC-6). */
   adapter: AgentAdapter | null;
+  /** Makes the session's branch when its first edit never came (spec 042); a message when it couldn't. */
+  ensureBranch?: (id: string) => Promise<string | null>;
 }
 
 export interface PullRequests {
@@ -262,7 +264,9 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       if (isWorking(session)) return cannot('working');
       if (session.pullRequest !== null) return cannot('opened');
       const start = startOf(record);
-      if (worktree === null || session.branch === null || start === null) return cannot('no_worktree');
+      // The branch may still be to make, as Create pull request will (spec 042).
+      const branch = session.branch ?? record.branchPlan?.name ?? null;
+      if (worktree === null || branch === null || start === null) return cannot('no_worktree');
 
       const origin = await git.origin(worktree);
       if (!origin.ok) return cannot(origin.problem === 'git' ? 'missing' : origin.problem);
@@ -270,7 +274,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       if (credentials?.ok !== true) return cannot('not_connected');
       const { repository } = origin;
       // Claude may have opened it already with `gh pr create` (spec 026): then the page shows it instead.
-      if (await linkOpen(id, credentials.token, repository, session.branch)) return cannot('opened');
+      if (await linkOpen(id, credentials.token, repository, branch)) return cannot('opened');
       const listed = await changes.list(worktree, start, editOrder(session));
       if (!listed.ok) return cannot('missing');
       if (listed.changes.files.length === 0) return cannot('no_changes');
@@ -309,7 +313,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
         ...text,
         byClaude: drafted !== null,
         files: uncommitted.length,
-        branch: session.branch,
+        branch,
         repository,
         base,
       };
@@ -426,8 +430,15 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     id: string,
     { title, body }: CreatePullRequestRequest,
   ): Promise<CreatePullRequestAnswer | null> {
-    const record = await records.get(id);
-    if (record === null) return null;
+    const found = await records.get(id);
+    if (found === null) return null;
+    // Claude changed files without its edit tools, so the branch is made now (spec 042, AC-31).
+    const refused =
+      found.session.branch === null && found.branchPlan != null && !isWorking(found.session)
+        ? await options.ensureBranch?.(id)
+        : null;
+    if (refused != null) return cannot('no_worktree');
+    const record = (await records.get(id)) ?? found;
     const { session, worktree } = record;
     // The other tab's press got here first (AC-13).
     if (session.pullRequest !== null) {
