@@ -154,3 +154,23 @@ describe('Discard once a pull request is open (spec 014)', () => {
     );
   });
 });
+
+describe('Discard on your pull request’s own branch (spec 031)', () => {
+  it('AC-15: the confirm says only the worktree goes, and the pull request and its branch stay', async () => {
+    const number = 2836;
+    serve(
+      makeSession({
+        ...done,
+        state: 'pr_open',
+        workOn: 'pull_request',
+        branch: 'fix/content-list',
+        pullRequest: makeSessionPullRequest({ number }),
+      }),
+    );
+    const { user } = await renderApp({ route });
+    await pickDiscard(user);
+    expect(screen.getByRole('dialog', { name: "Discard Claude's changes?" })).toHaveAccessibleDescription(
+      `This deletes the worktree. The changes can't be brought back. Pull request #${String(number)} and the branch on GitHub stay.`,
+    );
+  });
+});
