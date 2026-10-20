@@ -39,14 +39,28 @@ async function tick(
   await user.keyboard('{Escape}');
 }
 
+/** Spec 039: Status, Type, Priority and Due are in the Filters sheet; ticks them there and closes it. */
+async function tickInSheet(user: UserEvent, group: string, options: string[]) {
+  await user.click(within(toolbar()).getByRole('button', { name: /^Filters/ }));
+  const sheet = await screen.findByRole('dialog', { name: 'Filters' });
+  for (const option of options) {
+    await user.click(within(within(sheet).getByRole('group', { name: group })).getByRole('checkbox', { name: option }));
+  }
+  await user.keyboard('{Escape}');
+}
+
 describe('TicketsToolbar (spec 020)', () => {
-  it('AC-30: Assignee starts as Me, with Status, Type, Priority and Due beside it', async () => {
+  it('AC-30, AC-1 (039): Source and Assignee (Me), then Filters for the rest', async () => {
     server.use(ticketsHandler());
     await renderApp({ route: '/tickets' });
     await screen.findByText('6 tickets');
 
+    expect(filter('Source · 2')).toBeVisible();
     expect(filter('Assignee · 1')).toBeVisible();
-    for (const name of ['Status', 'Type', 'Priority', 'Due']) expect(filter(name)).toBeVisible();
+    expect(filter('Filters')).toBeVisible();
+    for (const name of ['Status', 'Type', 'Priority', 'Due']) {
+      expect(within(toolbar()).queryByRole('button', { name: new RegExp(`^${name}`) })).toBeNull();
+    }
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
 
@@ -68,7 +82,7 @@ describe('TicketsToolbar (spec 020)', () => {
 
     expect(await screen.findByText('2 tickets')).toBeVisible();
     expect(filter('Assignee')).toBeVisible();
-    expect(filter('Type · 1')).toBeVisible();
+    expect(filter('Filters · 1')).toBeVisible();
   });
 
   it('AC-31: two statuses widen Status, then Type narrows it; Clear filters appears', async () => {
@@ -76,9 +90,9 @@ describe('TicketsToolbar (spec 020)', () => {
     const { user, history } = await renderApp({ route: '/tickets?assignee=anyone' });
     await screen.findByText('9 tickets');
 
-    await tick(user, /^Status/, ['Code Review', 'Done']);
+    await tickInSheet(user, 'Status', ['Code Review', 'Done']);
     expect(count()).toHaveTextContent('4 tickets');
-    await tick(user, /^Type/, ['Bug']);
+    await tickInSheet(user, 'Type', ['Bug']);
 
     expect(count()).toHaveTextContent('1 ticket');
     expect(new URLSearchParams(history.location.search).get('status')).toBe('Code Review,Done');
@@ -91,7 +105,7 @@ describe('TicketsToolbar (spec 020)', () => {
     const { user } = await renderApp({ route: '/tickets' });
     await screen.findByText('6 tickets');
 
-    await tick(user, /^Due/, ['This week']);
+    await tickInSheet(user, 'Due', ['This week']);
 
     expect(count()).toHaveTextContent('3 tickets');
   });

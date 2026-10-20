@@ -87,9 +87,12 @@ export interface Crumb {
   label: string;
   /** Leave out for the current page, which is never a link. */
   to?: Place;
+  /** Crumbs of the page's own instead, such as Tickets' Project and Sprint pickers (spec 039): `BreadcrumbItem`s. */
+  items?: ReactNode;
 }
 
-/** Breadcrumb for the page bar, with router links. At most three crumbs; a long last one truncates. */
+/** Breadcrumb for the page bar, with router links. At most three crumbs; a long last one truncates. A crumb's `items`
+ * stand in its place, as pickers. */
 export function PageBreadcrumb({ crumbs }: { crumbs: readonly Crumb[] }) {
   return (
     <Breadcrumb className="max-w-full min-w-0">
@@ -103,6 +106,14 @@ export function PageBreadcrumb({ crumbs }: { crumbs: readonly Crumb[] }) {
 }
 
 function CrumbItem({ crumb, first }: { crumb: Crumb; first: boolean }) {
+  if (crumb.items !== undefined) {
+    return (
+      <>
+        {first ? null : <BreadcrumbSeparator />}
+        {crumb.items}
+      </>
+    );
+  }
   return (
     <>
       {first ? null : <BreadcrumbSeparator />}

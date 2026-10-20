@@ -62,19 +62,21 @@ describe('TicketsScreen', () => {
     const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' });
     expect(within(crumbs).getByRole('link', { name: 'Tickets' })).toHaveAttribute('href', '/tickets');
     expect(within(crumbs).getByRole('link', { name: 'Tickets' })).not.toHaveAttribute('aria-current');
-    expect(within(crumbs).getByText('Sprint 42')).toHaveAttribute('aria-current', 'page');
+    // AC-10 (039): the project and the sprint are crumbs you can pick from, and the sprint's dates stay as meta.
+    expect(within(crumbs).getByRole('button', { name: 'Project Your sprint' })).toBeVisible();
+    expect(within(crumbs).getByRole('button', { name: 'Sprint Sprint 42' })).toHaveAttribute('title', 'Sprint 42');
     expect(screen.getByText('PROJ · ends 24 Oct')).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: 'Search tickets' })).toBeVisible();
     const view = screen.getByRole('group', { name: 'View' });
     expect(within(view).getByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true');
     expect(within(view).getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'false');
     expect(filter('Assignee · 1')).toBeVisible();
-    expect(filter('Due')).toBeVisible();
+    expect(filter('Filters')).toBeVisible();
     expect(count()).toHaveTextContent('6 tickets');
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
 
-  it('AC-30: Tab goes through Synced (spec 039), Sync, New ticket (spec 037), the search, Board / List, Project and Sprint (spec 020), Source (spec 037), the filters, Clear filters, the board, its column’s + (spec 037), then each card’s checkbox and title', async () => {
+  it('AC-30: Tab goes through Project and Sprint (crumbs since spec 039), Synced, Sync, New ticket (spec 037), the search, Board / List, Source (spec 037), Assignee, Filters, Clear filters, the board, its column’s + (spec 037), then each card’s checkbox and title', async () => {
     server.use(ticketsHandler(), inboxSynced());
     const { user } = await renderApp({ route: '/tickets?type=bug' });
     await screen.findByText('1 ticket');
@@ -84,27 +86,25 @@ describe('TicketsScreen', () => {
       .focus();
     const stops: string[] = [];
 
-    for (let stop = 0; stop < 19; stop += 1) {
+    for (let stop = 0; stop < 16; stop += 1) {
       await user.tab();
       const focused = document.activeElement;
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent.trim() ?? '');
     }
 
     expect(stops).toEqual([
+      // Spec 039: Project and Sprint are the page bar's crumbs, and the rest of the filters wait in the sheet.
+      'Project Your sprint',
+      'Sprint Sprint 42',
       expect.stringMatching(/^Synced .*, Sync activity$/) as unknown as string,
       'Sync',
       'New ticket',
       'Search tickets',
       'Board',
       'List',
-      'Project Your sprint',
-      'Sprint Sprint 42',
       'Source · 2',
       'Assignee · 1',
-      'Status',
-      'Type · 1',
-      'Priority',
-      'Due',
+      'Filters · 1',
       'Clear filters',
       'Board',
       'New ticket in To do',
