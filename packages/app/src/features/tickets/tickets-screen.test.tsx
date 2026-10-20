@@ -8,6 +8,7 @@ import { apiUrl, server } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
 import { designTickets, ticketsHandler, ticketsToday } from '../../test/tickets.ts';
 import { useComposerStore } from '../home/store.ts';
+import { useRecentSearches } from '../../stores/recent-searches.ts';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'], now: ticketsToday });
@@ -503,5 +504,25 @@ describe('Orynx tickets on Tickets (spec 037)', () => {
         "Orynx couldn't read its tickets file, so it kept it as tickets-20261020-081233.unreadable.json and started a new one.",
       ),
     ).toBeVisible();
+  });
+});
+
+describe('recent searches on Tickets (spec 039)', () => {
+  it('AC-45: Enter keeps a search, and an empty focused field lists it; Sessions and ⌘K keep their own', async () => {
+    server.use(ticketsHandler());
+    const { user } = await renderApp({ route: '/tickets' });
+    await screen.findByText('6 tickets');
+    const search = screen.getByRole('searchbox', { name: 'Search tickets' });
+
+    await user.type(search, 'pagination{Enter}');
+    await user.clear(search);
+
+    const recent = screen.getByRole('group', { name: 'Recent searches' });
+    expect(within(recent).getByRole('button', { name: 'Search for pagination' })).toBeVisible();
+    expect(useRecentSearches.getState().lists).toEqual({ sessions: [], search: [], tickets: ['pagination'] });
+
+    await user.click(within(recent).getByRole('button', { name: 'Search for pagination' }));
+    expect(search).toHaveValue('pagination');
+    expect(count()).toHaveTextContent('0 tickets');
   });
 });

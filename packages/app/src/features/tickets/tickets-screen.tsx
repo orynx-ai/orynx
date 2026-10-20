@@ -1,11 +1,14 @@
 // Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list; Refresh, the ticket checkboxes and the floating bar to Ship several: Design: none, the user's call (19 Oct 2026)
-import { Fragment, useRef, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { KanbanIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
 import { defaultTicketsChoice, isOrynxKey, type InboxToolState, type TicketsChoice } from '@devhub/contracts';
 import { Button, Icon, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
+import { RecentSearchBox } from '../../shell/recent-search-box.tsx';
+import { useRecentSearches } from '../../stores/recent-searches.ts';
+import { useTicketDialogStore } from './ticket-dialog-store.ts';
 import { useWide } from '../../shell/use-wide.ts';
 import { toolLine } from '../../words/tool-line.ts';
 import { useNow } from '../../words/use-now.ts';
@@ -57,6 +60,13 @@ export function TicketsScreen() {
   const form = useForm<{ text: string }>({ defaultValues: { text: '' } });
   const text = useWatch({ control: form.control, name: 'text' });
   const assignee = useRef<HTMLButtonElement>(null);
+  const searchBox = useRef<HTMLInputElement | null>(null);
+  // A search counts once you press Enter, or open a ticket while it's typed (spec 039, AC-45).
+  const remember = useRecentSearches((state) => state.remember);
+  const opened = useTicketDialogStore((state) => state.shown?.key ?? null);
+  useEffect(() => {
+    if (opened !== null) remember('tickets', form.getValues('text'));
+  }, [opened, remember, form]);
   const now = useNow();
   const wide = useWide();
 
@@ -122,14 +132,33 @@ export function TicketsScreen() {
 
   // One search field: in the page bar from 768 px, as the design draws it, and at the start of the toolbar
   // below that, so the page bar keeps to one line (Q8g).
+  const { ref: textRef, ...textField } = form.register('text');
   const searchField = (
-    <SearchField
-      size="sm"
-      aria-label="Search tickets"
-      placeholder="Search tickets"
+    <RecentSearchBox
+      place="tickets"
+      query={text}
+      fieldRef={searchBox}
       className={wide ? 'w-55' : 'w-full'}
-      {...form.register('text')}
-    />
+      onPick={(picked) => {
+        form.setValue('text', picked);
+        remember('tickets', picked);
+      }}
+    >
+      <SearchField
+        size="sm"
+        aria-label="Search tickets"
+        placeholder="Search tickets"
+        className="w-full"
+        ref={(element) => {
+          textRef(element);
+          searchBox.current = element;
+        }}
+        {...textField}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') remember('tickets', form.getValues('text'));
+        }}
+      />
+    </RecentSearchBox>
   );
 
   let body: ReactNode;
