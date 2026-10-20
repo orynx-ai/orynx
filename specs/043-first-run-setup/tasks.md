@@ -26,7 +26,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: Every e2e hub starts set up
       Check: pnpm test:e2e e2e/shell.spec.ts
       Files: e2e/set-up.ts, playwright.config.ts, e2e/desktop/desktop.spec.ts
-- [ ] Task 9: README installs from orynx-ai/orynx; install.sh, docs and rule 10 say password (AC-14)
+- [x] Task 9: README installs from orynx-ai/orynx; install.sh, docs and rule 10 say password (AC-14)
       Check: bash -n install.sh; pnpm gates
       Files: README.md, install.sh, learn/local-security.md, docs/architecture.md, apps/landing/index.html, CLAUDE.md, AGENTS.md, .github/copilot-instructions.md, .cursor/rules/00-core.mdc
 - [ ] Task 10: STOP and run /review
