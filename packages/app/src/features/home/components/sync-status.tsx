@@ -6,10 +6,11 @@ import { useInbox, useRefreshInbox } from '../queries.ts';
 import { useNow } from '../use-now.ts';
 
 /**
- * Refresh: one sync of Jira and GitHub now, which also reads Tickets' sprint. Home's page bar has it, and Tickets'
- * (the user's call, 19 Oct 2026).
+ * Sync: one sync of Jira and GitHub now, which also reads Tickets' sprint. Home's page bar has it, and Tickets'
+ * (the user's call, 19 Oct 2026). It said Refresh until spec 039 (the user's call, 20 Oct 2026: "instead of refresh
+ * use sync"); while it runs it says Syncing.
  */
-export function RefreshButton() {
+export function SyncButton() {
   const refresh = useRefreshInbox();
   const syncing = refresh.isPending;
   return (
@@ -23,13 +24,13 @@ export function RefreshButton() {
       }}
     >
       <Icon icon={Rotate01Icon} aria-hidden className={cn(syncing && 'motion-safe:animate-spin')} />
-      Refresh
+      {syncing ? 'Syncing' : 'Sync'}
     </Button>
   );
 }
 
 /**
- * The right of Home's page bar (spec 007, Q8c): when the list last synced, moving on each minute, Refresh, then Sync
+ * The right of Home's page bar (spec 007, Q8c): when the list last synced, moving on each minute, Sync, then Sync
  * activity (spec 035) at the end (the user's call, 20 Oct 2026). Neither shows until a tool is connected (AC-21). Under
  * 768 px the line steps aside, as page bar meta does.
  */
@@ -45,7 +46,7 @@ export function SyncStatus() {
   return (
     <>
       {line === null ? null : <span className="text-small text-muted-foreground max-md:hidden">{line}</span>}
-      <RefreshButton />
+      <SyncButton />
       <SyncActivityButton attention={attention} />
     </>
   );

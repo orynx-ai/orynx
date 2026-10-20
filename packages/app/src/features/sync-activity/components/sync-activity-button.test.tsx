@@ -28,7 +28,7 @@ describe('Sync activity button (spec 035)', () => {
     await renderApp();
 
     const button = await pageBar().findByRole('button', { name: 'Sync activity' });
-    const refresh = pageBar().getByRole('button', { name: 'Refresh' });
+    const refresh = pageBar().getByRole('button', { name: 'Sync' });
     // The user's call, 20 Oct 2026: right-most, a dot in place of the icon.
     expect(refresh.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(button.querySelector('svg')).toBeNull();

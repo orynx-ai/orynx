@@ -161,11 +161,11 @@ test('AC-1, AC-39: Given Jira and GitHub are connected, when Home opens, then th
   await expect(page.getByText('Synced just now')).toBeVisible();
 });
 
-test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it stops on Refresh, the composer and its quick starts (spec 015), the order, the selected tab, the search box, the filter, then each title and action, each with the focus ring', async ({
+test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it stops on Sync, the composer and its quick starts (spec 015), the order, the selected tab, the search box, the filter, then each title and action, each with the focus ring', async ({
   page,
 }) => {
   await openHome(page);
-  await page.getByRole('button', { name: 'Refresh' }).focus();
+  await page.getByRole('button', { name: 'Sync', exact: true }).focus();
 
   const stops: { name: string; ring: boolean }[] = [];
   for (let stop = 0; stop < 15; stop += 1) {
@@ -187,7 +187,7 @@ test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it
   }
 
   expect(stops).toEqual([
-    { name: 'Refresh', ring: true },
+    { name: 'Sync', ring: true },
     { name: 'Describe a task for Claude', ring: true },
     { name: 'Add context', ring: true },
     { name: 'Add a folder', ring: true },

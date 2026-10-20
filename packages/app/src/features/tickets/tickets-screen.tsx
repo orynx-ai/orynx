@@ -1,4 +1,4 @@
-// Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list; Refresh, the ticket checkboxes and the floating bar to Ship several: Design: none, the user's call (19 Oct 2026)
+// Design: docs/design/screens/tickets.html — page bar, filter toolbar (with spec 020's Project and Sprint pickers), board and list; Sync (Refresh until spec 039), the ticket checkboxes and the floating bar to Ship several: Design: none, the user's call (19 Oct 2026)
 import { Fragment, useEffect, useRef, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -18,7 +18,7 @@ import { SprintPickers } from './components/sprint-pickers.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
 import { ShipSelected } from './components/ship-button.tsx';
 import { NewTicketButton, NewTicketDialog, NewTicketInColumn } from './components/new-ticket.tsx';
-import { RefreshButton } from '../home/components/sync-status.tsx';
+import { SyncButton } from '../home/components/sync-status.tsx';
 import {
   defaultFilters,
   filterOptions,
@@ -205,7 +205,7 @@ export function TicketsScreen() {
         actions={
           <>
             {synced === null ? null : <span className="text-small text-muted-foreground max-md:hidden">{synced}</span>}
-            <RefreshButton />
+            <SyncButton />
             {orynxShown && !noSprint ? <NewTicketButton inPageBar compact={!wide} /> : null}
             {noSprint ? null : (
               <>

@@ -85,7 +85,7 @@ describe('TicketsScreen', () => {
     }
 
     expect(stops).toEqual([
-      'Refresh',
+      'Sync',
       'New ticket',
       'Search tickets',
       'Board',
@@ -314,7 +314,7 @@ describe('Refresh, the people search and Ship for several (the user’s call, 19
     await screen.findByText('6 tickets');
 
     expect(screen.getByText(/^Synced /)).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Refresh' }));
+    await user.click(screen.getByRole('button', { name: 'Sync' }));
     await waitFor(() => {
       expect(refreshes).toBe(1);
     });
