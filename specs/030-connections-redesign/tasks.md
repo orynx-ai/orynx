@@ -17,7 +17,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: `api.checkJiraConnection()` and `api.checkGitHubConnection()`, parsed with the contract (AC-8, AC-17)
       Check: pnpm test packages/api-client/src/jira.test.ts packages/api-client/src/github.test.ts
       Files: packages/api-client/src/endpoints/jira.ts, packages/api-client/src/endpoints/github.ts, packages/api-client/src/client.ts, and their tests
-- [ ] Task 6: `StatusButton` (36 px, round, Connected · Needs reconnecting · Not connected looks, tooltip and name) and `StatusSign`, its 20 px look for the key; stories for each look; design-map rows (AC-3, AC-4)
+- [x] Task 6: `StatusButton` (36 px, round, Connected · Needs reconnecting · Not connected looks, tooltip and name) and `StatusSign`, its 20 px look for the key; stories for each look; design-map rows (AC-3, AC-4)
       Check: pnpm test packages/ui/src/components/status-button.test.tsx; pnpm gate component-coverage icon-buttons style-policy
       Files: packages/ui/src/components/status-button.tsx, .stories.tsx, .test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 7: `DetailList` (a `dl` grid, terms muted) and `DialogContent size="narrow"` (520 px, the 16 px gutter under 768 px); stories; design-map rows, and the Dialog row's one exception: Disconnect alone at the foot's start (Q6) (AC-7, AC-25)
