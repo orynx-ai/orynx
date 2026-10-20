@@ -170,7 +170,7 @@ export {
   type SearchGroupProps,
   type SearchResultProps,
 } from './components/search-result.tsx';
-export { Select } from './components/select.tsx';
+export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/select.tsx';
 export {
   SessionItem,
   SessionItemSkeleton,

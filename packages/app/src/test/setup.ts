@@ -18,6 +18,12 @@ if (!('scrollIntoView' in Element.prototype)) {
   Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: () => undefined });
 }
 
+// jsdom has no pointer capture; Radix Select asks for it when it opens under the pointer.
+if (!('hasPointerCapture' in Element.prototype)) {
+  Object.defineProperty(Element.prototype, 'hasPointerCapture', { configurable: true, value: () => false });
+  Object.defineProperty(Element.prototype, 'releasePointerCapture', { configurable: true, value: () => undefined });
+}
+
 // jsdom has no layout, so nothing resizes; a stand-in that never reports lets parts that watch their size run.
 if (typeof window.ResizeObserver !== 'function') {
   Object.defineProperty(window, 'ResizeObserver', {
