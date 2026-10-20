@@ -73,7 +73,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 20: New ticket: the page bar button and each column's + open one form (AC-6 to AC-12) - Built with react-hook-form, the contract's schema and DatePicker. - Defaults are Task, Medium and the column's status. Enter in Title creates the ticket, and Esc returns focus. - Field errors as Q12d, the save error as Q12e, and a pending button.
       Check: pnpm test packages/app/src/features/tickets/components/ticket-form.test.tsx packages/app/src/features/tickets/components/tickets-board.test.tsx
       Files: packages/app/src/features/tickets/components/ticket-form.tsx, new-ticket.tsx, tickets-board.tsx, tickets-screen.tsx, schemas.ts, queries.ts, ticket-words.ts, store.ts, and their tests
-- [ ] Task 21: The ticket dialog for an Orynx ticket (AC-13, AC-14) - The Orynx mark, its fields and the Markdown description. - A Status picker that saves at once, and the created line. - Ship, Open session, Edit and Delete ticket, with no Open in Jira.
+- [x] Task 21: The ticket dialog for an Orynx ticket (AC-13, AC-14) - The Orynx mark, its fields and the Markdown description. - A Status picker that saves at once, and the created line. - Ship, Open session, Edit and Delete ticket, with no Open in Jira.
       Check: pnpm test packages/app/src/features/tickets/components/ticket-dialog.test.tsx
       Files: packages/app/src/features/tickets/components/ticket-dialog.tsx, orynx-ticket-view.tsx, ticket-words.ts, queries.ts, and their tests
 - [ ] Task 22: Edit in the dialog (AC-15, AC-16) - The same form, filled in, and Save changes. - A stale version keeps your edits and says so; Save again writes over.

@@ -1,4 +1,4 @@
-import type { InboxToolState, OpenSprint, Sprint, Ticket, TicketColumn } from '@devhub/contracts';
+import type { InboxToolState, OpenSprint, OrynxTicketCreator, Sprint, Ticket, TicketColumn } from '@devhub/contracts';
 import { personName } from '../../shell/person-name.ts';
 import { agoText } from '../../words/ago.ts';
 import { dayMonth, plural } from '../../words/calendar.ts';
@@ -227,4 +227,23 @@ export const orynxTicketWords = {
   deleteTitle: (key: string) => `Delete ${key}?`,
   deleteLine: "It's gone for good, and its key isn't used again. Sessions started from it keep their brief.",
   deleteFailed: "The ticket wasn't deleted. Try again.",
+  deleted: (key: string) => `${key} was deleted.`,
 } as const;
+
+/**
+ * Spec 037, Q12c, Q12n: who made an Orynx ticket. A session's agent is Claude, and the session's title links to it;
+ * an agent outside Orynx goes by its client's name.
+ */
+export function createdByWords(
+  creator: OrynxTicketCreator,
+  day: string,
+): { by: string; session: { id: string; title: string } | null } {
+  switch (creator.kind) {
+    case 'you':
+      return { by: `Created by you · ${day}`, session: null };
+    case 'session':
+      return { by: 'Created by Claude · ', session: { id: creator.sessionId, title: creator.title } };
+    case 'agent':
+      return { by: `Created by ${creator.name ?? 'another agent'} · ${day}`, session: null };
+  }
+}
