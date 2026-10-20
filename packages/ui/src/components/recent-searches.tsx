@@ -18,6 +18,8 @@ export type RecentSearchesProps = Omit<ComponentProps<'div'>, 'children' | 'ref'
   onClear: () => void;
   /** ↑ on the first search: give focus back to the field. */
   onLeave?: () => void;
+  /** Drawn as a menu is, over the page under its field: a raised panel with the overlay shadow. */
+  floating?: boolean;
   ref?: Ref<RecentSearchesHandle>;
 };
 
@@ -33,6 +35,7 @@ export function RecentSearches({
   onRemove,
   onClear,
   onLeave,
+  floating = false,
   ref,
   className,
   ...props
@@ -62,7 +65,11 @@ export function RecentSearches({
       role="group"
       aria-labelledby={headingId}
       data-slot="recent-searches"
-      className={cn('flex flex-col gap-0.5', className)}
+      className={cn(
+        'flex flex-col gap-0.5',
+        floating && 'rounded-md border border-border bg-raised p-1.5 shadow-overlay',
+        className,
+      )}
       {...props}
     >
       <div className="flex items-center gap-2 ps-2">

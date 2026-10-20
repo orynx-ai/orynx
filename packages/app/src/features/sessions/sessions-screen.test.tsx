@@ -157,3 +157,84 @@ describe('searching and filtering sessions (spec 039)', () => {
     expect(within(content()).getByRole('searchbox', { name: 'Search sessions' })).toBeVisible();
   });
 });
+
+describe('recent searches on the Sessions page (spec 039)', () => {
+  it('AC-21: Enter keeps a search; with the field empty and focused, Recent searches lists them, newest first', async () => {
+    serveSessions([...six]);
+    const { user } = await renderApp({ route: '/sessions' });
+    const search = await within(content()).findByRole('searchbox', { name: 'Search sessions' });
+
+    await user.type(search, 'terminal{Enter}');
+    await user.clear(search);
+    await user.type(search, 'jira{Enter}');
+    await user.clear(search);
+
+    const recent = within(content()).getByRole('group', { name: 'Recent searches' });
+    expect(
+      within(recent)
+        .getAllByRole('button', { name: /^Search for/ })
+        .map((row) => row.textContent),
+    ).toEqual(['jira', 'terminal']);
+  });
+
+  it('AC-21: opening a session it found keeps the search too', async () => {
+    serveSessions([...six]);
+    const { user } = await renderApp({ route: '/sessions' });
+    await user.type(await within(content()).findByRole('searchbox', { name: 'Search sessions' }), 'readme');
+
+    await user.click(within(content()).getByRole('link', { name: /^Tidy the README/ }));
+    await user.click(
+      await within(screen.getByRole('navigation', { name: 'Main' })).findByRole('link', { name: 'View all' }),
+    );
+    await user.click(await within(content()).findByRole('searchbox', { name: 'Search sessions' }));
+
+    expect(within(content()).getByRole('button', { name: 'Search for readme' })).toBeVisible();
+  });
+
+  it('AC-22: ↓ then Enter runs the first recent search again', async () => {
+    serveSessions([...six]);
+    const { user, history } = await renderApp({ route: '/sessions' });
+    const search = await within(content()).findByRole('searchbox', { name: 'Search sessions' });
+    await user.type(search, 'failing{Enter}');
+    await user.clear(search);
+
+    await user.keyboard('{ArrowDown}{Enter}');
+
+    expect(search).toHaveValue('failing');
+    expect(history.location.search).toContain('q=failing');
+    expect(within(content()).getAllByRole('link', { name: /^Fix the failing checks/ })).toHaveLength(1);
+    expect(within(content()).queryByRole('group', { name: 'Recent searches' })).not.toBeInTheDocument();
+  });
+
+  it('AC-23: remove and Clear take searches away for good, and focus stays in the field', async () => {
+    serveSessions([...six]);
+    const { user } = await renderApp({ route: '/sessions' });
+    const search = await within(content()).findByRole('searchbox', { name: 'Search sessions' });
+    await user.type(search, 'terminal{Enter}');
+    await user.clear(search);
+    await user.type(search, 'jira{Enter}');
+    await user.clear(search);
+
+    await user.click(within(content()).getByRole('button', { name: 'Remove “jira” from recent searches' }));
+    expect(search).toHaveFocus();
+    expect(within(content()).queryByRole('button', { name: 'Search for jira' })).not.toBeInTheDocument();
+    await user.click(within(content()).getByRole('button', { name: 'Clear recent searches' }));
+
+    expect(search).toHaveFocus();
+    expect(within(content()).queryByRole('group', { name: 'Recent searches' })).not.toBeInTheDocument();
+    expect(localStorage.getItem('devhub.recent-searches')).toContain('"sessions":[]');
+  });
+
+  it('Esc puts the list away and keeps focus in the field', async () => {
+    serveSessions([...six]);
+    const { user } = await renderApp({ route: '/sessions' });
+    const search = await within(content()).findByRole('searchbox', { name: 'Search sessions' });
+    await user.type(search, 'jira{Enter}');
+    await user.clear(search);
+
+    await user.keyboard('{Escape}');
+
+    expect(within(content()).queryByRole('group', { name: 'Recent searches' })).not.toBeInTheDocument();
+    expect(search).toHaveFocus();
+  });
+});

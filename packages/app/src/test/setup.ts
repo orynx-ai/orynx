@@ -8,6 +8,7 @@ import { useTerminalTabs } from '../features/sessions/store.ts';
 import { useTicketsStore } from '../features/tickets/store.ts';
 import { useTicketDialogStore } from '../features/tickets/ticket-dialog-store.ts';
 import { useConnectionStore } from '../stores/connection-store.ts';
+import { useRecentSearches } from '../stores/recent-searches.ts';
 import { useThemeStore } from '../stores/theme-store.ts';
 import { useUiStore } from '../stores/ui-store.ts';
 import { FakeEventSource } from './fake-event-source.ts';
@@ -74,6 +75,7 @@ afterEach(() => {
   useTicketDialogStore.setState(useTicketDialogStore.getInitialState());
   useTestPopUpStore.setState(useTestPopUpStore.getInitialState());
   useTerminalTabs.setState(useTerminalTabs.getInitialState());
+  useRecentSearches.setState(useRecentSearches.getInitialState());
   FakeEventSource.instances = [];
   FakeIntersectionObserver.instances = [];
 });

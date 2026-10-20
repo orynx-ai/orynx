@@ -35,3 +35,6 @@ export const One: Story = { args: { items: ['jira'] } };
 export const LongSearch: Story = {
   args: { items: ['Show read receipts for every announcement in the analytics dashboard', 'jira'] },
 };
+
+/** As a page draws it under its search field: a raised panel over the page. */
+export const Floating: Story = { args: { floating: true } };

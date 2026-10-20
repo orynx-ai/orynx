@@ -5,6 +5,8 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import type { SessionSummary } from '@devhub/contracts';
 import { Button, EmptyState, FilterMenu, SearchField, SessionItem, SessionItemSkeleton } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb, Toolbar } from '../../shell/page-frame.tsx';
+import { RecentSearchBox } from '../../shell/recent-search-box.tsx';
+import { useRecentSearches } from '../../stores/recent-searches.ts';
 import { SessionMenu } from './components/session-menu.tsx';
 import { SessionsLoadError } from './components/sessions-load-error.tsx';
 import { useSessions } from './queries.ts';
@@ -34,6 +36,8 @@ export function SessionsScreen() {
   const form = useForm<{ q: string }>({ defaultValues: { q: filters.q } });
   const pinnedId = useId();
   const recentId = useId();
+  // A search counts once you press Enter, or open a session it found (spec 039, AC-21).
+  const remember = useRecentSearches((state) => state.remember);
 
   const change = (next: SessionFilters) => {
     void navigate({ search: searchFromSessionFilters(next), replace: true });
@@ -60,7 +64,13 @@ export function SessionsScreen() {
         ready={session.ready}
         actions={<SessionMenu session={session} afterDelete={() => box.current?.focus()} />}
       >
-        <Link to="/sessions/$sessionId" params={{ sessionId: session.id }} />
+        <Link
+          to="/sessions/$sessionId"
+          params={{ sessionId: session.id }}
+          onClick={() => {
+            remember('sessions', filters.q);
+          }}
+        />
       </SessionItem>
     </li>
   );
@@ -74,6 +84,14 @@ export function SessionsScreen() {
           query={filters.q}
           searchRef={box}
           onQueryChange={(q) => {
+            change({ ...filters, q });
+          }}
+          onSubmit={() => {
+            remember('sessions', filters.q);
+          }}
+          onPick={(q) => {
+            form.setValue('q', q);
+            remember('sessions', q);
             change({ ...filters, q });
           }}
         />
@@ -169,12 +187,18 @@ function SessionSearch({
   query,
   searchRef,
   onQueryChange,
+  onSubmit,
+  onPick,
 }: {
   form: UseFormReturn<{ q: string }>;
   query: string;
   /** The box, for Clear filters and a delete to put focus back in it. */
   searchRef: RefObject<HTMLInputElement | null>;
   onQueryChange: (query: string) => void;
+  /** Enter: the search counts as one of your recent ones. */
+  onSubmit: () => void;
+  /** One of your recent searches, picked to run again. */
+  onPick: (query: string) => void;
 }) {
   const { ref, ...field } = form.register('q', {
     onChange: (event: ChangeEvent<HTMLInputElement>) => {
@@ -198,18 +222,21 @@ function SessionSearch({
       aria-label="Search sessions"
       className="w-full md:w-60"
       onSubmit={(event) => {
-        // Results follow each key, so Enter has nothing left to do.
+        // Results follow each key, so Enter only keeps the search among your recent ones.
         event.preventDefault();
+        onSubmit();
       }}
     >
-      <SearchField
-        size="sm"
-        aria-label="Search sessions"
-        placeholder="Search sessions"
-        className="w-full"
-        ref={boxRef}
-        {...field}
-      />
+      <RecentSearchBox place="sessions" query={query} onPick={onPick} fieldRef={searchRef}>
+        <SearchField
+          size="sm"
+          aria-label="Search sessions"
+          placeholder="Search sessions"
+          className="w-full"
+          ref={boxRef}
+          {...field}
+        />
+      </RecentSearchBox>
     </form>
   );
 }
