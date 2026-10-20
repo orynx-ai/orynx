@@ -101,8 +101,8 @@ describe('SegmentedControl', () => {
     );
     const block = screen.getByRole('button', { name: 'Block' });
     // jsdom draws no colours, so the class stands in: the danger colour replaces the pressed one's ink.
-    expect(block).toHaveClass('data-[state=on]:text-danger');
-    expect(block).not.toHaveClass('data-[state=on]:text-foreground');
+    expect(block).toHaveClass('aria-pressed:text-danger');
+    expect(block).not.toHaveClass('aria-pressed:text-foreground');
     expect(block).toHaveAttribute('aria-pressed', 'false');
 
     await user.click(block);
