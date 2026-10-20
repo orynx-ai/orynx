@@ -46,6 +46,15 @@ The same text is saved as the session's `brief.md` (0600), and the Session scree
 
 A session with no ticket gets its title from your message's first line (80 characters, cut on a word), and its branch from the title's first five words in lower-case ASCII (`feat/add-a-csv-export-to`, or `feat/task` when nothing is left). Its `source` is null, so the Session screen says Sessions / its title and has no Ticket tab, and its inbox row leads with Orynx's own mark (`SourceMark source="orynx"`). Its pull request (spec 014) has no key in front of its title and no Jira line: `pull-requests.ts` gives such a session no ticket key, so the draft's prompt says "The task, as Claude got it", `draftInstructionsFor()` asks Claude for no key, and when Claude can't draft, the title is the session's own (AC-34).
 
+## Orynx's own tickets (spec 037)
+
+An `ORX-` key is one of Orynx's own tickets, and a chip of it is a ticket chip like Jira's (`kind: 'jira'`, which means "a ticket"):
+
+- `context-reader.ts` reads it from Orynx, never Jira, so it works with Jira not connected. A key Orynx doesn't hold fails as `not_found`, said as Orynx's.
+- `brief.ts` names it "Orynx ticket ORX-2 (Bug): …", with its priority, status and due day on one line before the description.
+- `chooseFolder()` lets any folder be its own, since it belongs to no Jira project.
+- The chip, the context dialog and Add context's list draw the Orynx mark by the key. Add context's item is "Ticket", and its list holds Orynx's tickets even with Jira not connected.
+
 ## Files by path (spec 022, B)
 
 A file chip holds a path, never the file's text. A browser never tells a page a file's path, so File from this computer asks the local server to open the computer's own file picker (`POST /api/file-picker`), as Choose folder does (`learn/settings-and-folders.md`). `createFilePicker()` in `folder-picker.ts` runs `osascript -l JavaScript` on macOS, which answers the paths as JSON, so a name with a line break stays one file. On Linux it runs `zenity --file-selection --multiple` or `kdialog --getopenfilename --multiple`, which answer one path a line. Several files come back at once, with `~` for your home folder, or null on Cancel.
