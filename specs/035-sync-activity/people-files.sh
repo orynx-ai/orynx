@@ -1,11 +1,13 @@
 #!/bin/sh
 # Spec 035: the people-owned files that go with feat/035-sync-activity. Agents may not edit them, so a person
 # runs this from the repo root, then reviews it with git diff and commits it on the branch:
-#   sh specs/035-sync-activity/people-files.sh
-# It needs the design where it was handed over, in ~/Downloads.
+#   sh specs/035-sync-activity/people-files.sh [path/to/the-design.zip]
+# It needs the design where it was handed over, in ~/Downloads, unless you pass its path: macOS may keep a terminal
+# out of ~/Downloads ("Operation not permitted"), even with sudo.
 set -e
+design="${1:-$HOME/Downloads/10b · Sync activity (modal)-html.zip}"
+case "$design" in /*) ;; *) design="$(pwd)/$design" ;; esac
 cd "$(dirname "$0")/../.."
-design="$HOME/Downloads/10b · Sync activity (modal)-html.zip"
 [ -f "$design" ] || { echo "Not found: $design"; exit 1; }
 
 # 1. The design (spec 035's Design section): the HTML export needs the files beside it, so it gets a folder.
