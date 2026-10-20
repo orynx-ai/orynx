@@ -16,14 +16,21 @@ afterEach(async () => {
 });
 
 /** A worktree of its own, and /bin/sh as your shell with nothing of the real home, so no profile runs. */
-async function setUp({ stopGraceMs = 5_000 } = {}) {
+async function setUp({ stopGraceMs = 5_000, blocksKept }: { stopGraceMs?: number; blocksKept?: number } = {}) {
   const worktree = await realpath(await mkdtemp(join(tmpdir(), 'orynx-terminal-')));
   folders.push(worktree);
   const events = createEventBus();
   const heard: ServerEvent[] = [];
   events.subscribe((event) => heard.push(event));
   const env = { PATH: '/usr/bin:/bin', HOME: worktree, SHELL: '/bin/sh', LANG: 'C', MARKER: 'yours' };
-  const terminal = createTerminalService({ events, env, home: worktree, eventMs: 0, stopGraceMs });
+  const terminal = createTerminalService({
+    events,
+    env,
+    home: worktree,
+    eventMs: 0,
+    stopGraceMs,
+    ...(blocksKept === undefined ? {} : { blocksKept }),
+  });
   services.push(terminal);
   return { terminal, worktree, heard };
 }
@@ -144,8 +151,9 @@ describe('the terminal service', () => {
     expect(terminal.clear(session, 'tab-9')).toBe(false);
   });
 
-  it('AC-16: keeps the last 2,000 lines of a long output, and the last 100 commands of a tab', async () => {
-    const { terminal, worktree } = await setUp();
+  it('AC-16: keeps the last 2,000 lines of a long output, and the last commands of a tab', async () => {
+    // Three kept, not 100: each command starts a login shell, and 101 of them crowd a loaded run.
+    const { terminal, worktree } = await setUp({ blocksKept: 3 });
     await terminal.run(session, 'tab-1', 'i=0; while [ $i -lt 3000 ]; do echo "line $i"; i=$((i+1)); done', worktree);
     const block = await lastEnded(terminal);
     expect(block).toMatchObject({ state: 'done', cut: true });
@@ -153,13 +161,13 @@ describe('the terminal service', () => {
     expect(block.output).toHaveLength(2000);
     expect(block.output.at(-1)).toBe('line 2999');
 
-    for (let n = 0; n < 101; n++) {
+    for (const n of [1, 2, 3]) {
       await terminal.run(session, 'tab-1', `echo ${String(n)}`, worktree);
       await lastEnded(terminal);
     }
-    const { blocks } = terminal.read(session, worktree).tabs[0] ?? { blocks: [] };
-    expect(blocks).toHaveLength(100);
-    expect(blocks[0]?.command).toBe('echo 1');
+    const kept = terminal.read(session, worktree);
+    expect(kept.tabs[0]?.blocks.map((one) => one.command)).toEqual(['echo 1', 'echo 2', 'echo 3']);
+    expect(kept.history).toEqual(['echo 1', 'echo 2', 'echo 3']);
   });
 
   it('AC-16: removes the colour codes a command prints', async () => {

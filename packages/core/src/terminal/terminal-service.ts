@@ -30,6 +30,8 @@ export interface TerminalServiceOptions {
   eventMs?: number;
   /** How long Stop waits after SIGTERM before SIGKILL; 5 s. */
   stopGraceMs?: number;
+  /** How many commands a tab keeps, and ↑ walks; `terminalLimits.blocks`, fewer in tests. */
+  blocksKept?: number;
   now?: () => number;
 }
 
@@ -126,6 +128,7 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
   const { events, env, home } = options;
   const eventMs = options.eventMs ?? 250;
   const stopGraceMs = options.stopGraceMs ?? 5_000;
+  const blocksKept = options.blocksKept ?? terminalLimits.blocks;
   const now = options.now ?? Date.now;
   const shell = env['SHELL'] ?? '/bin/sh';
   const sessions = new Map<string, SessionTerminal>();
@@ -267,7 +270,7 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
       if (tab.blocks.at(-1)?.end === null) return { result: 'busy' };
       const terminal = terminalOf(sessionId);
       terminal.blocksMade += 1;
-      terminal.history = [...terminal.history, command].slice(-terminalLimits.blocks);
+      terminal.history = [...terminal.history, command].slice(-blocksKept);
       const block: Block = {
         id: `block-${String(terminal.blocksMade)}`,
         command,
@@ -277,7 +280,7 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
         ended: Promise.resolve(),
         end: null,
       };
-      tab.blocks = [...tab.blocks, block].slice(-terminalLimits.blocks);
+      tab.blocks = [...tab.blocks, block].slice(-blocksKept);
       if (await isFolder(worktree)) start(sessionId, block, worktree);
       else block.end = { state: 'no_worktree' };
       tell(sessionId);
