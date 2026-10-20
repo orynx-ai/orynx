@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ServerEventSchema, StatusSchema } from './index.ts';
+import { ConnectionCheckSchema, IntegrationStatusSchema, ServerEventSchema, StatusSchema } from './index.ts';
 import { makeStatus } from './testing.ts';
 
 describe('StatusSchema', () => {
@@ -22,6 +22,25 @@ describe('StatusSchema', () => {
     });
     expect(status.integrations.github.state).toBe('connected');
     expect(status.integrations.jira.state).toBe('not_connected');
+  });
+});
+
+describe('IntegrationStatusSchema (spec 030)', () => {
+  it('AC-7: carries who Orynx is signed in as and when the tool was last asked, both optional', () => {
+    const status = { state: 'connected', detail: 'Personal API token for x.atlassian.net' };
+    expect(IntegrationStatusSchema.parse(status)).toEqual(status);
+    const full = { ...status, account: 'me@example.com', checkedAt: '2026-10-20T08:00:00.000Z' };
+    expect(IntegrationStatusSchema.parse(full)).toEqual(full);
+    expect(IntegrationStatusSchema.safeParse({ ...status, checkedAt: 'two minutes ago' }).success).toBe(false);
+  });
+});
+
+describe('ConnectionCheckSchema', () => {
+  it('AC-8: is the fresh status and how long the tool took, in whole milliseconds', () => {
+    const check = { status: { state: 'connected', detail: null }, ms: 180 };
+    expect(ConnectionCheckSchema.parse(check)).toEqual(check);
+    expect(ConnectionCheckSchema.safeParse({ ...check, ms: 1.5 }).success).toBe(false);
+    expect(ConnectionCheckSchema.safeParse({ ...check, ms: -1 }).success).toBe(false);
   });
 });
 
