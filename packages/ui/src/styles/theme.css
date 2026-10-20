@@ -140,6 +140,13 @@
 }
 
 @layer base {
+  /* Thin, quiet scrollbars, so a mouse's always-on bars don't crowd the sidebar, the board and sheets (the user's call,
+     20 Oct 2026, spec 039): a control border's colour, on nothing. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-control) transparent;
+  }
+
   html {
     background: var(--bg-canvas);
     /* The 56 px page bar stays at the top: whatever gets focus or is linked to stops below it. */

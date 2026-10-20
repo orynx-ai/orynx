@@ -50,7 +50,12 @@ export function Tabs({ ref, value, ...props }: ComponentProps<typeof TabsPrimiti
 
 export function TabsList({ className, ...props }: ComponentProps<typeof TabsPrimitive.List>) {
   return (
-    <TabsPrimitive.List className={cn('flex gap-6 overflow-x-auto border-b border-border', className)} {...props} />
+    // Sideways only: overflow-x alone makes the other axis scroll too, and a tab's 1 px past the strip drew a
+    // vertical scrollbar beside every tab list (the user's report, 20 Oct 2026).
+    <TabsPrimitive.List
+      className={cn('flex gap-6 overflow-x-auto overflow-y-hidden border-b border-border', className)}
+      {...props}
+    />
   );
 }
 
