@@ -36,7 +36,23 @@ export type Prepared = { ok: true; plan: WorktreePlan } | { ok: false; problem: 
 export type Made = { ok: true; fetched: boolean; startCommit: string } | { ok: false; problem: WorktreeProblem };
 export type Removed = { ok: true } | { ok: false; problem: WorktreeProblem };
 
+/**
+ * What the quick read learns about a repository's branches (spec 042): where a worktree starts by default, the
+ * names of `origin`'s branches, newest first, and of your own newest branches. Names only.
+ */
+export interface BranchHints {
+  base: string;
+  origin: string[];
+  yours: string[];
+}
+
+/** How many of origin's branch names, and of your own, the quick read gets. */
+const mostOriginNames = 200;
+const mostOwnNames = 20;
+
 export interface Worktrees {
+  /** Branch names for the quick read (spec 042); null when the folder isn't a repository. Fast: no network. */
+  hints(repo: string): Promise<BranchHints | null>;
   /** Finds the default branch and the first free branch name for this ticket (Q1, Q2). Fast: no network. */
   prepare(repo: string, key: string, signal?: AbortSignal): Promise<Prepared>;
   /**
@@ -112,6 +128,44 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
   }
 
   return {
+    async hints(repo) {
+      if (!(await isRepository(repo))) return null;
+      try {
+        const { base } = await defaultBase(repo);
+        // Your identity as git commits with it, from your settings or the environment.
+        const ident = await git(repo).raw(['var', 'GIT_AUTHOR_IDENT']);
+        const email = /<([^>]*)>/.exec(ident)?.[1] ?? null;
+        const refs = (
+          await git(repo).raw([
+            'for-each-ref',
+            '--sort=-committerdate',
+            '--format=%(refname)%09%(authoremail)',
+            'refs/heads/',
+            'refs/remotes/origin/',
+          ])
+        )
+          .split('\n')
+          .map((line) => line.split('\t'))
+          .map(([ref = '', author = '']) => ({ ref, author }));
+        const nameOf = (ref: string) => ref.replace(/^refs\/(?:heads|remotes\/origin)\//, '');
+        const fromOrigin = refs.filter(
+          ({ ref }) => ref.startsWith('refs/remotes/origin/') && ref !== 'refs/remotes/origin/HEAD',
+        );
+        const defaultName = nameOf(`refs/remotes/${base}`);
+        const yours = refs
+          .filter(({ ref, author }) => ref !== '' && author === `<${email ?? ''}>` && !ref.endsWith('/HEAD'))
+          .map(({ ref }) => nameOf(ref))
+          .filter((name) => name !== defaultName && name !== base);
+        return {
+          base,
+          origin: fromOrigin.map(({ ref }) => nameOf(ref)).slice(0, mostOriginNames),
+          yours: [...new Set(yours)].slice(0, mostOwnNames),
+        };
+      } catch {
+        return null;
+      }
+    },
+
     async prepare(repo, key, signal) {
       if (!(await isRepository(repo))) return { ok: false, problem: { kind: 'folder' } };
       if (signal?.aborted) return { ok: false, problem: { kind: 'stopped' } };

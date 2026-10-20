@@ -401,3 +401,35 @@ describe('removing a worktree', () => {
     expect(await repos.git(repos.clone, 'branch', '--format=%(refname:short)')).toBe('main\nmine');
   });
 });
+
+describe('what the quick read learns about branches (spec 042)', () => {
+  it('AC-16, AC-23: gives the default base, origin’s branch names, and your own newest branches, never someone else’s', async () => {
+    const { repos, worktrees } = await setUp();
+    // Who you are comes from your git settings, as on your own computer.
+    await repos.git(repos.clone, 'config', 'user.email', 'test@example.com');
+    const commitOn = async (branch: string, author?: string) => {
+      await repos.git(repos.clone, 'checkout', '-q', '-b', branch, 'main');
+      await writeFile(join(repos.clone, `${branch.replaceAll('/', '-')}.txt`), branch);
+      await repos.git(repos.clone, 'add', '.');
+      await repos.git(repos.clone, 'commit', '-q', '-m', branch, ...(author === undefined ? [] : ['--author', author]));
+    };
+    await commitOn('rakesh/mai-2161-prefetch');
+    await commitOn('feature/someone-elses', 'Other <other@example.com>');
+    await commitOn('rakesh/mai-2190-connect');
+    await repos.git(repos.clone, 'push', '-q', 'origin', 'rakesh/mai-2190-connect', 'feature/someone-elses');
+    await repos.git(repos.clone, 'checkout', '-q', 'main');
+    await repos.git(repos.clone, 'fetch', '-q', 'origin');
+
+    const hints = await worktrees.hints(repos.clone);
+    expect(hints?.base).toBe('origin/main');
+    expect(hints?.origin).toEqual(expect.arrayContaining(['main', 'rakesh/mai-2190-connect', 'feature/someone-elses']));
+    expect(hints?.origin).not.toContain('HEAD');
+    // Newest first; these two were made in the same second, so either may come first.
+    expect(hints?.yours.toSorted()).toEqual(['rakesh/mai-2161-prefetch', 'rakesh/mai-2190-connect']);
+  });
+
+  it('AC-20: a folder that isn’t a repository has none', async () => {
+    const { repos, worktrees } = await setUp();
+    expect(await worktrees.hints(repos.worktrees)).toBeNull();
+  });
+});

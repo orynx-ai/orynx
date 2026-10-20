@@ -22,9 +22,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: The stepper moves by the session's own order; Claude's `changeSteps` keeps what's done, moves forward only, never onto or past a step only Orynx or you move; a port opening moves to Run; finishing goes to Review, Answer or the last step before a pull request (AC-2, AC-24, AC-25, AC-26, AC-28, AC-29, AC-31)
       Check: pnpm test packages/core/src/sessions/progress.test.ts packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/pull-requests.test.ts; pnpm typecheck
       Files: packages/core/src/sessions/progress.ts, packages/core/src/sessions/progress.test.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/pull-requests.ts
-- [ ] Task 6: Read the repository's written branch rules (capped at 8 KB, only paragraphs about branches) and your 20 newest branch names (AC-16, AC-20)
-      Check: pnpm test packages/core/src/sessions/branch-rules.test.ts
-      Files: packages/core/src/sessions/branch-rules.ts, packages/core/src/sessions/branch-rules.test.ts
+- [x] Task 6: Read the repository's written branch rules (sections about branches whole, other paragraphs only when they say how branches are named, 8 KB) and, through `worktrees.hints`, the default base, origin's branch names and your 20 newest branches (AC-16, AC-20, AC-23)
+      Check: pnpm test packages/core/src/sessions/branch-rules.test.ts packages/core/src/sessions/worktrees.test.ts
+      Files: packages/core/src/sessions/branch-rules.ts, packages/core/src/sessions/branch-rules.test.ts, packages/core/src/sessions/worktrees.ts, packages/core/src/sessions/worktrees.test.ts
 - [ ] Task 7: Let `AgentAdapter.write()` take the composer's model and effort (AC-1)
       Check: pnpm test packages/core/src/agents/claude/claude-adapter.test.ts
       Files: packages/core/src/agents/agent-adapter.ts, packages/core/src/agents/claude/claude-adapter.ts, packages/core/src/agents/claude/claude-adapter.test.ts
