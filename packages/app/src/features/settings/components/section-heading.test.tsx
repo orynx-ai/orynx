@@ -16,4 +16,12 @@ describe('SectionHeading', () => {
 
     expect(container.querySelector('p')).toBeNull();
   });
+
+  it('041: draws its action after the heading', () => {
+    render(<SectionHeading id="agent" icon={RoboticIcon} title="Agent" action={<button type="button">Pick</button>} />);
+
+    const heading = screen.getByRole('heading', { name: 'Agent' });
+    const action = screen.getByRole('button', { name: 'Pick' });
+    expect(heading.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
