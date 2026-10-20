@@ -40,11 +40,21 @@ export const SessionSourceSchema = z.discriminatedUnion('kind', [
 ]);
 export type SessionSource = z.infer<typeof SessionSourceSchema>;
 
+/**
+ * What a finished session is ready for, from what Claude did (spec 031: the stepper follows Claude's work, and so does
+ * "Done"): a pull request, a push to your pull request's own branch, or nothing, when it was an Ask or Claude edited
+ * no file. The server works it out each time it sends a session.
+ */
+export const SessionReadySchema = z.enum(['pull_request', 'push', 'nothing']);
+export type SessionReady = z.infer<typeof SessionReadySchema>;
+
 /** One row in the sidebar and in the full session list. */
 export const SessionSummarySchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   state: SessionStateSchema,
+  /** A session saved before this was kept with none: the server works it out as it sends one. */
+  ready: SessionReadySchema.default('pull_request'),
   /** Null when the session was started from the composer without a ticket or pull request. */
   source: SessionSourceSchema.nullable(),
   /** Last activity; lists are ordered by it, newest first. */

@@ -17,6 +17,23 @@ export const sessionStateLabels: Record<SessionItemState, string> = {
   stopped: 'Stopped',
 };
 
+/**
+ * What a finished session is ready for, from what Claude did (spec 031): a pull request, a push to your pull
+ * request's own branch, or nothing, after an Ask or a Build that edited no file.
+ */
+export type SessionItemReady = 'pull_request' | 'push' | 'nothing';
+
+const doneLabels: Record<SessionItemReady, string> = {
+  pull_request: sessionStateLabels.done,
+  push: 'Done, ready to push',
+  nothing: 'Done',
+};
+
+/** The state's word; "Done" says what the session is ready for. */
+export function sessionStateLabel(state: SessionItemState, ready: SessionItemReady = 'pull_request'): string {
+  return state === 'done' ? doneLabels[ready] : sessionStateLabels[state];
+}
+
 const iconVariants = cva('inline-flex size-6 shrink-0 items-center justify-center rounded-full', {
   variants: {
     state: {
@@ -92,6 +109,8 @@ export type SessionItemProps = Omit<ComponentProps<'a'>, 'title'> & {
   /** What the session was started from, for example `PROJ-1423` or `PR #2836`. */
   source?: string | undefined;
   state: SessionItemState;
+  /** What "Done" is ready for. */
+  ready?: SessionItemReady;
   /** Render the child element (for example a router link) as the row. */
   asChild?: boolean;
 };
@@ -105,6 +124,7 @@ export function SessionItem({
   title,
   source,
   state,
+  ready,
   asChild = false,
   className,
   children,
@@ -136,7 +156,7 @@ export function SessionItem({
               </span>{' '}
             </>
           )}
-          <span className={wordVariants({ state })}>{sessionStateLabels[state]}</span>
+          <span className={wordVariants({ state })}>{sessionStateLabel(state, ready)}</span>
         </span>
       </span>
     </Comp>

@@ -26,7 +26,13 @@ export function SessionsScreen() {
           <ul aria-label="Sessions" className="m-0 flex list-none flex-col gap-0.5 p-0">
             {sessions.data.sessions.map((session) => (
               <li key={session.id}>
-                <SessionItem asChild title={session.title} source={sourceLabel(session.source)} state={session.state}>
+                <SessionItem
+                  asChild
+                  title={session.title}
+                  source={sourceLabel(session.source)}
+                  state={session.state}
+                  ready={session.ready}
+                >
                   <Link to="/sessions/$sessionId" params={{ sessionId: session.id }} />
                 </SessionItem>
               </li>

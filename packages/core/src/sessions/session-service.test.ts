@@ -1305,6 +1305,20 @@ describe('the session detail (spec 013)', () => {
     });
   });
 
+  it('says what the finished session is ready for, from what Claude did (spec 031)', async () => {
+    const answered = await setUp();
+    await answered.service.start({ ticketKey: 'PROJ-1423' });
+    await settled(answered.records);
+    expect(await answered.service.get(id)).toMatchObject({ state: 'done', ready: 'nothing' });
+
+    const edited = await setUp({
+      script: [{ tool: 'Write', input: { file_path: 'src/toolbar.ts', content: 'x\n' } }, { finish: 'Added it.' }],
+    });
+    await edited.service.start({ ticketKey: 'PROJ-1423' });
+    await settled(edited.records);
+    expect(await edited.service.get(id)).toMatchObject({ state: 'done', ready: 'pull_request' });
+  });
+
   it('AC-14: says the follow-up box is open, or why not', async () => {
     const done = await setUp();
     await done.service.start({ ticketKey: 'PROJ-1423' });

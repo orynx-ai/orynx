@@ -17,7 +17,7 @@ export function sessionsByTicket(
   }
   const joined = new Map<string, Ticket['session']>();
   for (const [key, session] of newest) {
-    if (session.state !== 'stopped') joined.set(key, { id: session.id, state: session.state });
+    if (session.state !== 'stopped') joined.set(key, { id: session.id, state: session.state, ready: session.ready });
   }
   return joined;
 }

@@ -11,7 +11,7 @@ const approval: NotificationWhat = {
   command: 'npm test',
   waiting: true,
 };
-const finished: NotificationWhat = { kind: 'session_finished', session };
+const finished: NotificationWhat = { kind: 'session_finished', session, ready: 'pull_request' };
 const awake = { ...defaultNotificationSettings, quietHours: { ...defaultNotificationSettings.quietHours, on: false } };
 
 describe('Do not disturb (spec 029)', () => {

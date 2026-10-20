@@ -41,3 +41,11 @@ export const Loading: Story = {
     </>
   ),
 };
+/** Finished on your pull request's own branch (spec 031). */
+export const DoneReadyToPush: Story = {
+  args: { title: 'Fix the review comments', source: 'PR #2836', state: 'done', ready: 'push' },
+};
+/** An Ask, or a Build where Claude edited nothing: nothing to ship (spec 031). */
+export const DoneNothingToShip: Story = {
+  args: { title: 'How does the content list paginate?', source: undefined, state: 'done', ready: 'nothing' },
+};

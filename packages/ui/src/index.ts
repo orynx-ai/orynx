@@ -177,8 +177,10 @@ export {
   SessionItem,
   SessionItemSkeleton,
   SessionStateIcon,
+  sessionStateLabel,
   sessionStateLabels,
   type SessionItemProps,
+  type SessionItemReady,
   type SessionItemState,
 } from './components/session-item.tsx';
 export { Skeleton, type SkeletonProps } from './components/skeleton.tsx';

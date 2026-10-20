@@ -1,7 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
-import { SessionItem, SessionItemSkeleton, sessionStateLabels, type SessionItemState } from './session-item.tsx';
+import {
+  SessionItem,
+  SessionItemSkeleton,
+  sessionStateLabel,
+  sessionStateLabels,
+  type SessionItemState,
+} from './session-item.tsx';
 
 const states = Object.keys(sessionStateLabels) as SessionItemState[];
 
@@ -27,6 +33,25 @@ describe('SessionItem', () => {
       pr_open: 'PR open',
       stopped: 'Stopped',
     });
+  });
+
+  it('says what a finished session is ready for, from what Claude did (spec 031)', () => {
+    render(
+      <>
+        <SessionItem href="#" title="Edited" state="done" ready="pull_request" />
+        <SessionItem href="#" title="On my PR" state="done" ready="push" />
+        <SessionItem href="#" title="Answered" state="done" ready="nothing" />
+        <SessionItem href="#" title="Still working" state="working" ready="nothing" />
+      </>,
+    );
+
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Edited Done, ready for PR',
+      'On my PR Done, ready to push',
+      'Answered Done',
+      'Still working Working',
+    ]);
+    expect(sessionStateLabel('done', 'nothing')).toBe('Done');
   });
 
   it('keeps a long title readable as a tooltip, since the row cuts it to one line', () => {
