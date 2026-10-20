@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { PlayIcon, VolumeHighIcon } from '@hugeicons/core-free-icons';
 import {
   defaultNotificationSettings,
@@ -20,9 +20,12 @@ import {
   FilterChip,
   Icon,
   IconButton,
-  Input,
   Pill,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   SettingList,
   SettingRow,
   Slider,
@@ -350,22 +353,25 @@ function EventsSection({ saved, loading, save }: SectionProps) {
                     <TableCell>
                       <span className="flex items-center gap-1">
                         <Select
-                          aria-label={`Sound for ${event.label}`}
-                          className="w-32"
                           value={choice.sound}
                           disabled={loading || !saved.sounds}
-                          onChange={(change) => {
-                            const sound = NotificationSoundSchema.parse(change.currentTarget.value);
+                          onValueChange={(value) => {
+                            const sound = NotificationSoundSchema.parse(value);
                             save({ events: { [event.id]: { sound } } });
                             // Picking a sound plays it (AC-39).
                             if (sound !== 'none') playSound(sound, saved.volume);
                           }}
                         >
-                          {NotificationSoundSchema.options.map((sound) => (
-                            <option key={sound} value={sound}>
-                              {soundNames[sound]}
-                            </option>
-                          ))}
+                          <SelectTrigger aria-label={`Sound for ${event.label}`} className="w-32">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {NotificationSoundSchema.options.map((sound) => (
+                              <SelectItem key={sound} value={sound}>
+                                {soundNames[sound]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                         <IconButton
                           variant="ghost"
@@ -396,6 +402,17 @@ const pauseNames: Record<PauseLength, string> = {
   tomorrow: 'Until 9:00 tomorrow',
   until_off: 'Until I turn it off',
 };
+
+/** Every half hour of the day, 00:00 to 23:30. */
+const halfHours = Array.from(
+  { length: 48 },
+  (_, index) => `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 === 0 ? '00' : '30'}`,
+);
+
+/** The half hours, and a saved time between them in its place, so it still shows as picked. */
+function timesWith(time: string): string[] {
+  return halfHours.includes(time) ? halfHours : [...halfHours, time].sort();
+}
 
 const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -433,19 +450,22 @@ function DoNotDisturbSection({ saved, loading, save }: SectionProps) {
           control={
             <>
               <Select
-                aria-label="Pause for"
-                className="w-48"
                 value={length}
                 disabled={loading}
-                onChange={(event) => {
-                  pause(paused, PauseLengthSchema.parse(event.currentTarget.value));
+                onValueChange={(value) => {
+                  pause(paused, PauseLengthSchema.parse(value));
                 }}
               >
-                {PauseLengthSchema.options.map((option) => (
-                  <option key={option} value={option}>
-                    {pauseNames[option]}
-                  </option>
-                ))}
+                <SelectTrigger aria-label="Pause for" className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PauseLengthSchema.options.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {pauseNames[option]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
               <Switch
                 aria-labelledby={ids.pause}
@@ -474,16 +494,36 @@ function DoNotDisturbSection({ saved, loading, save }: SectionProps) {
         >
           <form aria-labelledby={ids.quiet} noValidate className="mt-1.5 flex flex-col gap-3">
             <span className="flex flex-wrap items-start gap-3">
-              <Field label="From" className="w-36">
-                <Input
-                  type="time"
-                  disabled={loading}
-                  {...form.register('from', { onChange: () => void saveHours() })}
+              {(['from', 'to'] as const).map((name) => (
+                <Controller
+                  key={name}
+                  control={form.control}
+                  name={name}
+                  render={({ field, fieldState }) => (
+                    <Field label={name === 'from' ? 'From' : 'to'} className="w-36" error={fieldState.error?.message}>
+                      <Select
+                        value={field.value}
+                        disabled={loading}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          void saveHours();
+                        }}
+                      >
+                        <SelectTrigger ref={field.ref} onBlur={field.onBlur}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {timesWith(field.value).map((time) => (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
                 />
-              </Field>
-              <Field label="to" className="w-36" error={form.formState.errors.to?.message}>
-                <Input type="time" disabled={loading} {...form.register('to', { onChange: () => void saveHours() })} />
-              </Field>
+              ))}
             </span>
             <span role="group" aria-label="Days" className="flex flex-wrap gap-1.5">
               {dayNames.map((day, index) => (
