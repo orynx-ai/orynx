@@ -276,4 +276,119 @@ describe('inbox cache', () => {
 
     expect(open().tool('jira')?.problem).toBeNull();
   });
+
+  describe('the sync log (spec 035)', () => {
+    const run = (tool: 'jira' | 'github', startedAt: string, worked = true, changed = 0) => ({
+      tool,
+      startedAt,
+      tookMs: 1200,
+      worked,
+      changed,
+      data: { problem: worked ? null : { kind: 'rejected' }, changes: [], moreChanges: 0 },
+    });
+    const keepAll = { after: '2026-01-01T00:00:00.000Z' };
+
+    it('AC-32: keeps each run, newest first, for one tool or all, and the failed ones alone', () => {
+      const cache = open();
+      cache.logSync(run('jira', '2026-10-20T10:31:00.000Z'), keepAll);
+      cache.logSync(run('github', '2026-10-20T10:34:00.000Z', false), keepAll);
+      cache.logSync(run('jira', '2026-10-20T10:41:00.000Z'), keepAll);
+
+      const all = cache.syncRuns({ failedOnly: false, limit: 100 });
+      expect(all.map((row) => [row.tool, row.startedAt])).toEqual([
+        ['jira', '2026-10-20T10:41:00.000Z'],
+        ['github', '2026-10-20T10:34:00.000Z'],
+        ['jira', '2026-10-20T10:31:00.000Z'],
+      ]);
+      expect(all[0]).toMatchObject({ tookMs: 1200, data: { problem: null, changes: [], moreChanges: 0 } });
+      expect(cache.syncRuns({ tool: 'jira', failedOnly: false, limit: 100 })).toHaveLength(2);
+      expect(cache.syncRuns({ failedOnly: true, limit: 100 }).map((row) => row.tool)).toEqual(['github']);
+      expect(cache.syncRuns({ failedOnly: false, limit: 1 })).toHaveLength(1);
+    });
+
+    it('AC-34: a run from before the cut-off goes when the next one is written', () => {
+      const cache = open();
+      cache.logSync(run('jira', '2026-09-19T10:00:00.000Z'), keepAll);
+      cache.logSync(run('jira', '2026-10-20T10:00:00.000Z'), { after: '2026-09-20T10:00:00.000Z' });
+
+      expect(cache.syncRuns({ failedOnly: false, limit: 100 }).map((row) => row.startedAt)).toEqual([
+        '2026-10-20T10:00:00.000Z',
+      ]);
+    });
+
+    it('AC-9, AC-10: works out the last sync, the last good one, the failures since, and today’s figures', () => {
+      const cache = open();
+      cache.logSync(run('jira', '2026-10-19T23:50:00.000Z', true, 5), keepAll);
+      cache.logSync(run('jira', '2026-10-20T09:40:00.000Z', true, 2), keepAll);
+      cache.logSync(run('jira', '2026-10-20T09:42:00.000Z', false), keepAll);
+      cache.logSync(run('jira', '2026-10-20T09:47:00.000Z', false), keepAll);
+      cache.logSync(run('github', '2026-10-20T09:50:00.000Z', true, 9), keepAll);
+
+      expect(
+        cache.syncFigures('jira', { today: '2026-10-20T00:00:00.000Z', twoHours: '2026-10-20T08:00:00.000Z' }),
+      ).toEqual({
+        lastSyncAt: '2026-10-20T09:47:00.000Z',
+        lastGoodSyncAt: '2026-10-20T09:40:00.000Z',
+        failingSince: '2026-10-20T09:42:00.000Z',
+        failedInARow: 2,
+        changesToday: 2,
+        lastTwoHours: { worked: 1, total: 3 },
+      });
+      expect(
+        cache.syncFigures('github', { today: '2026-10-20T00:00:00.000Z', twoHours: '2026-10-20T08:00:00.000Z' }),
+      ).toMatchObject({ failingSince: null, failedInARow: 0, changesToday: 9 });
+    });
+
+    it('AC-19: a tool with no runs has no figures', () => {
+      expect(
+        open().syncFigures('jira', { today: '2026-10-20T00:00:00.000Z', twoHours: '2026-10-20T08:00:00.000Z' }),
+      ).toEqual({
+        lastSyncAt: null,
+        lastGoodSyncAt: null,
+        failingSince: null,
+        failedInARow: 0,
+        changesToday: 0,
+        lastTwoHours: { worked: 0, total: 0 },
+      });
+    });
+
+    it('AC-35: Clear cache empties the log, in the file too', async () => {
+      const cache = open();
+      cache.logSync(
+        { ...run('jira', '2026-10-20T10:00:00.000Z'), data: { changes: [{ title: 'Rate-limit the export' }] } },
+        keepAll,
+      );
+
+      cache.clear();
+
+      expect(cache.syncRuns({ failedOnly: false, limit: 100 })).toEqual([]);
+      cache.close();
+      expect(await readFile(cacheFilePath(home))).not.toContain(Buffer.from('Rate-limit'));
+    });
+
+    it('AC-36: a cache.db from before the log gains it, and keeps its inbox and notifications', async () => {
+      await mkdir(home, { recursive: true });
+      const old = new Database(cacheFilePath(home));
+      old.exec(`
+        CREATE TABLE records (tool TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (tool, id));
+        CREATE TABLE tools (tool TEXT PRIMARY KEY, connection TEXT NOT NULL, synced_at TEXT, problem TEXT);
+        CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE notifications (id TEXT PRIMARY KEY, at TEXT NOT NULL, read INTEGER NOT NULL, data TEXT NOT NULL);
+        PRAGMA user_version = 2;
+      `);
+      old.prepare('INSERT INTO records VALUES (?, ?, ?)').run('jira', issue.id, JSON.stringify(issue.data));
+      old.prepare('INSERT INTO tools VALUES (?, ?, ?, NULL)').run('jira', jiraAccount, '2026-10-19T09:00:00.000Z');
+      old.prepare('INSERT INTO notifications VALUES (?, ?, 0, ?)').run('a', '2026-10-19T09:00:00.000Z', '{}');
+      old.close();
+      const onReset = vi.fn();
+
+      const cache = open(cacheFilePath(home), onReset);
+      cache.logSync(run('jira', '2026-10-20T10:00:00.000Z'), keepAll);
+
+      expect(onReset).not.toHaveBeenCalled();
+      expect(cache.tool('jira')?.records).toEqual([issue.data]);
+      expect(cache.notifications().map((row) => row.id)).toEqual(['a']);
+      expect(cache.syncRuns({ failedOnly: false, limit: 100 })).toHaveLength(1);
+    });
+  });
 });

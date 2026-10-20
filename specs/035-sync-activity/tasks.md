@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Add the sync activity contracts, its path, and `tool` on the refresh request (AC-32)
       Check: pnpm test packages/contracts/src/sync-activity.test.ts; pnpm typecheck
       Files: packages/contracts/src/sync-activity.ts, packages/contracts/src/sync-activity.test.ts, packages/contracts/src/inbox.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts
-- [ ] Task 2: Keep a sync log in cache.db: a 2 → 3 upgrade that keeps the other tables, 30-day retention, newest-100 reads, per-tool figures, and Clear cache empties it (AC-34, AC-35, AC-36)
+- [x] Task 2: Keep a sync log in cache.db: a 2 → 3 upgrade that keeps the other tables, 30-day retention, newest-100 reads, per-tool figures, and Clear cache empties it (AC-34, AC-35, AC-36)
       Check: pnpm test packages/core/src/inbox/inbox-cache.test.ts
       Files: packages/core/src/inbox/inbox-cache.ts, packages/core/src/inbox/inbox-cache.test.ts
 - [ ] Task 3: Work out what a sync changed: new, updated, removed, the first 50 kept and the rest counted (AC-33, AC-16)
