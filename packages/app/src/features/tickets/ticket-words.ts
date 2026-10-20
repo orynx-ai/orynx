@@ -66,12 +66,22 @@ export function ticketCount(count: number): string {
 /** The Assignee filter's search box (the user's call, 19 Oct 2026). */
 export const assigneeSearch = { label: 'Search people', empty: 'No one matches' };
 
-/** Tickets ticked to Ship together (the user's call, 19 Oct 2026): "3 selected", Unselect all and Ship all, in a floating bar. */
+/**
+ * Tickets ticked to Ship together (the user's call, 19 Oct 2026): "3 selected", Unselect all and Ship all, in a floating
+ * bar; with only Orynx tickets ticked, Move to and Delete all too (the user's call, 20 Oct 2026).
+ */
 export const selectionWords = {
   count: (count: number) => `${String(count)} selected`,
   ship: 'Ship all',
   clear: 'Unselect all',
   bar: 'Selected tickets',
+  moveTo: 'Move to',
+  moveFailed: "Couldn't move them. Try again.",
+  deleteAll: 'Delete all',
+  deleteTitle: (count: number) => `Delete ${plural(count, 'ticket')}?`,
+  deleteLine: "They're gone for good, and their keys aren't used again. Sessions started from them keep their brief.",
+  deleteFailed: 'Not every ticket was deleted. Try again.',
+  cancel: 'Cancel',
 };
 
 /** The board's columns, left to right. */
