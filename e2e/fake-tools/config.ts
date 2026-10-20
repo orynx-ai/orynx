@@ -54,5 +54,6 @@ export interface FakeTools {
   /** The pull requests GitHub has (spec 014): it opens more into this list, which `GET /tools` gives back. */
   pulls?: FakeOpenedPull[];
   /** Pull requests whose details and diff GitHub gives the composer, in acme/web-app (spec 015). */
-  pullRequests?: { number: number; title: string; body?: string; diff: string }[];
+  /** `head` is its branch; `author` makes it yours when it's the fake's own login, `octocat` (spec 031). */
+  pullRequests?: { number: number; title: string; body?: string; diff: string; head?: string; author?: string }[];
 }

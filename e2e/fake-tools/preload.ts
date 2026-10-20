@@ -65,10 +65,12 @@ function handlers() {
     acceptingUser(),
     // The composer's pull requests (spec 015); this handler answers only its own query.
     acceptingPullContext(
-      (tools.pullRequests ?? []).map(({ number, title, body }) => ({
+      (tools.pullRequests ?? []).map(({ number, title, body, head, author }) => ({
         number,
         title,
         ...(body === undefined ? {} : { body }),
+        ...(head === undefined ? {} : { head }),
+        ...(author === undefined ? {} : { author }),
       })),
     ),
     acceptingPullDiff((tools.pullRequests ?? []).map(({ number, diff }) => ({ number, diff }))),
