@@ -89,15 +89,13 @@ describe('Sync activity history (spec 035)', () => {
     const { dialog } = await open();
 
     const history = await dialog.findByRole('list', { name: 'Sync history' });
-    expect(
-      within(history)
-        .getAllByRole('button')
-        .map((row) => row.getAttribute('aria-label')),
-    ).toEqual([
-      '10:41 Jira 1 new · 1 updated 1.2s, succeeded',
-      '10:39 GitHub No changes 2.9s, succeeded',
-      '19 Oct 09:57 Jira Failed · token refused 0.3s, failed',
-    ]);
+    const rows = within(history).getAllByRole('button');
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveAccessibleName('10:41 Jira 1 new · 1 updated 1.2s');
+    expect(rows[0]).toHaveAccessibleDescription('succeeded');
+    expect(rows[1]).toHaveAccessibleName('10:39 GitHub No changes 2.9s');
+    expect(rows[2]).toHaveAccessibleName('19 Oct 09:57 Jira Failed · token refused 0.3s');
+    expect(rows[2]).toHaveAccessibleDescription('failed');
   });
 
   it('AC-13, AC-24: a row opens to its changes, and Open takes each to its tool', async () => {

@@ -209,12 +209,9 @@ function ToolItem({ tool, current, onPick }: { tool: SyncTool; current: boolean;
   const syncing = useSyncing(tool.tool);
   return (
     <ListNavItem
-      label={
-        <>
-          {toolNames[tool.tool]}
-          <span className="sr-only">, {line.state}</span>
-        </>
-      }
+      // One name, so a screen reader hears "Jira, Failing" rather than its parts run apart.
+      aria-label={`${toolNames[tool.tool]}, ${line.state}`}
+      label={toolNames[tool.tool]}
       description={<span className={tool.state.state === 'failed' ? 'text-danger' : undefined}>{line.line}</span>}
       mark={<SourceMark source={tool.tool} />}
       status={

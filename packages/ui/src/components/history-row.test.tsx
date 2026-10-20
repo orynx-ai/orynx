@@ -26,15 +26,14 @@ function History() {
 }
 
 describe('HistoryRow (spec 035)', () => {
-  it('AC-12: each row is a button named by its time, summary, duration and result, in a named list', async () => {
+  it('AC-12: each row is a button named by its time, summary and duration, described by its result, in a named list', async () => {
     const { container } = render(<History />);
 
     expect(screen.getByRole('list', { name: 'Sync history' })).toBeVisible();
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: '09:57 Jira Failed · token refused 0.3s, failed' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
+    const row = screen.getByRole('button', { name: '09:57 Jira Failed · token refused 0.3s' });
+    expect(row).toHaveAccessibleDescription('failed');
+    expect(row).toHaveAttribute('aria-expanded', 'false');
     await expectNoAxeViolations(container);
   });
 
