@@ -102,10 +102,6 @@ async function api(page: Page, method: string, path: string, body?: unknown) {
   );
 }
 
-function connectionRow(page: Page, tool: string) {
-  return page.getByRole('list', { name: 'Connections' }).getByRole('listitem').filter({ hasText: tool });
-}
-
 /** The worktree git keeps for a branch, or undefined when there's none. */
 function worktreeOf(branch: string): string | undefined {
   const blocks = repository.git(repository.clone, 'worktree', 'list', '--porcelain').split('\n\n');
@@ -160,13 +156,13 @@ test.beforeAll(async ({ browser }, testInfo) => {
   });
   expect(answer.status()).toBe(204);
 
-  await connectionRow(page, 'Jira').getByRole('button', { name: 'Connect' }).click();
+  await page.getByRole('button', { name: 'Jira: Not connected. Manage connection' }).click();
   const jira = page.getByRole('form', { name: 'Jira connection' });
   await jira.getByRole('textbox', { name: 'Jira site' }).fill('your-team.atlassian.net');
   await jira.getByRole('textbox', { name: 'Email' }).fill('dev@example.com');
   await jira.getByLabel('API token', { exact: true }).fill('fake-good-token');
-  await jira.getByRole('button', { name: 'Connect Jira' }).click();
-  await expect(connectionRow(page, 'Jira').getByText('Connected', { exact: true })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Jira' }).getByRole('button', { name: 'Connect', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Jira: Connected. Manage connection' })).toBeVisible();
 
   await answerClaudeAs('signed_in', fakeClaudeDirFor(changesHubPort));
   await api(page, 'POST', '/api/claude/login/check');

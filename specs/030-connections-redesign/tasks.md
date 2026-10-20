@@ -44,7 +44,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 14: The page bar's "N of 3 connected · N needs attention" on this tab, and the `// Design:` note naming both designs (after the user has run Task 1's script); the real-browser check at 360 and 1280 px in both themes (AC-2)
       Check: pnpm test packages/app/src/features/settings/settings-screen.test.tsx; pnpm gate design-source
       Files: settings-screen.tsx, settings-screen.test.tsx, connections-summary.tsx
-- [ ] Task 15: e2e: connect-jira and connect-github rewritten for the dialog; the four specs that connect through the UI (composer, changes, home-inbox, sessions) and smoke follow the status button; connected, failed-test and reconnect states faked with `page.route`; keyboard only, no layout shift while loading, 360 and 1280 px, axe in light and dark for the page and each dialog state (AC-5, AC-23, AC-24, AC-25)
+- [x] Task 15: e2e: connect-jira and connect-github rewritten for the dialog; the four specs that connect through the UI (composer, changes, home-inbox, sessions) and smoke follow the status button; connected, failed-test and reconnect states faked with `page.route`; keyboard only, no layout shift while loading, 360 and 1280 px, axe in light and dark for the page and each dialog state (AC-5, AC-23, AC-24, AC-25)
       Check: pnpm test:e2e e2e/connect-jira.spec.ts e2e/connect-github.spec.ts e2e/smoke.spec.ts
       Files: e2e/connect-jira.spec.ts, e2e/connect-github.spec.ts, e2e/smoke.spec.ts, e2e/composer.spec.ts, e2e/changes.spec.ts, e2e/home-inbox.spec.ts, e2e/sessions.spec.ts, e2e/coding-agent.spec.ts
 - [ ] Task 16: STOP and run /review

@@ -18,7 +18,7 @@ test('Given DevHub is running, when you open Settings, then each tool says it is
   await expect(page).toHaveURL(/\/settings\/connections$/);
   const list = page.getByRole('list', { name: 'Connections' });
   await expect(list.getByRole('listitem')).toHaveCount(3);
-  await expect(list.getByText('Not connected')).toHaveCount(3);
+  await expect(list.getByRole('button', { name: /: Not connected\. Manage connection$/ })).toHaveCount(3);
 });
 
 test('Given the Appearance tab, when you pick Dark, then the page turns dark and stays dark after a reload', async ({
