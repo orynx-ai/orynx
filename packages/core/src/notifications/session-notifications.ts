@@ -1,4 +1,5 @@
 import type { NotificationWhat, Session, SessionApproval } from '@devhub/contracts';
+import { readyFor } from '../sessions/session-store.ts';
 
 /** What one session change means for the bell (spec 029). */
 export interface SessionNotices {
@@ -54,7 +55,9 @@ export function sessionNotifications(before: Session, after: Session, { quiet = 
   if (finishedOrStopped) {
     const kind = endedKind(after);
     // A follow-up can finish the same session again, so each end is its own notification.
-    added.push({ id: `${kind}:${after.id}:${after.endedAt ?? after.updatedAt}`, what: { kind, session } });
+    const what: NotificationWhat =
+      kind === 'session_finished' ? { kind, session, ready: readyFor(after) } : { kind, session };
+    added.push({ id: `${kind}:${after.id}:${after.endedAt ?? after.updatedAt}`, what });
   }
   return { added, ended };
 }

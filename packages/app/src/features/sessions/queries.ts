@@ -6,6 +6,8 @@ import {
   sessionChangesQueryOptions,
   sessionDiffQueryOptions,
   sessionPagesQueryOptions,
+  sessionCommandsQueryOptions,
+  sessionTerminalQueryOptions,
   sessionQueryKey,
   sessionsQueryOptions,
 } from '@devhub/api-client';
@@ -117,4 +119,37 @@ export function useDraftPush(sessionId: string) {
 export function usePushChanges(sessionId: string) {
   const api = useApi();
   return useMutation({ mutationFn: (message: string) => api.pushChanges(sessionId, message) });
+}
+
+/** Claude's commands with their output, for the Terminal's Claude tab (spec 036); `session.changed` keeps them fresh. */
+export function useSessionCommands(sessionId: string) {
+  const api = useApi();
+  return useQuery(sessionCommandsQueryOptions(api, sessionId));
+}
+
+/** Your shell tabs in the session's Terminal (spec 036); `session.terminal.changed` keeps them fresh. */
+export function useSessionTerminal(sessionId: string) {
+  const api = useApi();
+  return useQuery(sessionTerminalQueryOptions(api, sessionId));
+}
+
+/**
+ * What you do in a shell tab (spec 036): run, stop, clear, add and close a tab, and Ask Claude to fix. The server
+ * says what changed with `session.terminal.changed` (and `session.changed` for a follow-up), so nothing here
+ * touches the cache.
+ */
+export function useTerminalActions(sessionId: string) {
+  const api = useApi();
+  return {
+    run: useMutation({
+      mutationFn: ({ tabId, command }: { tabId: string; command: string }) => api.runCommand(sessionId, tabId, command),
+    }),
+    stop: useMutation({ mutationFn: (tabId: string) => api.stopCommand(sessionId, tabId) }),
+    clear: useMutation({ mutationFn: (tabId: string) => api.clearTerminalTab(sessionId, tabId) }),
+    add: useMutation({ mutationFn: () => api.addTerminalTab(sessionId) }),
+    close: useMutation({ mutationFn: (tabId: string) => api.closeTerminalTab(sessionId, tabId) }),
+    askToFix: useMutation({
+      mutationFn: ({ tabId, blockId }: { tabId: string; blockId: string }) => api.askToFix(sessionId, tabId, blockId),
+    }),
+  };
 }

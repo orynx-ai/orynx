@@ -122,6 +122,8 @@ export {
   type DialogContentProps,
   type DialogProps,
 } from './components/dialog.tsx';
+export { CommandBlock, type CommandBlockProps, type CommandBlockTone } from './components/command-block.tsx';
+export { CommandInput, type CommandInputProps } from './components/command-input.tsx';
 export { CopyButton, type CopyButtonProps } from './components/copy-button.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { ExternalLink, type ExternalLinkProps } from './components/external-link.tsx';
@@ -191,8 +193,10 @@ export {
   SessionItem,
   SessionItemSkeleton,
   SessionStateIcon,
+  sessionStateLabel,
   sessionStateLabels,
   type SessionItemProps,
+  type SessionItemReady,
   type SessionItemState,
 } from './components/session-item.tsx';
 export { Skeleton, type SkeletonProps } from './components/skeleton.tsx';

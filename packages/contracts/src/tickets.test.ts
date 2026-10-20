@@ -60,9 +60,12 @@ describe('TicketsSchema', () => {
   });
 
   it('AC-12: a ticket carries the session working on it, but never a stopped one (Q4c)', () => {
-    expect(TicketSchema.parse(makeTicket({ session: { id: 'session-1', state: 'needs_you' } })).session).toEqual({
+    expect(
+      TicketSchema.parse(makeTicket({ session: { id: 'session-1', state: 'needs_you', ready: 'nothing' } })).session,
+    ).toEqual({
       id: 'session-1',
       state: 'needs_you',
+      ready: 'nothing',
     });
     expect(() => TicketSchema.parse({ ...makeTicket(), session: { id: 'session-1', state: 'stopped' } })).toThrow();
   });

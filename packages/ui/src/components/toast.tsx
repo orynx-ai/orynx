@@ -12,9 +12,10 @@ export type ToastProps = Omit<ComponentProps<'div'>, 'title' | 'role'> & {
   detail: ReactNode;
   /** An approval interrupts (`alert`, spec 029 AC-23, CLAUDE.md rule 7); anything else waits its turn (`status`). */
   role: 'alert' | 'status';
-  /** Opens the notification's place; the title is the button. */
-  onOpen: () => void;
-  onClose: () => void;
+  /** Opens the notification's place; the title is the button. Without it the title is plain words. */
+  onOpen?: () => void;
+  /** Without it there's no Close: the notice stays until it's dealt with, such as Orynx restarted. */
+  onClose?: () => void;
   /** Buttons under the detail, such as Allow once and Review. */
   actions?: ReactNode;
 };
@@ -45,22 +46,30 @@ export function Toast({ icon, tone, title, detail, role, onOpen, onClose, action
         <Icon icon={icon} className="size-4" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <button
-          id={`${id}-title`}
-          type="button"
-          onClick={onOpen}
-          className="cursor-pointer text-start font-medium hover:underline"
-        >
-          {title}
-        </button>
+        {onOpen === undefined ? (
+          <span id={`${id}-title`} className="font-medium">
+            {title}
+          </span>
+        ) : (
+          <button
+            id={`${id}-title`}
+            type="button"
+            onClick={onOpen}
+            className="cursor-pointer text-start font-medium hover:underline"
+          >
+            {title}
+          </button>
+        )}
         <span id={`${id}-detail`} className="line-clamp-2 text-small wrap-anywhere text-muted-foreground">
           {detail}
         </span>
         {actions === undefined ? null : <span className="mt-2 flex flex-wrap gap-2">{actions}</span>}
       </span>
-      <IconButton variant="ghost" size="sm" label="Close" className="-me-1.5 -mt-1.5" onClick={onClose}>
-        <Icon icon={Cancel01Icon} aria-hidden />
-      </IconButton>
+      {onClose === undefined ? null : (
+        <IconButton variant="ghost" size="sm" label="Close" className="-me-1.5 -mt-1.5" onClick={onClose}>
+          <Icon icon={Cancel01Icon} aria-hidden />
+        </IconButton>
+      )}
     </div>
   );
 }

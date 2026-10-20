@@ -392,15 +392,15 @@ test('AC-25, AC-26: a session waiting for my approval shows at the top of Home a
   await expect(page.getByRole('alert').filter({ hasText: 'npm test -- content-list' })).toBeVisible();
 
   await page.goto('/');
-  const banner = page.getByRole('link', { name: /Claude is waiting for your approval/ });
+  const banner = page.getByRole('status', { name: 'Claude is waiting for your approval' });
   await expect(banner).toContainText('Check the content list (runs tests) · wants to run npm test -- content-list');
-  await banner.click();
+  await banner.getByRole('link', { name: 'Review' }).click();
   await expect(page).toHaveURL(session);
   await page.getByRole('button', { name: 'Deny' }).click();
 
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'What should we ship today?' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Claude is waiting for your approval/ })).toHaveCount(0);
+  await expect(page.getByRole('status', { name: 'Claude is waiting for your approval' })).toHaveCount(0);
 });
 
 test('AC-30, AC-31: Home, its chips and the + popup fit 360 px and have no axe violations, light and dark', async ({

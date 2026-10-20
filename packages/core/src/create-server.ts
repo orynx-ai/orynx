@@ -46,6 +46,7 @@ import { createSkillsService } from './skills/skills-service.ts';
 import { folderPickerRoutes } from './routes/folder-picker.ts';
 import { searchRoutes } from './routes/search.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
+import { terminalRoutes } from './routes/terminal.ts';
 import { ticketsRoutes } from './routes/tickets.ts';
 import { statusRoutes } from './routes/status.ts';
 import { createSearchService } from './search/search-service.ts';
@@ -58,6 +59,7 @@ import { createChangesReader } from './sessions/changes.ts';
 import { createContextReader } from './sessions/context-reader.ts';
 import { createSessionService } from './sessions/session-service.ts';
 import { createMemorySessionStore, type SessionRecords } from './sessions/session-store.ts';
+import { createTerminalService } from './terminal/terminal-service.ts';
 import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
 import { createTicketsService } from './tickets/tickets-service.ts';
 import { createOrynxTicketService, describeOrynxTicket } from './orynx-tickets/ticket-service.ts';
@@ -99,6 +101,11 @@ export interface CoreOptions {
   };
   /** The environment a session's git runs with, from `gitEnvironment()`. Empty by default. */
   gitEnvironment?: Readonly<Record<string, string>>;
+  /**
+   * Your shell tabs in a session's Terminal (spec 036), with the environment your commands get, from
+   * `terminalEnvironment()`. Left out (Windows, and tests that don't need one), no session offers its Terminal.
+   */
+  terminal?: { env: Readonly<Record<string, string>> };
   /** Who is using DevHub; the name from `git config --global user.name` by default. */
   userName?: () => Promise<string | null>;
   /** Where tokens are saved. Hosts pass `createOsKeychain()`; tests get an empty in-memory keychain. */
@@ -384,6 +391,14 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
                   })
               : null,
         });
+  const terminal =
+    options.terminal === undefined
+      ? null
+      : createTerminalService({ events, env: options.terminal.env, home: userHome });
+  if (terminal !== null) {
+    // Nothing you started in a Terminal outlives Orynx.
+    app.addHook('onClose', () => terminal.close());
+  }
   const sessionService = createSessionService({
     skills,
     records: sessions,
@@ -432,6 +447,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     adapter,
     tickets: orynxTickets,
     events,
+    ...(terminal === null ? {} : { terminal }),
     onChange: (before, after, change) => {
       notifications.sessionChanged(before, after, change);
     },
@@ -505,6 +521,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
 
       await api.register(statusRoutes, { status });
       await api.register(sessionsRoutes, { sessions, service: sessionService });
+      if (terminal !== null) await api.register(terminalRoutes, { sessions, terminal, service: sessionService });
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
       await api.register(claudeRoutes, { claude });

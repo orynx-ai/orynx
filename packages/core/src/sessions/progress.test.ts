@@ -223,8 +223,8 @@ describe('commands and approvals (spec 012)', () => {
 
   it('AC-2: groups commands into one step, running until another kind of work starts', () => {
     const progress = fold([
-      { kind: 'command', command: 'npm test' },
-      { kind: 'command', command: 'npm run lint' },
+      { kind: 'command', id: 'toolu_1', command: 'npm test' },
+      { kind: 'command', id: 'toolu_1', command: 'npm run lint' },
     ]);
     expect(progress.activities).toEqual([
       { id: 'step-1', state: 'running', kind: 'command', commands: ['npm test', 'npm run lint'] },
@@ -233,11 +233,11 @@ describe('commands and approvals (spec 012)', () => {
   });
 
   it('AC-17: moves the stepper to Test at the first command after the first edit, and never back', () => {
-    expect(fold([{ kind: 'command', command: 'git log' }]).step).toBe('plan');
+    expect(fold([{ kind: 'command', id: 'toolu_1', command: 'git log' }]).step).toBe('plan');
     const testing = fold([
-      { kind: 'command', command: 'git log' },
+      { kind: 'command', id: 'toolu_1', command: 'git log' },
       { kind: 'edit', file: 'src/a.ts' },
-      { kind: 'command', command: 'npm test' },
+      { kind: 'command', id: 'toolu_1', command: 'npm test' },
     ]);
     expect(testing.step).toBe('test');
     expect(fold([{ kind: 'edit', file: 'src/b.ts' }], testing).step).toBe('test');
@@ -255,7 +255,7 @@ describe('commands and approvals (spec 012)', () => {
   it('AC-10: a waiting step keeps running while other calls’ work comes, until its own call is answered', () => {
     const waiting = addWaiting(emptyProgress, asking);
     const second = addWaiting(waiting, { approvalId: 'ap-2', about: 'edit', text: 'src/a.ts' });
-    const working = fold([{ kind: 'command', command: 'npm run lint' }], second);
+    const working = fold([{ kind: 'command', id: 'toolu_1', command: 'npm run lint' }], second);
     expect(working.activities.map((activity) => [activity.kind, activity.state])).toEqual([
       ['waiting', 'running'],
       ['waiting', 'running'],
@@ -347,7 +347,7 @@ describe('steps passed over (spec 031, Q5)', () => {
   });
 
   it('AC-10: finishing after a command, once Claude has edited, skips nothing', () => {
-    expect(fold([edit, { kind: 'command', command: 'pnpm test' }, finished])).toMatchObject({
+    expect(fold([edit, { kind: 'command', id: 'toolu_1', command: 'pnpm test' }, finished])).toMatchObject({
       step: 'review',
       skipped: [],
     });
@@ -360,7 +360,7 @@ describe('steps passed over (spec 031, Q5)', () => {
   it('AC-12: a follow-up clears them, and a command after an edit then reaches Test', () => {
     const resumed = resumeProgress(fold([edit, finished]));
     expect(resumed).toMatchObject({ step: 'build', skipped: [] });
-    const tested = fold([{ kind: 'command', command: 'pnpm test' }], resumed);
+    const tested = fold([{ kind: 'command', id: 'toolu_1', command: 'pnpm test' }], resumed);
     expect(tested.step).toBe('test');
     expect(addWork(tested, finished)).toMatchObject({ step: 'review', skipped: [] });
   });

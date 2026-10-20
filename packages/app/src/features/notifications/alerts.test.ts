@@ -26,7 +26,10 @@ const approval = makeNotification({
     waiting: true,
   },
 });
-const finished = makeNotification({ id: 'finished', what: { kind: 'session_finished', session } });
+const finished = makeNotification({
+  id: 'finished',
+  what: { kind: 'session_finished', session, ready: 'pull_request' },
+});
 
 let uninstall: () => void;
 let hasFocus: MockInstance<() => boolean>;

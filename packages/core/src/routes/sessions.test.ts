@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   apiRoutes,
   ApiErrorSchema,
+  ClaudeCommandListSchema,
   FileDiffSchema,
   SendMessageAnswerSchema,
   SessionBriefSchema,
@@ -47,6 +48,7 @@ async function serverWith(...sessions: Partial<Session>[]): Promise<{ app: Fasti
       claudeSessionId: null,
       pushedCommit: null,
       approvalLog: [],
+      commandLog: [],
     });
   }
   app = await createServer({ token, port, version: '1.2.3', sessions: store });
@@ -225,6 +227,29 @@ describe('GET /api/sessions/:id', () => {
   });
 });
 
+describe('GET /api/sessions/:id/commands', () => {
+  const commands = (id: string) => apiRoutes.sessionCommands.replace(':id', id);
+
+  it('AC-19, AC-24 (036): answers the commands Claude ran, none for a session with none, and 404 for no such session', async () => {
+    const { app, store } = await serverWith({ id: '0123456789abcdef' }, { id: '00000000000000cc' });
+    await store.update('0123456789abcdef', (record) => ({
+      ...record,
+      commandLog: [{ id: 'toolu_1', state: 'running', command: 'npm test' }],
+    }));
+
+    const ran = await app.inject({ method: 'GET', url: commands('0123456789abcdef'), headers });
+    expect(ran.statusCode).toBe(200);
+    expect(ClaudeCommandListSchema.parse(ran.json())).toEqual({
+      commands: [{ id: 'toolu_1', state: 'running', command: 'npm test' }],
+    });
+    expect((await app.inject({ method: 'GET', url: commands('00000000000000cc'), headers })).json()).toEqual({
+      commands: [],
+    });
+    const missing = await app.inject({ method: 'GET', url: commands('fedcba9876543210'), headers });
+    expect(missing.statusCode).toBe(404);
+  });
+});
+
 describe('GET /api/sessions/:id/brief', () => {
   const brief = (id: string) => apiRoutes.sessionBrief.replace(':id', id);
 
@@ -393,6 +418,7 @@ describe('GET /api/sessions/:id/changes and its diff (spec 013)', () => {
       claudeSessionId: 'b2c7e0f4-0000-4000-8000-000000000001',
       pushedCommit: null,
       approvalLog: [],
+      commandLog: [],
     });
     app = await createServer({
       token,
@@ -449,6 +475,7 @@ describe('GET /api/sessions/:id/changes and its diff (spec 013)', () => {
       claudeSessionId: null,
       pushedCommit: null,
       approvalLog: [],
+      commandLog: [],
     });
     app = await createServer({ token, port, version: '1.2.3', sessions: store });
     expect((await app.inject({ method: 'GET', url: changesOf('gone'), headers })).json()).toEqual({ state: 'missing' });

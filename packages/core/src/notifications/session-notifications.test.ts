@@ -102,6 +102,20 @@ describe('the notifications a session change raises (spec 029)', () => {
     expect(kinds).toEqual([['session_finished'], ['session_stopped'], ['session_failed'], ['session_limit']]);
   });
 
+  it('says what the finished session is ready for, from what Claude did (spec 031)', () => {
+    const edited = [{ id: 'step-1', state: 'done' as const, kind: 'edit' as const, files: ['src/ContentList.tsx'] }];
+    const ended = { state: 'done' as const, endedAt: '2026-10-19T10:30:00.000Z' };
+    const ready = [
+      { ...working, ...ended, activities: edited },
+      { ...working, ...ended, activities: edited, workOn: 'pull_request' as const },
+      { ...working, ...ended, mode: 'ask' as const },
+    ].map((after) =>
+      sessionNotifications(working, after).added.map(({ what }) => ('ready' in what ? what.ready : null)),
+    );
+
+    expect(ready).toEqual([['pull_request'], ['push'], ['nothing']]);
+  });
+
   it('a follow-up that finishes again raises a second notification, under its own id', () => {
     const first = sessionNotifications(working, { ...working, state: 'done', endedAt: '2026-10-19T10:30:00.000Z' });
     const again = sessionNotifications(working, { ...working, state: 'done', endedAt: '2026-10-19T11:30:00.000Z' });
@@ -113,7 +127,7 @@ describe('the notifications a session change raises (spec 029)', () => {
     const composer = { ...working, source: null };
     const [notice] = sessionNotifications(composer, { ...composer, state: 'done' }).added;
 
-    expect(notice?.what).toEqual({ kind: 'session_finished', session: { ...session, source: null } });
+    expect(notice?.what).toEqual({ kind: 'session_finished', session: { ...session, source: null }, ready: 'nothing' });
   });
 
   it('Discard, closing Orynx and a pull request opening raise nothing', () => {

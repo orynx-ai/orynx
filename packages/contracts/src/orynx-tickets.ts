@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SessionStateSchema } from './session.ts';
+import { SessionReadySchema, SessionStateSchema } from './session.ts';
 import { TicketColumnSchema, type TicketColumn } from './ticket-column.ts';
 
 /**
@@ -76,7 +76,13 @@ export type StoredOrynxTicket = z.infer<typeof StoredOrynxTicketSchema>;
 
 /** One Orynx ticket as the dialog reads it, with its newest session unless that was stopped. */
 export const OrynxTicketSchema = StoredOrynxTicketSchema.extend({
-  session: z.object({ id: z.string().min(1), state: SessionStateSchema.exclude(['stopped']) }).nullable(),
+  session: z
+    .object({
+      id: z.string().min(1),
+      state: SessionStateSchema.exclude(['stopped']),
+      ready: SessionReadySchema.default('pull_request'),
+    })
+    .nullable(),
 });
 export type OrynxTicket = z.infer<typeof OrynxTicketSchema>;
 

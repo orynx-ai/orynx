@@ -209,8 +209,45 @@ describe('the Claude adapter', () => {
     const after = session.events.slice(session.events.indexOf(approval as AgentEvent) + 1);
     expect(after.slice(0, 2)).toEqual([
       { type: 'answered', sessionId: session.id, approvalId: approval?.approvalId, allowed: true },
-      { type: 'work', sessionId: session.id, work: { kind: 'command', command: 'npm test -- content-list' } },
+      {
+        type: 'work',
+        sessionId: session.id,
+        work: { kind: 'command', id: 'toolu_1', command: 'npm test -- content-list' },
+      },
     ]);
+  });
+
+  it('AC-19 (036): says when a command you allowed ended, with its output and the time since you allowed it', async () => {
+    let at = 1_000;
+    const { adapter } = setUp(
+      [{ tool: 'Bash', input: npmTest, output: 'Tests: 1 failed', fails: true }, { finish: 'Ran the tests.' }],
+      { now: () => at },
+    );
+    const session = await watch(adapter);
+    const [approval] = await session.approvals();
+    // A minute waiting for you isn't the command's time: it runs from your answer.
+    at = 61_000;
+    await adapter.respond(session.id, approval?.approvalId ?? '', 'allow');
+    await session.ended();
+
+    expect(session.events).toContainEqual({
+      type: 'command_ended',
+      sessionId: session.id,
+      id: 'toolu_1',
+      output: 'Tests: 1 failed',
+      failed: true,
+      ms: 0,
+    });
+  });
+
+  it('AC-19 (036): says nothing of the end of a command you denied, which never ran', async () => {
+    const { adapter } = setUp([{ tool: 'Bash', input: npmTest }, { finish: 'Skipped the tests.' }]);
+    const session = await watch(adapter);
+    const [approval] = await session.approvals();
+    await adapter.respond(session.id, approval?.approvalId ?? '', 'deny');
+    await session.ended();
+
+    expect(session.events.some((event) => event.type === 'command_ended')).toBe(false);
   });
 
   it('AC-3: Deny tells Claude and it carries on, and shows what you denied', async () => {
@@ -253,9 +290,10 @@ describe('the Claude adapter', () => {
     expect(sdk.runs[0]?.decisions[0]?.result).toEqual({ behavior: 'allow', updatedInput: npmTest });
     // Shown once: when Orynx allowed it, not again when its result comes.
     expect(works(events)).toEqual([
-      { kind: 'command', command: 'npm test -- content-list' },
+      { kind: 'command', id: 'toolu_1', command: 'npm test -- content-list' },
       { kind: 'finished', summary: 'Ran the tests.' },
     ]);
+    expect(events).toContainEqual(expect.objectContaining({ type: 'command_ended', id: 'toolu_1', output: 'ok' }));
   });
 
   it('AC-6: an always-ask command you allow runs once outside the sandbox', async () => {

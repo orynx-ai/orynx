@@ -50,8 +50,11 @@ describe('the Orynx ticket service', () => {
     await service.create(fields('Add bulk archive'), you);
     await service.create(fields('Fix the date test'), you);
 
-    expect((await service.get('ORX-1'))?.session).toEqual({ id: 'new', state: 'working' });
-    expect((await service.list()).map((ticket) => ticket.session)).toEqual([{ id: 'new', state: 'working' }, null]);
+    expect((await service.get('ORX-1'))?.session).toEqual({ id: 'new', state: 'working', ready: 'pull_request' });
+    expect((await service.list()).map((ticket) => ticket.session)).toEqual([
+      { id: 'new', state: 'working', ready: 'pull_request' },
+      null,
+    ]);
   });
 
   it('AC-16: a stale save comes back as changed, with the ticket as it is now', async () => {

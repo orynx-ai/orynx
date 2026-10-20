@@ -21,8 +21,14 @@ const askedFor = {
   ticket: 'Claude wants to delete a ticket',
 } as const;
 
+/** Finished says what Claude left it ready for (spec 031). */
+const finished = {
+  pull_request: 'Session finished, ready for a pull request',
+  push: 'Session finished, ready to push',
+  nothing: 'Session finished',
+} as const;
+
 const ended = {
-  session_finished: 'Session finished, ready for a pull request',
   session_stopped: 'Session stopped',
   session_failed: 'Session failed',
   session_limit: 'Session hit Claude’s usage limit',
@@ -43,7 +49,8 @@ export function notificationWords(what: NotificationWhat): NotificationWords {
     case 'session_failed':
     case 'session_limit': {
       const session = joined(sourceLabel(what.session.source), what.session.title);
-      return { title: ended[what.kind], detail: session, desktop: session };
+      const title = what.kind === 'session_finished' ? finished[what.ready] : ended[what.kind];
+      return { title, detail: session, desktop: session };
     }
     case 'review_requested':
     case 'checks_failed': {

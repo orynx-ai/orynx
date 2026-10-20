@@ -65,6 +65,7 @@ export function SidebarSessions({ className }: { className?: string }) {
               title={session.title}
               source={sourceLabel(session.source)}
               state={session.state}
+              ready={session.ready}
             >
               <Link to="/sessions/$sessionId" params={{ sessionId: session.id }} />
             </SessionItem>

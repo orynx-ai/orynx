@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { InboxToolStateSchema } from './inbox.ts';
 import { JiraIssueKeySchema, JiraLinkSchema, JiraProjectKeySchema } from './jira.ts';
-import { SessionStateSchema } from './session.ts';
+import { SessionReadySchema, SessionStateSchema } from './session.ts';
 import { TicketColumnSchema } from './ticket-column.ts';
 
 /**
@@ -42,7 +42,13 @@ export const TicketSchema = z.object({
   /** Jira's display name, and whether it's you; null when nobody is assigned. */
   assignee: z.object({ name: z.string().min(1), mine: z.boolean() }).nullable(),
   /** The newest Claude session on this ticket, unless it was stopped (Q4c). */
-  session: z.object({ id: z.string().min(1), state: SessionStateSchema.exclude(['stopped']) }).nullable(),
+  session: z
+    .object({
+      id: z.string().min(1),
+      state: SessionStateSchema.exclude(['stopped']),
+      ready: SessionReadySchema.default('pull_request'),
+    })
+    .nullable(),
 });
 export type Ticket = z.infer<typeof TicketSchema>;
 

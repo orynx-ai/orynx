@@ -9,6 +9,8 @@ export type CopyButtonProps = Omit<IconButtonProps, 'label' | 'children' | 'onCl
   text: string;
   /** Its tooltip until it has copied: "Copy path". */
   label?: string;
+  /** What it copies, as its name says it when `text` is too long to read out: "Copy npm test and its output". */
+  what?: string;
   /**
    * Shows only while the pointer is over the row or something in it has focus, as GitHub's copy buttons do. The
    * row takes the `group` class.
@@ -20,7 +22,14 @@ export type CopyButtonProps = Omit<IconButtonProps, 'label' | 'children' | 'onCl
  * Copies a short text to the clipboard (the user's call, 19 Oct 2026): a ghost 32 px icon button whose tooltip
  * says "Copied", with a tick, for 2 s after a press. A copy the browser refuses changes nothing.
  */
-export function CopyButton({ text, label = 'Copy path', reveal = 'always', className, ...props }: CopyButtonProps) {
+export function CopyButton({
+  text,
+  label = 'Copy path',
+  what = text,
+  reveal = 'always',
+  className,
+  ...props
+}: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -36,7 +45,7 @@ export function CopyButton({ text, label = 'Copy path', reveal = 'always', class
       variant="ghost"
       size="sm"
       label={copied ? 'Copied' : label}
-      aria-label={copied ? 'Copied' : `Copy ${text}`}
+      aria-label={copied ? 'Copied' : `Copy ${what}`}
       onClick={() => {
         void navigator.clipboard.writeText(text).then(
           () => {

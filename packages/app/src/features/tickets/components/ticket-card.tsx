@@ -52,7 +52,7 @@ export function TicketMark({ ticketKey }: { ticketKey: string }) {
 export function TicketAgentChip({ ticket }: { ticket: Ticket }) {
   if (ticket.session === null) return null;
   return (
-    <AgentChip state={ticket.session.state} asChild>
+    <AgentChip state={ticket.session.state} ready={ticket.session.ready} asChild>
       <Link to="/sessions/$sessionId" params={{ sessionId: ticket.session.id }} />
     </AgentChip>
   );

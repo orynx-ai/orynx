@@ -202,7 +202,7 @@ describe('tickets service', () => {
 
     expect(read.tickets.map((ticket) => [ticket.key, ticket.session])).toEqual([
       ['PROJ-1377', null],
-      ['PROJ-1423', { id: 'old', state: 'needs_you' }],
+      ['PROJ-1423', { id: 'old', state: 'needs_you', ready: 'pull_request' }],
       ['PROJ-1350', null],
     ]);
   });
@@ -740,7 +740,7 @@ describe('Orynx tickets on the board (spec 037)', () => {
       priority: { name: 'Highest', level: 'high', rank: 0 },
       dueDate: '2026-10-24',
       assignee: { name: 'Rakesh Dhariwal', mine: true },
-      session: { id: 's-2', state: 'working' },
+      session: { id: 's-2', state: 'working', ready: 'pull_request' },
     });
     expect(read.orynx).toEqual({ kept: null });
   });

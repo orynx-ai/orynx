@@ -40,11 +40,21 @@ export const SessionSourceSchema = z.discriminatedUnion('kind', [
 ]);
 export type SessionSource = z.infer<typeof SessionSourceSchema>;
 
+/**
+ * What a finished session is ready for, from what Claude did (spec 031: the stepper follows Claude's work, and so does
+ * "Done"): a pull request, a push to your pull request's own branch, or nothing, when it was an Ask or Claude edited
+ * no file. The server works it out each time it sends a session.
+ */
+export const SessionReadySchema = z.enum(['pull_request', 'push', 'nothing']);
+export type SessionReady = z.infer<typeof SessionReadySchema>;
+
 /** One row in the sidebar and in the full session list. */
 export const SessionSummarySchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   state: SessionStateSchema,
+  /** A session saved before this was kept with none: the server works it out as it sends one. */
+  ready: SessionReadySchema.default('pull_request'),
   /** Null when the session was started from the composer without a ticket or pull request. */
   source: SessionSourceSchema.nullable(),
   /** Last activity; lists are ordered by it, newest first. */
@@ -90,6 +100,10 @@ export type SessionActivityState = z.infer<typeof SessionActivityStateSchema>;
 const ActivityBaseSchema = z.object({ id: z.string().min(1), state: SessionActivityStateSchema });
 /** Paths relative to the worktree, in the order Claude first touched them. */
 const FilesSchema = z.array(z.string().min(1));
+
+/** Why Orynx refused a call (see the `refused` step); a refused command keeps it too (spec 036). */
+export const RefusalReasonSchema = z.enum(['outside_worktree', 'ask_everything', 'push', 'background', 'ask_session']);
+export type RefusalReason = z.infer<typeof RefusalReasonSchema>;
 
 /**
  * One step in "Claude's progress". It's data, not words: the app says each kind in its own words
@@ -140,7 +154,7 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({
     kind: z.literal('refused'),
     access: z.enum(['read', 'edit', 'run']),
-    reason: z.enum(['outside_worktree', 'ask_everything', 'push', 'background', 'ask_session']),
+    reason: RefusalReasonSchema,
     path: z.string().min(1),
   }),
   /** A call waiting for your answer (spec 012): `text` is Claude's line about the command, or the edit's path. */
@@ -376,6 +390,11 @@ export const SessionSchema = SessionSummarySchema.extend({
   workOn: SessionWorkOnSchema.default('new_branch'),
   /** The steps the stepper passed over when Claude finished without them (spec 031, Q5); none before it. */
   skipped: z.array(SessionStepSchema).default([]),
+  /**
+   * Whether the Terminal opens on this session (spec 036, Q9): a Build whose worktree is there, on a computer that
+   * isn't Windows. A session saved before spec 036 is read as none until the server says.
+   */
+  terminal: z.boolean().default(false),
 });
 export type Session = z.infer<typeof SessionSchema>;
 

@@ -14,6 +14,7 @@ export { cacheFilePath, openInboxCache, type InboxCache } from './inbox/inbox-ca
 export { openFileSessionStore } from './sessions/file-session-store.ts';
 export { createOrynxTicketStore, type OrynxTicketStore } from './orynx-tickets/ticket-store.ts';
 export { createMemorySessionStore, type SessionRecords, type SessionStore } from './sessions/session-store.ts';
+export { terminalEnvironment } from './terminal/terminal-service.ts';
 export {
   createFileSettingsStore,
   createMemorySettingsStore,

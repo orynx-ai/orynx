@@ -116,6 +116,7 @@ async function setUp({
     claudeSessionId: 'b2c7e0f4-0000-4000-8000-000000000001',
     pushedCommit: null,
     approvalLog: [],
+    commandLog: [],
   };
   await records.create(record);
   await records.writeBrief(id, brief);

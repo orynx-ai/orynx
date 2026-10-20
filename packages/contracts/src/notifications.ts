@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { GitHubLinkSchema } from './github.ts';
 import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
-import { SessionIdSchema, SessionSourceSchema } from './session.ts';
+import { SessionIdSchema, SessionReadySchema, SessionSourceSchema } from './session.ts';
 
 /**
  * Spec 029: what Orynx tells you about. A notification holds the facts the app words ("Claude wants to run a
@@ -40,7 +40,12 @@ export const NotificationWhatSchema = z.discriminatedUnion('kind', [
     /** False once the call was answered or ended anywhere: it leaves Needs you and loses its buttons. */
     waiting: z.boolean(),
   }),
-  z.object({ kind: z.literal('session_finished'), session: NotificationSessionSchema }),
+  z.object({
+    kind: z.literal('session_finished'),
+    session: NotificationSessionSchema,
+    /** What Claude left it ready for; one raised before this said a pull request. */
+    ready: SessionReadySchema.default('pull_request'),
+  }),
   /** You pressed Stop. */
   z.object({ kind: z.literal('session_stopped'), session: NotificationSessionSchema }),
   z.object({ kind: z.literal('session_failed'), session: NotificationSessionSchema }),

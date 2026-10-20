@@ -65,7 +65,7 @@ describe('search index', () => {
           title: 'Fix the date test',
           status: 'done',
           doneAt: '2026-09-01T09:00:00.000Z',
-          session: { id: 's-6', state: 'done' },
+          session: { id: 's-6', state: 'done', ready: 'pull_request' },
         }),
       ],
     });

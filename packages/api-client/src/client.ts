@@ -41,7 +41,11 @@ import {
   type PushDraftAnswer,
   type SendMessageAnswer,
   type SendMessageInput,
+  type AddTerminalTabAnswer,
+  type ClaudeCommandList,
+  type RunCommandAnswer,
   type Session,
+  type Terminal,
   type SessionBrief,
   type SessionChanges,
   type SessionList,
@@ -125,6 +129,16 @@ import { deleteOrynxTicket, getOrynxTicket, patchOrynxTicket, postOrynxTicket } 
 import { getAgentsAccess, postMcpConfig, putAgentsAccess } from './endpoints/agents-access.ts';
 import { postFileCheck, postFilePicker } from './endpoints/files.ts';
 import { getSkills } from './endpoints/skills.ts';
+import {
+  deleteTerminalBlocks,
+  deleteTerminalTab,
+  getSessionCommands,
+  getTerminal,
+  postTerminalFix,
+  postTerminalRun,
+  postTerminalStop,
+  postTerminalTab,
+} from './endpoints/terminal.ts';
 import { toApiRequestError } from './errors.ts';
 import { subscribeToEvents, type EventSourceConstructor } from './events.ts';
 
@@ -163,6 +177,18 @@ export interface ApiClient {
   sessionChanges(id: string): Promise<SessionChanges>;
   /** One changed file's diff; rejects with not_found for a path that isn't among the changes. */
   sessionDiff(id: string, path: string): Promise<FileDiff>;
+  /** Every command Claude ran in the session, with its output, for the Terminal's Claude tab (spec 036). */
+  sessionCommands(id: string): Promise<ClaudeCommandList>;
+  /** Your shell tabs in the session's Terminal; rejects with not_found for a session that has none (spec 036). */
+  terminal(id: string): Promise<Terminal>;
+  addTerminalTab(id: string): Promise<AddTerminalTabAnswer>;
+  closeTerminalTab(id: string, tabId: string): Promise<void>;
+  /** Runs your command in the session's worktree: started, or busy while another runs in the tab. */
+  runCommand(id: string, tabId: string, command: string): Promise<RunCommandAnswer>;
+  stopCommand(id: string, tabId: string): Promise<void>;
+  clearTerminalTab(id: string, tabId: string): Promise<void>;
+  /** Ask Claude to fix: sends a failed block to Claude as a follow-up, or says why it can't go. */
+  askToFix(id: string, tabId: string, blockId: string): Promise<SendMessageAnswer>;
   /** Claude's draft of the pull request, or why there can't be one (spec 014). Each call asks Claude. */
   draftPullRequest(id: string): Promise<PullRequestDraftAnswer>;
   /** Commits, pushes and opens the pull request as you left it: opened, cannot, or failed with why (spec 014). */
@@ -296,6 +322,21 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       getSessionChanges(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sessionDiff: (id, path) =>
       getFileDiff(http, id, path).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    sessionCommands: (id) =>
+      getSessionCommands(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    terminal: (id) => getTerminal(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    addTerminalTab: (id) =>
+      postTerminalTab(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    closeTerminalTab: (id, tabId) =>
+      deleteTerminalTab(http, id, tabId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    runCommand: (id, tabId, command) =>
+      postTerminalRun(http, id, tabId, command).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    stopCommand: (id, tabId) =>
+      postTerminalStop(http, id, tabId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    clearTerminalTab: (id, tabId) =>
+      deleteTerminalBlocks(http, id, tabId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    askToFix: (id, tabId, blockId) =>
+      postTerminalFix(http, id, tabId, blockId).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     draftPullRequest: (id) =>
       postPullRequestDraft(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     createPullRequest: (id, request) =>

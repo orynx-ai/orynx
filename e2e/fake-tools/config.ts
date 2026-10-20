@@ -39,7 +39,13 @@ export const composerHubPort = 4388;
 export const syncActivityHubPort = 4384;
 
 /**
- * The ninth, for Orynx's own tickets (spec 037): with no Jira, as the first hub, but its tickets and its agents' door
+ * The ninth, for the session Terminal (spec 036): its sessions' worktrees run your commands. 4382 to 4388 are
+ * other specs', and a parallel worktree's Vite can hold 4386.
+ */
+export const terminalHubPort = 4380;
+
+/**
+ * The tenth, for Orynx's own tickets (spec 037): with no Jira, as the first hub, but its tickets and its agents' door
  * stay away from the Tickets spec, which expects none. No fakes inside it.
  */
 export const orynxTicketsHubPort = 4382;

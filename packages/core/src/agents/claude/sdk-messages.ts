@@ -24,6 +24,8 @@ export type ReadMessage =
   | { type: 'turn_ended'; summary: string; queued: number; took: readonly string[] | null }
   /** An edit or a command has ended, so the worktree's files may have changed (spec 013, AC-2). */
   | { type: 'files_changed' }
+  /** A command's result (spec 036): its output, whether it failed, and the time since Claude asked for it. */
+  | { type: 'command_ended'; id: string; output: string; failed: boolean; ms: number }
   | { type: 'problem'; kind: ProblemKind; code: string };
 
 const InitSchema = z.object({
@@ -40,7 +42,23 @@ const ToolResultSchema = z.object({
   type: z.literal('tool_result'),
   tool_use_id: z.string(),
   is_error: z.boolean().nullish(),
+  content: z.unknown(),
 });
+/** A result's content: text as it is, or blocks whose text is kept and anything else left out. */
+const ResultContentSchema = z.union([z.string(), z.array(z.unknown())]);
+const TextBlockSchema = z.object({ type: z.literal('text'), text: z.string() });
+
+function textOf(content: unknown): string {
+  const read = ResultContentSchema.safeParse(content);
+  if (!read.success) return '';
+  if (typeof read.data === 'string') return read.data;
+  return read.data
+    .flatMap((block) => {
+      const text = TextBlockSchema.safeParse(block);
+      return text.success ? [text.data.text] : [];
+    })
+    .join('\n');
+}
 const BlocksSchema = z.object({ message: z.object({ content: z.array(z.unknown()) }) });
 
 const AssistantErrorSchema = z.object({ type: z.literal('assistant'), error: z.string() });
@@ -98,8 +116,9 @@ function statusKind(status: number): ProblemKind {
 export function createMessageReader(
   worktree: string,
   decidedByOrynx: (toolUseId: string) => boolean = () => false,
+  now: () => number = Date.now,
 ): (message: SDKMessage) => ReadMessage[] {
-  const calls = new Map<string, { name: string; input: unknown }>();
+  const calls = new Map<string, { name: string; input: unknown; at: number }>();
   let failed = false;
 
   /** A path inside the worktree as the session shows it, relative; anything else as Claude gave it. */
@@ -181,7 +200,7 @@ export function createMessageReader(
     for (const block of blocks.data.message.content) {
       const use = ToolUseSchema.safeParse(block);
       if (use.success) {
-        calls.set(use.data.id, { name: use.data.name, input: use.data.input });
+        calls.set(use.data.id, { name: use.data.name, input: use.data.input, at: now() });
         continue;
       }
       const done = ToolResultSchema.safeParse(block);
@@ -189,9 +208,13 @@ export function createMessageReader(
       const call = calls.get(done.data.tool_use_id);
       calls.delete(done.data.tool_use_id);
       if (call?.name === 'Bash') {
+        const id = done.data.tool_use_id;
         const command = CommandInputSchema.safeParse(call.input);
-        if (command.success && !decidedByOrynx(done.data.tool_use_id)) {
-          said.push({ type: 'work', work: { kind: 'command', command: command.data.command } });
+        if (command.success) {
+          if (!decidedByOrynx(id))
+            said.push({ type: 'work', work: { kind: 'command', id, command: command.data.command } });
+          const ended = { output: textOf(done.data.content), failed: done.data.is_error === true, ms: now() - call.at };
+          said.push({ type: 'command_ended', id, ...ended });
         }
         // A command can write anything, even one that failed part way.
         said.push({ type: 'files_changed' });

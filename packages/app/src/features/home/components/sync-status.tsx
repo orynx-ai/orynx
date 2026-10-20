@@ -29,9 +29,9 @@ export function RefreshButton() {
 }
 
 /**
- * The right of Home's page bar (spec 007, Q8c): when the list last synced, moving on each minute, Sync activity
- * (spec 035) and Refresh. Neither shows until a tool is connected (AC-21). Under 768 px the line steps aside, as page bar
- * meta does.
+ * The right of Home's page bar (spec 007, Q8c): when the list last synced, moving on each minute, Refresh, then Sync
+ * activity (spec 035) at the end (the user's call, 20 Oct 2026). Neither shows until a tool is connected (AC-21). Under
+ * 768 px the line steps aside, as page bar meta does.
  */
 export function SyncStatus() {
   const inbox = useInbox();
@@ -45,8 +45,8 @@ export function SyncStatus() {
   return (
     <>
       {line === null ? null : <span className="text-small text-muted-foreground max-md:hidden">{line}</span>}
-      <SyncActivityButton attention={attention} />
       <RefreshButton />
+      <SyncActivityButton attention={attention} />
     </>
   );
 }
