@@ -122,6 +122,15 @@ export {
   type DialogContentProps,
   type DialogProps,
 } from './components/dialog.tsx';
+export {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetFoot,
+  SheetTrigger,
+  type SheetContentProps,
+  type SheetProps,
+} from './components/sheet.tsx';
 export { CommandBlock, type CommandBlockProps, type CommandBlockTone } from './components/command-block.tsx';
 export { CopyButton, type CopyButtonProps } from './components/copy-button.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';

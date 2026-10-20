@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: api-client: `changeSession`, `deleteSession` and the `pinned` list option (AC-26, AC-28, AC-32)
       Check: pnpm test packages/api-client/src/sessions.test.ts
       Files: packages/api-client/src/sessions.ts, packages/api-client/src/sessions.test.ts
-- [ ] Task 5: `Sheet` in `@devhub/ui`, on the right, from shadcn's Sheet, restyled to the dialog tokens, with stories and a test. Add it to the design system and the design map (Q6) (AC-2, AC-4)
+- [x] Task 5: `Sheet` in `@devhub/ui`, on the right, from shadcn's Sheet, restyled to the dialog tokens, with stories and a test. Add it to the design system and the design map (Q6) (AC-2, AC-4)
       Check: pnpm test packages/ui/src/components/sheet.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/sheet.tsx, sheet.stories.tsx, sheet.test.tsx, packages/ui/src/index.ts, docs/design/design-system.md, docs/design-map.md
 - [ ] Task 6: `SessionItem` `size="sm"` (14 px title, 12 px second line, 20 px state circle, 36 px row) and an `actions` slot beside the link, shown on hover or focus-within and always under 768 px (AC-24, AC-39)

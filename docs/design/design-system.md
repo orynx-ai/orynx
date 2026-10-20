@@ -451,6 +451,15 @@ A short list of choices opened from a picker or a "more" button.
 
 </details>
 
+### Sheet
+
+A panel that slides in from the right edge over the page, for a set of controls that would crowd a toolbar, such as Tickets' filters (spec 039, Q6: from shadcn's `sheet`, on the dialog's tokens).
+
+- A dialog underneath (`role="dialog"`, named by its title): focus moves in and stays in, and `Esc`, Close or a click beside it closes it and returns focus to what opened it. The sheet itself takes focus when it opens, so the first `Esc` closes it.
+- As tall as the window and 400px wide, the whole width when the window is narrower. `bg-raised`, a hairline on its open side and `shadow-overlay`. The page behind fades towards the canvas, as behind a dialog.
+- A head with the title (`title`) and Close, a body that scrolls, and an optional foot on the sidebar's tint with a hairline above, as a dialog's foot.
+- It slides in 24px with a fade over 200ms, and only fades with reduced motion.
+
 ### Pill
 
 A short status label: a dot plus a word, so state never depends on colour alone.
