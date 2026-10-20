@@ -32,7 +32,7 @@ import { useWide } from '../../../shell/use-wide.ts';
 import { needsApprovalLabel } from '../approval-words.ts';
 import { editorLink, openInLabel } from '../change-words.ts';
 import { openPullRequestLabel, pullRequestWords } from '../pull-request-words.ts';
-import { useEditor, useHasChanges } from '../queries.ts';
+import { useEditor, useHasChanges, useSessionPorts } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
 import { DeleteSession } from './delete-session.tsx';
 import { RenameSession } from './rename-session.tsx';
@@ -65,6 +65,30 @@ function canPush(session: Session): boolean {
   return !working && session.discardedAt === null && session.worktreePath !== null;
 }
 
+/** Before Claude's first edit, a Build session has no branch (spec 042, Q11). */
+const noBranchYet = 'No branch yet';
+
+/** The session's first web address while it listens (spec 042): the page bar is all you need to open the app. */
+function SessionAddress({ session }: { session: Session }) {
+  const platform = usePlatform();
+  const url = useSessionPorts(session).data?.find((port) => port.url !== null)?.url ?? null;
+  if (url === null) return null;
+  return (
+    <a
+      href={url}
+      rel="noreferrer"
+      className="inline-flex items-center gap-1 text-info underline"
+      onClick={(event) => {
+        event.preventDefault();
+        platform.openExternal(url);
+      }}
+    >
+      {new URL(url).host}
+      <Icon icon={ArrowUpRight01Icon} aria-hidden className="size-4" />
+    </a>
+  );
+}
+
 /**
  * The Session screen's title row (`session.html`): the title, the state, the branch and where Claude works. Its
  * buttons are in the page bar, in {@link SessionActions} (the user's call, 19 Oct 2026).
@@ -80,9 +104,13 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
           {/* The sidebar's "Needs you" is said in full here, where you answer (spec 012, Q8d). */}
           {session.state === 'needs_you' ? needsApprovalLabel : sessionStateLabel(session.state, session.ready)}
         </Pill>
-        {session.branch === null ? null : (
+        {session.branch !== null ? (
           <code className="rounded-sm bg-subtle px-2 font-mono text-code text-foreground">{session.branch}</code>
-        )}
+        ) : session.mode === 'build' && session.worktreePath !== null ? (
+          // The branch comes at Claude's first edit (spec 042).
+          <span className="rounded-sm bg-subtle px-2">{noBranchYet}</span>
+        ) : null}
+        <SessionAddress session={session} />
         {/* An Ask may have no folder at all (spec 031, Q8d). */}
         {session.folder === null ? (
           <span>Ask session · changes nothing</span>

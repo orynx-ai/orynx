@@ -101,6 +101,8 @@ export const server = setupServer(
   ),
   // Claude has run nothing, and your shell has its one empty tab (spec 036).
   http.get(apiUrl(apiRoutes.sessionCommands), () => HttpResponse.json({ commands: [] })),
+  // Nothing listens from a session yet (spec 042).
+  http.get(apiUrl(apiRoutes.sessionPorts), () => HttpResponse.json({ ports: [] })),
   http.get(apiUrl(apiRoutes.sessionTerminal), () => HttpResponse.json(makeTerminal())),
   http.post(apiUrl(apiRoutes.sessionTerminalSize), () => new HttpResponse(null, { status: 204 })),
   http.get(apiUrl(apiRoutes.jiraConnection), () => HttpResponse.json(makeJiraConnection())),

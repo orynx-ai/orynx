@@ -72,9 +72,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 ## App
 
 - [x] Task 19: Words for the reading, steps-changed, branch-made and server rows (folded into task 2: the words switch can't compile without them)
-- [ ] Task 20: The stepper draws the session's own steps; the header says "No branch yet" or the branch, and links the first web address (AC-1, AC-2, AC-3, AC-32, AC-34)
-      Check: pnpm test packages/app/src/features/sessions/components/session-progress.test.tsx packages/app/src/features/sessions/components/session-header.test.tsx
-      Files: packages/app/src/features/sessions/components/session-progress.tsx, packages/app/src/features/sessions/components/session-header.tsx, and their tests
+- [x] Task 20: The header says "No branch yet" for a Build session with a worktree and no branch, and links the session's first web address, opened outside Orynx (the stepper already draws the session's own steps, from task 1) (AC-2, AC-3, AC-4)
+      Check: pnpm test packages/app/src/features/sessions/components/session-header.test.tsx
+      Files: packages/app/src/features/sessions/components/session-header.tsx, packages/app/src/features/sessions/queries.ts, packages/app/src/test/msw.ts, packages/contracts/src/testing.ts, and its test
 - [ ] Task 21: The Ports tab, first: rows with Open or Copy address, Stop (a confirm when found in the worktree), Restart or Run again in Terminal; empty, loading and error; polled 3 s open, 15 s for the count, never hidden (AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-11, AC-35)
       Check: pnpm test packages/app/src/features/sessions/components/ports-panel.test.tsx
       Files: packages/app/src/features/sessions/components/ports-panel.tsx, packages/app/src/features/sessions/components/ports-panel.test.tsx, packages/app/src/features/sessions/queries.ts

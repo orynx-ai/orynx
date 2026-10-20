@@ -9,6 +9,7 @@ import {
   sessionDiffQueryOptions,
   sessionPagesQueryOptions,
   sessionCommandsQueryOptions,
+  sessionPortsQueryOptions,
   sessionTerminalQueryOptions,
   sessionQueryKey,
   sessionsQueryOptions,
@@ -170,6 +171,15 @@ export function usePushChanges(sessionId: string) {
 export function useSessionCommands(sessionId: string) {
   const api = useApi();
   return useQuery(sessionCommandsQueryOptions(api, sessionId));
+}
+
+/**
+ * What listens from the session (spec 042): asked every 3 seconds while the Ports tab is open, every 15 otherwise, and
+ * only for a session with a Terminal, the only kind whose servers Orynx can find.
+ */
+export function useSessionPorts(session: Pick<Session, 'id' | 'terminal'>, { open = false } = {}) {
+  const api = useApi();
+  return useQuery({ ...sessionPortsQueryOptions(api, session.id, { open }), enabled: session.terminal });
 }
 
 /** Your shell tabs in the session's Terminal (spec 036); `session.terminal.changed` keeps them fresh. */
