@@ -50,8 +50,9 @@ export interface BranchGit {
   /**
    * Pushes `branch` to origin under the same name, and only it: never forced, so a branch on origin with commits
    * the worktree doesn't have stays as it is (`rejected`). Your own git login signs in, never asking for a password.
+   * `detached`: the worktree has no branch of its own (your pull request's, spec 031), so its HEAD goes to `branch`.
    */
-  push(worktree: string, branch: string): Promise<Pushed>;
+  push(worktree: string, branch: string, options?: { detached?: boolean }): Promise<Pushed>;
 }
 
 export interface BranchGitOptions {
@@ -245,9 +246,10 @@ export function createBranchGit({
       }
     },
 
-    async push(worktree, branch) {
+    async push(worktree, branch, { detached = false } = {}) {
       const signal = AbortSignal.timeout(pushTimeoutMs);
       const ref = `refs/heads/${branch}`;
+      const from = detached ? 'HEAD' : ref;
       try {
         // The branch named on both sides, so nothing else on origin can change; no `--force`, ever.
         const said = await git(worktree, [], signal).raw([
@@ -255,7 +257,7 @@ export function createBranchGit({
           '--porcelain',
           '--no-verify',
           'origin',
-          `${ref}:${ref}`,
+          `${from}:${ref}`,
         ]);
         const head = (await read(worktree, ['rev-parse', 'HEAD'])).trim();
         return { ok: true, head, upToDate: /^=\t/m.test(said) };

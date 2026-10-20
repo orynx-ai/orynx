@@ -292,3 +292,50 @@ describe('pushing (spec 014, Q6)', () => {
     expect(JSON.stringify(pushed)).not.toContain('fake-token-for-tests');
   });
 });
+
+describe('pushing from your pull request’s branch (spec 031)', () => {
+  /** A detached worktree at origin's fix/content-list, as a session on your pull request makes one. */
+  async function setUpPull() {
+    const repos = await repositories();
+    await repos.commitInOrigin('fix.txt', 'fix/content-list');
+    const worktree = join(repos.worktrees, '0123456789abcdef');
+    const made = await createWorktrees({ env: gitEnvironment(repos.env), root: repos.worktrees }).make(
+      repos.clone,
+      worktree,
+      { branch: 'fix/content-list', base: 'origin/fix/content-list', remote: true, detach: true },
+    );
+    if (!made.ok) throw new Error('the worktree should be made');
+    await withIdentity(repos);
+    return { repos, worktree, git: createBranchGit({ env: gitEnvironment(repos.env) }) };
+  }
+
+  it('AC-16: pushes the detached HEAD to the pull request’s branch, and nothing else', async () => {
+    const { repos, worktree, git } = await setUpPull();
+    const mainBefore = await repos.git(repos.origin, 'rev-parse', 'refs/heads/main');
+    await writeFile(join(worktree, 'review.ts'), 'fixed\n');
+    await git.commit(worktree, 'Answer the review');
+
+    const head = await repos.git(worktree, 'rev-parse', 'HEAD');
+    expect(await git.push(worktree, 'fix/content-list', { detached: true })).toEqual({
+      ok: true,
+      head,
+      upToDate: false,
+    });
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/fix/content-list')).toBe(head);
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/main')).toBe(mainBefore);
+    expect(await repos.git(repos.clone, 'branch', '--list', 'fix/content-list')).toBe('');
+  });
+
+  it('AC-17: never forces: when someone pushed to the branch since, it is rejected and theirs is kept', async () => {
+    const { repos, worktree, git } = await setUpPull();
+    const theirs = await repos.commitInOrigin('theirs.ts', 'fix/content-list');
+    await writeFile(join(worktree, 'review.ts'), 'fixed\n');
+    await git.commit(worktree, 'Answer the review');
+
+    expect(await git.push(worktree, 'fix/content-list', { detached: true })).toEqual({
+      ok: false,
+      problem: 'rejected',
+    });
+    expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/fix/content-list')).toBe(theirs);
+  });
+});

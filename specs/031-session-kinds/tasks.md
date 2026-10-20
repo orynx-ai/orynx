@@ -16,7 +16,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Worktrees: a detached worktree from the PR's branch after fetching it, even while the main checkout has that branch; the last fetched copy when offline; nothing left when there is none (AC-14, AC-22)
       Check: pnpm test packages/core/src/sessions/worktrees.test.ts
       Files: packages/core/src/sessions/worktrees.ts, packages/core/src/sessions/worktrees.test.ts
-- [ ] Task 5: Push from a detached HEAD to the PR's branch, never forced; rejected when origin has moved (AC-16, AC-17)
+- [x] Task 5: Push from a detached HEAD to the PR's branch, never forced; rejected when origin has moved (AC-16, AC-17)
       Check: pnpm test packages/core/src/sessions/branch-git.test.ts
       Files: packages/core/src/sessions/branch-git.ts, packages/core/src/sessions/branch-git.test.ts
 - [ ] Task 6: Which kind a composer start is: Ask, Build on a new branch, or Build on your PR (no ticket; first PR yours, open, not a fork, in the folder's origin) (AC-14, AC-19, AC-20)
