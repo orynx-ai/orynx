@@ -1,6 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys, ticketQueryOptions, ticketsQueryOptions, ticketsSprintsQueryOptions } from '@devhub/api-client';
-import { isOrynxKey, type Tickets, type TicketsChoice } from '@devhub/contracts';
+import {
+  orynxTicketQueryOptions,
+  queryKeys,
+  ticketQueryOptions,
+  ticketsQueryOptions,
+  ticketsSprintsQueryOptions,
+} from '@devhub/api-client';
+import {
+  isOrynxKey,
+  type CreateOrynxTicket,
+  type Tickets,
+  type TicketsChoice,
+  type UpdateOrynxTicket,
+} from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
 /** Tickets' sprint and its tickets. Kept fresh by `inbox.changed`, `status.changed` and `sessions.changed`. */
@@ -56,4 +68,42 @@ export function useChooseTicketsSprint() {
 export function useTicket(key: string) {
   const api = useApi();
   return useQuery(ticketQueryOptions(api, key));
+}
+
+/** Every place an Orynx ticket shows, refreshed after this tab's own change, before tickets.changed even comes. */
+function useOrynxTicketsChanged() {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all(
+      [queryKeys.tickets, queryKeys.orynxTicket, queryKeys.search].map((queryKey) =>
+        queryClient.invalidateQueries({ queryKey }),
+      ),
+    );
+}
+
+/** One of Orynx's own tickets for the ticket dialog (spec 037); tickets.changed keeps it fresh. */
+export function useOrynxTicket(key: string) {
+  const api = useApi();
+  return useQuery(orynxTicketQueryOptions(api, key));
+}
+
+export function useCreateOrynxTicket() {
+  const api = useApi();
+  const changed = useOrynxTicketsChanged();
+  return useMutation({ mutationFn: (ticket: CreateOrynxTicket) => api.createOrynxTicket(ticket), onSuccess: changed });
+}
+
+export function useUpdateOrynxTicket() {
+  const api = useApi();
+  const changed = useOrynxTicketsChanged();
+  return useMutation({
+    mutationFn: ({ key, change }: { key: string; change: UpdateOrynxTicket }) => api.updateOrynxTicket(key, change),
+    onSuccess: changed,
+  });
+}
+
+export function useDeleteOrynxTicket() {
+  const api = useApi();
+  const changed = useOrynxTicketsChanged();
+  return useMutation({ mutationFn: (key: string) => api.deleteOrynxTicket(key), onSuccess: changed });
 }

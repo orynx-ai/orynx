@@ -14,6 +14,7 @@ import { TicketsList, TicketsListSkeleton } from './components/tickets-list.tsx'
 import { SprintPickers } from './components/sprint-pickers.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
 import { ShipSelected } from './components/ship-button.tsx';
+import { NewTicketButton, NewTicketDialog, NewTicketInColumn } from './components/new-ticket.tsx';
 import { RefreshButton } from '../home/components/sync-status.tsx';
 import {
   defaultFilters,
@@ -73,6 +74,8 @@ export function TicketsScreen() {
   const filters = { ...filtersFromSearch(search), text };
   // Orynx's own tickets alone have no sprint, so the page names them and leaves the pickers out (spec 037, Q7).
   const orynxOnly = jiraOff || (filters.source.length === 1 && filters.source[0] === 'orynx');
+  // New ticket and each column's + make Orynx tickets, so they go while Orynx's are filtered out (AC-2).
+  const orynxShown = jiraOff || filters.source.length !== 1 || filters.source[0] === 'orynx';
   // Loading until the first sync has read the sprint (Q8a), or a new pick's (spec 020); after that the cache answers.
   const loading = data === undefined || (!orynxOnly && data.jira.state === 'syncing');
   const sprint = data?.sprint ?? null;
@@ -133,11 +136,18 @@ export function TicketsScreen() {
   if (noSprint) {
     body = <NoSprint jira={data.jira} choice={choice} />;
   } else if (noOrynxTickets) {
-    body = <EmptyState title={noOrynxTicketsText} />;
+    body = <EmptyState title={noOrynxTicketsText} action={<NewTicketButton />} />;
   } else if (loading || shownName === null) {
     body = view === 'board' ? <TicketsBoardSkeleton /> : <TicketsListSkeleton />;
   } else if (view === 'board') {
-    body = <TicketsBoard shown={shown} unfiltered={unfiltered} now={now} />;
+    body = (
+      <TicketsBoard
+        shown={shown}
+        unfiltered={unfiltered}
+        now={now}
+        addTo={orynxShown ? (column) => <NewTicketInColumn column={column} /> : undefined}
+      />
+    );
   } else {
     body = (
       <TicketsList
@@ -167,6 +177,7 @@ export function TicketsScreen() {
           <>
             {synced === null ? null : <span className="text-small text-muted-foreground max-md:hidden">{synced}</span>}
             <RefreshButton />
+            {orynxShown && !noSprint && !noOrynxTickets ? <NewTicketButton /> : null}
             {noSprint ? null : (
               <>
                 {wide ? searchField : null}
@@ -218,6 +229,7 @@ export function TicketsScreen() {
             assignee.current?.focus();
           }}
         />
+        <NewTicketDialog />
       </PageBody>
     </>
   );

@@ -201,3 +201,30 @@ export function ticketProblemLine(key: string, result: 'not_found' | 'not_connec
       return "Jira didn't answer.";
   }
 }
+
+/** Spec 037, Q12b to Q12f: the words of an Orynx ticket's form and its delete. */
+export const orynxTicketWords = {
+  newTicket: 'New ticket',
+  newTicketIn: (column: TicketColumn) => `New ticket in ${columnNames[column]}`,
+  editTitle: (key: string) => `Edit ${key}`,
+  create: 'Create ticket',
+  saveChanges: 'Save changes',
+  cancel: 'Cancel',
+  edit: 'Edit',
+  fields: {
+    title: 'Title',
+    description: 'Description',
+    type: 'Type',
+    priority: 'Priority',
+    status: 'Status',
+    dueDate: 'Due date',
+  },
+  pickDate: 'Pick a date',
+  clearDate: 'Clear date',
+  saveFailed: "Couldn't save the ticket. Try again.",
+  changed: (key: string) => `${key} changed after you opened it. Save changes again to keep your version.`,
+  deleteTicket: 'Delete ticket',
+  deleteTitle: (key: string) => `Delete ${key}?`,
+  deleteLine: "It's gone for good, and its key isn't used again. Sessions started from it keep their brief.",
+  deleteFailed: "The ticket wasn't deleted. Try again.",
+} as const;

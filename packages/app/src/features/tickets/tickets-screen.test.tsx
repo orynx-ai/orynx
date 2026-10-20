@@ -68,7 +68,7 @@ describe('TicketsScreen', () => {
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
 
-  it('AC-30: Tab goes through Refresh, the search, Board / List, Project and Sprint (spec 020), Source (spec 037), the filters, Clear filters, the board, then each card’s checkbox and title', async () => {
+  it('AC-30: Tab goes through Refresh, New ticket (spec 037), the search, Board / List, Project and Sprint (spec 020), Source (spec 037), the filters, Clear filters, the board, its column’s + (spec 037), then each card’s checkbox and title', async () => {
     server.use(ticketsHandler());
     const { user } = await renderApp({ route: '/tickets?type=bug' });
     await screen.findByText('1 ticket');
@@ -77,7 +77,7 @@ describe('TicketsScreen', () => {
       .focus();
     const stops: string[] = [];
 
-    for (let stop = 0; stop < 16; stop += 1) {
+    for (let stop = 0; stop < 18; stop += 1) {
       await user.tab();
       const focused = document.activeElement;
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent.trim() ?? '');
@@ -85,6 +85,7 @@ describe('TicketsScreen', () => {
 
     expect(stops).toEqual([
       'Refresh',
+      'New ticket',
       'Search tickets',
       'Board',
       'List',
@@ -98,6 +99,7 @@ describe('TicketsScreen', () => {
       'Due',
       'Clear filters',
       'Board',
+      'New ticket in To do',
       'Select PROJ-1377',
       'Search returns archived sites for guest users',
     ]);
