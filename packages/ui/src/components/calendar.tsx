@@ -2,14 +2,15 @@ import { useEffect, useRef, type ComponentProps } from 'react';
 import { ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { DayPicker, type DayButtonProps } from 'react-day-picker';
 import { cn } from '../lib/cn.ts';
-import { buttonVariants } from './button.tsx';
 import { Icon } from './icon.tsx';
+import { IconButton } from './icon-button.tsx';
 
 export type CalendarProps = ComponentProps<typeof DayPicker>;
 
 /**
  * A month to pick a day from (spec 037, Q15). From shadcn's `calendar` (react-day-picker underneath), restyled to the
- * tokens: 36 px days, the picked one in `primary`, today in medium weight, days of the months either side quieter.
+ * tokens: 36 px days, the picked one in `primary`, today in medium weight, days of the months either side quieter,
+ * and the months either side behind icon buttons with their tooltips.
  * The keyboard is react-day-picker's: the arrows move a day or a week, Page Up and Page Down a month, Home and End
  * to the week's ends, Enter or Space picks.
  */
@@ -23,8 +24,6 @@ export function Calendar({ className, classNames, showOutsideDays = true, ...pro
         months: 'relative flex flex-col',
         month: 'flex flex-col gap-2',
         nav: 'absolute inset-x-0 top-0 flex items-center justify-between',
-        button_previous: buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-        button_next: buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
         month_caption: 'flex h-8 items-center justify-center',
         caption_label: 'text-body font-medium',
         month_grid: 'border-collapse',
@@ -36,8 +35,16 @@ export function Calendar({ className, classNames, showOutsideDays = true, ...pro
         ...classNames,
       }}
       components={{
-        Chevron: ({ orientation }) => (
-          <Icon icon={orientation === 'left' ? ArrowLeft01Icon : ArrowRight01Icon} aria-hidden />
+        // Icon-only, so each has its tooltip, as every icon button does.
+        PreviousMonthButton: ({ className: _, children: __, 'aria-label': ___, ...props }) => (
+          <IconButton variant="ghost" size="sm" label="Previous month" {...props}>
+            <Icon icon={ArrowLeft01Icon} aria-hidden />
+          </IconButton>
+        ),
+        NextMonthButton: ({ className: _, children: __, 'aria-label': ___, ...props }) => (
+          <IconButton variant="ghost" size="sm" label="Next month" {...props}>
+            <Icon icon={ArrowRight01Icon} aria-hidden />
+          </IconButton>
         ),
         DayButton: CalendarDay,
       }}
