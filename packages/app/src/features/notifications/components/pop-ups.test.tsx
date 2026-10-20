@@ -152,10 +152,17 @@ describe('pop-ups (spec 029)', () => {
     expect(within(popUps()).getAllByRole('status')).toHaveLength(3);
   });
 
-  it('none pops up for the session whose screen you’re on, which shows it already', async () => {
+  it('none pops up for the session whose screen you’re on, which shows it already; it’s read and not in the bell', async () => {
     choosing(awake);
+    const read: unknown[] = [];
+    server.use(
+      http.post(apiUrl(apiRoutes.notificationsRead), async ({ request }) => {
+        read.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
     listing([]);
-    await renderApp({ route: '/sessions/00000000000000aa' });
+    const { user } = await renderApp({ route: '/sessions/00000000000000aa' });
     const nav = screen.getByRole('navigation', { name: 'Main' });
     await within(nav).findByRole('button', { name: 'Notifications' });
     listing([approval]);
@@ -163,8 +170,12 @@ describe('pop-ups (spec 029)', () => {
       FakeEventSource.latest().emit({ type: 'notifications.changed' });
     });
 
-    await within(nav).findByRole('button', { name: 'Notifications, 1 unread' });
+    await waitFor(() => {
+      expect(read).toContainEqual({ ids: ['approval'] });
+    });
     expect(within(popUps()).queryByRole('alert')).toBeNull();
+    await user.click(within(nav).getByRole('button', { name: /^Notifications/ }));
+    expect(await screen.findByText('No notifications yet.')).toBeVisible();
   });
 
   it('those already there when the tab opened don’t pop up', async () => {

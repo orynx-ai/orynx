@@ -64,7 +64,7 @@ export function NotificationItem({
         >
           {title}
         </button>
-        <span id={`${id}-detail`} className="text-small text-muted-foreground">
+        <span id={`${id}-detail`} className="line-clamp-2 text-small wrap-anywhere text-muted-foreground">
           {detail}
         </span>
         <span id={`${id}-time`} className="text-label text-muted-foreground">

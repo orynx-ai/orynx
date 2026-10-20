@@ -8,7 +8,7 @@ import { announce, becomeSpeaker, watchLooking } from '../alerts.ts';
 import { useMarkNotificationsRead, useNotificationSettings, useNotifications } from '../queries.ts';
 import { delivery } from '../quiet.ts';
 import { useTestPopUpStore } from '../store.ts';
-import { notificationPlace, notificationWords, testWords } from '../words.ts';
+import { aboutOpenSession, notificationPlace, notificationWords, testWords } from '../words.ts';
 import { isWaiting, notificationLooks } from './notification-centre.tsx';
 import { NotificationActions } from './notification-actions.tsx';
 
@@ -82,11 +82,14 @@ export function PopUps() {
         !read &&
         delivery(what, chosen, now).popUp &&
         // The session you're looking at already shows it, its approval callout included.
-        !('session' in what && pathname === `/sessions/${what.session.id}`),
+        !aboutOpenSession(what, pathname),
     );
     if (popping.length > 0) setQueued((ids) => [...ids, ...popping.map((notification) => notification.id)]);
+    // Nor does it wait unread in the bell: the session you're on has told you (the user's call, 20 Oct 2026).
+    const here = arrived.filter(({ read, what }) => !read && aboutOpenSession(what, pathname));
+    if (here.length > 0) markRead({ ids: here.map((notification) => notification.id) });
     if (speaking.current && arrived.length > 0) void announce(arrived, chosen, now, open);
-  }, [list, settings.data, open, pathname]);
+  }, [list, settings.data, open, pathname, markRead]);
 
   const byId = new Map((list ?? []).map((notification) => [notification.id, notification]));
   // An approval answered anywhere has nothing left to ask, so its pop-up goes (AC-23).

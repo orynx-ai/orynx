@@ -196,7 +196,7 @@ test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its bran
   const progress = page.getByRole('region', { name: "Claude's progress" });
   await expect(progress.getByText('Editing files')).toBeVisible({ timeout: 15_000 });
 
-  await page.getByRole('button', { name: 'Stop Claude' }).click();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
 
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
   await expect(progress.getByText('You stopped Claude')).toBeVisible();
@@ -302,7 +302,7 @@ test('AC-15, AC-18, 022 AC-28: Home opens a live session, and a row’s +, Send,
     timeout: 15_000,
   });
 
-  const stop = page.getByRole('button', { name: 'Stop Claude' });
+  const stop = page.getByRole('button', { name: 'Stop', exact: true });
   await stop.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused({ timeout: 10_000 });

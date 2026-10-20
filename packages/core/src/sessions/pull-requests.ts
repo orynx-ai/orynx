@@ -78,6 +78,11 @@ export interface PullRequests {
   draftPush(id: string): Promise<PushDraftAnswer | null>;
   /** Commits what's new and pushes it to the pull request's branch, one at a time for each session (Q7). */
   push(id: string, request: PushRequest): Promise<PushAnswer | null>;
+  /**
+   * Saves the open pull request GitHub has from the session's branch, when the session has none: Claude's own
+   * `gh pr create` opens one Orynx didn't (spec 026). Nothing when GitHub has none or can't be asked.
+   */
+  link(id: string): Promise<void>;
 }
 
 /** Claude's draft reads at most this many lines of the diff, then counts only (Q4). */
@@ -212,6 +217,37 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     return found.ok ? found.branch : (base ?? 'main');
   }
 
+  /**
+   * Saves the open pull request GitHub has from `branch` as the session's, linked; true once the session has one.
+   * shortcut: `pushedCommit` stays unset, so Push changes counts from where the worktree started; read the pushed
+   * branch's head if its message ever lists what Claude already pushed.
+   */
+  async function linkOpen(id: string, token: string, repository: string, branch: string): Promise<boolean> {
+    const found = await client.findOpenPull(token, { repository, head: branch });
+    if (!found.ok || found.pull === null) return false;
+    const { number, url } = found.pull;
+    const at = new Date(now()).toISOString();
+    const saved = await options.save(id, (current) => {
+      if (current.session.pullRequest !== null || current.session.discardedAt !== null) return current;
+      const { step, activities } = addPullRequestStep(
+        { step: current.session.step, activities: current.session.activities },
+        { kind: 'pull_request', number, url, files: 0, branch, linked: true },
+      );
+      return {
+        ...current,
+        session: {
+          ...current.session,
+          // A follow-up under way ends as PR open, as Claude finishing does once there's a pull request.
+          state: isWorking(current.session) ? current.session.state : 'pr_open',
+          step,
+          activities: [...activities],
+          pullRequest: { number, url, repository, openedAt: at },
+        },
+      };
+    });
+    return (saved?.session.pullRequest ?? null) !== null;
+  }
+
   return {
     async draft(id) {
       const record = await records.get(id);
@@ -227,11 +263,13 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       if (!origin.ok) return cannot(origin.problem === 'git' ? 'missing' : origin.problem);
       const credentials = await options.github.credentials();
       if (credentials?.ok !== true) return cannot('not_connected');
+      const { repository } = origin;
+      // Claude may have opened it already with `gh pr create` (spec 026): then the page shows it instead.
+      if (await linkOpen(id, credentials.token, repository, session.branch)) return cannot('opened');
       const listed = await changes.list(worktree, start, editOrder(session));
       if (!listed.ok) return cannot('missing');
       if (listed.changes.files.length === 0) return cannot('no_changes');
 
-      const { repository } = origin;
       const base = await baseBranch(session, credentials.token, repository);
       // The worktree can go while it's read: then it's missing, as the Changes tab says (spec 013).
       const read = await Promise.all([
@@ -302,6 +340,17 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
 
     push(id, request) {
       return oneAtATime(id, () => pushNow(id, request));
+    },
+
+    async link(id) {
+      const record = await records.get(id);
+      if (record === null) return;
+      const { session, worktree } = record;
+      if (session.pullRequest !== null || session.discardedAt !== null || session.mode === 'ask') return;
+      if (worktree === null || session.branch === null) return;
+      const [origin, credentials] = await Promise.all([git.origin(worktree), options.github.credentials()]);
+      if (!origin.ok || credentials?.ok !== true) return;
+      await linkOpen(id, credentials.token, origin.repository, session.branch);
     },
   };
 

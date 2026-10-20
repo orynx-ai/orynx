@@ -76,6 +76,17 @@ describe('ApprovalCallout (spec 012)', () => {
     expect(callout).not.toContainElement(document.activeElement as HTMLElement | null);
   });
 
+  it('asks under Claude’s last step, as a chat does, not above the steps (the user’s call, 20 Oct 2026)', async () => {
+    setUp([lint]);
+    await renderApp({ route });
+
+    const callout = await screen.findByRole('alert');
+    const steps = within(screen.getByRole('region', { name: "Claude's progress" })).getByRole('list');
+    expect(steps.compareDocumentPosition(callout) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
   it('AC-5, Q1: offers Always allow with the entry it would save, when the server offers it', async () => {
     setUp([npmTest]);
     await renderApp({ route });

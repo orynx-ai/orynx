@@ -48,7 +48,7 @@ function narrow() {
 const done = makeSession({ ...working, state: 'done', worktreePath: '/Users/you/.devhub/worktrees/x' });
 
 describe('SessionHeader', () => {
-  it('AC-6: the title row has the title, the state, the branch and where Claude works; Stop Claude is in the page bar', async () => {
+  it('AC-6: the title row has the title, the state, the branch and where Claude works; Stop is in the page bar', async () => {
     server.use(sessionHandler(working));
     await renderApp({ route });
 
@@ -59,7 +59,7 @@ describe('SessionHeader', () => {
     expect(within(main).getByText('Working')).toBeVisible();
     expect(within(main).getByText('feat/PROJ-1423')).toBeVisible();
     expect(within(main).getByText('in web-app · separate worktree, your main checkout is untouched')).toBeVisible();
-    expect(within(pageBar()).getByRole('button', { name: 'Stop Claude' })).toBeVisible();
+    expect(within(pageBar()).getByRole('button', { name: 'Stop' })).toBeVisible();
   });
 
   it('AC-14 (spec 031): a session on your pull request’s branch says so', async () => {
@@ -161,25 +161,25 @@ describe('SessionHeader', () => {
     expect(await screen.findByRole('dialog', { name: 'Push changes' })).toBeVisible();
   });
 
-  it('012 AC-1, Q8d: while a call waits, the pill says the session needs your approval, and Stop Claude stays', async () => {
+  it('012 AC-1, Q8d: while a call waits, the pill says the session needs your approval, and Stop stays', async () => {
     server.use(sessionHandler({ ...working, state: 'needs_you' }));
     await renderApp({ route });
     await screen.findByRole('heading', { level: 1 });
     const main = screen.getByRole('main');
     expect(within(main).getByText('Needs your approval')).toBeVisible();
-    expect(within(main).getByRole('button', { name: 'Stop Claude' })).toBeVisible();
+    expect(within(main).getByRole('button', { name: 'Stop' })).toBeVisible();
   });
 
   it.each([
     ['done', 'Done, ready for PR'],
     ['stopped', 'Stopped'],
-  ] as const)('AC-8, AC-9: a session that is %s says so, and has no Stop Claude', async (state, word) => {
+  ] as const)('AC-8, AC-9: a session that is %s says so, and has no Stop', async (state, word) => {
     server.use(sessionHandler({ ...working, state }));
     await renderApp({ route });
     await screen.findByRole('heading', { level: 1 });
     const main = screen.getByRole('main');
     expect(within(main).getByText(word)).toBeVisible();
-    expect(within(main).queryByRole('button', { name: 'Stop Claude' })).toBeNull();
+    expect(within(main).queryByRole('button', { name: 'Stop' })).toBeNull();
   });
 
   it('shows no branch before the worktree is made', async () => {
@@ -189,7 +189,7 @@ describe('SessionHeader', () => {
     expect(screen.queryByText('feat/PROJ-1423')).toBeNull();
   });
 
-  it('AC-9: Stop Claude says Stopping… and keeps focus, then the title takes focus once it has stopped', async () => {
+  it('AC-9: Stop says Stopping… and keeps focus, then the title takes focus once it has stopped', async () => {
     let current: Session = working;
     const stops: string[] = [];
     server.use(
@@ -200,7 +200,7 @@ describe('SessionHeader', () => {
       }),
     );
     const { user } = await renderApp({ route });
-    const stop = await screen.findByRole('button', { name: 'Stop Claude' });
+    const stop = await screen.findByRole('button', { name: 'Stop' });
 
     await user.click(stop);
 
