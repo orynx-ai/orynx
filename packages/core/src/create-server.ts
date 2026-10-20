@@ -63,6 +63,9 @@ import { createTicketsService } from './tickets/tickets-service.ts';
 import { createOrynxTicketService, describeOrynxTicket } from './orynx-tickets/ticket-service.ts';
 import { createOrynxTicketStore, type OrynxTicketStore } from './orynx-tickets/ticket-store.ts';
 import { orynxTicketsRoutes } from './routes/orynx-tickets.ts';
+import { createAgentAccess } from './agents-access/agent-access.ts';
+import { agentsAccessRoutes } from './routes/agents-access.ts';
+import { mcpRoutes } from './routes/mcp.ts';
 import { readGitUserName } from './status/git-user-name.ts';
 import { createStatusService } from './status/status-service.ts';
 
@@ -218,14 +221,17 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
-  registerLocalOnly(app, { token: options.token, port: options.port });
-
   const events = options.events ?? createEventBus();
+  const keychain = options.keychain ?? createMemoryKeychain();
+  // Agents outside Orynx use its tickets with their own token, kept in the keychain (spec 037).
+  const agentAccess = createAgentAccess({ keychain, events });
+  registerLocalOnly(app, { token: options.token, port: options.port, agents: agentAccess });
+
   // Nothing reads the keychain here: the first read happens when a route or the inbox's sync needs a token.
   app.decorate(
     'tokens',
     createTokenStore({
-      keychain: options.keychain ?? createMemoryKeychain(),
+      keychain,
       events,
       ...(options.envTokens === undefined ? {} : { envTokens: options.envTokens }),
     }),
@@ -512,6 +518,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(syncActivityRoutes, { syncActivity });
       await api.register(ticketsRoutes, { tickets, inbox, jira });
       await api.register(orynxTicketsRoutes, { tickets: orynxTickets });
+      await api.register(agentsAccessRoutes, { access: agentAccess });
+      await api.register(mcpRoutes, { tickets: orynxTickets });
       await api.register(searchRoutes, {
         search: createSearchService({ inbox, tickets, orynx: orynxTickets, sessions }),
       });
