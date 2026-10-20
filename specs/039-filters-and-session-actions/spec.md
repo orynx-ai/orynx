@@ -37,7 +37,7 @@ These replace the assumptions above where they differ.
 - **Filters counts every filter that's on**, the toolbar's two included: Source once only one source is ticked, and the others once anything is. Assignee: Me is on by default, so the button reads "Filters 1".
 - **Sync, Board and List are icons with tooltips**, and the page bar's New ticket says "New" (its name is still "New ticket").
 - **Search tickets leads the toolbar at every width**, so the page bar has room for "Tickets / Project ▾ / Sprint ▾". The sprint's dates step aside under 1280 px, and "Synced just now" becomes its dot and the history icon there. A phone's page bar holds the sprint picker alone.
-- **Scrollbars are thin and quiet everywhere**, and tab strips and segmented controls scroll only sideways: a tab 1 px past its strip drew a vertical scrollbar beside every tab list.
+- **No scrollbars anywhere**: everything still scrolls by trackpad, wheel and keyboard. Tab strips and segmented controls scroll only sideways: a tab 1 px past its strip drew a vertical scrollbar beside every tab list.
 
 ## Goal
 
