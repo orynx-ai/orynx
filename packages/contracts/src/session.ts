@@ -59,6 +59,10 @@ export const SessionSummarySchema = z.object({
   source: SessionSourceSchema.nullable(),
   /** Last activity; lists are ordered by it, newest first. */
   updatedAt: z.iso.datetime(),
+  /** When you pinned it to the top of the lists, which keep pins in that order (spec 039); null when it isn't. */
+  pinnedAt: z.iso.datetime().nullable().default(null),
+  /** Ask or Build (spec 026); a session saved before it was a Build. In the summary for Sessions' Kind filter (spec 039). */
+  mode: SessionModeSchema.default('build'),
 });
 export type SessionSummary = z.infer<typeof SessionSummarySchema>;
 
@@ -86,8 +90,22 @@ export const SessionListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
   recent: z.stringbool().optional(),
   cursor: SessionCursorSchema.optional(),
+  /** Only the pinned sessions, every one in the order they were pinned, or only the rest (spec 039). */
+  pinned: z.stringbool().optional(),
 });
 export type SessionListQuery = z.infer<typeof SessionListQuerySchema>;
+
+/** The most characters a session's title may have once you rename it (spec 039). */
+export const sessionTitleLimit = 200;
+
+/** PATCH /api/sessions/:id (spec 039): a new title, trimmed, or a pin. It never changes the activity time. */
+export const SessionChangeRequestSchema = z
+  .object({
+    title: z.string().trim().min(1).max(sessionTitleLimit).optional(),
+    pinned: z.boolean().optional(),
+  })
+  .refine((change) => change.title !== undefined || change.pinned !== undefined, 'Change the title or the pin.');
+export type SessionChangeRequest = z.infer<typeof SessionChangeRequestSchema>;
 
 /** The id a new session gets: 16 hex characters, so it's always a safe folder name under DEVHUB_HOME. */
 export const SessionIdSchema = z.string().regex(/^[0-9a-f]{16}$/);
@@ -384,8 +402,6 @@ export const SessionSchema = SessionSummarySchema.extend({
    * then each follow-up's new ones. A session saved before this kept none, so it shows its ticket alone.
    */
   context: z.array(ComposerChipSchema).default([]),
-  /** Ask or Build (spec 026); a session saved before it was a Build. */
-  mode: SessionModeSchema.default('build'),
   /** A new branch, or your pull request's own (spec 031); a session saved before it had a new branch. */
   workOn: SessionWorkOnSchema.default('new_branch'),
   /** The steps the stepper passed over when Claude finished without them (spec 031, Q5); none before it. */

@@ -323,6 +323,9 @@ describe('listSessions', () => {
         source: { kind: 'jira', key: 'PROJ-1423' },
         updatedAt: '2026-10-18T11:00:00.000Z',
         ready: 'nothing',
+        // Spec 039: the pin and the kind, for the lists' Pinned group and Kind filter.
+        pinnedAt: null,
+        mode: 'build',
       },
     ]);
   });

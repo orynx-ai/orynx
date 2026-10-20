@@ -5,6 +5,9 @@ import {
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
   ServerEventSchema,
+  SessionChangeRequestSchema,
+  ApiErrorSchema,
+  sessionTitleLimit,
   SessionApprovalSchema,
   SessionIdSchema,
   SessionListQuerySchema,
@@ -661,5 +664,41 @@ describe('a session in spec 031', () => {
   it('refuses a kind of work or a skipped step it doesn’t know', () => {
     expect(SessionSchema.safeParse({ ...makeSession(), workOn: 'fork' }).success).toBe(false);
     expect(SessionSchema.safeParse({ ...makeSession(), skipped: ['deploy'] }).success).toBe(false);
+  });
+});
+
+describe('renaming, pinning and deleting a session (spec 039)', () => {
+  it('AC-26: a summary carries when it was pinned, null by default, and its kind', () => {
+    expect(makeSessionSummary().pinnedAt).toBeNull();
+    expect(makeSessionSummary().mode).toBe('build');
+    const pinned = makeSessionSummary({ pinnedAt: '2026-10-20T09:00:00.000Z', mode: 'ask' });
+    expect(pinned.pinnedAt).toBe('2026-10-20T09:00:00.000Z');
+    expect(pinned.mode).toBe('ask');
+  });
+
+  it('AC-28: a change takes a new title, trimmed, or a pin', () => {
+    expect(SessionChangeRequestSchema.parse({ title: '  Fix the login page \n' })).toEqual({
+      title: 'Fix the login page',
+    });
+    expect(SessionChangeRequestSchema.parse({ pinned: true })).toEqual({ pinned: true });
+    expect(SessionChangeRequestSchema.parse({ title: 'x'.repeat(sessionTitleLimit) }).title).toHaveLength(200);
+  });
+
+  it('AC-29: refuses a title of only spaces, one too long, and a change of nothing', () => {
+    expect(SessionChangeRequestSchema.safeParse({ title: '' }).success).toBe(false);
+    expect(SessionChangeRequestSchema.safeParse({ title: '   ' }).success).toBe(false);
+    expect(SessionChangeRequestSchema.safeParse({ title: 'x'.repeat(sessionTitleLimit + 1) }).success).toBe(false);
+    expect(SessionChangeRequestSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('AC-26, AC-27: the list query asks for the pinned sessions, or the rest', () => {
+    expect(SessionListQuerySchema.parse({ pinned: 'true' })).toEqual({ pinned: true });
+    expect(SessionListQuerySchema.parse({ pinned: 'false', limit: '16' })).toEqual({ pinned: false, limit: 16 });
+  });
+
+  it('AC-33: a delete while Claude works is refused with its own code', () => {
+    expect(ApiErrorSchema.parse({ code: 'session_working', message: 'Stop the session first.' }).code).toBe(
+      'session_working',
+    );
   });
 });

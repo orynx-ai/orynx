@@ -81,7 +81,6 @@ export type StoredSession = z.infer<typeof StoredSessionSchema>;
  */
 export type ListedSession = SessionSummary & {
   discardedAt?: string | null;
-  mode?: Session['mode'];
   pullRequest?: string | null;
 };
 
@@ -118,9 +117,9 @@ export function readyFor({ mode, workOn, activities }: Session): SessionReady {
 }
 
 export function listedSession(session: Session): ListedSession {
-  const { id, title, state, source, updatedAt, discardedAt, mode, workOn, pullRequest: pull } = session;
+  const { id, title, state, source, updatedAt, pinnedAt, discardedAt, mode, workOn, pullRequest: pull } = session;
   const pullRequest = workOn === 'pull_request' && pull !== null ? pullKey(pull.repository, pull.number) : null;
-  return { id, title, state, ready: readyFor(session), source, updatedAt, discardedAt, mode, pullRequest };
+  return { id, title, state, ready: readyFor(session), source, updatedAt, pinnedAt, discardedAt, mode, pullRequest };
 }
 
 /** Sessions held in memory: `sessions` are list-only summaries, as tests of Tickets and the inbox give them. */
@@ -181,13 +180,15 @@ export async function listSessions(
   const cutoff = now() - keptInSidebar;
   const sorted = [...(await store.list())]
     .filter((session) => !recent || session.discardedAt == null || Date.parse(session.discardedAt) >= cutoff)
-    .map(({ id, title, state, ready, source, updatedAt }): SessionSummary => ({
+    .map(({ id, title, state, ready, source, updatedAt, pinnedAt, mode }): SessionSummary => ({
       id,
       title,
       state,
       ready,
       source,
       updatedAt,
+      pinnedAt,
+      mode,
     }))
     .sort(newerFirst);
   const start = cursor === undefined ? 0 : afterCursor(sorted, cursor);

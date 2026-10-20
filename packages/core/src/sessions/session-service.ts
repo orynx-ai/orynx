@@ -1030,6 +1030,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         title: known?.title ?? ticketKey,
         state: 'working',
         ready: 'nothing',
+        pinnedAt: null,
         source: { kind: 'jira', key: ticketKey },
         updatedAt: at,
         folder: { name: folder.name, displayPath: folder.displayPath },
@@ -1110,6 +1111,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         title,
         state: 'working',
         ready: 'nothing',
+        pinnedAt: null,
         source:
           pull !== null
             ? { kind: 'pull_request', number: pull.number }

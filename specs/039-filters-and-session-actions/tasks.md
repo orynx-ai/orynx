@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: Contracts for Rename, Pin and Delete: `pinnedAt` on a session's summary, the change body (title 1–200 characters after trimming, pinned), `pinned` on the list query, and PATCH and DELETE on `/sessions/:id` (AC-26, AC-28, AC-29, AC-32)
+- [x] Task 1: Contracts for Rename, Pin and Delete: `pinnedAt` on a session's summary, the change body (title 1–200 characters after trimming, pinned), `pinned` on the list query, and PATCH and DELETE on `/sessions/:id` (AC-26, AC-28, AC-29, AC-32)
       Check: pnpm test packages/contracts/src/session.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts
 - [ ] Task 2: Session stores: `remove(id)` in the file and memory stores, `pinnedAt` in listed sessions, and `pinned` filtering in `listSessions` (AC-26, AC-27, AC-32)

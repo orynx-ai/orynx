@@ -21,6 +21,8 @@ export const ApiErrorCodeSchema = z.enum([
   'picker_unavailable',
   /** A skill can't be saved under that Name: another of your skills has its folder (spec 023, AC-7). */
   'skill_rejected',
+  /** A session can't be deleted while Claude works on it: stop it first (spec 039, AC-33). */
+  'session_working',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
