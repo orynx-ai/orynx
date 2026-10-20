@@ -2,6 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
   ArrowUpRight01Icon,
+  ComputerTerminal01Icon,
   Delete02Icon,
   GitPullRequestIcon,
   Loading03Icon,
@@ -27,6 +28,7 @@ import {
 } from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
 import { usePlatform } from '../../../platform.tsx';
+import { terminalShortcut } from '../../../shell/shortcuts.ts';
 import { useWide } from '../../../shell/use-wide.ts';
 import { needsApprovalLabel } from '../approval-words.ts';
 import { editorLink, openInLabel } from '../change-words.ts';
@@ -35,6 +37,7 @@ import { useEditor, useSessionChanges } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
 import { DiscardSession } from './discard-session.tsx';
 import { SessionTerminal } from './terminal/session-terminal.tsx';
+import { terminalWords } from './terminal/terminal-words.ts';
 import { PushChanges } from './push-changes.tsx';
 
 /** The state pill's colour, as the sidebar colours each state (Q10b). */
@@ -106,8 +109,9 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
 /**
  * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop while Claude works (AC-9);
  * once Claude is done, Create pull request when there's something to put in one; once the pull request is open,
- * Open PR and Push changes, with no primary button (spec 014, Q10e). Open in the editor and Discard changes wait in
- * More actions. Under 768 px everything but Stop moves into More actions, so the bar keeps to one line.
+ * Open PR and Push changes, with no primary button (spec 014, Q10e). Terminal, Open in the editor and Discard
+ * changes wait in More actions (spec 038). Under 768 px everything but Stop moves into More actions, so the bar
+ * keeps to one line.
  * Stop keeps focus while it runs; once the session has stopped, the title takes focus, because the button is gone.
  */
 export function SessionActions({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
@@ -117,8 +121,9 @@ export function SessionActions({ session, title }: { session: Session; title: Re
   const createDialog = useRef<{ open: () => void }>(null);
   const pushDialog = useRef<{ open: () => void }>(null);
   const discardDialog = useRef<{ open: () => void }>(null);
+  const terminalDialog = useRef<{ open: () => void }>(null);
   // The dialog an item opens, once the menu has closed and let go of focus.
-  const picked = useRef<'create' | 'push' | 'discard' | null>(null);
+  const picked = useRef<'create' | 'push' | 'discard' | 'terminal' | null>(null);
   // Once you've created the pull request, focus goes to Open PR, now or as soon as it shows (spec 014, AC-4);
   // under 768 px Open PR is in More actions, so to that.
   const justOpened = useRef(false);
@@ -149,11 +154,15 @@ export function SessionActions({ session, title }: { session: Session; title: Re
   const editorPath = kept && editor !== null ? session.worktreePath : null;
   const offerDiscard = kept && session.branch !== null;
   const menu = wide ? undefined : more;
-  const hasMenu = editorPath !== null || offerDiscard || (!wide && (offerCreate || offerPush || pullRequest !== null));
+  const hasMenu =
+    session.terminal ||
+    editorPath !== null ||
+    offerDiscard ||
+    (!wide && (offerCreate || offerPush || pullRequest !== null));
 
   return (
     <>
-      {session.terminal ? <SessionTerminal session={session} /> : null}
+      {session.terminal ? <SessionTerminal ref={terminalDialog} session={session} returnTo={more} /> : null}
       {working ? (
         <Button
           variant="secondary"
@@ -222,10 +231,26 @@ export function SessionActions({ session, title }: { session: Session; title: Re
               if (dialog === null) return;
               picked.current = null;
               event.preventDefault();
-              const dialogs = { create: createDialog, push: pushDialog, discard: discardDialog };
+              const dialogs = {
+                create: createDialog,
+                push: pushDialog,
+                discard: discardDialog,
+                terminal: terminalDialog,
+              };
               dialogs[dialog].current?.open();
             }}
           >
+            {session.terminal ? (
+              <MenuItem
+                icon={<Icon icon={ComputerTerminal01Icon} />}
+                aria-keyshortcuts={terminalShortcut(platform).ariaKeyShortcuts}
+                onSelect={() => {
+                  picked.current = 'terminal';
+                }}
+              >
+                {terminalWords.button}
+              </MenuItem>
+            ) : null}
             {!wide && offerCreate ? (
               <MenuItem
                 icon={<Icon icon={GitPullRequestIcon} />}

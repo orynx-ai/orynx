@@ -33,7 +33,3 @@ export const pushFormSchema = z.object({
     .max(mostCommitMessageCharacters, 'Keep the message under 256 characters.'),
 });
 export type PushFormValues = z.input<typeof pushFormSchema>;
-
-/** A command for your shell tab (spec 036): something to run, no longer than the contract takes. */
-export const commandFormSchema = z.object({ command: z.string().trim().min(1).max(mostMessageCharacters) });
-export type CommandFormValues = z.input<typeof commandFormSchema>;

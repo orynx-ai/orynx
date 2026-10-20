@@ -45,7 +45,7 @@ import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
 import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
 import type { ChangesReader, StartPoint } from './changes.ts';
-import { logEnd, logNote, logRunEnded, logWork } from './command-log.ts';
+import { logEnd, logRunEnded, logWork } from './command-log.ts';
 import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
 import {
   chooseFolder,
@@ -142,8 +142,6 @@ export interface SessionService {
   brief(id: string): Promise<SessionBrief | null>;
   /** Every command Claude ran, with its output, for the Terminal's Claude tab (spec 036); null for no such session. */
   commands(id: string): Promise<ClaudeCommandList | null>;
-  /** Notes in the Claude tab that you sent Claude this command from your Terminal (spec 036, AC-17). */
-  note(id: string, command: string): Promise<void>;
   /** What changed in the worktree (spec 013, Q4); null for no such session, `unreadable` when git failed. */
   changes(id: string): Promise<SessionChanges | 'unreadable' | null>;
   /** One changed file's diff; null for no such session or no such changed file (AC-24). */
@@ -1289,10 +1287,6 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     async commands(id) {
       const record = await records.get(id);
       return record === null ? null : { commands: [...record.commandLog] };
-    },
-
-    async note(id, command) {
-      await change(id, (record) => ({ ...record, commandLog: logNote(record.commandLog, command) }));
     },
 
     async stop(id) {

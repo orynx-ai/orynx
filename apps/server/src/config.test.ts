@@ -22,7 +22,7 @@ describe('loadConfig', () => {
       sandbox: 'required',
       agentEnvironment: {},
       gitEnvironment: { GIT_TERMINAL_PROMPT: '0' },
-      terminalEnvironment: { NO_COLOR: '1' },
+      terminalEnvironment: { TERM: 'xterm-256color', COLORTERM: 'truecolor' },
     });
   });
 
@@ -31,7 +31,12 @@ describe('loadConfig', () => {
       env: { HOME: '/Users/you', EDITOR: 'vim', NODE_ENV: 'production', DEVHUB_GITHUB_TOKEN: githubToken },
       envFile: 'DEVHUB_JIRA_API_TOKEN=' + jiraToken + '\n',
     });
-    expect(config.terminalEnvironment).toEqual({ HOME: '/Users/you', EDITOR: 'vim', NO_COLOR: '1' });
+    expect(config.terminalEnvironment).toEqual({
+      HOME: '/Users/you',
+      EDITOR: 'vim',
+      TERM: 'xterm-256color',
+      COLORTERM: 'truecolor',
+    });
   });
 
   it('012 AC-20, AC-23: checks for Claude Code’s sandbox unless DEVHUB_SANDBOX=assume, which the e2e run sets', () => {

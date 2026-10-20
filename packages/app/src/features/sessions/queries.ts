@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import {
   ApiRequestError,
@@ -11,7 +12,15 @@ import {
   sessionQueryKey,
   sessionsQueryOptions,
 } from '@devhub/api-client';
-import type { ApprovalDecision, SendMessageInput, Session, SessionListQuery } from '@devhub/contracts';
+import {
+  terminalLimits,
+  type ApprovalDecision,
+  type SendMessageInput,
+  type Session,
+  type SessionListQuery,
+  type TerminalSize,
+} from '@devhub/contracts';
+import type { TerminalScreen } from '@devhub/ui';
 import { useApi } from '../../api.tsx';
 
 /** Sessions with the newest activity first. Kept fresh by `sessions.changed` events, not polling. */
@@ -133,23 +142,60 @@ export function useSessionTerminal(sessionId: string) {
   return useQuery(sessionTerminalQueryOptions(api, sessionId));
 }
 
-/**
- * What you do in a shell tab (spec 036): run, stop, clear, add and close a tab, and Ask Claude to fix. The server
- * says what changed with `session.terminal.changed` (and `session.changed` for a follow-up), so nothing here
- * touches the cache.
- */
+/** Adding and closing shell tabs (spec 036). `session.terminal.changed` says what changed, so nothing here touches the cache. */
 export function useTerminalActions(sessionId: string) {
   const api = useApi();
   return {
-    run: useMutation({
-      mutationFn: ({ tabId, command }: { tabId: string; command: string }) => api.runCommand(sessionId, tabId, command),
-    }),
-    stop: useMutation({ mutationFn: (tabId: string) => api.stopCommand(sessionId, tabId) }),
-    clear: useMutation({ mutationFn: (tabId: string) => api.clearTerminalTab(sessionId, tabId) }),
     add: useMutation({ mutationFn: () => api.addTerminalTab(sessionId) }),
     close: useMutation({ mutationFn: (tabId: string) => api.closeTerminalTab(sessionId, tabId) }),
-    askToFix: useMutation({
-      mutationFn: ({ tabId, blockId }: { tabId: string; blockId: string }) => api.askToFix(sessionId, tabId, blockId),
-    }),
+  };
+}
+
+/**
+ * One shell tab's line to its shell (spec 038): its output, replay first; what you type, sent in order, one
+ * request at a time, with keys typed meanwhile going together in the next; and its size. Keys that couldn't be
+ * sent stay for the next try, and `failed` says so until a send goes.
+ */
+export function useShellTab(sessionId: string, tabId: string) {
+  const api = useApi();
+  const keys = useRef({ waiting: '', sending: false });
+  const [failed, setFailed] = useState(false);
+
+  const flush = async (): Promise<void> => {
+    const queue = keys.current;
+    if (queue.sending || queue.waiting === '') return;
+    queue.sending = true;
+    const data = queue.waiting.slice(0, terminalLimits.inputChars);
+    try {
+      await api.terminalInput(sessionId, tabId, data);
+      queue.waiting = queue.waiting.slice(data.length);
+      setFailed(false);
+    } catch {
+      setFailed(true);
+      return;
+    } finally {
+      queue.sending = false;
+    }
+    await flush();
+  };
+
+  return {
+    failed,
+    connect: (screen: TerminalScreen) =>
+      api.terminalOutput(sessionId, tabId, (frame) => {
+        if (frame.kind === 'replay') screen.reset(frame.data);
+        else screen.write(frame.data);
+      }),
+    send: (data: string) => {
+      keys.current.waiting += data;
+      void flush();
+    },
+    retry: () => {
+      void flush();
+    },
+    resize: (size: TerminalSize) => {
+      // A size that doesn't arrive is sent again with the next change, as the window or the dialog moves.
+      api.resizeTerminal(sessionId, tabId, size).catch(() => undefined);
+    },
   };
 }

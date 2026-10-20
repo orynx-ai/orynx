@@ -49,6 +49,9 @@ if (typeof window.matchMedia !== 'function') {
       media: query,
       addEventListener: () => undefined,
       removeEventListener: () => undefined,
+      // The older names, which xterm still uses.
+      addListener: () => undefined,
+      removeListener: () => undefined,
     }),
   });
 }

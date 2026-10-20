@@ -1,8 +1,8 @@
-/** Every word the session's Terminal shows (spec 036, Q8), in one place. */
+/** Every word the session's Terminal shows (spec 036, Q8; spec 038), in one place. */
 export const terminalWords = {
   button: 'Terminal',
   title: 'Terminal',
-  back: 'Back to session',
+  closeTerminal: 'Close terminal',
   tabs: 'Terminals',
   claude: 'Claude',
   needsYou: 'Needs you',
@@ -23,26 +23,11 @@ export const terminalWords = {
   // Your shell tabs (Q8b to Q8l).
   yourShell: 'Your shell · runs as you',
   shellLog: 'Terminal output',
-  command: 'Command',
-  placeholder: 'Type a command. Try git status, npm test or ls',
-  hint: '↑ history · Enter to run',
   newTab: 'New terminal in this session',
   tabsFull: '5 terminals is the most for a session.',
-  clearOutput: 'Clear output',
   close: 'Close',
-  emptyTab: "Runs in this session's worktree, as you. Type a command below.",
-  cleared: 'Output cleared. Type a command below.',
-  noWorktree: "Couldn't run this. The worktree isn't there any more.",
   unreachable: "Couldn't reach Orynx.",
-  stop: 'Stop',
-  rerun: 'Rerun',
-  askToFix: 'Ask Claude to fix',
 } as const;
-
-/** The field's placeholder while a command runs in the tab (Q8b). */
-export function busyPlaceholder(command: string): string {
-  return `${command} is running. ⌃C stops it, or + opens another terminal.`;
-}
 
 /** A shell tab's name: the first is the worktree's own, "zsh · worktree"; the next "zsh 2", "zsh 3"… */
 export function shellTabName(shell: string, number: number): string {
@@ -56,13 +41,12 @@ export function duration(ms: number): string {
   return `${String(Math.floor(seconds / 60))}m ${String(seconds % 60)}s`;
 }
 
-/** A command's status, with its mark (the design's). Claude's commands have no exit code, so they say "failed". */
+/** A command's status in the Claude tab, with its mark (the design's). Claude Code gives no exit code: "failed". */
 export const statusWords = {
   running: '● running',
   waiting: '● waiting for you',
   done: (ms: number) => `✓ ${duration(ms)}`,
-  failed: (ms: number, exitCode?: number) =>
-    exitCode === undefined ? `✗ failed · ${duration(ms)}` : `✗ exit ${String(exitCode)} · ${duration(ms)}`,
+  failed: (ms: number) => `✗ failed · ${duration(ms)}`,
   stopped: 'stopped',
   denied: 'denied',
   refused: 'refused',

@@ -10,7 +10,7 @@ import { lastLines } from '../terminal/output.ts';
 export type CommandLog = ClaudeCommand[];
 
 /** An id for a line with no call of its own: its place in the log, which only grows. */
-function placeId(log: CommandLog, kind: 'denied' | 'refused' | 'note'): string {
+function placeId(log: CommandLog, kind: 'denied' | 'refused'): string {
   return `${kind}-${String(log.length + 1)}`;
 }
 
@@ -47,11 +47,6 @@ export function logEnd(log: CommandLog, end: { id: string; output: string; faile
         }
       : entry,
   );
-}
-
-/** Ask Claude to fix's line: "Sent from your terminal", with your command (spec 036, AC-17). */
-export function logNote(log: CommandLog, command: string): CommandLog {
-  return [...log, { id: placeId(log, 'note'), state: 'note', command }];
 }
 
 /** Claude's run ended with a command still going (Stop, a problem, or Orynx closing): it never ends now. */

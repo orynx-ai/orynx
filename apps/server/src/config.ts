@@ -68,7 +68,7 @@ export interface ServerConfig {
   agentEnvironment: Record<string, string>;
   /** The same for the git that makes a session's worktree, with your SSH agent and no prompts (spec 011, Q8d). */
   gitEnvironment: Record<string, string>;
-  /** What your own commands in a session's Terminal get: your whole shell's, less Orynx's settings (spec 036). */
+  /** What your shells in a session's Terminal get: your whole environment, less Orynx's settings (spec 036). */
   terminalEnvironment: Record<string, string>;
 }
 

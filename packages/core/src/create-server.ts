@@ -102,7 +102,7 @@ export interface CoreOptions {
   /** The environment a session's git runs with, from `gitEnvironment()`. Empty by default. */
   gitEnvironment?: Readonly<Record<string, string>>;
   /**
-   * Your shell tabs in a session's Terminal (spec 036), with the environment your commands get, from
+   * Your shell tabs in a session's Terminal (spec 036, spec 038), with the environment your shells get, from
    * `terminalEnvironment()`. Left out (Windows, and tests that don't need one), no session offers its Terminal.
    */
   terminal?: { env: Readonly<Record<string, string>> };
@@ -521,7 +521,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
 
       await api.register(statusRoutes, { status });
       await api.register(sessionsRoutes, { sessions, service: sessionService });
-      if (terminal !== null) await api.register(terminalRoutes, { sessions, terminal, service: sessionService });
+      if (terminal !== null) await api.register(terminalRoutes, { sessions, terminal });
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
       await api.register(claudeRoutes, { claude });

@@ -1,14 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import {
-  apiRoutes,
-  type ClaudeCommandList,
-  type Terminal,
-  type TerminalBlock,
-  type TerminalTab,
-} from '@devhub/contracts';
-import { makeSession, makeTerminal, makeTerminalBlock } from '@devhub/contracts/testing';
+import { apiRoutes, type Terminal } from '@devhub/contracts';
+import { makeSession, makeTerminal } from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
 import { FakeEventSource } from '../../../../test/fake-event-source.ts';
 import { apiUrl, server, sessionHandler } from '../../../../test/msw.ts';
@@ -24,219 +18,177 @@ const session = makeSession({
   worktreePath: '/Users/you/.devhub/worktrees/0123456789abcdef',
   terminal: true,
 });
-
-const tab = (blocks: TerminalBlock[], more: Partial<TerminalTab> = {}): TerminalTab => ({
-  id: 'tab-1',
-  number: 1,
-  blocks,
-  cleared: false,
-  ...more,
-});
+const output = (tabId = 'tab-1') => `/api/sessions/${id}/terminal/tabs/${tabId}/output`;
 
 /**
- * Your shell as the server keeps it: the test changes `state.terminal` and says so with the event, as the server
- * does. Every request the page sends is kept, in order.
+ * Your shell as the server keeps it. Every request the page sends is kept, in order: what you typed as
+ * "keys tab-1 ls", and the sizes, adds and closes.
  */
-function fakeShell(terminal: Terminal = makeTerminal({ tabs: [tab([])], history: [] })) {
-  const state = { terminal, asked: [] as string[] };
-  const path = (url: string) => new URL(url).pathname.replace(`/api/sessions/${id}/terminal`, '');
+function fakeShell(terminal: Terminal = makeTerminal()) {
+  const state = { terminal, asked: [] as string[], reachable: true };
+  const tabOf = (url: string) => new URL(url).pathname.split('/')[6] ?? '';
   server.use(
     sessionHandler(session),
     http.get(apiUrl(apiRoutes.sessionTerminal), () => HttpResponse.json(state.terminal)),
-    http.post(apiUrl(apiRoutes.sessionTerminalRun), async ({ request }) => {
-      state.asked.push(`run ${path(request.url)} ${((await request.json()) as { command: string }).command}`);
-      return HttpResponse.json({ result: 'started', blockId: 'block-9' });
-    }),
-    http.post(apiUrl(apiRoutes.sessionTerminalStop), ({ request }) => {
-      state.asked.push(`stop ${path(request.url)}`);
+    http.post(apiUrl(apiRoutes.sessionTerminalInput), async ({ request }) => {
+      if (!state.reachable) return HttpResponse.error();
+      state.asked.push(`keys ${tabOf(request.url)} ${((await request.json()) as { data: string }).data}`);
       return new HttpResponse(null, { status: 204 });
     }),
-    http.delete(apiUrl(apiRoutes.sessionTerminalBlocks), ({ request }) => {
-      state.asked.push(`clear ${path(request.url)}`);
+    http.post(apiUrl(apiRoutes.sessionTerminalSize), async ({ request }) => {
+      const { cols, rows } = (await request.json()) as { cols: number; rows: number };
+      state.asked.push(`size ${tabOf(request.url)} ${String(cols)}x${String(rows)}`);
       return new HttpResponse(null, { status: 204 });
     }),
     http.post(apiUrl(apiRoutes.sessionTerminalTabs), () => {
       state.asked.push('add');
       const number = state.terminal.tabs.length + 1;
       if (number > 5) return HttpResponse.json({ result: 'full' });
-      const added = tab([], { id: `tab-${String(number)}`, number });
+      const added = { id: `tab-${String(number)}`, number };
       state.terminal = { ...state.terminal, tabs: [...state.terminal.tabs, added] };
       return HttpResponse.json({ result: 'added', tabId: added.id });
     }),
     http.delete(apiUrl(apiRoutes.sessionTerminalTab), ({ request }) => {
-      state.asked.push(`close ${path(request.url)}`);
-      const closed = path(request.url).replace('/tabs/', '');
+      const closed = tabOf(request.url);
+      state.asked.push(`close ${closed}`);
       state.terminal = { ...state.terminal, tabs: state.terminal.tabs.filter((one) => one.id !== closed) };
       return new HttpResponse(null, { status: 204 });
     }),
   );
-  return {
-    state,
-    /** The server's shell changed: the page hears it, as from the event stream. */
-    change(next: Partial<Terminal>) {
-      state.terminal = { ...state.terminal, ...next };
-      FakeEventSource.latest().emit({ type: 'session.terminal.changed', sessionId: id });
-    },
-  };
+  return state;
+}
+
+/** What you typed, as the server got it, request by request joined up. */
+function typed(asked: string[], tabId = 'tab-1') {
+  return asked
+    .filter((line) => line.startsWith(`keys ${tabId} `))
+    .map((line) => line.slice(`keys ${tabId} `.length))
+    .join('');
 }
 
 async function openShell() {
   const rendered = await renderApp({ route });
-  await rendered.user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'Terminal' }));
-  const field = await screen.findByRole('textbox', { name: 'Command' });
-  return { ...rendered, field, log: screen.getByRole('log', { name: 'Terminal output' }) };
+  await rendered.user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'More actions' }));
+  await rendered.user.click(await screen.findByRole('menuitem', { name: 'Terminal' }));
+  const shell = await screen.findByRole('textbox', { name: 'zsh · worktree' });
+  return { ...rendered, shell };
 }
 
-describe('the Terminal’s shell tab', () => {
-  it('AC-1, AC-4: runs what you type in the worktree and shows its output, the field emptied and still yours', async () => {
-    const shell = fakeShell();
-    const { user, field, log } = await openShell();
-    expect(field).toHaveFocus();
+/** A row of the terminal, matched whole: colours split it into pieces. */
+function row(text: string) {
+  return (_: string, element: Element | null) =>
+    element?.tagName === 'DIV' && element.textContent.replaceAll(' ', ' ').trimEnd() === text;
+}
+
+describe('the Terminal’s shell tab (spec 038)', () => {
+  it('AC-1: is a real terminal on your shell in the worktree, drawing what the shell prints, colours and all', async () => {
+    const asked = fakeShell().asked;
+    const { shell } = await openShell();
+    expect(shell).toHaveFocus();
     expect(screen.getByText('Your shell · runs as you')).toBeVisible();
     expect(screen.getByText('~/.devhub/worktrees/0123456789abcdef')).toBeVisible();
-    expect(within(log).getByText("Runs in this session's worktree, as you. Type a command below.")).toBeVisible();
 
-    await user.type(field, 'git status{Enter}');
+    const stream = FakeEventSource.at(output());
+    expect(new URL(stream.url).searchParams.get('token')).toBe('test-token');
+    stream.emit({ kind: 'replay', data: '\u001b[32m~/web-app\u001b[0m ❯ ' });
+    stream.emit({ kind: 'data', data: 'git status\r\nOn branch feat/PROJ-1423\r\n' });
+    expect(await screen.findAllByText(row('On branch feat/PROJ-1423'))).not.toHaveLength(0);
+    expect(screen.getAllByText(row('~/web-app ❯ git status'))).not.toHaveLength(0);
     await waitFor(() => {
-      expect(shell.state.asked).toEqual(['run /tabs/tab-1/commands git status']);
+      expect(asked).toContain('size tab-1 80x24');
     });
-    expect(field).toHaveValue('');
-    expect(field).toHaveFocus();
-
-    shell.change({ tabs: [tab([makeTerminalBlock()])], history: ['git status'] });
-    expect(await within(log).findByText(/nothing to commit, working tree clean/)).toBeVisible();
-    expect(within(log).getByText('✓ 0.1s')).toBeVisible();
     await expectNoAxeViolations(screen.getByRole('dialog', { name: 'Terminal' }));
   });
 
-  it('AC-5, AC-13, AC-14: a failed command says its exit code, and Rerun and Copy act on it', async () => {
-    const failed = makeTerminalBlock({
-      state: 'failed',
-      command: 'pnpm test',
-      exitCode: 1,
-      ms: 3100,
-      output: ['1 failed'],
-    });
-    const shell = fakeShell(makeTerminal({ tabs: [tab([failed])], history: ['pnpm test'] }));
-    const { user, log } = await openShell();
-
-    expect(within(log).getByText('✗ exit 1 · 3.1s')).toBeVisible();
-    await user.click(within(log).getByRole('button', { name: 'Rerun pnpm test' }));
-    await waitFor(() => {
-      expect(shell.state.asked).toEqual(['run /tabs/tab-1/commands pnpm test']);
-    });
-    await user.click(within(log).getByRole('button', { name: 'Copy pnpm test and its output' }));
-    expect(await navigator.clipboard.readText()).toBe('pnpm test\n1 failed');
-    expect(within(log).getByRole('button', { name: 'Copied' })).toBeVisible();
-  });
-
-  it('AC-8, AC-9: a running command shows Stop, the field says the tab is busy, and Stop or ⌃C ends it', async () => {
-    const running: TerminalBlock = {
-      id: 'block-1',
-      state: 'running',
-      command: 'pnpm dev',
-      output: ['VITE ready'],
-      cut: false,
-    };
-    const shell = fakeShell(makeTerminal({ tabs: [tab([running])], history: ['pnpm dev'] }));
-    const { user, field, log } = await openShell();
-
-    expect(within(log).getByText('● running')).toBeVisible();
-    expect(field).toHaveAttribute('placeholder', 'pnpm dev is running. ⌃C stops it, or + opens another terminal.');
-    await user.click(within(log).getByRole('button', { name: 'Stop pnpm dev' }));
-    await user.click(field);
-    await user.keyboard('{Control>}c{/Control}');
-    await waitFor(() => {
-      expect(shell.state.asked).toEqual(['stop /tabs/tab-1/stop', 'stop /tabs/tab-1/stop']);
-    });
-  });
-
-  it('AC-10, AC-11: + opens a new tab, picked and ready to type in; closing it picks the tab before it', async () => {
-    const shell = fakeShell();
+  it('AC-2: what you type goes to the shell in order, Enter and ⌃C included', async () => {
+    const state = fakeShell();
     const { user } = await openShell();
-
-    await user.click(screen.getByRole('button', { name: 'New terminal in this session' }));
-    const added = await screen.findByRole('tab', { name: 'zsh 2' });
+    await user.keyboard('read answer{Enter}yes{Enter}');
     await waitFor(() => {
-      expect(added).toHaveAttribute('aria-selected', 'true');
+      expect(typed(state.asked)).toBe('read answer\ryes\r');
     });
-    expect(screen.getByRole('textbox', { name: 'Command' })).toHaveFocus();
+  });
+
+  it('AC-2: Esc in your shell is the shell’s, so the Terminal stays open', async () => {
+    fakeShell();
+    const { user, shell } = await openShell();
+    await user.keyboard('{Escape}');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByRole('dialog', { name: 'Terminal' })).toBeVisible();
+    expect(shell).toHaveFocus();
+  });
+
+  it('AC-5: a replay draws the screen from scratch, as after a reconnect', async () => {
+    fakeShell();
+    await openShell();
+    const stream = FakeEventSource.at(output());
+    stream.emit({ kind: 'replay', data: 'before' });
+    expect(await screen.findAllByText(row('before'))).not.toHaveLength(0);
+    stream.emit({ kind: 'replay', data: 'after' });
+    expect(await screen.findAllByText(row('after'))).not.toHaveLength(0);
+    expect(screen.queryAllByText(row('before'))).toHaveLength(0);
+  });
+
+  it('AC-6: + opens a new shell, picked and ready to type in; closing it picks the tab before it', async () => {
+    const state = fakeShell();
+    const { user } = await openShell();
+    await user.click(screen.getByRole('button', { name: 'New terminal in this session' }));
+    const second = await screen.findByRole('textbox', { name: 'zsh 2' });
+    expect(screen.getByRole('tab', { name: 'zsh 2' })).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() => {
+      expect(second).toHaveFocus();
+    });
+    expect(FakeEventSource.at(output('tab-2')).closed).toBe(false);
 
     await user.click(screen.getByRole('button', { name: 'Close zsh 2' }));
-    await waitFor(() => {
-      expect(screen.getByRole('tab', { name: 'zsh · worktree' })).toHaveAttribute('aria-selected', 'true');
-    });
-    expect(shell.state.asked).toEqual(['add', 'close /tabs/tab-2']);
-    // The first tab is the worktree's own: it has no Close.
-    expect(screen.queryByRole('button', { name: /^Close/ })).toBeNull();
+    expect(await screen.findByRole('textbox', { name: 'zsh · worktree' })).toHaveFocus();
+    expect(state.asked).toContain('close tab-2');
+    expect(screen.queryByRole('tab', { name: 'zsh 2' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Close zsh · worktree' })).toBeNull();
   });
 
-  it('AC-10: with 5 tabs, + says why it does nothing', async () => {
-    const five = [1, 2, 3, 4, 5].map((number) => tab([], { id: `tab-${String(number)}`, number }));
-    const shell = fakeShell(makeTerminal({ tabs: five, history: [] }));
+  it('AC-6: with 5 tabs, + says why it does nothing', async () => {
+    const tabs = [1, 2, 3, 4, 5].map((number) => ({ id: `tab-${String(number)}`, number }));
+    const state = fakeShell(makeTerminal({ tabs }));
     const { user } = await openShell();
-
     const add = screen.getByRole('button', { name: '5 terminals is the most for a session.' });
     expect(add).toHaveAttribute('aria-disabled', 'true');
     await user.click(add);
-    expect(shell.state.asked).toEqual([]);
+    expect(state.asked).not.toContain('add');
   });
 
-  it('AC-12: ↑ and ↓ walk the commands you ran in this session', async () => {
-    fakeShell(makeTerminal({ tabs: [tab([])], history: ['git status', 'pnpm test'] }));
-    const { user, field } = await openShell();
-    await user.keyboard('{ArrowUp}{ArrowUp}{ArrowDown}');
-    expect(field).toHaveValue('pnpm test');
-  });
-
-  it('AC-15: Clear output, or typing clear, empties the tab, which says so', async () => {
-    const shell = fakeShell(makeTerminal({ tabs: [tab([makeTerminalBlock()])], history: ['git status'] }));
-    const { user, field, log } = await openShell();
-
-    await user.click(screen.getByRole('button', { name: 'Clear output' }));
-    await user.type(field, 'clear{Enter}');
-    await waitFor(() => {
-      expect(shell.state.asked).toEqual(['clear /tabs/tab-1/blocks', 'clear /tabs/tab-1/blocks']);
-    });
-    shell.change({ tabs: [tab([], { cleared: true })] });
-    expect(await within(log).findByText('Output cleared. Type a command below.')).toBeVisible();
-  });
-
-  it('AC-16, AC-25: says when only the last lines are kept, and when the worktree wasn’t there to run in', async () => {
-    const blocks: TerminalBlock[] = [
-      makeTerminalBlock({ cut: true }),
-      { id: 'block-2', state: 'no_worktree', command: 'touch here' },
+  it('AC-7: a tab whose shell ended goes, and the first one shows', async () => {
+    const tabs = [
+      { id: 'tab-1', number: 1 },
+      { id: 'tab-2', number: 2 },
     ];
-    fakeShell(makeTerminal({ tabs: [tab(blocks)], history: [] }));
-    const { log } = await openShell();
-    expect(within(log).getByText('Showing the last 2,000 lines.')).toBeVisible();
-    expect(within(log).getByText("Couldn't run this. The worktree isn't there any more.")).toBeVisible();
+    const state = fakeShell(makeTerminal({ tabs }));
+    const { user } = await openShell();
+    await user.click(screen.getByRole('tab', { name: 'zsh 2' }));
+    const stream = FakeEventSource.at(output('tab-2'));
+
+    state.terminal = makeTerminal();
+    FakeEventSource.latest().emit({ type: 'session.terminal.changed', sessionId: id });
+    expect(await screen.findByRole('textbox', { name: 'zsh · worktree' })).toBeVisible();
+    expect(stream.closed).toBe(true);
   });
 
-  it('AC-26: when Orynx can’t be reached, your command stays, and Try again sends it', async () => {
-    const shell = fakeShell();
-    let reachable = false;
-    server.use(
-      http.post(apiUrl(apiRoutes.sessionTerminalRun), () => {
-        shell.state.asked.push('run');
-        return reachable ? HttpResponse.json({ result: 'started', blockId: 'block-1' }) : HttpResponse.error();
-      }),
-    );
-    const { user, field } = await openShell();
+  it('when Orynx can’t be reached, what you typed waits, and Try again sends it', async () => {
+    const state = fakeShell();
+    const { user } = await openShell();
+    state.reachable = false;
+    await user.keyboard('ls');
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't reach Orynx.");
 
-    await user.type(field, 'pnpm test{Enter}');
-    expect(await screen.findByText("Couldn't reach Orynx.")).toBeVisible();
-    expect(field).toHaveValue('pnpm test');
-    reachable = true;
+    state.reachable = true;
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => {
-      expect(field).toHaveValue('');
+      expect(typed(state.asked)).toBe('ls');
     });
-    expect(shell.state.asked).toEqual(['run', 'run']);
     expect(screen.queryByText("Couldn't reach Orynx.")).toBeNull();
   });
 
-  it('AC-27: holds the blocks’ place while the tabs load, and says when they couldn’t', async () => {
+  it('holds the terminal’s place while the tabs load', async () => {
     server.use(
       sessionHandler(session),
       http.get(apiUrl(apiRoutes.sessionTerminal), async () => {
@@ -245,7 +197,8 @@ describe('the Terminal’s shell tab', () => {
       }),
     );
     const { user } = await renderApp({ route });
-    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'Terminal' }));
+    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Terminal' }));
     expect(await screen.findByRole('log', { name: 'Terminal output' })).toHaveAttribute('aria-busy', 'true');
   });
 
@@ -258,60 +211,12 @@ describe('the Terminal’s shell tab', () => {
       ),
     );
     const { user } = await renderApp({ route });
-    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'Terminal' }));
+    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Terminal' }));
 
     expect(await screen.findByText("Couldn't reach Orynx.")).toBeVisible();
     fails = false;
     await user.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByRole('textbox', { name: 'Command' })).toBeVisible();
-  });
-});
-
-describe('Ask Claude to fix', () => {
-  const failed = makeTerminalBlock({ id: 'block-3', state: 'failed', command: 'pnpm test', exitCode: 1, ms: 3100 });
-
-  it('AC-17: sends the failed command to Claude and shows the Claude tab with its note', async () => {
-    const shell = fakeShell(makeTerminal({ tabs: [tab([failed])], history: ['pnpm test'] }));
-    let commands: ClaudeCommandList = { commands: [] };
-    server.use(
-      http.post(apiUrl(apiRoutes.sessionTerminalFix), ({ request }) => {
-        shell.state.asked.push(`fix ${new URL(request.url).pathname}`);
-        commands = { commands: [{ id: 'note-1', state: 'note', command: 'pnpm test' }] };
-        return HttpResponse.json({ result: 'sent' });
-      }),
-      http.get(apiUrl(apiRoutes.sessionCommands), () => HttpResponse.json(commands)),
-    );
-    const { user, log } = await openShell();
-
-    await user.click(within(log).getByRole('button', { name: 'Ask Claude to fix pnpm test' }));
-    await waitFor(() => {
-      expect(screen.getByRole('tab', { name: 'Claude' })).toHaveAttribute('aria-selected', 'true');
-    });
-    expect(shell.state.asked).toEqual([`fix /api/sessions/${id}/terminal/tabs/tab-1/blocks/block-3/fix`]);
-    const claude = await screen.findByRole('log', { name: "Claude's commands" });
-    expect(await within(claude).findByText('Sent from your terminal:')).toBeVisible();
-    expect(within(claude).getByText('pnpm test')).toBeVisible();
-  });
-
-  it('AC-18: isn’t offered when the session can’t take a follow-up', async () => {
-    const newer = makeSession({ ...session, followUp: { kind: 'newer_session', sessionId: 'fedcba9876543210' } });
-    fakeShell(makeTerminal({ tabs: [tab([failed])], history: [] }));
-    server.use(sessionHandler(newer));
-    const { log } = await openShell();
-    expect(within(log).getByText('✗ exit 1 · 3.1s')).toBeVisible();
-    expect(within(log).queryByRole('button', { name: /^Ask Claude to fix/ })).toBeNull();
-  });
-
-  it('AC-17: says why when the follow-up can’t go, and stays on your shell', async () => {
-    fakeShell(makeTerminal({ tabs: [tab([failed])], history: [] }));
-    server.use(
-      http.post(apiUrl(apiRoutes.sessionTerminalFix), () =>
-        HttpResponse.json({ result: 'cannot_send', reason: 'too_many' }),
-      ),
-    );
-    const { user, log } = await openShell();
-    await user.click(within(log).getByRole('button', { name: 'Ask Claude to fix pnpm test' }));
-    expect(await screen.findByText('Three sessions are already working. Stop one, then send.')).toBeVisible();
-    expect(screen.getByRole('tab', { name: 'zsh · worktree' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('textbox', { name: 'zsh · worktree' })).toBeVisible();
   });
 });

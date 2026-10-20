@@ -2,12 +2,12 @@ import { z } from 'zod';
 import { mostMessageCharacters, RefusalReasonSchema } from './session.ts';
 
 /**
- * The session's Terminal (spec 036): a read-only tab of the commands Claude ran, and your own shell tabs, which
- * run one command per block in the session's worktree.
+ * The session's Terminal (spec 036, spec 038): a read-only tab of the commands Claude ran, and your own shell
+ * tabs, each a real terminal on your login shell in the session's worktree.
  */
 
-/** What Orynx keeps: shell tabs per session, blocks per tab, lines per block; Claude's lines; what Ask Claude to fix sends. */
-export const terminalLimits = { tabs: 5, blocks: 100, lines: 2000, claudeLines: 200, fixLines: 50 } as const;
+/** Shell tabs per session; lines kept of each of Claude's commands; the most one input request carries. */
+export const terminalLimits = { tabs: 5, claudeLines: 200, inputChars: 65_536 } as const;
 
 /** A command as typed: something to run, no longer than a follow-up may be. */
 const CommandTextSchema = z.string().regex(/\S/, 'a command needs something to run').max(mostMessageCharacters);
@@ -38,32 +38,8 @@ export type ClaudeCommand = z.infer<typeof ClaudeCommandSchema>;
 export const ClaudeCommandListSchema = z.object({ commands: z.array(ClaudeCommandSchema) });
 export type ClaudeCommandList = z.infer<typeof ClaudeCommandListSchema>;
 
-const TerminalBlockBaseSchema = z.object({ id: z.string().min(1), command: CommandTextSchema });
-
-/**
- * One command you ran. `exitCode` is the shell's: 128 plus the signal's number for one that Stop ended.
- * `no_worktree` ran nothing, because the worktree wasn't there (AC-25).
- */
-export const TerminalBlockSchema = z.discriminatedUnion('state', [
-  TerminalBlockBaseSchema.extend({ state: z.literal('running'), ...OutputFields }),
-  TerminalBlockBaseSchema.extend({ state: z.literal('done'), ...OutputFields, ms: z.int().nonnegative() }),
-  TerminalBlockBaseSchema.extend({
-    state: z.literal('failed'),
-    ...OutputFields,
-    exitCode: z.int().positive(),
-    ms: z.int().nonnegative(),
-  }),
-  TerminalBlockBaseSchema.extend({ state: z.literal('no_worktree') }),
-]);
-export type TerminalBlock = z.infer<typeof TerminalBlockSchema>;
-
-/** A shell tab: `number` 1 is the first, which can't be closed. `cleared` once you emptied it. */
-export const TerminalTabSchema = z.object({
-  id: z.string().min(1),
-  number: z.int().positive(),
-  blocks: z.array(TerminalBlockSchema),
-  cleared: z.boolean(),
-});
+/** A shell tab: `number` 1 is the first, which can't be closed. */
+export const TerminalTabSchema = z.object({ id: z.string().min(1), number: z.int().positive() });
 export type TerminalTab = z.infer<typeof TerminalTabSchema>;
 
 /** GET /api/sessions/:id/terminal: your shell tabs, oldest first. */
@@ -73,8 +49,6 @@ export const TerminalSchema = z.object({
   /** The worktree as the meta line shows it, with `~` for your home. */
   worktree: z.string().min(1),
   tabs: z.array(TerminalTabSchema).min(1),
-  /** The commands you ran in this session, oldest first, for ↑ and ↓. */
-  history: z.array(CommandTextSchema),
 });
 export type Terminal = z.infer<typeof TerminalSchema>;
 
@@ -86,13 +60,21 @@ export const AddTerminalTabAnswerSchema = z.discriminatedUnion('result', [
 ]);
 export type AddTerminalTabAnswer = z.infer<typeof AddTerminalTabAnswerSchema>;
 
-/** POST /api/sessions/:id/terminal/tabs/:tabId/commands. */
-export const RunCommandRequestSchema = z.object({ command: CommandTextSchema });
-export type RunCommandRequest = z.infer<typeof RunCommandRequestSchema>;
+/** POST /api/sessions/:id/terminal/tabs/:tabId/input: keys you pressed or text you pasted, as the terminal sends them. */
+export const TerminalInputSchema = z.object({ data: z.string().min(1).max(terminalLimits.inputChars) });
+export type TerminalInput = z.infer<typeof TerminalInputSchema>;
 
-export const RunCommandAnswerSchema = z.discriminatedUnion('result', [
-  z.object({ result: z.literal('started'), blockId: z.string().min(1) }),
-  /** A command runs in this tab already: one at a time. */
-  z.object({ result: z.literal('busy') }),
+/** POST /api/sessions/:id/terminal/tabs/:tabId/size: the terminal's size in characters, so programs draw to fit. */
+export const TerminalSizeSchema = z.object({ cols: z.int().min(2).max(1000), rows: z.int().min(1).max(1000) });
+export type TerminalSize = z.infer<typeof TerminalSizeSchema>;
+
+/**
+ * One frame of GET /api/sessions/:id/terminal/tabs/:tabId/output, a server-sent event stream: first `replay`,
+ * all the output the tab keeps, which the terminal draws from scratch (again after a reconnect); then `data`, as
+ * the shell writes it. Both carry the shell's own bytes, colours and all.
+ */
+export const TerminalOutputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('replay'), data: z.string() }),
+  z.object({ kind: z.literal('data'), data: z.string().min(1) }),
 ]);
-export type RunCommandAnswer = z.infer<typeof RunCommandAnswerSchema>;
+export type TerminalOutput = z.infer<typeof TerminalOutputSchema>;
