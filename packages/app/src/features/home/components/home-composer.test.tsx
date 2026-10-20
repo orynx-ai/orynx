@@ -53,10 +53,35 @@ describe('Home’s composer (spec 015)', () => {
     await waitFor(() => {
       expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
     });
-    // No Ask or Build to pick (the user's call, 19 Oct 2026): no mode sent, so the server builds.
-    expect(posted).toEqual([{ message: 'Add a CSV export', repositoryId: web.id, context: [] }]);
-    expect(screen.queryByRole('group', { name: 'Session' })).not.toBeInTheDocument();
-    expect(useComposerStore.getState()).toMatchObject({ text: '', chips: [], lastUsed: web.id });
+    // Build until you pick Ask (spec 031, Q1).
+    expect(posted).toEqual([{ message: 'Add a CSV export', repositoryId: web.id, context: [], mode: 'build' }]);
+    expect(useComposerStore.getState()).toMatchObject({ text: '', chips: [], lastUsed: web.id, mode: 'build' });
+  });
+
+  it('AC-1, AC-2 (spec 031): the Session switch starts on Build, says what each does, and sends Ask once picked', async () => {
+    const posted = serve();
+    const { user } = await renderApp();
+    const mode = await screen.findByRole('group', { name: 'Session' });
+    expect(within(mode).getByRole('button', { name: 'Build' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', { level: 1, name: 'What should we ship today?' })).toBeVisible();
+
+    within(mode).getByRole('button', { name: 'Build' }).focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Claude works on a branch in its own worktree');
+    // Tab reaches each option, as in every segmented control (spec 006).
+    await user.keyboard('{Shift>}{Tab}{/Shift}');
+    expect(within(mode).getByRole('button', { name: 'Ask' })).toHaveFocus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Claude answers and changes nothing');
+    await user.keyboard('{Enter}');
+
+    expect(within(mode).getByRole('button', { name: 'Ask' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', { level: 1, name: 'What do you want to know?' })).toBeVisible();
+    expect(box()).toHaveAttribute('placeholder', 'Ask Claude about your code, a ticket or a pull request');
+    await user.type(box(), 'How does the header work?{Enter}');
+    await waitFor(() => {
+      expect(posted).toEqual([expect.objectContaining({ message: 'How does the header work?', mode: 'ask' })]);
+    });
+    // Your pick stays for the next task (spec 031, Q1).
+    expect(useComposerStore.getState().mode).toBe('ask');
   });
 
   it('AC-5: Shift+Enter starts a new line and sends nothing', async () => {
@@ -81,7 +106,9 @@ describe('Home’s composer (spec 015)', () => {
     await user.click(send());
 
     await waitFor(() => {
-      expect(posted).toEqual([{ message: '', repositoryId: web.id, context: [{ kind: 'jira', key: 'PROJ-1423' }] }]);
+      expect(posted).toEqual([
+        { message: '', repositoryId: web.id, context: [{ kind: 'jira', key: 'PROJ-1423' }], mode: 'build' },
+      ]);
     });
   });
 

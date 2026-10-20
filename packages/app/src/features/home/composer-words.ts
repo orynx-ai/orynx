@@ -4,6 +4,7 @@ import {
   type ComposerChip,
   type ContextProblem,
   type SessionApproval,
+  type SessionMode,
 } from '@devhub/contracts';
 import type { ChipRefusal } from './composer-rules.ts';
 
@@ -83,6 +84,16 @@ export const composerWords = {
       max: 'Max',
     },
   },
+  /** Ask or Build (spec 026, 031): the switch's name, its two options, and what each does, in their tooltips. */
+  mode: {
+    label: 'Session',
+    ask: 'Ask',
+    build: 'Build',
+    askHint: 'Claude answers and changes nothing',
+    buildHint: 'Claude works on a branch in its own worktree',
+  },
+  /** Home's heading, as the switch stands (spec 031, Q8b). */
+  heading: { build: 'What should we ship today?', ask: 'What do you want to know?' },
   existing: (key: string) => `${key} already has a session.`,
   openSession: 'Open session',
   failed: "Couldn't start Claude. Try again.",
@@ -136,7 +147,8 @@ export function refusedLine(refusal: ChipRefusal): string {
 }
 
 /** AC-3, AC-8: with a ticket added, Send works with the box empty, and the box says so; with several, how many (022 Q12). */
-export function placeholderFor(ticketKeys: readonly string[]): string {
+export function placeholderFor(ticketKeys: readonly string[], mode: SessionMode = 'build'): string {
+  if (mode === 'ask') return 'Ask Claude about your code, a ticket or a pull request';
   const [first] = ticketKeys;
   if (first === undefined) return 'Describe a task, or paste a Jira key like PROJ-1423';
   if (ticketKeys.length === 1) return `What should Claude do with ${first}?`;
