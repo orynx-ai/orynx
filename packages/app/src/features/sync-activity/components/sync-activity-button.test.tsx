@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { apiRoutes, type Inbox } from '@devhub/contracts';
 import { makeInbox, makeSyncActivity } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
@@ -31,7 +31,7 @@ describe('Sync activity button (spec 035)', () => {
     const sync = pageBar().getByRole('button', { name: 'Sync' });
     // Spec 039, Q2: the line is the button, and the separate Sync activity button is gone.
     expect(button.compareDocumentPosition(sync) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(button).toHaveTextContent(/^Synced /);
+    expect(button).toHaveTextContent(/Synced /);
     expect(button.querySelector('.bg-success')).not.toBeNull();
     expect(pageBar().getAllByRole('button', { name: /Sync activity/ })).toHaveLength(1);
   });
@@ -72,25 +72,14 @@ describe('Sync activity button (spec 035)', () => {
   });
 });
 
-describe('Sync activity under 768 px (spec 039)', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('AC-17: shows only its dot and the history icon, named and tooltipped Sync activity', async () => {
-    vi.stubGlobal('matchMedia', (query: string) => ({
-      matches: false,
-      media: query,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-    }));
+describe('Sync activity in a narrow page bar (spec 039)', () => {
+  it('AC-17: keeps the line in its name, and draws the history icon for when the line steps aside', async () => {
     inboxWith({ jira: synced, github: synced });
     const { user } = await renderApp();
 
-    const button = await pageBar().findByRole('button', { name: 'Sync activity' });
-    expect(button).not.toHaveTextContent(/Synced/);
+    const button = await pageBar().findByRole('button', { name: /^Synced .*, Sync activity$/ });
+    // Under 1280 px CSS hides the line and shows the icon; jsdom draws both.
     expect(button.querySelector('svg')).not.toBeNull();
-    expect(button.querySelector('.bg-success')).not.toBeNull();
     await user.click(button);
     expect(await screen.findByRole('dialog', { name: 'Sync activity' })).toBeVisible();
   });

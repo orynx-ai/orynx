@@ -1,6 +1,5 @@
 import { Rotate01Icon } from '@hugeicons/core-free-icons';
-import { Button, cn, Icon, IconButton } from '@devhub/ui';
-import { useWide } from '../../../shell/use-wide.ts';
+import { cn, Icon, IconButton } from '@devhub/ui';
 import { SyncActivityButton } from '../../sync-activity/components/sync-activity-button.tsx';
 import { syncLine } from '../inbox-words.ts';
 import { useInbox, useRefreshInbox } from '../queries.ts';
@@ -9,35 +8,25 @@ import { useNow } from '../use-now.ts';
 /**
  * Sync: one sync of Jira and GitHub now, which also reads Tickets' sprint. Home's page bar has it, and Tickets'
  * (the user's call, 19 Oct 2026). It said Refresh until spec 039 (the user's call, 20 Oct 2026: "instead of refresh
- * use sync"); while it runs it says Syncing. Under 768 px it is its arrow alone, so the page bar keeps to one line.
+ * use sync"), and it is its arrow alone, its word in the tooltip, so the page bar keeps to one line; while it runs it
+ * says Syncing.
  */
 export function SyncButton() {
   const refresh = useRefreshInbox();
   const syncing = refresh.isPending;
-  const wide = useWide();
-  const sync = () => {
-    if (!syncing) refresh.mutate();
-  };
-  const arrow = <Icon icon={Rotate01Icon} aria-hidden className={cn(syncing && 'motion-safe:animate-spin')} />;
-  if (!wide) {
-    return (
-      <IconButton
-        variant="ghost"
-        size="sm"
-        label={syncing ? 'Syncing' : 'Sync'}
-        aria-disabled={syncing || undefined}
-        onClick={sync}
-      >
-        {arrow}
-      </IconButton>
-    );
-  }
   return (
-    // The arrow turns while the sync runs: Button's own `pending` would add a second icon beside it.
-    <Button variant="ghost" size="sm" aria-disabled={syncing || undefined} onClick={sync}>
-      {arrow}
-      {syncing ? 'Syncing' : 'Sync'}
-    </Button>
+    // The arrow turns while the sync runs: IconButton's own `pending` would put a spinner in its place.
+    <IconButton
+      variant="ghost"
+      size="sm"
+      label={syncing ? 'Syncing' : 'Sync'}
+      aria-disabled={syncing || undefined}
+      onClick={() => {
+        if (!syncing) refresh.mutate();
+      }}
+    >
+      <Icon icon={Rotate01Icon} aria-hidden className={cn(syncing && 'motion-safe:animate-spin')} />
+    </IconButton>
   );
 }
 

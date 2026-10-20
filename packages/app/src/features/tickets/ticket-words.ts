@@ -7,10 +7,9 @@ import { dayMonth, plural } from '../../words/calendar.ts';
  * laptop's calendar, the way Home writes its dates.
  */
 
-/** Q9a, Q7c: "PROJ · ends 24 Oct", "PROJ · ended 24 Oct", "PROJ", or "ends 24 Oct"; null with neither. */
+/** Q9a, Q7c: "ends 24 Oct" or "ended 24 Oct"; null with no end. The project is a crumb of its own (spec 039). */
 export function sprintMeta(sprint: Sprint, now: Date): string | null {
   const parts: string[] = [];
-  if (sprint.projectKey !== null) parts.push(sprint.projectKey);
   if (sprint.endsAt !== null) {
     const ends = new Date(sprint.endsAt);
     parts.push(`${ends.getTime() < now.getTime() ? 'ended' : 'ends'} ${dayMonth(ends, now).short}`);
@@ -198,6 +197,8 @@ export function ticketProblemLine(key: string, result: 'not_found' | 'not_connec
 /** Spec 037, Q12b to Q12f: the words of an Orynx ticket's form and its delete. */
 export const orynxTicketWords = {
   newTicket: 'New ticket',
+  /** The page bar's New ticket, short so the bar fits (the user's call, 20 Oct 2026). */
+  newShort: 'New',
   newTicketIn: (column: TicketColumn) => `New ticket in ${columnNames[column]}`,
   editTitle: (key: string) => `Edit ${key}`,
   create: 'Create ticket',

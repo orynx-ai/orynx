@@ -13,6 +13,7 @@ import {
   MenuSeparator,
   MenuTrigger,
   Picker,
+  SheetRow,
   Skeleton,
 } from '@devhub/ui';
 import { useJiraConnection, useJiraProjects } from '../../settings/queries.ts';
@@ -22,15 +23,10 @@ import { noOpenSprintsText, noSprintName, openSprintLine, yourSprintText } from 
 
 /**
  * Where the pickers sit (spec 039): `bar` as the page bar's crumbs, "Tickets / MAI ▾ / No sprint ▾", their names for
- * screen readers only and a long sprint cut short; `sheet` in the filter sheet, named and both the same width
- * (spec 020), so neither moves when its words change.
+ * screen readers only and a long sprint cut short; `sheet` as the filter sheet's first two rows, which open the same
+ * choices (the user's pattern, 20 Oct 2026).
  */
 export type PickersPlace = 'bar' | 'sheet';
-
-const pickerLooks: Record<PickersPlace, { className: string; label: string }> = {
-  bar: { className: 'text-body', label: 'sr-only' },
-  sheet: { className: 'w-48 justify-between', label: 'text-muted-foreground' },
-};
 
 /**
  * Tickets' Project and Sprint pickers (spec 020). Project searches the Jira projects you can see, with Your
@@ -51,7 +47,6 @@ export function SprintPickers({
   loading?: boolean;
   place: PickersPlace;
 }) {
-  const look = pickerLooks[place];
   const jira = useJiraConnection();
   // Jira's project list is asked for while Project is open, not on every visit to Tickets or window focus.
   const [listing, setListing] = useState(false);
@@ -80,9 +75,13 @@ export function SprintPickers({
       loading={projects.isPending && projects.fetchStatus !== 'idle'}
       onOpenChange={setListing}
     >
-      <Picker variant="plain" className={look.className}>
-        <span className={look.label}>Project</span> {choice.projectKey ?? yourSprintText}
-      </Picker>
+      {place === 'sheet' ? (
+        <SheetRow title="Project" summary={choice.projectKey ?? yourSprintText} />
+      ) : (
+        <Picker variant="plain" className="text-body">
+          <span className="sr-only">Project</span> {choice.projectKey ?? yourSprintText}
+        </Picker>
+      )}
     </Combobox>
   );
   const sprintName = choice.sprintId === 'none' ? noSprintName : (sprint?.name ?? (loading ? null : '–'));
@@ -91,7 +90,7 @@ export function SprintPickers({
       project={project}
       current={choice.sprintId ?? sprint?.id ?? null}
       name={sprintName}
-      look={look}
+      place={place}
       onPick={(sprintId) => {
         // No sprint keeps Your sprint's "yours"; a sprint belongs to the project listed.
         if (sprintId === 'none') choose.mutate({ projectKey: choice.projectKey, sprintId });
@@ -110,8 +109,8 @@ export function SprintPickers({
   }
   return (
     <>
-      <BreadcrumbItem className="min-w-0">{projectPicker}</BreadcrumbItem>
-      <BreadcrumbSeparator />
+      <BreadcrumbItem className="min-w-0 max-md:hidden">{projectPicker}</BreadcrumbItem>
+      <BreadcrumbSeparator className="max-md:hidden" />
       <BreadcrumbItem className="min-w-0">{sprintPicker}</BreadcrumbItem>
     </>
   );
@@ -121,13 +120,13 @@ function SprintMenu({
   project,
   current,
   name,
-  look,
+  place,
   onPick,
 }: {
   project: string | null;
   current: number | 'none' | null;
   name: string | null;
-  look: { className: string; label: string };
+  place: PickersPlace;
   onPick: (sprintId: number | 'none') => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -138,14 +137,18 @@ function SprintMenu({
   return (
     <Menu open={open} onOpenChange={setOpen}>
       <MenuTrigger asChild>
-        {/* A long sprint name is cut short; its tooltip holds it whole (spec 039, AC-12). */}
-        <Picker variant="plain" className={look.className} title={name ?? undefined}>
-          <span className={look.label}>Sprint</span>{' '}
-          {name ?? (
-            // While the sprint loads: a bar where its name goes, the picker as wide as ever.
-            <Skeleton className="inline-block h-3.5 w-16 align-middle" />
-          )}
-        </Picker>
+        {place === 'sheet' ? (
+          <SheetRow title="Sprint" summary={name ?? 'Loading…'} />
+        ) : (
+          // A long sprint name is cut short; its tooltip holds it whole (spec 039, AC-12).
+          <Picker variant="plain" className="min-w-20 text-body" title={name ?? undefined}>
+            <span className="sr-only">Sprint</span>{' '}
+            {name ?? (
+              // While the sprint loads: a bar where its name goes, the picker as wide as ever.
+              <Skeleton className="inline-block h-3.5 w-16 align-middle" />
+            )}
+          </Picker>
+        )}
       </MenuTrigger>
       {/* A menu holds menu items alone (ARIA), and while open it hides the page around it, so the menu itself
             says it's busy; the loading rows are only drawn. */}

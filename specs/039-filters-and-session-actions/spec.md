@@ -29,6 +29,16 @@ Correct these now, or the work goes ahead on them.
 - **The New ticket dialog says where the ticket goes.** Under the heading, one quiet line with the Orynx mark reads: "Saved in Orynx on this computer. It isn't added to Jira." Without Jira connected, it reads "Saved in Orynx on this computer." The column + and New ticket open the same dialog, so both show the line.
 - **No new dependency.** `Sheet` uses `radix-ui`'s Dialog, which `@devhub/ui` already has. Every icon comes from `@hugeicons/core-free-icons`.
 
+### The user's calls while building (20 Oct 2026)
+
+These replace the assumptions above where they differ.
+
+- **The filter sheet is a list of rows, then a page per filter** (the user's screenshots of a people directory's filters). Each row shows the filter's name, a count bubble of what's ticked, and a quiet line saying what is ticked, or "Any". Pressing a row opens that filter's page inside the sheet: Back, its name, a search box once it has more than 6 options, and its checkboxes. Project and Sprint are the first two rows and open their usual pickers.
+- **Filters counts every filter that's on**, the toolbar's two included: Source once only one source is ticked, and the others once anything is. Assignee: Me is on by default, so the button reads "Filters 1".
+- **Sync, Board and List are icons with tooltips**, and the page bar's New ticket says "New" (its name is still "New ticket").
+- **Search tickets leads the toolbar at every width**, so the page bar has room for "Tickets / Project ▾ / Sprint ▾". The sprint's dates step aside under 1280 px, and "Synced just now" becomes its dot and the history icon there. A phone's page bar holds the sprint picker alone.
+- **Scrollbars are thin and quiet everywhere**, and tab strips and segmented controls scroll only sideways: a tab 1 px past its strip drew a vertical scrollbar beside every tab list.
+
 ## Goal
 
 Tickets shows the two filters you use all the time and keeps the rest one click away in a sheet. It keeps your filters when you leave and come back, and you can switch project and sprint from the page bar. Sessions become something you can find, keep and tidy up: search them and filter them, with recent searches, and rename, pin or delete them from the sidebar, the Sessions page or the session itself. The sidebar takes less room, Sync says what it does, and a new ticket says it lives in Orynx.

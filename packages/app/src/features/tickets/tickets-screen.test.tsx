@@ -53,8 +53,8 @@ describe('TicketsScreen', () => {
   it('AC-1, AC-31: the page bar names the sprint, and the toolbar has the filters and the count', async () => {
     server.use(ticketsHandler());
     await renderApp({ route: '/tickets' });
-    // From 768 px the search field sits in the page bar, as the design draws it.
-    expect(await screen.findByRole('banner')).toContainElement(
+    // Spec 039: the search field leads the toolbar at every width, so the page bar has room for Project and Sprint.
+    expect(await screen.findByRole('group', { name: 'Filters' })).toContainElement(
       screen.getByRole('searchbox', { name: 'Search tickets' }),
     );
 
@@ -65,13 +65,13 @@ describe('TicketsScreen', () => {
     // AC-10 (039): the project and the sprint are crumbs you can pick from, and the sprint's dates stay as meta.
     expect(within(crumbs).getByRole('button', { name: 'Project Your sprint' })).toBeVisible();
     expect(within(crumbs).getByRole('button', { name: 'Sprint Sprint 42' })).toHaveAttribute('title', 'Sprint 42');
-    expect(screen.getByText('PROJ · ends 24 Oct')).toBeInTheDocument();
+    expect(screen.getByText('ends 24 Oct')).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: 'Search tickets' })).toBeVisible();
     const view = screen.getByRole('group', { name: 'View' });
     expect(within(view).getByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true');
     expect(within(view).getByRole('button', { name: 'List' })).toHaveAttribute('aria-pressed', 'false');
     expect(filter('Assignee · 1')).toBeVisible();
-    expect(filter('Filters')).toBeVisible();
+    expect(filter('Filters · 1')).toBeVisible();
     expect(count()).toHaveTextContent('6 tickets');
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
@@ -99,12 +99,12 @@ describe('TicketsScreen', () => {
       expect.stringMatching(/^Synced .*, Sync activity$/) as unknown as string,
       'Sync',
       'New ticket',
-      'Search tickets',
       'Board',
       'List',
+      'Search tickets',
       'Source · 2',
       'Assignee · 1',
-      'Filters · 1',
+      'Filters · 2',
       'Clear filters',
       'Board',
       'New ticket in To do',

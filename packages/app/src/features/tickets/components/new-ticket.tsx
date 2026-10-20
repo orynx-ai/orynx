@@ -50,12 +50,14 @@ export function NewTicketButton({
     <Button
       ref={remember}
       size={size}
+      // The page bar's says New, so the bar fits; its name still says what it makes (the user's call, 20 Oct 2026).
+      {...(inPageBar ? { 'aria-label': words.newTicket } : {})}
       onClick={() => {
         open('to_do');
       }}
     >
       <Icon icon={PlusSignIcon} aria-hidden />
-      {words.newTicket}
+      {inPageBar ? words.newShort : words.newTicket}
     </Button>
   );
 }

@@ -21,13 +21,11 @@ const now = new Date(2026, 9, 17, 10, 0);
 const sprint = makeTickets().sprint ?? { id: 42, name: 'Sprint 42', endsAt: null, projectKey: 'PROJ' };
 
 describe('Tickets’ words', () => {
-  it('AC-1: the page bar says the project and when the sprint ends (Q9a, Q7c)', () => {
-    expect(sprintMeta({ ...sprint, endsAt: '2026-10-24T17:00:00.000Z' }, now)).toBe('PROJ · ends 24 Oct');
-    expect(sprintMeta({ ...sprint, endsAt: '2026-10-15T17:00:00.000Z' }, now)).toBe('PROJ · ended 15 Oct');
-    expect(sprintMeta({ ...sprint, endsAt: null }, now)).toBe('PROJ');
-    expect(sprintMeta({ ...sprint, projectKey: null, endsAt: '2026-10-24T17:00:00.000Z' }, now)).toBe('ends 24 Oct');
-    expect(sprintMeta({ ...sprint, projectKey: null, endsAt: null }, now)).toBeNull();
-    expect(sprintMeta({ ...sprint, endsAt: '2027-01-08T17:00:00.000Z' }, now)).toBe('PROJ · ends 8 Jan 2027');
+  it('AC-1: the page bar says when the sprint ends; the project is a crumb since spec 039 (Q9a, Q7c)', () => {
+    expect(sprintMeta({ ...sprint, endsAt: '2026-10-24T17:00:00.000Z' }, now)).toBe('ends 24 Oct');
+    expect(sprintMeta({ ...sprint, endsAt: '2026-10-15T17:00:00.000Z' }, now)).toBe('ended 15 Oct');
+    expect(sprintMeta({ ...sprint, endsAt: null }, now)).toBeNull();
+    expect(sprintMeta({ ...sprint, endsAt: '2027-01-08T17:00:00.000Z' }, now)).toBe('ends 8 Jan 2027');
   });
 
   it('AC-31: the hidden heading names the sprint', () => {

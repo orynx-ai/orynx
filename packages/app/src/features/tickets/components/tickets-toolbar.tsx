@@ -25,7 +25,7 @@ export interface TicketsToolbarProps {
   count: number | undefined;
   /** Assignee, where Clear filters puts focus (AC-33). */
   assigneeRef?: Ref<HTMLButtonElement>;
-  /** Under 768 px, the search field, on its own line at the start (Q8g). */
+  /** The search field, first: on its own line under 768 px (Q8g), beside the filters from there (spec 039). */
   search?: ReactNode;
   /** The Project and Sprint pickers, at the top of the filter sheet (spec 020; the page bar has them too, spec 039). */
   pickers?: ReactNode;
@@ -62,7 +62,8 @@ export function TicketsToolbar({
   const { text: _, ...address } = filters;
   return (
     <Toolbar role="group" aria-label="Filters">
-      {search === undefined ? null : <div className="basis-full">{search}</div>}
+      {/* First, at every width since spec 039, so the page bar has room for Project and Sprint. */}
+      {search === undefined ? null : <div className="w-full md:w-60">{search}</div>}
       {filterKeys
         // Source and Assignee stay in the toolbar; the rest wait in the sheet (spec 039).
         .filter((key) => (sources && key === 'source') || key === 'assignee')

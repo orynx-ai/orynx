@@ -4,7 +4,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { KanbanIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
 import { defaultTicketsChoice, isOrynxKey, type InboxToolState, type TicketsChoice } from '@devhub/contracts';
-import { Button, Icon, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
+import { Button, Icon, EmptyState, SearchField, SegmentedControl, SegmentedControlItem, Tooltip } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
 import { RecentSearchBox } from '../../shell/recent-search-box.tsx';
 import { useRecentSearches } from '../../stores/recent-searches.ts';
@@ -118,15 +118,19 @@ export function TicketsScreen() {
   const crumbs: Crumb[] = orynxOnly
     ? [{ ...ticketsCrumb, to: '/tickets' }, { label: orynxName }]
     : [
-        { ...ticketsCrumb, to: '/tickets' },
+        // A phone's page bar holds the sprint alone: Tickets is the place picked above it, and Project is in Filters.
+        { ...ticketsCrumb, to: '/tickets', className: 'max-md:hidden' },
         {
           label: 'Project and sprint',
+          className: 'max-md:hidden',
           items: <SprintPickers place="bar" choice={choice} sprint={sprint} loading={loading} />,
         },
       ];
   // A line about Jira's sprint, unless the page shows Orynx's tickets alone by choice.
   const line = jiraOff ? withoutJiraLine : data === undefined || orynxOnly ? null : toolLine('jira', data.jira, now);
   const kept = data?.orynx.kept ?? null;
+  // The sprint's dates; the project is a crumb (spec 039).
+  const meta = orynxOnly || sprint === null ? null : sprintMeta(sprint, now);
   const truncated = !orynxOnly && shownName !== null && data?.truncated === true;
   const noOrynxTickets = orynxOnly && !loading && !all.some((ticket) => isOrynxKey(ticket.key));
 
@@ -145,15 +149,15 @@ export function TicketsScreen() {
     assignee.current?.focus();
   }
 
-  // One search field: in the page bar from 768 px, as the design draws it, and at the start of the toolbar
-  // below that, so the page bar keeps to one line (Q8g).
+  // One search field, at the start of the toolbar at every width (spec 039: the page bar needs the room for Project and
+  // Sprint; under 768 px it was there already, Q8g).
   const { ref: textRef, ...textField } = form.register('text');
   const searchField = (
     <RecentSearchBox
       place="tickets"
       query={text}
       fieldRef={searchBox}
-      className={wide ? 'w-55' : 'w-full'}
+      className="w-full"
       onPick={(picked) => {
         form.setValue('text', picked);
         remember('tickets', picked);
@@ -209,7 +213,8 @@ export function TicketsScreen() {
       <PageBar
         breadcrumb={<PageBreadcrumb crumbs={crumbs} />}
         // The project is a crumb now (spec 039); the meta keeps the sprint's dates.
-        meta={orynxOnly || sprint === null ? undefined : (sprintMeta(sprint, now) ?? undefined)}
+        // Steps aside under 1280 px, where the crumbs need the room (spec 039, AC-12).
+        meta={meta === null ? undefined : <span className="max-xl:hidden">{meta}</span>}
         actions={
           <>
             {/* When the tools last synced, as the button that opens Sync activity, then Sync (spec 039, Q2). */}
@@ -217,7 +222,6 @@ export function TicketsScreen() {
             {orynxShown && !noSprint ? <NewTicketButton inPageBar compact={!wide} /> : null}
             {noSprint ? null : (
               <>
-                {wide ? searchField : null}
                 <SegmentedControl
                   aria-label="View"
                   value={view}
@@ -225,14 +229,17 @@ export function TicketsScreen() {
                     if (picked === 'board' || picked === 'list') setView(picked);
                   }}
                 >
-                  <SegmentedControlItem value="board">
-                    <Icon icon={KanbanIcon} aria-hidden />
-                    Board
-                  </SegmentedControlItem>
-                  <SegmentedControlItem value="list">
-                    <Icon icon={LeftToRightListBulletIcon} aria-hidden />
-                    List
-                  </SegmentedControlItem>
+                  {/* Icons alone, their words in tooltips, so the page bar keeps to one line (the user's call, 20 Oct 2026). */}
+                  <Tooltip label="Board">
+                    <SegmentedControlItem value="board" aria-label="Board">
+                      <Icon icon={KanbanIcon} aria-hidden />
+                    </SegmentedControlItem>
+                  </Tooltip>
+                  <Tooltip label="List">
+                    <SegmentedControlItem value="list" aria-label="List">
+                      <Icon icon={LeftToRightListBulletIcon} aria-hidden />
+                    </SegmentedControlItem>
+                  </Tooltip>
                 </SegmentedControl>
               </>
             )}
@@ -258,7 +265,7 @@ export function TicketsScreen() {
               ? {}
               : { pickers: <SprintPickers place="sheet" choice={choice} sprint={sprint} loading={loading} /> })}
             sources={!jiraOff}
-            {...(wide ? {} : { search: searchField })}
+            search={searchField}
           />
         )}
         <PageBody width={noSprint ? 'wide' : 'full'}>

@@ -86,8 +86,8 @@ describe('SyncStatus', () => {
     await waitFor(() => {
       expect(refresh).toHaveAttribute('aria-disabled', 'true');
     });
-    // AC-15 (spec 039): it says what it's doing while the sync runs.
-    expect(refresh).toHaveTextContent('Syncing');
+    // AC-15 (spec 039): it says what it's doing while the sync runs, in its name and tooltip (its arrow alone shows).
+    expect(refresh).toHaveAccessibleName('Syncing');
     await user.click(refresh);
     expect(refreshes).toBe(1);
 
@@ -95,7 +95,7 @@ describe('SyncStatus', () => {
 
     expect(await pageBar().findByText('Synced just now')).toBeVisible();
     expect(refresh).not.toHaveAttribute('aria-disabled');
-    expect(refresh).toHaveTextContent(/^Sync$/);
+    expect(refresh).toHaveAccessibleName('Sync');
     expect(refresh).toHaveFocus();
   });
 });
