@@ -31,9 +31,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Build on your PR, the start: `existing` for a live session on it, then linked from the start, source `PR #n`, `workOn: pull_request`, the worktree from its branch; GitHub unreachable starts nothing (AC-14, AC-18, AC-21, AC-22)
       Check: pnpm test packages/core/src/sessions/compose.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-store.ts, packages/contracts/src/session.ts, packages/core/src/sessions/compose.test.ts
-- [ ] Task 10: Build on your PR, the end: Push changes pushes HEAD to the PR's branch and reaches the last step; Discard deletes the worktree and keeps the branch (`kept`) (AC-15, AC-16, AC-17)
-      Check: pnpm test packages/core/src/sessions/pull-requests.test.ts packages/core/src/sessions/session-service.test.ts
-      Files: packages/core/src/sessions/pull-requests.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/pull-requests.test.ts, packages/core/src/sessions/session-service.test.ts
+- [x] Task 10: Build on your PR, the end: Push changes pushes HEAD to the PR's branch and reaches the last step; Discard deletes the worktree and keeps the branch (`kept`) (AC-15, AC-16, AC-17)
+      Check: pnpm test packages/core/src/sessions/compose.test.ts packages/core/src/sessions/pull-requests.test.ts
+      Files: packages/core/src/sessions/pull-requests.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/compose.test.ts
 
 **UI**
 

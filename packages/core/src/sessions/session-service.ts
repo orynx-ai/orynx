@@ -1122,9 +1122,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (isWorking(found.session)) await halt(id, { kind: 'stopped' }, 'discarded');
     const record = (await records.get(id)) ?? found;
     const { branch } = record.session;
+    // Your pull request's branch isn't the session's to delete: only its worktree goes (spec 031).
+    const kept = record.session.workOn === 'pull_request';
     // An Ask with no folder has only its empty folder, which nothing reads once it's discarded.
     if (record.worktree !== null && record.repository !== null) {
-      const removed = await worktrees.remove(record.repository.path, record.worktree, branch);
+      const removed = await worktrees.remove(record.repository.path, record.worktree, kept ? null : branch);
       if (!removed.ok) {
         report(record, 'git', 'remove');
         return 'failed';
@@ -1134,7 +1136,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const ended =
         branch === null
           ? current
-          : withProgress(current, (progress) => endProgress(progress, { kind: 'discarded', branch, kept: false }));
+          : withProgress(current, (progress) => endProgress(progress, { kind: 'discarded', branch, kept }));
       return {
         ...ended,
         session: { ...ended.session, state: 'stopped', discardedAt: new Date(now()).toISOString() },

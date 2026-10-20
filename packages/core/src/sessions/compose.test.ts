@@ -564,6 +564,63 @@ describe('a Build on your pull request (spec 031)', () => {
     expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain("pull request #2836's own branch");
   });
 
+  /** A session on #2836's branch that Claude finished, with a change of its own in the worktree to push. */
+  async function finishedOnPull() {
+    const set = await onGitHub();
+    set.outside.use(yours());
+    await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await answer(set);
+    const record = await settled(set.records);
+    if (record.worktree === null) throw new Error('the worktree should be made');
+    await writeFile(join(set.repos.root, '.gitconfig'), '[user]\n\tname = Rakesh D\n\temail = you@company.com\n');
+    await writeFile(join(record.worktree, 'review.ts'), 'fixed\n');
+    return { set, worktree: record.worktree };
+  }
+
+  it('AC-16: Push changes commits and pushes to its branch, and the stepper reaches its last step', async () => {
+    const { set, worktree } = await finishedOnPull();
+
+    expect(await set.sessions.push('0000000000000001', { message: 'Answer the review' })).toEqual({
+      result: 'pushed',
+      files: 1,
+    });
+
+    const head = await set.repos.git(worktree, 'rev-parse', 'HEAD');
+    expect(await set.repos.git(set.repos.origin, 'rev-parse', 'refs/heads/fix/content-list')).toBe(head);
+    const record = await set.records.get('0000000000000001');
+    expect(record?.session).toMatchObject({ state: 'pr_open', step: 'pull_request' });
+    expect(record?.session.activities.at(-1)).toMatchObject({ kind: 'pushed', number: 2836, files: 1 });
+  });
+
+  it('AC-17: when someone pushed to its branch since, nothing is overwritten', async () => {
+    const { set } = await finishedOnPull();
+    const theirs = await set.repos.commitInOrigin('theirs.ts', 'fix/content-list');
+
+    expect(await set.sessions.push('0000000000000001', { message: 'Answer the review' })).toEqual({
+      result: 'failed',
+      problem: { kind: 'push_rejected' },
+    });
+    expect(await set.repos.git(set.repos.origin, 'rev-parse', 'refs/heads/fix/content-list')).toBe(theirs);
+  });
+
+  it('AC-15: Discard deletes the worktree and keeps the branch, yours and on origin', async () => {
+    const { set, worktree } = await finishedOnPull();
+    await set.repos.git(set.repos.clone, 'fetch', 'origin');
+    await set.repos.git(set.repos.clone, 'branch', 'fix/content-list', 'origin/fix/content-list');
+
+    expect(await set.sessions.discard('0000000000000001')).toBe('discarded');
+
+    expect(await readdir(worktree).catch(() => null)).toBeNull();
+    expect(await set.repos.git(set.repos.clone, 'branch', '--list', 'fix/content-list')).toContain('fix/content-list');
+    expect(await set.repos.git(set.repos.origin, 'branch', '--list', 'fix/content-list')).toContain('fix/content-list');
+    const record = await set.records.get('0000000000000001');
+    expect(record?.session.activities.at(-1)).toMatchObject({
+      kind: 'discarded',
+      branch: 'fix/content-list',
+      kept: true,
+    });
+  });
+
   it('AC-18: a pull request with a live session opens that one, and starts nothing', async () => {
     const set = await onGitHub();
     set.outside.use(yours());
