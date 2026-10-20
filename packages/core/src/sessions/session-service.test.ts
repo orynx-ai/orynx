@@ -1581,7 +1581,8 @@ describe('Claude’s commands (spec 036)', () => {
           command: 'npm test',
           output: [' FAIL  src/a.test.ts', 'Tests: 1 failed'],
           cut: false,
-          ms: 0,
+          // The adapter here runs on the real clock; claude-adapter.test.ts checks the time itself.
+          ms: expect.any(Number) as unknown,
         },
       ],
     });
