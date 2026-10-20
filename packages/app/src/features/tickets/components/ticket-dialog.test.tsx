@@ -262,7 +262,7 @@ describe('an Orynx ticket in the ticket dialog (spec 037)', () => {
       http.patch(apiUrl(apiRoutes.orynxTicket), async ({ request }) => {
         const change = (await request.json()) as UpdateOrynxTicket;
         changes.push(change);
-        held = { ...held, ...change, version: held.version + 1 };
+        held = { ...held, ...(change as Partial<OrynxTicket>), version: held.version + 1 };
         return HttpResponse.json({ result: 'saved', ticket: held });
       }),
     );
