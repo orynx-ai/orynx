@@ -322,7 +322,28 @@ describe('listSessions', () => {
         state: 'working',
         source: { kind: 'jira', key: 'PROJ-1423' },
         updatedAt: '2026-10-18T11:00:00.000Z',
+        ready: 'nothing',
       },
     ]);
+  });
+
+  it('says what each finished session is ready for, from what Claude did (spec 031)', async () => {
+    const store = await openFileSessionStore(home, { now });
+    const edited = [{ id: 'step-1', state: 'done' as const, kind: 'edit' as const, files: ['src/ContentList.tsx'] }];
+    const done = { state: 'done' as const };
+    await store.create(record({ ...done, title: 'Edited', activities: edited }, '0000000000000001'));
+    await store.create(
+      record({ ...done, title: 'On my PR', activities: edited, workOn: 'pull_request' }, '0000000000000002'),
+    );
+    await store.create(record({ ...done, title: 'Answered', mode: 'ask', activities: edited }, '0000000000000003'));
+    await store.create(record({ ...done, title: 'Edited nothing' }, '0000000000000004'));
+
+    const { sessions } = await listSessions(store, { now });
+    expect(Object.fromEntries(sessions.map((session) => [session.title, session.ready]))).toEqual({
+      Edited: 'pull_request',
+      'On my PR': 'push',
+      Answered: 'nothing',
+      'Edited nothing': 'nothing',
+    });
   });
 });

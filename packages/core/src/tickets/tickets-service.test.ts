@@ -196,7 +196,7 @@ describe('tickets service', () => {
 
     expect(read.tickets.map((ticket) => [ticket.key, ticket.session])).toEqual([
       ['PROJ-1377', null],
-      ['PROJ-1423', { id: 'old', state: 'needs_you' }],
+      ['PROJ-1423', { id: 'old', state: 'needs_you', ready: 'pull_request' }],
       ['PROJ-1350', null],
     ]);
   });

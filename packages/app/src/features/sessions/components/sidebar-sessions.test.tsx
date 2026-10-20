@@ -18,7 +18,7 @@ const seven = makeSessionList([
   { title: 'Fix timezone shift in event cards', source: { kind: 'pull_request', number: 2836 }, state: 'done' },
   { title: 'Bulk archive for events', source: { kind: 'jira', key: 'PROJ-1401' }, state: 'pr_open' },
   { title: 'Tidy the README', source: null, state: 'stopped' },
-  { title: 'Sixth session', state: 'done' },
+  { title: 'Sixth session', state: 'done', ready: 'nothing' },
   { title: 'Seventh session', state: 'done' },
 ]);
 
@@ -47,6 +47,8 @@ describe('Sidebar sessions', () => {
       within(nav).getByRole('link', { name: 'Fix timezone shift in event cards PR #2836 Done, ready for PR' }),
     ).toBeVisible();
     expect(within(nav).getByRole('link', { name: 'Bulk archive for events PROJ-1401 PR open' })).toBeVisible();
+    // An Ask, or a Build where Claude edited nothing, has nothing to ship (spec 031).
+    expect(within(nav).getByRole('link', { name: 'Sixth session PROJ-1423 Done' })).toBeVisible();
     expect(within(nav).getByRole('link', { name: 'Tidy the README Stopped' })).toHaveAttribute(
       'href',
       '/sessions/session-5',

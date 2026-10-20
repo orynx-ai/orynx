@@ -22,7 +22,7 @@ import {
   MenuTrigger,
   Pill,
   Skeleton,
-  sessionStateLabels,
+  sessionStateLabel,
   type PillTone,
 } from '@devhub/ui';
 import { useApi } from '../../../api.tsx';
@@ -83,7 +83,7 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
       <div className="flex flex-wrap items-center gap-2 text-small text-muted-foreground">
         <Pill tone={stateTones[session.state]}>
           {/* The sidebar's "Needs you" is said in full here, where you answer (spec 012, Q8d). */}
-          {session.state === 'needs_you' ? needsApprovalLabel : sessionStateLabels[session.state]}
+          {session.state === 'needs_you' ? needsApprovalLabel : sessionStateLabel(session.state, session.ready)}
         </Pill>
         {session.branch === null ? null : (
           <code className="rounded-sm bg-subtle px-2 font-mono text-code text-foreground">{session.branch}</code>

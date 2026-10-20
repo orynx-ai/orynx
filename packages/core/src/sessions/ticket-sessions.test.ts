@@ -7,6 +7,7 @@ describe('sessionsByTicket', () => {
     const build = makeSessionSummary({
       id: '0000000000000001',
       state: 'done',
+      ready: 'push',
       source: { kind: 'jira', key: 'PROJ-1423' },
       updatedAt: '2026-10-19T09:00:00.000Z',
     });
@@ -20,7 +21,12 @@ describe('sessionsByTicket', () => {
       mode: 'ask' as const,
     };
 
-    expect(sessionsByTicket([build, ask]).get('PROJ-1423')).toEqual({ id: '0000000000000001', state: 'done' });
+    // With what it's ready for, so the ticket's chip says it as the sidebar does (spec 031).
+    expect(sessionsByTicket([build, ask]).get('PROJ-1423')).toEqual({
+      id: '0000000000000001',
+      state: 'done',
+      ready: 'push',
+    });
     expect(sessionsByTicket([ask]).has('PROJ-1423')).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { SessionSummary } from '@devhub/contracts';
 import { makeSession, makeSessionApproval, makeSessionList } from '@devhub/contracts/testing';
@@ -16,7 +16,7 @@ const waiting = (id: string, at: string, extra: Partial<SessionSummary> = {}) =>
 });
 
 describe('the waiting banner (spec 015)', () => {
-  it('AC-25: names the session, what Claude wants to run, and opens the session as one link', async () => {
+  it('AC-25: floats as a pop-up naming the session and what Claude wants to run, and Review opens it', async () => {
     server.use(
       sessionsHandler(makeSessionList([waiting('00000000000000a1', '2026-10-18T09:00:00.000Z')])),
       sessionHandler(
@@ -29,12 +29,13 @@ describe('the waiting banner (spec 015)', () => {
     );
     const { user, history } = await renderApp();
 
-    const banner = await screen.findByRole('link', { name: /Claude is waiting for your approval/ });
+    const banner = await screen.findByRole('status', { name: 'Claude is waiting for your approval' });
     await waitFor(() => {
-      expect(banner).toHaveTextContent('PROJ-1423 · Add bulk archive · wants to run npm test');
+      expect(banner).toHaveAccessibleDescription('PROJ-1423 · Add bulk archive · wants to run npm test');
     });
-    expect(banner).toHaveTextContent('Review');
-    await user.click(banner);
+    // It floats over the page instead of taking room in Home's column (the user's call, 20 Oct 2026).
+    expect(screen.getByRole('heading', { level: 1 }).parentElement).not.toContainElement(banner);
+    await user.click(within(banner).getByRole('link', { name: 'Review' }));
     expect(history.location.pathname).toBe('/sessions/00000000000000a1');
   });
 
@@ -76,18 +77,18 @@ describe('the waiting banner (spec 015)', () => {
     );
     await renderApp();
 
-    const banners = await screen.findAllByRole('link', { name: /Claude is waiting for your approval/ });
-    expect(banners).toHaveLength(1);
+    // findByRole fails on more than one: this is the one banner.
+    const banner = await screen.findByRole('status', { name: 'Claude is waiting for your approval' });
     await waitFor(() => {
-      expect(banners[0]).toHaveTextContent('Oldest · wants to edit src/content/ContentList.tsx · 2 more waiting');
+      expect(banner).toHaveAccessibleDescription('Oldest · wants to edit src/content/ContentList.tsx · 2 more waiting');
     });
-    expect(banners[0]).toHaveAttribute('href', '/sessions/00000000000000a1');
+    expect(within(banner).getByRole('link', { name: 'Review' })).toHaveAttribute('href', '/sessions/00000000000000a1');
   });
 
   it('AC-27: goes when the last waiting session is answered elsewhere, and is never there with nothing waiting', async () => {
     server.use(sessionsHandler(makeSessionList([waiting('00000000000000a1', '2026-10-18T09:00:00.000Z')])));
     await renderApp();
-    expect(await screen.findByRole('link', { name: /Claude is waiting for your approval/ })).toBeVisible();
+    expect(await screen.findByRole('status', { name: 'Claude is waiting for your approval' })).toBeVisible();
 
     server.use(
       sessionsHandler(
@@ -99,7 +100,15 @@ describe('the waiting banner (spec 015)', () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByRole('link', { name: /Claude is waiting for your approval/ })).toBeNull();
+      expect(screen.queryByRole('status', { name: 'Claude is waiting for your approval' })).toBeNull();
     });
+  });
+
+  it('is Home’s alone: other pages don’t show it', async () => {
+    server.use(sessionsHandler(makeSessionList([waiting('00000000000000a1', '2026-10-18T09:00:00.000Z')])));
+    await renderApp({ route: '/settings' });
+    await screen.findByRole('link', { name: /Add bulk archive/ });
+
+    expect(screen.queryByRole('status', { name: 'Claude is waiting for your approval' })).toBeNull();
   });
 });

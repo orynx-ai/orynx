@@ -25,6 +25,12 @@ describe('AgentChip', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('says what a finished session is ready for, as the sidebar does (spec 031)', () => {
+    render(<AgentChip state="done" ready="push" href="/sessions/1" />);
+
+    expect(screen.getByRole('link', { name: 'Done, ready to push' })).toBeVisible();
+  });
+
   it("AC-15: takes the router's link through asChild", () => {
     render(
       <AgentChip state="needs_you" asChild>

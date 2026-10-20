@@ -35,7 +35,8 @@ const approval = makeNotification({
     waiting: true,
   },
 });
-const finished = (id = 'finished') => makeNotification({ id, what: { kind: 'session_finished', session } });
+const finished = (id = 'finished') =>
+  makeNotification({ id, what: { kind: 'session_finished', session, ready: 'pull_request' } });
 
 function listing(notifications: Notification[]) {
   server.use(http.get(apiUrl(apiRoutes.notifications), () => HttpResponse.json(makeNotificationList(notifications))));

@@ -38,18 +38,22 @@ describe('notification words (spec 029)', () => {
   });
 
   it('AC-19, AC-20: names how a session ended, and a session with no ticket by its title alone', () => {
-    const titles = (['session_finished', 'session_stopped', 'session_failed', 'session_limit'] as const).map(
+    const titles = (['session_stopped', 'session_failed', 'session_limit'] as const).map(
       (kind) => notificationWords({ kind, session }).title,
     );
-    expect(titles).toEqual([
-      'Session finished, ready for a pull request',
-      'Session stopped',
-      'Session failed',
-      'Session hit Claude’s usage limit',
-    ]);
-    expect(notificationWords({ kind: 'session_finished', session: { ...session, source: null } }).detail).toBe(
-      'Add bulk archive',
+    // Finished says what Claude left it ready for (spec 031).
+    const finished = (['pull_request', 'push', 'nothing'] as const).map(
+      (ready) => notificationWords({ kind: 'session_finished', session, ready }).title,
     );
+    expect(finished).toEqual([
+      'Session finished, ready for a pull request',
+      'Session finished, ready to push',
+      'Session finished',
+    ]);
+    expect(titles).toEqual(['Session stopped', 'Session failed', 'Session hit Claude’s usage limit']);
+    expect(
+      notificationWords({ kind: 'session_finished', session: { ...session, source: null }, ready: 'nothing' }).detail,
+    ).toBe('Add bulk archive');
   });
 
   it('AC-22: names who asked for a review, the pull request and the ticket', () => {

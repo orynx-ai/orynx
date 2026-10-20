@@ -31,7 +31,7 @@ export const designTickets: Ticket[] = [
     key: 'PROJ-1423',
     title: 'Add bulk archive to the content list',
     dueDate: '2026-10-23',
-    session: { id: 'session-1423', state: 'needs_you' },
+    session: { id: 'session-1423', state: 'needs_you', ready: 'nothing' },
   }),
   makeTicket({
     key: 'PROJ-1398',

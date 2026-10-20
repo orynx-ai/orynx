@@ -6,6 +6,7 @@ import {
   SessionSchema,
   type Session,
   type SessionList,
+  type SessionReady,
   type SessionSummary,
 } from '@devhub/contracts';
 
@@ -106,10 +107,20 @@ export interface SessionRecords extends SessionStore {
   readBrief(id: string): Promise<string | null>;
 }
 
+/**
+ * What a finished session is ready for, from what Claude did, as its stepper is (spec 031): an Ask, or a Build where
+ * Claude edited no file, leaves nothing to ship.
+ * shortcut: a file changed only by a command Claude ran isn't seen; read the worktree's diff if that matters.
+ */
+export function readyFor({ mode, workOn, activities }: Session): SessionReady {
+  if (mode === 'ask' || !activities.some((activity) => activity.kind === 'edit')) return 'nothing';
+  return workOn === 'pull_request' ? 'push' : 'pull_request';
+}
+
 export function listedSession(session: Session): ListedSession {
   const { id, title, state, source, updatedAt, discardedAt, mode, workOn, pullRequest: pull } = session;
   const pullRequest = workOn === 'pull_request' && pull !== null ? pullKey(pull.repository, pull.number) : null;
-  return { id, title, state, source, updatedAt, discardedAt, mode, pullRequest };
+  return { id, title, state, ready: readyFor(session), source, updatedAt, discardedAt, mode, pullRequest };
 }
 
 /** Sessions held in memory: `sessions` are list-only summaries, as tests of Tickets and the inbox give them. */
@@ -170,7 +181,14 @@ export async function listSessions(
   const cutoff = now() - keptInSidebar;
   const sorted = [...(await store.list())]
     .filter((session) => !recent || session.discardedAt == null || Date.parse(session.discardedAt) >= cutoff)
-    .map(({ id, title, state, source, updatedAt }): SessionSummary => ({ id, title, state, source, updatedAt }))
+    .map(({ id, title, state, ready, source, updatedAt }): SessionSummary => ({
+      id,
+      title,
+      state,
+      ready,
+      source,
+      updatedAt,
+    }))
     .sort(newerFirst);
   const start = cursor === undefined ? 0 : afterCursor(sorted, cursor);
   const rest = sorted.slice(start);

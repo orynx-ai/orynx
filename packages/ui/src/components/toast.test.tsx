@@ -53,4 +53,26 @@ describe('Toast (spec 029)', () => {
     expect(screen.getByRole('status', { name: 'Session finished, ready for a pull request' })).toBeVisible();
     expect(onOpen).toHaveBeenCalledOnce();
   });
+
+  it('a notice that stays until it is dealt with has plain words for a title, its own button and no Close', async () => {
+    const { container } = render(
+      <Toast
+        icon={Alert02Icon}
+        tone="warning"
+        role="alert"
+        title="Orynx restarted"
+        detail="Reload the page to reconnect."
+        actions={<Button size="sm">Reload</Button>}
+      />,
+    );
+
+    const toast = screen.getByRole('alert', { name: 'Orynx restarted' });
+    expect(toast).toHaveAccessibleDescription('Reload the page to reconnect.');
+    expect(
+      within(toast)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Reload']);
+    await expectNoAxeViolations(container);
+  });
 });
