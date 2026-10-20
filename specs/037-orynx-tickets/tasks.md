@@ -82,7 +82,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 23: Delete ticket through the AlertDialog (AC-17, AC-18) - Cancel changes nothing. Delete removes the ticket and puts focus on New ticket.
       Check: pnpm test packages/app/src/features/tickets/components/delete-ticket.test.tsx
       Files: packages/app/src/features/tickets/components/delete-ticket.tsx, orynx-ticket-view.tsx, queries.ts, ticket-words.ts, and their tests
-- [ ] Task 24: The composer and ⌘K know Orynx tickets (AC-23, AC-25, AC-26) - The mark by key on chips, the context dialog and the strip. - Add context lists Orynx tickets even without Jira, and its item reads "Ticket". - ⌘K's ticket target opens the dialog.
+- [x] Task 24: The composer and ⌘K know Orynx tickets (AC-23, AC-25, AC-26) - The mark by key on chips, the context dialog and the strip. - Add context lists Orynx tickets even without Jira, and its item reads "Ticket". - ⌘K's ticket target opens the dialog.
       Check: pnpm test packages/app/src/features/home/components/add-context.test.tsx packages/app/src/features/home/components/context-strip.test.tsx packages/app/src/features/search
       Files: packages/app/src/features/home/components/add-context.tsx, context-strip.tsx, context-dialog.tsx, composer-words.ts, packages/app/src/features/search/*, and their tests
 - [ ] Task 25: The Session screen on an Orynx ticket (AC-19, AC-27, AC-28, AC-29, AC-30) - No Open in Jira; the Ticket tab with the Orynx mark and "ORX-3 was deleted." - The `ticket` step's words, and the approval callout for a delete (Allow once and Deny).

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useForm, useWatch } from 'react-hook-form';
-import type { SearchIndex } from '@devhub/contracts';
+import { type SearchIndex, ticketSource } from '@devhub/contracts';
 import {
   Button,
   Dialog,
@@ -41,7 +41,7 @@ export function SearchDialog() {
 function mark(hit: SearchHit) {
   switch (hit.kind) {
     case 'ticket':
-      return <SourceMark source="jira" label="none" />;
+      return <SourceMark source={ticketSource(hit.ticket.key)} label="none" />;
     case 'pull_request':
       return <SourceMark source="github" label="none" />;
     case 'session':
@@ -54,7 +54,9 @@ function nothingToSearch(index: SearchIndex): boolean {
   return (
     index.tools.jira.state === 'not_connected' &&
     index.tools.github.state === 'not_connected' &&
-    index.sessions.length === 0
+    index.sessions.length === 0 &&
+    // Orynx's own tickets are there to find whatever is connected (spec 037).
+    index.tickets.length === 0
   );
 }
 

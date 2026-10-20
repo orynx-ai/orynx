@@ -1,6 +1,6 @@
 import { useRef, useState, type MouseEvent } from 'react';
 import { Cancel01Icon, File01Icon } from '@hugeicons/core-free-icons';
-import type { ComposerChip } from '@devhub/contracts';
+import { type ComposerChip, ticketSource } from '@devhub/contracts';
 import {
   AttentionList,
   AttentionTitleButton,
@@ -30,7 +30,7 @@ const kindOf = { tickets: 'jira', pull_requests: 'pull_request', files: 'file' }
 >;
 
 function mark(chip: ComposerChip) {
-  if (chip.kind === 'jira') return <SourceMark source="jira" label="none" />;
+  if (chip.kind === 'jira') return <SourceMark source={ticketSource(chip.key)} label="none" />;
   if (chip.kind === 'pull_request') return <SourceMark source="github" label="none" />;
   return <Icon icon={File01Icon} aria-hidden className="text-muted-foreground" />;
 }
