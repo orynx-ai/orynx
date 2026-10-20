@@ -87,9 +87,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## End to end and docs
 
-- [ ] Task 24: The fake Claude answers the quick read (today's five steps unless the title asks for a run), plays `set_steps` and `start_server` with a real listening port; a new e2e file walks the run session and a change session at 360 and 1280 px, light and dark, with axe and no layout shift (AC-1, AC-2, AC-3, AC-4, AC-15, AC-24, AC-33, AC-34, AC-36)
-      Check: pnpm exec playwright test e2e/adaptive-sessions.spec.ts
-      Files: e2e/fake-claude/session.ts, e2e/adaptive-sessions.spec.ts
+- [x] Task 24: The e2e fake Claude answers the quick read ("(run)" in the ask reads as a run) and a "(run)" session edits nothing; a new test in `e2e/sessions.spec.ts` walks a run session (the reading, two steps, No branch yet, Ports first and open, a server started in its worktree found, stopped after the confirm, no branch made); the sessions, composer, approvals and terminal files expect the branch at the first edit and find worktrees by session. Claude calling `start_server` is covered in core (the fake Claude can't call MCP tools) (AC-1, AC-3, AC-6, AC-8, AC-15, AC-33, AC-36)
+      Check: pnpm exec playwright test e2e/sessions.spec.ts e2e/composer.spec.ts e2e/approvals.spec.ts e2e/terminal.spec.ts
+      Files: e2e/fake-claude/session.ts, e2e/sessions.spec.ts, e2e/composer.spec.ts, e2e/approvals.spec.ts, e2e/terminal.spec.ts
 - [x] Task 25: The agent-runtime skill, `learn/sessions-and-worktrees.md` and a new `learn/adaptive-sessions.md` say how the quick read, steps, branches, servers and ports work; the design map has PortRow (task 18). The hand test on a real repository is left to the user: it makes worktrees in that repository (CLAUDE.md: stop and ask)
       Check: pnpm gate handbook-size specs
       Files: .claude/skills/agent-runtime/SKILL.md, learn/sessions-and-worktrees.md, learn/adaptive-sessions.md

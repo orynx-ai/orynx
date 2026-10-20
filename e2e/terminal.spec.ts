@@ -79,13 +79,14 @@ async function api(page: Page, method: string, path: string, body?: unknown) {
 }
 
 /** The worktree git keeps for the session's branch. */
-function worktreeOf(branch: string): string | undefined {
-  const blocks = repository.git(repository.clone, 'worktree', 'list', '--porcelain').split('\n\n');
-  const block = blocks.find((one) => one.includes(`branch refs/heads/${branch}`));
-  return block
-    ?.split('\n')
-    .find((line) => line.startsWith('worktree '))
-    ?.slice('worktree '.length);
+/** The session's worktree, named after it: it has no branch until Claude's first edit (spec 042). */
+function worktreeOf(url: string): string | undefined {
+  const id = new URL(url).pathname.split('/').at(-1) ?? '';
+  return repository
+    .git(repository.clone, 'worktree', 'list', '--porcelain')
+    .split('\n\n')
+    .map((block) => block.split('\n')[0]?.slice('worktree '.length) ?? '')
+    .find((path) => id !== '' && path.endsWith(`/${id}`));
 }
 
 /** The session the tests share, once Claude has made its worktree. */
@@ -155,7 +156,7 @@ test('AC-1 (038): your shell starts in the session’s worktree, with your envir
   const { rows } = shell(page);
 
   await typeLine(page, 'pwd -P');
-  await expect(rows).toContainText(worktreeOf('feat/TRM-1') ?? 'no worktree', { timeout: 15_000 });
+  await expect(rows).toContainText(worktreeOf(sessionUrl) ?? 'no worktree', { timeout: 15_000 });
   await typeLine(page, 'echo "term=$TERM orynx=$(env | grep -c ^DEVHUB_)"');
   await expect(rows).toContainText('term=xterm-256color orynx=0');
 });
