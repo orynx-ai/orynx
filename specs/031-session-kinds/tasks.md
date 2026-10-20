@@ -70,7 +70,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **Docs and the browser check**
 
-- [ ] Task 19: Roadmap rows for 031 and 032 (020-fix-a-failing-check folded into 031); `learn/sessions-and-worktrees.md`; the agent-runtime skill's rule 1; `people-files.sh` for the product spec's "Agent sessions", for the user to run
+- [x] Task 19: Roadmap rows for 031 and 032 (020-fix-a-failing-check folded into 031); `learn/sessions-and-worktrees.md`; the agent-runtime skill's rule 1; `people-files.sh` for the product spec's "Agent sessions", for the user to run
       Check: pnpm gate specs; pnpm gate handbook-size
       Files: docs/product/roadmap.md, learn/sessions-and-worktrees.md, .claude/skills/agent-runtime/SKILL.md, specs/031-session-kinds/people-files.sh
 - [ ] Task 20: Browser check: Home in Ask and Build, and the Session screen in each kind, at 360 and 1280 px in light and dark, with `/api` faked; fix what it finds (AC-24)

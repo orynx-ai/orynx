@@ -9,7 +9,7 @@ A session is one piece of work Claude does for the user: one task, one repo, one
 
 ## Safety rules (from the spec, all mandatory)
 
-1. **Worktree only.** Each session runs in its own git worktree under `~/.devhub/worktrees/`, on a branch named after the ticket (`feat/PROJ-1423`). Claude's working folder is that worktree. It must never edit the user's main checkout.
+1. **Worktree only.** Each session runs in its own git worktree under `~/.devhub/worktrees/`, on a branch named after the ticket (`feat/PROJ-1423`). Claude's working folder is that worktree. It must never edit the user's main checkout. A Build on your own open pull request (spec 031) has a detached worktree at that PR's branch instead: Push changes pushes `HEAD` to it, never forced, and Discard never deletes it. An Ask has no worktree: it reads its folder in place, or an empty folder of its own when it has none.
 2. **Permission rows** (Settings › Coding agent, spec 026, saved as `agent.permissions` in `settings.json`; read them through `createPreferencesService().read()`, never the file). One row for each kind of call, read again for every call (`PermissionsSchema` in `packages/contracts/src/preferences.ts`):
    - `edits` (Ask first / Allow, default Allow): edits inside the worktree. Outside it they're refused, whatever the row.
    - `commands` (Ask first / Only allowed commands / Any command, default Ask first): commands in the sandbox. With Only allowed commands, those on the allow list (`agent.allowedCommands`) run and Always allow adds to it (spec 012, Q1).
