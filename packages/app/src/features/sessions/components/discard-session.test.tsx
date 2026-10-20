@@ -33,7 +33,7 @@ function serve(initial: Session, { fails = false } = {}) {
         discardedAt: '2026-10-16T10:05:00.000Z',
         activities: [
           ...state.current.activities,
-          { id: 'step-2', state: 'done', kind: 'discarded', branch: 'feat/PROJ-1423' },
+          { id: 'step-2', state: 'done', kind: 'discarded', branch: 'feat/PROJ-1423', kept: false },
         ],
       };
       return new HttpResponse(null, { status: 204 });
@@ -151,6 +151,26 @@ describe('Discard once a pull request is open (spec 014)', () => {
     const confirm = screen.getByRole('dialog', { name: "Discard Claude's changes?" });
     expect(confirm).toHaveAccessibleDescription(
       `This deletes the worktree and the branch feat/PROJ-1423. The changes can't be brought back. Pull request #${String(2841)} and the branch on GitHub stay.`,
+    );
+  });
+});
+
+describe('Discard on your pull request’s own branch (spec 031)', () => {
+  it('AC-15: the confirm says only the worktree goes, and the pull request and its branch stay', async () => {
+    const number = 2836;
+    serve(
+      makeSession({
+        ...done,
+        state: 'pr_open',
+        workOn: 'pull_request',
+        branch: 'fix/content-list',
+        pullRequest: makeSessionPullRequest({ number }),
+      }),
+    );
+    const { user } = await renderApp({ route });
+    await pickDiscard(user);
+    expect(screen.getByRole('dialog', { name: "Discard Claude's changes?" })).toHaveAccessibleDescription(
+      `This deletes the worktree. The changes can't be brought back. Pull request #${String(number)} and the branch on GitHub stay.`,
     );
   });
 });

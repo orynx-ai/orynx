@@ -346,7 +346,8 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     const committed = await git.commit(worktree, commitMessage(message));
     if (!committed.ok)
       return ending({ result: 'failed', problem: commitProblems[committed.problem] }, committed.problem);
-    const pushed = await git.push(worktree, branch);
+    // A session on your pull request's own branch has a detached worktree, whose HEAD goes to it (spec 031).
+    const pushed = await git.push(worktree, branch, { detached: record.session.workOn === 'pull_request' });
     if (!pushed.ok)
       return ending({ result: 'failed', problem: pushProblems[pushed.problem] }, `push_${pushed.problem}`);
     await options.save(id, (current) => {

@@ -16,6 +16,7 @@ import {
   userUrl,
   useFakeGitHub,
   type FakeOpenedPull,
+  type FakePullContext,
 } from '../../test/fake-github.ts';
 import { createGitHubClient, type GitHubCheck } from './client.ts';
 
@@ -331,12 +332,34 @@ describe('GitHub client: a pull request for the composer (spec 015)', () => {
           { author: 'Someone', path: 'README.md', line: null, body: 'Typo.' },
         ],
         files: [{ path: 'src/people.ts', additions: 12, deletions: 3 }],
+        url: 'https://github.com/acme/web-app/pull/2836',
+        openedAt: '2026-10-15T09:00:00Z',
+        open: true,
+        fork: false,
+        mine: false,
       },
     });
     expect(seen).toHaveLength(1);
     expect(seen[0]?.url).toBe(graphqlUrl);
     expect(seen[0]?.headers.get('authorization')).toBe(`token ${githubToken}`);
     expect(((await seen[0]?.json()) as { variables: unknown }).variables).toEqual(pull);
+  });
+
+  it('AC-14, AC-19 (spec 031): says whether you wrote it, whether it’s open and whether it comes from a fork', async () => {
+    const read = async (pull: Partial<FakePullContext>) => {
+      github.use(acceptingPullContext([{ number: 2836, ...pull }]));
+      const answer = await client.pullContext(githubToken, { owner: 'acme', name: 'web-app', number: 2836 });
+      return answer.ok ? { mine: answer.pull.mine, open: answer.pull.open, fork: answer.pull.fork } : answer;
+    };
+    expect(await read({ author: githubLogin })).toEqual({ mine: true, open: true, fork: false });
+    // GitHub's logins aren't case-sensitive.
+    expect(await read({ author: githubLogin.toUpperCase() })).toEqual({ mine: true, open: true, fork: false });
+    expect(await read({ author: 'hubot' })).toEqual({ mine: false, open: true, fork: false });
+    // A deleted account's pull request has no author.
+    expect(await read({ author: null })).toEqual({ mine: false, open: true, fork: false });
+    expect(await read({ author: githubLogin, state: 'MERGED' })).toEqual({ mine: true, open: false, fork: false });
+    expect(await read({ author: githubLogin, state: 'CLOSED' })).toEqual({ mine: true, open: false, fork: false });
+    expect(await read({ author: githubLogin, fork: true })).toEqual({ mine: true, open: true, fork: true });
   });
 
   it('AC-21: a pull request GitHub hides or hasn’t got, even behind single sign-on, is not found', async () => {

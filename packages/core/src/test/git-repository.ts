@@ -28,8 +28,11 @@ export interface TestRepositories {
   env: Record<string, string>;
   /** Runs git in `cwd` with the same isolated settings, and gives its output, trimmed. */
   git(cwd: string, ...args: string[]): Promise<string>;
-  /** Adds a commit to `origin`'s `main` that the clone hasn't fetched yet, and gives its id. */
-  commitInOrigin(file: string): Promise<string>;
+  /**
+   * Adds a commit to `origin`'s `branch` (`main` unless said; a new branch starts from `main`) that the clone hasn't
+   * fetched yet, and gives its id.
+   */
+  commitInOrigin(file: string, branch?: string): Promise<string>;
 }
 
 export function useTestRepositories(): () => Promise<TestRepositories> {
@@ -68,12 +71,19 @@ export function useTestRepositories(): () => Promise<TestRepositories> {
     await git(seed, 'push', 'origin', 'main');
     await git(root, 'clone', origin, clone);
 
-    async function commitInOrigin(file: string) {
+    async function commitInOrigin(file: string, branch = 'main') {
+      if (branch !== 'main') {
+        const there = (await git(seed, 'ls-remote', '--heads', 'origin', branch)) !== '';
+        if (there) await git(seed, 'fetch', '-q', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`);
+        await git(seed, 'checkout', '-q', '-B', branch, there ? `origin/${branch}` : 'main');
+      }
       await writeFile(join(seed, file), `${file}\n`);
       await git(seed, 'add', '.');
       await git(seed, 'commit', '-m', `add ${file}`);
-      await git(seed, 'push', 'origin', 'main');
-      return git(seed, 'rev-parse', 'HEAD');
+      await git(seed, 'push', 'origin', `HEAD:refs/heads/${branch}`);
+      const id = await git(seed, 'rev-parse', 'HEAD');
+      if (branch !== 'main') await git(seed, 'checkout', '-q', 'main');
+      return id;
     }
 
     return { root, clone, origin, worktrees, env, git, commitInOrigin };

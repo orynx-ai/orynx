@@ -29,6 +29,30 @@ describe('stepWords (Q10a)', () => {
     ).toBe('feat/PROJ-1423 from main');
   });
 
+  it('AC-14, Q8f (spec 031): the worktree on your pull request’s branch names the pull request', () => {
+    const number = 2836;
+    const made = {
+      kind: 'worktree',
+      branch: 'fix/content-list',
+      base: 'origin/fix/content-list',
+      pullRequest: number,
+    } as const;
+    expect(step({ ...made, state: 'done', fetched: true })).toEqual({
+      title: 'Made a worktree',
+      detail: `fix/content-list from #${String(number)}`,
+    });
+    expect(step({ ...made, state: 'done', fetched: false }).detail).toBe(
+      `fix/content-list from #${String(number)} (last fetched, offline)`,
+    );
+  });
+
+  it('AC-15 (spec 031): discarding a session on your pull request’s branch keeps the branch', () => {
+    expect(step({ kind: 'discarded', state: 'done', branch: 'fix/content-list', kept: true })).toEqual({
+      title: 'Discarded the changes',
+      detail: 'The worktree is deleted. fix/content-list stays as it is on GitHub.',
+    });
+  });
+
   it('AC-3: the brief', () => {
     expect(
       step({
@@ -263,7 +287,7 @@ describe('stepWords (Q10a)', () => {
       title: 'Orynx closed while Claude was working',
       detail: 'The worktree keeps the changes.',
     });
-    expect(step({ kind: 'discarded', state: 'done', branch: 'feat/PROJ-1423' })).toEqual({
+    expect(step({ kind: 'discarded', state: 'done', branch: 'feat/PROJ-1423', kept: false })).toEqual({
       title: 'Discarded the changes',
       detail: 'The worktree and feat/PROJ-1423 are deleted.',
     });

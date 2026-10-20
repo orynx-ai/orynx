@@ -161,9 +161,10 @@ function FolderList({ query, onQueryChange, onBack, onPicked, onAddFolder }: Lis
   const picked = useComposerStore((state) => state.picked);
   const lastUsed = useComposerStore((state) => state.lastUsed);
   const pickFolder = useComposerStore((state) => state.pickFolder);
+  const mode = useComposerStore((state) => state.mode);
   const folders = repositories.data?.repositories ?? [];
   const ticketKey = firstTicket(chips);
-  const shownFolder = folderFor({ folders, picked, ticketKey, lastUsed });
+  const shownFolder = folderFor({ folders, picked, ticketKey, lastUsed, mode });
   const options = folders
     .filter((folder) => matchesWords(`${folder.name} ${folder.displayPath}`, query))
     .map((folder) => ({
@@ -189,7 +190,7 @@ function FolderList({ query, onQueryChange, onBack, onPicked, onAddFolder }: Lis
       emptyText={folders.length === 0 ? words.repository.empty : composerWords.noMatches}
       loading={repositories.data === undefined}
       extra={{ label: words.repository.add, icon: <Icon icon={PlusSignIcon} />, onSelect: onAddFolder }}
-      note={words.repository.note}
+      note={mode === 'ask' ? words.repository.askNote : words.repository.note}
     />
   );
 }

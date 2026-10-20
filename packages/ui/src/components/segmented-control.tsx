@@ -88,8 +88,9 @@ export function SegmentedControlItem({ value, tone, className, onFocus, ...props
       }}
       className={cn(
         // The group can scroll, which clips anything outside it, so the focus ring is drawn inside the option (as in Tabs).
-        'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xs border-0 bg-transparent px-3 text-small font-medium whitespace-nowrap text-muted-foreground focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-45 data-[state=on]:bg-raised data-[state=on]:text-foreground data-[state=on]:ring-1 data-[state=on]:ring-border',
-        tone === 'danger' && 'data-[state=on]:text-danger',
+        // Pressed by `aria-pressed`: a Tooltip around an option sets its own `data-state` (spec 031).
+        'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-xs border-0 bg-transparent px-3 text-small font-medium whitespace-nowrap text-muted-foreground focus-visible:-outline-offset-2 disabled:cursor-not-allowed disabled:opacity-45 aria-pressed:bg-raised aria-pressed:text-foreground aria-pressed:ring-1 aria-pressed:ring-border',
+        tone === 'danger' && 'aria-pressed:text-danger',
         className,
       )}
       {...props}

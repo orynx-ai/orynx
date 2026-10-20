@@ -43,6 +43,12 @@ export interface BriefPullRequest {
   comments: readonly { author: string; path: string; line: number | null; body: string }[];
   /** The unified diff, or the files and counts GitHub gave when it found the diff too large. */
   diff: { kind: 'text'; text: string } | { kind: 'too_large'; files: readonly BriefFileCount[] };
+  /** Its link and when it opened; whether it's open, from a fork, and yours (spec 031): never put in the brief. */
+  url: string;
+  openedAt: string;
+  open: boolean;
+  fork: boolean;
+  mine: boolean;
 }
 
 /** A file you picked, by its path (spec 022, Q4): as the composer held it, and its real path, which Claude reads. */
@@ -226,7 +232,14 @@ const neverPublish: PublishRows = { push: 'never', pullRequest: 'never' };
  * how they run (012 Q8g); where the sandbox can't run, that it can't (012 Q2b). Without a ticket, Claude does
  * what the brief asks (spec 015, Q8c). It may push or open the pull request only as Settings says (spec 026).
  */
-export function sessionNote(branch: string, commands: boolean, ticket = true, publish = neverPublish): string {
+export function sessionNote(
+  branch: string,
+  commands: boolean,
+  ticket = true,
+  publish = neverPublish,
+  /** Your pull request's number, when the worktree is its own branch (spec 031): Orynx alone pushes to it. */
+  pull: number | null = null,
+): string {
   const ending = commands
     ? [
         'You can run commands in the worktree.',
@@ -238,23 +251,41 @@ export function sessionNote(branch: string, commands: boolean, ticket = true, pu
         "You can't run commands on this computer, so say which ones you'd run to check your work.",
         "When you're done, summarise what you changed in a few sentences.",
       ];
+  const number = pull === null ? '' : `#${String(pull)}`;
   return [
-    `You're working in a separate git worktree on the branch ${branch}.`,
+    pull === null
+      ? `You're working in a separate git worktree on the branch ${branch}.`
+      : `You're working in a separate git worktree on pull request ${number}'s own branch, ${branch}, with no local branch of its own.`,
     ticket ? 'Make the change the ticket asks for.' : 'Do what the user asks in the brief.',
     'If the repository has a CLAUDE.md, read it first.',
-    ...gitLines(branch, commands, publish),
+    // A detached worktree has no branch for `git push origin <branch>` to send (spec 031).
+    ...(pull === null
+      ? gitLines(branch, commands, publish)
+      : [
+          `Don't push, open pull requests or change git settings: Orynx pushes to ${number} when the user presses Push changes.`,
+        ]),
     ...ending,
     // Claude can't ask mid-task: it asks in its summary, and you answer in the follow-up box (spec 013, Q2a).
     'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
   ].join(' ');
 }
 
-/** An Ask session's note (spec 026): Claude answers from the folder as it is, and changes nothing. */
-export function askNote(): string {
+/**
+ * An Ask session's note (spec 026): Claude answers from the folder as it is, and changes nothing. With no folder
+ * (spec 031), it answers from the brief and the files it names.
+ */
+export function askNote(folder = true): string {
   return [
-    "You're answering in the user's own folder, as it is: this is an Ask session.",
-    "You can read and search the files here. You can't change files or run commands, and nothing you try will be allowed.",
-    'If the repository has a CLAUDE.md, read it first.',
+    ...(folder
+      ? [
+          "You're answering in the user's own folder, as it is: this is an Ask session.",
+          "You can read and search the files here. You can't change files or run commands, and nothing you try will be allowed.",
+          'If the repository has a CLAUDE.md, read it first.',
+        ]
+      : [
+          "You're answering from the brief alone: this is an Ask session with no folder.",
+          "You can read the files the brief names. You can't change files or run commands, and nothing you try will be allowed.",
+        ]),
     'Answer what the user asks. If it needs changes, describe them; the user can start a Build session to make them.',
   ].join(' ');
 }

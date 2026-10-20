@@ -87,3 +87,36 @@ describe('the composer’s folder picker (spec 015)', () => {
     });
   });
 });
+
+describe('Ask’s folder (spec 031, Q2)', () => {
+  it('AC-2: starts on No folder, which its menu offers first, and picking a folder or No folder sets it', async () => {
+    folders(web, api);
+    useComposerStore.setState({ lastUsed: api.id, mode: 'ask' });
+    const { user } = await renderApp();
+
+    await user.click(await screen.findByRole('button', { name: 'Repository: No folder' }));
+    const menu = await screen.findByRole('menu', { name: 'Repository' });
+    expect(
+      within(menu)
+        .getAllByRole('menuitemradio')
+        .map((choice) => choice.textContent),
+    ).toEqual(['No folderClaude reads only what you add', 'web-app~/code/web-app', 'api~/code/api']);
+    expect(within(menu).getByRole('menuitemradio', { name: /No folder/ })).toHaveAttribute('aria-checked', 'true');
+
+    await user.click(within(menu).getByRole('menuitemradio', { name: /web-app/ }));
+    await user.click(await screen.findByRole('button', { name: 'Repository: web-app' }));
+    await user.click(
+      within(await screen.findByRole('menu', { name: 'Repository' })).getByRole('menuitemradio', { name: /No folder/ }),
+    );
+    expect(await screen.findByRole('button', { name: 'Repository: No folder' })).toBeVisible();
+    expect(useComposerStore.getState().picked).toBeNull();
+  });
+
+  it('AC-3: with no folders in Settings, Ask reads No folder, not Add a folder', async () => {
+    folders();
+    useComposerStore.setState({ mode: 'ask' });
+    await renderApp();
+    expect(await screen.findByRole('button', { name: 'Repository: No folder' })).toHaveTextContent('No folder');
+    expect(screen.queryByRole('button', { name: 'Add a folder' })).toBeNull();
+  });
+});

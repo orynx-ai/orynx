@@ -4,6 +4,8 @@ import { AttentionPanel } from './components/attention-panel.tsx';
 import { HomeComposer } from './components/home-composer.tsx';
 import { QuickStarts } from './components/quick-starts.tsx';
 import { WaitingBanner } from './components/waiting-banner.tsx';
+import { composerWords } from './composer-words.ts';
+import { useComposerStore } from './store.ts';
 import { SyncStatus } from './components/sync-status.tsx';
 
 /**
@@ -12,13 +14,15 @@ import { SyncStatus } from './components/sync-status.tsx';
  * tickets and pull requests waiting on you.
  */
 export function HomeScreen() {
+  // The heading follows Ask or Build (spec 031, Q8b).
+  const mode = useComposerStore((state) => state.mode);
   return (
     <>
       <PageBar breadcrumb={<PageBreadcrumb crumbs={[{ label: 'Home' }]} />} actions={<SyncStatus />} />
       <PageBody width="narrow">
         <WaitingBanner />
         {/* 48 px above the greeting (design system, --space-12): the body's 24 px plus 24 px here. */}
-        <h1 className="m-0 mt-6 text-center font-serif text-display font-normal">What should we ship today?</h1>
+        <h1 className="m-0 mt-6 text-center font-serif text-display font-normal">{composerWords.heading[mode]}</h1>
         <HomeComposer />
         <QuickStarts />
 

@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
   AgentChoice,
@@ -40,6 +41,7 @@ import {
   contextAfter,
   noReads,
   readsAfter,
+  pullToWorkOn,
   ticketKeyOf,
   ticketPlan,
   type StartPlan,
@@ -58,7 +60,13 @@ import {
   type Progress,
 } from './progress.ts';
 import { createPullRequests, type PullRequestReport } from './pull-requests.ts';
-import type { ApprovalRecord, SessionRecords, StoredSession } from './session-store.ts';
+import {
+  pullKey,
+  type ApprovalRecord,
+  type ListedSession,
+  type SessionRecords,
+  type StoredSession,
+} from './session-store.ts';
 import { createWorktrees, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
 
 /**
@@ -303,13 +311,18 @@ function editOrder(session: Session): string[] {
   return session.activities.flatMap((activity) => (activity.kind === 'edit' ? activity.files : []));
 }
 
+/** Where an Ask session's Claude reads: the folder in place, or its own empty folder when it has none (spec 031). */
+function askPlace(record: StoredSession): string | null {
+  return record.repository?.path ?? record.worktree;
+}
+
 function progressOf(session: Session): Progress {
-  return { step: session.step, activities: session.activities };
+  return { step: session.step, activities: session.activities, skipped: session.skipped };
 }
 
 function withProgress(record: StoredSession, change: (progress: Progress) => Progress): StoredSession {
-  const { step, activities } = change(progressOf(record.session));
-  return { ...record, session: { ...record.session, step, activities: [...activities] } };
+  const { step, activities, skipped = [] } = change(progressOf(record.session));
+  return { ...record, session: { ...record.session, step, activities: [...activities], skipped: [...skipped] } };
 }
 
 export function createSessionService(options: SessionServiceOptions): SessionService {
@@ -594,7 +607,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   async function run(id: string, run: Run): Promise<void> {
     const record = await records.get(id);
     if (record?.session.mode === 'ask') return runAsk(id, run, record);
-    if (record?.worktree == null) return;
+    if (record?.worktree == null || record.repository === null) return;
     // A composer start read everything before its record was made (spec 015); Ship reads the ticket now.
     const planned = startPlans.get(id);
     startPlans.delete(id);
@@ -603,10 +616,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (start === null) return;
     const { signal } = run.controller;
 
-    const prepared = await worktrees.prepare(record.repository.path, start.branchName, signal);
+    // Your pull request's own branch, fetched and detached; any other Build gets a branch of its own (spec 031).
+    const pull = record.session.workOn === 'pull_request' ? record.session.pullRequest : null;
+    const prepared =
+      pull === null
+        ? await worktrees.prepare(record.repository.path, start.branchName, signal)
+        : {
+            ok: true as const,
+            plan: { branch: start.branchName, base: `origin/${start.branchName}`, remote: true, detach: true },
+          };
     if (!prepared.ok) return worktreeFailure(id, prepared.problem);
     const { plan } = prepared;
-    const making = { kind: 'worktree', branch: plan.branch, base: plan.base, fetched: false } as const;
+    const making = {
+      kind: 'worktree',
+      branch: plan.branch,
+      base: plan.base,
+      fetched: false,
+      ...(pull === null ? {} : { pullRequest: pull.number }),
+    } as const;
     const withStep = await change(id, (current) => {
       const next = withProgress(current, (progress) => addStep(progress, making, 'running'));
       return { ...next, session: { ...next.session, branch: plan.branch } };
@@ -633,18 +660,20 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   /**
    * An Ask session's run (spec 026): no worktree and no branch. Claude reads the repository folder where it is,
-   * and the read-only permissions refuse every edit and command there.
+   * or, with no folder (spec 031), an empty one of its own; the read-only permissions refuse every edit and command.
    */
   async function runAsk(id: string, run: Run, record: StoredSession): Promise<void> {
     const start = startPlans.get(id);
     startPlans.delete(id);
-    if (start === undefined) return;
+    const place = askPlace(record);
+    if (start === undefined || place === null) return;
+    if (record.repository === null) await mkdir(place, { recursive: true });
     await records.writeBrief(id, briefText(start.brief));
     await change(id, (current) =>
       withProgress(current, (progress) => addStep(progress, { kind: 'brief', ...start.briefStep })),
     );
     if (stopping(run)) return;
-    await startClaude(id, run, start.brief, record.repository.path, null, null, start.ticketNote, start.choice);
+    await startClaude(id, run, start.brief, place, null, null, start.ticketNote, start.choice);
   }
 
   /**
@@ -683,7 +712,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const first = await permissions();
     // Stop can come while they're read: then Claude never starts.
     if (stopping(run)) return;
-    const note = branch === null ? askNote() : sessionNote(branch, adapter.runsCommands, ticketNote, first);
+    const record = await records.get(id);
+    const pull = record?.session.workOn === 'pull_request' ? (record.session.pullRequest?.number ?? null) : null;
+    const note =
+      branch === null
+        ? askNote(record?.repository != null)
+        : sessionNote(branch, adapter.runsCommands, ticketNote, first, pull);
     const agentId = await adapter.startSession(brief, worktree, permissions, note, {
       ...(resume === null ? {} : { resume }),
       model,
@@ -841,7 +875,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const { branch } = session;
     // An Ask session carries on in its repository folder, with no branch (spec 026).
     const ask = session.mode === 'ask';
-    const folder = ask ? record.repository.path : record.worktree;
+    const folder = ask ? askPlace(record) : record.worktree;
     if (claudeSessionId === null || folder === null || (!ask && branch === null) || adapter === null) {
       return cannot('never_started');
     }
@@ -877,15 +911,28 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   /** A composer start's plan, from its record being made until its run takes it (spec 015). */
   const startPlans = new Map<string, StartPlan>();
 
-  async function liveSessionOn(key: string): Promise<string | null> {
-    const listed = await records.list();
-    // An Ask session reads only, so it never holds a ticket (spec 026).
-    const live = listed.filter(
-      (session) =>
-        session.source?.kind === 'jira' && session.source.key === key && isLive(session) && session.mode !== 'ask',
+  /** The newest live Build that `holds` matches: an Ask session reads only, so it never holds anything (spec 026). */
+  async function newestLive(holds: (session: ListedSession) => boolean): Promise<string | null> {
+    const live = (await records.list()).filter(
+      (session) => holds(session) && isLive(session) && session.mode !== 'ask',
     );
     live.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
     return live[0]?.id ?? null;
+  }
+
+  function liveSessionOn(key: string): Promise<string | null> {
+    return newestLive((session) => session.source?.kind === 'jira' && session.source.key === key);
+  }
+
+  /** A pull request's own branch holds one live session at a time, as a ticket does (spec 031, AC-18). */
+  function liveSessionOnPull(key: string): Promise<string | null> {
+    return newestLive((session) => session.pullRequest === key);
+  }
+
+  /** The folder's origin on GitHub as `owner/name`, or null. */
+  async function originOf(folder: string): Promise<string | null> {
+    const origin = await branchGit.origin(folder);
+    return origin.ok ? origin.repository : null;
   }
 
   /** Whether the follow-up box takes a message, or why not (spec 013, AC-14). */
@@ -957,6 +1004,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         pullRequest: null,
         context: [{ kind: 'jira', key: ticketKey }],
         mode: 'build',
+        workOn: 'new_branch',
+        skipped: [],
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -986,13 +1035,20 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     }
     if (!(await claude.connected())) return { result: 'cannot_start', reason: 'signed_out' };
     if ((await workingCount()) >= mostWorking) return { result: 'cannot_start', reason: 'too_many' };
-    const folder = chooseFolder(await repositories.list(), request);
+    // An Ask sent with no folder reads none (spec 031); a Build always has one.
+    const folder = ask && request.repositoryId === undefined ? null : chooseFolder(await repositories.list(), request);
     if (typeof folder === 'string') return { result: 'cannot_start', reason: folder };
 
     const read = await options.context.read(request.context);
     if (!read.ok) return { result: 'context_failed', chip: read.chip, problem: read.problem };
+    // A Build on your own pull request works on its branch (spec 031, Q3), one session at a time.
+    const pull = ask || folder === null ? null : pullToWorkOn(read.chips, await originOf(folder.path));
+    if (pull !== null) {
+      const live = await liveSessionOnPull(pullKey(`${pull.owner}/${pull.name}`, pull.number));
+      if (live !== null) return { result: 'existing', sessionId: live };
+    }
     // The skills your message names, for this folder (spec 022, AC-53); none without the service.
-    const skills = (await options.skills?.named(request.message, folder.path)) ?? [];
+    const skills = (await options.skills?.named(request.message, folder?.path ?? null)) ?? [];
     const { title, ticket, plan } = composerPlan(request.message, read.chips, skills);
 
     const id = newId();
@@ -1003,9 +1059,14 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         id,
         title,
         state: 'working',
-        source: ticket === null ? null : { kind: 'jira', key: ticket.key },
+        source:
+          pull !== null
+            ? { kind: 'pull_request', number: pull.number }
+            : ticket === null
+              ? null
+              : { kind: 'jira', key: ticket.key },
         updatedAt: at,
-        folder: { name: folder.name, displayPath: folder.displayPath },
+        folder: folder === null ? null : { name: folder.name, displayPath: folder.displayPath },
         branch: null,
         step: 'plan',
         activities: [],
@@ -1022,20 +1083,29 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         worktreePath: null,
         workedMs: 0,
         runStartedAt: at,
-        pullRequest: null,
+        pullRequest:
+          pull === null
+            ? null
+            : { number: pull.number, url: pull.url, repository: `${pull.owner}/${pull.name}`, openedAt: pull.openedAt },
         context: [...request.context],
         mode: ask ? 'ask' : 'build',
+        workOn: pull === null ? 'new_branch' : 'pull_request',
+        skipped: [],
       },
-      repository: { id: folder.id, path: folder.path },
-      // An Ask session makes no worktree: Claude reads the folder itself (spec 026).
-      worktree: ask ? null : join(options.worktrees.root, id),
+      repository: folder === null ? null : { id: folder.id, path: folder.path },
+      // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031).
+      worktree: ask && folder !== null ? null : join(options.worktrees.root, id),
       startCommit: null,
       pushedCommit: null,
       claudeSessionId: null,
       approvalLog: [],
       reads: { files: [...plan.reads.files], folders: [...plan.reads.folders] },
     };
-    startPlans.set(id, { ...plan, choice: { model: request.model, effort: request.effort } });
+    startPlans.set(id, {
+      ...plan,
+      ...(pull === null ? {} : { branchName: pull.head }),
+      choice: { model: request.model, effort: request.effort },
+    });
     await records.create(record);
     events.publish({ type: 'sessions.changed' });
     begin(id);
@@ -1052,8 +1122,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (isWorking(found.session)) await halt(id, { kind: 'stopped' }, 'discarded');
     const record = (await records.get(id)) ?? found;
     const { branch } = record.session;
-    if (record.worktree !== null) {
-      const removed = await worktrees.remove(record.repository.path, record.worktree, branch);
+    // Your pull request's branch isn't the session's to delete: only its worktree goes (spec 031).
+    const kept = record.session.workOn === 'pull_request';
+    // An Ask with no folder has only its empty folder, which nothing reads once it's discarded.
+    if (record.worktree !== null && record.repository !== null) {
+      const removed = await worktrees.remove(record.repository.path, record.worktree, kept ? null : branch);
       if (!removed.ok) {
         report(record, 'git', 'remove');
         return 'failed';
@@ -1063,7 +1136,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const ended =
         branch === null
           ? current
-          : withProgress(current, (progress) => endProgress(progress, { kind: 'discarded', branch }));
+          : withProgress(current, (progress) => endProgress(progress, { kind: 'discarded', branch, kept }));
       return {
         ...ended,
         session: { ...ended.session, state: 'stopped', discardedAt: new Date(now()).toISOString() },
@@ -1074,6 +1147,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return 'discarded';
   }
 
+  const branchGit = createBranchGit({ env: options.worktrees.env });
   const pullRequests = createPullRequests({
     records,
     save: change,
@@ -1081,7 +1155,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     onReport: (report) => options.onReport?.(report),
     github: options.github ?? { credentials: () => Promise.resolve(null) },
     client: options.githubClient ?? createGitHubClient(),
-    git: createBranchGit({ env: options.worktrees.env }),
+    git: branchGit,
     changes: options.changes,
     adapter,
   });

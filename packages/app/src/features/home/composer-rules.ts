@@ -4,6 +4,7 @@ import {
   looksLikeSecret,
   type ComposerChip,
   type Repository,
+  type SessionMode,
 } from '@devhub/contracts';
 import type { FileRefusal } from './composer-words.ts';
 
@@ -88,26 +89,35 @@ export function firstTicket(chips: readonly ComposerChip[]): string | null {
   return chips.find((chip) => chip.kind === 'jira')?.key ?? null;
 }
 
-export type ShownFolder = { kind: 'folder'; folder: Repository } | { kind: 'choose' } | { kind: 'none' };
+export type ShownFolder =
+  | { kind: 'folder'; folder: Repository }
+  | { kind: 'choose' }
+  | { kind: 'none' }
+  /** An Ask that reads no folder (spec 031, Q2). */
+  | { kind: 'no_folder' };
 
 /**
  * AC-17, AC-18 (Q7): the folder you picked; else the ticket project's only folder; else the one you last used;
- * else the only folder. A project with several folders, or several folders and nothing to go on, is a choice.
+ * else the only folder. A project with several folders, or several folders and nothing to go on, is a choice. An
+ * Ask reads no folder until you pick one (spec 031, Q2).
  */
 export function folderFor({
   folders,
   picked,
   ticketKey,
   lastUsed,
+  mode = 'build',
 }: {
   folders: readonly Repository[];
   picked: string | null;
   ticketKey: string | null;
   lastUsed: string | null;
+  mode?: SessionMode;
 }): ShownFolder {
-  if (folders.length === 0) return { kind: 'none' };
   const byId = (id: string | null) => folders.find((folder) => folder.id === id);
   const chosen = byId(picked);
+  if (mode === 'ask') return chosen === undefined ? { kind: 'no_folder' } : { kind: 'folder', folder: chosen };
+  if (folders.length === 0) return { kind: 'none' };
   if (chosen !== undefined) return { kind: 'folder', folder: chosen };
   if (ticketKey !== null) {
     const project = ticketKey.slice(0, ticketKey.lastIndexOf('-'));

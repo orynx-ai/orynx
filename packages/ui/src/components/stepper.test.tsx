@@ -42,4 +42,25 @@ describe('Stepper', () => {
     expect(screen.getAllByRole('listitem')[0]).toHaveAttribute('aria-current', 'step');
     expect(screen.queryByText(', done')).not.toBeInTheDocument();
   });
+
+  it('AC-11 (spec 031): a skipped step shows a dash, not a check, and says it was skipped', async () => {
+    const { container } = render(<Stepper aria-label="Session progress" steps={steps} current={3} skipped={[1, 2]} />);
+
+    const items = screen.getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Plan, done',
+      'Build, skipped',
+      'Test, skipped',
+      '4Review',
+      '5Pull request',
+    ]);
+    expect(items[2]).toHaveAttribute('data-state', 'skipped');
+    expect(items[3]).toHaveAttribute('aria-current', 'step');
+    await expectNoAxeViolations(container);
+  });
+
+  it('a step ahead of the current one is never skipped', () => {
+    render(<Stepper aria-label="Session progress" steps={steps} current={1} skipped={[2]} />);
+    expect(screen.getAllByRole('listitem')[2]).toHaveAttribute('data-state', 'todo');
+  });
 });

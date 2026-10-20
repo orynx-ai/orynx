@@ -36,6 +36,7 @@ export function FolderPicker() {
   const picked = useComposerStore((state) => state.picked);
   const lastUsed = useComposerStore((state) => state.lastUsed);
   const pickFolder = useComposerStore((state) => state.pickFolder);
+  const mode = useComposerStore((state) => state.mode);
   const [adding, setAdding] = useState(false);
   // Add local folder opens the dialog once the menu has closed and let go of focus.
   const addAfterClose = useRef(false);
@@ -45,7 +46,8 @@ export function FolderPicker() {
   // The composer shows its pickers once both have what they need, so the bar never moves (AC-1).
   if (repositories.data === undefined) return null;
   const folders = repositories.data.repositories;
-  const shown = folderFor({ folders, picked, ticketKey, lastUsed });
+  const shown = folderFor({ folders, picked, ticketKey, lastUsed, mode });
+  const shownName = shown.kind === 'folder' ? shown.folder.name : shown.kind === 'no_folder' ? words.noFolder : null;
 
   const dialog = (
     <FolderDialog
@@ -85,9 +87,9 @@ export function FolderPicker() {
           <Picker
             ref={trigger}
             icon={<Icon icon={Folder01Icon} aria-hidden />}
-            aria-label={shown.kind === 'folder' ? words.name(shown.folder.name) : undefined}
+            aria-label={shownName === null ? undefined : words.name(shownName)}
           >
-            {shown.kind === 'folder' ? shown.folder.name : words.choose}
+            {shownName ?? words.choose}
           </Picker>
         </MenuTrigger>
         <MenuContent
@@ -101,7 +103,23 @@ export function FolderPicker() {
           }}
         >
           <MenuLabel>{words.section}</MenuLabel>
-          <MenuRadioGroup value={shown.kind === 'folder' ? shown.folder.id : ''} onValueChange={pickFolder}>
+          <MenuRadioGroup
+            value={shown.kind === 'folder' ? shown.folder.id : ''}
+            onValueChange={(id) => {
+              pickFolder(id === '' ? null : id);
+            }}
+          >
+            {/* An Ask may read no folder, and starts there (spec 031, Q2). */}
+            {mode === 'ask' ? (
+              <MenuRadioItem
+                value=""
+                icon={<Icon icon={Folder01Icon} />}
+                description={words.noFolderLine}
+                textValue={words.noFolder}
+              >
+                {words.noFolder}
+              </MenuRadioItem>
+            ) : null}
             {folders.map((folder) => (
               <MenuRadioItem
                 key={folder.id}

@@ -118,7 +118,7 @@ describe('SessionSchema', () => {
       { id: 'a1', state: 'done', kind: 'finished', summary: 'Added row selection and a toolbar button.' },
       { id: 'a1', state: 'done', kind: 'stopped' },
       { id: 'a1', state: 'done', kind: 'interrupted' },
-      { id: 'a1', state: 'done', kind: 'discarded', branch: 'feat/PROJ-1423' },
+      { id: 'a1', state: 'done', kind: 'discarded', branch: 'feat/PROJ-1423', kept: false },
     ] as const) {
       expect(SessionSchema.safeParse(makeSession({ state: 'stopped', activities: [activity] })).success).toBe(true);
     }
@@ -623,5 +623,43 @@ describe("the composer's start (spec 015)", () => {
     expect(StartSessionAnswerSchema.safeParse({ result: 'context_failed', chip: 0, problem: 'busy' }).success).toBe(
       false,
     );
+  });
+});
+
+describe('a session in spec 031', () => {
+  it('AC-23: a session saved before spec 031 is a Build on a new branch, in its folder, with no step skipped', () => {
+    const saved = makeSession({
+      activities: [{ id: 'step-9', state: 'done', kind: 'discarded', branch: 'feat/PROJ-1423' }] as SessionActivity[],
+    });
+    const { workOn: _workOn, skipped: _skipped, ...before } = saved;
+    const read = SessionSchema.parse(before);
+    expect(read.workOn).toBe('new_branch');
+    expect(read.skipped).toEqual([]);
+    expect(read.folder).toEqual({ name: 'web-app', displayPath: '~/code/web-app' });
+    expect(read.activities).toEqual([
+      { id: 'step-9', state: 'done', kind: 'discarded', branch: 'feat/PROJ-1423', kept: false },
+    ]);
+  });
+
+  it("AC-3, AC-11, AC-14: holds an Ask with no folder, the steps passed over, and a PR's branch kept at Discard", () => {
+    const session = makeSession({
+      folder: null,
+      workOn: 'pull_request',
+      skipped: ['build', 'test'],
+      activities: [
+        { id: 'step-9', state: 'done', kind: 'discarded', branch: 'fix/content-list', kept: true },
+      ] as SessionActivity[],
+    });
+    expect(SessionSchema.parse(session)).toMatchObject({
+      folder: null,
+      workOn: 'pull_request',
+      skipped: ['build', 'test'],
+      activities: [{ kind: 'discarded', branch: 'fix/content-list', kept: true }],
+    });
+  });
+
+  it('refuses a kind of work or a skipped step it doesn’t know', () => {
+    expect(SessionSchema.safeParse({ ...makeSession(), workOn: 'fork' }).success).toBe(false);
+    expect(SessionSchema.safeParse({ ...makeSession(), skipped: ['deploy'] }).success).toBe(false);
   });
 });

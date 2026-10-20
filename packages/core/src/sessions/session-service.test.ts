@@ -306,7 +306,7 @@ describe('starting a session', () => {
     expect(await service.start({ ticketKey: 'PROJ-1423', repositoryId: picked.id })).toMatchObject({
       result: 'started',
     });
-    expect((await records.get('0000000000000001'))?.repository.id).toBe(picked.id);
+    expect((await records.get('0000000000000001'))?.repository?.id).toBe(picked.id);
     await settled(records);
   });
 

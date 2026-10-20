@@ -26,6 +26,13 @@ export const SessionModeSchema = z.enum(['ask', 'build']);
 export type SessionMode = z.infer<typeof SessionModeSchema>;
 export type SessionStep = z.infer<typeof SessionStepSchema>;
 
+/**
+ * Where a Build works (spec 031): a new branch of its own, or your open pull request's own branch, whose last step
+ * is Push rather than Pull request.
+ */
+export const SessionWorkOnSchema = z.enum(['new_branch', 'pull_request']);
+export type SessionWorkOn = z.infer<typeof SessionWorkOnSchema>;
+
 /** What a session was started from: shown as `PROJ-1423` or `PR #2836` under its title. */
 export const SessionSourceSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('jira'), key: z.string().min(1) }),
@@ -89,12 +96,16 @@ const FilesSchema = z.array(z.string().min(1));
  * (spec 011, Q10a), so the server never holds copy.
  */
 export const SessionActivitySchema = z.discriminatedUnion('kind', [
-  /** Orynx made the branch and the worktree, from `base`; `fetched` is false when the fetch failed (Q1a). */
+  /**
+   * Orynx made the branch and the worktree, from `base`; `fetched` is false when the fetch failed (Q1a). With
+   * `pullRequest`, it made the worktree from that pull request's own branch, and no branch (spec 031).
+   */
   ActivityBaseSchema.extend({
     kind: z.literal('worktree'),
     branch: z.string().min(1),
     base: z.string().min(1),
     fetched: z.boolean(),
+    pullRequest: z.int().positive().optional(),
   }),
   /**
    * Orynx sent Claude the brief (Q5): the ticket and its description, or none, then what the composer added
@@ -172,8 +183,15 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({ kind: z.literal('stopped') }),
   /** Orynx closed while Claude was working (AC-14). */
   ActivityBaseSchema.extend({ kind: z.literal('interrupted') }),
-  /** The worktree and this branch were deleted (AC-10). */
-  ActivityBaseSchema.extend({ kind: z.literal('discarded'), branch: z.string().min(1) }),
+  /**
+   * The worktree and this branch were deleted (AC-10). `kept`: the branch is a pull request's, so only the worktree
+   * went (spec 031).
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('discarded'),
+    branch: z.string().min(1),
+    kept: z.boolean().default(false),
+  }),
 ]);
 export type SessionActivity = z.infer<typeof SessionActivitySchema>;
 
@@ -289,8 +307,8 @@ export type ComposerChip = z.infer<typeof ComposerChipSchema>;
 
 /** GET /api/sessions/:id: everything the Session screen shows (spec 011). */
 export const SessionSchema = SessionSummarySchema.extend({
-  /** The folder Claude works in, as Settings › Repositories shows it. */
-  folder: z.object({ name: z.string().min(1), displayPath: z.string().min(1) }),
+  /** The folder Claude works in, as Settings › Repositories shows it; null for an Ask with no folder (spec 031). */
+  folder: z.object({ name: z.string().min(1), displayPath: z.string().min(1) }).nullable(),
   /** Null until the worktree is made. */
   branch: z.string().min(1).nullable(),
   /** Where the stepper is (AC-7). */
@@ -329,6 +347,10 @@ export const SessionSchema = SessionSummarySchema.extend({
   context: z.array(ComposerChipSchema).default([]),
   /** Ask or Build (spec 026); a session saved before it was a Build. */
   mode: SessionModeSchema.default('build'),
+  /** A new branch, or your pull request's own (spec 031); a session saved before it had a new branch. */
+  workOn: SessionWorkOnSchema.default('new_branch'),
+  /** The steps the stepper passed over when Claude finished without them (spec 031, Q5); none before it. */
+  skipped: z.array(SessionStepSchema).default([]),
 });
 export type Session = z.infer<typeof SessionSchema>;
 

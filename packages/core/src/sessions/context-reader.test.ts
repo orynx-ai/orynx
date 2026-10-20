@@ -98,6 +98,11 @@ describe('the context reader (spec 015)', () => {
           failingChecks: [],
           comments: [],
           diff: { kind: 'text', text: diff },
+          url: 'https://github.com/acme/web-app/pull/2836',
+          openedAt: '2026-10-15T09:00:00Z',
+          open: true,
+          fork: false,
+          mine: false,
         },
         {
           kind: 'jira',

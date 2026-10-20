@@ -330,3 +330,44 @@ describe('the pull request (spec 014)', () => {
     expect(resumeProgress({ ...reviewed, step: 'test' }).step).toBe('test');
   });
 });
+
+describe('steps passed over (spec 031, Q5)', () => {
+  const edit: ClaudeWork = { kind: 'edit', file: 'src/a.ts' };
+  const finished: ClaudeWork = { kind: 'finished', summary: 'Done.' };
+
+  it('AC-11: finishing from Build skips Test', () => {
+    expect(fold([edit, finished])).toMatchObject({ step: 'review', skipped: ['test'] });
+  });
+
+  it('finishing with no edit skips Build and Test', () => {
+    expect(fold([{ kind: 'explore', file: 'src/a.ts' }, finished])).toMatchObject({
+      step: 'review',
+      skipped: ['build', 'test'],
+    });
+  });
+
+  it('AC-10: finishing after a command, once Claude has edited, skips nothing', () => {
+    expect(fold([edit, { kind: 'command', command: 'pnpm test' }, finished])).toMatchObject({
+      step: 'review',
+      skipped: [],
+    });
+  });
+
+  it('AC-13: with commands off, Test is skipped', () => {
+    expect(fold([{ kind: 'no_commands' }, edit, finished]).skipped).toEqual(['test']);
+  });
+
+  it('AC-12: a follow-up clears them, and a command after an edit then reaches Test', () => {
+    const resumed = resumeProgress(fold([edit, finished]));
+    expect(resumed).toMatchObject({ step: 'build', skipped: [] });
+    const tested = fold([{ kind: 'command', command: 'pnpm test' }], resumed);
+    expect(tested.step).toBe('test');
+    expect(addWork(tested, finished)).toMatchObject({ step: 'review', skipped: [] });
+  });
+
+  it('AC-23: other steps keep what was skipped', () => {
+    const reviewed = fold([edit, finished]);
+    expect(addStep(reviewed, { kind: 'stopped' }).skipped).toEqual(['test']);
+    expect(endProgress(reviewed, { kind: 'interrupted' }).skipped).toEqual(['test']);
+  });
+});

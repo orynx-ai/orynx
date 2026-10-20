@@ -34,8 +34,11 @@ export type ApprovalRecord = z.infer<typeof ApprovalRecordSchema>;
 /** A session as the server keeps it: what the Session screen shows, plus what only the server needs. */
 export const StoredSessionSchema = z.object({
   session: SessionSchema,
-  /** The folder Claude works on, by its id in Settings › Repositories and its real path. */
-  repository: z.object({ id: RepositoryIdSchema, path: z.string().min(1) }),
+  /**
+   * The folder Claude works on, by its id in Settings › Repositories and its real path; null for an Ask with no
+   * folder (spec 031), whose `worktree` is then an empty folder of its own.
+   */
+  repository: z.object({ id: RepositoryIdSchema, path: z.string().min(1) }).nullable(),
   /** `<DEVHUB_HOME>/worktrees/<id>`; null before Orynx gets as far as making it. */
   worktree: z.string().min(1).nullable(),
   /**
@@ -68,8 +71,20 @@ export const StoredSessionSchema = z.object({
 });
 export type StoredSession = z.infer<typeof StoredSessionSchema>;
 
-/** A session as lists see it: its summary, when it was discarded, and whether it was an Ask (spec 026). */
-export type ListedSession = SessionSummary & { discardedAt?: string | null; mode?: Session['mode'] };
+/**
+ * A session as lists see it: its summary, when it was discarded, whether it was an Ask (spec 026), and the pull
+ * request whose own branch it works on (spec 031), as `pullKey` names it.
+ */
+export type ListedSession = SessionSummary & {
+  discardedAt?: string | null;
+  mode?: Session['mode'];
+  pullRequest?: string | null;
+};
+
+/** A pull request by its repository and number, as `acme/web-app#2836`, in one case, since GitHub's names have none. */
+export function pullKey(repository: string, number: number): string {
+  return `${repository}#${String(number)}`.toLowerCase();
+}
 
 /** What Tickets, the inbox and search read: every session, in any order. */
 export interface SessionStore {
@@ -89,8 +104,9 @@ export interface SessionRecords extends SessionStore {
 }
 
 export function listedSession(session: Session): ListedSession {
-  const { id, title, state, source, updatedAt, discardedAt, mode } = session;
-  return { id, title, state, source, updatedAt, discardedAt, mode };
+  const { id, title, state, source, updatedAt, discardedAt, mode, workOn, pullRequest: pull } = session;
+  const pullRequest = workOn === 'pull_request' && pull !== null ? pullKey(pull.repository, pull.number) : null;
+  return { id, title, state, source, updatedAt, discardedAt, mode, pullRequest };
 }
 
 /** Sessions held in memory: `sessions` are list-only summaries, as tests of Tickets and the inbox give them. */
