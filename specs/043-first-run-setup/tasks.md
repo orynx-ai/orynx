@@ -17,9 +17,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Edit profile, the profile menu and the footer use the server's profile (AC-6)
       Check: pnpm test packages/app/src/shell
       Files: packages/app/src/shell/profile-dialog.tsx, profile-menu.tsx, profile-queries.ts, picture-picker.tsx, their tests, sidebar-footer.test.tsx, stores/profile-store.ts (deleted), test/setup.ts, test/msw.ts
-- [ ] Task 6: The setup page, shown until Orynx is set up (AC-1, AC-2, AC-3, AC-13)
+- [x] Task 6: The setup page, shown until Orynx is set up (AC-1, AC-2, AC-3, AC-13)
       Check: pnpm test packages/app/src/features/setup packages/app/src/shell/app-shell.test.tsx; pnpm gate design-source style-policy component-coverage; real browser at 360 and 1280 px, light and dark
-      Files: packages/app/src/features/setup/setup-screen.tsx, setup-screen.test.tsx, shell/app-shell.tsx, shell/profile-fields.tsx
+      Files: packages/app/src/features/setup/setup-screen.tsx, setup-screen.test.tsx, queries.ts, schemas.ts, old-profile.ts, shell/app-shell.tsx
 - [ ] Task 7: The front door asks for the password, slows guesses, and waits for setup (AC-7–AC-12)
       Check: pnpm test apps/server/src/lan.test.ts apps/server/src/config.test.ts
       Files: apps/server/src/lan.ts, lan.test.ts, main.ts, config.ts, .env.example

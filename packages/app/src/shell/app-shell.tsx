@@ -4,6 +4,8 @@ import { Button, Toast } from '@devhub/ui';
 import { WaitingBanner } from '../features/home/components/waiting-banner.tsx';
 import { PopUps } from '../features/notifications/components/pop-ups.tsx';
 import { SearchDialog } from '../features/search/components/search-dialog.tsx';
+import { useSetup } from '../features/setup/queries.ts';
+import { SetupScreen } from '../features/setup/setup-screen.tsx';
 import { TicketDialog } from '../features/tickets/components/ticket-dialog.tsx';
 import { usePlatform } from '../platform.tsx';
 import { useConnectionStore } from '../stores/connection-store.ts';
@@ -11,9 +13,14 @@ import { focusMainContent, mainContentId } from './main-content.ts';
 import { Sidebar } from './sidebar.tsx';
 import { useGlobalShortcuts } from './use-shortcuts.ts';
 
-/** Every screen: skip link, sidebar, then the page. Narrow windows stack the sidebar on top. */
+/** Every screen: skip link, sidebar, then the page. Narrow windows stack the sidebar on top. Or Set up Orynx. */
 export function AppShell() {
   useGlobalShortcuts();
+  const setup = useSetup();
+
+  // Until Orynx has its password, the setup page stands in for every page (spec 043). While the answer loads, the
+  // shell shows as it always has, so a set-up Orynx never waits for it.
+  if (setup.data?.done === false) return <SetupScreen />;
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-canvas text-foreground md:flex-row">

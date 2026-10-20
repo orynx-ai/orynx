@@ -135,7 +135,7 @@ function ProfileForm({
         <Button variant="secondary" onClick={onDone}>
           Cancel
         </Button>
-        <Button type="submit" variant="primary" disabled={save.isPending}>
+        <Button type="submit" variant="primary" pending={save.isPending}>
           Save
         </Button>
       </DialogFoot>
