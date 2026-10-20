@@ -177,9 +177,9 @@ Components are plain HTML with `dh-` CSS classes (section 4). Put `class="dh-roo
 The always-visible list of places in the app, the agent sessions you have open, and who is signed in.
 
 - `<nav aria-label="Main">` on `bg-sidebar`, 300px wide by default. The person can drag its right edge, or use the arrow keys on it, to resize it between 260 and 400px. Top: logo, collapse button, then New task (⌘N) and Search (⌘K).
-- Places, New task and Search are 40px rows.
+- Places and Search are 36px rows. Inside the sidebar, text and icons sit one step down the scale (the user's call, 20 Oct 2026, spec 039 Q4): places, Search and session titles at `small` (14px, weight 500), session second lines, the Sessions heading and the footer's status at `label` (12px), icons at 16px and session state circles at 20px. The narrow bar under 768px keeps its own sizes.
 - Places are `<a class="dh-nav-item">` with an icon and label; the current one has `aria-current="page"`. Counts sit in `.dh-nav-count` (filled ink on the current place) with hidden words for screen readers ("14 need you").
-- Sessions are two-line `.dh-session` links: title on top, ticket key and state below. State is told three ways: an icon shape (! waiting, arc working, check done), its word ("Needs you", "Working", "Done, ready for PR") and its colour. Keep the 5 most recent; "View all" leads to the full list.
+- Sessions are two-line `.dh-session` links: title on top, ticket key and state below. State is told three ways: an icon shape (! waiting, arc working, check done), its word ("Needs you", "Working", "Done, ready for PR") and its colour. Keep the 5 most recent; "View all" leads to the full list. Each row has a ⋯ More actions button at its end (Rename, Pin or Unpin, Delete), beside the link, never inside it: it shows on hover or focus, and always under 768px (spec 039). Pinned sessions sit first, under a "Pinned" heading.
 - The footer is the signed-in person with the agent's connection state; it links to Settings.
 - On phones the sidebar stacks above the content; never fix it to `100vh`.
 

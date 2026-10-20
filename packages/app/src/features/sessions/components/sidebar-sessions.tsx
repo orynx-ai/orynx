@@ -40,8 +40,8 @@ export function SidebarSessions({ className }: { className?: string }) {
 
   return (
     <div className={className}>
-      <div className="flex items-center gap-2 ps-3 pe-2 pb-1 text-small text-muted-foreground">
-        <h2 className="m-0 text-small font-normal">Sessions</h2>
+      <div className="flex items-center gap-2 ps-2.5 pe-2 pb-1 text-label text-muted-foreground">
+        <h2 className="m-0 text-label font-normal">Sessions</h2>
         <Link
           to="/sessions"
           activeOptions={{ exact: true }}
@@ -55,13 +55,14 @@ export function SidebarSessions({ className }: { className?: string }) {
         // The first page failed; a later page that fails keeps the rows above its own line.
         <SessionsLoadError className="py-1 ps-3" onRetry={() => void sessions.refetch()} />
       ) : rows.length === 0 ? (
-        <p className="m-0 px-3 py-2 text-small text-muted-foreground">No sessions yet</p>
+        <p className="m-0 px-2.5 py-1.5 text-small text-muted-foreground">No sessions yet</p>
       ) : (
         <>
           {rows.map((session) => (
             <SessionItem
               key={session.id}
               asChild
+              size="sm"
               title={session.title}
               source={sourceLabel(session.source)}
               state={session.state}
@@ -75,8 +76,8 @@ export function SidebarSessions({ className }: { className?: string }) {
           ) : isFetchingNextPage ? (
             <div role="status">
               <span className="sr-only">Loading more sessions</span>
-              <SessionItemSkeleton />
-              <SessionItemSkeleton />
+              <SessionItemSkeleton size="sm" />
+              <SessionItemSkeleton size="sm" />
             </div>
           ) : hasNextPage ? (
             // The list's end: once it scrolls into view, the next page loads. Nothing to see or reach.
