@@ -47,7 +47,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: Prove the modal end to end at 1280 and 360 px, light and dark, with axe and the keyboard (AC-1, AC-20, AC-27, AC-30, AC-31)
       Check: pnpm test:e2e e2e/sync-activity.spec.ts
       Files: e2e/sync-activity.spec.ts, e2e/fake-tools/\* (only if a failing Jira answer is missing)
-- [ ] Task 16: Write the people-files script that copies the design and adds the new parts to design-system.md (Q2, Q4)
+- [x] Task 16: Write the people-files script that copies the design and adds the new parts to design-system.md (Q2, Q4)
       Check: sh -n specs/035-sync-activity/people-files.sh; pnpm gate specs
       Files: specs/035-sync-activity/people-files.sh
 - [ ] Task 17: STOP and run /review
