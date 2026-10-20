@@ -35,15 +35,15 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: Write the sync activity words: problems, fixes, summaries, status lines and times (AC-10, AC-11, AC-12)
       Check: pnpm test packages/app/src/features/sync-activity/sync-words.test.ts
       Files: packages/app/src/features/sync-activity/sync-words.ts, packages/app/src/features/sync-activity/sync-words.test.ts
-- [ ] Task 12: Build the dialog's tool list and detail: head, groups, status, problem callout and stats, with loading and error states (AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-17, AC-19, AC-28, AC-29)
-      Check: pnpm test packages/app/src/features/sync-activity
-      Files: packages/app/src/features/sync-activity/queries.ts, packages/app/src/features/sync-activity/components/sync-activity-dialog.tsx, packages/app/src/features/sync-activity/components/sync-activity-dialog.test.tsx
-- [ ] Task 13: Build the history and its actions: rows that open, the Failed filter, Sync now, Retry, Sync all now and the announcements (AC-12, AC-13, AC-14, AC-15, AC-16, AC-18, AC-20, AC-21, AC-22, AC-25)
+- [x] Task 12: Build the dialog's tool list and detail (head, groups, status, problem callout, stats, loading and error states) and the Home button that opens it; the button moved here from Task 14 because app tests open the dialog through the real Home page (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-17, AC-26, AC-28, AC-29)
+      Check: pnpm test packages/app/src/features/sync-activity packages/app/src/features/home/components/sync-status.test.tsx
+      Files: packages/app/src/features/sync-activity/queries.ts, packages/app/src/features/sync-activity/components/sync-activity-dialog.tsx, packages/app/src/features/sync-activity/components/sync-activity-dialog.test.tsx, packages/app/src/features/sync-activity/components/sync-activity-button.tsx, packages/app/src/features/sync-activity/components/sync-activity-button.test.tsx, packages/app/src/features/home/components/sync-status.tsx
+- [ ] Task 13: Build the history and its actions: rows that open, the Failed filter, Sync now, Retry, Sync all now and the announcements (AC-12, AC-13, AC-14, AC-15, AC-16, AC-18, AC-19, AC-20, AC-21, AC-22, AC-24, AC-25)
       Check: pnpm test packages/app/src/features/sync-activity
       Files: packages/app/src/features/sync-activity/components/sync-history.tsx, packages/app/src/features/sync-activity/components/sync-history.test.tsx, packages/app/src/features/sync-activity/components/sync-activity-dialog.tsx, packages/app/src/features/sync-activity/queries.ts
-- [ ] Task 14: Put the Sync activity button on Home's page bar, and open a tool's connection dialog from `?tool=` (AC-1, AC-2, AC-3, AC-4, AC-23, AC-24, AC-26)
-      Check: pnpm test packages/app/src/features/home/components/sync-status.test.tsx packages/app/src/features/sync-activity packages/app/src/features/settings/components/connections-panel.test.tsx
-      Files: packages/app/src/features/sync-activity/components/sync-activity-button.tsx, packages/app/src/features/sync-activity/components/sync-activity-button.test.tsx, packages/app/src/features/home/components/sync-status.tsx, packages/app/src/features/home/components/sync-status.test.tsx, packages/app/src/features/settings/tabs.ts, packages/app/src/features/settings/components/connections-panel.tsx, packages/app/src/features/settings/components/connection-dialog.tsx, packages/app/src/features/settings/components/connections-panel.test.tsx
+- [ ] Task 14: Reconnect and Connect open the tool's connection dialog on Settings › Connections through `?tool=` (AC-7, AC-23)
+      Check: pnpm test packages/app/src/features/sync-activity packages/app/src/features/settings/components/connections-panel.test.tsx
+      Files: packages/app/src/features/settings/tabs.ts, packages/app/src/features/settings/components/connections-panel.tsx, packages/app/src/features/settings/components/connection-dialog.tsx, packages/app/src/features/settings/components/connections-panel.test.tsx, packages/app/src/features/sync-activity/components/sync-activity-dialog.tsx, packages/app/src/features/sync-activity/components/sync-activity-dialog.test.tsx
 - [ ] Task 15: Prove the modal end to end at 1280 and 360 px, light and dark, with axe and the keyboard (AC-1, AC-20, AC-27, AC-30, AC-31)
       Check: pnpm test:e2e e2e/sync-activity.spec.ts
       Files: e2e/sync-activity.spec.ts, e2e/fake-tools/\* (only if a failing Jira answer is missing)
