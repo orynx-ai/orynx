@@ -30,6 +30,7 @@ import {
   noOpenSprintsText,
   noSprintName,
   noSprintText,
+  orynxName,
   pageHeading,
   sprintMeta,
   syncedLine,
@@ -66,23 +67,31 @@ export function TicketsScreen() {
   }
   if (data?.jira.state === 'not_connected') return <JiraNotConnected />;
 
+  const filters = { ...filtersFromSearch(search), text };
+  // Orynx's own tickets alone have no sprint, so the page names them and leaves the pickers out (spec 037, Q7).
+  const orynxOnly = filters.source.length === 1 && filters.source[0] === 'orynx';
   // Loading until the first sync has read the sprint (Q8a), or a new pick's (spec 020); after that the cache answers.
-  const loading = data === undefined || data.jira.state === 'syncing';
+  const loading = data === undefined || (!orynxOnly && data.jira.state === 'syncing');
   const sprint = data?.sprint ?? null;
   const choice = data?.choice ?? defaultTicketsChoice;
   // No sprint shows its tickets with no sprint of their own (spec 020, AC-39).
   const withoutSprint = choice.sprintId === 'none';
   // Q8c: Jira answered and there's no sprint to show, or the picked project has none (spec 020, AC-28). The page
   // keeps its bar and pickers, the same elements, so a pick that empties or fills it keeps focus where it was.
-  const noSprint = !loading && sprint === null && !withoutSprint;
+  const noSprint = !orynxOnly && !loading && sprint === null && !withoutSprint;
   // What the page calls what it shows; null while it loads.
-  const shownName = sprint?.name ?? (withoutSprint && !loading ? noSprintName : null);
+  const shownName = orynxOnly
+    ? loading
+      ? null
+      : orynxName
+    : (sprint?.name ?? (withoutSprint && !loading ? noSprintName : null));
 
-  const filters = { ...filtersFromSearch(search), text };
   const all = data?.tickets ?? [];
   const shown = all.filter((ticket) => matches(ticket, filters, now));
   // Assignee alone, so an empty column can say whether the other filters emptied it (Q9d).
-  const unfiltered = all.filter((ticket) => matches(ticket, { ...defaultFilters, assignee: filters.assignee }, now));
+  const unfiltered = all.filter((ticket) =>
+    matches(ticket, { ...defaultFilters, source: filters.source, assignee: filters.assignee }, now),
+  );
   const { text: _, ...address } = filters;
   const options = filterOptions(all, address);
   const crumbs: Crumb[] =
@@ -136,11 +145,13 @@ export function TicketsScreen() {
       <PageBar
         breadcrumb={<PageBreadcrumb crumbs={crumbs} />}
         meta={
-          sprint === null
-            ? withoutSprint
-              ? (choice.projectKey ?? undefined)
-              : undefined
-            : (sprintMeta(sprint, now) ?? undefined)
+          orynxOnly
+            ? undefined
+            : sprint === null
+              ? withoutSprint
+                ? (choice.projectKey ?? undefined)
+                : undefined
+              : (sprintMeta(sprint, now) ?? undefined)
         }
         actions={
           <>
@@ -177,7 +188,7 @@ export function TicketsScreen() {
         options={options}
         count={loading ? undefined : shown.length}
         assigneeRef={assignee}
-        pickers={<SprintPickers choice={choice} sprint={sprint} loading={loading} />}
+        {...(orynxOnly ? {} : { pickers: <SprintPickers choice={choice} sprint={sprint} loading={loading} /> })}
         pickersOnly={noSprint}
         {...(wide ? {} : { search: searchField })}
       />

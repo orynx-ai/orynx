@@ -27,8 +27,23 @@ describe('Tickets’ filters (spec 020)', () => {
     tickets.filter((ticket) => matches(ticket, { ...defaultFilters, ...filters }, now)).map((ticket) => ticket.key);
 
   it('AC-30: Assignee starts as Me, and the rest let everything through', () => {
-    expect(defaultFilters).toEqual({ assignee: ['me'], status: [], type: [], priority: [], due: [], text: '' });
-    expect(filtersFromSearch({})).toEqual({ assignee: ['me'], status: [], type: [], priority: [], due: [] });
+    expect(defaultFilters).toEqual({
+      source: ['jira', 'orynx'],
+      assignee: ['me'],
+      status: [],
+      type: [],
+      priority: [],
+      due: [],
+      text: '',
+    });
+    expect(filtersFromSearch({})).toEqual({
+      source: ['jira', 'orynx'],
+      assignee: ['me'],
+      status: [],
+      type: [],
+      priority: [],
+      due: [],
+    });
   });
 
   it('AC-31: Assignee keeps Me, Unassigned or a person, any of those ticked; nothing ticked keeps everyone', () => {
@@ -68,6 +83,27 @@ describe('Tickets’ filters (spec 020)', () => {
     expect(due('2026-10-10', ['overdue'], 'done')).toBe(false);
   });
 
+  it('AC-1, AC-2, AC-3 (spec 037): Source keeps Jira’s, Orynx’s or both by the key; one alone lives in the address', () => {
+    const orynx = makeTicket({ key: 'ORX-1', url: null, title: 'Fix the date test' });
+    const pick = (source: TicketFilters['source']) =>
+      [mine, orynx].filter((ticket) => matches(ticket, { ...defaultFilters, source }, now)).map((t) => t.key);
+
+    expect(pick(['jira', 'orynx'])).toEqual(['PROJ-1423', 'ORX-1']);
+    expect(pick(['jira'])).toEqual(['PROJ-1423']);
+    expect(pick(['orynx'])).toEqual(['ORX-1']);
+    expect(pick([])).toEqual(['PROJ-1423', 'ORX-1']);
+    const { text: _, ...address } = defaultFilters;
+    expect(searchFromFilters({ ...address, source: ['orynx'] })).toEqual({ source: 'orynx' });
+    expect(searchFromFilters({ ...address, source: [] })).toEqual({});
+    expect(filtersFromSearch({ source: 'orynx' }).source).toEqual(['orynx']);
+    expect(filtersFromSearch({ source: 'nowhere' }).source).toEqual(['jira', 'orynx']);
+    expect(hasExtraFilters({ ...defaultFilters, source: ['jira'] })).toBe(true);
+    expect(filterOptions([mine], address).source).toEqual([
+      { value: 'jira', label: 'Jira' },
+      { value: 'orynx', label: 'Orynx' },
+    ]);
+  });
+
   it('AC-10: the search keeps tickets whose key or title holds the text, in any case', () => {
     const search = (text: string) => matches(mine, { ...defaultFilters, text }, now);
 
@@ -91,6 +127,7 @@ describe('Tickets’ filters (spec 020)', () => {
     expect(searchFromFilters(address)).toEqual({});
     expect(
       searchFromFilters({
+        source: ['jira', 'orynx'],
         assignee: ['me', 'unassigned'],
         status: ['Code Review'],
         type: [],
@@ -102,6 +139,7 @@ describe('Tickets’ filters (spec 020)', () => {
     expect(
       filtersFromSearch({ assignee: 'me,unassigned', status: 'Code Review,In Progress', due: 'week,month' }),
     ).toEqual({
+      source: ['jira', 'orynx'],
       assignee: ['me', 'unassigned'],
       status: ['Code Review', 'In Progress'],
       type: [],
@@ -120,6 +158,7 @@ describe('Tickets’ filters (spec 020)', () => {
 
   it('AC-32: spec 008’s addresses still work', () => {
     expect(filtersFromSearch(TicketsSearchSchema.parse({ assignee: 'anyone', due: 'week', type: 'bug' }))).toEqual({
+      source: ['jira', 'orynx'],
       assignee: [],
       status: [],
       type: ['Bug'],

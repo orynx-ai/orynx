@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, ticketQueryOptions, ticketsQueryOptions, ticketsSprintsQueryOptions } from '@devhub/api-client';
-import type { Tickets, TicketsChoice } from '@devhub/contracts';
+import { isOrynxKey, type Tickets, type TicketsChoice } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
 /** Tickets' sprint and its tickets. Kept fresh by `inbox.changed`, `status.changed` and `sessions.changed`. */
@@ -9,9 +9,14 @@ export function useTickets() {
   return useQuery(ticketsQueryOptions(api));
 }
 
-/** Q6: your tickets in the sprint, Done included. Outside the hook, so it isn't run again on every render. */
+/**
+ * Q6: your tickets in the sprint, Done included, and your Orynx tickets that aren't Done (spec 037). Outside the
+ * hook, so it isn't run again on every render.
+ */
 function yoursInSprint(tickets: Tickets): number {
-  return tickets.tickets.filter((ticket) => ticket.assignee?.mine === true).length;
+  return tickets.tickets.filter(
+    (ticket) => ticket.assignee?.mine === true && !(isOrynxKey(ticket.key) && ticket.column === 'done'),
+  ).length;
 }
 
 /** How many tickets in your sprint are assigned to you, for the sidebar; undefined until loaded. */

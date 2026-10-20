@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeTickets } from '@devhub/contracts/testing';
+import { makeTicket, makeTickets } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
@@ -79,7 +79,7 @@ describe('TicketsScreen', () => {
     expect(within(toolbar()).queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });
 
-  it('AC-30: Tab goes through Refresh, the search, Board / List, Project and Sprint (spec 020), the filters, Clear filters, the board, then each card’s checkbox and title', async () => {
+  it('AC-30: Tab goes through Refresh, the search, Board / List, Project and Sprint (spec 020), Source (spec 037), the filters, Clear filters, the board, then each card’s checkbox and title', async () => {
     server.use(ticketsHandler());
     const { user } = await renderApp({ route: '/tickets?type=bug' });
     await screen.findByText('1 ticket');
@@ -88,7 +88,7 @@ describe('TicketsScreen', () => {
       .focus();
     const stops: string[] = [];
 
-    for (let stop = 0; stop < 15; stop += 1) {
+    for (let stop = 0; stop < 16; stop += 1) {
       await user.tab();
       const focused = document.activeElement;
       stops.push(focused?.getAttribute('aria-label') ?? focused?.textContent.trim() ?? '');
@@ -101,6 +101,7 @@ describe('TicketsScreen', () => {
       'List',
       'Project Your sprint',
       'Sprint Sprint 42',
+      'Source · 2',
       'Assignee · 1',
       'Status',
       'Type · 1',
@@ -377,5 +378,83 @@ describe('Refresh, the people search and Ship for several (the user’s call, 19
     expect(screen.getByRole('checkbox', { name: 'Select PROJ-1377' })).not.toBeChecked();
     expect(screen.queryByRole('group', { name: 'Selected tickets' })).toBeNull();
     expect(filter('Assignee · 1')).toHaveFocus();
+  });
+});
+
+describe('Orynx tickets on Tickets (spec 037)', () => {
+  const orynxTickets = [
+    makeTicket({
+      key: 'ORX-1',
+      url: null,
+      title: 'Archive in bulk',
+      column: 'to_do',
+      status: 'To do',
+      type: 'Task',
+      priority: { name: 'Medium', level: 'medium', rank: 2 },
+      dueDate: null,
+    }),
+    makeTicket({
+      key: 'ORX-2',
+      url: null,
+      title: 'Fix the date test',
+      column: 'in_progress',
+      status: 'In progress',
+      type: 'Bug',
+      bug: true,
+      dueDate: null,
+    }),
+  ];
+  const both = () => ticketsHandler({ tickets: [...designTickets, ...orynxTickets] });
+
+  it('AC-1: the toolbar starts with Source, both ticked, and the columns hold both sources’ tickets', async () => {
+    server.use(both());
+    await renderApp({ route: '/tickets' });
+
+    expect(await screen.findByText('8 tickets')).toBeVisible();
+    expect(filter('Source · 2').compareDocumentPosition(filter('Assignee · 1'))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    const toDo = screen.getByRole('region', { name: 'To do, 3 tickets' });
+    expect(within(toDo).getByRole('article', { name: 'Archive in bulk' })).toBeVisible();
+    // The sidebar counts your open Orynx tickets too.
+    expect(
+      within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: /^Tickets, 8/ }),
+    ).toBeVisible();
+  });
+
+  it('AC-2: unticking Orynx leaves Jira’s, and the address keeps it', async () => {
+    server.use(both());
+    const { user, history } = await renderApp({ route: '/tickets' });
+    await screen.findByText('8 tickets');
+
+    await user.click(filter('Source · 2'));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Orynx' }));
+    await user.keyboard('{Escape}');
+
+    expect(count()).toHaveTextContent('6 tickets');
+    expect(screen.queryByRole('article', { name: 'Archive in bulk' })).toBeNull();
+    expect(history.location.search).toContain('source=jira');
+  });
+
+  it('AC-3: Orynx alone hides the project and sprint pickers, and the breadcrumb names Orynx', async () => {
+    server.use(both());
+    await renderApp({ route: '/tickets?source=orynx' });
+
+    expect(await screen.findByText('2 tickets')).toBeVisible();
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Orynx')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(toolbar()).queryByRole('button', { name: /^Project/ })).toBeNull();
+    expect(within(toolbar()).queryByRole('button', { name: /^Sprint/ })).toBeNull();
+    expect(screen.queryByText('PROJ · ends 24 Oct')).toBeNull();
+  });
+
+  it('AC-20: Assignee, Type and the search work on Orynx tickets as on Jira’s', async () => {
+    server.use(both());
+    const { user } = await renderApp({ route: '/tickets?type=Bug' });
+
+    expect(await screen.findByRole('article', { name: 'Fix the date test' })).toBeVisible();
+    expect(screen.queryByRole('article', { name: 'Archive in bulk' })).toBeNull();
+    await user.type(screen.getByRole('searchbox', { name: 'Search tickets' }), 'ORX');
+    expect(count()).toHaveTextContent('1 ticket');
   });
 });

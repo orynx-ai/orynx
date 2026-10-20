@@ -30,6 +30,9 @@ export function openSprintLine(sprint: OpenSprint, now: Date): string {
 /** Spec 020, Q4e: the Project picker's first option, and its words while nothing is picked. */
 export const yourSprintText = 'Your sprint';
 
+/** Spec 037, Q7: Orynx's own tickets alone, as the breadcrumb names them; they have no sprint. */
+export const orynxName = 'Orynx';
+
 /** Spec 020: the tickets in no sprint that aren't Done, as the page and the Sprint menu name them (AC-39). */
 export const noSprintName = 'No sprint';
 
