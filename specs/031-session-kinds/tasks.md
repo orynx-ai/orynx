@@ -58,7 +58,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **E2e**
 
-- [ ] Task 16: e2e: Ask from the composer with no folder and with a folder; the switch with the keyboard; axe on each (AC-2, AC-3, AC-5, AC-25)
+- [x] Task 16: e2e: Ask from the composer with no folder and with a folder; the switch with the keyboard; axe on each (AC-2, AC-3, AC-5, AC-25)
       Check: pnpm test:e2e e2e/composer.spec.ts
       Files: e2e/composer.spec.ts
 - [ ] Task 17: e2e: Build on my PR on the pull-requests hub: the PR's branch, Push changes to it, push rejected when origin moved, Discard keeps the branch (AC-14 to AC-17)
