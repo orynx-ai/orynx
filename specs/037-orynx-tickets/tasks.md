@@ -64,7 +64,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 17: The Source filter, a sixth FilterMenu before Assignee (AC-1, AC-2, AC-3, AC-20) - Kept in the address. Unticking Jira hides the pickers, and the breadcrumb reads "Tickets / Orynx". - The sidebar count adds your open Orynx tickets.
       Check: pnpm test packages/app/src/features/tickets/filters.test.ts packages/app/src/features/tickets/tickets-screen.test.tsx packages/app/src/features/tickets/components/tickets-toolbar.test.tsx
       Files: packages/app/src/features/tickets/filters.ts, tickets-screen.tsx, components/tickets-toolbar.tsx, queries.ts, ticket-words.ts, and their tests
-- [ ] Task 18: Tickets without Jira (AC-4, AC-5, AC-34) - The board shows Orynx tickets under the "Jira isn't connected" line. - With none, it reads "No Orynx tickets yet." with New ticket. - The kept-file line shows when a file was kept aside.
+- [x] Task 18: Tickets without Jira (AC-4, AC-5, AC-34) - The board shows Orynx tickets under the "Jira isn't connected" line. - With none, it reads "No Orynx tickets yet." with New ticket. - The kept-file line shows when a file was kept aside.
       Check: pnpm test packages/app/src/features/tickets/tickets-screen.test.tsx
       Files: packages/app/src/features/tickets/tickets-screen.tsx, ticket-words.ts, tickets-screen.test.tsx
 - [ ] Task 19: The Orynx mark on cards and list rows (AC-1, AC-22)

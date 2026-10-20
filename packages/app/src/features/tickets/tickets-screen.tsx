@@ -3,7 +3,7 @@ import { useRef, type ReactNode } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { KanbanIcon, LeftToRightListBulletIcon } from '@hugeicons/core-free-icons';
-import { defaultTicketsChoice, type InboxToolState, type TicketsChoice } from '@devhub/contracts';
+import { defaultTicketsChoice, isOrynxKey, type InboxToolState, type TicketsChoice } from '@devhub/contracts';
 import { Button, Icon, EmptyState, SearchField, SegmentedControl, SegmentedControlItem } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
 import { useWide } from '../../shell/use-wide.ts';
@@ -28,9 +28,12 @@ import { useTickets } from './queries.ts';
 import { useTicketsStore } from './store.ts';
 import {
   noOpenSprintsText,
+  keptFileLine,
+  noOrynxTicketsText,
   noSprintName,
   noSprintText,
   orynxName,
+  withoutJiraLine,
   pageHeading,
   sprintMeta,
   syncedLine,
@@ -65,11 +68,11 @@ export function TicketsScreen() {
       />
     );
   }
-  if (data?.jira.state === 'not_connected') return <JiraNotConnected />;
-
+  // Without Jira, Tickets holds Orynx's own tickets (spec 037, AC-4).
+  const jiraOff = data?.jira.state === 'not_connected';
   const filters = { ...filtersFromSearch(search), text };
   // Orynx's own tickets alone have no sprint, so the page names them and leaves the pickers out (spec 037, Q7).
-  const orynxOnly = filters.source.length === 1 && filters.source[0] === 'orynx';
+  const orynxOnly = jiraOff || (filters.source.length === 1 && filters.source[0] === 'orynx');
   // Loading until the first sync has read the sprint (Q8a), or a new pick's (spec 020); after that the cache answers.
   const loading = data === undefined || (!orynxOnly && data.jira.state === 'syncing');
   const sprint = data?.sprint ?? null;
@@ -96,7 +99,12 @@ export function TicketsScreen() {
   const options = filterOptions(all, address);
   const crumbs: Crumb[] =
     shownName === null ? [ticketsCrumb] : [{ ...ticketsCrumb, to: '/tickets' }, { label: shownName }];
-  const line = data === undefined ? null : toolLine('jira', data.jira, now);
+  // A line about Jira's sprint, unless the page shows Orynx's tickets alone by choice.
+  const line =
+    data === undefined ? null : jiraOff ? withoutJiraLine : orynxOnly ? null : toolLine('jira', data.jira, now);
+  const kept = data?.orynx.kept ?? null;
+  const truncated = !orynxOnly && shownName !== null && data?.truncated === true;
+  const noOrynxTickets = orynxOnly && !loading && !all.some((ticket) => isOrynxKey(ticket.key));
   const synced = data === undefined ? null : syncedLine(data.jira, now);
 
   function changeFilters(next: AddressFilters) {
@@ -124,6 +132,8 @@ export function TicketsScreen() {
   let body: ReactNode;
   if (noSprint) {
     body = <NoSprint jira={data.jira} choice={choice} />;
+  } else if (noOrynxTickets) {
+    body = <EmptyState title={noOrynxTicketsText} />;
   } else if (loading || shownName === null) {
     body = view === 'board' ? <TicketsBoardSkeleton /> : <TicketsListSkeleton />;
   } else if (view === 'board') {
@@ -190,16 +200,16 @@ export function TicketsScreen() {
         assigneeRef={assignee}
         {...(orynxOnly ? {} : { pickers: <SprintPickers choice={choice} sprint={sprint} loading={loading} /> })}
         pickersOnly={noSprint}
+        sources={!jiraOff}
         {...(wide ? {} : { search: searchField })}
       />
       <PageBody width={noSprint ? 'wide' : 'full'}>
         <h1 className="sr-only">{shownName === null ? 'Tickets' : pageHeading(shownName)}</h1>
-        {line === null && data?.truncated !== true ? null : (
+        {line === null && !truncated && kept === null ? null : (
           <div className="flex flex-col gap-1">
             {line === null ? null : <Note message={line.message} action={line.action} />}
-            {shownName !== null && data?.truncated === true ? (
-              <Note message={tooManyLine(shownName)} action={null} />
-            ) : null}
+            {truncated ? <Note message={tooManyLine(shownName)} action={null} /> : null}
+            {kept === null ? null : <Note message={keptFileLine(kept)} action={null} />}
           </div>
         )}
         {body}
@@ -266,29 +276,6 @@ function Unreachable({ pending, onRetry }: { pending: boolean; onRetry: () => vo
           }
         >
           <span>{unreachableText.line}</span>
-        </EmptyState>
-      </PageBody>
-    </>
-  );
-}
-
-function JiraNotConnected() {
-  return (
-    <>
-      <PageBar breadcrumb={<PageBreadcrumb crumbs={[ticketsCrumb]} />} />
-      <PageBody>
-        <h1 className="sr-only">Tickets</h1>
-        <EmptyState
-          title="Jira is not connected"
-          action={
-            <Button asChild size="sm">
-              <Link to="/settings/$tab" params={{ tab: 'connections' }}>
-                Open Settings
-              </Link>
-            </Button>
-          }
-        >
-          <span>Connect it in Settings to see your sprint.</span>
         </EmptyState>
       </PageBody>
     </>

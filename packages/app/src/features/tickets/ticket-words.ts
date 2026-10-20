@@ -30,6 +30,20 @@ export function openSprintLine(sprint: OpenSprint, now: Date): string {
 /** Spec 020, Q4e: the Project picker's first option, and its words while nothing is picked. */
 export const yourSprintText = 'Your sprint';
 
+/** Spec 037, Q12g: Orynx alone, with no Orynx tickets. */
+export const noOrynxTicketsText = 'No Orynx tickets yet.';
+
+/** Spec 037, Q12h: Tickets with Jira not connected shows Orynx's own; the link goes to Settings › Connections. */
+export const withoutJiraLine = {
+  message: "Jira isn't connected, so only Orynx tickets show.",
+  action: { text: 'Connect Jira', tab: 'connections' },
+} as const;
+
+/** Spec 037, Q12j: the tickets file Orynx couldn't read and kept aside at its start. */
+export function keptFileLine(file: string): string {
+  return `Orynx couldn't read its tickets file, so it kept it as ${file} and started a new one.`;
+}
+
 /** Spec 037, Q7: Orynx's own tickets alone, as the breadcrumb names them; they have no sprint. */
 export const orynxName = 'Orynx';
 

@@ -44,17 +44,6 @@ function count() {
 }
 
 describe('TicketsScreen', () => {
-  it('says Jira is not connected and where to connect it', async () => {
-    const { user, history } = await renderApp({ route: '/tickets' });
-
-    expect(await screen.findByText('Jira is not connected')).toBeVisible();
-    expect(screen.getByText('Connect it in Settings to see your sprint.')).toBeVisible();
-    expect(screen.getByRole('heading', { level: 1, name: 'Tickets' })).toBeInTheDocument();
-    await user.click(screen.getByRole('link', { name: 'Open Settings' }));
-
-    expect(history.location.pathname).toBe('/settings/connections');
-  });
-
   it('AC-1, AC-31: the page bar names the sprint, and the toolbar has the filters and the count', async () => {
     server.use(ticketsHandler());
     await renderApp({ route: '/tickets' });
@@ -456,5 +445,61 @@ describe('Orynx tickets on Tickets (spec 037)', () => {
     expect(screen.queryByRole('article', { name: 'Archive in bulk' })).toBeNull();
     await user.type(screen.getByRole('searchbox', { name: 'Search tickets' }), 'ORX');
     expect(count()).toHaveTextContent('1 ticket');
+  });
+
+  const withoutJira = (tickets = orynxTickets, more: Partial<Parameters<typeof makeTickets>[0]> = {}) =>
+    http.get(apiUrl(apiRoutes.tickets), () =>
+      HttpResponse.json(makeTickets({ jira: { state: 'not_connected' }, sprint: null, tickets, ...more })),
+    );
+
+  it('AC-4: with Jira not connected, Tickets shows Orynx’s tickets under a line to connect Jira, with no Source or pickers', async () => {
+    server.use(withoutJira());
+    const { user, history } = await renderApp({ route: '/tickets' });
+
+    expect(await screen.findByRole('article', { name: 'Archive in bulk' })).toBeVisible();
+    expect(screen.getByRole('article', { name: 'Fix the date test' })).toBeVisible();
+    expect(screen.getByText(/Jira isn't connected, so only Orynx tickets show\./)).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'Orynx tickets' })).toBeInTheDocument();
+    expect(within(toolbar()).queryByRole('button', { name: /^Source/ })).toBeNull();
+    expect(within(toolbar()).queryByRole('button', { name: /^Project/ })).toBeNull();
+    await user.click(screen.getByRole('link', { name: 'Connect Jira' }));
+
+    expect(history.location.pathname).toBe('/settings/connections');
+  });
+
+  it('AC-5: Orynx alone with no Orynx tickets says so, with no box', async () => {
+    server.use(withoutJira([]));
+    await renderApp({ route: '/tickets' });
+
+    expect(await screen.findByText('No Orynx tickets yet.')).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Board' })).toBeNull();
+  });
+
+  it('AC-5: Orynx picked alone, with only Jira’s tickets, says there are none', async () => {
+    server.use(ticketsHandler());
+    await renderApp({ route: '/tickets?source=orynx' });
+
+    expect(await screen.findByText('No Orynx tickets yet.')).toBeVisible();
+  });
+
+  it('AC-34: names the tickets file Orynx couldn’t read and kept aside', async () => {
+    server.use(both());
+    server.use(
+      http.get(apiUrl(apiRoutes.tickets), () =>
+        HttpResponse.json(
+          makeTickets({
+            tickets: [...designTickets, ...orynxTickets],
+            orynx: { kept: 'tickets-20261020-081233.unreadable.json' },
+          }),
+        ),
+      ),
+    );
+    await renderApp({ route: '/tickets' });
+
+    expect(
+      await screen.findByText(
+        "Orynx couldn't read its tickets file, so it kept it as tickets-20261020-081233.unreadable.json and started a new one.",
+      ),
+    ).toBeVisible();
   });
 });
