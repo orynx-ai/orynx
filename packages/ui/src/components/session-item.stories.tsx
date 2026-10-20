@@ -1,4 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { MoreHorizontalIcon } from '@hugeicons/core-free-icons';
+import { Icon } from './icon.tsx';
+import { IconButton } from './icon-button.tsx';
 import { SessionItem, SessionItemSkeleton } from './session-item.tsx';
 
 const meta = {
@@ -48,4 +51,29 @@ export const DoneReadyToPush: Story = {
 /** An Ask, or a Build where Claude edited nothing: nothing to ship (spec 031). */
 export const DoneNothingToShip: Story = {
   args: { title: 'How does the content list paginate?', source: undefined, state: 'done', ready: 'nothing' },
+};
+
+const more = (
+  <IconButton variant="ghost" size="sm" label="More actions for Add bulk archive">
+    <Icon icon={MoreHorizontalIcon} aria-hidden />
+  </IconButton>
+);
+
+/** The sidebar's size (spec 039, Q4): a 14 px title, a 12 px line and a 20 px circle. */
+export const Small: Story = { args: { size: 'sm' } };
+
+/** Its ⋯ at the row's end (spec 039): shown on hover or focus, always under 768 px. Hover the row to see it. */
+export const WithActions: Story = { args: { size: 'sm', actions: more } };
+
+/** A long title is cut short before the ⋯, not under it. */
+export const WithActionsLongTitle: Story = {
+  args: {
+    size: 'sm',
+    actions: more,
+    title: 'Show read receipts for every announcement in the analytics dashboard',
+  },
+};
+
+export const SmallLoading: Story = {
+  render: () => <SessionItemSkeleton size="sm" />,
 };
