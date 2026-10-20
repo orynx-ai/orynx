@@ -179,4 +179,35 @@ describe('Sync activity dialog (spec 035)', () => {
 
     expect(await within(dialog).findByRole('list', { name: 'Syncing fine' })).toBeVisible();
   });
+
+  it('AC-23: Reconnect closes the modal and opens Jira’s connection dialog in Settings', async () => {
+    serve([jiraFailing, githubFine]);
+    const { dialog, user, history } = await open();
+
+    await user.click(within(await within(dialog).findByRole('alert')).getByRole('link', { name: 'Reconnect' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Jira' })).toBeVisible();
+    expect(screen.queryByRole('dialog', { name: 'Sync activity' })).toBeNull();
+    expect(history.location.pathname).toBe('/settings/connections');
+  });
+
+  it('AC-7: Connect GitHub opens GitHub’s connection dialog in Settings', async () => {
+    serve([jiraFine, githubOff]);
+    const { dialog, user } = await open();
+    await user.click(await within(dialog).findByRole('button', { name: 'GitHub, Not connected' }));
+
+    await user.click(await within(dialog).findByRole('link', { name: 'Connect GitHub' }));
+
+    expect(await screen.findByRole('dialog', { name: 'GitHub' })).toBeVisible();
+  });
+
+  it('AC-11: a failure Orynx gets past on its own has no Reconnect', async () => {
+    serve([
+      { ...jiraFailing, state: { state: 'failed', problem: { kind: 'no_answer' }, lastSyncedAt: at(9, 40) } },
+      githubFine,
+    ]);
+    const { dialog } = await open();
+
+    expect(within(await within(dialog).findByRole('alert')).queryByRole('link', { name: 'Reconnect' })).toBeNull();
+  });
 });

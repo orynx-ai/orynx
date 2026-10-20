@@ -1,6 +1,7 @@
 // Design: docs/design/screens/sync-activity/SyncAudit.dc.html — the modal: head, tool list, detail with its problem callout and stats, history, foot
 import { Cancel01Icon, Loading03Icon, Menu01Icon } from '@hugeicons/core-free-icons';
-import { useId, useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { useId, useState, type ReactNode } from 'react';
 import type { InboxSource, SyncTool } from '@devhub/contracts';
 import { syncActivityLimits } from '@devhub/contracts';
 import {
@@ -229,6 +230,17 @@ function ToolItem({ tool, current, onPick }: { tool: SyncTool; current: boolean;
   );
 }
 
+/** Settings › Connections with the tool's dialog open; leaving Home closes this modal (AC-23). */
+function ConnectLink({ tool, children }: { tool: InboxSource; children: ReactNode }) {
+  return (
+    <Button asChild variant="primary" size="sm">
+      <Link to="/settings/$tab" params={{ tab: 'connections' }} search={{ tool }}>
+        {children}
+      </Link>
+    </Button>
+  );
+}
+
 /** One tool's head, with Sync now, its problem with Retry, and its stats. */
 function ToolDetail({
   tool,
@@ -265,6 +277,7 @@ function ToolDetail({
             {statusLine(tool)}
           </span>
         </div>
+        {tool.state.state === 'not_connected' ? <ConnectLink tool={tool.tool}>Connect {name}</ConnectLink> : null}
         {problem === null && tool.state.state !== 'not_connected' ? (
           <Button variant="secondary" size="sm" pending={sync.isPending} onClick={syncNow}>
             {sync.isPending ? 'Syncing…' : 'Sync now'}
@@ -277,9 +290,12 @@ function ToolDetail({
           tone={problem.tone}
           title={problem.title}
           actions={
-            <Button variant="secondary" size="sm" pending={sync.isPending} onClick={syncNow}>
-              Retry
-            </Button>
+            <>
+              {problem.reconnect ? <ConnectLink tool={tool.tool}>Reconnect</ConnectLink> : null}
+              <Button variant="secondary" size="sm" pending={sync.isPending} onClick={syncNow}>
+                Retry
+              </Button>
+            </>
           }
         >
           <span className="text-small">{problem.fix}</span>

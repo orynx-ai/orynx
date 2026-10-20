@@ -134,6 +134,8 @@ export interface ToolDialogProps {
   status: IntegrationStatus;
   /** Says what changed, in the page's line under the list: "Jira disconnected." */
   announce: (message: string) => void;
+  /** Open as the page opens, when the address names the tool (spec 035). */
+  openAtStart?: boolean | undefined;
 }
 
 /** Under Disconnect Jira's warning: running sessions on a ticket keep what they have. Asked only while it shows. */
@@ -182,8 +184,9 @@ function ManagedDialog({
   disconnect,
   disconnectText: goes,
   disconnectNote,
+  openAtStart = false,
 }: ManagedDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(openAtStart);
   const [said, setSaid] = useState('');
   const [confirming, setConfirming] = useState(false);
   const check = useCheckConnection(tool);
@@ -407,7 +410,7 @@ function ManagedDialog({
 }
 
 /** Jira's status button and dialog. */
-export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
+export function JiraConnectionDialog({ status, announce, openAtStart }: ToolDialogProps) {
   const connection = useJiraConnection();
   const connect = useConnectJira();
   const disconnect = useDisconnectJira();
@@ -418,6 +421,7 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
     <ManagedDialog
       tool="jira"
       status={status}
+      openAtStart={openAtStart}
       announce={announce}
       throughGh={false}
       tokenForm={
@@ -468,7 +472,7 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
 }
 
 /** GitHub's status button and dialog. */
-export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
+export function GitHubConnectionDialog({ status, announce, openAtStart }: ToolDialogProps) {
   const connection = useGitHubConnection();
   const connect = useConnectGitHub();
   const disconnect = useDisconnectGitHub();
@@ -479,6 +483,7 @@ export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
     <ManagedDialog
       tool="github"
       status={status}
+      openAtStart={openAtStart}
       announce={announce}
       throughGh={method === 'gh'}
       tokenForm={
