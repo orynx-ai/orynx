@@ -53,8 +53,11 @@ const mostOwnNames = 20;
 export interface Worktrees {
   /** Branch names for the quick read (spec 042); null when the folder isn't a repository. Fast: no network. */
   hints(repo: string): Promise<BranchHints | null>;
-  /** Finds the default branch and the first free branch name for this ticket (Q1, Q2). Fast: no network. */
-  prepare(repo: string, key: string, signal?: AbortSignal): Promise<Prepared>;
+  /**
+   * Finds the default branch and the first free name from `branch` (Q1, Q2): `feat/PROJ-1423`, then `-2`, `-3`. Fast:
+   * no network.
+   */
+  prepare(repo: string, branch: string, signal?: AbortSignal): Promise<Prepared>;
   /**
    * Fetches the default branch when it's on `origin` (Q1a: the last fetched one if that fails), then makes
    * the branch from it in a new worktree at `path`. The branch doesn't track the default branch, so a later
@@ -115,13 +118,13 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
     return { base: current === '' ? 'HEAD' : current, remote: false };
   }
 
-  async function freeBranch(repo: string, key: string): Promise<string | null> {
+  async function freeBranch(repo: string, wanted: string): Promise<string | null> {
     const refs = (await git(repo).raw(['for-each-ref', '--format=%(refname)', 'refs/heads/', 'refs/remotes/origin/']))
       .split('\n')
       .map((ref) => ref.trim());
     const taken = new Set(refs);
     for (let n = 1; n <= mostBranchNames; n++) {
-      const name = n === 1 ? `feat/${key}` : `feat/${key}-${String(n)}`;
+      const name = n === 1 ? wanted : `${wanted}-${String(n)}`;
       if (!taken.has(`refs/heads/${name}`) && !taken.has(`refs/remotes/origin/${name}`)) return name;
     }
     return null;
@@ -166,14 +169,14 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
       }
     },
 
-    async prepare(repo, key, signal) {
+    async prepare(repo, branch, signal) {
       if (!(await isRepository(repo))) return { ok: false, problem: { kind: 'folder' } };
       if (signal?.aborted) return { ok: false, problem: { kind: 'stopped' } };
       try {
         const base = await defaultBase(repo);
-        const branch = await freeBranch(repo, key);
-        if (branch === null) return { ok: false, problem: { kind: 'git', step: 'prepare' } };
-        return { ok: true, plan: { branch, ...base } };
+        const free = await freeBranch(repo, branch);
+        if (free === null) return { ok: false, problem: { kind: 'git', step: 'prepare' } };
+        return { ok: true, plan: { branch: free, ...base } };
       } catch {
         return { ok: false, problem: { kind: 'git', step: 'prepare' } };
       }

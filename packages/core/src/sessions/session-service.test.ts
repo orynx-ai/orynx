@@ -36,7 +36,7 @@ import { useTestRepositories } from '../test/git-repository.ts';
 import { createTerminalService } from '../terminal/terminal-service.ts';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
-import type { SessionRecords } from './session-store.ts';
+import type { SessionRecords, StoredSession } from './session-store.ts';
 import { createChangesReader } from './changes.ts';
 import { createContextReader } from './context-reader.ts';
 import { createSessionService, type SessionReport } from './session-service.ts';
@@ -88,6 +88,8 @@ interface SetUpOptions {
   } | null;
   /** Build the server without Claude Code. */
   noClaude?: boolean;
+  /** Read each Build's ask first (spec 042), answered from `sdk.reads`. */
+  readAsks?: boolean;
   mode?: PermissionMode;
   /** The allow list in Settings › Coding agent. */
   allowedCommands?: string[];
@@ -110,6 +112,7 @@ async function setUp({
   now = () => clock,
   cached = { title: 'Add bulk archive', sprint: 'Sprint 42' },
   noClaude = false,
+  readAsks = false,
   mode = 'edit_freely_ask_commands',
   allowedCommands = [],
   savesFail = false,
@@ -221,6 +224,7 @@ async function setUp({
         }),
     events,
     terminal,
+    readAsks,
     onReport: (report) => reports.push(report),
     onChange: (before, after, { quiet }) => {
       if (before.state !== after.state) changes.push({ from: before.state, to: after.state, quiet });
@@ -1763,5 +1767,94 @@ describe('Claude’s commands (spec 036)', () => {
     await settled(records);
     expect(await service.commands('0000000000000001')).toEqual({ commands: [] });
     expect(await service.commands('ffffffffffffffff')).toBeNull();
+  });
+});
+
+describe('the quick read (spec 042)', () => {
+  const ask = 'take a pull from latest develop and start the server on free port';
+  const read = (fields: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      intent: 'run',
+      title: 'Pull develop and start the dev server',
+      branch: null,
+      branchFrom: null,
+      base: 'develop',
+      steps: [
+        { kind: 'setup', label: 'Set up' },
+        { kind: 'run', label: 'Start server' },
+      ],
+      ...fields,
+    });
+  const readingOf = (record: StoredSession | null) =>
+    record?.session.activities.find((activity) => activity.kind === 'reading');
+
+  it('AC-1, AC-23: reads the ask on the picked model first, then starts from the branch it named, with its title and steps', async () => {
+    const { service, records, repos, folders, sdk } = await setUp({ readAsks: true, script: [{ finish: 'Running.' }] });
+    sdk.reads.push(read());
+    await repos.commitInOrigin('develop.txt', 'develop');
+    await repos.git(repos.clone, 'fetch', '-q', 'origin');
+    await service.start({
+      message: ask,
+      repositoryId: folders[0]?.id ?? '',
+      context: [],
+      model: 'claude-opus-5-5',
+      effort: 'high',
+    });
+    const record = await settled(records);
+
+    expect(sdk.readRuns[0]?.options).toMatchObject({ tools: [], model: 'claude-opus-5-5', effort: 'high' });
+    expect(sdk.readRuns[0]?.prompts[0]).toContain(ask);
+    expect(sdk.runs[0]?.options).toMatchObject({ model: 'claude-opus-5-5' });
+    expect(kinds(record).slice(0, 3)).toEqual(['reading:done', 'worktree:done', 'brief:done']);
+    expect(readingOf(record)).toMatchObject({ intent: 'run', base: 'develop', missingBase: null });
+    expect(record.session).toMatchObject({
+      title: 'Pull develop and start the dev server',
+      intent: 'run',
+      steps: [
+        { kind: 'setup', label: 'Set up' },
+        { kind: 'run', label: 'Start server' },
+      ],
+    });
+    expect(record.session.activities.find((activity) => activity.kind === 'worktree')).toMatchObject({
+      base: 'origin/develop',
+    });
+  });
+
+  it('AC-23: a base that isn’t on origin starts from the default branch, and the reading says so', async () => {
+    const { service, records, folders, sdk } = await setUp({ readAsks: true });
+    sdk.reads.push(read({ base: 'release/26.10.03' }));
+    await service.start({ message: ask, repositoryId: folders[0]?.id ?? '', context: [] });
+    const record = await settled(records);
+    expect(readingOf(record)).toMatchObject({ base: 'main', missingBase: 'release/26.10.03' });
+  });
+
+  it('AC-22: a read that fails starts the session as before, and says so', async () => {
+    const { service, records, sdk } = await setUp({ readAsks: true });
+    sdk.reads.push('I will start the server.');
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+    expect(readingOf(record)).toMatchObject({ state: 'done', intent: null });
+    expect(record.session).toMatchObject({ title: 'Add bulk archive to the content list', intent: null, steps: [] });
+  });
+
+  it('AC-1: a ticket’s session keeps the ticket’s summary as its title', async () => {
+    const { service, records, sdk } = await setUp({ readAsks: true });
+    sdk.reads.push(read({ intent: 'change' }));
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+    expect(record.session).toMatchObject({ title: 'Add bulk archive to the content list', intent: 'change' });
+  });
+
+  it('AC-30: an Ask session reads nothing first', async () => {
+    const { service, records, folders, sdk } = await setUp({ readAsks: true, script: [{ finish: 'An answer.' }] });
+    await service.start({
+      message: 'why does it redirect twice?',
+      repositoryId: folders[0]?.id ?? '',
+      context: [],
+      mode: 'ask',
+    });
+    const record = await settled(records);
+    expect(sdk.readRuns).toHaveLength(0);
+    expect(readingOf(record)).toBeUndefined();
   });
 });

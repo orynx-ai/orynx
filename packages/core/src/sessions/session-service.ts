@@ -81,7 +81,9 @@ import {
   type SessionRecords,
   type StoredSession,
 } from './session-store.ts';
-import { createWorktrees, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
+import { createWorktrees, type Prepared, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
+import { readingFrom, readingInstructions, readingPrompt, type AskInput, type AskReading } from './ask-reading.ts';
+import { readBranchRules } from './branch-rules.ts';
 
 /**
  * Claude sessions (spec 011): starting one on a ticket or from the composer (spec 015), running it, stopping
@@ -222,10 +224,26 @@ export interface SessionServiceOptions {
   newId?: () => string;
   /** The Session screen hears about new steps at most this often; 250 ms (AC-4). */
   stepEventMs?: number;
+  /** Read each Build's ask before its worktree (spec 042); the server does, and so do the tests of it. */
+  readAsks?: boolean;
 }
 
 /** At most this many sessions work at once (Q11). */
 const mostWorking = 3;
+/** How long the quick read may take before the session starts as it would without it (spec 042, Q1). */
+const readTimeoutMs = 30_000;
+
+/** The quick read's row before it has read anything, and as it stays when the read fails (spec 042). */
+const unread = {
+  kind: 'reading',
+  intent: null,
+  base: null,
+  missingBase: null,
+  branch: null,
+  branchFrom: null,
+  suggested: null,
+  branchNote: null,
+} as const;
 
 function projectOf(key: string): string {
   return key.slice(0, key.lastIndexOf('-'));
@@ -660,6 +678,65 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return ticketPlan(issue);
   }
 
+  /**
+   * The quick read (spec 042): a running row, one text-only call on the model you picked, then the row with what it
+   * read, the session's intent, steps and, with no ticket or pull request, its title. Null when it couldn't read.
+   */
+  async function readAsk(id: string, record: StoredSession, start: StartPlan): Promise<AskReading | null> {
+    if (adapter === null || record.repository === null) return null;
+    const shown = await change(id, (current) =>
+      withProgress(current, (progress) => addStep(progress, unread, 'running')),
+    );
+    const rowId = shown?.session.activities.at(-1)?.id ?? '';
+    const repo = record.repository.path;
+    const [hints, rules] = await Promise.all([worktrees.hints(repo), readBranchRules(repo)]);
+    const input: AskInput = {
+      message: start.brief.message,
+      chips: start.brief.context.map((chip) => chip.title),
+      folder: record.session.folder?.name ?? '',
+      hints,
+      rules,
+      ticketKey: record.session.source?.kind === 'jira' ? record.session.source.key : null,
+      workOn: record.session.workOn,
+      fallbackBranch: `feat/${start.branchName}`,
+    };
+    const written = await adapter.write(readingPrompt(input), readingInstructions, {
+      timeoutMs: readTimeoutMs,
+      ...start.choice,
+    });
+    const reading = written.ok ? readingFrom(written.text, input) : null;
+    await change(id, (current) => {
+      const row =
+        reading === null
+          ? unread
+          : {
+              ...unread,
+              intent: reading.intent,
+              base: reading.base?.replace(/^origin\//, '') ?? null,
+              missingBase: reading.missingBase,
+              branch: reading.branch,
+              branchFrom: reading.branchFrom,
+              suggested: reading.suggested,
+              branchNote: reading.branchNote,
+            };
+      const next = withProgress(current, (progress) => replaceStep(progress, rowId, row));
+      if (reading === null) return next;
+      const [first] = reading.steps;
+      return {
+        ...next,
+        session: {
+          ...next.session,
+          // A ticket or pull request names the session; only a message alone takes the read's title.
+          title: next.session.source === null ? reading.title : next.session.title,
+          intent: reading.intent,
+          steps: reading.steps,
+          step: first?.kind ?? next.session.step,
+        },
+      };
+    });
+    return reading;
+  }
+
   async function run(id: string, run: Run): Promise<void> {
     const record = await records.get(id);
     if (record?.session.mode === 'ask') return runAsk(id, run, record);
@@ -672,11 +749,20 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (start === null) return;
     const { signal } = run.controller;
 
-    // Your pull request's own branch, fetched and detached; any other Build gets a branch of its own (spec 031).
+    const reading = options.readAsks === true ? await readAsk(id, record, start) : null;
+    if (stopping(run)) return;
+
+    /** Where the quick read said to start, when it named a branch on origin (spec 042). */
+    const based = (named: Prepared): Prepared =>
+      named.ok && reading?.base != null
+        ? { ...named, plan: { ...named.plan, base: reading.base, remote: true } }
+        : named;
+    // Your pull request's own branch, fetched and detached; any other Build gets a branch of its own (spec 031), named
+    // and based as the quick read said, when it could read your ask (spec 042).
     const pull = record.session.workOn === 'pull_request' ? record.session.pullRequest : null;
     const prepared =
       pull === null
-        ? await worktrees.prepare(record.repository.path, start.branchName, signal)
+        ? based(await worktrees.prepare(record.repository.path, reading?.branch ?? `feat/${start.branchName}`, signal))
         : {
             ok: true as const,
             plan: { branch: start.branchName, base: `origin/${start.branchName}`, remote: true, detach: true },

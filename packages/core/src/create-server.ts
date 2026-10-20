@@ -408,6 +408,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     app.addHook('onClose', () => terminal.close());
   }
   const sessionService = createSessionService({
+    // Each Build reads your ask first (spec 042).
+    readAsks: true,
     skills,
     records: sessions,
     repositories,

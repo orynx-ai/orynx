@@ -39,7 +39,7 @@ const exists = (path: string) =>
 describe('preparing a worktree', () => {
   it('AC-2 (Q1): starts from the branch origin/HEAD points at, and names the branch after the ticket', async () => {
     const { repos, worktrees } = await setUp();
-    expect(await worktrees.prepare(repos.clone, 'PROJ-1423')).toEqual({
+    expect(await worktrees.prepare(repos.clone, 'feat/PROJ-1423')).toEqual({
       ok: true,
       plan: { branch: 'feat/PROJ-1423', base: 'origin/main', remote: true },
     });
@@ -49,7 +49,7 @@ describe('preparing a worktree', () => {
     const { repos, worktrees } = await setUp();
     await repos.git(repos.clone, 'remote', 'remove', 'origin');
     await repos.git(repos.clone, 'checkout', '-b', 'develop');
-    expect(await worktrees.prepare(repos.clone, 'PROJ-1423')).toEqual({
+    expect(await worktrees.prepare(repos.clone, 'feat/PROJ-1423')).toEqual({
       ok: true,
       plan: { branch: 'feat/PROJ-1423', base: 'develop', remote: false },
     });
@@ -60,7 +60,7 @@ describe('preparing a worktree', () => {
     await repos.git(repos.clone, 'branch', 'feat/PROJ-1423');
     await repos.git(repos.clone, 'push', 'origin', 'HEAD:refs/heads/feat/PROJ-1423-2');
     await repos.git(repos.clone, 'fetch', 'origin');
-    expect(await worktrees.prepare(repos.clone, 'PROJ-1423')).toMatchObject({
+    expect(await worktrees.prepare(repos.clone, 'feat/PROJ-1423')).toMatchObject({
       ok: true,
       plan: { branch: 'feat/PROJ-1423-3' },
     });
@@ -68,13 +68,13 @@ describe('preparing a worktree', () => {
 
   it('AC-13: says a folder that is gone or not a git repository is the folder’s problem', async () => {
     const { repos, worktrees } = await setUp();
-    expect(await worktrees.prepare(join(repos.root, 'gone'), 'PROJ-1423')).toEqual({
+    expect(await worktrees.prepare(join(repos.root, 'gone'), 'feat/PROJ-1423')).toEqual({
       ok: false,
       problem: { kind: 'folder' },
     });
     const plain = join(repos.root, 'plain');
     await mkdir(plain);
-    expect(await worktrees.prepare(plain, 'PROJ-1423')).toEqual({ ok: false, problem: { kind: 'folder' } });
+    expect(await worktrees.prepare(plain, 'feat/PROJ-1423')).toEqual({ ok: false, problem: { kind: 'folder' } });
   });
 });
 
@@ -325,7 +325,7 @@ describe('Stop while the worktree is being made', () => {
     const { repos, worktrees } = await setUp();
     const stop = new AbortController();
     stop.abort();
-    expect(await worktrees.prepare(repos.clone, 'PROJ-1423', stop.signal)).toEqual({
+    expect(await worktrees.prepare(repos.clone, 'feat/PROJ-1423', stop.signal)).toEqual({
       ok: false,
       problem: { kind: 'stopped' },
     });
