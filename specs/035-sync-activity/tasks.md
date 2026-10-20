@@ -32,7 +32,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: Give ListNavItem a mark and a status, and add ListNavGroup (AC-5, AC-8)
       Check: pnpm test packages/ui/src/components/list-nav.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/list-nav.tsx, list-nav.stories.tsx, list-nav.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 11: Write the sync activity words: problems, fixes, summaries, status lines and times (AC-10, AC-11, AC-12)
+- [x] Task 11: Write the sync activity words: problems, fixes, summaries, status lines and times (AC-10, AC-11, AC-12)
       Check: pnpm test packages/app/src/features/sync-activity/sync-words.test.ts
       Files: packages/app/src/features/sync-activity/sync-words.ts, packages/app/src/features/sync-activity/sync-words.test.ts
 - [ ] Task 12: Build the dialog's tool list and detail: head, groups, status, problem callout and stats, with loading and error states (AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-17, AC-19, AC-28, AC-29)
