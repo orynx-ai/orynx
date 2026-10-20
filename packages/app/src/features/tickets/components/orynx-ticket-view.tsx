@@ -1,6 +1,16 @@
+import { useId, useRef, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { orynxStatusNames, TicketColumnSchema, type OrynxTicket, type TicketColumn } from '@devhub/contracts';
-import { Markdown, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@devhub/ui';
+import {
+  Button,
+  DialogContent,
+  Markdown,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { calendarDay, dayMonth } from '../../../words/calendar.ts';
 import { useNow } from '../../../words/use-now.ts';
@@ -16,17 +26,59 @@ import {
   TicketBodySkeleton,
   TicketDialogFrame,
 } from './ticket-dialog-parts.tsx';
+import { TicketForm } from './ticket-form.tsx';
 
 /**
  * One of Orynx's own tickets in the ticket dialog (spec 037, AC-13, AC-14): the Orynx mark, its fields and Markdown
  * description, who made it, and a Status picker that saves as soon as you pick, which is how a ticket moves between
- * columns. Its actions are the dialog's, without Open in Jira.
+ * columns. Its actions are the dialog's, without Open in Jira, and Edit, which turns the dialog into the New ticket
+ * form, filled in.
  */
 export function OrynxTicketContent({ shown, onClose }: { shown: ShownTicket; onClose: () => void }) {
   const ticket = useOrynxTicket(shown.key);
   const update = useUpdateOrynxTicket();
   const found = ticket.data?.result === 'found' ? ticket.data.ticket : null;
   const gone = ticket.data?.result === 'not_found';
+  // Editing: the version the form saves on, and what to say above its buttons (AC-15, AC-16).
+  const [editing, setEditing] = useState<{ version: number; problem: string | null } | null>(null);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const headingId = useId();
+
+  function stopEditing() {
+    setEditing(null);
+    // Back in the view, focus goes where it left from.
+    requestAnimationFrame(() => editButton.current?.focus());
+  }
+
+  if (found !== null && editing !== null) {
+    return (
+      <DialogContent aria-labelledby={headingId}>
+        <TicketForm
+          heading={orynxTicketWords.editTitle(found.key)}
+          headingId={headingId}
+          defaults={found}
+          submitLabel={orynxTicketWords.saveChanges}
+          saving={update.isPending}
+          problem={editing.problem}
+          onSubmit={(fields) =>
+            update.mutateAsync({ key: found.key, change: { ...fields, version: editing.version } }).then(
+              (answer) => {
+                if (answer.result === 'saved') stopEditing();
+                // Someone saved first: keep your edits, and let a second save write over theirs.
+                else if (answer.result === 'changed') {
+                  setEditing({ version: answer.ticket.version, problem: orynxTicketWords.changed(found.key) });
+                } else setEditing({ ...editing, problem: orynxTicketWords.deleted(found.key) });
+              },
+              () => {
+                setEditing({ ...editing, problem: orynxTicketWords.saveFailed });
+              },
+            )
+          }
+          onCancel={stopEditing}
+        />
+      </DialogContent>
+    );
+  }
 
   return (
     <TicketDialogFrame
@@ -44,6 +96,18 @@ export function OrynxTicketContent({ shown, onClose }: { shown: ShownTicket; onC
             session={found.session}
             onClose={onClose}
             problem={update.isError ? orynxTicketWords.saveFailed : null}
+            extra={
+              <Button
+                ref={editButton}
+                variant="secondary"
+                onClick={() => {
+                  update.reset();
+                  setEditing({ version: found.version, problem: null });
+                }}
+              >
+                {orynxTicketWords.edit}
+              </Button>
+            }
           />
         )
       }

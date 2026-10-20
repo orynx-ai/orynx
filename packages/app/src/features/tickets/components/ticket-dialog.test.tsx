@@ -338,4 +338,82 @@ describe('an Orynx ticket in the ticket dialog (spec 037)', () => {
     expect(await within(dialog).findByText('ORX-3 was deleted.')).toBeVisible();
     expect(within(dialog).queryByRole('button', { name: 'Add to composer' })).toBeNull();
   });
+
+  it('AC-15: Edit turns the dialog into the form, filled in; Save changes saves it with the version it opened at', async () => {
+    const changes = serveOrynx();
+    const { user } = await renderApp({ route: '/tickets' });
+    const view = await openFromBoard(user, 'Add bulk archive');
+
+    await user.click(await within(view).findByRole('button', { name: 'Edit' }));
+    const form = screen.getByRole('dialog', { name: 'Edit ORX-3' });
+    expect(within(form).getByRole('textbox', { name: 'Title' })).toHaveValue('Add bulk archive');
+    await user.click(within(form).getByRole('combobox', { name: 'Priority' }));
+    await user.click(screen.getByRole('option', { name: 'High' }));
+    await user.click(within(form).getByRole('button', { name: 'Save changes' }));
+
+    const back = await screen.findByRole('dialog', { name: 'Add bulk archive' });
+    expect(await within(back).findByText('High')).toBeVisible();
+    expect(changes).toEqual([
+      {
+        title: 'Add bulk archive',
+        description: 'Archive **many** at once.',
+        type: 'Task',
+        priority: 'High',
+        status: 'to_do',
+        dueDate: '2026-10-24',
+        version: 1,
+      },
+    ]);
+    expect(within(back).getByRole('button', { name: 'Edit' })).toHaveFocus();
+  });
+
+  it('AC-16: a ticket someone saved first keeps your edits and says so; Save changes again writes over it', async () => {
+    serveOrynx();
+    const sent: UpdateOrynxTicket[] = [];
+    let first = true;
+    server.use(
+      http.patch(apiUrl(apiRoutes.orynxTicket), async ({ request }) => {
+        const change = (await request.json()) as UpdateOrynxTicket;
+        sent.push(change);
+        const theirs = makeOrynxTicket({ status: 'in_review', version: 2 });
+        if (first) {
+          first = false;
+          return HttpResponse.json({ result: 'changed', ticket: theirs });
+        }
+        return HttpResponse.json({ result: 'saved', ticket: { ...theirs, title: 'Archive it all', version: 3 } });
+      }),
+    );
+    const { user } = await renderApp({ route: '/tickets' });
+    const view = await openFromBoard(user, 'Add bulk archive');
+    await user.click(await within(view).findByRole('button', { name: 'Edit' }));
+    const form = screen.getByRole('dialog', { name: 'Edit ORX-3' });
+    const title = within(form).getByRole('textbox', { name: 'Title' });
+
+    await user.clear(title);
+    await user.type(title, 'Archive it all');
+    await user.click(within(form).getByRole('button', { name: 'Save changes' }));
+
+    expect(await within(form).findByRole('alert')).toHaveTextContent(
+      'ORX-3 changed after you opened it. Save changes again to keep your version.',
+    );
+    expect(title).toHaveValue('Archive it all');
+    await user.click(within(form).getByRole('button', { name: 'Save changes' }));
+
+    await screen.findByRole('dialog', { name: /Add bulk archive|Archive it all/ });
+    expect(sent.map((change) => change.version)).toEqual([1, 2]);
+  });
+
+  it('Cancel leaves the ticket as it was', async () => {
+    const changes = serveOrynx();
+    const { user } = await renderApp({ route: '/tickets' });
+    const view = await openFromBoard(user, 'Add bulk archive');
+
+    await user.click(await within(view).findByRole('button', { name: 'Edit' }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Edit ORX-3' })).getByRole('button', { name: 'Cancel' }),
+    );
+
+    expect(await screen.findByRole('dialog', { name: 'Add bulk archive' })).toBeVisible();
+    expect(changes).toEqual([]);
+  });
 });
