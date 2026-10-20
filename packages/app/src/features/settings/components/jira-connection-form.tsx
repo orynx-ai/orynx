@@ -1,11 +1,11 @@
-import { useEffect, useId, useRef, useState, type SubmitEvent } from 'react';
+import { useEffect, useRef, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import type { ApiRequestError } from '@devhub/api-client';
 import type { JiraConnection, JiraCredentials } from '@devhub/contracts';
-import { Button, ExternalLink, Field, Input } from '@devhub/ui';
+import { ExternalLink, Field, Input } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
-import { useConnectJira, useDisconnectJira } from '../queries.ts';
+import type { useConnectJira } from '../queries.ts';
 import { jiraFormSchema, type JiraFormValues } from '../schemas.ts';
 
 export const apiTokensUrl = 'https://id.atlassian.com/manage-profile/security/api-tokens';
@@ -22,24 +22,18 @@ const fieldFor: Partial<Record<ApiRequestError['code'], keyof JiraFormValues>> =
 };
 
 export interface JiraConnectionFormProps {
+  /** The form's id, which the dialog's Connect button submits. */
   id: string;
   /** What the server has saved; the form starts from it. */
   connection: JiraConnection;
+  /** The dialog's Connect, so its button shows the check on its way and its answer lands after Cancel. */
+  connect: ReturnType<typeof useConnectJira>;
   onConnected: () => void;
-  onDisconnected: () => void;
-  onCancel: () => void;
 }
 
-/** Settings › Connections › Jira: site, email and API token, checked with Jira before anything is saved (spec 003). */
-export function JiraConnectionForm({ id, connection, onConnected, onDisconnected, onCancel }: JiraConnectionFormProps) {
+/** Settings › Connections › Jira: site, email and API token, checked with Jira before anything is saved (spec 003). Its buttons sit in the dialog's foot (spec 030). */
+export function JiraConnectionForm({ id, connection, connect, onConnected }: JiraConnectionFormProps) {
   const platform = usePlatform();
-  const connect = useConnectJira();
-  const disconnect = useDisconnectJira();
-  const [confirming, setConfirming] = useState(false);
-  const confirmRef = useRef<HTMLDivElement>(null);
-  const disconnectRef = useRef<HTMLButtonElement>(null);
-  const confirmTitleId = useId();
-  const confirmLineId = useId();
   const { saved, envToken } = connection;
   const form = useForm<JiraFormValues, unknown, JiraCredentials>({
     resolver: zodResolver(saved === null && !envToken ? tokenRequired : tokenOptional),
@@ -54,17 +48,6 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
   useEffect(() => {
     siteInput.current?.focus();
   }, []);
-
-  // Focus moves into the confirm step when it opens, and back to Disconnect Jira when it is cancelled.
-  const confirmShown = useRef(false);
-  useEffect(() => {
-    if (confirming) {
-      confirmShown.current = true;
-      confirmRef.current?.focus();
-    } else if (confirmShown.current) {
-      disconnectRef.current?.focus();
-    }
-  }, [confirming]);
 
   // A second submit while the first is on its way sends nothing, even before the button shows it waits.
   const sending = useRef(false);
@@ -86,9 +69,7 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
       });
     }, done)(event);
   }
-  const formError =
-    disconnect.error?.message ??
-    (connect.error && fieldFor[connect.error.code] === undefined ? connect.error.message : undefined);
+  const formError = connect.error && fieldFor[connect.error.code] === undefined ? connect.error.message : undefined;
 
   const tokenLead =
     saved !== null
@@ -146,77 +127,6 @@ export function JiraConnectionForm({ id, connection, onConnected, onDisconnected
         <p role="alert" className="m-0 text-small text-danger">
           {formError}
         </p>
-      )}
-      {confirming ? (
-        // Spec 003 Q3(c): the confirm step stays in the form, never a browser dialog.
-        <div
-          ref={confirmRef}
-          role="group"
-          aria-labelledby={confirmTitleId}
-          aria-describedby={confirmLineId}
-          tabIndex={-1}
-          className="flex flex-col gap-2"
-        >
-          <span id={confirmTitleId} className="font-medium">
-            Disconnect Jira?
-          </span>
-          <span id={confirmLineId} className="text-small text-muted-foreground">
-            Orynx deletes the API token from your keychain and forgets the site and email.
-          </span>
-          <div className="flex flex-wrap items-center gap-2 pt-2">
-            <Button
-              variant="danger"
-              pending={disconnect.isPending}
-              onClick={() => {
-                disconnect.mutate(undefined, { onSuccess: onDisconnected });
-              }}
-            >
-              Disconnect
-            </Button>
-            <Button
-              variant="ghost"
-              // Once Disconnect is on its way, Cancel can't stop it.
-              aria-disabled={disconnect.isPending || undefined}
-              onClick={() => {
-                if (disconnect.isPending) return;
-                setConfirming(false);
-                disconnect.reset();
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" variant="primary" pending={connect.isPending}>
-            Connect Jira
-          </Button>
-          {/* Once the check is on its way, closing the form can't stop it from saving. */}
-          <Button
-            variant="ghost"
-            aria-disabled={connect.isPending || undefined}
-            onClick={() => {
-              if (!connect.isPending) onCancel();
-            }}
-          >
-            Cancel
-          </Button>
-          {saved === null ? null : (
-            <Button
-              ref={disconnectRef}
-              variant="danger"
-              size="sm"
-              className="ms-auto"
-              onClick={() => {
-                connect.reset();
-                setConfirming(true);
-              }}
-            >
-              Disconnect Jira
-            </Button>
-          )}
-        </div>
       )}
     </form>
   );

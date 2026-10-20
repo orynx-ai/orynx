@@ -325,4 +325,52 @@ describe('ConnectionDialog (spec 030)', () => {
       expect(await screen.findByRole('button', { name: 'GitHub: Connected. Manage connection' })).toBeInTheDocument();
     });
   });
+
+  describe('Not connected', () => {
+    it('AC-20: the form sits in the dialog with Cancel and Connect at its foot, and connecting says so on the page', async () => {
+      const sent = jiraServer();
+      const { user } = await renderApp({ route: '/settings/connections' });
+      await user.click(await screen.findByRole('button', { name: 'Jira: Not connected. Manage connection' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Jira' });
+
+      expect(dialog).toHaveAccessibleDescription('Connect Jira to see your tickets in Orynx.');
+      expect(within(dialog).getByText('Not connected')).toBeVisible();
+      expect(within(dialog).queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument();
+      const form = within(dialog).getByRole('form', { name: 'Jira connection' });
+      await user.type(within(form).getByLabelText('Jira site'), 'your-team');
+      await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
+      await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
+      await user.click(within(dialog).getByRole('button', { name: 'Connect' }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+      expect(sent).toEqual([
+        { site: 'your-team.atlassian.net', email: 'dev@example.com', apiToken: 'fake-token-for-tests' },
+      ]);
+      expect(await screen.findByText('Jira connected. Your inbox is refreshing.')).toBeVisible();
+      expect(await screen.findByRole('button', { name: 'Jira: Connected. Manage connection' })).toHaveFocus();
+    });
+
+    it('AC-22: Slack asks its admin first, with the request ready to copy', async () => {
+      const { user } = await renderApp({ route: '/settings/connections' });
+      await user.click(await screen.findByRole('button', { name: 'Slack: Not connected. Manage connection' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Slack' });
+
+      expect(dialog).toHaveAccessibleDescription('Two steps. Until then, Slack items are left out of your inbox.');
+      expect(within(dialog).getByText('Ask your Slack admin to approve the Orynx app')).toBeVisible();
+      expect(
+        within(dialog).getByText('It needs search:read, channels:history and im:history, only for your account.'),
+      ).toBeVisible();
+      await user.click(within(dialog).getByRole('button', { name: 'Copy request for your admin' }));
+
+      expect(await navigator.clipboard.readText()).toBe(
+        'Could you approve the Orynx app in our Slack workspace? It needs search:read, channels:history and im:history, only for my account, so Orynx can show my mentions and DMs. It runs on my computer.',
+      );
+      expect(await within(dialog).findByRole('button', { name: 'Request copied' })).toBeInTheDocument();
+      await expectNoAxeViolations(dialog);
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
 });

@@ -38,7 +38,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: Needs reconnecting with a token (Jira, or GitHub by token): one token field with its Create link inside the callout, Reconnect saves it through today's PUT, empty re-checks the saved one (Q3) (AC-19)
       Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx packages/app/src/features/settings/components/reconnect-token-form.test.tsx
       Files: reconnect-token-form.tsx, reconnect-token-form.test.tsx, connection-dialog.tsx, connection-dialog.test.tsx, packages/app/src/features/settings/schemas.ts
-- [ ] Task 13: Not connected: today's Jira and GitHub forms in the dialog's body with Cancel · Connect in its foot (`form` attribute), their own Disconnect and button rows gone; Slack: the line, step 1 and Copy request for your admin (Q4), Close (AC-20, AC-21, AC-22)
+- [x] Task 13: Not connected: today's Jira and GitHub forms in the dialog's body with Cancel · Connect in its foot (`form` attribute), their own Disconnect and button rows gone; Slack: the line, step 1 and Copy request for your admin (Q4), Close (AC-20, AC-21, AC-22)
       Check: pnpm test packages/app/src/features/settings/components/jira-connection-form.test.tsx packages/app/src/features/settings/components/github-connection-form.test.tsx packages/app/src/features/settings/components/connection-dialog.test.tsx
       Files: jira-connection-form.tsx, github-connection-form.tsx, connection-dialog.tsx, and their tests
 - [ ] Task 14: The page bar's "N of 3 connected · N needs attention" on this tab, and the `// Design:` note naming both designs (after the user has run Task 1's script); the real-browser check at 360 and 1280 px in both themes (AC-2)

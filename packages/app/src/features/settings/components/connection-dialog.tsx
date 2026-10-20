@@ -150,12 +150,15 @@ interface ManagedDialogProps extends ToolDialogProps {
   throughGh: boolean;
   /** Reconnecting with a new token: the field, once what it sends with has arrived. `done` shuts the dialog. */
   tokenForm: ((id: string, done: () => void) => ReactNode) | undefined;
-  /** A new token is on its way. */
-  reconnecting: boolean;
   /** The saved settings the form starts from could not be loaded. */
   loadFailed: boolean;
-  /** The connect form, once what it starts from has arrived. `close` shuts the dialog, saying `message`. */
-  form: ((close: (message?: string) => void, announce: (message: string) => void) => ReactNode) | undefined;
+  /**
+   * The connect form with this `id`, which Connect submits, once what it starts from has arrived. `close`
+   * shuts the dialog, saying `message`.
+   */
+  form: ((id: string, close: (message?: string) => void, announce: (message: string) => void) => ReactNode) | undefined;
+  /** Connect and Reconnect with a token: the button waits while it is on its way. */
+  connect: { isPending: boolean; reset: () => void };
   disconnect: ReturnType<typeof useDisconnectJira>;
   /** What Disconnect takes away, and what it leaves. */
   disconnectText: string;
@@ -173,9 +176,9 @@ function ManagedDialog({
   details,
   throughGh,
   tokenForm,
-  reconnecting,
   loadFailed: failedToLoad,
   form,
+  connect,
   disconnect,
   disconnectText: goes,
   disconnectNote,
@@ -186,7 +189,7 @@ function ManagedDialog({
   const check = useCheckConnection(tool);
   const name = toolNames[tool];
   const look = lookOf(status);
-  const tokenFormId = useId();
+  const formId = useId();
 
   // Focus moves to Keep connected when the warning shows, and back to Disconnect when it goes.
   const keep = useRef<HTMLButtonElement>(null);
@@ -209,6 +212,7 @@ function ManagedDialog({
     // A fresh start each time it opens. A check or a disconnect still on its way keeps its answer: closing
     // doesn't stop it, and it lands in the row and the page's line.
     if (next && !check.isPending) check.reset();
+    if (next && !connect.isPending) connect.reset();
     if (next && !disconnect.isPending) disconnect.reset();
   }
   function close(message?: string) {
@@ -374,7 +378,7 @@ function ManagedDialog({
         role={failed === undefined ? undefined : 'alert'}
         title={reason}
       >
-        {tokenForm(tokenFormId, () => {
+        {tokenForm(formId, () => {
           close(changedLine.reconnected(name));
         })}
       </Callout>
@@ -382,7 +386,7 @@ function ManagedDialog({
     foot = (
       <DialogFoot start={askToDisconnect}>
         {cancel}
-        <Button type="submit" form={tokenFormId} variant="primary" pending={reconnecting}>
+        <Button type="submit" form={formId} variant="primary" pending={connect.isPending}>
           Reconnect
         </Button>
       </DialogFoot>
@@ -391,10 +395,20 @@ function ManagedDialog({
     body = (
       <>
         {failed === undefined ? null : <Callout key={failed} tone="danger" role="alert" title={failed} />}
-        {failedToLoad ? loadFailed() : form?.(close, setSaid)}
+        {failedToLoad ? loadFailed() : form?.(formId, close, setSaid)}
       </>
     );
     live = said === '' ? null : <span className="sr-only">{said}</span>;
+    foot = (
+      <DialogFoot>
+        {cancel}
+        {form === undefined ? null : (
+          <Button type="submit" form={formId} variant="primary" pending={connect.isPending}>
+            Connect
+          </Button>
+        )}
+      </DialogFoot>
+    );
   }
 
   return (
@@ -416,7 +430,6 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
   const connect = useConnectJira();
   const disconnect = useDisconnectJira();
   const now = useNow();
-  const formId = useId();
   const loaded = connection.data;
   const saved = loaded?.saved ?? null;
   return (
@@ -440,7 +453,7 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
               />
             )
       }
-      reconnecting={connect.isPending}
+      connect={connect}
       disconnect={disconnect}
       disconnectText={disconnectText.jira}
       disconnectNote={<RunningTicketSessions />}
@@ -456,18 +469,13 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
       ]}
       form={
         loaded
-          ? (close) => (
+          ? (id, close) => (
               <JiraConnectionForm
-                id={formId}
+                id={id}
                 connection={loaded}
+                connect={connect}
                 onConnected={() => {
                   close(changedLine.connected('Jira'));
-                }}
-                onDisconnected={() => {
-                  close(changedLine.disconnected('Jira'));
-                }}
-                onCancel={() => {
-                  close();
                 }}
               />
             )
@@ -483,7 +491,6 @@ export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
   const connect = useConnectGitHub();
   const disconnect = useDisconnectGitHub();
   const now = useNow();
-  const formId = useId();
   const loaded = connection.data;
   const method = loaded?.saved?.method;
   return (
@@ -507,7 +514,7 @@ export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
             )
           : undefined
       }
-      reconnecting={connect.isPending}
+      connect={connect}
       disconnect={disconnect}
       disconnectText={disconnectText[method ?? 'gh']}
       loadFailed={connection.isLoadingError}
@@ -524,19 +531,14 @@ export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
       ]}
       form={
         loaded
-          ? (close, say) => (
+          ? (id, close, say) => (
               <GitHubConnectionForm
-                id={formId}
+                id={id}
                 connection={loaded}
+                connect={connect}
                 announce={say}
                 onConnected={() => {
                   close(changedLine.connected('GitHub'));
-                }}
-                onDisconnected={() => {
-                  close(changedLine.disconnected('GitHub'));
-                }}
-                onCancel={() => {
-                  close();
                 }}
               />
             )
@@ -546,23 +548,58 @@ export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
   );
 }
 
-/** Slack's status button and dialog. Connecting Slack comes with spec 016 (spec 030 Q4). */
+/** What step 1 copies for a Slack admin (spec 030, Q4). */
+export const slackRequest =
+  'Could you approve the Orynx app in our Slack workspace? It needs search:read, channels:history and im:history, only for my account, so Orynx can show my mentions and DMs. It runs on my computer.';
+
+/**
+ * Slack's status button and dialog: the first of its two steps, asking the admin. Pasting the token, the
+ * second, comes with spec 016 (spec 030, Q4).
+ */
 export function SlackConnectionDialog({ status }: Pick<ToolDialogProps, 'status'>) {
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   return (
     <ConnectionDialog
       tool="slack"
       status={status}
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        setOpen(next);
+        setCopied(false);
+      }}
+      body={
+        <div className="flex flex-col items-start gap-1.5">
+          <span className="font-medium">Ask your Slack admin to approve the Orynx app</span>
+          <span className="text-small text-muted-foreground">
+            It needs search:read, channels:history and im:history, only for your account.
+          </span>
+          <Button
+            size="sm"
+            className="mt-1"
+            onClick={() => {
+              // A copy the browser refuses changes nothing.
+              void navigator.clipboard.writeText(slackRequest).then(
+                () => {
+                  setCopied(true);
+                },
+                () => undefined,
+              );
+            }}
+          >
+            {copied ? 'Request copied' : 'Copy request for your admin'}
+          </Button>
+        </div>
+      }
       foot={
         <DialogFoot>
+          {/* Cancel, as 10a draws it: the head's Close already has that name. */}
           <Button
             onClick={() => {
               setOpen(false);
             }}
           >
-            Close
+            Cancel
           </Button>
         </DialogFoot>
       }
