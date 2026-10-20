@@ -19,6 +19,7 @@ import { SettingsSearchSchema, SettingsTabSchema } from './features/settings/tab
 import { SessionSearchSchema } from './features/sessions/session-search.ts';
 import { TicketsSearchSchema } from './features/tickets/filters.ts';
 import { TicketsScreen } from './features/tickets/tickets-screen.tsx';
+import { useTicketsStore } from './features/tickets/store.ts';
 import { AppShell } from './shell/app-shell.tsx';
 
 export interface RouterContext {
@@ -44,6 +45,16 @@ const ticketsRoute = createRoute({
   path: '/tickets',
   // The filters: `/tickets?assignee=anyone&due=week&type=bug`; the defaults have none (spec 008, Q3e).
   validateSearch: (search) => TicketsSearchSchema.parse(search),
+  // Opened with no filters, from the sidebar say, Tickets opens on the last ones, before the first paint (spec 039,
+  // AC-7). An address that names any filter wins.
+  beforeLoad: ({ search, cause }) => {
+    // Only on the way in: Clear filters, on the page, also leaves the address with none.
+    if (cause !== 'enter' || Object.values(search).some((value) => value !== undefined)) return;
+    const kept = useTicketsStore.getState().filters;
+    if (Object.keys(kept).length === 0) return;
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- TanStack Router redirects by throwing
+    throw redirect({ to: '/tickets', search: kept, replace: true });
+  },
   component: TicketsScreen,
 });
 

@@ -534,3 +534,66 @@ describe('recent searches on Tickets (spec 039)', () => {
     expect(count()).toHaveTextContent('0 tickets');
   });
 });
+
+describe('remembered filters (spec 039)', () => {
+  const mainNav = () => screen.getByRole('navigation', { name: 'Main' });
+
+  it('AC-7: leaving Tickets and coming back from the sidebar keeps the filters', async () => {
+    server.use(ticketsHandler());
+    const { user, history } = await renderApp({ route: '/tickets?assignee=anyone&type=bug' });
+    await screen.findByText('2 tickets');
+
+    await user.click(within(mainNav()).getByRole('link', { name: /^Home/ }));
+    await screen.findByRole('heading', { level: 1, name: /Home|What should we ship/ });
+    await user.click(within(mainNav()).getByRole('link', { name: /^Tickets/ }));
+
+    expect(await screen.findByText('2 tickets')).toBeVisible();
+    const params = new URLSearchParams(history.location.search);
+    expect(params.get('assignee')).toBe('anyone');
+    expect(params.get('type')?.toLowerCase()).toBe('bug');
+  });
+
+  it('AC-8: an address that names filters wins, and is remembered from then on', async () => {
+    server.use(ticketsHandler());
+    const first = await renderApp({ route: '/tickets?type=bug' });
+    await screen.findByText('1 ticket');
+    first.unmount();
+
+    const { user, history } = await renderApp({ route: '/tickets?assignee=unassigned' });
+    expect(await screen.findByText('1 ticket')).toBeVisible();
+    expect(history.location.search).toBe('?assignee=unassigned');
+    await user.click(within(mainNav()).getByRole('link', { name: /^Home/ }));
+    await user.click(within(mainNav()).getByRole('link', { name: /^Tickets/ }));
+    await waitFor(() => {
+      expect(history.location.search).toBe('?assignee=unassigned');
+    });
+  });
+
+  it('AC-6, AC-7: after Clear filters, coming back shows the defaults', async () => {
+    server.use(ticketsHandler());
+    const { user, history } = await renderApp({ route: '/tickets?type=bug' });
+    await screen.findByText('1 ticket');
+    await user.click(
+      within(screen.getByRole('group', { name: 'Filters' })).getByRole('button', { name: 'Clear filters' }),
+    );
+
+    await user.click(within(mainNav()).getByRole('link', { name: /^Home/ }));
+    await user.click(within(mainNav()).getByRole('link', { name: /^Tickets/ }));
+
+    expect(await screen.findByText('6 tickets')).toBeVisible();
+    expect(history.location.search).toBe('');
+  });
+
+  it('AC-9: the search text is for one visit and isn’t kept', async () => {
+    server.use(ticketsHandler());
+    const { user } = await renderApp({ route: '/tickets?type=bug' });
+    await screen.findByText('1 ticket');
+    await user.type(screen.getByRole('searchbox', { name: 'Search tickets' }), '1389');
+
+    await user.click(within(mainNav()).getByRole('link', { name: /^Home/ }));
+    await user.click(within(mainNav()).getByRole('link', { name: /^Tickets/ }));
+
+    expect(await screen.findByRole('searchbox', { name: 'Search tickets' })).toHaveValue('');
+    expect(screen.getByText('1 ticket')).toBeVisible();
+  });
+});

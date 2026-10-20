@@ -59,9 +59,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 19: Project and Sprint as the page bar's crumbs, cut short under 768 px (AC-10–AC-12)
       Check: pnpm test packages/app/src/features/tickets/tickets-screen.test.tsx packages/app/src/features/tickets/components/sprint-pickers.test.tsx
       Files: packages/app/src/features/tickets/tickets-screen.tsx, components/sprint-pickers.tsx, their tests, packages/app/src/shell/page-frame.tsx
-- [ ] Task 20: Tickets remembers its filters on this computer and applies them before the first paint; an address with filters wins (AC-7–AC-9)
-      Check: pnpm test packages/app/src/features/tickets/tickets-screen.test.tsx packages/app/src/features/tickets/store.test.ts
-      Files: packages/app/src/features/tickets/store.ts, its test, packages/app/src/router.tsx, tickets-screen.tsx
+- [x] Task 20: Tickets remembers its filters on this computer and applies them before the first paint; an address with filters wins (AC-7–AC-9)
+      Check: pnpm test packages/app/src/features/tickets/tickets-screen.test.tsx
+      Files: packages/app/src/features/tickets/store.ts, packages/app/src/router.tsx, tickets-screen.tsx, its test
 - [ ] Task 21: The New ticket dialog's Orynx line, with and without Jira (AC-40, AC-41)
       Check: pnpm test packages/app/src/features/tickets/components/ticket-form.test.tsx packages/app/src/features/tickets/tickets-screen.test.tsx
       Files: packages/app/src/features/tickets/components/new-ticket.tsx, ticket-form.tsx, ticket-words.ts, their tests

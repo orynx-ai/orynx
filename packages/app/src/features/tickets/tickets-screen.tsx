@@ -61,6 +61,11 @@ export function TicketsScreen() {
   const text = useWatch({ control: form.control, name: 'text' });
   const assignee = useRef<HTMLButtonElement>(null);
   const searchBox = useRef<HTMLInputElement | null>(null);
+  // The address's filters are remembered, so Tickets opens on them again (spec 039, AC-7, AC-8).
+  const keepFilters = useTicketsStore((state) => state.keepFilters);
+  useEffect(() => {
+    keepFilters(searchFromFilters(filtersFromSearch(search)));
+  }, [search, keepFilters]);
   // A pick of project or sprint that didn't save, from the page bar or the sheet (spec 005, Q7c).
   const choiceFailed = useTicketsChoiceFailed();
   // A search counts once you press Enter, or open a ticket while it's typed (spec 039, AC-45).
