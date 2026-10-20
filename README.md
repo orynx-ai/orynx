@@ -1,12 +1,80 @@
 # Orynx
 
-One local workspace for the Jira tickets, GitHub pull requests and Slack messages that need you, plus a place to hand a ticket to Claude and watch it build the change in a separate git worktree, approving each risky step.
+**Hand your agent the ticket. Keep your flow.**
 
-Everything runs on your laptop. There is no Orynx cloud: tokens stay in your OS keychain and the cache is a local file.
+Orynx is a developer-first, plug-and-play app on your laptop. Connectors bring the Jira tickets and GitHub reviews that need you into one inbox, and the coding agent you plug in, Claude today, builds a ticket in its own git worktree. You choose how far it goes: ask before every command, or push the branch and open the pull request on its own.
+
+![Orynx Home. A banner says Claude is waiting to run the orders tests. Below it, the composer asks what to build today, and Needs your attention lists Jira tickets and GitHub pull requests with reasons such as Approve command, Review requested and Checks failing.](apps/landing/src/assets/screens/home-1440.webp)
+
+## What it does
+
+### One inbox: know what needs you, and why
+
+Orynx reads your assigned tickets, review requests and your own pull requests, then shows only what is waiting on you. Each row says why it is there and how long it has waited, so the next step is obvious.
+
+- **Approve command**: an agent session is waiting for your click before it runs a command.
+- **Review requested**: pull requests that asked for your review, longest wait first.
+- **Checks failing**: your own pull requests with red checks or unresolved comments.
+- **Due tomorrow**: assigned tickets by due date, with high-priority bugs on top.
+
+### Your sprint, with your agent on the board
+
+Board or list, filtered by assignee, status, type, priority and due date. Every card shows where its agent session stands, and any card can start one.
+
+![Orynx Tickets. A sprint board with To do, In progress, In review and Done columns. Cards show each ticket's priority, due date and Claude's state, such as Needs you, Working and Done, ready for PR.](apps/landing/src/assets/screens/tickets-1440.webp)
+
+### Delegate the work, stay close to the change
+
+A session takes a ticket from brief to pull request in five visible steps: plan, build, test, review and pull request. Step in at any of them, or let it run.
+
+1. **Start from a ticket or a sentence.** Paste a Jira key, pick a ticket from the board, or describe the task. Add pull requests and files as context, then choose the repository and the model.
+2. **The agent works in its own worktree.** Each session gets a fresh git worktree and branch, so your main checkout stays untouched. Watch the plan, the files the agent reads and every edit as it happens.
+3. **Your settings decide what runs.** The agent does what you allowed in Settings and asks for the rest: allow once, always allow, or deny. Review the diff file by file and ask for changes without starting over.
+4. **Ship your way.** The agent drafts the pull request title and description. Push and open it with one click, or allow it to push the branch and open the pull request on its own.
+
+![An Orynx session for a Jira story. Claude asks to run the orders tests, with Allow once, Always allow and Deny. On the left, its progress: made a worktree, sent the brief, explored the code and made a plan. On the right, the live diff of four changed files.](apps/landing/src/assets/screens/session-1440.webp)
+
+### Your rules: as hands-on or hands-off as you like
+
+Pick a level in Settings › Coding agent, then set any kind of call to Allow, Ask or Block. The agent checks your settings before every call.
+
+- **Three levels to start from.** Cautious asks before every edit and command. Balanced edits freely and runs your allowed commands. Hands-off runs, pushes and opens pull requests by itself.
+- **Your own mix.** Edits, commands, the network, deleting outside the session's copy, pushing and pull requests each have their own row.
+- **Pull requests without the click.** Allow push and pull request, and the agent ships the session's branch as you, never forced. Until then, it never pushes on its own.
+- **Sandboxed unless you say so.** Commands run with no network and write only to the session's copy. Each risky row warns you when you allow it.
+- **Stop at any moment.** Stop the agent mid-step, or discard the session and its worktree.
+
+![Orynx Settings, Coding agent. Under What Claude can do without asking, four levels: Cautious, Balanced, Hands-off and Custom. Hands-off is picked, and the summary says Claude edits files, runs any command, uses the network, pushes the branch and opens pull requests without asking, and asks before deleting outside its copy.](apps/landing/src/assets/screens/agent-1440.webp)
+
+### Local-first: your workspace, on your machine
+
+There is no Orynx cloud. Orynx is a small server and a web app, both on your laptop.
+
+- **Tokens in your OS keychain.** Jira and GitHub tokens are saved in your keychain and never reach the browser.
+- **Bound to 127.0.0.1.** The server listens only on this computer and checks a token on every request.
+- **A local cache.** Synced tickets and pull requests live in one file on your disk.
+- **Only what you connect.** Orynx talks only to the connectors and agent you plug in: Jira, GitHub and Claude today, Slack and more next.
+
+![Orynx Settings, Connections. A note says everything stays on this computer: tokens live in your OS keychain and the cache is a local file. Jira and GitHub are connected; Slack is not connected yet.](apps/landing/src/assets/screens/settings-1440.webp)
+
+### The details
+
+- **Search everything with ⌘K.** Jump to any ticket, pull request or session from anywhere in the app.
+- **Context in a paste.** Add tickets, pull requests and files to a brief, or paste a Jira key or GitHub link.
+- **A live diff.** Every changed file and its diff, updating as the agent edits.
+- **Follow-ups, not restarts.** Ask the agent to change something and it carries on in the same session.
+- **Your own skills.** Save instructions you reuse, then call them with / in the composer.
+- **Model and effort per task.** Pick the model and how hard it works for each task, or keep the agent's default.
 
 Inside the repo the code name is DevHub: the `@devhub/*` packages, the `DEVHUB_*` settings, the `~/.devhub` folder and the keychain item keep that name, so saved tokens and settings carry over.
 
 ## Quick start
+
+On macOS or Linux you need:
+
+- Node 24 and pnpm 10
+- Claude Code, signed in on this computer
+- A Jira Cloud API token, and GitHub through the gh CLI or a token
 
 ```sh
 nvm use            # Node 24 (see .nvmrc)
@@ -21,12 +89,15 @@ To run it the way a user does (one production build, one port):
 pnpm start         # http://127.0.0.1:4317
 ```
 
+Then connect Jira and GitHub in Settings, add a repository, and start your first session from Home.
+
 ## Repo map
 
 | Path                  | What it is                                                                                                              |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `apps/web`            | Browser host: Vite, `index.html`, the web `Platform`                                                                    |
 | `apps/server`         | Node host: env config, session token, serves the web app in production                                                  |
+| `apps/desktop`        | Desktop host: Electron; `pnpm --filter @devhub/desktop package --dir` packs it                                          |
 | `apps/landing`        | The public landing page: static Vite site; `pnpm --filter @devhub/landing dev` serves it on localhost:4319              |
 | `packages/contracts`  | zod schemas for every HTTP body and server event                                                                        |
 | `packages/api-client` | axios client, typed endpoints, TanStack Query options, event stream                                                     |
@@ -39,7 +110,7 @@ pnpm start         # http://127.0.0.1:4317
 | `scripts/`            | Gates (one rule each), the gate runner, Claude hooks                                                                    |
 | `.claude/`            | Agent kit: settings and hooks, skills, slash commands, helper agents                                                    |
 
-The packages are split so a desktop app can be a third host later without a rewrite. See `docs/architecture.md`.
+The packages are split so the desktop app is a third host without a rewrite. See `docs/architecture.md`.
 
 ## How work gets done here
 
