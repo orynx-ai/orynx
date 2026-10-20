@@ -23,7 +23,7 @@ import { createTokenStore } from '../secrets/token-store.ts';
 import { createMemorySettingsStore } from '../settings/settings-store.ts';
 import { useFakeClaudeFolder } from '../test/fake-claude.ts';
 import { fakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
-import { acceptingPullContext, acceptingPullDiff, githubToken } from '../test/fake-github.ts';
+import { acceptingPullContext, acceptingPullDiff, githubLogin, githubToken } from '../test/fake-github.ts';
 import { acceptingIssue, goodToken, jiraEmail, jiraSite } from '../test/fake-jira.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { briefText, composerBrief, type BriefChip, type BriefPullRequest } from './brief.ts';
@@ -229,7 +229,7 @@ async function setUp({
     ]),
     acceptingPullDiff([{ number: 2836, diff: 'diff --git a/a.ts b/a.ts\n+x' }]),
   );
-  return { sessions, records, home, heard, sdk, folder: added[0], outside, root: repos.root };
+  return { sessions, records, home, heard, sdk, folder: added[0], outside, root: repos.root, repos };
 }
 
 /** Waits until the session isn't Working or waiting for you any more. */
@@ -511,6 +511,90 @@ describe('an Ask with no folder (spec 031)', () => {
       result: 'cannot_start',
       reason: 'no_folder',
     });
+  });
+});
+
+describe('a Build on your pull request (spec 031)', () => {
+  /** web-app's folder, whose origin reads as github.com/acme/web-app and is the bare repository standing in for it. */
+  async function onGitHub() {
+    const set = await setUp();
+    const github = 'git@github.com:acme/web-app.git';
+    await set.repos.git(set.repos.clone, 'remote', 'set-url', 'origin', github);
+    await set.repos.git(set.repos.clone, 'config', `url.${set.repos.origin}.insteadOf`, github);
+    return set;
+  }
+  const yours = (change: Record<string, unknown> = {}) =>
+    acceptingPullContext([
+      { number: 2836, title: 'Fix the content list', head: 'fix/content-list', author: githubLogin, ...change },
+    ]);
+  const answer = (set: Awaited<ReturnType<typeof setUp>>) =>
+    set.sessions.start(
+      makeComposerStart({ message: 'Answer the review comments', repositoryId: set.folder?.id, context: [pullChip] }),
+    );
+
+  it('AC-14: works on its own branch, linked from the start, and makes no branch of its own', async () => {
+    const set = await onGitHub();
+    set.outside.use(yours());
+    const newest = await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+
+    expect(await answer(set)).toEqual({ result: 'started', sessionId: '0000000000000001' });
+
+    const record = await settled(set.records);
+    expect(record).toMatchObject({
+      startCommit: newest,
+      session: {
+        source: { kind: 'pull_request', number: 2836 },
+        workOn: 'pull_request',
+        branch: 'fix/content-list',
+        pullRequest: {
+          number: 2836,
+          url: 'https://github.com/acme/web-app/pull/2836',
+          repository: 'acme/web-app',
+          openedAt: '2026-10-15T09:00:00Z',
+        },
+      },
+    });
+    expect(record.session.activities.find((step) => step.kind === 'worktree')).toMatchObject({
+      branch: 'fix/content-list',
+      base: 'origin/fix/content-list',
+      fetched: true,
+      pullRequest: 2836,
+    });
+    expect(await set.repos.git(set.repos.clone, 'branch', '--list', 'fix/content-list')).toBe('');
+    expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain("pull request #2836's own branch");
+  });
+
+  it('AC-18: a pull request with a live session opens that one, and starts nothing', async () => {
+    const set = await onGitHub();
+    set.outside.use(yours());
+    await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await answer(set);
+    await settled(set.records);
+
+    expect(await answer(set)).toEqual({ result: 'existing', sessionId: '0000000000000001' });
+    expect(await set.records.get('0000000000000002')).toBeNull();
+  });
+
+  it('AC-19: someone else’s pull request is context for a new branch', async () => {
+    const set = await onGitHub();
+    set.outside.use(yours({ author: 'hubot' }));
+    await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await answer(set);
+
+    const record = await settled(set.records);
+    expect(record.session).toMatchObject({ workOn: 'new_branch', pullRequest: null, source: null });
+    expect(record.session.branch).toMatch(/^feat\//);
+  });
+
+  it('AC-22: a branch that can’t be fetched, and was never fetched, can’t start, and leaves no worktree', async () => {
+    const set = await onGitHub();
+    set.outside.use(yours());
+
+    await answer(set);
+
+    const record = await settled(set.records);
+    expect(record.session.problem).toEqual({ kind: 'git', stage: 'starting' });
+    expect(await readdir(join(set.home, 'worktrees')).catch(() => [])).toEqual([]);
   });
 });
 

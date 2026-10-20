@@ -96,12 +96,16 @@ const FilesSchema = z.array(z.string().min(1));
  * (spec 011, Q10a), so the server never holds copy.
  */
 export const SessionActivitySchema = z.discriminatedUnion('kind', [
-  /** Orynx made the branch and the worktree, from `base`; `fetched` is false when the fetch failed (Q1a). */
+  /**
+   * Orynx made the branch and the worktree, from `base`; `fetched` is false when the fetch failed (Q1a). With
+   * `pullRequest`, it made the worktree from that pull request's own branch, and no branch (spec 031).
+   */
   ActivityBaseSchema.extend({
     kind: z.literal('worktree'),
     branch: z.string().min(1),
     base: z.string().min(1),
     fetched: z.boolean(),
+    pullRequest: z.int().positive().optional(),
   }),
   /**
    * Orynx sent Claude the brief (Q5): the ticket and its description, or none, then what the composer added
