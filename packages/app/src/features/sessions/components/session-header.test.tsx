@@ -2,7 +2,13 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Session } from '@devhub/contracts';
-import { makePushDraft, makeSession, makeSessionChanges, makeSessionPullRequest } from '@devhub/contracts/testing';
+import {
+  makePushDraft,
+  makeSession,
+  makeSessionChanges,
+  makeSessionPort,
+  makeSessionPullRequest,
+} from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -289,5 +295,44 @@ describe('the session’s own Rename, Pin and Delete (spec 039)', () => {
       expect(history.location.pathname).toBe('/sessions');
     });
     expect(deleted).toEqual([id]);
+  });
+});
+
+describe('SessionHeader in spec 042', () => {
+  const unbranched = makeSession({
+    ...working,
+    state: 'done',
+    branch: null,
+    worktreePath: '/Users/you/.devhub/worktrees/x',
+    terminal: true,
+  });
+
+  it('AC-3: before the first edit, says there is no branch yet', async () => {
+    server.use(sessionHandler(unbranched));
+    await renderApp({ route });
+    expect(await screen.findByText('No branch yet')).toBeVisible();
+  });
+
+  it('AC-2: links the first web address that listens from the session, and opens it outside Orynx', async () => {
+    server.use(
+      sessionHandler(unbranched),
+      http.get(apiUrl(apiRoutes.sessionPorts), () =>
+        HttpResponse.json({
+          ports: [makeSessionPort({ port: 5432, name: 'PostgreSQL', url: null }), makeSessionPort()],
+        }),
+      ),
+    );
+    const { user, platform } = await renderApp({ route });
+    const link = await screen.findByRole('link', { name: 'localhost:3005' });
+    expect(link).toHaveAttribute('href', 'https://localhost:3005');
+    await user.click(link);
+    expect(platform.openExternal).toHaveBeenCalledWith('https://localhost:3005');
+  });
+
+  it('AC-4: shows no link while nothing listens', async () => {
+    server.use(sessionHandler(unbranched));
+    await renderApp({ route });
+    await screen.findByText('No branch yet');
+    expect(screen.queryByRole('link', { name: /localhost/ })).not.toBeInTheDocument();
   });
 });

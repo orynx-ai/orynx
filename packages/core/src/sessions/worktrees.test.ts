@@ -39,7 +39,7 @@ const exists = (path: string) =>
 describe('preparing a worktree', () => {
   it('AC-2 (Q1): starts from the branch origin/HEAD points at, and names the branch after the ticket', async () => {
     const { repos, worktrees } = await setUp();
-    expect(await worktrees.prepare(repos.clone, 'PROJ-1423')).toEqual({
+    expect(await worktrees.prepare(repos.clone, 'feat/PROJ-1423')).toEqual({
       ok: true,
       plan: { branch: 'feat/PROJ-1423', base: 'origin/main', remote: true },
     });
@@ -49,7 +49,7 @@ describe('preparing a worktree', () => {
     const { repos, worktrees } = await setUp();
     await repos.git(repos.clone, 'remote', 'remove', 'origin');
     await repos.git(repos.clone, 'checkout', '-b', 'develop');
-    expect(await worktrees.prepare(repos.clone, 'PROJ-1423')).toEqual({
+    expect(await worktrees.prepare(repos.clone, 'feat/PROJ-1423')).toEqual({
       ok: true,
       plan: { branch: 'feat/PROJ-1423', base: 'develop', remote: false },
     });
@@ -60,7 +60,7 @@ describe('preparing a worktree', () => {
     await repos.git(repos.clone, 'branch', 'feat/PROJ-1423');
     await repos.git(repos.clone, 'push', 'origin', 'HEAD:refs/heads/feat/PROJ-1423-2');
     await repos.git(repos.clone, 'fetch', 'origin');
-    expect(await worktrees.prepare(repos.clone, 'PROJ-1423')).toMatchObject({
+    expect(await worktrees.prepare(repos.clone, 'feat/PROJ-1423')).toMatchObject({
       ok: true,
       plan: { branch: 'feat/PROJ-1423-3' },
     });
@@ -68,13 +68,13 @@ describe('preparing a worktree', () => {
 
   it('AC-13: says a folder that is gone or not a git repository is the folder’s problem', async () => {
     const { repos, worktrees } = await setUp();
-    expect(await worktrees.prepare(join(repos.root, 'gone'), 'PROJ-1423')).toEqual({
+    expect(await worktrees.prepare(join(repos.root, 'gone'), 'feat/PROJ-1423')).toEqual({
       ok: false,
       problem: { kind: 'folder' },
     });
     const plain = join(repos.root, 'plain');
     await mkdir(plain);
-    expect(await worktrees.prepare(plain, 'PROJ-1423')).toEqual({ ok: false, problem: { kind: 'folder' } });
+    expect(await worktrees.prepare(plain, 'feat/PROJ-1423')).toEqual({ ok: false, problem: { kind: 'folder' } });
   });
 });
 
@@ -325,7 +325,7 @@ describe('Stop while the worktree is being made', () => {
     const { repos, worktrees } = await setUp();
     const stop = new AbortController();
     stop.abort();
-    expect(await worktrees.prepare(repos.clone, 'PROJ-1423', stop.signal)).toEqual({
+    expect(await worktrees.prepare(repos.clone, 'feat/PROJ-1423', stop.signal)).toEqual({
       ok: false,
       problem: { kind: 'stopped' },
     });
@@ -399,5 +399,37 @@ describe('removing a worktree', () => {
     await worktrees.make(repos.clone, path, plan);
     await worktrees.remove(repos.clone, path, 'feat/PROJ-1423');
     expect(await repos.git(repos.clone, 'branch', '--format=%(refname:short)')).toBe('main\nmine');
+  });
+});
+
+describe('what the quick read learns about branches (spec 042)', () => {
+  it('AC-16, AC-23: gives the default base, origin’s branch names, and your own newest branches, never someone else’s', async () => {
+    const { repos, worktrees } = await setUp();
+    // Who you are comes from your git settings, as on your own computer.
+    await repos.git(repos.clone, 'config', 'user.email', 'test@example.com');
+    const commitOn = async (branch: string, author?: string) => {
+      await repos.git(repos.clone, 'checkout', '-q', '-b', branch, 'main');
+      await writeFile(join(repos.clone, `${branch.replaceAll('/', '-')}.txt`), branch);
+      await repos.git(repos.clone, 'add', '.');
+      await repos.git(repos.clone, 'commit', '-q', '-m', branch, ...(author === undefined ? [] : ['--author', author]));
+    };
+    await commitOn('rakesh/mai-2161-prefetch');
+    await commitOn('feature/someone-elses', 'Other <other@example.com>');
+    await commitOn('rakesh/mai-2190-connect');
+    await repos.git(repos.clone, 'push', '-q', 'origin', 'rakesh/mai-2190-connect', 'feature/someone-elses');
+    await repos.git(repos.clone, 'checkout', '-q', 'main');
+    await repos.git(repos.clone, 'fetch', '-q', 'origin');
+
+    const hints = await worktrees.hints(repos.clone);
+    expect(hints?.base).toBe('origin/main');
+    expect(hints?.origin).toEqual(expect.arrayContaining(['main', 'rakesh/mai-2190-connect', 'feature/someone-elses']));
+    expect(hints?.origin).not.toContain('HEAD');
+    // Newest first; these two were made in the same second, so either may come first.
+    expect(hints?.yours.toSorted()).toEqual(['rakesh/mai-2161-prefetch', 'rakesh/mai-2190-connect']);
+  });
+
+  it('AC-20: a folder that isn’t a repository has none', async () => {
+    const { repos, worktrees } = await setUp();
+    expect(await worktrees.hints(repos.worktrees)).toBeNull();
   });
 });

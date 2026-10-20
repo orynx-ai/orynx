@@ -16,6 +16,8 @@ import {
   tokenHeader,
   type Session,
   type SessionSummary,
+  PortActionAnswerSchema,
+  SessionPortsSchema,
 } from '@devhub/contracts';
 import { makeSession, makeSessionSummary } from '@devhub/contracts/testing';
 import { gitEnvironment } from '../agents/agent-environment.ts';
@@ -633,6 +635,38 @@ describe('Create pull request and Push changes (spec 014)', () => {
     for (const res of answers) {
       expect(res.statusCode).toBe(404);
       expect(ApiErrorSchema.parse(res.json()).code).toBe('not_found');
+    }
+  });
+});
+
+describe('a session’s ports (spec 042)', () => {
+  const portsOf = (id: string) => apiRoutes.sessionPorts.replace(':id', id);
+  const action = (route: string, id: string, port: number | string) =>
+    route.replace(':id', id).replace(':port', String(port));
+
+  it('AC-8: a session with no worktree has no ports; an unknown one is not found; both need the token', async () => {
+    const { app: hub } = await serverWith({ id: 'session-1' });
+    const none = await hub.inject({ method: 'GET', url: portsOf('session-1'), headers });
+    expect(none.statusCode).toBe(200);
+    expect(SessionPortsSchema.parse(none.json())).toEqual({ ports: [] });
+    expect((await hub.inject({ method: 'GET', url: portsOf('session-9'), headers })).statusCode).toBe(404);
+    expect(
+      (await hub.inject({ method: 'GET', url: portsOf('session-1'), headers: { host: headers.host } })).statusCode,
+    ).toBe(401);
+  });
+
+  it('AC-4, AC-5, AC-7: stop and restart answer what happened; nothing listens, so it’s gone', async () => {
+    const { app: hub } = await serverWith({ id: 'session-1' });
+    for (const route of [apiRoutes.sessionPortStop, apiRoutes.sessionPortRestart]) {
+      const res = await hub.inject({ method: 'POST', url: action(route, 'session-1', 3005), headers });
+      expect(res.statusCode).toBe(200);
+      expect(PortActionAnswerSchema.parse(res.json())).toEqual({ result: 'gone' });
+      expect((await hub.inject({ method: 'POST', url: action(route, 'session-9', 3005), headers })).statusCode).toBe(
+        404,
+      );
+      expect((await hub.inject({ method: 'POST', url: action(route, 'session-1', 'x'), headers })).statusCode).toBe(
+        400,
+      );
     }
   });
 });

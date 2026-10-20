@@ -3,11 +3,15 @@ import {
   AddTerminalTabAnswerSchema,
   apiRoutes,
   ClaudeCommandListSchema,
+  PortActionAnswerSchema,
+  SessionPortsSchema,
   TerminalInputSchema,
   TerminalSchema,
   TerminalSizeSchema,
   type AddTerminalTabAnswer,
   type ClaudeCommandList,
+  type PortActionAnswer,
+  type SessionPort,
   type Terminal,
   type TerminalSize,
 } from '@devhub/contracts';
@@ -47,4 +51,22 @@ export async function postTerminalSize(
   size: TerminalSize,
 ): Promise<void> {
   await http.post(pathFor(apiRoutes.sessionTerminalSize, id, tabId), TerminalSizeSchema.parse(size));
+}
+
+/** What listens from the session (spec 042), lowest port first. */
+export async function getSessionPorts(http: AxiosInstance, id: string): Promise<SessionPort[]> {
+  const res = await http.get<unknown>(pathFor(apiRoutes.sessionPorts, id));
+  return SessionPortsSchema.parse(res.data).ports;
+}
+
+/** Stops or restarts what listens on `port` (spec 042). */
+export async function postPortAction(
+  http: AxiosInstance,
+  id: string,
+  port: number,
+  action: 'stop' | 'restart',
+): Promise<PortActionAnswer> {
+  const route = action === 'stop' ? apiRoutes.sessionPortStop : apiRoutes.sessionPortRestart;
+  const res = await http.post<unknown>(pathFor(route, id).replace(':port', String(port)));
+  return PortActionAnswerSchema.parse(res.data);
 }

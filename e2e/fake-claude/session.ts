@@ -7,7 +7,7 @@
 //
 // Spec 014: a run with no tools that isn't saved (`--tools=` and `--no-session-persistence`) is Orynx asking for
 // text: a pull request's title and description, or with "Changed files since the last push" in it, a commit
-// message. "(no draft)" in the ticket's title makes it fail as a signed-out Claude Code would.
+// message; spec 042: or, starting "The ask:", the quick read of an ask. "(no draft)" in the ticket's title makes it fail as a signed-out Claude Code would.
 //
 // Spec 013: a message that comes while it works waits, and is taken into the turn after its next tool call;
 // each result says which messages its turn took and how many still wait. `--resume` with its own session id
@@ -230,6 +230,13 @@ async function play(brief: string): Promise<void> {
     permissionMode: 'default',
     apiKeySource: 'none',
   });
+  // Spec 042: a run reads and then waits, as a server does, and edits nothing, so it leaves no branch.
+  if (brief.includes('(run)')) {
+    await pause(stepMs);
+    await call('Read', { file_path: join(process.cwd(), 'README.md') });
+    await interruption;
+    return;
+  }
   const steps: (() => Promise<void>)[] = [
     () => call('Read', { file_path: join(process.cwd(), 'README.md') }),
     () => call('Glob', { pattern: '**/*.md' }),
@@ -325,6 +332,27 @@ async function write(asked: string): Promise<void> {
     apiKeySource: 'none',
   });
   await pause(stepMs);
+  // Spec 042: the quick read of an ask, as JSON. "(run)" in it reads as a run; anything else, a change Orynx names.
+  if (asked.startsWith('The ask:')) {
+    const message = asked.slice('The ask:\n'.length).split('\n\n')[0] ?? '';
+    const run = asked.includes('(run)');
+    sendResult(
+      JSON.stringify({
+        intent: run ? 'run' : 'change',
+        title: message.split('\n')[0] ?? 'A task',
+        branch: null,
+        branchFrom: null,
+        base: null,
+        steps: run
+          ? [
+              { kind: 'setup', label: 'Set up' },
+              { kind: 'run', label: 'Start server' },
+            ]
+          : [],
+      }),
+    );
+    return;
+  }
   if (asked.includes('(no draft)')) {
     send({ type: 'assistant', parent_tool_use_id: null, error: 'authentication_failed', message: { content: [] } });
     return;

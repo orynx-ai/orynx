@@ -25,6 +25,8 @@ export const ApiErrorCodeSchema = z.enum([
   'session_working',
   /** Orynx has its password already; setup runs once (spec 043, AC-4). */
   'already_set_up',
+  /** lsof couldn't be run, so the session's ports can't be read (spec 042, AC-9). */
+  'ports_unreadable',
   /** Change password: the current password typed isn't the saved one, so nothing changed. */
   'wrong_password',
   'internal',

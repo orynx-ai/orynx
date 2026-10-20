@@ -13,10 +13,12 @@ import {
   TabsList,
   TabsTrigger,
 } from '@devhub/ui';
-import { useSessionChanges } from '../queries.ts';
+import { portWords } from '../port-words.ts';
+import { useSessionChanges, useSessionPorts } from '../queries.ts';
 import { contextWords } from '../ticket-tab-words.ts';
 import { ChangesPanel } from './changes-panel.tsx';
 import { ContextPanel, contextOf } from './context-panel.tsx';
+import { PortsPanel } from './ports-panel.tsx';
 
 /** The number of changed files for the Changes tab: null while they load, none when they couldn't be read. */
 function useChangedCount(sessionId: string): number | null | undefined {
@@ -27,8 +29,8 @@ function useChangedCount(sessionId: string): number | null | undefined {
 }
 
 /**
- * The right pane (spec 013, `session.html`'s "Work details"): the Changes and Context tabs, the one open kept in
- * the address (`?tab=context`), Changes by default. A session that was sent nothing has Changes alone (spec 015).
+ * The right pane (spec 013, `session.html`'s "Work details"): the Ports (spec 042), Changes and Context tabs, the one
+ * you picked kept in the address (`?tab=ports`), else Ports for a run session and Changes for any other. A session that was sent nothing has Changes alone (spec 015).
  * Side by side with the progress, it stays in view and scrolls on its own; Full screen shows the open tab in a
  * dialog that fills the window (the user's call, 19 Oct 2026).
  */
@@ -40,16 +42,30 @@ export function SessionDetails({ session }: { session: Session }) {
   const items = contextOf(session).length;
   // An Ask session changes nothing, so it has Context alone (spec 026).
   const ask = session.mode === 'ask';
-  const shown = ask || (items > 0 && tab === 'context') ? 'context' : 'changes';
+  // Ports, first, where Orynx can find a session's servers: a Build with a worktree, not on Windows (spec 042).
+  const ports = session.terminal;
+  const listening = useSessionPorts(session).data?.length ?? 0;
+  // The tab you picked, or Ports for a run session and Changes for any other (spec 042, Q9); never switched for you.
+  const fallback = ports && session.intent === 'run' ? 'ports' : 'changes';
+  const picked = (tab === 'ports' && ports) || (tab === 'context' && items > 0) || tab === 'changes' ? tab : undefined;
+  const shown = ask ? 'context' : (picked ?? fallback);
   const changes = <ChangesPanel session={session} />;
   const context = <ContextPanel session={session} />;
+  const portsPanel = <PortsPanel session={session} />;
+  const titles = { ports: portWords.tab, changes: 'Changes', context: contextWords.tab };
+  const panels = { ports: portsPanel, changes, context };
   return (
     <>
       <Tabs
         value={shown}
         onValueChange={(next) => {
           void navigate({
-            search: (search) => ({ ...search, tab: next === 'context' ? 'context' : undefined }),
+            search: (search) => ({
+              ...search,
+              // Only a pick that isn't the session's own default goes in the address.
+              tab:
+                (next === 'context' || next === 'ports' || next === 'changes') && next !== fallback ? next : undefined,
+            }),
             replace: true,
           });
         }}
@@ -57,6 +73,11 @@ export function SessionDetails({ session }: { session: Session }) {
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-border">
           <TabsList aria-label="Session details" className="min-w-0 flex-1 border-b-0">
+            {ports ? (
+              <TabsTrigger value="ports" {...(listening === 0 ? {} : { count: listening })}>
+                {portWords.tab}
+              </TabsTrigger>
+            ) : null}
             {ask ? null : (
               <TabsTrigger value="changes" {...(count === undefined ? {} : { count })}>
                 Changes
@@ -80,6 +101,11 @@ export function SessionDetails({ session }: { session: Session }) {
           </IconButton>
         </div>
         {/* Each tab scrolls on its own while the pane is held in view. */}
+        {ports ? (
+          <TabsContent value="ports" className="min-h-0 overflow-y-auto pt-3">
+            {portsPanel}
+          </TabsContent>
+        ) : null}
         {ask ? null : (
           <TabsContent value="changes" className="min-h-0 overflow-y-auto pt-3">
             {changes}
@@ -102,9 +128,7 @@ export function SessionDetails({ session }: { session: Session }) {
             }}
           >
             <div className="flex shrink-0 items-center gap-2 border-b border-border px-6 py-3">
-              <DialogTitle className="min-w-0 flex-1 truncate">
-                {shown === 'context' ? contextWords.tab : 'Changes'}
-              </DialogTitle>
+              <DialogTitle className="min-w-0 flex-1 truncate">{titles[shown]}</DialogTitle>
               <IconButton
                 variant="ghost"
                 size="sm"
@@ -116,7 +140,7 @@ export function SessionDetails({ session }: { session: Session }) {
                 <Icon icon={Cancel01Icon} aria-hidden />
               </IconButton>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{shown === 'context' ? context : changes}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{panels[shown]}</div>
           </DialogContent>
         ) : null}
       </Dialog>

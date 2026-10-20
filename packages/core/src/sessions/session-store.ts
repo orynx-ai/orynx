@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  BranchFromSchema,
   ApprovalDecisionSchema,
   ClaudeCommandSchema,
   RepositoryIdSchema,
@@ -21,7 +22,7 @@ import {
  */
 export const ApprovalRecordSchema = z.object({
   id: z.string().min(1),
-  about: z.enum(['command', 'edit', 'ticket']),
+  about: z.enum(['command', 'edit', 'ticket', 'server']),
   /** The command, the edit's path, or the ticket's key (spec 037). */
   text: z.string().min(1),
   askedAt: z.iso.datetime(),
@@ -52,6 +53,14 @@ export const StoredSessionSchema = z.object({
     .regex(/^[0-9a-f]{40}([0-9a-f]{24})?$/)
     .nullable()
     .default(null),
+  /**
+   * The branch Claude's first edit makes (spec 042): its name, where its shape came from, and whether it's a branch on
+   * origin you named, which keeps its name. Null once it's made, for a pull request's own branch, and before spec 042.
+   */
+  branchPlan: z
+    .object({ name: z.string().min(1), from: BranchFromSchema, onOrigin: z.boolean() })
+    .nullable()
+    .optional(),
   /** Claude Code's own session id, which a follow-up resumes (spec 013). */
   claudeSessionId: z.string().min(1).nullable(),
   /**

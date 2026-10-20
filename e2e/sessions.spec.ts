@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -39,6 +39,8 @@ const tools: FakeTools = {
     { key: 'PROJ-1426', summary: 'Let admins pin a site to the top', status: 'To Do', category: 'new' },
     { key: 'PROJ-1427', summary: 'Name the export after its site', status: 'To Do', category: 'new' },
     { key: 'PROJ-1428', summary: 'Remember the last tab on profiles (waits)', status: 'To Do', category: 'new' },
+    // Spec 042: the fake reads this ask as a run, and its Claude reads, then waits, editing nothing.
+    { key: 'PROJ-1429', summary: 'Start the dev server (run)', status: 'To Do', category: 'new' },
     // A project with no folder in Settings › Repositories.
     { key: 'MOB-1', summary: 'Fix the mobile header', status: 'To Do', category: 'new' },
   ],
@@ -158,11 +160,14 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35, 031 AC-11: Ship then Send s
   await other.goto(page.url());
 
   const progress = page.getByRole('region', { name: "Claude's progress" });
+  // Spec 042: Orynx reads the ask first, and the branch comes at Claude's first edit.
+  await expect(progress.getByText('Code change · from main')).toBeVisible();
   await expect(progress.getByText('Made a worktree')).toBeVisible();
-  await expect(progress.getByText('feat/PROJ-1423 from origin/main')).toBeVisible();
+  await expect(progress.getByText('from origin/main')).toBeVisible();
   await expect(progress.getByText('Sent Claude the brief')).toBeVisible();
   await expect(progress.getByText('Explored the code')).toBeVisible();
   await expect(progress.getByText('Made a plan')).toBeVisible();
+  await expect(progress.getByText('Made branch feat/PROJ-1423')).toBeVisible({ timeout: 15_000 });
   await expect(progress.getByText('Edited 1 file')).toBeVisible({ timeout: 15_000 });
   await expect(progress.getByText('Finished')).toBeVisible({ timeout: 15_000 });
   await expect(progress.getByText('Added row selection and an Archive selected button.')).toBeVisible();
@@ -421,4 +426,66 @@ test('039 AC-18, AC-21, AC-24-AC-28, AC-32, AC-35: a row’s ⋯ shows on hover;
   await page.waitForURL(/\/sessions$/);
   await page.goto(seen.failed);
   await expect(page.getByText('This page does not exist')).toBeVisible();
+});
+
+test('042 AC-1, AC-3, AC-6, AC-8, AC-33: a run reads as one, opens on Ports, leaves no branch, and a server found in its worktree stops after a confirm', async ({
+  page,
+}) => {
+  await shipToComposer(page, 'PROJ-1429');
+  await page.keyboard.press('Enter');
+  await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  const id = new URL(page.url()).pathname.split('/').at(-1) ?? '';
+
+  const progress = page.getByRole('region', { name: "Claude's progress" });
+  await expect(progress.getByText('Run · from main · no branch yet')).toBeVisible();
+  const stepper = page.getByRole('list', { name: 'Session progress' }).getByRole('listitem');
+  await expect(stepper).toHaveCount(2);
+  await expect(stepper.nth(1)).toContainText('Start server');
+  await expect(page.getByRole('main').getByText('No branch yet', { exact: true })).toBeVisible();
+  const tabs = page.getByRole('tablist', { name: 'Session details' }).getByRole('tab');
+  await expect(tabs.first()).toHaveText('Ports');
+  await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+  await expect(
+    page.getByText('Nothing listens from this session. Servers Claude or you start here show up on their own.'),
+  ).toBeVisible();
+
+  // A server started in the worktree some other way, as a nohup or Popen would.
+  const worktree = worktrees().find((path) => path.endsWith(id)) ?? '';
+  expect(worktree).not.toBe('');
+  const server = spawn(
+    process.execPath,
+    ['-e', "const s = require('net').createServer().listen(0, () => process.stdout.write(s.address().port + '\\n'))"],
+    {
+      cwd: worktree,
+    },
+  );
+  try {
+    // The port it printed, wherever it lands in the output.
+    let said = '';
+    const port = await new Promise<number>((resolve) => {
+      server.stdout.on('data', (data: Buffer) => {
+        said += String(data);
+        const found = /^(\d+)$/m.exec(said);
+        if (found !== null) resolve(Number(found[1]));
+      });
+    });
+    const address = `localhost:${String(port)}`;
+    const ports = page.getByRole('list', { name: 'Ports' });
+    await expect(ports.getByText(address)).toBeVisible({ timeout: 10_000 });
+    await expect(ports.getByText(/^Found in the worktree · /)).toBeVisible();
+    await expect(tabs.first()).toHaveText('Ports 1');
+    await page.getByRole('button', { name: `Stop ${address}` }).click();
+    const ask = page.getByRole('alertdialog', { name: `Stop ${address}?` });
+    await ask.getByRole('button', { name: 'Stop', exact: true }).click();
+    await expect(
+      page.getByText('Nothing listens from this session. Servers Claude or you start here show up on their own.'),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(progress.getByText(`Stopped the server on ${address}`)).toBeVisible();
+  } finally {
+    server.kill('SIGKILL');
+  }
+
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await expect(page.getByRole('main').getByText('Stopped')).toBeVisible();
+  expect(repository.git(repository.clone, 'branch', '--list', 'feat/PROJ-1429*')).toBe('');
 });

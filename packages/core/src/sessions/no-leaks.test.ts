@@ -28,6 +28,7 @@ import {
 import { acceptingIssue, goodToken, jiraEmail, jiraSite, useFakeJira } from '../test/fake-jira.ts';
 import { gitSearchPath, useTestRepositories } from '../test/git-repository.ts';
 import { openFileSessionStore } from './file-session-store.ts';
+import { readingInstructions } from './ask-reading.ts';
 
 vi.setConfig({ testTimeout: 30_000 });
 
@@ -71,10 +72,13 @@ afterEach(async () => {
 /** One fake SDK per session, in the order the sessions start. */
 function scriptsInTurn(scripts: readonly (readonly FakeTurn[])[]): { query: QueryFunction; fakes: FakeClaudeSdk[] } {
   const fakes = scripts.map((script) => fakeClaudeSdk(script));
+  // The quick read of each ask (spec 042) has a fake of its own, so each session still gets its own script.
+  const reader = fakeClaudeSdk([]);
   let next = 0;
   return {
     fakes,
     query: (params) => {
+      if (params.options.systemPrompt === readingInstructions) return reader.query(params);
       const fake = fakes[next];
       next += 1;
       if (fake === undefined) throw new Error('More sessions than scripts');

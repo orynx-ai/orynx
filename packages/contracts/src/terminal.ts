@@ -45,7 +45,12 @@ export const ClaudeCommandListSchema = z.object({ commands: z.array(ClaudeComman
 export type ClaudeCommandList = z.infer<typeof ClaudeCommandListSchema>;
 
 /** A shell tab: `number` 1 is the first, which can't be closed. */
-export const TerminalTabSchema = z.object({ id: z.string().min(1), number: z.int().positive() });
+/** A tab; `server` is the command it was opened for when Claude started a server there (spec 042), named after it. */
+export const TerminalTabSchema = z.object({
+  id: z.string().min(1),
+  number: z.int().positive(),
+  server: z.string().min(1).nullable().default(null),
+});
 export type TerminalTab = z.infer<typeof TerminalTabSchema>;
 
 /** GET /api/sessions/:id/terminal: your shell tabs, oldest first. */

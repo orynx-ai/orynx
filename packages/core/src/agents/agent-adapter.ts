@@ -7,6 +7,7 @@
  * work only inside the session worktree, and push, open a PR, reach the network or delete
  * outside the worktree only as far as the user's rows in Settings › Coding agent allow.
  */
+import type { z } from 'zod';
 import type { AgentModels, AlwaysAskReason, ChangeLine, EffortLevel, Permissions } from '@devhub/contracts';
 import type { TicketTool, TicketToolDone } from '../orynx-tickets/tools.ts';
 
@@ -61,11 +62,13 @@ export type AgentAsk =
     }
   | { kind: 'edit'; path: string; creates: boolean; lines: ChangeLine[]; moreLines: number }
   /** Deleting one of Orynx's own tickets (spec 037); `title` is null when it's already gone. */
-  | { kind: 'ticket'; key: string; title: string | null };
+  | { kind: 'ticket'; key: string; title: string | null }
+  /** Claude asks to start a server (spec 042): it runs in a Terminal tab, as you, so it always asks. */
+  | { kind: 'server'; command: string; folder: string; alwaysAllow: string };
 
 /** What a waiting call is about, as the log and a denied step keep it: the command, the edit's path or the key. */
 export function askText(ask: AgentAsk): string {
-  if (ask.kind === 'command') return ask.command;
+  if (ask.kind === 'command' || ask.kind === 'server') return ask.command;
   return ask.kind === 'edit' ? ask.path : ask.key;
 }
 
@@ -128,6 +131,20 @@ export type AgentEvent =
 /** What `write()` gives back: the agent's text, or why there's none, with `timeout` when it didn't answer in time. */
 export type AgentWritten = { ok: true; text: string } | { ok: false; problem: AgentProblemKind | 'timeout' };
 
+/**
+ * One of Orynx's own tools for a Build session (spec 042), beside the ticket tools: its steps, and its servers. `asks`
+ * says what you're asked before a call runs; null runs it at once.
+ */
+export interface OrynxTool {
+  name: string;
+  /** For the agent: what the tool does and when to use it. */
+  description: string;
+  input: z.ZodObject;
+  asks(input: Readonly<Record<string, unknown>>): Promise<AgentAsk | null>;
+  /** Checks the input itself; `error` when it did nothing. */
+  run(input: unknown): Promise<{ text: string; error?: true }>;
+}
+
 /** How one run starts: carrying on the agent's own session, and with the model and effort you picked. */
 export interface AgentRunOptions {
   resume?: string | undefined;
@@ -138,6 +155,13 @@ export interface AgentRunOptions {
    * agent's way, and says `ticket` work for each call that did something. None when left out.
    */
   tools?: readonly TicketTool[] | undefined;
+  /**
+   * Asked before each edit the agent is allowed (spec 042): the session makes its branch at the first. A message
+   * refuses the edit with it; null lets it go ahead.
+   */
+  onEdit?: (() => Promise<string | null>) | undefined;
+  /** Orynx's session tools for this run (spec 042); none when left out, as for an Ask. */
+  orynxTools?: readonly OrynxTool[] | undefined;
 }
 
 export interface AgentAdapter {
@@ -174,7 +198,12 @@ export interface AgentAdapter {
   stop(sessionId: string): Promise<void>;
   /**
    * Asks the agent for text alone, with no tools, so it can read, edit and run nothing: a pull request's draft or
-   * a commit message (spec 014, Q4). It's no session's, is never saved, and gives up after `timeoutMs` (60 s).
+   * a commit message (spec 014, Q4), or the quick read of your ask on the model and effort you picked (spec 042). It's
+   * no session's, is never saved, and gives up after `timeoutMs` (60 s).
    */
-  write(prompt: string, instructions: string, options?: { timeoutMs?: number }): Promise<AgentWritten>;
+  write(
+    prompt: string,
+    instructions: string,
+    options?: { timeoutMs?: number; model?: string | undefined; effort?: EffortLevel | undefined },
+  ): Promise<AgentWritten>;
 }

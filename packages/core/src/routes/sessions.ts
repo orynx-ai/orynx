@@ -22,6 +22,9 @@ import {
   SessionListQuerySchema,
   SessionListSchema,
   SessionSchema,
+  SessionPortParamsSchema,
+  SessionPortsSchema,
+  PortActionAnswerSchema,
   StartSessionAnswerSchema,
   StartSessionRequestSchema,
   type ApiError,
@@ -32,6 +35,9 @@ import { listSessions, type SessionStore } from '../sessions/session-store.ts';
 const SessionParamsSchema = z.object({ id: z.string().min(1).max(64) });
 
 const notFound: ApiError = { code: 'not_found', message: 'There is no session with this id.' };
+
+/** lsof couldn't be run (spec 042, AC-9); the page words it itself. */
+const portsUnreadable: ApiError = { code: 'ports_unreadable', message: "Couldn't read the ports." };
 
 /** A delete while Claude works (spec 039, AC-33); the page words it itself. */
 const stillWorking: ApiError = { code: 'session_working', message: 'Stop the session first.' };
@@ -86,6 +92,35 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
     },
     (request) => service.start(request.body),
   );
+
+  app.get(
+    apiPaths.sessionPorts,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        response: { 200: SessionPortsSchema, 404: ApiErrorSchema, 503: ApiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const ports = await service.ports(request.params.id);
+      if (ports === 'not_found') return reply.code(404).send(notFound);
+      return ports === null ? reply.code(503).send(portsUnreadable) : { ports };
+    },
+  );
+
+  for (const [path, act] of [
+    [apiPaths.sessionPortStop, (id: string, port: number) => service.stopPort(id, port)],
+    [apiPaths.sessionPortRestart, (id: string, port: number) => service.restartPort(id, port)],
+  ] as const) {
+    app.post(
+      path,
+      { schema: { params: SessionPortParamsSchema, response: { 200: PortActionAnswerSchema, 404: ApiErrorSchema } } },
+      async (request, reply) => {
+        const result = await act(request.params.id, request.params.port);
+        return result === 'not_found' ? reply.code(404).send(notFound) : { result };
+      },
+    );
+  }
 
   app.get(
     apiPaths.sessionCommands,

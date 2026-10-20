@@ -243,4 +243,31 @@ describe('ApprovalCallout (spec 012)', () => {
       expect(bar()).toBeNull();
     });
   });
+
+  it('AC-2 (spec 042): a server asks with its command, where it runs, and Always allow in this repository', async () => {
+    const starting: SessionApproval = {
+      id: 'approval-9',
+      kind: 'server',
+      command: 'next dev --port 3005',
+      folder: 'apps/web',
+      alwaysAllow: 'server:2e44184c6076885d',
+      askedAt: '2026-10-20T10:15:00.000Z',
+    };
+    const { answers } = setUp([starting]);
+    const { user } = await renderApp({ route });
+
+    const callout = await screen.findByRole('alert');
+    expect(within(callout).getByText('Claude wants to start a server')).toBeVisible();
+    expect(within(callout).getByText('next dev --port 3005').tagName).toBe('CODE');
+    expect(
+      within(callout).getByText(
+        'In apps/web. It runs in a Terminal tab, outside the sandbox, and keeps running after Claude finishes.',
+      ),
+    ).toBeVisible();
+    expectButtons(callout, ['Allow once', 'Always allow in this repository', 'Deny']);
+    await user.click(within(callout).getByRole('button', { name: 'Always allow in this repository' }));
+    await waitFor(() => {
+      expect(answers).toEqual([{ approvalId: 'approval-9', decision: 'always_allow' }]);
+    });
+  });
 });

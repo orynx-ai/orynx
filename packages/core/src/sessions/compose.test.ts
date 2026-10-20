@@ -334,7 +334,9 @@ describe('a composer start that can’t happen (spec 015)', () => {
 
     expect(answer).toEqual({ result: 'started', sessionId: '0000000000000002' });
     const record = await settled(set.records, '0000000000000002');
-    expect(record.session).toMatchObject({ source: { kind: 'jira', key: 'PROJ-1424' }, branch: 'feat/PROJ-1424' });
+    expect(record.session).toMatchObject({ source: { kind: 'jira', key: 'PROJ-1424' } });
+    // The branch is named now and made at Claude's first edit (spec 042).
+    expect(record.branchPlan?.name).toBe('feat/PROJ-1424');
     const brief = await set.records.readBrief('0000000000000002');
     expect(brief).toMatch(
       /^Do both\n\nJira ticket PROJ-1424 \(Task\): Archive from the list\n\n[^]*\nJira ticket PROJ-1423 \(Story\)/,
@@ -413,9 +415,18 @@ describe('Orynx’s ticket tools in a session (spec 037)', () => {
     return { names: (await client.listTools()).tools.map((tool) => tool.name), record };
   }
 
-  it('AC-44: a Build session’s agent gets all five tools, and its calls are steps', async () => {
+  it('AC-44: a Build session’s agent gets all five tools, and its session tools, and its calls are steps', async () => {
     const { names, record } = await toolsGiven('build');
-    expect(names).toEqual(['list_tickets', 'get_ticket', 'create_ticket', 'update_ticket', 'delete_ticket']);
+    expect(names).toEqual([
+      'list_tickets',
+      'get_ticket',
+      'create_ticket',
+      'update_ticket',
+      'delete_ticket',
+      'set_steps',
+      'start_server',
+      'stop_server',
+    ]);
     expect(record?.session.activities.find((activity) => activity.kind === 'ticket')).toMatchObject({
       action: 'listed',
       key: null,
@@ -715,7 +726,7 @@ describe('a Build on your pull request (spec 031)', () => {
 
     const record = await settled(set.records);
     expect(record.session).toMatchObject({ workOn: 'new_branch', pullRequest: null, source: null });
-    expect(record.session.branch).toMatch(/^feat\//);
+    expect(record.branchPlan?.name).toMatch(/^feat\//);
   });
 
   it('AC-22: a branch that can’t be fetched, and was never fetched, can’t start, and leaves no worktree', async () => {
@@ -922,12 +933,12 @@ describe('a composer start (spec 015)', () => {
     expect(record.session).toMatchObject({
       title: 'Add a CSV export to the reports page',
       source: null,
-      branch: 'feat/add-a-csv-export-to',
       jiraUrl: null,
       sprint: null,
       ticket: null,
       folder: { name: 'web-app' },
     });
+    expect(record.branchPlan?.name).toBe('feat/add-a-csv-export-to');
     expect(record.session.activities.find((activity) => activity.kind === 'brief')).toMatchObject({
       key: null,
       message: true,
@@ -966,7 +977,6 @@ describe('a composer start (spec 015)', () => {
     expect(record.session).toMatchObject({
       title: 'Add bulk archive to the content list',
       source: { kind: 'jira', key: 'PROJ-1423' },
-      branch: 'feat/PROJ-1423',
       jiraUrl: `https://${jiraSite}/browse/PROJ-1423`,
       sprint: 'Sprint 42',
       ticket: { type: 'Story' },
@@ -1033,10 +1043,10 @@ describe('a composer start (spec 015)', () => {
     expect(record.session).toMatchObject({
       title: 'Add bulk archive',
       source: { kind: 'jira', key: 'ORX-1' },
-      branch: 'feat/ORX-1',
       jiraUrl: null,
       sprint: null,
     });
+    expect(record.branchPlan?.name).toBe('feat/ORX-1');
     expect(await records.readBrief(id)).toBe(
       'Orynx ticket ORX-1 (Task): Add bulk archive\n\nPriority: Medium · Status: In progress\n\nNo description.',
     );

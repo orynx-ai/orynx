@@ -29,6 +29,8 @@ export {
   sessionChangesQueryOptions,
   sessionCommandsQueryKey,
   sessionCommandsQueryOptions,
+  sessionPortsQueryKey,
+  sessionPortsQueryOptions,
   sessionDiffQueryKey,
   sessionDiffQueryOptions,
   sessionQueryKey,

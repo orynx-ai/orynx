@@ -15,7 +15,8 @@ import {
   Checkbox,
 } from '@devhub/ui';
 import { deleteKeepsPullRequest } from '../pull-request-words.ts';
-import { useDeleteSession, useHasChanges, useSession } from '../queries.ts';
+import { stopsServers } from '../port-words.ts';
+import { useDeleteSession, useHasChanges, useSession, useSessionPorts } from '../queries.ts';
 
 export interface DeleteSessionProps {
   session: Pick<SessionSummary, 'id' | 'state'>;
@@ -42,6 +43,8 @@ export function DeleteSession({ session, open, onClose, returnFocusTo, onDeleted
   const unpushed = useHasChanges(session.id, open) && session.state !== 'pr_open';
   const branch =
     detail !== null && detail.workOn !== 'pull_request' && detail.discardedAt === null ? detail.branch : null;
+  const ports = useSessionPorts({ id: session.id, terminal: open && detail?.terminal === true });
+  const stops = stopsServers(ports.data ?? []);
   const form = useForm<{ branch: boolean }>({ defaultValues: { branch: false } });
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
@@ -79,6 +82,8 @@ export function DeleteSession({ session, open, onClose, returnFocusTo, onDeleted
               {unpushed ? ' Its changes that haven’t been pushed will be lost.' : null}
               {/* Delete takes only what's on this computer (spec 014, AC-18). */}
               {detail?.pullRequest == null ? null : ` ${deleteKeepsPullRequest(detail.pullRequest.number)}`}
+              {/* Its servers stop first (spec 042, AC-13). */}
+              {stops === null ? null : ` ${stops}`}
             </AlertDialogDescription>
             {branch === null ? null : (
               <Controller

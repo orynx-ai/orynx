@@ -47,6 +47,8 @@ import {
   type SendMessageInput,
   type AddTerminalTabAnswer,
   type ClaudeCommandList,
+  type PortActionAnswer,
+  type SessionPort,
   type TerminalOutput,
   type TerminalSize,
   type Session,
@@ -142,6 +144,8 @@ import { getSkills } from './endpoints/skills.ts';
 import {
   deleteTerminalTab,
   getSessionCommands,
+  getSessionPorts,
+  postPortAction,
   getTerminal,
   postTerminalInput,
   postTerminalSize,
@@ -191,6 +195,10 @@ export interface ApiClient {
   sessionDiff(id: string, path: string): Promise<FileDiff>;
   /** Every command Claude ran in the session, with its output, for the Terminal's Claude tab (spec 036). */
   sessionCommands(id: string): Promise<ClaudeCommandList>;
+  /** What listens from the session (spec 042). */
+  sessionPorts(id: string): Promise<SessionPort[]>;
+  stopPort(id: string, port: number): Promise<PortActionAnswer>;
+  restartPort(id: string, port: number): Promise<PortActionAnswer>;
   /** Your shell tabs in the session's Terminal; rejects with not_found for a session that has none (spec 036). */
   terminal(id: string): Promise<Terminal>;
   addTerminalTab(id: string): Promise<AddTerminalTabAnswer>;
@@ -354,6 +362,11 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       getFileDiff(http, id, path).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sessionCommands: (id) =>
       getSessionCommands(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    sessionPorts: (id) => getSessionPorts(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    stopPort: (id, port) =>
+      postPortAction(http, id, port, 'stop').catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    restartPort: (id, port) =>
+      postPortAction(http, id, port, 'restart').catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     terminal: (id) => getTerminal(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     addTerminalTab: (id) =>
       postTerminalTab(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

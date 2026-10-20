@@ -779,9 +779,59 @@ describe('the Claude adapter', () => {
   });
 });
 
+describe('the first edit (spec 042)', () => {
+  const write = { tool: 'Write', input: { file_path: `${worktree}/src/a.ts`, content: 'x\n' } };
+
+  it('AC-15: asks the session before each edit it allows, reads and commands never', async () => {
+    const { sdk, adapter } = setUp([
+      { tool: 'Read', input: { file_path: `${worktree}/README.md` } },
+      write,
+      write,
+      { finish: 'Done.' },
+    ]);
+    let asked = 0;
+    const id = await adapter.startSession(brief, worktree, editFreely, 'Work in the worktree.', {
+      onEdit: () => {
+        asked += 1;
+        return Promise.resolve(null);
+      },
+    });
+    await new Promise<void>((resolve) => {
+      adapter.onEvent(id, (event) => {
+        if (event.type === 'ended') resolve();
+      });
+    });
+    expect(asked).toBe(2);
+    expect(sdk.runs[0]?.decisions.map((decision) => decision.result.behavior)).toEqual(['allow', 'allow', 'allow']);
+  });
+
+  it('AC-15: an edit the session can’t make a branch for is refused, with its words', async () => {
+    const { sdk, adapter } = setUp([write, { finish: 'Done.' }]);
+    const id = await adapter.startSession(brief, worktree, editFreely, 'Work in the worktree.', {
+      onEdit: () => Promise.resolve("Orynx couldn't make the branch."),
+    });
+    await new Promise<void>((resolve) => {
+      adapter.onEvent(id, (event) => {
+        if (event.type === 'ended') resolve();
+      });
+    });
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({ behavior: 'deny', message: "Orynx couldn't make the branch." });
+  });
+});
+
 describe('writing text with no tools (spec 014)', () => {
   const instructions = "You write a pull request's title and description.";
   const prompt = 'The ticket, PROJ-1423, as Claude got it\n\nAdd bulk archive';
+
+  it('AC-1 (spec 042): the quick read uses the model and effort the composer picked, and Claude Code’s own without them', async () => {
+    const picked = setUp([{ finish: '{}' }]);
+    await picked.adapter.write(prompt, instructions, { model: 'claude-opus-5-5', effort: 'high' });
+    expect(picked.sdk.runs[0]?.options).toMatchObject({ model: 'claude-opus-5-5', effort: 'high' });
+    const unpicked = setUp([{ finish: '{}' }]);
+    await unpicked.adapter.write(prompt, instructions);
+    expect(unpicked.sdk.runs[0]?.options).not.toHaveProperty('model');
+    expect(unpicked.sdk.runs[0]?.options).not.toHaveProperty('effort');
+  });
 
   it('AC-15: answers Claude’s text, from a query that can read, edit and run nothing and is never saved', async () => {
     const { sdk, adapter } = setUp([{ finish: 'PROJ-1423: Add bulk archive\n\nWhat changed.' }]);

@@ -292,9 +292,11 @@ export function bannerDetail({
     parts.push(
       approval.kind === 'command'
         ? `wants to run ${approval.command}`
-        : approval.kind === 'edit'
-          ? `wants to edit ${approval.path}`
-          : `wants to delete ${approval.key}`,
+        : approval.kind === 'server'
+          ? `wants to start ${approval.command}`
+          : approval.kind === 'edit'
+            ? `wants to edit ${approval.path}`
+            : `wants to delete ${approval.key}`,
     );
   }
   if (more > 0) parts.push(`${String(more)} more waiting`);

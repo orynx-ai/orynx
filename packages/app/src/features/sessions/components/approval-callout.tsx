@@ -10,6 +10,7 @@ import {
   approvalButtons,
   approvalTitle,
   moreLinesText,
+  serverLine,
   ticketDeleteLine,
   type AnswerError,
 } from '../approval-words.ts';
@@ -26,6 +27,14 @@ function What({ approval }: { approval: SessionApproval }) {
     );
   }
   if (approval.kind === 'ticket') return <p className="m-0">{ticketDeleteLine(approval)}</p>;
+  if (approval.kind === 'server') {
+    return (
+      <>
+        <CalloutCode>{approval.command}</CalloutCode>
+        <p className="m-0 text-small">{serverLine(approval)}</p>
+      </>
+    );
+  }
   return (
     <>
       <DiffView path={approval.path} lines={approval.lines} />
@@ -43,6 +52,9 @@ export function answerFailure(failure: Error, approval: SessionApproval): Answer
   if (code === 'already_answered') return null;
   if (code === 'settings_unsaved' && approval.kind === 'command' && approval.alwaysAllow !== null) {
     return { kind: 'not_saved', entry: approval.alwaysAllow };
+  }
+  if (code === 'settings_unsaved' && approval.kind === 'server') {
+    return { kind: 'not_saved', entry: 'servers in this repository' };
   }
   return { kind: 'not_sent' };
 }
@@ -128,7 +140,14 @@ export function ApprovalCallout({
     );
   }
 
-  const alwaysAllow = approval.kind === 'command' ? approval.alwaysAllow : null;
+  const alwaysAllow =
+    approval.kind === 'command'
+      ? approval.alwaysAllow === null
+        ? null
+        : alwaysAllowLabel(approval.alwaysAllow)
+      : approval.kind === 'server'
+        ? approvalButtons.alwaysServer
+        : null;
   return (
     <div ref={box}>
       <Callout
@@ -158,7 +177,7 @@ export function ApprovalCallout({
                   answer('always_allow');
                 }}
               >
-                {alwaysAllowLabel(alwaysAllow)}
+                {alwaysAllow}
               </Button>
             )}
             <Button
@@ -186,7 +205,7 @@ export function ApprovalCallout({
             title={approvalBar.title}
             detail={
               <code className="font-mono text-code">
-                {approval.kind === 'command'
+                {approval.kind === 'command' || approval.kind === 'server'
                   ? approval.command
                   : approval.kind === 'edit'
                     ? approval.path

@@ -223,6 +223,7 @@ export {
 export { Skeleton, type SkeletonProps } from './components/skeleton.tsx';
 export { DetailList, type DetailListProps } from './components/detail-list.tsx';
 export { HistoryList, HistoryRow, type HistoryListProps, type HistoryRowProps } from './components/history-row.tsx';
+export { PortList, PortRow, PortRowSkeleton, type PortListProps, type PortRowProps } from './components/port-row.tsx';
 export { StatTiles, type StatTilesProps } from './components/stat-tiles.tsx';
 export { StatusDot, type StatusDotProps, type StatusDotTone } from './components/status-dot.tsx';
 export { SourceMark, type Source, type SourceMarkProps } from './components/source-mark.tsx';

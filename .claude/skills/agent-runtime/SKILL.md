@@ -9,7 +9,7 @@ A session is one piece of work Claude does for the user: one task, one repo, one
 
 ## Safety rules (from the spec, all mandatory)
 
-1. **Worktree only.** Each session runs in its own git worktree under `~/.devhub/worktrees/`, on a branch named after the ticket (`feat/PROJ-1423`). Claude's working folder is that worktree. It must never edit the user's main checkout. A Build on your own open pull request (spec 031) has a detached worktree at that PR's branch instead: Push changes pushes `HEAD` to it, never forced, and Discard never deletes it. An Ask has no worktree: it reads its folder in place, or an empty folder of its own when it has none.
+1. **Worktree only.** Each session runs in its own git worktree under `~/.devhub/worktrees/`, detached until Claude's first edit makes its branch (spec 042; named after the ticket, `feat/PROJ-1423`, or as the repository's rules say). Claude's working folder is that worktree. It must never edit the user's main checkout. A Build on your own open pull request (spec 031) has a detached worktree at that PR's branch instead: Push changes pushes `HEAD` to it, never forced, and Discard never deletes it. An Ask has no worktree: it reads its folder in place, or an empty folder of its own when it has none.
 2. **Permission rows** (Settings › Coding agent, spec 026, saved as `agent.permissions` in `settings.json`; read them through `createPreferencesService().read()`, never the file). One row for each kind of call, read again for every call (`PermissionsSchema` in `packages/contracts/src/preferences.ts`):
    - `edits` (Ask first / Allow, default Allow): edits inside the worktree. Outside it they're refused, whatever the row.
    - `commands` (Ask first / Only allowed commands / Any command, default Ask first): commands in the sandbox. With Only allowed commands, those on the allow list (`agent.allowedCommands`) run and Always allow adds to it (spec 012, Q1).
@@ -65,6 +65,13 @@ Rule 4 lives in `packages/core/src/sessions/pull-requests.ts`, wired into `sessi
 - `branch-git.ts` commits with your git identity (`user.useConfigOnly=true`, so never a made-up one) and signing, pushes `refs/heads/<branch>` to the same name on `origin` without force, with hooks off and `LC_ALL=C`, and drops git's words once it has named the problem, because they can hold the remote's address with a password.
 - The PR opens through `client.ts` with the GitHub connection's token; one GitHub already has from the branch is linked as it is. Discard waits for a push under way.
 
+## The quick read, steps and servers (spec 042)
+
+- **The quick read** (`ask-reading.ts`): one `write()` on the composer's model before the worktree, with the ask, chip titles, branch names and the repository's written branch rules (`branch-rules.ts`), never file contents. Every field of its JSON is checked; a failure starts the session as before.
+- **Steps** are Claude's words over a hidden kind (`SessionStepsSchema`): 1 to 5, the rules refused whole. `progress.ts` moves the stepper by kind in the session's own order; Claude changes the steps with `set_steps`, never a step done or under way, never onto or past Run, Answer, Review or Pull request.
+- **Orynx's session tools** (`session-tools.ts`, on the `orynx` MCP server beside the ticket tools): `set_steps`; `start_server`, which always asks (or Always allow in this repository, `server:<repository id>` in the allow list) and runs in a Terminal tab of its own, outside the sandbox, as you; `stop_server`, for Claude's own servers only. `run_in_background` stays refused.
+- **Ports** (`ports/`): a port is the session's only when its process runs under one of its Terminal tabs or from inside its worktree, read with `lsof` and `ps`. Stop checks that again before it signals anything.
+
 ## Session states
 
 States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `working`, `needs_you`, `done`, `pr_open`, `stopped`. Once a session has a `pullRequest`, Claude finishing a follow-up leaves it `pr_open`, not `done`. Each is shown with an icon, a word and a colour (spec table "Session states"). Never colour alone.
@@ -82,7 +89,7 @@ States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `w
 | Data                     | Where                                                                   |
 | ------------------------ | ----------------------------------------------------------------------- |
 | Brief, steps, approvals  | `~/.devhub/sessions/<session>/` (`session.json`, `brief.md`), 0700/0600 |
-| Code changes             | `~/.devhub/worktrees/<session>` on `feat/<KEY>`, from `startCommit`     |
+| Code changes             | `~/.devhub/worktrees/<session>`, its branch made at the first edit      |
 | Claude Code's transcript | `~/.claude/projects/`, Claude Code's own; a follow-up resumes it        |
 
 ## Testing

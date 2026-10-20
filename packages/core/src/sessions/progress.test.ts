@@ -3,7 +3,9 @@ import {
   addPullRequestStep,
   addStep,
   addWaiting,
+  addServerStep,
   addWork,
+  changeSteps,
   emptyProgress,
   endProgress,
   removeWaiting,
@@ -12,6 +14,7 @@ import {
   type ClaudeWork,
   type Progress,
 } from './progress.ts';
+import type { SessionStep, SessionStepItem } from '@devhub/contracts';
 
 const fold = (works: readonly ClaudeWork[], from: Progress = emptyProgress) => works.reduce(addWork, from);
 
@@ -413,5 +416,146 @@ describe('Orynx ticket steps (spec 037)', () => {
         state: 'done',
       },
     ]);
+  });
+});
+
+describe('a session’s own steps (spec 042)', () => {
+  const steps = (...list: [SessionStep, string][]) => list.map(([kind, label]) => ({ kind, label }));
+  const run = steps(['setup', 'Set up'], ['run', 'Start server']);
+  const runThenFix = steps(
+    ['setup', 'Set up'],
+    ['run', 'Start server'],
+    ['build', 'Fix env'],
+    ['test', 'Test'],
+    ['pull_request', 'Pull request'],
+  );
+  const own = (list: SessionStepItem[], step: SessionStep = list[0]?.kind ?? 'plan'): Progress => ({
+    step,
+    steps: list,
+    activities: [],
+  });
+
+  it('AC-28: an edit moves the stepper to its Build only when the session has one', () => {
+    expect(fold([{ kind: 'edit', file: 'a.ts' }], own(run)).step).toBe('setup');
+    expect(fold([{ kind: 'edit', file: 'a.ts' }], own(runThenFix)).step).toBe('build');
+  });
+
+  it('AC-28: a command before any edit is setting up; after an edit, testing', () => {
+    expect(fold([{ kind: 'command', id: 'toolu_1', command: 'pnpm install' }], own(runThenFix, 'setup')).step).toBe(
+      'setup',
+    );
+    expect(
+      fold(
+        [{ kind: 'command', id: 'toolu_1', command: 'pnpm install' }],
+        own(steps(['plan', 'Plan'], ['setup', 'Set up'])),
+      ).step,
+    ).toBe('setup');
+    const after = fold(
+      [
+        { kind: 'edit', file: 'a.ts' },
+        { kind: 'command', id: 'toolu_2', command: 'pnpm test' },
+      ],
+      own(runThenFix),
+    );
+    expect(after.step).toBe('test');
+  });
+
+  it('AC-2: a port opening moves the stepper to Run; a server ending moves it nowhere', () => {
+    const server = { kind: 'server', command: 'next dev', port: 3005 } as const;
+    const listening = addServerStep(own(run), { ...server, event: 'started' });
+    expect(listening.step).toBe('run');
+    expect(listening.activities.at(-1)).toMatchObject({ kind: 'server', event: 'started', state: 'done' });
+    expect(addServerStep(own(run), { ...server, event: 'started', port: null }).step).toBe('setup');
+    expect(addServerStep(own(run), { ...server, event: 'exited' }).step).toBe('setup');
+  });
+
+  it('AC-29: finishing moves to Review or Answer, else to the last step before a pull request, skipping what was passed', () => {
+    const finish = (from: Progress) => fold([{ kind: 'finished', summary: 'Done.' }], from);
+    expect(finish(own(steps(['answer', 'Answer'])))).toMatchObject({ step: 'answer', skipped: [] });
+    expect(finish(own(run, 'run'))).toMatchObject({ step: 'run', skipped: [] });
+    expect(finish(own(runThenFix, 'run'))).toMatchObject({ step: 'test', skipped: ['build'] });
+  });
+
+  it('AC-24: Claude adds steps after the current one and moves on, with its reason as a step', () => {
+    const changed = changeSteps(own(run, 'run'), {
+      steps: runThenFix,
+      current: 'build',
+      reason: 'The server fails on a missing env key.',
+    });
+    expect(changed.ok && changed.progress.step).toBe('build');
+    expect(changed.ok && changed.progress.steps).toEqual(runThenFix);
+    expect(changed.ok && changed.progress.activities.at(-1)).toEqual({
+      id: 'step-1',
+      state: 'done',
+      kind: 'steps_changed',
+      from: run,
+      to: runThenFix,
+      reason: 'The server fails on a missing env key.',
+    });
+  });
+
+  it('AC-24, AC-31: an older session’s five steps can change too, and a follow-up goes back to its Build', () => {
+    const changed = changeSteps(
+      { step: 'review', activities: [] },
+      {
+        steps: steps(
+          ['plan', 'Plan'],
+          ['build', 'Build'],
+          ['test', 'Test'],
+          ['review', 'Review'],
+          ['pull_request', 'x'],
+        ),
+        current: 'review',
+        reason: 'r',
+      },
+    );
+    expect(changed.ok).toBe(true);
+    expect(resumeProgress(own(runThenFix, 'test')).step).toBe('test');
+    expect(resumeProgress(own(steps(['answer', 'Answer']), 'answer')).step).toBe('answer');
+    expect(resumeProgress({ ...own(runThenFix, 'pull_request') }).step).toBe('build');
+  });
+
+  it('AC-25, AC-26: refuses a list that breaks a rule, changes a step done or under way, or moves the stepper where Claude may not', () => {
+    const from = own(runThenFix, 'build');
+    const refusals: [Parameters<typeof changeSteps>[1], string][] = [
+      [
+        {
+          steps: [...runThenFix.slice(0, 4), ...steps(['review', 'Review'], ['answer', 'Answer'])],
+          current: 'build',
+          reason: '',
+        },
+        'At most 5 steps, a pull request included.',
+      ],
+      [
+        { steps: steps(['setup', 'Set up'], ['run', 'Serve'], ['build', 'Fix env']), current: 'build', reason: '' },
+        'Steps done or under way stay as they are: Set up · Start server · Fix env.',
+      ],
+      [
+        { steps: steps(['setup', 'Set up'], ['run', 'Start server']), current: 'run', reason: '' },
+        'Steps done or under way stay as they are: Set up · Start server · Fix env.',
+      ],
+      [{ steps: runThenFix, current: 'run', reason: '' }, 'The current step can only move forward.'],
+      [{ steps: runThenFix, current: 'pull_request', reason: '' }, 'Only you move a pull_request step.'],
+      [{ steps: runThenFix, current: 'review', reason: '' }, 'The current step must be one of the steps.'],
+    ];
+    for (const [change, reason] of refusals) expect(changeSteps(from, change), reason).toEqual({ ok: false, reason });
+    expect(changeSteps(own(run), { steps: run, current: 'run', reason: '' })).toEqual({
+      ok: false,
+      reason: 'Only Orynx moves a run step, once a port opens.',
+    });
+  });
+
+  it('AC-31: opening a pull request adds its step when the session had none, if there’s room', () => {
+    const pulled = {
+      kind: 'pull_request',
+      number: 7,
+      url: 'https://github.com/o/r/pull/7',
+      files: 1,
+      branch: 'fix/x',
+      linked: false,
+    } as const;
+    const opened = addPullRequestStep(own(steps(['build', 'Fix it'])), pulled);
+    expect(opened.steps).toEqual(steps(['build', 'Fix it'], ['pull_request', 'Pull request']));
+    expect(opened.step).toBe('pull_request');
   });
 });

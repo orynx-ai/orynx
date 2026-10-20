@@ -13,12 +13,31 @@ import {
   type SDKMessage,
   type SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
-import { AgentModelIdSchema, EffortLevelSchema, type AgentModel, type AgentModels } from '@devhub/contracts';
+import {
+  AgentModelIdSchema,
+  EffortLevelSchema,
+  type AgentModel,
+  type AgentModels,
+  type EffortLevel,
+} from '@devhub/contracts';
 import { briefText } from '../../sessions/brief.ts';
 import type { TicketTool, TicketToolDone } from '../../orynx-tickets/tools.ts';
-import { askText, type AgentAdapter, type AgentAsk, type AgentEvent, type AgentWritten } from '../agent-adapter.ts';
+import {
+  askText,
+  type AgentAdapter,
+  type AgentAsk,
+  type AgentEvent,
+  type AgentWritten,
+  type OrynxTool,
+} from '../agent-adapter.ts';
 import { createMessageReader } from './sdk-messages.ts';
-import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool-decision.ts';
+import {
+  decideToolUse,
+  orynxToolPrefix,
+  sessionTools,
+  sessionToolsWithoutCommands,
+  type ToolDecision,
+} from './tool-decision.ts';
 
 /**
  * Claude behind the agent adapter (spec 011), through the Claude Agent SDK's `query()`. Every option is
@@ -107,17 +126,33 @@ function agentModel(info: ModelInfo): AgentModel[] {
 function orynxServer(
   tools: readonly TicketTool[],
   did: (done: TicketToolDone) => void,
+  own: readonly OrynxTool[] = [],
 ): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
     name: 'orynx',
     version: '1.0.0',
-    tools: tools.map((ticketTool) =>
-      tool(ticketTool.name, ticketTool.description, ticketTool.input.shape, async (input) => {
-        const answer = await ticketTool.run(input);
-        if (answer.error !== true) did(answer.done);
-        return { content: [{ type: 'text', text: answer.text }], ...(answer.error === true ? { isError: true } : {}) };
-      }),
-    ),
+    tools: [
+      ...tools.map((ticketTool) =>
+        tool(ticketTool.name, ticketTool.description, ticketTool.input.shape, async (input) => {
+          const answer = await ticketTool.run(input);
+          if (answer.error !== true) did(answer.done);
+          return {
+            content: [{ type: 'text', text: answer.text }],
+            ...(answer.error === true ? { isError: true } : {}),
+          };
+        }),
+      ),
+      // The session's own tools (spec 042): what they did shows in the session itself, as each one says.
+      ...own.map((sessionTool) =>
+        tool(sessionTool.name, sessionTool.description, sessionTool.input.shape, async (input) => {
+          const answer = await sessionTool.run(input);
+          return {
+            content: [{ type: 'text', text: answer.text }],
+            ...(answer.error === true ? { isError: true } : {}),
+          };
+        }),
+      ),
+    ],
   });
 }
 
@@ -126,6 +161,9 @@ async function ticketTitle(tools: readonly TicketTool[], key: string): Promise<s
   const answer = await tools.find((ticketTool) => ticketTool.name === 'get_ticket')?.run({ key });
   return answer === undefined || answer.error === true || answer.done.action === 'listed' ? null : answer.done.title;
 }
+
+/** The tools that write a file, before the first of which the session makes its branch (spec 042). */
+const editTools = new Set(['Edit', 'Write', 'NotebookEdit']);
 
 /** How a waiting call ended: your answer, Stop, or Claude Code dropping it. */
 type Outcome = 'allow' | 'deny' | 'stopped' | 'dropped';
@@ -212,7 +250,11 @@ export function createClaudeAdapter({
   }
 
   /** Claude's text for one prompt, with no tools, from an empty folder of its own (spec 014). */
-  async function writeText(text: string, instructions: string, timeoutMs: number): Promise<AgentWritten> {
+  async function writeText(
+    text: string,
+    instructions: string,
+    { timeoutMs, model, effort }: { timeoutMs: number; model?: string | undefined; effort?: EffortLevel | undefined },
+  ): Promise<AgentWritten> {
     const folder = await mkdtemp(join(tmpdir(), 'orynx-write-'));
     let endInput: () => void = () => undefined;
     const inputOver = new Promise<void>((resolve) => {
@@ -242,6 +284,9 @@ export function createClaudeAdapter({
         mcpServers: {},
         systemPrompt: instructions,
         stderr: () => undefined,
+        // The quick read runs on the model the composer picked (spec 042, Q1); left out, Claude Code's own.
+        ...(model === undefined ? {} : { model }),
+        ...(effort === undefined ? {} : { effort }),
       },
     });
     const read = createMessageReader(folder);
@@ -343,11 +388,17 @@ export function createClaudeAdapter({
       return listing;
     },
 
-    write(text, instructions, { timeoutMs = writeTimeoutMs } = {}) {
-      return writeText(text, instructions, timeoutMs);
+    write(text, instructions, { timeoutMs = writeTimeoutMs, model, effort } = {}) {
+      return writeText(text, instructions, { timeoutMs, model, effort });
     },
 
-    startSession(brief, worktree, permissions, instructions, { resume, model, effort, tools = [] } = {}) {
+    startSession(
+      brief,
+      worktree,
+      permissions,
+      instructions,
+      { resume, model, effort, tools = [], onEdit, orynxTools = [] } = {},
+    ) {
       const id = randomUUID();
       // The prompt stream: the brief, then each follow-up as it's given, until the input is over.
       const given: SDKUserMessage[] = [];
@@ -401,12 +452,16 @@ export function createClaudeAdapter({
         strictMcpConfig: true,
         // Orynx's ticket tools, and no other MCP server (spec 037).
         mcpServers:
-          tools.length === 0
+          tools.length + orynxTools.length === 0
             ? {}
             : {
-                orynx: orynxServer(tools, (done) => {
-                  send({ type: 'work', sessionId: id, work: { kind: 'ticket', done } });
-                }),
+                orynx: orynxServer(
+                  tools,
+                  (done) => {
+                    send({ type: 'work', sessionId: id, work: { kind: 'ticket', done } });
+                  },
+                  orynxTools,
+                ),
               },
         systemPrompt: { type: 'preset', preset: 'claude_code', append: instructions },
         // Claude Code's own output can hold the brief or file contents; it never reaches the log.
@@ -419,12 +474,28 @@ export function createClaudeAdapter({
           }
           current?.decided.add(toolUseID);
           const ticketTitleOf = (key: string) => ticketTitle(tools, key);
-          const decide = async () =>
-            decideToolUse(tool, input, { worktree, home, ticketTitle: ticketTitleOf, ...(await permissions()) });
+          // The session's own tools say themselves whether a call asks you first (spec 042).
+          const own = orynxTools.find((one) => `${orynxToolPrefix}${one.name}` === tool);
+          const decide = async (): Promise<ToolDecision> => {
+            if (own === undefined) {
+              return decideToolUse(tool, input, {
+                worktree,
+                home,
+                ticketTitle: ticketTitleOf,
+                ...(await permissions()),
+              });
+            }
+            const ask = await own.asks(input);
+            return ask === null ? { behavior: 'allow' } : { behavior: 'ask', ask };
+          };
           const turn = (current?.deciding ?? Promise.resolve()).then(decide);
           if (current !== undefined) current.deciding = turn.catch(() => undefined);
           const decision = await turn;
+          // The session makes its branch before the first edit it allows (spec 042).
+          const editing = async () => (editTools.has(tool) ? ((await onEdit?.()) ?? null) : null);
           if (decision.behavior === 'allow') {
+            const refused = await editing();
+            if (refused !== null) return { behavior: 'deny', message: refused };
             const command = input['command'];
             if (tool === 'Bash' && typeof command === 'string') {
               current?.allowed.set(toolUseID, now());
@@ -452,7 +523,12 @@ export function createClaudeAdapter({
             return { behavior: 'deny', message: deniedMessage };
           }
           // An edit, or a ticket's delete, runs as Claude asked (spec 037); only a command can leave the sandbox.
-          if (ask.kind !== 'command') return { behavior: 'allow', updatedInput: input };
+          if (ask.kind !== 'command') {
+            const refused = await editing();
+            return refused === null
+              ? { behavior: 'allow', updatedInput: input }
+              : { behavior: 'deny', message: refused };
+          }
           current?.allowed.set(toolUseID, now());
           send({ type: 'work', sessionId: id, work: { kind: 'command', id: toolUseID, command: ask.command } });
           // A command that always asks runs outside the sandbox, this once (Q2a).

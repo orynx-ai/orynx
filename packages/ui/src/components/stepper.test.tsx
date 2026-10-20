@@ -63,4 +63,18 @@ describe('Stepper', () => {
     render(<Stepper aria-label="Session progress" steps={steps} current={1} skipped={[2]} />);
     expect(screen.getAllByRole('listitem')[2]).toHaveAttribute('data-state', 'todo');
   });
+
+  it('AC-34 (spec 042): a screen reader hears every step’s words, whatever the width shows', async () => {
+    const labels = ['Set up', 'Start server', 'Fix env key', 'Run the tests', 'Pull request'];
+    const { container } = render(<Stepper aria-label="Session progress" steps={labels} current={2} />);
+    const items = screen.getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Set up, done',
+      'Start server, done',
+      '3Fix env key',
+      '4Run the tests',
+      '5Pull request',
+    ]);
+    await expectNoAxeViolations(container);
+  });
 });

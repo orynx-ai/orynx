@@ -95,14 +95,17 @@ async function api(page: Page, method: string, path: string, body?: unknown) {
   );
 }
 
-/** The ticket's worktree, by its branch. */
+/** Each ticket's session, by its id, as `build()` started it. */
+const sessionOf = new Map<string, string>();
+
+/** The ticket's worktree, named after its session: it has no branch until Claude's first edit (spec 042). */
 function worktreeOf(key: string): string {
+  const id = sessionOf.get(key) ?? '';
   const worktree = repository
     .git(repository.clone, 'worktree', 'list', '--porcelain')
     .split('\n\n')
-    .find((entry) => entry.includes(`branch refs/heads/feat/${key}`))
-    ?.split('\n')[0]
-    ?.slice('worktree '.length);
+    .map((entry) => entry.split('\n')[0]?.slice('worktree '.length) ?? '')
+    .find((path) => id !== '' && path.endsWith(`/${id}`));
   if (worktree === undefined) throw new Error(`No worktree for ${key}`);
   return worktree;
 }
@@ -123,6 +126,7 @@ async function build(page: Page, key: string): Promise<string> {
   await page.waitForURL((url) => url.pathname === '/');
   await page.getByRole('button', { name: 'Send to Claude' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
+  sessionOf.set(key, new URL(page.url()).pathname.split('/').at(-1) ?? '');
   return page.url();
 }
 

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, realpath } from 'node:fs/promises';
+import { join, resolve, sep } from 'node:path';
 import { isOrynxKey, permissionsFor } from '@devhub/contracts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import { ticketTools } from '../orynx-tickets/tools.ts';
@@ -25,6 +25,10 @@ import type {
   SessionChangeRequest,
   SessionChanges,
   SessionFollowUp,
+  SessionPort,
+  PortActionAnswer,
+  SessionStep,
+  SessionStepItem,
   SessionTicket,
   StartSessionAnswer,
   StartSessionRequest,
@@ -62,9 +66,11 @@ import {
 import type { SkillsService } from '../skills/skills-service.ts';
 import type { ContextReader } from './context-reader.ts';
 import {
+  addServerStep,
   addStep,
   addWaiting,
   addWork,
+  changeSteps,
   endProgress,
   removeWaiting,
   replaceStep,
@@ -81,7 +87,11 @@ import {
   type SessionRecords,
   type StoredSession,
 } from './session-store.ts';
-import { createWorktrees, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
+import { createWorktrees, type Prepared, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
+import { readingFrom, readingInstructions, readingPrompt, type AskInput, type AskReading } from './ask-reading.ts';
+import { readBranchRules } from './branch-rules.ts';
+import { sessionTools } from './session-tools.ts';
+import type { PortService, SessionPlaces } from '../ports/port-service.ts';
 
 /**
  * Claude sessions (spec 011): starting one on a ticket or from the composer (spec 015), running it, stopping
@@ -123,6 +133,12 @@ export type SendResult = SendMessageAnswer | { result: 'not_found' };
 export type RespondResult = 'answered' | 'not_found' | 'already_answered' | 'not_offered' | 'not_saved';
 
 export interface SessionService {
+  /** What listens from the session (spec 042): none for an Ask or a gone worktree; null when it couldn't be read. */
+  ports(id: string): Promise<SessionPort[] | null | 'not_found'>;
+  /** Stops what listens on `port` from the session, checked again now, with a row (spec 042). */
+  stopPort(id: string, port: number): Promise<PortActionAnswer['result'] | 'not_found'>;
+  /** Runs a server Claude started again in its tab (spec 042); one started any other way can't be. */
+  restartPort(id: string, port: number): Promise<PortActionAnswer['result'] | 'not_found'>;
   /** Ship's start on a ticket, or the composer's with your message and its chips (spec 015). */
   start(request: StartSessionRequest): Promise<StartSessionAnswer>;
   /** The session as the Session screen shows it; null when there's none with this id. */
@@ -210,7 +226,7 @@ export interface SessionServiceOptions {
   /** Orynx's own tickets, whose tools every session's agent gets (spec 037); left out, it gets none. */
   tickets?: OrynxTicketService;
   /** Your shell tabs (spec 036). Left out where there are none (Windows): then no session offers its Terminal. */
-  terminal?: Pick<TerminalService, 'stopAll'>;
+  terminal?: Pick<TerminalService, 'stopAll' | 'read' | 'addServerTab' | 'shells' | 'lastLines' | 'restart'>;
   events: EventBus;
   onReport?: (report: SessionReport) => void;
   /**
@@ -222,10 +238,30 @@ export interface SessionServiceOptions {
   newId?: () => string;
   /** The Session screen hears about new steps at most this often; 250 ms (AC-4). */
   stepEventMs?: number;
+  /** Read each Build's ask before its worktree (spec 042); the server does, and so do the tests of it. */
+  readAsks?: boolean;
+  /** What listens from each session (spec 042); none on a computer with no Terminal. */
+  ports?: PortService;
+  /** How long a server Claude starts may take to listen before Claude gets its last lines instead; 60 seconds. */
+  serverWaitMs?: number;
 }
 
 /** At most this many sessions work at once (Q11). */
 const mostWorking = 3;
+/** How long the quick read may take before the session starts as it would without it (spec 042, Q1). */
+const readTimeoutMs = 30_000;
+
+/** The quick read's row before it has read anything, and as it stays when the read fails (spec 042). */
+const unread = {
+  kind: 'reading',
+  intent: null,
+  base: null,
+  missingBase: null,
+  branch: null,
+  branchFrom: null,
+  suggested: null,
+  branchNote: null,
+} as const;
 
 function projectOf(key: string): string {
   return key.slice(0, key.lastIndexOf('-'));
@@ -330,9 +366,14 @@ function endApprovals(
  * What the Changes tab compares the worktree with (spec 013, Q4): the commit the branch started from, or, for a
  * session made before spec 013, the base its worktree step names. Null when no worktree was ever made.
  */
+/** Whether Orynx made the session's worktree: since spec 042 it may have no branch until Claude's first edit. */
+function worktreeMade(record: StoredSession): boolean {
+  return record.worktree !== null && (record.startCommit !== null || record.session.branch !== null);
+}
+
 function startPointOf(record: StoredSession): StartPoint | null {
   const { session } = record;
-  if (record.worktree === null || session.branch === null) return null;
+  if (!worktreeMade(record)) return null;
   // git couldn't make the worktree, so there's none to read.
   if (session.problem?.kind === 'git' && session.problem.stage === 'starting') return null;
   if (record.startCommit !== null) return { commit: record.startCommit };
@@ -351,12 +392,13 @@ function askPlace(record: StoredSession): string | null {
 }
 
 function progressOf(session: Session): Progress {
-  return { step: session.step, activities: session.activities, skipped: session.skipped };
+  return { step: session.step, activities: session.activities, skipped: session.skipped, steps: session.steps };
 }
 
 function withProgress(record: StoredSession, change: (progress: Progress) => Progress): StoredSession {
-  const { step, activities, skipped = [] } = change(progressOf(record.session));
-  return { ...record, session: { ...record.session, step, activities: [...activities], skipped: [...skipped] } };
+  const { step, activities, skipped = [], steps = [] } = change(progressOf(record.session));
+  const session = { ...record.session, step, activities: [...activities], skipped: [...skipped], steps: [...steps] };
+  return { ...record, session };
 }
 
 export function createSessionService(options: SessionServiceOptions): SessionService {
@@ -579,7 +621,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
                     ? ask.description
                     : ask.kind === 'edit'
                       ? ask.path
-                      : `${ask.key}${ask.title === null ? '' : ` · ${ask.title}`}`,
+                      : ask.kind === 'server'
+                        ? ask.command
+                        : `${ask.key}${ask.title === null ? '' : ` · ${ask.title}`}`,
               }),
             );
             return {
@@ -654,6 +698,194 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return ticketPlan(issue);
   }
 
+  /** Claude's `set_steps` (spec 042): null once the stepper took the change, or why it didn't. */
+  async function applySteps(
+    id: string,
+    wanted: { steps: SessionStepItem[]; current: SessionStep; reason: string },
+  ): Promise<string | null> {
+    let refused: string | null = 'This session is gone.';
+    await change(id, (current) => {
+      const changed = changeSteps(progressOf(current.session), wanted);
+      refused = changed.ok ? null : changed.reason;
+      return changed.ok ? withProgress(current, () => changed.progress) : current;
+    });
+    return refused;
+  }
+
+  /**
+   * What you're asked before Claude starts a server (spec 042, Q7): always, unless you chose Always allow in this
+   * repository, which the allow list keeps as `server:<repository id>`.
+   */
+  async function serverAsk(id: string, command: string, folder: string): Promise<AgentAsk | null> {
+    const record = await records.get(id);
+    const entry = `server:${record?.repository?.id ?? id}`;
+    const { allowedCommands } = await options.preferences.read();
+    return allowedCommands.includes(entry) ? null : { kind: 'server', command, folder, alwaysAllow: entry };
+  }
+
+  /**
+   * Starts a server Claude asked for in a Terminal tab of its own, in the worktree or a folder inside it, and waits for
+   * a port to listen from that tab (spec 042): then a row, and the stepper at Run.
+   */
+  async function startServer(
+    id: string,
+    command: string,
+    folder: string,
+  ): Promise<{ port: number; url: string | null } | { lines: string[] } | { refused: string }> {
+    const record = await records.get(id);
+    const { terminal, ports } = options;
+    if (record === null || terminal === undefined || ports === undefined) {
+      return { refused: "Servers can't start on this computer." };
+    }
+    const worktree = terminalWorktree(record);
+    if (worktree === null || !worktreeMade(record)) return { refused: 'This session has no worktree to start it in.' };
+    const place = resolve(worktree, folder);
+    if (place !== worktree && !place.startsWith(worktree + sep)) {
+      return { refused: 'A server starts in the worktree or a folder inside it.' };
+    }
+    terminal.read(id, worktree);
+    const added = terminal.addServerTab(id, place, command);
+    if (added.result !== 'added') {
+      return { refused: 'This session has all its Terminal tabs open. Ask the user to close one.' };
+    }
+    const shell = terminal.shells(id).find((one) => one.tabId === added.tabId);
+    const until = now() + (options.serverWaitMs ?? 60_000);
+    let listening: SessionPort | undefined;
+    while (shell !== undefined && listening === undefined && now() < until) {
+      listening = (await ports.list({ worktree, shells: [shell] }))?.find((one) => one.startedBy === 'claude');
+      if (listening === undefined) await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    const port = listening?.port ?? null;
+    await change(id, (current) =>
+      withProgress(current, (progress) => addServerStep(progress, { kind: 'server', event: 'started', port, command })),
+    );
+    if (listening === undefined) return { lines: terminal.lastLines(id, added.tabId, 40) };
+    return { port: listening.port, url: listening.url };
+  }
+
+  /** Where the session's servers come from (spec 042): its worktree, as lsof writes paths, and its Terminal tabs. */
+  async function placesOf(id: string, record: StoredSession): Promise<SessionPlaces | null> {
+    const worktree = terminalWorktree(record);
+    if (worktree === null || !worktreeMade(record)) return null;
+    const real = await realpath(worktree).catch(() => null);
+    return real === null ? null : { worktree: real, shells: options.terminal?.shells(id) ?? [] };
+  }
+
+  async function stopPortNow(id: string, port: number): Promise<PortActionAnswer['result'] | 'not_found'> {
+    const record = await records.get(id);
+    if (record === null) return 'not_found';
+    const places = await placesOf(id, record);
+    if (places === null || options.ports === undefined) return 'gone';
+    const listed = (await options.ports.list(places))?.find((one) => one.port === port);
+    if (listed === undefined || (await options.ports.stop(places, port)) === 'gone') return 'gone';
+    await change(id, (current) =>
+      withProgress(current, (progress) =>
+        addServerStep(progress, { kind: 'server', event: 'stopped', port, command: listed.command }),
+      ),
+    );
+    return 'done';
+  }
+
+  /** Stops every server of the session's (spec 042, AC-13): before its worktree goes, nothing runs from there. */
+  async function stopServers(id: string, record: StoredSession): Promise<void> {
+    const places = await placesOf(id, record);
+    if (places === null || options.ports === undefined) return;
+    for (const { port } of (await options.ports.list(places)) ?? []) await options.ports.stop(places, port);
+  }
+
+  /** Each session's branch while it's being made, so two edits at once make one (spec 042). */
+  const branching = new Map<string, Promise<string | null>>();
+
+  /**
+   * Makes the session's branch at Claude's first edit (spec 042), with a row saying so; null once it's there or when
+   * there's none to make. A branch git couldn't make refuses the edit, with words Claude can pass on.
+   */
+  function makeBranch(id: string): Promise<string | null> {
+    const under = branching.get(id);
+    if (under !== undefined) return under;
+    const work = makeBranchNow(id).finally(() => branching.delete(id));
+    branching.set(id, work);
+    return work;
+  }
+
+  async function makeBranchNow(id: string): Promise<string | null> {
+    const record = await records.get(id);
+    const planned = record?.branchPlan ?? null;
+    if (record === null || planned === null || record.session.branch !== null) return null;
+    if (record.worktree === null || record.repository === null) return null;
+    const made = await worktrees.makeBranch(record.repository.path, record.worktree, planned.name, planned.onOrigin);
+    if (!made.ok) {
+      report(record, 'git', 'branch');
+      return "Orynx couldn't make this session's branch, so the edit wasn't made. Say so in your summary.";
+    }
+    await change(id, (current) => {
+      const next = withProgress(current, (progress) =>
+        addStep(progress, { kind: 'branch_made', branch: made.branch, from: planned.from }),
+      );
+      return { ...next, branchPlan: null, session: { ...next.session, branch: made.branch, branchFrom: planned.from } };
+    });
+    return null;
+  }
+
+  /**
+   * The quick read (spec 042): a running row, one text-only call on the model you picked, then the row with what it
+   * read, the session's intent, steps and, with no ticket or pull request, its title. Null when it couldn't read.
+   */
+  async function readAsk(id: string, record: StoredSession, start: StartPlan): Promise<AskReading | null> {
+    if (adapter === null || record.repository === null) return null;
+    const shown = await change(id, (current) =>
+      withProgress(current, (progress) => addStep(progress, unread, 'running')),
+    );
+    const rowId = shown?.session.activities.at(-1)?.id ?? '';
+    const repo = record.repository.path;
+    const [hints, rules] = await Promise.all([worktrees.hints(repo), readBranchRules(repo)]);
+    const input: AskInput = {
+      message: start.brief.message,
+      chips: start.brief.context.map((chip) => chip.title),
+      folder: record.session.folder?.name ?? '',
+      hints,
+      rules,
+      ticketKey: record.session.source?.kind === 'jira' ? record.session.source.key : null,
+      workOn: record.session.workOn,
+      fallbackBranch: `feat/${start.branchName}`,
+    };
+    const written = await adapter.write(readingPrompt(input), readingInstructions, {
+      timeoutMs: readTimeoutMs,
+      ...start.choice,
+    });
+    const reading = written.ok ? readingFrom(written.text, input) : null;
+    await change(id, (current) => {
+      const row =
+        reading === null
+          ? unread
+          : {
+              ...unread,
+              intent: reading.intent,
+              base: reading.base?.replace(/^origin\//, '') ?? null,
+              missingBase: reading.missingBase,
+              branch: reading.branch,
+              branchFrom: reading.branchFrom,
+              suggested: reading.suggested,
+              branchNote: reading.branchNote,
+            };
+      const next = withProgress(current, (progress) => replaceStep(progress, rowId, row));
+      if (reading === null) return next;
+      const [first] = reading.steps;
+      return {
+        ...next,
+        session: {
+          ...next.session,
+          // A ticket or pull request names the session; only a message alone takes the read's title.
+          title: next.session.source === null ? reading.title : next.session.title,
+          intent: reading.intent,
+          steps: reading.steps,
+          step: first?.kind ?? next.session.step,
+        },
+      };
+    });
+    return reading;
+  }
+
   async function run(id: string, run: Run): Promise<void> {
     const record = await records.get(id);
     if (record?.session.mode === 'ask') return runAsk(id, run, record);
@@ -666,11 +898,27 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (start === null) return;
     const { signal } = run.controller;
 
-    // Your pull request's own branch, fetched and detached; any other Build gets a branch of its own (spec 031).
+    const reading = options.readAsks === true ? await readAsk(id, record, start) : null;
+    if (stopping(run)) return;
+
+    /** Where the quick read said to start, when it named a branch on origin (spec 042). */
+    const based = (named: Prepared): Prepared =>
+      named.ok && reading?.base != null
+        ? { ...named, plan: { ...named.plan, base: reading.base, remote: true } }
+        : named;
+    // Your pull request's own branch, fetched and detached; any other Build gets a branch of its own (spec 031), named
+    // and based as the quick read said, when it could read your ask (spec 042).
     const pull = record.session.workOn === 'pull_request' ? record.session.pullRequest : null;
     const prepared =
       pull === null
-        ? await worktrees.prepare(record.repository.path, start.branchName, signal)
+        ? based(
+            await worktrees.prepare(
+              record.repository.path,
+              reading?.branch ?? `feat/${start.branchName}`,
+              signal,
+              reading?.onOrigin === true,
+            ),
+          )
         : {
             ok: true as const,
             plan: { branch: start.branchName, base: `origin/${start.branchName}`, remote: true, detach: true },
@@ -679,17 +927,41 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const { plan } = prepared;
     const making = {
       kind: 'worktree',
-      branch: plan.branch,
+      // Your pull request's own branch is there already; any other is made at Claude's first edit (spec 042).
+      branch: pull === null ? null : plan.branch,
       base: plan.base,
       fetched: false,
       ...(pull === null ? {} : { pullRequest: pull.number }),
     } as const;
     const withStep = await change(id, (current) => {
       const next = withProgress(current, (progress) => addStep(progress, making, 'running'));
-      return { ...next, session: { ...next.session, branch: plan.branch } };
+      if (pull !== null) return { ...next, session: { ...next.session, branch: plan.branch } };
+      const branchPlan = {
+        name: plan.branch,
+        from: reading?.branchFrom ?? 'orynx',
+        onOrigin: reading?.onOrigin ?? false,
+      };
+      // A name the quick read gave that another branch has already: the reading says so (spec 042, AC-19).
+      const taken = reading !== null && reading.branchNote === null && plan.branch !== reading.branch;
+      const shown = taken
+        ? withProgress(next, (progress) => ({
+            ...progress,
+            activities: progress.activities.map((activity) =>
+              activity.kind === 'reading'
+                ? { ...activity, branch: plan.branch, suggested: reading.branch, branchNote: 'taken' as const }
+                : activity,
+            ),
+          }))
+        : next;
+      return { ...shown, branchPlan };
     });
     const stepId = withStep?.session.activities.at(-1)?.id ?? '';
-    const made = await worktrees.make(record.repository.path, record.worktree, plan, signal);
+    const made = await worktrees.make(
+      record.repository.path,
+      record.worktree,
+      pull === null ? { ...plan, detach: true } : plan,
+      signal,
+    );
     await change(id, (current) => ({
       ...withProgress(current, (progress) =>
         replaceStep(progress, stepId, { ...making, fetched: made.ok && made.fetched }),
@@ -778,6 +1050,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       model,
       effort,
       tools,
+      onEdit: () => makeBranch(id),
+      // A Build's own tools (spec 042): Claude changes its steps; an Ask has none.
+      orynxTools: first.readOnly
+        ? []
+        : sessionTools({
+            changeSteps: (wanted) => applySteps(id, wanted),
+            serverAsk: (command, folder) => serverAsk(id, command, folder),
+            startServer: (command, folder) => startServer(id, command, folder),
+            stopServer: async (port) => {
+              // Only a server Claude started here: anything else is yours.
+              const record = await records.get(id);
+              const places = record === null ? null : await placesOf(id, record);
+              const listed =
+                places === null ? undefined : (await options.ports?.list(places))?.find((one) => one.port === port);
+              if (listed?.startedBy !== 'claude') return false;
+              return (await stopPortNow(id, port)) === 'done';
+            },
+          }),
     });
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.
@@ -933,7 +1223,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     // An Ask session carries on in its repository folder, with no branch (spec 026).
     const ask = session.mode === 'ask';
     const folder = ask ? askPlace(record) : record.worktree;
-    if (claudeSessionId === null || folder === null || (!ask && branch === null) || adapter === null) {
+    if (claudeSessionId === null || folder === null || (!ask && !worktreeMade(record)) || adapter === null) {
       return cannot('never_started');
     }
     const key = ticketOf(record);
@@ -955,7 +1245,17 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     });
     options.onReport?.({ what: 'followed_up', session: id, ticket: key, resumed: true });
     track(
-      startClaude(id, run, brief, folder, branch, claudeSessionId, ticketNote(session), choice)
+      // A Build's branch may still be to make, at its first edit (spec 042).
+      startClaude(
+        id,
+        run,
+        brief,
+        folder,
+        ask ? null : (branch ?? record.branchPlan?.name ?? null),
+        claudeSessionId,
+        ticketNote(session),
+        choice,
+      )
         .catch(() => fail(id, 'other', 'unexpected'))
         .finally(() => {
           run.markStarted(null);
@@ -1049,6 +1349,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         folder: { name: folder.name, displayPath: folder.displayPath },
         branch: null,
         step: 'plan',
+        steps: [],
+        intent: null,
+        branchFrom: null,
         activities: [],
         problem: null,
         startedAt: at,
@@ -1135,6 +1438,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         folder: folder === null ? null : { name: folder.name, displayPath: folder.displayPath },
         branch: null,
         step: 'plan',
+        steps: [],
+        intent: null,
+        branchFrom: null,
         activities: [],
         problem: null,
         startedAt: at,
@@ -1195,7 +1501,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const { branch } = record.session;
     // Your pull request's branch isn't the session's to delete: only its worktree goes (spec 031).
     const kept = record.session.workOn === 'pull_request';
-    // Your commands end first: nothing of yours runs from a folder that's going (spec 036, AC-28).
+    // Your commands end first: nothing of yours runs from a folder that's going (spec 036, AC-28), nor any server
+    // found running from it (spec 042).
+    await stopServers(id, record);
     await options.terminal?.stopAll(id);
     // An Ask with no folder has only its empty folder, which nothing reads once it's discarded.
     if (record.worktree !== null && record.repository !== null) {
@@ -1226,7 +1534,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const record = await records.get(id);
     if (record === null) return 'not_found';
     if (isWorking(record.session)) return 'working';
-    // Your commands end first: nothing of yours runs from a folder that's going (spec 036, AC-28).
+    // Your commands end first: nothing of yours runs from a folder that's going (spec 036, AC-28), nor any server
+    // found running from it (spec 042).
+    await stopServers(id, record);
     await options.terminal?.stopAll(id);
     // Discard leaves a folderless Ask's own folder (it isn't a worktree), so a delete takes it either way.
     if (record.worktree !== null && (record.session.discardedAt === null || record.repository === null)) {
@@ -1257,6 +1567,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     git: branchGit,
     changes: options.changes,
     adapter,
+    ensureBranch: (id) => makeBranch(id),
   });
   /** Each session's create or push under way, which Discard and closing wait for. */
   const publishing = new Map<string, Promise<unknown>>();
@@ -1313,7 +1624,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
               deleted: key !== null && isOrynxKey(key) && known === null,
             };
       // There's a worktree to open from when it's made until the changes are discarded (spec 013, Q9).
-      const made = session.branch !== null && session.discardedAt === null;
+      const made = worktreeMade(record) && session.discardedAt === null;
       const terminal = options.terminal !== undefined && terminalWorktree(record) !== null;
       return {
         ...session,
@@ -1393,6 +1704,32 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       );
       return turn;
     },
+    async ports(id) {
+      const record = await records.get(id);
+      if (record === null) return 'not_found';
+      const places = await placesOf(id, record);
+      if (places === null || options.ports === undefined) return [];
+      return options.ports.list(places);
+    },
+
+    stopPort: stopPortNow,
+
+    async restartPort(id, port) {
+      const record = await records.get(id);
+      if (record === null) return 'not_found';
+      const places = await placesOf(id, record);
+      if (places === null || options.ports === undefined) return 'gone';
+      for (const shell of places.shells.filter((one) => one.server !== null)) {
+        const mine = (await options.ports.list({ ...places, shells: [shell] }))?.some(
+          (one) => one.port === port && one.startedBy === 'claude',
+        );
+        if (mine === true && shell.tabId !== undefined && options.terminal?.restart(id, shell.tabId) === true)
+          return 'done';
+      }
+      const there = (await options.ports.list(places))?.some((one) => one.port === port) === true;
+      return there ? 'cannot_restart' : 'gone';
+    },
+
     async respond(id, approvalId, decision) {
       const record = await records.get(id);
       if (record === null) return 'not_found';
@@ -1402,7 +1739,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       }
       const run = runs.get(id);
       if (run?.agentId == null || adapter === null || claimed.has(approvalId)) return 'already_answered';
-      const entry = waiting.kind === 'command' ? waiting.alwaysAllow : null;
+      const entry = waiting.kind === 'command' || waiting.kind === 'server' ? waiting.alwaysAllow : null;
       if (decision === 'always_allow' && entry === null) return 'not_offered';
       // The first answer counts (AC-13): from here, before anything waits, any other answer to this call is late.
       claimed.add(approvalId);

@@ -62,6 +62,7 @@ import {
 } from './session.ts';
 import { OrynxSkillListSchema, ReadySkillSchema, type OrynxSkillList, type ReadySkill } from './orynx-skills.ts';
 import { OrynxTicketSchema, type OrynxTicket } from './orynx-tickets.ts';
+import { SessionPortSchema, type SessionPort } from './ports.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 import {
   SyncActivitySchema,
@@ -605,6 +606,22 @@ export function makeSyncActivity(overrides: Partial<SyncActivity> = {}): SyncAct
   return SyncActivitySchema.parse({
     tools: [makeSyncTool(), makeSyncTool({ tool: 'github', changesToday: 21 })],
     runs: [],
+    ...overrides,
+  });
+}
+
+/** A port that listens from a session (spec 042): `next dev` Claude started, answering HTTPS on 3005. */
+export function makeSessionPort(overrides: Partial<SessionPort> = {}): SessionPort {
+  return SessionPortSchema.parse({
+    port: 3005,
+    pid: 59220,
+    program: 'node',
+    command: 'node ./node_modules/next/dist/bin/next dev --experimental-https --port 3005',
+    name: null,
+    url: 'https://localhost:3005',
+    startedBy: 'claude',
+    since: '2026-10-16T09:58:00.000Z',
+    restartable: true,
     ...overrides,
   });
 }

@@ -27,7 +27,7 @@ export type WorktreeProblem =
   /** The folder is gone or isn't a git repository any more. */
   | { kind: 'folder' }
   /** A git command failed; `step` is safe to log. */
-  | { kind: 'git'; step: 'prepare' | 'add' | 'remove' }
+  | { kind: 'git'; step: 'prepare' | 'add' | 'remove' | 'branch' }
   /** Stop came while git was working. */
   | { kind: 'stopped' };
 
@@ -36,9 +36,38 @@ export type Prepared = { ok: true; plan: WorktreePlan } | { ok: false; problem: 
 export type Made = { ok: true; fetched: boolean; startCommit: string } | { ok: false; problem: WorktreeProblem };
 export type Removed = { ok: true } | { ok: false; problem: WorktreeProblem };
 
+/**
+ * What the quick read learns about a repository's branches (spec 042): where a worktree starts by default, the
+ * names of `origin`'s branches, newest first, and of your own newest branches. Names only.
+ */
+export interface BranchHints {
+  base: string;
+  origin: string[];
+  yours: string[];
+}
+
+/** How many of origin's branch names, and of your own, the quick read gets. */
+const mostOriginNames = 200;
+const mostOwnNames = 20;
+
 export interface Worktrees {
-  /** Finds the default branch and the first free branch name for this ticket (Q1, Q2). Fast: no network. */
-  prepare(repo: string, key: string, signal?: AbortSignal): Promise<Prepared>;
+  /** Branch names for the quick read (spec 042); null when the folder isn't a repository. Fast: no network. */
+  hints(repo: string): Promise<BranchHints | null>;
+  /**
+   * Finds the default branch and the first free name from `branch` (Q1, Q2): `feat/PROJ-1423`, then `-2`, `-3`. Fast:
+   * no network.
+   */
+  prepare(repo: string, branch: string, signal?: AbortSignal, localOnly?: boolean): Promise<Prepared>;
+  /**
+   * Makes the session's branch at Claude's first edit (spec 042): the first free name from `wanted`, at the detached
+   * worktree's HEAD, with nothing to track. `localOnly`: a branch you named on origin keeps its name.
+   */
+  makeBranch(
+    repo: string,
+    path: string,
+    wanted: string,
+    localOnly?: boolean,
+  ): Promise<{ ok: true; branch: string } | { ok: false; problem: WorktreeProblem }>;
   /**
    * Fetches the default branch when it's on `origin` (Q1a: the last fetched one if that fails), then makes
    * the branch from it in a new worktree at `path`. The branch doesn't track the default branch, so a later
@@ -99,27 +128,84 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
     return { base: current === '' ? 'HEAD' : current, remote: false };
   }
 
-  async function freeBranch(repo: string, key: string): Promise<string | null> {
-    const refs = (await git(repo).raw(['for-each-ref', '--format=%(refname)', 'refs/heads/', 'refs/remotes/origin/']))
+  /** `wanted`, or the first of `-2`, `-3` no branch has; with `localOnly`, one on origin is yours to add onto (Q4). */
+  async function freeBranch(repo: string, wanted: string, localOnly = false): Promise<string | null> {
+    const refs = (
+      await git(repo).raw([
+        'for-each-ref',
+        '--format=%(refname)',
+        'refs/heads/',
+        ...(localOnly ? [] : ['refs/remotes/origin/']),
+      ])
+    )
       .split('\n')
       .map((ref) => ref.trim());
     const taken = new Set(refs);
     for (let n = 1; n <= mostBranchNames; n++) {
-      const name = n === 1 ? `feat/${key}` : `feat/${key}-${String(n)}`;
+      const name = n === 1 ? wanted : `${wanted}-${String(n)}`;
       if (!taken.has(`refs/heads/${name}`) && !taken.has(`refs/remotes/origin/${name}`)) return name;
     }
     return null;
   }
 
   return {
-    async prepare(repo, key, signal) {
+    async hints(repo) {
+      if (!(await isRepository(repo))) return null;
+      try {
+        const { base } = await defaultBase(repo);
+        // Your identity as git commits with it, from your settings or the environment.
+        const ident = await git(repo).raw(['var', 'GIT_AUTHOR_IDENT']);
+        const email = /<([^>]*)>/.exec(ident)?.[1] ?? null;
+        const refs = (
+          await git(repo).raw([
+            'for-each-ref',
+            '--sort=-committerdate',
+            '--format=%(refname)%09%(authoremail)',
+            'refs/heads/',
+            'refs/remotes/origin/',
+          ])
+        )
+          .split('\n')
+          .map((line) => line.split('\t'))
+          .map(([ref = '', author = '']) => ({ ref, author }));
+        const nameOf = (ref: string) => ref.replace(/^refs\/(?:heads|remotes\/origin)\//, '');
+        const fromOrigin = refs.filter(
+          ({ ref }) => ref.startsWith('refs/remotes/origin/') && ref !== 'refs/remotes/origin/HEAD',
+        );
+        const defaultName = nameOf(`refs/remotes/${base}`);
+        const yours = refs
+          .filter(({ ref, author }) => ref !== '' && author === `<${email ?? ''}>` && !ref.endsWith('/HEAD'))
+          .map(({ ref }) => nameOf(ref))
+          .filter((name) => name !== defaultName && name !== base);
+        return {
+          base,
+          origin: fromOrigin.map(({ ref }) => nameOf(ref)).slice(0, mostOriginNames),
+          yours: [...new Set(yours)].slice(0, mostOwnNames),
+        };
+      } catch {
+        return null;
+      }
+    },
+
+    async makeBranch(repo, path, wanted, localOnly = false) {
+      try {
+        const branch = await freeBranch(repo, wanted, localOnly);
+        if (branch === null) return { ok: false, problem: { kind: 'git', step: 'branch' } };
+        await git(path).raw(['switch', '--no-track', '-c', branch]);
+        return { ok: true, branch };
+      } catch {
+        return { ok: false, problem: { kind: 'git', step: 'branch' } };
+      }
+    },
+
+    async prepare(repo, branch, signal, localOnly = false) {
       if (!(await isRepository(repo))) return { ok: false, problem: { kind: 'folder' } };
       if (signal?.aborted) return { ok: false, problem: { kind: 'stopped' } };
       try {
         const base = await defaultBase(repo);
-        const branch = await freeBranch(repo, key);
-        if (branch === null) return { ok: false, problem: { kind: 'git', step: 'prepare' } };
-        return { ok: true, plan: { branch, ...base } };
+        const free = await freeBranch(repo, branch, localOnly);
+        if (free === null) return { ok: false, problem: { kind: 'git', step: 'prepare' } };
+        return { ok: true, plan: { branch: free, ...base } };
       } catch {
         return { ok: false, problem: { kind: 'git', step: 'prepare' } };
       }

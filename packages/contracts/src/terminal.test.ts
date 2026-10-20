@@ -39,8 +39,8 @@ describe('TerminalSchema', () => {
   it('AC-1 (038): your shell, and its tabs, the first numbered 1', () => {
     const terminal = makeTerminal({
       tabs: [
-        { id: 'tab-1', number: 1 },
-        { id: 'tab-3', number: 3 },
+        { id: 'tab-1', number: 1, server: null },
+        { id: 'tab-3', number: 3, server: null },
       ],
     });
     expect(TerminalSchema.parse(terminal)).toEqual(terminal);

@@ -73,6 +73,7 @@ import { agentsAccessRoutes } from './routes/agents-access.ts';
 import { mcpRoutes } from './routes/mcp.ts';
 import { readGitUserName } from './status/git-user-name.ts';
 import { createStatusService } from './status/status-service.ts';
+import { createPortService } from './ports/port-service.ts';
 
 export interface CoreOptions {
   /** Per-start session token; every /api request must carry it. */
@@ -408,6 +409,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     app.addHook('onClose', () => terminal.close());
   }
   const sessionService = createSessionService({
+    // Each Build reads your ask first (spec 042).
+    readAsks: true,
     skills,
     records: sessions,
     repositories,
@@ -455,7 +458,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     adapter,
     tickets: orynxTickets,
     events,
-    ...(terminal === null ? {} : { terminal }),
+    ...(terminal === null ? {} : { terminal, ports: createPortService({}) }),
     onChange: (before, after, change) => {
       notifications.sessionChanged(before, after, change);
     },

@@ -44,7 +44,7 @@ function fakeShell(terminal: Terminal = makeTerminal()) {
       state.asked.push('add');
       const number = state.terminal.tabs.length + 1;
       if (number > 5) return HttpResponse.json({ result: 'full' });
-      const added = { id: `tab-${String(number)}`, number };
+      const added = { id: `tab-${String(number)}`, number, server: null };
       state.terminal = { ...state.terminal, tabs: [...state.terminal.tabs, added] };
       return HttpResponse.json({ result: 'added', tabId: added.id });
     }),
@@ -148,7 +148,7 @@ describe('the Terminal’s shell tab (spec 038)', () => {
   });
 
   it('AC-6: with 5 tabs, + says why it does nothing', async () => {
-    const tabs = [1, 2, 3, 4, 5].map((number) => ({ id: `tab-${String(number)}`, number }));
+    const tabs = [1, 2, 3, 4, 5].map((number) => ({ id: `tab-${String(number)}`, number, server: null }));
     const state = fakeShell(makeTerminal({ tabs }));
     const { user } = await openShell();
     const add = screen.getByRole('button', { name: '5 terminals is the most for a session.' });
@@ -159,8 +159,8 @@ describe('the Terminal’s shell tab (spec 038)', () => {
 
   it('AC-7: a tab whose shell ended goes, and the first one shows', async () => {
     const tabs = [
-      { id: 'tab-1', number: 1 },
-      { id: 'tab-2', number: 2 },
+      { id: 'tab-1', number: 1, server: null },
+      { id: 'tab-2', number: 2, server: null },
     ];
     const state = fakeShell(makeTerminal({ tabs }));
     const { user } = await openShell();

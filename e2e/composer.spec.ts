@@ -212,7 +212,9 @@ test('AC-1, AC-4, AC-24: my words alone start a session on its own branch, and C
   await expect(crumbs.getByText('Add a CSV export to the reports page')).toBeVisible();
   await expect(crumbs.getByRole('link', { name: 'Sessions' })).toBeVisible();
   const progress = page.getByRole('region', { name: "Claude's progress" });
-  await expect(progress.getByText('feat/add-a-csv-export-to from origin/main')).toBeVisible();
+  // Spec 042: the worktree starts from origin/main, and its branch comes at Claude's first edit.
+  await expect(progress.getByText('from origin/main')).toBeVisible();
+  await expect(progress.getByText('Made branch feat/add-a-csv-export-to')).toBeVisible({ timeout: 15_000 });
   await expect(progress.getByText('Your message', { exact: true })).toBeVisible();
   await expect(page.getByRole('tab', { name: /Context/ })).toHaveCount(0);
   await expect.poll(lastBrief).toBe('Add a CSV export to the reports page');

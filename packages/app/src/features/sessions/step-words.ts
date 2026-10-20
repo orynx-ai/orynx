@@ -1,4 +1,11 @@
-import { orynxStatusNames, type Session, type SessionActivity, type SessionProblem } from '@devhub/contracts';
+import {
+  orynxStatusNames,
+  type BranchFrom,
+  type Session,
+  type SessionActivity,
+  type SessionIntent,
+  type SessionProblem,
+} from '@devhub/contracts';
 
 /**
  * The words for each step of "Claude's progress" and for a session that couldn't start (spec 011, Q10a and
@@ -101,6 +108,56 @@ function pushedDetail(files: number, branch: string): string {
   return files === 0 ? `Pushed ${branch}` : `Committed ${filesText(files)} and pushed ${branch}`;
 }
 
+const intentWords: Record<SessionIntent, string> = { change: 'Code change', run: 'Run', answer: 'Question' };
+
+/** Where a branch name's shape came from (spec 042, Q3). */
+const branchFromWords: Record<BranchFrom, string> = {
+  message: 'as your message says',
+  repo_rules: "as the repository's written rules say",
+  your_branches: 'like your recent branches',
+  orynx: "Orynx's own name",
+};
+
+/** What Orynx read in your ask (spec 042, Q11): "Run · from develop · no branch yet". */
+function readingWords(activity: Extract<SessionActivity, { kind: 'reading' }>): StepWords {
+  if (activity.state === 'running') return { title: 'Reading your ask…', detail: null };
+  if (activity.intent === null) return { title: "Couldn't read your ask, so the usual steps are shown", detail: null };
+  const change = activity.intent === 'change' && activity.branch !== null;
+  const title = [intentWords[activity.intent], ...(activity.base === null ? [] : [`from ${activity.base}`])];
+  const notes = [
+    ...(change && activity.branchFrom !== null
+      ? [`Branch ${activity.branch ?? ''} at the first edit, ${branchFromWords[activity.branchFrom]}`]
+      : []),
+    ...(activity.missingBase === null
+      ? []
+      : [`${activity.missingBase} isn't on origin; started from ${activity.base ?? 'the default branch'}`]),
+    ...(activity.suggested === null
+      ? []
+      : [
+          activity.branchNote === 'taken'
+            ? `${activity.suggested} is taken`
+            : `"${activity.suggested}" couldn't be a branch name`,
+        ]),
+  ];
+  return {
+    title: [...title, ...(change ? [] : ['no branch yet'])].join(' · '),
+    detail: notes.length === 0 ? null : notes.join(' · '),
+  };
+}
+
+/** A server of the session's (spec 042): where it listens, or that it never did. */
+function serverWords(activity: Extract<SessionActivity, { kind: 'server' }>): StepWords {
+  const at = activity.port === null ? null : `localhost:${String(activity.port)}`;
+  const titles = {
+    started: at === null ? 'Started a server; nothing listens yet' : `Started a server on ${at}`,
+    stopped: at === null ? 'Stopped the server' : `Stopped the server on ${at}`,
+    exited: at === null ? 'The server ended before it listened' : `The server on ${at} ended`,
+  };
+  return { title: titles[activity.event], detail: activity.command };
+}
+
+const labelsOf = (steps: readonly { label: string }[]) => steps.map((step) => step.label).join(' · ');
+
 export function stepWords(activity: SessionActivity): StepWords {
   const running = activity.state === 'running';
   switch (activity.kind) {
@@ -110,9 +167,23 @@ export function stepWords(activity: SessionActivity): StepWords {
       const from = activity.pullRequest === undefined ? activity.base : `#${String(activity.pullRequest)}`;
       return {
         title: running ? 'Making a worktree' : 'Made a worktree',
-        detail: `${activity.branch} from ${from}${offline ? ' (last fetched, offline)' : ''}`,
+        // Since spec 042 the branch comes at the first edit, so a worktree is made from its base alone.
+        detail: `${activity.branch === null ? 'from' : `${activity.branch} from`} ${from}${offline ? ' (last fetched, offline)' : ''}`,
       };
     }
+    case 'reading':
+      return readingWords(activity);
+    case 'steps_changed':
+      return {
+        title: 'Steps changed',
+        detail: [activity.reason, `Was: ${labelsOf(activity.from)}`, `Now: ${labelsOf(activity.to)}`].join('\n'),
+      };
+    case 'branch_made': {
+      const from = branchFromWords[activity.from];
+      return { title: `Made branch ${activity.branch}`, detail: `${from.charAt(0).toUpperCase()}${from.slice(1)}` };
+    }
+    case 'server':
+      return serverWords(activity);
     case 'brief': {
       // The ticket alone is its description (spec 011); a composer brief names each part (spec 015, AC-24).
       const parts = [

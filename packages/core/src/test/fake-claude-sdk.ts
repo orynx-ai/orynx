@@ -2,6 +2,7 @@ import type { ModelInfo, Options, PermissionResult, SDKMessage, SDKUserMessage }
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { QueryFunction } from '../agents/claude/claude-adapter.ts';
+import { readingInstructions } from '../sessions/ask-reading.ts';
 
 /**
  * The Claude Agent SDK's `query()`, faked at its boundary (agent-runtime skill: Claude is an outside
@@ -73,6 +74,12 @@ export interface FakeClaudeSdk {
   onResume: 'resumes' | 'no_conversation' | 'starts_afresh';
   /** What `supportedModels()` answers: these models, a failure, or nothing at all. */
   models: ModelInfo[] | 'fails' | 'hangs';
+  /**
+   * The quick reads of your ask (spec 042), kept apart from `runs` so a session's scripts stay in order. Each answers
+   * the next of `reads`, or with nothing Orynx can read, so the session starts as it did before spec 042.
+   */
+  readRuns: FakeRun[];
+  reads: string[];
 }
 
 const sessionFields = {
@@ -101,6 +108,8 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
     ignoreInterrupt: false,
     onResume: 'resumes',
     models: [],
+    readRuns: [],
+    reads: [],
     query: ({ prompt, options }) => {
       /** The calls waiting for `canUseTool`: Claude Code cancels them when it's interrupted. */
       const asking = new Set<AbortController>();
@@ -116,8 +125,14 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
         interrupts: 0,
         closes: 0,
       };
-      fake.runs.push(run);
-      const script = fake.runs.length === 1 ? first : (later[fake.runs.length - 2] ?? first);
+      const reading = options.systemPrompt === readingInstructions;
+      if (reading) fake.readRuns.push(run);
+      else fake.runs.push(run);
+      const script: readonly FakeTurn[] = reading
+        ? [{ finish: fake.reads.shift() ?? '' }]
+        : fake.runs.length === 1
+          ? first
+          : (later[fake.runs.length - 2] ?? first);
       let endNow: () => void = () => undefined;
       // Ending the process ends the stream, wherever Claude Code was.
       const ended = new Promise<IteratorReturnResult<undefined>>((resolve) => {

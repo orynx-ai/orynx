@@ -257,9 +257,11 @@ export function sessionNote(
   const number = pull === null ? '' : `#${String(pull)}`;
   return [
     pull === null
-      ? `You're working in a separate git worktree on the branch ${branch}.`
+      ? `You're working in a separate git worktree. Orynx makes its branch, ${branch}, when you first edit a file.`
       : `You're working in a separate git worktree on pull request ${number}'s own branch, ${branch}, with no local branch of its own.`,
     ticket ? 'Make the change the ticket asks for.' : 'Do what the user asks in the brief.',
+    // The steps the user sees follow the work (spec 042).
+    "Orynx shows the user this session's steps. When the work changes, such as a run that needs a fix, call set_steps with the whole list, the step you're on and why.",
     'If the repository has a CLAUDE.md, read it first.',
     // A detached worktree has no branch for `git push origin <branch>` to send (spec 031).
     ...(pull === null

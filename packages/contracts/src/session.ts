@@ -15,8 +15,12 @@ import { TicketColumnSchema } from './ticket-column.ts';
 export const SessionStateSchema = z.enum(['working', 'needs_you', 'done', 'pr_open', 'stopped']);
 export type SessionState = z.infer<typeof SessionStateSchema>;
 
-/** The five steps of a session (spec: "Agent sessions"). */
-export const SessionStepSchema = z.enum(['plan', 'build', 'test', 'review', 'pull_request']);
+/**
+ * The kinds of step a session goes through (spec 042): never shown, they say what moves a step and who may. The
+ * first five were every session's steps before spec 042. A Build on your pull request ends at `pull_request`, shown as
+ * Push (spec 031).
+ */
+export const SessionStepSchema = z.enum(['setup', 'plan', 'build', 'test', 'run', 'answer', 'review', 'pull_request']);
 
 /**
  * How a session works (spec 026): `build` makes a worktree and a branch, where Claude changes files; `ask` reads the
@@ -25,6 +29,52 @@ export const SessionStepSchema = z.enum(['plan', 'build', 'test', 'review', 'pul
 export const SessionModeSchema = z.enum(['ask', 'build']);
 export type SessionMode = z.infer<typeof SessionModeSchema>;
 export type SessionStep = z.infer<typeof SessionStepSchema>;
+
+/** A step's words (spec 042, Q5): Claude's own, 1 to 3 words, at most 16 characters, starting with a capital. */
+export const mostStepLabelCharacters = 16;
+export const StepLabelSchema = z
+  .string()
+  .max(mostStepLabelCharacters, `At most ${String(mostStepLabelCharacters)} characters.`)
+  .regex(
+    /^\p{Lu}[\p{L}\p{N}]*(?: [\p{L}\p{N}]+){0,2}$/u,
+    '1 to 3 words of letters and digits, starting with a capital.',
+  );
+
+export const SessionStepItemSchema = z.object({ kind: SessionStepSchema, label: StepLabelSchema });
+export type SessionStepItem = z.infer<typeof SessionStepItemSchema>;
+
+/** The most steps a session shows (spec 042, Q5), a pull request's included. */
+export const mostSessionSteps = 5;
+
+/**
+ * Steps as Claude may give them (spec 042, Q5), refused whole when one rule breaks: 1 to 5, no two with the same
+ * words or kind, and a pull request only as the last.
+ */
+export const SessionStepsSchema = z
+  .array(SessionStepItemSchema)
+  .min(1, 'At least one step.')
+  .max(mostSessionSteps, `At most ${String(mostSessionSteps)} steps, a pull request included.`)
+  .superRefine((steps, check) => {
+    const issue = (message: string) => {
+      check.addIssue({ code: 'custom', message });
+    };
+    const labels = steps.map((step) => step.label);
+    for (const label of new Set(labels.filter((label, index) => labels.indexOf(label) !== index)))
+      issue(`Two steps are both called "${label}".`);
+    const kinds = steps.map((step) => step.kind);
+    for (const kind of new Set(kinds.filter((kind, index) => kinds.indexOf(kind) !== index)))
+      issue(`Two steps are both of kind ${kind}.`);
+    if (kinds.includes('pull_request') && kinds.at(-1) !== 'pull_request')
+      issue('A pull_request step can only be the last.');
+  });
+
+/** What a Build session is for, as Orynx read your ask (spec 042): edit code, run something, or answer. */
+export const SessionIntentSchema = z.enum(['change', 'run', 'answer']);
+export type SessionIntent = z.infer<typeof SessionIntentSchema>;
+
+/** Where a branch name's shape came from (spec 042, Q3): first match wins, in this order. */
+export const BranchFromSchema = z.enum(['message', 'repo_rules', 'your_branches', 'orynx']);
+export type BranchFrom = z.infer<typeof BranchFromSchema>;
 
 /**
  * Where a Build works (spec 031): a new branch of its own, or your open pull request's own branch, whose last step
@@ -139,9 +189,45 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
    * Orynx made the branch and the worktree, from `base`; `fetched` is false when the fetch failed (Q1a). With
    * `pullRequest`, it made the worktree from that pull request's own branch, and no branch (spec 031).
    */
+  /**
+   * Orynx read your ask before anything else (spec 042): running while it reads; done with the `intent`, or with none
+   * when the read failed. `base` is where the worktree starts, `missingBase` a branch you named that isn't on
+   * `origin`. `branch` is the name the first edit will make, and `suggested` what the read gave instead when Orynx
+   * couldn't use it (`branchNote`).
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('reading'),
+    intent: SessionIntentSchema.nullable(),
+    base: z.string().min(1).nullable(),
+    missingBase: z.string().min(1).nullable(),
+    branch: z.string().min(1).nullable(),
+    branchFrom: BranchFromSchema.nullable(),
+    suggested: z.string().min(1).nullable(),
+    branchNote: z.enum(['unusable', 'taken']).nullable(),
+  }),
+  /** Claude changed the steps to come (spec 042), with its reason. */
+  ActivityBaseSchema.extend({
+    kind: z.literal('steps_changed'),
+    from: z.array(SessionStepItemSchema),
+    to: z.array(SessionStepItemSchema),
+    reason: z.string(),
+  }),
+  /** Orynx made the session's branch at Claude's first edit or at Create pull request (spec 042). */
+  ActivityBaseSchema.extend({ kind: z.literal('branch_made'), branch: z.string().min(1), from: BranchFromSchema }),
+  /**
+   * A server of the session's (spec 042): Claude started it, you or Claude stopped it, or it ended by itself. `port`
+   * is where it listened; null when it never did.
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('server'),
+    event: z.enum(['started', 'stopped', 'exited']),
+    port: z.int().positive().max(65_535).nullable(),
+    command: z.string().min(1),
+  }),
   ActivityBaseSchema.extend({
     kind: z.literal('worktree'),
-    branch: z.string().min(1),
+    /** Null since spec 042: the branch is made at the first edit (`branch_made`). */
+    branch: z.string().min(1).nullable(),
     base: z.string().min(1),
     fetched: z.boolean(),
     pullRequest: z.int().positive().optional(),
@@ -186,7 +272,7 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({
     kind: z.literal('waiting'),
     approvalId: z.string().min(1),
-    about: z.enum(['command', 'edit', 'ticket']),
+    about: z.enum(['command', 'edit', 'ticket', 'server']),
     text: z.string().nullable(),
   }),
   /** Commands that ran, in the order they were allowed. */
@@ -194,7 +280,7 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   /** You denied a call: `text` is the command, the edit's path, or the ticket's key (spec 037). */
   ActivityBaseSchema.extend({
     kind: z.literal('denied'),
-    about: z.enum(['command', 'edit', 'ticket']),
+    about: z.enum(['command', 'edit', 'ticket', 'server']),
     text: z.string().min(1),
   }),
   /** Claude can't run commands in this session (spec 012, Q2b). */
@@ -293,6 +379,16 @@ export const SessionApprovalSchema = z.discriminatedUnion('kind', [
     lines: z.array(ChangeLineSchema),
     moreLines: z.int().nonnegative(),
   }),
+  /**
+   * Claude asks to start a server (spec 042, Q7): it runs in a Terminal tab, outside Claude's sandbox, so it always
+   * asks. `folder` is where in the worktree, `.` for its top; `alwaysAllow` the entry that allows it in this repository.
+   */
+  ApprovalBaseSchema.extend({
+    kind: z.literal('server'),
+    command: z.string().min(1),
+    folder: z.string().min(1),
+    alwaysAllow: z.string().min(1),
+  }),
   /** Claude asks to delete one of Orynx's own tickets (spec 037, AC-30): Allow once or Deny, never Always allow. */
   ApprovalBaseSchema.extend({
     kind: z.literal('ticket'),
@@ -375,8 +471,17 @@ export const SessionSchema = SessionSummarySchema.extend({
   folder: z.object({ name: z.string().min(1), displayPath: z.string().min(1) }).nullable(),
   /** Null until the worktree is made. */
   branch: z.string().min(1).nullable(),
-  /** Where the stepper is (AC-7). */
+  /** Where the stepper is (AC-7): the kind of the current step. */
   step: SessionStepSchema,
+  /**
+   * The session's steps in order, Claude's words (spec 042). None for an Ask, and for a session saved before spec
+   * 042, which the server sends with the five it always had.
+   */
+  steps: z.array(SessionStepItemSchema).max(mostSessionSteps).default([]),
+  /** What the session is for (spec 042); null for an Ask, a failed read, or a session saved before spec 042. */
+  intent: SessionIntentSchema.nullable().default(null),
+  /** Where the branch name's shape came from (spec 042); null until the branch is made, or before spec 042. */
+  branchFrom: BranchFromSchema.nullable().default(null),
   activities: z.array(SessionActivitySchema),
   problem: SessionProblemSchema.nullable(),
   startedAt: z.iso.datetime(),
@@ -420,6 +525,21 @@ export const SessionSchema = SessionSummarySchema.extend({
   terminal: z.boolean().default(false),
 });
 export type Session = z.infer<typeof SessionSchema>;
+
+/**
+ * The steps a Build session shows (spec 042): its own, or the five every session had before spec 042, the last
+ * Push on your pull request's own branch (spec 031).
+ */
+export function stepsOf(session: Pick<Session, 'steps' | 'workOn'>): SessionStepItem[] {
+  if (session.steps.length > 0) return session.steps;
+  return [
+    { kind: 'plan', label: 'Plan' },
+    { kind: 'build', label: 'Build' },
+    { kind: 'test', label: 'Test' },
+    { kind: 'review', label: 'Review' },
+    { kind: 'pull_request', label: session.workOn === 'pull_request' ? 'Push' : 'Pull request' },
+  ];
+}
 
 /** Ship's start (spec 011): Claude on a ticket. `repositoryId` picks the folder when its project has several (Q3). */
 export const TicketStartSchema = z.object({
