@@ -1,7 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { apiRoutes, type Terminal, type TerminalBlock, type TerminalTab } from '@devhub/contracts';
+import {
+  apiRoutes,
+  type ClaudeCommandList,
+  type Terminal,
+  type TerminalBlock,
+  type TerminalTab,
+} from '@devhub/contracts';
 import { makeSession, makeTerminal, makeTerminalBlock } from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
 import { FakeEventSource } from '../../../../test/fake-event-source.ts';
@@ -258,5 +264,54 @@ describe('the Terminal’s shell tab', () => {
     fails = false;
     await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('textbox', { name: 'Command' })).toBeVisible();
+  });
+});
+
+describe('Ask Claude to fix', () => {
+  const failed = makeTerminalBlock({ id: 'block-3', state: 'failed', command: 'pnpm test', exitCode: 1, ms: 3100 });
+
+  it('AC-17: sends the failed command to Claude and shows the Claude tab with its note', async () => {
+    const shell = fakeShell(makeTerminal({ tabs: [tab([failed])], history: ['pnpm test'] }));
+    let commands: ClaudeCommandList = { commands: [] };
+    server.use(
+      http.post(apiUrl(apiRoutes.sessionTerminalFix), ({ request }) => {
+        shell.state.asked.push(`fix ${new URL(request.url).pathname}`);
+        commands = { commands: [{ id: 'note-1', state: 'note', command: 'pnpm test' }] };
+        return HttpResponse.json({ result: 'sent' });
+      }),
+      http.get(apiUrl(apiRoutes.sessionCommands), () => HttpResponse.json(commands)),
+    );
+    const { user, log } = await openShell();
+
+    await user.click(within(log).getByRole('button', { name: 'Ask Claude to fix pnpm test' }));
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: 'Claude' })).toHaveAttribute('aria-selected', 'true');
+    });
+    expect(shell.state.asked).toEqual([`fix /api/sessions/${id}/terminal/tabs/tab-1/blocks/block-3/fix`]);
+    const claude = await screen.findByRole('log', { name: "Claude's commands" });
+    expect(await within(claude).findByText('Sent from your terminal:')).toBeVisible();
+    expect(within(claude).getByText('pnpm test')).toBeVisible();
+  });
+
+  it('AC-18: isn’t offered when the session can’t take a follow-up', async () => {
+    const newer = makeSession({ ...session, followUp: { kind: 'newer_session', sessionId: 'fedcba9876543210' } });
+    fakeShell(makeTerminal({ tabs: [tab([failed])], history: [] }));
+    server.use(sessionHandler(newer));
+    const { log } = await openShell();
+    expect(within(log).getByText('✗ exit 1 · 3.1s')).toBeVisible();
+    expect(within(log).queryByRole('button', { name: /^Ask Claude to fix/ })).toBeNull();
+  });
+
+  it('AC-17: says why when the follow-up can’t go, and stays on your shell', async () => {
+    fakeShell(makeTerminal({ tabs: [tab([failed])], history: [] }));
+    server.use(
+      http.post(apiUrl(apiRoutes.sessionTerminalFix), () =>
+        HttpResponse.json({ result: 'cannot_send', reason: 'too_many' }),
+      ),
+    );
+    const { user, log } = await openShell();
+    await user.click(within(log).getByRole('button', { name: 'Ask Claude to fix pnpm test' }));
+    expect(await screen.findByText('Three sessions are already working. Stop one, then send.')).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'zsh · worktree' })).toHaveAttribute('aria-selected', 'true');
   });
 });

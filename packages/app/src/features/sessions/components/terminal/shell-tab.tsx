@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { SparklesIcon } from '@hugeicons/core-free-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import {
@@ -9,15 +10,34 @@ import {
   type TerminalBlock,
   type TerminalTab,
 } from '@devhub/contracts';
-import { Button, CommandBlock, CommandInput, CopyButton, Pill, Skeleton, type CommandBlockProps } from '@devhub/ui';
+import {
+  Button,
+  CommandBlock,
+  CommandInput,
+  CopyButton,
+  Icon,
+  Pill,
+  Skeleton,
+  type CommandBlockProps,
+} from '@devhub/ui';
+import { cannotSendLine, sendFailedLine } from '../../follow-up-words.ts';
 import { useTerminalActions } from '../../queries.ts';
 import { commandFormSchema, type CommandFormValues } from '../../schemas.ts';
+import { sourceLabel } from '../../source-label.ts';
 import { busyPlaceholder, copyWhat, cutNote, statusWords, terminalWords } from './terminal-words.ts';
 
 type Actions = ReturnType<typeof useTerminalActions>;
 
-/** How one of your commands shows: its status, output, and what you can do with it. */
-function blockOf(block: TerminalBlock, tabId: string, actions: Actions): Omit<CommandBlockProps, 'command'> {
+/**
+ * How one of your commands shows: its status, output, and what you can do with it. `fix` is Ask Claude to fix, on a
+ * failed command while the session can take a follow-up (AC-17, AC-18).
+ */
+function blockOf(
+  block: TerminalBlock,
+  tabId: string,
+  actions: Actions,
+  fix: ((blockId: string) => void) | null,
+): Omit<CommandBlockProps, 'command'> {
   if (block.state === 'no_worktree') {
     return { status: '✗', tone: 'danger', children: <span>{terminalWords.noWorktree}</span> };
   }
@@ -47,6 +67,20 @@ function blockOf(block: TerminalBlock, tabId: string, actions: Actions): Omit<Co
     tone: block.state === 'done' ? 'success' : 'danger',
     actions: (
       <>
+        {block.state === 'failed' && fix !== null ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            aria-label={`${terminalWords.askToFix} ${block.command}`}
+            pending={actions.askToFix.isPending && actions.askToFix.variables.blockId === block.id}
+            onClick={() => {
+              fix(block.id);
+            }}
+          >
+            <Icon icon={SparklesIcon} aria-hidden />
+            {terminalWords.askToFix}
+          </Button>
+        ) : null}
         <Button
           size="sm"
           variant="secondary"
@@ -118,7 +152,8 @@ export function ShellTabPending({
 /**
  * One of your shell tabs (spec 036, AC-4 to AC-16, AC-25, AC-26): what you ran in it, oldest first, and the command
  * line. A command runs in your login shell from the worktree, one at a time; while one runs, the field says so and
- * ⌃C stops it. `focusField` asks the field to take focus once it's drawn: on opening, and after + or Close.
+ * ⌃C stops it. `focusField` asks the field to take focus once it's drawn: on opening, and after + or Close. Once
+ * Ask Claude to fix has sent a block, `onAskedToFix` shows the Claude tab.
  */
 export function ShellTab({
   session,
@@ -126,12 +161,14 @@ export function ShellTab({
   tab,
   focusField,
   onFieldFocused,
+  onAskedToFix,
 }: {
   session: Session;
   terminal: Terminal;
   tab: TerminalTab;
   focusField: boolean;
   onFieldFocused: () => void;
+  onAskedToFix: () => void;
 }) {
   const actions = useTerminalActions(session.id);
   const form = useForm<CommandFormValues, unknown, { command: string }>({
@@ -146,6 +183,26 @@ export function ShellTab({
   const lines = last !== undefined && last.state !== 'no_worktree' ? last.output.length : 0;
   // The command that couldn't be sent, which Try again sends again (AC-26).
   const unsent = actions.run.isError ? actions.run.variables : undefined;
+  const fixAnswer = actions.askToFix.data;
+  // Why Ask Claude to fix didn't send, in the follow-up box's words (spec 013, AC-15).
+  const notFixed = actions.askToFix.isError
+    ? sendFailedLine
+    : fixAnswer?.result === 'cannot_send'
+      ? cannotSendLine(fixAnswer.reason, sourceLabel(session.source) ?? session.title)
+      : null;
+  const fix =
+    session.followUp.kind === 'open'
+      ? (blockId: string) => {
+          actions.askToFix.mutate(
+            { tabId: tab.id, blockId },
+            {
+              onSuccess: (answer) => {
+                if (answer.result === 'sent') onAskedToFix();
+              },
+            },
+          );
+        }
+      : null;
 
   useEffect(() => {
     if (!focusField) return;
@@ -201,7 +258,7 @@ export function ShellTab({
           </p>
         ) : null}
         {tab.blocks.map((block) => (
-          <CommandBlock key={block.id} command={block.command} {...blockOf(block, tab.id, actions)} />
+          <CommandBlock key={block.id} command={block.command} {...blockOf(block, tab.id, actions, fix)} />
         ))}
       </div>
       <form
@@ -209,6 +266,9 @@ export function ShellTab({
           void submit(event);
         }}
       >
+        {notFixed === null ? null : (
+          <p className="border-t border-border px-3.5 py-2 text-small text-danger">{notFixed}</p>
+        )}
         {unsent === undefined ? null : (
           <div className="flex flex-wrap items-center gap-2 border-t border-border px-3.5 py-2 text-small">
             <span className="text-danger">{terminalWords.unreachable}</span>

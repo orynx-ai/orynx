@@ -268,6 +268,9 @@ function TerminalDialog({
                   onFieldFocused={() => {
                     setFocusField(false);
                   }}
+                  onAskedToFix={() => {
+                    pick(session.id, 'claude');
+                  }}
                 />
               </TabsContent>
             ))}

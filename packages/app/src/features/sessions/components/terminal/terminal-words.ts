@@ -36,6 +36,7 @@ export const terminalWords = {
   unreachable: "Couldn't reach Orynx.",
   stop: 'Stop',
   rerun: 'Rerun',
+  askToFix: 'Ask Claude to fix',
 } as const;
 
 /** The field's placeholder while a command runs in the tab (Q8b). */
