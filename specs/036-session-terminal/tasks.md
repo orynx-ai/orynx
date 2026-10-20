@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Terminal output buffer: lines and blocks capped, partial lines joined (AC-16). Plain lines and colour codes came with task 3
       Check: pnpm test packages/core/src/terminal/output.test.ts
       Files: packages/core/src/terminal/output.ts, output.test.ts
-- [ ] Task 5: Terminal service runs a command in the worktree as your login shell, one per tab, with Stop, tabs, clear and a clean environment (AC-4–AC-9, AC-11, AC-13, AC-15, AC-25, AC-29)
+- [x] Task 5: Terminal service runs a command in the worktree as your login shell, one per tab, with Stop, tabs, clear and a clean environment (AC-4–AC-9, AC-11, AC-13, AC-15, AC-25, AC-29)
       Check: pnpm test packages/core/src/terminal/terminal-service.test.ts
       Files: packages/core/src/terminal/terminal-service.ts, terminal-service.test.ts
 - [ ] Task 6: Terminal routes, wired into the server; Discard and shutdown stop every command (AC-10, AC-11, AC-25, AC-28)

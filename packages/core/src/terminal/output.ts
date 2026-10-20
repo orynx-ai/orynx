@@ -35,7 +35,7 @@ export interface OutputBuffer {
 
 /**
  * Keeps the last `most` lines. A line is made plain once it ends, so a code split across chunks is whole by
- * then. One longer than `longest` is broken, so output with no newline (`yes | tr -d "\\n"`) can't grow without end.
+ * then. One longer than `longest` is broken, so output with no newline (`yes | tr -d '\n'`) can't grow without end.
  */
 export function createOutputBuffer(most: number = terminalLimits.lines, longest = 10_000): OutputBuffer {
   const lines: string[] = [];
