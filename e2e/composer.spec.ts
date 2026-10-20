@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -81,7 +81,8 @@ const claudeDir = fakeClaudeDirFor(composerHubPort);
 
 /** Exactly what the fake Claude Code got as its brief, the last time a session started. */
 function lastBrief(): string {
-  return readFileSync(join(claudeDir, 'last-brief.txt'), 'utf8');
+  // None until the first session starts Claude; expect.poll stops at a throw, so say "nothing yet".
+  return existsSync(join(claudeDir, 'last-brief.txt')) ? readFileSync(join(claudeDir, 'last-brief.txt'), 'utf8') : '';
 }
 
 /** Sends a request to the hub with the page's token, as the page does. */
@@ -156,6 +157,8 @@ test.beforeAll(async ({ browser }, testInfo) => {
   await expect(connectionRow(page, 'GitHub').getByText('Connected', { exact: true })).toBeVisible();
 
   await answerClaudeAs('signed_in', claudeDir);
+  // A brief left by an earlier run would pass the first test's poll before its session starts.
+  rmSync(join(claudeDir, 'last-brief.txt'), { force: true });
   await api(page, 'POST', '/api/claude/login/check');
   await api(page, 'POST', '/api/repositories', { path: repository.clone, jiraProject: 'PROJ' });
   await api(page, 'POST', '/api/inbox/refresh');
@@ -390,8 +393,13 @@ test('AC-30, AC-31: Home, its chips and the + popup fit 360 px and have no axe v
       await page.getByRole('menuitem', { name: /Pull request/ }).click();
       const list = page.getByRole('dialog', { name: 'Pull request' });
       await expect(list.getByRole('option', { name: /web-app #2836/ })).toBeVisible();
-      const popup = await list.boundingBox();
-      expect(popup === null ? Infinity : popup.x + popup.width).toBeLessThanOrEqual(width - 16);
+      // The list is wider than the kinds; Radix moves it back inside the gutter once it sees the new width.
+      await expect
+        .poll(async () => {
+          const popup = await list.boundingBox();
+          return popup === null ? Infinity : popup.x + popup.width;
+        })
+        .toBeLessThanOrEqual(width - 16);
       expect(await axe(page, '[data-slot="context-picker"]'), `a list at ${String(width)} px`).toEqual([]);
       await page.keyboard.press('Escape');
       await expect(page.getByRole('button', { name: 'Add context' })).toBeFocused();

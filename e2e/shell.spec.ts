@@ -1,6 +1,7 @@
 // The callbacks passed to page.evaluate() and addInitScript() run in the browser.
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test';
+import { makeSession, makeSessionList } from '../packages/contracts/src/testing.ts';
 
 declare global {
   interface Window {
@@ -268,22 +269,19 @@ test.describe('narrow window', () => {
     page,
   }) => {
     const title = 'Fix timezone shift in event cards and the calendar export for every region';
-    // Only the network is faked: the hub has no sessions until roadmap 011.
-    await page.route(/\/api\/sessions(\?.*)?$/, (route) =>
-      route.fulfill({
-        json: {
-          sessions: [
-            {
-              id: 'long',
-              title,
-              state: 'done',
-              source: { kind: 'pull_request', number: 2836 },
-              updatedAt: new Date().toISOString(),
-            },
-          ],
-        },
-      }),
-    );
+    const session = makeSession({
+      id: 'long',
+      title,
+      state: 'done',
+      // With no ticket or pull request, the last crumb is the title.
+      source: null,
+      updatedAt: new Date().toISOString(),
+      jiraUrl: null,
+      sprint: null,
+    });
+    // Only the network is faked: this hub's Claude never starts a session.
+    await page.route(/\/api\/sessions(\?.*)?$/, (route) => route.fulfill({ json: makeSessionList([session]) }));
+    await page.route('**/api/sessions/long', (route) => route.fulfill({ json: session }));
     await page.goto('/sessions/long');
     const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
     const link = await crumbs.getByRole('link', { name: 'Sessions' }).boundingBox();
