@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { FastifyInstance } from 'fastify';
@@ -33,11 +34,11 @@ async function hub({ open = true } = {}) {
 async function connect(port: number, headers: Record<string, string>) {
   const client = new Client({ name: 'test-agent', version: '0.0.0' });
   clients.push(client);
-  await client.connect(
-    new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${String(port)}${apiRoutes.mcp}`), {
-      requestInit: { headers },
-    }),
-  );
+  const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${String(port)}${apiRoutes.mcp}`), {
+    requestInit: { headers },
+  });
+  // The SDK's own two types differ on an optional `onclose` under exactOptionalPropertyTypes; they're one object.
+  await client.connect(transport as Transport);
   return client;
 }
 

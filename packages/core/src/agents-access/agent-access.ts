@@ -1,6 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { EventBus } from '../events/event-bus.ts';
 import type { Keychain } from '../secrets/keychain.ts';
+import { currentProgram, mcpConfig, removeBridges, writeBridge, type BridgeProgram } from './bridge.ts';
 
 /**
  * Whether agents outside Orynx may use its tickets (spec 037, Q14): Claude Code in a terminal, Cursor, Codex or any
@@ -15,16 +16,25 @@ export interface AgentAccess {
   accepts(given: string | undefined): Promise<boolean>;
   /** The token, for the bridge that Copy MCP config writes; null while the door is shut. */
   token(): Promise<string | null>;
+  /** Writes the bridge for the token and answers the MCP config that runs it (AC-40); null while the door is shut. */
+  config(): Promise<string | null>;
 }
 
 export interface AgentAccessOptions {
   keychain: Keychain;
   events: EventBus;
-  /** Told when the door shuts, so the bridges written for it go too. */
-  onShut?: () => Promise<void>;
+  /** DEVHUB_HOME, where the bridges go and whose `runtime.json` they read. */
+  devhubHome: string;
+  /** What runs a bridge; the program running Orynx by default. */
+  program?: BridgeProgram;
 }
 
-export function createAgentAccess({ keychain, events, onShut }: AgentAccessOptions): AgentAccess {
+export function createAgentAccess({
+  keychain,
+  events,
+  devhubHome,
+  program = currentProgram(),
+}: AgentAccessOptions): AgentAccess {
   // The keychain is read once, then kept: every MCP request checks the token.
   let held: Promise<string | null> | null = null;
 
@@ -50,7 +60,7 @@ export function createAgentAccess({ keychain, events, onShut }: AgentAccessOptio
       } else {
         await keychain.delete('agents');
         held = Promise.resolve(null);
-        await onShut?.();
+        await removeBridges(devhubHome);
       }
       events.publish({ type: 'settings.changed' });
     },
@@ -65,5 +75,10 @@ export function createAgentAccess({ keychain, events, onShut }: AgentAccessOptio
     },
 
     token: () => current(),
+
+    async config() {
+      const token = await current();
+      return token === null ? null : mcpConfig(await writeBridge(devhubHome, token), program);
+    },
   };
 }

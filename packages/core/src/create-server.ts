@@ -224,7 +224,11 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   const events = options.events ?? createEventBus();
   const keychain = options.keychain ?? createMemoryKeychain();
   // Agents outside Orynx use its tickets with their own token, kept in the keychain (spec 037).
-  const agentAccess = createAgentAccess({ keychain, events });
+  const agentAccess = createAgentAccess({
+    keychain,
+    events,
+    devhubHome: options.dataDir ?? join(homedir(), '.devhub'),
+  });
   registerLocalOnly(app, { token: options.token, port: options.port, agents: agentAccess });
 
   // Nothing reads the keychain here: the first read happens when a route or the inbox's sync needs a token.
