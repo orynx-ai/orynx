@@ -1,5 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeTicket } from '@devhub/contracts/testing';
 import { server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 import { designTickets, ticketsHandler, ticketsToday } from '../../../test/tickets.ts';
@@ -87,5 +88,18 @@ describe('TicketsList', () => {
 
     expect(screen.getByText('Nothing assigned to you in Sprint 42')).toBeVisible();
     expect(screen.getByText('Untick Me under Assignee to see the whole sprint.')).toBeVisible();
+  });
+
+  it('AC-22 (spec 037): an Orynx ticket is a row like Jira’s, with its mark in Key, in column order', async () => {
+    const orynx = makeTicket({ key: 'ORX-3', url: null, title: 'Archive in bulk', status: 'To do', column: 'to_do' });
+    server.use(ticketsHandler({ tickets: [...designTickets, orynx] }));
+    await openList();
+
+    const table = screen.getByRole('table', { name: 'Tickets in Sprint 42' });
+    const rows = within(table).getAllByRole('row').slice(1);
+    const keys = rows.map((row) => within(row).getAllByRole('cell')[0]?.textContent);
+    expect(keys.slice(0, 3)).toEqual(['PROJ-1377', 'PROJ-1402', 'OrynxORX-3']);
+    const row = rows[2];
+    expect(row === undefined ? null : within(row).getByRole('cell', { name: 'To do' })).toBeVisible();
   });
 });

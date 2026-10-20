@@ -67,7 +67,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: Tickets without Jira (AC-4, AC-5, AC-34) - The board shows Orynx tickets under the "Jira isn't connected" line. - With none, it reads "No Orynx tickets yet." with New ticket. - The kept-file line shows when a file was kept aside.
       Check: pnpm test packages/app/src/features/tickets/tickets-screen.test.tsx
       Files: packages/app/src/features/tickets/tickets-screen.tsx, ticket-words.ts, tickets-screen.test.tsx
-- [ ] Task 19: The Orynx mark on cards and list rows (AC-1, AC-22)
+- [x] Task 19: The Orynx mark on cards and list rows (AC-1, AC-22)
       Check: pnpm test packages/app/src/features/tickets/components/ticket-card.test.tsx packages/app/src/features/tickets/components/tickets-list.test.tsx
       Files: packages/app/src/features/tickets/components/ticket-card.tsx, tickets-list.tsx, and their tests
 - [ ] Task 20: New ticket: the page bar button and each column's + open one form (AC-6 to AC-12) - Built with react-hook-form, the contract's schema and DatePicker. - Defaults are Task, Medium and the column's status. Enter in Title creates the ticket, and Esc returns focus. - Field errors as Q12d, the save error as Q12e, and a pending button.
