@@ -1,0 +1,14 @@
+{
+  "name": "Orynx",
+  "short_name": "Orynx",
+  "description": "Your Jira and GitHub work in one inbox, and a coding agent on each ticket.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fcfcfb",
+  "theme_color": "#fcfcfb",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
