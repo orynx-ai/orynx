@@ -263,7 +263,7 @@ describe('stepWords (Q10a)', () => {
       title: 'Orynx closed while Claude was working',
       detail: 'The worktree keeps the changes.',
     });
-    expect(step({ kind: 'discarded', state: 'done', branch: 'feat/PROJ-1423' })).toEqual({
+    expect(step({ kind: 'discarded', state: 'done', branch: 'feat/PROJ-1423', kept: false })).toEqual({
       title: 'Discarded the changes',
       detail: 'The worktree and feat/PROJ-1423 are deleted.',
     });

@@ -4,7 +4,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **Contracts and core**
 
-- [ ] Task 1: Session contract: `workOn`, `skipped`, a nullable `folder`, `kept` on the discarded step, with defaults that keep saved sessions as they were; builders (AC-23)
+- [x] Task 1: Session contract: `workOn`, `skipped`, a nullable `folder`, `kept` on the discarded step, with defaults that keep saved sessions as they were; builders (AC-23)
       Check: pnpm test packages/contracts/src/session.test.ts
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/contracts/src/testing.ts
 - [ ] Task 2: Progress: the steps Finished jumps over are skipped (Test, and Build with no edit), cleared by a follow-up; the service saves `skipped` with the step (AC-11, AC-12, AC-13)

@@ -86,7 +86,10 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
         {session.branch === null ? null : (
           <code className="rounded-sm bg-subtle px-2 font-mono text-code text-foreground">{session.branch}</code>
         )}
-        {session.mode === 'ask' ? (
+        {/* An Ask may have no folder at all (spec 031, Q8d). */}
+        {session.folder === null ? (
+          <span>Ask session · changes nothing</span>
+        ) : session.mode === 'ask' ? (
           <span>Ask session · reads {session.folder.name} in place and changes nothing</span>
         ) : (
           <span>in {session.folder.name} · separate worktree, your main checkout is untouched</span>

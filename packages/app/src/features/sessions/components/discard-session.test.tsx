@@ -33,7 +33,7 @@ function serve(initial: Session, { fails = false } = {}) {
         discardedAt: '2026-10-16T10:05:00.000Z',
         activities: [
           ...state.current.activities,
-          { id: 'step-2', state: 'done', kind: 'discarded', branch: 'feat/PROJ-1423' },
+          { id: 'step-2', state: 'done', kind: 'discarded', branch: 'feat/PROJ-1423', kept: false },
         ],
       };
       return new HttpResponse(null, { status: 204 });

@@ -957,6 +957,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         pullRequest: null,
         context: [{ kind: 'jira', key: ticketKey }],
         mode: 'build',
+        workOn: 'new_branch',
+        skipped: [],
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -1025,6 +1027,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         pullRequest: null,
         context: [...request.context],
         mode: ask ? 'ask' : 'build',
+        workOn: 'new_branch',
+        skipped: [],
       },
       repository: { id: folder.id, path: folder.path },
       // An Ask session makes no worktree: Claude reads the folder itself (spec 026).
@@ -1063,7 +1067,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const ended =
         branch === null
           ? current
-          : withProgress(current, (progress) => endProgress(progress, { kind: 'discarded', branch }));
+          : withProgress(current, (progress) => endProgress(progress, { kind: 'discarded', branch, kept: false }));
       return {
         ...ended,
         session: { ...ended.session, state: 'stopped', discardedAt: new Date(now()).toISOString() },

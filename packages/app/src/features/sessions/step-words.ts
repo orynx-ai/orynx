@@ -172,7 +172,7 @@ export function problemWords(problem: SessionProblem, session: Session): Problem
   const key = session.source?.kind === 'jira' ? session.source.key : 'the ticket';
   const lines: Record<SessionProblem['kind'], string> = {
     jira: `Orynx couldn't read ${key} from Jira. Check Settings › Connections, then start again.`,
-    folder: `${session.folder.displayPath} isn't a git repository any more. Check Settings › Repositories.`,
+    folder: `${session.folder?.displayPath ?? 'The folder'} isn't a git repository any more. Check Settings › Repositories.`,
     git: "git couldn't make the worktree. See the terminal for details.",
     login: "Claude Code's login didn't work. Sign in with `claude` in a terminal, then start again.",
     limit: "Claude's service is busy or your usage limit is reached. Try again later.",

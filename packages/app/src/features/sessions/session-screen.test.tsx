@@ -87,6 +87,16 @@ describe('SessionScreen', () => {
     expect(screen.queryByRole('region', { name: 'Work details' })).toBeNull();
   });
 
+  it('AC-3 (spec 031): an Ask with no folder says it changes nothing, and names no folder', async () => {
+    server.use(
+      sessionHandler({ ...working, mode: 'ask', folder: null, branch: null, worktreePath: null, source: null }),
+    );
+    await renderApp({ route });
+    expect(await screen.findByText('Ask session · changes nothing')).toBeVisible();
+    expect(screen.queryByText(/web-app/)).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Session progress' })).toBeNull();
+  });
+
   it('AC-6 (Q9e): the page bar shows Tickets / the sprint / the key, when it started, and Open in Jira', async () => {
     server.use(sessionHandler(working));
     const { user, platform } = await renderApp({ route });

@@ -698,7 +698,7 @@ describe('a composer start (spec 015)', () => {
     await sessions.start({ message: '', context: [ticketChip] });
 
     const record = await settled(records);
-    expect(record.session.folder.name).toBe('web-app');
+    expect(record.session.folder?.name).toBe('web-app');
     expect(await records.readBrief('0000000000000001')).toBe(
       briefText(
         composerBrief('', [
