@@ -297,6 +297,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     connection: jira,
     jira: jiraClient,
     sessions,
+    orynx: { tickets: orynxTickets, you: options.userName ?? readGitUserName },
     onProblem: (problem) => {
       app.log.warn({ problem }, 'The sprint sync could not read Jira');
     },

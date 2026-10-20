@@ -1,10 +1,10 @@
-import { chmod, mkdtemp, rm } from 'node:fs/promises';
+import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { delay, http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import type { SessionSummary } from '@devhub/contracts';
+import { CreateOrynxTicketSchema, type SessionSummary } from '@devhub/contracts';
 import { makeSessionSummary } from '@devhub/contracts/testing';
 import { createEventBus } from '../events/event-bus.ts';
 import { cacheFilePath, openInboxCache, type InboxCache } from '../inbox/inbox-cache.ts';
@@ -35,6 +35,8 @@ import {
   statusListUrl,
   type FakeIssue,
 } from '../test/fake-jira.ts';
+import { createOrynxTicketService, type OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
+import { createOrynxTicketStore } from '../orynx-tickets/ticket-store.ts';
 import { createTicketsService } from './tickets-service.ts';
 
 /** Jira, the outside service, faked for this file only. */
@@ -83,7 +85,8 @@ function setup({
   settings: initial = {},
   sessions = [],
   cache = openInboxCache(':memory:'),
-}: { settings?: Settings; sessions?: SessionSummary[]; cache?: InboxCache } = {}) {
+  orynx,
+}: { settings?: Settings; sessions?: SessionSummary[]; cache?: InboxCache; orynx?: OrynxTicketService } = {}) {
   const events = createEventBus();
   const settings = createMemorySettingsStore(initial);
   const tokens = createTokenStore({ keychain: createMemoryKeychain({ jira: goodToken }), events });
@@ -94,6 +97,7 @@ function setup({
     connection: createJiraConnection({ settings, tokens, jira: createJiraClient(), events, envToken: false }),
     jira: createJiraClient({ timeoutMs: 300 }),
     sessions: createMemorySessionStore(sessions),
+    ...(orynx === undefined ? {} : { orynx: { tickets: orynx, you: () => Promise.resolve('Rakesh Dhariwal') } }),
     onError: (error) => errors.push(error),
     now: () => clock,
   });
@@ -682,5 +686,104 @@ describe('one ticket in full (spec 022)', () => {
     );
     expect(await tickets.detail('PROJ-1423')).toEqual({ result: 'unreachable' });
     expect(cache.tool('jira_sprint')).toBeNull();
+  });
+});
+
+describe('Orynx tickets on the board (spec 037)', () => {
+  const day = 24 * 60 * 60 * 1000;
+
+  /** ORX-1 in To do and ORX-2 in progress, both made at the clock's start. */
+  async function orynxTickets(path?: string) {
+    const service = createOrynxTicketService({
+      store: createOrynxTicketStore({ ...(path === undefined ? {} : { path }), now: () => clock }),
+      sessions: createMemorySessionStore([
+        makeSessionSummary({ id: 's-2', state: 'working', source: { kind: 'jira', key: 'ORX-2' } }),
+      ]),
+      events: createEventBus(),
+    });
+    await service.create(CreateOrynxTicketSchema.parse({ title: 'Add bulk archive' }), { kind: 'you' });
+    await service.create(
+      CreateOrynxTicketSchema.parse({
+        title: 'Fix the date test',
+        type: 'Bug',
+        priority: 'Highest',
+        status: 'in_progress',
+        dueDate: '2026-10-24',
+      }),
+      { kind: 'you' },
+    );
+    return service;
+  }
+
+  it('AC-1: Orynx tickets follow the sprint’s, as yours, in their columns, with their sessions', async () => {
+    acceptingSprint();
+    const { tickets } = setup({ settings: jiraConnected, orynx: await orynxTickets() });
+    await tickets.sync();
+
+    const read = await tickets.read();
+
+    expect(read.tickets.map((ticket) => [ticket.key, ticket.column])).toEqual([
+      ['PROJ-1377', 'to_do'],
+      ['PROJ-1423', 'in_progress'],
+      ['PROJ-1350', 'in_review'],
+      ['ORX-1', 'to_do'],
+      ['ORX-2', 'in_progress'],
+    ]);
+    expect(read.tickets[4]).toEqual({
+      key: 'ORX-2',
+      title: 'Fix the date test',
+      url: null,
+      status: 'In progress',
+      column: 'in_progress',
+      type: 'Bug',
+      bug: true,
+      priority: { name: 'Highest', level: 'high', rank: 0 },
+      dueDate: '2026-10-24',
+      assignee: { name: 'Rakesh Dhariwal', mine: true },
+      session: { id: 's-2', state: 'working' },
+    });
+    expect(read.orynx).toEqual({ kept: null });
+  });
+
+  it('AC-4: with Jira not connected, or its sprint still syncing, the board holds Orynx tickets alone', async () => {
+    const orynx = await orynxTickets();
+
+    const without = await setup({ orynx }).tickets.read();
+    expect(without.jira).toEqual({ state: 'not_connected' });
+    expect(without.tickets.map((ticket) => ticket.key)).toEqual(['ORX-1', 'ORX-2']);
+
+    const syncing = await setup({ settings: jiraConnected, orynx }).tickets.read();
+    expect(syncing.jira).toEqual({ state: 'syncing' });
+    expect(syncing.tickets.map((ticket) => ticket.key)).toEqual(['ORX-1', 'ORX-2']);
+  });
+
+  it('AC-21: a ticket stays in Done for 14 days after it got there, then leaves the board', async () => {
+    const orynx = await orynxTickets();
+    await orynx.update('ORX-1', { status: 'done' });
+    clock += 11 * day;
+    await orynx.update('ORX-2', { status: 'done' });
+    const { tickets } = setup({ orynx });
+
+    clock = start + 14 * day;
+    expect((await tickets.read()).tickets.map((ticket) => ticket.key)).toEqual(['ORX-1', 'ORX-2']);
+
+    clock = start + 15 * day;
+    expect((await tickets.read()).tickets.map((ticket) => ticket.key)).toEqual(['ORX-2']);
+  });
+
+  it('AC-34: names the tickets file it couldn’t read and kept aside', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'orynx-board-'));
+    try {
+      const path = join(home, 'tickets.json');
+      await writeFile(path, 'not json');
+      const { tickets } = setup({ orynx: await orynxTickets(path) });
+
+      const read = await tickets.read();
+
+      expect(read.orynx).toEqual({ kept: 'tickets-20261017-100000.unreadable.json' });
+      expect(read.tickets.map((ticket) => ticket.key)).toEqual(['ORX-1', 'ORX-2']);
+    } finally {
+      await rm(home, { recursive: true, force: true });
+    }
   });
 });

@@ -3,6 +3,7 @@ import {
   defaultTicketsChoice,
   TicketsChoiceSchema,
   type InboxProblem,
+  type Ticket,
   type TicketDetailAnswer,
   type Tickets,
   type TicketsChoice,
@@ -21,6 +22,8 @@ import {
   type BoardLayout,
   type SprintRecord,
 } from '../integrations/jira/sprint-map.ts';
+import { orynxBoardRows } from '../orynx-tickets/board-row.ts';
+import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import type { SessionStore } from '../sessions/session-store.ts';
 import { sessionsByTicket } from '../sessions/ticket-sessions.ts';
 import type { SettingsStore } from '../settings/settings-store.ts';
@@ -61,6 +64,11 @@ export interface TicketsServiceOptions {
   onProblem?: (problem: InboxProblem) => void;
   /** Told about anything unexpected while the sprint syncs, such as a cache that can't be written. */
   onError?: (error: unknown) => void;
+  /**
+   * Orynx's own tickets (spec 037), which join Jira's on the board as yours, by `you`: your name, as git gives it.
+   * Left out, the board holds Jira's alone.
+   */
+  orynx?: { tickets: Pick<OrynxTicketService, 'list' | 'kept'>; you: () => Promise<string | null> };
   /** The clock, in milliseconds. */
   now?: () => number;
 }
@@ -239,43 +247,56 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     );
   }
 
+  /** Jira's part: the sprint from the cache, with each ticket's newest session (spec 008). */
+  async function readJira(): Promise<Tickets> {
+    const [saved, sessions] = await Promise.all([settings.read(), options.sessions.list()]);
+    const choice = choiceIn(saved.tickets);
+    if (saved.jira === undefined) return { jira: { state: 'not_connected' }, choice, ...nothing };
+    const { site } = saved.jira;
+    const stored = cache.tool(part);
+    // Rows from another account never show: they go at its next sync.
+    const cached: CachedTool | null = stored?.connection === jiraAccount(saved.jira) ? stored : null;
+    const jiraState = toolState(cached, broken);
+    if (cached === null) return { jira: jiraState, choice, ...nothing };
+    // No row: a sync from before spec 020 found no sprint of yours.
+    const kept = StoredSprintSchema.safeParse(cached.records[0] ?? { for: defaultTicketsChoice, record: null });
+    if (!kept.success) return { jira: jiraState, choice, ...nothing };
+    // Read for another choice: the new one's first sync hasn't ended, or it failed before Jira ever answered
+    // for it, so the last good sync (the old choice's) says nothing about this one.
+    if (!sameChoice(kept.data.for, choice)) {
+      const first: Tickets['jira'] =
+        jiraState.state === 'failed' ? { ...jiraState, lastSyncedAt: null } : { state: 'syncing' };
+      return { jira: first, choice, ...nothing };
+    }
+    const record = kept.data.record;
+    if (record === null) return { jira: jiraState, choice, ...nothing };
+    // No sprint keeps its tickets with no sprint of their own (spec 020).
+    const joined = sessionsByTicket(sessions);
+    return {
+      jira: jiraState,
+      choice,
+      sprint: record.sprint,
+      tickets: record.tickets.map((ticket) => ({
+        ...ticket,
+        url: `https://${site}/browse/${ticket.key}`,
+        session: joined.get(ticket.key) ?? null,
+      })),
+      truncated: record.truncated,
+      orynx: { kept: null },
+    };
+  }
+
+  /** Orynx's own tickets (spec 037), whatever Jira says, and the file kept aside if it couldn't read its own. */
+  async function readOrynx(): Promise<{ rows: Ticket[]; kept: string | null }> {
+    if (options.orynx === undefined) return { rows: [], kept: null };
+    const [held, you] = await Promise.all([options.orynx.tickets.list(), options.orynx.you()]);
+    return { rows: orynxBoardRows(held, you ?? 'You', now()), kept: options.orynx.tickets.kept() };
+  }
+
   return {
     async read() {
-      const [saved, sessions] = await Promise.all([settings.read(), options.sessions.list()]);
-      const choice = choiceIn(saved.tickets);
-      if (saved.jira === undefined) return { jira: { state: 'not_connected' }, choice, ...nothing };
-      const { site } = saved.jira;
-      const stored = cache.tool(part);
-      // Rows from another account never show: they go at its next sync.
-      const cached: CachedTool | null = stored?.connection === jiraAccount(saved.jira) ? stored : null;
-      const jiraState = toolState(cached, broken);
-      if (cached === null) return { jira: jiraState, choice, ...nothing };
-      // No row: a sync from before spec 020 found no sprint of yours.
-      const kept = StoredSprintSchema.safeParse(cached.records[0] ?? { for: defaultTicketsChoice, record: null });
-      if (!kept.success) return { jira: jiraState, choice, ...nothing };
-      // Read for another choice: the new one's first sync hasn't ended, or it failed before Jira ever answered
-      // for it, so the last good sync (the old choice's) says nothing about this one.
-      if (!sameChoice(kept.data.for, choice)) {
-        const first: Tickets['jira'] =
-          jiraState.state === 'failed' ? { ...jiraState, lastSyncedAt: null } : { state: 'syncing' };
-        return { jira: first, choice, ...nothing };
-      }
-      const record = kept.data.record;
-      if (record === null) return { jira: jiraState, choice, ...nothing };
-      // No sprint keeps its tickets with no sprint of their own (spec 020).
-      const joined = sessionsByTicket(sessions);
-      return {
-        jira: jiraState,
-        choice,
-        sprint: record.sprint,
-        tickets: record.tickets.map((ticket) => ({
-          ...ticket,
-          url: `https://${site}/browse/${ticket.key}`,
-          session: joined.get(ticket.key) ?? null,
-        })),
-        truncated: record.truncated,
-        orynx: { kept: null },
-      };
+      const [jira, orynx] = await Promise.all([readJira(), readOrynx()]);
+      return { ...jira, tickets: [...jira.tickets, ...orynx.rows], orynx: { kept: orynx.kept } };
     },
 
     async sync() {

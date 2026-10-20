@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { SessionStateSchema } from './session.ts';
-import { TicketColumnSchema } from './ticket-column.ts';
+import { TicketColumnSchema, type TicketColumn } from './ticket-column.ts';
 
 /**
  * Orynx's own tickets (spec 037): kept on this laptop, beside Jira's, made and changed by you or by any agent.
@@ -29,6 +29,14 @@ export type OrynxTicketType = z.infer<typeof OrynxTicketTypeSchema>;
 /** Highest first, as Jira's default list. */
 export const OrynxPrioritySchema = z.enum(['Highest', 'High', 'Medium', 'Low', 'Lowest']);
 export type OrynxPriority = z.infer<typeof OrynxPrioritySchema>;
+
+/** Each status's own name, as Jira's have one: the board's column names, which Status's filter lists (AC-20). */
+export const orynxStatusNames: Record<TicketColumn, string> = {
+  to_do: 'To do',
+  in_progress: 'In progress',
+  in_review: 'In review',
+  done: 'Done',
+};
 
 /** What a person or an agent sets (Q3); the form and the server refuse the same values with the same words (Q12d). */
 export const OrynxTicketFieldsSchema = z.object({
