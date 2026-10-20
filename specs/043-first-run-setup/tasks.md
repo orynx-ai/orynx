@@ -23,9 +23,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: The front door asks for the password, slows guesses, and waits for setup (AC-7–AC-12)
       Check: pnpm test apps/server/src/lan.test.ts apps/server/src/config.test.ts
       Files: apps/server/src/lan.ts, lan.test.ts, main.ts, config.ts, .env.example
-- [ ] Task 8: Every e2e hub starts set up
-      Check: pnpm test:e2e e2e/settings.spec.ts
-      Files: playwright.config.ts, e2e/fake-tools/config.ts
+- [x] Task 8: Every e2e hub starts set up
+      Check: pnpm test:e2e e2e/shell.spec.ts
+      Files: e2e/set-up.ts, playwright.config.ts, e2e/desktop/desktop.spec.ts
 - [ ] Task 9: README installs from orynx-ai/orynx; install.sh, docs and rule 10 say password (AC-14)
       Check: bash -n install.sh; pnpm gates
       Files: README.md, install.sh, learn/local-security.md, docs/architecture.md, apps/landing/index.html, CLAUDE.md, AGENTS.md, .github/copilot-instructions.md, .cursor/rules/00-core.mdc
