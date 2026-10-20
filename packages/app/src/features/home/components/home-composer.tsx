@@ -185,24 +185,25 @@ export function HomeComposer() {
               onRefused={setRefused}
               box={() => box.current}
             />
+            {/* Ask or Build (spec 031), beside + from the first paint; under 640 px the pickers keep their own row
+              below, so all three fit 360 px whole. */}
+            <SegmentedControl
+              aria-label={composerWords.mode.label}
+              value={mode}
+              onValueChange={(next) => {
+                setMode(next === 'ask' ? 'ask' : 'build');
+              }}
+            >
+              <Tooltip label={composerWords.mode.askHint}>
+                <SegmentedControlItem value="ask">{composerWords.mode.ask}</SegmentedControlItem>
+              </Tooltip>
+              <Tooltip label={composerWords.mode.buildHint}>
+                <SegmentedControlItem value="build">{composerWords.mode.build}</SegmentedControlItem>
+              </Tooltip>
+            </SegmentedControl>
             {/* The pickers' own row under 640 px, there from the first paint, so the box never grows when they
               arrive (AC-1, AC-30); in a wider window they sit between + and Send. */}
             <div className="flex min-h-8 min-w-0 items-center gap-2 max-sm:order-last max-sm:basis-full">
-              {/* Ask or Build (spec 031), there from the first paint, so nothing moves when the pickers arrive. */}
-              <SegmentedControl
-                aria-label={composerWords.mode.label}
-                value={mode}
-                onValueChange={(next) => {
-                  setMode(next === 'ask' ? 'ask' : 'build');
-                }}
-              >
-                <Tooltip label={composerWords.mode.askHint}>
-                  <SegmentedControlItem value="ask">{composerWords.mode.ask}</SegmentedControlItem>
-                </Tooltip>
-                <Tooltip label={composerWords.mode.buildHint}>
-                  <SegmentedControlItem value="build">{composerWords.mode.build}</SegmentedControlItem>
-                </Tooltip>
-              </SegmentedControl>
               {pickers ? (
                 <>
                   <FolderPicker />

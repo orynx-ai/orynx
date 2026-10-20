@@ -423,6 +423,15 @@ test('AC-30, AC-31: Home, its chips and the + popup fit 360 px and have no axe v
       await expect(chips(page)).toHaveText(['PROJ-1377']);
       expect(await axe(page), `Home at ${String(width)} px, ${colorScheme}`).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      // Ask or Build (spec 031, AC-24): both options whole, with no scrolling inside the switch.
+      const mode = page.getByRole('group', { name: 'Session' });
+      await expect(mode.getByRole('button', { name: 'Ask' })).toBeInViewport({ ratio: 1 });
+      await expect(mode.getByRole('button', { name: 'Build' })).toBeInViewport({ ratio: 1 });
+      expect(await mode.evaluate((group) => group.scrollWidth - group.clientWidth)).toBe(0);
+      // The picked option looks picked, though each sits in a tooltip that sets its own data-state.
+      const look = (name: string) =>
+        mode.getByRole('button', { name }).evaluate((option) => getComputedStyle(option).backgroundColor);
+      expect(await look('Build')).not.toBe(await look('Ask'));
 
       // An open popup hides the rest of the page from screen readers, so it is checked on its own.
       await page.getByRole('button', { name: 'Add context' }).click();
