@@ -51,3 +51,12 @@ export function searchShortcut({ os }: Pick<Platform, 'os'>): Shortcut {
   if (os === 'mac') return { label: '⌘K', ariaKeyShortcuts: 'Meta+K', matches: matcher({ meta: true, code: 'KeyK' }) };
   return { label: 'Ctrl+K', ariaKeyShortcuts: 'Control+K', matches: matcher({ ctrl: true, code: 'KeyK' }) };
 }
+
+/** The session's Terminal (spec 036): ⌃` on every computer, as editors open their terminal. */
+export function terminalShortcut({ os }: Pick<Platform, 'os'>): Shortcut {
+  return {
+    label: os === 'mac' ? '⌃`' : 'Ctrl+`',
+    ariaKeyShortcuts: 'Control+`',
+    matches: matcher({ ctrl: true, code: 'Backquote' }),
+  };
+}

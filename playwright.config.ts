@@ -11,6 +11,7 @@ import {
   pullRequestsHubPort,
   sessionsHubPort,
   syncActivityHubPort,
+  terminalHubPort,
 } from './e2e/fake-tools/config.ts';
 
 // The e2e run gets its own port and data folder, so it never touches the real ~/.devhub.
@@ -22,6 +23,7 @@ const approvalsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-approvals-'));
 const changesHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-changes-'));
 const composerHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-composer-'));
 const syncActivityHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-sync-activity-'));
+const terminalHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-terminal-'));
 const pullRequestsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-'));
 // The pull requests hub's git commits with a name of its own, and never reads your ~/.gitconfig: your
 // name, your signing (which could ask for a passphrase) or your aliases (spec 014).
@@ -244,6 +246,26 @@ export default defineConfig({
         DEVHUB_SANDBOX: 'assume',
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(syncActivityHubPort),
+      },
+    },
+    {
+      // The session Terminal (spec 036) on a hub of its own: your commands run in its sessions' worktrees.
+      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
+      url: `http://127.0.0.1:${String(terminalHubPort)}/`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        DEVHUB_PORT: String(terminalHubPort),
+        DEVHUB_HOME: terminalHome,
+        LOG_LEVEL: 'warn',
+        NODE_ENV: 'production',
+        DEVHUB_TOKENS_FROM_ENV: 'false',
+        DEVHUB_KEYCHAIN: 'memory',
+        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
+        DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_SANDBOX: 'assume',
+        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
+        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(terminalHubPort),
       },
     },
   ],

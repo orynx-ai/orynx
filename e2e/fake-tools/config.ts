@@ -38,6 +38,12 @@ export const composerHubPort = 4388;
 /** The eighth, for Sync activity (spec 035): its syncs and their log stay away from Home's inbox spec. */
 export const syncActivityHubPort = 4384;
 
+/**
+ * The ninth, for the session Terminal (spec 036): its sessions' worktrees run your commands. 4382 to 4388 are
+ * other specs', and a parallel worktree's Vite can hold 4386.
+ */
+export const terminalHubPort = 4380;
+
 /** Where a spec tells a hub's fakes what Jira and GitHub hold, with `PUT /tools`: the port below the hub's. */
 export function controlPortFor(hubPort: number): number {
   return hubPort - 1;

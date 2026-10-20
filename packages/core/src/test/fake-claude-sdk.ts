@@ -34,6 +34,12 @@ export type FakeTurn =
 export interface FakeToolCall {
   tool: string;
   input: Record<string, unknown>;
+  /** What the tool gives back once it runs; "ok" when left out (spec 036). */
+  output?: string;
+  /** It ran and failed, as a command that exits with an error does. */
+  fails?: boolean;
+  /** Once allowed, it runs until Claude is interrupted, as a server does, and gives no result. */
+  hangs?: boolean;
 }
 
 export interface FakeRun {
@@ -144,11 +150,9 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
         for (const message of queued.splice(0)) if (message.uuid !== undefined) taken.push(message.uuid);
       }
 
-      async function decide(call: FakeToolCall): Promise<{ id: string; result: PermissionResult }> {
-        n += 1;
-        const id = `toolu_${String(n)}`;
+      async function decide(call: FakeToolCall, id: string): Promise<PermissionResult> {
         const ask = options.canUseTool;
-        if (!ask) return { id, result: { behavior: 'allow' } };
+        if (!ask) return { behavior: 'allow' };
         const controller = new AbortController();
         asking.add(controller);
         run.waiting += 1;
@@ -159,38 +163,41 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
           } as CanUseToolOptions);
           if (result === null) throw new Error('The fake SDK never expects null from canUseTool');
           run.decisions.push({ tool: call.tool, result });
-          return { id, result };
+          return result;
         } finally {
           run.waiting -= 1;
           asking.delete(controller);
         }
       }
 
-      function toolMessages(call: FakeToolCall, id: string, result: PermissionResult): SDKMessage[] {
-        return [
-          {
-            type: 'assistant',
-            parent_tool_use_id: null,
-            ...sessionFields,
-            message: { role: 'assistant', content: [{ type: 'tool_use', id, name: call.tool, input: call.input }] },
-          } as unknown as SDKMessage,
-          {
-            type: 'user',
-            parent_tool_use_id: null,
-            ...sessionFields,
-            message: {
-              role: 'user',
-              content: [
-                {
-                  type: 'tool_result',
-                  tool_use_id: id,
-                  content: result.behavior === 'allow' ? 'ok' : result.message,
-                  is_error: result.behavior !== 'allow',
-                },
-              ],
-            },
-          } as unknown as SDKMessage,
-        ];
+      /** Claude's message with its calls, which Claude Code streams before it asks about them. */
+      function useMessage(calls: readonly FakeToolCall[], ids: readonly string[]): SDKMessage {
+        const content = calls.map((call, i) => ({ type: 'tool_use', id: ids[i], name: call.tool, input: call.input }));
+        return {
+          type: 'assistant',
+          parent_tool_use_id: null,
+          ...sessionFields,
+          message: { role: 'assistant', content },
+        } as unknown as SDKMessage;
+      }
+
+      function resultMessage(call: FakeToolCall, id: string, result: PermissionResult): SDKMessage {
+        return {
+          type: 'user',
+          parent_tool_use_id: null,
+          ...sessionFields,
+          message: {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: id,
+                content: result.behavior === 'allow' ? (call.output ?? 'ok') : result.message,
+                is_error: result.behavior !== 'allow' || call.fails === true,
+              },
+            ],
+          },
+        } as unknown as SDKMessage;
       }
 
       /** As Claude Code ends an interrupted turn: a failed result. */
@@ -237,10 +244,21 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
         for (const turn of script) {
           if ('tool' in turn || 'together' in turn) {
             const calls = 'together' in turn ? turn.together : [turn];
-            const answers = await Promise.all(calls.map(decide));
+            const ids = calls.map(() => {
+              n += 1;
+              return `toolu_${String(n)}`;
+            });
+            yield useMessage(calls, ids);
+            const answers = await Promise.all(calls.map((call, i) => decide(call, ids[i] ?? '')));
+            const runsOn = (call: FakeToolCall, i: number) => call.hangs === true && answers[i]?.behavior === 'allow';
             for (const [i, call] of calls.entries()) {
               const answer = answers[i];
-              if (answer !== undefined) yield* toolMessages(call, answer.id, answer.result);
+              if (answer !== undefined && !runsOn(call, i)) yield resultMessage(call, ids[i] ?? '', answer);
+            }
+            if (calls.some(runsOn)) {
+              await interrupted;
+              yield interruptedResult;
+              break;
             }
             if (wasInterrupted) {
               yield interruptedResult;

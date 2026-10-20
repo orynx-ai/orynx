@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
+  ClaudeCommandList,
   AgentChoice,
   ApprovalDecision,
   ComposerChip,
@@ -35,6 +36,8 @@ import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
 import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
 import type { ChangesReader, StartPoint } from './changes.ts';
+import { logEnd, logNote, logRunEnded, logWork } from './command-log.ts';
+import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
 import {
   chooseFolder,
   composerPlan,
@@ -128,6 +131,10 @@ export interface SessionService {
   send(id: string, text: string, context?: readonly ComposerChip[], choice?: AgentChoice): Promise<SendResult>;
   /** Exactly what Claude was sent at the start, as saved (spec 011, Q5); null for no such session. */
   brief(id: string): Promise<SessionBrief | null>;
+  /** Every command Claude ran, with its output, for the Terminal's Claude tab (spec 036); null for no such session. */
+  commands(id: string): Promise<ClaudeCommandList | null>;
+  /** Notes in the Claude tab that you sent Claude this command from your Terminal (spec 036, AC-17). */
+  note(id: string, command: string): Promise<void>;
   /** What changed in the worktree (spec 013, Q4); null for no such session, `unreadable` when git failed. */
   changes(id: string): Promise<SessionChanges | 'unreadable' | null>;
   /** One changed file's diff; null for no such session or no such changed file (AC-24). */
@@ -178,6 +185,8 @@ export interface SessionServiceOptions {
   githubClient?: GitHubClient;
   /** Null when the server was built without Claude Code: then no session can start (AC-22). */
   adapter: AgentAdapter | null;
+  /** Your shell tabs (spec 036). Left out where there are none (Windows): then no session offers its Terminal. */
+  terminal?: Pick<TerminalService, 'stopAll'>;
   events: EventBus;
   onReport?: (report: SessionReport) => void;
   /**
@@ -475,6 +484,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
             endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
             ...endRun(record.session, now()),
           },
+          commandLog: logRunEnded(record.commandLog),
         };
       },
       () => true,
@@ -507,7 +517,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         if (finished) runs.delete(id);
         track(
           change(id, (record) => {
-            const next = withProgress(record, (progress) => addWork(progress, event.work));
+            const next = {
+              ...withProgress(record, (progress) => addWork(progress, event.work)),
+              commandLog: logWork(record.commandLog, event.work),
+            };
             if (!finished) return next;
             const at = now();
             return {
@@ -519,6 +532,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
                 endedAt: new Date(at).toISOString(),
                 ...endRun(next.session, at),
               },
+              commandLog: logRunEnded(next.commandLog),
             };
           }),
         );
@@ -570,6 +584,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       }
       case 'files_changed':
         filesChanged(id);
+        return;
+      case 'command_ended':
+        track(change(id, (record) => ({ ...record, commandLog: logEnd(record.commandLog, event) })));
         return;
       case 'problem':
         track(fail(id, event.kind, event.code));
@@ -789,6 +806,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
             endedAt: record.session.endedAt ?? new Date(now()).toISOString(),
             ...endRun(record.session, now()),
           },
+          commandLog: logRunEnded(record.commandLog),
         };
       },
       () => true,
@@ -1010,6 +1028,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         mode: 'build',
         workOn: 'new_branch',
         skipped: [],
+        // `get()` says whether the Terminal opens (spec 036), so what is saved here never counts.
+        terminal: false,
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -1017,6 +1037,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       claudeSessionId: null,
       pushedCommit: null,
       approvalLog: [],
+      commandLog: [],
     };
     await records.create(record);
     events.publish({ type: 'sessions.changed' });
@@ -1096,6 +1117,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         mode: ask ? 'ask' : 'build',
         workOn: pull === null ? 'new_branch' : 'pull_request',
         skipped: [],
+        // `get()` says whether the Terminal opens (spec 036), so what is saved here never counts.
+        terminal: false,
       },
       repository: folder === null ? null : { id: folder.id, path: folder.path },
       // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031).
@@ -1104,6 +1127,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       pushedCommit: null,
       claudeSessionId: null,
       approvalLog: [],
+      commandLog: [],
       reads: { files: [...plan.reads.files], folders: [...plan.reads.folders] },
     };
     startPlans.set(id, {
@@ -1129,6 +1153,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const { branch } = record.session;
     // Your pull request's branch isn't the session's to delete: only its worktree goes (spec 031).
     const kept = record.session.workOn === 'pull_request';
+    // Your commands end first: nothing of yours runs from a folder that's going (spec 036, AC-28).
+    await options.terminal?.stopAll(id);
     // An Ask with no folder has only its empty folder, which nothing reads once it's discarded.
     if (record.worktree !== null && record.repository !== null) {
       const removed = await worktrees.remove(record.repository.path, record.worktree, kept ? null : branch);
@@ -1212,7 +1238,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         saved === null ? null : { ...saved, status: known?.status ?? null, dueDate: known?.dueDate ?? null };
       // There's a worktree to open from when it's made until the changes are discarded (spec 013, Q9).
       const made = session.branch !== null && session.discardedAt === null;
-      return { ...session, ready: readyFor(session), ticket, followUp, worktreePath: made ? record.worktree : null };
+      const terminal = options.terminal !== undefined && terminalWorktree(record) !== null;
+      return {
+        ...session,
+        ready: readyFor(session),
+        ticket,
+        followUp,
+        worktreePath: made ? record.worktree : null,
+        terminal,
+      };
+    },
+
+    async commands(id) {
+      const record = await records.get(id);
+      return record === null ? null : { commands: [...record.commandLog] };
+    },
+
+    async note(id, command) {
+      await change(id, (record) => ({ ...record, commandLog: logNote(record.commandLog, command) }));
     },
 
     async stop(id) {

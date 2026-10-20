@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { z } from 'zod';
 import type { IntegrationId } from '@devhub/contracts';
-import { agentEnvironment, gitEnvironment, type EnvTokens } from '@devhub/core';
+import { agentEnvironment, gitEnvironment, terminalEnvironment, type EnvTokens } from '@devhub/core';
 
 /** The only place that reads process.env (CLAUDE.md rule 9). Every key is in .env.example. */
 const EnvSchema = z.object({
@@ -68,6 +68,8 @@ export interface ServerConfig {
   agentEnvironment: Record<string, string>;
   /** The same for the git that makes a session's worktree, with your SSH agent and no prompts (spec 011, Q8d). */
   gitEnvironment: Record<string, string>;
+  /** What your own commands in a session's Terminal get: your whole shell's, less Orynx's settings (spec 036). */
+  terminalEnvironment: Record<string, string>;
 }
 
 /** The `.env` next to `.env.example` at the repo root. The same path from `src/` (dev) and `dist/` (start). */
@@ -146,5 +148,6 @@ export function loadConfig({
     sandbox: settings.DEVHUB_SANDBOX,
     agentEnvironment: agentEnvironment(env),
     gitEnvironment: gitEnvironment(env),
+    terminalEnvironment: terminalEnvironment(env),
   };
 }

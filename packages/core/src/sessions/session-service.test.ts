@@ -33,6 +33,8 @@ import {
   type FakeOpenedPull,
 } from '../test/fake-github.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
+import { askToFix } from '../terminal/ask-to-fix.ts';
+import { createTerminalService } from '../terminal/terminal-service.ts';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import type { SessionRecords } from './session-store.ts';
@@ -156,6 +158,13 @@ async function setUp({
 
   const sdk = fakeClaudeSdk(script, ...later);
   const records = await openFileSessionStore(home, { now });
+  // Your shell tabs (spec 036), with /bin/sh and none of the real home's profile.
+  const terminal = createTerminalService({
+    events,
+    env: { PATH: '/usr/bin:/bin', HOME: home, SHELL: '/bin/sh' },
+    home,
+  });
+  services.push(terminal);
   const reports: SessionReport[] = [];
   const changes: { from: string; to: string; quiet: boolean }[] = [];
   let ids = 0;
@@ -212,6 +221,7 @@ async function setUp({
             sandboxSettings({ platform: 'darwin', worktree, devhubHome: home, home: repos.root, temporary: tmpdir() }),
         }),
     events,
+    terminal,
     onReport: (report) => reports.push(report),
     onChange: (before, after, { quiet }) => {
       if (before.state !== after.state) changes.push({ from: before.state, to: after.state, quiet });
@@ -224,7 +234,7 @@ async function setUp({
   });
   services.push(service);
   jira.use(acceptingIssue({ key: 'PROJ-1423', summary: 'Add bulk archive to the content list' }));
-  return { service, records, repos, home, heard, reports, changes, sdk, folders: added, settings };
+  return { service, records, repos, home, heard, reports, changes, sdk, folders: added, settings, terminal };
 }
 
 /** Waits until the session has sent Claude its brief: from there a hanging Claude writes nothing more. */
@@ -957,6 +967,34 @@ describe('telling the notifications (spec 029)', () => {
 });
 
 describe('discarding a session', () => {
+  it('AC-28 (036): stops every command in the session’s Terminal before the worktree goes', async () => {
+    const { service, records, terminal, home } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const worktree = (await settled(records)).worktree ?? '';
+    // On Stop, the command writes down whether its worktree was still there.
+    const command = `trap '[ -d "$PWD" ] && echo there > "$HOME/at-stop"; exit 1' TERM; echo ready; while :; do sleep 0.1; done`;
+    await terminal.run('0000000000000001', 'tab-1', command, worktree);
+    for (let tries = 0; tries < 500; tries++) {
+      const block = terminal.read('0000000000000001', worktree).tabs[0]?.blocks[0];
+      if (block?.state === 'running' && block.output.includes('ready')) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    expect(await service.discard('0000000000000001')).toBe('discarded');
+
+    expect(await readFile(join(home, 'at-stop'), 'utf8')).toBe('there\n');
+    expect(terminal.read('0000000000000001', worktree)).toMatchObject({ tabs: [{ blocks: [] }], history: [] });
+  });
+
+  it('AC-3 (036): says the Terminal opens on a Build with a worktree, and not once it’s discarded', async () => {
+    const { service, records } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect((await service.get('0000000000000001'))?.terminal).toBe(true);
+    await service.discard('0000000000000001');
+    expect((await service.get('0000000000000001'))?.terminal).toBe(false);
+  });
+
   it('AC-10: deletes a finished session’s worktree and branch, and keeps the session, Stopped', async () => {
     const { service, records, repos, home } = await setUp();
     await service.start({ ticketKey: 'PROJ-1423' });
@@ -1529,5 +1567,117 @@ describe('the pull request (spec 014)', () => {
       state: 'pr_open',
       pullRequest: { number: 2841, url: 'https://github.com/acme/web-app/pull/2841' },
     });
+  });
+});
+
+describe('Claude’s commands (spec 036)', () => {
+  const failingTests: FakeTurn = {
+    tool: 'Bash',
+    input: { command: 'npm test' },
+    output: '\u001b[31m FAIL  src/a.test.ts\u001b[0m\nTests: 1 failed',
+    fails: true,
+  };
+
+  it('AC-19, AC-20: keeps each command Claude ran, with its output, and says the session changed', async () => {
+    const { service, records, heard } = await setUp({
+      script: [failingTests, { finish: 'Ran the tests.' }],
+      mode: 'edit_and_run_allowed',
+      allowedCommands: ['npm test'],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+
+    expect(await service.commands('0000000000000001')).toEqual({
+      commands: [
+        {
+          id: 'toolu_1',
+          state: 'failed',
+          command: 'npm test',
+          output: [' FAIL  src/a.test.ts', 'Tests: 1 failed'],
+          cut: false,
+          // The adapter here runs on the real clock; claude-adapter.test.ts checks the time itself.
+          ms: expect.any(Number) as unknown,
+        },
+      ],
+    });
+    expect(heard).toContainEqual({ type: 'session.changed', sessionId: '0000000000000001' });
+  });
+
+  it('AC-22: keeps a command you denied as denied', async () => {
+    const { service, records } = await setUp({ script: [failingTests, { finish: 'Skipped them.' }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    await service.respond('0000000000000001', approval?.id ?? '', 'deny');
+    await settled(records);
+
+    expect((await service.commands('0000000000000001'))?.commands).toEqual([
+      { id: 'denied-1', state: 'denied', command: 'npm test' },
+    ]);
+  });
+
+  it('AC-19: a command still running when you press Stop Claude is stopped', async () => {
+    const { service, records } = await setUp({
+      script: [{ tool: 'Bash', input: { command: 'npm run dev' }, hangs: true }],
+      mode: 'edit_and_run_allowed',
+      allowedCommands: ['npm run dev'],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    for (let tries = 0; tries < 500; tries++) {
+      if ((await records.get('0000000000000001'))?.commandLog.length === 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    expect((await service.commands('0000000000000001'))?.commands).toEqual([
+      { id: 'toolu_1', state: 'running', command: 'npm run dev' },
+    ]);
+
+    await service.stop('0000000000000001');
+    expect((await service.commands('0000000000000001'))?.commands).toEqual([
+      { id: 'toolu_1', state: 'stopped', command: 'npm run dev' },
+    ]);
+  });
+
+  it('AC-24: a session with no commands has none, and there are none for a session that doesn’t exist', async () => {
+    const { service, records } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    expect(await service.commands('0000000000000001')).toEqual({ commands: [] });
+    expect(await service.commands('ffffffffffffffff')).toBeNull();
+  });
+});
+
+describe('Ask Claude to fix (spec 036)', () => {
+  it('AC-17: sends Claude your failed command with its output, resuming it, and notes it in the Claude tab', async () => {
+    const { service, records, terminal, sdk } = await setUp({ later: [[{ finish: 'Fixed the test.' }]] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const worktree = (await settled(records)).worktree ?? '';
+    await terminal.run('0000000000000001', 'tab-1', 'echo "Expected 207"; exit 1', worktree);
+    for (let tries = 0; tries < 500; tries++) {
+      if (terminal.read('0000000000000001', worktree).tabs[0]?.blocks[0]?.state === 'failed') break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    expect(await askToFix({ terminal, sessions: service }, '0000000000000001', 'tab-1', 'block-1')).toEqual({
+      result: 'sent',
+    });
+    await settled(records);
+    expect(sdk.runs[1]?.prompts.join('\n')).toContain('failed with exit 1. Its output:\n```\nExpected 207\n```');
+    expect((await service.commands('0000000000000001'))?.commands).toEqual([
+      { id: 'note-1', state: 'note', command: 'echo "Expected 207"; exit 1' },
+    ]);
+  });
+
+  it('AC-17: sends nothing for a block that didn’t fail, or one that isn’t there', async () => {
+    const { service, records, terminal } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const worktree = (await settled(records)).worktree ?? '';
+    await terminal.run('0000000000000001', 'tab-1', 'echo fine', worktree);
+    for (let tries = 0; tries < 500; tries++) {
+      if (terminal.read('0000000000000001', worktree).tabs[0]?.blocks[0]?.state === 'done') break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    expect(await askToFix({ terminal, sessions: service }, '0000000000000001', 'tab-1', 'block-1')).toBeNull();
+    expect(await askToFix({ terminal, sessions: service }, '0000000000000001', 'tab-1', 'block-9')).toBeNull();
+
+    expect((await service.commands('0000000000000001'))?.commands).toEqual([]);
   });
 });

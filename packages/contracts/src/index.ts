@@ -21,4 +21,5 @@ export * from './session.ts';
 export * from './skills.ts';
 export * from './status.ts';
 export * from './sync-activity.ts';
+export * from './terminal.ts';
 export * from './tickets.ts';

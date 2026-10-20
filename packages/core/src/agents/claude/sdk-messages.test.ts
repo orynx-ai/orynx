@@ -18,12 +18,12 @@ function toolUse(id: string, name: string, input: object) {
   });
 }
 
-function toolResult(id: string, isError = false) {
+function toolResult(id: string, isError = false, content: unknown = 'ok') {
   return as({
     type: 'user',
     parent_tool_use_id: null,
     ...session,
-    message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: 'ok', is_error: isError }] },
+    message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content, is_error: isError }] },
   });
 }
 
@@ -104,28 +104,80 @@ describe('createMessageReader', () => {
   });
 
   it('012 AC-2: shows a command Claude Code ran without asking Orynx, even one that failed', () => {
-    const read = createMessageReader(worktree, () => false);
+    const read = createMessageReader(
+      worktree,
+      () => false,
+      () => 0,
+    );
     read(toolUse('t1', 'Bash', { command: 'npm test' }));
     expect(read(toolResult('t1', true))).toEqual([
-      { type: 'work', work: { kind: 'command', command: 'npm test' } },
+      { type: 'work', work: { kind: 'command', id: 't1', command: 'npm test' } },
+      { type: 'command_ended', id: 't1', output: 'ok', failed: true, ms: 0 },
       { type: 'files_changed' },
     ]);
   });
 
   it('012 AC-2: leaves out a command Orynx already showed when it decided about it', () => {
-    const read = createMessageReader(worktree, (id) => id === 't1');
+    const read = createMessageReader(
+      worktree,
+      (id) => id === 't1',
+      () => 0,
+    );
     read(toolUse('t1', 'Bash', { command: 'npm test' }));
-    expect(read(toolResult('t1'))).toEqual([{ type: 'files_changed' }]);
+    expect(read(toolResult('t1'))).toEqual([
+      { type: 'command_ended', id: 't1', output: 'ok', failed: false, ms: 0 },
+      { type: 'files_changed' },
+    ]);
+  });
+
+  it('AC-19 (036): says when each command ended, with Claude Code’s output, whether it failed, and how long it ran', () => {
+    let at = 1_000;
+    const read = createMessageReader(
+      worktree,
+      () => true,
+      () => at,
+    );
+    read(toolUse('t1', 'Bash', { command: 'npm test' }));
+    read(toolUse('t2', 'Bash', { command: 'npm run lint' }));
+    at = 4_100;
+    expect(read(toolResult('t1', true, ' FAIL  src/a.test.ts\nTests: 1 failed'))).toContainEqual({
+      type: 'command_ended',
+      id: 't1',
+      output: ' FAIL  src/a.test.ts\nTests: 1 failed',
+      failed: true,
+      ms: 3_100,
+    });
+    // Claude Code can give a result as text blocks; anything that isn't text is left out.
+    const blocks = [{ type: 'text', text: '0 problems' }, { type: 'image' }, { type: 'text', text: 'Done' }];
+    expect(read(toolResult('t2', false, blocks))).toContainEqual({
+      type: 'command_ended',
+      id: 't2',
+      output: '0 problems\nDone',
+      failed: false,
+      ms: 3_100,
+    });
+  });
+
+  it('AC-19 (036): gives no output for a result it can’t read, and says nothing of a call that isn’t a command', () => {
+    const read = createMessageReader(
+      worktree,
+      () => true,
+      () => 0,
+    );
+    read(toolUse('t1', 'Bash', { command: 'ls' }));
+    read(toolUse('t2', 'Read', { file_path: 'src/a.ts' }));
+    expect(read(toolResult('t1', false, { odd: true }))).toContainEqual(
+      expect.objectContaining({ type: 'command_ended', output: '' }) as unknown,
+    );
+    expect(read(toolResult('t2')).some((said) => said.type === 'command_ended')).toBe(false);
   });
 
   it('013 AC-2: says files may have changed once a command ends, run or refused, since it can write anything', () => {
     const read = createMessageReader(worktree, () => true);
     read(toolUse('t1', 'Bash', { command: 'npx prettier --write .' }));
     read(toolUse('t2', 'Bash', { command: 'git push' }));
-    expect([...read(toolResult('t1')), ...read(toolResult('t2', true))]).toEqual([
-      { type: 'files_changed' },
-      { type: 'files_changed' },
-    ]);
+    const said = [...read(toolResult('t1')), ...read(toolResult('t2', true))];
+    expect(said.filter((one) => one.type === 'files_changed')).toHaveLength(2);
   });
 
   it('013 AC-2: says nothing changed for a read, a search, the plan, or an edit that failed', () => {

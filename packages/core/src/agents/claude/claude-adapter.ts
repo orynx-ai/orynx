@@ -121,6 +121,8 @@ interface Running {
   parked: Map<string, (outcome: Outcome) => void>;
   /** Every tool call `canUseTool` was asked about, so the reader shows a command once (spec 012). */
   decided: Set<string>;
+  /** When Orynx let each command run, by its call's id: its time counts from then, not from the ask (spec 036). */
+  allowed: Map<string, number>;
   /**
    * The decision before this one: calls are decided one at a time, in the order Claude Code asked, so
    * calls asked together wait in that order whichever reads Settings faster (AC-10).
@@ -384,7 +386,8 @@ export function createClaudeAdapter({
           if (decision.behavior === 'allow') {
             const command = input['command'];
             if (tool === 'Bash' && typeof command === 'string') {
-              send({ type: 'work', sessionId: id, work: { kind: 'command', command } });
+              current?.allowed.set(toolUseID, now());
+              send({ type: 'work', sessionId: id, work: { kind: 'command', id: toolUseID, command } });
             }
             // A command its row in Settings allowed outside the sandbox, such as a push, runs there this once (spec 026).
             const updatedInput =
@@ -409,7 +412,8 @@ export function createClaudeAdapter({
             return { behavior: 'deny', message: deniedMessage };
           }
           if (ask.kind === 'edit') return { behavior: 'allow', updatedInput: input };
-          send({ type: 'work', sessionId: id, work: { kind: 'command', command: ask.command } });
+          current?.allowed.set(toolUseID, now());
+          send({ type: 'work', sessionId: id, work: { kind: 'command', id: toolUseID, command: ask.command } });
           // A command that always asks runs outside the sandbox, this once (Q2a).
           const updatedInput = ask.alwaysAsk === null ? input : { ...input, dangerouslyDisableSandbox: true };
           return { behavior: 'allow', updatedInput };
@@ -428,10 +432,11 @@ export function createClaudeAdapter({
         stopping: false,
         parked: new Map(),
         decided: new Set(),
+        allowed: new Map(),
         deciding: Promise.resolve(),
       };
       sessions.set(id, running);
-      const read = createMessageReader(worktree, (toolUseId) => running.decided.has(toolUseId));
+      const read = createMessageReader(worktree, (toolUseId) => running.decided.has(toolUseId), now);
       running.ended = (async () => {
         let failed = false;
         let started = false;
@@ -461,6 +466,14 @@ export function createClaudeAdapter({
                 emit(running, { type: 'work', sessionId: id, work: said.work });
               } else if (said.type === 'files_changed') {
                 emit(running, { type: 'files_changed', sessionId: id });
+              } else if (said.type === 'command_ended') {
+                const allowedAt = running.allowed.get(said.id);
+                running.allowed.delete(said.id);
+                // One Orynx denied or refused never ran; one Claude Code ran without asking Orynx counts from Claude's call.
+                if (allowedAt !== undefined || !running.decided.has(said.id)) {
+                  const ms = allowedAt === undefined ? said.ms : Math.max(0, now() - allowedAt);
+                  emit(running, { ...said, ms, sessionId: id });
+                }
               } else if (said.type === 'turn_ended') {
                 // A Claude Code too old to say which messages it took is done when none are queued.
                 if (said.took === null && said.queued === 0) running.unread.clear();

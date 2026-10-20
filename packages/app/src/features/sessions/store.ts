@@ -86,3 +86,17 @@ export const usePullRequestDrafts = create<PullRequestDraftsState>()((set) => ({
     set((state) => ({ drafts: Object.fromEntries(Object.entries(state.drafts).filter(([id]) => id !== sessionId)) }));
   },
 }));
+
+/** The Terminal's tab you last had, by session (spec 036, AC-1): kept while the page is open, never saved. */
+interface TerminalTabsState {
+  /** `claude`, or a shell tab's id. */
+  picked: Record<string, string>;
+  pick: (sessionId: string, tab: string) => void;
+}
+
+export const useTerminalTabs = create<TerminalTabsState>()((set) => ({
+  picked: {},
+  pick: (sessionId, tab) => {
+    set((state) => ({ picked: { ...state.picked, [sessionId]: tab } }));
+  },
+}));

@@ -77,6 +77,16 @@ export function sessionQueryKey(id: string) {
  * A session's changes (spec 013): under the lists' key, so `sessions.changed` refreshes them, but not under the
  * session's own, so its steps changing doesn't run git. `session.files.changed` refreshes them, diffs included.
  */
+/** Claude's commands with their output (spec 036), under the session's own key, so `session.changed` reads them again. */
+export function sessionCommandsQueryKey(id: string) {
+  return [...sessionQueryKey(id), 'commands'] as const;
+}
+
+/** Your shell tabs in the session's Terminal (spec 036), read again on `session.terminal.changed`. */
+export function sessionTerminalQueryKey(id: string) {
+  return [...queryKeys.sessions, 'terminal', id] as const;
+}
+
 export function sessionChangesQueryKey(id: string) {
   return [...queryKeys.sessions, 'changes', id] as const;
 }
@@ -88,6 +98,20 @@ export function sessionDiffQueryKey(id: string, path: string) {
 /** What Claude was sent at the start: read when it's shown, outside the session's own key, which steps refresh. */
 export function sessionBriefQueryOptions(api: ApiClient, id: string) {
   return queryOptions({ queryKey: ['session-brief', id] as const, queryFn: () => api.sessionBrief(id) });
+}
+
+/** Claude's commands (spec 036): fresh from the event stream, as the session itself is. */
+export function sessionCommandsQueryOptions(api: ApiClient, id: string) {
+  return queryOptions({
+    queryKey: sessionCommandsQueryKey(id),
+    queryFn: () => api.sessionCommands(id),
+    staleTime: Infinity,
+  });
+}
+
+/** Your shell tabs (spec 036): fresh from `session.terminal.changed`, not from polling. */
+export function sessionTerminalQueryOptions(api: ApiClient, id: string) {
+  return queryOptions({ queryKey: sessionTerminalQueryKey(id), queryFn: () => api.terminal(id), staleTime: Infinity });
 }
 
 export function sessionChangesQueryOptions(api: ApiClient, id: string) {
