@@ -24,7 +24,7 @@ DevHub is a local web app plus a small local server, both on the developer's lap
    Checked by: `pnpm gate test-policy`, vitest thresholds · Guide: `.claude/skills/honest-tests/SKILL.md`
 9. **Config through one door.** Only `apps/*/src/config.ts` reads `process.env`, validated with zod, and every key is listed in `.env.example`.
    Checked by: `pnpm gate env-policy`
-10. **No secrets in git or the browser.** Tokens live in the OS keychain. Never commit `.env` or a token. The server listens on 127.0.0.1 only and checks the Host header and session token.
+10. **No secrets in git or the browser.** Tokens live in the OS keychain. Never commit `.env` or a token. The hub listens on 127.0.0.1 only and checks the Host header and session token; the opt-in wifi front door (`DEVHUB_LAN`) answers only `orynx.local` and wants an access code first.
     Checked by: `pnpm gate secrets`, pre-commit · Guide: `learn/local-security.md`
 11. **Claude acts only as far as the user allowed.** Product code must never push, open a PR or run a risky command unless the user clicked for it or turned that permission on in Settings › Coding agent (the defaults ask, or never push), and it must only edit inside the session worktree.
     Checked by: `/review` · Guide: `.claude/skills/agent-runtime/SKILL.md`

@@ -1,4 +1,4 @@
-<!-- learn-sources: packages/core/src/plugins/local-only.ts apps/server/src/runtime-file.ts apps/web/vite.config.ts packages/api-client/src/client.ts packages/api-client/src/endpoints/repositories.ts packages/core/src/folder-picker/folder-picker.ts packages/core/src/routes/folder-picker.ts packages/api-client/src/endpoints/files.ts packages/core/src/routes/files.ts packages/core/src/files/file-paths.ts packages/core/src/skills/skills-reader.ts packages/core/src/routes/skills.ts packages/contracts/src/secret-names.ts packages/core/src/create-server.ts packages/core/src/agents/agent-environment.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/sessions/worktrees.ts packages/core/src/sessions/branch-git.ts packages/core/src/sessions/secret-files.ts packages/core/src/skills/skill-store.ts packages/core/src/routes/orynx-skills.ts -->
+<!-- learn-sources: packages/core/src/plugins/local-only.ts apps/server/src/runtime-file.ts apps/server/src/lan.ts apps/server/src/announce.ts install.sh apps/web/vite.config.ts packages/api-client/src/client.ts packages/api-client/src/endpoints/repositories.ts packages/core/src/folder-picker/folder-picker.ts packages/core/src/routes/folder-picker.ts packages/api-client/src/endpoints/files.ts packages/core/src/routes/files.ts packages/core/src/files/file-paths.ts packages/core/src/skills/skills-reader.ts packages/core/src/routes/skills.ts packages/contracts/src/secret-names.ts packages/core/src/create-server.ts packages/core/src/agents/agent-environment.ts packages/core/src/agents/claude/claude-adapter.ts packages/core/src/agents/claude/tool-decision.ts packages/core/src/sessions/worktrees.ts packages/core/src/sessions/branch-git.ts packages/core/src/sessions/secret-files.ts packages/core/src/skills/skill-store.ts packages/core/src/routes/orynx-skills.ts -->
 
 # Local security: why only this tab can call the server
 
@@ -6,7 +6,7 @@ DevHub's server runs on the developer's laptop and holds that person's Jira, Git
 
 ## 1. Listen on 127.0.0.1 only
 
-`apps/server` binds `127.0.0.1`, never `0.0.0.0`, so other machines on the network cannot reach the port at all.
+`apps/server` binds `127.0.0.1`, never `0.0.0.0`, so other machines on the network cannot reach the port at all. With `DEVHUB_LAN=true`, which `./install.sh` sets, a separate front door answers your wifi at `https://orynx.local` and lets a request through to the hub only after its own checks (see "Your wifi" below). The hub still binds `127.0.0.1`.
 
 ## 2. A session token in the page
 
@@ -43,6 +43,20 @@ In dev, Vite's own `server.allowedHosts` check protects port 4318 the same way, 
 
 - Malware already running as the developer's user can read `runtime.json` and the keychain. That is outside DevHub's threat model.
 - These checks are why there is no CORS configuration: no other origin is ever allowed to call the API.
+
+## Your wifi: the front door at orynx.local (spec 040)
+
+`./install.sh` turns on `DEVHUB_LAN`, and `apps/server/src/lan.ts` opens two more listeners on every address: HTTPS on 443 and HTTP on 80. The page's session token is all anyone needs to use the hub as you, Claude's commands included. So the front door hands a request to the hub only when it can tell who sent it:
+
+- **One name.** A request whose Host is not `orynx.local` gets 403, so a DNS-rebinding page can't read the page any more than it can on 127.0.0.1.
+- **This computer, or the access code.** A request from loopback or one of this computer's own addresses goes through. Any other device must carry the `orynx_access` cookie. It gets that cookie by posting the access code to `/orynx-access`. The code is 12 characters of Crockford base32 (60 bits, too many to guess over a network), kept in `DEVHUB_HOME/lan-access-code` with mode 0600 and compared in constant time. The cookie is HttpOnly, Secure and SameSite=Lax, so no script reads it and no other site can post with it. Without it, a GET gets the "Enter the access code" page and anything else gets 401. Nothing reaches the hub. Deleting the file and restarting makes a new code and signs every device out.
+- **Public files, served by the door itself.** A browser fetches the manifest and icons without cookies, so `/manifest.webmanifest`, the icons and `favicon.svg` are read from `apps/web/dist` by the door, matched on the raw path. A look-alike such as `//x/manifest.webmanifest` never reaches the hub's catch-all, which would answer it with the page.
+- **Then the hub's own checks.** An allowed request gets `Host: 127.0.0.1:<port>` and goes to Fastify's `app.routing`, so the session token is checked on `/api` exactly as for this computer.
+- **https only.** Port 80 hands out the certificate authority (`/orynx-ca.crt`, public by nature) and redirects everything else to https, so the code and the token never cross the wifi in plain text.
+- **A certificate authority that can sign for orynx.local alone.** `./install.sh` makes it with `openssl` in `DEVHUB_HOME/tls` (keys 0600), with a name constraint limiting it to `orynx.local`, `localhost` and `127.0.0.1`. A device that trusts it trusts nothing else, even if the key were stolen.
+- **The name.** `announce.ts` runs the OS's own mDNS tool, `/usr/bin/dns-sd -P` on macOS or `/usr/bin/avahi-publish -a` on Linux, with this computer's address. The paths are fixed, nothing from a request reaches the command, and it runs without a shell.
+
+What this does not protect against: anyone with the code is you, so treat it like a password. And the hub serves everyone through one session token, so a device that was let in once can keep using Orynx until the code changes.
 
 ## Where tokens for Jira, GitHub and Slack live
 
