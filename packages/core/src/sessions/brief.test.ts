@@ -3,6 +3,7 @@ import {
   briefText,
   composerBrief,
   diffForBrief,
+  askNote,
   sessionNote,
   ticketBrief,
   ticketFromBrief,
@@ -87,6 +88,29 @@ describe('the note added to Claude Code’s system prompt', () => {
     expect(note('never', 'allow')).toContain("Don't push. You may open its pull request with `gh pr create`.");
     // Without commands there's no git to run, so the old line stays.
     expect(note('allow', 'allow', false)).toContain("Don't push, open pull requests or change git settings.");
+  });
+
+  it('AC-14 (spec 031): on your pull request’s branch, says so, and that Orynx pushes it on your click', () => {
+    expect(sessionNote('fix/content-list', true, false, { push: 'allow', pullRequest: 'allow' }, 2836)).toBe(
+      "You're working in a separate git worktree on pull request #2836's own branch, fix/content-list, " +
+        'with no local branch of its own. Do what the user asks in the brief. ' +
+        'If the repository has a CLAUDE.md, read it first. ' +
+        "Don't push, open pull requests or change git settings: Orynx pushes to #2836 when the user presses Push changes. " +
+        'You can run commands in the worktree. ' +
+        "They run in a sandbox with no network, and some wait for the user's approval. " +
+        "Run the project's tests and checks before you finish. " +
+        "When you're done, summarise what you changed and which checks you ran, in a few sentences. " +
+        'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
+    );
+  });
+
+  it('AC-3 (spec 031): an Ask with no folder answers from the brief alone, and changes nothing', () => {
+    expect(askNote(false)).toBe(
+      "You're answering from the brief alone: this is an Ask session with no folder. " +
+        "You can read the files the brief names. You can't change files or run commands, and nothing you try will be allowed. " +
+        'Answer what the user asks. If it needs changes, describe them; the user can start a Build session to make them.',
+    );
+    expect(askNote()).toContain("You're answering in the user's own folder, as it is");
   });
 
   it('012 AC-20: where commands can’t run, says so, and asks which ones Claude would run', () => {
