@@ -222,4 +222,107 @@ describe('ConnectionDialog (spec 030)', () => {
       expect(await screen.findByText('Jira disconnected.')).toBeVisible();
     });
   });
+
+  describe('Needs reconnecting through gh', () => {
+    const signedOut = "gh isn't signed in to github.com. Run gh auth login in a terminal, then try again.";
+
+    /** The design's page with GitHub's gh login expired; Reconnect is answered by `answer` once released. */
+    async function openGitHub(answer: () => ConnectionCheck) {
+      let release: () => void = () => undefined;
+      const released = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let status = mixedStatus();
+      server.use(
+        http.post(apiUrl(apiRoutes.githubConnectionCheck), async () => {
+          await released;
+          const check = answer();
+          status = makeStatus({ integrations: { ...status.integrations, github: check.status } });
+          return HttpResponse.json(check);
+        }),
+      );
+      answerWith(() => status);
+      const app = await renderApp({ route: '/settings/connections' });
+      await app.user.click(
+        await screen.findByRole('button', { name: 'GitHub: Needs reconnecting. Manage connection' }),
+      );
+      return { ...app, release, dialog: await screen.findByRole('dialog', { name: 'GitHub' }) };
+    }
+    const reconnected = (): ConnectionCheck => ({
+      status: {
+        state: 'connected',
+        detail: 'Signed in as octocat with the gh command-line tool',
+        account: 'octocat',
+        checkedAt: new Date().toISOString(),
+      },
+      ms: 300,
+    });
+
+    it('AC-15: says why, shows the command to run, and offers Reconnect', async () => {
+      const { dialog } = await openGitHub(reconnected);
+
+      expect(dialog).toHaveAccessibleDescription(
+        'Orynx can no longer reach GitHub, so your pull requests have stopped updating. Reconnect to pick up where you left off.',
+      );
+      expect(within(dialog).getByText('Needs reconnecting')).toBeVisible();
+      expect(within(dialog).getByText(signedOut)).toBeVisible();
+      expect(within(dialog).getByText('Run this in a terminal, then press Reconnect:')).toBeVisible();
+      expect(within(dialog).getByText('gh auth login')).toBeVisible();
+      for (const name of ['Disconnect', 'Cancel', 'Reconnect']) {
+        expect(within(dialog).getByRole('button', { name })).toBeInTheDocument();
+      }
+      await expectNoAxeViolations(dialog);
+    });
+
+    it('AC-16: Copy puts the command on the clipboard and says Copied', async () => {
+      const { user, dialog } = await openGitHub(reconnected);
+
+      await user.click(within(dialog).getByRole('button', { name: 'Copy gh auth login' }));
+
+      expect(await navigator.clipboard.readText()).toBe('gh auth login');
+      expect(await within(dialog).findByRole('button', { name: 'Copied' })).toBeInTheDocument();
+    });
+
+    it('AC-17: Reconnect checks gh, then shuts the dialog, turns the row Connected and says so', async () => {
+      const { user, dialog, release } = await openGitHub(reconnected);
+
+      const reconnect = within(dialog).getByRole('button', { name: 'Reconnect' });
+      await user.click(reconnect);
+      expect(reconnect).toHaveAttribute('aria-disabled', 'true');
+      expect(within(dialog).getByRole('status')).toHaveTextContent('Checking your gh login…');
+      release();
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+      expect(await screen.findByRole('button', { name: 'GitHub: Connected. Manage connection' })).toHaveFocus();
+      expect(await screen.findByText('GitHub reconnected. Your inbox is refreshing.')).toBeVisible();
+    });
+
+    it('AC-18: with gh still signed out, the dialog stays with the new reason, ready to try again', async () => {
+      const still = 'gh is still signed out. Run gh auth login, then press Reconnect.';
+      const { user, dialog, release } = await openGitHub(() => ({
+        status: { state: 'error', detail: still, checkedAt: new Date().toISOString() },
+        ms: 120,
+      }));
+
+      await user.click(within(dialog).getByRole('button', { name: 'Reconnect' }));
+      release();
+
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent(still);
+      expect(within(dialog).getByRole('button', { name: 'Reconnect' })).not.toHaveAttribute('aria-disabled');
+    });
+
+    it('AC-17: Cancel shuts the dialog while gh is checked, and the answer still lands on the page', async () => {
+      const { user, dialog, release } = await openGitHub(reconnected);
+
+      await user.click(within(dialog).getByRole('button', { name: 'Reconnect' }));
+      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      release();
+
+      expect(await screen.findByText('GitHub reconnected. Your inbox is refreshing.')).toBeVisible();
+      expect(await screen.findByRole('button', { name: 'GitHub: Connected. Manage connection' })).toBeInTheDocument();
+    });
+  });
 });

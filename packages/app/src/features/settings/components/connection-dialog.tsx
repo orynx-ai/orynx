@@ -4,6 +4,8 @@ import type { IntegrationId, IntegrationStatus } from '@devhub/contracts';
 import {
   Button,
   Callout,
+  CalloutCode,
+  CopyButton,
   DetailList,
   Dialog,
   DialogContent,
@@ -52,17 +54,17 @@ interface ConnectionDialogProps {
   /** The state's buttons, in a {@link DialogFoot}. */
   foot?: ReactNode;
   /**
-   * Said politely while the dialog is open, as the page's own live region is hidden behind it. Left out
-   * when the body holds a live region of its own.
+   * The dialog's one live region, under the body: the page's own is hidden behind the dialog. Holds a
+   * check's progress or answer, or words for a screen reader only.
    */
-  said?: string | undefined;
+  live?: ReactNode;
 }
 
 /**
  * A tool's status button and the dialog it opens (spec 030, 10a): the mark, the name and the state at the
  * top, the state's first line and body, then its buttons. Closing gives focus back to the status button.
  */
-function ConnectionDialog({ tool, status, open, onOpenChange, body, foot, said }: ConnectionDialogProps) {
+function ConnectionDialog({ tool, status, open, onOpenChange, body, foot, live }: ConnectionDialogProps) {
   const look = lookOf(status);
   const words = lookWords[look];
   const name = toolNames[tool];
@@ -105,13 +107,12 @@ function ConnectionDialog({ tool, status, open, onOpenChange, body, foot, said }
             {leadLine(tool, look)}
           </p>
           {body}
+          {/* There from the start, so a screen reader hears what arrives in it. */}
+          <p role="status" className="m-0 text-small empty:hidden">
+            {live}
+          </p>
         </div>
         {foot}
-        {said === undefined ? null : (
-          <p role="status" className="sr-only">
-            {said}
-          </p>
-        )}
       </DialogContent>
     </Dialog>
   );
@@ -141,6 +142,8 @@ interface ManagedDialogProps extends ToolDialogProps {
   tool: 'jira' | 'github';
   /** What Orynx is using, for Connected. */
   details: DetailListProps['items'];
+  /** Reconnecting means signing gh in again, not a new token: GitHub through gh. */
+  throughGh: boolean;
   /** The saved settings the form starts from could not be loaded. */
   loadFailed: boolean;
   /** The connect form, once what it starts from has arrived. `close` shuts the dialog, saying `message`. */
@@ -152,12 +155,15 @@ interface ManagedDialogProps extends ToolDialogProps {
   disconnectNote?: ReactNode;
 }
 
+const ghLogin = 'gh auth login';
+
 /** A tool Orynx can connect itself: Jira or GitHub. */
 function ManagedDialog({
   tool,
   status,
   announce,
   details,
+  throughGh,
   loadFailed: failedToLoad,
   form,
   disconnect,
@@ -169,6 +175,7 @@ function ManagedDialog({
   const [confirming, setConfirming] = useState(false);
   const check = useCheckConnection(tool);
   const name = toolNames[tool];
+  const look = lookOf(status);
 
   // Focus moves to Keep connected when the warning shows, and back to Disconnect when it goes.
   const keep = useRef<HTMLButtonElement>(null);
@@ -188,26 +195,55 @@ function ManagedDialog({
     setOpen(next);
     setSaid('');
     setConfirming(false);
-    // A check or a disconnect still on its way lands in the row all the same.
-    if (!next) {
-      check.reset();
-      disconnect.reset();
-    }
+    // A fresh start each time it opens. A check or a disconnect still on its way keeps its answer: closing
+    // doesn't stop it, and it lands in the row and the page's line.
+    if (next && !check.isPending) check.reset();
+    if (next && !disconnect.isPending) disconnect.reset();
   }
   function close(message?: string) {
     onOpenChange(false);
     if (message !== undefined) announce(message);
   }
-  function test() {
-    setSaid('');
-    check.mutate();
+  function reconnect() {
+    check.mutate(undefined, {
+      onSuccess: ({ status: answer }) => {
+        if (answer.state === 'connected') close(changedLine.reconnected(name));
+      },
+    });
   }
 
   const passed = check.data?.status.state === 'connected' ? check.data.ms : undefined;
   const failed = check.data?.status.state === 'error' ? (check.data.status.detail ?? undefined) : undefined;
-  const connected = lookOf(status) === 'connected';
+  const checkError = check.error ? (
+    <p role="alert" className="m-0 text-small text-danger">
+      {check.error.message}
+    </p>
+  ) : null;
+  const cancel = (
+    <Button
+      onClick={() => {
+        close();
+      }}
+    >
+      Cancel
+    </Button>
+  );
+  const askToDisconnect = (
+    <Button
+      ref={askAgain}
+      variant="danger-ghost"
+      onClick={() => {
+        check.reset();
+        setConfirming(true);
+      }}
+    >
+      Disconnect
+    </Button>
+  );
+
   let body: ReactNode;
   let foot: ReactNode;
+  let live: ReactNode = null;
   if (confirming) {
     body = (
       <>
@@ -251,50 +287,29 @@ function ManagedDialog({
         </Button>
       </DialogFoot>
     );
-  } else if (connected) {
+  } else if (look === 'connected') {
     body = (
       <>
         <DetailList aria-label={`${name} details`} items={details} />
-        <p role="status" className="m-0 flex items-center gap-2 text-small text-success empty:hidden">
-          {passed === undefined ? null : (
-            <>
-              <Icon icon={Tick02Icon} />
-              {testedLine(name, passed)}
-            </>
-          )}
-        </p>
-        {check.error ? (
-          <p role="alert" className="m-0 text-small text-danger">
-            {check.error.message}
-          </p>
-        ) : null}
+        {checkError}
       </>
     );
+    live =
+      passed === undefined ? null : (
+        <span className="flex items-center gap-2 text-success">
+          <Icon icon={Tick02Icon} />
+          {testedLine(name, passed)}
+        </span>
+      );
     foot = (
-      <DialogFoot
-        start={
-          <Button
-            ref={askAgain}
-            variant="danger-ghost"
-            onClick={() => {
-              check.reset();
-              setConfirming(true);
-            }}
-          >
-            Disconnect
-          </Button>
-        }
-      >
-        {passed === undefined ? (
-          <Button
-            onClick={() => {
-              close();
-            }}
-          >
-            Cancel
-          </Button>
-        ) : null}
-        <Button pending={check.isPending} onClick={test}>
+      <DialogFoot start={askToDisconnect}>
+        {passed === undefined ? cancel : null}
+        <Button
+          pending={check.isPending}
+          onClick={() => {
+            check.mutate();
+          }}
+        >
           {passed === undefined ? 'Test connection' : 'Test again'}
         </Button>
         <Button
@@ -307,13 +322,46 @@ function ManagedDialog({
         </Button>
       </DialogFoot>
     );
+  } else if (look === 'needs_reconnecting' && throughGh) {
+    const reason = failed ?? status.detail ?? `Orynx can no longer reach ${name}.`;
+    body = (
+      <>
+        {/* Red, and said at once, when a check from this dialog just failed (spec 030, AC-9 and AC-18). */}
+        <Callout
+          key={reason}
+          tone={failed === undefined ? 'warning' : 'danger'}
+          role={failed === undefined ? undefined : 'alert'}
+          title={reason}
+        >
+          <span className="text-small">Run this in a terminal, then press Reconnect:</span>
+          <div className="flex items-center gap-2">
+            <CalloutCode className="min-w-0 flex-1">{ghLogin}</CalloutCode>
+            <CopyButton text={ghLogin} label="Copy command" />
+          </div>
+        </Callout>
+        {status.account === undefined ? null : (
+          <DetailList aria-label={`${name} details`} items={[{ term: 'Account', detail: status.account }]} />
+        )}
+        {checkError}
+      </>
+    );
+    live = check.isPending ? <span className="text-muted-foreground">Checking your gh login…</span> : null;
+    foot = (
+      <DialogFoot start={askToDisconnect}>
+        {cancel}
+        <Button variant="primary" pending={check.isPending} onClick={reconnect}>
+          Reconnect
+        </Button>
+      </DialogFoot>
+    );
   } else {
     body = (
       <>
-        {failed === undefined ? null : <Callout tone="danger" role="alert" title={failed} />}
+        {failed === undefined ? null : <Callout key={failed} tone="danger" role="alert" title={failed} />}
         {failedToLoad ? loadFailed() : form?.(close, setSaid)}
       </>
     );
+    live = said === '' ? null : <span className="sr-only">{said}</span>;
   }
 
   return (
@@ -324,7 +372,7 @@ function ManagedDialog({
       onOpenChange={onOpenChange}
       body={body}
       foot={foot}
-      said={connected ? undefined : said}
+      live={live}
     />
   );
 }
@@ -342,6 +390,7 @@ export function JiraConnectionDialog({ status, announce }: ToolDialogProps) {
       tool="jira"
       status={status}
       announce={announce}
+      throughGh={false}
       disconnect={disconnect}
       disconnectText={disconnectText.jira}
       disconnectNote={<RunningTicketSessions />}
@@ -391,6 +440,7 @@ export function GitHubConnectionDialog({ status, announce }: ToolDialogProps) {
       tool="github"
       status={status}
       announce={announce}
+      throughGh={method === 'gh'}
       disconnect={disconnect}
       disconnectText={disconnectText[method ?? 'gh']}
       loadFailed={connection.isLoadingError}
