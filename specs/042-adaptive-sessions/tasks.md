@@ -95,3 +95,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
       Files: .claude/skills/agent-runtime/SKILL.md, learn/sessions-and-worktrees.md, learn/adaptive-sessions.md
 - [ ] Task 26: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
+
+Review: skipped at the user's call ("push without review", 20 Oct 2026). `pnpm verify` was green but for one flaky terminal test, fixed after (e48c3d7); the sessions, composer, approvals and terminal e2e files pass but for the bell test that already failed on main.
