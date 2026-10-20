@@ -234,19 +234,11 @@ function ManagedDialog({
       {check.error.message}
     </p>
   ) : null;
-  const cancel = (
-    <Button
-      onClick={() => {
-        close();
-      }}
-    >
-      Cancel
-    </Button>
-  );
   const askToDisconnect = (
     <Button
       ref={askAgain}
       variant="danger-ghost"
+      size="sm"
       onClick={() => {
         check.reset();
         setConfirming(true);
@@ -277,6 +269,7 @@ function ManagedDialog({
       <DialogFoot>
         <Button
           ref={keep}
+          size="sm"
           // Once Disconnect is on its way, Keep connected can't stop it.
           aria-disabled={disconnect.isPending || undefined}
           onClick={() => {
@@ -289,6 +282,7 @@ function ManagedDialog({
         </Button>
         <Button
           variant="danger"
+          size="sm"
           pending={disconnect.isPending}
           onClick={() => {
             disconnect.mutate(undefined, {
@@ -318,22 +312,14 @@ function ManagedDialog({
       );
     foot = (
       <DialogFoot start={askToDisconnect}>
-        {passed === undefined ? cancel : null}
         <Button
+          size="sm"
           pending={check.isPending}
           onClick={() => {
             check.mutate();
           }}
         >
           {passed === undefined ? 'Test connection' : 'Test again'}
-        </Button>
-        <Button
-          variant="primary"
-          onClick={() => {
-            close();
-          }}
-        >
-          Done
         </Button>
       </DialogFoot>
     );
@@ -363,8 +349,7 @@ function ManagedDialog({
     live = check.isPending ? <span className="text-muted-foreground">Checking your gh login…</span> : null;
     foot = (
       <DialogFoot start={askToDisconnect}>
-        {cancel}
-        <Button variant="primary" pending={check.isPending} onClick={reconnect}>
+        <Button variant="primary" size="sm" pending={check.isPending} onClick={reconnect}>
           Reconnect
         </Button>
       </DialogFoot>
@@ -385,8 +370,7 @@ function ManagedDialog({
     );
     foot = (
       <DialogFoot start={askToDisconnect}>
-        {cancel}
-        <Button type="submit" form={formId} variant="primary" pending={connect.isPending}>
+        <Button type="submit" form={formId} variant="primary" size="sm" pending={connect.isPending}>
           Reconnect
         </Button>
       </DialogFoot>
@@ -399,16 +383,14 @@ function ManagedDialog({
       </>
     );
     live = said === '' ? null : <span className="sr-only">{said}</span>;
-    foot = (
-      <DialogFoot>
-        {cancel}
-        {form === undefined ? null : (
-          <Button type="submit" form={formId} variant="primary" pending={connect.isPending}>
+    foot =
+      form === undefined ? null : (
+        <DialogFoot>
+          <Button type="submit" form={formId} variant="primary" size="sm" pending={connect.isPending}>
             Connect
           </Button>
-        )}
-      </DialogFoot>
-    );
+        </DialogFoot>
+      );
   }
 
   return (
@@ -590,18 +572,6 @@ export function SlackConnectionDialog({ status }: Pick<ToolDialogProps, 'status'
             {copied ? 'Request copied' : 'Copy request for your admin'}
           </Button>
         </div>
-      }
-      foot={
-        <DialogFoot>
-          {/* Cancel, as 10a draws it: the head's Close already has that name. */}
-          <Button
-            onClick={() => {
-              setOpen(false);
-            }}
-          >
-            Cancel
-          </Button>
-        </DialogFoot>
       }
     />
   );

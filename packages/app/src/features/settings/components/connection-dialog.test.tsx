@@ -57,12 +57,12 @@ describe('ConnectionDialog (spec 030)', () => {
     await expectNoAxeViolations(dialog);
   });
 
-  it('AC-10: Done, Cancel, Close and Escape each shut the dialog and give focus back to the status button', async () => {
+  it('AC-10: Close and Escape each shut the dialog and give focus back to the status button', async () => {
     answerWith(mixedStatus);
     const { user } = await renderApp({ route: '/settings/connections' });
     const button = await screen.findByRole('button', { name: 'Jira: Connected. Manage connection' });
 
-    for (const shut of ['Done', 'Cancel', 'Close', '{Escape}']) {
+    for (const shut of ['Close', '{Escape}']) {
       await user.click(button);
       const dialog = await screen.findByRole('dialog', { name: 'Jira' });
       if (shut === '{Escape}') await user.keyboard(shut);
@@ -103,7 +103,7 @@ describe('ConnectionDialog (spec 030)', () => {
       ms: 180,
     }));
     const has = (name: string) => within(dialog).queryByRole('button', { name }) !== null;
-    expect(['Cancel', 'Test connection', 'Done'].map(has)).toEqual([true, true, true]);
+    expect(['Cancel', 'Test connection', 'Done'].map(has)).toEqual([false, true, false]);
     const test = within(dialog).getByRole('button', { name: 'Test connection' });
     await user.click(test);
     expect(test).toHaveAttribute('aria-disabled', 'true');
@@ -114,7 +114,7 @@ describe('ConnectionDialog (spec 030)', () => {
     });
     expect(within(dialog).getByRole('status')).toBeVisible();
     expect(within(dialog).getAllByRole('definition').at(-1)).toHaveTextContent('Just now');
-    expect(['Cancel', 'Test connection', 'Test again', 'Done'].map(has)).toEqual([false, false, true, true]);
+    expect(['Test connection', 'Test again'].map(has)).toEqual([false, true]);
     await expectNoAxeViolations(dialog);
   });
 
@@ -268,9 +268,10 @@ describe('ConnectionDialog (spec 030)', () => {
       expect(within(dialog).getByText(signedOut)).toBeVisible();
       expect(within(dialog).getByText('Run this in a terminal, then press Reconnect:')).toBeVisible();
       expect(within(dialog).getByText('gh auth login')).toBeVisible();
-      for (const name of ['Disconnect', 'Cancel', 'Reconnect']) {
+      for (const name of ['Disconnect', 'Reconnect']) {
         expect(within(dialog).getByRole('button', { name })).toBeInTheDocument();
       }
+      expect(within(dialog).queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
       await expectNoAxeViolations(dialog);
     });
 
@@ -313,11 +314,11 @@ describe('ConnectionDialog (spec 030)', () => {
       expect(within(dialog).getByRole('button', { name: 'Reconnect' })).not.toHaveAttribute('aria-disabled');
     });
 
-    it('AC-17: Cancel shuts the dialog while gh is checked, and the answer still lands on the page', async () => {
+    it('AC-17: Close shuts the dialog while gh is checked, and the answer still lands on the page', async () => {
       const { user, dialog, release } = await openGitHub(reconnected);
 
       await user.click(within(dialog).getByRole('button', { name: 'Reconnect' }));
-      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+      await user.click(within(dialog).getByRole('button', { name: 'Close' }));
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       release();
 
@@ -327,7 +328,7 @@ describe('ConnectionDialog (spec 030)', () => {
   });
 
   describe('Not connected', () => {
-    it('AC-20: the form sits in the dialog with Cancel and Connect at its foot, and connecting says so on the page', async () => {
+    it('AC-20: the form sits in the dialog with Connect at its foot, and connecting says so on the page', async () => {
       const sent = jiraServer();
       const { user } = await renderApp({ route: '/settings/connections' });
       await user.click(await screen.findByRole('button', { name: 'Jira: Not connected. Manage connection' }));
@@ -369,7 +370,7 @@ describe('ConnectionDialog (spec 030)', () => {
       );
       expect(await within(dialog).findByRole('button', { name: 'Request copied' })).toBeInTheDocument();
       await expectNoAxeViolations(dialog);
-      await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+      await user.click(within(dialog).getByRole('button', { name: 'Close' }));
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
   });

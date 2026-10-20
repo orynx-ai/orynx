@@ -47,7 +47,7 @@ describe('Reconnect with a token (spec 030, Q3)', () => {
       'https://id.atlassian.com/manage-profile/security/api-tokens',
     );
     expect(within(dialog).queryByLabelText('Jira site')).not.toBeInTheDocument();
-    for (const name of ['Disconnect', 'Cancel', 'Reconnect']) {
+    for (const name of ['Disconnect', 'Reconnect']) {
       expect(within(dialog).getByRole('button', { name })).toBeInTheDocument();
     }
     await expectNoAxeViolations(dialog);

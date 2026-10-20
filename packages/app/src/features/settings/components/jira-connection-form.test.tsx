@@ -185,7 +185,7 @@ describe('Jira connection form', () => {
     expect(sent).toHaveLength(1);
   });
 
-  it('AC-20 (spec 030): Cancel shuts the dialog while Jira is checked, and the answer still lands on the page', async () => {
+  it('AC-20 (spec 030): Close shuts the dialog while Jira is checked, and the answer still lands on the page', async () => {
     let release: () => void = () => undefined;
     const released = new Promise<void>((resolve) => {
       release = resolve;
@@ -202,7 +202,7 @@ describe('Jira connection form', () => {
     await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
     await user.click(screen.getByRole('button', { name: 'Connect' }));
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     release();
 
