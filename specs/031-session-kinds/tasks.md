@@ -10,7 +10,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Progress: the steps Finished jumps over are skipped (Test, and Build with no edit), cleared by a follow-up; the service saves `skipped` with the step (AC-11, AC-12, AC-13)
       Check: pnpm test packages/core/src/sessions/progress.test.ts
       Files: packages/core/src/sessions/progress.ts, packages/core/src/sessions/progress.test.ts, packages/core/src/sessions/session-service.ts
-- [ ] Task 3: GitHub's pull request read: yours (author is the viewer), open, from a fork, its link and when it opened, in the same query; the fake answers them (AC-14, AC-19)
+- [x] Task 3: GitHub's pull request read: yours (author is the viewer), open, from a fork, its link and when it opened, in the same query; the fake answers them (AC-14, AC-19)
       Check: pnpm test packages/core/src/integrations/github/client.test.ts packages/core/src/sessions/context-reader.test.ts
       Files: packages/core/src/integrations/github/client.ts, packages/core/src/integrations/github/client.test.ts, packages/core/src/test/fake-github.ts, packages/core/src/sessions/context-reader.ts, packages/core/src/sessions/brief.ts
 - [ ] Task 4: Worktrees: a detached worktree from the PR's branch after fetching it, even while the main checkout has that branch; the last fetched copy when offline; nothing left when there is none (AC-14, AC-22)

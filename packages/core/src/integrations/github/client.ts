@@ -48,6 +48,13 @@ export interface GitHubPullContext {
   comments: { author: string; path: string; line: number | null; body: string }[];
   /** The changed files with their counts, the first 100, for a diff GitHub finds too large to send. */
   files: { path: string; additions: number; deletions: number }[];
+  /** Its page on github.com, and when it was opened. */
+  url: string;
+  openedAt: string;
+  /** Open, not merged or closed; from a fork; and written by the account Orynx reads as (spec 031). */
+  open: boolean;
+  fork: boolean;
+  mine: boolean;
 }
 
 /** A pull request that's missing, or hidden from this token (single sign-on included), is `not_found`. */
@@ -192,9 +199,10 @@ const GraphqlFailureSchema = z.object({
 // threads of 20 comments, about 12 points.
 const pullContextQuery = `
   query DevHubPullContext($owner: String!, $name: String!, $number: Int!) {
+    viewer { login }
     repository(owner: $owner, name: $name) {
       pullRequest(number: $number) {
-        title body baseRefName headRefName
+        title body baseRefName headRefName url createdAt state isCrossRepository author { login }
         files(first: 100) { nodes { path additions deletions } }
         commits(last: 1) {
           nodes {
@@ -220,10 +228,16 @@ const pullContextQuery = `
 `;
 
 const PullContextDataSchema = z.object({
+  viewer: z.object({ login: z.string() }),
   repository: z
     .object({
       pullRequest: z
         .object({
+          url: GitHubLinkSchema,
+          createdAt: z.iso.datetime(),
+          state: z.enum(['OPEN', 'CLOSED', 'MERGED']),
+          isCrossRepository: z.boolean(),
+          author: z.object({ login: z.string() }).nullish(),
           title: z.string(),
           body: z.string().nullish(),
           baseRefName: z.string(),
@@ -304,6 +318,12 @@ function pullContextOf(data: z.infer<typeof PullContextDataSchema>): GitHubPullC
       failingChecks,
       comments,
       files,
+      url: pull.url,
+      openedAt: pull.createdAt,
+      open: pull.state === 'OPEN',
+      fork: pull.isCrossRepository,
+      // GitHub's logins aren't case-sensitive; a deleted account's pull request has no author.
+      mine: pull.author?.login.toLowerCase() === data.viewer.login.toLowerCase(),
     },
   };
 }

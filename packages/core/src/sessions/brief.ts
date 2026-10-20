@@ -43,6 +43,12 @@ export interface BriefPullRequest {
   comments: readonly { author: string; path: string; line: number | null; body: string }[];
   /** The unified diff, or the files and counts GitHub gave when it found the diff too large. */
   diff: { kind: 'text'; text: string } | { kind: 'too_large'; files: readonly BriefFileCount[] };
+  /** Its link and when it opened; whether it's open, from a fork, and yours (spec 031): never put in the brief. */
+  url: string;
+  openedAt: string;
+  open: boolean;
+  fork: boolean;
+  mine: boolean;
 }
 
 /** A file you picked, by its path (spec 022, Q4): as the composer held it, and its real path, which Claude reads. */

@@ -148,6 +148,11 @@ describe("the composer's brief (spec 015)", () => {
     failingChecks: [{ name: 'test (ubuntu)', conclusion: 'failure' }],
     comments: [{ author: 'octocat', path: 'src/people.ts', line: 12, body: 'Name this constant.' }],
     diff: { kind: 'text', text: 'diff --git a/src/people.ts b/src/people.ts\n+const page = 50;' },
+    url: 'https://github.com/acme/web-app/pull/2836',
+    openedAt: '2026-10-15T09:00:00Z',
+    open: true,
+    fork: false,
+    mine: true,
   };
 
   it('AC-4: is your message alone when there are no chips', () => {

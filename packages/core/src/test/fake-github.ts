@@ -166,6 +166,11 @@ export interface FakePullContext {
   body?: string | null;
   base?: string;
   head?: string;
+  /** Who wrote it: someone else (`hubot`) unless said; `githubLogin` makes it yours (spec 031). Null: a deleted account. */
+  author?: string | null;
+  state?: 'OPEN' | 'CLOSED' | 'MERGED';
+  /** From a fork: its head is in another repository. */
+  fork?: boolean;
   files?: readonly { path: string; additions: number; deletions: number }[];
   /** The head commit's checks and statuses. */
   contexts?: readonly (
@@ -218,8 +223,14 @@ export function acceptingPullContext(
     if (pull === undefined) return notFound(String(owner), String(name));
     return HttpResponse.json({
       data: {
+        viewer: { login: githubLogin },
         repository: {
           pullRequest: {
+            url: `https://github.com/${String(owner)}/${String(name)}/pull/${String(pull.number)}`,
+            createdAt: '2026-10-15T09:00:00Z',
+            state: pull.state ?? 'OPEN',
+            isCrossRepository: pull.fork ?? false,
+            author: pull.author === null ? null : { login: pull.author ?? 'hubot' },
             title: pull.title ?? `Pull request ${String(pull.number)}`,
             body: pull.body === undefined ? 'What this pull request changes.' : pull.body,
             baseRefName: pull.base ?? 'main',
