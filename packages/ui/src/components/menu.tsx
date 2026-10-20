@@ -51,6 +51,11 @@ export type MenuContentProps = ComponentProps<typeof MenuPrimitive.Content> & {
   size?: MenuSize;
 };
 
+const menuContentClass = cn(
+  'z-50 flex max-h-(--radix-dropdown-menu-content-available-height) max-w-(--radix-dropdown-menu-content-available-width) min-w-65 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-y-auto rounded-md border border-border bg-raised p-1.5 text-body text-foreground shadow-overlay',
+  'motion-safe:data-[state=closed]:animate-menu-out motion-safe:data-[state=open]:animate-menu-in',
+);
+
 /**
  * The menu itself, in a portal: `bg-raised`, a hairline, `radius-md` and the one shadow. It opens
  * under its trigger, flips above when there's no room below, keeps 16 px from the window's edges,
@@ -90,12 +95,7 @@ export function MenuContent({
           event.preventDefault();
           setOpen(false);
         }}
-        className={cn(
-          'z-50 flex max-h-(--radix-dropdown-menu-content-available-height) max-w-(--radix-dropdown-menu-content-available-width) min-w-65 origin-(--radix-dropdown-menu-content-transform-origin) flex-col overflow-y-auto rounded-md border border-border bg-raised p-1.5 text-body text-foreground shadow-overlay',
-          'motion-safe:data-[state=closed]:animate-menu-out motion-safe:data-[state=open]:animate-menu-in',
-          size === 'sm' && 'max-h-90 w-64 min-w-0 p-1 text-small',
-          className,
-        )}
+        className={cn(menuContentClass, size === 'sm' && 'max-h-90 w-64 min-w-0 p-1 text-small', className)}
         {...props}
       >
         {heading === undefined ? null : (
@@ -225,6 +225,47 @@ export function MenuItem({
       </ItemBody>
       {chevron}
     </MenuPrimitive.Item>
+  );
+}
+
+/** A row that opens more choices beside the menu, such as the profile menu's Appearance. */
+export function MenuSub(props: ComponentProps<typeof MenuPrimitive.Sub>) {
+  return <MenuPrimitive.Sub {...props} />;
+}
+
+export type MenuSubTriggerProps = ComponentProps<typeof MenuPrimitive.SubTrigger> & Pick<ItemContentProps, 'icon'>;
+
+/** The row that opens a {@link MenuSub}: drawn as a {@link MenuItem} with `leadsOn`, and kept lit while its choices show. */
+export function MenuSubTrigger({ icon, className, children, ...props }: MenuSubTriggerProps) {
+  return (
+    <MenuPrimitive.SubTrigger
+      data-slot="menu-sub-trigger"
+      className={cn(menuItemClass, 'data-[state=open]:bg-subtle', className)}
+      {...props}
+    >
+      <ItemBody icon={icon}>{children}</ItemBody>
+      <Icon icon={ArrowRight01Icon} aria-hidden className="ms-auto text-muted-foreground" />
+    </MenuPrimitive.SubTrigger>
+  );
+}
+
+/** A {@link MenuSub}'s choices, beside its row, drawn as {@link MenuContent} is. */
+export function MenuSubContent({
+  className,
+  sideOffset = 8,
+  collisionPadding = 16,
+  ...props
+}: ComponentProps<typeof MenuPrimitive.SubContent>) {
+  return (
+    <MenuPrimitive.Portal>
+      <MenuPrimitive.SubContent
+        data-slot="menu"
+        sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
+        className={cn(menuContentClass, 'min-w-56', className)}
+        {...props}
+      />
+    </MenuPrimitive.Portal>
   );
 }
 

@@ -15,6 +15,13 @@ describe('Avatar', () => {
     expect(screen.getByText('RD')).toHaveAttribute('aria-hidden', 'true');
   });
 
+  it('draws the picture in place of the initials, still named by its label', () => {
+    render(<Avatar initials="RD" src="data:image/png;base64,AAAA" label="Rakesh D." />);
+    const avatar = screen.getByRole('img', { name: 'Rakesh D.' });
+    expect(avatar).not.toHaveTextContent('RD');
+    expect(avatar.querySelector('img')).toHaveAttribute('src', 'data:image/png;base64,AAAA');
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(<Avatar initials="RD" label="Rakesh D." />);
     await expectNoAxeViolations(container);
