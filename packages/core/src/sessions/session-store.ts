@@ -104,6 +104,8 @@ export interface SessionRecords extends SessionStore {
   writeBrief(id: string, text: string): Promise<void>;
   /** What Claude was sent at the start; null when nothing was (spec 013, AC-9). */
   readBrief(id: string): Promise<string | null>;
+  /** Forgets the session and everything kept with it (spec 039); false when there was no such session. */
+  remove(id: string): Promise<boolean>;
 }
 
 /**
@@ -145,6 +147,10 @@ export function createMemorySessionStore(sessions: readonly SessionSummary[] = [
       return Promise.resolve();
     },
     readBrief: (id) => Promise.resolve(briefs.get(id) ?? null),
+    remove(id) {
+      briefs.delete(id);
+      return Promise.resolve(records.delete(id));
+    },
   };
 }
 
@@ -156,6 +162,8 @@ export interface ListOptions {
   recent?: boolean | undefined;
   /** Start after the row this names: a page's `nextCursor` (spec 020). */
   cursor?: string | undefined;
+  /** Only the pinned sessions, in the order they were pinned, or only the rest (spec 039); both when left out. */
+  pinned?: boolean | undefined;
   now?: () => number;
 }
 
@@ -169,17 +177,24 @@ function newerFirst(a: SessionSummary, b: SessionSummary): number {
   return Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
 }
 
+/** The pin you made first comes first, so a new pin goes under the ones you already have (spec 039). */
+function pinnedFirst(a: SessionSummary, b: SessionSummary): number {
+  return Date.parse(a.pinnedAt ?? '') - Date.parse(b.pinnedAt ?? '') || newerFirst(a, b);
+}
+
 /**
  * Newest activity first, as summaries: after `cursor` when one is given, then at most `limit` of them,
  * with the cursor of the page after when more follow. The contract has already checked the cursor's shape.
+ * `pinned: true` lists the pinned ones in the order they were pinned instead (spec 039).
  */
 export async function listSessions(
   store: SessionStore,
-  { limit, recent = false, cursor, now = Date.now }: ListOptions = {},
+  { limit, recent = false, cursor, pinned, now = Date.now }: ListOptions = {},
 ): Promise<SessionList> {
   const cutoff = now() - keptInSidebar;
   const sorted = [...(await store.list())]
     .filter((session) => !recent || session.discardedAt == null || Date.parse(session.discardedAt) >= cutoff)
+    .filter((session) => pinned === undefined || (session.pinnedAt != null) === pinned)
     .map(({ id, title, state, ready, source, updatedAt, pinnedAt, mode }): SessionSummary => ({
       id,
       title,
@@ -190,7 +205,7 @@ export async function listSessions(
       pinnedAt,
       mode,
     }))
-    .sort(newerFirst);
+    .sort(pinned === true ? pinnedFirst : newerFirst);
   const start = cursor === undefined ? 0 : afterCursor(sorted, cursor);
   const rest = sorted.slice(start);
   if (limit === undefined || rest.length <= limit) return { sessions: rest, nextCursor: null };
