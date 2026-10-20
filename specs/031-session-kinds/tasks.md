@@ -7,7 +7,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Session contract: `workOn`, `skipped`, a nullable `folder`, `kept` on the discarded step, with defaults that keep saved sessions as they were; builders (AC-23)
       Check: pnpm test packages/contracts/src/session.test.ts
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/contracts/src/testing.ts
-- [ ] Task 2: Progress: the steps Finished jumps over are skipped (Test, and Build with no edit), cleared by a follow-up; the service saves `skipped` with the step (AC-11, AC-12, AC-13)
+- [x] Task 2: Progress: the steps Finished jumps over are skipped (Test, and Build with no edit), cleared by a follow-up; the service saves `skipped` with the step (AC-11, AC-12, AC-13)
       Check: pnpm test packages/core/src/sessions/progress.test.ts
       Files: packages/core/src/sessions/progress.ts, packages/core/src/sessions/progress.test.ts, packages/core/src/sessions/session-service.ts
 - [ ] Task 3: GitHub's pull request read: yours (author is the viewer), open, from a fork, its link and when it opened, in the same query; the fake answers them (AC-14, AC-19)

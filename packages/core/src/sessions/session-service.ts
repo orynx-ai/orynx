@@ -304,12 +304,12 @@ function editOrder(session: Session): string[] {
 }
 
 function progressOf(session: Session): Progress {
-  return { step: session.step, activities: session.activities };
+  return { step: session.step, activities: session.activities, skipped: session.skipped };
 }
 
 function withProgress(record: StoredSession, change: (progress: Progress) => Progress): StoredSession {
-  const { step, activities } = change(progressOf(record.session));
-  return { ...record, session: { ...record.session, step, activities: [...activities] } };
+  const { step, activities, skipped = [] } = change(progressOf(record.session));
+  return { ...record, session: { ...record.session, step, activities: [...activities], skipped: [...skipped] } };
 }
 
 export function createSessionService(options: SessionServiceOptions): SessionService {
