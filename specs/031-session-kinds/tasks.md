@@ -25,9 +25,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Claude's notes: an Ask with no folder answers from the brief alone; a session on your PR's branch is told so, and that Orynx pushes on your click (AC-3, AC-14)
       Check: pnpm test packages/core/src/sessions/brief.test.ts
       Files: packages/core/src/sessions/brief.ts, packages/core/src/sessions/brief.test.ts
-- [ ] Task 8: Ask with no folder: no repository on the record, Claude in an empty folder of its own, follow-ups there, reads outside it and the brief refused (AC-3, AC-4, AC-6, AC-7)
-      Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/file-session-store.test.ts
-      Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-store.ts, packages/core/src/sessions/file-session-store.ts, packages/core/src/sessions/compose.ts
+- [x] Task 8: Ask with no folder: no repository on the record, Claude in an empty folder of its own, follow-ups there, reads outside it and the brief refused (AC-3, AC-4, AC-6, AC-7)
+      Check: pnpm test packages/core/src/sessions/compose.test.ts packages/core/src/sessions/file-session-store.test.ts
+      Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-store.ts, packages/core/src/sessions/compose.test.ts
 - [ ] Task 9: Build on your PR, the start: `existing` for a live session on it, then linked from the start, source `PR #n`, `workOn: pull_request`, the worktree from its branch; GitHub unreachable starts nothing (AC-14, AC-18, AC-21, AC-22)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-store.ts, packages/core/src/sessions/file-session-store.ts

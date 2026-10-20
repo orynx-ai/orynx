@@ -34,8 +34,11 @@ export type ApprovalRecord = z.infer<typeof ApprovalRecordSchema>;
 /** A session as the server keeps it: what the Session screen shows, plus what only the server needs. */
 export const StoredSessionSchema = z.object({
   session: SessionSchema,
-  /** The folder Claude works on, by its id in Settings › Repositories and its real path. */
-  repository: z.object({ id: RepositoryIdSchema, path: z.string().min(1) }),
+  /**
+   * The folder Claude works on, by its id in Settings › Repositories and its real path; null for an Ask with no
+   * folder (spec 031), whose `worktree` is then an empty folder of its own.
+   */
+  repository: z.object({ id: RepositoryIdSchema, path: z.string().min(1) }).nullable(),
   /** `<DEVHUB_HOME>/worktrees/<id>`; null before Orynx gets as far as making it. */
   worktree: z.string().min(1).nullable(),
   /**

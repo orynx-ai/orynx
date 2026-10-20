@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type {
   AgentChoice,
@@ -303,6 +304,11 @@ function editOrder(session: Session): string[] {
   return session.activities.flatMap((activity) => (activity.kind === 'edit' ? activity.files : []));
 }
 
+/** Where an Ask session's Claude reads: the folder in place, or its own empty folder when it has none (spec 031). */
+function askPlace(record: StoredSession): string | null {
+  return record.repository?.path ?? record.worktree;
+}
+
 function progressOf(session: Session): Progress {
   return { step: session.step, activities: session.activities, skipped: session.skipped };
 }
@@ -594,7 +600,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   async function run(id: string, run: Run): Promise<void> {
     const record = await records.get(id);
     if (record?.session.mode === 'ask') return runAsk(id, run, record);
-    if (record?.worktree == null) return;
+    if (record?.worktree == null || record.repository === null) return;
     // A composer start read everything before its record was made (spec 015); Ship reads the ticket now.
     const planned = startPlans.get(id);
     startPlans.delete(id);
@@ -633,18 +639,20 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   /**
    * An Ask session's run (spec 026): no worktree and no branch. Claude reads the repository folder where it is,
-   * and the read-only permissions refuse every edit and command there.
+   * or, with no folder (spec 031), an empty one of its own; the read-only permissions refuse every edit and command.
    */
   async function runAsk(id: string, run: Run, record: StoredSession): Promise<void> {
     const start = startPlans.get(id);
     startPlans.delete(id);
-    if (start === undefined) return;
+    const place = askPlace(record);
+    if (start === undefined || place === null) return;
+    if (record.repository === null) await mkdir(place, { recursive: true });
     await records.writeBrief(id, briefText(start.brief));
     await change(id, (current) =>
       withProgress(current, (progress) => addStep(progress, { kind: 'brief', ...start.briefStep })),
     );
     if (stopping(run)) return;
-    await startClaude(id, run, start.brief, record.repository.path, null, null, start.ticketNote, start.choice);
+    await startClaude(id, run, start.brief, place, null, null, start.ticketNote, start.choice);
   }
 
   /**
@@ -683,7 +691,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const first = await permissions();
     // Stop can come while they're read: then Claude never starts.
     if (stopping(run)) return;
-    const note = branch === null ? askNote() : sessionNote(branch, adapter.runsCommands, ticketNote, first);
+    const record = await records.get(id);
+    const note =
+      branch === null
+        ? askNote(record?.repository != null)
+        : sessionNote(branch, adapter.runsCommands, ticketNote, first);
     const agentId = await adapter.startSession(brief, worktree, permissions, note, {
       ...(resume === null ? {} : { resume }),
       model,
@@ -841,7 +853,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const { branch } = session;
     // An Ask session carries on in its repository folder, with no branch (spec 026).
     const ask = session.mode === 'ask';
-    const folder = ask ? record.repository.path : record.worktree;
+    const folder = ask ? askPlace(record) : record.worktree;
     if (claudeSessionId === null || folder === null || (!ask && branch === null) || adapter === null) {
       return cannot('never_started');
     }
@@ -988,13 +1000,14 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     }
     if (!(await claude.connected())) return { result: 'cannot_start', reason: 'signed_out' };
     if ((await workingCount()) >= mostWorking) return { result: 'cannot_start', reason: 'too_many' };
-    const folder = chooseFolder(await repositories.list(), request);
+    // An Ask sent with no folder reads none (spec 031); a Build always has one.
+    const folder = ask && request.repositoryId === undefined ? null : chooseFolder(await repositories.list(), request);
     if (typeof folder === 'string') return { result: 'cannot_start', reason: folder };
 
     const read = await options.context.read(request.context);
     if (!read.ok) return { result: 'context_failed', chip: read.chip, problem: read.problem };
     // The skills your message names, for this folder (spec 022, AC-53); none without the service.
-    const skills = (await options.skills?.named(request.message, folder.path)) ?? [];
+    const skills = (await options.skills?.named(request.message, folder?.path ?? null)) ?? [];
     const { title, ticket, plan } = composerPlan(request.message, read.chips, skills);
 
     const id = newId();
@@ -1007,7 +1020,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         state: 'working',
         source: ticket === null ? null : { kind: 'jira', key: ticket.key },
         updatedAt: at,
-        folder: { name: folder.name, displayPath: folder.displayPath },
+        folder: folder === null ? null : { name: folder.name, displayPath: folder.displayPath },
         branch: null,
         step: 'plan',
         activities: [],
@@ -1030,9 +1043,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         workOn: 'new_branch',
         skipped: [],
       },
-      repository: { id: folder.id, path: folder.path },
-      // An Ask session makes no worktree: Claude reads the folder itself (spec 026).
-      worktree: ask ? null : join(options.worktrees.root, id),
+      repository: folder === null ? null : { id: folder.id, path: folder.path },
+      // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031).
+      worktree: ask && folder !== null ? null : join(options.worktrees.root, id),
       startCommit: null,
       pushedCommit: null,
       claudeSessionId: null,
@@ -1056,7 +1069,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (isWorking(found.session)) await halt(id, { kind: 'stopped' }, 'discarded');
     const record = (await records.get(id)) ?? found;
     const { branch } = record.session;
-    if (record.worktree !== null) {
+    // An Ask with no folder has only its empty folder, which nothing reads once it's discarded.
+    if (record.worktree !== null && record.repository !== null) {
       const removed = await worktrees.remove(record.repository.path, record.worktree, branch);
       if (!removed.ok) {
         report(record, 'git', 'remove');

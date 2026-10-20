@@ -433,6 +433,87 @@ describe('an Ask session (spec 026)', () => {
   });
 });
 
+describe('an Ask with no folder (spec 031)', () => {
+  const asking = [
+    { tool: 'Grep', input: { pattern: 'export' } },
+    { tool: 'Read', input: { file_path: '~/notes.md' } },
+    { tool: 'Read', input: { file_path: '~/other.md' } },
+    { tool: 'Edit', input: { file_path: 'a.ts', old_string: 'x', new_string: 'y' } },
+    { tool: 'Bash', input: { command: 'ls' } },
+    { finish: 'Archive, not delete.' },
+  ] as const satisfies readonly FakeTurn[];
+  const noFolder = (change: Partial<ComposerChip>[] = []) => {
+    const { repositoryId: _id, ...body } = makeComposerStart({
+      message: 'What did we decide about archiving?',
+      mode: 'ask',
+      context: change as ComposerChip[],
+    });
+    return body;
+  };
+
+  it('AC-3: starts with no folder in Settings: Claude in an empty folder of its own, with no worktree or branch', async () => {
+    const set = await setUp({ folders: false, script: asking });
+
+    expect(await set.sessions.start(noFolder())).toEqual({ result: 'started', sessionId: '0000000000000001' });
+
+    const record = await settled(set.records);
+    const own = join(set.home, 'worktrees', '0000000000000001');
+    expect(record).toMatchObject({
+      repository: null,
+      worktree: own,
+      session: { mode: 'ask', folder: null, branch: null, worktreePath: null },
+    });
+    expect(set.sdk.runs[0]?.options.cwd).toBe(own);
+    expect(await readdir(own)).toEqual([]);
+    expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain('this is an Ask session with no folder');
+    expect(await set.sessions.changes('0000000000000001')).toEqual({ state: 'no_worktree' });
+  });
+
+  it('AC-4, AC-6: reads only the files the brief names; every edit and command is refused', async () => {
+    const set = await setUp({ script: asking });
+    await set.sessions.start(noFolder([fileChip]));
+    const record = await settled(set.records);
+    // Settings has a folder, and the Ask still reads none of it.
+    expect(set.sdk.runs[0]?.options.cwd).toBe(join(set.home, 'worktrees', '0000000000000001'));
+
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([
+      ['Grep', 'allow'],
+      ['Read', 'allow'],
+      ['Read', 'deny'],
+      ['Edit', 'deny'],
+      ['Bash', 'deny'],
+    ]);
+    expect(record.session.activities.filter((step) => step.kind === 'refused')).toMatchObject([
+      { access: 'read', reason: 'outside_worktree' },
+      { access: 'edit', reason: 'ask_session', path: 'a.ts' },
+      { access: 'run', reason: 'ask_session', path: 'ls' },
+    ]);
+  });
+
+  it('AC-7: a follow-up carries on in the same empty folder', async () => {
+    const set = await setUp({ folders: false, script: asking });
+    await set.sessions.start(noFolder());
+    await settled(set.records);
+    await started(set.records, '0000000000000001');
+
+    expect(await set.sessions.send('0000000000000001', 'And restoring?')).toEqual({ result: 'sent' });
+
+    await settled(set.records);
+    expect(set.sdk.runs[1]?.options).toMatchObject({
+      cwd: join(set.home, 'worktrees', '0000000000000001'),
+      resume: expect.any(String) as unknown,
+    });
+  });
+
+  it('AC-8: a Build still needs a folder', async () => {
+    const set = await setUp({ folders: false });
+    expect(await set.sessions.start({ ...noFolder(), mode: 'build' })).toEqual({
+      result: 'cannot_start',
+      reason: 'no_folder',
+    });
+  });
+});
+
 describe('a file by its path (spec 022)', () => {
   it('AC-15: Claude may read the file you picked, where it is, and nothing beside it, nor change it', async () => {
     // `~` is the test repositories' folder here, as the adapter's home and the reader's.
