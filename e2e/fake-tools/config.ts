@@ -35,8 +35,11 @@ export const pullRequestsHubPort = 4390;
  */
 export const composerHubPort = 4388;
 
+/** The eighth, for Sync activity (spec 035): its syncs and their log stay away from Home's inbox spec. */
+export const syncActivityHubPort = 4384;
+
 /**
- * The eighth, for the session Terminal (spec 036): its sessions' worktrees run your commands. 4382 to 4388 are
+ * The ninth, for the session Terminal (spec 036): its sessions' worktrees run your commands. 4382 to 4388 are
  * other specs', and a parallel worktree's Vite can hold 4386.
  */
 export const terminalHubPort = 4380;

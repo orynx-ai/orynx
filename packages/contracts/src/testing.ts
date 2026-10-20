@@ -36,14 +36,6 @@ import {
 } from './pull-requests.ts';
 import { RepositorySchema, type Repository } from './repositories.ts';
 import {
-  ClaudeCommandListSchema,
-  TerminalBlockSchema,
-  TerminalSchema,
-  type ClaudeCommandList,
-  type Terminal,
-  type TerminalBlock,
-} from './terminal.ts';
-import {
   SearchIndexSchema,
   SearchPullRequestSchema,
   SearchTicketSchema,
@@ -70,6 +62,16 @@ import {
 import { OrynxSkillListSchema, ReadySkillSchema, type OrynxSkillList, type ReadySkill } from './orynx-skills.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
 import {
+  SyncActivitySchema,
+  SyncChangeSchema,
+  SyncRunSchema,
+  SyncToolSchema,
+  type SyncActivity,
+  type SyncChange,
+  type SyncRun,
+  type SyncTool,
+} from './sync-activity.ts';
+import {
   OpenSprintSchema,
   TicketDetailSchema,
   TicketSchema,
@@ -79,6 +81,14 @@ import {
   type TicketDetail,
   type Tickets,
 } from './tickets.ts';
+import {
+  ClaudeCommandListSchema,
+  TerminalBlockSchema,
+  TerminalSchema,
+  type ClaudeCommandList,
+  type Terminal,
+  type TerminalBlock,
+} from './terminal.ts';
 
 export interface StatusOverrides {
   version?: string;
@@ -525,6 +535,55 @@ export function makeNotificationList(notifications: readonly Notification[] = []
     notifications,
     unread: notifications.filter((notification) => !notification.read).length,
     waiting: notifications.filter(({ what }) => what.kind === 'approval' && what.waiting).length,
+  });
+}
+
+/** The design's new PROJ-1431, "assigned to you", unless the override says otherwise (spec 035). */
+export function makeSyncChange(overrides: Partial<SyncChange> = {}): SyncChange {
+  return SyncChangeSchema.parse({
+    kind: 'new',
+    ref: 'PROJ-1431',
+    title: 'Add bulk archive to the content list',
+    url: 'https://acme.atlassian.net/browse/PROJ-1431',
+    ...overrides,
+  });
+}
+
+/** Jira's sync at 10:41 on 20 Oct 2026 that worked in 1.2 s and found nothing, unless the override says otherwise. */
+export function makeSyncRun(overrides: Partial<SyncRun> = {}): SyncRun {
+  return SyncRunSchema.parse({
+    id: '1',
+    tool: 'jira',
+    startedAt: '2026-10-20T10:41:00.000Z',
+    tookMs: 1200,
+    problem: null,
+    changes: [],
+    moreChanges: 0,
+    ...overrides,
+  });
+}
+
+/** Jira syncing fine, last synced at 10:41 on 20 Oct 2026, unless the override says otherwise. */
+export function makeSyncTool(overrides: Partial<SyncTool> = {}): SyncTool {
+  return SyncToolSchema.parse({
+    tool: 'jira',
+    state: { state: 'synced', at: '2026-10-20T10:41:00.000Z' },
+    lastSyncAt: '2026-10-20T10:41:00.000Z',
+    lastGoodSyncAt: '2026-10-20T10:41:00.000Z',
+    failingSince: null,
+    failedInARow: 0,
+    changesToday: 14,
+    lastTwoHours: { worked: 60, total: 60 },
+    ...overrides,
+  });
+}
+
+/** Jira and GitHub syncing fine, with no runs, unless the override says otherwise. */
+export function makeSyncActivity(overrides: Partial<SyncActivity> = {}): SyncActivity {
+  return SyncActivitySchema.parse({
+    tools: [makeSyncTool(), makeSyncTool({ tool: 'github', changesToday: 21 })],
+    runs: [],
+    ...overrides,
   });
 }
 

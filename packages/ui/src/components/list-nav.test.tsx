@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
-import { ListNav, ListNavItem, ListNavSkeleton } from './list-nav.tsx';
+import { ListNav, ListNavGroup, ListNavItem, ListNavSkeleton } from './list-nav.tsx';
 
 describe('ListNav', () => {
   it('AC-2: lists items named by their label and described by their tag and description, and marks the current one', async () => {
@@ -76,5 +76,34 @@ describe('ListNav', () => {
     const skeleton = container.firstElementChild;
     expect(skeleton).toHaveAttribute('aria-hidden', 'true');
     expect(skeleton?.querySelectorAll('[data-slot="list-nav-skeleton-item"]')).toHaveLength(3);
+  });
+
+  it('spec 035, AC-5, AC-8: groups items under a heading, each with a mark before its name and a status after', async () => {
+    const { container } = render(
+      <ListNav aria-label="Tools">
+        <ListNavGroup label="Needs attention" count={1}>
+          <ListNavItem
+            label="Jira"
+            description="Failing since 09:42"
+            mark={<span>J</span>}
+            status={<span>●</span>}
+            current
+            onClick={() => undefined}
+          />
+        </ListNavGroup>
+        <ListNavGroup label="Syncing fine" count={1}>
+          <ListNavItem label="GitHub" description="Synced 10:39" onClick={() => undefined} />
+        </ListNavGroup>
+      </ListNav>,
+    );
+
+    const attention = screen.getByRole('list', { name: 'Needs attention' });
+    expect(screen.getByText('Needs attention').parentElement).toHaveTextContent('Needs attention1');
+    const jira = within(attention).getByRole('button', { name: 'Jira' });
+    expect(jira).toHaveAccessibleDescription('Failing since 09:42');
+    expect(within(screen.getByRole('list', { name: 'Syncing fine' })).getAllByRole('button')).toHaveLength(1);
+    const item = jira.closest('li');
+    expect(item?.textContent).toBe('JJiraFailing since 09:42●');
+    await expectNoAxeViolations(container);
   });
 });

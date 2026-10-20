@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import type { Inbox, InboxProblem, Preferences } from '@devhub/contracts';
+import { syncActivityLimits, type Inbox, type InboxProblem, type Preferences } from '@devhub/contracts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { GitHubClient } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
@@ -22,7 +22,8 @@ import type { Settings, SettingsStore } from '../settings/settings-store.ts';
 import type { SprintSyncOutcome } from '../tickets/tickets-service.ts';
 import type { CachedTool, CacheRecord, InboxCache, InboxTool } from './inbox-cache.ts';
 import { inboxItems } from './rules.ts';
-import { toolState } from './tool-state.ts';
+import { syncChanges } from './sync-changes.ts';
+import { brokenHere, toolState } from './tool-state.ts';
 
 /**
  * Home's "Needs your attention" list (spec 007). Reading answers from the cache at once and applies the
@@ -34,8 +35,11 @@ export interface InboxService {
   read(): Promise<Inbox>;
   /** What the last sync kept for each connected tool, with no inbox rules, for search (spec 009). Asks no tool. */
   records(): Promise<InboxRecords>;
-  /** Asks every connected tool now. A call while a sync runs waits for that one (Refresh). */
-  sync(): Promise<void>;
+  /**
+   * Asks every connected tool now (Refresh), or only `tool` (spec 035's Sync now). A call while a sync runs waits
+   * for that one, and for one more pass after it if the running one doesn't cover every tool asked for.
+   */
+  sync(tool?: InboxTool): Promise<void>;
   /**
    * A sync that sees a change just made, such as a tool connecting: a sync already running read the old
    * state, so another one follows it. Resolves when that one has ended.
@@ -117,8 +121,10 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
   const { cache, settings, connections, events } = options;
   const now = options.now ?? Date.now;
   let running: Promise<void> | undefined;
-  /** A change came while a sync was running, so another pass follows it. */
-  let again = false;
+  /** Tools the next pass syncs: asked for while a pass ran that didn't cover them, or after a change. */
+  const wanted = new Set<InboxTool>();
+  /** The tools the running pass syncs. */
+  let covering = new Set<InboxTool>();
   /** Tickets' sprint pass, which runs on its own beside the tools (spec 008). */
   let sprintRunning: Promise<void> | undefined;
   let sprintAgain = false;
@@ -138,18 +144,59 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     return accountOf(await settings.read(), tool) === connection;
   }
 
-  async function fail(tool: InboxTool, connection: string, problem: InboxProblem): Promise<Outcome> {
+  /** Writes the run into the sync log (spec 035). A log it can't write never fails the sync itself. */
+  function log(
+    tool: InboxTool,
+    started: number,
+    problem: InboxProblem | null,
+    found: ReturnType<typeof syncChanges> = { changes: [], moreChanges: 0 },
+  ) {
+    try {
+      const ended = now();
+      cache.logSync(
+        {
+          tool,
+          startedAt: new Date(started).toISOString(),
+          tookMs: Math.max(0, ended - started),
+          worked: problem === null,
+          changed: found.changes.length + found.moreChanges,
+          data: { problem, ...found },
+        },
+        { after: new Date(ended - syncActivityLimits.keptDays * 86_400_000).toISOString() },
+      );
+    } catch (error) {
+      options.onError?.(error);
+    }
+  }
+
+  async function fail(tool: InboxTool, connection: string, problem: InboxProblem, started: number): Promise<Outcome> {
     if (!(await stillConnected(tool, connection))) return 'not_connected';
     cache.failed(tool, { connection, problem });
+    log(tool, started, problem);
     options.onProblem?.(tool, problem);
     return 'failed';
   }
 
-  async function keep(tool: InboxTool, connection: string, kept: readonly CacheRecord[]): Promise<Outcome> {
+  async function keep(
+    tool: InboxTool,
+    connection: string,
+    kept: readonly CacheRecord[],
+    started: number,
+  ): Promise<Outcome> {
     if (!(await stillConnected(tool, connection))) return 'not_connected';
     const last = cache.tool(tool);
     cache.synced(tool, { connection, at: new Date(now()).toISOString(), records: kept });
     const before = last?.connection === connection && last.syncedAt !== null ? last.records : null;
+    log(
+      tool,
+      started,
+      null,
+      syncChanges(
+        tool,
+        before,
+        kept.map((record) => record.data),
+      ),
+    );
     options.onSynced?.(
       tool,
       before,
@@ -158,31 +205,35 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     return 'answered';
   }
 
-  async function syncJira(): Promise<Outcome> {
+  async function syncJira(started: number): Promise<Outcome> {
     const credentials = await connections.jira.credentials();
     if (credentials === null) return 'not_connected';
-    if (!credentials.ok) return fail('jira', credentials.connection, credentials.problem);
+    if (!credentials.ok) return fail('jira', credentials.connection, credentials.problem, started);
     const answer = await options.jira.assigned(credentials.request);
-    if (!answer.ok) return fail('jira', credentials.connection, jiraInboxProblem(answer.problem, credentials.site));
+    if (!answer.ok) {
+      return fail('jira', credentials.connection, jiraInboxProblem(answer.problem, credentials.site), started);
+    }
     const kept = jiraRecords(credentials.site, answer.issues, answer.priorityOrder);
     return keep(
       'jira',
       credentials.connection,
       kept.map((record) => ({ id: record.key, data: record })),
+      started,
     );
   }
 
-  async function syncGitHub(): Promise<Outcome> {
+  async function syncGitHub(started: number): Promise<Outcome> {
     const credentials = await connections.github.credentials();
     if (credentials === null) return 'not_connected';
-    if (!credentials.ok) return fail('github', credentials.connection, credentials.problem);
+    if (!credentials.ok) return fail('github', credentials.connection, credentials.problem, started);
     const answer = await options.github.inbox(credentials.token);
-    if (!answer.ok) return fail('github', credentials.connection, githubInboxProblem(answer.problem));
+    if (!answer.ok) return fail('github', credentials.connection, githubInboxProblem(answer.problem), started);
     const kept = githubRecords(answer);
     return keep(
       'github',
       credentials.connection,
       kept.map((record) => ({ id: record.id, data: record })),
+      started,
     );
   }
 
@@ -222,14 +273,18 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     })();
   }
 
-  async function run(): Promise<void> {
-    syncSprint();
-    const outcomes = await Promise.allSettled([syncJira(), syncGitHub()]);
+  async function run(tools: readonly InboxTool[]): Promise<void> {
+    if (tools.includes('jira')) syncSprint();
+    const started = now();
+    const outcomes = await Promise.allSettled(
+      tools.map((tool) => (tool === 'jira' ? syncJira(started) : syncGitHub(started))),
+    );
     const ended = outcomes.map((outcome, index): Outcome => {
-      const tool = syncedTools[index] ?? 'jira';
+      const tool = tools[index] ?? 'jira';
       if (outcome.status === 'rejected') {
         broken.add(tool);
         options.onError?.(outcome.reason);
+        log(tool, started, brokenHere);
         return 'failed';
       }
       broken.delete(tool);
@@ -238,36 +293,43 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
       return outcome.value;
     });
     const connected = ended.filter((outcome) => outcome !== 'not_connected');
-    if (connected.length > 0 && connected.every((outcome) => outcome === 'answered')) {
+    // Only a pass over every tool says when they all last answered together; one tool's Sync now doesn't.
+    const everyTool = syncedTools.every((tool) => tools.includes(tool));
+    if (everyTool && connected.length > 0 && connected.every((outcome) => outcome === 'answered')) {
       cache.setSyncedAt(new Date(now()).toISOString());
     }
     events.publish({ type: 'inbox.changed' });
   }
 
-  /** Read through a call: `run()` can set it while it awaits, which narrowing can't see. */
-  function anotherPassAsked(): boolean {
-    return again;
-  }
-
   async function passes(): Promise<void> {
     try {
-      do {
-        again = false;
-        await run();
-      } while (anotherPassAsked());
+      while (wanted.size > 0) {
+        covering = new Set(wanted);
+        wanted.clear();
+        await run(syncedTools.filter((tool) => covering.has(tool)));
+      }
     } finally {
       running = undefined;
+      covering = new Set();
     }
   }
 
-  function sync(): Promise<void> {
+  /** Asks for `tools` in the next pass, unless the running one covers them, and resolves when no pass is left. */
+  function ask(tools: readonly InboxTool[]): Promise<void> {
+    for (const tool of tools) if (!covering.has(tool)) wanted.add(tool);
     running ??= passes();
     return running;
   }
 
+  function sync(tool?: InboxTool): Promise<void> {
+    return ask(tool === undefined ? syncedTools : [tool]);
+  }
+
   function syncAfterChange(): Promise<void> {
-    if (running !== undefined) again = true;
-    return sync();
+    // The running pass read the old state, so every tool goes into the next one, covered or not.
+    for (const tool of syncedTools) wanted.add(tool);
+    running ??= passes();
+    return running;
   }
 
   async function connectedRecords(): Promise<InboxRecords> {

@@ -294,7 +294,7 @@ test('AC-13: an answer in one tab takes the callout away in the other', async ({
 test('AC-12: Stop while a command waits denies it and stops Claude', async ({ page }) => {
   await build(page, 'PROJ-2007');
   await expect(progress(page).getByRole('alert')).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: 'Stop Claude' }).click();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
   await expect(progress(page).getByRole('alert')).toBeHidden();
   await expect(progress(page).getByText('You stopped Claude')).toBeVisible();
@@ -419,7 +419,7 @@ test('AC-19: the callouts and the allow list have no axe violations, at 1280 and
       },
       key,
     );
-    await page.getByRole('button', { name: 'Stop Claude' }).click();
+    await page.getByRole('button', { name: 'Stop', exact: true }).click();
     await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
   };
   await waiting('PROJ-2012', 'Claude wants to run a command');

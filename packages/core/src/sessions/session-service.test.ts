@@ -1451,6 +1451,29 @@ describe('the pull request (spec 014)', () => {
     expect((await settled(records)).session).toMatchObject({ state: 'pr_open', step: 'review' });
   });
 
+  it('026: once a run ends, the pull request Claude opened from the branch is saved, linked, as PR open', async () => {
+    const { service, records, repos } = await setUp({
+      script: [edit('src/a.ts'), { finish: 'First.' }],
+      later: [[{ finish: 'Opened the pull request.' }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await onGitHub(repos);
+    const branch = (await records.get(id))?.session.branch ?? '';
+    const opened: FakeOpenedPull[] = [
+      { owner: 'acme', repository: 'web-app', number: 2944, head: branch, base: 'main', title: 'Claude’s', body: '' },
+    ];
+    jira.use(...acceptingPulls({ opened }));
+
+    expect(await service.send(id, 'Open the pull request')).toEqual({ result: 'sent' });
+    await vi.waitFor(
+      async () => {
+        expect((await records.get(id))?.session).toMatchObject({ state: 'pr_open', pullRequest: { number: 2944 } });
+      },
+      { timeout: 5_000 },
+    );
+  });
+
   it('AC-14: Claude finishing, and a follow-up finishing, push nothing', async () => {
     const { service, records, repos } = await setUp({
       script: [edit('src/a.ts'), { finish: 'First.' }],

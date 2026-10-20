@@ -30,6 +30,7 @@ export {
   sessionTerminalQueryOptions,
   statusQueryOptions,
   skillsQueryOptions,
+  syncActivityQueryOptions,
   ticketQueryOptions,
   ticketsQueryOptions,
   ticketsSprintsQueryOptions,

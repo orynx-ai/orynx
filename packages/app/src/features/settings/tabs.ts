@@ -33,5 +33,7 @@ export const settingsTabLabels: Record<SettingsTab, string> = {
 export const SettingsSearchSchema = z.object({
   skill: z.string().optional().catch(undefined),
   new: z.literal(true).optional().catch(undefined),
+  /** Connections opens this tool's dialog, as Sync activity's Reconnect asks (spec 035): `?tool=jira`. */
+  tool: z.enum(['jira', 'github']).optional().catch(undefined),
 });
 export type SettingsSearch = z.infer<typeof SettingsSearchSchema>;

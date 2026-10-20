@@ -419,6 +419,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (seen.listsChanged) events.publish({ type: 'sessions.changed' });
     stepsChanged(id);
     if (seen.before !== null) options.onChange?.(seen.before, saved.session, { quiet });
+    // Claude may have opened the pull request itself (spec 026): once a run ends, GitHub is asked for it.
+    if (seen.before !== null && isWorking(seen.before) && !isWorking(saved.session)) track(pullRequests.link(id));
     return saved;
   }
 

@@ -545,6 +545,47 @@ describe('creating the pull request (spec 014)', () => {
   });
 });
 
+describe('a pull request Claude opened itself (spec 026)', () => {
+  const claudes = {
+    owner: 'acme',
+    repository: 'web-app',
+    number: 2944,
+    head: 'feat/PROJ-1423',
+    base: 'main',
+    title: 'Claude opened this',
+    body: '',
+  };
+
+  it('saves the open pull request from the branch, linked, and the session as PR open', async () => {
+    const { pulls, opened, records } = await readyToCreate({ session: { state: 'stopped' } });
+    opened.push(claudes);
+
+    await pulls.link(id);
+
+    const { session } = (await records.get(id)) ?? {};
+    expect(session?.state).toBe('pr_open');
+    expect(session?.pullRequest).toMatchObject({ number: 2944, url: 'https://github.com/acme/web-app/pull/2944' });
+    expect(session?.activities.at(-1)).toMatchObject({ kind: 'pull_request', number: 2944, linked: true });
+    expect(opened).toHaveLength(1);
+  });
+
+  it('changes nothing when GitHub has no open pull request from the branch', async () => {
+    const { home, pulls } = await readyToCreate();
+    const saved = join(sessionsFolder(home), id, 'session.json');
+    const before = await hashOf(saved);
+    await pulls.link(id);
+    expect(await hashOf(saved)).toBe(before);
+  });
+
+  it('opening Create pull request finds it and says it is open, without asking Claude for a draft', async () => {
+    const { pulls, opened, records, sdk } = await readyToCreate();
+    opened.push(claudes);
+    expect(await pulls.draft(id)).toEqual({ result: 'cannot', reason: 'opened' });
+    expect((await records.get(id))?.session.pullRequest?.number).toBe(2944);
+    expect(sdk.runs).toHaveLength(0);
+  });
+});
+
 describe('pushing changes to the pull request (spec 014, Q7)', () => {
   const claudeMessage = '"Use the existing useSelection hook"\n\nAs the reviewer asked.';
 

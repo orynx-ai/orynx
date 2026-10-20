@@ -1,3 +1,4 @@
+import { useSearch } from '@tanstack/react-router';
 import { useId, useState, type ReactNode } from 'react';
 import { Plug01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import type { IntegrationId, IntegrationStatus } from '@devhub/contracts';
@@ -55,6 +56,7 @@ const keyOrder: StatusButtonState[] = ['connected', 'needs_reconnecting', 'not_c
 /** Settings › Connections: each tool's state at a glance, everything else in its dialog (spec 030). */
 export function ConnectionsPanel() {
   const status = useStatus();
+  const { tool: named } = useSearch({ from: '/settings/$tab' });
   const headingId = useId();
   // What the last change did, under the key until the next one: "Jira disconnected." (spec 030).
   const [changed, setChanged] = useState('');
@@ -77,10 +79,14 @@ export function ConnectionsPanel() {
           className="m-0 list-none divide-y divide-border p-0"
         >
           <ConnectionRow tool="jira" status={tools?.jira}>
-            {tools ? <JiraConnectionDialog status={tools.jira} announce={setChanged} /> : null}
+            {tools ? (
+              <JiraConnectionDialog status={tools.jira} announce={setChanged} openAtStart={named === 'jira'} />
+            ) : null}
           </ConnectionRow>
           <ConnectionRow tool="github" status={tools?.github}>
-            {tools ? <GitHubConnectionDialog status={tools.github} announce={setChanged} /> : null}
+            {tools ? (
+              <GitHubConnectionDialog status={tools.github} announce={setChanged} openAtStart={named === 'github'} />
+            ) : null}
           </ConnectionRow>
           <ConnectionRow tool="slack" status={tools?.slack}>
             {tools ? <SlackConnectionDialog status={tools.slack} /> : null}

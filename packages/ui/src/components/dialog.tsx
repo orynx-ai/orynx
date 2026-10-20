@@ -47,9 +47,11 @@ export function DialogFoot({ start, className, children, ...props }: ComponentPr
 export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content> & {
   /**
    * `full` fills the window, keeping the 16 px gutter on every side at every width, for reading a whole diff.
-   * `narrow` is 520 px, for a dialog about one thing, such as a tool's connection (spec 030).
+   * `narrow` is 520 px, for a dialog about one thing, such as a tool's connection (spec 030). `wide` is up to
+   * 1100 × 860 px, as tall as it may be from the first, for a list beside its detail such as Sync activity
+   * (spec 035).
    */
-  size?: 'default' | 'narrow' | 'full';
+  size?: 'default' | 'narrow' | 'wide' | 'full';
 };
 
 /**
@@ -105,6 +107,7 @@ export function DialogContent({
           className={cn(
             'pointer-events-auto flex max-h-full w-full max-w-180 flex-col overflow-hidden rounded-lg border border-border bg-raised text-body text-foreground shadow-overlay outline-none motion-safe:animate-fade-in max-md:max-w-none',
             size === 'narrow' && 'max-w-130',
+            size === 'wide' && 'h-full max-h-215 max-w-275',
             size === 'full' && 'h-full max-w-none',
             className,
           )}

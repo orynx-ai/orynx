@@ -1,5 +1,5 @@
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
-import type { SessionListQuery } from '@devhub/contracts';
+import type { SessionListQuery, SyncActivityQuery } from '@devhub/contracts';
 import type { ApiClient } from './client.ts';
 
 /** One key per resource. Server events invalidate by these keys (learn/live-updates.md). */
@@ -17,6 +17,8 @@ export const queryKeys = {
   repositories: ['repositories'] as const,
   orynxSkills: ['skills', 'orynx'] as const,
   inbox: ['inbox'] as const,
+  /** Under `inbox`, so the inbox.changed that ends every sync, and Refresh, read the log again (spec 035). */
+  syncActivity: ['inbox', 'sync-activity'] as const,
   tickets: ['tickets'] as const,
   /** Not under `tickets`, so a sync's inbox.changed never asks Jira for a project's sprints again. */
   ticketsSprints: ['jira', 'sprints'] as const,
@@ -210,6 +212,16 @@ export function jiraProjectsQueryOptions(api: ApiClient) {
     staleTime: 0,
     gcTime: 0,
     retry: false,
+  });
+}
+
+/** One view of the sync log: a tool or all, every run or the failed ones (spec 035). */
+export function syncActivityQueryOptions(api: ApiClient, query: SyncActivityQuery) {
+  return queryOptions({
+    queryKey: [...queryKeys.syncActivity, query],
+    queryFn: () => api.syncActivity(query),
+    // Freshness comes from the event stream: inbox.changed ends every sync.
+    staleTime: Infinity,
   });
 }
 

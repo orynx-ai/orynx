@@ -93,4 +93,17 @@ describe('ConnectionsPanel (spec 030)', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the Orynx server');
   });
+
+  it('spec 035, AC-23: opens a tool’s dialog when the address names it, as Sync activity’s Reconnect does', async () => {
+    await renderApp({ route: '/settings/connections?tool=github' });
+
+    expect(await screen.findByRole('dialog', { name: 'GitHub' })).toBeVisible();
+  });
+
+  it('spec 035: opens no dialog for a tool it can’t open', async () => {
+    await renderApp({ route: '/settings/connections?tool=slack' });
+    await screen.findByRole('list', { name: 'Connections' });
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });

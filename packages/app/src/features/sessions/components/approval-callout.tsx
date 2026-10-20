@@ -46,9 +46,9 @@ export function answerFailure(failure: Error, approval: SessionApproval): Answer
 }
 
 /**
- * The amber callout at the top of Claude's progress (`session.html`, spec 012): the oldest call waiting for
- * you, what it is, and Allow once, Always allow (only where the server offers it) and Deny. It announces
- * itself (`role="alert"`) but never takes focus, so no key pressed for something else answers it (AC-18).
+ * The amber callout under the last step of Claude's progress (spec 012; at the top in `session.html`, moved by the
+ * user's call, 20 Oct 2026): the oldest call waiting for you, what it is, and Allow once, Always allow (only where
+ * the server offers it) and Deny. It announces itself (`role="alert"`) but never takes focus, so no key pressed for something else answers it (AC-18).
  * Once you answer, focus moves to the next waiting call's first button, or to `afterAll` when none is left.
  * Stays mounted with nothing to show, so it can hand focus on after the last call goes.
  */

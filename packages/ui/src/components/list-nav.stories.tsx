@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ListNav, ListNavItem, ListNavSkeleton } from './list-nav.tsx';
+import { ListNav, ListNavGroup, ListNavItem, ListNavSkeleton } from './list-nav.tsx';
+import { SourceMark } from './source-mark.tsx';
+import { StatusDot } from './status-dot.tsx';
 import { SearchField } from './search-field.tsx';
 
 const skills = [
@@ -95,4 +97,30 @@ export const Empty: Story = {
 /** While the items load: rows the size of real ones. */
 export const Loading: Story = {
   render: () => <ListNavSkeleton rows={3} />,
+};
+
+/** Sync activity's tools (spec 035): groups with their counts, each tool with its mark and a status dot. */
+export const Groups: Story = {
+  args: { 'aria-label': 'Tools' },
+  render: (args) => (
+    <ListNav {...args} className="w-70">
+      <ListNavGroup label="Needs attention" count={1}>
+        <ListNavItem
+          label="Jira"
+          description="Failing since 09:42"
+          mark={<SourceMark source="jira" />}
+          status={<StatusDot tone="danger" />}
+          current
+        />
+      </ListNavGroup>
+      <ListNavGroup label="Syncing fine" count={1}>
+        <ListNavItem
+          label="GitHub"
+          description="Synced 10:39"
+          mark={<SourceMark source="github" />}
+          status={<StatusDot tone="success" />}
+        />
+      </ListNavGroup>
+    </ListNav>
+  ),
 };

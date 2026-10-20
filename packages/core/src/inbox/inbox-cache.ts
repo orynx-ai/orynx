@@ -1,14 +1,14 @@
 import { chmodSync, lstatSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3';
-import { and, desc, eq, inArray, lt, notInArray } from 'drizzle-orm';
+import { and, count, desc, eq, gt, gte, inArray, lt, max, min, notInArray, sum } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { InboxProblemSchema, notificationLimits, type InboxProblem } from '@devhub/contracts';
 
 /**
- * `<DEVHUB_HOME>/cache.db` (spec 007): what the last sync read from each tool, so Home opens at once, and the
- * notifications under the bell (spec 029).
+ * `<DEVHUB_HOME>/cache.db` (spec 007): what the last sync read from each tool, so Home opens at once, the
+ * notifications under the bell (spec 029), and the sync log (spec 035).
  * Records are titles and metadata only, never descriptions or comment text. It's a cache: a file DevHub
  * can't read, or one another version wrote, is deleted and made again.
  */
@@ -18,8 +18,11 @@ export type InboxTool = 'jira' | 'github';
 /** A part of the cache with its own records and last sync: a tool's inbox, or Tickets' sprint (spec 008). */
 export type CachePart = InboxTool | 'jira_sprint';
 
-/** Goes up whenever the tables or a record's shape change, so an older file is made again. */
-const version = 2;
+/**
+ * Goes up whenever the tables or a record's shape change, so an older file is made again, unless `upgrades` says
+ * how to bring it up to date.
+ */
+const version = 3;
 
 const records = sqliteTable(
   'records',
@@ -52,11 +55,37 @@ const notifications = sqliteTable('notifications', {
   data: text('data').notNull(),
 });
 
+const syncs = sqliteTable('syncs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tool: text('tool').notNull(),
+  startedAt: text('started_at').notNull(),
+  tookMs: integer('took_ms').notNull(),
+  worked: integer('worked', { mode: 'boolean' }).notNull(),
+  /** How many changes the run found, kept or only counted. */
+  changed: integer('changed').notNull(),
+  /** The problem and changes as JSON; the sync activity service checks them with the contract on the way out. */
+  data: text('data').notNull(),
+});
+
+const createSyncs = `
+  CREATE TABLE syncs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, tool TEXT NOT NULL, started_at TEXT NOT NULL, took_ms INTEGER NOT NULL,
+    worked INTEGER NOT NULL, changed INTEGER NOT NULL, data TEXT NOT NULL
+  );
+  CREATE INDEX syncs_tool_started ON syncs (tool, started_at);
+`;
+
+/** What brings a file at an older version up to this one without losing what it holds. */
+const upgrades: Partial<Record<number, string>> = {
+  2: `${createSyncs} PRAGMA user_version = 3;`,
+};
+
 const createTables = `
   CREATE TABLE records (tool TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (tool, id));
   CREATE TABLE tools (tool TEXT PRIMARY KEY, connection TEXT NOT NULL, synced_at TEXT, problem TEXT);
   CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   CREATE TABLE notifications (id TEXT PRIMARY KEY, at TEXT NOT NULL, read INTEGER NOT NULL, data TEXT NOT NULL);
+  ${createSyncs}
   PRAGMA user_version = ${String(version)};
 `;
 
@@ -86,6 +115,34 @@ export interface CachedNotification {
   data: unknown;
 }
 
+/** One tool's part of one sync, as the log keeps it (spec 035). */
+export interface CachedSyncRun {
+  id: string;
+  tool: string;
+  startedAt: string;
+  tookMs: number;
+  data: unknown;
+}
+
+export interface SyncRunWrite {
+  tool: InboxTool;
+  startedAt: string;
+  tookMs: number;
+  worked: boolean;
+  changed: number;
+  data: unknown;
+}
+
+/** One tool's figures from the log. */
+export interface SyncFigures {
+  lastSyncAt: string | null;
+  lastGoodSyncAt: string | null;
+  failingSince: string | null;
+  failedInARow: number;
+  changesToday: number;
+  lastTwoHours: { worked: number; total: number };
+}
+
 export interface InboxCache {
   /** The tool's records and last sync, or null when it never synced. */
   tool(tool: CachePart): CachedTool | null;
@@ -96,7 +153,7 @@ export interface InboxCache {
   /** When every connected tool last answered in the same sync. */
   syncedAt(): string | null;
   setSyncedAt(at: string): void;
-  /** Disconnect: the tool's records and sync go. */
+  /** Disconnect: the tool's records, its sync and its runs in the sync log go. */
   forget(tool: CachePart): void;
   /** The notifications, newest first (spec 029). */
   notifications(): CachedNotification[];
@@ -109,7 +166,13 @@ export interface InboxCache {
   markNotificationsRead(ids: readonly string[] | 'all'): number;
   /** Rewrites what one notification holds; false when it isn't kept. */
   changeNotification(id: string, change: (data: unknown) => unknown): boolean;
-  /** Clear cache: everything goes, the notifications too. */
+  /** Adds a run to the sync log, then drops the runs that started before `keep.after`. */
+  logSync(run: SyncRunWrite, keep: { after: string }): void;
+  /** The newest runs, of one tool or all, every run or the failed ones. */
+  syncRuns(query: { tool?: InboxTool; failedOnly: boolean; limit: number }): CachedSyncRun[];
+  /** One tool's figures: `today` is local midnight and `twoHours` two hours ago, as ISO times. */
+  syncFigures(tool: InboxTool, since: { today: string; twoHours: string }): SyncFigures;
+  /** Clear cache: everything goes, the notifications and the sync log too. */
   clear(): void;
   close(): void;
 }
@@ -154,6 +217,8 @@ function connect(path: string, onReset: (() => void) | undefined): Database.Data
   let sqlite: Database.Database | undefined;
   try {
     sqlite = new Database(path);
+    const upgrade = upgrades[sqlite.pragma('user_version', { simple: true }) as number];
+    if (upgrade !== undefined) sqlite.transaction(() => sqlite?.exec(upgrade))();
     const state = usable(sqlite);
     if (state === 'ready') return sqlite;
     if (state === 'empty') {
@@ -308,6 +373,7 @@ export function openInboxCache(path: string, options: InboxCacheOptions = {}): I
         db.transaction((tx) => {
           tx.delete(records).where(eq(records.tool, tool)).run();
           tx.delete(tools).where(eq(tools.tool, tool)).run();
+          tx.delete(syncs).where(eq(syncs.tool, tool)).run();
         });
       });
     },
@@ -364,6 +430,79 @@ export function openInboxCache(path: string, options: InboxCacheOptions = {}): I
       });
     },
 
+    logSync({ data, ...run }, keep) {
+      guard(() => {
+        db.transaction((tx) => {
+          tx.insert(syncs)
+            .values({ ...run, data: JSON.stringify(data) })
+            .run();
+          tx.delete(syncs).where(lt(syncs.startedAt, keep.after)).run();
+        });
+      });
+    },
+
+    syncRuns({ tool, failedOnly, limit }) {
+      return guard(() =>
+        db
+          .select()
+          .from(syncs)
+          .where(
+            and(
+              tool === undefined ? undefined : eq(syncs.tool, tool),
+              failedOnly ? eq(syncs.worked, false) : undefined,
+            ),
+          )
+          .orderBy(desc(syncs.startedAt), desc(syncs.id))
+          .limit(limit)
+          .all()
+          .flatMap(({ id, tool: of, startedAt, tookMs, data }) => {
+            const read = parsed(data);
+            return read === undefined ? [] : [{ id: String(id), tool: of, startedAt, tookMs, data: read }];
+          }),
+      );
+    },
+
+    syncFigures(tool, since) {
+      return guard(() => {
+        const ofTool = eq(syncs.tool, tool);
+        const last = db
+          .select({ at: max(syncs.startedAt) })
+          .from(syncs)
+          .where(ofTool)
+          .get();
+        const good = db
+          .select({ at: max(syncs.startedAt) })
+          .from(syncs)
+          .where(and(ofTool, eq(syncs.worked, true)))
+          .get();
+        const lastGoodSyncAt = good?.at ?? null;
+        // Every run after the last good one failed.
+        const failing = db
+          .select({ since: min(syncs.startedAt), runs: count() })
+          .from(syncs)
+          .where(and(ofTool, lastGoodSyncAt === null ? undefined : gt(syncs.startedAt, lastGoodSyncAt)))
+          .get();
+        const today = db
+          .select({ changed: sum(syncs.changed) })
+          .from(syncs)
+          .where(and(ofTool, gte(syncs.startedAt, since.today)))
+          .get();
+        const recent = db
+          .select({ worked: sum(syncs.worked), total: count() })
+          .from(syncs)
+          .where(and(ofTool, gte(syncs.startedAt, since.twoHours)))
+          .get();
+        return {
+          lastSyncAt: last?.at ?? null,
+          lastGoodSyncAt,
+          failingSince: failing?.since ?? null,
+          failedInARow: failing?.runs ?? 0,
+          changesToday: Number(today?.changed ?? 0),
+          lastTwoHours: { worked: Number(recent?.worked ?? 0), total: recent?.total ?? 0 },
+        };
+      });
+    },
+
     clear() {
       guard(() => {
         db.transaction((tx) => {
@@ -371,6 +510,7 @@ export function openInboxCache(path: string, options: InboxCacheOptions = {}): I
           tx.delete(tools).run();
           tx.delete(meta).run();
           tx.delete(notifications).run();
+          tx.delete(syncs).run();
         });
       });
     },

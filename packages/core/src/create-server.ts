@@ -15,6 +15,7 @@ import { createJiraConnection } from './integrations/jira/connection.ts';
 import { openInboxCache, type InboxCache } from './inbox/inbox-cache.ts';
 import { startInboxSchedule } from './inbox/inbox-schedule.ts';
 import { createInboxService } from './inbox/inbox-service.ts';
+import { createSyncActivityService } from './inbox/sync-activity-service.ts';
 import { registerLocalOnly } from './plugins/local-only.ts';
 import { createNotificationService } from './notifications/notification-service.ts';
 import { createNotificationSettingsService } from './notifications/notification-settings.ts';
@@ -33,6 +34,7 @@ import { claudeRoutes } from './routes/claude.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
 import { inboxRoutes } from './routes/inbox.ts';
+import { syncActivityRoutes } from './routes/sync-activity.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { notificationsRoutes } from './routes/notifications.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
@@ -319,6 +321,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       notifications.inboxSynced(tool, before, after);
     },
   });
+  const syncActivity = createSyncActivityService({ cache, states: async () => (await inbox.records()).tools });
   const schedule =
     options.autoSync === true
       ? startInboxSchedule({
@@ -509,6 +512,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
         settings: createNotificationSettingsService({ settings, events }),
       });
       await api.register(inboxRoutes, { inbox });
+      await api.register(syncActivityRoutes, { syncActivity });
       await api.register(ticketsRoutes, { tickets, inbox, jira });
       await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });
       await api.register(repositoriesRoutes, { repositories });

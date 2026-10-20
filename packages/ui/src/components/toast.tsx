@@ -53,7 +53,7 @@ export function Toast({ icon, tone, title, detail, role, onOpen, onClose, action
         >
           {title}
         </button>
-        <span id={`${id}-detail`} className="text-small text-muted-foreground">
+        <span id={`${id}-detail`} className="line-clamp-2 text-small wrap-anywhere text-muted-foreground">
           {detail}
         </span>
         {actions === undefined ? null : <span className="mt-2 flex flex-wrap gap-2">{actions}</span>}

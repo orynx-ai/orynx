@@ -121,6 +121,11 @@
   grid-template-columns: max-content minmax(0, 1fr);
 }
 
+/* StatTiles: as many tiles to a row as fit, each at least 150 px wide (spec 035). */
+@utility grid-cols-tiles {
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--spacing) * 37.5), 1fr));
+}
+
 /* The one shadow: menus, popovers and the composer. */
 @utility shadow-overlay {
   box-shadow: var(--shadow-overlay);
