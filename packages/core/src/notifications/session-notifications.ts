@@ -14,7 +14,7 @@ export function approvalNotificationId(sessionId: string, approvalId: string): s
 }
 
 function aboutOf(approval: SessionApproval): Extract<NotificationWhat, { kind: 'approval' }>['about'] {
-  if (approval.kind === 'edit') return 'edit';
+  if (approval.kind === 'edit' || approval.kind === 'ticket') return approval.kind;
   return approval.alwaysAsk === 'push' || approval.alwaysAsk === 'pull_request' ? approval.alwaysAsk : 'command';
 }
 

@@ -286,7 +286,13 @@ export function bannerDetail({
 }): string {
   const parts = key === null ? [title] : [key, title];
   if (approval !== null) {
-    parts.push(approval.kind === 'command' ? `wants to run ${approval.command}` : `wants to edit ${approval.path}`);
+    parts.push(
+      approval.kind === 'command'
+        ? `wants to run ${approval.command}`
+        : approval.kind === 'edit'
+          ? `wants to edit ${approval.path}`
+          : `wants to delete ${approval.key}`,
+    );
   }
   if (more > 0) parts.push(`${String(more)} more waiting`);
   return parts.join(' · ');

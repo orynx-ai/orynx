@@ -956,6 +956,44 @@ describe('Orynx’s ticket tools in a session (spec 037)', () => {
     expect(works(events).filter((work) => work.kind === 'ticket')).toEqual([]);
   });
 
+  it('AC-30: deleting a ticket waits for you; Deny keeps it, and Allow once deletes it', async () => {
+    const service = await tickets();
+    await service.create(CreateOrynxTicketSchema.parse({ title: 'Flaky date test' }), { kind: 'you' });
+    const { sdk, adapter } = setUp([
+      { tool: 'mcp__orynx__delete_ticket', input: { key: 'ORX-2' } },
+      { tool: 'mcp__orynx__delete_ticket', input: { key: 'ORX-2' } },
+      { finish: 'Deleted it.' },
+    ]);
+    const id = await adapter.startSession(brief, worktree, editFreely, 'x', { tools: ticketTools(service, inSession) });
+    const events: AgentEvent[] = [];
+    adapter.onEvent(id, (event) => events.push(event));
+    const asked = () => events.flatMap((event) => (event.type === 'approval' ? [event] : []));
+
+    await vi.waitFor(() => {
+      expect(asked()).toHaveLength(1);
+    });
+    expect(asked()[0]?.ask).toEqual({ kind: 'ticket', key: 'ORX-2', title: 'Flaky date test' });
+    await adapter.respond(id, asked()[0]?.approvalId ?? '', 'deny');
+    await vi.waitFor(() => {
+      expect(asked()).toHaveLength(2);
+    });
+    expect(await service.get('ORX-2')).not.toBeNull();
+    await adapter.respond(id, asked()[1]?.approvalId ?? '', 'allow');
+    await vi.waitFor(() => {
+      expect(events.at(-1)?.type).toBe('ended');
+    });
+
+    expect(await service.get('ORX-2')).toBeNull();
+    expect(sdk.runs[0]?.decisions.map((decision) => decision.result)).toEqual([
+      { behavior: 'deny', message: deniedMessage },
+      { behavior: 'allow', updatedInput: { key: 'ORX-2' } },
+    ]);
+    expect(works(events).filter((work) => work.kind === 'denied' || work.kind === 'ticket')).toEqual([
+      { kind: 'denied', about: 'ticket', text: 'ORX-2' },
+      { kind: 'ticket', done: { action: 'deleted', key: 'ORX-2', title: 'Flaky date test' } },
+    ]);
+  });
+
   it('with no tools, Claude Code gets no MCP server at all', async () => {
     const { sdk } = await runWithTools([{ finish: 'Done.' }], { tools: [] });
     expect(sdk.runs[0]?.options.mcpServers).toEqual({});

@@ -16,7 +16,7 @@ import {
 import { AgentModelIdSchema, EffortLevelSchema, type AgentModel, type AgentModels } from '@devhub/contracts';
 import { briefText } from '../../sessions/brief.ts';
 import type { TicketTool, TicketToolDone } from '../../orynx-tickets/tools.ts';
-import type { AgentAdapter, AgentAsk, AgentEvent, AgentWritten } from '../agent-adapter.ts';
+import { askText, type AgentAdapter, type AgentAsk, type AgentEvent, type AgentWritten } from '../agent-adapter.ts';
 import { createMessageReader } from './sdk-messages.ts';
 import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool-decision.ts';
 
@@ -119,6 +119,12 @@ function orynxServer(
       }),
     ),
   });
+}
+
+/** A ticket's title, read with the session's own get_ticket tool, for the ask before a delete; null when it's gone. */
+async function ticketTitle(tools: readonly TicketTool[], key: string): Promise<string | null> {
+  const answer = await tools.find((ticketTool) => ticketTool.name === 'get_ticket')?.run({ key });
+  return answer === undefined || answer.error === true || answer.done.action === 'listed' ? null : answer.done.title;
 }
 
 /** How a waiting call ended: your answer, Stop, or Claude Code dropping it. */
@@ -396,8 +402,9 @@ export function createClaudeAdapter({
           tools.length === 0
             ? {}
             : {
-                orynx: orynxServer(tools, (done) => { send({ type: 'work', sessionId: id, work: { kind: 'ticket', done } }); },
-                ),
+                orynx: orynxServer(tools, (done) => {
+                  send({ type: 'work', sessionId: id, work: { kind: 'ticket', done } });
+                }),
               },
         systemPrompt: { type: 'preset', preset: 'claude_code', append: instructions },
         // Claude Code's own output can hold the brief or file contents; it never reaches the log.
@@ -409,7 +416,9 @@ export function createClaudeAdapter({
             return { behavior: 'deny', message: 'The user stopped the session.', interrupt: true };
           }
           current?.decided.add(toolUseID);
-          const decide = async () => decideToolUse(tool, input, { worktree, home, ...(await permissions()) });
+          const ticketTitleOf = (key: string) => ticketTitle(tools, key);
+          const decide = async () =>
+            decideToolUse(tool, input, { worktree, home, ticketTitle: ticketTitleOf, ...(await permissions()) });
           const turn = (current?.deciding ?? Promise.resolve()).then(decide);
           if (current !== undefined) current.deciding = turn.catch(() => undefined);
           const decision = await turn;
@@ -436,11 +445,11 @@ export function createClaudeAdapter({
             return { behavior: 'deny', message: 'The user stopped the session.', interrupt: true };
           if (outcome === 'dropped') return { behavior: 'deny', message: 'Cancelled.' };
           if (outcome === 'deny') {
-            const text = ask.kind === 'command' ? ask.command : ask.path;
-            send({ type: 'work', sessionId: id, work: { kind: 'denied', about: ask.kind, text } });
+            send({ type: 'work', sessionId: id, work: { kind: 'denied', about: ask.kind, text: askText(ask) } });
             return { behavior: 'deny', message: deniedMessage };
           }
-          if (ask.kind === 'edit') return { behavior: 'allow', updatedInput: input };
+          // An edit, or a ticket's delete, runs as Claude asked (spec 037); only a command can leave the sandbox.
+          if (ask.kind !== 'command') return { behavior: 'allow', updatedInput: input };
           send({ type: 'work', sessionId: id, work: { kind: 'command', command: ask.command } });
           // A command that always asks runs outside the sandbox, this once (Q2a).
           const updatedInput = ask.alwaysAsk === null ? input : { ...input, dangerouslyDisableSandbox: true };

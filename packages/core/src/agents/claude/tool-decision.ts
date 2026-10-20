@@ -1,6 +1,6 @@
 import { lstat, readlink, realpath } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import type { Permissions } from '@devhub/contracts';
+import { OrynxTicketKeySchema, type Permissions } from '@devhub/contracts';
 import type { AgentAsk, AgentReads, AgentRefusal } from '../agent-adapter.ts';
 import { decideCommand } from './command-decision.ts';
 import { previewEdit, type EditTool } from './edit-preview.ts';
@@ -56,6 +56,8 @@ export interface ToolContext extends Permissions {
   readOnly?: boolean | undefined;
   /** What `~` means in a path Claude gives. */
   home: string;
+  /** An Orynx ticket's title, for the ask before Claude deletes it (spec 037); null when it's gone. */
+  ticketTitle?: ((key: string) => Promise<string | null>) | undefined;
 }
 
 /** Where each tool names the file or folder it works on. */
@@ -126,7 +128,11 @@ export const orynxToolPrefix = 'mcp__orynx__';
  * One of Orynx's ticket tools (spec 037): reads and changes run without asking, as they touch only Orynx's own
  * tickets, never a file or the network. An Ask session only reads.
  */
-function decideTicketTool(name: TicketToolName, context: ToolContext): ToolDecision {
+async function decideTicketTool(
+  name: TicketToolName,
+  input: Readonly<Record<string, unknown>>,
+  context: ToolContext,
+): Promise<ToolDecision> {
   const access = ticketToolAccess[name];
   if (access === 'read') return { behavior: 'allow' };
   if (context.readOnly === true) {
@@ -137,7 +143,13 @@ function decideTicketTool(name: TicketToolName, context: ToolContext): ToolDecis
     };
   }
   if (access === 'write') return { behavior: 'allow' };
-  return { behavior: 'deny', message: 'Deleting an Orynx ticket isn’t available in this session.', refusal: null };
+  // Deleting a ticket always asks you, with Allow once and Deny (AC-30).
+  const key = OrynxTicketKeySchema.safeParse(input['key']);
+  if (!key.success) {
+    return { behavior: 'deny', message: "Orynx couldn't read the ticket's key in this call.", refusal: null };
+  }
+  const title = (await context.ticketTitle?.(key.data)) ?? null;
+  return { behavior: 'ask', ask: { kind: 'ticket', key: key.data, title } };
 }
 
 export async function decideToolUse(
@@ -147,7 +159,7 @@ export async function decideToolUse(
 ): Promise<ToolDecision> {
   const { worktree, edits, home } = context;
   const ticketTool = tool.startsWith(orynxToolPrefix) ? tool.slice(orynxToolPrefix.length) : null;
-  if (ticketTool !== null && isTicketToolName(ticketTool)) return decideTicketTool(ticketTool, context);
+  if (ticketTool !== null && isTicketToolName(ticketTool)) return decideTicketTool(ticketTool, input, context);
   if (!isSessionTool(tool)) {
     return { behavior: 'deny', message: `${tool} isn't available in this session.`, refusal: null };
   }

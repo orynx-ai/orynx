@@ -18,6 +18,7 @@ const askedFor = {
   edit: 'Claude wants to edit a file',
   push: 'Claude wants to push',
   pull_request: 'Claude wants to open a pull request',
+  ticket: 'Claude wants to delete a ticket',
 } as const;
 
 const ended = {

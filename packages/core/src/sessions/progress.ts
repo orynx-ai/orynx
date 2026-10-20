@@ -59,7 +59,7 @@ export function addStep(progress: Progress, step: NewStep, state: SessionActivit
 /** A call that waits for your answer (spec 012): a running step until `removeWaiting`. */
 export function addWaiting(
   progress: Progress,
-  waiting: { approvalId: string; about: 'command' | 'edit'; text: string | null },
+  waiting: { approvalId: string; about: 'command' | 'edit' | 'ticket'; text: string | null },
 ): Progress {
   return addStep(progress, { kind: 'waiting', ...waiting }, 'running');
 }

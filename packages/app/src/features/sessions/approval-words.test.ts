@@ -9,6 +9,7 @@ import {
   approvalTitle,
   moreLinesText,
   needsApprovalLabel,
+  ticketDeleteLine,
 } from './approval-words.ts';
 
 const edit = (creates: boolean): SessionApproval => ({
@@ -22,6 +23,13 @@ const edit = (creates: boolean): SessionApproval => ({
 });
 
 describe('approval words (spec 012, Q8)', () => {
+  it('AC-30 (spec 037, Q12i): a ticket’s delete says which ticket', () => {
+    const ticket = { id: 'approval-3', kind: 'ticket', key: 'ORX-7', askedAt: '2026-10-20T10:00:00.000Z' } as const;
+    expect(approvalTitle({ ...ticket, title: 'Flaky date test' })).toBe('Claude wants to delete a ticket');
+    expect(ticketDeleteLine({ ...ticket, title: 'Flaky date test' })).toBe('Delete ORX-7 · Flaky date test?');
+    expect(ticketDeleteLine({ ...ticket, title: null })).toBe('Delete ORX-7?');
+  });
+
   it('AC-1, AC-8, Q8a: titles say what Claude wants to do', () => {
     expect(approvalTitle(makeSessionApproval())).toBe('Claude wants to run a command');
     expect(approvalTitle(edit(false))).toBe('Claude wants to edit a file');

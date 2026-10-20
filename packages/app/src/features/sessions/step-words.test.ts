@@ -9,13 +9,13 @@ const step = (activity: WithoutId<SessionActivity>) => stepWords({ id: 'step-1',
 describe('stepWords (Q10a)', () => {
   it('AC-28, AC-29 (spec 037, Q12i): what Claude did with an Orynx ticket', () => {
     const ticket = {
-      kind: 'ticket',
-      state: 'done',
+      kind: 'ticket' as const,
+      state: 'done' as const,
       key: 'ORX-7',
       title: 'Flaky date test',
       fields: [],
       status: null,
-    } as const;
+    };
     expect(step({ ...ticket, action: 'listed', key: null, title: null })).toEqual({
       title: 'Read Orynx tickets',
       detail: null,

@@ -51,6 +51,26 @@ describe('the notifications a session change raises (spec 029)', () => {
     ]);
   });
 
+  it('AC-30 (spec 037): Claude asking to delete an Orynx ticket says so, with no command', () => {
+    const ticket = {
+      id: 'call-5',
+      kind: 'ticket' as const,
+      key: 'ORX-7',
+      title: 'Flaky date test',
+      askedAt: '2026-10-20T10:00:00.000Z',
+    };
+    const asked = { ...working, state: 'needs_you' as const, approvals: [ticket] };
+
+    expect(sessionNotifications(working, asked).added[0]?.what).toEqual({
+      kind: 'approval',
+      session,
+      approvalId: 'call-5',
+      about: 'ticket',
+      command: null,
+      waiting: true,
+    });
+  });
+
   it('AC-12: an answered or dropped call ends its notification and raises nothing new', () => {
     const asked = { ...working, state: 'needs_you' as const, approvals: [makeSessionApproval({ id: 'call-1' })] };
 

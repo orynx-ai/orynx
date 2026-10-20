@@ -59,7 +59,15 @@ export type AgentAsk =
       /** The entry Always allow would save, when it's offered (Q1, Q4). */
       alwaysAllow: string | null;
     }
-  | { kind: 'edit'; path: string; creates: boolean; lines: ChangeLine[]; moreLines: number };
+  | { kind: 'edit'; path: string; creates: boolean; lines: ChangeLine[]; moreLines: number }
+  /** Deleting one of Orynx's own tickets (spec 037); `title` is null when it's already gone. */
+  | { kind: 'ticket'; key: string; title: string | null };
+
+/** What a waiting call is about, as the log and a denied step keep it: the command, the edit's path or the key. */
+export function askText(ask: AgentAsk): string {
+  if (ask.kind === 'command') return ask.command;
+  return ask.kind === 'edit' ? ask.path : ask.key;
+}
 
 /** A call the adapter refused, which the session shows as a step (spec 011 Q6, spec 012 Q7). */
 export interface AgentRefusal {
@@ -79,8 +87,8 @@ export type AgentWork =
   | { kind: 'refused'; refusal: AgentRefusal }
   /** A command is running now: allowed by the list, or by you (spec 012). */
   | { kind: 'command'; command: string }
-  /** You denied a waiting call; `text` is the command, or the edit's path. */
-  | { kind: 'denied'; about: 'command' | 'edit'; text: string }
+  /** You denied a waiting call; `text` is the command, the edit's path, or the ticket's key. */
+  | { kind: 'denied'; about: AgentAsk['kind']; text: string }
   /** The agent can't run commands in this session: there's no sandbox on this computer (spec 012, Q2b). */
   | { kind: 'no_commands' }
   /** The agent used one of Orynx's ticket tools (spec 037), and this is what it did. */

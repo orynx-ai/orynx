@@ -29,7 +29,13 @@ import type {
   ComposerStart,
   TicketStart,
 } from '@devhub/contracts';
-import type { AgentAdapter, AgentBrief, AgentEvent } from '../agents/agent-adapter.ts';
+import {
+  askText,
+  type AgentAdapter,
+  type AgentAsk,
+  type AgentBrief,
+  type AgentEvent,
+} from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
 import { createGitHubClient, type GitHubClient } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
@@ -88,12 +94,12 @@ export type ApprovalEnd = NonNullable<ApprovalRecord['by']>;
 export type SessionReport =
   | { what: 'started'; session: string; ticket: string; loaded: { tools: number; mcpServers: number; plugins: number } }
   | { what: 'failed'; session: string; ticket: string; problem: string; code: string | null }
-  | { what: 'asked'; session: string; ticket: string; about: 'command' | 'edit' }
+  | { what: 'asked'; session: string; ticket: string; about: AgentAsk['kind'] }
   | {
       what: 'answered';
       session: string;
       ticket: string;
-      about: 'command' | 'edit';
+      about: AgentAsk['kind'];
       answer: ApprovalDecision | null;
       by: ApprovalEnd;
     }
@@ -530,7 +536,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       }
       case 'approval': {
         const { approvalId, ask } = event;
-        const text = ask.kind === 'command' ? ask.command : ask.path;
+        const text = askText(ask);
         track(
           change(id, (record) => {
             const at = new Date(now()).toISOString();
@@ -539,7 +545,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
               addWaiting(progress, {
                 approvalId,
                 about: ask.kind,
-                text: ask.kind === 'command' ? ask.description : ask.path,
+                // Claude's line about a command; the edit's path; the ticket's key and title (spec 037).
+                text:
+                  ask.kind === 'command'
+                    ? ask.description
+                    : ask.kind === 'edit'
+                      ? ask.path
+                      : `${ask.key}${ask.title === null ? '' : ` · ${ask.title}`}`,
               }),
             );
             return {
