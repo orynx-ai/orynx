@@ -46,7 +46,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **@devhub/ui (shadcn, restyled to tokens)**
 
-- [ ] Task 13: `AlertDialog`, from shadcn: Cancel focused first, the buttons at the end, and a danger action (AC-17, AC-37)
+- [x] Task 13: `AlertDialog`, from shadcn: Cancel focused first, the buttons at the end, and a danger action (AC-17, AC-37)
       Check: pnpm test packages/ui/src/components/alert-dialog.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/alert-dialog.tsx, .stories.tsx, .test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 14: `Popover` and `Calendar`, from shadcn, with `react-day-picker` added; arrows, Page Up and Page Down, Enter and Esc (AC-38)

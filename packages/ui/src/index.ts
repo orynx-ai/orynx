@@ -18,6 +18,17 @@ export {
   type AttentionTitleButtonProps,
   type AttentionTitleProps,
 } from './components/attention-row.tsx';
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogBody,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from './components/alert-dialog.tsx';
 export { Avatar, type AvatarProps } from './components/avatar.tsx';
 export { Board, BoardColumn, type BoardColumnProps, type BoardProps } from './components/board.tsx';
 export { BrandMark, type BrandMarkProps } from './components/brand-mark.tsx';
