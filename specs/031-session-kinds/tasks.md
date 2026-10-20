@@ -13,7 +13,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: GitHub's pull request read: yours (author is the viewer), open, from a fork, its link and when it opened, in the same query; the fake answers them (AC-14, AC-19)
       Check: pnpm test packages/core/src/integrations/github/client.test.ts packages/core/src/sessions/context-reader.test.ts
       Files: packages/core/src/integrations/github/client.ts, packages/core/src/integrations/github/client.test.ts, packages/core/src/test/fake-github.ts, packages/core/src/sessions/context-reader.ts, packages/core/src/sessions/brief.ts
-- [ ] Task 4: Worktrees: a detached worktree from the PR's branch after fetching it, even while the main checkout has that branch; the last fetched copy when offline; nothing left when there is none (AC-14, AC-22)
+- [x] Task 4: Worktrees: a detached worktree from the PR's branch after fetching it, even while the main checkout has that branch; the last fetched copy when offline; nothing left when there is none (AC-14, AC-22)
       Check: pnpm test packages/core/src/sessions/worktrees.test.ts
       Files: packages/core/src/sessions/worktrees.ts, packages/core/src/sessions/worktrees.test.ts
 - [ ] Task 5: Push from a detached HEAD to the PR's branch, never forced; rejected when origin has moved (AC-16, AC-17)

@@ -203,6 +203,94 @@ describe('making a worktree', () => {
   });
 });
 
+describe('a worktree on a pull request’s branch (spec 031)', () => {
+  const pull = { branch: 'fix/content-list', base: 'origin/fix/content-list', remote: true, detach: true } as const;
+  const path = (repos: { worktrees: string }) => join(repos.worktrees, '0123456789abcdef');
+
+  it('AC-14: fetches the branch, then makes a detached worktree at its newest commit, and no branch', async () => {
+    const { repos, worktrees } = await setUp();
+    const newest = await repos.commitInOrigin('fix.txt', 'fix/content-list');
+
+    expect(await worktrees.make(repos.clone, path(repos), pull)).toEqual({
+      ok: true,
+      fetched: true,
+      startCommit: newest,
+    });
+    expect(await repos.git(path(repos), 'rev-parse', 'HEAD')).toBe(newest);
+    expect(await repos.git(path(repos), 'branch', '--show-current')).toBe('');
+    expect(await repos.git(repos.clone, 'branch', '--list', 'fix/content-list')).toBe('');
+  });
+
+  it('AC-14: works while the folder’s own checkout has the branch, and leaves that checkout as it was', async () => {
+    const { repos, worktrees } = await setUp();
+    await repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await repos.git(repos.clone, 'fetch', 'origin');
+    await repos.git(repos.clone, 'checkout', '-q', '-b', 'fix/content-list', 'origin/fix/content-list');
+    const newest = await repos.commitInOrigin('review.txt', 'fix/content-list');
+    // Its branch, commit and files; the fetch moves only origin's ref, as any fetch does.
+    const checkout = () =>
+      Promise.all([
+        repos.git(repos.clone, 'branch', '--show-current'),
+        repos.git(repos.clone, 'rev-parse', 'HEAD'),
+        repos.git(repos.clone, 'status', '--porcelain=v1'),
+      ]);
+    const before = await checkout();
+
+    expect(await worktrees.make(repos.clone, path(repos), pull)).toEqual({
+      ok: true,
+      fetched: true,
+      startCommit: newest,
+    });
+    expect(await checkout()).toEqual(before);
+  });
+
+  it('AC-14: fetches it even when the folder fetches only main', async () => {
+    const { repos, worktrees } = await setUp();
+    await repos.git(repos.clone, 'config', 'remote.origin.fetch', '+refs/heads/main:refs/remotes/origin/main');
+    const newest = await repos.commitInOrigin('fix.txt', 'fix/content-list');
+    expect(await worktrees.make(repos.clone, path(repos), pull)).toMatchObject({ ok: true, startCommit: newest });
+  });
+
+  it('Q8f: uses the last fetched branch when origin can’t be reached', async () => {
+    const { repos, worktrees } = await setUp();
+    await repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await repos.git(repos.clone, 'fetch', 'origin');
+    const known = await repos.git(repos.clone, 'rev-parse', 'origin/fix/content-list');
+    await repos.git(repos.clone, 'remote', 'set-url', 'origin', join(repos.root, 'nowhere.git'));
+
+    expect(await worktrees.make(repos.clone, path(repos), pull)).toEqual({
+      ok: true,
+      fetched: false,
+      startCommit: known,
+    });
+    expect(await repos.git(repos.clone, 'branch', '--list', 'fix/content-list')).toBe('');
+  });
+
+  it('AC-22: makes nothing when origin can’t be reached and the branch was never fetched', async () => {
+    const { repos, worktrees } = await setUp();
+    await repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await repos.git(repos.clone, 'remote', 'set-url', 'origin', join(repos.root, 'nowhere.git'));
+
+    expect(await worktrees.make(repos.clone, path(repos), pull)).toEqual({
+      ok: false,
+      problem: { kind: 'git', step: 'add' },
+    });
+    expect(await exists(path(repos))).toBe(false);
+  });
+
+  it('AC-15: removing it with no branch named keeps your own branch of that name', async () => {
+    const { repos, worktrees } = await setUp();
+    await repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await repos.git(repos.clone, 'fetch', 'origin');
+    await repos.git(repos.clone, 'branch', 'fix/content-list', 'origin/fix/content-list');
+    await worktrees.make(repos.clone, path(repos), pull);
+
+    expect(await worktrees.remove(repos.clone, path(repos), null)).toEqual({ ok: true });
+    expect(await exists(path(repos))).toBe(false);
+    expect(await repos.git(repos.clone, 'branch', '--list', 'fix/content-list')).toContain('fix/content-list');
+  });
+});
+
 describe('Stop while the worktree is being made', () => {
   let silent: Server | undefined;
   afterEach(() => {
