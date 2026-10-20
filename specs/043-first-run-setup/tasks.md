@@ -31,3 +31,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
       Files: README.md, install.sh, learn/local-security.md, docs/architecture.md, apps/landing/index.html, CLAUDE.md, AGENTS.md, .github/copilot-instructions.md, .cursor/rules/00-core.mdc
 - [ ] Task 10: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
+
+Review: skipped at the user's call ("push the changes without review", 20 Oct 2026). `pnpm verify` was green (3806 tests); only the review-stamp gate blocks the push.
