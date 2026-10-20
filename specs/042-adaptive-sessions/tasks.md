@@ -56,9 +56,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: Stop (checked as the session's again, SIGTERM to it and its children, SIGKILL after 5 s) with a `server` row; Restart for a server Claude started, in its own tab; `stop_server` for Claude, its own servers only; Delete and Discard stop the session's servers first (AC-4, AC-5, AC-6, AC-7, AC-13)
       Check: pnpm test packages/core/src/ports/ packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/session-tools.test.ts packages/core/src/terminal/terminal-service.test.ts
       Files: packages/core/src/ports/port-service.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-tools.ts, packages/core/src/terminal/terminal-service.ts, and their tests
-- [ ] Task 16: The ports routes, with the Host and token checks, and the api-client functions and query options (AC-4, AC-7, AC-9)
-      Check: pnpm test packages/core/src/routes/ports.test.ts packages/api-client/src/endpoints/ports.test.ts
-      Files: packages/core/src/routes/ports.ts, packages/core/src/routes/ports.test.ts, packages/core/src/create-server.ts, packages/api-client/src/endpoints/ports.ts, packages/api-client/src/endpoints/ports.test.ts, packages/api-client/src/queries.ts
+- [x] Task 16: The ports routes (404 for no such session, 503 `ports_unreadable` when lsof can't run), with the Host and token checks, and the api-client calls and a query that reads every 3 s while the tab is open and every 15 s otherwise (AC-4, AC-7, AC-9)
+      Check: pnpm test packages/core/src/routes/sessions.test.ts packages/api-client/src/ports.test.ts
+      Files: packages/contracts/src/errors.ts, packages/core/src/routes/sessions.ts, packages/core/src/routes/sessions.test.ts, packages/api-client/src/endpoints/terminal.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/api-client/src/ports.test.ts
 
 ## UI components
 

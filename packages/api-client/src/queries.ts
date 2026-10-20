@@ -115,6 +115,23 @@ export function sessionCommandsQueryOptions(api: ApiClient, id: string) {
   });
 }
 
+/** What listens from a session (spec 042): outside the session's own key, so its steps don't read the ports again. */
+export function sessionPortsQueryKey(id: string) {
+  return [...queryKeys.sessions, 'ports', id] as const;
+}
+
+/**
+ * The session's ports (spec 042): read every 3 seconds while the Ports tab is open, every 15 for its count otherwise,
+ * and never while the page is hidden. Nothing tells Orynx a port opened, so it asks.
+ */
+export function sessionPortsQueryOptions(api: ApiClient, id: string, { open }: { open: boolean }) {
+  return queryOptions({
+    queryKey: sessionPortsQueryKey(id),
+    queryFn: () => api.sessionPorts(id),
+    refetchInterval: open ? 3_000 : 15_000,
+  });
+}
+
 /** Your shell tabs (spec 036): fresh from `session.terminal.changed`, not from polling. */
 export function sessionTerminalQueryOptions(api: ApiClient, id: string) {
   return queryOptions({ queryKey: sessionTerminalQueryKey(id), queryFn: () => api.terminal(id), staleTime: Infinity });
