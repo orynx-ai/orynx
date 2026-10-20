@@ -5,7 +5,20 @@ import { Folder01Icon, GitBranchIcon, PlusSignIcon, Settings02Icon } from '@huge
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Button } from './button.tsx';
-import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from './menu.tsx';
+import {
+  Menu,
+  MenuCheckboxItem,
+  MenuContent,
+  MenuItem,
+  MenuLabel,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuSeparator,
+  MenuSub,
+  MenuSubContent,
+  MenuSubTrigger,
+  MenuTrigger,
+} from './menu.tsx';
 import { Picker } from './picker.tsx';
 import { Icon } from './icon.tsx';
 
@@ -241,5 +254,43 @@ describe('Menu', () => {
     await expectNoAxeViolations(container);
     await user.keyboard('{ArrowDown}{Enter}');
     expect(onPick).toHaveBeenCalledOnce();
+  });
+
+  it('opens a sub menu from its row with the right arrow, closes it with the left, and picks in it', async () => {
+    const user = userEvent.setup();
+    const onPick = vi.fn();
+    const { container } = render(
+      <Menu>
+        <MenuTrigger asChild>
+          <Button>Profile</Button>
+        </MenuTrigger>
+        <MenuContent aria-label="Profile">
+          <MenuSub>
+            <MenuSubTrigger icon={<Icon icon={Settings02Icon} />}>Appearance</MenuSubTrigger>
+            <MenuSubContent aria-label="Appearance">
+              <MenuRadioGroup value="dark" onValueChange={onPick}>
+                <MenuRadioItem value="light">Light</MenuRadioItem>
+                <MenuRadioItem value="dark">Dark</MenuRadioItem>
+              </MenuRadioGroup>
+            </MenuSubContent>
+          </MenuSub>
+        </MenuContent>
+      </Menu>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Profile' }));
+    const row = screen.getByRole('menuitem', { name: 'Appearance' });
+    expect(row).toHaveAttribute('aria-haspopup', 'menu');
+    await user.keyboard('{ArrowDown}{ArrowRight}');
+    expect(await screen.findByRole('menuitemradio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
+    await expectNoAxeViolations(container);
+
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.queryByRole('menuitemradio', { name: 'Light' })).toBeNull();
+    expect(row).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
+    expect(await screen.findByRole('menuitemradio', { name: 'Light' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(onPick).toHaveBeenCalledWith('light');
   });
 });

@@ -27,13 +27,13 @@ function narrow() {
 }
 
 describe('the bell (spec 029)', () => {
-  it('AC-1: sits at the bottom of the sidebar, after the person and Claude’s state, with the unread count', async () => {
+  it('AC-1: sits at the bottom of the sidebar, after the person, with the unread count', async () => {
     unread(4);
     await renderApp();
     const nav = mainNav();
 
     const bell = await within(nav).findByRole('button', { name: 'Notifications, 4 unread' });
-    const person = within(nav).getByRole('link', { name: /Claude not connected/ });
+    const person = within(nav).getByRole('button', { name: /^Profile: / });
     expect(person.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(nav).getAllByRole('button', { name: /^Notifications/ })).toHaveLength(1);
     // Nothing at the top beside the logo: the first button there is Collapse sidebar.
@@ -53,7 +53,7 @@ describe('the bell (spec 029)', () => {
     const nav = mainNav();
 
     const bell = await within(nav).findByRole('button', { name: 'Notifications, 2 unread' });
-    const person = within(nav).getByRole('link', { name: /Claude not connected/ });
+    const person = within(nav).getByRole('button', { name: /^Profile: / });
     expect(bell.compareDocumentPosition(person) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

@@ -11,7 +11,6 @@ export const SettingsTabSchema = z.enum([
   'notifications',
   'repositories',
   'inbox-rules',
-  'appearance',
 ]);
 export type SettingsTab = z.infer<typeof SettingsTabSchema>;
 
@@ -22,7 +21,6 @@ export const settingsTabLabels: Record<SettingsTab, string> = {
   notifications: 'Notifications',
   repositories: 'Repositories',
   'inbox-rules': 'Inbox rules',
-  appearance: 'Appearance',
 };
 
 /**

@@ -11,6 +11,9 @@ import {
   MenuRadioGroup,
   MenuRadioItem,
   MenuSeparator,
+  MenuSub,
+  MenuSubContent,
+  MenuSubTrigger,
   MenuTrigger,
 } from './menu.tsx';
 import { Picker } from './picker.tsx';
@@ -181,3 +184,27 @@ export const Compact: Story = {
 function index(sprint: number): string {
   return sprint === 43 ? 'Active · ends 24 Oct' : 'Future';
 }
+
+/** A row that opens more choices beside the menu, as the profile menu's Appearance does. */
+export const SubMenu: Story = {
+  render: (args) => (
+    <Menu {...args}>
+      <MenuTrigger asChild>
+        <Button>Profile</Button>
+      </MenuTrigger>
+      <MenuContent aria-label="Profile">
+        <MenuSub defaultOpen>
+          <MenuSubTrigger icon={<Icon icon={Settings02Icon} aria-hidden />}>Appearance</MenuSubTrigger>
+          <MenuSubContent aria-label="Appearance">
+            <MenuRadioGroup value="dark">
+              <MenuRadioItem value="light">Light</MenuRadioItem>
+              <MenuRadioItem value="dark">Dark</MenuRadioItem>
+              <MenuRadioItem value="system">System</MenuRadioItem>
+            </MenuRadioGroup>
+          </MenuSubContent>
+        </MenuSub>
+        <MenuItem icon={<Icon icon={Settings02Icon} aria-hidden />}>Settings</MenuItem>
+      </MenuContent>
+    </Menu>
+  ),
+};

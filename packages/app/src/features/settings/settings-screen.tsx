@@ -6,7 +6,6 @@ import {
   Folder01Icon,
   InboxIcon,
   Notification01Icon,
-  PaintBrush02Icon,
   Plug01Icon,
   RoboticIcon,
   SquareLock02Icon,
@@ -14,7 +13,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger, Callout, Icon, type IconSvgElement } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb } from '../../shell/page-frame.tsx';
 import { useUiStore } from '../../stores/ui-store.ts';
-import { AppearancePanel } from './components/appearance-panel.tsx';
 import { CodingAgentPanel } from './components/coding-agent-panel.tsx';
 import { InboxRulesPanel } from './components/inbox-rules-panel.tsx';
 import { NotificationsPanel } from './components/notifications-panel.tsx';
@@ -33,7 +31,6 @@ const tabIcons: Record<SettingsTab, IconSvgElement> = {
   notifications: Notification01Icon,
   repositories: Folder01Icon,
   'inbox-rules': InboxIcon,
-  appearance: PaintBrush02Icon,
 };
 
 export function SettingsScreen() {
@@ -118,9 +115,6 @@ export function SettingsScreen() {
           </TabsContent>
           <TabsContent value="inbox-rules" className="pt-6">
             <InboxRulesPanel />
-          </TabsContent>
-          <TabsContent value="appearance" className="pt-6">
-            <AppearancePanel />
           </TabsContent>
         </Tabs>
       </PageBody>

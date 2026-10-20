@@ -1,9 +1,7 @@
-// Design: docs/design/screens/session.html — page bar, title row, stepper, Claude's progress with the approval callout and the follow-up box, the Changes tab; spec 014's dialog and PR-open buttons: Design: none, settled in its Q10; the Context tab (in place of Ticket), the details held in view, the full-screen view, an Ask session's page with no stepper or Changes, and the session's buttons small in the page bar with Open in the editor and Discard changes in More actions (everything but Stop in it under 768 px): Design: none — the user's call, 19 Oct 2026; the approval callout under the last step, and Stop turning while Claude runs: Design: none — the user's call, 20 Oct 2026
+// Design: docs/design/screens/session.html — page bar, title row, stepper, Claude's progress with the approval callout and the follow-up box, the Changes tab; spec 014's dialog and PR-open buttons: Design: none, settled in its Q10; the Context tab (in place of Ticket), the details held in view, the full-screen view, an Ask session's page with no stepper or Changes, and the session's buttons small in the page bar with Open in the editor and Discard changes in More actions (everything but Stop in it under 768 px): Design: none — the user's call, 19 Oct 2026; the approval callout under the last step, and Stop turning while Claude runs: Design: none — the user's call, 20 Oct 2026; no Open in Jira in the page bar (the Context tab keeps it): Design: none — the user's call, 20 Oct 2026
 import { useRef, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import type { Session } from '@devhub/contracts';
-import { ExternalLink } from '@devhub/ui';
-import { usePlatform } from '../../platform.tsx';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
 import { agoText } from '../../words/ago.ts';
 import { useNow } from '../../words/use-now.ts';
@@ -31,24 +29,6 @@ function crumbsFor(session: Session): Crumb[] {
   return session.sprint === null
     ? [sessionsCrumb, last]
     : [{ label: 'Tickets', to: '/tickets' }, { label: session.sprint, to: '/tickets' }, last];
-}
-
-function OpenInJira({ url }: { url: string }) {
-  const platform = usePlatform();
-  return (
-    // As tall as the bar's buttons, with their room around the text.
-    <ExternalLink
-      href={url}
-      size="body"
-      className="mx-0 min-h-8 px-2"
-      onOpen={(href) => {
-        platform.openExternal(href);
-      }}
-    >
-      {/* Under 768 px only the arrow shows, so the breadcrumb keeps room for the ticket's key. */}
-      <span className="max-md:sr-only">Open in Jira</span>
-    </ExternalLink>
-  );
 }
 
 /**
@@ -127,12 +107,7 @@ export function SessionScreen() {
       <PageBar
         breadcrumb={<PageBreadcrumb crumbs={crumbsFor(found)} />}
         meta={`Started ${agoText(now.getTime() - Date.parse(found.startedAt))}`}
-        actions={
-          <>
-            {found.jiraUrl === null ? null : <OpenInJira url={found.jiraUrl} />}
-            <SessionActions session={found} title={title} />
-          </>
-        }
+        actions={<SessionActions session={found} title={title} />}
       />
       <PageBody width="full">
         <SessionHeader session={found} title={title} />

@@ -25,7 +25,6 @@ describe('SettingsScreen', () => {
       'Notifications',
       'Repositories',
       'Inbox rules',
-      'Appearance',
     ]);
 
     for (const [name, path] of [
@@ -54,7 +53,7 @@ describe('SettingsScreen', () => {
 
     expect(screen.queryByText('Everything stays on this computer')).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Repositories' })).toHaveFocus();
-    await user.click(screen.getByRole('tab', { name: 'Appearance' }));
+    await user.click(screen.getByRole('tab', { name: 'Inbox rules' }));
     expect(screen.queryByText('Everything stays on this computer')).not.toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem('devhub.ui') ?? '{}')).toMatchObject({
       state: { localFirstNoteHidden: true },
@@ -78,15 +77,14 @@ describe('SettingsScreen', () => {
   it('switches tabs through the URL', async () => {
     const { user, history } = await renderApp({ route: '/settings/connections' });
 
-    await user.click(await screen.findByRole('tab', { name: 'Appearance' }));
+    await user.click(await screen.findByRole('tab', { name: 'Inbox rules' }));
 
-    expect(history.location.pathname).toBe('/settings/appearance');
-    expect(screen.getByRole('tabpanel')).toHaveTextContent('Theme');
-    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Appearance')).toBeVisible();
+    expect(history.location.pathname).toBe('/settings/inbox-rules');
+    expect(within(screen.getByRole('navigation', { name: 'Breadcrumb' })).getByText('Inbox rules')).toBeVisible();
   });
 
-  it('falls back to Connections for an unknown tab', async () => {
-    await renderApp({ route: '/settings/nope' });
+  it('falls back to Connections for an unknown tab, such as Appearance, which moved to the profile menu', async () => {
+    await renderApp({ route: '/settings/appearance' });
     expect(await screen.findByRole('tab', { name: 'Connections' })).toHaveAttribute('aria-selected', 'true');
   });
 

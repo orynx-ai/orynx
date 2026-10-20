@@ -99,9 +99,9 @@ describe('SessionScreen', () => {
     expect(screen.queryByRole('list', { name: 'Session progress' })).toBeNull();
   });
 
-  it('AC-6 (Q9e): the page bar shows Tickets / the sprint / the key, when it started, and Open in Jira', async () => {
+  it('AC-6 (Q9e): the page bar shows Tickets / the sprint / the key and when it started, with no Open in Jira', async () => {
     server.use(sessionHandler(working));
-    const { user, platform } = await renderApp({ route });
+    await renderApp({ route });
 
     const crumbs = within(pageBar()).getByRole('navigation', { name: 'Breadcrumb' });
     expect(await within(crumbs).findByText('PROJ-1423')).toHaveAttribute('aria-current', 'page');
@@ -109,10 +109,8 @@ describe('SessionScreen', () => {
     expect(within(crumbs).getByRole('link', { name: 'Sprint 42' })).toHaveAttribute('href', '/tickets');
     expect(within(pageBar()).getByText('Started 4 min ago')).toBeVisible();
 
-    const jira = within(pageBar()).getByRole('link', { name: 'Open in Jira' });
-    expect(jira).toHaveAttribute('href', 'https://your-team.atlassian.net/browse/PROJ-1423');
-    await user.click(jira);
-    expect(platform.openExternal).toHaveBeenCalledWith('https://your-team.atlassian.net/browse/PROJ-1423');
+    // The user's call, 20 Oct 2026: the Context tab's ticket keeps the way to Jira.
+    expect(within(pageBar()).queryByRole('link', { name: 'Open in Jira' })).toBeNull();
   });
 
   it('Q9e: says Sessions / the key when the ticket wasn’t in a sprint', async () => {

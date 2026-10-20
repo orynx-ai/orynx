@@ -9,8 +9,8 @@ import { deletedLine, noDescription } from '../ticket-tab-words.ts';
 /**
  * The session's own ticket, at the top of the Context tab (spec 013, Q7): the ticket as Claude got it, its
  * description laid out, with its status and due date as the cache knows them now and Open in Jira; one of Orynx's
- * own has its mark, no Open in Jira, and says when it was deleted since (spec 037). As
- * `session.html` draws it, at most 640 px wide.
+ * own has its mark, no Open in Jira, and says when it was deleted since (spec 037). As wide as the Context tab
+ * (the user's call, 20 Oct 2026, in place of `session.html`'s 640 px).
  */
 export function TicketPanel({ session }: { session: Session }) {
   const platform = usePlatform();
@@ -23,7 +23,7 @@ export function TicketPanel({ session }: { session: Session }) {
   };
 
   return (
-    <div className="flex max-w-160 min-w-0 flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         {key === null ? null : (
           <span className="inline-flex items-center gap-1.5">

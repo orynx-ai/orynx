@@ -20,7 +20,7 @@ import { renderApp, testToken } from './test/render.tsx';
 describe('LiveUpdates', () => {
   it('opens the event stream with the page token', async () => {
     await renderApp();
-    await screen.findByText('Claude not connected · runs locally');
+    await screen.findByRole('button', { name: 'Profile: You' });
 
     expect(FakeEventSource.latest().url).toBe(`${apiUrl(apiRoutes.events)}?token=${testToken}`);
   });
@@ -31,13 +31,13 @@ describe('LiveUpdates', () => {
       http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(makeStatus({ agent: { id: 'claude', connected } }))),
     );
     await renderApp();
-    const nav = screen.getByRole('navigation', { name: 'Main' });
-    await within(nav).findByText('Claude not connected · runs locally');
+    // Home's agent picker says whether Claude is connected.
+    expect(await screen.findByRole('button', { name: 'Agent: Claude, signed out' })).toBeVisible();
 
     connected = true;
     FakeEventSource.latest().emit({ type: 'status.changed' });
 
-    expect(await within(nav).findByText('Claude connected · runs locally')).toBeVisible();
+    expect(await screen.findByRole('button', { name: /^Agent: Claude.*, connected$/ })).toBeVisible();
   });
 
   it("AC-5: refreshes the Claude card when another tab's Check again found a login", async () => {
@@ -156,7 +156,7 @@ describe('LiveUpdates', () => {
 
   it('closes the stream when the app goes away', async () => {
     const { unmount } = await renderApp();
-    await screen.findByText('Claude not connected · runs locally');
+    await screen.findByRole('button', { name: 'Profile: You' });
 
     unmount();
 

@@ -40,7 +40,7 @@ describe('AppShell', () => {
 
   it('has no accessibility violations on Home', async () => {
     const { container } = await renderApp();
-    await screen.findByText('Claude not connected · runs locally');
+    await screen.findByRole('button', { name: 'Profile: You' });
     await expectNoAxeViolations(container);
   });
 });
