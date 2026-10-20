@@ -16,7 +16,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: The board's answer holds Orynx tickets (AC-1, AC-4, AC-21, AC-34) - `GET /api/tickets` appends them as Ticket rows: the column's status words, you as the assignee by your git name, the session joined, and Done after 14 days left out. - They are there with Jira not connected or syncing. - The answer says whether a file was kept aside.
       Check: pnpm test packages/core/src/tickets/tickets-service.test.ts packages/core/src/routes/tickets.test.ts
       Files: packages/core/src/tickets/tickets-service.ts, packages/core/src/tickets/tickets-service.test.ts, packages/core/src/routes/tickets.test.ts, packages/core/src/create-server.ts
-- [ ] Task 5: ⌘K's index holds every Orynx ticket, old Done ones included (AC-21, AC-26) - Each one's target is its session, or else its ticket dialog.
+- [x] Task 5: ⌘K's index holds every Orynx ticket, old Done ones included (AC-21, AC-26) - Each one's target is its session, or else its ticket dialog.
       Check: pnpm test packages/core/src/search/search-service.test.ts
       Files: packages/core/src/search/search-service.ts, packages/core/src/search/search-service.test.ts, packages/contracts/src/search.ts
 - [ ] Task 6: Sessions on an Orynx ticket (AC-19, AC-24, AC-27) - The context reader reads `ORX-` keys from the store. - The brief says "Orynx ticket ORX-2 (Task): …" with its priority, status and due date. - `describeTicket` uses the store, and `jiraUrl` is null. - The folder ignores Jira projects for `ORX-` keys. - The Ticket tab says `deleted` when the ticket has gone.

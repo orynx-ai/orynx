@@ -509,7 +509,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(syncActivityRoutes, { syncActivity });
       await api.register(ticketsRoutes, { tickets, inbox, jira });
       await api.register(orynxTicketsRoutes, { tickets: orynxTickets });
-      await api.register(searchRoutes, { search: createSearchService({ inbox, tickets, sessions }) });
+      await api.register(searchRoutes, {
+        search: createSearchService({ inbox, tickets, orynx: orynxTickets, sessions }),
+      });
       await api.register(repositoriesRoutes, { repositories });
       await api.register(skillsRoutes, { skills });
       await api.register(folderPickerRoutes, {
