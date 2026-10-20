@@ -1,3 +1,5 @@
+import { homeTerminalId } from '@devhub/contracts';
+
 /** Every word the session's Terminal shows (spec 036, Q8; spec 038), in one place. */
 export const terminalWords = {
   button: 'Terminal',
@@ -27,11 +29,14 @@ export const terminalWords = {
   tabsFull: '5 terminals is the most for a session.',
   close: 'Close',
   unreachable: "Couldn't reach Orynx.",
+  // Home's Terminal, in Orynx's home folder (the user's ask, 20 Oct 2026).
+  home: { about: 'Orynx home', newTab: 'New terminal', tabsFull: '5 terminals is the most.' },
 } as const;
 
-/** A shell tab's name: the first is the worktree's own, "zsh · worktree"; the next "zsh 2", "zsh 3"… */
-export function shellTabName(shell: string, number: number): string {
-  return number === 1 ? `${shell} · worktree` : `${shell} ${String(number)}`;
+/** A shell tab's name: the first is the worktree's own, "zsh · worktree" (Home's: "zsh · Orynx"); the next "zsh 2"… */
+export function shellTabName(shell: string, number: number, terminalId = ''): string {
+  if (number !== 1) return `${shell} ${String(number)}`;
+  return `${shell} · ${terminalId === homeTerminalId ? 'Orynx' : 'worktree'}`;
 }
 
 /** How long a command ran: "0.1s" and "3.1s", then "2m 4s". */
