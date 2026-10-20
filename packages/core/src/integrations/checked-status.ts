@@ -30,6 +30,11 @@ export interface CheckedStatus<Saved, Answer = IntegrationStatus> {
   get(saved: Saved): Promise<Answer>;
   /** Check again: asks the tool now, or shares the check that's already running. */
   checkNow(saved: Saved): Promise<Answer>;
+  /**
+   * When the last answer for these saved settings arrived, in the clock's milliseconds (spec 030). Kept out
+   * of the answer, so a re-check that finds the same stays quiet.
+   */
+  checkedAt(saved: Saved): number | undefined;
   /** Connect has just checked: its answer stands, even over a check that started before it. */
   settle(saved: Saved, status: Answer): void;
   /** Disconnect: nothing is known any more, and a check that started before it can't bring it back. */
@@ -84,6 +89,10 @@ export function createCheckedStatus<Saved, Answer = IntegrationStatus>(
 
     checkNow(saved) {
       return startCheck(saved, keyOf(saved));
+    },
+
+    checkedAt(saved) {
+      return last?.key === keyOf(saved) ? last.at : undefined;
     },
 
     settle(saved, status) {

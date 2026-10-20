@@ -102,10 +102,6 @@ async function api(page: Page, method: string, path: string, body?: unknown) {
   );
 }
 
-function connectionRow(page: Page, tool: string) {
-  return page.getByRole('list', { name: 'Connections' }).getByRole('listitem').filter({ hasText: tool });
-}
-
 const box = (page: Page) => page.getByRole('textbox', { name: 'Describe a task for Claude' });
 const chips = (page: Page) => page.getByRole('list', { name: 'Context for Claude' }).getByRole('listitem');
 
@@ -141,20 +137,20 @@ test.beforeAll(async ({ browser }, testInfo) => {
   expect(answer.status()).toBe(204);
 
   // The site, email and tokens the fakes accept (packages/core/src/test).
-  await connectionRow(page, 'Jira').getByRole('button', { name: 'Connect' }).click();
+  await page.getByRole('button', { name: 'Jira: Not connected. Manage connection' }).click();
   const jira = page.getByRole('form', { name: 'Jira connection' });
   await jira.getByRole('textbox', { name: 'Jira site' }).fill('your-team.atlassian.net');
   await jira.getByRole('textbox', { name: 'Email' }).fill('dev@example.com');
   await jira.getByLabel('API token', { exact: true }).fill('fake-good-token');
-  await jira.getByRole('button', { name: 'Connect Jira' }).click();
-  await expect(connectionRow(page, 'Jira').getByText('Connected', { exact: true })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Jira' }).getByRole('button', { name: 'Connect', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Jira: Connected. Manage connection' })).toBeVisible();
 
-  await connectionRow(page, 'GitHub').getByRole('button', { name: 'Connect' }).click();
+  await page.getByRole('button', { name: 'GitHub: Not connected. Manage connection' }).click();
   const github = page.getByRole('form', { name: 'GitHub connection' });
   await github.getByText('Use a personal access token').click();
   await github.getByLabel('Personal access token', { exact: true }).fill('fake-github-token-for-tests');
-  await github.getByRole('button', { name: 'Connect GitHub' }).click();
-  await expect(connectionRow(page, 'GitHub').getByText('Connected', { exact: true })).toBeVisible();
+  await page.getByRole('dialog', { name: 'GitHub' }).getByRole('button', { name: 'Connect', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'GitHub: Connected. Manage connection' })).toBeVisible();
 
   await answerClaudeAs('signed_in', claudeDir);
   // A brief left by an earlier run would pass the first test's poll before its session starts.

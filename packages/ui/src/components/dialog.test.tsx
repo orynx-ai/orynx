@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { Button } from './button.tsx';
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from './dialog.tsx';
+import { Dialog, DialogContent, DialogFoot, DialogTitle, DialogTrigger } from './dialog.tsx';
 
 function Search() {
   return (
@@ -104,6 +104,43 @@ describe('Dialog', () => {
     expect(dialog).not.toHaveClass('max-w-180');
     expect(dialog.parentElement).toHaveClass('p-4');
     expect(dialog.parentElement).not.toHaveClass('md:py-20');
+    await expectNoAxeViolations(document.body);
+  });
+
+  it('AC-25: size narrow is 520 px wide, and fills the width with the 16 px gutter under 768 px', async () => {
+    render(
+      <Dialog defaultOpen>
+        <DialogContent size="narrow">
+          <DialogTitle>Jira</DialogTitle>
+        </DialogContent>
+      </Dialog>,
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Jira' });
+    // jsdom draws nothing, so the classes stand in for the sizes; the browser check measures them.
+    expect(dialog).toHaveClass('max-w-130', 'max-md:max-w-none');
+    expect(dialog).not.toHaveClass('max-w-180');
+    expect(dialog.parentElement).toHaveClass('p-4', 'md:py-20');
+  });
+
+  it('spec 030: a foot holds the actions at its end, and one action may sit alone at its start', async () => {
+    render(
+      <Dialog defaultOpen>
+        <DialogContent size="narrow">
+          <DialogTitle>Jira</DialogTitle>
+          <DialogFoot start={<Button variant="danger-ghost">Disconnect</Button>}>
+            <Button>Cancel</Button>
+            <Button variant="primary">Done</Button>
+          </DialogFoot>
+        </DialogContent>
+      </Dialog>,
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Jira' });
+
+    expect(
+      within(dialog)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Disconnect', 'Cancel', 'Done']);
     await expectNoAxeViolations(document.body);
   });
 

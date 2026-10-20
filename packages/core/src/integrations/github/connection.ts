@@ -1,4 +1,5 @@
 import type {
+  ConnectionCheck,
   GitHubConnection,
   GitHubCredentials,
   GitHubMethod,
@@ -36,6 +37,11 @@ export interface GitHubConnectionService {
    * GitHub at most once every 2 minutes.
    */
   status(): Promise<IntegrationStatus>;
+  /**
+   * Test connection and Reconnect (spec 030): asks gh and GitHub now, even within the 2 minutes, and says how
+   * long it took. Refused with bad_request when GitHub isn't connected.
+   */
+  checkNow(): Promise<ConnectionCheck>;
   /** A token for the inbox's sync, or null when GitHub isn't connected. Runs gh or reads the keychain; doesn't ask GitHub. */
   credentials(): Promise<GitHubSyncCredentials | null>;
 }
@@ -72,7 +78,7 @@ function connectedVia(source: Found['source'], login: string): IntegrationStatus
     keychain: `Personal access token for ${login}`,
     env: `Token from .env for ${login}`,
   }[source];
-  return { state: 'connected', detail };
+  return { state: 'connected', detail, account: login };
 }
 
 /** Something to wait for, or something to fix; every kind is listed, so a new one must choose. */
@@ -184,6 +190,14 @@ export function createGitHubConnection(options: GitHubConnectionOptions): GitHub
     ...(options.onError === undefined ? {} : { onError: options.onError }),
   });
 
+  const now = options.now ?? Date.now;
+
+  /** GitHub's line with when GitHub was last asked (spec 030). */
+  function described(saved: GitHubSavedConnection, status: IntegrationStatus): IntegrationStatus {
+    const at = checked.checkedAt(saved);
+    return at === undefined ? status : { ...status, checkedAt: new Date(at).toISOString() };
+  }
+
   return {
     read,
 
@@ -220,12 +234,20 @@ export function createGitHubConnection(options: GitHubConnectionOptions): GitHub
       try {
         const saved = (await settings.read()).github;
         if (saved === undefined) return notConnected;
-        return await checked.get(saved);
+        return described(saved, await checked.get(saved));
       } catch (error) {
         // One integration never breaks GET /api/status (integration-adapter skill).
         options.onError?.(error);
         return { state: 'error', detail: null };
       }
+    },
+
+    async checkNow() {
+      const saved = (await settings.read()).github;
+      if (saved === undefined) throw new ConnectionError('bad_request', 'Connect GitHub in Connections first.');
+      const started = now();
+      const status = await checked.checkNow(saved);
+      return { status: described(saved, status), ms: Math.max(0, Math.round(now() - started)) };
     },
 
     async credentials() {

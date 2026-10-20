@@ -116,6 +116,11 @@
   --color-brand-slack-yellow: var(--brand-slack-yellow);
 }
 
+/* DetailList (`dh-kv`): a term column as wide as the widest term, the rest for the details. */
+@utility grid-cols-terms {
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+
 /* The one shadow: menus, popovers and the composer. */
 @utility shadow-overlay {
   box-shadow: var(--shadow-overlay);

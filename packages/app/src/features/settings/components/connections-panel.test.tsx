@@ -1,8 +1,9 @@
 import { screen, within } from '@testing-library/react';
-import { delay, http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
-import { makeGitHubConnection, makeStatus } from '@devhub/contracts/testing';
+import { makeStatus } from '@devhub/contracts/testing';
+import { answerWith, mixedStatus } from '../../../test/connections.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -11,48 +12,60 @@ async function rows() {
   return within(list).getAllByRole('listitem');
 }
 
-/** The connection row for one tool, found by the name a person reads. */
-async function row(name: 'Jira' | 'GitHub' | 'Slack') {
-  const item = (await rows()).find((li) => within(li).queryByText(name, { selector: 'span' }) !== null);
-  if (!item) throw new Error(`No connection row for ${name}`);
-  return item;
-}
-
-describe('ConnectionsPanel', () => {
-  it('lists Jira, GitHub and Slack as not connected, with how to connect each', async () => {
+describe('ConnectionsPanel (spec 030)', () => {
+  it('AC-1: lists Jira, GitHub and Slack with their lines, and a status button for each saying its state', async () => {
+    answerWith(mixedStatus);
     await renderApp({ route: '/settings/connections' });
 
-    expect(await within(await row('Jira')).findByText('Not connected')).toBeVisible();
-    expect(await rows()).toHaveLength(3);
-    expect(await row('GitHub')).toHaveTextContent('Reuses your gh command-line login, or a personal access token.');
-    expect(await row('Slack')).toHaveTextContent('Reading your mentions needs a Slack app your admin approves.');
+    expect(await screen.findByRole('heading', { name: 'Your tools' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Jira: Connected. Manage connection' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'GitHub: Needs reconnecting. Manage connection' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Slack: Not connected. Manage connection' })).toBeInTheDocument();
+    const [jira, github, slack] = await rows();
+    expect(jira).toHaveTextContent('JiraPersonal API token for your-team.atlassian.net');
+    expect(github).toHaveTextContent("GitHubgh isn't signed in to github.com.");
+    expect(slack).toHaveTextContent('SlackReading your mentions needs a Slack app your admin approves.');
   });
 
-  it('shows each state in words and the detail the server sends', async () => {
-    const base = makeStatus().integrations;
-    server.use(
-      http.get(apiUrl(apiRoutes.status), () =>
-        HttpResponse.json(
-          makeStatus({
-            integrations: {
-              jira: { state: 'connected', detail: 'Personal API token for your-team.atlassian.net' },
-              github: { state: 'error', detail: 'The token was revoked. Connect again.' },
-              slack: { ...base.slack, state: 'needs_admin_approval' },
-            },
-          }),
-        ),
-      ),
+  it('AC-2: the page bar says how many tools work, and how many need attention', async () => {
+    answerWith(mixedStatus);
+    await renderApp({ route: '/settings/connections' });
+
+    expect(await screen.findByText('1 of 3 connected · 1 needs attention')).toBeVisible();
+    expect(screen.queryByText('Changes save automatically')).not.toBeInTheDocument();
+  });
+
+  it('AC-2: says only how many are connected when nothing needs attention', async () => {
+    const status = mixedStatus();
+    answerWith(() =>
+      makeStatus({ integrations: { ...status.integrations, github: { state: 'not_connected', detail: null } } }),
     );
     await renderApp({ route: '/settings/connections' });
 
-    const jira = await row('Jira');
-    expect(await within(jira).findByText('Connected')).toBeVisible();
-    expect(jira).toHaveTextContent('Personal API token for your-team.atlassian.net');
-    expect(within(await row('GitHub')).getByText('Error')).toBeVisible();
-    expect(within(await row('Slack')).getByText('Needs admin approval')).toBeVisible();
+    expect(await screen.findByText('1 of 3 connected')).toBeVisible();
   });
 
-  it('keeps every row in place while the status loads', async () => {
+  it('AC-3: spells out the three looks in a key under the list', async () => {
+    await renderApp({ route: '/settings/connections' });
+
+    const key = await screen.findByRole('list', { name: 'Status key' });
+    expect(
+      within(key)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Connected', 'Needs reconnecting', 'Not connected']);
+  });
+
+  it('AC-4: a status button shows what pressing does in its tooltip', async () => {
+    answerWith(mixedStatus);
+    const { user } = await renderApp({ route: '/settings/connections' });
+
+    await user.hover(await screen.findByRole('button', { name: 'GitHub: Needs reconnecting. Manage connection' }));
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Needs reconnecting · select to fix');
+  });
+
+  it('AC-5: while the status loads, every row keeps its place with a round placeholder for its button', async () => {
     let answer: () => void = () => undefined;
     const answered = new Promise<void>((resolve) => {
       answer = resolve;
@@ -66,55 +79,18 @@ describe('ConnectionsPanel', () => {
     await renderApp({ route: '/settings/connections' });
 
     expect(await rows()).toHaveLength(3);
-    expect(within(await row('Jira')).getByText('Checking')).toHaveAttribute('aria-busy', 'true');
-
+    expect(screen.getByRole('list', { name: 'Connections' })).toHaveAttribute('aria-busy', 'true');
+    expect(screen.queryByRole('button', { name: /Manage connection$/ })).not.toBeInTheDocument();
     answer();
 
-    expect(await within(await row('Jira')).findByText('Not connected')).toBeVisible();
-    expect(await rows()).toHaveLength(3);
+    expect(await screen.findAllByRole('button', { name: /: Not connected\. Manage connection$/ })).toHaveLength(3);
+    expect(screen.getByRole('list', { name: 'Connections' })).not.toHaveAttribute('aria-busy');
   });
 
-  it('says what to do when the server cannot be reached', async () => {
+  it('AC-6: says what to do when the server cannot be reached', async () => {
     server.use(http.get(apiUrl(apiRoutes.status), () => HttpResponse.error()));
     await renderApp({ route: '/settings/connections' });
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Could not reach the Orynx server');
-  });
-
-  it('opens one connection form at a time, so the page never has two primary buttons', async () => {
-    const { user } = await renderApp({ route: '/settings/connections' });
-
-    await user.click(await within(await row('Jira')).findByRole('button', { name: 'Connect' }));
-    expect(screen.getByRole('form', { name: 'Jira connection' })).toBeVisible();
-    await user.click(within(await row('GitHub')).getByRole('button', { name: 'Connect' }));
-
-    expect(screen.queryByRole('form', { name: 'Jira connection' })).not.toBeInTheDocument();
-    expect(screen.getByRole('form', { name: 'GitHub connection' })).toBeVisible();
-    expect(within(await row('Jira')).getByRole('button', { name: 'Connect' })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    );
-    expect(screen.getAllByRole('button', { name: /^Connect (Jira|GitHub)$/ })).toHaveLength(1);
-  });
-
-  it("while one tool's change is on its way, the other rows' buttons wait", async () => {
-    server.use(
-      http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(makeGitHubConnection({ ghFound: true }))),
-      http.put(apiUrl(apiRoutes.githubConnection), async () => {
-        await delay('infinite');
-        return HttpResponse.json(makeGitHubConnection({ saved: { method: 'gh' } }));
-      }),
-    );
-    const { user } = await renderApp({ route: '/settings/connections' });
-    await user.click(await within(await row('GitHub')).findByRole('button', { name: 'Connect' }));
-    await user.click(screen.getByRole('button', { name: 'Connect GitHub' }));
-
-    const jira = within(await row('Jira')).getByRole('button', { name: 'Connect' });
-    await expect.poll(() => jira.getAttribute('aria-disabled')).toBe('true');
-    await user.click(jira);
-
-    expect(screen.queryByRole('form', { name: 'Jira connection' })).not.toBeInTheDocument();
-    expect(screen.getByRole('form', { name: 'GitHub connection' })).toBeVisible();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reach the Orynx server');
   });
 });

@@ -1,4 +1,5 @@
 import type {
+  ConnectionCheck,
   InboxProblem,
   IntegrationStatus,
   JiraConnection,
@@ -52,6 +53,11 @@ export interface JiraConnectionService {
    * asks Jira at most once every 2 minutes.
    */
   status(): Promise<IntegrationStatus>;
+  /**
+   * Test connection and Reconnect (spec 030): asks Jira now, even within the 2 minutes, and says how long it
+   * took. Refused with bad_request when Jira isn't connected.
+   */
+  checkNow(): Promise<ConnectionCheck>;
   /** The saved credentials for the inbox's sync, or null when Jira isn't connected. Doesn't ask Jira. */
   credentials(): Promise<JiraSyncCredentials | null>;
 }
@@ -140,6 +146,14 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
     ...(options.onError === undefined ? {} : { onError: options.onError }),
   });
 
+  const now = options.now ?? Date.now;
+
+  /** Jira's line with the account and when Jira was last asked (spec 030). */
+  function described(saved: JiraSavedConnection, status: IntegrationStatus): IntegrationStatus {
+    const at = checked.checkedAt(saved);
+    return { ...status, account: saved.email, ...(at === undefined ? {} : { checkedAt: new Date(at).toISOString() }) };
+  }
+
   return {
     read,
 
@@ -204,12 +218,20 @@ export function createJiraConnection(options: JiraConnectionOptions): JiraConnec
       try {
         const saved = (await settings.read()).jira;
         if (saved === undefined) return notConnected;
-        return await checked.get(saved);
+        return described(saved, await checked.get(saved));
       } catch (error) {
         // One integration never breaks GET /api/status (integration-adapter skill).
         options.onError?.(error);
         return { state: 'error', detail: null };
       }
+    },
+
+    async checkNow() {
+      const saved = (await settings.read()).jira;
+      if (saved === undefined) throw new JiraConnectionError('bad_request', 'Connect Jira in Connections first.');
+      const started = now();
+      const status = await checked.checkNow(saved);
+      return { status: described(saved, status), ms: Math.max(0, Math.round(now() - started)) };
     },
 
     async credentials() {

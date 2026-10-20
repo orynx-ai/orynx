@@ -69,6 +69,11 @@ export const Closable: Story = {
   args: { ...Info.args, closeLabel: 'Hide this note', onClose: () => undefined },
 };
 
+/** A change that went well, said under Settings › Connections' list (spec 030). */
+export const Success: Story = {
+  args: { tone: 'success', title: 'GitHub reconnected. Your inbox is refreshing.' },
+};
+
 /** A session that couldn't start, or stopped with an error (spec 011, Q9f). */
 export const Danger: Story = {
   args: {

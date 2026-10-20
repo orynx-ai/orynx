@@ -7,6 +7,7 @@ import {
   preferencesQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
+  sessionsQueryOptions,
   orynxSkillsQueryOptions,
   statusQueryOptions,
   type ApiRequestError,
@@ -14,6 +15,7 @@ import {
 import { InboxRuleIdSchema } from '@devhub/contracts';
 import type {
   ClaudeLogin,
+  ConnectionCheck,
   GitHubConnection,
   GitHubConnectionRequest,
   JiraConnection,
@@ -27,6 +29,7 @@ import type {
   SkillFolder,
   Repository,
   RepositoryId,
+  Status,
   RepositoryList,
   UpdateRepositoryRequest,
 } from '@devhub/contracts';
@@ -132,6 +135,36 @@ export function useDisconnectGitHub() {
       queryClient.setQueryData<GitHubConnection>(queryKeys.githubConnection, (old) => old && { ...old, saved: null });
       await queryClient.invalidateQueries({ queryKey: queryKeys.status });
     },
+  });
+}
+
+/**
+ * Test connection and Reconnect (spec 030): asks Jira or GitHub now. The answer is the tool's new line, so
+ * the row and the dialog show it at once; other tabs hear `status.changed` when it changed.
+ */
+export function useCheckConnection(tool: 'jira' | 'github') {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<ConnectionCheck, ApiRequestError>({
+    mutationFn: () => (tool === 'jira' ? api.checkJiraConnection() : api.checkGitHubConnection()),
+    onSuccess: (check) => {
+      queryClient.setQueryData<Status>(
+        queryKeys.status,
+        (old) => old && { ...old, integrations: { ...old.integrations, [tool]: check.status } },
+      );
+    },
+  });
+}
+
+/** How many sessions still running started from a Jira ticket, for Disconnect Jira's confirm step (spec 030). */
+export function useRunningTicketSessions() {
+  const api = useApi();
+  return useQuery({
+    ...sessionsQueryOptions(api),
+    select: (list) =>
+      list.sessions.filter(
+        (session) => (session.state === 'working' || session.state === 'needs_you') && session.source?.kind === 'jira',
+      ).length,
   });
 }
 

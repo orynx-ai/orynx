@@ -11,8 +11,19 @@ export const IntegrationStatusSchema = z.object({
   state: ConnectionStateSchema,
   /** One line for the connection row, for example "Personal API token for your-team.atlassian.net". */
   detail: z.string().nullable(),
+  /** Who Orynx is signed in as: the Jira email, the GitHub login (spec 030). Left out while unknown. */
+  account: z.string().optional(),
+  /** When Orynx last asked the tool (spec 030). Left out until it has. */
+  checkedAt: z.iso.datetime().optional(),
 });
 export type IntegrationStatus = z.infer<typeof IntegrationStatusSchema>;
+
+/** POST /api/<tool>/connection/check: the tool asked now, and how long it took to answer (spec 030). */
+export const ConnectionCheckSchema = z.object({
+  status: IntegrationStatusSchema,
+  ms: z.int().nonnegative(),
+});
+export type ConnectionCheck = z.infer<typeof ConnectionCheckSchema>;
 
 export const AgentStatusSchema = z.object({
   id: z.literal('claude'),

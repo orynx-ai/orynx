@@ -23,7 +23,7 @@ describe('PageBar and PageBreadcrumb', () => {
   });
 
   it('puts page actions in the page bar', async () => {
-    await renderApp({ route: '/settings/connections' });
+    await renderApp({ route: '/settings/appearance' });
     const banner = await screen.findByRole('banner');
     expect(within(banner).getByText('Changes save automatically')).toBeVisible();
   });

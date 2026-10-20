@@ -71,12 +71,59 @@ async function setup({
   };
 }
 
+describe.skipIf(process.platform === 'win32')('Test connection and Reconnect (spec 030)', () => {
+  const ghSignedOut = "gh isn't signed in to github.com. Run gh auth login in a terminal, then try again.";
+
+  it('AC-7: names the GitHub login as the account and when GitHub was last asked', async () => {
+    const { connection } = await setup();
+
+    expect(await connection.status()).toEqual({
+      ...viaGh,
+      account: 'octocat',
+      checkedAt: new Date(1_000_000).toISOString(),
+    });
+  });
+
+  it('AC-17: once gh is signed in again, asks gh and GitHub now, says connected and tells open pages', async () => {
+    const { connection, folder, later, seen } = await setup({ gh: { kind: 'signed_out' } });
+    expect(await connection.status()).toMatchObject({ state: 'error', detail: ghSignedOut });
+    await folder.install({ kind: 'signed_in' });
+    later(1_000);
+    github.events.on('request:start', () => {
+      later(240);
+    });
+
+    expect(await connection.checkNow()).toEqual({
+      status: { ...viaGh, account: 'octocat', checkedAt: new Date(1_001_240).toISOString() },
+      ms: 240,
+    });
+    expect(seen).toContainEqual({ type: 'status.changed' });
+  });
+
+  it('AC-18: with gh still signed out, says so again and names no account', async () => {
+    const { connection } = await setup({ gh: { kind: 'signed_out' } });
+    await connection.status();
+
+    const { status } = await connection.checkNow();
+
+    expect(status).toMatchObject({ state: 'error', detail: ghSignedOut });
+    expect(status.account).toBeUndefined();
+  });
+
+  it('is refused when nothing is saved, and runs no gh', async () => {
+    const { connection, folder } = await setup({ settings: {} });
+
+    await expect(connection.checkNow()).rejects.toMatchObject({ code: 'bad_request' });
+    expect(await folder.runs()).toEqual([]);
+  });
+});
+
 describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
   it('AC-1: says not connected, and runs no gh and reads no keychain, until a way is saved', async () => {
     const calls = githubCalls();
     const { connection, folder } = await setup({ keychain: createUnreachableKeychain(), settings: {} });
 
-    expect(await connection.status()).toEqual({ state: 'not_connected', detail: null });
+    expect(await connection.status()).toMatchObject({ state: 'not_connected', detail: null });
     expect(await folder.runs()).toEqual([]);
     expect(calls()).toBe(0);
   });
@@ -84,7 +131,7 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
   it('AC-11: after a restart, asks gh again, checks with GitHub, and names the account', async () => {
     const { connection, folder } = await setup({ keychain: createUnreachableKeychain() });
 
-    expect(await connection.status()).toEqual(viaGh);
+    expect(await connection.status()).toMatchObject(viaGh);
     expect(await folder.runs()).toHaveLength(1);
   });
 
@@ -94,7 +141,7 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
       settings: { github: { method: 'token' } },
     });
 
-    expect(await connection.status()).toEqual(viaToken);
+    expect(await connection.status()).toMatchObject(viaToken);
     expect(await folder.runs()).toEqual([]);
   });
 
@@ -104,14 +151,14 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
       settings: { github: { method: 'token' } },
     });
 
-    expect(await connection.status()).toEqual({ state: 'connected', detail: 'Token from .env for octocat' });
+    expect(await connection.status()).toMatchObject({ state: 'connected', detail: 'Token from .env for octocat' });
   });
 
   it('AC-11: says so when gh has signed out since', async () => {
     const calls = githubCalls();
     const { connection } = await setup({ gh: { kind: 'signed_out' } });
 
-    expect(await connection.status()).toEqual({
+    expect(await connection.status()).toMatchObject({
       state: 'error',
       detail: "gh isn't signed in to github.com. Run gh auth login in a terminal, then try again.",
     });
@@ -124,7 +171,7 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
       settings: { github: { method: 'token' } },
     });
 
-    expect(await connection.status()).toEqual({
+    expect(await connection.status()).toMatchObject({
       state: 'error',
       detail: "GitHub didn't accept this token. Check it, or create a new one.",
     });
@@ -134,7 +181,7 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
     github.use(acceptingUser({ scopes: 'gist' }));
     const { connection } = await setup();
 
-    expect(await connection.status()).toEqual({
+    expect(await connection.status()).toMatchObject({
       state: 'error',
       detail: "Your gh login can't read private repositories. Run gh auth refresh --scopes repo, then try again.",
     });
@@ -144,7 +191,7 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
     const calls = githubCalls();
     const { connection } = await setup({ settings: { github: { method: 'token' } } });
 
-    expect(await connection.status()).toEqual({
+    expect(await connection.status()).toMatchObject({
       state: 'error',
       detail: 'The saved token is missing from your keychain. Connect again.',
     });
@@ -157,7 +204,7 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
       settings: { github: { method: 'token' } },
     });
 
-    expect(await connection.status()).toEqual({ state: 'error', detail: keychainUnavailableMessage });
+    expect(await connection.status()).toMatchObject({ state: 'error', detail: keychainUnavailableMessage });
   });
 
   it('asks gh and GitHub at most once every 2 minutes', async () => {
@@ -166,7 +213,7 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
 
     await connection.status();
     later(twoMinutes - 1);
-    expect(await connection.status()).toEqual(viaGh);
+    expect(await connection.status()).toMatchObject(viaGh);
 
     expect(calls()).toBe(1);
     expect(await folder.runs()).toHaveLength(1);
@@ -178,12 +225,12 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
     github.use(acceptingUser({ login: 'hubot' }));
 
     later(twoMinutes);
-    expect(await connection.status()).toEqual(viaGh);
+    expect(await connection.status()).toMatchObject(viaGh);
 
     await vi.waitFor(() => {
       expect(seen).toContainEqual({ type: 'status.changed' });
     });
-    expect(await connection.status()).toEqual({
+    expect(await connection.status()).toMatchObject({
       state: 'connected',
       detail: 'Signed in as hubot with the gh command-line tool',
     });
@@ -195,7 +242,7 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
 
     await connection.connect({ method: 'gh' });
 
-    expect(await connection.status()).toEqual(viaGh);
+    expect(await connection.status()).toMatchObject(viaGh);
     expect(calls()).toBe(1);
     expect(await folder.runs()).toHaveLength(1);
   });
@@ -203,11 +250,14 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
   it('AC-5, AC-14: right after Connect, names where the token came from', async () => {
     const typed = await setup({ settings: {} });
     await typed.connection.connect({ method: 'token', token: githubToken });
-    expect(await typed.connection.status()).toEqual(viaToken);
+    expect(await typed.connection.status()).toMatchObject(viaToken);
 
     const fromEnv = await setup({ envTokens: { github: githubToken }, settings: {} });
     await fromEnv.connection.connect({ method: 'token' });
-    expect(await fromEnv.connection.status()).toEqual({ state: 'connected', detail: 'Token from .env for octocat' });
+    expect(await fromEnv.connection.status()).toMatchObject({
+      state: 'connected',
+      detail: 'Token from .env for octocat',
+    });
   });
 
   it('AC-13: is not connected right after Disconnect', async () => {
@@ -216,7 +266,7 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
 
     await connection.disconnect();
 
-    expect(await connection.status()).toEqual({ state: 'not_connected', detail: null });
+    expect(await connection.status()).toMatchObject({ state: 'not_connected', detail: null });
   });
 
   it("never breaks GET /api/status: a settings file that can't be read makes GitHub's line an error", async () => {
@@ -225,7 +275,7 @@ describe.skipIf(process.platform === 'win32')("GitHub's status line", () => {
       settingsStore: { read: () => Promise.reject(failure), update: () => Promise.reject(failure) },
     });
 
-    expect(await connection.status()).toEqual({ state: 'error', detail: null });
+    expect(await connection.status()).toMatchObject({ state: 'error', detail: null });
     expect(onError).toHaveBeenCalledWith(failure);
   });
 });
