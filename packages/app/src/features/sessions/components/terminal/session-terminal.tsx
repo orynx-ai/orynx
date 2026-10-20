@@ -22,6 +22,7 @@ import { usePlatform } from '../../../../platform.tsx';
 import { terminalShortcut } from '../../../../shell/shortcuts.ts';
 import { useWide } from '../../../../shell/use-wide.ts';
 import { useTerminalTabs } from '../../store.ts';
+import { ClaudeTab } from './claude-tab.tsx';
 import { shellTabName, terminalWords } from './terminal-words.ts';
 
 /**
@@ -164,7 +165,12 @@ function TerminalDialog({
           <TabsList aria-label={terminalWords.tabs} className="min-w-0 flex-1 gap-5 border-b-0">
             <TabsTrigger value="claude">
               {terminalWords.claude}
-              {waiting ? <Pill tone="warning">{terminalWords.needsYou}</Pill> : null}
+              {waiting ? (
+                <>
+                  {' '}
+                  <Pill tone="warning">{terminalWords.needsYou}</Pill>
+                </>
+              ) : null}
             </TabsTrigger>
             {terminal.data === undefined
               ? null
@@ -175,7 +181,9 @@ function TerminalDialog({
                 ))}
           </TabsList>
         </div>
-        <TabsContent value="claude" className="min-h-0 flex-1" />
+        <TabsContent value="claude" className="min-h-0 flex-1">
+          <ClaudeTab session={session} />
+        </TabsContent>
         {shellTabs.map((shellTab) => (
           <TabsContent key={shellTab.id} value={shellTab.id} className="min-h-0 flex-1" />
         ))}

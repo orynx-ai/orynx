@@ -35,7 +35,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: Terminal button, `` ⌃` ``, and the full-screen dialog with header, tabs and Back to session (AC-1, AC-2, AC-3)
       Check: pnpm test packages/app/src/features/sessions/components/terminal
       Files: packages/app/src/features/sessions/components/terminal/session-terminal.tsx, session-terminal.test.tsx, session-header.tsx, packages/app/src/features/sessions/store.ts
-- [ ] Task 12: The Claude tab: commands with output, waiting approvals with the callout's choices, denied, refused, legacy, empty and loading (AC-19–AC-24, AC-27)
+- [x] Task 12: The Claude tab: commands with output, waiting approvals with the callout's choices, denied, refused, legacy, empty and loading (AC-19–AC-24, AC-27)
       Check: pnpm test packages/app/src/features/sessions/components/terminal/claude-tab.test.tsx
       Files: packages/app/src/features/sessions/components/terminal/claude-tab.tsx, claude-tab.test.tsx, terminal-words.ts
 - [ ] Task 13: Your shell tabs: run, history, Stop and ⌃C, Rerun, Copy, Clear, + and close, the 5-tab limit and errors (AC-4–AC-16, AC-25, AC-26)

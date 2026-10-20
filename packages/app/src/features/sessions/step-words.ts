@@ -33,8 +33,10 @@ function firstLines(text: string): string {
   return lines.length <= 3 ? text : [...lines.slice(0, 3), '…'].join('\n');
 }
 
-/** Why Orynx refused a call (spec 011 Q6; spec 012 Q7, Q8c). */
-function refusedTitle(activity: Extract<SessionActivity, { kind: 'refused' }>): string {
+/** Why Orynx refused a call (spec 011 Q6; spec 012 Q7, Q8c); the Terminal's Claude tab says it too (spec 036). */
+export function refusedTitle(
+  activity: Pick<Extract<SessionActivity, { kind: 'refused' }>, 'access' | 'reason'>,
+): string {
   switch (activity.reason) {
     case 'ask_everything':
       return "Couldn't edit files: Ask before everything is on";

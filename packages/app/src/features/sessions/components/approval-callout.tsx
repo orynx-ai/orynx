@@ -33,6 +33,19 @@ function What({ approval }: { approval: SessionApproval }) {
 }
 
 /**
+ * What a failed answer means (AC-13, Q8e): null when another tab or Stop answered first, which has nothing to say;
+ * otherwise the error the call shows while it keeps waiting. The Terminal's Claude tab answers the same way.
+ */
+export function answerFailure(failure: Error, approval: SessionApproval): AnswerError | null {
+  const code = failure instanceof ApiRequestError ? failure.code : null;
+  if (code === 'already_answered') return null;
+  if (code === 'settings_unsaved' && approval.kind === 'command' && approval.alwaysAllow !== null) {
+    return { kind: 'not_saved', entry: approval.alwaysAllow };
+  }
+  return { kind: 'not_sent' };
+}
+
+/**
  * The amber callout at the top of Claude's progress (`session.html`, spec 012): the oldest call waiting for
  * you, what it is, and Allow once, Always allow (only where the server offers it) and Deny. It announces
  * itself (`role="alert"`) but never takes focus, so no key pressed for something else answers it (AC-18).
@@ -104,12 +117,10 @@ export function ApprovalCallout({
           done(call.id);
         },
         onError: (failure) => {
-          const code = failure instanceof ApiRequestError ? failure.code : null;
+          const error = answerFailure(failure, call);
           // Another tab, or Stop, answered first: the first answer counts, and this one has nothing to say (AC-13).
-          if (code === 'already_answered') done(call.id);
-          else if (code === 'settings_unsaved' && call.kind === 'command' && call.alwaysAllow !== null) {
-            setFailed({ approvalId: call.id, error: { kind: 'not_saved', entry: call.alwaysAllow } });
-          } else setFailed({ approvalId: call.id, error: { kind: 'not_sent' } });
+          if (error === null) done(call.id);
+          else setFailed({ approvalId: call.id, error });
         },
       },
     );

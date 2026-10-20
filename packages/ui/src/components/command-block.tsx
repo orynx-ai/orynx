@@ -8,8 +8,8 @@ export type CommandBlockProps = Omit<ComponentProps<'div'>, 'children'> & {
   command: string;
   /** Beside the command, such as a `Pill` naming Claude. */
   badge?: ReactNode;
-  /** How it went, with its mark: "✓ 0.1s", "✗ exit 1 · 3.1s", "● running". */
-  status: string;
+  /** How it went, with its mark: "✓ 0.1s", "✗ exit 1 · 3.1s", "● running"; left out when that isn't known. */
+  status?: string;
   /** The status's colour; `danger` also outlines the block. */
   tone: CommandBlockTone;
   /** Buttons at the head's end, such as Rerun and Copy; on a narrow window they wrap under the command. */
@@ -63,7 +63,9 @@ export function CommandBlock({
           {command}
         </code>
         {badge}
-        <span className={cn('text-label whitespace-nowrap', toneClass[tone])}>{status}</span>
+        {status === undefined ? null : (
+          <span className={cn('text-label whitespace-nowrap', toneClass[tone])}>{status}</span>
+        )}
         {actions === undefined ? null : <div className="flex items-center gap-1">{actions}</div>}
       </div>
       {note === undefined ? null : <p className="px-2.5 pt-2 text-label text-muted-foreground">{note}</p>}
