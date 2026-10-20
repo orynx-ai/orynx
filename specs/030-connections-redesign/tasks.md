@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: Script the people-owned files: unzip "10" into `docs/design/screens/connections/` and "10a" into `docs/design/screens/connection-dialog/`, add their new CSS (`dh-conn`, `dh-conn-mark`, `dh-status-btn`, `dh-kv`, `dh-flow-num`, `dh-dialog-foot`) and a Connections section to `design-system.md`. The user runs it, checks `git diff` and commits it (Q1)
+- [x] Task 1: Script the people-owned files: unzip "10" into `docs/design/screens/connections/` and "10a" into `docs/design/screens/connection-dialog/`, add their new CSS (`dh-conn`, `dh-conn-mark`, `dh-status-btn`, `dh-kv`, `dh-flow-num`, `dh-dialog-foot`) and a Connections section to `design-system.md`. The user runs it, checks `git diff` and commits it (Q1)
       Check: sh -n specs/030-connections-redesign/people-files.sh; the script run on a scratch copy of the repo changes only docs/design/**
       Files: specs/030-connections-redesign/people-files.sh
 - [ ] Task 2: `IntegrationStatus` gains optional `account` and `checkedAt`; `ConnectionCheckSchema` (`status`, `ms`) and the two check paths (AC-7, AC-8)
