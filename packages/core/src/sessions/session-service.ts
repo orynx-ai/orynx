@@ -330,9 +330,14 @@ function endApprovals(
  * What the Changes tab compares the worktree with (spec 013, Q4): the commit the branch started from, or, for a
  * session made before spec 013, the base its worktree step names. Null when no worktree was ever made.
  */
+/** Whether Orynx made the session's worktree: since spec 042 it may have no branch until Claude's first edit. */
+function worktreeMade(record: StoredSession): boolean {
+  return record.worktree !== null && (record.startCommit !== null || record.session.branch !== null);
+}
+
 function startPointOf(record: StoredSession): StartPoint | null {
   const { session } = record;
-  if (record.worktree === null || session.branch === null) return null;
+  if (!worktreeMade(record)) return null;
   // git couldn't make the worktree, so there's none to read.
   if (session.problem?.kind === 'git' && session.problem.stage === 'starting') return null;
   if (record.startCommit !== null) return { commit: record.startCommit };
@@ -1319,7 +1324,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
               deleted: key !== null && isOrynxKey(key) && known === null,
             };
       // There's a worktree to open from when it's made until the changes are discarded (spec 013, Q9).
-      const made = session.branch !== null && session.discardedAt === null;
+      const made = worktreeMade(record) && session.discardedAt === null;
       const terminal = options.terminal !== undefined && terminalWorktree(record) !== null;
       return {
         ...session,

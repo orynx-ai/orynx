@@ -1491,6 +1491,16 @@ describe('the session detail (spec 013)', () => {
     await newer.service.close();
   });
 
+  it('AC-3 (spec 042): a worktree with no branch yet still has its path, its Changes and its Terminal', async () => {
+    const { service, records, home } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    await records.update(id, (current) => ({ ...current, session: { ...current.session, branch: null } }));
+    const session = await service.get(id);
+    expect(session?.worktreePath).toBe(join(home, 'worktrees', id));
+    expect(await service.changes(id)).not.toBeNull();
+  });
+
   it('AC-20: gives the worktree’s path once it’s made, and none once the changes are discarded', async () => {
     const { service, records, home } = await setUp();
     await service.start({ ticketKey: 'PROJ-1423' });

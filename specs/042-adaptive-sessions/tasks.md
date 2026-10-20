@@ -13,9 +13,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Describe the `server` approval (with its callout, its words and its notification) and the ports bodies and paths (AC-2, AC-7, AC-10, AC-11)
       Check: pnpm test packages/contracts/src packages/app/src/features/sessions/components/approval-callout.test.tsx; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/notifications.ts, packages/contracts/src/ports.ts, packages/contracts/src/ports.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/core/src/notifications/session-notifications.ts, packages/app/src/features/sessions/approval-words.ts, packages/app/src/features/sessions/components/approval-callout.tsx, packages/app/src/features/home/composer-words.ts, packages/app/src/features/notifications/words.ts
-- [ ] Task 4: Let a session's branch be null until it's made, and make every use compile with it (AC-3)
-      Check: pnpm typecheck; pnpm test packages/core/src/sessions/pull-requests.test.ts
-      Files: packages/contracts/src/session.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/pull-requests.ts, packages/app/src/features/sessions/components/delete-session.tsx
+- [x] Task 4: A worktree with no branch yet still counts as made: its path, Changes and Terminal (the rest already took a null branch) (AC-3)
+      Check: pnpm test packages/core/src/sessions/session-service.test.ts; pnpm typecheck
+      Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-service.test.ts
 
 ## Core: steps, the quick read, branches
 
