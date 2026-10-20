@@ -79,10 +79,6 @@ describe('DiscardSession', () => {
     expect(await screen.findByText('Discarded the changes')).toBeVisible();
     expect(screen.getByText('The worktree and feat/PROJ-1423 are deleted.')).toBeVisible();
     expect(screen.queryByRole('dialog')).toBeNull();
-    // Nothing is left to open or discard, so More actions goes too.
-    await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
-    });
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 1, name: 'Add bulk archive to the content list' })).toHaveFocus();
     });
@@ -116,11 +112,16 @@ describe('DiscardSession', () => {
     expect(within(dialog).getByRole('button', { name: 'Discard changes' })).toBeVisible();
   });
 
-  it('AC-10: has nothing to discard once discarded, so no More actions', async () => {
+  it('AC-10: has nothing to discard once discarded; More actions keeps only the session’s own (spec 039)', async () => {
     server.use(sessionHandler({ ...done, discardedAt: '2026-10-16T10:05:00.000Z', state: 'stopped' }));
-    await renderApp({ route });
+    const { user } = await renderApp({ route });
     await screen.findByRole('heading', { level: 1 });
-    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+    await user.click(moreActions());
+    expect(
+      within(screen.getByRole('menu'))
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Rename', 'Pin', 'Delete']);
   });
 
   it('has no Discard before the worktree was made', async () => {

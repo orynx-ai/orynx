@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
   ArrowUpRight01Icon,
@@ -35,7 +35,10 @@ import { editorLink, openInLabel } from '../change-words.ts';
 import { openPullRequestLabel, pullRequestWords } from '../pull-request-words.ts';
 import { useEditor, useHasChanges } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
+import { DeleteSession } from './delete-session.tsx';
 import { DiscardSession } from './discard-session.tsx';
+import { RenameSession } from './rename-session.tsx';
+import { SessionMenuItems, type SessionMenuPick } from './session-menu.tsx';
 import { SessionTerminal } from './terminal/session-terminal.tsx';
 import { terminalWords } from './terminal/terminal-words.ts';
 import { PushChanges } from './push-changes.tsx';
@@ -114,7 +117,9 @@ export function SessionActions({ session, title }: { session: Session; title: Re
   const discardDialog = useRef<{ open: () => void }>(null);
   const terminalDialog = useRef<{ open: () => void }>(null);
   // The dialog an item opens, once the menu has closed and let go of focus.
-  const picked = useRef<'create' | 'push' | 'discard' | 'terminal' | null>(null);
+  const picked = useRef<'create' | 'push' | 'discard' | 'terminal' | SessionMenuPick | null>(null);
+  // Rename and Delete (spec 039), opened as the sidebar's ⋯ opens them.
+  const [sessionDialog, setSessionDialog] = useState<SessionMenuPick | null>(null);
   // Once you've created the pull request, focus goes to Open PR, now or as soon as it shows (spec 014, AC-4);
   // under 768 px Open PR is in More actions, so to that.
   const justOpened = useRef(false);
@@ -145,11 +150,7 @@ export function SessionActions({ session, title }: { session: Session; title: Re
   const editorPath = kept && editor !== null ? session.worktreePath : null;
   const offerDiscard = kept && session.branch !== null;
   const menu = wide ? undefined : more;
-  const hasMenu =
-    session.terminal ||
-    editorPath !== null ||
-    offerDiscard ||
-    (!wide && (offerCreate || offerPush || pullRequest !== null));
+  // Rename, Pin and Delete are always there (spec 039, AC-34), so More actions is too.
 
   return (
     <>
@@ -207,91 +208,117 @@ export function SessionActions({ session, title }: { session: Session; title: Re
         />
       ) : null}
       {offerDiscard ? <DiscardSession ref={discardDialog} session={session} title={title} menu={more} /> : null}
-      {hasMenu ? (
-        <Menu>
-          <MenuTrigger asChild>
-            <IconButton ref={more} variant="ghost" size="sm" label="More actions">
-              <Icon icon={MoreHorizontalIcon} aria-hidden />
-            </IconButton>
-          </MenuTrigger>
-          <MenuContent
-            size="sm"
-            align="end"
-            onCloseAutoFocus={(event) => {
-              const dialog = picked.current;
-              if (dialog === null) return;
-              picked.current = null;
-              event.preventDefault();
-              const dialogs = {
-                create: createDialog,
-                push: pushDialog,
-                discard: discardDialog,
-                terminal: terminalDialog,
-              };
-              dialogs[dialog].current?.open();
+      <RenameSession
+        session={session}
+        open={sessionDialog === 'rename'}
+        onClose={() => {
+          setSessionDialog(null);
+        }}
+        returnFocusTo={() => more.current}
+      />
+      <DeleteSession
+        session={session}
+        open={sessionDialog === 'delete'}
+        onClose={() => {
+          setSessionDialog(null);
+        }}
+        returnFocusTo={() => more.current}
+        // It goes to the Sessions page itself, where the page takes focus.
+        onDeleted={() => undefined}
+      />
+      <Menu>
+        <MenuTrigger asChild>
+          <IconButton ref={more} variant="ghost" size="sm" label="More actions">
+            <Icon icon={MoreHorizontalIcon} aria-hidden />
+          </IconButton>
+        </MenuTrigger>
+        <MenuContent
+          size="sm"
+          align="end"
+          onCloseAutoFocus={(event) => {
+            const dialog = picked.current;
+            if (dialog === null) return;
+            picked.current = null;
+            event.preventDefault();
+            if (dialog === 'rename' || dialog === 'delete') {
+              setSessionDialog(dialog);
+              return;
+            }
+            const dialogs = {
+              create: createDialog,
+              push: pushDialog,
+              discard: discardDialog,
+              terminal: terminalDialog,
+            };
+            dialogs[dialog].current?.open();
+          }}
+        >
+          {session.terminal ? (
+            <MenuItem
+              icon={<Icon icon={ComputerTerminal01Icon} />}
+              aria-keyshortcuts={terminalShortcut(platform).ariaKeyShortcuts}
+              onSelect={() => {
+                picked.current = 'terminal';
+              }}
+            >
+              {terminalWords.button}
+            </MenuItem>
+          ) : null}
+          {!wide && offerCreate ? (
+            <MenuItem
+              icon={<Icon icon={GitPullRequestIcon} />}
+              onSelect={() => {
+                picked.current = 'create';
+              }}
+            >
+              {pullRequestWords.create}
+            </MenuItem>
+          ) : null}
+          {!wide && pullRequest !== null ? (
+            // An item, not a link: a link's own click would have to stop the browser, and that stops the menu closing.
+            <MenuItem
+              icon={<Icon icon={ArrowUpRight01Icon} />}
+              onSelect={() => {
+                platform.openExternal(pullRequest.url);
+              }}
+            >
+              {openPullRequestLabel(pullRequest.number)}
+            </MenuItem>
+          ) : null}
+          {!wide && offerPush ? (
+            <MenuItem
+              icon={<Icon icon={Upload01Icon} />}
+              onSelect={() => {
+                picked.current = 'push';
+              }}
+            >
+              {pullRequestWords.push}
+            </MenuItem>
+          ) : null}
+          {editor === null || editorPath === null ? null : (
+            <MenuItem asChild icon={<Icon icon={editor === 'vscode' ? VisualStudioCodeIcon : SourceCodeIcon} />}>
+              <a href={editorLink(editor, editorPath)}>{openInLabel(editor)}</a>
+            </MenuItem>
+          )}
+          <SessionMenuItems
+            session={session}
+            onPick={(pick) => {
+              picked.current = pick;
             }}
-          >
-            {session.terminal ? (
-              <MenuItem
-                icon={<Icon icon={ComputerTerminal01Icon} />}
-                aria-keyshortcuts={terminalShortcut(platform).ariaKeyShortcuts}
-                onSelect={() => {
-                  picked.current = 'terminal';
-                }}
-              >
-                {terminalWords.button}
-              </MenuItem>
-            ) : null}
-            {!wide && offerCreate ? (
-              <MenuItem
-                icon={<Icon icon={GitPullRequestIcon} />}
-                onSelect={() => {
-                  picked.current = 'create';
-                }}
-              >
-                {pullRequestWords.create}
-              </MenuItem>
-            ) : null}
-            {!wide && pullRequest !== null ? (
-              // An item, not a link: a link's own click would have to stop the browser, and that stops the menu closing.
-              <MenuItem
-                icon={<Icon icon={ArrowUpRight01Icon} />}
-                onSelect={() => {
-                  platform.openExternal(pullRequest.url);
-                }}
-              >
-                {openPullRequestLabel(pullRequest.number)}
-              </MenuItem>
-            ) : null}
-            {!wide && offerPush ? (
-              <MenuItem
-                icon={<Icon icon={Upload01Icon} />}
-                onSelect={() => {
-                  picked.current = 'push';
-                }}
-              >
-                {pullRequestWords.push}
-              </MenuItem>
-            ) : null}
-            {editor === null || editorPath === null ? null : (
-              <MenuItem asChild icon={<Icon icon={editor === 'vscode' ? VisualStudioCodeIcon : SourceCodeIcon} />}>
-                <a href={editorLink(editor, editorPath)}>{openInLabel(editor)}</a>
-              </MenuItem>
-            )}
-            {offerDiscard ? (
-              <MenuItem
-                icon={<Icon icon={Delete02Icon} />}
-                className="text-danger"
-                onSelect={() => {
-                  picked.current = 'discard';
-                }}
-              >
-                Discard changes
-              </MenuItem>
-            ) : null}
-          </MenuContent>
-        </Menu>
-      ) : null}
+          />
+          {offerDiscard ? (
+            <MenuItem
+              icon={<Icon icon={Delete02Icon} />}
+              className="text-danger"
+              onSelect={() => {
+                picked.current = 'discard';
+              }}
+            >
+              Discard changes
+            </MenuItem>
+          ) : null}
+        </MenuContent>
+      </Menu>
     </>
   );
 }

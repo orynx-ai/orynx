@@ -132,7 +132,7 @@ const progressOf = (page: Page) => page.getByRole('region', { name: "Claude's pr
  */
 async function opensFolder(page: Page, label: 'Open in VS Code' | 'Open in Cursor'): Promise<string> {
   // The link is in the page bar's More actions (19 Oct 2026).
-  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
   const link = page.getByRole('menuitem', { name: label });
   const scheme = label === 'Open in VS Code' ? 'vscode' : 'cursor';
   await expect(link).toHaveAttribute('href', new RegExp(`^${scheme}://file/`));
@@ -143,7 +143,7 @@ async function opensFolder(page: Page, label: 'Open in VS Code' | 'Open in Curso
 
 /** Discard changes, from the page bar's More actions (19 Oct 2026). */
 async function pickDiscard(page: Page) {
-  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Discard changes' }).click();
 }
 
@@ -201,7 +201,7 @@ test('AC-1, AC-2, AC-18: the Changes tab lists Claude’s edit as it lands, in e
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText('in 1 file', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Discard changes' })).toBeVisible();
   await page.keyboard.press('Escape');
   await other.close();
@@ -288,8 +288,10 @@ test('AC-6: once discarded, the Changes tab says the changes are gone, with no O
 
   await expect(page.getByText('The changes are gone')).toBeVisible();
   await expect(page.getByText('The worktree and feat/CHG-1 were deleted.')).toBeVisible();
-  // Nothing is left to open or discard, so More actions goes too.
-  await expect(page.getByRole('button', { name: 'More actions' })).toHaveCount(0);
+  // Nothing is left to open or discard; More actions keeps only the session's own (spec 039).
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
+  await expect(page.getByRole('menuitem')).toHaveText(['Rename', 'Pin', 'Delete']);
+  await page.keyboard.press('Escape');
   expect(worktreeOf('feat/CHG-1')).toBeUndefined();
 });
 

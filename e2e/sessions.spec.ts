@@ -205,7 +205,7 @@ test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its bran
   expect(kept).toBeDefined();
 
   // Discard is in the page bar's More actions (19 Oct 2026).
-  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Discard changes' }).click();
   const dialog = page.getByRole('dialog', { name: "Discard Claude's changes?" });
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
@@ -308,7 +308,7 @@ test('AC-15, AC-18, 022 AC-28: Home opens a live session, and a row’s +, Send,
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused({ timeout: 10_000 });
 
   // Discard is the last item in the page bar's More actions (19 Oct 2026).
-  const more = page.getByRole('button', { name: 'More actions' });
+  const more = page.getByRole('button', { name: 'More actions', exact: true });
   await more.focus();
   await page.keyboard.press('Enter');
   await page.keyboard.press('End');

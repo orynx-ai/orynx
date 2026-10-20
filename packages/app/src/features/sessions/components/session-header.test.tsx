@@ -98,7 +98,7 @@ describe('SessionHeader', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Open in VS Code', 'Discard changes']);
+    ).toEqual(['Open in VS Code', 'Rename', 'Pin', 'Delete', 'Discard changes']);
     expect(within(menu).getByRole('menuitem', { name: 'Open in VS Code' })).toHaveAttribute(
       'href',
       'vscode://file/Users/you/.devhub/worktrees/x',
@@ -121,6 +121,9 @@ describe('SessionHeader', () => {
       expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
         'Create pull request',
         'Open in VS Code',
+        'Rename',
+        'Pin',
+        'Delete',
         'Discard changes',
       ]);
     });
@@ -227,5 +230,65 @@ describe('SessionHeader', () => {
       expect(title).toHaveFocus();
     });
     expect(screen.queryByRole('button', { name: /Stop/ })).toBeNull();
+  });
+});
+
+describe('the session’s own Rename, Pin and Delete (spec 039)', () => {
+  it('AC-34: More actions holds Rename, Pin and Delete above Discard changes, and Rename works there too', async () => {
+    const stopped = makeSession({ ...working, state: 'stopped' });
+    const patched: unknown[] = [];
+    server.use(
+      sessionHandler(stopped),
+      http.patch(apiUrl(apiRoutes.session), async ({ request }) => {
+        patched.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await renderApp({ route });
+    const more = await within(pageBar()).findByRole('button', { name: 'More actions' });
+
+    await user.click(more);
+    const menu = screen.getByRole('menu');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Rename', 'Pin', 'Delete', 'Discard changes']);
+    await user.click(within(menu).getByRole('menuitem', { name: 'Rename' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Rename session' });
+    // The name opens selected, so typing replaces it.
+    expect(within(dialog).getByRole('textbox', { name: 'Name' })).toHaveFocus();
+    await user.keyboard('Fix the login page');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(patched).toEqual([{ title: 'Fix the login page' }]);
+    });
+    await waitFor(() => {
+      expect(more).toHaveFocus();
+    });
+  });
+
+  it('AC-35: deleting the session you are on goes to the Sessions page', async () => {
+    const stopped = makeSession({ ...working, state: 'stopped' });
+    const deleted: string[] = [];
+    server.use(
+      sessionHandler(stopped),
+      http.delete(apiUrl(apiRoutes.session), ({ params }) => {
+        deleted.push(String(params['id']));
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user, history } = await renderApp({ route });
+    await user.click(await within(pageBar()).findByRole('button', { name: 'More actions' }));
+    await user.click(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Delete' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete this session?' });
+
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/sessions');
+    });
+    expect(deleted).toEqual([id]);
   });
 });

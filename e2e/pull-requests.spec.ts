@@ -293,7 +293,7 @@ test('AC-21: the dialog works from the keyboard, and Enter in the title creates 
  * actions (the user's call, 19 Oct 2026).
  */
 const atHand = (p: Page, width: number, name: string, role: 'button' | 'link' = 'button') =>
-  width >= 768 ? p.getByRole(role, { name }) : p.getByRole('button', { name: 'More actions' });
+  width >= 768 ? p.getByRole(role, { name }) : p.getByRole('button', { name: 'More actions', exact: true });
 
 test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360 px, in light and dark', async ({
   page,
@@ -350,7 +350,7 @@ test('AC-18: Discard deletes the worktree and the local branch, and the PR and i
   page,
 }) => {
   await page.goto(seen.opened ?? '');
-  await page.getByRole('button', { name: 'More actions' }).click();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Discard changes' }).click();
   const confirm = page.getByRole('dialog', { name: "Discard Claude's changes?" });
   await expect(confirm).toContainText(`Pull request ${pr} and the branch on GitHub stay.`);
@@ -428,7 +428,7 @@ test.describe('a Build on my own pull request (spec 031)', () => {
     repository.git(repository.clone, 'fetch', 'origin');
     repository.git(repository.clone, 'branch', branch, `origin/${branch}`);
     await page.goto(on.url ?? '');
-    await page.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('button', { name: 'More actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Discard changes' }).click();
     const confirm = page.getByRole('dialog', { name: "Discard Claude's changes?" });
     await expect(confirm).toContainText(

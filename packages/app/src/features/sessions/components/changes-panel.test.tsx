@@ -174,11 +174,16 @@ describe('ChangesPanel', () => {
     serve(makeSession({ id, state: 'stopped', discardedAt: '2026-10-16T10:05:00.000Z', worktreePath: null }), {
       state: 'discarded',
     });
-    await renderApp({ route: `/sessions/${id}` });
+    const { user } = await renderApp({ route: `/sessions/${id}` });
     expect(await screen.findByText('The changes are gone')).toBeVisible();
     expect(screen.getByText('The worktree and feat/PROJ-1423 were deleted.')).toBeVisible();
-    // Nothing to open or discard, so no More actions.
-    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+    // Nothing to open or discard; More actions keeps only the session's own (spec 039).
+    await user.click(within(screen.getByRole('banner')).getByRole('button', { name: 'More actions' }));
+    expect(
+      within(screen.getByRole('menu'))
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent),
+    ).toEqual(['Rename', 'Pin', 'Delete']);
   });
 
   it('AC-7: says the changes couldn’t be read, and Try again reads them', async () => {
