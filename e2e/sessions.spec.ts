@@ -441,7 +441,7 @@ test('042 AC-1, AC-3, AC-6, AC-8, AC-33: a run reads as one, opens on Ports, lea
   const stepper = page.getByRole('list', { name: 'Session progress' }).getByRole('listitem');
   await expect(stepper).toHaveCount(2);
   await expect(stepper.nth(1)).toContainText('Start server');
-  await expect(page.getByRole('main').getByText('No branch yet')).toBeVisible();
+  await expect(page.getByRole('main').getByText('No branch yet', { exact: true })).toBeVisible();
   const tabs = page.getByRole('tablist', { name: 'Session details' }).getByRole('tab');
   await expect(tabs.first()).toHaveText('Ports');
   await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
