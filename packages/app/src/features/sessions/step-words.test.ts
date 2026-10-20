@@ -409,3 +409,98 @@ describe('the pull request (spec 014, Q11e)', () => {
     expect(step({ kind: 'pushed', state: 'done', number, url, files: 0 }).detail).toBeNull();
   });
 });
+
+describe('stepWords (spec 042)', () => {
+  const reading = {
+    kind: 'reading',
+    state: 'done',
+    intent: 'run',
+    base: 'develop',
+    missingBase: null,
+    branch: null,
+    branchFrom: null,
+    suggested: null,
+    branchNote: null,
+  } as const;
+
+  it('AC-1: the quick read, while it reads and once read', () => {
+    expect(step({ ...reading, state: 'running', intent: null, base: null })).toEqual({
+      title: 'Reading your ask…',
+      detail: null,
+    });
+    expect(step(reading)).toEqual({ title: 'Run · from develop · no branch yet', detail: null });
+    expect(step({ ...reading, intent: 'answer' }).title).toBe('Question · from develop · no branch yet');
+  });
+
+  it('AC-15, AC-21, AC-23: a change names its branch, where its shape came from, and what Orynx had to change', () => {
+    const change = {
+      ...reading,
+      intent: 'change',
+      branch: 'fix/login-redirect-loop',
+      branchFrom: 'repo_rules',
+    } as const;
+    expect(step(change)).toEqual({
+      title: 'Code change · from develop',
+      detail: "Branch fix/login-redirect-loop at the first edit, as the repository's written rules say",
+    });
+    expect(
+      step({ ...change, missingBase: 'release/26.10.03', suggested: 'fix login', branchNote: 'unusable' }).detail,
+    ).toBe(
+      "Branch fix/login-redirect-loop at the first edit, as the repository's written rules say · release/26.10.03 isn't on origin; started from develop · \"fix login\" couldn't be a branch name",
+    );
+    expect(step({ ...change, branchFrom: 'message', suggested: 'fix/x', branchNote: 'taken' }).detail).toBe(
+      'Branch fix/login-redirect-loop at the first edit, as your message says · fix/x is taken',
+    );
+  });
+
+  it('AC-22: a read that failed', () => {
+    expect(step({ ...reading, intent: null, base: null })).toEqual({
+      title: "Couldn't read your ask, so the usual steps are shown",
+      detail: null,
+    });
+  });
+
+  it('AC-1: a worktree with no branch yet', () => {
+    expect(step({ kind: 'worktree', state: 'done', branch: null, base: 'origin/develop', fetched: true })).toEqual({
+      title: 'Made a worktree',
+      detail: 'from origin/develop',
+    });
+  });
+
+  it('AC-24: changed steps, with the reason and both lists', () => {
+    expect(
+      step({
+        kind: 'steps_changed',
+        state: 'done',
+        from: [{ kind: 'setup', label: 'Set up' }],
+        to: [
+          { kind: 'setup', label: 'Set up' },
+          { kind: 'build', label: 'Fix env' },
+        ],
+        reason: 'The server fails on a missing env key.',
+      }),
+    ).toEqual({
+      title: 'Steps changed',
+      detail: 'The server fails on a missing env key.\nWas: Set up\nNow: Set up · Fix env',
+    });
+  });
+
+  it('AC-15: a branch made at the first edit', () => {
+    expect(step({ kind: 'branch_made', state: 'done', branch: 'fix/env-key', from: 'your_branches' })).toEqual({
+      title: 'Made branch fix/env-key',
+      detail: 'Like your recent branches',
+    });
+  });
+
+  it('AC-2, AC-4: a server started, stopped, and one that ended on its own', () => {
+    const server = { kind: 'server', state: 'done', port: 3005, command: 'next dev --port 3005' } as const;
+    expect(step({ ...server, event: 'started' })).toEqual({
+      title: 'Started a server on localhost:3005',
+      detail: 'next dev --port 3005',
+    });
+    expect(step({ ...server, event: 'stopped' }).title).toBe('Stopped the server on localhost:3005');
+    expect(step({ ...server, event: 'exited' }).title).toBe('The server on localhost:3005 ended');
+    expect(step({ ...server, event: 'started', port: null }).title).toBe('Started a server; nothing listens yet');
+    expect(step({ ...server, event: 'exited', port: null }).title).toBe('The server ended before it listened');
+  });
+});

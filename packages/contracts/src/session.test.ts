@@ -776,4 +776,49 @@ describe('a session in spec 042', () => {
     const result = SessionStepsSchema.safeParse(steps(['build', 'Fix'], ['test', 'Fix']));
     expect(result.error?.issues.map((issue) => issue.message)).toContain('Two steps are both called "Fix".');
   });
+
+  it('AC-1, AC-15, AC-22, AC-24: holds the quick read, changed steps, a branch made late, a server, and a worktree with no branch', () => {
+    const activities: SessionActivity[] = [
+      {
+        id: 'step-1',
+        state: 'done',
+        kind: 'reading',
+        intent: 'run',
+        base: 'develop',
+        missingBase: null,
+        branch: null,
+        branchFrom: null,
+        suggested: null,
+        branchNote: null,
+      },
+      {
+        id: 'step-2',
+        state: 'done',
+        kind: 'reading',
+        intent: null,
+        base: null,
+        missingBase: null,
+        branch: null,
+        branchFrom: null,
+        suggested: null,
+        branchNote: null,
+      },
+      { id: 'step-3', state: 'done', kind: 'worktree', branch: null, base: 'origin/develop', fetched: true },
+      {
+        id: 'step-4',
+        state: 'done',
+        kind: 'steps_changed',
+        from: [{ kind: 'setup', label: 'Set up' }],
+        to: [
+          { kind: 'setup', label: 'Set up' },
+          { kind: 'build', label: 'Fix env' },
+        ],
+        reason: 'The server fails on a missing env key.',
+      },
+      { id: 'step-5', state: 'done', kind: 'branch_made', branch: 'fix/env-key', from: 'repo_rules' },
+      { id: 'step-6', state: 'done', kind: 'server', event: 'started', port: 3005, command: 'next dev --port 3005' },
+      { id: 'step-7', state: 'done', kind: 'server', event: 'exited', port: null, command: 'next dev' },
+    ];
+    expect(makeSession({ activities }).activities).toEqual(activities);
+  });
 });

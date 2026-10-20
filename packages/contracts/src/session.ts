@@ -189,9 +189,45 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
    * Orynx made the branch and the worktree, from `base`; `fetched` is false when the fetch failed (Q1a). With
    * `pullRequest`, it made the worktree from that pull request's own branch, and no branch (spec 031).
    */
+  /**
+   * Orynx read your ask before anything else (spec 042): running while it reads; done with the `intent`, or with none
+   * when the read failed. `base` is where the worktree starts, `missingBase` a branch you named that isn't on
+   * `origin`. `branch` is the name the first edit will make, and `suggested` what the read gave instead when Orynx
+   * couldn't use it (`branchNote`).
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('reading'),
+    intent: SessionIntentSchema.nullable(),
+    base: z.string().min(1).nullable(),
+    missingBase: z.string().min(1).nullable(),
+    branch: z.string().min(1).nullable(),
+    branchFrom: BranchFromSchema.nullable(),
+    suggested: z.string().min(1).nullable(),
+    branchNote: z.enum(['unusable', 'taken']).nullable(),
+  }),
+  /** Claude changed the steps to come (spec 042), with its reason. */
+  ActivityBaseSchema.extend({
+    kind: z.literal('steps_changed'),
+    from: z.array(SessionStepItemSchema),
+    to: z.array(SessionStepItemSchema),
+    reason: z.string(),
+  }),
+  /** Orynx made the session's branch at Claude's first edit or at Create pull request (spec 042). */
+  ActivityBaseSchema.extend({ kind: z.literal('branch_made'), branch: z.string().min(1), from: BranchFromSchema }),
+  /**
+   * A server of the session's (spec 042): Claude started it, you or Claude stopped it, or it ended by itself. `port`
+   * is where it listened; null when it never did.
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('server'),
+    event: z.enum(['started', 'stopped', 'exited']),
+    port: z.int().positive().max(65_535).nullable(),
+    command: z.string().min(1),
+  }),
   ActivityBaseSchema.extend({
     kind: z.literal('worktree'),
-    branch: z.string().min(1),
+    /** Null since spec 042: the branch is made at the first edit (`branch_made`). */
+    branch: z.string().min(1).nullable(),
     base: z.string().min(1),
     fetched: z.boolean(),
     pullRequest: z.int().positive().optional(),

@@ -50,6 +50,10 @@ export function SessionStepper({ session }: { session: Session }) {
 }
 
 const kindIcons = {
+  reading: CheckListIcon,
+  steps_changed: CheckListIcon,
+  branch_made: GitBranchIcon,
+  server: TerminalIcon,
   worktree: GitBranchIcon,
   brief: SentIcon,
   explore: FileSearchIcon,

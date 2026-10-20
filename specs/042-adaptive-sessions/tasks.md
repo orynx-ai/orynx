@@ -7,9 +7,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Describe a session's own steps (`{ kind, label }`, by the strict rules), its `intent` and `branchFrom`; a session saved before reads with today's five steps through `stepsOf` (AC-25, AC-28, AC-32)
       Check: pnpm test packages/contracts/src/session.test.ts packages/app/src/features/sessions/components/session-progress.test.tsx; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/core/src/sessions/session-service.ts, packages/app/src/features/sessions/components/session-progress.tsx
-- [ ] Task 2: Describe the new activities (`reading`, `steps_changed`, `branch_made`, `server`) and a worktree row with no branch (AC-1, AC-15, AC-24)
-      Check: pnpm test packages/contracts/src/session.test.ts
-      Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts
+- [x] Task 2: Describe the new activities (`reading`, `steps_changed`, `branch_made`, `server`) and a worktree row with no branch, with their words and icons (AC-1, AC-15, AC-21, AC-22, AC-23, AC-24)
+      Check: pnpm test packages/contracts/src/session.test.ts packages/app/src/features/sessions/step-words.test.ts; pnpm typecheck
+      Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts, packages/app/src/features/sessions/step-words.ts, packages/app/src/features/sessions/step-words.test.ts, packages/app/src/features/sessions/components/session-progress.tsx
 - [ ] Task 3: Describe the quick read's answer, the `server` approval (and its notification) and the ports bodies and paths (AC-2, AC-7)
       Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/notifications.test.ts packages/contracts/src/ports.test.ts
       Files: packages/contracts/src/session.ts, packages/contracts/src/notifications.ts, packages/contracts/src/ports.ts, packages/contracts/src/ports.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts
@@ -73,9 +73,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## App
 
-- [ ] Task 19: Words for the reading, steps-changed, branch-made and server rows, and "No branch yet" (AC-1, AC-15, AC-22, AC-23, AC-24)
-      Check: pnpm test packages/app/src/features/sessions/step-words.test.ts
-      Files: packages/app/src/features/sessions/step-words.ts, packages/app/src/features/sessions/step-words.test.ts
+- [x] Task 19: Words for the reading, steps-changed, branch-made and server rows (folded into task 2: the words switch can't compile without them)
 - [ ] Task 20: The stepper draws the session's own steps; the header says "No branch yet" or the branch, and links the first web address (AC-1, AC-2, AC-3, AC-32, AC-34)
       Check: pnpm test packages/app/src/features/sessions/components/session-progress.test.tsx packages/app/src/features/sessions/components/session-header.test.tsx
       Files: packages/app/src/features/sessions/components/session-progress.tsx, packages/app/src/features/sessions/components/session-header.tsx, and their tests
