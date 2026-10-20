@@ -69,7 +69,7 @@ export function CommandBlock({
         {status === undefined ? null : (
           <span className={cn('text-label whitespace-nowrap', toneClass[tone])}>{status}</span>
         )}
-        {actions === undefined ? null : <div className="flex items-center gap-1">{actions}</div>}
+        {actions === undefined ? null : <div className="flex flex-wrap items-center gap-1">{actions}</div>}
       </div>
       {note === undefined ? null : <p className="px-2.5 pt-2 text-label text-muted-foreground">{note}</p>}
       {output === undefined || output.length === 0 ? null : (

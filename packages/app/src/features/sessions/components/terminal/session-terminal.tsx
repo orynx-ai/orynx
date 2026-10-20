@@ -145,10 +145,10 @@ function TerminalDialog({
         returnTo.current?.focus();
       }}
     >
-      <div className="flex shrink-0 items-center gap-2.5 border-b border-border py-1.5 ps-4 pe-2.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-1 border-b border-border py-1.5 ps-4 pe-2.5">
         <Icon icon={ComputerTerminal01Icon} aria-hidden />
         <DialogTitle className="text-body">{terminalWords.title}</DialogTitle>
-        <span title={about} className="min-w-0 flex-1 truncate text-small text-muted-foreground">
+        <span title={about} className="min-w-0 flex-1 basis-24 truncate text-small text-muted-foreground">
           {about}
         </span>
         {waiting && tab !== 'claude' ? (
