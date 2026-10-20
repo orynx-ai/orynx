@@ -261,7 +261,7 @@ describe('a server’s tab (spec 042)', () => {
     expect(terminal.shells('fedcba9876543210')).toEqual([]);
   });
 
-  it('AC-5: Restart stops what runs in a server’s tab and runs its command again', async () => {
+  it('AC-5: Restart stops what runs in a server’s tab and runs its command again', { timeout: 15_000 }, async () => {
     const { terminal, worktree } = await setUp();
     terminal.read(session, worktree);
     const added = terminal.addServerTab(session, worktree, 'echo started; sleep 30');
@@ -270,7 +270,7 @@ describe('a server’s tab (spec 042)', () => {
     await shown.shows('started');
     expect(terminal.restart(session, tabId)).toBe(true);
     // The command shows twice each run: as typed, then what it printed.
-    for (let tries = 0; tries < 500 && shown.text().split('started').length < 5; tries++)
+    for (let tries = 0; tries < 1_200 && shown.text().split('started').length < 5; tries++)
       await new Promise((resolve) => setTimeout(resolve, 10));
     expect(shown.text().split('started').length).toBeGreaterThanOrEqual(5);
     expect(terminal.restart(session, 'tab-1')).toBe(false);

@@ -35,6 +35,8 @@ import {
 import { useTestRepositories } from '../test/git-repository.ts';
 import { createTerminalService } from '../terminal/terminal-service.ts';
 import { createPortService } from '../ports/port-service.ts';
+import type { SessionPort } from '@devhub/contracts';
+import { execSync, spawn } from 'node:child_process';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import type { SessionRecords, StoredSession } from './session-store.ts';
@@ -2102,6 +2104,92 @@ describe('Claude starting a server (spec 042)', () => {
     const record = await settled(records);
     expect(record.approvalLog).toHaveLength(1);
     expect(record.session.activities.filter((activity) => activity.kind === 'server')).toHaveLength(2);
+  });
+
+  /** A port no one listens on now, so a test can say where its server will listen. */
+  async function freePort(): Promise<number> {
+    const probe = createNetServer().listen(0);
+    await new Promise((resolve) => probe.once('listening', resolve));
+    const address = probe.address();
+    await new Promise((resolve) => probe.close(resolve));
+    return typeof address === 'object' && address !== null ? address.port : 0;
+  }
+  const serveOn = (port: number) =>
+    `${process.execPath} -e "require('net').createServer().listen(${String(port)}, () => console.log('on'))"`;
+
+  const portsOf = async (service: { ports(id: string): Promise<SessionPort[] | null | 'not_found'> }) => {
+    const found = await service.ports(id);
+    return found === 'not_found' ? null : found;
+  };
+
+  async function running(port: number, more: FakeTurn[] = [], later: FakeTurn[][] = []) {
+    const set = await setUp({
+      readAsks: true,
+      script: [
+        { tool: 'mcp__orynx__start_server', input: { command: serveOn(port) } },
+        ...more,
+        { finish: 'Running.' },
+      ],
+      later,
+    });
+    set.sdk.reads.push(runReading);
+    await set.service.start({ ticketKey: 'PROJ-1423' });
+    const [asked] = await waitingCalls(set.records);
+    await set.service.respond(id, asked?.id ?? '', 'allow_once');
+    return set;
+  }
+
+  it('AC-4, AC-5: Stop ends its server with a row, then finds it gone; Restart runs it again in its tab', async () => {
+    const port = await freePort();
+    const { service, records } = await running(port);
+    await settled(records);
+    expect((await portsOf(service))?.map((one) => one.port)).toEqual([port]);
+    const listened = (await portsOf(service))?.[0]?.since;
+    expect(await service.restartPort(id, port)).toBe('done');
+    // It stops, then listens again from its tab.
+    for (let tries = 0; tries < 100 && (await portsOf(service))?.[0]?.since === listened; tries++)
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    for (let tries = 0; tries < 100 && (await portsOf(service))?.length !== 1; tries++)
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(await service.stopPort(id, port)).toBe('done');
+    expect(await portsOf(service)).toEqual([]);
+    expect(await service.stopPort(id, port)).toBe('gone');
+    const record = await records.get(id);
+    expect(record?.session.activities.at(-1)).toMatchObject({ kind: 'server', event: 'stopped', port });
+  });
+
+  it('AC-6: a server found in the worktree can be stopped, not restarted', async () => {
+    const port = await freePort();
+    const { service, records, home } = await setUp({ script: [{ finish: 'Done.' }] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+    const found = spawn('/bin/sh', ['-c', serveOn(port)], { cwd: join(home, 'worktrees', id), stdio: 'ignore' });
+    for (let tries = 0; tries < 100 && (await portsOf(service))?.length !== 1; tries++)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    expect((await portsOf(service))?.[0]).toMatchObject({ port, startedBy: 'found', restartable: false });
+    expect(await service.restartPort(id, port)).toBe('cannot_restart');
+    expect(await service.stopPort(id, port)).toBe('done');
+    found.kill('SIGKILL');
+  });
+
+  it('AC-13: deleting the session stops its servers first', async () => {
+    const port = await freePort();
+    const { service, records } = await running(port);
+    await settled(records);
+    expect(await service.remove(id)).toBe('deleted');
+    // Asked of lsof: a connect to a port just freed can reach itself on macOS.
+    expect(execSync(`lsof -nP -iTCP:${String(port)} -sTCP:LISTEN || true`).toString()).toBe('');
+  });
+
+  it('AC-4: Claude stops a server it started with stop_server, and only that', async () => {
+    const port = await freePort();
+    const { service, records } = await running(port, [{ tool: 'mcp__orynx__stop_server', input: { port } }]);
+    const record = await settled(records);
+    expect(record.session.activities.filter((activity) => activity.kind === 'server').map((row) => row.event)).toEqual([
+      'started',
+      'stopped',
+    ]);
+    expect(await portsOf(service)).toEqual([]);
   });
 
   it('AC-2: a folder outside the worktree is refused, and nothing starts', async () => {

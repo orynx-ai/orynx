@@ -113,3 +113,47 @@ describe('the session’s ports (spec 042)', () => {
     expect(await ports.list({ worktree: await folder(), shells: [] })).toBeNull();
   });
 });
+
+describe('stopping a session’s server (spec 042)', () => {
+  const alive = (pid: number | undefined) => {
+    try {
+      process.kill(pid ?? 0, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  it('AC-4: stops what listens on the port, and a second stop finds it gone', async () => {
+    const worktree = await folder();
+    const { port, child } = await listening(worktree);
+    const ports = createPortService({ probe: () => Promise.resolve(null) });
+    expect(await ports.stop({ worktree, shells: [] }, port)).toBe('done');
+    expect(alive(child.pid)).toBe(false);
+    expect(await ports.stop({ worktree, shells: [] }, port)).toBe('gone');
+  });
+
+  it('AC-4: one that ignores SIGTERM is killed after the wait', async () => {
+    const worktree = await folder();
+    const script =
+      "process.on('SIGTERM', () => {}); const s = require('net').createServer().listen(0, () => console.log(s.address().port))";
+    const child = spawn(process.execPath, ['-e', script], { cwd: worktree });
+    children.push(child);
+    const port = await new Promise<number>((resolve) =>
+      child.stdout.once('data', (data: Buffer) => {
+        resolve(Number(String(data).trim()));
+      }),
+    );
+    const ports = createPortService({ probe: () => Promise.resolve(null), stopGraceMs: 300 });
+    expect(await ports.stop({ worktree, shells: [] }, port)).toBe('done');
+    expect(alive(child.pid)).toBe(false);
+  });
+
+  it('AC-7: never stops a port that isn’t the session’s', async () => {
+    const worktree = await folder();
+    const other = await listening(await folder());
+    const ports = createPortService({ probe: () => Promise.resolve(null) });
+    expect(await ports.stop({ worktree, shells: [] }, other.port)).toBe('gone');
+    expect(alive(other.child.pid)).toBe(true);
+  });
+});

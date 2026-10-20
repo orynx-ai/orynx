@@ -26,6 +26,10 @@ function setUp(
       asked.push({ start: command, folder });
       return Promise.resolve(started);
     },
+    stopServer: (port) => {
+      asked.push({ stop: port });
+      return Promise.resolve(port === 3005);
+    },
   };
   const tools = sessionTools(context);
   const named = (name: string) => {
@@ -33,7 +37,7 @@ function setUp(
     if (found === undefined) throw new Error(`${name} should be there`);
     return found;
   };
-  return { tool: named('set_steps'), server: named('start_server'), asked };
+  return { tool: named('set_steps'), server: named('start_server'), stop: named('stop_server'), asked };
 }
 
 const steps = [
@@ -107,5 +111,15 @@ describe('start_server (spec 042)', () => {
     const { server } = setUp();
     expect((await server.run({ command: '' })).error).toBe(true);
     expect(await server.asks({})).toBeNull();
+  });
+});
+
+describe('stop_server (spec 042)', () => {
+  it('AC-4: stops a server Claude started, by its port, without asking; anything else is an error', async () => {
+    const { stop } = setUp();
+    expect(await stop.asks({ port: 3005 })).toBeNull();
+    expect(await stop.run({ port: 3005 })).toEqual({ text: 'Stopped the server on localhost:3005.' });
+    expect(await stop.run({ port: 5432 })).toEqual({ text: 'Nothing you started listens on 5432.', error: true });
+    expect((await stop.run({ port: 'x' })).error).toBe(true);
   });
 });

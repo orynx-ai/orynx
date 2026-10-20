@@ -425,6 +425,7 @@ describe('Orynx’s ticket tools in a session (spec 037)', () => {
       'delete_ticket',
       'set_steps',
       'start_server',
+      'stop_server',
     ]);
     expect(record?.session.activities.find((activity) => activity.kind === 'ticket')).toMatchObject({
       action: 'listed',

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, realpath } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { isOrynxKey, permissionsFor } from '@devhub/contracts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
@@ -26,6 +26,7 @@ import type {
   SessionChanges,
   SessionFollowUp,
   SessionPort,
+  PortActionAnswer,
   SessionStep,
   SessionStepItem,
   SessionTicket,
@@ -90,7 +91,7 @@ import { createWorktrees, type Prepared, type WorktreeProblem, type WorktreesOpt
 import { readingFrom, readingInstructions, readingPrompt, type AskInput, type AskReading } from './ask-reading.ts';
 import { readBranchRules } from './branch-rules.ts';
 import { sessionTools } from './session-tools.ts';
-import type { PortService } from '../ports/port-service.ts';
+import type { PortService, SessionPlaces } from '../ports/port-service.ts';
 
 /**
  * Claude sessions (spec 011): starting one on a ticket or from the composer (spec 015), running it, stopping
@@ -132,6 +133,12 @@ export type SendResult = SendMessageAnswer | { result: 'not_found' };
 export type RespondResult = 'answered' | 'not_found' | 'already_answered' | 'not_offered' | 'not_saved';
 
 export interface SessionService {
+  /** What listens from the session (spec 042): none for an Ask or a gone worktree; null when it couldn't be read. */
+  ports(id: string): Promise<SessionPort[] | null | 'not_found'>;
+  /** Stops what listens on `port` from the session, checked again now, with a row (spec 042). */
+  stopPort(id: string, port: number): Promise<PortActionAnswer['result'] | 'not_found'>;
+  /** Runs a server Claude started again in its tab (spec 042); one started any other way can't be. */
+  restartPort(id: string, port: number): Promise<PortActionAnswer['result'] | 'not_found'>;
   /** Ship's start on a ticket, or the composer's with your message and its chips (spec 015). */
   start(request: StartSessionRequest): Promise<StartSessionAnswer>;
   /** The session as the Session screen shows it; null when there's none with this id. */
@@ -219,7 +226,7 @@ export interface SessionServiceOptions {
   /** Orynx's own tickets, whose tools every session's agent gets (spec 037); left out, it gets none. */
   tickets?: OrynxTicketService;
   /** Your shell tabs (spec 036). Left out where there are none (Windows): then no session offers its Terminal. */
-  terminal?: Pick<TerminalService, 'stopAll' | 'read' | 'addServerTab' | 'shells' | 'lastLines'>;
+  terminal?: Pick<TerminalService, 'stopAll' | 'read' | 'addServerTab' | 'shells' | 'lastLines' | 'restart'>;
   events: EventBus;
   onReport?: (report: SessionReport) => void;
   /**
@@ -756,6 +763,36 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return { port: listening.port, url: listening.url };
   }
 
+  /** Where the session's servers come from (spec 042): its worktree, as lsof writes paths, and its Terminal tabs. */
+  async function placesOf(id: string, record: StoredSession): Promise<SessionPlaces | null> {
+    const worktree = terminalWorktree(record);
+    if (worktree === null || !worktreeMade(record)) return null;
+    const real = await realpath(worktree).catch(() => null);
+    return real === null ? null : { worktree: real, shells: options.terminal?.shells(id) ?? [] };
+  }
+
+  async function stopPortNow(id: string, port: number): Promise<PortActionAnswer['result'] | 'not_found'> {
+    const record = await records.get(id);
+    if (record === null) return 'not_found';
+    const places = await placesOf(id, record);
+    if (places === null || options.ports === undefined) return 'gone';
+    const listed = (await options.ports.list(places))?.find((one) => one.port === port);
+    if (listed === undefined || (await options.ports.stop(places, port)) === 'gone') return 'gone';
+    await change(id, (current) =>
+      withProgress(current, (progress) =>
+        addServerStep(progress, { kind: 'server', event: 'stopped', port, command: listed.command }),
+      ),
+    );
+    return 'done';
+  }
+
+  /** Stops every server of the session's (spec 042, AC-13): before its worktree goes, nothing runs from there. */
+  async function stopServers(id: string, record: StoredSession): Promise<void> {
+    const places = await placesOf(id, record);
+    if (places === null || options.ports === undefined) return;
+    for (const { port } of (await options.ports.list(places)) ?? []) await options.ports.stop(places, port);
+  }
+
   /** Each session's branch while it's being made, so two edits at once make one (spec 042). */
   const branching = new Map<string, Promise<string | null>>();
 
@@ -1021,6 +1058,15 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
             changeSteps: (wanted) => applySteps(id, wanted),
             serverAsk: (command, folder) => serverAsk(id, command, folder),
             startServer: (command, folder) => startServer(id, command, folder),
+            stopServer: async (port) => {
+              // Only a server Claude started here: anything else is yours.
+              const record = await records.get(id);
+              const places = record === null ? null : await placesOf(id, record);
+              const listed =
+                places === null ? undefined : (await options.ports?.list(places))?.find((one) => one.port === port);
+              if (listed?.startedBy !== 'claude') return false;
+              return (await stopPortNow(id, port)) === 'done';
+            },
           }),
     });
     run.agentId = agentId;
@@ -1455,7 +1501,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const { branch } = record.session;
     // Your pull request's branch isn't the session's to delete: only its worktree goes (spec 031).
     const kept = record.session.workOn === 'pull_request';
-    // Your commands end first: nothing of yours runs from a folder that's going (spec 036, AC-28).
+    // Your commands end first: nothing of yours runs from a folder that's going (spec 036, AC-28), nor any server
+    // found running from it (spec 042).
+    await stopServers(id, record);
     await options.terminal?.stopAll(id);
     // An Ask with no folder has only its empty folder, which nothing reads once it's discarded.
     if (record.worktree !== null && record.repository !== null) {
@@ -1486,7 +1534,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const record = await records.get(id);
     if (record === null) return 'not_found';
     if (isWorking(record.session)) return 'working';
-    // Your commands end first: nothing of yours runs from a folder that's going (spec 036, AC-28).
+    // Your commands end first: nothing of yours runs from a folder that's going (spec 036, AC-28), nor any server
+    // found running from it (spec 042).
+    await stopServers(id, record);
     await options.terminal?.stopAll(id);
     // Discard leaves a folderless Ask's own folder (it isn't a worktree), so a delete takes it either way.
     if (record.worktree !== null && (record.session.discardedAt === null || record.repository === null)) {
@@ -1654,6 +1704,32 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       );
       return turn;
     },
+    async ports(id) {
+      const record = await records.get(id);
+      if (record === null) return 'not_found';
+      const places = await placesOf(id, record);
+      if (places === null || options.ports === undefined) return [];
+      return options.ports.list(places);
+    },
+
+    stopPort: stopPortNow,
+
+    async restartPort(id, port) {
+      const record = await records.get(id);
+      if (record === null) return 'not_found';
+      const places = await placesOf(id, record);
+      if (places === null || options.ports === undefined) return 'gone';
+      for (const shell of places.shells.filter((one) => one.server !== null)) {
+        const mine = (await options.ports.list({ ...places, shells: [shell] }))?.some(
+          (one) => one.port === port && one.startedBy === 'claude',
+        );
+        if (mine === true && shell.tabId !== undefined && options.terminal?.restart(id, shell.tabId) === true)
+          return 'done';
+      }
+      const there = (await options.ports.list(places))?.some((one) => one.port === port) === true;
+      return there ? 'cannot_restart' : 'gone';
+    },
+
     async respond(id, approvalId, decision) {
       const record = await records.get(id);
       if (record === null) return 'not_found';

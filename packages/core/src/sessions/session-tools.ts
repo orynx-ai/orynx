@@ -20,7 +20,11 @@ export interface SessionToolsContext {
     command: string,
     folder: string,
   ): Promise<{ port: number; url: string | null } | { lines: string[] } | { refused: string }>;
+  /** Stops a server Claude started in this session; false when nothing it started listens there. */
+  stopServer(port: number): Promise<boolean>;
 }
+
+const StopServerSchema = z.object({ port: z.int().min(1).max(65_535) });
 
 const StartServerSchema = z.object({
   command: z.string().trim().min(1).max(2_000),
@@ -74,6 +78,19 @@ export function sessionTools(context: SessionToolsContext): OrynxTool[] {
         return {
           text: `It listens on ${at}, in its own Terminal tab. It keeps running after you finish; stop it with stop_server.`,
         };
+      },
+    },
+    {
+      name: 'stop_server',
+      description: 'Stops a server you started with start_server in this session, by the port it listens on.',
+      input: StopServerSchema,
+      asks: () => Promise.resolve(null),
+      async run(input) {
+        const server = StopServerSchema.safeParse(input);
+        if (!server.success) return { text: "Orynx couldn't read the port.", error: true };
+        return (await context.stopServer(server.data.port))
+          ? { text: `Stopped the server on localhost:${String(server.data.port)}.` }
+          : { text: `Nothing you started listens on ${String(server.data.port)}.`, error: true };
       },
     },
   ];

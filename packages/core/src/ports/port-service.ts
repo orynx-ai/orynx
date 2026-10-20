@@ -17,7 +17,7 @@ const execute = promisify(execFile);
 /** Where a session's processes come from: its worktree, and each Terminal tab's shell with the server Claude started there. */
 export interface SessionPlaces {
   worktree: string;
-  shells: readonly { pid: number; server: string | null }[];
+  shells: readonly { pid: number; server: string | null; tabId?: string }[];
 }
 
 export type Scheme = 'http' | 'https';
@@ -30,11 +30,18 @@ export interface PortServiceOptions {
   /** Names of well-known ports, for what isn't a web server. */
   names?: Readonly<Record<number, string>>;
   now?: () => number;
+  /** How long Stop waits after SIGTERM before SIGKILL; 5 seconds, as a Terminal tab closes. */
+  stopGraceMs?: number;
 }
 
 export interface PortService {
   /** The session's ports, lowest first; null when they couldn't be read. */
   list(places: SessionPlaces): Promise<SessionPort[] | null>;
+  /**
+   * Stops what listens on `port`, once it's checked as the session's again now: SIGTERM to it and its children, then
+   * SIGKILL to what's left after the wait. `gone` when nothing of the session's listens there.
+   */
+  stop(places: SessionPlaces, port: number): Promise<'done' | 'gone'>;
   probe: (port: number) => Promise<Scheme | null>;
 }
 
@@ -101,12 +108,35 @@ export function createPortService(options: PortServiceOptions): PortService {
     return null;
   }
 
-  return {
-    probe,
-    async list({ worktree, shells }) {
+  const stopGraceMs = options.stopGraceMs ?? 5_000;
+
+  function exists(pid: number): boolean {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function signal(pids: readonly number[], name: NodeJS.Signals) {
+    for (const pid of pids) {
+      try {
+        process.kill(pid, name);
+      } catch {
+        // Gone already.
+      }
+    }
+  }
+
+  async function read(
+    places: SessionPlaces,
+  ): Promise<{ ports: SessionPort[]; parents: Map<number, ProcessRow> } | null> {
+    const { worktree, shells } = places;
+    {
       try {
         const listeners = listenersFrom(await run('lsof', ['-nP', '-iTCP', '-sTCP:LISTEN', '-Fpn']));
-        if (listeners.length === 0) return [];
+        if (listeners.length === 0) return { ports: [], parents: new Map() };
         const pids = [...new Set(listeners.map((one) => one.pid))];
         const [cwdText, psText] = await Promise.all([
           run('lsof', ['-a', '-d', 'cwd', '-Fpn', '-p', pids.join(',')]),
@@ -137,10 +167,36 @@ export function createPortService(options: PortServiceOptions): PortService {
             };
           }),
         );
-        return ports.filter((one) => one !== null).sort((a, b) => a.port - b.port);
+        return { ports: ports.filter((one) => one !== null).sort((a, b) => a.port - b.port), parents };
       } catch {
         return null;
       }
+    }
+  }
+
+  return {
+    probe,
+    async list(places) {
+      return (await read(places))?.ports ?? null;
+    },
+    async stop(places, port) {
+      const found = await read(places);
+      const listening = found?.ports.find((one) => one.port === port);
+      if (found === null || listening === undefined) return 'gone';
+      // It and everything it started, children first, so a parent can't start one again.
+      const tree = [listening.pid];
+      // The loop reaches the children it adds, so it walks the whole tree.
+      for (const pid of tree) {
+        for (const row of found.parents.values()) if (row.ppid === pid) tree.push(row.pid);
+      }
+      const order = tree.toReversed();
+      signal(order, 'SIGTERM');
+      const until = now() + stopGraceMs;
+      while (order.some(exists) && now() < until) await new Promise((resolve) => setTimeout(resolve, 50));
+      signal(order.filter(exists), 'SIGKILL');
+      // A killed process is listed until it's reaped: give that a moment, so Stop answers once it's gone.
+      while (order.some(exists) && now() < until + 1_000) await new Promise((resolve) => setTimeout(resolve, 50));
+      return 'done';
     },
   };
 }

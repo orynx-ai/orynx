@@ -53,9 +53,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: Read this session's listeners from `lsof` and `ps` (under one of its Terminal tabs, or running from inside its worktree, nothing else), who started each, known names, and https or http once per new server (AC-6, AC-7, AC-8, AC-9, AC-10, AC-11)
       Check: pnpm test packages/core/src/ports/
       Files: packages/core/src/ports/listeners.ts, packages/core/src/ports/listeners.test.ts, packages/core/src/ports/port-service.ts, packages/core/src/ports/port-service.test.ts
-- [ ] Task 15: Stop (re-checked as the session's, SIGTERM then SIGKILL after 5 s) and Restart (a server Orynx started, in its own tab), each with a `server` row; Delete stops the session's servers first (AC-4, AC-5, AC-7, AC-13)
-      Check: pnpm test packages/core/src/ports/port-service.test.ts packages/core/src/sessions/session-service.test.ts
-      Files: packages/core/src/ports/port-service.ts, packages/core/src/sessions/session-service.ts, and their tests
+- [x] Task 15: Stop (checked as the session's again, SIGTERM to it and its children, SIGKILL after 5 s) with a `server` row; Restart for a server Claude started, in its own tab; `stop_server` for Claude, its own servers only; Delete and Discard stop the session's servers first (AC-4, AC-5, AC-6, AC-7, AC-13)
+      Check: pnpm test packages/core/src/ports/ packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/session-tools.test.ts packages/core/src/terminal/terminal-service.test.ts
+      Files: packages/core/src/ports/port-service.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-tools.ts, packages/core/src/terminal/terminal-service.ts, and their tests
 - [ ] Task 16: The ports routes, with the Host and token checks, and the api-client functions and query options (AC-4, AC-7, AC-9)
       Check: pnpm test packages/core/src/routes/ports.test.ts packages/api-client/src/endpoints/ports.test.ts
       Files: packages/core/src/routes/ports.ts, packages/core/src/routes/ports.test.ts, packages/core/src/create-server.ts, packages/api-client/src/endpoints/ports.ts, packages/api-client/src/endpoints/ports.test.ts, packages/api-client/src/queries.ts
