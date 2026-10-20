@@ -1,4 +1,12 @@
-import type { SessionActivity, SessionActivityState, SessionStep } from '@devhub/contracts';
+import {
+  mostSessionSteps,
+  SessionStepsSchema,
+  stepsOf,
+  type SessionActivity,
+  type SessionActivityState,
+  type SessionStep,
+  type SessionStepItem,
+} from '@devhub/contracts';
 import type { AgentWork } from '../agents/agent-adapter.ts';
 
 /**
@@ -20,20 +28,44 @@ export interface Progress {
   activities: readonly SessionActivity[];
   /** The steps the stepper passed over when Claude finished without them (spec 031, Q5); none when left out. */
   skipped?: readonly SessionStep[];
+  /** The session's own steps, in order (spec 042); none for a session from before, which has the five. */
+  steps?: readonly SessionStepItem[];
 }
 
 export const emptyProgress: Progress = { step: 'plan', activities: [] };
 
-const stepOrder: readonly SessionStep[] = ['plan', 'build', 'test', 'review', 'pull_request'];
+/** Every session's steps before spec 042, still the order of one saved then. */
+const fiveSteps: readonly SessionStep[] = ['plan', 'build', 'test', 'review', 'pull_request'];
 
-/** The stepper only moves forward (Q9b). */
-function atLeast(current: SessionStep, wanted: SessionStep): SessionStep {
-  return stepOrder.indexOf(wanted) > stepOrder.indexOf(current) ? wanted : current;
+function orderOf(progress: Progress): readonly SessionStep[] {
+  return progress.steps === undefined || progress.steps.length === 0
+    ? fiveSteps
+    : progress.steps.map((step) => step.kind);
 }
 
-/** The steps between `from` and Review, which finishing there passes over: Test, or Build too with no edit. */
-function passedOver(from: SessionStep): SessionStep[] {
-  return stepOrder.slice(stepOrder.indexOf(from) + 1, stepOrder.indexOf('review'));
+/**
+ * The stepper only moves forward (Q9b), and only to a step the session has (spec 042): a run session that edits
+ * stays where it is until Claude adds a Build.
+ */
+function atLeast(progress: Progress, wanted: SessionStep): SessionStep {
+  const order = orderOf(progress);
+  return order.indexOf(wanted) > order.indexOf(progress.step) ? wanted : progress.step;
+}
+
+/** The steps strictly between the current one and `to`, which moving there passes over. */
+function passedOver(progress: Progress, to: SessionStep): SessionStep[] {
+  const order = orderOf(progress);
+  return order.slice(order.indexOf(progress.step) + 1, Math.max(0, order.indexOf(to)));
+}
+
+/** Where finishing takes the stepper: Review, or Answer, else the last step before a pull request (spec 042). */
+function finishedAt(progress: Progress): SessionStep {
+  const order = orderOf(progress);
+  return (
+    order.find((kind) => kind === 'review' || kind === 'answer') ??
+    order.findLast((kind) => kind !== 'pull_request') ??
+    progress.step
+  );
 }
 
 /** Whatever was running is done now, except a call still waiting for you: that runs until it's answered. */
@@ -107,8 +139,9 @@ function adding(files: readonly string[], file: string | null): string[] {
  * moves backwards, and so it does once the pull request is open (spec 014, AC-19). From there it moves on as before.
  */
 export function resumeProgress(progress: Progress): Progress {
-  // What was passed over lies ahead again (spec 031).
-  const back = progress.step === 'review' || progress.step === 'pull_request' ? 'build' : progress.step;
+  // What was passed over lies ahead again (spec 031); a session with no Build stays where it is (spec 042).
+  const ended = progress.step === 'review' || progress.step === 'pull_request';
+  const back = ended && orderOf(progress).includes('build') ? 'build' : progress.step;
   return { ...progress, step: back, skipped: [] };
 }
 
@@ -120,7 +153,68 @@ export function addPullRequestStep(
   progress: Progress,
   step: Extract<NewStep, { kind: 'pull_request' | 'pushed' }>,
 ): Progress {
-  return { ...addStep(progress, step), step: 'pull_request' };
+  const added = { ...addStep(progress, step), step: 'pull_request' as const };
+  // A session whose steps had no pull request gains it, while there's room (spec 042).
+  const own = progress.steps ?? [];
+  if (own.length === 0 || own.some((one) => one.kind === 'pull_request')) return added;
+  if (own.length >= mostSessionSteps) return { ...added, step: progress.step };
+  return { ...added, steps: [...own, { kind: 'pull_request', label: 'Pull request' }] };
+}
+
+/** A server's step (spec 042): a port opening moves the stepper to Run, where the session has one. */
+export function addServerStep(progress: Progress, step: Extract<NewStep, { kind: 'server' }>): Progress {
+  const added = addStep(progress, step);
+  return step.event === 'started' && step.port !== null ? { ...added, step: atLeast(progress, 'run') } : added;
+}
+
+/** The kinds only Orynx or you move (spec 042, Assumptions 3): Claude may move the stepper past none of them. */
+const notClaudes: Partial<Record<SessionStep, string>> = {
+  run: 'Only Orynx moves a run step, once a port opens.',
+  answer: 'Only Orynx moves an answer step, when you finish.',
+  review: 'Only Orynx moves a review step, when you finish.',
+  pull_request: 'Only you move a pull_request step.',
+};
+
+export type StepsChange =
+  | { ok: true; progress: Progress }
+  /** In words Claude can act on, so it can send a better list. */
+  | { ok: false; reason: string };
+
+/**
+ * Claude's `set_steps` (spec 042): the whole list again, and where the stepper is. Steps done or under way keep their
+ * place and words; the rest may change within the rules. A refused change changes nothing.
+ */
+export function changeSteps(
+  progress: Progress,
+  change: { steps: readonly SessionStepItem[]; current: SessionStep; reason: string },
+): StepsChange {
+  const before = stepsOf({ steps: [...(progress.steps ?? [])], workOn: 'new_branch' });
+  // A pull request's words are Orynx's, so they match the page bar's button: Claude gives only its kind.
+  const pullLabel = before.find((step) => step.kind === 'pull_request')?.label ?? 'Pull request';
+  const parsed = SessionStepsSchema.safeParse(
+    change.steps.map((step) => (step.kind === 'pull_request' ? { ...step, label: pullLabel } : step)),
+  );
+  if (!parsed.success) return { ok: false, reason: parsed.error.issues.map((issue) => issue.message).join(' ') };
+  const after = parsed.data;
+  const at = before.findIndex((step) => step.kind === progress.step);
+  const kept = before.slice(0, at + 1);
+  const same = (a: SessionStepItem | undefined, b: SessionStepItem) => a?.kind === b.kind && a.label === b.label;
+  if (!kept.every((step, index) => same(after[index], step)))
+    return {
+      ok: false,
+      reason: `Steps done or under way stay as they are: ${kept.map((step) => step.label).join(' · ')}.`,
+    };
+  const to = after.findIndex((step) => step.kind === change.current);
+  if (to === -1) return { ok: false, reason: 'The current step must be one of the steps.' };
+  if (to < at) return { ok: false, reason: 'The current step can only move forward.' };
+  // Claude may pass over the current step, but not land on or pass a step only Orynx or you move.
+  const passed = after.slice(at + 1, to + 1).find((step) => notClaudes[step.kind] !== undefined);
+  if (passed !== undefined) return { ok: false, reason: notClaudes[passed.kind] ?? '' };
+  const moved = { ...progress, steps: after, step: change.current };
+  return {
+    ok: true,
+    progress: addStep(moved, { kind: 'steps_changed', from: before, to: after, reason: change.reason }),
+  };
 }
 
 export function addWork(progress: Progress, work: ClaudeWork): Progress {
@@ -135,7 +229,7 @@ export function addWork(progress: Progress, work: ClaudeWork): Progress {
         running?.kind === 'edit'
           ? withLast(progress, { ...running, files: adding(running.files, work.file) })
           : addStep(progress, { kind: 'edit', files: [work.file] }, 'running');
-      return { ...next, step: atLeast(progress.step, 'build') };
+      return { ...next, step: atLeast(progress, 'build') };
     }
     case 'plan': {
       // Claude ticks its to-do list as it goes: that changes the plan, not what Claude is doing now.
@@ -155,8 +249,10 @@ export function addWork(progress: Progress, work: ClaudeWork): Progress {
         running?.kind === 'command'
           ? withLast(progress, { ...running, commands: [...running.commands, work.command] })
           : addStep(progress, { kind: 'command', commands: [work.command] }, 'running');
-      // Test is reached by a command once Claude has built something; before any edit, a command is planning.
-      return { ...next, step: progress.step === 'plan' ? 'plan' : atLeast(progress.step, 'test') };
+      // Test is reached by a command once Claude has built something; before any edit, a command is setting up, or
+      // planning where the session has no Set up.
+      const edited = progress.activities.some((activity) => activity.kind === 'edit');
+      return { ...next, step: atLeast(progress, edited ? 'test' : 'setup') };
     }
     case 'denied':
       return addStep(progress, { kind: 'denied', about: work.about, text: work.text });
@@ -174,11 +270,13 @@ export function addWork(progress: Progress, work: ClaudeWork): Progress {
         status: done.action === 'updated' ? done.status : null,
       });
     }
-    case 'finished':
+    case 'finished': {
+      const to = atLeast(progress, finishedAt(progress));
       return {
         ...addStep(progress, { kind: 'finished', summary: work.summary }),
-        step: atLeast(progress.step, 'review'),
-        skipped: [...(progress.skipped ?? []), ...passedOver(progress.step)],
+        step: to,
+        skipped: [...(progress.skipped ?? []), ...passedOver(progress, to)],
       };
+    }
   }
 }

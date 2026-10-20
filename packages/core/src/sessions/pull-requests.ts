@@ -229,8 +229,12 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     const at = new Date(now()).toISOString();
     const saved = await options.save(id, (current) => {
       if (current.session.pullRequest !== null || current.session.discardedAt !== null) return current;
-      const { step, activities } = addPullRequestStep(
-        { step: current.session.step, activities: current.session.activities },
+      const {
+        step,
+        activities,
+        steps = [],
+      } = addPullRequestStep(
+        { step: current.session.step, activities: current.session.activities, steps: current.session.steps },
         { kind: 'pull_request', number, url, files: 0, branch, linked: true },
       );
       return {
@@ -240,6 +244,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
           // A follow-up under way ends as PR open, as Claude finishing does once there's a pull request.
           state: isWorking(current.session) ? current.session.state : 'pr_open',
           step,
+          steps: [...steps],
           activities: [...activities],
           pullRequest: { number, url, repository, openedAt: at },
         },
@@ -400,14 +405,18 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     if (!pushed.ok)
       return ending({ result: 'failed', problem: pushProblems[pushed.problem] }, `push_${pushed.problem}`);
     await options.save(id, (current) => {
-      const { step, activities } = addPullRequestStep(
-        { step: current.session.step, activities: current.session.activities },
+      const {
+        step,
+        activities,
+        steps = [],
+      } = addPullRequestStep(
+        { step: current.session.step, activities: current.session.activities, steps: current.session.steps },
         { kind: 'pushed', number, url, files: committed.files },
       );
       return {
         ...current,
         pushedCommit: pushed.head,
-        session: { ...current.session, state: 'pr_open', step, activities: [...activities] },
+        session: { ...current.session, state: 'pr_open', step, steps: [...steps], activities: [...activities] },
       };
     });
     return ending({ result: 'pushed', files: committed.files }, 'pushed');
@@ -467,8 +476,12 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
 
     const at = new Date(now()).toISOString();
     await options.save(id, (current) => {
-      const { step, activities } = addPullRequestStep(
-        { step: current.session.step, activities: current.session.activities },
+      const {
+        step,
+        activities,
+        steps = [],
+      } = addPullRequestStep(
+        { step: current.session.step, activities: current.session.activities, steps: current.session.steps },
         {
           kind: 'pull_request',
           number: pull.number,
@@ -485,6 +498,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
           ...current.session,
           state: 'pr_open',
           step,
+          steps: [...steps],
           activities: [...activities],
           pullRequest: { number: pull.number, url: pull.url, repository, openedAt: at },
         },

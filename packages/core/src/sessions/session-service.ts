@@ -356,12 +356,13 @@ function askPlace(record: StoredSession): string | null {
 }
 
 function progressOf(session: Session): Progress {
-  return { step: session.step, activities: session.activities, skipped: session.skipped };
+  return { step: session.step, activities: session.activities, skipped: session.skipped, steps: session.steps };
 }
 
 function withProgress(record: StoredSession, change: (progress: Progress) => Progress): StoredSession {
-  const { step, activities, skipped = [] } = change(progressOf(record.session));
-  return { ...record, session: { ...record.session, step, activities: [...activities], skipped: [...skipped] } };
+  const { step, activities, skipped = [], steps = [] } = change(progressOf(record.session));
+  const session = { ...record.session, step, activities: [...activities], skipped: [...skipped], steps: [...steps] };
+  return { ...record, session };
 }
 
 export function createSessionService(options: SessionServiceOptions): SessionService {
