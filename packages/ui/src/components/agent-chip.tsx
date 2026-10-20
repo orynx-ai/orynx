@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { Slot } from 'radix-ui';
 import { cva } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
-import { sessionStateLabels, type SessionItemState } from './session-item.tsx';
+import { sessionStateLabel, type SessionItemReady, type SessionItemState } from './session-item.tsx';
 
 /** The sidebar's colours for each session state (`SessionItem`), so one state looks the same everywhere. */
 const chipVariants = cva(
@@ -22,6 +22,8 @@ const chipVariants = cva(
 
 export type AgentChipProps = Omit<ComponentProps<'a'>, 'children'> & {
   state: SessionItemState;
+  /** What "Done" is ready for. */
+  ready?: SessionItemReady;
   /** Render the child link (the router's) with the chip's dot and word inside it. */
   asChild?: boolean;
   children?: ComponentProps<'a'>['children'];
@@ -32,13 +34,13 @@ export type AgentChipProps = Omit<ComponentProps<'a'>, 'children'> & {
  * its session. A dot and the sidebar's word for the state, in the sidebar's colours (spec 006 Q3d).
  * Drawn 24 px tall; its clickable area is 32 px (Q2b).
  */
-export function AgentChip({ state, asChild = false, className, children, ...props }: AgentChipProps) {
+export function AgentChip({ state, ready, asChild = false, className, children, ...props }: AgentChipProps) {
   const Comp = asChild ? Slot.Root : 'a';
   return (
     <Comp data-slot="agent-chip" className={cn(chipVariants({ state }), className)} {...props}>
       <span aria-hidden className="size-2 rounded-full bg-current" />
       {asChild ? <Slot.Slottable>{children}</Slot.Slottable> : null}
-      {sessionStateLabels[state]}
+      {sessionStateLabel(state, ready)}
     </Comp>
   );
 }

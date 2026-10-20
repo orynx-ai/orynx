@@ -62,6 +62,7 @@ import {
 import { createPullRequests, type PullRequestReport } from './pull-requests.ts';
 import {
   pullKey,
+  readyFor,
   type ApprovalRecord,
   type ListedSession,
   type SessionRecords,
@@ -985,6 +986,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         id,
         title: known?.title ?? ticketKey,
         state: 'working',
+        ready: 'nothing',
         source: { kind: 'jira', key: ticketKey },
         updatedAt: at,
         folder: { name: folder.name, displayPath: folder.displayPath },
@@ -1061,6 +1063,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         id,
         title,
         state: 'working',
+        ready: 'nothing',
         source:
           pull !== null
             ? { kind: 'pull_request', number: pull.number }
@@ -1209,7 +1212,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         saved === null ? null : { ...saved, status: known?.status ?? null, dueDate: known?.dueDate ?? null };
       // There's a worktree to open from when it's made until the changes are discarded (spec 013, Q9).
       const made = session.branch !== null && session.discardedAt === null;
-      return { ...session, ticket, followUp, worktreePath: made ? record.worktree : null };
+      return { ...session, ready: readyFor(session), ticket, followUp, worktreePath: made ? record.worktree : null };
     },
 
     async stop(id) {

@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
+import { Alert02Icon } from '@hugeicons/core-free-icons';
 import type { SessionSummary } from '@devhub/contracts';
-import { ResumeBanner } from '@devhub/ui';
+import { Button, Toast } from '@devhub/ui';
 import { useSession, useSessions } from '../../sessions/queries.ts';
 import { sourceLabel } from '../../sessions/source-label.ts';
 import { bannerDetail, composerWords } from '../composer-words.ts';
@@ -10,23 +11,28 @@ function WaitingFor({ waiting, more }: { waiting: SessionSummary; more: number }
   const session = useSession(waiting.id);
   const approval = session.data?.approvals[0] ?? null;
   return (
-    <ResumeBanner
-      asChild
+    <Toast
+      icon={Alert02Icon}
+      tone="warning"
+      role="status"
       title={composerWords.banner.title}
       detail={bannerDetail({ key: sourceLabel(waiting.source) ?? null, title: waiting.title, approval, more })}
-      action={composerWords.banner.action}
-    >
-      <Link to="/sessions/$sessionId" params={{ sessionId: waiting.id }}>
-        {/* The banner fills in its icon and words. */}
-      </Link>
-    </ResumeBanner>
+      actions={
+        <Button asChild variant="secondary" size="sm">
+          <Link to="/sessions/$sessionId" params={{ sessionId: waiting.id }}>
+            {composerWords.banner.action}
+          </Link>
+        </Button>
+      }
+    />
   );
 }
 
 /**
  * Home's waiting banner (spec 015, AC-25 to AC-27, Q11): when a session needs you, the one waiting longest, what it
- * wants, and how many more wait. It shows only once the session list has loaded, which the sidebar asks for first,
- * and the event stream keeps it live: it goes as soon as nothing waits. Coming or going, it moves no focus.
+ * wants, and how many more wait. It floats as a pop-up under the page bar (the user's call, 20 Oct 2026). It shows
+ * only once the session list has loaded, which the sidebar asks for first, and the event stream keeps it live: it goes
+ * as soon as nothing waits. Coming or going, it moves no focus.
  */
 export function WaitingBanner() {
   const sessions = useSessions({ recent: true });

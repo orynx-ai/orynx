@@ -94,7 +94,7 @@ async function answerSprint(page: Page) {
       bug: true,
       dueDate: '2026-10-19',
     }),
-    makeTicket({ key: 'PROJ-1423', session: { id: 'session-1423', state: 'needs_you' } }),
+    makeTicket({ key: 'PROJ-1423', session: { id: 'session-1423', state: 'needs_you', ready: 'nothing' } }),
     makeTicket({
       key: 'PROJ-1350',
       title: 'Migrate feed cards to the new Card component',

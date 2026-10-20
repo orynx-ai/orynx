@@ -182,6 +182,16 @@ describe('SessionHeader', () => {
     expect(within(main).queryByRole('button', { name: 'Stop' })).toBeNull();
   });
 
+  it.each([
+    ['nothing', 'Done'],
+    ['push', 'Done, ready to push'],
+  ] as const)('spec 031: a finished session ready for %s says so, from what Claude did', async (ready, word) => {
+    server.use(sessionHandler({ ...working, state: 'done', ready }));
+    await renderApp({ route });
+    await screen.findByRole('heading', { level: 1 });
+    expect(within(screen.getByRole('main')).getByText(word, { exact: true })).toBeVisible();
+  });
+
   it('shows no branch before the worktree is made', async () => {
     server.use(sessionHandler({ ...working, branch: null }));
     await renderApp({ route });

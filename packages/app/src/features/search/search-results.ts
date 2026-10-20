@@ -1,5 +1,5 @@
 import type { SearchIndex, SearchPullRequest, SearchTicket, SessionSummary } from '@devhub/contracts';
-import { sessionStateLabels } from '@devhub/ui';
+import { sessionStateLabel } from '@devhub/ui';
 import { plural } from '../../words/calendar.ts';
 import { matchesWords } from '../../words/match-words.ts';
 
@@ -52,7 +52,11 @@ function searchText(hit: SearchHit): string {
       return [title, repository, hash(number), author ?? ''].join(' ');
     }
     case 'session':
-      return [hit.session.title, sessionSource(hit.session) ?? '', sessionStateLabels[hit.session.state]].join(' ');
+      return [
+        hit.session.title,
+        sessionSource(hit.session) ?? '',
+        sessionStateLabel(hit.session.state, hit.session.ready),
+      ].join(' ');
   }
 }
 
@@ -140,7 +144,7 @@ export function hitText(hit: SearchHit): HitText {
         code: sessionSource(hit.session) ?? '',
         codeEnd: null,
         title: hit.session.title,
-        meta: sessionStateLabels[hit.session.state],
+        meta: sessionStateLabel(hit.session.state, hit.session.ready),
       };
   }
 }

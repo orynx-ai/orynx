@@ -59,3 +59,20 @@ export const LongText: Story = {
     detail: 'PROJ-1398 · Read receipts on analytics, with a title long enough to wrap onto a second line',
   },
 };
+/** Stays until it's dealt with: no Close, and the title is plain words (Orynx restarted, a session waiting). */
+export const Notice: Story = {
+  render: () => (
+    <Toast
+      icon={Alert02Icon}
+      tone="warning"
+      role="alert"
+      title="Orynx restarted"
+      detail="Reload the page to reconnect."
+      actions={
+        <Button size="sm" variant="primary">
+          Reload
+        </Button>
+      }
+    />
+  ),
+};
