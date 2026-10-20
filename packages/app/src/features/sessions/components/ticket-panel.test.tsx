@@ -77,4 +77,46 @@ describe('TicketPanel', () => {
     await user.click(within(ticketTab()).getByRole('link', { name: 'the design' }));
     expect(platform.openExternal).toHaveBeenCalledWith('https://figma.example.com/f');
   });
+
+  it('AC-27 (spec 037): an Orynx ticket shows its mark and no Open in Jira', async () => {
+    server.use(
+      sessionHandler(
+        makeSession({
+          id,
+          title: 'Fix the date test',
+          source: { kind: 'jira', key: 'ORX-2' },
+          context: [{ kind: 'jira', key: 'ORX-2' }],
+          jiraUrl: null,
+          ticket: makeSessionTicket({ type: 'Bug', status: { name: 'In progress', column: 'in_progress' } }),
+        }),
+      ),
+    );
+    await renderApp({ route });
+    const tab = await screen.findByRole('tabpanel', { name: 'Context 1' });
+
+    expect(within(tab).getAllByText('Orynx').length).toBeGreaterThan(0);
+    expect(within(tab).queryByText('Jira')).toBeNull();
+    expect(within(tab).queryByRole('link', { name: /Open in Jira/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Open in Jira/ })).toBeNull();
+  });
+
+  it('AC-19 (spec 037): says when the Orynx ticket was deleted, and keeps what Claude was sent', async () => {
+    server.use(
+      sessionHandler(
+        makeSession({
+          id,
+          title: 'Fix the date test',
+          source: { kind: 'jira', key: 'ORX-3' },
+          context: [{ kind: 'jira', key: 'ORX-3' }],
+          jiraUrl: null,
+          ticket: makeSessionTicket({ status: null, dueDate: null, deleted: true }),
+        }),
+      ),
+    );
+    await renderApp({ route });
+    const tab = await screen.findByRole('tabpanel', { name: 'Context 1' });
+
+    expect(within(tab).getByText('ORX-3 was deleted.')).toBeVisible();
+    expect(within(tab).getByText(/^Content managers need to archive many items/)).toBeVisible();
+  });
 });

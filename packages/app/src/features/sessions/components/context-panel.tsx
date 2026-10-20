@@ -1,5 +1,5 @@
 import { File01Icon } from '@hugeicons/core-free-icons';
-import type { ComposerChip, Session } from '@devhub/contracts';
+import { ticketSource, type ComposerChip, type Session } from '@devhub/contracts';
 import { AttentionList, AttentionTitleButton, Callout, CopyButton, ExternalLink, Icon, SourceMark } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { chipLabel } from '../../home/composer-words.ts';
@@ -80,7 +80,7 @@ export function ContextPanel({ session }: { session: Session }) {
               {chip.kind === 'file' ? (
                 <Icon icon={File01Icon} aria-hidden className="text-muted-foreground" />
               ) : (
-                <SourceMark source={chip.kind === 'jira' ? 'jira' : 'github'} label="none" />
+                <SourceMark source={chip.kind === 'jira' ? ticketSource(chip.key) : 'github'} label="none" />
               )}
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <Name chip={chip} />

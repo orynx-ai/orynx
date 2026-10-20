@@ -1,14 +1,15 @@
-import type { Session } from '@devhub/contracts';
+import { ticketSource, type Session } from '@devhub/contracts';
 import { ExternalLink, Markdown, Pill, SourceMark } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { duePill } from '../../../words/due.ts';
 import { statusTones } from '../../../words/status-tone.ts';
 import { useNow } from '../../../words/use-now.ts';
-import { noDescription } from '../ticket-tab-words.ts';
+import { deletedLine, noDescription } from '../ticket-tab-words.ts';
 
 /**
  * The session's own ticket, at the top of the Context tab (spec 013, Q7): the ticket as Claude got it, its
- * description laid out, with its status and due date as the cache knows them now and Open in Jira. As
+ * description laid out, with its status and due date as the cache knows them now and Open in Jira; one of Orynx's
+ * own has its mark, no Open in Jira, and says when it was deleted since (spec 037). As
  * `session.html` draws it, at most 640 px wide.
  */
 export function TicketPanel({ session }: { session: Session }) {
@@ -26,7 +27,7 @@ export function TicketPanel({ session }: { session: Session }) {
       <div className="flex flex-wrap items-center gap-2">
         {key === null ? null : (
           <span className="inline-flex items-center gap-1.5">
-            <SourceMark source="jira" label="hidden" />
+            <SourceMark source={ticketSource(key)} label="hidden" />
             <span className="font-mono text-code">{key}</span>
           </span>
         )}
@@ -44,6 +45,9 @@ export function TicketPanel({ session }: { session: Session }) {
           </ExternalLink>
         )}
       </div>
+      {key !== null && ticket?.deleted === true ? (
+        <p className="m-0 text-muted-foreground">{deletedLine(key)}</p>
+      ) : null}
       {ticket === null ? null : ticket.description === null ? (
         <p className="m-0 text-muted-foreground">{noDescription}</p>
       ) : (

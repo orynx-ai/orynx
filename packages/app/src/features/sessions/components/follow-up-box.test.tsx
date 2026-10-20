@@ -160,11 +160,9 @@ describe('FollowUpBox', () => {
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
     ).toEqual(
-      [
-        'Jira ticketSearch by key or title',
-        'Pull requestSearch by repo, number or title',
-        'File from this computer',
-      ].map((start) => expect.stringContaining(start) as unknown as string),
+      ['TicketSearch by key or title', 'Pull requestSearch by repo, number or title', 'File from this computer'].map(
+        (start) => expect.stringContaining(start) as unknown as string,
+      ),
     );
   });
 

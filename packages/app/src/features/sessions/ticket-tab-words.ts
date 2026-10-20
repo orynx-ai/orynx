@@ -7,6 +7,11 @@ export const briefNote = {
 
 export const noDescription = 'This ticket has no description.';
 
+/** Spec 037, Q12l: an Orynx ticket deleted since the session started. */
+export function deletedLine(key: string): string {
+  return `${key} was deleted.`;
+}
+
 export const contextWords = {
   tab: 'Context',
   list: 'Context Claude was sent',
