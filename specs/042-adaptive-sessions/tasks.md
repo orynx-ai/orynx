@@ -25,7 +25,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Read the repository's written branch rules (sections about branches whole, other paragraphs only when they say how branches are named, 8 KB) and, through `worktrees.hints`, the default base, origin's branch names and your 20 newest branches (AC-16, AC-20, AC-23)
       Check: pnpm test packages/core/src/sessions/branch-rules.test.ts packages/core/src/sessions/worktrees.test.ts
       Files: packages/core/src/sessions/branch-rules.ts, packages/core/src/sessions/branch-rules.test.ts, packages/core/src/sessions/worktrees.ts, packages/core/src/sessions/worktrees.test.ts
-- [ ] Task 7: Let `AgentAdapter.write()` take the composer's model and effort (AC-1)
+- [x] Task 7: Let `AgentAdapter.write()` take the composer's model and effort (AC-1)
       Check: pnpm test packages/core/src/agents/claude/claude-adapter.test.ts
       Files: packages/core/src/agents/agent-adapter.ts, packages/core/src/agents/claude/claude-adapter.ts, packages/core/src/agents/claude/claude-adapter.test.ts
 - [ ] Task 8: The quick read: build its prompt, parse its answer, check the base, branch (format, length, key, taken), title and steps, and fall back on failure or after 30 s (AC-1, AC-19, AC-21, AC-22, AC-23, AC-27)

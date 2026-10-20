@@ -174,7 +174,12 @@ export interface AgentAdapter {
   stop(sessionId: string): Promise<void>;
   /**
    * Asks the agent for text alone, with no tools, so it can read, edit and run nothing: a pull request's draft or
-   * a commit message (spec 014, Q4). It's no session's, is never saved, and gives up after `timeoutMs` (60 s).
+   * a commit message (spec 014, Q4), or the quick read of your ask on the model and effort you picked (spec 042). It's
+   * no session's, is never saved, and gives up after `timeoutMs` (60 s).
    */
-  write(prompt: string, instructions: string, options?: { timeoutMs?: number }): Promise<AgentWritten>;
+  write(
+    prompt: string,
+    instructions: string,
+    options?: { timeoutMs?: number; model?: string | undefined; effort?: EffortLevel | undefined },
+  ): Promise<AgentWritten>;
 }

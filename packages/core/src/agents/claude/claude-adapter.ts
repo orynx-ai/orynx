@@ -13,7 +13,13 @@ import {
   type SDKMessage,
   type SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
-import { AgentModelIdSchema, EffortLevelSchema, type AgentModel, type AgentModels } from '@devhub/contracts';
+import {
+  AgentModelIdSchema,
+  EffortLevelSchema,
+  type AgentModel,
+  type AgentModels,
+  type EffortLevel,
+} from '@devhub/contracts';
 import { briefText } from '../../sessions/brief.ts';
 import type { TicketTool, TicketToolDone } from '../../orynx-tickets/tools.ts';
 import { askText, type AgentAdapter, type AgentAsk, type AgentEvent, type AgentWritten } from '../agent-adapter.ts';
@@ -212,7 +218,11 @@ export function createClaudeAdapter({
   }
 
   /** Claude's text for one prompt, with no tools, from an empty folder of its own (spec 014). */
-  async function writeText(text: string, instructions: string, timeoutMs: number): Promise<AgentWritten> {
+  async function writeText(
+    text: string,
+    instructions: string,
+    { timeoutMs, model, effort }: { timeoutMs: number; model?: string | undefined; effort?: EffortLevel | undefined },
+  ): Promise<AgentWritten> {
     const folder = await mkdtemp(join(tmpdir(), 'orynx-write-'));
     let endInput: () => void = () => undefined;
     const inputOver = new Promise<void>((resolve) => {
@@ -242,6 +252,9 @@ export function createClaudeAdapter({
         mcpServers: {},
         systemPrompt: instructions,
         stderr: () => undefined,
+        // The quick read runs on the model the composer picked (spec 042, Q1); left out, Claude Code's own.
+        ...(model === undefined ? {} : { model }),
+        ...(effort === undefined ? {} : { effort }),
       },
     });
     const read = createMessageReader(folder);
@@ -343,8 +356,8 @@ export function createClaudeAdapter({
       return listing;
     },
 
-    write(text, instructions, { timeoutMs = writeTimeoutMs } = {}) {
-      return writeText(text, instructions, timeoutMs);
+    write(text, instructions, { timeoutMs = writeTimeoutMs, model, effort } = {}) {
+      return writeText(text, instructions, { timeoutMs, model, effort });
     },
 
     startSession(brief, worktree, permissions, instructions, { resume, model, effort, tools = [] } = {}) {
