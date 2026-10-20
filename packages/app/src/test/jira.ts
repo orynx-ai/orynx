@@ -1,4 +1,3 @@
-import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { apiRoutes, type ApiError, type JiraConnection } from '@devhub/contracts';
 import { makeJiraConnection, makeStatus } from '@devhub/contracts/testing';
@@ -10,16 +9,6 @@ export const savedJira = { site: 'your-team.atlassian.net', email: 'dev@example.
 export const connectedJiraStatus = makeStatus({
   integrations: { jira: { state: 'connected', detail: 'Personal API token for your-team.atlassian.net' } },
 });
-
-/** The Jira row in Settings › Connections, found by the name a person reads. */
-export async function jiraRow(): Promise<HTMLElement> {
-  const list = await screen.findByRole('list', { name: 'Connections' });
-  const row = within(list)
-    .getAllByRole('listitem')
-    .find((li) => within(li).queryByText('Jira', { selector: 'span' }) !== null);
-  if (!row) throw new Error('No Jira row');
-  return row;
-}
 
 /**
  * Answers like a hub whose Jira accepts: PUT saves and flips the status to connected, DELETE

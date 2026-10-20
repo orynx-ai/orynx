@@ -1,4 +1,3 @@
-import { screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import {
   apiRoutes,
@@ -14,16 +13,6 @@ const connectedLines: Record<GitHubMethod, string> = {
   gh: 'Signed in as octocat with the gh command-line tool',
   token: 'Personal access token for octocat',
 };
-
-/** The GitHub row in Settings › Connections, found by the name a person reads. */
-export async function githubRow(): Promise<HTMLElement> {
-  const list = await screen.findByRole('list', { name: 'Connections' });
-  const row = within(list)
-    .getAllByRole('listitem')
-    .find((li) => within(li).queryByText('GitHub', { selector: 'span' }) !== null);
-  if (!row) throw new Error('No GitHub row');
-  return row;
-}
 
 /**
  * Answers like a hub whose GitHub accepts: PUT saves the way and flips the status to connected,

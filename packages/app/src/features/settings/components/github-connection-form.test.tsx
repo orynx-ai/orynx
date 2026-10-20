@@ -5,7 +5,7 @@ import { apiRoutes, type GitHubConnection } from '@devhub/contracts';
 import { makeGitHubConnection } from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
-import { failingGitHubSave, githubRow, githubServer } from '../../../test/github.ts';
+import { failingGitHubSave, githubServer } from '../../../test/github.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -14,7 +14,7 @@ const newTokenUrl = 'https://github.com/settings/tokens/new?scopes=repo&descript
 async function openForm(connection: GitHubConnection = makeGitHubConnection({ ghFound: true })) {
   const sent = githubServer({ connection });
   const app = await renderApp({ route: '/settings/connections' });
-  await app.user.click(await within(await githubRow()).findByRole('button', { name: 'Connect' }));
+  await app.user.click(await screen.findByRole('button', { name: 'GitHub: Not connected. Manage connection' }));
   return { ...app, sent, form: await screen.findByRole('form', { name: 'GitHub connection' }) };
 }
 
@@ -40,7 +40,7 @@ describe('GitHub connection form', () => {
       'Orynx keeps the token in your keychain.',
     );
     expect(within(form).queryByLabelText('Personal access token')).not.toBeInTheDocument();
-    expect(within(await githubRow()).getByRole('button', { name: 'Close' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('dialog', { name: 'GitHub' })).toBeVisible();
   });
 
   it("AC-2: picks the token way when gh isn't there, and says so on the gh choice", async () => {
@@ -253,7 +253,7 @@ describe('GitHub connection form', () => {
       }),
     );
     const { user } = await renderApp({ route: '/settings/connections' });
-    await user.click(await within(await githubRow()).findByRole('button', { name: 'Connect' }));
+    await user.click(await screen.findByRole('button', { name: 'GitHub: Not connected. Manage connection' }));
     const form = await screen.findByRole('form', { name: 'GitHub connection' });
     const token = within(form).getByLabelText('Personal access token');
     await user.type(token, 'fake-tok');

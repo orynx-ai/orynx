@@ -1,4 +1,4 @@
-import { useRef, type ComponentProps } from 'react';
+import { useRef, type ComponentProps, type ReactNode } from 'react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 
@@ -21,6 +21,26 @@ export function DialogTrigger(props: ComponentProps<typeof DialogPrimitive.Trigg
 export function DialogTitle({ className, ...props }: ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title data-slot="dialog-title" className={cn('text-title font-medium', className)} {...props} />
+  );
+}
+
+/**
+ * The dialog's buttons (`dh-dialog-foot`, spec 030): a hairline above, the sidebar's tint, the actions at the
+ * end with Cancel first and the primary last. `start` holds one action that sits apart, such as Disconnect.
+ */
+export function DialogFoot({ start, className, children, ...props }: ComponentProps<'div'> & { start?: ReactNode }) {
+  return (
+    <div
+      data-slot="dialog-foot"
+      className={cn(
+        'flex flex-wrap items-center justify-end gap-2 border-t border-border bg-sidebar px-5 py-3.5',
+        className,
+      )}
+      {...props}
+    >
+      {start === undefined ? null : <div className="me-auto">{start}</div>}
+      {children}
+    </div>
   );
 }
 

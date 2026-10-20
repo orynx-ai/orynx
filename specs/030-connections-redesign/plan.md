@@ -7,9 +7,9 @@ Spec: `specs/030-connections-redesign/spec.md`
 1. **The designs first** (Q1). A script puts both exports in `docs/design/screens/` and their new CSS in `design-system.md`; the user runs and commits it. The screen's `// Design:` note can only name them once they are there (`pnpm gate design-source` checks the file exists), so the user runs it before the panel task (Task 13).
 2. **Contracts → core → api-client** (Tasks 2–5). `IntegrationStatus` gains `account` and `checkedAt`, both optional so no fixture changes. One new endpoint per tool, `POST /api/<tool>/connection/check`, answers `{ status, ms }` through `CheckedStatus.checkNow`, which already exists for Claude's login. Reconnecting with a token reuses today's `PUT`; through gh it is the same check as Test. Nothing else on the server changes.
 3. **`@devhub/ui` parts** (Tasks 6–7): `StatusButton` and its key look, `DetailList`, and a `narrow` `DialogContent`. Each has stories, a test and a `docs/design-map.md` row, so the app tasks only compose.
-4. **The dialog, state by state** (Tasks 8–12), as one `ConnectionDialog` in `features/settings/components/`, tested on its own with MSW before the page uses it: Connected and Test, then Disconnect, then Needs reconnecting (gh, then a token), then Not connected (today's forms move in), then Slack.
-5. **The panel swap** (Task 13): the new list, key, loading state, page message and page-bar count, wired to the dialog; the four old row components go.
-6. **e2e** (Task 14): the two connect specs rewritten for the dialog, connected and reconnect states faked with `page.route` as `settings.spec.ts` already does, keyboard, 360 px, axe in both themes.
+4. **The panel swap first** (Task 8). App tests render the whole app at a route (there is no harness for a lone component), so the dialog is tested through the page from the start. The new rows open `ConnectionDialog`, whose Not connected and Needs reconnecting states hold today's forms until their tasks, so connecting works at every commit (changed while building, 20 Oct 2026).
+5. **The dialog, state by state** (Tasks 9–13): Test connection, Disconnect and the page message, Needs reconnecting (gh, then a token), then Not connected and Slack. Then the page-bar count and the `// Design:` note (Task 14).
+6. **e2e** (Task 15): the two connect specs rewritten for the dialog, connected and reconnect states faked with `page.route` as `settings.spec.ts` already does, keyboard, 360 px, axe in both themes.
 
 ## Risks
 

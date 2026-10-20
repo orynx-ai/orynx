@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Button } from './button.tsx';
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from './dialog.tsx';
+import { Dialog, DialogContent, DialogFoot, DialogTitle, DialogTrigger } from './dialog.tsx';
 
 const meta = {
   title: 'Components/Dialog',
@@ -57,16 +57,22 @@ export const TallerThanTheWindow: Story = {
   ),
 };
 
-/** `size="narrow"`: 520 px, for a dialog about one thing, such as a tool's connection (spec 030). */
+/** `size="narrow"`: 520 px, for a dialog about one thing, such as a tool's connection (spec 030), with its foot. */
 export const Narrow: Story = {
   render: (args) => (
     <Dialog {...args}>
       <DialogTrigger asChild>
         <Button>Open the dialog</Button>
       </DialogTrigger>
-      <DialogContent size="narrow" className="gap-2 p-4">
-        <DialogTitle>Jira</DialogTitle>
-        <p className="text-muted-foreground">Orynx is using your Jira login. Nothing here changes Jira itself.</p>
+      <DialogContent size="narrow">
+        <div className="flex flex-col gap-2 p-5">
+          <DialogTitle>Jira</DialogTitle>
+          <p className="m-0 text-muted-foreground">Orynx is using your Jira login. Nothing here changes Jira itself.</p>
+        </div>
+        <DialogFoot start={<Button variant="danger-ghost">Disconnect</Button>}>
+          <Button>Cancel</Button>
+          <Button variant="primary">Done</Button>
+        </DialogFoot>
       </DialogContent>
     </Dialog>
   ),

@@ -4,13 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeJiraConnection } from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
-import { failingJiraSave, jiraRow, jiraServer, savedJira } from '../../../test/jira.ts';
+import { failingJiraSave, jiraServer, savedJira } from '../../../test/jira.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
 async function openForm() {
   const app = await renderApp({ route: '/settings/connections' });
-  await app.user.click(await within(await jiraRow()).findByRole('button', { name: 'Connect' }));
+  await app.user.click(await screen.findByRole('button', { name: 'Jira: Not connected. Manage connection' }));
   return { ...app, form: await screen.findByRole('form', { name: 'Jira connection' }) };
 }
 
@@ -31,7 +31,7 @@ describe('Jira connection form', () => {
       'href',
       'https://id.atlassian.com/manage-profile/security/api-tokens',
     );
-    expect(within(await jiraRow()).getByRole('button', { name: 'Close' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('dialog', { name: 'Jira' })).toBeVisible();
   });
 
   it('AC-2: the token link opens outside DevHub', async () => {
@@ -185,7 +185,7 @@ describe('Jira connection form', () => {
     expect(sent).toHaveLength(1);
   });
 
-  it("AC-13: while Jira is checked, Cancel and Close can't close the form", async () => {
+  it("AC-13: while Jira is checked, Cancel can't close the form", async () => {
     server.use(
       http.put(apiUrl(apiRoutes.jiraConnection), async () => {
         await delay('infinite');
@@ -201,7 +201,6 @@ describe('Jira connection form', () => {
     await expect.poll(() => cancel.getAttribute('aria-disabled')).toBe('true');
 
     await user.click(cancel);
-    await user.click(within(await jiraRow()).getByRole('button', { name: 'Close' }));
 
     expect(screen.getByRole('form', { name: 'Jira connection' })).toBeVisible();
   });

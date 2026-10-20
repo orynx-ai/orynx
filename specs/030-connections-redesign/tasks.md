@@ -23,26 +23,29 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: `DetailList` (a `dl` grid, terms muted) and `DialogContent size="narrow"` (520 px, the 16 px gutter under 768 px); stories; design-map rows, and the Dialog row's one exception: Disconnect alone at the foot's start (Q6) (AC-7, AC-25)
       Check: pnpm test packages/ui/src/components/detail-list.test.tsx packages/ui/src/components/dialog.test.tsx; pnpm gate component-coverage style-policy
       Files: packages/ui/src/components/detail-list.tsx, .stories.tsx, .test.tsx, packages/ui/src/components/dialog.tsx, dialog.stories.tsx, dialog.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 8: `ConnectionDialog`, Connected: the head (mark, name, pill, Close), the line, the details (Site, Account, Signed in with, Orynx reads and writes, Last checked), Disconnect · Cancel · Test connection · Done; Test busy, then "Working. Jira answered in N ms." and Test again; a failed test turns the pill and shows the reason; Done, Cancel, Close and Escape return focus (AC-7, AC-8, AC-9, AC-10, AC-26)
+- [x] Task 8: The panel swap: "Your tools", one row per tool (mark, name, line, `StatusButton`), the key, the loading rows (Q7), the unreachable message; each status button opens the tool's dialog (mark, name, pill, Close; the dialog takes focus, so Escape shuts it); Connected shows its details with Cancel · Done; Not connected and Needs reconnecting hold today's forms for now; a live region inside the dialog; `DialogFoot` in `@devhub/ui`; the four old row components and their tests go (AC-1, AC-3, AC-4, AC-5, AC-6, AC-7, AC-10, AC-26)
+      Check: pnpm test packages/app/src/features/settings; pnpm test packages/ui/src/components/dialog.test.tsx; pnpm gate component-coverage test-policy style-policy icon-buttons
+      Files: connections-panel.tsx, connection-dialog.tsx, connection-words.ts and their tests; packages/app/src/test/connections.ts, jira.ts, github.ts; packages/ui/src/components/dialog.tsx; removes connection-row, managed-connection-row, jira-connection-row, github-connection-row
+- [ ] Task 9: Test connection: busy, then "Working. Jira answered in N ms." and Test again; a failed test turns the pill and shows the server's reason in a red box; Last checked reads "Just now" (AC-8, AC-9)
       Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx
-      Files: packages/app/src/features/settings/components/connection-dialog.tsx, connection-dialog.test.tsx, connection-words.ts, packages/app/src/features/settings/queries.ts
-- [ ] Task 9: Confirm disconnect: the red alert with what goes and what stays, Keep connected · Disconnect, focus on Keep connected, the running-sessions line for Jira; Disconnect shuts the dialog and hands the panel its message (AC-11, AC-12, AC-13, AC-14)
+      Files: connection-dialog.tsx, connection-dialog.test.tsx, connection-words.ts, packages/app/src/features/settings/queries.ts
+- [ ] Task 10: Confirm disconnect: Disconnect alone at the foot's start, the red alert with what goes and what stays, Keep connected · Disconnect, focus on Keep connected, the running-sessions line for Jira; Disconnect shuts the dialog and the page says so in a green line under the key, which replaces the hidden announcement (AC-11, AC-12, AC-13, AC-14)
+      Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx packages/app/src/features/settings/components/connections-panel.test.tsx
+      Files: connection-dialog.tsx, connections-panel.tsx, connection-words.ts and their tests
+- [ ] Task 11: Needs reconnecting through gh: the amber callout with the server's reason, `gh auth login` with Copy, Reconnect busy with "Checking your gh login…", success shuts the dialog with "GitHub reconnected. Your inbox is refreshing.", failure shows the new reason; Cancel mid-check still lands the message (AC-15, AC-16, AC-17, AC-18)
       Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx
-      Files: packages/app/src/features/settings/components/connection-dialog.tsx, connection-dialog.test.tsx, connection-words.ts
-- [ ] Task 10: Needs reconnecting through gh: the amber callout with the server's reason, `gh auth login` with Copy, Reconnect busy with "Checking your gh login…", success shuts the dialog with "GitHub reconnected. Your inbox is refreshing.", failure shows the new reason; Cancel mid-check still lands the message (AC-15, AC-16, AC-17, AC-18)
-      Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx
-      Files: packages/app/src/features/settings/components/connection-dialog.tsx, connection-dialog.test.tsx, connection-words.ts
-- [ ] Task 11: Needs reconnecting with a token (Jira, or GitHub by token): one token field with its Create link inside the callout, Reconnect saves it through today's PUT, empty re-checks the saved one (Q3) (AC-19)
+      Files: connection-dialog.tsx, connection-dialog.test.tsx, connection-words.ts
+- [ ] Task 12: Needs reconnecting with a token (Jira, or GitHub by token): one token field with its Create link inside the callout, Reconnect saves it through today's PUT, empty re-checks the saved one (Q3) (AC-19)
       Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx packages/app/src/features/settings/components/reconnect-token-form.test.tsx
-      Files: packages/app/src/features/settings/components/reconnect-token-form.tsx, reconnect-token-form.test.tsx, connection-dialog.tsx, connection-dialog.test.tsx, packages/app/src/features/settings/schemas.ts
-- [ ] Task 12: Not connected: today's Jira and GitHub forms in the dialog's body with Cancel · Connect in its foot (`form` attribute), their own Disconnect and button rows gone; Slack: the line, step 1 and Copy request for your admin (Q4), Close (AC-20, AC-21, AC-22)
+      Files: reconnect-token-form.tsx, reconnect-token-form.test.tsx, connection-dialog.tsx, connection-dialog.test.tsx, packages/app/src/features/settings/schemas.ts
+- [ ] Task 13: Not connected: today's Jira and GitHub forms in the dialog's body with Cancel · Connect in its foot (`form` attribute), their own Disconnect and button rows gone; Slack: the line, step 1 and Copy request for your admin (Q4), Close (AC-20, AC-21, AC-22)
       Check: pnpm test packages/app/src/features/settings/components/jira-connection-form.test.tsx packages/app/src/features/settings/components/github-connection-form.test.tsx packages/app/src/features/settings/components/connection-dialog.test.tsx
-      Files: jira-connection-form.tsx, github-connection-form.tsx, connection-dialog.tsx, slack-setup.tsx, and their tests, in packages/app/src/features/settings/components/
-- [ ] Task 13: The panel swap (after the user has run Task 1's script): "Your tools", one row per tool with its mark, name, detail and `StatusButton` opening the dialog, the key, the green page message, the loading rows (Q7), the page bar's "N of 3 connected · N needs attention", the `// Design:` note; the old row components and their tests go (AC-1, AC-2, AC-3, AC-5, AC-6, AC-14, AC-26)
-      Check: pnpm test packages/app/src/features/settings; pnpm gate design-source style-policy component-coverage
-      Files: connections-panel.tsx, connections-panel.test.tsx, connections-summary.tsx, settings-screen.tsx; removes connection-row, managed-connection-row, jira-connection-row, github-connection-row (.tsx and .test.tsx)
-- [ ] Task 14: e2e: connect-jira and connect-github rewritten for the dialog; connected, failed-test and reconnect states faked with `page.route`; keyboard only, no layout shift while loading, 360 and 1280 px, axe in light and dark for the page and each dialog state; smoke's "Not connected" count still scoped to the list (AC-5, AC-23, AC-24, AC-25)
+      Files: jira-connection-form.tsx, github-connection-form.tsx, connection-dialog.tsx, and their tests
+- [ ] Task 14: The page bar's "N of 3 connected · N needs attention" on this tab, and the `// Design:` note naming both designs (after the user has run Task 1's script); the real-browser check at 360 and 1280 px in both themes (AC-2)
+      Check: pnpm test packages/app/src/features/settings/settings-screen.test.tsx; pnpm gate design-source
+      Files: settings-screen.tsx, settings-screen.test.tsx, connections-summary.tsx
+- [ ] Task 15: e2e: connect-jira and connect-github rewritten for the dialog; the four specs that connect through the UI (composer, changes, home-inbox, sessions) and smoke follow the status button; connected, failed-test and reconnect states faked with `page.route`; keyboard only, no layout shift while loading, 360 and 1280 px, axe in light and dark for the page and each dialog state (AC-5, AC-23, AC-24, AC-25)
       Check: pnpm test:e2e e2e/connect-jira.spec.ts e2e/connect-github.spec.ts e2e/smoke.spec.ts
-      Files: e2e/connect-jira.spec.ts, e2e/connect-github.spec.ts, e2e/smoke.spec.ts
-- [ ] Task 15: STOP and run /review
+      Files: e2e/connect-jira.spec.ts, e2e/connect-github.spec.ts, e2e/smoke.spec.ts, e2e/composer.spec.ts, e2e/changes.spec.ts, e2e/home-inbox.spec.ts, e2e/sessions.spec.ts, e2e/coding-agent.spec.ts
+- [ ] Task 16: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
