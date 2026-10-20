@@ -52,7 +52,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## Core and api-client: ports
 
-- [ ] Task 14: Read this session's listeners from `lsof` (child of its tabs or Claude's commands, or cwd in the worktree), who started each, known names, and https or http once per new port (AC-6, AC-7, AC-8, AC-10, AC-11)
+- [x] Task 14: Read this session's listeners from `lsof` and `ps` (under one of its Terminal tabs, or running from inside its worktree, nothing else), who started each, known names, and https or http once per new server (AC-6, AC-7, AC-8, AC-9, AC-10, AC-11)
       Check: pnpm test packages/core/src/ports/
       Files: packages/core/src/ports/listeners.ts, packages/core/src/ports/listeners.test.ts, packages/core/src/ports/port-service.ts, packages/core/src/ports/port-service.test.ts
 - [ ] Task 15: Stop (re-checked as the session's, SIGTERM then SIGKILL after 5 s) and Restart (a server Orynx started, in its own tab), each with a `server` row; Delete stops the session's servers first (AC-4, AC-5, AC-7, AC-13)
