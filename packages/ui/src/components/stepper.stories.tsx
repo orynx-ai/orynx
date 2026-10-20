@@ -22,7 +22,7 @@ export const AllDone: Story = { args: { current: 5 } };
 export const TestSkipped: Story = { args: { current: 3, skipped: [2] } };
 /** Your pull request's own branch: the last step is Push (spec 031). */
 export const OnYourPullRequest: Story = { args: { steps: ['Plan', 'Build', 'Test', 'Review', 'Push'], current: 4 } };
-/** A narrow column: the steps wrap onto a second line and nothing is cut off. */
+/** A narrow column, as on a phone: only the current step's words show, so five steps stay on one line (spec 042). */
 export const Narrow: Story = {
   decorators: [
     (Story) => (
@@ -32,3 +32,9 @@ export const Narrow: Story = {
     ),
   ],
 };
+/** Claude's own words for a run that grew into a fix (spec 042): five steps, labels up to 16 characters. */
+export const ClaudesSteps: Story = {
+  args: { steps: ['Set up', 'Start server', 'Fix env key', 'Run the tests', 'Pull request'], current: 2 },
+};
+/** The same on a phone: the current step's words, and the others' marks. */
+export const ClaudesStepsNarrow: Story = { ...ClaudesSteps, decorators: Narrow.decorators };
