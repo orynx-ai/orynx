@@ -137,7 +137,10 @@ export interface SessionService {
    * Deletes the session, its brief and its worktree, keeping its branch (spec 039, Q1). Refused while Claude works:
    * Stop comes first.
    */
-  remove(id: string): Promise<'deleted' | 'not_found' | 'working' | 'failed'>;
+  remove(
+    id: string,
+    options?: { branch?: boolean | undefined },
+  ): Promise<'deleted' | 'not_found' | 'working' | 'failed'>;
   /** Your answer to a call waiting in this session (spec 012). The first answer counts. */
   respond(id: string, approvalId: string, decision: ApprovalDecision): Promise<RespondResult>;
   /**
@@ -1215,7 +1218,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return 'discarded';
   }
 
-  async function removeNow(id: string): Promise<'deleted' | 'not_found' | 'working' | 'failed'> {
+  async function removeNow(id: string, withBranch: boolean): Promise<'deleted' | 'not_found' | 'working' | 'failed'> {
     // A push under way finishes first, so git never pushes from a worktree that's being deleted (spec 014).
     await publishing.get(id);
     const record = await records.get(id);
@@ -1225,9 +1228,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     await options.terminal?.stopAll(id);
     // Discard leaves a folderless Ask's own folder (it isn't a worktree), so a delete takes it either way.
     if (record.worktree !== null && (record.session.discardedAt === null || record.repository === null)) {
-      // No branch: it stays in your repository, so committed work can still be found (Q1). An Ask with no folder has
-      // an empty folder of its own, which isn't a repository, so remove() deletes it as long as it's under the root.
-      const removed = await worktrees.remove(record.repository?.path ?? record.worktree, record.worktree, null);
+      // The branch stays in your repository unless you ask (Q1), so committed work can still be found, and your own pull
+      // request's branch is never the session's to delete (spec 031). An Ask with no folder has an empty folder of its
+      // own, which isn't a repository, so remove() deletes it as long as it's under the root.
+      const branch = withBranch && record.session.workOn !== 'pull_request' ? record.session.branch : null;
+      const removed = await worktrees.remove(record.repository?.path ?? record.worktree, record.worktree, branch);
       if (!removed.ok) {
         report(record, 'git', 'remove');
         return 'failed';
@@ -1348,8 +1353,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return 'changed';
     },
 
-    remove(id) {
-      return whileEnding(id, removeNow(id));
+    remove(id, { branch = false } = {}) {
+      return whileEnding(id, removeNow(id, branch));
     },
 
     async changes(id) {

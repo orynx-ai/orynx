@@ -191,6 +191,8 @@ test.describe('every session and the rail (spec 020)', () => {
     }));
     await page.route(/\/api\/sessions(\?.*)?$/, (route) => {
       const params = new URL(route.request().url()).searchParams;
+      // None of them is pinned (spec 039): the sidebar asks for the pinned ones apart.
+      if (params.get('pinned') === 'true') return route.fulfill({ json: { sessions: [], nextCursor: null } });
       const cursor = params.get('cursor');
       const start = cursor === null ? 0 : sessions.findIndex((session) => cursor.endsWith(`.${session.id}`)) + 1;
       const limit = Number(params.get('limit') ?? sessions.length);

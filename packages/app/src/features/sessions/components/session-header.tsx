@@ -3,7 +3,6 @@ import { useMutation } from '@tanstack/react-query';
 import {
   ArrowUpRight01Icon,
   ComputerTerminal01Icon,
-  Delete02Icon,
   GitPullRequestIcon,
   Loading03Icon,
   MoreHorizontalIcon,
@@ -36,7 +35,6 @@ import { openPullRequestLabel, pullRequestWords } from '../pull-request-words.ts
 import { useEditor, useHasChanges } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
 import { DeleteSession } from './delete-session.tsx';
-import { DiscardSession } from './discard-session.tsx';
 import { RenameSession } from './rename-session.tsx';
 import { SessionMenuItems, type SessionMenuPick } from './session-menu.tsx';
 import { SessionTerminal } from './terminal/session-terminal.tsx';
@@ -103,9 +101,9 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
 /**
  * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop while Claude works (AC-9);
  * once Claude is done, Create pull request when there's something to put in one; once the pull request is open,
- * Open PR and Push changes, with no primary button (spec 014, Q10e). Terminal, Open in the editor and Discard
- * changes wait in More actions (spec 038). Under 768 px everything but Stop moves into More actions, so the bar
- * keeps to one line.
+ * Open PR and Push changes, with no primary button (spec 014, Q10e). Terminal and Open in the editor wait in More
+ * actions (spec 038), then Rename, Pin and Delete (spec 039, where Delete took Discard changes' place, the user's call,
+ * 20 Oct 2026). Under 768 px everything but Stop moves into More actions, so the bar keeps to one line.
  * Stop keeps focus while it runs; once the session has stopped, the title takes focus, because the button is gone.
  */
 export function SessionActions({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
@@ -114,10 +112,9 @@ export function SessionActions({ session, title }: { session: Session; title: Re
   const more = useRef<HTMLButtonElement>(null);
   const createDialog = useRef<{ open: () => void }>(null);
   const pushDialog = useRef<{ open: () => void }>(null);
-  const discardDialog = useRef<{ open: () => void }>(null);
   const terminalDialog = useRef<{ open: () => void }>(null);
   // The dialog an item opens, once the menu has closed and let go of focus.
-  const picked = useRef<'create' | 'push' | 'discard' | 'terminal' | SessionMenuPick | null>(null);
+  const picked = useRef<'create' | 'push' | 'terminal' | SessionMenuPick | null>(null);
   // Rename and Delete (spec 039), opened as the sidebar's ⋯ opens them.
   const [sessionDialog, setSessionDialog] = useState<SessionMenuPick | null>(null);
   // Once you've created the pull request, focus goes to Open PR, now or as soon as it shows (spec 014, AC-4);
@@ -145,10 +142,9 @@ export function SessionActions({ session, title }: { session: Session; title: Re
 
   const offerCreate = canCreatePullRequest(session) && hasChanges;
   const offerPush = pullRequest !== null && canPush(session);
-  // An Ask session has no worktree to open or discard (spec 026); nor is there one once discarded or before it's made.
+  // An Ask session has no worktree to open (spec 026); nor is there one once discarded or before it's made.
   const kept = session.mode !== 'ask' && session.discardedAt === null;
   const editorPath = kept && editor !== null ? session.worktreePath : null;
-  const offerDiscard = kept && session.branch !== null;
   const menu = wide ? undefined : more;
   // Rename, Pin and Delete are always there (spec 039, AC-34), so More actions is too.
 
@@ -207,7 +203,6 @@ export function SessionActions({ session, title }: { session: Session; title: Re
           {...(menu === undefined ? {} : { menu })}
         />
       ) : null}
-      {offerDiscard ? <DiscardSession ref={discardDialog} session={session} title={title} menu={more} /> : null}
       <RenameSession
         session={session}
         open={sessionDialog === 'rename'}
@@ -247,7 +242,6 @@ export function SessionActions({ session, title }: { session: Session; title: Re
             const dialogs = {
               create: createDialog,
               push: pushDialog,
-              discard: discardDialog,
               terminal: terminalDialog,
             };
             dialogs[dialog].current?.open();
@@ -306,17 +300,6 @@ export function SessionActions({ session, title }: { session: Session; title: Re
               picked.current = pick;
             }}
           />
-          {offerDiscard ? (
-            <MenuItem
-              icon={<Icon icon={Delete02Icon} />}
-              className="text-danger"
-              onSelect={() => {
-                picked.current = 'discard';
-              }}
-            >
-              Discard changes
-            </MenuItem>
-          ) : null}
         </MenuContent>
       </Menu>
     </>

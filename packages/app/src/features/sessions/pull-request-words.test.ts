@@ -3,7 +3,7 @@ import { makePullRequestDraft, makePushDraft } from '@devhub/contracts/testing';
 import {
   cannotOpenWords,
   cannotPushWords,
-  discardKeepsPullRequest,
+  deleteKeepsPullRequest,
   failureLine,
   openPullRequestLabel,
   pullRequestWords,
@@ -148,6 +148,6 @@ describe('Push changes (spec 014, Q11f)', () => {
 
 describe('Discard once a pull request is open (spec 014, Q11g)', () => {
   it('AC-18: says the pull request and the branch on GitHub stay', () => {
-    expect(discardKeepsPullRequest(number)).toBe(`Pull request ${pr} and the branch on GitHub stay.`);
+    expect(deleteKeepsPullRequest(number)).toBe(`Pull request ${pr} and the branch on GitHub stay.`);
   });
 });

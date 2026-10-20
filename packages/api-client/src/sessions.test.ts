@@ -267,13 +267,15 @@ describe('createApiClient().changeSession() and deleteSession() (spec 039)', () 
         if (params['id'] === 'fedcba9876543210') {
           return HttpResponse.json({ code: 'session_working', message: 'Stop the session first.' }, { status: 409 });
         }
-        deleted.push(new URL(request.url).pathname);
+        const url = new URL(request.url);
+        deleted.push(url.pathname + url.search);
         return new HttpResponse(null, { status: 204 });
       }),
     );
     const api = createApiClient({ baseURL, token: 't' });
     await api.deleteSession('0123456789abcdef');
-    expect(deleted).toEqual(['/api/sessions/0123456789abcdef']);
+    await api.deleteSession('0123456789abcdef', { branch: true });
+    expect(deleted).toEqual(['/api/sessions/0123456789abcdef', '/api/sessions/0123456789abcdef?branch=true']);
     await expect(api.deleteSession('fedcba9876543210')).rejects.toMatchObject({ code: 'session_working' });
   });
 

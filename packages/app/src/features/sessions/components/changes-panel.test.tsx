@@ -204,7 +204,8 @@ describe('ChangesPanel', () => {
       'href',
       `vscode://file${worktreePath}`,
     );
-    expect(screen.getByRole('menuitem', { name: 'Discard changes' })).toBeVisible();
+    // Delete took Discard changes' place (spec 039).
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeVisible();
   });
 
   it('AC-26: says Open in Cursor when Settings picks Cursor', async () => {

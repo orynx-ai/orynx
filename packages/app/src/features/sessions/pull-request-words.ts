@@ -135,7 +135,7 @@ export function failureLine(
   }
 }
 
-/** Discard's extra line once a pull request is open (Q11g). */
-export function discardKeepsPullRequest(number: number): string {
+/** Delete's extra line once a pull request is open (Q11g; Discard's until spec 039). */
+export function deleteKeepsPullRequest(number: number): string {
   return `Pull request #${String(number)} and the branch on GitHub stay.`;
 }

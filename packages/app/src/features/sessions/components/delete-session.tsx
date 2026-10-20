@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 import { useMatchRoute, useNavigate } from '@tanstack/react-router';
 import { ApiRequestError } from '@devhub/api-client';
 import type { SessionSummary } from '@devhub/contracts';
@@ -11,8 +12,10 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogTitle,
+  Checkbox,
 } from '@devhub/ui';
-import { useDeleteSession, useHasChanges } from '../queries.ts';
+import { deleteKeepsPullRequest } from '../pull-request-words.ts';
+import { useDeleteSession, useHasChanges, useSession } from '../queries.ts';
 
 export interface DeleteSessionProps {
   session: Pick<SessionSummary, 'id' | 'state'>;
@@ -26,13 +29,20 @@ export interface DeleteSessionProps {
 
 /**
  * Delete this session? (spec 039, Q1, AC-31 to AC-35): shadcn's AlertDialog, Cancel first, so Enter never deletes by
- * accident. It says when changes Claude made haven't been pushed. It stays open, waiting, until the delete is done; one
- * that fails says so and deletes nothing. Deleting the session you're looking at goes to the Sessions page.
+ * accident. It is the one way to let a session go, since it took Discard changes' place (the user's call, 20 Oct
+ * 2026): the session and its worktree go, and the branch too when you tick it; your own pull request's branch is never
+ * offered (spec 031). It says when changes Claude made haven't been pushed. It stays open, waiting, until the delete is
+ * done; one that fails says so and deletes nothing. Deleting the session you're looking at goes to the Sessions page.
  */
 export function DeleteSession({ session, open, onClose, returnFocusTo, onDeleted }: DeleteSessionProps) {
   const remove = useDeleteSession();
-  // Asked only while the dialog is open. Once a pull request is open, its changes went with it.
+  // Asked only while the dialog is open: its branch, and whether there's anything Claude changed.
+  const detail = useSession(session.id, open).data ?? null;
+  // Once a pull request is open, its changes went with it.
   const unpushed = useHasChanges(session.id, open) && session.state !== 'pr_open';
+  const branch =
+    detail !== null && detail.workOn !== 'pull_request' && detail.discardedAt === null ? detail.branch : null;
+  const form = useForm<{ branch: boolean }>({ defaultValues: { branch: false } });
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
   const working = remove.error instanceof ApiRequestError && remove.error.code === 'session_working';
@@ -45,6 +55,7 @@ export function DeleteSession({ session, open, onClose, returnFocusTo, onDeleted
         if (next || remove.isPending) return;
         onClose();
         remove.reset();
+        form.reset();
       }}
     >
       {open ? (
@@ -64,9 +75,31 @@ export function DeleteSession({ session, open, onClose, returnFocusTo, onDeleted
           <AlertDialogBody>
             <AlertDialogTitle>Delete this session?</AlertDialogTitle>
             <AlertDialogDescription>
-              Its worktree is deleted too. Its branch stays in your repository.
+              Its worktree is deleted too.
               {unpushed ? ' Its changes that haven’t been pushed will be lost.' : null}
+              {/* Delete takes only what's on this computer (spec 014, AC-18). */}
+              {detail?.pullRequest == null ? null : ` ${deleteKeepsPullRequest(detail.pullRequest.number)}`}
             </AlertDialogDescription>
+            {branch === null ? null : (
+              <Controller
+                control={form.control}
+                name="branch"
+                render={({ field }) => (
+                  <Checkbox
+                    label={
+                      <>
+                        Also delete the branch <span className="font-mono text-code">{branch}</span>
+                      </>
+                    }
+                    className="min-h-10 py-2"
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      field.onChange(checked === true);
+                    }}
+                  />
+                )}
+              />
+            )}
             {remove.isError ? (
               <p role="alert" className="m-0 text-small text-danger">
                 {working ? 'Stop the session first.' : 'Couldn’t delete the session.'}
@@ -80,7 +113,7 @@ export function DeleteSession({ session, open, onClose, returnFocusTo, onDeleted
               onClick={(event) => {
                 // Open until the delete is done, so a failure still shows here.
                 event.preventDefault();
-                void remove.mutateAsync(session.id).then(
+                void remove.mutateAsync({ id: session.id, branch: branch !== null && form.getValues('branch') }).then(
                   () => {
                     deleted.current = true;
                     onClose();

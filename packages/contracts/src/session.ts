@@ -107,6 +107,13 @@ export const SessionChangeRequestSchema = z
   .refine((change) => change.title !== undefined || change.pinned !== undefined, 'Change the title or the pin.');
 export type SessionChangeRequest = z.infer<typeof SessionChangeRequestSchema>;
 
+/**
+ * Query string of DELETE /api/sessions/:id (spec 039): `branch=true` deletes the session's branch too. Delete is the one
+ * way to let a session go since it took Discard's place (the user's call, 20 Oct 2026); the branch stays unless asked.
+ */
+export const SessionDeleteQuerySchema = z.object({ branch: z.stringbool().optional() });
+export type SessionDeleteQuery = z.infer<typeof SessionDeleteQuerySchema>;
+
 /** The id a new session gets: 16 hex characters, so it's always a safe folder name under DEVHUB_HOME. */
 export const SessionIdSchema = z.string().regex(/^[0-9a-f]{16}$/);
 export type SessionId = z.infer<typeof SessionIdSchema>;

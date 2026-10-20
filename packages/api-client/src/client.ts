@@ -52,6 +52,7 @@ import {
   type SessionList,
   type SessionListQuery,
   type SessionChangeRequest,
+  type SessionDeleteQuery,
   type StartSessionAnswer,
   type StartSessionRequest,
   type Status,
@@ -169,7 +170,7 @@ export interface ApiClient {
   /** Renames or pins a session (spec 039). */
   changeSession(id: string, change: SessionChangeRequest): Promise<void>;
   /** Deletes a session and its worktree, keeping its branch; rejects with session_working while Claude works (spec 039). */
-  deleteSession(id: string): Promise<void>;
+  deleteSession(id: string, query?: SessionDeleteQuery): Promise<void>;
   /**
    * Answers a call waiting in a session (spec 012); rejects with already_answered when another answer came
    * first, and settings_unsaved when Always allow couldn't save the list.
@@ -326,7 +327,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       postSessionDiscard(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     changeSession: (id, change) =>
       patchSession(http, id, change).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
-    deleteSession: (id) => deleteSession(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    deleteSession: (id, query) =>
+      deleteSession(http, id, query).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     respondToApproval: (id, approvalId, decision) =>
       postApproval(http, id, approvalId, decision).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     sendMessage: (id, request) =>

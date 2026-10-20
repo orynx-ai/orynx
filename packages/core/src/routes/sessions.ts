@@ -17,6 +17,7 @@ import {
   SendMessageRequestSchema,
   SessionBriefSchema,
   SessionChangeRequestSchema,
+  SessionDeleteQuerySchema,
   SessionChangesSchema,
   SessionListQuerySchema,
   SessionListSchema,
@@ -121,11 +122,12 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
     {
       schema: {
         params: SessionParamsSchema,
+        querystring: SessionDeleteQuerySchema,
         response: { 204: z.undefined(), 404: ApiErrorSchema, 409: ApiErrorSchema, 500: ApiErrorSchema },
       },
     },
     async (request, reply) => {
-      const removed = await service.remove(request.params.id);
+      const removed = await service.remove(request.params.id, request.query);
       if (removed === 'not_found') return reply.code(404).send(notFound);
       if (removed === 'working') return reply.code(409).send(stillWorking);
       // The session service told the terminal what failed.

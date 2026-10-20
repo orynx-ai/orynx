@@ -356,10 +356,17 @@ test('AC-18: a callout leaves focus where it was; Tab reaches its buttons, and f
   await expect(callout).toBeVisible({ timeout: 15_000 });
   expect(await callout.evaluate((element) => element.contains(document.activeElement))).toBe(false);
 
-  // More actions ends the page bar (028), so Tab goes from it straight to the callout.
+  // From More actions at the page bar's end, Tab reaches the callout after the steps above it, whose titles are buttons.
   await page.getByRole('button', { name: 'More actions', exact: true }).focus();
-  await page.keyboard.press('Tab');
-  await expect(callout.getByRole('button', { name: 'Allow once' })).toBeFocused();
+  const allowOnce = callout.getByRole('button', { name: 'Allow once' });
+  for (
+    let press = 0;
+    press < 12 && !(await allowOnce.evaluate((button) => button === document.activeElement));
+    press++
+  ) {
+    await page.keyboard.press('Tab');
+  }
+  await expect(allowOnce).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(callout.getByRole('button', { name: 'Deny' })).toBeFocused();
   await page.keyboard.press('Shift+Tab');

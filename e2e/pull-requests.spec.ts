@@ -346,18 +346,18 @@ test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360
   }
 });
 
-test('AC-18: Discard deletes the worktree and the local branch, and the PR and its branch on GitHub stay', async ({
+test('AC-18, 039 AC-32: Delete with its branch takes the worktree and the local branch; the PR and its branch on GitHub stay', async ({
   page,
 }) => {
   await page.goto(seen.opened ?? '');
+  // Delete took Discard changes' place (spec 039, the user's call, 20 Oct 2026).
   await page.getByRole('button', { name: 'More actions', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Discard changes' }).click();
-  const confirm = page.getByRole('dialog', { name: "Discard Claude's changes?" });
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  const confirm = page.getByRole('alertdialog', { name: 'Delete this session?' });
   await expect(confirm).toContainText(`Pull request ${pr} and the branch on GitHub stay.`);
-  await confirm.getByRole('button', { name: 'Discard changes' }).click();
-  await expect(page.getByText('The changes are gone')).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole('link', { name: `Open PR ${pr}` })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Push changes' })).toHaveCount(0);
+  await confirm.getByRole('checkbox', { name: 'Also delete the branch feat/PULL-1' }).check();
+  await confirm.getByRole('button', { name: 'Delete' }).click();
+  await page.waitForURL(/\/sessions$/);
   expect(repository.git(repository.origin, 'branch', '--list', 'feat/PULL-1')).toContain('feat/PULL-1');
   expect(repository.git(repository.clone, 'branch', '--list', 'feat/PULL-1')).toBe('');
 });
@@ -424,21 +424,19 @@ test.describe('a Build on my own pull request (spec 031)', () => {
     await page.keyboard.press('Escape');
   });
 
-  test('AC-15: Discard deletes the worktree and keeps the branch, mine and on GitHub', async ({ page }) => {
+  test('AC-15, 039 AC-32: Delete takes the worktree and never offers your own pull request’s branch', async ({
+    page,
+  }) => {
     repository.git(repository.clone, 'fetch', 'origin');
     repository.git(repository.clone, 'branch', branch, `origin/${branch}`);
     await page.goto(on.url ?? '');
     await page.getByRole('button', { name: 'More actions', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Discard changes' }).click();
-    const confirm = page.getByRole('dialog', { name: "Discard Claude's changes?" });
-    await expect(confirm).toContainText(
-      `This deletes the worktree. The changes can't be brought back. Pull request ${yours} and the branch on GitHub stay.`,
-    );
-    await confirm.getByRole('button', { name: 'Discard changes' }).click();
-    await expect(page.getByText('The changes are gone')).toBeVisible({ timeout: 10_000 });
-    await expect(
-      progressOf(page).getByText(`The worktree is deleted. ${branch} stays as it is on GitHub.`),
-    ).toBeVisible();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
+    const confirm = page.getByRole('alertdialog', { name: 'Delete this session?' });
+    await expect(confirm).toContainText(`Pull request ${yours} and the branch on GitHub stay.`);
+    await expect(confirm.getByRole('checkbox')).toHaveCount(0);
+    await confirm.getByRole('button', { name: 'Delete' }).click();
+    await page.waitForURL(/\/sessions$/);
     expect(repository.git(repository.clone, 'branch', '--list', branch)).toContain(branch);
     expect(repository.git(repository.origin, 'branch', '--list', branch)).toContain(branch);
   });

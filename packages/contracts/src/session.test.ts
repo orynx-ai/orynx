@@ -6,6 +6,7 @@ import {
   SendMessageRequestSchema,
   ServerEventSchema,
   SessionChangeRequestSchema,
+  SessionDeleteQuerySchema,
   ApiErrorSchema,
   sessionTitleLimit,
   SessionApprovalSchema,
@@ -694,6 +695,11 @@ describe('renaming, pinning and deleting a session (spec 039)', () => {
   it('AC-26, AC-27: the list query asks for the pinned sessions, or the rest', () => {
     expect(SessionListQuerySchema.parse({ pinned: 'true' })).toEqual({ pinned: true });
     expect(SessionListQuerySchema.parse({ pinned: 'false', limit: '16' })).toEqual({ pinned: false, limit: 16 });
+  });
+
+  it('AC-32: a delete takes the branch too only when asked', () => {
+    expect(SessionDeleteQuerySchema.parse({})).toEqual({});
+    expect(SessionDeleteQuerySchema.parse({ branch: 'true' })).toEqual({ branch: true });
   });
 
   it('AC-33: a delete while Claude works is refused with its own code', () => {

@@ -168,7 +168,7 @@ test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it
   await page.getByRole('button', { name: 'Sync', exact: true }).focus();
 
   const stops: { name: string; ring: boolean }[] = [];
-  for (let stop = 0; stop < 15; stop += 1) {
+  for (let stop = 0; stop < 17; stop += 1) {
     stops.push(
       await page.evaluate(() => {
         const focused = document.activeElement;
@@ -190,6 +190,9 @@ test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it
     { name: 'Sync', ring: true },
     { name: 'Describe a task for Claude', ring: true },
     { name: 'Add context', ring: true },
+    // Ask or Build, in the composer since spec 031.
+    { name: 'Ask', ring: true },
+    { name: 'Build', ring: true },
     { name: 'Add a folder', ring: true },
     // Claude's state here depends on which spec last answered for this hub's fake Claude Code.
     { name: expect.stringMatching(/^Agent: Claude, (connected|signed out)$/) as unknown as string, ring: true },

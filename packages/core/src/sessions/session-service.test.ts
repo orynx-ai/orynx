@@ -1115,6 +1115,16 @@ describe('renaming, pinning and deleting a session (spec 039)', () => {
     expect(heard.slice(from)).toContainEqual({ type: 'sessions.changed' });
   });
 
+  it('AC-32: deletes its branch too, when asked', async () => {
+    const { service, records, repos } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await settled(records);
+
+    expect(await service.remove('0000000000000001', { branch: true })).toBe('deleted');
+
+    expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toBe('');
+  });
+
   it('AC-32: deletes a session whose changes were discarded already', async () => {
     const { service, records } = await setUp();
     await service.start({ ticketKey: 'PROJ-1423' });

@@ -41,9 +41,10 @@ export function useSessionPages(query: Omit<SessionListQuery, 'cursor'>) {
  * One session, as the Session screen shows it (spec 011); `data` is null when no session has this id. Kept
  * fresh by `session.changed` for its steps and `sessions.changed` for its state.
  */
-export function useSession(sessionId: string) {
+export function useSession(sessionId: string, enabled = true) {
   const api = useApi();
   return useQuery({
+    enabled,
     queryKey: sessionQueryKey(sessionId),
     queryFn: async (): Promise<Session | null> => {
       try {
@@ -101,7 +102,7 @@ export function useDeleteSession() {
   const api = useApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.deleteSession(id),
+    mutationFn: ({ id, branch }: { id: string; branch: boolean }) => api.deleteSession(id, { branch }),
     // Not awaited: the dialog moves focus on before the lists read again and its row, with the dialog, goes.
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });

@@ -4,8 +4,8 @@ import { renderApp } from '../../../test/render.tsx';
 import { mainNav, openSessionMenu, serveSessions } from '../../../test/sessions.ts';
 import { http, HttpResponse } from 'msw';
 import { apiRoutes } from '@devhub/contracts';
-import { makeSessionChanges } from '@devhub/contracts/testing';
-import { apiUrl, server } from '../../../test/msw.ts';
+import { makeSession, makeSessionChanges } from '@devhub/contracts/testing';
+import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 
 describe('Delete session (spec 039)', () => {
   it('AC-31: Delete asks first; Cancel keeps it and gives focus back to ⋯', async () => {
@@ -56,5 +56,30 @@ describe('Delete session (spec 039)', () => {
     const remove = within(menu).getByRole('menuitem', { name: /^Delete/ });
     expect(remove).toHaveAttribute('aria-disabled', 'true');
     expect(remove).toHaveTextContent('Stop the session first');
+  });
+
+  it('AC-32: the branch goes too only when its box is ticked; it took Discard changes’ place', async () => {
+    serveSessions([{ id: '0123456789abcdef', title: 'Add bulk archive', state: 'stopped' }]);
+    const asked: string[] = [];
+    server.use(
+      sessionHandler(makeSession({ id: '0123456789abcdef', state: 'stopped', branch: 'feat/PROJ-1423' })),
+      http.delete(apiUrl(apiRoutes.session), ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = await renderApp();
+    const { menu } = await openSessionMenu(user, 'Add bulk archive');
+    await user.click(within(menu).getByRole('menuitem', { name: 'Delete' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete this session?' });
+
+    const branch = await within(dialog).findByRole('checkbox', { name: 'Also delete the branch feat/PROJ-1423' });
+    expect(branch).not.toBeChecked();
+    await user.click(branch);
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(asked).toEqual(['?branch=true']);
+    });
   });
 });

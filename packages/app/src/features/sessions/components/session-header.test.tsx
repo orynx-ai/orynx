@@ -83,7 +83,7 @@ describe('SessionHeader', () => {
     expect(within(main).getByText('fix/content-list')).toBeVisible();
   });
 
-  it('puts Create pull request in the page bar, with Open in the editor and Discard changes in More actions', async () => {
+  it('puts Create pull request in the page bar, with Open in the editor and Delete in More actions', async () => {
     server.use(
       sessionHandler(done),
       http.get(apiUrl(apiRoutes.sessionChanges), () => HttpResponse.json(makeSessionChanges())),
@@ -98,7 +98,7 @@ describe('SessionHeader', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Open in VS Code', 'Rename', 'Pin', 'Delete', 'Discard changes']);
+    ).toEqual(['Open in VS Code', 'Rename', 'Pin', 'Delete']);
     expect(within(menu).getByRole('menuitem', { name: 'Open in VS Code' })).toHaveAttribute(
       'href',
       'vscode://file/Users/you/.devhub/worktrees/x',
@@ -124,7 +124,6 @@ describe('SessionHeader', () => {
         'Rename',
         'Pin',
         'Delete',
-        'Discard changes',
       ]);
     });
     expect(screen.queryByRole('button', { name: 'Create pull request' })).toBeNull();
@@ -234,7 +233,7 @@ describe('SessionHeader', () => {
 });
 
 describe('the session’s own Rename, Pin and Delete (spec 039)', () => {
-  it('AC-34: More actions holds Rename, Pin and Delete above Discard changes, and Rename works there too', async () => {
+  it('AC-34: More actions holds Rename, Pin and Delete, which took Discard changes’ place, and Rename works there too', async () => {
     const stopped = makeSession({ ...working, state: 'stopped' });
     const patched: unknown[] = [];
     server.use(
@@ -253,7 +252,7 @@ describe('the session’s own Rename, Pin and Delete (spec 039)', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Rename', 'Pin', 'Delete', 'Discard changes']);
+    ).toEqual(['Rename', 'Pin', 'Delete']);
     await user.click(within(menu).getByRole('menuitem', { name: 'Rename' }));
     const dialog = await screen.findByRole('dialog', { name: 'Rename session' });
     // The name opens selected, so typing replaces it.

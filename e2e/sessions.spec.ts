@@ -48,7 +48,7 @@ const tools: FakeTools = {
 };
 
 /** The sessions the tests start, by what they show, for the checks at the end. */
-const seen: { done?: string; discarded?: string; failed?: string } = {};
+const seen: { done?: string; failed?: string } = {};
 
 /** A real repository in a temporary folder, with a bare origin, and git that reads none of your settings. */
 function makeRepository() {
@@ -188,11 +188,13 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35, 031 AC-11: Ship then Send s
   await other.close();
 });
 
-test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its branch after asking', async ({ page }) => {
+test('AC-9, 039 AC-32: Stop keeps the worktree, and Delete takes the session and, when ticked, its branch', async ({
+  page,
+}) => {
   await shipToComposer(page, 'PROJ-1424');
   await page.getByRole('button', { name: 'Send to Claude' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
-  seen.discarded = page.url();
+  const url = page.url();
   const progress = page.getByRole('region', { name: "Claude's progress" });
   await expect(progress.getByText('Editing files')).toBeVisible({ timeout: 15_000 });
 
@@ -204,17 +206,19 @@ test('AC-9, AC-10: Stop keeps the worktree, and Discard deletes it with its bran
   const kept = worktrees().find((path) => repository.git(path, 'branch', '--show-current') === 'feat/PROJ-1424');
   expect(kept).toBeDefined();
 
-  // Discard is in the page bar's More actions (19 Oct 2026).
+  // Delete took Discard changes' place in the page bar's More actions (spec 039, the user's call, 20 Oct 2026).
   await page.getByRole('button', { name: 'More actions', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Discard changes' }).click();
-  const dialog = page.getByRole('dialog', { name: "Discard Claude's changes?" });
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  const dialog = page.getByRole('alertdialog', { name: 'Delete this session?' });
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
-  await dialog.getByRole('button', { name: 'Discard changes' }).click();
+  await dialog.getByRole('checkbox', { name: 'Also delete the branch feat/PROJ-1424' }).check();
+  await dialog.getByRole('button', { name: 'Delete' }).click();
 
-  await expect(progress.getByText('Discarded the changes')).toBeVisible();
-  await expect(progress.getByText('The worktree and feat/PROJ-1424 are deleted.')).toBeVisible();
-  expect(worktrees()).not.toContain(kept);
+  await page.waitForURL(/\/sessions$/);
+  expect(worktrees().some((path) => path === kept)).toBe(false);
   expect(repository.git(repository.clone, 'branch', '--list', 'feat/PROJ-1424')).toBe('');
+  await page.goto(url);
+  await expect(page.getByText('This page does not exist')).toBeVisible();
 });
 
 test('AC-11, AC-18, 022 AC-39: with two folders, the composer asks which, picked with the keyboard, and Claude starts there', async ({
@@ -280,7 +284,7 @@ test('AC-13: when Jira won’t give the ticket, the session says it couldn’t s
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible();
 });
 
-test('AC-15, AC-18, 022 AC-28: Home opens a live session, and a row’s +, Send, Stop and Discard all work from the keyboard', async ({
+test('AC-15, AC-18, 022 AC-28: Home opens a live session, and a row’s +, Send, Stop and Delete all work from the keyboard', async ({
   page,
 }) => {
   await api(await page.goto('/').then(() => page), 'POST', '/api/inbox/refresh');
@@ -307,14 +311,14 @@ test('AC-15, AC-18, 022 AC-28: Home opens a live session, and a row’s +, Send,
   await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused({ timeout: 10_000 });
 
-  // Discard is the last item in the page bar's More actions (19 Oct 2026).
+  // Delete is the last item in the page bar's More actions (spec 039: it took Discard changes' place).
   const more = page.getByRole('button', { name: 'More actions', exact: true });
   await more.focus();
   await page.keyboard.press('Enter');
   await page.keyboard.press('End');
-  await expect(page.getByRole('menuitem', { name: 'Discard changes' })).toBeFocused();
+  await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeFocused();
   await page.keyboard.press('Enter');
-  const dialog = page.getByRole('dialog', { name: "Discard Claude's changes?" });
+  const dialog = page.getByRole('alertdialog', { name: 'Delete this session?' });
   await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
@@ -336,7 +340,7 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
       return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
     }, selector);
   };
-  for (const url of [seen.done, seen.discarded, seen.failed]) {
+  for (const url of [seen.done, seen.failed]) {
     if (url === undefined) throw new Error('A session the earlier tests start is missing');
     for (const width of [1280, 360]) {
       for (const colorScheme of ['light', 'dark'] as const) {
@@ -357,4 +361,63 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
   await card.getByRole('button', { name: 'Speed up the site picker' }).click();
   await expect(page.getByRole('dialog').getByRole('heading', { name: 'Description' })).toBeVisible();
   expect(await check('[role="dialog"]')).toEqual([]);
+});
+
+test('039 AC-18, AC-21, AC-24-AC-28, AC-32, AC-35: a row’s ⋯ shows on hover; rename, pin, search and delete', async ({
+  page,
+}) => {
+  if (seen.done === undefined || seen.failed === undefined)
+    throw new Error('A session the earlier tests start is missing');
+  const doneId = new URL(seen.done).pathname.split('/').pop() ?? '';
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/sessions');
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const row = nav.locator(`a[href="/sessions/${doneId}"]`);
+  const more = row.locator('xpath=..').getByRole('button', { name: /^More actions for / });
+
+  // AC-24: out of sight until the pointer is over the row, beside the link rather than in it.
+  await expect(more).toHaveCSS('opacity', '0');
+  await row.hover();
+  await expect(more).toHaveCSS('opacity', '1');
+
+  // AC-28: Rename opens with the name selected, so typing replaces it.
+  await more.click();
+  await page.getByRole('menuitem', { name: 'Rename' }).click();
+  const rename = page.getByRole('dialog', { name: 'Rename session' });
+  await expect(rename.getByRole('textbox', { name: 'Name' })).toBeFocused();
+  await page.keyboard.type('Bulk archive, renamed');
+  await rename.getByRole('button', { name: 'Save' }).click();
+  await expect(nav.getByRole('link', { name: /^Bulk archive, renamed/ })).toBeVisible();
+  await expect(more).toBeFocused();
+
+  // AC-26: Pin moves it under Pinned, at the top of the sidebar and of the Sessions page.
+  await more.click();
+  await page.getByRole('menuitem', { name: 'Pin' }).click();
+  await expect(
+    nav.getByRole('list', { name: 'Pinned' }).getByRole('link', { name: /^Bulk archive, renamed/ }),
+  ).toBeVisible();
+  const main = page.getByRole('main');
+  await expect(
+    main.getByRole('list', { name: 'Pinned' }).getByRole('link', { name: /^Bulk archive, renamed/ }),
+  ).toBeVisible();
+
+  // AC-18, AC-21: Search sessions narrows as you type, and Enter keeps the search.
+  const search = main.getByRole('searchbox', { name: 'Search sessions' });
+  await search.fill('renamed');
+  await search.press('Enter');
+  await expect(page).toHaveURL(/[?&]q=renamed/);
+  await expect(main.getByRole('link')).toHaveCount(1);
+  await search.fill('');
+  await expect(
+    main.getByRole('group', { name: 'Recent searches' }).getByRole('button', { name: 'Search for renamed' }),
+  ).toBeVisible();
+
+  // AC-32, AC-35: Delete from the session's own More actions goes to the Sessions page, and the address is gone.
+  await page.goto(seen.failed);
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  await page.getByRole('alertdialog', { name: 'Delete this session?' }).getByRole('button', { name: 'Delete' }).click();
+  await page.waitForURL(/\/sessions$/);
+  await page.goto(seen.failed);
+  await expect(page.getByText('This page does not exist')).toBeVisible();
 });
