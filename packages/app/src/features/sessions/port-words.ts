@@ -43,3 +43,10 @@ export function portMeta(port: Pick<SessionPort, 'startedBy' | 'since'>, now: Da
         : 'under a minute';
   return `${startedByWords[port.startedBy]} · ${listened}`;
 }
+
+/** What deleting a session stops (spec 042, AC-13): "Stops 1 server (localhost:3005)."; null when nothing listens. */
+export function stopsServers(ports: readonly Pick<SessionPort, 'port'>[]): string | null {
+  if (ports.length === 0) return null;
+  const servers = ports.length === 1 ? 'server' : 'servers';
+  return `Stops ${String(ports.length)} ${servers} (${ports.map(addressOf).join(', ')}).`;
+}

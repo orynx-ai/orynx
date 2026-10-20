@@ -4,7 +4,7 @@ import { renderApp } from '../../../test/render.tsx';
 import { mainNav, openSessionMenu, serveSessions } from '../../../test/sessions.ts';
 import { http, HttpResponse } from 'msw';
 import { apiRoutes } from '@devhub/contracts';
-import { makeSession, makeSessionChanges } from '@devhub/contracts/testing';
+import { makeSession, makeSessionChanges, makeSessionPort } from '@devhub/contracts/testing';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 
 describe('Delete session (spec 039)', () => {
@@ -81,5 +81,18 @@ describe('Delete session (spec 039)', () => {
     await waitFor(() => {
       expect(asked).toEqual(['?branch=true']);
     });
+  });
+
+  it('AC-13 (spec 042): says which servers deleting it stops', async () => {
+    serveSessions([{ id: '0123456789abcdef', title: 'Add bulk archive', state: 'stopped' }]);
+    server.use(
+      sessionHandler(makeSession({ id: '0123456789abcdef', state: 'stopped', terminal: true, worktreePath: '/w' })),
+      http.get(apiUrl(apiRoutes.sessionPorts), () => HttpResponse.json({ ports: [makeSessionPort()] })),
+    );
+    const { user } = await renderApp();
+    const { menu } = await openSessionMenu(user, 'Add bulk archive');
+    await user.click(within(menu).getByRole('menuitem', { name: 'Delete' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete this session?' });
+    expect(await within(dialog).findByText(/Stops 1 server \(localhost:3005\)\./)).toBeVisible();
   });
 });

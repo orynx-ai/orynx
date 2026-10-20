@@ -81,7 +81,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 22: Tabs read Ports · Changes · Context, Ports with how many listen, only for a session with a Terminal; the page opens on Ports for a run session, else Changes, and never switches by itself; a pick that isn't the default is kept in the address (AC-1, AC-33, AC-37)
       Check: pnpm test packages/app/src/features/sessions/components/session-details.test.tsx packages/app/src/features/sessions/session-screen.test.tsx packages/app/src/features/sessions/components/ports-panel.test.tsx
       Files: packages/app/src/features/sessions/components/session-details.tsx, packages/app/src/features/sessions/session-search.ts
-- [ ] Task 23: Delete's "Stops 1 server" line (AC-13); the server approval came with task 3
+- [x] Task 23: Delete's "Stops 1 server" line (AC-13); the server approval came with task 3
       Check: pnpm test packages/app/src/features/sessions/components/delete-session.test.tsx
       Files: packages/app/src/features/sessions/components/delete-session.tsx, packages/app/src/features/sessions/components/delete-session.test.tsx
 
