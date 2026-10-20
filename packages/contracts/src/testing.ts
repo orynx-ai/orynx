@@ -34,6 +34,7 @@ import {
   type DraftedPush,
   type PullRequestDraft,
 } from './pull-requests.ts';
+import { ProfileSchema, type Profile } from './profile.ts';
 import { RepositorySchema, type Repository } from './repositories.ts';
 import {
   SearchIndexSchema,
@@ -639,4 +640,9 @@ export function makeClaudeCommands(): ClaudeCommandList {
       { id: 'toolu_5', state: 'running', command: 'npm run lint' },
     ],
   });
+}
+
+/** A profile with no name, bio or picture, as a fresh Orynx has (spec 043). */
+export function makeProfile(overrides: Partial<Profile> = {}): Profile {
+  return ProfileSchema.parse({ name: '', bio: '', picture: null, ...overrides });
 }
