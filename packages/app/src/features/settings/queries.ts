@@ -14,6 +14,7 @@ import {
 import { InboxRuleIdSchema } from '@devhub/contracts';
 import type {
   ClaudeLogin,
+  ConnectionCheck,
   GitHubConnection,
   GitHubConnectionRequest,
   JiraConnection,
@@ -27,6 +28,7 @@ import type {
   SkillFolder,
   Repository,
   RepositoryId,
+  Status,
   RepositoryList,
   UpdateRepositoryRequest,
 } from '@devhub/contracts';
@@ -131,6 +133,24 @@ export function useDisconnectGitHub() {
       // Nothing is saved now, so the row reads "Connect" at once; the status line refetches.
       queryClient.setQueryData<GitHubConnection>(queryKeys.githubConnection, (old) => old && { ...old, saved: null });
       await queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    },
+  });
+}
+
+/**
+ * Test connection and Reconnect (spec 030): asks Jira or GitHub now. The answer is the tool's new line, so
+ * the row and the dialog show it at once; other tabs hear `status.changed` when it changed.
+ */
+export function useCheckConnection(tool: 'jira' | 'github') {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<ConnectionCheck, ApiRequestError>({
+    mutationFn: () => (tool === 'jira' ? api.checkJiraConnection() : api.checkGitHubConnection()),
+    onSuccess: (check) => {
+      queryClient.setQueryData<Status>(
+        queryKeys.status,
+        (old) => old && { ...old, integrations: { ...old.integrations, [tool]: check.status } },
+      );
     },
   });
 }

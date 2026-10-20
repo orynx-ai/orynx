@@ -46,6 +46,11 @@ export const reads: Record<IntegrationId, string> = {
 };
 export const githubWrites = 'Pushes session branches and opens pull requests on your click';
 
+/** After a good Test connection. */
+export function testedLine(name: string, ms: number): string {
+  return `Working. ${name} answered in ${String(ms)} ms.`;
+}
+
 /** "Just now", then "2 min ago": when the server last asked the tool. */
 export function lastCheckedText(checkedAt: string, now: Date): string {
   const text = agoText(Math.max(0, now.getTime() - Date.parse(checkedAt)));
