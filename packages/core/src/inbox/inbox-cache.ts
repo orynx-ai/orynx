@@ -153,7 +153,7 @@ export interface InboxCache {
   /** When every connected tool last answered in the same sync. */
   syncedAt(): string | null;
   setSyncedAt(at: string): void;
-  /** Disconnect: the tool's records and sync go. */
+  /** Disconnect: the tool's records, its sync and its runs in the sync log go. */
   forget(tool: CachePart): void;
   /** The notifications, newest first (spec 029). */
   notifications(): CachedNotification[];
@@ -373,6 +373,7 @@ export function openInboxCache(path: string, options: InboxCacheOptions = {}): I
         db.transaction((tx) => {
           tx.delete(records).where(eq(records.tool, tool)).run();
           tx.delete(tools).where(eq(tools.tool, tool)).run();
+          tx.delete(syncs).where(eq(syncs.tool, tool)).run();
         });
       });
     },

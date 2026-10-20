@@ -352,6 +352,16 @@ describe('inbox cache', () => {
       });
     });
 
+    it('AC-7: forgetting a tool drops its runs and keeps the other tool’s', () => {
+      const cache = open();
+      cache.logSync(run('jira', '2026-10-20T10:00:00.000Z'), keepAll);
+      cache.logSync(run('github', '2026-10-20T10:00:00.000Z'), keepAll);
+
+      cache.forget('jira');
+
+      expect(cache.syncRuns({ failedOnly: false, limit: 100 }).map((row) => row.tool)).toEqual(['github']);
+    });
+
     it('AC-35: Clear cache empties the log, in the file too', async () => {
       const cache = open();
       cache.logSync(

@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Write a log row for each tool's part of every sync, and sync one tool on its own (AC-32, AC-20, AC-22)
       Check: pnpm test packages/core/src/inbox/inbox-service.test.ts packages/core/src/inbox/no-leaks.test.ts
       Files: packages/core/src/inbox/inbox-service.ts, packages/core/src/inbox/inbox-service.test.ts, packages/core/src/inbox/no-leaks.test.ts
-- [ ] Task 5: Serve GET /api/sync-activity, and POST /api/inbox/refresh with a tool (AC-5, AC-6, AC-7, AC-17, AC-18, AC-37)
+- [x] Task 5: Serve GET /api/sync-activity, and POST /api/inbox/refresh with a tool (AC-5, AC-6, AC-7, AC-17, AC-18, AC-37)
       Check: pnpm test packages/core/src/routes/sync-activity.test.ts packages/core/src/routes/inbox.test.ts packages/core/src/inbox/sync-activity-service.test.ts
       Files: packages/core/src/inbox/sync-activity-service.ts, packages/core/src/inbox/sync-activity-service.test.ts, packages/core/src/routes/sync-activity.ts, packages/core/src/routes/sync-activity.test.ts, packages/core/src/routes/inbox.ts, packages/core/src/routes/inbox.test.ts, packages/core/src/create-server.ts
 - [ ] Task 6: Read the sync activity and sync one tool from the api-client (AC-20)
