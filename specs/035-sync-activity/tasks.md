@@ -26,7 +26,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: Add StatusDot and StatTiles (AC-8, AC-9)
       Check: pnpm test packages/ui/src/components/status-dot.test.tsx packages/ui/src/components/stat-tiles.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/status-dot.tsx, status-dot.stories.tsx, status-dot.test.tsx, stat-tiles.tsx, stat-tiles.stories.tsx, stat-tiles.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 9: Add HistoryRow, a row that opens in place (AC-12, AC-13)
+- [x] Task 9: Add HistoryRow, a row that opens in place (AC-12, AC-13)
       Check: pnpm test packages/ui/src/components/history-row.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/history-row.tsx, history-row.stories.tsx, history-row.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 10: Give ListNavItem a mark and a status, and add ListNavGroup (AC-5, AC-8)
