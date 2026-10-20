@@ -37,7 +37,11 @@ describe('approval words (spec 012, Q8)', () => {
   });
 
   it('AC-1, AC-5, Q8a: the buttons say what each answer does', () => {
-    expect(approvalButtons).toEqual({ allowOnce: 'Allow once', deny: 'Deny' });
+    expect(approvalButtons).toEqual({
+      allowOnce: 'Allow once',
+      deny: 'Deny',
+      alwaysServer: 'Always allow in this repository',
+    });
     expect(alwaysAllowLabel('npm test')).toBe('Always allow npm test');
   });
 

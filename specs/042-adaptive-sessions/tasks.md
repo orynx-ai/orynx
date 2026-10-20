@@ -75,12 +75,12 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 20: The header says "No branch yet" for a Build session with a worktree and no branch, and links the session's first web address, opened outside Orynx (the stepper already draws the session's own steps, from task 1) (AC-2, AC-3, AC-4)
       Check: pnpm test packages/app/src/features/sessions/components/session-header.test.tsx
       Files: packages/app/src/features/sessions/components/session-header.tsx, packages/app/src/features/sessions/queries.ts, packages/app/src/test/msw.ts, packages/contracts/src/testing.ts, and its test
-- [ ] Task 21: The Ports tab, first: rows with Open or Copy address, Stop (a confirm when found in the worktree), Restart or Run again in Terminal; empty, loading and error; polled 3 s open, 15 s for the count, never hidden (AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-11, AC-35)
+- [x] Task 21: The Ports tab: rows with Open or Copy address, Restart for a server Claude started, Run again in Terminal for one found in the worktree, Stop (a confirm when found in the worktree); empty, loading (the rows' own chrome) and error with Try again; read every 3 s while open (AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-11, AC-35)
       Check: pnpm test packages/app/src/features/sessions/components/ports-panel.test.tsx
-      Files: packages/app/src/features/sessions/components/ports-panel.tsx, packages/app/src/features/sessions/components/ports-panel.test.tsx, packages/app/src/features/sessions/queries.ts
-- [ ] Task 22: Tabs read Ports · Changes · Context; the page opens on Ports for a run session or while something listens, and never switches by itself (AC-1, AC-33, AC-34)
-      Check: pnpm test packages/app/src/features/sessions/components/session-details.test.tsx packages/app/src/features/sessions/session-screen.test.tsx
-      Files: packages/app/src/features/sessions/components/session-details.tsx, packages/app/src/features/sessions/session-search.ts, and their tests
+      Files: packages/app/src/features/sessions/components/ports-panel.tsx, packages/app/src/features/sessions/components/ports-panel.test.tsx, packages/app/src/features/sessions/port-words.ts
+- [x] Task 22: Tabs read Ports · Changes · Context, Ports with how many listen, only for a session with a Terminal; the page opens on Ports for a run session, else Changes, and never switches by itself; a pick that isn't the default is kept in the address (AC-1, AC-33, AC-37)
+      Check: pnpm test packages/app/src/features/sessions/components/session-details.test.tsx packages/app/src/features/sessions/session-screen.test.tsx packages/app/src/features/sessions/components/ports-panel.test.tsx
+      Files: packages/app/src/features/sessions/components/session-details.tsx, packages/app/src/features/sessions/session-search.ts
 - [ ] Task 23: Delete's "Stops 1 server" line (AC-13); the server approval came with task 3
       Check: pnpm test packages/app/src/features/sessions/components/delete-session.test.tsx
       Files: packages/app/src/features/sessions/components/delete-session.tsx, packages/app/src/features/sessions/components/delete-session.test.tsx
