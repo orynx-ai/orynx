@@ -44,9 +44,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: Ask Claude to fix in the shell tab moves to the Claude tab with its note (AC-17, AC-18)
       Check: pnpm test packages/app/src/features/sessions/components/terminal
       Files: packages/app/src/features/sessions/components/terminal/shell-tab.tsx, terminal-dialog.tsx, tests
-- [ ] Task 15: e2e: open the terminal on a real worktree, run, stop, `env`, and axe on every state, at 360 and 1280 px (AC-1, AC-4, AC-9, AC-29, AC-30, AC-31)
-      Check: pnpm test:e2e apps/web/e2e/session-terminal.e2e.ts
-      Files: apps/web/e2e/session-terminal.e2e.ts
+- [x] Task 15: e2e on a hub of its own: open the Terminal on a real worktree, run, fail, Stop, `env`, Esc and axe (AC-1, AC-2, AC-4, AC-6, AC-8, AC-9, AC-29, AC-31). 360 px and dark are a real-browser check before /review, as the shared hub skips the phone project
+      Check: pnpm test:e2e e2e/terminal.spec.ts --project=desktop
+      Files: e2e/terminal.spec.ts, e2e/fake-tools/config.ts, playwright.config.ts
 - [ ] Task 16: Docs: architecture (the server runs what the page sends, in a worktree only), learn page, design map
       Check: pnpm gate handbook-size specs
       Files: docs/architecture.md, learn/sessions-and-worktrees.md, docs/design-map.md
