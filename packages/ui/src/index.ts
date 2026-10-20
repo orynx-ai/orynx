@@ -121,8 +121,10 @@ export { FileList, FileListSkeleton, type ChangedFile, type FileListProps } from
 export { FloatingBar, FloatingBarSeparator, type FloatingBarProps } from './components/floating-bar.tsx';
 export {
   ListNav,
+  ListNavGroup,
   ListNavItem,
   ListNavSkeleton,
+  type ListNavGroupProps,
   type ListNavItemProps,
   type ListNavProps,
 } from './components/list-nav.tsx';

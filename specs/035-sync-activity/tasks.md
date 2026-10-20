@@ -29,7 +29,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Add HistoryRow, a row that opens in place (AC-12, AC-13)
       Check: pnpm test packages/ui/src/components/history-row.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/history-row.tsx, history-row.stories.tsx, history-row.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 10: Give ListNavItem a mark and a status, and add ListNavGroup (AC-5, AC-8)
+- [x] Task 10: Give ListNavItem a mark and a status, and add ListNavGroup (AC-5, AC-8)
       Check: pnpm test packages/ui/src/components/list-nav.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/ui/src/components/list-nav.tsx, list-nav.stories.tsx, list-nav.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 11: Write the sync activity words: problems, fixes, summaries, status lines and times (AC-10, AC-11, AC-12)
