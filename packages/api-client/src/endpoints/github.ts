@@ -1,7 +1,9 @@
 import type { AxiosInstance } from 'axios';
 import {
   apiRoutes,
+  ConnectionCheckSchema,
   GitHubConnectionSchema,
+  type ConnectionCheck,
   type GitHubConnection,
   type GitHubConnectionRequest,
 } from '@devhub/contracts';
@@ -18,6 +20,12 @@ export async function putGitHubConnection(
 ): Promise<GitHubConnection> {
   const res = await http.put<unknown>(apiRoutes.githubConnection, request);
   return GitHubConnectionSchema.parse(res.data);
+}
+
+/** Test connection and Reconnect (spec 030): the server asks gh and GitHub now. */
+export async function postGitHubConnectionCheck(http: AxiosInstance): Promise<ConnectionCheck> {
+  const res = await http.post<unknown>(apiRoutes.githubConnectionCheck);
+  return ConnectionCheckSchema.parse(res.data);
 }
 
 export async function deleteGitHubConnection(http: AxiosInstance): Promise<void> {

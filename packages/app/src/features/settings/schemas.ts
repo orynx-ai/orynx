@@ -49,6 +49,15 @@ export function githubFormSchema(tokenRequired: boolean): z.ZodType<GitHubCreden
   ]);
 }
 
+/** What Reconnect's one token field holds (spec 030, Q3). */
+export interface ReconnectTokenValues {
+  token: string;
+}
+
+/** Empty means try the saved token again; anything else is checked like Connect's token. */
+export const jiraReconnectSchema = z.object({ token: JiraApiTokenOrBlankSchema });
+export const githubReconnectSchema = z.object({ token: GitHubTokenOrBlankSchema });
+
 /** What the folder dialog holds while a person types (spec 020); "" for the Jira project means none. */
 export interface AddFolderFormValues {
   path: string;

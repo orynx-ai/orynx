@@ -27,6 +27,44 @@ afterAll(() => {
   server.close();
 });
 
+describe('Jira Test connection (spec 030)', () => {
+  const checkUrl = `${baseURL}${apiRoutes.jiraConnectionCheck}`;
+
+  it('AC-8: posts with the page token and returns the fresh status and how long it took', async () => {
+    let token: string | null = null;
+    const answer = {
+      status: {
+        state: 'connected',
+        detail: 'Connected',
+        account: 'dev@example.com',
+        checkedAt: '2026-10-20T08:00:00.000Z',
+      },
+      ms: 180,
+    };
+    server.use(
+      http.post(checkUrl, ({ request }) => {
+        token = request.headers.get(tokenHeader);
+        return HttpResponse.json(answer);
+      }),
+    );
+
+    expect(await api.checkJiraConnection()).toEqual(answer);
+    expect(token).toBe('abc');
+  });
+
+  it('rejects with the code the server sends, and a body that breaks the contract', async () => {
+    server.use(
+      http.post(checkUrl, () =>
+        HttpResponse.json({ code: 'bad_request', message: 'Connect Jira in Connections first.' }, { status: 400 }),
+      ),
+    );
+    await expect(api.checkJiraConnection()).rejects.toMatchObject({ code: 'bad_request' });
+
+    server.use(http.post(checkUrl, () => HttpResponse.json({ status: { state: 'maybe' }, ms: 1 })));
+    await expect(api.checkJiraConnection()).rejects.toBeInstanceOf(ApiRequestError);
+  });
+});
+
 describe('Jira connection endpoints', () => {
   it('AC-10: reads the saved site and email with the page token', async () => {
     let token: string | null = null;

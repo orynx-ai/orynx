@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   apiRoutes,
   ApiErrorSchema,
+  ConnectionCheckSchema,
   GitHubConnectionSchema,
   StatusSchema,
   tokenHeader,
@@ -124,7 +125,7 @@ describe.skipIf(process.platform === 'win32')('/api/github/connection', () => {
     expect(res.statusCode).toBe(200);
     expect(GitHubConnectionSchema.parse(res.json()).saved).toEqual({ method: 'gh' });
     expect(seen).toContainEqual({ type: 'status.changed' });
-    expect(await githubStatus(app)).toEqual({
+    expect(await githubStatus(app)).toMatchObject({
       state: 'connected',
       detail: 'Signed in as octocat with the gh command-line tool',
     });
@@ -220,7 +221,36 @@ describe.skipIf(process.platform === 'win32')('/api/github/connection', () => {
       settings: createMemorySettingsStore({ github: { method: 'token' } }),
     });
 
-    expect(await githubStatus(app)).toEqual({ state: 'connected', detail: 'Personal access token for octocat' });
+    expect(await githubStatus(app)).toMatchObject({ state: 'connected', detail: 'Personal access token for octocat' });
+  });
+
+  it('AC-17: POST check asks GitHub now and answers with the status and how long it took', async () => {
+    const { app } = await server({
+      keychain: createMemoryKeychain({ github: githubToken }),
+      settings: createMemorySettingsStore({ github: { method: 'token' } }),
+    });
+    await githubStatus(app);
+    const calls = githubCalls();
+
+    const res = await app.inject({ method: 'POST', url: apiRoutes.githubConnectionCheck, headers });
+
+    expect(res.statusCode).toBe(200);
+    expect(ConnectionCheckSchema.parse(res.json()).status).toMatchObject({ state: 'connected', account: 'octocat' });
+    expect(calls()).toBe(1);
+  });
+
+  it('POST check answers 400 when GitHub is not connected, and 401 without the session token', async () => {
+    const { app } = await server();
+
+    const res = await app.inject({ method: 'POST', url: apiRoutes.githubConnectionCheck, headers });
+    expect(res.statusCode).toBe(400);
+    expect(ApiErrorSchema.parse(res.json()).code).toBe('bad_request');
+    const anonymous = await app.inject({
+      method: 'POST',
+      url: apiRoutes.githubConnectionCheck,
+      headers: { host: headers.host },
+    });
+    expect(anonymous.statusCode).toBe(401);
   });
 
   it('AC-13, AC-16: DELETE disconnects with 204 and says the status changed', async () => {

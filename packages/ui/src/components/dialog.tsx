@@ -1,4 +1,4 @@
-import { useRef, type ComponentProps } from 'react';
+import { useRef, type ComponentProps, type ReactNode } from 'react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
 
@@ -24,9 +24,32 @@ export function DialogTitle({ className, ...props }: ComponentProps<typeof Dialo
   );
 }
 
+/**
+ * The dialog's buttons (`dh-dialog-foot`, spec 030): a hairline above, the sidebar's tint, the actions at the
+ * end with Cancel first and the primary last. `start` holds one action that sits apart, such as Disconnect.
+ */
+export function DialogFoot({ start, className, children, ...props }: ComponentProps<'div'> & { start?: ReactNode }) {
+  return (
+    <div
+      data-slot="dialog-foot"
+      className={cn(
+        'flex flex-wrap items-center justify-end gap-2 border-t border-border bg-sidebar px-5 py-3.5',
+        className,
+      )}
+      {...props}
+    >
+      {start === undefined ? null : <div className="me-auto">{start}</div>}
+      {children}
+    </div>
+  );
+}
+
 export type DialogContentProps = ComponentProps<typeof DialogPrimitive.Content> & {
-  /** `full` fills the window, keeping the 16 px gutter on every side at every width, for reading a whole diff. */
-  size?: 'default' | 'full';
+  /**
+   * `full` fills the window, keeping the 16 px gutter on every side at every width, for reading a whole diff.
+   * `narrow` is 520 px, for a dialog about one thing, such as a tool's connection (spec 030).
+   */
+  size?: 'default' | 'narrow' | 'full';
 };
 
 /**
@@ -61,7 +84,7 @@ export function DialogContent({
       <div
         className={cn(
           'pointer-events-none fixed inset-0 z-50 flex items-start justify-center p-4',
-          size === 'default' && 'md:py-20',
+          size !== 'full' && 'md:py-20',
         )}
       >
         <DialogPrimitive.Content
@@ -81,6 +104,7 @@ export function DialogContent({
           }}
           className={cn(
             'pointer-events-auto flex max-h-full w-full max-w-180 flex-col overflow-hidden rounded-lg border border-border bg-raised text-body text-foreground shadow-overlay outline-none motion-safe:animate-fade-in max-md:max-w-none',
+            size === 'narrow' && 'max-w-130',
             size === 'full' && 'h-full max-w-none',
             className,
           )}

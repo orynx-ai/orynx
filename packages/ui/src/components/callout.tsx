@@ -13,12 +13,19 @@ const calloutVariants = cva('flex gap-3 rounded-md p-4 motion-safe:animate-fade-
       info: 'bg-info-subtle text-info-foreground',
       /** Something failed and stopped the work: a session that couldn't start (spec 011, Q9f). */
       danger: 'bg-danger-subtle text-foreground',
+      /** Something finished well, said where it happened: "Jira connected." (spec 030). */
+      success: 'bg-success-subtle text-foreground',
     },
   },
   defaultVariants: { tone: 'info' },
 });
 
-const titleColour = { warning: 'text-foreground', info: 'text-info-foreground', danger: 'text-danger' } as const;
+const titleColour = {
+  warning: 'text-foreground',
+  info: 'text-info-foreground',
+  danger: 'text-danger',
+  success: 'text-foreground',
+} as const;
 
 export type CalloutProps = Omit<ComponentProps<'div'>, 'title'> &
   VariantProps<typeof calloutVariants> & {

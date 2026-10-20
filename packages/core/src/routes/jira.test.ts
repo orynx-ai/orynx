@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   apiRoutes,
   ApiErrorSchema,
+  ConnectionCheckSchema,
   JiraConnectionSchema,
   JiraProjectListSchema,
   StatusSchema,
@@ -99,7 +100,7 @@ describe('/api/jira/connection', () => {
     expect(await keychain.get('jira')).toBe(goodToken);
     expect(await settings.read()).toEqual({ jira: saved });
     expect(seen).toContainEqual({ type: 'status.changed' });
-    expect(await jiraStatus(app)).toEqual({
+    expect(await jiraStatus(app)).toMatchObject({
       state: 'connected',
       detail: 'Personal API token for your-team.atlassian.net',
     });
@@ -188,10 +189,45 @@ describe('/api/jira/connection', () => {
       settings: createMemorySettingsStore({ jira: saved }),
     });
 
-    expect(await jiraStatus(app)).toEqual({
+    expect(await jiraStatus(app)).toMatchObject({
       state: 'error',
       detail: "Jira didn't accept this email and API token. Check both, or create a new token.",
     });
+  });
+});
+
+describe('/api/jira/connection/check', () => {
+  it('answers 401 without the session token', async () => {
+    const { app } = await server();
+    const res = await app.inject({
+      method: 'POST',
+      url: apiRoutes.jiraConnectionCheck,
+      headers: { host: headers.host },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('AC-8: asks Jira now and answers with the status and how long it took', async () => {
+    const calls = jiraCalls();
+    const { app } = await server({
+      keychain: createMemoryKeychain({ jira: goodToken }),
+      settings: createMemorySettingsStore({ jira: saved }),
+    });
+    await jiraStatus(app);
+
+    const res = await app.inject({ method: 'POST', url: apiRoutes.jiraConnectionCheck, headers });
+
+    expect(res.statusCode).toBe(200);
+    const check = ConnectionCheckSchema.parse(res.json());
+    expect(check.status).toMatchObject({ state: 'connected', account: jiraEmail });
+    expect(calls()).toBe(2);
+  });
+
+  it('answers 400 when Jira is not connected', async () => {
+    const { app } = await server();
+    const res = await app.inject({ method: 'POST', url: apiRoutes.jiraConnectionCheck, headers });
+    expect(res.statusCode).toBe(400);
+    expect(ApiErrorSchema.parse(res.json()).code).toBe('bad_request');
   });
 });
 

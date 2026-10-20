@@ -20,6 +20,39 @@ afterAll(() => {
   server.close();
 });
 
+describe('GitHub Test connection (spec 030)', () => {
+  const checkUrl = `${baseURL}${apiRoutes.githubConnectionCheck}`;
+
+  it('AC-8: posts with the page token and returns the fresh status and how long it took', async () => {
+    let token: string | null = null;
+    const answer = {
+      status: { state: 'connected', detail: 'Connected', account: 'octocat', checkedAt: '2026-10-20T08:00:00.000Z' },
+      ms: 180,
+    };
+    server.use(
+      http.post(checkUrl, ({ request }) => {
+        token = request.headers.get(tokenHeader);
+        return HttpResponse.json(answer);
+      }),
+    );
+
+    expect(await api.checkGitHubConnection()).toEqual(answer);
+    expect(token).toBe('abc');
+  });
+
+  it('rejects with the code the server sends, and a body that breaks the contract', async () => {
+    server.use(
+      http.post(checkUrl, () =>
+        HttpResponse.json({ code: 'bad_request', message: 'Connect GitHub in Connections first.' }, { status: 400 }),
+      ),
+    );
+    await expect(api.checkGitHubConnection()).rejects.toMatchObject({ code: 'bad_request' });
+
+    server.use(http.post(checkUrl, () => HttpResponse.json({ status: { state: 'maybe' }, ms: 1 })));
+    await expect(api.checkGitHubConnection()).rejects.toBeInstanceOf(ApiRequestError);
+  });
+});
+
 describe('GitHub connection endpoints', () => {
   it('AC-2, AC-12: reads the saved way and whether gh is there, with the page token', async () => {
     let token: string | null = null;

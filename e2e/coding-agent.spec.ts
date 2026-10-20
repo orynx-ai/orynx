@@ -77,7 +77,7 @@ test.describe('the first hub, whose Claude Code is never signed in', () => {
       page.getByRole('group', { name: 'Run commands' }).getByRole('button', { name: 'Ask', exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('tab', { name: 'Connections' }).click();
-    await expect(page.getByRole('button', { name: 'Connect' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /Manage connection$/ }).first()).toBeVisible();
   });
 
   test('Given only a keyboard, when I arrow to Coding agent and Tab to Check again, then each stop shows its ring and Enter checks', async ({

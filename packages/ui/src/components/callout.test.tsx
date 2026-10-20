@@ -58,6 +58,12 @@ describe('Callout', () => {
     expect(screen.getByText("Claude Code's login didn't work.")).toBeVisible();
   });
 
+  it('spec 030: says something went well in the success tone, with no accessibility violations', async () => {
+    const { container } = render(<Callout tone="success" title="Jira connected. Your inbox is refreshing." />);
+    expect(screen.getByText('Jira connected. Your inbox is refreshing.')).toBeVisible();
+    await expectNoAxeViolations(container);
+  });
+
   it('has no accessibility violations in the danger tone', async () => {
     const { container } = render(
       <Callout tone="danger" title="Claude couldn't start">

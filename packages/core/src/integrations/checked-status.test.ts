@@ -103,6 +103,27 @@ describe('checked status', () => {
     expect(seen).toEqual([]);
   });
 
+  it('spec 030: says when the tool was last asked, for those saved settings only, and a same answer moves it quietly', async () => {
+    const { checked, seen, answer, later } = setup();
+    expect(checked.checkedAt({ account: 'a' })).toBeUndefined();
+
+    const first = checked.get({ account: 'a' });
+    await answer(connected);
+    await first;
+    expect(checked.checkedAt({ account: 'a' })).toBe(1_000_000);
+    expect(checked.checkedAt({ account: 'b' })).toBeUndefined();
+
+    later(5_000);
+    const again = checked.checkNow({ account: 'a' });
+    await answer(connected);
+    await again;
+    expect(checked.checkedAt({ account: 'a' })).toBe(1_005_000);
+    expect(seen).toEqual([]);
+
+    checked.forget();
+    expect(checked.checkedAt({ account: 'a' })).toBeUndefined();
+  });
+
   it('checks again at once for other saved settings', async () => {
     const { checked, asked, answer } = setup();
     const first = checked.get({ account: 'a' });

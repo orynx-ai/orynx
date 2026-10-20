@@ -8,6 +8,7 @@ import {
   type FolderPick,
   type AgentModels,
   type ClaudeLogin,
+  type ConnectionCheck,
   type GitHubConnection,
   type GitHubConnectionRequest,
   type Inbox,
@@ -54,9 +55,20 @@ import {
   type TicketsChoice,
 } from '@devhub/contracts';
 import { getAgentModels, getClaudeLogin, postClaudeLoginCheck } from './endpoints/claude.ts';
-import { deleteGitHubConnection, getGitHubConnection, putGitHubConnection } from './endpoints/github.ts';
+import {
+  deleteGitHubConnection,
+  getGitHubConnection,
+  postGitHubConnectionCheck,
+  putGitHubConnection,
+} from './endpoints/github.ts';
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
-import { deleteJiraConnection, getJiraConnection, getJiraProjects, putJiraConnection } from './endpoints/jira.ts';
+import {
+  deleteJiraConnection,
+  getJiraConnection,
+  getJiraProjects,
+  postJiraConnectionCheck,
+  putJiraConnection,
+} from './endpoints/jira.ts';
 import {
   getNotifications,
   getNotificationSettings,
@@ -150,6 +162,8 @@ export interface ApiClient {
   /** Checks with Jira, then saves; rejects with integration_rejected, integration_unreachable or keychain_unavailable. */
   connectJira(request: JiraConnectionRequest): Promise<JiraConnection>;
   disconnectJira(): Promise<void>;
+  /** Test connection and Reconnect: Jira asked now, and how long it took (spec 030); bad_request when not connected. */
+  checkJiraConnection(): Promise<ConnectionCheck>;
   /** The projects the saved Jira connection can see; rejects like {@link connectJira}, or bad_request when not connected. */
   jiraProjects(): Promise<JiraProjectList>;
   /** The saved way of connecting GitHub, whether `.env` holds a GitHub token, and whether gh was found. */
@@ -157,6 +171,8 @@ export interface ApiClient {
   /** Gets a token the way asked, checks it with GitHub, then saves; rejects like {@link connectJira}. */
   connectGitHub(request: GitHubConnectionRequest): Promise<GitHubConnection>;
   disconnectGitHub(): Promise<void>;
+  /** Test connection and Reconnect: gh and GitHub asked now, and how long it took (spec 030). */
+  checkGitHubConnection(): Promise<ConnectionCheck>;
   /** Settings › Coding agent and Inbox rules, with the default for anything never chosen. */
   preferences(): Promise<Preferences>;
   /** Saves one change and returns every preference. */
@@ -266,6 +282,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       putJiraConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     disconnectJira: () =>
       deleteJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    checkJiraConnection: () =>
+      postJiraConnectionCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     jiraProjects: () => getJiraProjects(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     githubConnection: () =>
       getGitHubConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
@@ -273,6 +291,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       putGitHubConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     disconnectGitHub: () =>
       deleteGitHubConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    checkGitHubConnection: () =>
+      postGitHubConnectionCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     preferences: () => getPreferences(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     changePreferences: (change) =>
       patchPreferences(http, change).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

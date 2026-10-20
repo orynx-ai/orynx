@@ -4,13 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeJiraConnection } from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
-import { failingJiraSave, jiraRow, jiraServer, savedJira } from '../../../test/jira.ts';
+import { failingJiraSave, jiraServer, savedJira } from '../../../test/jira.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
 async function openForm() {
   const app = await renderApp({ route: '/settings/connections' });
-  await app.user.click(await within(await jiraRow()).findByRole('button', { name: 'Connect' }));
+  await app.user.click(await screen.findByRole('button', { name: 'Jira: Not connected. Manage connection' }));
   return { ...app, form: await screen.findByRole('form', { name: 'Jira connection' }) };
 }
 
@@ -31,7 +31,7 @@ describe('Jira connection form', () => {
       'href',
       'https://id.atlassian.com/manage-profile/security/api-tokens',
     );
-    expect(within(await jiraRow()).getByRole('button', { name: 'Close' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('dialog', { name: 'Jira' })).toBeVisible();
   });
 
   it('AC-2: the token link opens outside DevHub', async () => {
@@ -52,7 +52,7 @@ describe('Jira connection form', () => {
     await user.type(within(form).getByLabelText('Jira site'), 'your-team');
     await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
     await user.type(within(form).getByLabelText('API token'), 'fake-wrong-token');
-    await user.click(within(form).getByRole('button', { name: 'Connect Jira' }));
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
 
     const token = within(form).getByLabelText('API token');
     await expect.poll(() => token.getAttribute('aria-invalid')).toBe('true');
@@ -75,7 +75,7 @@ describe('Jira connection form', () => {
     await user.type(within(form).getByLabelText('Jira site'), 'nobody');
     await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
     await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
-    await user.click(within(form).getByRole('button', { name: 'Connect Jira' }));
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
 
     const site = within(form).getByLabelText('Jira site');
     await expect.poll(() => site.getAttribute('aria-invalid')).toBe('true');
@@ -89,7 +89,7 @@ describe('Jira connection form', () => {
     await user.type(within(form).getByLabelText('Jira site'), 'your-team');
     await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
     await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
-    await user.click(within(form).getByRole('button', { name: 'Connect Jira' }));
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
 
     const token = within(form).getByLabelText('API token');
     await expect.poll(() => token.getAttribute('aria-invalid')).toBe('true');
@@ -101,7 +101,7 @@ describe('Jira connection form', () => {
     const sent = jiraServer();
     const { user, form } = await openForm();
 
-    await user.click(within(form).getByRole('button', { name: 'Connect Jira' }));
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
 
     const site = within(form).getByLabelText('Jira site');
     await expect.poll(() => site.getAttribute('aria-invalid')).toBe('true');
@@ -121,7 +121,7 @@ describe('Jira connection form', () => {
     await user.type(within(form).getByLabelText('Jira site'), 'your-team.atlasian.net');
     await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
     await user.type(within(form).getByLabelText('API token'), 'fake token');
-    await user.click(within(form).getByRole('button', { name: 'Connect Jira' }));
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
 
     await expect.poll(() => within(form).getByLabelText('Jira site').getAttribute('aria-invalid')).toBe('true');
     expect(within(form).getByLabelText('Jira site')).toHaveAccessibleDescription(
@@ -141,12 +141,12 @@ describe('Jira connection form', () => {
     await user.type(within(form).getByLabelText('Jira site'), 'your-team');
     await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
     await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
-    await user.click(within(form).getByRole('button', { name: 'Connect Jira' }));
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
 
     expect(await within(form).findByRole('alert')).toHaveTextContent(message);
   });
 
-  it('AC-13: while Jira is checked, Connect Jira waits and a second press sends nothing', async () => {
+  it('AC-13: while Jira is checked, Connect waits and a second press sends nothing', async () => {
     let calls = 0;
     server.use(
       http.put(apiUrl(apiRoutes.jiraConnection), async () => {
@@ -160,7 +160,7 @@ describe('Jira connection form', () => {
     await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
     await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
 
-    const connect = within(form).getByRole('button', { name: 'Connect Jira' });
+    const connect = screen.getByRole('button', { name: 'Connect' });
     await user.click(connect);
     await expect.poll(() => connect.getAttribute('aria-disabled')).toBe('true');
     await user.click(connect);
@@ -177,18 +177,22 @@ describe('Jira connection form', () => {
     await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
 
     // Back to back, with no render between them: faster than any person, so the guard can't lean on the button.
-    const connect = within(form).getByRole('button', { name: 'Connect Jira' });
+    const connect = screen.getByRole('button', { name: 'Connect' });
     fireEvent.click(connect);
     fireEvent.click(connect);
 
-    expect(await screen.findByText('Jira is connected.')).toBeInTheDocument();
+    expect(await screen.findByText('Jira connected. Your inbox is refreshing.')).toBeInTheDocument();
     expect(sent).toHaveLength(1);
   });
 
-  it("AC-13: while Jira is checked, Cancel and Close can't close the form", async () => {
+  it('AC-20 (spec 030): Close shuts the dialog while Jira is checked, and the answer still lands on the page', async () => {
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     server.use(
       http.put(apiUrl(apiRoutes.jiraConnection), async () => {
-        await delay('infinite');
+        await released;
         return HttpResponse.json(makeJiraConnection({ saved: savedJira }));
       }),
     );
@@ -196,19 +200,18 @@ describe('Jira connection form', () => {
     await user.type(within(form).getByLabelText('Jira site'), 'your-team');
     await user.type(within(form).getByLabelText('Email'), 'dev@example.com');
     await user.type(within(form).getByLabelText('API token'), 'fake-token-for-tests');
-    await user.click(within(form).getByRole('button', { name: 'Connect Jira' }));
-    const cancel = within(form).getByRole('button', { name: 'Cancel' });
-    await expect.poll(() => cancel.getAttribute('aria-disabled')).toBe('true');
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
 
-    await user.click(cancel);
-    await user.click(within(await jiraRow()).getByRole('button', { name: 'Close' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    release();
 
-    expect(screen.getByRole('form', { name: 'Jira connection' })).toBeVisible();
+    expect(await screen.findByText('Jira connected. Your inbox is refreshing.')).toBeVisible();
   });
 
   it('AC-16: has no accessibility violations with the form open and showing errors', async () => {
     const { user, form, container } = await openForm();
-    await user.click(within(form).getByRole('button', { name: 'Connect Jira' }));
+    await user.click(screen.getByRole('button', { name: 'Connect' }));
     await expect.poll(() => within(form).getByLabelText('Jira site').getAttribute('aria-invalid')).toBe('true');
 
     await expectNoAxeViolations(container);

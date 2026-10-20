@@ -55,23 +55,64 @@ function setup({
   };
 }
 
+describe('Test connection (spec 030)', () => {
+  it('AC-8: asks Jira now, even within the 2 minutes, and says how long it took', async () => {
+    const calls = jiraCalls();
+    const { connection, later } = setup();
+    await connection.status();
+    later(1_000);
+    jira.events.on('request:start', () => {
+      later(180);
+    });
+
+    expect(await connection.checkNow()).toEqual({
+      status: { ...connected, account: jiraEmail, checkedAt: new Date(1_001_180).toISOString() },
+      ms: 180,
+    });
+    expect(calls()).toBe(2);
+  });
+
+  it('AC-9: a refused token turns the line to an error with the reason, and tells open pages', async () => {
+    const { connection, seen } = setup();
+    await connection.status();
+    jira.use(http.get(myselfUrl(), () => HttpResponse.json({}, { status: 401 })));
+
+    const { status } = await connection.checkNow();
+
+    expect(status).toMatchObject({
+      state: 'error',
+      detail: "Jira didn't accept this email and API token. Check both, or create a new token.",
+    });
+    expect(seen).toContainEqual({ type: 'status.changed' });
+    expect(await connection.status()).toEqual(status);
+  });
+
+  it('is refused when nothing is saved, and asks Jira nothing', async () => {
+    const calls = jiraCalls();
+    const { connection } = setup({ settings: {} });
+
+    await expect(connection.checkNow()).rejects.toMatchObject({ code: 'bad_request' });
+    expect(calls()).toBe(0);
+  });
+});
+
 describe("Jira's status line", () => {
   it('AC-1: says not connected, and reads no keychain, until a site and email are saved', async () => {
     const calls = jiraCalls();
     const { connection } = setup({ keychain: createUnreachableKeychain(), settings: {} });
 
-    expect(await connection.status()).toEqual({ state: 'not_connected', detail: null });
+    expect(await connection.status()).toMatchObject({ state: 'not_connected', detail: null });
     expect(calls()).toBe(0);
   });
 
   it('AC-9: after a restart, checks with Jira and says connected', async () => {
-    expect(await setup().connection.status()).toEqual(connected);
+    expect(await setup().connection.status()).toMatchObject(connected);
   });
 
   it('AC-12: names .env as where the token came from', async () => {
     const { connection } = setup({ keychain: createMemoryKeychain(), envTokens: { jira: goodToken } });
 
-    expect(await connection.status()).toEqual({
+    expect(await connection.status()).toMatchObject({
       state: 'connected',
       detail: 'API token from .env for your-team.atlassian.net',
     });
@@ -80,7 +121,7 @@ describe("Jira's status line", () => {
   it('AC-9: says why when Jira no longer accepts the token', async () => {
     const { connection } = setup({ keychain: createMemoryKeychain({ jira: 'fake-revoked-token' }) });
 
-    expect(await connection.status()).toEqual({
+    expect(await connection.status()).toMatchObject({
       state: 'error',
       detail: "Jira didn't accept this email and API token. Check both, or create a new token.",
     });
@@ -90,7 +131,7 @@ describe("Jira's status line", () => {
     const calls = jiraCalls();
     const { connection } = setup({ keychain: createMemoryKeychain() });
 
-    expect(await connection.status()).toEqual({
+    expect(await connection.status()).toMatchObject({
       state: 'error',
       detail: 'The saved API token is missing from your keychain. Connect again.',
     });
@@ -100,7 +141,7 @@ describe("Jira's status line", () => {
   it("AC-9: says so when the keychain can't be reached", async () => {
     const { connection } = setup({ keychain: createUnreachableKeychain() });
 
-    expect(await connection.status()).toEqual({ state: 'error', detail: keychainUnavailableMessage });
+    expect(await connection.status()).toMatchObject({ state: 'error', detail: keychainUnavailableMessage });
   });
 
   it('asks Jira at most once every 2 minutes', async () => {
@@ -109,7 +150,7 @@ describe("Jira's status line", () => {
 
     await connection.status();
     later(twoMinutes - 1);
-    expect(await connection.status()).toEqual(connected);
+    expect(await connection.status()).toMatchObject(connected);
 
     expect(calls()).toBe(1);
   });
@@ -118,7 +159,7 @@ describe("Jira's status line", () => {
     const calls = jiraCalls();
     const { connection } = setup();
 
-    expect(await Promise.all([connection.status(), connection.status(), connection.status()])).toEqual([
+    expect(await Promise.all([connection.status(), connection.status(), connection.status()])).toMatchObject([
       connected,
       connected,
       connected,
@@ -133,7 +174,7 @@ describe("Jira's status line", () => {
     jira.use(http.get(myselfUrl(), () => HttpResponse.json({}, { status: 401 })));
 
     later(twoMinutes);
-    expect(await connection.status()).toEqual(connected);
+    expect(await connection.status()).toMatchObject(connected);
 
     await vi.waitFor(() => {
       expect(seen).toContainEqual({ type: 'status.changed' });
@@ -163,7 +204,7 @@ describe("Jira's status line", () => {
 
     await connection.connect({ ...saved, apiToken: goodToken });
 
-    expect(await connection.status()).toEqual(connected);
+    expect(await connection.status()).toMatchObject(connected);
     expect(calls()).toBe(1);
   });
 
@@ -172,7 +213,7 @@ describe("Jira's status line", () => {
 
     await connection.connect(saved);
 
-    expect(await connection.status()).toEqual({
+    expect(await connection.status()).toMatchObject({
       state: 'connected',
       detail: 'API token from .env for your-team.atlassian.net',
     });
@@ -184,7 +225,7 @@ describe("Jira's status line", () => {
 
     await connection.disconnect();
 
-    expect(await connection.status()).toEqual({ state: 'not_connected', detail: null });
+    expect(await connection.status()).toMatchObject({ state: 'not_connected', detail: null });
   });
 
   it("a check that started before Connect doesn't overwrite what Connect found", async () => {
@@ -209,8 +250,8 @@ describe("Jira's status line", () => {
     await connection.connect({ ...saved, apiToken: goodToken });
     answerOldCheck();
 
-    expect(await oldCheck).toEqual(connected);
-    expect(await connection.status()).toEqual(connected);
+    expect(await oldCheck).toMatchObject(connected);
+    expect(await connection.status()).toMatchObject(connected);
   });
 
   it.each([
@@ -256,8 +297,16 @@ describe("Jira's status line", () => {
       onError,
     });
 
-    expect(await connection.status()).toEqual({ state: 'error', detail: null });
+    expect(await connection.status()).toMatchObject({ state: 'error', detail: null });
     expect(onError).toHaveBeenCalledWith(failure);
+  });
+
+  it('AC-7: names the account and when Jira was last asked', async () => {
+    expect(await setup().connection.status()).toEqual({
+      ...connected,
+      account: jiraEmail,
+      checkedAt: new Date(1_000_000).toISOString(),
+    });
   });
 
   it("AC-9: tells the terminal why the keychain can't be reached, with a reason safe to log", async () => {
