@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 import { fakeClaude, fakeClaudeDir, fakeClaudeDirFor } from './e2e/fake-claude/config.ts';
+import { setUpHome } from './e2e/set-up.ts';
 import {
   approvalsHubPort,
   changesHubPort,
@@ -15,18 +16,18 @@ import {
   orynxTicketsHubPort,
 } from './e2e/fake-tools/config.ts';
 
-// The e2e run gets its own port and data folder, so it never touches the real ~/.devhub.
+// The e2e run gets its own port and data folder, so it never touches the real ~/.devhub. Each starts set up (spec 043).
 const port = 4399;
-const home = mkdtempSync(join(tmpdir(), 'devhub-e2e-'));
-const fakeToolsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-tools-'));
-const sessionsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-sessions-'));
-const approvalsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-approvals-'));
-const changesHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-changes-'));
-const composerHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-composer-'));
-const syncActivityHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-sync-activity-'));
-const terminalHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-terminal-'));
-const orynxTicketsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-orynx-tickets-'));
-const pullRequestsHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-'));
+const home = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-')));
+const fakeToolsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-tools-')));
+const sessionsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-sessions-')));
+const approvalsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-approvals-')));
+const changesHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-changes-')));
+const composerHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-composer-')));
+const syncActivityHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-sync-activity-')));
+const terminalHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-terminal-')));
+const orynxTicketsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-orynx-tickets-')));
+const pullRequestsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-')));
 // The pull requests hub's git commits with a name of its own, and never reads your ~/.gitconfig: your
 // name, your signing (which could ask for a passphrase) or your aliases (spec 014).
 const pullRequestsGitHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-git-'));

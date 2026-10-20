@@ -14,10 +14,12 @@ import {
   createMemoryKeychain,
   createOrynxTicketStore,
   createOsKeychain,
+  createPasswordStore,
   createServer,
   findSdkClaudeCode,
   openFileSessionStore,
   openInboxCache,
+  passwordFilePath,
   sandboxAvailable,
   settingsFilePath,
 } from '@devhub/core';
@@ -60,6 +62,9 @@ const claudeProgram = config.claudeCode ?? findSdkClaudeCode();
 const sandbox =
   config.sandbox === 'assume' ||
   (await sandboxAvailable({ platform: process.platform, searchPath: config.ghSearchPath }));
+
+// The password other devices on the wifi ask for (spec 043): Set up Orynx saves it, the front door checks it.
+const password = createPasswordStore(passwordFilePath(config.home));
 
 const app = await createServer({
   token,
@@ -106,6 +111,7 @@ const app = await createServer({
     },
   }),
   cache,
+  password,
   // Home's list syncs at start, every 2 minutes while a page is open, and when a tool connects.
   autoSync: true,
   logger: {
@@ -136,13 +142,14 @@ await app.listen({ host: '127.0.0.1', port: config.port });
 const { port } = app.server.address() as AddressInfo;
 await writeRuntimeFile(config.home, { port, token, pid: process.pid });
 
-// DEVHUB_LAN (spec 040): the hub stays on 127.0.0.1; your wifi reaches it through a front door that wants a code.
+// DEVHUB_LAN (spec 040): the hub stays on 127.0.0.1; your wifi reaches it through a front door that wants your password.
 if (config.lan && !serveWebApp)
   app.log.warn('DEVHUB_LAN works with "pnpm start" only, so your wifi can’t reach this run.');
 const stopLan =
   config.lan && serveWebApp
     ? await startLan({
         home: config.home,
+        password,
         distDir,
         hubPort: port,
         forward: (request, response) => {

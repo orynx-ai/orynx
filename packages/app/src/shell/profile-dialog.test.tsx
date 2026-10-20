@@ -1,10 +1,9 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeStatus } from '@devhub/contracts/testing';
-import { useProfileStore } from '../stores/profile-store.ts';
-import { apiUrl, server } from '../test/msw.ts';
+import { apiUrl, serveProfile, server } from '../test/msw.ts';
 import { renderApp } from '../test/render.tsx';
 
 /** Opens Edit profile the way a person does: the footer, then their own row in the menu. */
@@ -19,7 +18,8 @@ async function openEditProfile(name = 'Rakesh Dhariwal') {
 }
 
 describe('Edit profile', () => {
-  it('saves a name and bio in this browser, and the sidebar shows them at once', async () => {
+  it('AC-6: saves a name and bio on the server, and the sidebar shows them at once', async () => {
+    const profile = serveProfile();
     const { user, nav, dialog } = await openEditProfile();
     const name = within(dialog).getByRole('textbox', { name: 'Name' });
 
@@ -28,18 +28,19 @@ describe('Edit profile', () => {
     await user.type(within(dialog).getByRole('textbox', { name: 'Bio' }), 'Writes the first program');
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
-    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
     const footer = within(nav).getByRole('button', { name: 'Profile: Ada Lovelace Writes the first program' });
     expect(within(footer).getByText('AL')).toBeVisible();
-    expect(JSON.parse(localStorage.getItem('devhub.profile') ?? '{}')).toMatchObject({
-      state: { name: 'Ada Lovelace', bio: 'Writes the first program', picture: null },
-    });
+    expect(profile.saved).toEqual({ name: 'Ada Lovelace', bio: 'Writes the first program', picture: null });
+    expect(screen.queryByText('Saved in this browser only.')).toBeNull();
     await user.click(footer);
     expect(screen.getByRole('menuitem', { name: 'Ada Lovelace Writes the first program' })).toBeVisible();
   });
 
   it('opens with the saved name, and an emptied name goes back to the one the server knows', async () => {
-    useProfileStore.setState({ name: 'Ada Lovelace' });
+    serveProfile({ name: 'Ada Lovelace' });
     const { user, nav, dialog } = await openEditProfile();
     const name = within(dialog).getByRole('textbox', { name: 'Name' });
     expect(name).toHaveValue('Ada Lovelace');
@@ -48,21 +49,22 @@ describe('Edit profile', () => {
     await user.clear(name);
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
-    expect(within(nav).getByRole('button', { name: 'Profile: Rakesh Dhariwal' })).toBeVisible();
+    expect(await within(nav).findByRole('button', { name: 'Profile: Rakesh Dhariwal' })).toBeVisible();
   });
 
   it('keeps what was saved when Cancel closes it', async () => {
-    useProfileStore.setState({ bio: 'Before' });
+    const profile = serveProfile({ bio: 'Before' });
     const { user, dialog } = await openEditProfile();
 
     await user.type(within(dialog).getByRole('textbox', { name: 'Bio' }), ' and after');
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
 
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(useProfileStore.getState().bio).toBe('Before');
+    expect(profile.saved.bio).toBe('Before');
   });
 
   it('says when the bio is too long, and saves nothing', async () => {
+    const profile = serveProfile();
     const { user, dialog } = await openEditProfile();
     const bio = within(dialog).getByRole('textbox', { name: 'Bio' });
 
@@ -71,7 +73,7 @@ describe('Edit profile', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     expect(bio).toHaveAccessibleDescription('Keep the bio to 160 characters.');
-    expect(useProfileStore.getState().bio).toBe('');
+    expect(profile.saved.bio).toBe('');
   });
 
   it('says when a file is not a picture it can read', async () => {
@@ -86,7 +88,7 @@ describe('Edit profile', () => {
   });
 
   it('removes a saved picture, so the initials come back', async () => {
-    useProfileStore.setState({ picture: 'data:image/png;base64,AAAA' });
+    const profile = serveProfile({ picture: 'data:image/png;base64,AAAA' });
     const { user, nav, dialog } = await openEditProfile();
     expect(within(dialog).getByLabelText('Change picture')).toBeInTheDocument();
 
@@ -94,7 +96,24 @@ describe('Edit profile', () => {
     expect(within(dialog).getByLabelText('Add picture')).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
-    expect(useProfileStore.getState().picture).toBeNull();
-    expect(within(nav).getByText('RD')).toBeVisible();
+    expect(await within(nav).findByText('RD')).toBeVisible();
+    expect(profile.saved.picture).toBeNull();
+  });
+});
+
+describe('Edit profile when the server fails (spec 043)', () => {
+  it('AC-6: says why the profile was not saved, and stays open', async () => {
+    server.use(
+      http.put(apiUrl(apiRoutes.profile), () =>
+        HttpResponse.json({ code: 'internal', message: 'Orynx couldn’t save settings.json.' }, { status: 500 }),
+      ),
+    );
+    const { user, dialog } = await openEditProfile();
+
+    await user.type(within(dialog).getByRole('textbox', { name: 'Bio' }), 'Ships on Fridays');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Orynx couldn’t save settings.json.');
+    expect(screen.getByRole('dialog', { name: 'Edit profile' })).toBeVisible();
   });
 });

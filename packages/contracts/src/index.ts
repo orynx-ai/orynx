@@ -13,6 +13,7 @@ export * from './notifications.ts';
 export * from './orynx-skills.ts';
 export * from './orynx-tickets.ts';
 export * from './preferences.ts';
+export * from './profile.ts';
 export * from './pull-requests.ts';
 export * from './repositories.ts';
 export * from './routes.ts';

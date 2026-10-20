@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { fakeClaude } from '../fake-claude/config.ts';
+import { setUpHome } from '../set-up.ts';
 import { FakeReleases } from './fake-releases.ts';
 
 // The packed app (spec 027), not the source: only the packed app holds the hub with its own node_modules.
@@ -28,7 +29,7 @@ let releases: FakeReleases;
 let opened: ElectronApplication | null;
 
 test.beforeEach(async () => {
-  home = await mkdtemp(join(tmpdir(), 'devhub-e2e-desktop-'));
+  home = setUpHome(await mkdtemp(join(tmpdir(), 'devhub-e2e-desktop-')));
   releases = await FakeReleases.start();
   opened = null;
 });

@@ -51,7 +51,7 @@ Pick a level in Settings › Coding agent, then set any kind of call to Allow, A
 There is no Orynx cloud. Orynx is a small server and a web app, both on your laptop.
 
 - **Tokens in your OS keychain.** Jira and GitHub tokens are saved in your keychain and never reach the browser.
-- **Bound to 127.0.0.1.** The server listens only on this computer and checks a token on every request. Your other devices reach it at `https://orynx.local` through a front door that asks for an access code (see [Install](#install)).
+- **Bound to 127.0.0.1.** The server listens only on this computer and checks a token on every request. Your other devices reach it at `https://orynx.local` through a front door that asks for the password you choose when you set up Orynx (see [Install](#install)).
 - **A local cache.** Synced tickets and pull requests live in one file on your disk.
 - **Only what you connect.** Orynx talks only to the connectors and agent you plug in: Jira, GitHub and Claude today, Slack and more next.
 
@@ -70,18 +70,26 @@ Inside the repo the code name is DevHub: the `@devhub/*` packages, the `DEVHUB_*
 
 ## Install
 
-On macOS or Linux, from a clone of this repository:
+On macOS or Linux, clone [orynx-ai/orynx](https://github.com/orynx-ai/orynx) and run its install script:
 
 ```sh
+git clone https://github.com/orynx-ai/orynx.git
+cd orynx
 ./install.sh
 ```
 
-It uses Node 24 (through nvm, if you have it), builds Orynx, makes a certificate for `orynx.local` in `~/.devhub/tls` and asks for your password once so this computer trusts it. Then it starts Orynx whenever you log in (a LaunchAgent on macOS, a systemd user service on Linux) and prints an access code for your other devices.
+It uses Node 24 (through nvm, if you have it), builds Orynx, makes a certificate for `orynx.local` in `~/.devhub/tls` and asks for your computer's password once so this computer trusts it. Then it starts Orynx whenever you log in (a LaunchAgent on macOS, a systemd user service on Linux). `install.sh` builds the folder it sits in, so it needs the clone: there is no `curl | sh`.
 
-- **On this computer:** http://127.0.0.1:4317 or https://orynx.local
-- **On any phone or computer on the same wifi:** https://orynx.local. The first time, enter the access code `./install.sh` printed. `cat ~/.devhub/lan-access-code` shows it again.
+### Set up Orynx
 
-To update, run `git pull && ./install.sh`. You still need Claude Code signed in on this computer, and a Jira Cloud API token and GitHub (the gh CLI or a token) to connect in Settings.
+Open http://127.0.0.1:4317 on this computer. The first time, Orynx asks who you are (name, bio and a picture) and for a password, then opens. Your profile shows the same on every device.
+
+- **On this computer:** http://127.0.0.1:4317 or https://orynx.local, with no password.
+- **On any phone or computer on the same wifi:** https://orynx.local. The first time, enter the password you chose. Until you set up Orynx on this computer, other devices only see "Finish setting up Orynx", so nobody else on the wifi can choose the password.
+
+Forgot the password? Delete `~/.devhub/password` and restart Orynx (see below): setup opens again on this computer, with your profile filled in.
+
+To update, run `git pull && ./install.sh` in the clone. You still need Claude Code signed in on this computer, and a Jira Cloud API token and GitHub (the gh CLI or a token) to connect in Settings.
 
 ### Keep it as an app
 
@@ -107,8 +115,9 @@ The certificate authority can sign only for `orynx.local` and `localhost`, so tr
 ### Safe on a shared wifi
 
 - Orynx itself still listens only on 127.0.0.1. The wifi reaches it through a front door on ports 443 and 80 that answers only the name `orynx.local`.
-- A device sees nothing of Orynx until it enters the access code. A cookie then keeps it signed in for a year. Treat the code like a password: whoever has it can use Orynx as you, Claude's sessions included.
-- To sign every device out, delete `~/.devhub/lan-access-code` and restart Orynx (`launchctl kickstart -k gui/$(id -u)/dev.orynx.server` on macOS, `systemctl --user restart orynx` on Linux). It makes a new code.
+- A device sees nothing of Orynx until it enters your password. A cookie then keeps it signed in for a year; it holds a secret made from the saved hash, never the password. Whoever has the password can use Orynx as you, Claude's sessions included, so pick one you use nowhere else.
+- Orynx keeps only a salted scrypt hash of the password, in `~/.devhub/password`, readable by you alone. After 10 wrong passwords in 15 minutes, from any device, it stops checking until the oldest is 15 minutes old.
+- To sign every device out, delete `~/.devhub/password` and restart Orynx (`launchctl kickstart -k gui/$(id -u)/dev.orynx.server` on macOS, `systemctl --user restart orynx` on Linux), then set it up again with a new password.
 - Everything goes over https. `http://orynx.local` only hands out the certificate and redirects to https.
 
 See `learn/local-security.md` for how the front door works.
@@ -134,7 +143,7 @@ Your settings, cache and certificate stay in `~/.devhub` until you delete it.
 
 ## Quick start
 
-To work on Orynx, or try it without installing, on macOS or Linux you need:
+To work on Orynx, or try it without installing, clone it (`git clone https://github.com/orynx-ai/orynx.git`) on macOS or Linux. You need:
 
 - Node 24 and pnpm 10
 - Claude Code, signed in on this computer
@@ -153,7 +162,7 @@ To run it the way a user does (one production build, one port):
 pnpm start         # http://127.0.0.1:4317
 ```
 
-Then connect Jira and GitHub in Settings, add a repository, and start your first session from Home.
+Set up Orynx on the first page that opens, then connect Jira and GitHub in Settings, add a repository, and start your first session from Home.
 
 ## Repo map
 

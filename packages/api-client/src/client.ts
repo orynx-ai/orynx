@@ -22,6 +22,9 @@ import {
   type NotificationSettingsChange,
   type Preferences,
   type PreferencesChange,
+  type Profile,
+  type SetupRequest,
+  type SetupState,
   type Repository,
   type RepositoryId,
   type RepositoryList,
@@ -95,6 +98,7 @@ import {
   postNotificationsRead,
 } from './endpoints/notifications.ts';
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
+import { getProfile, getSetup, postSetup, putProfile } from './endpoints/setup.ts';
 import {
   deleteRepository,
   getRepositories,
@@ -229,6 +233,13 @@ export interface ApiClient {
   preferences(): Promise<Preferences>;
   /** Saves one change and returns every preference. */
   changePreferences(change: PreferencesChange): Promise<Preferences>;
+  /** Whether Orynx has its password yet; until then the app shows Set up Orynx (spec 043). */
+  setup(): Promise<SetupState>;
+  /** Saves the profile and the password, once. */
+  completeSetup(request: SetupRequest): Promise<SetupState>;
+  /** Who uses Orynx, the same on every device (spec 043). */
+  profile(): Promise<Profile>;
+  saveProfile(profile: Profile): Promise<Profile>;
   /** The bell's list, newest first, with the unread and waiting counts (spec 029). */
   notifications(): Promise<NotificationList>;
   /** Marks some notifications read, or all of them. */
@@ -385,6 +396,12 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     preferences: () => getPreferences(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     changePreferences: (change) =>
       patchPreferences(http, change).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    setup: () => getSetup(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    completeSetup: (request) =>
+      postSetup(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    profile: () => getProfile(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    saveProfile: (profile) =>
+      putProfile(http, profile).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     notifications: () => getNotifications(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     markNotificationsRead: (request) =>
       postNotificationsRead(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

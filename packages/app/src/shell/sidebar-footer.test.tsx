@@ -3,9 +3,8 @@ import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes } from '@devhub/contracts';
 import { makeStatus } from '@devhub/contracts/testing';
-import { useProfileStore } from '../stores/profile-store.ts';
 import { useUiStore } from '../stores/ui-store.ts';
-import { apiUrl, server } from '../test/msw.ts';
+import { apiUrl, serveProfile, server } from '../test/msw.ts';
 import { renderApp } from '../test/render.tsx';
 
 function mainNav() {
@@ -31,7 +30,7 @@ describe('Sidebar footer', () => {
         HttpResponse.json(makeStatus({ user: { name: 'Rakesh Dhariwal' }, agent: { id: 'claude', connected: true } })),
       ),
     );
-    useProfileStore.setState({ bio: 'Ships on Fridays' });
+    serveProfile({ bio: 'Ships on Fridays' });
     await renderApp();
 
     const footer = await within(mainNav()).findByRole('button', { name: 'Profile: Rakesh Dhariwal Ships on Fridays' });
@@ -49,7 +48,7 @@ describe('Sidebar footer', () => {
     server.use(
       http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(makeStatus({ user: { name: 'Rakesh Dhariwal' } }))),
     );
-    useProfileStore.setState({ name: 'Ada Lovelace', picture: 'data:image/png;base64,AAAA' });
+    serveProfile({ name: 'Ada Lovelace', picture: 'data:image/png;base64,AAAA' });
     await renderApp();
 
     const footer = await within(mainNav()).findByRole('button', { name: 'Profile: Ada Lovelace' });
@@ -57,13 +56,11 @@ describe('Sidebar footer', () => {
   });
 
   it('puts the name and bio in a tooltip on the collapsed rail', async () => {
-    useProfileStore.setState({ name: 'Ada Lovelace', bio: 'Writes the first program' });
+    serveProfile({ name: 'Ada Lovelace', bio: 'Writes the first program' });
     useUiStore.setState({ sidebarCollapsed: true });
     await renderApp();
 
-    within(mainNav())
-      .getByRole('button', { name: /^Profile: / })
-      .focus();
+    (await within(mainNav()).findByRole('button', { name: /^Profile: Ada Lovelace/ })).focus();
 
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Ada Lovelace · Writes the first program');
   });

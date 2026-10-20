@@ -48,6 +48,7 @@ import { searchRoutes } from './routes/search.ts';
 import { sessionsRoutes } from './routes/sessions.ts';
 import { terminalRoutes } from './routes/terminal.ts';
 import { ticketsRoutes } from './routes/tickets.ts';
+import { setupRoutes } from './routes/setup.ts';
 import { statusRoutes } from './routes/status.ts';
 import { createSearchService } from './search/search-service.ts';
 import type { Keychain } from './secrets/keychain.ts';
@@ -61,6 +62,8 @@ import { createSessionService } from './sessions/session-service.ts';
 import { createMemorySessionStore, type SessionRecords } from './sessions/session-store.ts';
 import { createTerminalService } from './terminal/terminal-service.ts';
 import { createMemorySettingsStore, type SettingsStore } from './settings/settings-store.ts';
+import { createPasswordStore, type PasswordStore } from './setup/password-store.ts';
+import { createSetupService } from './setup/setup-service.ts';
 import { createTicketsService } from './tickets/tickets-service.ts';
 import { createOrynxTicketService, describeOrynxTicket } from './orynx-tickets/ticket-service.ts';
 import { createOrynxTicketStore, type OrynxTicketStore } from './orynx-tickets/ticket-store.ts';
@@ -145,6 +148,11 @@ export interface CoreOptions {
    * (spec 007). Hosts turn it on. Left off, only Refresh syncs, so no test reaches Jira or GitHub by surprise.
    */
   autoSync?: boolean;
+  /**
+   * The password other devices on the wifi ask for (spec 043). Hosts pass the one under DEVHUB_HOME, shared with
+   * the front door; tests get one in memory, with none set.
+   */
+  password?: PasswordStore;
 }
 
 /** The HTTP status for each error a connection route can answer with. */
@@ -531,6 +539,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
           adapter === null || !(await claude.connected()) ? { state: 'unavailable' } : adapter.models(),
       });
       await api.register(preferencesRoutes, { preferences });
+      await api.register(setupRoutes, {
+        setup: createSetupService({ settings, password: options.password ?? createPasswordStore() }),
+      });
       await api.register(notificationsRoutes, {
         notifications,
         settings: createNotificationSettingsService({ settings, events }),

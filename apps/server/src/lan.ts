@@ -1,10 +1,11 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { timingSafeEqual } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import type { ApiError } from '@devhub/contracts';
+import type { PasswordStore } from '@devhub/core';
 import { announce, lanHost } from './announce.ts';
 
 export const accessCookie = 'orynx_access';
@@ -21,36 +22,9 @@ const publicFiles: Record<string, string> = {
   '/favicon.svg': 'image/svg+xml',
 };
 
-// Crockford's base32 (no I, L, O or U to misread). 12 characters are 60 bits: too many to guess over a network.
-const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-
-export function createAccessCode(): string {
-  const chars = [...randomBytes(12)].map((byte) => alphabet[byte % 32]).join('');
-  return `${chars.slice(0, 4)}-${chars.slice(4, 8)}-${chars.slice(8)}`;
-}
-
-/** Upper case, without the dashes and spaces people type or leave out. */
-function normalize(code: string): string {
-  return code.toUpperCase().replace(/[^0-9A-Z]/g, '');
-}
-
-export const accessCodeFile = (home: string): string => join(home, 'lan-access-code');
-
-/** The code in DEVHUB_HOME/lan-access-code (0600), made on first use. Delete the file and restart for a new one. */
-export async function readAccessCode(home: string): Promise<string> {
-  const path = accessCodeFile(home);
-  try {
-    const code = (await readFile(path, 'utf8')).trim();
-    if (normalize(code).length < 12) throw new Error(`${path} holds no access code. Delete it and restart Orynx.`);
-    return code;
-  } catch (error) {
-    if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
-  }
-  const code = createAccessCode();
-  await mkdir(home, { recursive: true, mode: 0o700 });
-  await writeFile(path, `${code}\n`, { mode: 0o600 });
-  return code;
-}
+/** Spec 043, Q7: this many tries within the window, from every device together, and the door stops checking. */
+export const maxTries = 10;
+export const triesWindowMs = 15 * 60_000;
 
 /** Loopback, or one of this computer's own addresses: opening https://orynx.local here needs no code. */
 export function fromThisComputer(address: string | undefined): boolean {
@@ -60,7 +34,8 @@ export function fromThisComputer(address: string | undefined): boolean {
 }
 
 export interface FrontDoorOptions {
-  code: string;
+  /** The password chosen in Set up Orynx (spec 043), shared with the hub, which saves it. */
+  password: PasswordStore;
   /** The built web app, for the public files above. */
   distDir: string;
   /** `127.0.0.1:<port>`: the Host the hub accepts. */
@@ -71,19 +46,17 @@ export interface FrontDoorOptions {
 }
 
 /**
- * https://orynx.local (spec 040). The hub itself stays on 127.0.0.1; this lets a request through only from
- * this computer or from a device that entered the access code, so the page and its session token never
- * reach anyone else on the wifi. Without the code nothing reaches the hub.
+ * https://orynx.local (spec 040). The hub itself stays on 127.0.0.1; this lets a request through only from this
+ * computer or from a device that entered the password chosen in Set up Orynx (spec 043), so the page and its session
+ * token never reach anyone else on the wifi. Until a password is saved, no other device gets through at all, so
+ * nobody on the wifi can choose it first.
  */
 export function frontDoor(options: FrontDoorOptions): (request: IncomingMessage, response: ServerResponse) => void {
-  const expected = Buffer.from(normalize(options.code));
-  const matches = (candidate: string | undefined): boolean => {
-    const given = Buffer.from(normalize(candidate ?? ''));
-    return given.length === expected.length && timingSafeEqual(given, expected);
-  };
   const isLocal = options.fromThisComputer ?? fromThisComputer;
+  // When each try in the window was made: every wrong one, and each one still being checked.
+  const tries: number[] = [];
 
-  return (request, response) => {
+  async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     // DNS rebinding (learn/local-security.md): a page on evil.example that resolves here sends its own Host.
     if (request.headers.host !== lanHost && request.headers.host !== `${lanHost}:443`) {
       sendJson(response, 403, { code: 'forbidden_host', message: `Open Orynx at https://${lanHost}.` });
@@ -93,25 +66,94 @@ export function frontDoor(options: FrontDoorOptions): (request: IncomingMessage,
     const path = (request.url ?? '/').split('?')[0] ?? '/';
     const type = publicFiles[path];
     if (type !== undefined) {
-      void sendFile(response, join(options.distDir, path), type);
+      await sendFile(response, join(options.distDir, path), type);
       return;
     }
-    if (isLocal(request.socket.remoteAddress) || matches(readCookie(request.headers.cookie))) {
+    const forward = () => {
       // The hub checks the Host as for any request to 127.0.0.1; this one passed the check above.
       request.headers.host = options.hubHost;
       options.forward(request, response);
+    };
+    // Before the password is read, so even a broken password file never locks this computer out.
+    if (isLocal(request.socket.remoteAddress)) {
+      forward();
+      return;
+    }
+    const secret = await options.password.cookie();
+    if (secret !== null && matches(readCookie(request.headers.cookie), secret)) {
+      forward();
+      return;
+    }
+    if (secret === null) {
+      if (request.method === 'GET') sendPage(response, 401, setupPage);
+      else
+        sendJson(response, 401, { code: 'unauthorized', message: 'Set up Orynx on the computer that runs it first.' });
       return;
     }
     if (request.method === 'POST' && path === accessPath) {
-      void signIn(request, response, matches);
+      await signIn(request, response);
       return;
     }
     if (request.method === 'GET') {
-      sendPage(response, false);
+      sendPage(response, 401, passwordPage(null));
       return;
     }
-    sendJson(response, 401, { code: 'unauthorized', message: `Enter the access code at https://${lanHost} first.` });
+    sendJson(response, 401, { code: 'unauthorized', message: `Enter your password at https://${lanHost} first.` });
+  }
+
+  async function signIn(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    const body = await readForm(request);
+    if (body === null) {
+      sendJson(response, 413, { code: 'bad_request', message: 'That is too long for a password.' });
+      return;
+    }
+    const now = Date.now();
+    while (tries[0] !== undefined && tries[0] <= now - triesWindowMs) tries.shift();
+    // Counted before the check, so many tries sent at once can't all slip in under the limit.
+    if (tries.length >= maxTries) {
+      sendPage(response, 429, passwordPage('too_many'));
+      return;
+    }
+    tries.push(now);
+    if (!(await options.password.verify(body.get('password') ?? ''))) {
+      sendPage(response, 401, passwordPage('wrong'));
+      return;
+    }
+    tries.splice(tries.indexOf(now), 1);
+    const secret = await options.password.cookie();
+    response
+      .writeHead(303, {
+        location: '/',
+        // HttpOnly: no script reads it. Lax: other sites can't post with it, and the API wants the session token too.
+        // It holds a secret made from the saved hash, never the password, and a new password changes it.
+        'set-cookie': `${accessCookie}=${secret ?? ''}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`,
+      })
+      .end();
+  }
+
+  return (request, response) => {
+    handle(request, response).catch((error: unknown) => {
+      // The password file can't be read: say so, as the hub would, and let nothing through.
+      sendJson(response, 500, { code: 'internal', message: error instanceof Error ? error.message : String(error) });
+    });
   };
+}
+
+function matches(given: string | undefined, secret: string): boolean {
+  const a = Buffer.from(given ?? '');
+  const b = Buffer.from(secret);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** The posted form, or null when it's longer than any password. */
+async function readForm(request: IncomingMessage): Promise<URLSearchParams | null> {
+  let body = '';
+  request.setEncoding('utf8');
+  for await (const chunk of request) {
+    body += String(chunk);
+    if (body.length > 2048) return null;
+  }
+  return new URLSearchParams(body);
 }
 
 /** http://orynx.local: the certificate to trust, and a redirect to https for everything else. */
@@ -127,6 +169,7 @@ export function plainDoor(ca: Buffer): (request: IncomingMessage, response: Serv
 
 export interface LanOptions {
   home: string;
+  password: PasswordStore;
   distDir: string;
   hubPort: number;
   forward: FrontDoorOptions['forward'];
@@ -144,11 +187,10 @@ export async function startLan(options: LanOptions): Promise<() => void> {
   ]).catch(() => {
     throw new Error(`DEVHUB_LAN is on, but ${tls} has no certificate. Run ./install.sh to make one.`);
   });
-  const code = await readAccessCode(options.home);
   const secure = createHttpsServer(
     { key, cert },
     frontDoor({
-      code,
+      password: options.password,
       distDir: options.distDir,
       hubHost: `127.0.0.1:${String(options.hubPort)}`,
       forward: options.forward,
@@ -158,7 +200,9 @@ export async function startLan(options: LanOptions): Promise<() => void> {
   await Promise.all([listen(secure, 443), listen(plain, 80)]);
   const stopAnnouncing = announce({ platform: options.platform, log: options.log });
   options.log.info(
-    `Orynx is open to your wifi at https://${lanHost}. Other devices need the code in ${accessCodeFile(options.home)}.`,
+    (await options.password.isSet())
+      ? `Orynx is open to your wifi at https://${lanHost}. Other devices ask for your Orynx password.`
+      : `Orynx is open to your wifi at https://${lanHost} once you set it up: open Orynx on this computer first.`,
   );
   return () => {
     stopAnnouncing();
@@ -187,34 +231,6 @@ function readCookie(header: string | undefined): string | undefined {
     ?.slice(accessCookie.length + 1);
 }
 
-async function signIn(
-  request: IncomingMessage,
-  response: ServerResponse,
-  matches: (code: string | undefined) => boolean,
-): Promise<void> {
-  let body = '';
-  request.setEncoding('utf8');
-  for await (const chunk of request) {
-    body += String(chunk);
-    if (body.length > 2048) {
-      sendJson(response, 413, { code: 'bad_request', message: 'That is too long for an access code.' });
-      return;
-    }
-  }
-  const code = new URLSearchParams(body).get('code') ?? undefined;
-  if (!matches(code)) {
-    sendPage(response, true);
-    return;
-  }
-  response
-    .writeHead(303, {
-      location: '/',
-      // HttpOnly: no script reads it. Lax: other sites can't post with it, and the API wants the session token too.
-      'set-cookie': `${accessCookie}=${normalize(code ?? '')}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`,
-    })
-    .end();
-}
-
 async function sendFile(response: ServerResponse, path: string, type: string): Promise<void> {
   try {
     const file = await readFile(path);
@@ -231,14 +247,12 @@ function sendJson(response: ServerResponse, status: number, body: ApiError): voi
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify(body));
 }
 
-function sendPage(response: ServerResponse, wrongCode: boolean): void {
-  response
-    .writeHead(401, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' })
-    .end(accessPage(wrongCode));
+function sendPage(response: ServerResponse, status: number, html: string): void {
+  response.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(html);
 }
 
 // System colours (Canvas, CanvasText), so it follows light and dark without the app's styles.
-const accessPage = (wrongCode: boolean): string => `<!doctype html>
+const page = (body: string): string => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -248,7 +262,7 @@ const accessPage = (wrongCode: boolean): string => `<!doctype html>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <style>
       body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 16px/1.5 system-ui, sans-serif; background: Canvas; color: CanvasText; }
-      form { display: grid; gap: 12px; width: min(360px, calc(100vw - 32px)); }
+      main, form { display: grid; gap: 12px; width: min(360px, calc(100vw - 32px)); }
       h1 { margin: 0; font-size: 24px; font-weight: 500; }
       p { margin: 0; }
       input, button { font: inherit; padding: 8px 12px; border: 1px solid GrayText; border-radius: 8px; }
@@ -256,14 +270,27 @@ const accessPage = (wrongCode: boolean): string => `<!doctype html>
     </style>
   </head>
   <body>
-    <form method="post" action="${accessPath}">
-      <h1>Enter the access code</h1>
-      <p>./install.sh printed it on the computer that runs Orynx. It's also in ~/.devhub/lan-access-code there.</p>
-      ${wrongCode ? '<p role="alert">That code doesn’t match. Check it and try again.</p>' : ''}
-      <label for="code">Access code</label>
-      <input id="code" name="code" required autofocus autocomplete="off" autocapitalize="characters" spellcheck="false" />
-      <button type="submit">Open Orynx</button>
-    </form>
+    ${body}
   </body>
 </html>
 `;
+
+const problems = {
+  wrong: 'That password doesn’t match. Try again.',
+  too_many: 'Too many wrong passwords. Try again in 15 minutes.',
+} as const;
+
+const passwordPage = (problem: keyof typeof problems | null): string =>
+  page(`<form method="post" action="${accessPath}">
+      <h1>Enter your password</h1>
+      <p>The one you chose when you set up Orynx.</p>
+      ${problem === null ? '' : `<p role="alert">${problems[problem]}</p>`}
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required autofocus autocomplete="current-password" />
+      <button type="submit">Open Orynx</button>
+    </form>`);
+
+const setupPage = page(`<main>
+      <h1>Finish setting up Orynx</h1>
+      <p>Open Orynx on the computer that runs it and choose a password. Then come back here.</p>
+    </main>`);

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Installs Orynx on this computer as a service that starts when you log in, and opens it to your wifi at
-# https://orynx.local, behind an access code. Run it again to update or to renew the certificate.
+# https://orynx.local, behind the password you choose in Set up Orynx. Run it again to update or to renew the
+# certificate.
 # What it changes and how to undo it: README.md › Install.
 set -euo pipefail
 
@@ -157,15 +158,21 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 [ -n "$ready" ] || fail "Orynx didn't answer within a minute. See what it said: $logs"
-code="$(cat "$home/lan-access-code")"
+# Set up Orynx saves this file (spec 043); until then no other device gets in.
+setup_note=""
+[ -f "$home/password" ] ||
+  setup_note="
+Next, open http://127.0.0.1:4317 on this computer to set up Orynx: your name and the password your other
+devices ask for. Until you do, they only see \"Finish setting up Orynx\".
+"
 
 cat <<EOF
 
 Orynx is installed, and starts whenever you log in.
 
   On this computer   http://127.0.0.1:4317  or  https://orynx.local
-  On your wifi       https://orynx.local   access code: $code
-
+  On your wifi       https://orynx.local, with your Orynx password
+$setup_note
 On a phone or another computer, trust Orynx's certificate once: open http://orynx.local/orynx-ca.crt,
 then follow README.md › Other devices. To keep Orynx as an app, choose Install in Chrome or Edge, or
 Share › Add to Home Screen (Add to Dock on a Mac) in Safari.

@@ -23,6 +23,8 @@ export const ApiErrorCodeSchema = z.enum([
   'skill_rejected',
   /** A session can't be deleted while Claude works on it: stop it first (spec 039, AC-33). */
   'session_working',
+  /** Orynx has its password already; setup runs once (spec 043, AC-4). */
+  'already_set_up',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
