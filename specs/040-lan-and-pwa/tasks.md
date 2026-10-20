@@ -14,3 +14,5 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: README, landing page, learn/local-security.md, docs/architecture.md, rule 10
       Check: pnpm gates
       Files: README.md, apps/landing/index.html, learn/local-security.md, docs/architecture.md, CLAUDE.md, AGENTS.md
+
+Review: skipped at the user's call ("push without review", 20 Oct 2026). `pnpm verify` was green; only the review-stamp gate blocked the push.
