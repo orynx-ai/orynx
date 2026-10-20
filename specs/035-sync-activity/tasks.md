@@ -17,7 +17,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Serve GET /api/sync-activity, and POST /api/inbox/refresh with a tool (AC-5, AC-6, AC-7, AC-17, AC-18, AC-37)
       Check: pnpm test packages/core/src/routes/sync-activity.test.ts packages/core/src/routes/inbox.test.ts packages/core/src/inbox/sync-activity-service.test.ts
       Files: packages/core/src/inbox/sync-activity-service.ts, packages/core/src/inbox/sync-activity-service.test.ts, packages/core/src/routes/sync-activity.ts, packages/core/src/routes/sync-activity.test.ts, packages/core/src/routes/inbox.ts, packages/core/src/routes/inbox.test.ts, packages/core/src/create-server.ts
-- [ ] Task 6: Read the sync activity and sync one tool from the api-client (AC-20)
+- [x] Task 6: Read the sync activity and sync one tool from the api-client (AC-20)
       Check: pnpm test packages/api-client/src/sync-activity.test.ts packages/api-client/src/inbox.test.ts
       Files: packages/api-client/src/endpoints/sync-activity.ts, packages/api-client/src/endpoints/inbox.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/sync-activity.test.ts, packages/api-client/src/inbox.test.ts
 - [ ] Task 7: Add Dialog's wide size: 1100 × 860 px, with the gutter on smaller windows (AC-30, AC-31)

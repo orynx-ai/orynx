@@ -55,6 +55,21 @@ describe('inbox endpoints', () => {
     expect(asked).toBe(true);
   });
 
+  it('spec 035, AC-20: Sync now asks the server to sync one tool', async () => {
+    const asked: string[] = [];
+    server.use(
+      http.post(url(apiRoutes.inboxRefresh), ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await api.refreshInbox('github');
+    await api.refreshInbox();
+
+    expect(asked).toEqual(['?tool=github', '']);
+  });
+
   it('AC-31: Clear cache asks the server to empty it', async () => {
     let asked = false;
     server.use(
