@@ -26,9 +26,9 @@ import { fakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
 import { acceptingPullContext, acceptingPullDiff, githubToken } from '../test/fake-github.ts';
 import { acceptingIssue, goodToken, jiraEmail, jiraSite } from '../test/fake-jira.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
-import { briefText, composerBrief, type BriefChip } from './brief.ts';
+import { briefText, composerBrief, type BriefChip, type BriefPullRequest } from './brief.ts';
 import { createChangesReader } from './changes.ts';
-import { chooseFolder, composerPlan } from './compose.ts';
+import { chooseFolder, composerPlan, pullToWorkOn } from './compose.ts';
 import { createSkillsService } from '../skills/skills-service.ts';
 import { createContextReader } from './context-reader.ts';
 import { openFileSessionStore } from './file-session-store.ts';
@@ -728,5 +728,53 @@ describe('a composer start (spec 015)', () => {
 
     await settled(records);
     expect(JSON.stringify(sdk.runs[1]?.options.systemPrompt)).toContain('Do what the user asks in the brief.');
+  });
+});
+
+describe('which branch a Build works on (spec 031)', () => {
+  const pull = (change: Partial<BriefPullRequest> = {}): BriefChip => ({
+    kind: 'pull_request',
+    owner: 'acme',
+    name: 'web-app',
+    number: 2836,
+    title: 'Fix the content list',
+    body: null,
+    base: 'main',
+    head: 'fix/content-list',
+    failingChecks: [],
+    comments: [],
+    diff: { kind: 'text', text: '' },
+    url: 'https://github.com/acme/web-app/pull/2836',
+    openedAt: '2026-10-15T09:00:00Z',
+    open: true,
+    fork: false,
+    mine: true,
+    ...change,
+  });
+  const ticket = { kind: 'jira', key: 'PROJ-1423' } as BriefChip;
+  const file: BriefChip = { kind: 'file', path: '~/notes.md', real: '/Users/priya/notes.md' };
+
+  it('AC-14: your open pull request in the folder’s repository, alone or beside files', () => {
+    expect(pullToWorkOn([pull()], 'acme/web-app')).toMatchObject({ number: 2836, head: 'fix/content-list' });
+    // GitHub's names aren't case-sensitive.
+    expect(pullToWorkOn([file, pull()], 'Acme/Web-App')).toMatchObject({ number: 2836 });
+  });
+
+  it('AC-19: someone else’s, a closed or merged one, a fork’s, or another repository’s is context', () => {
+    for (const other of [pull({ mine: false }), pull({ open: false }), pull({ fork: true }), pull({ name: 'api' })]) {
+      expect(pullToWorkOn([other], 'acme/web-app')).toBeNull();
+    }
+    // A folder whose origin isn't on GitHub holds no pull request.
+    expect(pullToWorkOn([pull()], null)).toBeNull();
+  });
+
+  it('AC-20: a ticket wins, wherever it is', () => {
+    expect(pullToWorkOn([ticket, pull()], 'acme/web-app')).toBeNull();
+    expect(pullToWorkOn([pull(), ticket], 'acme/web-app')).toBeNull();
+  });
+
+  it('only the first pull request counts', () => {
+    expect(pullToWorkOn([pull({ mine: false, number: 1 }), pull({ number: 2 })], 'acme/web-app')).toBeNull();
+    expect(pullToWorkOn([pull({ number: 1 }), pull({ number: 2 })], 'acme/web-app')).toMatchObject({ number: 1 });
   });
 });

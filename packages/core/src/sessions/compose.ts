@@ -69,6 +69,20 @@ export function chooseFolder(
   return candidates.length === 1 && candidates[0] !== undefined ? candidates[0] : 'choose_folder';
 }
 
+type PullChip = Extract<BriefChip, { kind: 'pull_request' }>;
+
+/**
+ * The pull request a Build works on, on its own branch (spec 031, Q3): with no ticket among the chips, the first pull
+ * request, when it's yours, open, not from a fork, and in `repository`, the folder's origin (`owner/name`, null when
+ * it isn't on GitHub). Null means a new branch, the pull request being context.
+ */
+export function pullToWorkOn(chips: readonly BriefChip[], repository: string | null): PullChip | null {
+  if (repository === null || chips.some((chip) => chip.kind === 'jira')) return null;
+  const pull = chips.find((chip) => chip.kind === 'pull_request');
+  if (pull === undefined || !pull.mine || !pull.open || pull.fork) return null;
+  return `${pull.owner}/${pull.name}`.toLowerCase() === repository.toLowerCase() ? pull : null;
+}
+
 /** What a composer start makes from your message and the chips as read (Q8). */
 export interface ComposerPlan {
   title: string;

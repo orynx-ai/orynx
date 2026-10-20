@@ -19,7 +19,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Push from a detached HEAD to the PR's branch, never forced; rejected when origin has moved (AC-16, AC-17)
       Check: pnpm test packages/core/src/sessions/branch-git.test.ts
       Files: packages/core/src/sessions/branch-git.ts, packages/core/src/sessions/branch-git.test.ts
-- [ ] Task 6: Which kind a composer start is: Ask, Build on a new branch, or Build on your PR (no ticket; first PR yours, open, not a fork, in the folder's origin) (AC-14, AC-19, AC-20)
+- [x] Task 6: Which kind a composer start is: Ask, Build on a new branch, or Build on your PR (no ticket; first PR yours, open, not a fork, in the folder's origin) (AC-14, AC-19, AC-20)
       Check: pnpm test packages/core/src/sessions/compose.test.ts
       Files: packages/core/src/sessions/compose.ts, packages/core/src/sessions/compose.test.ts
 - [ ] Task 7: Claude's notes: an Ask with no folder answers from the brief alone; a session on your PR's branch is told so, and that Orynx pushes on your click (AC-3, AC-14)
