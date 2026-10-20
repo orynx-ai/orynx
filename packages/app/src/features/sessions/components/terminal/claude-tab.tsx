@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { sessionCommandsQueryOptions } from '@devhub/api-client';
 import { terminalLimits, type ClaudeCommand, type ApprovalDecision, type Session } from '@devhub/contracts';
 import { Button, CommandBlock, CopyButton, Pill, Skeleton, type CommandBlockProps } from '@devhub/ui';
-import { useApi } from '../../../../api.tsx';
 import {
   alwaysAllowLabel,
   alwaysAskLine,
@@ -12,7 +9,7 @@ import {
   approvalTitle,
   type AnswerError,
 } from '../../approval-words.ts';
-import { useRespondToApproval } from '../../queries.ts';
+import { useRespondToApproval, useSessionCommands } from '../../queries.ts';
 import { refusedTitle } from '../../step-words.ts';
 import { answerFailure } from '../approval-callout.tsx';
 import { copyWhat, cutNote, statusWords, terminalWords } from './terminal-words.ts';
@@ -107,8 +104,7 @@ function WaitingCommand({ session, approval }: { session: Session; approval: Com
  * blocks with its output, then the commands waiting for you. Read-only: there's nothing to type here.
  */
 export function ClaudeTab({ session }: { session: Session }) {
-  const api = useApi();
-  const commands = useQuery(sessionCommandsQueryOptions(api, session.id));
+  const commands = useSessionCommands(session.id);
   const log = useRef<HTMLDivElement>(null);
   const waiting = session.approvals.filter((approval): approval is CommandApproval => approval.kind === 'command');
   const ran = commands.data?.commands ?? [];

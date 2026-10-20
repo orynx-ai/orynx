@@ -38,7 +38,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: The Claude tab: commands with output, waiting approvals with the callout's choices, denied, refused, legacy, empty and loading (AC-19–AC-24, AC-27)
       Check: pnpm test packages/app/src/features/sessions/components/terminal/claude-tab.test.tsx
       Files: packages/app/src/features/sessions/components/terminal/claude-tab.tsx, claude-tab.test.tsx, terminal-words.ts
-- [ ] Task 13: Your shell tabs: run, history, Stop and ⌃C, Rerun, Copy, Clear, + and close, the 5-tab limit and errors (AC-4–AC-16, AC-25, AC-26)
+- [x] Task 13: Your shell tabs: run, history, Stop and ⌃C, Rerun, Copy, Clear, + and close, the 5-tab limit and errors (AC-4–AC-16, AC-25, AC-26)
       Check: pnpm test packages/app/src/features/sessions/components/terminal/shell-tab.test.tsx
       Files: packages/app/src/features/sessions/components/terminal/shell-tab.tsx, shell-tab.test.tsx, terminal-dialog.tsx
 - [ ] Task 14: Ask Claude to fix in the shell tab moves to the Claude tab with its note (AC-17, AC-18)
