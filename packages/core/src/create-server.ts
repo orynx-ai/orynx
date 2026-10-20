@@ -494,7 +494,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
 
       await api.register(statusRoutes, { status });
       await api.register(sessionsRoutes, { sessions, service: sessionService });
-      if (terminal !== null) await api.register(terminalRoutes, { sessions, terminal });
+      if (terminal !== null) await api.register(terminalRoutes, { sessions, terminal, service: sessionService });
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
       await api.register(claudeRoutes, { claude });

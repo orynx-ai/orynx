@@ -6,17 +6,22 @@ import {
   apiPaths,
   RunCommandAnswerSchema,
   RunCommandRequestSchema,
+  SendMessageAnswerSchema,
   TerminalSchema,
   type ApiError,
 } from '@devhub/contracts';
+import type { SessionService } from '../sessions/session-service.ts';
 import type { SessionRecords } from '../sessions/session-store.ts';
+import { askToFix } from '../terminal/ask-to-fix.ts';
 import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
 
 const SessionParamsSchema = z.object({ id: z.string().min(1).max(64) });
 const TabParamsSchema = SessionParamsSchema.extend({ tabId: z.string().min(1).max(64) });
+const BlockParamsSchema = TabParamsSchema.extend({ blockId: z.string().min(1).max(64) });
 
 const noTerminal: ApiError = { code: 'not_found', message: 'This session has no Terminal.' };
 const noTab: ApiError = { code: 'not_found', message: 'This Terminal has no such tab.' };
+const noFailure: ApiError = { code: 'not_found', message: 'This tab has no failed command with this id.' };
 
 /**
  * Your shell tabs in a session's Terminal (spec 036). Every command runs in the session's own worktree, read
@@ -26,7 +31,8 @@ const noTab: ApiError = { code: 'not_found', message: 'This Terminal has no such
 export const terminalRoutes: FastifyPluginCallbackZod<{
   sessions: Pick<SessionRecords, 'get'>;
   terminal: TerminalService;
-}> = (app, { sessions, terminal }, done) => {
+  service: Pick<SessionService, 'send' | 'note'>;
+}> = (app, { sessions, terminal, service }, done) => {
   async function worktreeOf(id: string): Promise<string | null> {
     const record = await sessions.get(id);
     return record === null ? null : terminalWorktree(record);
@@ -97,6 +103,16 @@ export const terminalRoutes: FastifyPluginCallbackZod<{
       const { id, tabId } = request.params;
       if ((await worktreeOf(id)) === null) return reply.code(404).send(noTerminal);
       return terminal.clear(id, tabId) ? reply.code(204).send() : reply.code(404).send(noTab);
+    },
+  );
+
+  app.post(
+    apiPaths.sessionTerminalFix,
+    { schema: { params: BlockParamsSchema, response: { 200: SendMessageAnswerSchema, ...notFound } } },
+    async (request, reply) => {
+      const { id, tabId, blockId } = request.params;
+      if ((await worktreeOf(id)) === null) return reply.code(404).send(noTerminal);
+      return (await askToFix({ terminal, sessions: service }, id, tabId, blockId)) ?? reply.code(404).send(noFailure);
     },
   );
 

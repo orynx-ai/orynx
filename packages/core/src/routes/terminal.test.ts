@@ -7,7 +7,9 @@ import {
   AddTerminalTabAnswerSchema,
   apiRoutes,
   ApiErrorSchema,
+  ClaudeCommandListSchema,
   RunCommandAnswerSchema,
+  SendMessageAnswerSchema,
   SessionSchema,
   TerminalSchema,
   tokenHeader,
@@ -187,5 +189,24 @@ describe('the Terminal’s routes', () => {
     const clear = await app.inject({ method: 'DELETE', url: path(apiRoutes.sessionTerminalBlocks), headers });
     expect(clear.statusCode).toBe(204);
     expect((await readTerminal(app)).tabs).toEqual([{ id: 'tab-1', number: 1, blocks: [], cleared: true }]);
+  });
+
+  it('AC-17, AC-18: Ask Claude to fix takes only a failed command, and says when the follow-up can’t go', async () => {
+    const { app } = await setUp({ session: { state: 'stopped' } });
+    const run = (command: string) =>
+      app.inject({ method: 'POST', url: path(apiRoutes.sessionTerminalRun), headers, payload: { command } });
+    const fix = (blockId: string) =>
+      app.inject({ method: 'POST', url: path(apiRoutes.sessionTerminalFix, 'tab-1', blockId), headers });
+    await run('echo fine');
+    await lastEnded(app);
+    expect((await fix('block-1')).statusCode).toBe(404);
+
+    await run('exit 1');
+    await lastEnded(app);
+    // Claude never started this session, so there's nothing to carry on.
+    const answer = await fix('block-2');
+    expect(SendMessageAnswerSchema.parse(answer.json())).toEqual({ result: 'cannot_send', reason: 'never_started' });
+    const commands = await app.inject({ method: 'GET', url: path(apiRoutes.sessionCommands), headers });
+    expect(ClaudeCommandListSchema.parse(commands.json())).toEqual({ commands: [] });
   });
 });

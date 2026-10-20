@@ -33,6 +33,7 @@ import {
   type FakeOpenedPull,
 } from '../test/fake-github.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
+import { askToFix } from '../terminal/ask-to-fix.ts';
 import { createTerminalService } from '../terminal/terminal-service.ts';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
@@ -1603,5 +1604,42 @@ describe('Claude’s commands (spec 036)', () => {
     await settled(records);
     expect(await service.commands('0000000000000001')).toEqual({ commands: [] });
     expect(await service.commands('ffffffffffffffff')).toBeNull();
+  });
+});
+
+describe('Ask Claude to fix (spec 036)', () => {
+  it('AC-17: sends Claude your failed command with its output, resuming it, and notes it in the Claude tab', async () => {
+    const { service, records, terminal, sdk } = await setUp({ later: [[{ finish: 'Fixed the test.' }]] });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const worktree = (await settled(records)).worktree ?? '';
+    await terminal.run('0000000000000001', 'tab-1', 'echo "Expected 207"; exit 1', worktree);
+    for (let tries = 0; tries < 500; tries++) {
+      if (terminal.read('0000000000000001', worktree).tabs[0]?.blocks[0]?.state === 'failed') break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    expect(await askToFix({ terminal, sessions: service }, '0000000000000001', 'tab-1', 'block-1')).toEqual({
+      result: 'sent',
+    });
+    await settled(records);
+    expect(sdk.runs[1]?.prompts.join('\n')).toContain('failed with exit 1. Its output:\n```\nExpected 207\n```');
+    expect((await service.commands('0000000000000001'))?.commands).toEqual([
+      { id: 'note-1', state: 'note', command: 'echo "Expected 207"; exit 1' },
+    ]);
+  });
+
+  it('AC-17: sends nothing for a block that didn’t fail, or one that isn’t there', async () => {
+    const { service, records, terminal } = await setUp();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const worktree = (await settled(records)).worktree ?? '';
+    await terminal.run('0000000000000001', 'tab-1', 'echo fine', worktree);
+    for (let tries = 0; tries < 500; tries++) {
+      if (terminal.read('0000000000000001', worktree).tabs[0]?.blocks[0]?.state === 'done') break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    expect(await askToFix({ terminal, sessions: service }, '0000000000000001', 'tab-1', 'block-1')).toBeNull();
+    expect(await askToFix({ terminal, sessions: service }, '0000000000000001', 'tab-1', 'block-9')).toBeNull();
+
+    expect((await service.commands('0000000000000001'))?.commands).toEqual([]);
   });
 });

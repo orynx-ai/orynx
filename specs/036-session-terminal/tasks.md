@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Terminal routes, wired into the server; Discard and shutdown stop every command (AC-10, AC-11, AC-25, AC-28)
       Check: pnpm test packages/core/src/routes/terminal.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/routes/terminal.ts, terminal.test.ts, packages/core/src/create-server.ts, packages/core/src/sessions/session-service.ts
-- [ ] Task 7: Ask Claude to fix: the server builds the follow-up from its own block, sends it, and notes it in the command log (AC-17, AC-18)
+- [x] Task 7: Ask Claude to fix: the server builds the follow-up from its own block, sends it, and notes it in the command log (AC-17, AC-18)
       Check: pnpm test packages/core/src/terminal/ask-to-fix.test.ts packages/core/src/routes/terminal.test.ts
       Files: packages/core/src/terminal/ask-to-fix.ts, ask-to-fix.test.ts, packages/core/src/routes/terminal.ts, packages/core/src/sessions/command-log.ts
 - [ ] Task 8: api-client calls and query options for commands and the terminal; live updates (AC-20)

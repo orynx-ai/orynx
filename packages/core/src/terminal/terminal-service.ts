@@ -44,6 +44,8 @@ export interface TerminalService {
   /** Stops the tab's running command; false when nothing runs there. */
   stop(sessionId: string, tabId: string): Promise<boolean>;
   clear(sessionId: string, tabId: string): boolean;
+  /** One block as it is now, for Ask Claude to fix; null when it isn't there. */
+  block(sessionId: string, tabId: string, blockId: string): TerminalBlock | null;
   /** Stops every command in the session's tabs and forgets them: Discard, before the worktree goes. */
   stopAll(sessionId: string): Promise<void>;
   /** Stops every command in every session, for the server's shutdown. */
@@ -297,6 +299,14 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
       tab.cleared = true;
       tell(sessionId);
       return true;
+    },
+
+    block(sessionId, tabId, blockId) {
+      const block = sessions
+        .get(sessionId)
+        ?.tabs.find((tab) => tab.id === tabId)
+        ?.blocks.find((one) => one.id === blockId);
+      return block === undefined ? null : blockOf(block);
     },
 
     stopAll,
