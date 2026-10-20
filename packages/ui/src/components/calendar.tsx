@@ -1,0 +1,70 @@
+import { useEffect, useRef, type ComponentProps } from 'react';
+import { ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import { DayPicker, type DayButtonProps } from 'react-day-picker';
+import { cn } from '../lib/cn.ts';
+import { buttonVariants } from './button.tsx';
+import { Icon } from './icon.tsx';
+
+export type CalendarProps = ComponentProps<typeof DayPicker>;
+
+/**
+ * A month to pick a day from (spec 037, Q15). From shadcn's `calendar` (react-day-picker underneath), restyled to the
+ * tokens: 36 px days, the picked one in `primary`, today in medium weight, days of the months either side quieter.
+ * The keyboard is react-day-picker's: the arrows move a day or a week, Page Up and Page Down a month, Home and End
+ * to the week's ends, Enter or Space picks.
+ */
+export function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+  return (
+    <DayPicker
+      data-slot="calendar"
+      showOutsideDays={showOutsideDays}
+      className={cn('w-fit', className)}
+      classNames={{
+        months: 'relative flex flex-col',
+        month: 'flex flex-col gap-2',
+        nav: 'absolute inset-x-0 top-0 flex items-center justify-between',
+        button_previous: buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+        button_next: buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+        month_caption: 'flex h-8 items-center justify-center',
+        caption_label: 'text-body font-medium',
+        month_grid: 'border-collapse',
+        weekdays: 'flex',
+        weekday: 'w-9 text-label font-normal text-muted-foreground',
+        week: 'mt-1 flex',
+        day: 'size-9 p-0 text-center',
+        hidden: 'invisible',
+        ...classNames,
+      }}
+      components={{
+        Chevron: ({ orientation }) => (
+          <Icon icon={orientation === 'left' ? ArrowLeft01Icon : ArrowRight01Icon} aria-hidden />
+        ),
+        DayButton: CalendarDay,
+      }}
+      {...props}
+    />
+  );
+}
+
+/** One day, as react-day-picker's own: it takes focus as the keyboard moves to it. */
+function CalendarDay({ day: _day, modifiers, className, ...props }: DayButtonProps) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (modifiers['focused']) ref.current?.focus();
+  }, [modifiers['focused']]);
+  return (
+    <button
+      ref={ref}
+      data-picked={modifiers['selected'] ? '' : undefined}
+      data-today={modifiers['today'] ? '' : undefined}
+      data-outside={modifiers['outside'] ? '' : undefined}
+      className={cn(
+        'size-9 cursor-pointer rounded-sm text-body text-foreground hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-45',
+        'data-outside:text-muted-foreground data-today:font-medium',
+        'data-picked:bg-primary data-picked:text-primary-foreground data-picked:hover:bg-primary',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
