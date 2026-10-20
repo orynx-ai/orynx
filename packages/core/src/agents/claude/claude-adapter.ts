@@ -22,9 +22,22 @@ import {
 } from '@devhub/contracts';
 import { briefText } from '../../sessions/brief.ts';
 import type { TicketTool, TicketToolDone } from '../../orynx-tickets/tools.ts';
-import { askText, type AgentAdapter, type AgentAsk, type AgentEvent, type AgentWritten } from '../agent-adapter.ts';
+import {
+  askText,
+  type AgentAdapter,
+  type AgentAsk,
+  type AgentEvent,
+  type AgentWritten,
+  type OrynxTool,
+} from '../agent-adapter.ts';
 import { createMessageReader } from './sdk-messages.ts';
-import { decideToolUse, sessionTools, sessionToolsWithoutCommands } from './tool-decision.ts';
+import {
+  decideToolUse,
+  orynxToolPrefix,
+  sessionTools,
+  sessionToolsWithoutCommands,
+  type ToolDecision,
+} from './tool-decision.ts';
 
 /**
  * Claude behind the agent adapter (spec 011), through the Claude Agent SDK's `query()`. Every option is
@@ -113,17 +126,33 @@ function agentModel(info: ModelInfo): AgentModel[] {
 function orynxServer(
   tools: readonly TicketTool[],
   did: (done: TicketToolDone) => void,
+  own: readonly OrynxTool[] = [],
 ): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
     name: 'orynx',
     version: '1.0.0',
-    tools: tools.map((ticketTool) =>
-      tool(ticketTool.name, ticketTool.description, ticketTool.input.shape, async (input) => {
-        const answer = await ticketTool.run(input);
-        if (answer.error !== true) did(answer.done);
-        return { content: [{ type: 'text', text: answer.text }], ...(answer.error === true ? { isError: true } : {}) };
-      }),
-    ),
+    tools: [
+      ...tools.map((ticketTool) =>
+        tool(ticketTool.name, ticketTool.description, ticketTool.input.shape, async (input) => {
+          const answer = await ticketTool.run(input);
+          if (answer.error !== true) did(answer.done);
+          return {
+            content: [{ type: 'text', text: answer.text }],
+            ...(answer.error === true ? { isError: true } : {}),
+          };
+        }),
+      ),
+      // The session's own tools (spec 042): what they did shows in the session itself, as each one says.
+      ...own.map((sessionTool) =>
+        tool(sessionTool.name, sessionTool.description, sessionTool.input.shape, async (input) => {
+          const answer = await sessionTool.run(input);
+          return {
+            content: [{ type: 'text', text: answer.text }],
+            ...(answer.error === true ? { isError: true } : {}),
+          };
+        }),
+      ),
+    ],
   });
 }
 
@@ -363,7 +392,13 @@ export function createClaudeAdapter({
       return writeText(text, instructions, { timeoutMs, model, effort });
     },
 
-    startSession(brief, worktree, permissions, instructions, { resume, model, effort, tools = [], onEdit } = {}) {
+    startSession(
+      brief,
+      worktree,
+      permissions,
+      instructions,
+      { resume, model, effort, tools = [], onEdit, orynxTools = [] } = {},
+    ) {
       const id = randomUUID();
       // The prompt stream: the brief, then each follow-up as it's given, until the input is over.
       const given: SDKUserMessage[] = [];
@@ -417,12 +452,16 @@ export function createClaudeAdapter({
         strictMcpConfig: true,
         // Orynx's ticket tools, and no other MCP server (spec 037).
         mcpServers:
-          tools.length === 0
+          tools.length + orynxTools.length === 0
             ? {}
             : {
-                orynx: orynxServer(tools, (done) => {
-                  send({ type: 'work', sessionId: id, work: { kind: 'ticket', done } });
-                }),
+                orynx: orynxServer(
+                  tools,
+                  (done) => {
+                    send({ type: 'work', sessionId: id, work: { kind: 'ticket', done } });
+                  },
+                  orynxTools,
+                ),
               },
         systemPrompt: { type: 'preset', preset: 'claude_code', append: instructions },
         // Claude Code's own output can hold the brief or file contents; it never reaches the log.
@@ -435,8 +474,15 @@ export function createClaudeAdapter({
           }
           current?.decided.add(toolUseID);
           const ticketTitleOf = (key: string) => ticketTitle(tools, key);
-          const decide = async () =>
-            decideToolUse(tool, input, { worktree, home, ticketTitle: ticketTitleOf, ...(await permissions()) });
+          // The session's own tools say themselves whether a call asks you first (spec 042).
+          const own = orynxTools.find((one) => `${orynxToolPrefix}${one.name}` === tool);
+          const ownAsk = own?.asks(input) ?? null;
+          const decide = async (): Promise<ToolDecision> =>
+            own === undefined
+              ? decideToolUse(tool, input, { worktree, home, ticketTitle: ticketTitleOf, ...(await permissions()) })
+              : ownAsk === null
+                ? { behavior: 'allow' }
+                : { behavior: 'ask', ask: ownAsk };
           const turn = (current?.deciding ?? Promise.resolve()).then(decide);
           if (current !== undefined) current.deciding = turn.catch(() => undefined);
           const decision = await turn;

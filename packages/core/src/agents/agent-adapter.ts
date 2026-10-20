@@ -7,6 +7,7 @@
  * work only inside the session worktree, and push, open a PR, reach the network or delete
  * outside the worktree only as far as the user's rows in Settings › Coding agent allow.
  */
+import type { z } from 'zod';
 import type { AgentModels, AlwaysAskReason, ChangeLine, EffortLevel, Permissions } from '@devhub/contracts';
 import type { TicketTool, TicketToolDone } from '../orynx-tickets/tools.ts';
 
@@ -128,6 +129,20 @@ export type AgentEvent =
 /** What `write()` gives back: the agent's text, or why there's none, with `timeout` when it didn't answer in time. */
 export type AgentWritten = { ok: true; text: string } | { ok: false; problem: AgentProblemKind | 'timeout' };
 
+/**
+ * One of Orynx's own tools for a Build session (spec 042), beside the ticket tools: its steps, and its servers. `asks`
+ * says what you're asked before a call runs; null runs it at once.
+ */
+export interface OrynxTool {
+  name: string;
+  /** For the agent: what the tool does and when to use it. */
+  description: string;
+  input: z.ZodObject;
+  asks(input: Readonly<Record<string, unknown>>): AgentAsk | null;
+  /** Checks the input itself; `error` when it did nothing. */
+  run(input: unknown): Promise<{ text: string; error?: true }>;
+}
+
 /** How one run starts: carrying on the agent's own session, and with the model and effort you picked. */
 export interface AgentRunOptions {
   resume?: string | undefined;
@@ -143,6 +158,8 @@ export interface AgentRunOptions {
    * refuses the edit with it; null lets it go ahead.
    */
   onEdit?: (() => Promise<string | null>) | undefined;
+  /** Orynx's session tools for this run (spec 042); none when left out, as for an Ask. */
+  orynxTools?: readonly OrynxTool[] | undefined;
 }
 
 export interface AgentAdapter {

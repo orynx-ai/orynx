@@ -40,7 +40,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## Core: Claude's new tools
 
-- [ ] Task 11: `set_steps`: Claude replaces the steps to come and moves `current`, refused whole with the broken rule; a `steps_changed` row; Claude's note explains it (AC-24, AC-25, AC-26, AC-31)
+- [x] Task 11: `set_steps`: Claude replaces the steps to come and moves `current`, refused whole with the broken rule; a `steps_changed` row; Claude's note explains it (AC-24, AC-25, AC-26, AC-31)
       Check: pnpm test packages/core/src/sessions/session-tools.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/session-tools.ts, packages/core/src/sessions/session-tools.test.ts, packages/core/src/agents/claude/claude-adapter.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/brief.ts
 - [ ] Task 12: A Terminal tab can start with a command and say its shell's PID; `start_server` asks first, runs in a new tab, answers with the address or the last 40 lines; `stop_server`; `run_in_background`'s refusal names `start_server` (AC-2, AC-12, AC-14, AC-37)

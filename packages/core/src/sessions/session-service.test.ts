@@ -588,7 +588,8 @@ describe('running a session', () => {
         what: 'started',
         session: '0000000000000001',
         ticket: 'PROJ-1423',
-        loaded: { tools: 8, mcpServers: 0, plugins: 0 },
+        // Orynx's own server, with set_steps (spec 042).
+        loaded: { tools: 8, mcpServers: 1, plugins: 0 },
       });
     });
   });
@@ -1973,5 +1974,65 @@ describe('the branch at the first edit (spec 042)', () => {
     expect(await service.send(id, 'now change it')).toEqual({ result: 'sent' });
     await reached(records, 'branch_made');
     expect((await settled(records)).session.branch).toBe('feat/PROJ-1423');
+  });
+});
+
+describe('Claude changing its steps (spec 042)', () => {
+  const runReading = JSON.stringify({
+    intent: 'run',
+    title: 'Start the dev server',
+    branch: null,
+    branchFrom: null,
+    base: null,
+    steps: [
+      { kind: 'setup', label: 'Set up' },
+      { kind: 'run', label: 'Start server' },
+    ],
+  });
+  const grown = [
+    { kind: 'setup', label: 'Set up' },
+    { kind: 'run', label: 'Start server' },
+    { kind: 'build', label: 'Fix env' },
+    { kind: 'test', label: 'Test' },
+    { kind: 'pull_request', label: 'Pull request' },
+  ];
+  const setSteps = (steps: unknown[], current: string): FakeTurn => ({
+    tool: 'mcp__orynx__set_steps',
+    input: { steps, current, reason: 'The server fails on a missing env key.' },
+  });
+
+  it('AC-24: Claude adds steps after the current one, and the session shows them with its reason', async () => {
+    const { service, records, sdk } = await setUp({
+      readAsks: true,
+      script: [setSteps(grown, 'setup'), { finish: 'Done.' }],
+    });
+    sdk.reads.push(runReading);
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+    expect(record.session.steps.map((step) => step.label)).toEqual([
+      'Set up',
+      'Start server',
+      'Fix env',
+      'Test',
+      'Pull request',
+    ]);
+    expect(record.session.activities.find((activity) => activity.kind === 'steps_changed')).toMatchObject({
+      reason: 'The server fails on a missing env key.',
+      to: grown,
+    });
+    expect(JSON.stringify(sdk.runs[0]?.options.systemPrompt)).toContain('set_steps');
+  });
+
+  it('AC-25, AC-26: a change that breaks a rule changes nothing, and Claude hears why', async () => {
+    const tooMany = [...grown.slice(0, 4), { kind: 'review', label: 'Review' }, { kind: 'pull_request', label: 'x' }];
+    const { service, records, sdk } = await setUp({
+      readAsks: true,
+      script: [setSteps(tooMany, 'setup'), setSteps(grown, 'run'), { finish: 'Done.' }],
+    });
+    sdk.reads.push(runReading);
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+    expect(record.session.steps.map((step) => step.label)).toEqual(['Set up', 'Start server']);
+    expect(record.session.activities.some((activity) => activity.kind === 'steps_changed')).toBe(false);
   });
 });

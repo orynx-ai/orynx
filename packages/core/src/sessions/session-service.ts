@@ -25,6 +25,8 @@ import type {
   SessionChangeRequest,
   SessionChanges,
   SessionFollowUp,
+  SessionStep,
+  SessionStepItem,
   SessionTicket,
   StartSessionAnswer,
   StartSessionRequest,
@@ -65,6 +67,7 @@ import {
   addStep,
   addWaiting,
   addWork,
+  changeSteps,
   endProgress,
   removeWaiting,
   replaceStep,
@@ -84,6 +87,7 @@ import {
 import { createWorktrees, type Prepared, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
 import { readingFrom, readingInstructions, readingPrompt, type AskInput, type AskReading } from './ask-reading.ts';
 import { readBranchRules } from './branch-rules.ts';
+import { sessionTools } from './session-tools.ts';
 
 /**
  * Claude sessions (spec 011): starting one on a ticket or from the composer (spec 015), running it, stopping
@@ -678,6 +682,20 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return ticketPlan(issue);
   }
 
+  /** Claude's `set_steps` (spec 042): null once the stepper took the change, or why it didn't. */
+  async function applySteps(
+    id: string,
+    wanted: { steps: SessionStepItem[]; current: SessionStep; reason: string },
+  ): Promise<string | null> {
+    let refused: string | null = 'This session is gone.';
+    await change(id, (current) => {
+      const changed = changeSteps(progressOf(current.session), wanted);
+      refused = changed.ok ? null : changed.reason;
+      return changed.ok ? withProgress(current, () => changed.progress) : current;
+    });
+    return refused;
+  }
+
   /** Each session's branch while it's being made, so two edits at once make one (spec 042). */
   const branching = new Map<string, Promise<string | null>>();
 
@@ -936,6 +954,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       effort,
       tools,
       onEdit: () => makeBranch(id),
+      // A Build's own tools (spec 042): Claude changes its steps; an Ask has none.
+      orynxTools: first.readOnly ? [] : sessionTools({ changeSteps: (wanted) => applySteps(id, wanted) }),
     });
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.

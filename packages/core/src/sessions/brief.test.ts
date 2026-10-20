@@ -61,7 +61,9 @@ describe('the brief', () => {
 describe('the note added to Claude Code’s system prompt', () => {
   it('AC-3 (011 Q5, 012 Q8g, 013 Q2a): says where Claude works, what it may not do, and that commands may wait, word for word', () => {
     expect(sessionNote('feat/PROJ-1423', true)).toBe(
-      "You're working in a separate git worktree on the branch feat/PROJ-1423. Make the change the ticket asks for. " +
+      "You're working in a separate git worktree. Orynx makes its branch, feat/PROJ-1423, when you first edit a file. " +
+        'Make the change the ticket asks for. ' +
+        "Orynx shows the user this session's steps. When the work changes, such as a run that needs a fix, call set_steps with the whole list, the step you're on and why. " +
         'If the repository has a CLAUDE.md, read it first. ' +
         "Don't push, open pull requests or change git settings. " +
         'You can run commands in the worktree. ' +
@@ -94,6 +96,7 @@ describe('the note added to Claude Code’s system prompt', () => {
     expect(sessionNote('fix/content-list', true, false, { push: 'allow', pullRequest: 'allow' }, 2836)).toBe(
       "You're working in a separate git worktree on pull request #2836's own branch, fix/content-list, " +
         'with no local branch of its own. Do what the user asks in the brief. ' +
+        "Orynx shows the user this session's steps. When the work changes, such as a run that needs a fix, call set_steps with the whole list, the step you're on and why. " +
         'If the repository has a CLAUDE.md, read it first. ' +
         "Don't push, open pull requests or change git settings: Orynx pushes to #2836 when the user presses Push changes. " +
         'You can run commands in the worktree. ' +
@@ -115,7 +118,9 @@ describe('the note added to Claude Code’s system prompt', () => {
 
   it('012 AC-20: where commands can’t run, says so, and asks which ones Claude would run', () => {
     expect(sessionNote('feat/PROJ-1423', false)).toBe(
-      "You're working in a separate git worktree on the branch feat/PROJ-1423. Make the change the ticket asks for. " +
+      "You're working in a separate git worktree. Orynx makes its branch, feat/PROJ-1423, when you first edit a file. " +
+        'Make the change the ticket asks for. ' +
+        "Orynx shows the user this session's steps. When the work changes, such as a run that needs a fix, call set_steps with the whole list, the step you're on and why. " +
         'If the repository has a CLAUDE.md, read it first. ' +
         "Don't push, open pull requests or change git settings. " +
         "You can't run commands on this computer, so say which ones you'd run to check your work. " +
@@ -307,7 +312,7 @@ describe('the note without a ticket (spec 015, Q8c)', () => {
   it('asks Claude to do what the brief asks, and says the rest as before', () => {
     const note = sessionNote('feat/add-a-csv-export-to', false, false);
     expect(note).toMatch(
-      /^You're working in a separate git worktree on the branch feat\/add-a-csv-export-to\. Do what the user asks in the brief\. If the repository/,
+      /^You're working in a separate git worktree\. Orynx makes its branch, feat\/add-a-csv-export-to, when you first edit a file\. Do what the user asks in the brief\. Orynx shows the user this session's steps\.[^]* If the repository/,
     );
     expect(note).not.toContain('ticket');
     expect(sessionNote('feat/PROJ-1423', false, true)).toContain('Make the change the ticket asks for.');
