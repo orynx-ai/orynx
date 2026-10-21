@@ -307,7 +307,8 @@ test.describe('narrow window', () => {
     await page.evaluate(() => {
       window.scrollBy(0, 400);
     });
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+    // Well past the 56 px compact bar; Connections is only a little taller than the window.
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
 
     expect((await pageBar(page).boundingBox())?.y).toBe(0);
     await expect(page.getByRole('navigation', { name: 'Main' })).not.toBeInViewport();

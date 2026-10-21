@@ -470,8 +470,10 @@ test('spec 029, AC-1, AC-4, AC-9, AC-45, AC-46: the bell counts Claude waiting, 
   page,
 }) => {
   const url = await build(page, 'PROJ-2015');
-  await expect(progress(page).getByRole('alert')).toBeVisible({ timeout: 15_000 });
+  // Off its session at once: the session on screen has told you, so its ask wouldn't wait unread in the bell.
+  await page.goto('/');
   const nav = page.getByRole('navigation', { name: 'Main' });
+  await expect(nav.getByRole('button', { name: /^Notifications, \d+ unread$/ })).toBeVisible({ timeout: 15_000 });
   const panel = page.getByRole('dialog', { name: 'Notifications' });
   const asking = panel
     .getByRole('listitem')

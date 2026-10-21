@@ -55,8 +55,9 @@ test('Given Edit profile, when you add a picture, name and bio, then the sidebar
   await profileButton(page).click();
   await page.getByRole('menu', { name: 'Profile' }).getByRole('menuitem').first().click();
   const dialog = page.getByRole('dialog', { name: 'Edit profile' });
-  // A 2 × 1 red PNG: wider than tall, so the crop is a square of it.
-  await dialog.getByLabel('Add picture').setInputFiles({
+  // A 2 × 1 red PNG: wider than tall, so the crop is a square of it. Change, when the other project's run already
+  // saved one: both share the hub.
+  await dialog.getByLabel(/^(Add|Change) picture$/).setInputFiles({
     name: 'me.png',
     mimeType: 'image/png',
     buffer: Buffer.from(

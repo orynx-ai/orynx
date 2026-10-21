@@ -168,7 +168,7 @@ test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it
   await page.getByRole('button', { name: 'Sync', exact: true }).focus();
 
   const stops: { name: string; ring: boolean }[] = [];
-  for (let stop = 0; stop < 17; stop += 1) {
+  for (let stop = 0; stop < 18; stop += 1) {
     stops.push(
       await page.evaluate(() => {
         const focused = document.activeElement;
@@ -188,6 +188,8 @@ test('AC-33, AC-45: Given Home with rows, when I go through it with Tab, then it
 
   expect(stops).toEqual([
     { name: 'Sync', ring: true },
+    // Your shell in Orynx's home folder, in the page bar.
+    { name: 'Terminal', ring: true },
     { name: 'Describe a task for Claude', ring: true },
     { name: 'Add context', ring: true },
     // Ask or Build, in the composer since spec 031.
