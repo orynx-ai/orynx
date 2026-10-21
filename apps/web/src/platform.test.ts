@@ -5,9 +5,9 @@ describe('webPlatform', () => {
   it('opens outside links in a new tab without giving them access to DevHub', () => {
     const open = vi.spyOn(window, 'open').mockReturnValue(null);
 
-    webPlatform.openExternal('https://github.com/masterghost2002/dev-hub');
+    webPlatform.openExternal('https://github.com/orynx-ai/orynx');
 
-    expect(open).toHaveBeenCalledWith('https://github.com/masterghost2002/dev-hub', '_blank', 'noopener,noreferrer');
+    expect(open).toHaveBeenCalledWith('https://github.com/orynx-ai/orynx', '_blank', 'noopener,noreferrer');
   });
 
   it('AC-6: knows a Mac, so the sidebar shows ⌘ keys', () => {

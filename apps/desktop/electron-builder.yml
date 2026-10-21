@@ -44,5 +44,5 @@ appImage:
 # Writes latest-mac.yml and latest-linux.yml, and the app-update.yml the installed app reads.
 publish:
   provider: github
-  owner: masterghost2002
-  repo: dev-hub
+  owner: orynx-ai
+  repo: orynx

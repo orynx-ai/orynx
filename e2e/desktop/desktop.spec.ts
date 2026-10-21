@@ -194,7 +194,7 @@ test('AC-24: on a Mac, a newer release shows the notice once, and Download opens
   await expect.poll(async () => (await recorded(app)).shown, { timeout: 15_000 }).toEqual(['Orynx 9.9.9 is out']);
   await expect
     .poll(async () => (await recorded(app)).opened)
-    .toEqual(['https://github.com/masterghost2002/dev-hub/releases/latest']);
+    .toEqual(['https://github.com/orynx-ai/orynx/releases/latest']);
 });
 
 test('AC-5: opening Orynx again starts no second copy', async () => {

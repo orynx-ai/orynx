@@ -126,7 +126,7 @@ describe('watchUpdates', () => {
     updater.emit(
       'error',
       new Error(
-        'Cannot find channel "latest-mac.yml" update info: HttpError: 404 Not Found\n"method: GET url: https://github.com/masterghost2002/dev-hub/releases/download/v0.1.38/latest-mac.yml"\n\nPlease double check that your authentication token is correct.',
+        'Cannot find channel "latest-mac.yml" update info: HttpError: 404 Not Found\n"method: GET url: https://github.com/orynx-ai/orynx/releases/download/v0.1.38/latest-mac.yml"\n\nPlease double check that your authentication token is correct.',
       ),
     );
     updater.emit('error', new Error('sha512 checksum mismatch, expected abc, got def'));

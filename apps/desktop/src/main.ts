@@ -11,7 +11,7 @@ import { openLogFile } from './log-file.ts';
 import { mergePaths, readLoginPath } from './login-path.ts';
 import { watchUpdates } from './updates.ts';
 
-const releasesPage = 'https://github.com/masterghost2002/dev-hub/releases/latest';
+const releasesPage = 'https://github.com/orynx-ai/orynx/releases/latest';
 
 const config = loadConfig();
 // Electron's own data (page storage, caches) sits beside the hub's, so a test's temporary home keeps
