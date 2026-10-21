@@ -210,12 +210,13 @@ export function briefText(brief: AgentBrief): string {
   return parts.join('\n\n');
 }
 
+const once = (row: 'ask' | 'allow') => (row === 'ask' ? ', once the user allows it' : '');
+
 /** What the note says about git: no push or pull request, unless Settings › Coding agent lets Claude (spec 026). */
-function gitLines(branch: string, commands: boolean, { push, pullRequest }: PublishRows): string[] {
+function gitLines(branch: string, commands: boolean, { push, pullRequest }: NoteRows): string[] {
   if (!commands || (push === 'never' && pullRequest === 'never')) {
     return ["Don't push, open pull requests or change git settings."];
   }
-  const once = (row: 'ask' | 'allow') => (row === 'ask' ? ', once the user allows it' : '');
   return [
     push === 'never'
       ? "Don't push."
@@ -227,8 +228,22 @@ function gitLines(branch: string, commands: boolean, { push, pullRequest }: Publ
   ];
 }
 
-export type PublishRows = Pick<Permissions, 'push' | 'pullRequest'>;
-const neverPublish: PublishRows = { push: 'never', pullRequest: 'never' };
+/** The rows the note follows: what Claude may publish, and how its commands reach the network (spec 026). */
+export type NoteRows = Pick<Permissions, 'push' | 'pullRequest' | 'network' | 'unsandboxed'>;
+const askFirst: NoteRows = { push: 'never', pullRequest: 'never', network: 'ask', unsandboxed: 'ask' };
+
+/** Your pull request's branch (spec 031): a detached worktree, so only `HEAD:<branch>` sends Claude's commits. */
+function pullLines(branch: string, number: string, commands: boolean, { push }: NoteRows): string[] {
+  if (!commands || push === 'never') {
+    return [
+      `Don't push, open pull requests or change git settings: Orynx pushes to ${number} when the user presses Push changes.`,
+    ];
+  }
+  return [
+    `You may push your commits to ${number} with exactly \`git push origin HEAD:${branch}\` on its own${once(push)}. Never force-push or push another branch.`,
+    "Don't open pull requests or change git settings.",
+  ];
+}
 
 /**
  * Added to Claude Code's own system prompt (011 Q5). Where Claude can run commands, the last sentences say
@@ -239,14 +254,17 @@ export function sessionNote(
   branch: string,
   commands: boolean,
   ticket = true,
-  publish = neverPublish,
-  /** Your pull request's number, when the worktree is its own branch (spec 031): Orynx alone pushes to it. */
+  rows = askFirst,
+  /** Your pull request's number, when the worktree is its own branch (spec 031): Claude pushes to it only as `push` says. */
   pull: number | null = null,
 ): string {
   const ending = commands
     ? [
         'You can run commands in the worktree.',
         "They run in a sandbox with no network, and some wait for the user's approval.",
+        // Each row lets its kind out of the sandbox, so Claude shouldn't give up on GitHub or an install (spec 026).
+        `A command that reaches the network, such as gh, curl, git fetch or a package install, runs outside the sandbox${once(rows.network)}.`,
+        `If the sandbox stops another command, run it again with dangerouslyDisableSandbox${once(rows.unsandboxed)}.`,
         "Run the project's tests and checks before you finish.",
         "When you're done, summarise what you changed and which checks you ran, in a few sentences.",
       ]
@@ -264,11 +282,7 @@ export function sessionNote(
     "Orynx shows the user this session's steps. When the work changes, such as a run that needs a fix, call set_steps with the whole list, the step you're on and why.",
     'If the repository has a CLAUDE.md, read it first.',
     // A detached worktree has no branch for `git push origin <branch>` to send (spec 031).
-    ...(pull === null
-      ? gitLines(branch, commands, publish)
-      : [
-          `Don't push, open pull requests or change git settings: Orynx pushes to ${number} when the user presses Push changes.`,
-        ]),
+    ...(pull === null ? gitLines(branch, commands, rows) : pullLines(branch, number, commands, rows)),
     ...ending,
     // Claude can't ask mid-task: it asks in its summary, and you answer in the follow-up box (spec 013, Q2a).
     'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',

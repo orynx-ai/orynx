@@ -19,6 +19,8 @@ export interface AgentPermissions extends Permissions {
   allowedCommands: readonly string[];
   /** The session's branch, the only one a push may name; null before the worktree is made (spec 026). */
   branch?: string | null;
+  /** Your pull request's own branch (spec 031): the worktree has no branch, so a push sends `HEAD:<branch>`. */
+  detached?: boolean;
   /** What outside the worktree the brief named, for the agent to read and never edit (spec 022). */
   reads?: AgentReads;
   /** An Ask session (spec 026): reads only, whatever the rows say; every edit and command is refused. */

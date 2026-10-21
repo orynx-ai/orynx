@@ -48,6 +48,8 @@ export interface ToolContext extends Permissions {
   worktree: string;
   /** The session's branch, the only one a push may name; null before the worktree is made. */
   branch?: string | null | undefined;
+  /** Your pull request's own branch (spec 031): the worktree has no branch, so a push sends `HEAD:<branch>`. */
+  detached?: boolean | undefined;
   /** Files and folders outside the worktree the brief named, which Claude may read and never edit (spec 022). */
   reads?: AgentReads | undefined;
   /** Settings › Coding agent's allow list, as saved. */
@@ -87,7 +89,7 @@ function decideBash(input: Readonly<Record<string, unknown>>, context: ToolConte
       runInBackground: input['run_in_background'] === true,
       unsandboxed: input['dangerouslyDisableSandbox'] === true,
     },
-    { ...context, branch: context.branch ?? null },
+    { ...context, branch: context.branch ?? null, detached: context.detached === true },
   );
   if (decision.behavior === 'allow') return { behavior: 'allow', outsideSandbox: decision.outsideSandbox };
   if (decision.behavior === 'refuse') {

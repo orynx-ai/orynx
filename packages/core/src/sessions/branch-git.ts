@@ -42,6 +42,8 @@ export interface BranchGit {
   template(worktree: string): Promise<string | null>;
   /** The commit the worktree is on. */
   head(worktree: string): Promise<string>;
+  /** Where origin's `branch` was at the last fetch or push, from this computer; null when git doesn't know. */
+  onOrigin(worktree: string, branch: string): Promise<string | null>;
   /**
    * Commits everything not committed yet (`add -A`, so ignored files stay out) in one commit with `message`, made
    * with your git name, email and signing (Q6). git never makes up a name: without one it's `no_identity`.
@@ -221,6 +223,17 @@ export function createBranchGit({
 
     async head(worktree) {
       return (await read(worktree, ['rev-parse', 'HEAD'])).trim();
+    },
+
+    async onOrigin(worktree, branch) {
+      try {
+        const commit = (
+          await read(worktree, ['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${branch}`])
+        ).trim();
+        return commit === '' ? null : commit;
+      } catch {
+        return null;
+      }
     },
 
     async commit(worktree, message) {

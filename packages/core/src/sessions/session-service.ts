@@ -1025,6 +1025,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         ...permissionsFor(preferences, current?.repository?.id ?? null),
         allowedCommands: preferences.allowedCommands,
         branch,
+        detached: current?.session.workOn === 'pull_request',
         reads: current?.reads ?? noReads,
         readOnly: current?.session.mode !== 'build',
       };
@@ -1370,8 +1371,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         mode: 'build',
         workOn: 'new_branch',
         skipped: [],
-        // `get()` says whether the Terminal opens (spec 036), so what is saved here never counts.
+        // `get()` says whether the Terminal opens (spec 036) and what's left to push, so what is saved here never counts.
         terminal: false,
+        unpushed: true,
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -1465,8 +1467,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         mode: ask ? 'ask' : 'build',
         workOn: pull === null ? 'new_branch' : 'pull_request',
         skipped: [],
-        // `get()` says whether the Terminal opens (spec 036), so what is saved here never counts.
+        // `get()` says whether the Terminal opens (spec 036) and what's left to push, so what is saved here never counts.
         terminal: false,
+        unpushed: true,
       },
       repository: folder === null ? null : { id: folder.id, path: folder.path },
       // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031).
@@ -1607,11 +1610,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       if (record === null) return null;
       const { session } = record;
       const key = session.source?.kind === 'jira' ? session.source.key : null;
-      const [saved, known, followUp] = await Promise.all([
+      const [saved, known, followUp, unpushed] = await Promise.all([
         // A session saved before spec 013 kept only its brief.
         session.ticket ?? records.readBrief(id).then((brief) => (brief === null ? null : ticketFromBrief(brief))),
         key === null ? null : describeTicket(key),
         followUpOf(record),
+        pullRequests.unpushed(record),
       ]);
       const ticket: SessionTicket | null =
         saved === null
@@ -1633,6 +1637,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         followUp,
         worktreePath: made ? record.worktree : null,
         terminal,
+        unpushed,
       };
     },
 

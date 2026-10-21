@@ -59,10 +59,13 @@ function canCreatePullRequest(session: Session): boolean {
   return !working && session.pullRequest === null && session.discardedAt === null && session.worktreePath !== null;
 }
 
-/** Push changes shows once a pull request is open, whenever Claude isn't working and the worktree is there (Q7). */
+/**
+ * Push changes shows once a pull request is open, whenever Claude isn't working and the worktree is there (Q7), until
+ * origin's branch has everything, whoever pushed it.
+ */
 function canPush(session: Session): boolean {
   const working = session.state === 'working' || session.state === 'needs_you';
-  return !working && session.discardedAt === null && session.worktreePath !== null;
+  return !working && session.discardedAt === null && session.worktreePath !== null && session.unpushed;
 }
 
 /** Before Claude's first edit, a Build session has no branch (spec 042, Q11). */
@@ -223,14 +226,18 @@ export function SessionActions({ session, title }: { session: Session; title: Re
           </a>
         </Button>
       )}
-      {offerPush ? (
+      {pullRequest === null ? null : (
         <PushChanges
           ref={pushDialog}
           session={session}
           repository={pullRequest.repository}
+          show={offerPush}
+          onPushed={() => {
+            (openPullRequest.current ?? more.current)?.focus();
+          }}
           {...(menu === undefined ? {} : { menu })}
         />
-      ) : null}
+      )}
       <RenameSession
         session={session}
         open={sessionDialog === 'rename'}

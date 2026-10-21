@@ -2,6 +2,7 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useRef,
   useState,
   type KeyboardEvent,
   type Ref,
@@ -104,11 +105,17 @@ function NoPush({ line, onCancel }: { line: string; onCancel: () => void }) {
 export function PushChanges({
   session,
   repository,
+  show,
+  onPushed,
   menu,
   ref,
 }: {
   session: Session;
   repository: string;
+  /** Whether its button shows: once there's something to push. An open dialog stays until it closes. */
+  show: boolean;
+  /** Called once the dialog has closed after the push, as its button goes, so focus can move on. */
+  onPushed: () => void;
   /** Opened from this menu's item rather than a button of its own (under 768 px); closing gives the menu focus. */
   menu?: RefObject<HTMLElement | null>;
   /** Opens the dialog, for the menu's item. */
@@ -118,6 +125,7 @@ export function PushChanges({
   const describedBy = useId();
   const drafting = useDraftPush(session.id);
   const push = usePushChanges(session.id);
+  const pushed = useRef(false);
 
   function openChange(next: boolean) {
     if (!next && push.isPending) return;
@@ -139,7 +147,9 @@ export function PushChanges({
   function pushNow(message: string) {
     push.mutate(message, {
       onSuccess: (answer) => {
-        if (answer.result === 'pushed') setOpen(false);
+        if (answer.result !== 'pushed') return;
+        pushed.current = true;
+        setOpen(false);
       },
     });
   }
@@ -189,9 +199,10 @@ export function PushChanges({
     );
   }
 
+  if (!show && !open) return null;
   return (
     <Dialog open={open} onOpenChange={openChange}>
-      {menu === undefined ? (
+      {show && menu === undefined ? (
         <DialogTrigger asChild>
           <Button variant="secondary" size="sm">
             {pullRequestWords.push}
@@ -202,6 +213,13 @@ export function PushChanges({
         aria-describedby={describedBy}
         className="gap-4 p-6"
         onCloseAutoFocus={(event) => {
+          if (pushed.current) {
+            // Not back to Push changes, which goes once origin has everything.
+            pushed.current = false;
+            event.preventDefault();
+            onPushed();
+            return;
+          }
           if (menu === undefined) return;
           event.preventDefault();
           menu.current?.focus();

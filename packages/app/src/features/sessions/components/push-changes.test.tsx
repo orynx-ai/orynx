@@ -3,6 +3,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type PushAnswer, type PushDraftAnswer, type Session } from '@devhub/contracts';
 import { makePushDraft, makeSession, makeSessionPullRequest } from '@devhub/contracts/testing';
+import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
@@ -50,6 +51,8 @@ describe('Push changes (spec 014, Q7)', () => {
     for (const session of [
       makeSession({ ...open, state: 'working' }),
       makeSession({ ...open, state: 'stopped', discardedAt: '2026-10-18T10:00:00.000Z' }),
+      // Origin's branch has everything, whoever pushed it.
+      makeSession({ ...open, unpushed: false }),
     ]) {
       serve(session);
       const { unmount } = await renderApp({ route });
@@ -80,6 +83,25 @@ describe('Push changes (spec 014, Q7)', () => {
       expect(screen.queryByRole('dialog')).toBeNull();
     });
     expect(sent).toEqual([{ message: 'Use the existing useSelection hook in the content list' }]);
+  });
+
+  it('goes once origin has everything, and gives Open PR focus', async () => {
+    serve(open);
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('button', { name: 'Push changes' }));
+    await within(dialog()).findByRole('textbox', { name: 'Commit message' });
+    // The server says so while the push answers, before the dialog closes.
+    server.use(sessionHandler(makeSession({ ...open, unpushed: false })));
+    FakeEventSource.latest().emit({ type: 'session.changed', sessionId: id });
+    await user.click(within(dialog()).getByRole('button', { name: 'Push changes' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(screen.getByRole('link', { name: `Open PR ${pr}` })).toHaveFocus();
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Push changes' })).toBeNull();
+    });
   });
 
   it('AC-17: waits busy while it pushes', async () => {
