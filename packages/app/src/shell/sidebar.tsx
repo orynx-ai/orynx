@@ -19,6 +19,7 @@ import { clampSidebarWidth, sidebarWidthLimits, useUiStore } from '../stores/ui-
 import { newTaskShortcut, searchShortcut } from './shortcuts.ts';
 import { PersonAvatar, ProfileMenu } from './profile-menu.tsx';
 import { SidebarFooter } from './sidebar-footer.tsx';
+import { TerminalButton } from './terminal-button.tsx';
 import { useWide } from './use-wide.ts';
 
 /**
@@ -73,9 +74,10 @@ export function Sidebar() {
           <BrandMark />
           <span className={cn('text-title font-medium', collapsed && 'md:sr-only')}>Orynx</span>
         </span>
-        {/* The narrow bar has no footer, so the bell and the profile menu sit here, before Search (spec 029, Q1). */}
+        {/* The narrow bar has no footer, so Terminal, the bell and the profile menu sit here, before Search (spec 029, Q1). */}
         {wide ? null : (
           <span className="ms-auto flex items-center gap-1">
+            <TerminalButton tooltipSide="bottom" />
             <NotificationCentre side="bottom" tooltipSide="bottom" />
             <NarrowProfile />
           </span>

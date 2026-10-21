@@ -142,7 +142,8 @@ describe('Sidebar', () => {
       'Tickets',
       'Settings',
       'Sessions',
-      // Spec 029: the bell sits above the avatar.
+      // Terminal and the bell (spec 029) sit above the avatar.
+      'Terminal',
       'Notifications',
       'You',
     ]);

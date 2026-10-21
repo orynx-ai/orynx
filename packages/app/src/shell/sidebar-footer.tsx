@@ -1,18 +1,26 @@
 import { cn } from '@devhub/ui';
 import { NotificationCentre } from '../features/notifications/components/notification-centre.tsx';
 import { PersonAvatar, ProfileMenu, usePerson } from './profile-menu.tsx';
+import { TerminalButton } from './terminal-button.tsx';
 import { useWide } from './use-wide.ts';
 
 /**
  * The footer (design system: SidebarNav): who is using Orynx, their name and the bio from Edit profile in place of
  * Claude's state (the user's call, 20 Oct 2026; Home's agent picker still says it). It opens the profile menu: Edit
  * profile, Appearance, Settings. The leading slot is always avatar-sized, so nothing moves when the status arrives.
- * The bell sits after it, or above the avatar on the rail: the user moved it here from the design's head (spec 029).
+ * Terminal and the bell sit after it, or above the avatar on the rail: the user moved the bell here from the design's
+ * head (spec 029), and Terminal from Home's page bar (21 Oct 2026).
  */
 export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
-  // Under 768 px the footer is hidden and the bell sits in the top bar instead (spec 029, Q1).
+  // Under 768 px the footer is hidden and Terminal and the bell sit in the top bar instead (spec 029, Q1).
   const wide = useWide();
-  const bell = wide ? <NotificationCentre tooltipSide={collapsed ? 'right' : 'top'} /> : null;
+  const tooltipSide = collapsed ? 'right' : 'top';
+  const tools = wide ? (
+    <>
+      <TerminalButton tooltipSide={tooltipSide} />
+      <NotificationCentre tooltipSide={tooltipSide} />
+    </>
+  ) : null;
   const person = usePerson();
   // Nothing while the status loads: "You" means DevHub knows no name (Q6), which it cannot say yet.
   const who = person.pending ? ' ' : (person.name ?? 'You');
@@ -24,7 +32,7 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
         collapsed && 'md:flex-col md:gap-2',
       )}
     >
-      {collapsed ? bell : null}
+      {collapsed ? tools : null}
       {/* On the rail only the avatar shows, so the name and bio are in a tooltip beside it. */}
       <ProfileMenu
         side={collapsed ? 'right' : 'top'}
@@ -58,7 +66,7 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
           </span>
         </button>
       </ProfileMenu>
-      {collapsed ? null : bell}
+      {collapsed ? null : tools}
     </div>
   );
 }
