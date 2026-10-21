@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useRef, type ComponentProps } from 'react';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal, type ITheme } from '@xterm/xterm';
 import { cn } from '../lib/cn.ts';
 
@@ -92,6 +93,16 @@ export function TerminalView({ label, connect, onData, onResize, takeFocus, clas
     term.loadAddon(fit);
     term.attachCustomKeyEventHandler((event) => !event.defaultPrevented);
     term.open(element);
+    // Drawn on the GPU, so a busy program (Claude, a test run) keeps up. Disposing it hands back to the DOM renderer.
+    try {
+      const gpu = new WebglAddon();
+      gpu.onContextLoss(() => {
+        gpu.dispose();
+      });
+      term.loadAddon(gpu);
+    } catch {
+      // No WebGL2 here: xterm's DOM renderer, already drawing, carries on.
+    }
     const listening = [
       term.onData((data) => {
         typed(data);
