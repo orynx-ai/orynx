@@ -49,21 +49,24 @@ export function SidebarFooter({ collapsed }: { collapsed: boolean }) {
           <span aria-hidden className="flex size-9 shrink-0 items-center justify-center text-muted-foreground">
             <PersonAvatar size="lg" />
           </span>
-          <span className={cn('flex min-w-0 flex-col gap-px', collapsed && 'md:sr-only')}>
-            {/* Says what the button opens, as the narrow bar's avatar does. */}
-            <span className="sr-only">Profile:</span>{' '}
-            {/* One step down the scale, as the rest of the sidebar (spec 039, Q4). */}
-            <span className="truncate text-small font-medium">{who}</span>
-            {person.bio === '' ? null : (
-              <>
-                {' '}
-                {/* At the default width a long bio is cut; its title keeps it readable. */}
-                <span className="truncate text-label text-muted-foreground" title={person.bio}>
-                  {person.bio}
-                </span>
-              </>
-            )}
-          </span>
+          {/* Says what the button opens, as the narrow bar's avatar does. */}
+          <span className="sr-only">Profile:</span>{' '}
+          {/* The name and bio come in together: a bio line arriving later would push the name up. */}
+          {person.pending ? null : (
+            <span className={cn('flex min-w-0 flex-col gap-px', collapsed && 'md:sr-only')}>
+              {/* One step down the scale, as the rest of the sidebar (spec 039, Q4). */}
+              <span className="truncate text-small font-medium">{who}</span>
+              {person.bio === '' ? null : (
+                <>
+                  {' '}
+                  {/* At the default width a long bio is cut; its title keeps it readable. */}
+                  <span className="truncate text-label text-muted-foreground" title={person.bio}>
+                    {person.bio}
+                  </span>
+                </>
+              )}
+            </span>
+          )}
         </button>
       </ProfileMenu>
       {collapsed ? null : tools}
