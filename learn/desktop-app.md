@@ -57,7 +57,13 @@ With a message box open, Electron doesn't act on SIGTERM, so a test that leaves 
 git push origin main:release
 ```
 
-Never commit on `release` or merge a pull request into it: a merge commit isn't on `main`, so the next push would fail the review-stamp push gate, and `release.yml` refuses it ("release must point at a commit on main"). On GitHub, turn on a rule for `release` that blocks force pushes and deletion (Settings › Rules › Rulesets, or Branches).
+Never commit on `release` or merge a pull request into it: a merge commit isn't on `main`, so the next push would fail the review-stamp push gate, and `release.yml` refuses it ("release must point at a commit on main").
+
+GitHub holds the same line with the rulesets in `.github/rulesets/` (Settings › Rules › Rulesets). `main` is the default branch and takes changes only through a pull request whose `CI passed` check is green on an up-to-date branch; an admin can override that on a pull request, never with a direct push. `release` moves only for admins, only forward, and only to a commit whose `CI passed` is green, which is why CI runs every commit on `main` to the end. CI fails a pull request that targets anything but `main`. `v*` tags can't be moved or deleted. A changed file is applied with:
+
+```sh
+gh api -X PUT repos/orynx-ai/orynx/rulesets/<id> --input .github/rulesets/<name>.json   # POST repos/orynx-ai/orynx/rulesets for a new one
+```
 
 Each push runs `.github/workflows/release.yml`, one run at a time:
 

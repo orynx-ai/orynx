@@ -1,0 +1,26 @@
+# Weekly updates as pull requests to main, each through CI like any other. Titles follow commitlint.config.ts.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories: ['/', '/.github/actions/setup']
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+      include: scope
+    # Minor and patch updates come as one pull request; each major comes alone, as it may need code changes.
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
