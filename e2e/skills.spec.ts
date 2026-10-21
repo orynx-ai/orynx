@@ -20,9 +20,10 @@ const axePath = createRequire(new URL('../packages/ui/package.json', import.meta
 // The desktop and phone runs share one hub and one skills folder, so each test names its skills after its run
 // and its own purpose, and never relies on the folder being empty.
 
-/** A Name only this test and this run use. */
+/** A Name only this test and this run use; a retry's is its own, as the failed try's skill is still there. */
 function nameFor(testInfo: TestInfo, what: string): string {
-  return `${what} ${testInfo.project.name}`;
+  const retry = testInfo.retry === 0 ? '' : ` retry ${String(testInfo.retry)}`;
+  return `${what} ${testInfo.project.name}${retry}`;
 }
 
 /** The folder a Name makes, as Orynx makes it. */
