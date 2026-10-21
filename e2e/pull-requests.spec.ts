@@ -243,6 +243,8 @@ test('AC-17, AC-19: Push changes updates the branch, and a follow-up on a PR-ope
   await page.goto(seen.opened ?? '');
   const worktree = await worktreeOf(page, seen.opened ?? '');
   writeFileSync(join(worktree, 'src', 'review.ts'), 'export const reviewed = true;\n');
+  // Your edit in your editor, then back to Orynx: Push changes shows once the session has something to push.
+  await page.reload();
 
   await page.getByRole('button', { name: 'Push changes' }).click();
   const message = dialog(page, 'Push changes').getByRole('textbox', { name: 'Commit message' });
@@ -412,6 +414,7 @@ test.describe('a Build on my own pull request (spec 031)', () => {
     const theirs = repository.git(repository.origin, 'commit-tree', tree, '-p', head, '-m', 'Their commit');
     repository.git(repository.origin, 'update-ref', `refs/heads/${branch}`, theirs);
     writeFileSync(join(await worktreeOf(page, on.url ?? ''), 'src', 'again.ts'), 'export const again = true;\n');
+    await page.reload();
 
     await page.getByRole('button', { name: 'Push changes' }).click();
     await dialog(page, 'Push changes').getByRole('textbox', { name: 'Commit message' }).fill('Again');
