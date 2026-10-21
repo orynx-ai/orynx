@@ -68,6 +68,8 @@ describe('the note added to Claude Code’s system prompt', () => {
         "Don't push, open pull requests or change git settings. " +
         'You can run commands in the worktree. ' +
         "They run in a sandbox with no network, and some wait for the user's approval. " +
+        'A command that reaches the network, such as gh, curl, git fetch or a package install, runs outside the sandbox, once the user allows it. ' +
+        'If the sandbox stops another command, run it again with dangerouslyDisableSandbox, once the user allows it. ' +
         "Run the project's tests and checks before you finish. " +
         "When you're done, summarise what you changed and which checks you ran, in a few sentences. " +
         'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
@@ -76,7 +78,7 @@ describe('the note added to Claude Code’s system prompt', () => {
 
   it('spec 026: says Claude may push the branch or open its pull request only as Settings allows, and how', () => {
     const note = (push: 'never' | 'ask' | 'allow', pullRequest: 'never' | 'ask' | 'allow', commands = true) =>
-      sessionNote('feat/PROJ-1423', commands, true, { push, pullRequest });
+      sessionNote('feat/PROJ-1423', commands, true, { push, pullRequest, network: 'ask', unsandboxed: 'ask' });
     expect(note('allow', 'ask')).toContain(
       'You may push this branch with exactly `git push origin feat/PROJ-1423` on its own. ' +
         'Never force-push or push another branch. ' +
@@ -93,7 +95,8 @@ describe('the note added to Claude Code’s system prompt', () => {
   });
 
   it('AC-14 (spec 031): on your pull request’s branch, says so, and that Orynx pushes it on your click', () => {
-    expect(sessionNote('fix/content-list', true, false, { push: 'allow', pullRequest: 'allow' }, 2836)).toBe(
+    const rows = { push: 'never', pullRequest: 'allow', network: 'allow', unsandboxed: 'allow' } as const;
+    expect(sessionNote('fix/content-list', true, false, rows, 2836)).toBe(
       "You're working in a separate git worktree on pull request #2836's own branch, fix/content-list, " +
         'with no local branch of its own. Do what the user asks in the brief. ' +
         "Orynx shows the user this session's steps. When the work changes, such as a run that needs a fix, call set_steps with the whole list, the step you're on and why. " +
@@ -101,10 +104,30 @@ describe('the note added to Claude Code’s system prompt', () => {
         "Don't push, open pull requests or change git settings: Orynx pushes to #2836 when the user presses Push changes. " +
         'You can run commands in the worktree. ' +
         "They run in a sandbox with no network, and some wait for the user's approval. " +
+        'A command that reaches the network, such as gh, curl, git fetch or a package install, runs outside the sandbox. ' +
+        'If the sandbox stops another command, run it again with dangerouslyDisableSandbox. ' +
         "Run the project's tests and checks before you finish. " +
         "When you're done, summarise what you changed and which checks you ran, in a few sentences. " +
         'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
     );
+  });
+
+  it('spec 026: on your pull request’s branch, Claude may push HEAD to it only as Settings allows', () => {
+    const note = (push: 'never' | 'ask' | 'allow', commands = true) =>
+      sessionNote(
+        'fix/content-list',
+        commands,
+        false,
+        { push, pullRequest: 'allow', network: 'ask', unsandboxed: 'ask' },
+        2836,
+      );
+    expect(note('allow')).toContain(
+      'You may push your commits to #2836 with exactly `git push origin HEAD:fix/content-list` on its own. ' +
+        'Never force-push or push another branch. ' +
+        "Don't open pull requests or change git settings.",
+    );
+    expect(note('ask')).toContain('`git push origin HEAD:fix/content-list` on its own, once the user allows it.');
+    expect(note('allow', false)).toContain('Orynx pushes to #2836 when the user presses Push changes.');
   });
 
   it('AC-3 (spec 031): an Ask with no folder answers from the brief alone, and changes nothing', () => {

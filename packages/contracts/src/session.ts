@@ -523,6 +523,11 @@ export const SessionSchema = SessionSummarySchema.extend({
    * isn't Windows. A session saved before spec 036 is read as none until the server says.
    */
   terminal: z.boolean().default(false),
+  /**
+   * Whether Push changes has anything to send: false once origin's branch has the worktree's last commit, whoever
+   * pushed it, and nothing waits to be committed. The server works it out as it sends a session.
+   */
+  unpushed: z.boolean().default(true),
 });
 export type Session = z.infer<typeof SessionSchema>;
 

@@ -80,6 +80,8 @@ export interface PullRequests {
   draftPush(id: string): Promise<PushDraftAnswer | null>;
   /** Commits what's new and pushes it to the pull request's branch, one at a time for each session (Q7). */
   push(id: string, request: PushRequest): Promise<PushAnswer | null>;
+  /** Whether Push changes has anything to send; true when it can't tell, so the dialog says why. */
+  unpushed(record: StoredSession): Promise<boolean>;
   /**
    * Saves the open pull request GitHub has from the session's branch, when the session has none: Claude's own
    * `gh pr create` opens one Orynx didn't (spec 026). Nothing when GitHub has none or can't be asked.
@@ -351,6 +353,11 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       return oneAtATime(id, () => pushNow(id, request));
     },
 
+    async unpushed(record) {
+      const ready = await readyToPush(record);
+      return !('result' in ready && ready.result === 'nothing_new');
+    },
+
     async link(id) {
       const record = await records.get(id);
       if (record === null) return;
@@ -379,10 +386,16 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     if (worktree === null || session.branch === null || since === null) return no('missing');
     const origin = await git.origin(worktree);
     if (!origin.ok) return no(origin.problem === 'git' ? 'missing' : origin.problem);
-    const read = await Promise.all([git.uncommitted(worktree), git.head(worktree)]).catch(() => null);
+    const read = await Promise.all([
+      git.uncommitted(worktree),
+      git.head(worktree),
+      git.onOrigin(worktree, session.branch),
+    ]).catch(() => null);
     if (read === null) return no('missing');
-    const [uncommitted, head] = read;
-    if (uncommitted.length === 0 && 'commit' in since && head === since.commit) return { result: 'nothing_new' };
+    const [uncommitted, head, onOrigin] = read;
+    // Claude's own `git push` (spec 026) leaves origin's branch on HEAD without Orynx's push to remember.
+    const sent = head === onOrigin || ('commit' in since && head === since.commit);
+    if (uncommitted.length === 0 && sent) return { result: 'nothing_new' };
     const { number, url } = session.pullRequest;
     return { worktree, since, uncommitted, number, url, branch: session.branch };
   }

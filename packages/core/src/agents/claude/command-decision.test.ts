@@ -244,6 +244,23 @@ describe('decideCommand', () => {
       },
     );
 
+    it('spec 031: on your pull request’s detached worktree, only HEAD goes to its branch, as its row says', () => {
+      const detached = (command: string, rows: Partial<Permissions>) =>
+        decideCommand({ command, runInBackground: false, unsandboxed: false }, { ...context(rows), detached: true });
+      const head = `git push origin HEAD:${branch}`;
+      expect(detached(head, { push: 'allow' })).toEqual(runsOutside);
+      expect(detached(head, { push: 'ask' })).toEqual(asksBecause('push'));
+      expect(detached(head, {})).toMatchObject({ behavior: 'refuse', reason: 'push' });
+      // A local branch of that name is your main checkout's, so naming it would push the wrong commits.
+      for (const command of [push, `git push origin +HEAD:${branch}`, 'git push origin HEAD:main']) {
+        const decision = detached(command, { push: 'allow' });
+        expect(decision).toMatchObject({ behavior: 'refuse', reason: 'push' });
+        expect(decision.behavior === 'refuse' && decision.message).toContain(head);
+      }
+      // Without a detached worktree, HEAD:<branch> isn't the line Claude was given.
+      expect(decide(head, 'any', {}, { push: 'allow' })).toMatchObject({ behavior: 'refuse', reason: 'push' });
+    });
+
     it('refuses a push before the session has a branch', () => {
       const decision = decideCommand(
         { command: push, runInBackground: false, unsandboxed: false },

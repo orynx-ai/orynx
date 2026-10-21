@@ -27,6 +27,8 @@ export interface CommandContext extends Pick<
   worktree: string;
   /** The session's branch, the only one a push may name; null before the worktree is made. */
   branch: string | null;
+  /** Your pull request's own branch (spec 031): the worktree has no branch, so a push sends `HEAD:<branch>`. */
+  detached?: boolean;
 }
 
 export type CommandDecision =
@@ -97,11 +99,14 @@ function partAllowed(words: readonly string[], context: CommandContext): boolean
   });
 }
 
-/** `git push [-u] origin <branch>`: the session's branch to origin, nothing forced, nothing else (spec 026). */
-function pushesOnlyBranch(words: readonly string[], branch: string): boolean {
+/**
+ * `git push [-u] origin <branch>`: the session's branch to origin, nothing forced, nothing else (spec 026). A detached
+ * worktree sends `HEAD:<branch>`, since a local branch of that name is your main checkout's, not this worktree's.
+ */
+function pushesOnlyBranch(words: readonly string[], branch: string, detached: boolean): boolean {
   if (words[0] !== 'git' || words[1] !== 'push') return false;
   const rest = words.slice(2).filter((word) => word !== '-u' && word !== '--set-upstream');
-  return rest.length === 2 && rest[0] === 'origin' && rest[1] === branch;
+  return rest.length === 2 && rest[0] === 'origin' && rest[1] === (detached ? `HEAD:${branch}` : branch);
 }
 
 /** `gh pr create` for the session's branch: no other repository, and a `--head` only when it names the branch. */
@@ -131,11 +136,16 @@ function decidePublish(
     );
   }
   const branch = context.branch;
+  const detached = context.detached === true;
   const only = parts.length === 1 ? parts[0] : undefined;
-  if (branch === null || only === undefined || !(push ? pushesOnlyBranch : opensOnlyBranch)(only, branch)) {
+  const allowed =
+    branch !== null &&
+    only !== undefined &&
+    (push ? pushesOnlyBranch(only, branch, detached) : opensOnlyBranch(only, branch));
+  if (!allowed) {
     return refusePush(
       push
-        ? `Push only this session's branch, on its own and without force: git push origin ${branch ?? '<branch>'}.`
+        ? `Push only this session's branch, on its own and without force: git push origin ${detached ? 'HEAD:' : ''}${branch ?? '<branch>'}.`
         : "Open the pull request for this session's branch only: gh pr create on its own, without --repo or another --head.",
     );
   }

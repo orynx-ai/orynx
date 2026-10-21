@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { CreateOrynxTicketSchema, isOrynxKey, type ComposerChip, type ServerEvent } from '@devhub/contracts';
+import {
+  CreateOrynxTicketSchema,
+  isOrynxKey,
+  type ComposerChip,
+  type Permissions,
+  type ServerEvent,
+} from '@devhub/contracts';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { makeComposerStart, makeRepository } from '@devhub/contracts/testing';
@@ -168,11 +174,14 @@ async function setUp({
   script = [{ finish: 'Done.' }],
   folders = true,
   orynx,
+  permissions,
 }: {
   login?: 'signed_in' | 'signed_out';
   script?: readonly FakeTurn[];
   folders?: boolean;
   orynx?: OrynxTicketService;
+  /** Rows saved in Settings › Coding agent, over the older mode below. */
+  permissions?: Partial<Permissions>;
 } = {}) {
   const repos = await repositories();
   await writeFile(join(repos.root, 'notes.md'), '# Notes\n\nExport every column.');
@@ -184,7 +193,7 @@ async function setUp({
   const settings = createMemorySettingsStore({
     jira: { site: jiraSite, email: jiraEmail },
     github: { method: 'token' },
-    agent: { permissionMode: 'edit_freely_ask_commands', allowedCommands: [] },
+    agent: { permissionMode: 'edit_freely_ask_commands', allowedCommands: [], ...(permissions && { permissions }) },
   });
   const tokens = createTokenStore({
     keychain: createMemoryKeychain({ jira: goodToken, github: githubToken }),
@@ -602,8 +611,8 @@ describe('an Ask with no folder (spec 031)', () => {
 
 describe('a Build on your pull request (spec 031)', () => {
   /** web-app's folder, whose origin reads as github.com/acme/web-app and is the bare repository standing in for it. */
-  async function onGitHub() {
-    const set = await setUp();
+  async function onGitHub(options: Parameters<typeof setUp>[0] = {}) {
+    const set = await setUp(options);
     const github = 'git@github.com:acme/web-app.git';
     await set.repos.git(set.repos.clone, 'remote', 'set-url', 'origin', github);
     await set.repos.git(set.repos.clone, 'config', `url.${set.repos.origin}.insteadOf`, github);
@@ -650,6 +659,29 @@ describe('a Build on your pull request (spec 031)', () => {
     expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain("pull request #2836's own branch");
   });
 
+  it('spec 026: with Push the branch on Allow, Claude may push HEAD to its branch, never the local branch of that name', async () => {
+    const set = await onGitHub({
+      permissions: { commands: 'any', push: 'allow' },
+      script: [
+        { tool: 'Bash', input: { command: 'git push origin HEAD:fix/content-list' } },
+        { tool: 'Bash', input: { command: 'git push origin fix/content-list' } },
+        { finish: 'Pushed.' },
+      ],
+    });
+    set.outside.use(yours());
+    await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await answer(set);
+    await settled(set.records);
+
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([
+      ['Bash', 'allow'],
+      ['Bash', 'deny'],
+    ]);
+    expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain(
+      'You may push your commits to #2836 with exactly `git push origin HEAD:fix/content-list` on its own.',
+    );
+  });
+
   /** A session on #2836's branch that Claude finished, with a change of its own in the worktree to push. */
   async function finishedOnPull() {
     const set = await onGitHub();
@@ -676,6 +708,24 @@ describe('a Build on your pull request (spec 031)', () => {
     const record = await set.records.get('0000000000000001');
     expect(record?.session).toMatchObject({ state: 'pr_open', step: 'pull_request' });
     expect(record?.session.activities.at(-1)).toMatchObject({ kind: 'pushed', number: 2836, files: 1 });
+  });
+
+  it('Push changes has something to send until origin’s branch has it, whoever pushed it', async () => {
+    const { set, worktree } = await finishedOnPull();
+    const id = '0000000000000001';
+    expect(await set.sessions.get(id)).toMatchObject({ unpushed: true });
+
+    await set.sessions.push(id, { message: 'Answer the review' });
+    expect(await set.sessions.get(id)).toMatchObject({ unpushed: false });
+
+    await writeFile(join(worktree, 'more.ts'), 'more\n');
+    expect(await set.sessions.get(id)).toMatchObject({ unpushed: true });
+    await set.repos.git(worktree, 'add', '-A');
+    await set.repos.git(worktree, 'commit', '-m', 'More');
+    expect(await set.sessions.get(id)).toMatchObject({ unpushed: true });
+    // Claude's own push (spec 026), which Orynx's Push changes never saw.
+    await set.repos.git(worktree, 'push', 'origin', 'HEAD:fix/content-list');
+    expect(await set.sessions.get(id)).toMatchObject({ unpushed: false });
   });
 
   it('AC-17: when someone pushed to its branch since, nothing is overwritten', async () => {
