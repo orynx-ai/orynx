@@ -163,10 +163,11 @@ async function setUp({
 
   const sdk = fakeClaudeSdk(script, ...later);
   const records = await openFileSessionStore(home, { now });
-  // Your shell tabs (spec 036), with /bin/sh and none of the real home's profile.
+  // Your shell tabs (spec 036), with bash and none of the real home's profile. Not /bin/sh: Ubuntu's is dash,
+  // which runs a HUP trap only after the next line you type, so AC-28's shell could never write it down.
   const terminal = createTerminalService({
     events,
-    env: { PATH: '/usr/bin:/bin', HOME: home, SHELL: '/bin/sh' },
+    env: { PATH: '/usr/bin:/bin', HOME: home, SHELL: '/bin/bash' },
     home,
   });
   services.push(terminal);

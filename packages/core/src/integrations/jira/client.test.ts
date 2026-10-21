@@ -399,7 +399,8 @@ describe('Jira client: your sprints (spec 008)', () => {
     const answer = await client.mySprints(credentials);
 
     expect(answer).toEqual({ ok: true, accountId: myAccountId, issues: [] });
-    expect(asked).toEqual([myselfUrl(), fieldListUrl()]);
+    // Asked side by side, so in either order.
+    expect(asked.toSorted()).toEqual([myselfUrl(), fieldListUrl()].toSorted());
     jira.events.removeAllListeners();
   });
 
