@@ -22,19 +22,35 @@ const axePath = createRequire(new URL('../packages/ui/package.json', import.meta
 // isn't connected. To see the board and the list, the browser's request for the sprint is answered here,
 // the network being the one thing a test may fake (spec 008, task 21 and the review).
 
-/** Sums every layout shift the page reports, the way Core Web Vitals counts CLS. */
-async function layoutShiftScore(page: Page): Promise<number> {
+interface LayoutShift extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+  sources: { node: Node | null; previousRect: DOMRectReadOnly; currentRect: DOMRectReadOnly }[];
+}
+
+/**
+ * Sums every layout shift the page reports, the way Core Web Vitals counts CLS, and names what moved, so a
+ * failure on CI's Linux says which element to look at.
+ */
+async function layoutShifts(page: Page): Promise<{ score: number; moved: string }> {
   return page.evaluate(
     () =>
-      new Promise<number>((resolve) => {
+      new Promise<{ score: number; moved: string }>((resolve) => {
         let score = 0;
+        const moved: string[] = [];
+        const box = (r: DOMRectReadOnly) => `${String(r.x)},${String(r.y)} ${String(r.width)}×${String(r.height)}`;
         new PerformanceObserver((list) => {
-          for (const entry of list.getEntries() as (PerformanceEntry & { value: number; hadRecentInput: boolean })[]) {
-            if (!entry.hadRecentInput) score += entry.value;
+          for (const entry of list.getEntries() as LayoutShift[]) {
+            if (entry.hadRecentInput) continue;
+            score += entry.value;
+            for (const { node, previousRect, currentRect } of entry.sources) {
+              const what = node instanceof Element ? node.outerHTML.slice(0, 120) : String(node?.textContent);
+              moved.push(`${what}: ${box(previousRect)} → ${box(currentRect)}`);
+            }
           }
         }).observe({ type: 'layout-shift', buffered: true });
         setTimeout(() => {
-          resolve(score);
+          resolve({ score, moved: moved.join('\n') });
         }, 1000);
       }),
   );
@@ -68,7 +84,8 @@ test('AC-21: Given Jira is not connected, when Tickets opens, then it shows Oryn
   await expect(page.getByText("Jira isn't connected, so only Orynx tickets show.")).toBeVisible();
   await expect(page.getByRole('link', { name: 'Connect Jira' })).toBeVisible();
   await expect(page.getByText('No Orynx tickets yet.')).toBeVisible();
-  expect(await layoutShiftScore(page)).toBe(0);
+  const shifts = await layoutShifts(page);
+  expect(shifts.score, shifts.moved).toBe(0);
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
