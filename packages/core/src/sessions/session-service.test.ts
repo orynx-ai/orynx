@@ -164,7 +164,7 @@ async function setUp({
   const sdk = fakeClaudeSdk(script, ...later);
   const records = await openFileSessionStore(home, { now });
   // Your shell tabs (spec 036), with bash and none of the real home's profile. Not /bin/sh: Ubuntu's is dash,
-  // which runs a HUP trap only after the next line you type, so AC-28's shell could never write it down.
+  // which ignores a hang-up at its prompt until the SIGKILL, so AC-28's shell could never write it down.
   const terminal = createTerminalService({
     events,
     env: { PATH: '/usr/bin:/bin', HOME: home, SHELL: '/bin/bash' },
@@ -1003,11 +1003,12 @@ describe('discarding a session', () => {
     terminal.read('0000000000000001', worktree);
     let screen = '';
     terminal.listen('0000000000000001', 'tab-1', (frame) => (screen += frame.data));
-    // As the shell ends, it writes down whether its worktree was still there.
+    // As the shell ends, it writes down whether its worktree was still there. On EXIT, not HUP: bash 5 on Linux
+    // ends on a hang-up at its prompt without running a HUP trap.
     terminal.write(
       '0000000000000001',
       'tab-1',
-      `trap '[ -d "$PWD" ] && echo there > "$HOME/at-stop"; exit 1' HUP; echo re""ady\r`,
+      `trap '[ -d "$PWD" ] && echo there > "$HOME/at-stop"' EXIT; echo re""ady\r`,
     );
     for (let tries = 0; tries < 500 && !screen.includes('ready\r\n'); tries++) {
       await new Promise((resolve) => setTimeout(resolve, 10));
