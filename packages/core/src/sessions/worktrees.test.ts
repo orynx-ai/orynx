@@ -428,6 +428,21 @@ describe('what the quick read learns about branches (spec 042)', () => {
     expect(hints?.yours.toSorted()).toEqual(['rakesh/mai-2161-prefetch', 'rakesh/mai-2190-connect']);
   });
 
+  it('AC-16: a computer with no name in its git settings still gets its hints', async () => {
+    const { repos, worktrees } = await setUp();
+    await repos.git(repos.clone, 'checkout', '-q', '-b', 'mine');
+    await writeFile(join(repos.clone, 'mine.txt'), 'mine');
+    await repos.git(repos.clone, 'add', '.');
+    await repos.git(repos.clone, 'commit', '-q', '-m', 'mine');
+    // A fresh Linux user, like a CI runner, has no name for git to fall back on.
+    await writeFile(
+      join(repos.root, '.gitconfig'),
+      '[init]\n\tdefaultBranch = main\n[user]\n\tname =\n\temail = test@example.com\n',
+    );
+
+    expect(await worktrees.hints(repos.clone)).toMatchObject({ base: 'origin/main', yours: ['mine'] });
+  });
+
   it('AC-20: a folder that isn’t a repository has none', async () => {
     const { repos, worktrees } = await setUp();
     expect(await worktrees.hints(repos.worktrees)).toBeNull();

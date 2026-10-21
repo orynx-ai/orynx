@@ -153,8 +153,12 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
       if (!(await isRepository(repo))) return null;
       try {
         const { base } = await defaultBase(repo);
-        // Your identity as git commits with it, from your settings or the environment.
-        const ident = await git(repo).raw(['var', 'GIT_AUTHOR_IDENT']);
+        // Your identity as git commits with it, from your settings or the environment. Only the email is
+        // read, so a stand-in name keeps a computer with no name (a fresh Linux user) from failing, and a
+        // computer with no identity at all still gets the base and origin's branches.
+        const ident = await git(repo)
+          .raw(['-c', 'user.name=you', 'var', 'GIT_AUTHOR_IDENT'])
+          .catch(() => '');
         const email = /<([^>]*)>/.exec(ident)?.[1] ?? null;
         const refs = (
           await git(repo).raw([
