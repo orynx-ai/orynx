@@ -220,13 +220,16 @@ function Summary({ picked }: { picked: Permissions | undefined }) {
             <Icon icon={cell.icon} aria-hidden className="size-4" />
             {cell.title}
           </span>
-          {summary === undefined ? (
-            <span className="flex h-5 items-center">
-              <Skeleton className="h-4 w-40 max-w-full" />
-            </span>
-          ) : (
-            <span className="text-small">{summary[cell.key]}</span>
-          )}
+          {/* Three lines held from the start, as long as a cell runs at 360 and 1280 px, so the rows below never move. */}
+          <span className="min-h-15 text-small">
+            {summary === undefined ? (
+              <span className="flex h-5 items-center">
+                <Skeleton className="h-4 w-40 max-w-full" />
+              </span>
+            ) : (
+              summary[cell.key]
+            )}
+          </span>
         </div>
       ))}
     </Panel>
