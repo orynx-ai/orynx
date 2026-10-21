@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: release points at a commit on main
@@ -59,7 +59,7 @@ jobs:
       # Ad-hoc signing only (spec 027, Q12): never look for a signing identity in the runner's keychain.
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - name: Stamp the version
         id: version
@@ -73,7 +73,7 @@ jobs:
           # Ubuntu 24.04 stops the user namespaces Electron's sandbox needs unless this is off.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm test:e2e:desktop
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: orynx-${{ matrix.name }}
           path: |
@@ -94,7 +94,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: orynx-*
           path: release
