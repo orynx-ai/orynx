@@ -25,18 +25,21 @@ import { shellTabName, terminalWords } from './terminal-words.ts';
 /**
  * The session's Terminal (spec 036, spec 038): Terminal in More actions, or `⌃`` anywhere on the Session screen,
  * opens a dialog that fills the window. Close, Esc outside your shell, or `⌃`` again close it, and focus goes back
- * to `returnTo`, More actions. Only a session whose Terminal opens has one (AC-3). With no session it is Home's
- * Terminal: your shell tabs in Orynx's home folder, without the Claude tab.
+ * to `returnTo`, More actions. Only a session whose Terminal opens has one (AC-3). With no session it is the
+ * sidebar's Terminal: your shell tabs in Orynx's home folder, without the Claude tab.
  */
 export function SessionTerminal({
   session,
   returnTo,
   ref,
+  shortcut: listening = true,
 }: {
   session: Session | null;
   returnTo: RefObject<HTMLButtonElement | null>;
   /** Opens the dialog, for the menu's item. */
   ref: Ref<{ open: () => void }>;
+  /** Whether `⌃`` opens and closes it; the sidebar's leaves it to the Session screen's. */
+  shortcut?: boolean;
 }) {
   const platform = usePlatform();
   const shortcut = terminalShortcut(platform);
@@ -48,6 +51,7 @@ export function SessionTerminal({
   }));
 
   useEffect(() => {
+    if (!listening) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!shortcut.matches(event)) return;
       event.preventDefault();
@@ -59,7 +63,7 @@ export function SessionTerminal({
     return () => {
       window.removeEventListener('keydown', onKeyDown, { capture: true });
     };
-  }, [shortcut]);
+  }, [shortcut, listening]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

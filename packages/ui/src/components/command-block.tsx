@@ -48,11 +48,12 @@ export function CommandBlock({
   ...props
 }: CommandBlockProps) {
   return (
+    // overflow-hidden drops its minimum height to 0, so without shrink-0 a scrolling column squashes it to a sliver.
     <div
       role="group"
       aria-label={command}
       className={cn(
-        'overflow-hidden rounded-md border',
+        'shrink-0 overflow-hidden rounded-md border',
         tone === 'danger' ? 'border-danger' : 'border-border',
         className,
       )}

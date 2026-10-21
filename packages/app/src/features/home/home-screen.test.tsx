@@ -1,8 +1,8 @@
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiRoutes, homeTerminalId } from '@devhub/contracts';
-import { makeInbox, makeInboxItem, makeTerminal } from '@devhub/contracts/testing';
+import { apiRoutes } from '@devhub/contracts';
+import { makeInbox, makeInboxItem } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../test/msw.ts';
 import { renderApp } from '../../test/render.tsx';
 
@@ -56,31 +56,5 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Synced 3 min ago')).toBeVisible();
     expect(screen.getByText('Approve command · 6 min')).toBeVisible();
     expect(screen.getByText('Approve command, 6 minutes')).toBeInTheDocument();
-  });
-
-  it("Terminal in the page bar opens your shell in Orynx's home, with no Claude tab, and ⌃` closes it", async () => {
-    server.use(
-      http.get(apiUrl(apiRoutes.sessionTerminal), ({ params }) =>
-        params['id'] === homeTerminalId
-          ? HttpResponse.json(makeTerminal({ worktree: '~/.devhub' }))
-          : HttpResponse.json({ code: 'not_found', message: 'This session has no Terminal.' }, { status: 404 }),
-      ),
-    );
-    const { user } = await renderApp();
-    const button = within(screen.getByRole('banner')).getByRole('button', { name: 'Terminal' });
-    await user.click(button);
-
-    const dialog = await screen.findByRole('dialog', { name: 'Terminal' });
-    expect(within(dialog).getByText('Orynx home')).toBeVisible();
-    const tabs = within(dialog).getByRole('tablist', { name: 'Terminals' });
-    expect(await within(tabs).findByRole('tab', { name: 'zsh · Orynx' })).toHaveAttribute('aria-selected', 'true');
-    expect(within(tabs).queryByRole('tab', { name: 'Claude' })).toBeNull();
-    expect(await within(dialog).findByText('~/.devhub')).toBeVisible();
-
-    await user.keyboard('{Control>}[Backquote]{/Control}');
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Terminal' })).toBeNull();
-    });
-    expect(button).toHaveFocus();
   });
 });
