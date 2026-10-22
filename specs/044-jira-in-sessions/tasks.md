@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: The read tools, offered at each run's start while Jira is connected (AC-1 to AC-10)
       Check: pnpm test packages/core/src/sessions/jira-tools.test.ts packages/core/src/sessions/compose.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/jira-tools.ts, jira-tools.test.ts, session-service.ts, compose.test.ts, session-service.test.ts
-- [ ] Task 5: The `jiraChanges` preference and the row "Claude changes Jira" (Q8)
+- [x] Task 5: The `jiraChanges` preference and the row "Claude changes Jira" (Q8)
       Check: pnpm test packages/contracts/src/preferences.test.ts packages/core/src/preferences packages/app/src/features/settings
       Files: packages/contracts/src/preferences.ts, testing.ts, packages/core/src/preferences/preferences-service.ts, packages/app/src/features/settings/queries.ts, components/jira-changes.tsx, jira-changes.test.tsx, coding-agent-panel.tsx
 - [ ] Task 6: The `jira` approval kind, a refusal without asking, and its callout words (AC-13, AC-14, AC-15, Q10)

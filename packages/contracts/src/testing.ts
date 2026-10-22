@@ -326,6 +326,7 @@ export interface PreferencesOverrides {
   inboxRules?: Partial<InboxRules>;
   allowedCommands?: string[];
   editor?: Preferences['editor'];
+  jiraChanges?: boolean;
 }
 
 /** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
@@ -339,6 +340,7 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
     inboxRules: { ...defaultPreferences.inboxRules, ...overrides.inboxRules },
     allowedCommands: overrides.allowedCommands ?? [],
     editor: overrides.editor ?? defaultPreferences.editor,
+    jiraChanges: overrides.jiraChanges ?? defaultPreferences.jiraChanges,
   });
 }
 

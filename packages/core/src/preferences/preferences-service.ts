@@ -91,6 +91,8 @@ function fromSettings(settings: Settings): Preferences {
     inboxRules,
     allowedCommands: writtenCommands(settings),
     editor: editor.success ? editor.data : defaultPreferences.editor,
+    // Only a saved true turns it on (spec 044): anything else asks.
+    jiraChanges: settings.agent?.['jiraChanges'] === true,
   };
 }
 
@@ -118,6 +120,7 @@ function applied(current: Settings, change: PreferencesChange): Settings {
     next.agent = { ...next.agent, repositoryPermissions: own };
   }
   if (change.editor !== undefined) next.agent = { ...next.agent, editor: change.editor };
+  if (change.jiraChanges !== undefined) next.agent = { ...next.agent, jiraChanges: change.jiraChanges };
   if (change.inboxRules !== undefined) {
     next.inbox = { ...current.inbox, rules: { ...writtenRules(current), ...change.inboxRules } };
   }

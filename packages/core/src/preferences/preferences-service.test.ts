@@ -156,6 +156,16 @@ describe('preferences service', () => {
     expect((await service({ agent: { editor: 'cursor' } }).preferences.read()).editor).toBe('cursor');
   });
 
+  it('044 Q8: Claude changes Jira is off until saved on, and is saved beside the rows', async () => {
+    expect((await service().preferences.read()).jiraChanges).toBe(false);
+    expect((await service({ agent: { jiraChanges: 'yes' } }).preferences.read()).jiraChanges).toBe(false);
+    const { preferences, settings, seen } = service({ agent: { editor: 'cursor' } });
+
+    expect(await preferences.change({ jiraChanges: true })).toMatchObject({ jiraChanges: true, editor: 'cursor' });
+    expect((await settings.read()).agent).toEqual({ editor: 'cursor', jiraChanges: true });
+    expect(seen).toEqual([{ type: 'settings.changed' }]);
+  });
+
   it('AC-18: leaves the Jira and GitHub settings as they were', async () => {
     const { preferences, settings } = service({ jira, github: { method: 'gh' } });
 
