@@ -15,6 +15,8 @@ export const JiraIssueRecordSchema = z.object({
   category: z.enum(['to_do', 'in_progress']),
   /** A type named "Bug", in any case, with one of the site's two highest priorities (spec 007, Q2f). */
   highPriorityBug: z.boolean(),
+  /** The issue type's name as Jira shows it, for Home's Type filter; missing in records cached before it was kept. */
+  type: z.string().min(1).nullish(),
   dueDate: z.iso.date().nullable(),
   /** When the issue entered its status category, or when it was created if Jira doesn't say. */
   waitingSince: z.iso.datetime(),
@@ -56,7 +58,8 @@ export function jiraRecords(
     const waitingSince = isoTime(fields.statuscategorychangedate) ?? isoTime(fields.created);
     if (category === null || waitingSince === null || !issueKey.test(key)) return [];
     const summary = fields.summary?.trim() ?? '';
-    const bug = fields.issuetype?.name.toLowerCase() === 'bug';
+    const type = fields.issuetype?.name.trim() ?? '';
+    const bug = type.toLowerCase() === 'bug';
     const priority = fields.priority?.id;
     const dueDate = z.iso.date().safeParse(fields.duedate);
     return [
@@ -66,6 +69,7 @@ export function jiraRecords(
         status: fields.status.name,
         category,
         highPriorityBug: bug && priority !== undefined && highest.has(priority),
+        type: type === '' ? null : type,
         dueDate: dueDate.success ? dueDate.data : null,
         waitingSince,
         url: `https://${site}/browse/${key}`,

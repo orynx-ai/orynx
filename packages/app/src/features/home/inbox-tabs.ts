@@ -23,6 +23,7 @@ export const HomeSearchSchema = z.object({
   project: text.optional().catch(undefined),
   status: text.optional().catch(undefined),
   repo: text.optional().catch(undefined),
+  type: text.optional().catch(undefined),
   sort: z.literal('longest').optional().catch(undefined),
   page: z.coerce.number().int().min(2).optional().catch(undefined),
 });
