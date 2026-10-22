@@ -517,3 +517,78 @@ export function useFakeJira() {
   });
   return server;
 }
+
+/** A change a session made in Jira (spec 044), as the fake Jira kept it. */
+export interface FakeJiraWrite {
+  method: string;
+  key: string;
+  path: 'comment' | 'transitions' | 'assignee';
+  body: unknown;
+}
+
+/** The fake issue's workflow from To Do (spec 044): Start leads to In Progress, Review to In Review. */
+export const fakeTransitions = [
+  { id: '21', name: 'Start', to: { id: '3', name: 'In Progress' } },
+  { id: '31', name: 'Review', to: { id: '10003', name: 'In Review' } },
+] as const;
+
+/**
+ * Jira's writes a session makes (spec 044), for the good credentials: a comment, an issue's status and transitions
+ * (`?expand=transitions`; any other read of an issue goes on to the next handler), a transition, and the assignee.
+ * Each write lands in `writes`. A key not in `keys` is 404, as Jira answers a key it hides.
+ */
+export function acceptingJiraChanges(
+  writes: FakeJiraWrite[],
+  { keys = ['MAG-12'], site = jiraSite }: { keys?: readonly string[]; site?: string } = {},
+) {
+  const answer = async (
+    request: Request,
+    key: string,
+    write: Omit<FakeJiraWrite, 'body' | 'key'> | null,
+    ok: () => Response,
+  ) => {
+    if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
+    if (!keys.includes(key)) {
+      return HttpResponse.json(
+        { errorMessages: ['Issue does not exist or you do not have permission to see it.'] },
+        { status: 404 },
+      );
+    }
+    if (write !== null) writes.push({ ...write, key, body: await request.json() });
+    return ok();
+  };
+  const issue = (path: string) => `https://${site}/rest/api/3/issue/:key${path}`;
+  return [
+    http.get(issue(''), ({ request, params }) => {
+      if (new URL(request.url).searchParams.get('expand') !== 'transitions') return undefined;
+      return answer(request, String(params['key']), null, () =>
+        HttpResponse.json({
+          key: params['key'],
+          fields: { status: { id: '10000', name: 'To Do', statusCategory: { key: 'new' } } },
+          transitions: fakeTransitions,
+        }),
+      );
+    }),
+    http.post(issue('/comment'), ({ request, params }) =>
+      answer(request, String(params['key']), { method: 'POST', path: 'comment' }, () =>
+        HttpResponse.json({ id: '10100' }, { status: 201 }),
+      ),
+    ),
+    http.post(issue('/transitions'), ({ request, params }) =>
+      answer(
+        request,
+        String(params['key']),
+        { method: 'POST', path: 'transitions' },
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    ),
+    http.put(issue('/assignee'), ({ request, params }) =>
+      answer(
+        request,
+        String(params['key']),
+        { method: 'PUT', path: 'assignee' },
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    ),
+  ];
+}

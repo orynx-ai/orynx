@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: A free JQL search in the Jira client, with Jira's own reason when it refuses the query (AC-7, AC-9, Q6)
       Check: pnpm test packages/core/src/integrations/jira/client.test.ts
       Files: packages/core/src/integrations/jira/client.ts, client.test.ts, packages/core/src/test/fake-jira.ts
-- [ ] Task 2: Comment (Markdown as ADF), transitions, transition and assign in the Jira client (AC-13 to AC-15, AC-18)
+- [x] Task 2: Comment (Markdown as ADF), transitions, transition and assign in the Jira client (AC-13 to AC-15, AC-18)
       Check: pnpm test packages/core/src/integrations/jira
       Files: packages/core/src/integrations/jira/client.ts, client.test.ts, markdown-adf.ts, markdown-adf.test.ts, packages/core/src/test/fake-jira.ts
 - [ ] Task 3: The `jira` step kind and its words (Q4, Q10, AC-12)

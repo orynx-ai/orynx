@@ -18,6 +18,8 @@ import {
   fieldListUrl,
   goodBasicValue,
   acceptingIssue,
+  acceptingJiraChanges,
+  type FakeJiraWrite,
   issueUrl,
   issueSearchUrl,
   goodToken,
@@ -33,6 +35,7 @@ import {
   useFakeJira,
 } from '../../test/fake-jira.ts';
 import { createJiraClient, type JiraCheck } from './client.ts';
+import { markdownToAdf } from './markdown-adf.ts';
 
 const jira = useFakeJira();
 const client = createJiraClient({ timeoutMs: 200 });
@@ -1148,5 +1151,84 @@ describe('Jira client: a search Claude asked for (spec 044)', () => {
     jira.use(acceptingIssueSearch([]));
     const answer = await client.search({ ...credentials, apiToken: 'fake-wrong-token' }, 'project = MAG', 50);
     expect(answer).toEqual({ ok: false, problem: { kind: 'rejected' } });
+  });
+});
+
+describe('Jira client: changes a session asks for (spec 044)', () => {
+  it('AC-13: posts a comment written in Markdown as Jira’s own document format', async () => {
+    const writes: FakeJiraWrite[] = [];
+    jira.use(...acceptingJiraChanges(writes));
+
+    expect(await client.comment(credentials, 'MAG-12', 'Fixed in **main**.')).toEqual({ ok: true });
+    expect(writes).toEqual([
+      {
+        method: 'POST',
+        key: 'MAG-12',
+        path: 'comment',
+        body: { body: markdownToAdf('Fixed in **main**.') },
+      },
+    ]);
+  });
+
+  it('AC-14: reads the issue’s status and where it can move to, each by the status it leads to', async () => {
+    jira.use(...acceptingJiraChanges([]));
+
+    expect(await client.transitions(credentials, 'MAG-12')).toEqual({
+      ok: true,
+      status: 'To Do',
+      transitions: [
+        { id: '21', to: 'In Progress' },
+        { id: '31', to: 'In Review' },
+      ],
+    });
+  });
+
+  it('AC-14: moves the issue by the transition’s id', async () => {
+    const writes: FakeJiraWrite[] = [];
+    jira.use(...acceptingJiraChanges(writes));
+
+    expect(await client.transition(credentials, 'MAG-12', '31')).toEqual({ ok: true });
+    expect(writes).toEqual([
+      { method: 'POST', key: 'MAG-12', path: 'transitions', body: { transition: { id: '31' } } },
+    ]);
+  });
+
+  it('Q9: assigns the issue to an account, or to nobody', async () => {
+    const writes: FakeJiraWrite[] = [];
+    jira.use(...acceptingJiraChanges(writes));
+
+    expect(await client.assign(credentials, 'MAG-12', myAccountId)).toEqual({ ok: true });
+    expect(await client.assign(credentials, 'MAG-12', null)).toEqual({ ok: true });
+    expect(writes.map((write) => write.body)).toEqual([{ accountId: myAccountId }, { accountId: null }]);
+  });
+
+  it('AC-18: a change Jira refuses (400 or no permission, 403) comes back with Jira’s own words', async () => {
+    jira.use(
+      http.post(`${issueUrl('MAG-12')}/comment`, () =>
+        HttpResponse.json({ errorMessages: ['You do not have permission to comment on this issue.'] }, { status: 403 }),
+      ),
+      http.put(`${issueUrl('MAG-12')}/assignee`, () =>
+        HttpResponse.json({ errors: { assignee: "User 'x' cannot be assigned issues." } }, { status: 400 }),
+      ),
+    );
+
+    expect(await client.comment(credentials, 'MAG-12', 'Hi')).toEqual({
+      ok: false,
+      refused: 'You do not have permission to comment on this issue.',
+    });
+    expect(await client.assign(credentials, 'MAG-12', 'x')).toEqual({
+      ok: false,
+      refused: "User 'x' cannot be assigned issues.",
+    });
+  });
+
+  it('AC-8: an issue Jira hides or doesn’t have is not found, and a refused token is refused', async () => {
+    jira.use(...acceptingJiraChanges([]));
+
+    expect(await client.transitions(credentials, 'MAG-404')).toEqual({ ok: false, problem: { kind: 'not_found' } });
+    expect(await client.comment({ ...credentials, apiToken: 'fake-wrong-token' }, 'MAG-12', 'Hi')).toEqual({
+      ok: false,
+      problem: { kind: 'rejected' },
+    });
   });
 });
