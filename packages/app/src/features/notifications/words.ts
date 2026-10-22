@@ -20,6 +20,7 @@ const askedFor = {
   pull_request: 'Claude wants to open a pull request',
   ticket: 'Claude wants to delete a ticket',
   server: 'Claude wants to start a server',
+  jira: 'Claude wants to change a Jira issue',
 } as const;
 
 /** Finished says what Claude left it ready for (spec 031). */

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SandboxSettings } from '@anthropic-ai/claude-agent-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { CreateOrynxTicketSchema, defaultPermissions } from '@devhub/contracts';
 import { createEventBus } from '../../events/event-bus.ts';
 import { createOrynxTicketService } from '../../orynx-tickets/ticket-service.ts';
@@ -1014,6 +1015,37 @@ describe('Orynx’s ticket tools in a session (spec 037)', () => {
         done: { action: 'updated', key: 'ORX-1', title: 'Fix the date test', fields: ['status'], status: 'in_review' },
       },
     ]);
+  });
+
+  it('044 AC-15: one of Orynx’s own tools may turn a call down without asking: nothing runs, asks or shows', async () => {
+    let ran = 0;
+    const { sdk, events } = await runWithTools(
+      [{ tool: 'mcp__orynx__transition_jira_issue', input: { key: 'MAG-12', status: 'Shipped' } }, { finish: 'No.' }],
+      {
+        orynxTools: [
+          {
+            name: 'transition_jira_issue',
+            description: 'Moves an issue.',
+            input: z.object({ key: z.string(), status: z.string() }),
+            asks: () => Promise.resolve({ refused: 'MAG-12 can move to In Progress or In Review.' }),
+            run: () => {
+              ran += 1;
+              return Promise.resolve({ text: 'Moved.' });
+            },
+          },
+        ],
+      },
+    );
+
+    expect(sdk.runs[0]?.decisions).toEqual([
+      {
+        tool: 'mcp__orynx__transition_jira_issue',
+        result: { behavior: 'deny', message: 'MAG-12 can move to In Progress or In Review.' },
+      },
+    ]);
+    expect(ran).toBe(0);
+    expect(events.some((event) => event.type === 'approval')).toBe(false);
+    expect(works(events).filter((work) => work.kind === 'refused')).toEqual([]);
   });
 
   it('AC-31: an Ask session may read tickets and change none, whatever tools it was given', async () => {

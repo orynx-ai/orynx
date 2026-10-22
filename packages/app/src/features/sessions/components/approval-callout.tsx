@@ -11,6 +11,7 @@ import {
   approvalTitle,
   moreLinesText,
   serverLine,
+  jiraMoveLine,
   ticketDeleteLine,
   type AnswerError,
 } from '../approval-words.ts';
@@ -27,6 +28,11 @@ function What({ approval }: { approval: SessionApproval }) {
     );
   }
   if (approval.kind === 'ticket') return <p className="m-0">{ticketDeleteLine(approval)}</p>;
+  if (approval.kind === 'jira') {
+    const { change } = approval;
+    if (change.action === 'comment') return <p className="m-0 whitespace-pre-wrap">{change.text}</p>;
+    return change.action === 'transition' ? <p className="m-0">{jiraMoveLine(change)}</p> : null;
+  }
   if (approval.kind === 'server') {
     return (
       <>
@@ -56,6 +62,7 @@ export function answerFailure(failure: Error, approval: SessionApproval): Answer
   if (code === 'settings_unsaved' && approval.kind === 'server') {
     return { kind: 'not_saved', entry: 'servers in this repository' };
   }
+  if (code === 'settings_unsaved' && approval.kind === 'jira') return { kind: 'jira_not_on' };
   return { kind: 'not_sent' };
 }
 
@@ -147,7 +154,9 @@ export function ApprovalCallout({
         : alwaysAllowLabel(approval.alwaysAllow)
       : approval.kind === 'server'
         ? approvalButtons.alwaysServer
-        : null;
+        : approval.kind === 'jira'
+          ? approvalButtons.alwaysJira
+          : null;
   return (
     <div ref={box}>
       <Callout

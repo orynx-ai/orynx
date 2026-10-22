@@ -8,7 +8,14 @@
  * outside the worktree only as far as the user's rows in Settings › Coding agent allow.
  */
 import type { z } from 'zod';
-import type { AgentModels, AlwaysAskReason, ChangeLine, EffortLevel, Permissions } from '@devhub/contracts';
+import type {
+  AgentModels,
+  AlwaysAskReason,
+  ChangeLine,
+  EffortLevel,
+  JiraChangeAsk,
+  Permissions,
+} from '@devhub/contracts';
 import type { TicketTool, TicketToolDone } from '../orynx-tickets/tools.ts';
 
 /** Saved in Settings › Coding agent (spec 026): one row for each kind of call. The schema lives in contracts. */
@@ -66,7 +73,9 @@ export type AgentAsk =
   /** Deleting one of Orynx's own tickets (spec 037); `title` is null when it's already gone. */
   | { kind: 'ticket'; key: string; title: string | null }
   /** Claude asks to start a server (spec 042): it runs in a Terminal tab, as you, so it always asks. */
-  | { kind: 'server'; command: string; folder: string; alwaysAllow: string };
+  | { kind: 'server'; command: string; folder: string; alwaysAllow: string }
+  /** Claude asks to change a Jira issue (spec 044): its key, and the comment, move or assignment. */
+  | { kind: 'jira'; key: string; change: JiraChangeAsk };
 
 /** What a waiting call is about, as the log and a denied step keep it: the command, the edit's path or the key. */
 export function askText(ask: AgentAsk): string {
@@ -134,15 +143,16 @@ export type AgentEvent =
 export type AgentWritten = { ok: true; text: string } | { ok: false; problem: AgentProblemKind | 'timeout' };
 
 /**
- * One of Orynx's own tools for a Build session (spec 042), beside the ticket tools: its steps, and its servers. `asks`
- * says what you're asked before a call runs; null runs it at once.
+ * One of Orynx's own tools for a session (spec 042), beside the ticket tools: its steps, its servers, Jira (spec 044).
+ * `asks` says what you're asked before a call runs; null runs it at once; `refused` turns it down without asking, as a
+ * move to a status the issue can't reach is, with words Claude can act on and no step.
  */
 export interface OrynxTool {
   name: string;
   /** For the agent: what the tool does and when to use it. */
   description: string;
   input: z.ZodObject;
-  asks(input: Readonly<Record<string, unknown>>): Promise<AgentAsk | null>;
+  asks(input: Readonly<Record<string, unknown>>): Promise<AgentAsk | null | { refused: string }>;
   /** Checks the input itself; `error` when it did nothing. */
   run(input: unknown): Promise<{ text: string; error?: true }>;
 }

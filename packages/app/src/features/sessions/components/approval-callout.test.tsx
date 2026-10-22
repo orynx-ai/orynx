@@ -270,4 +270,43 @@ describe('ApprovalCallout (spec 012)', () => {
       expect(answers).toEqual([{ approvalId: 'approval-9', decision: 'always_allow' }]);
     });
   });
+
+  it('AC-13, AC-14, AC-17 (spec 044): a Jira change says what it is, and Always allow turns Jira changes on', async () => {
+    const moving: SessionApproval = {
+      id: 'approval-10',
+      kind: 'jira',
+      key: 'MAG-12',
+      change: { action: 'transition', from: 'To Do', to: 'In Review' },
+      askedAt: '2026-10-22T10:15:00.000Z',
+    };
+    const { answers } = setUp([moving]);
+    const { user } = await renderApp({ route });
+
+    const callout = await screen.findByRole('alert');
+    expect(within(callout).getByText('Claude wants to move MAG-12 to In Review')).toBeVisible();
+    expect(within(callout).getByText('To Do → In Review')).toBeVisible();
+    expectButtons(callout, ['Allow once', 'Always allow Jira changes', 'Deny']);
+    await user.click(within(callout).getByRole('button', { name: 'Always allow Jira changes' }));
+    await waitFor(() => {
+      expect(answers).toEqual([{ approvalId: 'approval-10', decision: 'always_allow' }]);
+    });
+  });
+
+  it('AC-13 (spec 044): a comment shows its text as Claude wrote it; a failed Always allow says Jira changes are still off', async () => {
+    const commenting: SessionApproval = {
+      id: 'approval-11',
+      kind: 'jira',
+      key: 'MAG-12',
+      change: { action: 'comment', text: 'Fixed in **main**.\nSee PR #12.' },
+      askedAt: '2026-10-22T10:15:00.000Z',
+    };
+    setUp([commenting], () => HttpResponse.json({ code: 'settings_unsaved', message: 'x' }, { status: 503 }));
+    const { user } = await renderApp({ route });
+
+    const callout = await screen.findByRole('alert');
+    expect(within(callout).getByText('Claude wants to comment on MAG-12')).toBeVisible();
+    expect(within(callout).getByText(/Fixed in \*\*main\*\*\./)).toBeVisible();
+    await user.click(within(callout).getByRole('button', { name: 'Always allow Jira changes' }));
+    expect(await screen.findByText("Couldn't turn on Claude changes Jira. Try again, or allow it once.")).toBeVisible();
+  });
 });

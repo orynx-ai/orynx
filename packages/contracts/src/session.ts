@@ -272,7 +272,7 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({
     kind: z.literal('waiting'),
     approvalId: z.string().min(1),
-    about: z.enum(['command', 'edit', 'ticket', 'server']),
+    about: z.enum(['command', 'edit', 'ticket', 'server', 'jira']),
     text: z.string().nullable(),
   }),
   /** Commands that ran, in the order they were allowed. */
@@ -280,7 +280,7 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   /** You denied a call: `text` is the command, the edit's path, or the ticket's key (spec 037). */
   ActivityBaseSchema.extend({
     kind: z.literal('denied'),
-    about: z.enum(['command', 'edit', 'ticket', 'server']),
+    about: z.enum(['command', 'edit', 'ticket', 'server', 'jira']),
     text: z.string().min(1),
   }),
   /** Claude can't run commands in this session (spec 012, Q2b). */
@@ -372,6 +372,17 @@ export type ChangeLine = z.infer<typeof ChangeLineSchema>;
 
 const ApprovalBaseSchema = z.object({ id: z.string().min(1), askedAt: z.iso.datetime() });
 
+/**
+ * The change Claude asks to make in Jira (spec 044): a comment in Markdown; a move to the status `to`, from `from`
+ * (null when Jira didn't say); or an assignment to you or to nobody.
+ */
+export const JiraChangeAskSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('comment'), text: z.string().min(1) }),
+  z.object({ action: z.literal('transition'), from: z.string().min(1).nullable(), to: z.string().min(1) }),
+  z.object({ action: z.literal('assign'), to: z.enum(['me', 'nobody']) }),
+]);
+export type JiraChangeAsk = z.infer<typeof JiraChangeAskSchema>;
+
 /** A call waiting for your answer (spec 012): a command, or an edit while Ask before everything is on. */
 export const SessionApprovalSchema = z.discriminatedUnion('kind', [
   ApprovalBaseSchema.extend({
@@ -410,6 +421,11 @@ export const SessionApprovalSchema = z.discriminatedUnion('kind', [
     /** Null when the ticket was already gone when Claude asked. */
     title: z.string().min(1).nullable(),
   }),
+  /**
+   * Claude asks to change a Jira issue (spec 044, AC-13, AC-14): Allow once, Always allow, which turns Claude changes
+   * Jira on in Settings › Coding agent, or Deny.
+   */
+  ApprovalBaseSchema.extend({ kind: z.literal('jira'), key: JiraIssueKeySchema, change: JiraChangeAskSchema }),
 ]);
 export type SessionApproval = z.infer<typeof SessionApprovalSchema>;
 

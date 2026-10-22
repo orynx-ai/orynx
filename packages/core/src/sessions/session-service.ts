@@ -213,8 +213,8 @@ export interface SessionServiceOptions {
       repositoryPermissions: Record<string, Permissions>;
       allowedCommands: readonly string[];
     }>;
-    /** Saves Always allow's entry to the list (spec 012, AC-5). */
-    change(change: { allowCommand: string }): Promise<unknown>;
+    /** Saves Always allow's entry to the list (spec 012, AC-5), or turns Claude changes Jira on (spec 044, AC-17). */
+    change(change: { allowCommand: string } | { jiraChanges: true }): Promise<unknown>;
   };
   worktrees: WorktreesOptions;
   /** Reads a worktree's changes for the Changes tab (spec 013). */
@@ -623,7 +623,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
                       ? ask.path
                       : ask.kind === 'server'
                         ? ask.command
-                        : `${ask.key}${ask.title === null ? '' : ` · ${ask.title}`}`,
+                        : ask.kind === 'jira'
+                          ? ask.key
+                          : `${ask.key}${ask.title === null ? '' : ` · ${ask.title}`}`,
               }),
             );
             return {
@@ -1766,13 +1768,16 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const run = runs.get(id);
       if (run?.agentId == null || adapter === null || claimed.has(approvalId)) return 'already_answered';
       const entry = waiting.kind === 'command' || waiting.kind === 'server' ? waiting.alwaysAllow : null;
-      if (decision === 'always_allow' && entry === null) return 'not_offered';
+      // A Jira change's Always allow turns Claude changes Jira on (spec 044, AC-17).
+      const save =
+        waiting.kind === 'jira' ? { jiraChanges: true as const } : entry === null ? null : { allowCommand: entry };
+      if (decision === 'always_allow' && save === null) return 'not_offered';
       // The first answer counts (AC-13): from here, before anything waits, any other answer to this call is late.
       claimed.add(approvalId);
-      if (decision === 'always_allow' && entry !== null) {
+      if (decision === 'always_allow' && save !== null) {
         // The entry is saved first: if it can't be, nothing is decided and the call keeps waiting (AC-14).
         try {
-          await options.preferences.change({ allowCommand: entry });
+          await options.preferences.change(save);
         } catch {
           claimed.delete(approvalId);
           return 'not_saved';

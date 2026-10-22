@@ -15,7 +15,14 @@ export function approvalNotificationId(sessionId: string, approvalId: string): s
 }
 
 function aboutOf(approval: SessionApproval): Extract<NotificationWhat, { kind: 'approval' }>['about'] {
-  if (approval.kind === 'edit' || approval.kind === 'ticket' || approval.kind === 'server') return approval.kind;
+  if (
+    approval.kind === 'edit' ||
+    approval.kind === 'ticket' ||
+    approval.kind === 'server' ||
+    approval.kind === 'jira'
+  ) {
+    return approval.kind;
+  }
   return approval.alwaysAsk === 'push' || approval.alwaysAsk === 'pull_request' ? approval.alwaysAsk : 'command';
 }
 

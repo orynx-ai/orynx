@@ -486,7 +486,10 @@ export function createClaudeAdapter({
               });
             }
             const ask = await own.asks(input);
-            return ask === null ? { behavior: 'allow' } : { behavior: 'ask', ask };
+            if (ask === null) return { behavior: 'allow' };
+            // Turned down before anyone's asked: no step, only words for Claude (spec 044, AC-15).
+            if ('refused' in ask) return { behavior: 'deny', message: ask.refused, refusal: null };
+            return { behavior: 'ask', ask };
           };
           const turn = (current?.deciding ?? Promise.resolve()).then(decide);
           if (current !== undefined) current.deciding = turn.catch(() => undefined);

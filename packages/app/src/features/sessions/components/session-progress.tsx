@@ -93,7 +93,9 @@ function look(activity: SessionActivity): { state: ActivityStepState | undefined
   }
   // A call waiting for you is amber, with the kind of work it waits to do (spec 012, as session.html draws it).
   if (activity.kind === 'waiting') {
-    return { state: 'waiting', icon: <Icon icon={activity.about === 'edit' ? PencilEdit01Icon : TerminalIcon} /> };
+    const waitsFor =
+      activity.about === 'edit' ? PencilEdit01Icon : activity.about === 'jira' ? Ticket01Icon : TerminalIcon;
+    return { state: 'waiting', icon: <Icon icon={waitsFor} /> };
   }
   return { state: undefined, icon: <Icon icon={kindIcons[activity.kind]} /> };
 }

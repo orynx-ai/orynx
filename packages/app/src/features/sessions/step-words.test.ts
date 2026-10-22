@@ -66,6 +66,20 @@ describe('stepWords (Q10a)', () => {
     expect(step({ ...jira, action: 'assigned', to: 'nobody' })).toEqual({ title: 'Unassigned MAG-12', detail: null });
   });
 
+  it('AC-13, Q10 (spec 044): a Jira change waiting for you, and one you denied', () => {
+    expect(
+      step({ kind: 'waiting', state: 'running', approvalId: 'approval-1', about: 'jira', text: 'MAG-12' }),
+    ).toEqual({ title: 'Waiting for your approval', detail: 'Wants to change MAG-12 in Jira' });
+    expect(step({ kind: 'denied', state: 'done', about: 'jira', text: 'MAG-12' })).toEqual({
+      title: 'You denied a Jira change',
+      detail: 'MAG-12',
+    });
+    expect(step({ kind: 'denied', state: 'done', about: 'server', text: 'next dev' })).toEqual({
+      title: 'You denied a server',
+      detail: 'next dev',
+    });
+  });
+
   it('AC-2: the worktree, while git works and once made', () => {
     const worktree = { kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true } as const;
     expect(step({ ...worktree, state: 'running', fetched: false })).toEqual({
