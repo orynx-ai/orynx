@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -25,7 +25,18 @@ import {
   pullsUrl,
   type FakeOpenedPull,
 } from '../test/fake-github.ts';
-import { acceptingIssue, goodToken, jiraEmail, jiraSite, useFakeJira } from '../test/fake-jira.ts';
+import {
+  acceptingIssue,
+  acceptingIssueSearch,
+  acceptingJiraChanges,
+  goodBasicValue,
+  goodToken,
+  issueSearchUrl,
+  jiraEmail,
+  jiraSite,
+  useFakeJira,
+  type FakeJiraWrite,
+} from '../test/fake-jira.ts';
 import { gitSearchPath, useTestRepositories } from '../test/git-repository.ts';
 import { openFileSessionStore } from './file-session-store.ts';
 import { readingInstructions } from './ask-reading.ts';
@@ -614,5 +625,134 @@ describe.skipIf(process.platform === 'win32')('spec 015 stays out of the log and
     const told = log.join('') + JSON.stringify(events);
     for (const secret of said) expect(told).not.toContain(secret);
     expect(told).toContain('Claude started a session');
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('spec 044: Jira in a session leaks no login', () => {
+  it('AC-11, AC-19: reads, a refused search and an allowed comment keep the token, email and header out of everything', async () => {
+    const repos = await repositories();
+    home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-session-leaks-044-')));
+    const folder = await fakeClaudeFolder();
+    await folder.install({ kind: 'signed_in' });
+    const writes: FakeJiraWrite[] = [];
+    jira.use(
+      // Jira's own words for a refused query, as if they held the login: Claude must never read them.
+      http.post(issueSearchUrl(), async ({ request }) => {
+        const { jql } = (await request.clone().json()) as { jql: string };
+        if (jql !== 'project = LEAK') return undefined;
+        return HttpResponse.json(
+          { errorMessages: [`${jiraEmail} can't see LEAK.`], errors: { jql: `Token ${goodToken} refused.` } },
+          { status: 400 },
+        );
+      }),
+      acceptingIssueSearch([{ key: 'PROJ-1', summary: 'Work on PROJ-1' }]),
+      acceptingIssue({ key: 'PROJ-1', summary: 'Work on PROJ-1', reporter: 'Dev Example' }),
+      ...acceptingJiraChanges(writes, { keys: ['PROJ-1'] }),
+    );
+
+    const log: string[] = [];
+    const bus = createEventBus();
+    const events: ServerEvent[] = [];
+    bus.subscribe((event) => events.push(event));
+    const keychain: Keychain = {
+      get: (account) => Promise.resolve(account === 'jira' ? goodToken : null),
+      set: () => Promise.resolve(),
+      delete: () => Promise.resolve(),
+    };
+    const settings = createFileSettingsStore(home);
+    await settings.update(() => ({ jira: { site: jiraSite, email: jiraEmail } }));
+    const { query, fakes } = scriptsInTurn([
+      [
+        { tool: 'mcp__orynx__search_jira', input: { jql: 'project = PROJ' } },
+        { tool: 'mcp__orynx__get_jira_issue', input: { key: 'PROJ-1' } },
+        { tool: 'mcp__orynx__search_jira', input: { jql: 'project = LEAK' } },
+        { tool: 'mcp__orynx__comment_on_jira_issue', input: { key: 'PROJ-1', text: 'Fixed in main.' } },
+        { finish: summary },
+      ],
+    ]);
+    app = await createServer({
+      token: sessionToken,
+      port,
+      version: 'test',
+      events: bus,
+      userName: () => Promise.resolve(null),
+      keychain,
+      settings,
+      dataDir: home,
+      userHome: repos.root,
+      sessions: await openFileSessionStore(home),
+      claudeCode: createClaudeCode({
+        program: folder.program,
+        env: { PATH: '/usr/bin:/bin' },
+        workFolder: folder.workFolder,
+      }),
+      agent: { query, program: '/opt/claude/claude', env: agentEnvironment({ HOME: repos.root, PATH: gitSearchPath }) },
+      gitEnvironment: gitEnvironment(repos.env),
+      logger: {
+        level: 'trace',
+        stream: new Writable({
+          write(chunk: Buffer, _encoding, done) {
+            log.push(chunk.toString());
+            done();
+          },
+        }),
+      },
+    });
+    const hub = app;
+    expect(
+      (
+        await hub.inject({
+          method: 'POST',
+          url: apiRoutes.repositories,
+          headers,
+          payload: { path: repos.clone, jiraProject: 'PROJ' },
+        })
+      ).statusCode,
+    ).toBe(201);
+    const started = await hub.inject({
+      method: 'POST',
+      url: apiRoutes.sessions,
+      headers,
+      payload: { ticketKey: 'PROJ-1' },
+    });
+    const { sessionId } = started.json<{ sessionId: string }>();
+    const sessionUrl = apiRoutes.session.replace(':id', sessionId);
+    let approvalId = '';
+    await until(async () => {
+      approvalId =
+        (await hub.inject({ method: 'GET', url: sessionUrl, headers })).json<{ approvals: { id: string }[] }>()
+          .approvals[0]?.id ?? '';
+      return approvalId !== '';
+    });
+    const allowed = await hub.inject({
+      method: 'POST',
+      url: apiRoutes.sessionApproval.replace(':id', sessionId).replace(':approvalId', approvalId),
+      headers,
+      payload: { decision: 'allow_once' },
+    });
+    expect(allowed.statusCode).toBe(204);
+    await until(
+      async () =>
+        (await hub.inject({ method: 'GET', url: sessionUrl, headers })).json<{ state: string }>().state === 'done',
+    );
+    await hub.close();
+
+    const files = await readdir(join(home, 'sessions'), { recursive: true, withFileTypes: true });
+    const stored = await Promise.all(
+      files.filter((file) => file.isFile()).map((file) => readFile(join(file.parentPath, file.name), 'utf8')),
+    );
+    const answers = fakes[0]?.runs[0]?.results ?? [];
+    const everything = [log.join(''), JSON.stringify(events), ...stored, JSON.stringify(answers)].join('\n');
+    for (const secret of [goodToken, goodBasicValue, jiraEmail]) expect(everything).not.toContain(secret);
+
+    // It did reach Jira: the reads, the refusal in Jira's words with the login taken out, and the comment.
+    expect(answers.map((answer) => [answer.tool, answer.isError])).toEqual([
+      ['mcp__orynx__search_jira', false],
+      ['mcp__orynx__get_jira_issue', false],
+      ['mcp__orynx__search_jira', true],
+      ['mcp__orynx__comment_on_jira_issue', false],
+    ]);
+    expect(answers[2]?.text).toBe("Jira refused the query: your account can't see LEAK. Token … refused.");
+    expect(writes.map((write) => write.path)).toEqual(['comment']);
   });
 });

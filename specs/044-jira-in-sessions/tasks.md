@@ -23,7 +23,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: The write tools: Allow posts, Deny and Stop send nothing, the row skips asking, Always allow turns it on (AC-13 to AC-18, Q9, Q11)
       Check: pnpm test packages/core/src/sessions/jira-tools.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/jira-tools.ts, session-service.ts, jira-tools.test.ts, session-service.test.ts
-- [ ] Task 8: No leaks from any Jira call (AC-11, AC-19)
+- [x] Task 8: No leaks from any Jira call (AC-11, AC-19)
       Check: pnpm test packages/core/src/sessions/no-leaks.test.ts
       Files: packages/core/src/sessions/no-leaks.test.ts, packages/core/src/test/fake-claude-sdk.ts
 - [ ] Task 9: Docs and skills

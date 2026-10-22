@@ -502,15 +502,19 @@ const JiraErrorBodySchema = z.object({
   errors: z.record(z.string(), z.string()).nullish(),
 });
 
-/** Jira's own words for what it refused, at most 500 characters (spec 044, Q6); never the request that carried it. */
-function jiraReason(body: unknown): string {
+/**
+ * Jira's own words for what it refused, at most 500 characters (spec 044, Q6), for Claude to read: never the request
+ * that carried it, and never the login's email or token, should Jira's words hold them (AC-11).
+ */
+function jiraReason(body: unknown, { email, apiToken }: JiraCheckRequest): string {
   const parsed = JiraErrorBodySchema.safeParse(body);
   const words = parsed.success
     ? [...(parsed.data.errorMessages ?? []), ...Object.values(parsed.data.errors ?? {})]
     : [];
-  const reason = words.join(' ').trim();
+  const reason = words.join(' ').replaceAll(apiToken, '…').replaceAll(email, 'your account').trim();
   return (reason === '' ? 'Jira refused it without saying why.' : reason).slice(0, 500);
 }
+
 const sprintIssuesPerPage = 100;
 const mostSprintIssues = 300;
 
@@ -558,7 +562,7 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
         // A 403 that is a sign-in (an AuthError) stays a problem: it says nothing about this change.
         if (sdk.isApiError(error) && (error.status === 400 || error.status === 403)) {
           const { body } = error;
-          if (!sdk.isAuthError(error)) return jiraReason(body);
+          if (!sdk.isAuthError(error)) return jiraReason(body, request);
         }
         throw error;
       }
@@ -851,7 +855,7 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
           return { issues, more: page.isLast === false };
         } catch (error) {
           // Jira read the query and refused it: its words let Claude fix it.
-          if (sdk.isApiError(error) && error.status === 400) return { refused: jiraReason(error.body) };
+          if (sdk.isApiError(error) && error.status === 400) return { refused: jiraReason(error.body, request) };
           throw error;
         }
       });
