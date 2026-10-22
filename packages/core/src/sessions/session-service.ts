@@ -45,7 +45,7 @@ import {
 import type { EventBus } from '../events/event-bus.ts';
 import { createGitHubClient, type GitHubClient } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
-import type { JiraClient } from '../integrations/jira/client.ts';
+import type { JiraCheckRequest, JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
 import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
@@ -90,6 +90,7 @@ import {
 import { createWorktrees, type Prepared, type WorktreeProblem, type WorktreesOptions } from './worktrees.ts';
 import { readingFrom, readingInstructions, readingPrompt, type AskInput, type AskReading } from './ask-reading.ts';
 import { readBranchRules } from './branch-rules.ts';
+import { jiraTools, type JiraStep } from './jira-tools.ts';
 import { sessionTools } from './session-tools.ts';
 import type { PortService, SessionPlaces } from '../ports/port-service.ts';
 
@@ -711,6 +712,18 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return refused;
   }
 
+  /** Jira's saved login for a call from a session (spec 044); null once Jira isn't connected or its token can't be read. */
+  async function jiraRequest(): Promise<JiraCheckRequest | null> {
+    const credentials = await options.connection.credentials().catch(() => null);
+    return credentials?.ok === true ? credentials.request : null;
+  }
+
+  /** A Jira tool's step in Claude's progress (spec 044), as a server's is. */
+  async function addJiraStep(id: string, step: JiraStep): Promise<void> {
+    const jira = { kind: 'jira', key: null, summary: null, found: null, more: false, to: null, ...step } as const;
+    await change(id, (current) => withProgress(current, (progress) => addStep(progress, jira)));
+  }
+
   /**
    * What you're asked before Claude starts a server (spec 042, Q7): always, unless you chose Always allow in this
    * repository, which the allow list keeps as `server:<repository id>`.
@@ -1045,29 +1058,38 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         : ticketTools(options.tickets, { kind: 'session', sessionId: id, title: record.session.title }).filter(
             (tool) => !first.readOnly || tool.access === 'read',
           );
+    // Jira's tools while Jira is connected as this run starts, in a Build or an Ask alike (spec 044): a session that
+    // began without Jira gets them on its next follow-up.
+    const jira =
+      (await jiraRequest()) === null
+        ? []
+        : jiraTools({ jira: options.jira, request: jiraRequest, did: (step) => addJiraStep(id, step) });
     const agentId = await adapter.startSession(brief, worktree, permissions, note, {
       ...(resume === null ? {} : { resume }),
       model,
       effort,
       tools,
       onEdit: () => makeBranch(id),
-      // A Build's own tools (spec 042): Claude changes its steps; an Ask has none.
-      orynxTools: first.readOnly
-        ? []
-        : sessionTools({
-            changeSteps: (wanted) => applySteps(id, wanted),
-            serverAsk: (command, folder) => serverAsk(id, command, folder),
-            startServer: (command, folder) => startServer(id, command, folder),
-            stopServer: async (port) => {
-              // Only a server Claude started here: anything else is yours.
-              const record = await records.get(id);
-              const places = record === null ? null : await placesOf(id, record);
-              const listed =
-                places === null ? undefined : (await options.ports?.list(places))?.find((one) => one.port === port);
-              if (listed?.startedBy !== 'claude') return false;
-              return (await stopPortNow(id, port)) === 'done';
-            },
-          }),
+      // A Build's own tools (spec 042): Claude changes its steps; an Ask has none. Then Jira's (spec 044).
+      orynxTools: [
+        ...(first.readOnly
+          ? []
+          : sessionTools({
+              changeSteps: (wanted) => applySteps(id, wanted),
+              serverAsk: (command, folder) => serverAsk(id, command, folder),
+              startServer: (command, folder) => startServer(id, command, folder),
+              stopServer: async (port) => {
+                // Only a server Claude started here: anything else is yours.
+                const record = await records.get(id);
+                const places = record === null ? null : await placesOf(id, record);
+                const listed =
+                  places === null ? undefined : (await options.ports?.list(places))?.find((one) => one.port === port);
+                if (listed?.startedBy !== 'claude') return false;
+                return (await stopPortNow(id, port)) === 'done';
+              },
+            })),
+        ...jira,
+      ],
     });
     run.agentId = agentId;
     // Or while Claude starts, after Stop found no Claude to stop: then the run stops it itself.

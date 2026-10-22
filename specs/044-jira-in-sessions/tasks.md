@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: The `jira` step kind and its words (Q4, Q10, AC-12)
       Check: pnpm test packages/contracts/src/session.test.ts packages/app/src/features/sessions/step-words.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, session.test.ts, packages/app/src/features/sessions/step-words.ts, step-words.test.ts, components/session-progress.tsx
-- [ ] Task 4: The read tools, offered at each run's start while Jira is connected (AC-1 to AC-10)
+- [x] Task 4: The read tools, offered at each run's start while Jira is connected (AC-1 to AC-10)
       Check: pnpm test packages/core/src/sessions/jira-tools.test.ts packages/core/src/sessions/compose.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/jira-tools.ts, jira-tools.test.ts, session-service.ts, compose.test.ts, session-service.test.ts
 - [ ] Task 5: The `jiraChanges` preference and the row "Claude changes Jira" (Q8)
