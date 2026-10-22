@@ -432,6 +432,7 @@ test('042 AC-1, AC-3, AC-6, AC-8, AC-33: a run reads as one, opens on Ports, lea
   page,
 }) => {
   await shipToComposer(page, 'PROJ-1429');
+  await expect(page.getByRole('textbox', { name: 'Describe a task for Claude' })).toBeFocused();
   await page.keyboard.press('Enter');
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   const id = new URL(page.url()).pathname.split('/').at(-1) ?? '';
