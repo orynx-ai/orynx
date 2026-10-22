@@ -296,7 +296,9 @@ export function bannerDetail({
           ? `wants to start ${approval.command}`
           : approval.kind === 'edit'
             ? `wants to edit ${approval.path}`
-            : `wants to delete ${approval.key}`,
+            : approval.kind === 'jira'
+              ? `wants to change ${approval.key}`
+              : `wants to delete ${approval.key}`,
     );
   }
   if (more > 0) parts.push(`${String(more)} more waiting`);

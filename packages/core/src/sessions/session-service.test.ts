@@ -24,7 +24,16 @@ import { createTokenStore } from '../secrets/token-store.ts';
 import { createMemorySettingsStore } from '../settings/settings-store.ts';
 import { useFakeClaudeFolder } from '../test/fake-claude.ts';
 import { fakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
-import { acceptingIssue, goodToken, issueUrl, jiraEmail, jiraSite } from '../test/fake-jira.ts';
+import {
+  acceptingIssue,
+  acceptingJiraChanges,
+  acceptingMyself,
+  goodToken,
+  issueUrl,
+  jiraEmail,
+  jiraSite,
+  type FakeJiraWrite,
+} from '../test/fake-jira.ts';
 import {
   acceptingPulls,
   acceptingRepository,
@@ -2041,6 +2050,81 @@ describe('Claude changing its steps (spec 042)', () => {
     const record = await settled(records);
     expect(record.session.steps.map((step) => step.label)).toEqual(['Set up', 'Start server']);
     expect(record.session.activities.some((activity) => activity.kind === 'steps_changed')).toBe(false);
+  });
+});
+
+describe('Claude changing Jira (spec 044)', () => {
+  const id = '0000000000000001';
+  const comment: FakeTurn = {
+    tool: 'mcp__orynx__comment_on_jira_issue',
+    input: { key: 'PROJ-1423', text: 'Fixed in main.' },
+  };
+
+  function jiraKeeps() {
+    const writes: FakeJiraWrite[] = [];
+    jira.use(...acceptingJiraChanges(writes, { keys: ['PROJ-1423'] }), acceptingMyself());
+    return writes;
+  }
+
+  it('AC-13, Q11: a change waits for you; Deny sends nothing, Allow sends it and it is a step', async () => {
+    const { service, records } = await setUp({ script: [comment, comment, { finish: 'Commented.' }] });
+    const writes = jiraKeeps();
+    await service.start({ ticketKey: 'PROJ-1423' });
+
+    const [first] = await waitingCalls(records);
+    expect(first).toMatchObject({
+      kind: 'jira',
+      key: 'PROJ-1423',
+      change: { action: 'comment', text: 'Fixed in main.' },
+    });
+    expect(writes).toEqual([]);
+    expect(await service.respond(id, first?.id ?? '', 'deny')).toBe('answered');
+
+    const [second] = await waitingCalls(records);
+    expect(writes).toEqual([]);
+    expect(await service.respond(id, second?.id ?? '', 'allow_once')).toBe('answered');
+    const record = await settled(records);
+
+    expect(writes.map((write) => write.path)).toEqual(['comment']);
+    expect(record.session.activities.filter((activity) => activity.kind === 'denied')).toMatchObject([
+      { about: 'jira', text: 'PROJ-1423' },
+    ]);
+    expect(record.session.activities.find((activity) => activity.kind === 'jira')).toMatchObject({
+      action: 'commented',
+      key: 'PROJ-1423',
+    });
+  });
+
+  it('AC-16, AC-17: Always allow turns Claude changes Jira on, and the next change runs without asking', async () => {
+    const assign: FakeTurn = { tool: 'mcp__orynx__assign_jira_issue', input: { key: 'PROJ-1423', to: 'me' } };
+    const { service, records, settings } = await setUp({
+      script: [comment, { finish: 'Commented.' }],
+      later: [[assign, { finish: 'Assigned.' }]],
+    });
+    const writes = jiraKeeps();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [asked] = await waitingCalls(records);
+
+    expect(await service.respond(id, asked?.id ?? '', 'always_allow')).toBe('answered');
+    await settled(records);
+    expect((await settings.read()).agent).toMatchObject({ jiraChanges: true });
+
+    expect(await service.send(id, 'Assign it to me')).toEqual({ result: 'sent' });
+    const record = await settled(records);
+    expect(record.approvalLog).toHaveLength(1);
+    expect(writes.map((write) => write.path)).toEqual(['comment', 'assignee']);
+  });
+
+  it('Q11: Stop while a change waits sends nothing to Jira', async () => {
+    const { service, records } = await setUp({ script: [comment, { finish: 'Commented.' }] });
+    const writes = jiraKeeps();
+    await service.start({ ticketKey: 'PROJ-1423' });
+    await waitingCalls(records);
+
+    await service.stop(id);
+    await settled(records);
+
+    expect(writes).toEqual([]);
   });
 });
 

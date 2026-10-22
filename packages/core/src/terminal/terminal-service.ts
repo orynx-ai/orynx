@@ -94,6 +94,9 @@ interface Tab {
   ended: Promise<void>;
   /** The output so far, the oldest dropped past `keptChars`. */
   kept: string;
+  /** Output not yet passed on: a flood goes out as one frame every few ms, not one per piece the shell writes. */
+  pending: string;
+  sendTimer: NodeJS.Timeout | null;
   listeners: Set<TerminalListener>;
   /** Set once it's closing, so its shell's end neither starts another nor closes it twice. */
   closing: boolean;
@@ -110,6 +113,8 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
   const { events, env, home } = options;
   const stopGraceMs = options.stopGraceMs ?? 5_000;
   const keptChars = options.keptChars ?? 500_000;
+  // As VS Code batches a terminal's output: too short to notice in an echo, long enough to join a redraw's pieces.
+  const sendEveryMs = 5;
   const shell = env['SHELL'] ?? '/bin/sh';
   const sessions = new Map<string, SessionTerminal>();
 
@@ -117,7 +122,20 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
     events.publish({ type: 'session.terminal.changed', sessionId });
   }
 
-  /** Keeps what the shell wrote and passes it on. */
+  /** Passes on what the shell wrote since the last time. */
+  function send(tab: Tab) {
+    if (tab.sendTimer !== null) clearTimeout(tab.sendTimer);
+    tab.sendTimer = null;
+    const data = tab.pending;
+    tab.pending = '';
+    if (data === '') return;
+    for (const listener of tab.listeners) listener({ kind: 'data', data });
+  }
+
+  /**
+   * Keeps what the shell wrote and passes it on within `sendEveryMs`: a program that redraws the screen (`claude`)
+   * writes in many small pieces, and each frame costs the page a parse and a draw, so together they kept it behind.
+   */
   function heard(tab: Tab, data: string) {
     if (data === '') return;
     // Trimmed only past twice the limit, so a flood costs one copy per `keptChars`, not one per piece; and from a
@@ -125,7 +143,10 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
     const all = tab.kept + data;
     const from = all.length > 2 * keptChars ? all.indexOf('\n', all.length - keptChars) : -1;
     tab.kept = from === -1 ? all : all.slice(from + 1);
-    for (const listener of tab.listeners) listener({ kind: 'data', data });
+    tab.pending += data;
+    tab.sendTimer ??= setTimeout(() => {
+      send(tab);
+    }, sendEveryMs);
   }
 
   function start(sessionId: string, tab: Tab) {
@@ -167,6 +188,8 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
       shell: null,
       ended: Promise.resolve(),
       kept: '',
+      pending: '',
+      sendTimer: null,
       listeners: new Set(),
       closing: false,
     };
@@ -280,7 +303,11 @@ export function createTerminalService(options: TerminalServiceOptions): Terminal
     listen(sessionId, tabId, listener) {
       const tab = tabOf(sessionId, tabId);
       if (tab === undefined) return null;
-      listener({ kind: 'replay', data: tab.kept });
+      // What's waiting goes to those already listening, as the replay below holds it for this one.
+      send(tab);
+      // The last `keptChars` from a line's start, as promised (spec 038, AC-5), not all that's kept between trims.
+      const start = tab.kept.length > keptChars ? tab.kept.indexOf('\n', tab.kept.length - keptChars) + 1 : 0;
+      listener({ kind: 'replay', data: tab.kept.slice(start) });
       tab.listeners.add(listener);
       return () => {
         tab.listeners.delete(listener);

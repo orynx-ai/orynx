@@ -58,8 +58,14 @@ describe('PreferencesSchema', () => {
       },
       allowedCommands: [],
       editor: 'vscode',
+      jiraChanges: false,
     });
     expect(PreferencesSchema.parse(defaultPreferences)).toEqual(defaultPreferences);
+  });
+
+  it('044 Q8: a change may turn Claude changes Jira on or off alone', () => {
+    expect(PreferencesChangeSchema.parse({ jiraChanges: true })).toEqual({ jiraChanges: true });
+    expect(PreferencesChangeSchema.safeParse({ jiraChanges: 'yes' }).success).toBe(false);
   });
 
   it('013 AC-20, AC-26: offers VS Code and Cursor as the editor, VS Code first', () => {

@@ -5,6 +5,7 @@ import {
   Avatar,
   Icon,
   Menu,
+  MenuCheckboxItem,
   MenuContent,
   MenuItem,
   MenuLabel,
@@ -23,6 +24,7 @@ import {
 import { defaultProfile } from '@devhub/contracts';
 import { useStatus } from '../features/settings/queries.ts';
 import { ThemeSchema, useThemeStore } from '../stores/theme-store.ts';
+import { useUiStore } from '../stores/ui-store.ts';
 import { personName } from './person-name.ts';
 import { ProfileDialog } from './profile-dialog.tsx';
 import { useProfile } from './profile-queries.ts';
@@ -84,22 +86,37 @@ export function ProfileMenu({
   const person = usePerson();
   const theme = useThemeStore((state) => state.theme);
   const setTheme = useThemeStore((state) => state.setTheme);
+  const terminalScreenReader = useUiStore((state) => state.terminalScreenReader);
+  const setTerminalScreenReader = useUiStore((state) => state.setTerminalScreenReader);
   const [editing, setEditing] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const wide = useWide();
   const themeChoices = (
-    <MenuRadioGroup
-      value={theme}
-      onValueChange={(value) => {
-        setTheme(ThemeSchema.parse(value));
-      }}
-    >
-      {themes.map(({ value, label, icon }) => (
-        <MenuRadioItem key={value} value={value} icon={<Icon icon={icon} aria-hidden />}>
-          {label}
-        </MenuRadioItem>
-      ))}
-    </MenuRadioGroup>
+    <>
+      <MenuRadioGroup
+        value={theme}
+        onValueChange={(value) => {
+          setTheme(ThemeSchema.parse(value));
+        }}
+      >
+        {themes.map(({ value, label, icon }) => (
+          <MenuRadioItem key={value} value={value} icon={<Icon icon={icon} aria-hidden />}>
+            {label}
+          </MenuRadioItem>
+        ))}
+      </MenuRadioGroup>
+      <MenuSeparator />
+      {/* It costs the terminal work on every character, so it can go when Claude makes it slow (22 Oct 2026). */}
+      <MenuCheckboxItem
+        checked={terminalScreenReader}
+        onCheckedChange={(checked) => {
+          setTerminalScreenReader(checked);
+        }}
+        description="Turn it off if the terminal feels slow"
+      >
+        Screen reader support in the terminal
+      </MenuCheckboxItem>
+    </>
   );
 
   return (

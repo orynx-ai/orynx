@@ -7,6 +7,7 @@ import {
   answerErrorLine,
   approvalButtons,
   approvalTitle,
+  jiraMoveLine,
   moreLinesText,
   needsApprovalLabel,
   ticketDeleteLine,
@@ -41,8 +42,26 @@ describe('approval words (spec 012, Q8)', () => {
       allowOnce: 'Allow once',
       deny: 'Deny',
       alwaysServer: 'Always allow in this repository',
+      alwaysJira: 'Always allow Jira changes',
     });
     expect(alwaysAllowLabel('npm test')).toBe('Always allow npm test');
+  });
+
+  it('Q10 (spec 044): says which Jira change Claude wants, by its issue', () => {
+    const jira = (change: Extract<SessionApproval, { kind: 'jira' }>['change']): SessionApproval => ({
+      id: 'approval-1',
+      askedAt: '2026-10-22T10:00:00.000Z',
+      kind: 'jira',
+      key: 'MAG-12',
+      change,
+    });
+    expect(approvalTitle(jira({ action: 'comment', text: 'Fixed.' }))).toBe('Claude wants to comment on MAG-12');
+    expect(approvalTitle(jira({ action: 'transition', from: null, to: 'Done' }))).toBe(
+      'Claude wants to move MAG-12 to Done',
+    );
+    expect(approvalTitle(jira({ action: 'assign', to: 'me' }))).toBe('Claude wants to assign MAG-12 to you');
+    expect(approvalTitle(jira({ action: 'assign', to: 'nobody' }))).toBe('Claude wants to unassign MAG-12');
+    expect(jiraMoveLine({ action: 'transition', from: null, to: 'Done' })).toBe('Its status → Done');
   });
 
   it('AC-6, Q8b, spec 026: says why a command asks first, and that allowing it runs it once outside the sandbox', () => {

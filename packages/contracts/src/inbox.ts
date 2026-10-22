@@ -19,8 +19,17 @@ export type InboxTab = z.infer<typeof InboxTabSchema>;
 
 /** What a row is about. The app writes the sub line from it (spec 007, Q8a). */
 export const InboxSubjectSchema = z.discriminatedUnion('kind', [
-  /** A Jira issue. `status` is the status's own name, shown as it is; rules use its category. */
-  z.object({ kind: z.literal('issue'), key: z.string().min(1), status: z.string(), highPriorityBug: z.boolean() }),
+  /**
+   * A Jira issue. `status` is the status's own name, shown as it is; rules use its category. `type` is the issue
+   * type's name, for the Type filter; missing on rows cached before Orynx kept it.
+   */
+  z.object({
+    kind: z.literal('issue'),
+    key: z.string().min(1),
+    status: z.string(),
+    highPriorityBug: z.boolean(),
+    type: z.string().min(1).nullish(),
+  }),
   /** A pull request on github.com. `repository` is its name without the owner; `author` is null when GitHub gives none. */
   z.object({
     kind: z.literal('pull_request'),

@@ -177,6 +177,24 @@ describe('listing a worktree’s changes', () => {
     );
   });
 
+  it('leaves out what merging the base in brought, as the pull request on GitHub does (the user’s report, 22 Oct 2026)', async () => {
+    const { repos, worktree, startCommit, reader } = await setUp();
+    await writeFile(join(worktree, 'a.ts'), 'Claude changed this\n');
+    await repos.git(worktree, 'commit', '-am', 'Claude committed this');
+    // main moves on, and Claude merges it in.
+    await repos.commitInOrigin('upstream.ts');
+    await repos.git(worktree, 'fetch', '-q', 'origin', 'main');
+    await repos.git(worktree, 'merge', '-q', '--no-edit', 'origin/main');
+
+    const paths = (listed: ListedChanges) => filesOf(listed).map((changed) => changed.path);
+    expect(paths(await reader.list(worktree, { commit: startCommit, base: 'origin/main' }, []))).toEqual(['a.ts']);
+    expect(paths(await reader.list(worktree, { commit: startCommit }, []))).toEqual(['a.ts', 'upstream.ts']);
+    expect(await reader.fileDiff(worktree, { commit: startCommit, base: 'origin/main' }, 'upstream.ts')).toEqual({
+      ok: false,
+      problem: 'not_listed',
+    });
+  });
+
   it('AC-6, AC-7: says the worktree is missing, or that git failed, without git’s words', async () => {
     const { repos, worktree, startCommit, reader } = await setUp();
     expect(await reader.list(join(repos.worktrees, 'not-there'), { commit: startCommit }, [])).toEqual({

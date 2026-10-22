@@ -63,7 +63,7 @@ export function ActivityStep({ state, icon, title, detail, onOpen, className, ..
       <span aria-hidden className={dotVariants({ state: look })}>
         {icon}
       </span>
-      <span className="flex min-w-0 flex-col gap-0.5">
+      <div className="flex min-w-0 flex-col gap-0.5">
         <span className="font-medium">
           {onOpen === undefined ? (
             title
@@ -79,8 +79,9 @@ export function ActivityStep({ state, icon, title, detail, onOpen, className, ..
           {/* The dot's colour tells the state to the eye; these words tell it to screen readers. */}
           {state ? <span className="sr-only">{spokenStates[state]}</span> : null}
         </span>
-        {detail ? <span className="text-small text-muted-foreground">{detail}</span> : null}
-      </span>
+        {/* A div, so a detail may hold blocks such as Claude's summary laid out as Markdown. */}
+        {detail ? <div className="text-small text-muted-foreground">{detail}</div> : null}
+      </div>
     </li>
   );
 }

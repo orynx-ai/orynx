@@ -100,19 +100,19 @@ export function SessionDetails({ session }: { session: Session }) {
             <Icon icon={ArrowExpand01Icon} aria-hidden />
           </IconButton>
         </div>
-        {/* Each tab scrolls on its own while the pane is held in view. */}
+        {/* Each tab scrolls on its own while the pane is held in view; relative, so hidden words in it are clipped there. */}
         {ports ? (
-          <TabsContent value="ports" className="min-h-0 overflow-y-auto pt-3">
+          <TabsContent value="ports" className="relative min-h-0 overflow-y-auto pt-3">
             {portsPanel}
           </TabsContent>
         ) : null}
         {ask ? null : (
-          <TabsContent value="changes" className="min-h-0 overflow-y-auto pt-3">
+          <TabsContent value="changes" className="relative min-h-0 overflow-y-auto pt-3">
             {changes}
           </TabsContent>
         )}
         {items > 0 ? (
-          <TabsContent value="context" className="min-h-0 overflow-y-auto pt-3">
+          <TabsContent value="context" className="relative min-h-0 overflow-y-auto pt-3">
             {context}
           </TabsContent>
         ) : null}

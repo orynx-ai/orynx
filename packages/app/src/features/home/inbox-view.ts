@@ -11,7 +11,7 @@ import { itemsInTab, type HomeSearch, type HomeTab } from './inbox-tabs.ts';
 
 export const pageSize = 16;
 
-export const filterKeys = ['reason', 'project', 'status', 'repo'] as const;
+export const filterKeys = ['reason', 'project', 'status', 'repo', 'type'] as const;
 export type FilterKey = (typeof filterKeys)[number];
 export type Filters = Record<FilterKey, string[]>;
 
@@ -26,7 +26,7 @@ export interface HomeView {
 export const defaultView: HomeView = {
   tab: 'all',
   query: '',
-  filters: { reason: [], project: [], status: [], repo: [] },
+  filters: { reason: [], project: [], status: [], repo: [], type: [] },
   order: 'newest',
   page: 1,
 };
@@ -55,6 +55,7 @@ export function viewOf(search: HomeSearch): HomeView {
       project: own('project'),
       status: own('status'),
       repo: own('repo'),
+      type: own('type'),
     },
     order: search.sort === 'longest' ? 'longest' : 'newest',
     page: search.page ?? 1,
@@ -125,6 +126,7 @@ function valuesOf(item: InboxItem): Record<FilterKey, string | null> {
     project: key === null ? null : (key.split('-')[0] ?? null),
     status: subject.kind === 'issue' && subject.status !== '' ? subject.status : null,
     repo: subject.kind === 'pull_request' ? subject.repository : null,
+    type: subject.kind === 'issue' ? (subject.type ?? null) : null,
   };
 }
 
@@ -199,12 +201,16 @@ const menuLabels: Record<FilterKey, string> = {
   project: 'Project',
   status: 'Status',
   repo: 'Repository',
+  type: 'Type',
 };
 
-/** Each tab's filters (Q9a): Reason everywhere, Project and Status on Jira, Repository on Pull requests. */
+/**
+ * Each tab's filters (Q9a): Reason everywhere, Project, Status and Type on Jira, Repository on Pull requests. Reason's
+ * Bug is only a high-priority bug (Q2f); Type is every issue of a type, as on Tickets (the user's call, 22 Oct 2026).
+ */
 const tabFilters: Record<HomeTab, readonly FilterKey[]> = {
   all: ['reason'],
-  jira: ['reason', 'project', 'status'],
+  jira: ['reason', 'project', 'status', 'type'],
   'pull-requests': ['reason', 'repo'],
 };
 

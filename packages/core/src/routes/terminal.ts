@@ -105,9 +105,13 @@ export const terminalRoutes: FastifyPluginCallbackZod<{
     },
   );
 
+  // Keys and sizes come many times a second while you type or drag the window: only their problems are logged.
   app.post(
     apiPaths.sessionTerminalInput,
-    { schema: { params: TabParamsSchema, body: TerminalInputSchema, response: { 204: z.undefined(), ...notFound } } },
+    {
+      logLevel: 'warn',
+      schema: { params: TabParamsSchema, body: TerminalInputSchema, response: { 204: z.undefined(), ...notFound } },
+    },
     async (request, reply) => {
       const { id, tabId } = request.params;
       if ((await worktreeOf(id)) === null) return reply.code(404).send(noTerminal);
@@ -117,7 +121,10 @@ export const terminalRoutes: FastifyPluginCallbackZod<{
 
   app.post(
     apiPaths.sessionTerminalSize,
-    { schema: { params: TabParamsSchema, body: TerminalSizeSchema, response: { 204: z.undefined(), ...notFound } } },
+    {
+      logLevel: 'warn',
+      schema: { params: TabParamsSchema, body: TerminalSizeSchema, response: { 204: z.undefined(), ...notFound } },
+    },
     async (request, reply) => {
       const { id, tabId } = request.params;
       if ((await worktreeOf(id)) === null) return reply.code(404).send(noTerminal);

@@ -38,7 +38,7 @@ import { createMemorySettingsStore } from '../settings/settings-store.ts';
 import { useFakeClaudeFolder } from '../test/fake-claude.ts';
 import { fakeClaudeSdk, type FakeTurn } from '../test/fake-claude-sdk.ts';
 import { acceptingPullContext, acceptingPullDiff, githubLogin, githubToken } from '../test/fake-github.ts';
-import { acceptingIssue, goodToken, jiraEmail, jiraSite } from '../test/fake-jira.ts';
+import { acceptingIssue, acceptingIssueSearch, goodToken, jiraEmail, jiraSite } from '../test/fake-jira.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { briefText, composerBrief, type BriefChip, type BriefPullRequest } from './brief.ts';
 import { createChangesReader } from './changes.ts';
@@ -175,8 +175,11 @@ async function setUp({
   folders = true,
   orynx,
   permissions,
+  jiraConnected = true,
 }: {
   login?: 'signed_in' | 'signed_out';
+  /** Jira's site and email in Settings; its token is in the keychain either way. */
+  jiraConnected?: boolean;
   script?: readonly FakeTurn[];
   folders?: boolean;
   orynx?: OrynxTicketService;
@@ -191,7 +194,7 @@ async function setUp({
   const heard: ServerEvent[] = [];
   events.subscribe((event) => heard.push(event));
   const settings = createMemorySettingsStore({
-    jira: { site: jiraSite, email: jiraEmail },
+    ...(jiraConnected ? { jira: { site: jiraSite, email: jiraEmail } } : {}),
     github: { method: 'token' },
     agent: { permissionMode: 'edit_freely_ask_commands', allowedCommands: [], ...(permissions && { permissions }) },
   });
@@ -266,7 +269,7 @@ async function setUp({
     ]),
     acceptingPullDiff([{ number: 2836, diff: 'diff --git a/a.ts b/a.ts\n+x' }]),
   );
-  return { sessions, records, home, heard, sdk, folder: added[0], outside, root: repos.root, repos };
+  return { sessions, records, home, heard, sdk, folder: added[0], outside, root: repos.root, repos, settings };
 }
 
 /** Waits until the session isn't Working or waiting for you any more. */
@@ -402,6 +405,63 @@ describe('a composer start that can’t happen (spec 015)', () => {
   });
 });
 
+/** The names of the tools a run's `orynx` server offers, read from a fresh copy of it. */
+async function orynxToolsOf(set: Awaited<ReturnType<typeof setUp>>, run: number): Promise<string[]> {
+  const server = set.sdk.runs[run]?.options.mcpServers?.['orynx'];
+  if (server?.type !== 'sdk' || !('instance' in server)) throw new Error('No orynx server');
+  const [ours, theirs] = InMemoryTransport.createLinkedPair();
+  await server.instance.close();
+  await server.instance.connect(theirs);
+  const client = new Client({ name: 'test', version: '0.0.0' });
+  await client.connect(ours);
+  return (await client.listTools()).tools.map((tool) => tool.name);
+}
+
+const jiraToolNames = [
+  'list_jira_projects',
+  'search_jira',
+  'get_jira_issue',
+  'comment_on_jira_issue',
+  'transition_jira_issue',
+  'assign_jira_issue',
+];
+
+describe('Jira tools in a session (spec 044)', () => {
+  it('AC-1, AC-3, AC-4: a Build’s search reaches Jira and is a step, on the one orynx server', async () => {
+    const set = await setUp({
+      script: [{ tool: 'mcp__orynx__search_jira', input: { jql: 'assignee = currentUser()' } }, { finish: 'Done.' }],
+    });
+    set.outside.use(acceptingIssueSearch([{ key: 'PROJ-7', summary: 'Crash on save' }]));
+
+    await set.sessions.start(makeComposerStart({ message: 'My bugs?', repositoryId: set.folder?.id, mode: 'build' }));
+    const record = await settled(set.records);
+
+    expect(record.session.activities.find((activity) => activity.kind === 'jira')).toMatchObject({
+      state: 'done',
+      action: 'searched',
+      found: 1,
+      more: false,
+    });
+    expect(Object.keys(set.sdk.runs[0]?.options.mcpServers ?? {})).toEqual(['orynx']);
+  });
+
+  it('AC-5, AC-6: with Jira not connected a run has none; once it is, the next follow-up has them', async () => {
+    const set = await setUp({ jiraConnected: false });
+    await set.sessions.start(
+      makeComposerStart({ message: 'What is left?', repositoryId: set.folder?.id, mode: 'ask' }),
+    );
+    await settled(set.records);
+    // No tools at all here, so no orynx server.
+    expect(set.sdk.runs[0]?.options.mcpServers).toEqual({});
+
+    await set.settings.update((current) => ({ ...current, jira: { site: jiraSite, email: jiraEmail } }));
+    expect(await set.sessions.send('0000000000000001', 'And in Jira?')).toEqual({ result: 'sent' });
+    await settled(set.records);
+
+    expect(await orynxToolsOf(set, 1)).toEqual(jiraToolNames);
+  });
+});
+
 describe('Orynx’s ticket tools in a session (spec 037)', () => {
   async function toolsGiven(mode: 'ask' | 'build') {
     const orynx = createOrynxTicketService({
@@ -435,6 +495,7 @@ describe('Orynx’s ticket tools in a session (spec 037)', () => {
       'set_steps',
       'start_server',
       'stop_server',
+      ...jiraToolNames,
     ]);
     expect(record?.session.activities.find((activity) => activity.kind === 'ticket')).toMatchObject({
       action: 'listed',
@@ -444,7 +505,7 @@ describe('Orynx’s ticket tools in a session (spec 037)', () => {
   });
 
   it('AC-31, AC-44: an Ask session’s agent gets the reading ones only', async () => {
-    expect((await toolsGiven('ask')).names).toEqual(['list_tickets', 'get_ticket']);
+    expect((await toolsGiven('ask')).names).toEqual(['list_tickets', 'get_ticket', ...jiraToolNames]);
   });
 });
 

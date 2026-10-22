@@ -16,7 +16,7 @@ import type { AgentAdapter } from '../agents/agent-adapter.ts';
 import type { GitHubClient, GitHubOpenProblem } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
 import type { BranchGit, CommitProblem, PushProblem } from './branch-git.ts';
-import type { ChangesReader, ReadyChanges, StartPoint } from './changes.ts';
+import { sessionStartPoint, type ChangesReader, type ReadyChanges, type StartPoint } from './changes.ts';
 import { addPullRequestStep } from './progress.ts';
 import {
   commitMessage,
@@ -120,9 +120,7 @@ function baseOf(session: Session): string | null {
 
 /** Where the worktree started (spec 013): the commit, or the base for a session made before 013. Null without one. */
 function startOf(record: StoredSession): StartPoint | null {
-  const base = baseOf(record.session);
-  if (record.startCommit !== null) return { commit: record.startCommit };
-  return base === null ? null : { base };
+  return sessionStartPoint(record.startCommit, baseOf(record.session), record.session.branch);
 }
 
 const cannot = (reason: CannotOpenReason) => ({ result: 'cannot', reason }) as const;
@@ -222,14 +220,18 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
   }
 
   /**
-   * Saves the open pull request GitHub has from `branch` as the session's, linked; true once the session has one.
-   * shortcut: `pushedCommit` stays unset, so Push changes counts from where the worktree started; read the pushed
-   * branch's head if its message ever lists what Claude already pushed.
+   * Saves the open pull request GitHub has from `branch` as the session's, linked; true once the session has one. What
+   * origin's branch holds counts as pushed, so Push changes and Claude's next push count from there.
    */
-  async function linkOpen(id: string, token: string, repository: string, branch: string): Promise<boolean> {
+  async function linkOpen(
+    id: string,
+    token: string,
+    { repository, branch, worktree }: { repository: string; branch: string; worktree: string },
+  ): Promise<boolean> {
     const found = await client.findOpenPull(token, { repository, head: branch });
     if (!found.ok || found.pull === null) return false;
     const { number, url } = found.pull;
+    const pushed = await git.onOrigin(worktree, branch);
     const at = new Date(now()).toISOString();
     const saved = await options.save(id, (current) => {
       if (current.session.pullRequest !== null || current.session.discardedAt !== null) return current;
@@ -243,6 +245,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       );
       return {
         ...current,
+        pushedCommit: pushed ?? current.pushedCommit,
         session: {
           ...current.session,
           // A follow-up under way ends as PR open, as Claude finishing does once there's a pull request.
@@ -276,7 +279,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       if (credentials?.ok !== true) return cannot('not_connected');
       const { repository } = origin;
       // Claude may have opened it already with `gh pr create` (spec 026): then the page shows it instead.
-      if (await linkOpen(id, credentials.token, repository, branch)) return cannot('opened');
+      if (await linkOpen(id, credentials.token, { repository, branch, worktree })) return cannot('opened');
       const listed = await changes.list(worktree, start, editOrder(session));
       if (!listed.ok) return cannot('missing');
       if (listed.changes.files.length === 0) return cannot('no_changes');
@@ -362,13 +365,50 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       const record = await records.get(id);
       if (record === null) return;
       const { session, worktree } = record;
-      if (session.pullRequest !== null || session.discardedAt !== null || session.mode === 'ask') return;
+      if (session.discardedAt !== null || session.mode === 'ask') return;
       if (worktree === null || session.branch === null) return;
+      if (session.pullRequest !== null) {
+        await linkPush(id, record, worktree, session.branch);
+        return;
+      }
       const [origin, credentials] = await Promise.all([git.origin(worktree), options.github.credentials()]);
       if (!origin.ok || credentials?.ok !== true) return;
-      await linkOpen(id, credentials.token, origin.repository, session.branch);
+      await linkOpen(id, credentials.token, { repository: origin.repository, branch: session.branch, worktree });
     },
   };
+
+  /**
+   * Claude's own `git push` to the open pull request, which Settings › Coding agent let it make (spec 026): the Push
+   * step yours makes, so the stepper doesn't stay on Review with nothing left to press (the user's report, 22 Oct 2026).
+   * Only once everything is committed and origin's branch is at HEAD, and HEAD is new since the last push.
+   */
+  async function linkPush(id: string, record: StoredSession, worktree: string, branch: string): Promise<void> {
+    const read = await Promise.all([
+      git.uncommitted(worktree),
+      git.head(worktree),
+      git.onOrigin(worktree, branch),
+    ]).catch(() => null);
+    if (read === null) return;
+    const [uncommitted, head, onOrigin] = read;
+    if (uncommitted.length > 0 || head !== onOrigin || head === (record.pushedCommit ?? record.startCommit)) return;
+    await options.save(id, (current) => {
+      const { pullRequest } = current.session;
+      if (pullRequest === null || current.pushedCommit === head) return current;
+      const {
+        step,
+        activities,
+        steps = [],
+      } = addPullRequestStep(
+        { step: current.session.step, activities: current.session.activities, steps: current.session.steps },
+        { kind: 'pushed', number: pullRequest.number, url: pullRequest.url, files: 0 },
+      );
+      return {
+        ...current,
+        pushedCommit: head,
+        session: { ...current.session, step, steps: [...steps], activities: [...activities] },
+      };
+    });
+  }
 
   type ReadyToPush =
     | { worktree: string; since: StartPoint; uncommitted: string[]; number: number; url: string; branch: string }

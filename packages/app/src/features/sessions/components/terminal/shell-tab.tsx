@@ -1,5 +1,6 @@
 import type { Session, Terminal, TerminalTab } from '@devhub/contracts';
 import { Button, Pill, Skeleton, TerminalView } from '@devhub/ui';
+import { useUiStore } from '../../../../stores/ui-store.ts';
 import { useShellTab } from '../../queries.ts';
 import { shellTabName, terminalWords } from './terminal-words.ts';
 
@@ -76,12 +77,14 @@ export function ShellTab({
   takeFocus: boolean;
 }) {
   const shell = useShellTab(session.id, tab.id);
+  const screenReader = useUiStore((state) => state.terminalScreenReader);
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ShellMeta session={session} worktree={terminal.worktree} />
       <TerminalView
         label={shellTabName(terminal.shell, tab.number, session.id)}
         takeFocus={takeFocus}
+        screenReader={screenReader}
         connect={shell.connect}
         onData={shell.send}
         onResize={shell.resize}

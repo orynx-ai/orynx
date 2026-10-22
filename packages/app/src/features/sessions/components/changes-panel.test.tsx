@@ -183,7 +183,7 @@ describe('ChangesPanel', () => {
       within(screen.getByRole('menu'))
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Rename', 'Pin', 'Delete']);
+    ).toEqual(['Rename', 'Pin', 'Copy link', 'Delete']);
   });
 
   it('AC-7: says the changes couldn’t be read, and Try again reads them', async () => {

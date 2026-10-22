@@ -54,6 +54,8 @@ export interface FakeRun {
   messages: { text: string; uuid: string | undefined; priority: SDKUserMessage['priority'] }[];
   /** What `canUseTool` answered, in the order it answered. */
   decisions: { tool: string; result: PermissionResult }[];
+  /** What each MCP tool answered Claude, in order: what Claude reads, so nothing secret may be in it. */
+  results: { tool: string; text: string; isError: boolean }[];
   /** How many `canUseTool` calls are waiting for an answer now. */
   waiting: number;
   /** Drops every waiting call, as Claude Code does when it no longer needs the answer. */
@@ -118,6 +120,7 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
         prompts: [],
         messages: [],
         decisions: [],
+        results: [],
         waiting: 0,
         cancelAsks: () => {
           for (const controller of asking) controller.abort();
@@ -206,10 +209,12 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
         }
         const result = await client.callTool({ name, arguments: call.input });
         const content = Array.isArray(result.content) ? (result.content as { text?: unknown }[]) : [];
-        return {
+        const answer = {
           text: content.map((block) => (typeof block.text === 'string' ? block.text : '')).join(''),
           isError: result.isError === true,
         };
+        run.results.push({ tool: call.tool, ...answer });
+        return answer;
       }
 
       /** Claude's message with its calls, which Claude Code streams before it asks about them. */

@@ -106,6 +106,7 @@ describe('/api/preferences', () => {
       inboxRules: { ...defaultPreferences.inboxRules, unresolved_comments: false },
       allowedCommands: [],
       editor: 'vscode',
+      jiraChanges: false,
     });
   });
 

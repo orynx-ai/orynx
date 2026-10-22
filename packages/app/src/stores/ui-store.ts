@@ -16,9 +16,12 @@ interface UiState {
   sidebarWidth: number;
   /** The person closed Settings' "Everything stays on this computer" note; it never shows again here (spec 020). */
   localFirstNoteHidden: boolean;
+  /** The terminal's rows as a list a screen reader reads; on until the person turns it off for speed (22 Oct 2026). */
+  terminalScreenReader: boolean;
   toggleSidebar: () => void;
   setSidebarWidth: (width: number) => void;
   hideLocalFirstNote: () => void;
+  setTerminalScreenReader: (on: boolean) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -27,6 +30,7 @@ export const useUiStore = create<UiState>()(
       sidebarCollapsed: false,
       sidebarWidth: sidebarWidthLimits.initial,
       localFirstNoteHidden: false,
+      terminalScreenReader: true,
       toggleSidebar: () => {
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed }));
       },
@@ -39,6 +43,9 @@ export const useUiStore = create<UiState>()(
       },
       hideLocalFirstNote: () => {
         set({ localFirstNoteHidden: true });
+      },
+      setTerminalScreenReader: (on) => {
+        set({ terminalScreenReader: on });
       },
     }),
     {

@@ -47,6 +47,7 @@ import {
 import { AllowedCommands } from './allowed-commands.tsx';
 import { ClaudeCard } from './claude-card.tsx';
 import { EditorChoice } from './editor-choice.tsx';
+import { JiraChanges } from './jira-changes.tsx';
 import { OtherAgents } from './other-agents.tsx';
 import { SaveError } from './save-error.tsx';
 import { SectionHeading } from './section-heading.tsx';
@@ -90,6 +91,7 @@ export function CodingAgentPanel() {
         <SectionHeading id={agentId} icon={RoboticIcon} title="Agent" />
         <ClaudeCard />
         <OtherAgents />
+        <JiraChanges />
         <p className="m-0 text-small text-muted-foreground">
           More agents are coming later. Each one plugs in through the same small adapter, so these settings will apply
           to them too.

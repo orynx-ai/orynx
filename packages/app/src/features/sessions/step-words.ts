@@ -92,9 +92,41 @@ function ticketWords(activity: Extract<SessionActivity, { kind: 'ticket' }>): St
   }
 }
 
+/** What Claude did in Jira (spec 044, Q4, Q10): "Searched Jira" with how many it found, "Moved MAG-12 to In Review". */
+function jiraWords(activity: Extract<SessionActivity, { kind: 'jira' }>): StepWords {
+  const key = activity.key ?? 'an issue';
+  switch (activity.action) {
+    case 'projects':
+      return { title: 'Read Jira projects', detail: null };
+    case 'searched': {
+      const found = activity.found ?? 0;
+      const count = found === 0 ? 'No issues' : `${String(found)} ${found === 1 ? 'issue' : 'issues'}`;
+      return { title: 'Searched Jira', detail: activity.more ? `${count}, more in Jira` : count };
+    }
+    case 'read':
+      return { title: `Read ${key}`, detail: activity.summary };
+    case 'commented':
+      return { title: `Commented on ${key}`, detail: null };
+    case 'moved':
+      return { title: `Moved ${key} to ${activity.to ?? 'another status'}`, detail: null };
+    case 'assigned':
+      return { title: activity.to === 'nobody' ? `Unassigned ${key}` : `Assigned ${key} to you`, detail: null };
+  }
+}
+
+/** What you denied, by the kind of call (spec 012; tickets 037, servers 042, Jira 044). */
+const deniedTitles: Record<Extract<SessionActivity, { kind: 'denied' }>['about'], string> = {
+  command: 'You denied a command',
+  edit: 'You denied an edit',
+  ticket: 'You denied deleting a ticket',
+  server: 'You denied a server',
+  jira: 'You denied a Jira change',
+};
+
 /** What Claude wants: its own line about the command when it gave one, or the file it would edit (spec 012, Q8c). */
 function waitingDetail(activity: Extract<SessionActivity, { kind: 'waiting' }>): string {
   if (activity.about === 'edit') return `Wants to edit ${activity.text ?? 'a file'}`;
+  if (activity.about === 'jira') return `Wants to change ${activity.text ?? 'an issue'} in Jira`;
   return activity.text ?? 'Wants to run a command';
 }
 
@@ -227,10 +259,7 @@ export function stepWords(activity: SessionActivity): StepWords {
       };
     }
     case 'denied':
-      return {
-        title: activity.about === 'command' ? 'You denied a command' : 'You denied an edit',
-        detail: activity.text,
-      };
+      return { title: deniedTitles[activity.about], detail: activity.text };
     case 'no_commands':
       return { title: "Commands are off: Claude Code's sandbox can't run on this computer", detail: null };
     case 'finished':
@@ -249,6 +278,8 @@ export function stepWords(activity: SessionActivity): StepWords {
       };
     case 'ticket':
       return ticketWords(activity);
+    case 'jira':
+      return jiraWords(activity);
     case 'stopped':
       return { title: 'You stopped Claude', detail: keepsChanges };
     case 'interrupted':

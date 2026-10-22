@@ -65,7 +65,7 @@ describe('the address', () => {
     expect(read).toEqual({
       tab: 'jira',
       query: 'bulk archive',
-      filters: { reason: ['in-progress', 'to-do'], project: ['PROJ'], status: ['In Progress'], repo: [] },
+      filters: { reason: ['in-progress', 'to-do'], project: ['PROJ'], status: ['In Progress'], repo: [], type: [] },
       order: 'longest',
       page: 3,
     });
@@ -98,7 +98,7 @@ describe('the address', () => {
       query: 'archive',
       order: 'longest',
       page: 2,
-      filters: { reason: ['checks-failing'], project: [], status: [], repo: ['api'] },
+      filters: { reason: ['checks-failing'], project: [], status: [], repo: ['api'], type: [] },
     });
 
     expect(viewOf(searchForTab(searchFor(on), 'jira'))).toEqual(
@@ -197,6 +197,7 @@ describe('filterMenus', () => {
       'Reason',
       'Project',
       'Status',
+      'Type',
     ]);
     expect(filterMenus(everyRow, 'pull-requests', defaultView.filters).map((menu) => menu.label)).toEqual([
       'Reason',
@@ -226,6 +227,32 @@ describe('filterMenus', () => {
       'To do',
       'In progress',
     ]);
+  });
+
+  it('the Jira tab’s Type filter shows every ticket of that type, whatever its reason', () => {
+    const bug = (key: string, reason: InboxItem['reason']) =>
+      ticket(key, `Bug ${key}`, 'To Do', '2026-10-12T09:00:00.000Z', {
+        subject: { kind: 'issue', key, status: 'To Do', highPriorityBug: false, type: 'Bug' },
+        reason,
+      });
+    const task = ticket('PROJ-1', 'A task', 'To Do', '2026-10-13T09:00:00.000Z', {
+      subject: { kind: 'issue', key: 'PROJ-1', status: 'To Do', highPriorityBug: false, type: 'Task' },
+    });
+    const rows = [
+      bug('PROJ-10', { kind: 'status', category: 'to_do' }),
+      bug('PROJ-11', { kind: 'due', on: '2026-10-24', highPriorityBug: true }),
+      task,
+      archive,
+    ];
+
+    const type = filterMenus(rows, 'jira', defaultView.filters).find((menu) => menu.label === 'Type');
+    expect(type?.options).toEqual([
+      { value: 'Bug', label: 'Bug' },
+      { value: 'Task', label: 'Task' },
+    ]);
+    const filters = { ...defaultView.filters, type: ['Bug'] };
+    expect(titles(showView(rows, view({ tab: 'jira', filters })).rows)).toEqual(['Bug PROJ-10', 'Bug PROJ-11']);
+    expect(viewOf(HomeSearchSchema.parse({ inbox: 'jira', type: 'Bug' })).filters.type).toEqual(['Bug']);
   });
 
   it('AC-37: keeps a ticked option that no row has any more, so it can be unticked', () => {

@@ -48,6 +48,25 @@ describe('Profile menu', () => {
     expect(screen.queryByRole('menu')).toBeNull();
   });
 
+  it('has Screen reader support in the terminal under Appearance, on until you turn it off, and remembers it', async () => {
+    const { user } = await renderApp();
+
+    await user.click(await footer());
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowRight}');
+    const appearance = await screen.findByRole('menu', { name: 'Appearance' });
+    const support = within(appearance).getByRole('menuitemcheckbox', {
+      name: /^Screen reader support in the terminal/,
+    });
+    expect(support).toHaveAttribute('aria-checked', 'true');
+
+    await user.click(support);
+
+    expect(support).toHaveAttribute('aria-checked', 'false');
+    expect(JSON.parse(localStorage.getItem('devhub.ui') ?? '{}')).toMatchObject({
+      state: { terminalScreenReader: false },
+    });
+  });
+
   it('opens Settings', async () => {
     const { user, history } = await renderApp();
 

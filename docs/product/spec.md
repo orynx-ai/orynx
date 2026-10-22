@@ -170,10 +170,10 @@ Each integration is a small adapter on the local server. All of them use the dev
 
 | Tool | How you connect | What DevHub reads | What DevHub writes | Setup effort |
 | --- | --- | --- | --- | --- |
-| Jira | Site address + email + personal API token | Issues assigned to you, current sprint, issue details and comments | New issue from the column + button | 2 minutes |
+| Jira | Site address + email + personal API token | Issues assigned to you, current sprint, issue details and comments | New issue from the column + button; from a session, a comment, a status change or an assignment, each after your Allow or with Claude changes Jira on | 2 minutes |
 | GitHub | Reuses the `gh` command-line login, or a personal access token | PRs where your review is requested, your PRs, checks, review comments | Pushes the session branch, opens the PR | 1 minute if `gh` is set up |
 | Slack | Slack app with a user token (`search:read`, `channels:history`, `im:history`) | Mentions and DMs to you, and threads you add as context | Nothing in v1 (Reply opens Slack) | Needs Slack admin approval |
-| Claude | Claude Agent SDK, signed in with your company Claude login | Nothing; it receives the brief you send | Edits files in the session worktree; runs allowed commands | Already done if Claude Code works on your laptop |
+| Claude | Claude Agent SDK, signed in with your company Claude login | Nothing; it receives the brief you send, and reads Jira through Orynx's tools while Jira is connected | Edits files in the session worktree; runs allowed commands | Already done if Claude Code works on your laptop |
 
 **Agent adapter.** Claude plugs in through one small interface so other agents can follow later without changing the screens:
 
@@ -224,7 +224,7 @@ DevHub keeps everything on the developer's laptop and has no server of its own.
 - The web server listens on `127.0.0.1` only, with a random session token in the page, so other machines and other sites cannot call it.
 - Claude's working folder is the worktree; it cannot edit your main checkout.
 - Push, network calls and deletes outside the worktree always need approval.
-- What is sent to Claude is exactly the brief shown in the composer chips; Slack data goes only when you add a thread.
+- What is sent to Claude is exactly the brief shown in the composer chips, plus what Claude reads from Jira with Orynx's Jira tools, each shown as a step; Slack data goes only when you add a thread.
 - No telemetry in version 1.
 
 ## Design system and accessibility

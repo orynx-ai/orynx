@@ -229,6 +229,24 @@ test('AC-3, AC-4: picking a file shows its diff, a reload keeps it, and reading 
   expect(untouched(worktree)).toEqual(before);
 });
 
+test('with many changed files, scrolling to the end never slides the sidebar up past the window (the user’s report, 22 Oct 2026)', async ({
+  page,
+}) => {
+  const worktree = worktreeOf('feat/CHG-1') ?? '';
+  const many = Array.from({ length: 30 }, (_, index) => join(worktree, `note-${String(index)}.md`));
+  for (const file of many) writeFileSync(file, '# note\n');
+  await page.setViewportSize({ width: 1512, height: 900 });
+  await page.goto(seen.working ?? '');
+  await expect(changedFiles(page).getByRole('button', { name: /^note-29\.md/ })).toBeAttached();
+
+  await page.evaluate(() => {
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  });
+
+  expect(await page.getByRole('navigation', { name: 'Main' }).boundingBox()).toMatchObject({ y: 0, height: 900 });
+  for (const file of many) rmSync(file);
+});
+
 test('AC-9: the Ticket tab shows the ticket as Claude got it, and the address keeps the tab', async ({ page }) => {
   await page.goto(seen.working ?? '');
 

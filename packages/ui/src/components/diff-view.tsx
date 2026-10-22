@@ -61,7 +61,8 @@ export function DiffView({ path, lines, className, ...props }: DiffViewProps) {
       data-slot="diff-view"
       role="region"
       aria-label={`Changes in ${fileName(path)}`}
-      className={cn('min-w-0 overflow-hidden rounded-md border border-border bg-raised', className)}
+      // Relative, so the header's hidden words are clipped here, not by the page.
+      className={cn('relative min-w-0 overflow-hidden rounded-md border border-border bg-raised', className)}
       {...props}
     >
       <div className="group flex items-center gap-2 border-b border-border bg-sidebar px-3 py-2 font-mono text-code">
@@ -123,7 +124,8 @@ export function DiffViewSkeleton({
     <div
       data-slot="diff-view-skeleton"
       aria-hidden
-      className={cn('min-w-0 overflow-hidden rounded-md border border-border bg-raised', className)}
+      // Relative, so the header's hidden words are clipped here, not by the page.
+      className={cn('relative min-w-0 overflow-hidden rounded-md border border-border bg-raised', className)}
       {...props}
     >
       {/* The header's padding and one 20 px line, as in the real header. */}

@@ -26,6 +26,7 @@ describe('Jira map', () => {
       status: 'In review',
       category: 'in_progress',
       highPriorityBug: false,
+      type: 'Task',
       dueDate: null,
       waitingSince: '2026-10-15T09:12:00.000Z',
       url: 'https://your-team.atlassian.net/browse/PROJ-1423',
@@ -58,6 +59,22 @@ describe('Jira map', () => {
     ]);
 
     expect(kept.map((record) => record.highPriorityBug)).toEqual([true, true, false, false, false]);
+  });
+
+  it('keeps the issue type’s name as Jira shows it, for Home’s Type filter', () => {
+    const kept = records([
+      { key: 'PROJ-1', type: 'Bug' },
+      { key: 'PROJ-2', type: ' Story ' },
+    ]);
+
+    expect(kept.map((record) => record.type)).toEqual(['Bug', 'Story']);
+  });
+
+  it('still reads a record cached before Orynx kept the type', () => {
+    const [record] = records([{ key: 'PROJ-1' }]);
+    const { type: _type, ...cached } = record ?? {};
+
+    expect(JiraIssueRecordSchema.safeParse(cached).success).toBe(true);
   });
 
   it('AC-5: follows the site’s own order of priorities, not their ids', () => {

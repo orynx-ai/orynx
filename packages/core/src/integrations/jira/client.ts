@@ -2,6 +2,7 @@ import type * as JiraCore from 'jira.js/core';
 import { z } from 'zod';
 import { JiraProjectKeySchema, type JiraProject } from '@devhub/contracts';
 import { adfToMarkdown } from './adf-markdown.ts';
+import { markdownToAdf } from './markdown-adf.ts';
 
 /**
  * The only file in DevHub that talks to Jira (integration-adapter skill). The token goes into the
@@ -111,6 +112,39 @@ export interface JiraIssueContext extends JiraIssueDetail {
 
 export type JiraIssueContextAnswer = { ok: true; issue: JiraIssueContext } | { ok: false; problem: JiraProblem };
 
+/**
+ * One issue a session's search found (spec 044): what a list of issues shows, by name, never a description, a
+ * comment or anything about a person but their display name.
+ */
+export interface JiraFoundIssue {
+  key: string;
+  summary: string;
+  type: string | null;
+  status: string | null;
+  /** Jira's category for the status: `new`, `indeterminate` or `done`. */
+  category: string | null;
+  priority: string | null;
+  assignee: string | null;
+  dueDate: string | null;
+  updated: string | null;
+}
+
+/**
+ * What a search found, and whether Jira found more; or why it couldn't: a problem, or, for a query Jira refused, Jira's
+ * own words about it (spec 044, Q6).
+ */
+export type JiraSearch =
+  | { ok: true; issues: JiraFoundIssue[]; more: boolean }
+  | { ok: false; problem: JiraProblem }
+  | { ok: false; refused: string };
+
+/** A change a session asked for (spec 044): done; a problem; or, when Jira refused it, Jira's own words. */
+export type JiraChange = { ok: true } | { ok: false; problem: JiraProblem } | { ok: false; refused: string };
+
+/** An issue's status's name, and where it can move from there: each transition's id and the status it leads to. */
+export type JiraTransitions =
+  { ok: true; status: string | null; transitions: { id: string; to: string }[] } | { ok: false; problem: JiraProblem };
+
 /** Who the credentials belong to, for "Assigned to you" on a sprint Tickets reads by its id (spec 020). */
 export type JiraAccount = { ok: true; accountId: string } | { ok: false; problem: JiraProblem };
 
@@ -174,6 +208,23 @@ export interface JiraClient {
   issueContext(request: JiraCheckRequest, key: string): Promise<JiraIssueContextAnswer>;
   /** Who these credentials belong to (`GET /rest/api/3/myself`), for a sprint Tickets reads by its id (spec 020). */
   account(request: JiraCheckRequest): Promise<JiraAccount>;
+  /**
+   * Any JQL Claude sends from a session (spec 044), as it is: its first `limit` issues (`POST /rest/api/3/search/jql`)
+   * and whether Jira found more. A query Jira refuses (400) comes back with Jira's own words, at most 500 characters.
+   * shortcut: one page only, at most 100; Claude narrows the query rather than paging. Page on if that falls short.
+   */
+  search(request: JiraCheckRequest, jql: string, limit: number): Promise<JiraSearch>;
+  /** Comments on an issue (`POST /rest/api/3/issue/{key}/comment`), the Markdown written as Jira's own format. */
+  comment(request: JiraCheckRequest, key: string, markdown: string): Promise<JiraChange>;
+  /**
+   * An issue's status and its own transitions, each by the status it leads to (`GET /rest/api/3/issue/{key}`,
+   * `expand=transitions`): a status is matched only within this issue's workflow, never by name across workflows.
+   */
+  transitions(request: JiraCheckRequest, key: string): Promise<JiraTransitions>;
+  /** Moves an issue by one of its transitions' ids (`POST /rest/api/3/issue/{key}/transitions`). */
+  transition(request: JiraCheckRequest, key: string, transitionId: string): Promise<JiraChange>;
+  /** Assigns an issue to an account, or to nobody (`PUT /rest/api/3/issue/{key}/assignee`). */
+  assign(request: JiraCheckRequest, key: string, accountId: string | null): Promise<JiraChange>;
   /**
    * A project's active sprints, then its future ones (spec 020, AC-26): its Scrum boards
    * (`/rest/agile/1.0/board?projectKeyOrId=`, at most 10), then each board's open sprints
@@ -423,6 +474,47 @@ const mySprintsJql = 'assignee = currentUser() AND sprint in openSprints() AND s
 const mostMySprintIssues = 100;
 
 const sprintFields = ['summary', 'status', 'issuetype', 'priority', 'duedate', 'assignee'];
+const foundFields = ['summary', 'issuetype', 'status', 'priority', 'assignee', 'duedate', 'updated'];
+
+const FoundIssueSchema = z.object({
+  key: z.string().min(1),
+  fields: z.object({
+    summary: z.string().nullish(),
+    issuetype: z.object({ name: z.string() }).nullish(),
+    status: z.object({ name: z.string(), statusCategory: z.object({ key: z.string() }) }).nullish(),
+    priority: z.object({ name: z.string().nullish() }).nullish(),
+    assignee: z.object({ displayName: z.string().nullish() }).nullish(),
+    duedate: z.string().nullish(),
+    updated: z.string().nullish(),
+  }),
+});
+
+const FoundPageSchema = z.object({ issues: z.array(z.unknown()), isLast: z.boolean().nullish() });
+
+const TransitionsSchema = z.object({
+  fields: z.object({ status: z.object({ name: z.string() }).nullish() }),
+  transitions: z.array(z.object({ id: z.string(), to: z.object({ name: z.string() }) })).nullish(),
+});
+
+/** Jira's error answer: its messages, and its words for each field. */
+const JiraErrorBodySchema = z.object({
+  errorMessages: z.array(z.string()).nullish(),
+  errors: z.record(z.string(), z.string()).nullish(),
+});
+
+/**
+ * Jira's own words for what it refused, at most 500 characters (spec 044, Q6), for Claude to read: never the request
+ * that carried it, and never the login's email or token, should Jira's words hold them (AC-11).
+ */
+function jiraReason(body: unknown, { email, apiToken }: JiraCheckRequest): string {
+  const parsed = JiraErrorBodySchema.safeParse(body);
+  const words = parsed.success
+    ? [...(parsed.data.errorMessages ?? []), ...Object.values(parsed.data.errors ?? {})]
+    : [];
+  const reason = words.join(' ').replaceAll(apiToken, '…').replaceAll(email, 'your account').trim();
+  return (reason === '' ? 'Jira refused it without saying why.' : reason).slice(0, 500);
+}
+
 const sprintIssuesPerPage = 100;
 const mostSprintIssues = 300;
 
@@ -452,6 +544,31 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
     } catch (error) {
       return { ok: false, problem: problemOf(sdk, error) };
     }
+  }
+
+  /**
+   * Sends a change a session asked for (spec 044). Jira refusing it, for a bad value (400) or a missing permission
+   * (403 that isn't a sign-in), comes back with Jira's own words; anything else is a problem.
+   */
+  async function change(
+    request: JiraCheckRequest,
+    send: (client: JiraCore.Client, signal: AbortSignal) => Promise<unknown>,
+  ): Promise<JiraChange> {
+    const answer = await withJira(request, async (client, sdk) => {
+      try {
+        await send(client, AbortSignal.timeout(timeoutMs));
+        return null;
+      } catch (error) {
+        // A 403 that is a sign-in (an AuthError) stays a problem: it says nothing about this change.
+        if (sdk.isApiError(error) && (error.status === 400 || error.status === 403)) {
+          const { body } = error;
+          if (!sdk.isAuthError(error)) return jiraReason(body, request);
+        }
+        throw error;
+      }
+    });
+    if (!answer.ok) return answer;
+    return answer.value === null ? { ok: true } : { ok: false, refused: answer.value };
   }
 
   /**
@@ -705,6 +822,99 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
           updated: fields.updated ?? null,
         },
       };
+    },
+
+    async search(request, jql, limit) {
+      const answer = await withJira(request, async (client, sdk) => {
+        try {
+          const page = await client.sendRequest({
+            url: '/rest/api/3/search/jql',
+            method: 'POST',
+            body: { jql, fields: foundFields, maxResults: limit },
+            schema: FoundPageSchema,
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+          const issues = page.issues.flatMap((found): JiraFoundIssue[] => {
+            const issue = FoundIssueSchema.safeParse(found);
+            if (!issue.success) return [];
+            const { fields } = issue.data;
+            return [
+              {
+                key: issue.data.key,
+                summary: fields.summary ?? '',
+                type: fields.issuetype?.name ?? null,
+                status: fields.status?.name ?? null,
+                category: fields.status?.statusCategory.key ?? null,
+                priority: fields.priority?.name ?? null,
+                assignee: fields.assignee?.displayName ?? null,
+                dueDate: fields.duedate ?? null,
+                updated: fields.updated ?? null,
+              },
+            ];
+          });
+          return { issues, more: page.isLast === false };
+        } catch (error) {
+          // Jira read the query and refused it: its words let Claude fix it.
+          if (sdk.isApiError(error) && error.status === 400) return { refused: jiraReason(error.body, request) };
+          throw error;
+        }
+      });
+      if (!answer.ok) return answer;
+      return 'refused' in answer.value ? { ok: false, refused: answer.value.refused } : { ok: true, ...answer.value };
+    },
+
+    comment(request, key, markdown) {
+      return change(request, (client, signal) =>
+        client.sendRequest({
+          url: `/rest/api/3/issue/${encodeURIComponent(key)}/comment`,
+          method: 'POST',
+          body: { body: markdownToAdf(markdown) },
+          signal,
+        }),
+      );
+    },
+
+    async transitions(request, key) {
+      const answer = await withJira(request, (client) =>
+        client.sendRequest({
+          url: `/rest/api/3/issue/${encodeURIComponent(key)}`,
+          method: 'GET',
+          searchParams: { fields: 'status', expand: 'transitions' },
+          schema: TransitionsSchema,
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+      );
+      if (!answer.ok) return answer;
+      return {
+        ok: true,
+        status: answer.value.fields.status?.name ?? null,
+        transitions: (answer.value.transitions ?? []).map((transition) => ({
+          id: transition.id,
+          to: transition.to.name,
+        })),
+      };
+    },
+
+    transition(request, key, transitionId) {
+      return change(request, (client, signal) =>
+        client.sendRequest({
+          url: `/rest/api/3/issue/${encodeURIComponent(key)}/transitions`,
+          method: 'POST',
+          body: { transition: { id: transitionId } },
+          signal,
+        }),
+      );
+    },
+
+    assign(request, key, accountId) {
+      return change(request, (client, signal) =>
+        client.sendRequest({
+          url: `/rest/api/3/issue/${encodeURIComponent(key)}/assignee`,
+          method: 'PUT',
+          body: { accountId },
+          signal,
+        }),
+      );
     },
 
     async account(request) {

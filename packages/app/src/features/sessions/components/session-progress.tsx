@@ -23,6 +23,7 @@ import {
   Callout,
   Icon,
   IconButton,
+  Markdown,
   Panel,
   Skeleton,
   Stepper,
@@ -69,6 +70,7 @@ const kindIcons = {
   pull_request: GitPullRequestIcon,
   pushed: GitPullRequestIcon,
   ticket: Ticket01Icon,
+  jira: Ticket01Icon,
   stopped: StopIcon,
   interrupted: PowerIcon,
   discarded: Delete02Icon,
@@ -91,7 +93,9 @@ function look(activity: SessionActivity): { state: ActivityStepState | undefined
   }
   // A call waiting for you is amber, with the kind of work it waits to do (spec 012, as session.html draws it).
   if (activity.kind === 'waiting') {
-    return { state: 'waiting', icon: <Icon icon={activity.about === 'edit' ? PencilEdit01Icon : TerminalIcon} /> };
+    const waitsFor =
+      activity.about === 'edit' ? PencilEdit01Icon : activity.about === 'jira' ? Ticket01Icon : TerminalIcon;
+    return { state: 'waiting', icon: <Icon icon={waitsFor} /> };
   }
   return { state: undefined, icon: <Icon icon={kindIcons[activity.kind]} /> };
 }
@@ -148,9 +152,23 @@ function commandsDetail(commands: readonly string[]): ReactNode {
   );
 }
 
+/** Claude's summary laid out as the Markdown it writes, not its raw marks. */
+function Summary({ text }: { text: string }) {
+  const platform = usePlatform();
+  return (
+    <Markdown
+      text={text}
+      onOpenLink={(url) => {
+        platform.openExternal(url);
+      }}
+    />
+  );
+}
+
 /** A step's line under its title: commands as code, the brief's files by name with their paths on hover. */
 function detailOf(activity: SessionActivity, detail: string | null): ReactNode {
   if (activity.kind === 'command') return commandsDetail(activity.commands);
+  if (activity.kind === 'finished' && detail !== null) return <Summary text={activity.summary} />;
   if (activity.kind === 'denied' && activity.about === 'command') return <Command>{activity.text}</Command>;
   if (activity.kind === 'refused' && activity.access === 'run') return <Command>{activity.path}</Command>;
   // The brief's files show by name; their full paths are the tooltip (spec 022, AC-17).

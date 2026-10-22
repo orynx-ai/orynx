@@ -139,6 +139,48 @@
   box-shadow: var(--shadow-overlay);
 }
 
+/* A scroll box whose top and bottom fade out only where more is hidden past them, since nothing shows a scrollbar (the
+   user's call, 22 Oct 2026): the sidebar's sessions. Tied to the box's own scrolling; a box that doesn't scroll, or a
+   browser that can't tie an animation to scrolling, fades nothing. */
+@property --fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes scroll-fade-y {
+  0% {
+    --fade-top: 0px;
+    --fade-bottom: calc(var(--spacing) * 8);
+  }
+  10%,
+  90% {
+    --fade-top: calc(var(--spacing) * 8);
+    --fade-bottom: calc(var(--spacing) * 8);
+  }
+  100% {
+    --fade-top: calc(var(--spacing) * 8);
+    --fade-bottom: 0px;
+  }
+}
+@utility scroll-fade-y {
+  @supports (animation-timeline: scroll()) {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent,
+      #000 var(--fade-top),
+      #000 calc(100% - var(--fade-bottom)),
+      transparent
+    );
+    animation: scroll-fade-y linear both;
+    animation-timeline: scroll(self);
+  }
+}
+
 @layer base {
   /* No scrollbars anywhere (the user's call, 20 Oct 2026, spec 039): everything still scrolls by trackpad, wheel and
      keyboard, and lists that scroll sideways say so by cutting their last item short. */

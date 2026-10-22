@@ -34,6 +34,52 @@ describe('stepWords (Q10a)', () => {
     expect(step({ ...ticket, action: 'updated' })).toEqual({ title: 'Updated ORX-7', detail: null });
   });
 
+  it('AC-1, AC-2, Q4, Q10 (spec 044): what Claude did in Jira', () => {
+    const jira = {
+      kind: 'jira' as const,
+      state: 'done' as const,
+      key: 'MAG-12',
+      summary: null,
+      found: null,
+      more: false,
+      to: null,
+    };
+    expect(step({ ...jira, action: 'projects', key: null })).toEqual({ title: 'Read Jira projects', detail: null });
+    const searched = { ...jira, action: 'searched' as const, key: null };
+    expect(step({ ...searched, found: 12 })).toEqual({ title: 'Searched Jira', detail: '12 issues' });
+    expect(step({ ...searched, found: 1 })).toEqual({ title: 'Searched Jira', detail: '1 issue' });
+    expect(step({ ...searched, found: 0 })).toEqual({ title: 'Searched Jira', detail: 'No issues' });
+    expect(step({ ...searched, found: 100, more: true })).toEqual({
+      title: 'Searched Jira',
+      detail: '100 issues, more in Jira',
+    });
+    expect(step({ ...jira, action: 'read', summary: 'Crash on save' })).toEqual({
+      title: 'Read MAG-12',
+      detail: 'Crash on save',
+    });
+    expect(step({ ...jira, action: 'commented' })).toEqual({ title: 'Commented on MAG-12', detail: null });
+    expect(step({ ...jira, action: 'moved', to: 'In Review' })).toEqual({
+      title: 'Moved MAG-12 to In Review',
+      detail: null,
+    });
+    expect(step({ ...jira, action: 'assigned', to: 'me' })).toEqual({ title: 'Assigned MAG-12 to you', detail: null });
+    expect(step({ ...jira, action: 'assigned', to: 'nobody' })).toEqual({ title: 'Unassigned MAG-12', detail: null });
+  });
+
+  it('AC-13, Q10 (spec 044): a Jira change waiting for you, and one you denied', () => {
+    expect(
+      step({ kind: 'waiting', state: 'running', approvalId: 'approval-1', about: 'jira', text: 'MAG-12' }),
+    ).toEqual({ title: 'Waiting for your approval', detail: 'Wants to change MAG-12 in Jira' });
+    expect(step({ kind: 'denied', state: 'done', about: 'jira', text: 'MAG-12' })).toEqual({
+      title: 'You denied a Jira change',
+      detail: 'MAG-12',
+    });
+    expect(step({ kind: 'denied', state: 'done', about: 'server', text: 'next dev' })).toEqual({
+      title: 'You denied a server',
+      detail: 'next dev',
+    });
+  });
+
   it('AC-2: the worktree, while git works and once made', () => {
     const worktree = { kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true } as const;
     expect(step({ ...worktree, state: 'running', fetched: false })).toEqual({

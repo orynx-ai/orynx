@@ -215,6 +215,7 @@ function withChange(preferences: Preferences, change: PreferencesChange): Prefer
     inboxRules: { ...preferences.inboxRules, ...change.inboxRules },
     allowedCommands: withCommandChange(preferences.allowedCommands, change),
     editor: change.editor ?? preferences.editor,
+    jiraChanges: change.jiraChanges ?? preferences.jiraChanges,
   };
 }
 
@@ -257,12 +258,14 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
     }
   }
   const editorStillSet = change.editor !== undefined && current.editor === change.editor;
+  const jiraStillSet = change.jiraChanges !== undefined && current.jiraChanges === change.jiraChanges;
   return {
     permissions,
     repositoryPermissions,
     inboxRules,
     allowedCommands,
     editor: editorStillSet ? saved.editor : current.editor,
+    jiraChanges: jiraStillSet ? saved.jiraChanges : current.jiraChanges,
   };
 }
 

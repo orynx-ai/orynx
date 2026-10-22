@@ -1,12 +1,30 @@
-import type { AlwaysAskReason, SessionApproval } from '@devhub/contracts';
+import type { AlwaysAskReason, JiraChangeAsk, SessionApproval } from '@devhub/contracts';
 
 /**
  * The words of the approval callout and the pill (spec 012, Q8a, Q8b, Q8d, Q8e, Q9). The server sends what
  * waits and why; these say it.
  */
 
+/** What a Jira change asks (spec 044, Q10): "Claude wants to move MAG-12 to In Review". */
+function jiraChangeTitle(key: string, change: JiraChangeAsk): string {
+  switch (change.action) {
+    case 'comment':
+      return `Claude wants to comment on ${key}`;
+    case 'transition':
+      return `Claude wants to move ${key} to ${change.to}`;
+    case 'assign':
+      return change.to === 'me' ? `Claude wants to assign ${key} to you` : `Claude wants to unassign ${key}`;
+  }
+}
+
+/** Where a move goes from and to (spec 044): "To Do → In Review". */
+export function jiraMoveLine(change: Extract<JiraChangeAsk, { action: 'transition' }>): string {
+  return `${change.from ?? 'Its status'} → ${change.to}`;
+}
+
 export function approvalTitle(approval: SessionApproval): string {
   if (approval.kind === 'command') return 'Claude wants to run a command';
+  if (approval.kind === 'jira') return jiraChangeTitle(approval.key, approval.change);
   if (approval.kind === 'ticket') return 'Claude wants to delete a ticket';
   if (approval.kind === 'server') return 'Claude wants to start a server';
   return approval.creates ? 'Claude wants to create a file' : 'Claude wants to edit a file';
@@ -22,6 +40,8 @@ export const approvalButtons = {
   deny: 'Deny',
   // A server's Always allow covers the session's repository (spec 042, Q7).
   alwaysServer: 'Always allow in this repository',
+  // A Jira change's Always allow turns Claude changes Jira on (spec 044, AC-17).
+  alwaysJira: 'Always allow Jira changes',
 } as const;
 
 /** Where a server would run, and what that means (spec 042, Q7). */
@@ -53,13 +73,18 @@ export function alwaysAskLine(reason: AlwaysAskReason): string {
   }
 }
 
-export type AnswerError = { kind: 'not_sent' } | { kind: 'not_saved'; entry: string };
+export type AnswerError = { kind: 'not_sent' } | { kind: 'not_saved'; entry: string } | { kind: 'jira_not_on' };
 
 /** What went wrong with an answer (Q8e); the call keeps waiting. */
 export function answerErrorLine(error: AnswerError): string {
-  return error.kind === 'not_sent'
-    ? "Couldn't send your answer. Try again."
-    : `Couldn't save ${error.entry} to your allow list. Try again, or allow it once.`;
+  switch (error.kind) {
+    case 'not_sent':
+      return "Couldn't send your answer. Try again.";
+    case 'not_saved':
+      return `Couldn't save ${error.entry} to your allow list. Try again, or allow it once.`;
+    case 'jira_not_on':
+      return "Couldn't turn on Claude changes Jira. Try again, or allow it once.";
+  }
 }
 
 /** The lines of a change past the ones shown (Q9). */

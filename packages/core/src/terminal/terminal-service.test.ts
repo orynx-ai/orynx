@@ -131,7 +131,7 @@ describe('the terminal service', () => {
     await tab.shows('done\r\n');
 
     const replay = screen(terminal).frames[0]?.data ?? '';
-    expect(replay.length).toBeLessThanOrEqual(200);
+    expect(replay.length).toBeLessThanOrEqual(100);
     expect(replay).toContain('line 49\r\n');
     expect(replay).not.toContain('line 1\r\n');
     expect(replay.startsWith('line') || replay.startsWith('done') || replay.startsWith('$')).toBe(true);
@@ -181,6 +181,9 @@ describe('the terminal service', () => {
     terminal.read(session, join(worktree, 'gone'));
     const tab = screen(terminal);
     expect(tab.text()).toContain("Couldn't run this. The worktree isn't there any more.");
+    // Output waits a moment to go out in one piece; what the replay held never comes a second time.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(tab.text().split("Couldn't run this.")).toHaveLength(2);
     expect(terminal.write(session, 'tab-1', 'ls\r')).toBe(true);
   });
 

@@ -23,6 +23,46 @@ describe('SessionsScreen', () => {
     expect(links[6]).toHaveAttribute('href', '/sessions/session-7');
   });
 
+  it('Select picks several sessions, and Delete takes them all after one confirm (the user’s call, 22 Oct 2026)', async () => {
+    const { deleted } = serveSessions([
+      { title: 'Add bulk archive', state: 'done' },
+      { title: 'Tidy the README', state: 'stopped' },
+      { title: 'Fix the login', state: 'working' },
+    ]);
+    const { user } = await renderApp({ route: '/sessions' });
+
+    await user.click(await within(content()).findByRole('button', { name: 'Select' }));
+    expect(within(content()).getByRole('checkbox', { name: 'Select Fix the login' })).toBeDisabled();
+    await user.click(within(content()).getByRole('checkbox', { name: 'Select Add bulk archive' }));
+    await user.click(within(content()).getByRole('checkbox', { name: 'Select Tidy the README' }));
+    expect(within(content()).getByText('2 selected')).toBeVisible();
+    await user.click(within(content()).getByRole('button', { name: 'Delete' }));
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Delete 2 sessions?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).toBeNull();
+    });
+    expect(deleted).toEqual(['session-1', 'session-2']);
+    expect(await within(content()).findByRole('link', { name: /^Fix the login/ })).toBeVisible();
+    expect(within(content()).queryByRole('link', { name: /^Add bulk archive/ })).toBeNull();
+    expect(within(content()).queryByRole('checkbox')).toBeNull();
+    expect(within(content()).getByRole('button', { name: 'Select' })).toBeVisible();
+  });
+
+  it('Cancel leaves Select without deleting anything', async () => {
+    const { deleted } = serveSessions([{ title: 'Add bulk archive', state: 'done' }]);
+    const { user } = await renderApp({ route: '/sessions' });
+
+    await user.click(await within(content()).findByRole('button', { name: 'Select' }));
+    await user.click(within(content()).getByRole('checkbox', { name: 'Select Add bulk archive' }));
+    await user.click(within(content()).getByRole('button', { name: 'Cancel' }));
+
+    expect(within(content()).queryByRole('checkbox')).toBeNull();
+    expect(deleted).toEqual([]);
+  });
+
   it('AC-10: shows that there are no sessions and how to start one', async () => {
     await renderApp({ route: '/sessions' });
 

@@ -175,6 +175,32 @@ describe('SessionProgress', () => {
     ).toHaveAttribute('aria-current', 'step');
   });
 
+  it('lays out Claude’s summary as Markdown: headings, bold and code, not the raw marks', async () => {
+    server.use(
+      sessionHandler(
+        session({
+          state: 'done',
+          runStartedAt: null,
+          activities: [
+            {
+              id: 'step-1',
+              state: 'done',
+              kind: 'finished',
+              summary:
+                'I’d pick MAI-7091 first.\n\n## Pick: clear cause\n\n**MAI-7091: role button.** See `member-role-menu.tsx:137`.',
+            },
+          ],
+        }),
+      ),
+    );
+    await renderApp({ route });
+    const pane = await progress();
+    expect(pane.getByRole('heading', { name: 'Pick: clear cause' })).toBeVisible();
+    expect(pane.getByText('MAI-7091: role button.').tagName).toBe('STRONG');
+    expect(pane.getByText('member-role-menu.tsx:137').tagName).toBe('CODE');
+    expect(pane.queryByText(/##|\*\*/)).toBeNull();
+  });
+
   it('AC-13 (Q10f): a session that couldn’t start says why at the top, with the command as code', async () => {
     server.use(
       sessionHandler(

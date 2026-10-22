@@ -28,6 +28,11 @@ export type TerminalViewProps = Omit<ComponentProps<'div'>, 'children' | 'onResi
   onResize: (size: TerminalViewSize) => void;
   /** Takes focus once it's drawn. */
   takeFocus?: boolean;
+  /**
+   * Keeps its rows as a list a screen reader reads; on by default. It costs work on every character drawn, so it can
+   * be turned off when a busy program (Claude) makes the terminal slow (the user's call, 22 Oct 2026).
+   */
+  screenReader?: boolean;
 };
 
 /**
@@ -61,10 +66,19 @@ function themeOf(element: HTMLElement): ITheme {
 /**
  * A real terminal (spec 038), drawn by xterm.js: what `connect` feeds it shows as a terminal would, colours and
  * full-screen programs included, and what you type comes out of `onData`. It fills its box and says its size in
- * characters whenever that changes. Its rows are also a list a screen reader can read. A key something else has
+ * characters whenever that changes. Its rows are also a list a screen reader can read, unless `screenReader` is off. A key something else has
  * already handled (a shortcut caught on the window) never reaches it.
  */
-export function TerminalView({ label, connect, onData, onResize, takeFocus, className, ...props }: TerminalViewProps) {
+export function TerminalView({
+  label,
+  connect,
+  onData,
+  onResize,
+  takeFocus,
+  screenReader = true,
+  className,
+  ...props
+}: TerminalViewProps) {
   const host = useRef<HTMLDivElement>(null);
   const terminal = useRef<Terminal | null>(null);
   const feed = useEffectEvent(connect);
@@ -149,6 +163,10 @@ export function TerminalView({ label, connect, onData, onResize, takeFocus, clas
   useEffect(() => {
     terminal.current?.textarea?.setAttribute('aria-label', label);
   }, [label]);
+
+  useEffect(() => {
+    if (terminal.current !== null) terminal.current.options.screenReaderMode = screenReader;
+  }, [screenReader]);
 
   useEffect(() => {
     if (takeFocus) terminal.current?.focus();

@@ -81,6 +81,8 @@ export const PreferencesSchema = z.object({
   /** Commands that run without asking while `permissions.commands` is `allowed_list` (spec 012), as saved, in order. */
   allowedCommands: z.array(z.string().min(1)),
   editor: EditorSchema,
+  /** Claude comments on, moves and assigns Jira issues without asking first (spec 044, Q8); off, each one asks. */
+  jiraChanges: z.boolean(),
 });
 export type Preferences = z.infer<typeof PreferencesSchema>;
 
@@ -97,6 +99,7 @@ export const defaultPreferences: Preferences = {
   },
   allowedCommands: [],
   editor: 'vscode',
+  jiraChanges: false,
 };
 
 /**
@@ -116,9 +119,10 @@ export const PreferencesChangeSchema = z
     /** One entry to take off the list, as it was saved. */
     disallowCommand: z.string().min(1).optional(),
     editor: EditorSchema.optional(),
+    jiraChanges: z.boolean().optional(),
   })
   .refine((change) => Object.values(change).some((value) => value !== undefined), {
-    message: 'Send a permission, at least one rule, a command, or the editor.',
+    message: 'Send a permission, at least one rule, a command, the editor, or Claude changes Jira.',
   })
   .refine((change) => change.repository === undefined || change.permissions !== undefined, {
     message: 'Send the permissions to change for that repository.',
