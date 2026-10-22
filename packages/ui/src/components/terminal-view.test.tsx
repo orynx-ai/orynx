@@ -5,7 +5,7 @@ import { expectNoAxeViolations } from '../testing.ts';
 import { TerminalView, type TerminalScreen } from './terminal-view.tsx';
 
 /** A terminal whose screen the test holds, as the session's output stream would. */
-function setUp({ takeFocus = false } = {}) {
+function setUp({ takeFocus = false, screenReader }: { takeFocus?: boolean; screenReader?: boolean } = {}) {
   let held: TerminalScreen | undefined;
   const stop = vi.fn();
   const onData = vi.fn();
@@ -14,6 +14,7 @@ function setUp({ takeFocus = false } = {}) {
     <TerminalView
       label="zsh · worktree"
       takeFocus={takeFocus}
+      {...(screenReader === undefined ? {} : { screenReader })}
       connect={(given) => {
         held = given;
         return stop;
@@ -51,6 +52,15 @@ describe('TerminalView', () => {
     feed.reset('again');
     expect(await screen.findAllByText(row('again'))).not.toHaveLength(0);
     expect(screen.queryAllByText(row('before'))).toHaveLength(0);
+  });
+
+  it('keeps its rows as a list a screen reader reads, unless that’s turned off for speed (22 Oct 2026)', () => {
+    const on = setUp();
+    expect(screen.getByRole('list')).toBeInTheDocument();
+    on.unmount();
+
+    setUp({ screenReader: false });
+    expect(screen.queryByRole('list')).toBeNull();
   });
 
   it('AC-2 (038): sends what you type as a terminal does, Enter as a carriage return', async () => {
