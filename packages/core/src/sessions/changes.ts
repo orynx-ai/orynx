@@ -15,8 +15,45 @@ import { parseUnifiedDiff } from './unified-diff.ts';
 
 export type ReadyChanges = Extract<SessionChanges, { state: 'ready' }>;
 
-/** The commit the branch started from, or, for a session made before spec 013, the base to find it from. */
-export type StartPoint = { commit: string } | { base: string };
+/**
+ * The commit the branch started from, with the base it came from when that base can be merged in later; or, for a
+ * session made before spec 013, the base alone to find it from.
+ */
+export type StartPoint = { commit: string; base?: string } | { base: string };
+
+/**
+ * A session's start point. The base goes with the commit unless it's the session's own branch on origin (your pull
+ * request's, spec 031), which our own push moves on.
+ */
+export function sessionStartPoint(
+  startCommit: string | null,
+  base: string | null,
+  branch: string | null,
+): StartPoint | null {
+  if (startCommit === null) return base === null ? null : { base };
+  return base === null || base === `origin/${branch ?? ''}` ? { commit: startCommit } : { commit: startCommit, base };
+}
+
+/**
+ * The commit a session's changes count from. Once Claude merged or rebased its base in, that's where the base and the
+ * branch meet, so what the base brought isn't counted as the session's, as GitHub's pull request shows it (the user's
+ * report, 22 Oct 2026). `read` runs git in the worktree.
+ */
+export async function startCommitOf(read: (args: string[]) => Promise<string>, start: StartPoint): Promise<string> {
+  if (!('commit' in start)) {
+    const found = (await read(['merge-base', 'HEAD', start.base])).trim();
+    if (found === '') throw new Error('no merge base');
+    return found;
+  }
+  if (start.base === undefined) return start.commit;
+  const met = (await read(['merge-base', 'HEAD', start.base]).catch(() => '')).trim();
+  if (met === '' || met === start.commit) return start.commit;
+  const after = await read(['merge-base', '--is-ancestor', start.commit, met]).then(
+    () => true,
+    () => false,
+  );
+  return after ? met : start.commit;
+}
 
 export type ListedChanges = { ok: true; changes: ReadyChanges } | { ok: false; problem: 'missing' | 'git' };
 
@@ -141,11 +178,8 @@ export function createChangesReader({ env, timeoutMs = 10_000, mostFiles = 300 }
     }
   }
 
-  async function startOf(worktree: string, start: StartPoint): Promise<string> {
-    if ('commit' in start) return start.commit;
-    const found = (await read(worktree, ['merge-base', 'HEAD', start.base])).trim();
-    if (found === '') throw new Error('no merge base');
-    return found;
+  function startOf(worktree: string, start: StartPoint): Promise<string> {
+    return startCommitOf((args) => read(worktree, args), start);
   }
 
   async function scan(worktree: string, start: StartPoint): Promise<Scan> {

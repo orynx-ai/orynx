@@ -16,7 +16,7 @@ import type { AgentAdapter } from '../agents/agent-adapter.ts';
 import type { GitHubClient, GitHubOpenProblem } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
 import type { BranchGit, CommitProblem, PushProblem } from './branch-git.ts';
-import type { ChangesReader, ReadyChanges, StartPoint } from './changes.ts';
+import { sessionStartPoint, type ChangesReader, type ReadyChanges, type StartPoint } from './changes.ts';
 import { addPullRequestStep } from './progress.ts';
 import {
   commitMessage,
@@ -120,9 +120,7 @@ function baseOf(session: Session): string | null {
 
 /** Where the worktree started (spec 013): the commit, or the base for a session made before 013. Null without one. */
 function startOf(record: StoredSession): StartPoint | null {
-  const base = baseOf(record.session);
-  if (record.startCommit !== null) return { commit: record.startCommit };
-  return base === null ? null : { base };
+  return sessionStartPoint(record.startCommit, baseOf(record.session), record.session.branch);
 }
 
 const cannot = (reason: CannotOpenReason) => ({ result: 'cannot', reason }) as const;

@@ -49,7 +49,7 @@ import type { JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
 import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
-import type { ChangesReader, StartPoint } from './changes.ts';
+import { sessionStartPoint, type ChangesReader, type StartPoint } from './changes.ts';
 import { logEnd, logRunEnded, logWork } from './command-log.ts';
 import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
 import {
@@ -376,9 +376,8 @@ function startPointOf(record: StoredSession): StartPoint | null {
   if (!worktreeMade(record)) return null;
   // git couldn't make the worktree, so there's none to read.
   if (session.problem?.kind === 'git' && session.problem.stage === 'starting') return null;
-  if (record.startCommit !== null) return { commit: record.startCommit };
   const made = session.activities.find((activity) => activity.kind === 'worktree');
-  return made?.kind === 'worktree' ? { base: made.base } : null;
+  return sessionStartPoint(record.startCommit, made?.kind === 'worktree' ? made.base : null, session.branch);
 }
 
 /** The files Claude edited, in the order it first did (Q5). */

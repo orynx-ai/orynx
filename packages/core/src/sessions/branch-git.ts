@@ -1,7 +1,7 @@
 import { lstat, readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative } from 'node:path';
 import { simpleGit, type SimpleGit } from 'simple-git';
-import type { StartPoint } from './changes.ts';
+import { startCommitOf, type StartPoint } from './changes.ts';
 import { githubRepository } from './github-remote.ts';
 
 /**
@@ -135,11 +135,8 @@ export function createBranchGit({
     }
   }
 
-  async function startOf(worktree: string, start: StartPoint): Promise<string> {
-    if ('commit' in start) return start.commit;
-    const found = (await read(worktree, ['merge-base', 'HEAD', start.base])).trim();
-    if (found === '') throw new Error('no merge base');
-    return found;
+  function startOf(worktree: string, start: StartPoint): Promise<string> {
+    return startCommitOf((args) => read(worktree, args), start);
   }
 
   async function untracked(worktree: string): Promise<string[]> {
