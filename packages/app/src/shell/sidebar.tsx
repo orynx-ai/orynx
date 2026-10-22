@@ -165,7 +165,7 @@ export function Sidebar() {
       {/* The part that gives way in a short window. Its inset leaves room for the focus rings: 4 px for the rows,
           10 px on top for View all, whose hit area reaches 6 px above its heading. */}
       {collapsed ? null : (
-        <SidebarSessions className="hidden flex-col gap-0.5 md:-mx-1 md:-mt-2.5 md:-mb-1 md:flex md:min-h-0 md:overflow-y-auto md:px-1 md:pt-2.5 md:pb-1" />
+        <SidebarSessions className="hidden flex-col gap-0.5 md:-mx-1 md:-mt-2.5 md:-mb-1 md:flex md:min-h-0 md:scroll-fade-y md:overflow-y-auto md:px-1 md:pt-2.5 md:pb-1" />
       )}
 
       <SidebarFooter collapsed={collapsed} />
