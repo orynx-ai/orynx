@@ -1081,3 +1081,72 @@ describe('Jira client: issues in no sprint (spec 020)', () => {
     ]);
   });
 });
+
+describe('Jira client: a search Claude asked for (spec 044)', () => {
+  it('AC-1: runs the JQL as it is, with only the fields a list shows, and says whether Jira found more', async () => {
+    const bodies: unknown[] = [];
+    jira.use(
+      http.post(issueSearchUrl(), async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({
+          issues: [jiraIssue({ key: 'MAG-12', summary: 'Crash on save', type: 'Bug', status: 'To Do', priority: '1' })],
+          isLast: false,
+          nextPageToken: 'next',
+        });
+      }),
+    );
+
+    const answer = await client.search(credentials, 'assignee = currentUser() AND issuetype = Bug', 50);
+
+    expect(answer).toEqual({
+      ok: true,
+      more: true,
+      issues: [
+        {
+          key: 'MAG-12',
+          summary: 'Crash on save',
+          type: 'Bug',
+          status: 'To Do',
+          category: 'indeterminate',
+          priority: 'Highest',
+          assignee: 'Dev Example',
+          dueDate: null,
+          updated: null,
+        },
+      ],
+    });
+    expect(bodies).toEqual([
+      {
+        jql: 'assignee = currentUser() AND issuetype = Bug',
+        fields: ['summary', 'issuetype', 'status', 'priority', 'assignee', 'duedate', 'updated'],
+        maxResults: 50,
+      },
+    ]);
+  });
+
+  it('AC-9: says Jira found no more once it says the page is the last', async () => {
+    jira.use(acceptingIssueSearch([{ key: 'MAG-1' }]));
+    expect(await client.search(credentials, 'project = MAG', 100)).toMatchObject({ ok: true, more: false });
+  });
+
+  it('AC-7, Q6: a query Jira refuses comes back with Jira’s own words, at most 500 characters', async () => {
+    const said = "Error in the JQL Query: The value 'NOPE' does not exist for the field 'project'.";
+    jira.use(
+      http.post(issueSearchUrl(), () =>
+        HttpResponse.json({ errorMessages: [said], errors: { jql: 'x'.repeat(600) } }, { status: 400 }),
+      ),
+    );
+
+    const answer = await client.search(credentials, 'project = NOPE', 50);
+
+    const refused = !answer.ok && 'refused' in answer ? answer.refused : '';
+    expect(refused.startsWith(said)).toBe(true);
+    expect(refused).toHaveLength(500);
+  });
+
+  it('AC-8: a refused token is a problem, never Jira’s words or the token', async () => {
+    jira.use(acceptingIssueSearch([]));
+    const answer = await client.search({ ...credentials, apiToken: 'fake-wrong-token' }, 'project = MAG', 50);
+    expect(answer).toEqual({ ok: false, problem: { kind: 'rejected' } });
+  });
+});
