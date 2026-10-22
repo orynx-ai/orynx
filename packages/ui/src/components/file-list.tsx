@@ -61,7 +61,8 @@ export function FileList({ files, current, onSelect, maxRows, className, ...prop
       className={cn(
         'm-0 flex list-none flex-col divide-y divide-border overflow-hidden rounded-md border border-border p-0',
         // 8 rows of 40 px and their 7 dividers are 327 px; at 328 the next row's divider shows the list goes on.
-        maxRows === 8 && 'box-content max-h-82 overflow-y-auto',
+        // Relative, so each row's hidden words are clipped here, not stacked below the page (the user's report, 22 Oct).
+        maxRows === 8 && 'relative box-content max-h-82 overflow-y-auto',
         className,
       )}
       {...props}
