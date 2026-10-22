@@ -212,6 +212,8 @@ export interface SessionServiceOptions {
       permissions: Permissions;
       repositoryPermissions: Record<string, Permissions>;
       allowedCommands: readonly string[];
+      /** Claude changes Jira without asking (spec 044, Q8). */
+      jiraChanges: boolean;
     }>;
     /** Saves Always allow's entry to the list (spec 012, AC-5), or turns Claude changes Jira on (spec 044, AC-17). */
     change(change: { allowCommand: string } | { jiraChanges: true }): Promise<unknown>;
@@ -1065,7 +1067,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const jira =
       (await jiraRequest()) === null
         ? []
-        : jiraTools({ jira: options.jira, request: jiraRequest, did: (step) => addJiraStep(id, step) });
+        : jiraTools({
+            jira: options.jira,
+            request: jiraRequest,
+            did: (step) => addJiraStep(id, step),
+            changesAllowed: async () => (await options.preferences.read()).jiraChanges,
+          });
     const agentId = await adapter.startSession(brief, worktree, permissions, note, {
       ...(resume === null ? {} : { resume }),
       model,

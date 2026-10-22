@@ -417,7 +417,14 @@ async function orynxToolsOf(set: Awaited<ReturnType<typeof setUp>>, run: number)
   return (await client.listTools()).tools.map((tool) => tool.name);
 }
 
-const jiraToolNames = ['list_jira_projects', 'search_jira', 'get_jira_issue'];
+const jiraToolNames = [
+  'list_jira_projects',
+  'search_jira',
+  'get_jira_issue',
+  'comment_on_jira_issue',
+  'transition_jira_issue',
+  'assign_jira_issue',
+];
 
 describe('Jira tools in a session (spec 044)', () => {
   it('AC-1, AC-3, AC-4: a Build’s search reaches Jira and is a step, on the one orynx server', async () => {
@@ -488,9 +495,7 @@ describe('Orynx’s ticket tools in a session (spec 037)', () => {
       'set_steps',
       'start_server',
       'stop_server',
-      'list_jira_projects',
-      'search_jira',
-      'get_jira_issue',
+      ...jiraToolNames,
     ]);
     expect(record?.session.activities.find((activity) => activity.kind === 'ticket')).toMatchObject({
       action: 'listed',
@@ -500,13 +505,7 @@ describe('Orynx’s ticket tools in a session (spec 037)', () => {
   });
 
   it('AC-31, AC-44: an Ask session’s agent gets the reading ones only', async () => {
-    expect((await toolsGiven('ask')).names).toEqual([
-      'list_tickets',
-      'get_ticket',
-      'list_jira_projects',
-      'search_jira',
-      'get_jira_issue',
-    ]);
+    expect((await toolsGiven('ask')).names).toEqual(['list_tickets', 'get_ticket', ...jiraToolNames]);
   });
 });
 

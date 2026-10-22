@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: The `jira` approval kind, a refusal without asking, and its callout words (AC-13, AC-14, AC-15, Q10)
       Check: pnpm test packages/core/src/agents/claude/claude-adapter.test.ts packages/app/src/features/sessions; pnpm typecheck
       Files: packages/contracts/src/session.ts, notifications.ts, packages/core/src/agents/agent-adapter.ts, claude/claude-adapter.ts, sessions/session-store.ts, progress.ts, session-service.ts, notifications/session-notifications.ts, packages/app/src/features/sessions/approval-words.ts, components/approval-callout.tsx, step-words.ts, packages/app/src/features/notifications/words.ts, packages/app/src/features/home/composer-words.ts
-- [ ] Task 7: The write tools: Allow posts, Deny and Stop send nothing, the row skips asking, Always allow turns it on (AC-13 to AC-18, Q9, Q11)
+- [x] Task 7: The write tools: Allow posts, Deny and Stop send nothing, the row skips asking, Always allow turns it on (AC-13 to AC-18, Q9, Q11)
       Check: pnpm test packages/core/src/sessions/jira-tools.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/jira-tools.ts, session-service.ts, jira-tools.test.ts, session-service.test.ts
 - [ ] Task 8: No leaks from any Jira call (AC-11, AC-19)

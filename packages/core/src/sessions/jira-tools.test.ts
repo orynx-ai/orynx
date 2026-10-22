@@ -4,7 +4,11 @@ import { createJiraClient } from '../integrations/jira/client.ts';
 import {
   acceptingIssue,
   acceptingIssueSearch,
+  acceptingJiraChanges,
   acceptingProjectSearch,
+  type FakeJiraWrite,
+  issueUrl,
+  myAccountId,
   goodToken,
   issueSearchUrl,
   jiraEmail,
@@ -16,7 +20,11 @@ import { jiraTools, type JiraStep } from './jira-tools.ts';
 const jira = useFakeJira();
 const credentials = { site: jiraSite, email: jiraEmail, apiToken: goodToken };
 
-function setUp({ apiToken = goodToken, connected = true }: { apiToken?: string; connected?: boolean } = {}) {
+function setUp({
+  apiToken = goodToken,
+  connected = true,
+  changesAllowed = false,
+}: { apiToken?: string; connected?: boolean; changesAllowed?: boolean } = {}) {
   const steps: JiraStep[] = [];
   const asked: string[] = [];
   jira.events.on('request:start', ({ request }) => {
@@ -29,20 +37,25 @@ function setUp({ apiToken = goodToken, connected = true }: { apiToken?: string; 
       steps.push(step);
       return Promise.resolve();
     },
+    changesAllowed: () => Promise.resolve(changesAllowed),
   });
-  const run = (name: string, input: unknown) => {
+  const named = (name: string) => {
     const tool = tools.find((one) => one.name === name);
     if (tool === undefined) throw new Error(`No ${name}`);
-    return tool.run(input);
+    return tool;
   };
-  return { tools, steps, asked, run };
+  const run = (name: string, input: unknown) => named(name).run(input);
+  const asks = (name: string, input: Record<string, unknown>) => named(name).asks(input);
+  return { tools, steps, asked, run, asks };
 }
 
+const writes = ['comment_on_jira_issue', 'transition_jira_issue', 'assign_jira_issue'];
+
 describe('Jira tools in a session (spec 044)', () => {
-  it('AC-1, Q3: are three reads that never ask first', async () => {
+  it('AC-1, Q3: are three reads that never ask first, then three changes', async () => {
     const { tools } = setUp();
-    expect(tools.map((tool) => tool.name)).toEqual(['list_jira_projects', 'search_jira', 'get_jira_issue']);
-    for (const tool of tools) expect(await tool.asks({})).toBeNull();
+    expect(tools.map((tool) => tool.name)).toEqual(['list_jira_projects', 'search_jira', 'get_jira_issue', ...writes]);
+    for (const tool of tools.slice(0, 3)) expect(await tool.asks({})).toBeNull();
   });
 
   it('AC-1: lists the projects by key and name, and says so as a step', async () => {
@@ -146,5 +159,102 @@ describe('Jira tools in a session (spec 044)', () => {
       error: true,
     });
     expect(gone.steps).toEqual([]);
+  });
+});
+
+describe('Jira changes in a session (spec 044)', () => {
+  it('AC-13, AC-16: a comment or an assignment asks first, unless Claude changes Jira is on', async () => {
+    const off = setUp();
+    expect(await off.asks('comment_on_jira_issue', { key: 'MAG-12', text: 'Fixed in main.' })).toEqual({
+      kind: 'jira',
+      key: 'MAG-12',
+      change: { action: 'comment', text: 'Fixed in main.' },
+    });
+    expect(await off.asks('assign_jira_issue', { key: 'MAG-12', to: 'nobody' })).toEqual({
+      kind: 'jira',
+      key: 'MAG-12',
+      change: { action: 'assign', to: 'nobody' },
+    });
+
+    const on = setUp({ changesAllowed: true });
+    expect(await on.asks('comment_on_jira_issue', { key: 'MAG-12', text: 'Fixed in main.' })).toBeNull();
+    expect(await on.asks('assign_jira_issue', { key: 'MAG-12', to: 'me' })).toBeNull();
+  });
+
+  it('AC-10: a change that isn’t one is refused, never asked about and never allowed, even with the row on', async () => {
+    const { asks, asked } = setUp({ changesAllowed: true });
+    for (const [name, input] of [
+      ['comment_on_jira_issue', { key: 'MAG-12', text: ' ' }],
+      ['assign_jira_issue', { key: 'MAG-12', to: 'someone@example.com' }],
+      ['transition_jira_issue', { key: 'mag 12', status: 'Done' }],
+    ] as const) {
+      expect(await asks(name, input)).toMatchObject({
+        refused: expect.stringContaining("Orynx couldn't take that") as unknown,
+      });
+    }
+    expect(asked).toEqual([]);
+  });
+
+  it('AC-14: a move asks with where the issue is and where it goes, found in its own workflow by any case', async () => {
+    jira.use(...acceptingJiraChanges([]));
+    expect(await setUp().asks('transition_jira_issue', { key: 'MAG-12', status: 'in review' })).toEqual({
+      kind: 'jira',
+      key: 'MAG-12',
+      change: { action: 'transition', from: 'To Do', to: 'In Review' },
+    });
+  });
+
+  it('AC-15: a status the issue can’t reach is refused with where it can go, and nothing is asked or written', async () => {
+    const changes: FakeJiraWrite[] = [];
+    jira.use(...acceptingJiraChanges(changes));
+    expect(await setUp().asks('transition_jira_issue', { key: 'MAG-12', status: 'Shipped' })).toEqual({
+      refused: "MAG-12 can't move to Shipped. From To Do it can move to: In Progress, In Review.",
+    });
+    expect(changes).toEqual([]);
+  });
+
+  it('AC-13, AC-14: once allowed, each change reaches Jira and is a step', async () => {
+    const changes: FakeJiraWrite[] = [];
+    jira.use(...acceptingJiraChanges(changes));
+    const { run, steps } = setUp();
+
+    expect(await run('comment_on_jira_issue', { key: 'MAG-12', text: 'Fixed in main.' })).toEqual({
+      text: 'Commented on MAG-12.',
+    });
+    expect(await run('transition_jira_issue', { key: 'MAG-12', status: 'In Review' })).toEqual({
+      text: 'Moved MAG-12 to In Review.',
+    });
+    expect(await run('assign_jira_issue', { key: 'MAG-12', to: 'me' })).toEqual({
+      text: 'Assigned MAG-12 to the user.',
+    });
+    expect(await run('assign_jira_issue', { key: 'MAG-12', to: 'nobody' })).toEqual({ text: 'Unassigned MAG-12.' });
+
+    expect(changes.map(({ path, body }) => [path, body])).toEqual([
+      ['comment', { body: expect.objectContaining({ type: 'doc' }) as unknown }],
+      ['transitions', { transition: { id: '31' } }],
+      ['assignee', { accountId: myAccountId }],
+      ['assignee', { accountId: null }],
+    ]);
+    expect(steps).toEqual([
+      { action: 'commented', key: 'MAG-12' },
+      { action: 'moved', key: 'MAG-12', to: 'In Review' },
+      { action: 'assigned', key: 'MAG-12', to: 'me' },
+      { action: 'assigned', key: 'MAG-12', to: 'nobody' },
+    ]);
+  });
+
+  it('AC-18: a change Jira refuses answers with Jira’s own words, and adds no step', async () => {
+    jira.use(
+      http.post(`${issueUrl('MAG-12')}/comment`, () =>
+        HttpResponse.json({ errorMessages: ['You do not have permission to comment on this issue.'] }, { status: 403 }),
+      ),
+    );
+    const { run, steps } = setUp();
+
+    expect(await run('comment_on_jira_issue', { key: 'MAG-12', text: 'Hi' })).toEqual({
+      text: 'Jira refused it: You do not have permission to comment on this issue.',
+      error: true,
+    });
+    expect(steps).toEqual([]);
   });
 });
