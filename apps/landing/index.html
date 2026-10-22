@@ -6,7 +6,7 @@
     <title>Orynx — Plug in your tools and your coding agent</title>
     <meta
       name="description"
-      content="Orynx is a developer-first, plug-and-play app on your laptop: connectors bring the Jira tickets and GitHub reviews that need you into one inbox, and the coding agent you plug in, Claude today, builds a ticket in its own git worktree, asking first or shipping the pull request itself, as you choose."
+      content="Orynx is a plug-and-play app on your laptop: one inbox for the Jira tickets and GitHub reviews that need you, and your coding agent building each ticket in its own git worktree, asking first or shipping the pull request, as you choose."
     />
     <meta name="theme-color" content="#12110f" />
     <meta name="color-scheme" content="dark" />
@@ -17,13 +17,13 @@
     <meta property="og:title" content="Orynx — Plug in your tools and your coding agent" />
     <meta
       property="og:description"
-      content="One inbox for the work that needs you across the tools you connect, and your coding agent taking tickets to pull requests in a worktree you control. Runs on your laptop."
+      content="One inbox for the work that needs you, and your coding agent taking tickets to pull requests in a worktree you control. Runs on your laptop."
     />
     <meta property="og:image" content="/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <!-- Hide the scroll-in sections only when the script that reveals them can run. -->
+    <!-- Hide the scroll-in parts and stack the tabs only when the script that drives them can run. -->
     <script>
       document.documentElement.classList.add('js');
     </script>
@@ -46,9 +46,9 @@
           <span>Orynx</span>
         </a>
         <nav class="site-nav" aria-label="Main">
-          <a href="#inbox">Product</a>
+          <a href="#product">Product</a>
           <a href="#how-it-works">How it works</a>
-          <a href="#control">Control</a>
+          <a href="#local-first">Local-first</a>
           <a href="#faq">FAQ</a>
         </nav>
         <a class="btn btn-primary btn-small" href="#get-started">Get started</a>
@@ -57,21 +57,24 @@
 
     <main id="main">
       <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="hero-glow" aria-hidden="true"></div>
         <div class="wrap hero-copy">
-          <p class="pill"><span class="pill-dot" aria-hidden="true"></span>Plug and play · Runs on your laptop</p>
-          <h1 id="hero-title">Hand your agent the ticket. <em>Keep your flow.</em></h1>
-          <p class="lede">
-            Plug in your tools and your coding agent. Connectors bring the Jira tickets and GitHub reviews that need you
-            into one inbox, and the agent, Claude today, builds a ticket in its own git worktree. You choose how far it
-            goes: ask before every command, or push the branch and open the pull request on its own.
+          <p class="pill rise"><span class="pill-dot" aria-hidden="true"></span>Plug and play · Runs on your laptop</p>
+          <h1 id="hero-title">
+            <span class="rise" style="--i: 1">Hand your agent the ticket.</span>
+            <em class="rise" style="--i: 2">Keep your flow.</em>
+          </h1>
+          <p class="lede rise" style="--i: 3">
+            One inbox for your Jira and GitHub work. Claude builds each ticket in its own git worktree, and asks first
+            or ships the pull request, as you choose.
           </p>
-          <div class="actions">
+          <div class="actions rise" style="--i: 4">
             <a class="btn btn-primary" href="#get-started">Get started</a>
-            <a class="btn btn-secondary" href="#how-it-works">See how it works</a>
+            <a class="btn btn-secondary" href="#product">See it in action</a>
           </div>
         </div>
 
-        <div class="wrap">
+        <div class="wrap hero-stage">
           <figure class="window hero-window">
             <div class="window-bar" aria-hidden="true">
               <span class="window-dots"><i></i><i></i><i></i></span>
@@ -85,9 +88,31 @@
               height="900"
               fetchpriority="high"
               decoding="async"
-              alt="Orynx Home. A banner says Claude is waiting to run the orders tests. Below it, the composer asks what to build today, and Needs your attention lists Jira tickets and GitHub pull requests with reasons such as Approve command, Review requested and Checks failing."
+              alt="Orynx Home. The composer asks what to ship today, and Needs your attention lists Jira tickets and GitHub pull requests with reasons such as Review requested, Checks failing and Due tomorrow."
             />
           </figure>
+
+          <!-- What Orynx tells you while you work: decoration only, the screenshots say the same. -->
+          <div class="float float-approve" aria-hidden="true">
+            <span class="float-icon float-icon-warning">!</span>
+            <div>
+              <p class="float-title">Claude wants to run</p>
+              <p class="float-code">pnpm test -- orders</p>
+              <span class="float-btn">Allow once</span>
+            </div>
+          </div>
+          <div class="float float-pr" aria-hidden="true">
+            <span class="float-icon float-icon-success">
+              <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            </span>
+            <div>
+              <p class="float-title">Pull request opened</p>
+              <p class="float-sub">storefront-web #1186 · by Claude</p>
+            </div>
+          </div>
+          <div class="float float-tag" aria-hidden="true">
+            <span class="tag tag-danger"><i></i>Checks failing · 5 h</span>
+          </div>
         </div>
 
         <ul class="wrap proof" aria-label="Why developers use it">
@@ -179,286 +204,268 @@
         </div>
       </section>
 
-      <section class="section" id="inbox" aria-labelledby="inbox-title">
-        <div class="wrap split">
-          <div class="section-head reveal">
-            <p class="eyebrow">One inbox</p>
-            <h2 id="inbox-title">Know what needs you, and why.</h2>
-            <p>
-              Orynx reads your assigned tickets, review requests and your own pull requests, then shows only what is
-              waiting on you. Each row says why it is there and how long it has waited, so the next step is obvious.
-            </p>
+      <section class="section" id="product" aria-labelledby="product-title">
+        <div class="wrap">
+          <div class="section-head section-head-center reveal">
+            <p class="eyebrow">The app</p>
+            <h2 id="product-title">Everything around your code. <em>One place.</em></h2>
           </div>
-          <ul class="signals reveal">
-            <li>
-              <span class="tag tag-warning"><i aria-hidden="true"></i>Approve command</span>
-              <p>An agent session is waiting for your click before it runs a command.</p>
-            </li>
-            <li>
-              <span class="tag"><i aria-hidden="true"></i>Review requested · 4 h</span>
-              <p>Pull requests that asked for your review, longest wait first.</p>
-            </li>
-            <li>
-              <span class="tag tag-danger"><i aria-hidden="true"></i>Checks failing</span>
-              <p>Your own pull requests with red checks or unresolved comments.</p>
-            </li>
-            <li>
-              <span class="tag tag-warning"><i aria-hidden="true"></i>Due tomorrow</span>
-              <p>Assigned tickets by due date, with high-priority bugs on top.</p>
-            </li>
-          </ul>
-        </div>
 
-        <div class="wrap section-shot reveal">
-          <div class="shot-caption">
-            <h3>Your sprint, with your agent on the board</h3>
-            <p>
-              Board or list, filtered by assignee, status, type, priority and due date. Every card shows where its agent
-              session stands, and any card can start one.
-            </p>
+          <div class="showcase reveal" data-showcase>
+            <div class="showcase-tabs" role="tablist" aria-label="Screens">
+              <button class="showcase-tab" type="button" role="tab" id="tab-board" aria-controls="panel-board">
+                Board
+              </button>
+              <button class="showcase-tab" type="button" role="tab" id="tab-session" aria-controls="panel-session">
+                Session
+              </button>
+              <button class="showcase-tab" type="button" role="tab" id="tab-rules" aria-controls="panel-rules">
+                Rules
+              </button>
+              <button
+                class="showcase-tab"
+                type="button"
+                role="tab"
+                id="tab-connections"
+                aria-controls="panel-connections"
+              >
+                Connections
+              </button>
+            </div>
+
+            <!-- Only the first tab's image is lazy: one in a hidden panel would never load. -->
+            <div class="showcase-panels">
+              <div class="showcase-panel" role="tabpanel" id="panel-board" aria-labelledby="tab-board">
+                <p class="showcase-caption">Your sprint, with the agent on every card.</p>
+                <figure class="window">
+                  <img
+                    src="./src/assets/screens/tickets-1440.webp"
+                    srcset="./src/assets/screens/tickets-1440.webp 1440w, ./src/assets/screens/tickets-2880.webp 2880w"
+                    sizes="(min-width: 1248px) 1200px, calc(100vw - 48px)"
+                    width="1440"
+                    height="900"
+                    loading="lazy"
+                    decoding="async"
+                    alt="Orynx Tickets. A sprint board with To do, In progress, In review and Done columns. Cards show each ticket's priority, due date and Claude's state, such as Needs you, Working and Done, ready for PR."
+                  />
+                </figure>
+              </div>
+              <div class="showcase-panel" role="tabpanel" id="panel-session" aria-labelledby="tab-session">
+                <p class="showcase-caption">Watch every step. Approve with one click.</p>
+                <figure class="window">
+                  <img
+                    src="./src/assets/screens/session-1440.webp"
+                    srcset="./src/assets/screens/session-1440.webp 1440w, ./src/assets/screens/session-2880.webp 2880w"
+                    sizes="(min-width: 1248px) 1200px, calc(100vw - 48px)"
+                    width="1440"
+                    height="900"
+                    decoding="async"
+                    alt="An Orynx session for a Jira story. On the left, Claude's progress: made a worktree, made a plan and edited 4 files, then Claude asks to run the orders tests, with Allow once, Always allow and Deny. On the right, the live diff of four changed files."
+                  />
+                </figure>
+              </div>
+              <div class="showcase-panel" role="tabpanel" id="panel-rules" aria-labelledby="tab-rules">
+                <p class="showcase-caption">Pick how far the agent goes on its own.</p>
+                <figure class="window">
+                  <img
+                    src="./src/assets/screens/agent-1440.webp"
+                    srcset="./src/assets/screens/agent-1440.webp 1440w, ./src/assets/screens/agent-2880.webp 2880w"
+                    sizes="(min-width: 1248px) 1200px, calc(100vw - 48px)"
+                    width="1440"
+                    height="900"
+                    decoding="async"
+                    alt="Orynx Settings, Coding agent. Under What Claude can do without asking, four levels: Cautious, Balanced, Hands-off and Custom. Hands-off is picked: Claude edits files, runs any command, uses the network, pushes the branch and opens pull requests without asking, and asks before deleting outside its copy."
+                  />
+                </figure>
+              </div>
+              <div class="showcase-panel" role="tabpanel" id="panel-connections" aria-labelledby="tab-connections">
+                <p class="showcase-caption">Your own logins, kept in your keychain.</p>
+                <figure class="window">
+                  <img
+                    src="./src/assets/screens/settings-1440.webp"
+                    srcset="
+                      ./src/assets/screens/settings-1440.webp 1440w,
+                      ./src/assets/screens/settings-2880.webp 2880w
+                    "
+                    sizes="(min-width: 1248px) 1200px, calc(100vw - 48px)"
+                    width="1440"
+                    height="900"
+                    decoding="async"
+                    alt="Orynx Settings, Connections. A note says everything stays on this computer: tokens live in your OS keychain and the cache is a local file. Jira and GitHub are connected; Slack is not connected yet."
+                  />
+                </figure>
+              </div>
+            </div>
           </div>
-          <figure class="window">
-            <img
-              src="./src/assets/screens/tickets-1440.webp"
-              srcset="./src/assets/screens/tickets-1440.webp 1440w, ./src/assets/screens/tickets-2880.webp 2880w"
-              sizes="(min-width: 1248px) 1200px, calc(100vw - 48px)"
-              width="1440"
-              height="900"
-              loading="lazy"
-              decoding="async"
-              alt="Orynx Tickets. A sprint board with To do, In progress, In review and Done columns. Cards show each ticket's priority, due date and Claude's state, such as Needs you, Working and Done, ready for PR."
-            />
-          </figure>
         </div>
       </section>
 
       <section class="section section-alt" id="how-it-works" aria-labelledby="how-title">
         <div class="wrap">
-          <div class="section-head reveal">
+          <div class="section-head section-head-center reveal">
             <p class="eyebrow">How it works</p>
-            <h2 id="how-title">Delegate the work. Stay close to the change.</h2>
-            <p>
-              A session takes a ticket from brief to pull request in five visible steps: plan, build, test, review and
-              pull request. Step in at any of them, or let it run.
-            </p>
+            <h2 id="how-title">Ticket to pull request. <em>Four steps.</em></h2>
           </div>
-          <div class="how">
-            <ol class="steps reveal">
-              <li>
-                <h3>Start from a ticket or a sentence</h3>
-                <p>
-                  Paste a Jira key, pick a ticket from the board, or describe the task. Add pull requests and files as
-                  context, then choose the repository and the model.
-                </p>
-              </li>
-              <li>
-                <h3>The agent works in its own worktree</h3>
-                <p>
-                  Each session gets a fresh git worktree and branch, so your main checkout stays untouched. Watch the
-                  plan, the files the agent reads and every edit as it happens.
-                </p>
-              </li>
-              <li>
-                <h3>Your settings decide what runs</h3>
-                <p>
-                  The agent does what you allowed in Settings and asks for the rest: allow once, always allow, or deny.
-                  Review the diff file by file and ask for changes without starting over.
-                </p>
-              </li>
-              <li>
-                <h3>Ship your way</h3>
-                <p>
-                  The agent drafts the pull request title and description. Push and open it with one click, or allow it
-                  to push the branch and open the pull request on its own.
-                </p>
-              </li>
-            </ol>
-            <figure class="window how-shot reveal">
+          <ol class="flow reveal">
+            <li style="--i: 0">
+              <span class="flow-dot" aria-hidden="true">
+                <svg viewBox="0 0 24 24" class="stroke-icon"><path d="M4 6h16M4 12h10M4 18h7" /></svg>
+              </span>
+              <h3>Pick a ticket</h3>
+              <p>Or describe the task, with pull requests and files as context.</p>
+            </li>
+            <li style="--i: 1">
+              <span class="flow-dot" aria-hidden="true">
+                <svg viewBox="0 0 24 24" class="stroke-icon">
+                  <circle cx="6" cy="6" r="2.2" />
+                  <circle cx="6" cy="18" r="2.2" />
+                  <circle cx="18" cy="9" r="2.2" />
+                  <path d="M6 8.2v7.6M18 11.2c0 3-3 4-6 4.3H8" />
+                </svg>
+              </span>
+              <h3>It gets a worktree</h3>
+              <p>A fresh branch. Your own checkout stays untouched.</p>
+            </li>
+            <li style="--i: 2">
+              <span class="flow-dot" aria-hidden="true">
+                <svg viewBox="0 0 24 24" class="stroke-icon">
+                  <path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+              </span>
+              <h3>Your rules decide</h3>
+              <p>Allow, ask or block each kind of call it makes.</p>
+            </li>
+            <li style="--i: 3">
+              <span class="flow-dot" aria-hidden="true">
+                <svg viewBox="0 0 24 24" class="stroke-icon">
+                  <circle cx="6" cy="6" r="2.2" />
+                  <circle cx="6" cy="18" r="2.2" />
+                  <circle cx="18" cy="18" r="2.2" />
+                  <path d="M6 8.2v7.6M18 15.8V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2" />
+                </svg>
+              </span>
+              <h3>Ship it</h3>
+              <p>Open the pull request in one click, or let the agent do it.</p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="section anywhere" id="anywhere" aria-labelledby="anywhere-title">
+        <div class="wrap split">
+          <div class="reveal">
+            <div class="section-head">
+              <p class="eyebrow">On any device</p>
+              <h2 id="anywhere-title">Approve from <em>your phone.</em></h2>
+              <p>Open orynx.local on your wifi, enter your Orynx password, and add it to your home screen.</p>
+            </div>
+            <ul class="chips">
+              <li>https://orynx.local</li>
+              <li>Your password first</li>
+              <li>Installs as an app</li>
+            </ul>
+          </div>
+          <div class="phone-stage reveal">
+            <div class="phone-ring" aria-hidden="true"></div>
+            <figure class="phone">
               <img
-                src="./src/assets/screens/session-1440.webp"
-                srcset="./src/assets/screens/session-1440.webp 1440w, ./src/assets/screens/session-2880.webp 2880w"
-                sizes="(min-width: 1080px) 640px, calc(100vw - 48px)"
-                width="1440"
-                height="900"
+                src="./src/assets/screens/phone-780.webp"
+                width="780"
+                height="1576"
                 loading="lazy"
                 decoding="async"
-                alt="An Orynx session for a Jira story. Claude asks to run the orders tests, with Allow once, Always allow and Deny. On the left, its progress: made a worktree, sent the brief, explored the code and made a plan. On the right, the live diff of four changed files."
+                alt="An Orynx session on a phone. Claude made a plan and edited 4 files, and asks to run pnpm test -- orders, with Allow once, Always allow pnpm test and Deny."
               />
             </figure>
           </div>
         </div>
       </section>
 
-      <section class="section" id="control" aria-labelledby="control-title">
-        <div class="wrap split split-media-first">
-          <figure class="window reveal">
-            <img
-              src="./src/assets/screens/agent-1440.webp"
-              srcset="./src/assets/screens/agent-1440.webp 1440w, ./src/assets/screens/agent-2880.webp 2880w"
-              sizes="(min-width: 1080px) 640px, calc(100vw - 48px)"
-              width="1440"
-              height="900"
-              loading="lazy"
-              decoding="async"
-              alt="Orynx Settings, Coding agent. Under What Claude can do without asking, four levels: Cautious, Balanced, Hands-off and Custom. Hands-off is picked, and the summary says Claude edits files, runs any command, uses the network, pushes the branch and opens pull requests without asking, and asks before deleting outside its copy."
-            />
-          </figure>
-          <div class="reveal">
-            <div class="section-head">
-              <p class="eyebrow">Your rules</p>
-              <h2 id="control-title">As hands-on or hands-off as you like.</h2>
-              <p>
-                Pick a level in Settings › Coding agent, then set any kind of call to Allow, Ask or Block. The agent
-                checks your settings before every call.
-              </p>
-            </div>
-            <ul class="checks">
-              <li>
-                <strong>Three levels to start from.</strong> Cautious asks before every edit and command. Balanced edits
-                freely and runs your allowed commands. Hands-off runs, pushes and opens pull requests by itself.
-              </li>
-              <li>
-                <strong>Your own mix.</strong> Edits, commands, the network, deleting outside the session's copy,
-                pushing and pull requests each have their own row.
-              </li>
-              <li>
-                <strong>Pull requests without the click.</strong> Allow push and pull request, and the agent ships the
-                session's branch as you, never forced. Until then, it never pushes on its own.
-              </li>
-              <li>
-                <strong>Sandboxed unless you say so.</strong> Commands run with no network and write only to the
-                session's copy. Each risky row warns you when you allow it.
-              </li>
-              <li>
-                <strong>Stop at any moment.</strong> Stop the agent mid-step, or discard the session and its worktree.
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <section class="section section-alt" id="local-first" aria-labelledby="local-title">
-        <div class="wrap split">
-          <div class="reveal">
-            <div class="section-head">
-              <p class="eyebrow">Local-first</p>
-              <h2 id="local-title">Your workspace. On your machine.</h2>
-              <p>There is no Orynx cloud. Orynx is a small server and a web app, both on your laptop.</p>
-            </div>
-            <ul class="facts">
-              <li>
-                <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                  <rect x="5" y="11" width="14" height="10" rx="2" />
-                  <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-                </svg>
-                <div>
-                  <h3>Tokens in your OS keychain</h3>
-                  <p>Jira and GitHub tokens are saved in your keychain and never reach the browser.</p>
-                </div>
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                  <rect x="4" y="5" width="16" height="11" rx="1.5" />
-                  <path d="M2 19h20" />
-                </svg>
-                <div>
-                  <h3>Bound to 127.0.0.1</h3>
-                  <p>
-                    The server listens only on this computer and checks a token on every request. Your phone and other
-                    laptops reach it at orynx.local, over https, with the password you choose at setup.
-                  </p>
-                </div>
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                  <ellipse cx="12" cy="6" rx="7" ry="3" />
-                  <path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" />
-                </svg>
-                <div>
-                  <h3>A local cache</h3>
-                  <p>Synced tickets and pull requests live in one file on your disk.</p>
-                </div>
-              </li>
-              <li>
-                <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
-                </svg>
-                <div>
-                  <h3>Only what you connect</h3>
-                  <p>
-                    Orynx talks only to the connectors and agent you plug in: Jira, GitHub and Claude today, Slack and
-                    more next.
-                  </p>
-                </div>
-              </li>
-            </ul>
-          </div>
-          <figure class="window reveal">
-            <img
-              src="./src/assets/screens/settings-1440.webp"
-              srcset="./src/assets/screens/settings-1440.webp 1440w, ./src/assets/screens/settings-2880.webp 2880w"
-              sizes="(min-width: 1080px) 640px, calc(100vw - 48px)"
-              width="1440"
-              height="900"
-              loading="lazy"
-              decoding="async"
-              alt="Orynx Settings, Connections. A note says everything stays on this computer: tokens live in your OS keychain and the cache is a local file. Jira and GitHub are connected; Slack is not connected yet."
-            />
-          </figure>
-        </div>
-      </section>
-
-      <section class="section" aria-labelledby="details-title">
+      <section class="section section-alt details" aria-labelledby="details-title">
         <div class="wrap">
-          <div class="section-head reveal">
+          <div class="section-head section-head-center reveal">
             <p class="eyebrow">The details</p>
             <h2 id="details-title">Small things that add up.</h2>
           </div>
-          <ul class="features">
-            <li class="feature reveal">
+        </div>
+        <div class="marquee reveal">
+          <ul class="marquee-track">
+            <li>⌘K to search everything</li>
+            <li>Paste a Jira key or PR link</li>
+            <li>A live diff</li>
+            <li>Follow-ups, not restarts</li>
+            <li>Your own /skills</li>
+            <li>Model and effort per task</li>
+          </ul>
+          <ul class="marquee-track" aria-hidden="true">
+            <li>⌘K to search everything</li>
+            <li>Paste a Jira key or PR link</li>
+            <li>A live diff</li>
+            <li>Follow-ups, not restarts</li>
+            <li>Your own /skills</li>
+            <li>Model and effort per task</li>
+          </ul>
+        </div>
+        <div class="marquee marquee-reverse reveal">
+          <ul class="marquee-track">
+            <li>A real terminal per session</li>
+            <li>The servers Claude started</li>
+            <li>Board or list</li>
+            <li>Pin and rename sessions</li>
+            <li>Alerts when Claude waits</li>
+            <li>A log of every sync</li>
+          </ul>
+          <ul class="marquee-track" aria-hidden="true">
+            <li>A real terminal per session</li>
+            <li>The servers Claude started</li>
+            <li>Board or list</li>
+            <li>Pin and rename sessions</li>
+            <li>Alerts when Claude waits</li>
+            <li>A log of every sync</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="local-first" aria-labelledby="local-title">
+        <div class="wrap">
+          <div class="section-head section-head-center reveal">
+            <p class="eyebrow">Local-first</p>
+            <h2 id="local-title">Your workspace. <em>On your machine.</em></h2>
+            <p>There is no Orynx cloud.</p>
+          </div>
+          <ul class="tiles">
+            <li class="tile reveal" style="--i: 0">
               <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M16.5 16.5L21 21" />
+                <rect x="5" y="11" width="14" height="10" rx="2" />
+                <path d="M8 11V8a4 4 0 0 1 8 0v3" />
               </svg>
-              <h3>Search everything with ⌘K</h3>
-              <p>Jump to any ticket, pull request or session from anywhere in the app.</p>
+              <h3>Tokens in your keychain</h3>
+              <p>They never reach the browser.</p>
             </li>
-            <li class="feature reveal">
+            <li class="tile reveal" style="--i: 1">
               <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                <path d="M9 7H6a4 4 0 0 0 0 8h3M15 7h3a4 4 0 0 1 0 8h-3M8 11h8" />
+                <rect x="4" y="5" width="16" height="11" rx="1.5" />
+                <path d="M2 19h20" />
               </svg>
-              <h3>Context in a paste</h3>
-              <p>Add tickets, pull requests and files to a brief, or paste a Jira key or GitHub link.</p>
+              <h3>Bound to 127.0.0.1</h3>
+              <p>Plus orynx.local, behind your password.</p>
             </li>
-            <li class="feature reveal">
+            <li class="tile reveal" style="--i: 2">
               <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                <rect x="4" y="4" width="16" height="16" rx="2" />
-                <path d="M12 7.5v5M9.5 10h5M9.5 16.5h5" />
+                <ellipse cx="12" cy="6" rx="7" ry="3" />
+                <path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" />
               </svg>
-              <h3>A live diff</h3>
-              <p>Every changed file and its diff, updating as the agent edits.</p>
+              <h3>One local cache</h3>
+              <p>Tickets and pull requests in a file on your disk.</p>
             </li>
-            <li class="feature reveal">
+            <li class="tile reveal" style="--i: 3">
               <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                <path d="M4 5h16v11H9l-5 4V5z" />
+                <circle cx="12" cy="12" r="9" />
+                <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
               </svg>
-              <h3>Follow-ups, not restarts</h3>
-              <p>Ask the agent to change something and it carries on in the same session.</p>
-            </li>
-            <li class="feature reveal">
-              <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                <path d="M15 4L9 20" />
-              </svg>
-              <h3>Your own skills</h3>
-              <p>Save instructions you reuse, then call them with / in the composer.</p>
-            </li>
-            <li class="feature reveal">
-              <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                <path d="M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7z" />
-              </svg>
-              <h3>Model and effort per task</h3>
-              <p>Pick the model and how hard it works for each task, or keep the agent's default.</p>
+              <h3>Only what you connect</h3>
+              <p>Jira, GitHub and Claude today.</p>
             </li>
           </ul>
         </div>
@@ -469,20 +476,15 @@
           <div class="reveal">
             <div class="section-head">
               <p class="eyebrow">Get started</p>
-              <h2 id="start-title">Running in a few minutes.</h2>
+              <h2 id="start-title">Running in <em>a few minutes.</em></h2>
               <p>Clone <a href="https://github.com/orynx-ai/orynx">orynx-ai/orynx</a> on macOS or Linux. You need:</p>
             </div>
             <ul class="needs">
               <li>Node 24, or nvm to install it</li>
-              <li>Claude Code, signed in on this computer</li>
-              <li>A Jira Cloud API token, and GitHub through the gh CLI or a token</li>
+              <li>Claude Code, signed in</li>
+              <li>A Jira API token, and gh or a GitHub token</li>
             </ul>
-            <p class="after">
-              The script builds Orynx and starts it whenever you log in. Open http://127.0.0.1:4317 here to set it up:
-              your name, bio, picture and a password. Then open https://orynx.local on any phone or laptop on your wifi
-              with that password, and install it as an app from the browser. Connect Jira and GitHub in Settings, add a
-              repository, and start your first session from Home.
-            </p>
+            <p class="after">Then open http://127.0.0.1:4317 to pick your name and password.</p>
           </div>
           <figure class="terminal reveal" aria-label="Commands to install and start Orynx">
             <div class="terminal-bar">
@@ -496,13 +498,12 @@
               </button>
               <span class="sr-only" role="status" data-copy-status></span>
             </div>
-            <pre><code><span class="dim"># Clone, build, start at log-in, open to your wifi</span>
-git clone https://github.com/orynx-ai/orynx.git
-cd orynx
-./install.sh
+            <pre><code><span class="dim"># Clone, build, start at log-in</span>
+<span class="type" style="--n: 44; --i: 0">git clone https://github.com/orynx-ai/orynx.git</span>
+<span class="type" style="--n: 8; --i: 1">cd orynx</span>
+<span class="type" style="--n: 12; --i: 2">./install.sh</span>
 
-<span class="dim"># → https://orynx.local, here and on your wifi</span>
-<span class="dim"># → update later: git pull &amp;&amp; ./install.sh</span></code></pre>
+<span class="dim done" style="--i: 3"># → https://orynx.local, here and on your wifi</span></code></pre>
           </figure>
         </div>
       </section>
@@ -517,55 +518,41 @@ cd orynx
             <details>
               <summary>Does my code leave my computer?</summary>
               <p>
-                Orynx itself has no cloud. The agent reads the files a task needs in the session's worktree through your
-                own login; Claude does it exactly as Claude Code does in your terminal. Jira and GitHub are called with
-                your own tokens.
+                Orynx has no cloud. Claude reads the files a task needs through your own login, exactly as Claude Code
+                does in your terminal. Jira and GitHub are called with your own tokens.
               </p>
             </details>
             <details>
               <summary>Which Claude account does it use?</summary>
               <p>
-                The login Claude Code already has on your computer, through the Claude Agent SDK: a company claude.ai
-                account, an API key, Amazon Bedrock or Google Vertex. Orynx needs no key of its own.
+                The one Claude Code already has on your computer: a claude.ai account, an API key, Amazon Bedrock or
+                Google Vertex. Orynx needs no key of its own.
               </p>
             </details>
             <details>
-              <summary>Can the agent push code or open a pull request by itself?</summary>
+              <summary>Can the agent push or open a pull request by itself?</summary>
               <p>
-                If you allow it. A fresh Orynx never pushes. In Settings › Coding agent, pick Hands-off, or set Push the
-                branch and Open a pull request to Allow, and the agent pushes the session's branch and opens the pull
-                request on its own. Set them to Ask to click for each one, or Block to keep them off.
-              </p>
-            </details>
-            <details>
-              <summary>Can I use it from my phone or another laptop?</summary>
-              <p>
-                Yes, on the same wifi. The install script announces Orynx as orynx.local: open https://orynx.local,
-                enter your Orynx password once, and add it to your home screen or dock as an app. Each device trusts
-                Orynx's certificate once, from http://orynx.local/orynx-ca.crt. Your code, tokens and sessions stay on
-                the computer that runs Orynx.
+                Only if you allow it. A fresh Orynx never pushes. Pick Hands-off in Settings › Coding agent, or set Push
+                the branch and Open a pull request to Allow.
               </p>
             </details>
             <details>
               <summary>Does it change my working copy?</summary>
+              <p>No. Every session works in its own git worktree on its own branch.</p>
+            </details>
+            <details>
+              <summary>Can I use it from my phone?</summary>
               <p>
-                No. Every session works in its own git worktree on its own branch. Your main checkout, and anything
-                uncommitted in it, stays as it was.
+                Yes, on the same wifi. Open https://orynx.local, enter your Orynx password once, and trust Orynx's
+                certificate from http://orynx.local/orynx-ca.crt. Your code and tokens stay on the computer that runs
+                Orynx.
               </p>
             </details>
             <details>
-              <summary>Which connectors come next?</summary>
+              <summary>What comes next?</summary>
               <p>
-                Slack mentions and direct messages are next. Reading them needs a Slack app your workspace admin
-                approves, so the timing depends on that approval. More connectors follow, each a small adapter on the
-                local server, so a new tool lands in the same inbox.
-              </p>
-            </details>
-            <details>
-              <summary>Which coding agents does it work with?</summary>
-              <p>
-                Claude Code today. Agents plug in the way connectors do, through one small adapter on the local server,
-                so the next one gets the same screens, settings and permissions.
+                Slack mentions, once your workspace admin approves the Slack app. Then more connectors and coding
+                agents, each a small adapter that gets the same screens and permissions.
               </p>
             </details>
           </div>
@@ -575,12 +562,9 @@ cd orynx
       <section class="cta" aria-labelledby="cta-title">
         <div class="wrap cta-inner reveal">
           <h2 id="cta-title">Spend your day <em>on the code.</em></h2>
-          <p>
-            Orynx keeps tickets, reviews and agent sessions in view, from the first ticket to the merged pull request.
-          </p>
           <div class="actions">
             <a class="btn btn-primary" href="#get-started">Get started</a>
-            <a class="btn btn-secondary" href="#how-it-works">See how it works</a>
+            <a class="btn btn-secondary" href="https://github.com/orynx-ai/orynx">View on GitHub</a>
           </div>
         </div>
       </section>
@@ -600,11 +584,19 @@ cd orynx
         </a>
         <p class="footer-tagline">Everything around your code.</p>
         <nav class="footer-nav" aria-label="Footer">
-          <a href="#inbox">Product</a>
+          <a href="#product">Product</a>
           <a href="#how-it-works">How it works</a>
-          <a href="#control">Control</a>
           <a href="#local-first">Local-first</a>
           <a href="#faq">FAQ</a>
+          <a class="footer-github" href="https://github.com/orynx-ai/orynx">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"
+              />
+            </svg>
+            orynx-ai/orynx
+          </a>
         </nav>
         <p class="footer-legal">© <span data-year>2026</span> Orynx</p>
       </div>
