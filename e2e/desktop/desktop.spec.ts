@@ -55,6 +55,8 @@ function environment(): Record<string, string> {
     DEVHUB_UPDATES_URL: releases.url,
     LOG_LEVEL: 'info',
     PATH: `${fakeGh}${delimiter}${env['PATH'] ?? ''}`,
+    // electron-updater only checks from an AppImage, which sets APPIMAGE; this run uses linux-unpacked.
+    ...(process.platform === 'linux' && { APPIMAGE: executable }),
   };
 }
 
@@ -252,7 +254,8 @@ test('AC-18: quitting stops the hub as Ctrl-C does, and removes runtime.json', a
 
   await closed;
   opened = null;
-  expect(isAlive(pid)).toBe(false);
+  // The hub's exit event fires as it starts exiting, so on Linux its pid can outlive the app by a moment.
+  await expect.poll(() => isAlive(pid)).toBe(false);
   expect(existsSync(join(home, 'runtime.json'))).toBe(false);
   expect(await log()).toContain('SIGTERM: stopping Orynx');
 });
