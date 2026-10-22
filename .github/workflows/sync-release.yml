@@ -2,7 +2,7 @@ name: Sync main to release
 
 # The button for `git push origin main:release`. Only admins move release, and a push with the workflow's
 # own token starts no workflow, so this uses RELEASE_TOKEN: an admin's token held in the release
-# environment, which takes only main and an admin's approval. A repo secret would reach any writer.
+# environment, which only main can use. A repo secret would reach every branch, so any writer.
 on:
   workflow_dispatch:
 
