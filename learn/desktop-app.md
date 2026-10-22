@@ -1,4 +1,4 @@
-<!-- learn-sources: apps/desktop/src/main.ts apps/desktop/src/hub.ts apps/desktop/src/login-path.ts apps/desktop/src/updates.ts apps/desktop/src/links.ts apps/desktop/src/log-file.ts apps/desktop/electron-builder.yml scripts/pack-desktop.ts scripts/lib/release-version.ts .github/workflows/release.yml e2e/desktop/desktop.spec.ts -->
+<!-- learn-sources: apps/desktop/src/main.ts apps/desktop/src/hub.ts apps/desktop/src/login-path.ts apps/desktop/src/updates.ts apps/desktop/src/links.ts apps/desktop/src/log-file.ts apps/desktop/electron-builder.yml scripts/pack-desktop.ts scripts/lib/release-version.ts .github/workflows/release.yml .github/workflows/sync-release.yml e2e/desktop/desktop.spec.ts -->
 
 # The desktop app: how Orynx installs, starts, releases and updates
 
@@ -56,6 +56,8 @@ With a message box open, Electron doesn't act on SIGTERM, so a test that leaves 
 ```sh
 git push origin main:release
 ```
+
+Or, from GitHub: Actions › **Sync main to release** › Run workflow on `main` (admins only). It fast-forwards `release` with the `RELEASE_TOKEN` secret, an admin's personal token with Contents and Workflows read and write: the workflow's own token can't move `release`, and its pushes start no workflow.
 
 Never commit on `release` or merge a pull request into it: a merge commit isn't on `main`, so the next push would fail the review-stamp push gate, and `release.yml` refuses it ("release must point at a commit on main").
 
