@@ -104,7 +104,7 @@ describe('SessionHeader', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Open in VS Code', 'Rename', 'Pin', 'Delete']);
+    ).toEqual(['Open in VS Code', 'Rename', 'Pin', 'Copy link', 'Delete']);
     expect(within(menu).getByRole('menuitem', { name: 'Open in VS Code' })).toHaveAttribute(
       'href',
       'vscode://file/Users/you/.devhub/worktrees/x',
@@ -129,6 +129,7 @@ describe('SessionHeader', () => {
         'Open in VS Code',
         'Rename',
         'Pin',
+        'Copy link',
         'Delete',
       ]);
     });
@@ -258,7 +259,7 @@ describe('the session’s own Rename, Pin and Delete (spec 039)', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Rename', 'Pin', 'Delete']);
+    ).toEqual(['Rename', 'Pin', 'Copy link', 'Delete']);
     await user.click(within(menu).getByRole('menuitem', { name: 'Rename' }));
     const dialog = await screen.findByRole('dialog', { name: 'Rename session' });
     // The name opens selected, so typing replaces it.

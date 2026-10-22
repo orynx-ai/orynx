@@ -36,7 +36,7 @@ import { useEditor, useHasChanges, useSessionPorts } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
 import { DeleteSession } from './delete-session.tsx';
 import { RenameSession } from './rename-session.tsx';
-import { SessionMenuItems, type SessionMenuPick } from './session-menu.tsx';
+import { SessionMenuItems, useLinkCopied, type SessionMenuPick } from './session-menu.tsx';
 import { SessionTerminal } from './terminal/session-terminal.tsx';
 import { terminalWords } from './terminal/terminal-words.ts';
 import { PushChanges } from './push-changes.tsx';
@@ -166,6 +166,7 @@ export function SessionActions({ session, title }: { session: Session; title: Re
   // The editor Settings picks, VS Code until Settings answers otherwise (spec 013, Q9).
   const preferences = useEditor();
   const editor = preferences.data ?? (preferences.isError ? 'vscode' : null);
+  const linkCopied = useLinkCopied();
 
   useEffect(() => {
     if (stop.isSuccess && !working) title.current?.focus();
@@ -334,9 +335,11 @@ export function SessionActions({ session, title }: { session: Session; title: Re
             onPick={(pick) => {
               picked.current = pick;
             }}
+            onCopied={linkCopied.onCopied}
           />
         </MenuContent>
       </Menu>
+      {linkCopied.note}
     </>
   );
 }

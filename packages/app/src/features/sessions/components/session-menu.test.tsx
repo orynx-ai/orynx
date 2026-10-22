@@ -24,8 +24,19 @@ describe('a session’s ⋯ menu in the sidebar (spec 039)', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Rename', 'Pin', 'Delete']);
+    ).toEqual(['Rename', 'Pin', 'Copy link', 'Delete']);
     expect(within(menu).getByRole('separator')).toBeInTheDocument();
+  });
+
+  it('Copy link puts the session’s address on the clipboard, and says so (the user’s call, 22 Oct 2026)', async () => {
+    serveSessions([{ id: '0123456789abcdef', title: 'Add bulk archive', state: 'done' }]);
+    const { user } = await renderApp();
+    const { menu } = await openSessionMenu(user, 'Add bulk archive');
+
+    await user.click(within(menu).getByRole('menuitem', { name: 'Copy link' }));
+
+    expect(await within(mainNav()).findByRole('status')).toHaveTextContent('Link copied');
+    expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/sessions/0123456789abcdef`);
   });
 
   it('AC-26: Pin pins it, and its menu then says Unpin', async () => {
@@ -61,7 +72,7 @@ describe('a session’s ⋯ menu in the sidebar (spec 039)', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
-    ).toEqual(['Stop', 'Rename', 'Pin', 'DeleteStop the session first']);
+    ).toEqual(['Stop', 'Rename', 'Pin', 'Copy link', 'DeleteStop the session first']);
     await user.click(within(menu).getByRole('menuitem', { name: 'Stop' }));
     await waitFor(() => {
       expect(stopped).toEqual(['session-working']);
