@@ -76,8 +76,12 @@ export function parseUnifiedDiff(text: string, most: number = mostDiffLines): Pa
       else if (row.startsWith('Binary files ') && row.endsWith(' differ')) parsed.binary = true;
       continue;
     }
-    // One file at a time: another file's header ends this one.
-    if (row.startsWith('diff --git ')) break;
+    // git diffs one path here, so another header is its second half: a file whose type changed (a file that became a
+    // symlink) is a deletion, then a creation. Its header lines are skipped until its hunk.
+    if (row.startsWith('diff --git ')) {
+      inHunk = false;
+      continue;
+    }
     // "\ No newline at end of file" is git's own note, not a line of the file.
     if (row.startsWith('\\')) continue;
     if (!fits()) break;

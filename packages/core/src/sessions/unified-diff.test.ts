@@ -77,6 +77,36 @@ describe('parseUnifiedDiff', () => {
     ]);
   });
 
+  it('keeps both halves of a file whose type changed, as when a file becomes a symlink', () => {
+    const parsed = parseUnifiedDiff(
+      diff(
+        'diff --git a/CLAUDE.md b/CLAUDE.md',
+        'deleted file mode 100644',
+        'index 83db48f..0000000',
+        '--- a/CLAUDE.md',
+        '+++ /dev/null',
+        '@@ -1,2 +0,0 @@',
+        '-## Context discipline',
+        '-- Load **one** spec',
+        'diff --git a/CLAUDE.md b/CLAUDE.md',
+        'new file mode 120000',
+        'index 0000000..bf269f4',
+        '--- /dev/null',
+        '+++ b/CLAUDE.md',
+        '@@ -0,0 +1 @@',
+        '+AGENTS.md',
+        '\\ No newline at end of file',
+      ),
+    );
+    expect(parsed.lines).toEqual([
+      { kind: 'hunk', text: '@@ -1,2 +0,0 @@' },
+      { kind: 'removed', number: 1, text: '## Context discipline' },
+      { kind: 'removed', number: 2, text: '- Load **one** spec' },
+      { kind: 'hunk', text: '@@ -0,0 +1 @@' },
+      { kind: 'added', number: 1, text: 'AGENTS.md' },
+    ]);
+  });
+
   it('leaves out "No newline at end of file", which is git speaking, not the file', () => {
     const parsed = parseUnifiedDiff(
       diff('@@ -1 +1 @@', '-old', '\\ No newline at end of file', '+new', '\\ No newline at end of file'),
