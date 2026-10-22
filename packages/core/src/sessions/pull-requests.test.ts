@@ -569,6 +569,24 @@ describe('a pull request Claude opened itself (spec 026)', () => {
     expect(opened).toHaveLength(1);
   });
 
+  it('a follow-up after it that pushes nothing new adds no Pushed step', async () => {
+    const { repos, worktree, pulls, opened, records } = await readyToCreate({ session: { state: 'stopped' } });
+    // Claude committed, pushed and opened the pull request itself.
+    await repos.git(worktree, 'add', '-A');
+    await repos.git(worktree, 'commit', '-m', 'Claude committed this');
+    await repos.git(worktree, 'push', 'origin', 'feat/PROJ-1423');
+    opened.push(claudes);
+    await pulls.link(id);
+    const linked = (await records.get(id))?.session.activities.length ?? 0;
+    // A follow-up took the stepper back and ended with nothing new pushed.
+    await records.update(id, (current) => ({ ...current, session: { ...current.session, step: 'review' } }));
+
+    await pulls.link(id);
+
+    expect((await records.get(id))?.session.activities).toHaveLength(linked);
+    expect(await pulls.draftPush(id)).toEqual({ result: 'nothing_new' });
+  });
+
   it('changes nothing when GitHub has no open pull request from the branch', async () => {
     const { home, pulls } = await readyToCreate();
     const saved = join(sessionsFolder(home), id, 'session.json');
@@ -672,6 +690,26 @@ describe('pushing changes to the pull request (spec 014, Q7)', () => {
       outcome: 'pushed',
       number: 2841,
     });
+  });
+
+  it('Claude’s own push to the open pull request, as Settings let it, moves the stepper on as yours does', async () => {
+    const { repos, worktree, records, pulls } = await withPullRequestOpen();
+    // A follow-up took the stepper back, and Claude committed and pushed by itself before it finished.
+    await records.update(id, (current) => ({ ...current, session: { ...current.session, step: 'review' } }));
+    await writeFile(join(worktree, 'select.ts'), 'changed\n');
+    await repos.git(worktree, 'commit', '-am', 'Claude committed this');
+    await repos.git(worktree, 'push', 'origin', 'feat/PROJ-1423');
+
+    await pulls.link(id);
+
+    const head = await repos.git(worktree, 'rev-parse', 'HEAD');
+    const saved = await records.get(id);
+    expect(saved?.session.step).toBe('pull_request');
+    expect(saved?.session.activities.at(-1)).toMatchObject({ kind: 'pushed', number: 2841, files: 0 });
+    expect(saved?.pushedCommit).toBe(head);
+    // Nothing new since: the run's next end adds no second step.
+    await pulls.link(id);
+    expect((await records.get(id))?.session.activities).toHaveLength(saved?.session.activities.length ?? 0);
   });
 
   it('AC-17: pushes what Claude committed itself, committing nothing more', async () => {
