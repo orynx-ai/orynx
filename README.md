@@ -4,7 +4,7 @@
 
 Orynx is a developer-first, plug-and-play app on your laptop. Connectors bring the Jira tickets and GitHub reviews that need you into one inbox, and the coding agent you plug in, Claude today, builds a ticket in its own git worktree. You choose how far it goes: ask before every command, or push the branch and open the pull request on its own.
 
-![Orynx Home. A banner says Claude is waiting to run the orders tests. Below it, the composer asks what to build today, and Needs your attention lists Jira tickets and GitHub pull requests with reasons such as Approve command, Review requested and Checks failing.](apps/landing/src/assets/screens/home-1440.webp)
+![Orynx Home. The composer asks what to ship today, and Needs your attention lists Jira tickets and GitHub pull requests with reasons such as Review requested, Checks failing and Due tomorrow.](apps/landing/src/assets/screens/home-1440.webp)
 
 ## What it does
 
@@ -32,7 +32,7 @@ A session takes a ticket from brief to pull request in five visible steps: plan,
 3. **Your settings decide what runs.** The agent does what you allowed in Settings and asks for the rest: allow once, always allow, or deny. Review the diff file by file and ask for changes without starting over.
 4. **Ship your way.** The agent drafts the pull request title and description. Push and open it with one click, or allow it to push the branch and open the pull request on its own.
 
-![An Orynx session for a Jira story. Claude asks to run the orders tests, with Allow once, Always allow and Deny. On the left, its progress: made a worktree, sent the brief, explored the code and made a plan. On the right, the live diff of four changed files.](apps/landing/src/assets/screens/session-1440.webp)
+![An Orynx session for a Jira story. On the left, Claude's progress: made a worktree, made a plan and edited 4 files, then Claude asks to run the orders tests, with Allow once, Always allow and Deny. On the right, the live diff of four changed files.](apps/landing/src/assets/screens/session-1440.webp)
 
 ### Your rules: as hands-on or hands-off as you like
 
@@ -44,7 +44,7 @@ Pick a level in Settings › Coding agent, then set any kind of call to Allow, A
 - **Sandboxed unless you say so.** Commands run with no network and write only to the session's copy. Each risky row warns you when you allow it.
 - **Stop at any moment.** Stop the agent mid-step, or discard the session and its worktree.
 
-![Orynx Settings, Coding agent. Under What Claude can do without asking, four levels: Cautious, Balanced, Hands-off and Custom. Hands-off is picked, and the summary says Claude edits files, runs any command, uses the network, pushes the branch and opens pull requests without asking, and asks before deleting outside its copy.](apps/landing/src/assets/screens/agent-1440.webp)
+![Orynx Settings, Coding agent. Under What Claude can do without asking, four levels: Cautious, Balanced, Hands-off and Custom. Hands-off is picked: Claude edits files, runs any command, uses the network, pushes the branch and opens pull requests without asking, and asks before deleting outside its copy.](apps/landing/src/assets/screens/agent-1440.webp)
 
 ### Local-first: your workspace, on your machine
 
