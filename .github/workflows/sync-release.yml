@@ -1,0 +1,51 @@
+name: Sync main to release
+
+# The button for `git push origin main:release`. Only admins move release, and a push with the workflow's
+# own token starts no workflow, so this uses RELEASE_TOKEN: an admin's token held in the release
+# environment, which only main can use. A repo secret would reach every branch, so any writer.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: sync-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Fast-forward release to main
+    if: github.repository == 'orynx-ai/orynx'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: release
+    steps:
+      # A second check after the environment's approval: a writer's run stops here, before the token.
+      - name: Only an admin moves release, from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "::error::Run this on main: release only moves to main's head"
+            exit 1
+          fi
+          permission=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$GITHUB_TRIGGERING_ACTOR/permission" --jq .permission)
+          if [ "$permission" != admin ]; then
+            echo "::error::$GITHUB_TRIGGERING_ACTOR has $permission here; only an admin moves release"
+            exit 1
+          fi
+      - name: Move release to ${{ github.sha }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::No RELEASE_TOKEN in the release environment (Settings › Environments › release): add an admin's fine-grained token for this repo there, never as a repo secret"
+            exit 1
+          fi
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/branches/release" --jq .commit.sha)" = "$GITHUB_SHA" ]; then
+            echo "::notice::release is already at main ($GITHUB_SHA): nothing to release"
+            exit 0
+          fi
+          # force=false: GitHub refuses anything but a fast-forward, and the ruleset wants CI passed on it.
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/heads/release" -f sha="$GITHUB_SHA" -F force=false

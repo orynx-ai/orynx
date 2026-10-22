@@ -1,4 +1,4 @@
-<!-- learn-sources: apps/desktop/src/main.ts apps/desktop/src/hub.ts apps/desktop/src/login-path.ts apps/desktop/src/updates.ts apps/desktop/src/links.ts apps/desktop/src/log-file.ts apps/desktop/electron-builder.yml scripts/pack-desktop.ts scripts/lib/release-version.ts .github/workflows/release.yml e2e/desktop/desktop.spec.ts -->
+<!-- learn-sources: apps/desktop/src/main.ts apps/desktop/src/hub.ts apps/desktop/src/login-path.ts apps/desktop/src/updates.ts apps/desktop/src/links.ts apps/desktop/src/log-file.ts apps/desktop/electron-builder.yml scripts/pack-desktop.ts scripts/lib/release-version.ts .github/workflows/release.yml .github/workflows/sync-release.yml e2e/desktop/desktop.spec.ts -->
 
 # The desktop app: how Orynx installs, starts, releases and updates
 
@@ -49,6 +49,8 @@ pnpm test:e2e:desktop
 
 With a message box open, Electron doesn't act on SIGTERM, so a test that leaves the app at a dialog stops it with SIGKILL.
 
+On Linux the run sets `APPIMAGE` to a file in the throwaway home: electron-updater checks for updates only from an AppImage, and the run uses `linux-unpacked`. The hub's exit event fires as the hub starts exiting, so AC-18 waits a moment for its pid to go.
+
 ## Releasing it
 
 `release` only ever moves to a commit on `main`:
@@ -56,6 +58,8 @@ With a message box open, Electron doesn't act on SIGTERM, so a test that leaves 
 ```sh
 git push origin main:release
 ```
+
+Or, from GitHub, once `CI passed` is green on main's head: Actions › **Sync main to release** › Run workflow on `main`. It fast-forwards `release` with an admin's personal token, since the workflow's own token can't move `release` and its pushes start no workflow. Use a fine-grained token for this repo only, with an expiry and Contents and Workflows read and write. It is `RELEASE_TOKEN` in the `release` environment (Settings › Environments), with deployment branches set to Selected branches: `main`, and admins as required reviewers where the plan offers them. Set the environment up before the first run: GitHub makes a missing one on first use with no protection. Never make the token a repo secret: those reach every branch's workflows, so any writer could read it. Any workflow merged into `main` can still read it, and `main` takes a pull request with no approval, so whoever can merge into `main` can release.
 
 Never commit on `release` or merge a pull request into it: a merge commit isn't on `main`, so the next push would fail the review-stamp push gate, and `release.yml` refuses it ("release must point at a commit on main").
 
