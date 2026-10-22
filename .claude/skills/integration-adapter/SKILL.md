@@ -56,11 +56,11 @@ Never throw from a route because one integration failed. Return the other source
 
 ## What DevHub may write
 
-| Tool   | Writes in v1                                                                            |
-| ------ | --------------------------------------------------------------------------------------- |
-| Jira   | A new issue, from a board column's + button                                             |
-| GitHub | Push the session branch and open the PR, only after the user clicks Create pull request |
-| Slack  | Nothing (Reply opens Slack)                                                             |
+| Tool   | Writes in v1                                                                                                                                                                                                                      |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jira   | A new issue, from a board column's + button; from a session (spec 044), a comment, a move through the issue's own transitions, or an assignment to the user or nobody, each after the user's Allow or with Claude changes Jira on |
+| GitHub | Push the session branch and open the PR, only after the user clicks Create pull request                                                                                                                                           |
+| Slack  | Nothing (Reply opens Slack)                                                                                                                                                                                                       |
 
 Any other write: stop and ask.
 

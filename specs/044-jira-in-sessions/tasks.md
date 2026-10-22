@@ -26,7 +26,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: No leaks from any Jira call (AC-11, AC-19)
       Check: pnpm test packages/core/src/sessions/no-leaks.test.ts
       Files: packages/core/src/sessions/no-leaks.test.ts, packages/core/src/test/fake-claude-sdk.ts
-- [ ] Task 9: Docs and skills
+- [x] Task 9: Docs and skills
       Check: pnpm gate handbook-size; pnpm gate learn-freshness
       Files: docs/architecture.md, .claude/skills/agent-runtime/SKILL.md, .claude/skills/integration-adapter/SKILL.md, learn/sessions-and-worktrees.md, learn/connecting-jira.md
 - [ ] Task 10: STOP and run /review
