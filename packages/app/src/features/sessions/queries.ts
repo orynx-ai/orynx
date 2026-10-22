@@ -111,6 +111,31 @@ export function useDeleteSession() {
   });
 }
 
+/**
+ * Deletes several sessions, keeping their branches (the user's call, 22 Oct 2026): one at a time, as each takes its
+ * worktree out of the same repository. Answers the ids that went; any other failed, and nothing of it was deleted.
+ */
+export function useDeleteSessions() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids: readonly string[]) => {
+      const gone: string[] = [];
+      for (const id of ids) {
+        const deleted = await api.deleteSession(id, { branch: false }).then(
+          () => true,
+          () => false,
+        );
+        if (deleted) gone.push(id);
+      }
+      return gone;
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sessions });
+    },
+  });
+}
+
 /** Exactly what Claude was sent at the start, read when it's shown (the user's call, 19 Oct 2026). */
 export function useSessionBrief(sessionId: string) {
   const api = useApi();
