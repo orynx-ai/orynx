@@ -56,7 +56,8 @@ function environment(): Record<string, string> {
     LOG_LEVEL: 'info',
     PATH: `${fakeGh}${delimiter}${env['PATH'] ?? ''}`,
     // electron-updater only checks from an AppImage, which sets APPIMAGE; this run uses linux-unpacked.
-    ...(process.platform === 'linux' && { APPIMAGE: executable }),
+    // A path in the home, so an installed update could never replace the app under test.
+    ...(process.platform === 'linux' && { APPIMAGE: join(home, 'Orynx.AppImage') }),
   };
 }
 

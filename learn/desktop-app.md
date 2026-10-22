@@ -49,6 +49,8 @@ pnpm test:e2e:desktop
 
 With a message box open, Electron doesn't act on SIGTERM, so a test that leaves the app at a dialog stops it with SIGKILL.
 
+On Linux the run sets `APPIMAGE` to a file in the throwaway home: electron-updater checks for updates only from an AppImage, and the run uses `linux-unpacked`. The hub's exit event fires as the hub starts exiting, so AC-18 waits a moment for its pid to go.
+
 ## Releasing it
 
 `release` only ever moves to a commit on `main`:
@@ -57,7 +59,7 @@ With a message box open, Electron doesn't act on SIGTERM, so a test that leaves 
 git push origin main:release
 ```
 
-Or, from GitHub: Actions › **Sync main to release** › Run workflow on `main` (admins only). It fast-forwards `release` with the `RELEASE_TOKEN` secret, an admin's personal token with Contents and Workflows read and write: the workflow's own token can't move `release`, and its pushes start no workflow.
+Or, from GitHub, once `CI passed` is green on main's head: Actions › **Sync main to release** › Run workflow on `main`, then approve the run. It fast-forwards `release` with an admin's personal token, since the workflow's own token can't move `release` and its pushes start no workflow. Use a fine-grained token for this repo only, with an expiry and Contents and Workflows read and write. It is `RELEASE_TOKEN` in the `release` environment (Settings › Environments), which allows only `main` and has admins as required reviewers. Set the environment up before the first run: GitHub makes a missing one on first use with no protection. Never make the token a repo secret: those reach every branch's workflows, so any writer could read it.
 
 Never commit on `release` or merge a pull request into it: a merge commit isn't on `main`, so the next push would fail the review-stamp push gate, and `release.yml` refuses it ("release must point at a commit on main").
 
