@@ -92,6 +92,28 @@ function ticketWords(activity: Extract<SessionActivity, { kind: 'ticket' }>): St
   }
 }
 
+/** What Claude did in Jira (spec 044, Q4, Q10): "Searched Jira" with how many it found, "Moved MAG-12 to In Review". */
+function jiraWords(activity: Extract<SessionActivity, { kind: 'jira' }>): StepWords {
+  const key = activity.key ?? 'an issue';
+  switch (activity.action) {
+    case 'projects':
+      return { title: 'Read Jira projects', detail: null };
+    case 'searched': {
+      const found = activity.found ?? 0;
+      const count = found === 0 ? 'No issues' : `${String(found)} ${found === 1 ? 'issue' : 'issues'}`;
+      return { title: 'Searched Jira', detail: activity.more ? `${count}, more in Jira` : count };
+    }
+    case 'read':
+      return { title: `Read ${key}`, detail: activity.summary };
+    case 'commented':
+      return { title: `Commented on ${key}`, detail: null };
+    case 'moved':
+      return { title: `Moved ${key} to ${activity.to ?? 'another status'}`, detail: null };
+    case 'assigned':
+      return { title: activity.to === 'nobody' ? `Unassigned ${key}` : `Assigned ${key} to you`, detail: null };
+  }
+}
+
 /** What Claude wants: its own line about the command when it gave one, or the file it would edit (spec 012, Q8c). */
 function waitingDetail(activity: Extract<SessionActivity, { kind: 'waiting' }>): string {
   if (activity.about === 'edit') return `Wants to edit ${activity.text ?? 'a file'}`;
@@ -249,6 +271,8 @@ export function stepWords(activity: SessionActivity): StepWords {
       };
     case 'ticket':
       return ticketWords(activity);
+    case 'jira':
+      return jiraWords(activity);
     case 'stopped':
       return { title: 'You stopped Claude', detail: keepsChanges };
     case 'interrupted':

@@ -70,6 +70,7 @@ const kindIcons = {
   pull_request: GitPullRequestIcon,
   pushed: GitPullRequestIcon,
   ticket: Ticket01Icon,
+  jira: Ticket01Icon,
   stopped: StopIcon,
   interrupted: PowerIcon,
   discarded: Delete02Icon,

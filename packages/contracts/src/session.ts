@@ -320,6 +320,20 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     fields: z.array(z.enum(['title', 'description', 'type', 'priority', 'status', 'dueDate'])).default([]),
     status: TicketColumnSchema.nullable().default(null),
   }),
+  /**
+   * Claude used one of Orynx's Jira tools (spec 044): read the projects, searched (`found` issues, `more` when Jira found
+   * more), read an issue (its `summary`), or, once allowed, commented on one, moved it `to` a status, or assigned it
+   * `to` `me` or `nobody`. Only the fields its action needs are set; never anything about a person.
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('jira'),
+    action: z.enum(['projects', 'searched', 'read', 'commented', 'moved', 'assigned']),
+    key: JiraIssueKeySchema.nullable().default(null),
+    summary: z.string().nullable().default(null),
+    found: z.int().nonnegative().nullable().default(null),
+    more: z.boolean().default(false),
+    to: z.string().min(1).nullable().default(null),
+  }),
   /** You pressed Stop Claude. */
   ActivityBaseSchema.extend({ kind: z.literal('stopped') }),
   /** Orynx closed while Claude was working (AC-14). */

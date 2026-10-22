@@ -9,6 +9,7 @@ import {
   SessionDeleteQuerySchema,
   ApiErrorSchema,
   sessionTitleLimit,
+  SessionActivitySchema,
   SessionApprovalSchema,
   SessionIdSchema,
   SessionListQuerySchema,
@@ -51,6 +52,28 @@ describe('SessionListSchema', () => {
   it('rejects a pull request number that is not a positive whole number', () => {
     const session = { ...makeSessionSummary(), source: { kind: 'pull_request', number: 0 } };
     expect(SessionListSchema.safeParse({ sessions: [session] }).success).toBe(false);
+  });
+});
+
+describe('a Jira step (spec 044)', () => {
+  it('AC-1: keeps what Claude did in Jira, with only the fields its action needs', () => {
+    expect(
+      SessionActivitySchema.parse({ id: 'step-1', state: 'done', kind: 'jira', action: 'searched', found: 12 }),
+    ).toEqual({
+      id: 'step-1',
+      state: 'done',
+      kind: 'jira',
+      action: 'searched',
+      key: null,
+      summary: null,
+      found: 12,
+      more: false,
+      to: null,
+    });
+    expect(
+      SessionActivitySchema.safeParse({ id: 'step-1', state: 'done', kind: 'jira', action: 'searched', found: -1 })
+        .success,
+    ).toBe(false);
   });
 });
 
