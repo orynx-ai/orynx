@@ -23,6 +23,7 @@ import {
   Callout,
   Icon,
   IconButton,
+  Markdown,
   Panel,
   Skeleton,
   Stepper,
@@ -148,9 +149,23 @@ function commandsDetail(commands: readonly string[]): ReactNode {
   );
 }
 
+/** Claude's summary laid out as the Markdown it writes, not its raw marks. */
+function Summary({ text }: { text: string }) {
+  const platform = usePlatform();
+  return (
+    <Markdown
+      text={text}
+      onOpenLink={(url) => {
+        platform.openExternal(url);
+      }}
+    />
+  );
+}
+
 /** A step's line under its title: commands as code, the brief's files by name with their paths on hover. */
 function detailOf(activity: SessionActivity, detail: string | null): ReactNode {
   if (activity.kind === 'command') return commandsDetail(activity.commands);
+  if (activity.kind === 'finished' && detail !== null) return <Summary text={activity.summary} />;
   if (activity.kind === 'denied' && activity.about === 'command') return <Command>{activity.text}</Command>;
   if (activity.kind === 'refused' && activity.access === 'run') return <Command>{activity.path}</Command>;
   // The brief's files show by name; their full paths are the tooltip (spec 022, AC-17).
