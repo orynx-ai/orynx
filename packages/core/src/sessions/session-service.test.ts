@@ -50,7 +50,7 @@ import type { SessionPort } from '@devhub/contracts';
 import { execSync, spawn } from 'node:child_process';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
-import type { SessionRecords, StoredSession } from './session-store.ts';
+import { listedSession, type SessionRecords, type StoredSession } from './session-store.ts';
 import { createChangesReader } from './changes.ts';
 import { createContextReader } from './context-reader.ts';
 import { startSessionCleanup } from './session-cleanup.ts';
@@ -1255,6 +1255,55 @@ async function reached(records: SessionRecords, kind: string, id = '000000000000
 }
 
 const edit = (file: string): FakeTurn => ({ tool: 'Write', input: { file_path: file, content: 'x\n' } });
+
+describe('what a finished Build is ready for (spec 048)', () => {
+  const format: FakeTurn = { tool: 'Bash', input: { command: 'pnpm format' } };
+  const runs = { mode: 'edit_and_run_allowed' as const, allowedCommands: ['pnpm format'] };
+
+  it('AC-10: a file only a command changed makes it ready for a pull request, before it says Done', async () => {
+    let letGo: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      letGo = resolve;
+    });
+    const { service, records, heard } = await setUp({
+      script: [{ gate }, format, { finish: 'Formatted.' }],
+      ...runs,
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const readme = join((await reached(records, 'worktree')).worktree ?? '', 'README.md');
+    // Claude starts once git has made the worktree; till then its folder may not be there.
+    for (
+      let tries = 0;
+      tries < 500 &&
+      !(await readFile(readme).then(
+        () => true,
+        () => false,
+      ));
+      tries++
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    // What the formatter does: it changes a file Claude never edited.
+    await writeFile(readme, 'Formatted.\n');
+    heard.length = 0;
+    letGo();
+    const record = await settled(records);
+
+    expect(record.session.changed).toBe(true);
+    expect(record.session.activities.some((activity) => activity.kind === 'edit')).toBe(false);
+    expect(listedSession(record.session).ready).toBe('pull_request');
+    expect(heard).toContainEqual({ type: 'sessions.changed' });
+  });
+
+  it('AC-11: a command that changed nothing leaves it Done, with nothing to ship', async () => {
+    const { service, records } = await setUp({ script: [format, { finish: 'Nothing to format.' }], ...runs });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+
+    expect(record.session.changed).toBe(false);
+    expect(listedSession(record.session).ready).toBe('nothing');
+  });
+});
 
 describe('follow-ups (spec 013)', () => {
   const id = '0000000000000001';

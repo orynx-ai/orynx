@@ -121,11 +121,10 @@ export interface SessionRecords extends SessionStore {
 
 /**
  * What a finished session is ready for, from what Claude did, as its stepper is (spec 031): an Ask, or a Build where
- * Claude edited no file, leaves nothing to ship.
- * shortcut: a file changed only by a command Claude ran isn't seen; read the worktree's diff if that matters.
+ * Claude edited no file and no command it ran changed one (spec 048), leaves nothing to ship.
  */
-export function readyFor({ mode, workOn, activities }: Session): SessionReady {
-  if (mode === 'ask' || !activities.some((activity) => activity.kind === 'edit')) return 'nothing';
+export function readyFor({ mode, workOn, activities, changed }: Session): SessionReady {
+  if (mode === 'ask' || !(changed || activities.some((activity) => activity.kind === 'edit'))) return 'nothing';
   return workOn === 'pull_request' ? 'push' : 'pull_request';
 }
 

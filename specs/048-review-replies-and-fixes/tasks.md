@@ -31,7 +31,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: The Claude tab says how many earlier commands aren't shown (AC-14, AC-15)
       Check: pnpm test packages/app/src/features/sessions/components/terminal/
       Files: packages/app/src/features/sessions/components/terminal/claude-tab.tsx, its test, terminal-words.ts
-- [ ] Task 9: A Build's turn end records whether the worktree changed, and "ready for" reads it (AC-10, AC-11, AC-12)
+- [x] Task 9: A Build's turn end records whether the worktree changed, and "ready for" reads it (AC-10, AC-11, AC-12)
       Check: pnpm test packages/contracts/src/session.test.ts packages/core/src/sessions/session-store.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/contracts/src/session.ts, packages/core/src/sessions/session-store.ts, session-service.ts, their tests
 - [x] Task 10: The repository list says when a saved folder is gone (AC-16)

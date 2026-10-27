@@ -452,6 +452,32 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   /** When the Claude Code each session last started has ended: a resume waits for it (spec 013). */
   const agentEnded = new Map<string, Promise<void>>();
   const fileTimers = new Map<string, { timer: NodeJS.Timeout; again: boolean }>();
+  /** Each session's check of its worktree after a command, which Claude's finish waits for (spec 048). */
+  const worktreeChecks = new Map<string, Promise<void>>();
+
+  /**
+   * Once a command ends, whether the worktree now differs from where it started (spec 048): a formatter or codegen
+   * changes files Claude never edited. Only for a Build that has nothing to ship yet; once true it stays true.
+   */
+  function checkWorktree(id: string) {
+    const check = (async () => {
+      const record = await records.get(id);
+      if (record === null) return;
+      if (record.worktree === null || record.session.mode === 'ask' || readyFor(record.session) !== 'nothing') return;
+      const start = startPointOf(record);
+      if (start === null) return;
+      const listed = await options.changes.list(record.worktree, start, []);
+      if (!listed.ok || listed.changes.files.length + listed.changes.moreFiles === 0) return;
+      await change(id, (current) => ({ ...current, session: { ...current.session, changed: true } }));
+    })().catch(() => undefined);
+    const after = (worktreeChecks.get(id) ?? Promise.resolve()).then(() => check);
+    worktreeChecks.set(id, after);
+    track(
+      after.finally(() => {
+        if (worktreeChecks.get(id) === after) worktreeChecks.delete(id);
+      }),
+    );
+  }
 
   /** `session.files.changed` at once, then at most once a second while Claude edits and runs commands (AC-2). */
   function filesChanged(id: string) {
@@ -495,7 +521,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     }
   }
 
-  /** Changes a session; the lists hear at once when its state or title changed, the Session screen always. */
+  /**
+   * Changes a session; the lists hear at once when its state, title or what it's ready for changed, the Session screen
+   * always.
+   */
   async function change(
     id: string,
     update: (record: StoredSession) => StoredSession,
@@ -504,7 +533,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const seen: { listsChanged: boolean; before: Session | null } = { listsChanged: false, before: null };
     const saved = await records.update(id, (current) => {
       const next = update(current);
-      seen.listsChanged = next.session.state !== current.session.state || next.session.title !== current.session.title;
+      seen.listsChanged =
+        next.session.state !== current.session.state ||
+        next.session.title !== current.session.title ||
+        readyFor(next.session) !== readyFor(current.session);
       seen.before = current.session;
       const at = new Date(now()).toISOString();
       const activities = stampNew(current.session.activities, next.session.activities, { step: next.session.step, at });
@@ -624,7 +656,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         const finished = event.work.kind === 'finished';
         // At once, so the `ended` that follows a finish isn't taken for an end without one.
         if (finished) runs.delete(id);
-        track(
+        const update = () =>
           change(id, (record) => {
             const next = {
               ...withProgress(record, (progress) => addWork(progress, event.work)),
@@ -643,8 +675,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
               },
               commandLog: logRunEnded(next.commandLog),
             };
-          }),
-        );
+          });
+        // A command's check of the worktree goes first, so Done, and its notification, say what it found (spec 048).
+        const checking = finished ? worktreeChecks.get(id) : undefined;
+        track(checking === undefined ? update() : checking.then(update));
         return;
       }
       case 'approval': {
@@ -706,6 +740,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         return;
       case 'command_ended':
         track(change(id, (record) => ({ ...record, commandLog: logEnd(record.commandLog, event) })));
+        checkWorktree(id);
         return;
       case 'problem':
         track(fail(id, event.kind, event.code));
@@ -1443,6 +1478,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         workedMs: 0,
         runStartedAt: at,
         turns: 0,
+        changed: false,
         costUsd: null,
         pullRequest: null,
         context: [{ kind: 'jira', key: ticketKey }],
@@ -1542,6 +1578,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         workedMs: 0,
         runStartedAt: at,
         turns: 0,
+        changed: false,
         costUsd: null,
         pullRequest:
           pull === null
