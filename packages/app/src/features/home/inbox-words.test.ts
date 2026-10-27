@@ -122,6 +122,48 @@ describe('Home’s words', () => {
     }
   });
 
+  it('spec 047, AC-6, AC-7: your own pull request’s comments or failing checks get Fix, with what it sends', () => {
+    const yours = (reason: InboxReason, path: string, fork = false) =>
+      rowAction(
+        makeInboxItem({
+          id: 'github:acme/web-app#2836',
+          title: 'Fix timezone shift in event cards',
+          subject: {
+            kind: 'pull_request',
+            repository: 'web-app',
+            number: 2836,
+            author: 'The Octocat',
+            mine: true,
+            ...(fork ? { fork: true } : {}),
+          },
+          reason,
+          target: { kind: 'external', url: `https://github.com/acme/web-app/pull/2836${path}` },
+        }),
+      );
+    const chip = { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 };
+
+    expect(yours({ kind: 'unresolved_comments', count: 2 }, '')).toEqual({
+      kind: 'fix',
+      chip,
+      label: 'Fix review comments',
+      name: 'Fix review comments: web-app #2836',
+      message: 'Fix the unresolved review comments on web-app #2836.',
+    });
+    expect(yours({ kind: 'checks_failing' }, '/checks')).toEqual({
+      kind: 'fix',
+      chip,
+      label: 'Fix failing checks',
+      name: 'Fix failing checks: web-app #2836',
+      message: 'Fix the failing checks on web-app #2836.',
+    });
+    // One from a fork keeps + (its branch isn't in your repository).
+    expect(yours({ kind: 'checks_failing' }, '/checks', true)).toEqual({
+      kind: 'compose',
+      chip,
+      label: 'web-app #2836',
+    });
+  });
+
   it('022 AC-26, AC-32: an issue’s one action adds it to the composer, or opens its session once that’s live', () => {
     const issue = (target: InboxItem['target'], reason: InboxReason = { kind: 'status', category: 'to_do' }) =>
       rowAction(

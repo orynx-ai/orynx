@@ -28,9 +28,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: A Build that names no folder, with no ticket and a pull request chip, works in the folder whose origin is that pull request's repository; none or several answer `choose_folder` (AC-6, AC-8)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/compose.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/compose.ts, and their tests
-- [ ] Task 8: `rowAction` gives Fix review comments and Fix failing checks for your own open, non-fork pull request's rows, with their messages (AC-6, AC-7)
+- [x] Task 8: `rowAction` gives Fix review comments and Fix failing checks for your own open, non-fork pull request's rows, with their messages (AC-6, AC-7)
       Check: pnpm test packages/app/src/features/home/inbox-words.test.ts packages/app/src/features/home/composer-words.test.ts
-      Files: packages/app/src/features/home/inbox-words.ts, packages/app/src/features/home/composer-words.ts, and their tests
+      Files: packages/app/src/features/home/inbox-words.ts, packages/app/src/features/home/composer-words.ts, and their tests (the row keeps + until Task 9's button, in attention-panel.tsx)
 - [ ] Task 9: The composer's last answer moves into the composer store, so Send and Fix both write it. The row's Fix `IconButton` (`Wrench01Icon`) starts the session with the composer's model and effort and opens it. An `existing` answer shows A's callout under the composer; a `cannot_start` or `context_failed` answer puts the PR in the composer as Build with Send's line. The draft is untouched when it starts (AC-6, AC-7, AC-8, AC-9, AC-10)
       Check: pnpm test packages/app/src/features/home/components/attention-panel.test.tsx packages/app/src/features/home/home-screen.test.tsx; pnpm gate style-policy; pnpm gate icon-buttons
       Files: packages/app/src/features/home/components/attention-panel.tsx, packages/app/src/features/home/queries.ts, packages/app/src/features/home/store.ts, and their tests

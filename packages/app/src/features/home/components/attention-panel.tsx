@@ -30,7 +30,7 @@ import { InboxToolbar } from './inbox-toolbar.tsx';
 import { OrderMenu } from './order-menu.tsx';
 import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
 import { holds } from '../composer-rules.ts';
-import { composerWords, refusedLine } from '../composer-words.ts';
+import { chipLabel, composerWords, refusedLine } from '../composer-words.ts';
 import { useComposerStore } from '../store.ts';
 
 const panelTitle = 'Needs your attention';
@@ -484,7 +484,11 @@ function RowActionButton({ item, onSaid }: { item: HomeItem; onSaid: (said: stri
   }
   return (
     <AttentionActions>
-      <AddToComposer chip={action.chip} label={action.label} onSaid={onSaid} />
+      <AddToComposer
+        chip={action.chip}
+        label={action.kind === 'fix' ? chipLabel(action.chip) : action.label}
+        onSaid={onSaid}
+      />
     </AttentionActions>
   );
 }
