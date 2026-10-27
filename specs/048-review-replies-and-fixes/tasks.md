@@ -67,7 +67,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 19: e2e: Reply to reviewers on the pull requests hub posts only on the click, and has no axe violations at 1280 and 360 px in both themes (AC-3, AC-8, AC-20)
       Check: pnpm exec playwright test e2e/pull-requests.spec.ts
       Files: e2e/pull-requests.spec.ts, e2e/fake-tools/preload.ts
-- [ ] Task 20: Docs: GitHub's writes in the integration-adapter skill, and review replies in learn/connecting-github.md (part A)
+- [x] Task 20: Docs: GitHub's writes in the integration-adapter skill, and review replies in learn/connecting-github.md (part A)
       Check: pnpm gate learn-freshness; pnpm gate handbook-size
       Files: .claude/skills/integration-adapter/SKILL.md, learn/connecting-github.md
 
