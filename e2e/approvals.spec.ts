@@ -132,7 +132,7 @@ async function build(page: Page, key: string): Promise<string> {
 }
 
 function progress(page: Page) {
-  return page.getByRole('region', { name: 'What Claude did' });
+  return page.getByRole('region', { name: 'What agent did' });
 }
 
 async function finished(page: Page) {

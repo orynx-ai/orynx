@@ -81,7 +81,7 @@ describe('ApprovalCallout (spec 012)', () => {
     await renderApp({ route });
 
     const callout = await screen.findByRole('alert');
-    const steps = within(screen.getByRole('region', { name: 'What Claude did' })).getByRole('list');
+    const steps = within(screen.getByRole('region', { name: 'What agent did' })).getByRole('list');
     expect(steps.compareDocumentPosition(callout) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -117,7 +117,7 @@ describe('ApprovalCallout (spec 012)', () => {
     await waitFor(() => {
       expect(screen.queryByRole('alert')).toBeNull();
     });
-    expect(screen.getByRole('region', { name: 'What Claude did' })).toHaveFocus();
+    expect(screen.getByRole('region', { name: 'What agent did' })).toHaveFocus();
   });
 
   it('AC-3, AC-5: Deny and Always allow send their own answers', async () => {
@@ -204,7 +204,7 @@ describe('ApprovalCallout (spec 012)', () => {
   it('shows nothing when no call waits', async () => {
     server.use(sessionHandler(waitingOn()));
     await renderApp({ route });
-    expect(await screen.findByRole('region', { name: 'What Claude did' })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'What agent did' })).toBeVisible();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

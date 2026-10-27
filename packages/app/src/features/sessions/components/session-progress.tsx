@@ -1,6 +1,7 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowDown01Icon,
+  ArrowExpand01Icon,
   BubbleChatIcon,
   Cancel01Icon,
   CheckListIcon,
@@ -24,6 +25,9 @@ import {
   Button,
   Callout,
   CommandLine,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Icon,
   IconButton,
   Markdown,
@@ -37,7 +41,8 @@ import { usePlatform } from '../../../platform.tsx';
 import { durationText } from '../../../words/duration.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { groupsOf, stepTimeText } from '../activity-groups.ts';
-import { followWords, problemWords, stepWords, usageWords } from '../step-words.ts';
+import { contextWords } from '../ticket-tab-words.ts';
+import { followWords, problemWords, progressTitle, stepWords, usageWords } from '../step-words.ts';
 import { ApprovalCallout } from './approval-callout.tsx';
 import { StepDetails, hasDetails } from './step-details.tsx';
 
@@ -203,24 +208,26 @@ function detailOf(activity: SessionActivity, detail: string | null, grouped: boo
 
 /**
  * Follows Claude's progress to its end as steps come, while its end is in view; once you scroll up it stops, and
- * Jump to latest takes you back and follows again (the user's call, 19 Oct 2026). `end` marks the pane's end.
+ * Jump to latest takes you back and follows again (the user's call, 19 Oct 2026). `end` marks the steps' end, in the
+ * pane or in Full screen, whichever shows them.
  */
 function useFollow(changed: string) {
-  const end = useRef<HTMLDivElement>(null);
+  const marker = useRef<HTMLDivElement | null>(null);
   const seen = useRef(changed);
   const [atEnd, setAtEnd] = useState(true);
   const following = useRef(true);
-  useEffect(() => {
-    const marker = end.current;
-    if (marker === null) return;
+  const end = useCallback((node: HTMLDivElement | null) => {
+    marker.current = node;
+    if (node === null) return;
     const observer = new IntersectionObserver(([entry]) => {
       if (entry === undefined) return;
       following.current = entry.isIntersecting;
       setAtEnd(entry.isIntersecting);
     });
-    observer.observe(marker);
+    observer.observe(node);
     return () => {
       observer.disconnect();
+      marker.current = null;
     };
   }, []);
   // A new or longer step moves the end on; while following, the page goes with it before it's painted. Opening
@@ -228,7 +235,7 @@ function useFollow(changed: string) {
   useLayoutEffect(() => {
     if (changed === seen.current) return;
     seen.current = changed;
-    if (following.current) end.current?.scrollIntoView({ block: 'end' });
+    if (following.current) marker.current?.scrollIntoView({ block: 'end' });
   }, [changed]);
   const reduced =
     typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -237,7 +244,7 @@ function useFollow(changed: string) {
     atEnd,
     jump: () => {
       following.current = true;
-      end.current?.scrollIntoView({ block: 'end', behavior: reduced ? 'auto' : 'smooth' });
+      marker.current?.scrollIntoView({ block: 'end', behavior: reduced ? 'auto' : 'smooth' });
     },
   };
 }
@@ -274,7 +281,7 @@ function WorkedFor({ session }: { session: Session }) {
 }
 
 /**
- * "What Claude did" (`session-review.html`, spec 048; "Claude's progress" in `session.html`): why the session couldn't
+ * "What agent did" (`session-review.html`, spec 048; "Claude's progress" in `session.html`): why the session couldn't
  * start when it couldn't, then each step in its words, the latest one still running (AC-4, AC-13), then the follow-up
  * box (spec 013). A session from spec 048 on groups the steps under its own (`groupsOf`): the one Claude is on starts
  * open, a step you open stays open, and Claude's last summary shows after them. The approval stays under the last
@@ -287,6 +294,7 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
   const pane = useRef<HTMLElement>(null);
   // The step shown in full, by its id, so it follows the session as it changes.
   const [shownId, setShownId] = useState<string | null>(null);
+  const [full, setFull] = useState(false);
   const shown = session.activities.find((activity) => activity.id === shownId) ?? null;
   const { end, atEnd, jump } = useFollow(session.updatedAt);
   const groups = groupsOf(session);
@@ -322,93 +330,150 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
       />
     );
   };
+  const expandAll =
+    groups === null ? null : (
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          setOpened(Object.fromEntries(groups.map((group) => [group.step.kind, anyClosed])));
+        }}
+      >
+        {anyClosed ? 'Expand all' : 'Collapse all'}
+      </Button>
+    );
+  // The steps, then the follow-up box: in the pane, or in Full screen while it's open, never both. The steps' box is
+  // relative, so hidden words in it are clipped there rather than lengthening the page.
+  const body = (scrolls: string) => (
+    <>
+      <div className={scrolls}>
+        {problem === null ? null : (
+          <Callout tone="danger" role="alert" title={problem.title}>
+            <span>{withCode(problem.line)}</span>
+          </Callout>
+        )}
+        {groups === null ? (
+          <ActivityList>{session.activities.map((activity) => row(activity, false))}</ActivityList>
+        ) : (
+          <ActivityList className="gap-0">
+            {groups.map((group) => {
+              const latest = group.activities.at(-1);
+              const current = working && group.step.kind === currentKind;
+              const state = current ? (session.state === 'needs_you' ? 'waiting' : undefined) : 'done';
+              const { kind, label } = group.step;
+              return (
+                <ActivityGroup
+                  key={kind}
+                  state={state}
+                  icon={state === 'done' || latest === undefined ? <Icon icon={Tick02Icon} /> : look(latest).icon}
+                  title={label}
+                  // Only while it's closed: open, its latest row is right under it.
+                  summary={isOpen(kind) || latest === undefined ? undefined : stepWords(latest).title}
+                  time={group.ms === null ? undefined : stepTimeText(group.ms)}
+                  open={isOpen(kind)}
+                  onOpenChange={(open) => {
+                    setOpened((was) => ({ ...was, [kind]: open }));
+                  }}
+                >
+                  <ActivityList aria-label={label}>
+                    {group.activities.map((activity) => row(activity, true))}
+                  </ActivityList>
+                </ActivityGroup>
+              );
+            })}
+            {/* Claude's last summary, after the steps and always shown (AC-16). */}
+            {last?.kind === 'finished' ? row(last, true, 'pt-3.5') : null}
+          </ActivityList>
+        )}
+        {/* Under the last step, as a chat asks, not at the top (the user's call, 20 Oct 2026). */}
+        <ApprovalCallout session={session} afterAll={pane} />
+        {/* The steps' end: in view only once you've scrolled to the end of What agent did. */}
+        <div ref={end} aria-hidden />
+      </div>
+      {/* The steps pass under the follow-up box, on the pane's own colour; Jump to latest sits over it. */}
+      <div className={footer === undefined ? 'sticky bottom-4 h-0' : 'sticky bottom-0 bg-raised px-4 pt-2 pb-4'}>
+        {atEnd ? null : (
+          <IconButton
+            variant="secondary"
+            label={followWords.jump}
+            onClick={jump}
+            className="absolute end-4 bottom-full mb-2 rounded-full shadow-overlay"
+          >
+            <Icon icon={ArrowDown01Icon} aria-hidden />
+          </IconButton>
+        )}
+        {footer}
+      </div>
+    </>
+  );
   return (
     <>
       <Panel
-        ref={pane}
+        ref={full ? undefined : pane}
         tabIndex={-1}
-        title="What Claude did"
+        title={progressTitle}
         actions={
           <>
-            <WorkedFor session={session} />
-            {groups === null ? null : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setOpened(Object.fromEntries(groups.map((group) => [group.step.kind, anyClosed])));
-                }}
-              >
-                {anyClosed ? 'Expand all' : 'Collapse all'}
-              </Button>
-            )}
+            {expandAll}
+            <IconButton
+              variant="ghost"
+              size="sm"
+              label={contextWords.fullScreen}
+              onClick={() => {
+                setFull(true);
+              }}
+            >
+              <Icon icon={ArrowExpand01Icon} aria-hidden />
+            </IconButton>
           </>
         }
         // Stacked, it's clipped without being a scroll box, so the box at its end can stick to the window. Side by side
-        // (spec 048, Q4), it's held in view under the page bar, as tall as the window less the bar and its gaps, and
-        // its steps scroll on their own above the box.
-        // style-policy-ignore-next-line: the window's height less the page bar and its gaps has no scale step
-        className="overflow-clip @3xl:sticky @3xl:top-20 @3xl:flex @3xl:max-h-[calc(100svh-7rem)] @3xl:flex-col"
+        // (spec 048, Q4), it fills the pane to the window's foot and its steps scroll on their own above the box.
+        className="overflow-clip @3xl:flex @3xl:h-full @3xl:flex-col"
       >
-        <div className="flex flex-col gap-4 p-4 @3xl:min-h-0 @3xl:flex-1 @3xl:overflow-y-auto">
-          {problem === null ? null : (
-            <Callout tone="danger" role="alert" title={problem.title}>
-              <span>{withCode(problem.line)}</span>
-            </Callout>
-          )}
-          {groups === null ? (
-            <ActivityList>{session.activities.map((activity) => row(activity, false))}</ActivityList>
-          ) : (
-            <ActivityList className="gap-0">
-              {groups.map((group) => {
-                const latest = group.activities.at(-1);
-                const current = working && group.step.kind === currentKind;
-                const state = current ? (session.state === 'needs_you' ? 'waiting' : undefined) : 'done';
-                const { kind, label } = group.step;
-                return (
-                  <ActivityGroup
-                    key={kind}
-                    state={state}
-                    icon={state === 'done' || latest === undefined ? <Icon icon={Tick02Icon} /> : look(latest).icon}
-                    title={label}
-                    // Only while it's closed: open, its latest row is right under it.
-                    summary={isOpen(kind) || latest === undefined ? undefined : stepWords(latest).title}
-                    time={group.ms === null ? undefined : stepTimeText(group.ms)}
-                    open={isOpen(kind)}
-                    onOpenChange={(open) => {
-                      setOpened((was) => ({ ...was, [kind]: open }));
-                    }}
-                  >
-                    <ActivityList aria-label={label}>
-                      {group.activities.map((activity) => row(activity, true))}
-                    </ActivityList>
-                  </ActivityGroup>
-                );
-              })}
-              {/* Claude's last summary, after the steps and always shown (AC-16). */}
-              {last?.kind === 'finished' ? row(last, true, 'pt-3.5') : null}
-            </ActivityList>
-          )}
-          {/* Under the last step, as a chat asks, not at the top (the user's call, 20 Oct 2026). */}
-          <ApprovalCallout session={session} afterAll={pane} />
-          {/* The steps' end: in view only once you've scrolled to the end of What Claude did. */}
-          <div ref={end} aria-hidden />
+        {/* Under the heading, so its buttons keep to the heading's line in the 400 px pane (the user's call, 27 Oct 2026). */}
+        <div className="px-4">
+          <WorkedFor session={session} />
         </div>
-        {/* The steps pass under the follow-up box, on the pane's own colour; Jump to latest sits over it. */}
-        <div className={footer === undefined ? 'sticky bottom-4 h-0' : 'sticky bottom-0 bg-raised px-4 pt-2 pb-4'}>
-          {atEnd ? null : (
-            <IconButton
-              variant="secondary"
-              label={followWords.jump}
-              onClick={jump}
-              className="absolute end-4 bottom-full mb-2 rounded-full shadow-overlay"
-            >
-              <Icon icon={ArrowDown01Icon} aria-hidden />
-            </IconButton>
-          )}
-          {footer}
-        </div>
+        {/* Its steps fade out at an edge with more past it, as the sidebar's sessions do (the user's call, 27 Oct 2026). */}
+        {full
+          ? null
+          : body('relative flex flex-col gap-4 p-4 @3xl:min-h-0 @3xl:flex-1 @3xl:scroll-fade-y @3xl:overflow-y-auto')}
       </Panel>
+      {/* Full screen, as Work details has it (the user's call, 27 Oct 2026). */}
+      <Dialog open={full} onOpenChange={setFull}>
+        {full ? (
+          <DialogContent
+            // Focus comes here once you've answered the last call, while Full screen is open.
+            ref={(node: HTMLDivElement | null) => {
+              pane.current = node;
+            }}
+            size="full"
+            onOpenAutoFocus={(event) => {
+              // Focus on the dialog, not on Close: Close's tooltip would take the first Esc, as Work details' does.
+              event.preventDefault();
+              if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus();
+            }}
+          >
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-6 py-3">
+              <DialogTitle className="min-w-0 flex-1 truncate">{progressTitle}</DialogTitle>
+              <WorkedFor session={session} />
+              {expandAll}
+              <IconButton
+                variant="ghost"
+                size="sm"
+                label={contextWords.close}
+                onClick={() => {
+                  setFull(false);
+                }}
+              >
+                <Icon icon={Cancel01Icon} aria-hidden />
+              </IconButton>
+            </div>
+            {body('relative flex min-h-0 flex-1 scroll-fade-y flex-col gap-4 overflow-y-auto px-6 py-4')}
+          </DialogContent>
+        ) : null}
+      </Dialog>
       <StepDetails
         session={session}
         activity={shown}
@@ -434,7 +499,7 @@ export function SessionStepperSkeleton() {
 export function SessionProgressSkeleton() {
   return (
     <div aria-hidden>
-      <Panel title="What Claude did">
+      <Panel title={progressTitle}>
         <div className="flex flex-col gap-3.5 p-4">
           {[0, 1, 2].map((row) => (
             <span key={row} className="flex gap-3">

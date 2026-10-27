@@ -64,10 +64,10 @@ describe('SessionDetails', () => {
       ).toEqual(['Changes 4', 'Ports', 'Context 4']);
     });
     await user.click(within(tabs).getByRole('tab', { name: /^Changes/ }));
-    expect(await screen.findByRole('button', { name: 'Wrap lines' })).toBeVisible();
+    expect(await screen.findByRole('switch', { name: 'Wrap lines' })).toBeVisible();
     expect(screen.getByText('+142')).toBeVisible();
     await user.click(within(tabs).getByRole('tab', { name: /^Context/ }));
-    expect(screen.queryByRole('button', { name: 'Wrap lines' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Wrap lines' })).not.toBeInTheDocument();
     expect(screen.queryByText('+142')).not.toBeInTheDocument();
   });
 
@@ -112,7 +112,8 @@ describe('Full screen (the user’s call, 19 Oct 2026)', () => {
     server.use(sessionHandler(sent));
     serveChanges(makeSessionChanges());
     const { user } = await renderApp({ route });
-    const button = await screen.findByRole('button', { name: 'Full screen' });
+    const details = await screen.findByRole('region', { name: 'Work details' });
+    const button = await within(details).findByRole('button', { name: 'Full screen' });
 
     await user.click(button);
     const changes = await screen.findByRole('dialog', { name: 'Changes' });

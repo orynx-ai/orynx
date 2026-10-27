@@ -1,6 +1,6 @@
 import { stepsOf, type Session, type SessionActivity, type SessionStep, type SessionStepItem } from '@devhub/contracts';
 
-/** One of the session's steps in What Claude did (spec 048): its activities, and how long they took. */
+/** One of the session's steps in What agent did (spec 048): its activities, and how long they took. */
 export interface StepGroup {
   step: SessionStepItem;
   activities: SessionActivity[];
@@ -13,7 +13,7 @@ const stamped = (activity: SessionActivity): activity is Stamped =>
   activity.step !== undefined && activity.at !== undefined;
 
 /**
- * What Claude did, by the session's own steps, in the stepper's order, for the steps that started (spec 048). Each
+ * What agent did, by the session's own steps, in the stepper's order, for the steps that started (spec 048). Each
  * activity lasts until the next one starts; the last until the run ended, or on while Claude works. Claude's finish
  * takes no time, so the wait after it for your follow-up isn't counted; the last one, when it's the last activity,
  * shows after the groups instead (AC-16). An activity whose step

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
   ArrowUpRight01Icon,
@@ -16,7 +16,6 @@ import {
   CopyButton,
   Icon,
   IconButton,
-  Kbd,
   Menu,
   MenuContent,
   MenuItem,
@@ -82,21 +81,46 @@ function Dot() {
   return <span aria-hidden>·</span>;
 }
 
+/** The title, with the stepper on its right where both fit and under it where they don't (spec 048, Q3). */
+function TitleRow({ title, stepper }: { title: ReactNode; stepper?: ReactNode }) {
+  return (
+    // A line holding only the stepper starts it at the left.
+    <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div className="min-w-0 grow basis-96">{title}</div>
+      {stepper === undefined ? null : <div className="min-w-0 pt-1">{stepper}</div>}
+    </div>
+  );
+}
+
 /**
- * The Session screen's title row (`session-review.html`, spec 048): the title, then one line with the state, the
- * skills your message named, the folder, the branch with Copy branch name, the worktree and when it started. Its
- * buttons are in the page bar, in {@link SessionActions} (the user's call, 19 Oct 2026).
+ * The Session screen's title row (`session-review.html`, spec 048): the title and the stepper, then one line the page
+ * wide, so it seldom wraps (the user's call, 27 Oct 2026), with the state, the skills your message named, the folder,
+ * the branch with Copy branch name, the worktree and when it started. Its buttons are in the page bar, in
+ * {@link SessionActions} (the user's call, 19 Oct 2026).
  */
-export function SessionHeader({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
+export function SessionHeader({
+  session,
+  title,
+  stepper,
+}: {
+  session: Session;
+  title: RefObject<HTMLHeadingElement | null>;
+  stepper?: ReactNode;
+}) {
   const now = useNow();
   const skills = session.activities.flatMap((activity) => (activity.kind === 'brief' ? activity.skills : []));
   const { branch, folder } = session;
   const ask = session.mode === 'ask';
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <h1 ref={title} tabIndex={-1} className="m-0 text-title-lg font-medium">
-        {session.title}
-      </h1>
+      <TitleRow
+        title={
+          <h1 ref={title} tabIndex={-1} className="m-0 text-title-lg font-medium">
+            {session.title}
+          </h1>
+        }
+        stepper={stepper}
+      />
       <div className="flex min-w-0 flex-wrap items-center gap-2 text-small text-muted-foreground">
         <Pill tone={stateTones[session.state]}>
           {/* The sidebar's "Needs you" is said in full here, where you answer (spec 012, Q8d). */}
@@ -146,9 +170,9 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
 }
 
 /**
- * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop while Claude works (AC-9),
- * Terminal with its shortcut (spec 048), and Open PR once the pull request is open; Create pull request and Push are
- * the next-move bar's (spec 048). Open in the editor waits in More actions, then Rename, Pin and Delete (spec 039,
+ * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop while Claude works (AC-9), and
+ * Open PR once the pull request is open; Create pull request and Push are the next-move bar's (spec 048). Terminal,
+ * with its shortcut, and Open in the editor wait in More actions (the user's call, 27 Oct 2026), then Rename, Pin and Delete (spec 039,
  * where Delete took Discard changes' place, the user's call, 20 Oct 2026). Under 768 px everything but Stop moves into
  * More actions, so the bar keeps to one line. Stop keeps focus while it runs; once the session has stopped, the title
  * takes focus, because the button is gone. `openPullRequest` and `more` are the screen's, for the bar's focus.
@@ -166,7 +190,6 @@ export function SessionActions({
 }) {
   const platform = usePlatform();
   const wide = useWide();
-  const terminalButton = useRef<HTMLButtonElement>(null);
   const terminalDialog = useRef<{ open: () => void }>(null);
   // The dialog an item opens, once the menu has closed and let go of focus.
   const picked = useRef<'terminal' | SessionMenuPick | null>(null);
@@ -194,9 +217,7 @@ export function SessionActions({
 
   return (
     <>
-      {session.terminal ? (
-        <SessionTerminal ref={terminalDialog} session={session} returnTo={wide ? terminalButton : more} />
-      ) : null}
+      {session.terminal ? <SessionTerminal ref={terminalDialog} session={session} returnTo={more} /> : null}
       {working ? (
         <Button
           variant="secondary"
@@ -213,24 +234,6 @@ export function SessionActions({
             <Icon icon={StopIcon} aria-hidden />
           )}
           {stopping ? 'Stopping…' : 'Stop'}
-        </Button>
-      ) : null}
-      {session.terminal && wide ? (
-        <Button
-          ref={terminalButton}
-          variant="ghost"
-          size="sm"
-          aria-keyshortcuts={shortcut.ariaKeyShortcuts}
-          onClick={() => {
-            terminalDialog.current?.open();
-          }}
-        >
-          <Icon icon={ComputerTerminal01Icon} aria-hidden />
-          {terminalWords.button}
-          {/* From 1280 px: narrower, the bar keeps the room for the breadcrumb. */}
-          <Kbd aria-hidden className="hidden xl:inline-flex">
-            {shortcut.label}
-          </Kbd>
         </Button>
       ) : null}
       {pullRequest === null || !wide ? null : (
@@ -288,7 +291,7 @@ export function SessionActions({
             terminalDialog.current?.open();
           }}
         >
-          {session.terminal && !wide ? (
+          {session.terminal ? (
             <MenuItem
               icon={<Icon icon={ComputerTerminal01Icon} />}
               aria-keyshortcuts={shortcut.ariaKeyShortcuts}
@@ -330,12 +333,17 @@ export function SessionActions({
 }
 
 /** The title row's loading form: the same two lines, so nothing moves when the session arrives (AC-16). */
-export function SessionHeaderSkeleton() {
+export function SessionHeaderSkeleton({ stepper }: { stepper?: ReactNode }) {
   return (
     <div aria-hidden className="flex flex-col gap-1.5">
-      <span className="flex h-7 items-center">
-        <Skeleton className="h-5 w-2/3" />
-      </span>
+      <TitleRow
+        title={
+          <span className="flex h-7 items-center">
+            <Skeleton className="h-5 w-2/3" />
+          </span>
+        }
+        stepper={stepper}
+      />
       <span className="flex h-6 items-center">
         <Skeleton className="h-4 w-1/2" />
       </span>

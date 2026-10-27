@@ -124,7 +124,7 @@ function untouched(worktree: string) {
 
 const changedFiles = (page: Page) => page.getByRole('list', { name: 'Changed files' });
 const followUpBox = (page: Page) => page.getByRole('textbox', { name: 'Message Claude' });
-const progressOf = (page: Page) => page.getByRole('region', { name: 'What Claude did' });
+const progressOf = (page: Page) => page.getByRole('region', { name: 'What agent did' });
 
 /**
  * The folder an Open in link opens, as a real path: the hub names the worktree under its own home's path, which
@@ -193,7 +193,7 @@ test('AC-1, AC-2, AC-18: the Changes tab lists Claude’s edit as it lands, in e
     await expect(tab.getByRole('tab', { name: 'Changes 1' })).toHaveAttribute('aria-selected', 'true');
     // The totals and Wrap lines sit in the tabs' row (spec 048).
     await expect(tab.getByText('1 line added in 1 file')).toBeAttached();
-    await expect(tab.getByRole('button', { name: 'Wrap lines', pressed: true })).toBeVisible();
+    await expect(tab.getByRole('switch', { name: 'Wrap lines', checked: true })).toBeVisible();
     const diff = tab.getByRole('region', { name: 'Changes in archive.ts' });
     await expect(diff.getByText('export const archive = true;')).toBeVisible();
   }

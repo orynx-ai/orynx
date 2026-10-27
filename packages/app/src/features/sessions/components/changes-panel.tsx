@@ -10,6 +10,7 @@ import {
   FileList,
   FileListSkeleton,
   Pill,
+  Switch,
   type DiffLine,
 } from '@devhub/ui';
 import {
@@ -85,11 +86,12 @@ export function ChangesTools({ sessionId }: { sessionId: string }) {
   const changes = useSessionChanges(sessionId);
   const wrap = useDiffView((state) => state.wrap);
   const setWrap = useDiffView((state) => state.setWrap);
+  const id = useId();
   if (changes.data?.state !== 'ready' || changes.data.files.length === 0) return null;
   const { added, removed, files, moreFiles } = changes.data;
   const summary = changesSummary({ added, removed, files: files.length + moreFiles });
   return (
-    <span className="ms-auto flex shrink-0 items-center gap-2">
+    <span className="flex shrink-0 items-center gap-2">
       <span className="shrink-0 text-small">
         <span aria-hidden>
           {summary.added === null ? null : <span className="text-success">{summary.added} </span>}
@@ -97,16 +99,11 @@ export function ChangesTools({ sessionId }: { sessionId: string }) {
         </span>
         <span className="sr-only">{summary.spoken}</span>
       </span>
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-pressed={wrap}
-        onClick={() => {
-          setWrap(!wrap);
-        }}
-      >
-        Wrap lines
-      </Button>
+      {/* A switch, so it shows whether it's on (the user's call, 27 Oct 2026). */}
+      <span className="flex items-center gap-1.5 text-small text-muted-foreground">
+        <Switch id={id} checked={wrap} onCheckedChange={setWrap} />
+        <label htmlFor={id}>Wrap lines</label>
+      </span>
     </span>
   );
 }
@@ -159,7 +156,8 @@ export function ChangesPanel({ session }: { session: Session }) {
       // A container, so the files sit beside the diff once the tab is wide enough, and above it until then.
       <div className="@container">
         <div className="flex flex-col gap-3 @xl:flex-row @xl:items-start">
-          <div className="flex min-w-0 flex-col gap-2 @xl:w-60 @xl:shrink-0">
+          {/* Beside the diff, the files stay put while the diff scrolls (the user's call, 27 Oct 2026). */}
+          <div className="flex min-w-0 flex-col gap-2 @xl:sticky @xl:top-0 @xl:w-60 @xl:shrink-0">
             <FileList
               aria-label="Changed files"
               files={files}

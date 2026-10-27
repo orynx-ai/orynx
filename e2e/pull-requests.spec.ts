@@ -133,7 +133,7 @@ async function worktreeOf(page: Page, url: string): Promise<string> {
 }
 
 const dialog = (page: Page, name = 'Create pull request') => page.getByRole('dialog', { name });
-const progressOf = (page: Page) => page.getByRole('region', { name: 'What Claude did' });
+const progressOf = (page: Page) => page.getByRole('region', { name: 'What agent did' });
 
 test.beforeAll(async ({ browser }, testInfo) => {
   test.skip((testInfo.project.use.viewport?.width ?? 0) < 768, 'the sessions share one hub and one repository');
