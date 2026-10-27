@@ -315,6 +315,44 @@ export function acceptingPullDiff(
   });
 }
 
+/** A pull request's state on GitHub and its head commit, as the fake answers a session watching it (spec 047). */
+export interface FakePullState {
+  owner?: string;
+  repository?: string;
+  number: number;
+  state: 'open' | 'closed' | 'merged';
+  head: string;
+}
+
+/**
+ * GitHub's REST `GET …/pulls/{n}` as JSON (spec 047): `state` open or closed, `merged`, and `head.sha`. A request for
+ * the diff media type falls through to {@link acceptingPullDiff}. `pulls` is read on each request, so a test can merge
+ * one by changing it.
+ */
+export function acceptingPullStates(
+  pulls: readonly FakePullState[],
+  { tokens = [githubToken, ghToken] }: { tokens?: readonly string[] } = {},
+) {
+  return http.get('https://api.github.com/repos/:owner/:repository/pulls/:number', ({ request, params }) => {
+    if ((request.headers.get('accept') ?? '').includes('diff')) return undefined;
+    const no = refused(request, tokens);
+    if (no !== null) return no;
+    const pull = pulls.find(
+      (candidate) =>
+        (candidate.owner ?? 'acme') === params['owner'] &&
+        (candidate.repository ?? 'web-app') === params['repository'] &&
+        String(candidate.number) === params['number'],
+    );
+    if (pull === undefined) return HttpResponse.json({ message: 'Not Found', status: '404' }, { status: 404 });
+    return HttpResponse.json({
+      number: pull.number,
+      state: pull.state === 'open' ? 'open' : 'closed',
+      merged: pull.state === 'merged',
+      head: { sha: pull.head },
+    });
+  });
+}
+
 /** A pull request GitHub holds, as the fake opens and lists them (spec 014). */
 export interface FakeOpenedPull {
   owner: string;

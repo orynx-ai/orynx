@@ -5,6 +5,7 @@ import {
   acceptingPullContext,
   acceptingPullDiff,
   acceptingPulls,
+  acceptingPullStates,
   acceptingRepository,
   githubLogin,
   githubToken,
@@ -17,6 +18,7 @@ import {
   useFakeGitHub,
   type FakeOpenedPull,
   type FakePullContext,
+  type FakePullState,
 } from '../../test/fake-github.ts';
 import { createGitHubClient, type GitHubCheck } from './client.ts';
 
@@ -626,5 +628,36 @@ describe('GitHub client: pull requests (spec 014)', () => {
       ok: false,
       problem: { kind: 'forbidden' },
     });
+  });
+});
+
+describe('GitHub client: a session’s pull request after it opens (spec 047)', () => {
+  const head = 'a'.repeat(40);
+  const pull = { repository: 'acme/web-app', number: 2841 };
+
+  it('AC-11, AC-14: says whether a pull request is open, closed or merged, with its head commit', async () => {
+    const states: FakePullState[] = [{ number: 2841, state: 'open', head }];
+    github.use(acceptingPullStates(states));
+    expect(await client.pullState(githubToken, pull)).toEqual({ ok: true, state: 'open', head });
+
+    states[0] = { number: 2841, state: 'merged', head };
+    expect(await client.pullState(githubToken, pull)).toEqual({ ok: true, state: 'merged', head });
+
+    states[0] = { number: 2841, state: 'closed', head };
+    expect(await client.pullState(githubToken, pull)).toEqual({ ok: true, state: 'closed', head });
+  });
+
+  it('AC-15: a missing pull request, a refused token or an unreachable GitHub is a problem, never a throw', async () => {
+    github.use(acceptingPullStates([{ number: 2841, state: 'merged', head }]));
+    expect(await client.pullState(githubToken, { ...pull, number: 9 })).toEqual({
+      ok: false,
+      problem: { kind: 'not_found' },
+    });
+    const refused = await client.pullState('fake-wrong-token-for-tests', pull);
+    expect(refused).toEqual({ ok: false, problem: { kind: 'rejected' } });
+    expect(JSON.stringify(refused)).not.toContain('fake-wrong-token-for-tests');
+
+    github.use(http.get(pullUrl('acme', 'web-app', 2841), () => HttpResponse.error()));
+    expect(await client.pullState(githubToken, pull)).toMatchObject({ ok: false, problem: { kind: 'unreachable' } });
   });
 });
