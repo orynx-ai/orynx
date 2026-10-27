@@ -14,4 +14,6 @@ export const NeedsYou: Story = {};
 export const Working: Story = { args: { state: 'working' } };
 export const ReadyForPr: Story = { args: { state: 'done' } };
 export const PrOpen: Story = { args: { state: 'pr_open' } };
+export const PrMerged: Story = { args: { state: 'pr_merged' } };
+export const PrClosed: Story = { args: { state: 'pr_closed' } };
 export const Stopped: Story = { args: { state: 'stopped' } };

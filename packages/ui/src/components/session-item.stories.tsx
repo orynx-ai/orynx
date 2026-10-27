@@ -24,6 +24,12 @@ export const NeedsYou: Story = {};
 export const Working: Story = { args: { title: 'Read receipts on analytics', source: 'PROJ-1398', state: 'working' } };
 export const Done: Story = { args: { title: 'Fix timezone shift in event cards', source: 'PR #2836', state: 'done' } };
 export const PrOpen: Story = { args: { title: 'Bulk archive for events', source: 'PROJ-1401', state: 'pr_open' } };
+export const PrMerged: Story = {
+  args: { title: 'Add read receipts', source: 'PROJ-1385', state: 'pr_merged' },
+};
+export const PrClosed: Story = {
+  args: { title: 'Swap the date picker', source: 'PROJ-1390', state: 'pr_closed' },
+};
 export const Stopped: Story = { args: { title: 'Try a faster search index', source: 'PROJ-1377', state: 'stopped' } };
 export const Current: Story = { args: { 'aria-current': 'page' } };
 export const NoSource: Story = { args: { title: 'Tidy the README', source: undefined, state: 'working' } };

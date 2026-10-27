@@ -143,6 +143,20 @@ describe('SessionHeader', () => {
     expect(more).toHaveFocus();
   });
 
+  it('AC-11, AC-14 (spec 047): once its pull request is merged or closed, the pill says so', async () => {
+    for (const [state, word] of [
+      ['pr_merged', 'PR merged'],
+      ['pr_closed', 'PR closed'],
+    ] as const) {
+      server.use(
+        sessionHandler(makeSession({ ...done, state, step: 'pull_request', pullRequest: makeSessionPullRequest() })),
+      );
+      const { unmount } = await renderApp({ route });
+      expect(await within(screen.getByRole('main')).findByText(word)).toBeVisible();
+      unmount();
+    }
+  });
+
   it('under 768 px, once the pull request is open, More actions holds Open PR and Push changes', async () => {
     narrow();
     const open = makeSession({

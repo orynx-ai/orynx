@@ -19,6 +19,8 @@ export const statusOptions: readonly { value: SessionState; label: string }[] = 
   { value: 'needs_you', label: 'Needs you' },
   { value: 'done', label: 'Done' },
   { value: 'pr_open', label: 'PR open' },
+  { value: 'pr_merged', label: 'PR merged' },
+  { value: 'pr_closed', label: 'PR closed' },
   { value: 'stopped', label: 'Stopped' },
 ];
 

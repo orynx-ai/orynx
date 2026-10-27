@@ -868,3 +868,20 @@ describe('a session in spec 042', () => {
     expect(makeSession({ activities: [waiting as SessionActivity] }).activities[0]).toMatchObject({ about: 'server' });
   });
 });
+
+describe('a session after its pull request (spec 047)', () => {
+  const pullRequest = {
+    number: 2841,
+    url: 'https://github.com/acme/web-app/pull/2841',
+    repository: 'acme/web-app',
+    openedAt: '2026-10-16T10:30:00.000Z',
+  };
+
+  it('AC-11, AC-14: is PR merged or PR closed, keeping its pull request', () => {
+    for (const state of ['pr_merged', 'pr_closed'] as const) {
+      const session = SessionSchema.parse(makeSession({ state, step: 'pull_request', pullRequest }));
+      expect(session).toMatchObject({ state, pullRequest });
+      expect(makeSessionList([{ state }]).sessions[0]?.state).toBe(state);
+    }
+  });
+});

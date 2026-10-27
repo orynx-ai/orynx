@@ -10,9 +10,18 @@ import { TicketColumnSchema } from './ticket-column.ts';
 
 /**
  * Where a Claude session is, as the sidebar shows it (spec: "Session states").
- * Each state is shown with an icon shape, a word and a colour, never colour alone.
+ * Each state is shown with an icon shape, a word and a colour, never colour alone. A session's pull request can go
+ * on to be merged or closed on GitHub (spec 047).
  */
-export const SessionStateSchema = z.enum(['working', 'needs_you', 'done', 'pr_open', 'stopped']);
+export const SessionStateSchema = z.enum([
+  'working',
+  'needs_you',
+  'done',
+  'pr_open',
+  'pr_merged',
+  'pr_closed',
+  'stopped',
+]);
 export type SessionState = z.infer<typeof SessionStateSchema>;
 
 /**
