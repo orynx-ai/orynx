@@ -137,6 +137,7 @@ export {
 } from './components/sheet.tsx';
 export { RecentSearches, type RecentSearchesHandle, type RecentSearchesProps } from './components/recent-searches.tsx';
 export { CommandBlock, type CommandBlockProps, type CommandBlockTone } from './components/command-block.tsx';
+export { CommandLine, type CommandLineProps } from './components/command-line.tsx';
 export { CopyButton, type CopyButtonProps } from './components/copy-button.tsx';
 export { EmptyState, type EmptyStateProps } from './components/empty-state.tsx';
 export { ExternalLink, type ExternalLinkProps } from './components/external-link.tsx';
