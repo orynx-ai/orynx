@@ -65,6 +65,8 @@ export const NotificationWhatSchema = z.discriminatedUnion('kind', [
   }),
   /** A newer Orynx is out, told once per version (spec 045, AC-13). */
   z.object({ kind: z.literal('update_available'), version: OrynxVersionSchema }),
+  /** A cleanup run deleted old sessions (spec 047, D): in the bell only, never a pop-up. */
+  z.object({ kind: z.literal('sessions_cleaned'), count: z.int().positive(), bytes: z.int().nonnegative() }),
 ]);
 export type NotificationWhat = z.infer<typeof NotificationWhatSchema>;
 export type NotificationKind = NotificationWhat['kind'];
@@ -110,8 +112,9 @@ export const NotificationEventSchema = z.enum([
 ]);
 export type NotificationEvent = z.infer<typeof NotificationEventSchema>;
 
-/** The row that decides how a kind of notification reaches you. */
-export function notificationEventOf(kind: NotificationKind): NotificationEvent {
+/** The row that decides how a kind of notification reaches you; null for one that only waits in the bell. */
+export function notificationEventOf(kind: NotificationKind): NotificationEvent | null {
+  if (kind === 'sessions_cleaned') return null;
   return kind === 'session_stopped' || kind === 'session_failed' ? 'session_ended' : kind;
 }
 

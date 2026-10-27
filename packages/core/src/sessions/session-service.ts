@@ -5,6 +5,8 @@ import { isOrynxKey, permissionsFor } from '@devhub/contracts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import { ticketTools } from '../orynx-tickets/tools.ts';
 import type {
+  CleanupDays,
+  Storage,
   ClaudeCommandList,
   AgentChoice,
   ApprovalDecision,
@@ -48,12 +50,14 @@ import type { GitHubSyncCredentials } from '../integrations/github/connection.ts
 import type { JiraCheckRequest, JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
+import { folderBytes, measureStorage, sessionsToClean } from './session-cleanup.ts';
 import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
 import { sessionStartPoint, type ChangesReader, type StartPoint } from './changes.ts';
 import { logEnd, logRunEnded, logWork } from './command-log.ts';
 import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
 import {
   chooseFolder,
+  folderPullOf,
   composerPlan,
   contextAfter,
   noReads,
@@ -182,6 +186,20 @@ export interface SessionService {
   draftPush(id: string): Promise<PushDraftAnswer | null>;
   /** Commits what's new and pushes it to the pull request, on your press only (Q7); null for no such session. */
   push(id: string, request: PushRequest): Promise<PushAnswer | null>;
+  /**
+   * Spec 047: asks GitHub about each pull request of a session in PR open or PR closed whose worktree is still there,
+   * and saves it as merged, closed or open again. A merge where nothing would be lost removes the worktree as Delete
+   * does, branch kept, once. GitHub not answering changes nothing. One watch at a time.
+   */
+  watchPulls(): Promise<void>;
+  /**
+   * Spec 047, D: one run of Settings › Coding agent's Delete old sessions. The ended, unpinned sessions older than the
+   * choice, with nothing to lose, go as Delete takes them, branch kept, one at a time; one that fails stays for the next
+   * run. Never deletes nothing. A run asked for during another runs after it. Tells `onCleaned` when it deleted any.
+   */
+  cleanUp(): Promise<void>;
+  /** GET /api/storage (spec 047, D): the worktrees' size, and what each choice would delete now. */
+  storage(): Promise<Storage>;
   /** Stops every running session and waits for every change still being saved, for the server's shutdown. */
   close(): Promise<void>;
 }
@@ -214,6 +232,8 @@ export interface SessionServiceOptions {
       allowedCommands: readonly string[];
       /** Claude changes Jira without asking (spec 044, Q8). */
       jiraChanges: boolean;
+      /** Delete old sessions after this many days; null, never (spec 047, D). */
+      deleteSessionsAfterDays: CleanupDays | null;
     }>;
     /** Saves Always allow's entry to the list (spec 012, AC-5), or turns Claude changes Jira on (spec 044, AC-17). */
     change(change: { allowCommand: string } | { jiraChanges: true }): Promise<unknown>;
@@ -237,6 +257,8 @@ export interface SessionServiceOptions {
    * itself, Discard or Orynx closing, which you know about already.
    */
   onChange?: (before: Session, after: Session, change: { quiet: boolean }) => void;
+  /** Told after a cleanup run that deleted sessions: how many, and the bytes their worktrees held (spec 047, D). */
+  onCleaned?: (count: number, bytes: number) => void;
   now?: () => number;
   newId?: () => string;
   /** The Session screen hears about new steps at most this often; 250 ms (AC-4). */
@@ -270,8 +292,9 @@ function projectOf(key: string): string {
   return key.slice(0, key.lastIndexOf('-'));
 }
 
+/** A session that holds its ticket or pull request: not Stopped, and its pull request not merged or closed (spec 047). */
 function isLive(session: { state: Session['state'] }): boolean {
-  return session.state !== 'stopped';
+  return session.state !== 'stopped' && session.state !== 'pr_merged' && session.state !== 'pr_closed';
 }
 
 function isWorking(session: { state: Session['state'] }): boolean {
@@ -568,6 +591,21 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   }
 
   function heard(id: string, run: Run, event: AgentEvent) {
+    // A stopped turn's turns and cost count too (spec 047), so they come before Stop's cut-off.
+    if (event.type === 'usage') {
+      track(
+        change(id, (record) => ({
+          ...record,
+          session: {
+            ...record.session,
+            turns: record.session.turns + event.turns,
+            // shortcut: assumes Claude Code's total carries across a resume; if a follow-up starts it at 0, add each run's.
+            costUsd: event.costUsd ?? record.session.costUsd,
+          },
+        })),
+      );
+      return;
+    }
     if (stopping(run)) return;
     switch (event.type) {
       case 'started':
@@ -1248,6 +1286,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       result: 'cannot_send',
       reason,
     });
+    if (session.state === 'pr_merged') return cannot('merged');
     if (session.discardedAt !== null) return cannot('discarded');
     const { claudeSessionId } = record;
     const { branch } = session;
@@ -1258,8 +1297,6 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return cannot('never_started');
     }
     const key = ticketOf(record);
-    const live = ask ? null : await liveSessionOn(key);
-    if (live !== null && live !== id) return cannot('newer_session');
     if ((await workingCount()) >= mostWorking) return cannot('too_many');
 
     const run = newRun();
@@ -1323,15 +1360,21 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return origin.ok ? origin.repository : null;
   }
 
+  /** A composer start's folder; each folder's origin is read only for a pull request that picks by it (spec 047). */
+  async function folderFor(request: ComposerStart): Promise<ReturnType<typeof chooseFolder>> {
+    const folders = await repositories.list();
+    if (folderPullOf(request) === null) return chooseFolder(folders, request);
+    const origins = await Promise.all(folders.map(async (folder) => [folder.id, await originOf(folder.path)] as const));
+    return chooseFolder(folders, request, new Map(origins));
+  }
+
   /** Whether the follow-up box takes a message, or why not (spec 013, AC-14). */
-  async function followUpOf(record: StoredSession): Promise<SessionFollowUp> {
+  function followUpOf(record: StoredSession): SessionFollowUp {
     const { session } = record;
+    if (session.state === 'pr_merged') return { kind: 'merged' };
     if (session.discardedAt !== null) return { kind: 'discarded' };
     if (record.claudeSessionId === null && !isWorking(session)) return { kind: 'never_started' };
-    if (session.source?.kind === 'jira' && session.mode !== 'ask') {
-      const live = await liveSessionOn(session.source.key);
-      if (live !== null && live !== session.id) return { kind: 'newer_session', sessionId: live };
-    }
+    // Every session on a ticket carries on, whatever started beside it since (spec 047, AC-5).
     return { kind: 'open' };
   }
 
@@ -1396,6 +1439,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         worktreePath: null,
         workedMs: 0,
         runStartedAt: at,
+        turns: 0,
+        costUsd: null,
         pullRequest: null,
         context: [{ kind: 'jira', key: ticketKey }],
         mode: 'build',
@@ -1427,22 +1472,25 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   async function composeNow(request: ComposerStart): Promise<StartSessionAnswer> {
     const key = ticketKeyOf(request);
     const ask = request.mode === 'ask';
-    // A ticket's live session stops a Build on it; an Ask only reads, so it starts beside one (spec 026).
-    if (key !== null && !ask) {
+    // A ticket's live session stops a Build on it, unless you asked for another (spec 047); an Ask only reads, so it
+    // starts beside one (spec 026).
+    const another = request.another === true;
+    if (key !== null && !ask && !another) {
       const live = await liveSessionOn(key);
       if (live !== null) return { result: 'existing', sessionId: live };
     }
     if (!(await claude.connected())) return { result: 'cannot_start', reason: 'signed_out' };
     if ((await workingCount()) >= mostWorking) return { result: 'cannot_start', reason: 'too_many' };
     // An Ask sent with no folder reads none (spec 031); a Build always has one.
-    const folder = ask && request.repositoryId === undefined ? null : chooseFolder(await repositories.list(), request);
+    const folder = ask && request.repositoryId === undefined ? null : await folderFor(request);
     if (typeof folder === 'string') return { result: 'cannot_start', reason: folder };
 
     const read = await options.context.read(request.context);
     if (!read.ok) return { result: 'context_failed', chip: read.chip, problem: read.problem };
-    // A Build on your own pull request works on its branch (spec 031, Q3), one session at a time.
+    // A Build on your own pull request works on its branch (spec 031, Q3), one session at a time unless you asked for
+    // another, in a worktree of its own, detached as every one on a pull request is (spec 047).
     const pull = ask || folder === null ? null : pullToWorkOn(read.chips, await originOf(folder.path));
-    if (pull !== null) {
+    if (pull !== null && !another) {
       const live = await liveSessionOnPull(pullKey(`${pull.owner}/${pull.name}`, pull.number));
       if (live !== null) return { result: 'existing', sessionId: live };
     }
@@ -1489,6 +1537,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         worktreePath: null,
         workedMs: 0,
         runStartedAt: at,
+        turns: 0,
+        costUsd: null,
         pullRequest:
           pull === null
             ? null
@@ -1589,14 +1639,85 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return 'deleted';
   }
 
+  /** The worktree of a merged session goes as Delete takes it, servers and shells first, its branch kept (spec 047). */
+  async function removeMerged(id: string, record: StoredSession): Promise<boolean> {
+    if (record.worktree === null || record.repository === null) return false;
+    await stopServers(id, record);
+    await options.terminal?.stopAll(id);
+    const removed = await worktrees.remove(record.repository.path, record.worktree, null);
+    if (!removed.ok) report(record, 'git', 'remove');
+    return removed.ok;
+  }
+
+  const pullStates = { open: 'pr_open', closed: 'pr_closed', merged: 'pr_merged' } as const;
+
+  async function watchPullsNow(): Promise<void> {
+    const credentials = await options.github?.credentials();
+    if (credentials?.ok !== true) return;
+    const watched = (await records.list()).filter(
+      (listed) => (listed.state === 'pr_open' || listed.state === 'pr_closed') && listed.discardedAt == null,
+    );
+    for (const { id } of watched) {
+      const pull = (await records.get(id))?.session.pullRequest ?? null;
+      if (pull === null) continue;
+      const answer = await githubClient.pullState(credentials.token, pull);
+      if (!answer.ok) continue;
+      const state = pullStates[answer.state];
+      // Read again after GitHub answered: a follow-up may have started, and then the next sync decides.
+      await publishing.get(id);
+      const record = await records.get(id);
+      if (record === null || record.session.state === state || isWorking(record.session)) continue;
+      const gone =
+        state === 'pr_merged' &&
+        record.worktree !== null &&
+        (await branchGit.nothingToLose(record.worktree, [answer.head])) &&
+        (await removeMerged(id, record));
+      const at = new Date(now()).toISOString();
+      await change(id, (current) =>
+        isWorking(current.session)
+          ? current
+          : { ...current, session: { ...current.session, state, ...(gone ? { discardedAt: at } : {}) } },
+      );
+      // A merged session's state changes once, so only this tells its Changes tab the files are gone.
+      if (gone) filesChanged(id);
+    }
+  }
+
+  let watching: Promise<void> | undefined;
+
+  /** Every session as saved, for the cleanup's choice. */
+  async function storedSessions(): Promise<StoredSession[]> {
+    const found = await Promise.all((await records.list()).map(({ id }) => records.get(id)));
+    return found.filter((record) => record !== null);
+  }
+
+  async function cleanUpNow(): Promise<void> {
+    const days = (await options.preferences.read()).deleteSessionsAfterDays;
+    if (days === null) return;
+    let count = 0;
+    let bytes = 0;
+    for (const record of await sessionsToClean(await storedSessions(), days, now(), branchGit)) {
+      const size = record.worktree === null ? 0 : await folderBytes(record.worktree);
+      // As Delete takes it, so it refuses a session a follow-up has started since; one that fails stays for next time.
+      if ((await whileEnding(record.session.id, removeNow(record.session.id, false))) !== 'deleted') continue;
+      count += 1;
+      bytes += size;
+    }
+    if (count > 0) options.onCleaned?.(count, bytes);
+  }
+
+  let cleaning: Promise<void> = Promise.resolve();
+  let nextClean: Promise<void> | undefined;
+
   const branchGit = createBranchGit({ env: options.worktrees.env });
+  const githubClient = options.githubClient ?? createGitHubClient();
   const pullRequests = createPullRequests({
     records,
     save: change,
     now,
     onReport: (report) => options.onReport?.(report),
     github: options.github ?? { credentials: () => Promise.resolve(null) },
-    client: options.githubClient ?? createGitHubClient(),
+    client: githubClient,
     git: branchGit,
     changes: options.changes,
     adapter,
@@ -1640,11 +1761,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       if (record === null) return null;
       const { session } = record;
       const key = session.source?.kind === 'jira' ? session.source.key : null;
-      const [saved, known, followUp, unpushed] = await Promise.all([
+      const [saved, known, unpushed] = await Promise.all([
         // A session saved before spec 013 kept only its brief.
         session.ticket ?? records.readBrief(id).then((brief) => (brief === null ? null : ticketFromBrief(brief))),
         key === null ? null : describeTicket(key),
-        followUpOf(record),
         pullRequests.unpushed(record),
       ]);
       const ticket: SessionTicket | null =
@@ -1664,7 +1784,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         ...session,
         ready: readyFor(session),
         ticket,
-        followUp,
+        followUp: followUpOf(record),
         worktreePath: made ? record.worktree : null,
         terminal,
         unpushed,
@@ -1703,6 +1823,35 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     remove(id, { branch = false } = {}) {
       return whileEnding(id, removeNow(id, branch));
+    },
+
+    cleanUp() {
+      // One run at a time; a run asked for during one waits for it, and runs once however often it was asked.
+      if (nextClean === undefined) {
+        nextClean = cleaning.then(() => {
+          nextClean = undefined;
+          return cleanUpNow();
+        });
+        cleaning = nextClean.catch(() => undefined);
+        // Closing waits for a run under way, so a worktree is never left half removed.
+        track(nextClean);
+      }
+      return nextClean;
+    },
+
+    async storage() {
+      return measureStorage(await storedSessions(), options.worktrees.root, now(), branchGit);
+    },
+
+    watchPulls() {
+      if (watching === undefined) {
+        watching = watchPullsNow().finally(() => {
+          watching = undefined;
+        });
+        // Closing waits for a watch under way, so a worktree is never left half removed.
+        track(watching);
+      }
+      return watching;
     },
 
     async changes(id) {

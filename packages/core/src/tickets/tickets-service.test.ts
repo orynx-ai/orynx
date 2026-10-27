@@ -172,7 +172,7 @@ describe('tickets service', () => {
     expect(asked()).toEqual([]);
   });
 
-  it('AC-12: a ticket shows its newest session, unless that one was stopped', async () => {
+  it("AC-12, 047 AC-5: a ticket shows its newest session that isn't stopped", async () => {
     acceptingSprint();
     const sessions = [
       makeSessionSummary({
@@ -203,7 +203,7 @@ describe('tickets service', () => {
     expect(read.tickets.map((ticket) => [ticket.key, ticket.session])).toEqual([
       ['PROJ-1377', null],
       ['PROJ-1423', { id: 'old', state: 'needs_you', ready: 'pull_request' }],
-      ['PROJ-1350', null],
+      ['PROJ-1350', { id: 'newer', state: 'working', ready: 'pull_request' }],
     ]);
   });
 

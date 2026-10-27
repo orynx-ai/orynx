@@ -30,13 +30,17 @@ export const InboxSubjectSchema = z.discriminatedUnion('kind', [
     highPriorityBug: z.boolean(),
     type: z.string().min(1).nullish(),
   }),
-  /** A pull request on github.com. `repository` is its name without the owner; `author` is null when GitHub gives none. */
+  /**
+   * A pull request on github.com. `repository` is its name without the owner; `author` is null when GitHub gives none.
+   * `fork` is true for one from a fork, which Fix can't build on (spec 047); missing on any other.
+   */
   z.object({
     kind: z.literal('pull_request'),
     repository: z.string().min(1),
     number: z.int().positive(),
     author: z.string().min(1).nullable(),
     mine: z.boolean(),
+    fork: z.literal(true).optional(),
   }),
   /** A waiting Claude session with no row of its own to take over. */
   z.object({ kind: z.literal('session'), source: SessionSourceSchema.nullable() }),

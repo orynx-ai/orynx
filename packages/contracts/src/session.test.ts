@@ -283,16 +283,12 @@ describe('a session in spec 013', () => {
   });
 
   it('AC-14: says whether the follow-up box is open, or why not, with the newer session when there is one', () => {
-    for (const followUp of [
-      { kind: 'open' },
-      { kind: 'discarded' },
-      { kind: 'never_started' },
-      { kind: 'newer_session', sessionId: 'fedcba9876543210' },
-    ] as const) {
+    for (const followUp of [{ kind: 'open' }, { kind: 'discarded' }, { kind: 'never_started' }] as const) {
       expect(SessionSchema.parse(makeSession({ followUp })).followUp).toEqual(followUp);
     }
-    const noId = { ...makeSession(), followUp: { kind: 'newer_session' } };
-    expect(SessionSchema.safeParse(noId).success).toBe(false);
+    // Every session on a ticket carries on, so none says a newer one took over (spec 047, AC-5).
+    const newer = { ...makeSession(), followUp: { kind: 'newer_session', sessionId: 'fedcba9876543210' } };
+    expect(SessionSchema.safeParse(newer).success).toBe(false);
   });
 
   it("AC-20: carries the worktree's path for Open in", () => {
@@ -304,6 +300,14 @@ describe('a session in spec 013', () => {
     const session = makeSession({ workedMs: 252_000, runStartedAt: '2026-10-16T10:20:00.000Z' });
     expect(SessionSchema.parse(session)).toMatchObject({ workedMs: 252_000, runStartedAt: '2026-10-16T10:20:00.000Z' });
     expect(SessionSchema.safeParse({ ...makeSession(), workedMs: -1 }).success).toBe(false);
+  });
+
+  it("047 AC-22, AC-24: carries Claude's turns and their cost, and a session saved before spec 047 reads with none", () => {
+    expect(SessionSchema.parse(makeSession({ turns: 38, costUsd: 1.42 }))).toMatchObject({ turns: 38, costUsd: 1.42 });
+    expect(SessionSchema.safeParse({ ...makeSession(), turns: -1 }).success).toBe(false);
+    expect(SessionSchema.safeParse({ ...makeSession(), costUsd: -0.5 }).success).toBe(false);
+    const { turns: _turns, costUsd: _cost, ...older } = makeSession();
+    expect(SessionSchema.parse(older)).toMatchObject({ turns: 0, costUsd: null });
   });
 
   it('a session saved before spec 013 reads with no ticket, the box open, no path and no time worked', () => {
@@ -489,7 +493,7 @@ describe('a follow-up (spec 013)', () => {
 
   it("AC-14, AC-15: answers sent, or why it can't send", () => {
     expect(SendMessageAnswerSchema.parse({ result: 'sent' })).toEqual({ result: 'sent' });
-    for (const reason of ['too_many', 'discarded', 'never_started', 'newer_session'] as const) {
+    for (const reason of ['too_many', 'discarded', 'never_started'] as const) {
       expect(SendMessageAnswerSchema.parse({ result: 'cannot_send', reason })).toEqual({
         result: 'cannot_send',
         reason,
@@ -526,6 +530,12 @@ describe("the composer's start (spec 015)", () => {
     expect(ComposerStartSchema.safeParse(body({ mode: 'chat' })).success).toBe(false);
     const { mode: _mode, ...saved } = makeSession();
     expect(SessionSchema.parse(saved).mode).toBe('build');
+  });
+
+  it('spec 047, AC-2: takes `another` to start beside a live session, left out otherwise', () => {
+    expect(ComposerStartSchema.parse(body({ another: true })).another).toBe(true);
+    expect(ComposerStartSchema.parse(body({})).another).toBeUndefined();
+    expect(ComposerStartSchema.safeParse(body({ another: 'yes' })).success).toBe(false);
   });
 
   it('AC-20: keeps a ticket, pull requests and files in the order you added them', () => {
@@ -864,5 +874,22 @@ describe('a session in spec 042', () => {
       text: null,
     };
     expect(makeSession({ activities: [waiting as SessionActivity] }).activities[0]).toMatchObject({ about: 'server' });
+  });
+});
+
+describe('a session after its pull request (spec 047)', () => {
+  const pullRequest = {
+    number: 2841,
+    url: 'https://github.com/acme/web-app/pull/2841',
+    repository: 'acme/web-app',
+    openedAt: '2026-10-16T10:30:00.000Z',
+  };
+
+  it('AC-11, AC-14: is PR merged or PR closed, keeping its pull request', () => {
+    for (const state of ['pr_merged', 'pr_closed'] as const) {
+      const session = SessionSchema.parse(makeSession({ state, step: 'pull_request', pullRequest }));
+      expect(session).toMatchObject({ state, pullRequest });
+      expect(makeSessionList([{ state }]).sessions[0]?.state).toBe(state);
+    }
   });
 });

@@ -71,6 +71,11 @@ export type InboxRuleId = z.infer<typeof InboxRuleIdSchema>;
 export const InboxRulesSchema = z.record(InboxRuleIdSchema, z.boolean());
 export type InboxRules = z.infer<typeof InboxRulesSchema>;
 
+/** Settings › Coding agent › Storage's choices (spec 047, D): delete old sessions after this many days. */
+export const cleanupDays = [7, 14, 30, 90] as const;
+export const CleanupDaysSchema = z.union(cleanupDays.map((days) => z.literal(days)));
+export type CleanupDays = z.infer<typeof CleanupDaysSchema>;
+
 /** GET /api/preferences, and the answer to PATCH: the saved values, or the defaults for anything never set. */
 export const PreferencesSchema = z.object({
   /** All repositories' rows: what every repository without its own rows follows. */
@@ -83,6 +88,8 @@ export const PreferencesSchema = z.object({
   editor: EditorSchema,
   /** Claude comments on, moves and assigns Jira issues without asking first (spec 044, Q8); off, each one asks. */
   jiraChanges: z.boolean(),
+  /** Delete old sessions after this many days (spec 047, D); null, the default, never. */
+  deleteSessionsAfterDays: CleanupDaysSchema.nullable(),
 });
 export type Preferences = z.infer<typeof PreferencesSchema>;
 
@@ -100,6 +107,7 @@ export const defaultPreferences: Preferences = {
   allowedCommands: [],
   editor: 'vscode',
   jiraChanges: false,
+  deleteSessionsAfterDays: null,
 };
 
 /**
@@ -120,9 +128,11 @@ export const PreferencesChangeSchema = z
     disallowCommand: z.string().min(1).optional(),
     editor: EditorSchema.optional(),
     jiraChanges: z.boolean().optional(),
+    deleteSessionsAfterDays: CleanupDaysSchema.nullable().optional(),
   })
   .refine((change) => Object.values(change).some((value) => value !== undefined), {
-    message: 'Send a permission, at least one rule, a command, the editor, or Claude changes Jira.',
+    message:
+      'Send a permission, at least one rule, a command, the editor, Claude changes Jira, or Delete old sessions.',
   })
   .refine((change) => change.repository === undefined || change.permissions !== undefined, {
     message: 'Send the permissions to change for that repository.',

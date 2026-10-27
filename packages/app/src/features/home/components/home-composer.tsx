@@ -2,8 +2,10 @@ import { useRef, useState, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useForm, useWatch } from 'react-hook-form';
-import type { ComposerChip, StartSessionAnswer } from '@devhub/contracts';
+import type { ComposerChip, ComposerStart } from '@devhub/contracts';
 import {
+  Button,
+  Callout,
   Composer,
   ComposerBar,
   ComposerSend,
@@ -30,32 +32,27 @@ import { ContextStrip } from './context-strip.tsx';
 import { useSkillSuggestions } from './skill-suggestions.tsx';
 import { FolderPicker } from './folder-picker.tsx';
 import { composerFormSchema, type ComposerFormValues } from '../schemas.ts';
-import { useComposerStore } from '../store.ts';
+import { useComposerStore, type StartTried } from '../store.ts';
 
-interface Said {
-  line: string;
-  link: SettingsLink | null;
-  session: string | null;
-}
+/** One line under the box, or the choice when the work already has a session (spec 047, AC-1). */
+type Said = { line: string; link: SettingsLink | null } | { held: string; pull: boolean; sessionId: string };
 
-/** What Send's answer says under the box, when it started nothing (AC-21 to AC-23). */
-function saidFor(answer: StartSessionAnswer, chips: readonly ComposerChip[]): Said | null {
+/** What a start's answer says under the box, when it started nothing (AC-21 to AC-23). */
+function saidFor(answer: StartTried['answer'], chips: readonly ComposerChip[]): Said {
+  if (answer === 'failed') return { line: composerWords.failed, link: null };
   switch (answer.result) {
-    case 'started':
-      return null;
     case 'existing': {
       // Only the first ticket's session stops a start (spec 022, Q2); with no ticket, your pull request's (spec 031).
+      const ticket = firstTicket(chips);
       const pull = chips.find((chip) => chip.kind === 'pull_request');
-      const held = firstTicket(chips) ?? (pull === undefined ? '' : `#${String(pull.number)}`);
-      return { line: composerWords.existing(held), link: null, session: answer.sessionId };
+      const held = ticket ?? (pull === undefined ? '' : `#${String(pull.number)}`);
+      return { held, pull: ticket === null && pull !== undefined, sessionId: answer.sessionId };
     }
     case 'cannot_start':
-      return { ...cannotStartLine(answer.reason), session: null };
+      return cannotStartLine(answer.reason);
     case 'context_failed': {
       const chip = chips[answer.chip];
-      return chip === undefined
-        ? { line: composerWords.failed, link: null, session: null }
-        : { ...contextFailedLine(chip, answer.problem), session: null };
+      return chip === undefined ? { line: composerWords.failed, link: null } : contextFailedLine(chip, answer.problem);
     }
   }
 }
@@ -63,7 +60,8 @@ function saidFor(answer: StartSessionAnswer, chips: readonly ComposerChip[]): Sa
 /**
  * Home's composer (spec 015): your words, the chips Claude will read, and Send. Send starts a session and opens
  * it; anything that stops it shows one line under the box, and the draft stays (AC-21 to AC-23). The draft lives
- * in the composer's store, so leaving Home keeps it (Q14).
+ * in the composer's store, so leaving Home keeps it (Q14), as does what the last start said, so a row's Fix says it
+ * here too (spec 047).
  */
 export function HomeComposer() {
   const navigate = useNavigate();
@@ -81,6 +79,8 @@ export function HomeComposer() {
   const choice = useAgentChoice(model, effort);
   const mode = useComposerStore((state) => state.mode);
   const setMode = useComposerStore((state) => state.setMode);
+  const tried = useComposerStore((state) => state.tried);
+  const setTried = useComposerStore((state) => state.setTried);
   const repositories = useRepositories();
   const status = useStatus();
   const start = useStartFromComposer();
@@ -114,40 +114,57 @@ export function HomeComposer() {
       suggestions.track(event.target);
       setRefused(null);
       // What was said about the last try no longer fits once the draft changes.
-      if (start.isError || start.data !== undefined) start.reset();
+      if (tried !== null) setTried(null);
     },
   });
   // More than 5 skills named waits until some go (spec 022, Q5).
   const canSend = (message.trim() !== '' || ticketKey !== null) && !suggestions.tooMany;
 
-  const answered = start.data === undefined ? null : saidFor(start.data, start.variables.context);
+  const answered = tried === null ? null : saidFor(tried.answer, tried.request.context);
   const tooLong = form.formState.errors.message?.message;
   const said: Said | null =
     refused !== null
-      ? { line: refused, link: null, session: null }
+      ? { line: refused, link: null }
       : suggestions.tooMany
-        ? { line: composerWords.skills.tooMany, link: null, session: null }
+        ? { line: composerWords.skills.tooMany, link: null }
         : tooLong === undefined
-          ? start.isError
-            ? { line: composerWords.failed, link: null, session: null }
-            : answered
-          : { line: tooLong, link: null, session: null };
+          ? answered
+          : { line: tooLong, link: null };
+
+  /**
+   * Starts a session and opens it; anything else is said under the box, and the draft stays. `draft` is false for a
+   * row's Fix sent again beside a live session: that was never the draft, so the draft stays when it starts.
+   */
+  function begin(request: ComposerStart, draft = true) {
+    start.mutate(request, {
+      onSuccess: (answer) => {
+        if (answer.result !== 'started') {
+          setTried({ request, answer, draft });
+          return;
+        }
+        if (draft) {
+          form.reset({ message: '' });
+          sent(request.repositoryId ?? null);
+        } else setTried(null);
+        void navigate({ to: '/sessions/$sessionId', params: { sessionId: answer.sessionId } });
+      },
+      onError: () => {
+        setTried({ request, answer: 'failed', draft });
+      },
+    });
+  }
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     void form.handleSubmit(({ message: words }) => {
       const repositoryId = shown.kind === 'folder' ? shown.folder.id : undefined;
-      start.mutate(
-        { message: words, context: chips, ...(repositoryId === undefined ? {} : { repositoryId }), ...choice, mode },
-        {
-          onSuccess: (answer) => {
-            if (answer.result !== 'started') return;
-            form.reset({ message: '' });
-            sent(repositoryId ?? null);
-            void navigate({ to: '/sessions/$sessionId', params: { sessionId: answer.sessionId } });
-          },
-        },
-      );
+      begin({
+        message: words,
+        context: chips,
+        ...(repositoryId === undefined ? {} : { repositoryId }),
+        ...choice,
+        mode,
+      });
     })(event);
   }
 
@@ -216,7 +233,33 @@ export function HomeComposer() {
         </Composer>
         {suggestions.list}
       </div>
-      {said === null ? null : (
+      {said === null ? null : 'held' in said ? (
+        <Callout
+          tone="info"
+          role="alert"
+          title={composerWords.existing.title(said.held)}
+          actions={
+            <>
+              <Button
+                size="sm"
+                onClick={() => {
+                  // The draft didn't change since, or this choice would be gone: send it again, beside the live one.
+                  if (tried !== null) begin({ ...tried.request, another: true }, tried.draft);
+                }}
+              >
+                {composerWords.existing.another}
+              </Button>
+              <Button asChild size="sm">
+                <Link to="/sessions/$sessionId" params={{ sessionId: said.sessionId }}>
+                  {composerWords.existing.open}
+                </Link>
+              </Button>
+            </>
+          }
+        >
+          <span>{said.pull ? composerWords.existing.pull : composerWords.existing.ticket}</span>
+        </Callout>
+      ) : (
         <p role="alert" className="m-0 text-small text-danger">
           {said.line}
           {said.link === null ? null : (
@@ -224,14 +267,6 @@ export function HomeComposer() {
               {' '}
               <Link to="/settings/$tab" params={{ tab: said.link.tab }} className="text-info underline">
                 {said.link.label}
-              </Link>
-            </>
-          )}
-          {said.session === null ? null : (
-            <>
-              {' '}
-              <Link to="/sessions/$sessionId" params={{ sessionId: said.session }} className="text-info underline">
-                {composerWords.openSession}
               </Link>
             </>
           )}

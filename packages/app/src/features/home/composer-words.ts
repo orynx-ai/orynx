@@ -101,11 +101,25 @@ export const composerWords = {
   },
   /** Home's heading, as the switch stands (spec 031, Q8b). */
   heading: { build: 'What should we ship today?', ask: 'What do you want to know?' },
-  existing: (key: string) => `${key} already has a session.`,
-  openSession: 'Open session',
+  /** The ticket or pull request already has a live session (spec 047, AC-1): open it, or start another beside it. */
+  existing: {
+    title: (key: string) => `${key} already has a session`,
+    ticket: 'Open it to carry on, or start a new session on its own branch.',
+    pull: "Open it to carry on, or start a new session on the same branch, from what's on GitHub.",
+    another: 'Start a new session',
+    open: 'Open session',
+  },
   failed: "Couldn't start Claude. Try again.",
   tooLong: 'Keep it under 10,000 characters.',
   quickStarts: { label: 'Quick starts', ticket: 'Pick up a ticket', review: 'Review a pull request' },
+  /** A Home row's Fix on your own pull request (spec 047): its tooltip, and the message its session starts from. */
+  fix: {
+    unresolved_comments: {
+      label: 'Fix review comments',
+      message: (label: string) => `Fix the unresolved review comments on ${label}.`,
+    },
+    checks_failing: { label: 'Fix failing checks', message: (label: string) => `Fix the failing checks on ${label}.` },
+  },
   /** A Home row's + (spec 022, Q3, Q12): its tooltip, its name for the chip it adds, and what a screen reader hears. */
   row: {
     add: 'Add to composer',

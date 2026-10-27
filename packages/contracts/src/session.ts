@@ -10,9 +10,18 @@ import { TicketColumnSchema } from './ticket-column.ts';
 
 /**
  * Where a Claude session is, as the sidebar shows it (spec: "Session states").
- * Each state is shown with an icon shape, a word and a colour, never colour alone.
+ * Each state is shown with an icon shape, a word and a colour, never colour alone. A session's pull request can go
+ * on to be merged or closed on GitHub (spec 047).
  */
-export const SessionStateSchema = z.enum(['working', 'needs_you', 'done', 'pr_open', 'stopped']);
+export const SessionStateSchema = z.enum([
+  'working',
+  'needs_you',
+  'done',
+  'pr_open',
+  'pr_merged',
+  'pr_closed',
+  'stopped',
+]);
 export type SessionState = z.infer<typeof SessionStateSchema>;
 
 /**
@@ -448,15 +457,15 @@ export const SessionTicketSchema = z.object({
 export type SessionTicket = z.infer<typeof SessionTicketSchema>;
 
 /**
- * Whether the follow-up box takes a message (spec 013, Q1), or why not: the changes are discarded, Claude
- * never started, or the ticket has a newer live session, which the box links to. Three sessions already
- * working is said only when you send, because it can change at any moment.
+ * Whether the follow-up box takes a message (spec 013, Q1), or why not: the changes are discarded, Claude never
+ * started, or the pull request is merged (spec 047). Three sessions already working is said only when you send,
+ * because it can change at any moment.
  */
 export const SessionFollowUpSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('open') }),
   z.object({ kind: z.literal('discarded') }),
+  z.object({ kind: z.literal('merged') }),
   z.object({ kind: z.literal('never_started') }),
-  z.object({ kind: z.literal('newer_session'), sessionId: SessionIdSchema }),
 ]);
 export type SessionFollowUp = z.infer<typeof SessionFollowUpSchema>;
 
@@ -537,6 +546,10 @@ export const SessionSchema = SessionSummarySchema.extend({
   workedMs: z.int().nonnegative().default(0),
   /** When the current run started; null while Claude isn't working. */
   runStartedAt: z.iso.datetime().nullable().default(null),
+  /** Claude's turns with the model, added up over every run as each turn ends (spec 047); 0 before spec 047. */
+  turns: z.int().nonnegative().default(0),
+  /** What those turns would cost at API prices, as Claude Code totals it (spec 047); null until a turn says. */
+  costUsd: z.number().nonnegative().nullable().default(null),
   /** Null until you create the pull request (spec 014); a session saved before spec 014 has none. */
   pullRequest: SessionPullRequestSchema.nullable().default(null),
   /**
@@ -627,6 +640,8 @@ export const ComposerStartSchema = z
     ...AgentChoiceSchema.shape,
     /** Ask or Build (spec 026); left out, Build, as before. */
     mode: SessionModeSchema.optional(),
+    /** Start beside the ticket's or pull request's live session instead of answering `existing` (spec 047). */
+    another: z.literal(true).optional(),
   })
   .superRefine(({ message, context }, check) => {
     checkChips(context, check);
@@ -690,13 +705,13 @@ export type SendMessageInput = z.input<typeof SendMessageRequestSchema>;
 
 /**
  * The answer to a follow-up. One that can't go says why, and nothing is sent (AC-14, AC-15): three sessions
- * already working, the changes discarded, Claude never started, or the ticket has a newer live session.
+ * already working, the changes discarded, or Claude never started.
  */
 export const SendMessageAnswerSchema = z.discriminatedUnion('result', [
   z.object({ result: z.literal('sent') }),
   z.object({
     result: z.literal('cannot_send'),
-    reason: z.enum(['too_many', 'discarded', 'never_started', 'newer_session']),
+    reason: z.enum(['too_many', 'discarded', 'never_started', 'merged']),
   }),
   /** A chip added to the follow-up that Jira, GitHub or the computer couldn't give, by its place, as at start. */
   z.object({

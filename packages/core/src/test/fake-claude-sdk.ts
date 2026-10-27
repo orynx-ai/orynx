@@ -22,18 +22,31 @@ export type FakeTurn =
   | FakeToolCall
   /** Claude calls several tools in one message: the fake asks about all of them at once (spec 012, AC-10). */
   | { together: FakeToolCall[] }
-  /** Claude Code ends the turn with this summary. */
-  | { finish: string }
+  /** Claude Code ends the turn with this summary, and the turns and cost its result says (spec 047). */
+  | ({ finish: string } & FakeUsage)
   /** Any message, as it is. */
   | { message: object }
   /** Claude keeps working until it's interrupted (then the turn ends with a failed result) or closed. */
-  | { hang: true }
+  | ({ hang: true } & FakeUsage)
   /** Claude Code's process dies. */
   | { crash: string }
   /** Claude waits until a message arrives in the prompt stream (spec 013). */
   | { waitForMessage: true }
   /** Claude waits until the test lets it go on. */
   | { gate: Promise<unknown> };
+
+/** What a result says the turn used (spec 047): Claude Code's `num_turns` and `total_cost_usd`. */
+interface FakeUsage {
+  turns?: number;
+  costUsd?: number;
+}
+
+function usageOf({ turns, costUsd }: FakeUsage): object {
+  return {
+    ...(turns === undefined ? {} : { num_turns: turns }),
+    ...(costUsd === undefined ? {} : { total_cost_usd: costUsd }),
+  };
+}
 
 export interface FakeToolCall {
   tool: string;
@@ -325,7 +338,7 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
               subtype: 'success',
               is_error: false,
               result: turn.finish,
-              num_turns: n,
+              ...usageOf(turn),
               user_message_uuids: taken,
               queued_turn_count: queued.length,
               ...sessionFields,
@@ -346,7 +359,7 @@ export function fakeClaudeSdk(first: readonly FakeTurn[], ...later: (readonly Fa
           } else if ('hang' in turn) {
             await interrupted;
             // As Claude Code does: an interrupted turn ends with a failed result, then waits for the input to end.
-            yield interruptedResult;
+            yield { ...interruptedResult, ...usageOf(turn) };
             break;
           } else {
             throw new Error(turn.crash);

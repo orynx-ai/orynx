@@ -60,6 +60,8 @@ export function PopUps() {
         void navigate({ to: '/sessions/$sessionId', params: { sessionId: place.sessionId } });
       } else if (place.kind === 'about') {
         void navigate({ to: '/settings/$tab', params: { tab: 'about' } });
+      } else if (place.kind === 'settings') {
+        void navigate({ to: '/settings/$tab', params: { tab: place.tab } });
       } else platform.openExternal(place.url);
     },
     [close, markRead, navigate, platform],

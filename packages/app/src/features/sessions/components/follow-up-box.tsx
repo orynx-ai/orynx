@@ -14,7 +14,6 @@ import { useComposerStore } from '../../home/store.ts';
 import { cannotSendLine, followUpBox, followUpOffLine, sendFailedLine } from '../follow-up-words.ts';
 import { useSendMessage } from '../queries.ts';
 import { followUpFormSchema, type FollowUpFormValues } from '../schemas.ts';
-import { sourceLabel } from '../source-label.ts';
 import { useSessionDrafts } from '../store.ts';
 
 const noChips: ComposerChip[] = [];
@@ -24,7 +23,7 @@ const noChips: ComposerChip[] = [];
  * requests and files added to it, + Add context without a folder (the session has one), the model and effort, and
  * Send. The chips are this session's own draft; the model and effort are the ones you last picked anywhere.
  */
-function FollowUpForm({ session, keyName }: { session: Session; keyName: string }) {
+function FollowUpForm({ session }: { session: Session }) {
   const draft = useSessionDrafts((state) => state.drafts[session.id] ?? '');
   const chips = useSessionDrafts((state) => state.chips[session.id] ?? noChips);
   const setDraft = useSessionDrafts((state) => state.setDraft);
@@ -78,7 +77,7 @@ function FollowUpForm({ session, keyName }: { session: Session; keyName: string 
         : send.isError
           ? { line: sendFailedLine, link: null }
           : answer?.result === 'cannot_send'
-            ? { line: cannotSendLine(answer.reason, keyName), link: null }
+            ? { line: cannotSendLine(answer.reason), link: null }
             : answer?.result === 'context_failed'
               ? failed === undefined
                 ? { line: sendFailedLine, link: null }
@@ -164,21 +163,6 @@ function FollowUpForm({ session, keyName }: { session: Session; keyName: string 
  * place, one line when there's nothing to carry on (AC-14).
  */
 export function FollowUpBox({ session }: { session: Session }) {
-  const keyName = sourceLabel(session.source) ?? session.title;
-  if (session.followUp.kind === 'open') return <FollowUpForm session={session} keyName={keyName} />;
-  const off = followUpOffLine(session.followUp, keyName);
-  return (
-    <p className="m-0 text-small text-muted-foreground">
-      {off.line}
-      {off.link === null ? null : (
-        <>
-          {' '}
-          {/* A link in a sentence, drawn as Tickets draws one: told apart by more than its colour. */}
-          <Link to="/sessions/$sessionId" params={{ sessionId: off.link.sessionId }} className="text-info underline">
-            {off.link.label}
-          </Link>
-        </>
-      )}
-    </p>
-  );
+  if (session.followUp.kind === 'open') return <FollowUpForm session={session} />;
+  return <p className="m-0 text-small text-muted-foreground">{followUpOffLine(session.followUp)}</p>;
 }

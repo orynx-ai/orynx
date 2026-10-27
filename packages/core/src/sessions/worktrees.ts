@@ -1,4 +1,4 @@
-import { realpath, rm, stat } from 'node:fs/promises';
+import { realpath, rm, rmdir, stat } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { simpleGit, type SimpleGit } from 'simple-git';
 
@@ -259,6 +259,8 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
         }
         // A worktree folder you deleted yourself is still listed until it's pruned.
         await git(repo).raw(['worktree', 'prune']);
+        // A delete that failed halfway leaves the folder empty and unlisted; rmdir never takes one with files in it.
+        if (await insideRoot(path)) await rmdir(path).catch(() => undefined);
         if (branch !== null) {
           const branches = await git(repo).raw(['for-each-ref', '--format=%(refname)', `refs/heads/${branch}`]);
           if (branches.trim() !== '') await git(repo).raw(['branch', '-D', branch]);

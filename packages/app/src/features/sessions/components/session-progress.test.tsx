@@ -252,6 +252,39 @@ describe('SessionProgress', () => {
     expect(pane.getByText('1 min 12 s')).toBeVisible();
   });
 
+  it('047 AC-22: once a turn ends, shows its turns and their cost beside the time, and says by keyboard what the cost is', async () => {
+    server.use(
+      sessionHandler(
+        session({ state: 'done', workedMs: 252_000, runStartedAt: null, turns: 38, costUsd: 1.42, activities: [] }),
+      ),
+    );
+    await renderApp({ route });
+    const pane = await progress();
+    const line = pane.getByText('4 min 12 s · 38 turns · ≈ $1.42');
+    expect(line).toBeVisible();
+
+    act(() => {
+      line.focus();
+    });
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      "Claude's working time, its turns with the model, and what they'd cost at API prices. Your company's Claude plan may bill differently.",
+    );
+  });
+
+  it('047 AC-22: says 1 turn, and less than a cent as < $0.01', async () => {
+    server.use(sessionHandler(session({ workedMs: 42_000, runStartedAt: null, turns: 1, costUsd: 0.004 })));
+    await renderApp({ route });
+    expect((await progress()).getByText('42 s · 1 turn · < $0.01')).toBeVisible();
+  });
+
+  it('047 AC-24: a session from before, or in its first turn, shows the time only and nothing to focus', async () => {
+    server.use(sessionHandler(session({ workedMs: 60_000, runStartedAt: null })));
+    await renderApp({ route });
+    const time = (await progress()).getByText('1 min 0 s');
+    expect(time).toHaveTextContent(/^1 min 0 s$/);
+    expect(time).not.toHaveAttribute('tabindex');
+  });
+
   it('AC-14: a session Orynx closed on says so', async () => {
     server.use(
       sessionHandler(

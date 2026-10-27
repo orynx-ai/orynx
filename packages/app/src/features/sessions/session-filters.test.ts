@@ -7,6 +7,7 @@ import {
   searchFromSessionFilters,
   sessionFiltersFromSearch,
   SessionsSearchSchema,
+  statusOptions,
 } from './session-filters.ts';
 
 describe('the Sessions page’s filters (spec 039)', () => {
@@ -37,5 +38,20 @@ describe('the Sessions page’s filters (spec 039)', () => {
     expect(matchesSession(ask, { ...noSessionFilters, status: ['done'], kind: ['build'] })).toBe(false);
     expect(matchesSession(ask, { ...noSessionFilters, status: ['stopped'] })).toBe(false);
     expect(matchesSession(ask, noSessionFilters)).toBe(true);
+  });
+
+  it('AC-11, AC-14 (spec 047): Status offers PR merged and PR closed, and filters by them', () => {
+    expect(statusOptions.map((option) => option.label)).toEqual([
+      'Working',
+      'Needs you',
+      'Done',
+      'PR open',
+      'PR merged',
+      'PR closed',
+      'Stopped',
+    ]);
+    const merged = makeSessionSummary({ state: 'pr_merged' });
+    expect(matchesSession(merged, sessionFiltersFromSearch({ status: 'pr_merged' }))).toBe(true);
+    expect(matchesSession(merged, sessionFiltersFromSearch({ status: 'pr_closed' }))).toBe(false);
   });
 });

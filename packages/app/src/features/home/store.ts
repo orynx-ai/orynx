@@ -1,7 +1,17 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ComposerChip, EffortLevel, SessionMode } from '@devhub/contracts';
+import type { ComposerChip, ComposerStart, EffortLevel, SessionMode, StartSessionAnswer } from '@devhub/contracts';
 import { addChip, sameChip, type AddChip } from './composer-rules.ts';
+
+/**
+ * The last start that opened nothing, from Send or a row's Fix (spec 047), for what's said under the box: what was
+ * sent, the answer (`failed` when the server couldn't be asked), and whether it was the draft, which goes once it starts.
+ */
+export interface StartTried {
+  request: ComposerStart;
+  answer: Exclude<StartSessionAnswer, { result: 'started' }> | 'failed';
+  draft: boolean;
+}
 
 /**
  * Home's composer draft (spec 015, Q14): what you typed, the chips in the order you added them, and the folder you
@@ -21,6 +31,7 @@ interface ComposerState {
   effort: EffortLevel | null;
   /** Ask or Build, as you last picked it; Build the first time (spec 031, Q1). */
   mode: SessionMode;
+  tried: StartTried | null;
   setText: (text: string) => void;
   /** Adds a chip after the others, or says why not (spec 022, Q2, Q5). */
   addChip: (chip: ComposerChip) => Extract<AddChip, { ok: false }>['refusal'] | null;
@@ -32,13 +43,14 @@ interface ComposerState {
   setModel: (model: string | null) => void;
   setEffort: (effort: EffortLevel | null) => void;
   setMode: (mode: SessionMode) => void;
+  setTried: (tried: StartTried | null) => void;
   /** A task started, in this folder if the page named one: the draft goes, and the folder is remembered. */
   sent: (folderId: string | null) => void;
 }
 
 export const initialComposer: Pick<
   ComposerState,
-  'text' | 'chips' | 'picked' | 'lastUsed' | 'model' | 'effort' | 'mode'
+  'text' | 'chips' | 'picked' | 'lastUsed' | 'model' | 'effort' | 'mode' | 'tried'
 > = {
   text: '',
   chips: [],
@@ -47,6 +59,7 @@ export const initialComposer: Pick<
   model: null,
   effort: null,
   mode: 'build',
+  tried: null,
 };
 
 export const useComposerStore = create<ComposerState>()(
@@ -80,8 +93,11 @@ export const useComposerStore = create<ComposerState>()(
       setMode: (mode) => {
         set({ mode });
       },
+      setTried: (tried) => {
+        set({ tried });
+      },
       sent: (folderId) => {
-        set((state) => ({ text: '', chips: [], picked: null, lastUsed: folderId ?? state.lastUsed }));
+        set((state) => ({ text: '', chips: [], picked: null, tried: null, lastUsed: folderId ?? state.lastUsed }));
       },
     }),
     {

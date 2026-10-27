@@ -42,6 +42,7 @@ export {
   sessionTerminalQueryKey,
   sessionTerminalQueryOptions,
   statusQueryOptions,
+  storageQueryOptions,
   skillsQueryOptions,
   syncActivityQueryOptions,
   ticketQueryOptions,

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -32,6 +32,8 @@ const pr = `#${String(number)}`;
 const github = 'https://github.com/acme/web-app.git';
 
 const tools: FakeTools = {
+  // Tickets shows a sprint's cards, with each session's chip (spec 047).
+  sprint: true,
   issues: [
     // The fake Claude Code edits `src/archive.ts` and finishes.
     {
@@ -43,6 +45,8 @@ const tools: FakeTools = {
     { key: 'PULL-2', summary: 'Archive old events', status: 'To Do', category: 'new' },
     // "(no draft)": the fake Claude Code fails a drafting call, as a signed-out one would.
     { key: 'PULL-3', summary: 'Speed up the picker (no draft)', status: 'To Do', category: 'new' },
+    // Spec 047: its pull request is merged on GitHub.
+    { key: 'PULL-4', summary: 'Tidy the archive list', status: 'In Progress', category: 'indeterminate' },
   ],
   reviews: [],
   mine: [],
@@ -303,9 +307,13 @@ test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360
   const check = async () => {
     await page.addScriptTag({ path: axePath });
     return page.evaluate(async () => {
+      // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
       const moving = document
         .getAnimations()
-        .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity);
+        .filter(
+          (animation) =>
+            animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
+        );
       await Promise.allSettled(moving.map((animation) => animation.finished));
       const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
       return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
@@ -346,6 +354,71 @@ test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360
       }
     }
   }
+});
+
+test('spec 047, AC-11, AC-12, AC-25: after Sync, a merged pull request makes the session PR merged everywhere, its worktree gone and its branch kept', async ({
+  page,
+}) => {
+  const url = await startDone(page, 'PULL-4');
+  const worktree = await worktreeOf(page, url);
+  await page.getByRole('button', { name: 'Create pull request' }).click();
+  await expect(dialog(page).getByRole('textbox', { name: 'Title' })).toBeVisible({ timeout: 10_000 });
+  await dialog(page).getByRole('button', { name: 'Create pull request' }).click();
+  await expect(page.getByRole('main').getByText('PR open', { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  // GitHub merges it: the fake says so, with the head commit Orynx pushed.
+  const held = (await (await page.request.get(control)).json()) as FakeTools;
+  const merged = held.pulls?.find((pull) => pull.head === 'feat/PULL-4');
+  if (merged === undefined) throw new Error('The pull request for PULL-4 should be open');
+  const head = repository.git(worktree, 'rev-parse', 'HEAD');
+  const states = [{ number: merged.number, state: 'merged' as const, head }];
+  expect((await page.request.put(control, { data: { ...held, pullStates: states } })).status()).toBe(204);
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Sync', exact: true }).click();
+  const row = page.getByRole('link', { name: /^Tidy the archive list PULL-4 PR merged$/ });
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  expect(existsSync(worktree)).toBe(false);
+  expect(repository.git(repository.clone, 'branch', '--list', 'feat/PULL-4')).toContain('feat/PULL-4');
+
+  await page.goto('/tickets');
+  await expect(page.getByRole('link', { name: 'PR merged', exact: true })).toBeVisible();
+
+  await page.goto(url);
+  await expect(page.getByRole('main').getByText('PR merged', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('This pull request is merged. Start a new session from the ticket to carry on.'),
+  ).toBeVisible();
+
+  const check = async () => {
+    await page.addScriptTag({ path: axePath });
+    return page.evaluate(async () => {
+      // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
+      const moving = document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
+        );
+      await Promise.allSettled(moving.map((animation) => animation.finished));
+      const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
+      return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
+    });
+  };
+  for (const width of [1280, 360]) {
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.emulateMedia({ colorScheme });
+      for (const where of [url, '/sessions', '/tickets']) {
+        await page.goto(where);
+        await expect(page.getByText('PR merged', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+        const said = `${where} at ${String(width)} px, ${colorScheme}`;
+        expect(await check(), said).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth), said).toBeLessThanOrEqual(width);
+      }
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
 });
 
 test('AC-18, 039 AC-32: Delete with its branch takes the worktree and the local branch; the PR and its branch on GitHub stay', async ({

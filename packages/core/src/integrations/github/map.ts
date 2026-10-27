@@ -26,6 +26,8 @@ export const PullRequestRecordSchema = z.object({
   checksFailedAt: z.iso.datetime().nullable(),
   /** Unresolved review threads whose last comment isn't yours, and when the oldest of those comments came. */
   unresolved: z.object({ count: z.int().positive(), since: z.iso.datetime() }).nullable(),
+  /** True for your pull request from a fork (spec 047); missing on any other, and on a record cached before. */
+  fork: z.literal(true).optional(),
 });
 export type PullRequestRecord = z.infer<typeof PullRequestRecordSchema>;
 
@@ -71,6 +73,7 @@ function base(
     author: authorOf(pull.author),
     mine,
     openedAt: isoTime(pull.createdAt),
+    ...(pull.isCrossRepository === true ? { fork: true } : {}),
   };
 }
 

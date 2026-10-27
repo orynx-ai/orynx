@@ -65,7 +65,9 @@ export function delivery(what: NotificationWhat, settings: NotificationSettings,
   if (quiet && !(what.kind === 'approval' && settings.approvalsBreakThrough)) {
     return { popUp: false, desktop: false, sound: null };
   }
-  const choice = settings.events[notificationEventOf(what.kind)];
+  const event = notificationEventOf(what.kind);
+  if (event === null) return { popUp: false, desktop: false, sound: null };
+  const choice = settings.events[event];
   return {
     popUp: settings.popUps && choice.popUp,
     desktop: settings.desktop && choice.desktop,

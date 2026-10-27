@@ -107,6 +107,7 @@ describe('/api/preferences', () => {
       allowedCommands: [],
       editor: 'vscode',
       jiraChanges: false,
+      deleteSessionsAfterDays: null,
     });
   });
 

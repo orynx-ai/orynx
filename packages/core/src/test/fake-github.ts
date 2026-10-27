@@ -79,6 +79,8 @@ export interface FakePull {
   )[];
   /** Review threads: resolved or not, and who wrote the last comment when. */
   threads?: readonly { resolved: boolean; lastBy: string | null; at: string }[];
+  /** From a fork: its head is in another repository. */
+  fork?: boolean;
 }
 
 /** One pull request as the inbox's GraphQL query gets it back. */
@@ -94,6 +96,7 @@ export function pullNode(pull: FakePull) {
     createdAt: pull.createdAt ?? '2026-10-10T09:00:00Z',
     author,
     repository: { name: repository, nameWithOwner: `${owner}/${repository}` },
+    isCrossRepository: pull.fork ?? false,
     timelineItems: {
       nodes: (pull.requests ?? []).map((request) => ({
         createdAt: request.at,
@@ -308,6 +311,44 @@ export function acceptingPullDiff(
     }
     return new HttpResponse(pull.diff ?? '', {
       headers: { 'content-type': 'application/vnd.github.diff; charset=utf-8' },
+    });
+  });
+}
+
+/** A pull request's state on GitHub and its head commit, as the fake answers a session watching it (spec 047). */
+export interface FakePullState {
+  owner?: string;
+  repository?: string;
+  number: number;
+  state: 'open' | 'closed' | 'merged';
+  head: string;
+}
+
+/**
+ * GitHub's REST `GET …/pulls/{n}` as JSON (spec 047): `state` open or closed, `merged`, and `head.sha`. A request for
+ * the diff media type falls through to {@link acceptingPullDiff}. `pulls` is read on each request, so a test can merge
+ * one by changing it.
+ */
+export function acceptingPullStates(
+  pulls: readonly FakePullState[],
+  { tokens = [githubToken, ghToken] }: { tokens?: readonly string[] } = {},
+) {
+  return http.get('https://api.github.com/repos/:owner/:repository/pulls/:number', ({ request, params }) => {
+    if ((request.headers.get('accept') ?? '').includes('diff')) return undefined;
+    const no = refused(request, tokens);
+    if (no !== null) return no;
+    const pull = pulls.find(
+      (candidate) =>
+        (candidate.owner ?? 'acme') === params['owner'] &&
+        (candidate.repository ?? 'web-app') === params['repository'] &&
+        String(candidate.number) === params['number'],
+    );
+    if (pull === undefined) return HttpResponse.json({ message: 'Not Found', status: '404' }, { status: 404 });
+    return HttpResponse.json({
+      number: pull.number,
+      state: pull.state === 'open' ? 'open' : 'closed',
+      merged: pull.state === 'merged',
+      head: { sha: pull.head },
     });
   });
 }

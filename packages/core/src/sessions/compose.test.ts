@@ -93,6 +93,29 @@ describe('which folder a composer start works in (spec 015, Q7)', () => {
   ] as const)('AC-17, AC-18: picks %s', (_case, folders, request, folder) => {
     expect(chooseFolder(folders, request)).toEqual(folder);
   });
+
+  // Fix on Home names no folder: the pull request's own repository decides, by each folder's origin.
+  const origins = new Map([
+    [proj.id, 'acme/web-app'],
+    [api.id, 'acme/api'],
+    [mob.id, 'Acme/Web-App'],
+  ]);
+  it.each([
+    ['the one folder whose origin is its repository', [proj, api], start({ context: [pullChip] }), proj],
+    ['nothing, when no folder’s origin is', [api], start({ context: [pullChip] }), 'choose_folder'],
+    ['nothing, when two folders’ origins are', [proj, mob, api], start({ context: [pullChip] }), 'choose_folder'],
+    [
+      'the ticket’s folder when there is a ticket too',
+      [proj, api],
+      start({ context: [mobChip, pullChip] }),
+      'choose_folder',
+    ],
+  ] as const)(
+    'spec 047, AC-6, AC-8: with a pull request and no folder sent, picks %s',
+    (_case, folders, request, folder) => {
+      expect(chooseFolder(folders, request, origins)).toEqual(folder);
+    },
+  );
 });
 
 describe('what a composer start makes (spec 015, Q8)', () => {
@@ -269,7 +292,19 @@ async function setUp({
     ]),
     acceptingPullDiff([{ number: 2836, diff: 'diff --git a/a.ts b/a.ts\n+x' }]),
   );
-  return { sessions, records, home, heard, sdk, folder: added[0], outside, root: repos.root, repos, settings };
+  return {
+    sessions,
+    records,
+    home,
+    heard,
+    sdk,
+    folder: added[0],
+    outside,
+    root: repos.root,
+    repos,
+    settings,
+    repositories: service,
+  };
 }
 
 /** Waits until the session isn't Working or waiting for you any more. */
@@ -323,6 +358,26 @@ describe('a composer start that can’t happen (spec 015)', () => {
 
     expect(answer).toEqual({ result: 'existing', sessionId: '0000000000000001' });
     await nothingMade(set, 1, heardBefore);
+  });
+
+  it('spec 047, AC-2: `another` starts a second session beside the ticket’s live one, in its own worktree', async () => {
+    const set = await setUp();
+    await set.sessions.start({ ticketKey: 'PROJ-1423' });
+    await settled(set.records);
+
+    const answer = await set.sessions.start(
+      makeComposerStart({
+        message: 'Only the tests',
+        repositoryId: set.folder?.id,
+        context: [ticketChip],
+        another: true,
+      }),
+    );
+
+    expect(answer).toEqual({ result: 'started', sessionId: '0000000000000002' });
+    const second = await settled(set.records, '0000000000000002');
+    expect(second.session.source).toEqual({ kind: 'jira', key: 'PROJ-1423' });
+    expect(second.worktree).not.toBe((await set.records.get('0000000000000001'))?.worktree);
   });
 
   it('AC-5 (spec 022): a live session on a ticket after the first doesn’t stop the start', async () => {
@@ -827,6 +882,53 @@ describe('a Build on your pull request (spec 031)', () => {
 
     expect(await answer(set)).toEqual({ result: 'existing', sessionId: '0000000000000001' });
     expect(await set.records.get('0000000000000002')).toBeNull();
+  });
+
+  it('spec 047, AC-4: `another` on your pull request works on its branch in a second detached worktree', async () => {
+    const set = await onGitHub();
+    set.outside.use(yours());
+    const newest = await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await answer(set);
+    const first = await settled(set.records);
+
+    expect(
+      await set.sessions.start(
+        makeComposerStart({
+          message: 'Answer the review comments',
+          repositoryId: set.folder?.id,
+          context: [pullChip],
+          another: true,
+        }),
+      ),
+    ).toEqual({ result: 'started', sessionId: '0000000000000002' });
+
+    const second = await settled(set.records, '0000000000000002');
+    expect(second.session).toMatchObject({ workOn: 'pull_request', branch: 'fix/content-list' });
+    expect(second.worktree).not.toBe(first.worktree);
+    expect(await set.repos.git(second.worktree ?? '', 'rev-parse', 'HEAD')).toBe(newest);
+    // An edit in one worktree isn't in the other's.
+    await writeFile(join(first.worktree ?? '', 'mine.ts'), 'mine\n');
+    expect(await readdir(second.worktree ?? '')).not.toContain('mine.ts');
+  });
+
+  it('spec 047, AC-6: a start that names no folder works in the one whose origin is your pull request’s repository', async () => {
+    const set = await onGitHub();
+    // A second folder, on another repository, so the only folder there is can't be the answer.
+    const other = join(set.root, 'api');
+    await set.repos.git(set.root, 'clone', set.repos.origin, other);
+    await set.repos.git(other, 'remote', 'set-url', 'origin', 'git@github.com:acme/api.git');
+    await set.repositories.add({ path: other, jiraProject: 'API' });
+    set.outside.use(yours());
+    await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+    const { repositoryId: _id, ...start } = makeComposerStart({
+      message: 'Fix the unresolved review comments on web-app #2836.',
+      context: [pullChip],
+    });
+
+    expect(await set.sessions.start(start)).toEqual({ result: 'started', sessionId: '0000000000000001' });
+    const record = await settled(set.records);
+    expect(record.repository?.path).toBe(set.repos.clone);
+    expect(record.session).toMatchObject({ workOn: 'pull_request', branch: 'fix/content-list' });
   });
 
   it('AC-19: someone else’s pull request is context for a new branch', async () => {

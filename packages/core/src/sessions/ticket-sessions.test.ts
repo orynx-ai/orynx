@@ -29,4 +29,29 @@ describe('sessionsByTicket', () => {
     });
     expect(sessionsByTicket([ask]).has('PROJ-1423')).toBe(false);
   });
+
+  it('spec 047, AC-5: joins a ticket to its newest session that isn’t Stopped', () => {
+    const older = makeSessionSummary({
+      id: '0000000000000001',
+      state: 'done',
+      source: { kind: 'jira', key: 'PROJ-1423' },
+      updatedAt: '2026-10-19T09:00:00.000Z',
+    });
+    const stopped = makeSessionSummary({
+      id: '0000000000000002',
+      state: 'stopped',
+      source: { kind: 'jira', key: 'PROJ-1423' },
+      updatedAt: '2026-10-19T10:00:00.000Z',
+    });
+    const earlier = makeSessionSummary({
+      id: '0000000000000003',
+      state: 'working',
+      source: { kind: 'jira', key: 'PROJ-1423' },
+      updatedAt: '2026-10-19T08:00:00.000Z',
+    });
+
+    expect(sessionsByTicket([older, stopped]).get('PROJ-1423')?.id).toBe('0000000000000001');
+    expect(sessionsByTicket([older, earlier]).get('PROJ-1423')?.id).toBe('0000000000000001');
+    expect(sessionsByTicket([stopped]).has('PROJ-1423')).toBe(false);
+  });
 });

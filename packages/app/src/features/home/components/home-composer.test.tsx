@@ -168,22 +168,57 @@ describe('Home’s composer (spec 015)', () => {
     expect(history.location.pathname).toBe('/settings/coding-agent');
   });
 
-  it('AC-23: a ticket with a live session says so, with Open session, and keeps the draft', async () => {
+  it('AC-23; spec 047, AC-1, AC-3: a ticket with a live session offers a new one or Open session, and keeps the draft', async () => {
     serve({ result: 'existing', sessionId: '00000000000000ee' });
     useComposerStore.setState({ text: 'Only the tests', chips: [{ kind: 'jira', key: 'PROJ-1423' }] });
-    const { user } = await renderApp();
+    const { user, history } = await renderApp();
     await user.click(await screen.findByRole('button', { name: 'Send to Claude' }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('PROJ-1423 already has a session.');
-    expect(within(alert).getByRole('link', { name: 'Open session' })).toHaveAttribute(
-      'href',
-      '/sessions/00000000000000ee',
-    );
-    expect(box()).toHaveValue('Only the tests');
+    expect(within(alert).getByText('PROJ-1423 already has a session')).toBeVisible();
+    expect(alert).toHaveTextContent('Open it to carry on, or start a new session on its own branch.');
+    expect(within(alert).getByRole('button', { name: 'Start a new session' })).toBeVisible();
+    expect(history.location.pathname).toBe('/');
+
+    await user.click(within(alert).getByRole('link', { name: 'Open session' }));
+    expect(history.location.pathname).toBe('/sessions/00000000000000ee');
+    expect(useComposerStore.getState()).toMatchObject({
+      text: 'Only the tests',
+      chips: [{ kind: 'jira', key: 'PROJ-1423' }],
+    });
   });
 
-  it('AC-18 (spec 031): your pull request with a live session says so, with Open session, and keeps the draft', async () => {
+  it('spec 047, AC-2: Start a new session sends the same draft again with `another`, and opens the new session', async () => {
+    const posted: unknown[] = [];
+    server.use(
+      http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: [web] })),
+      http.post(apiUrl(apiRoutes.sessions), async ({ request }) => {
+        const body = (await request.json()) as { another?: true };
+        posted.push(body);
+        return HttpResponse.json(
+          body.another === true
+            ? { result: 'started', sessionId: '0123456789abcdef' }
+            : { result: 'existing', sessionId: '00000000000000ee' },
+        );
+      }),
+    );
+    useComposerStore.setState({ text: 'Only the tests', chips: [{ kind: 'jira', key: 'PROJ-1423' }] });
+    const { user, history } = await renderApp();
+    await user.click(await screen.findByRole('button', { name: 'Send to Claude' }));
+    await user.click(await screen.findByRole('button', { name: 'Start a new session' }));
+
+    await waitFor(() => {
+      expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
+    });
+    const first = { message: 'Only the tests', repositoryId: web.id, context: [{ kind: 'jira', key: 'PROJ-1423' }] };
+    expect(posted).toEqual([
+      { ...first, mode: 'build' },
+      { ...first, mode: 'build', another: true },
+    ]);
+    expect(useComposerStore.getState()).toMatchObject({ text: '', chips: [] });
+  });
+
+  it('AC-18 (spec 031); spec 047, AC-1: your pull request with a live session offers a new one on the same branch', async () => {
     const number = 2836;
     serve({ result: 'existing', sessionId: '00000000000000ee' });
     useComposerStore.setState({
@@ -194,7 +229,10 @@ describe('Home’s composer (spec 015)', () => {
     await user.click(await screen.findByRole('button', { name: 'Send to Claude' }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(`#${String(number)} already has a session.`);
+    expect(within(alert).getByText(`#${String(number)} already has a session`)).toBeVisible();
+    expect(alert).toHaveTextContent(
+      "Open it to carry on, or start a new session on the same branch, from what's on GitHub.",
+    );
     expect(within(alert).getByRole('link', { name: 'Open session' })).toHaveAttribute(
       'href',
       '/sessions/00000000000000ee',

@@ -93,6 +93,10 @@ export type GitHubOpened = ({ ok: true } & GitHubPullLink) | { ok: false; proble
 export type GitHubFound = { ok: true; pull: GitHubPullLink | null } | { ok: false; problem: GitHubOpenProblem };
 export type GitHubDefaultBranch = { ok: true; branch: string } | { ok: false; problem: GitHubOpenProblem };
 
+/** Where a session's pull request is on GitHub, and the commit its branch ends at (spec 047). */
+export type GitHubPullState =
+  { ok: true; state: 'open' | 'closed' | 'merged'; head: string } | { ok: false; problem: GitHubPullProblem };
+
 export interface GitHubClient {
   readonly timeoutMs: number;
   /** Asks GitHub who this token belongs to (`GET /user`). */
@@ -116,6 +120,8 @@ export interface GitHubClient {
   findOpenPull(token: string, pull: Omit<GitHubPullTarget, 'base'>): Promise<GitHubFound>;
   /** The repository's default branch, for a session whose base wasn't on origin. */
   defaultBranch(token: string, repository: string): Promise<GitHubDefaultBranch>;
+  /** A pull request's state and head commit (`GET /repos/{o}/{r}/pulls/{n}`), for a session watching it (spec 047). */
+  pullState(token: string, pull: { repository: string; number: number }): Promise<GitHubPullState>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -151,6 +157,8 @@ const PullSchema = z.object({
   createdAt: z.string(),
   author: ActorSchema,
   repository: z.object({ name: z.string(), nameWithOwner: z.string() }),
+  /** Asked for your own pull requests only: one from a fork gets no Fix on Home (spec 047). */
+  isCrossRepository: z.boolean().optional(),
   timelineItems: nodes(
     z.object({ createdAt: z.string(), requestedReviewer: z.object({ login: z.string().optional() }).nullish() }),
   ).optional(),
@@ -174,6 +182,12 @@ const PullSchema = z.object({
 const RestPullSchema = z.object({ number: z.int().positive(), html_url: GitHubLinkSchema });
 
 const RepositorySchema = z.object({ default_branch: z.string().min(1) });
+
+const PullStateSchema = z.object({
+  state: z.enum(['open', 'closed']),
+  merged: z.boolean(),
+  head: z.object({ sha: z.string().regex(/^[0-9a-f]{40}$/) }),
+});
 
 /** What a 422 holds: GitHub's own reasons, read only to tell "already exists" and "no commits" apart. */
 const ValidationSchema = z.object({ errors: z.array(z.object({ message: z.string().optional() })).optional() });
@@ -360,6 +374,7 @@ const inboxQuery = `
           number title url createdAt
           author { login ... on User { name } }
           repository { name nameWithOwner }
+          isCrossRepository
           commits(last: 1) {
             nodes {
               commit {
@@ -617,6 +632,24 @@ export function createGitHubClient({
         return found.success ? { ok: true, branch: found.data.default_branch } : notGitHub;
       } catch (error) {
         return openFailed(error, signal);
+      }
+    },
+
+    async pullState(token, { repository, number }) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const answer = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+          ...partsOf(repository),
+          pull_number: number,
+        });
+        const pull = PullStateSchema.safeParse(answer.data);
+        if (!pull.success) return notGitHub;
+        return { ok: true, state: pull.data.merged ? 'merged' : pull.data.state, head: pull.data.head.sha };
+      } catch (error) {
+        const failure = FailureSchema.safeParse(error);
+        if (failure.success && failure.data.status === 404) return { ok: false, problem: { kind: 'not_found' } };
+        return failed(error, signal);
       }
     },
   };

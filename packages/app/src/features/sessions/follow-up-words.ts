@@ -9,25 +9,22 @@ export const followUpBox = {
 
 const discarded = "The changes were discarded, so Claude can't carry on.";
 const neverStarted = "Claude never started, so there's nothing to carry on. Start again from the ticket.";
-const newer = (key: string) => `${key} has a newer session.`;
+const merged = 'This pull request is merged. Start a new session from the ticket to carry on.';
 
-/** AC-14: the line in place of the box, with a link to the newer session when there is one. */
-export function followUpOffLine(
-  followUp: Exclude<SessionFollowUp, { kind: 'open' }>,
-  key: string,
-): { line: string; link: { label: string; sessionId: string } | null } {
+/** AC-14: the line in place of the box. */
+export function followUpOffLine(followUp: Exclude<SessionFollowUp, { kind: 'open' }>): string {
   switch (followUp.kind) {
     case 'discarded':
-      return { line: discarded, link: null };
+      return discarded;
     case 'never_started':
-      return { line: neverStarted, link: null };
-    case 'newer_session':
-      return { line: newer(key), link: { label: 'Open it', sessionId: followUp.sessionId } };
+      return neverStarted;
+    case 'merged':
+      return merged;
   }
 }
 
 /** AC-15: why a message didn't go, under the box. */
-export function cannotSendLine(reason: CannotSendReason, key: string): string {
+export function cannotSendLine(reason: CannotSendReason): string {
   switch (reason) {
     case 'too_many':
       return 'Three sessions are already working. Stop one, then send.';
@@ -35,8 +32,8 @@ export function cannotSendLine(reason: CannotSendReason, key: string): string {
       return discarded;
     case 'never_started':
       return neverStarted;
-    case 'newer_session':
-      return newer(key);
+    case 'merged':
+      return merged;
   }
 }
 

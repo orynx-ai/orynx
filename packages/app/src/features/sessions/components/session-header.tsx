@@ -47,6 +47,8 @@ const stateTones: Record<SessionState, PillTone> = {
   needs_you: 'warning',
   done: 'success',
   pr_open: 'neutral',
+  pr_merged: 'success',
+  pr_closed: 'neutral',
   stopped: 'neutral',
 };
 

@@ -134,6 +134,11 @@ export type AgentEvent =
   | { type: 'command_ended'; sessionId: string; id: string; output: string; failed: boolean; ms: number }
   /** A waiting call ended: `allowed` only when you allowed it. Comes before the work it lets happen. */
   | { type: 'answered'; sessionId: string; approvalId: string; allowed: boolean }
+  /**
+   * What a turn used (spec 047): its turns with the model, to add to the session's, and the run's cost so far at API
+   * prices (null when the agent doesn't say). Also after Stop, so a stopped turn counts too.
+   */
+  | { type: 'usage'; sessionId: string; turns: number; costUsd: number | null }
   /** `code` is safe to log; it never holds the agent's own words. */
   | { type: 'problem'; sessionId: string; kind: AgentProblemKind; code: string }
   /** The agent's program has ended, however it ended. Always the last event. */

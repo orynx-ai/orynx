@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Inbox, type InboxItem } from '@devhub/contracts';
-import { makeInbox, makeInboxItem, makePreferences, makeTicketDetail } from '@devhub/contracts/testing';
+import { makeInbox, makeInboxItem, makePreferences, makeStatus, makeTicketDetail } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -203,18 +203,134 @@ describe('AttentionPanel', () => {
     expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/web-app/pull/2841/files');
   });
 
-  it('AC-9, AC-10, 022 AC-30: failing checks and unresolved comments rows add their pull requests too', async () => {
-    const { user } = await openHome();
-    await user.click(
-      rowOf('Fix timezone shift in event cards').getByRole('button', { name: 'Add web-app #2836 to the composer' }),
-    );
-    await user.click(
-      rowOf('Return 207 for partial archive failures').getByRole('button', { name: 'Add api #77 to the composer' }),
-    );
-    expect(useComposerStore.getState().chips).toEqual([
-      { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 },
-      { kind: 'pull_request', owner: 'acme', name: 'api', number: 77 },
-    ]);
+  describe('Fix on your own pull request (spec 047)', () => {
+    const started = { result: 'started', sessionId: '0123456789abcdef' } as const;
+    const api77 = { kind: 'pull_request', owner: 'acme', name: 'api', number: 77 } as const;
+    const web2836 = { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2836 } as const;
+
+    /** Claude connected, offering Sonnet; every start answered by `answer`. Returns every body posted. */
+    function starts(answer: (body: { another?: true }) => object) {
+      const posted: unknown[] = [];
+      server.use(
+        http.get(apiUrl(apiRoutes.status), () =>
+          HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+        ),
+        http.get(apiUrl(apiRoutes.agentModels), () =>
+          HttpResponse.json({
+            state: 'ready',
+            models: [{ value: 'sonnet', displayName: 'Sonnet', description: 'Everyday tasks', efforts: ['high'] }],
+          }),
+        ),
+        http.post(apiUrl(apiRoutes.sessions), async ({ request }) => {
+          const body = (await request.json()) as { another?: true };
+          posted.push(body);
+          return HttpResponse.json(answer(body));
+        }),
+      );
+      return posted;
+    }
+
+    it('AC-6, AC-7: Fix starts a Build on the pull request with the composer’s model, opens it, and leaves the draft', async () => {
+      const posted = starts(() => started);
+      useComposerStore.setState({
+        text: 'Half a thought',
+        chips: [{ kind: 'jira', key: 'PROJ-1' }],
+        model: 'sonnet',
+        effort: 'high',
+      });
+      const { user, history } = await openHome();
+      // Your own pull requests' rows have Fix in place of +.
+      expect(rowOf(comments.title).queryByRole('button', { name: /to the composer$/ })).toBeNull();
+
+      await user.click(rowOf(comments.title).getByRole('button', { name: 'Fix review comments: api #77' }));
+      await waitFor(() => {
+        expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
+      });
+      act(() => {
+        history.push('/');
+      });
+      await user.click(await screen.findByRole('button', { name: 'Fix failing checks: web-app #2836' }));
+
+      await waitFor(() => {
+        expect(posted).toHaveLength(2);
+      });
+      expect(posted).toEqual([
+        {
+          message: 'Fix the unresolved review comments on api #77.',
+          context: [api77],
+          model: 'sonnet',
+          effort: 'high',
+          mode: 'build',
+        },
+        {
+          message: 'Fix the failing checks on web-app #2836.',
+          context: [web2836],
+          model: 'sonnet',
+          effort: 'high',
+          mode: 'build',
+        },
+      ]);
+      expect(useComposerStore.getState()).toMatchObject({
+        text: 'Half a thought',
+        chips: [{ kind: 'jira', key: 'PROJ-1' }],
+      });
+    });
+
+    it('AC-9: a pull request with a live session shows the composer’s choice, and Start a new session sends Fix beside it', async () => {
+      const posted = starts((body) =>
+        body.another === true ? started : { result: 'existing', sessionId: '00000000000000ee' },
+      );
+      useComposerStore.setState({ text: 'Half a thought' });
+      const { user, history } = await openHome();
+
+      await user.click(rowOf(checks.title).getByRole('button', { name: 'Fix failing checks: web-app #2836' }));
+
+      const alert = await screen.findByRole('alert');
+      expect(within(alert).getByText(`#${String(2836)} already has a session`)).toBeVisible();
+      expect(alert).toHaveTextContent(
+        "Open it to carry on, or start a new session on the same branch, from what's on GitHub.",
+      );
+      expect(history.location.pathname).toBe('/');
+
+      await user.click(within(alert).getByRole('button', { name: 'Start a new session' }));
+      await waitFor(() => {
+        expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
+      });
+      expect(posted[1]).toEqual({ ...(posted[0] as object), another: true });
+      // The draft was never Fix's, so starting beside the live one leaves it.
+      expect(useComposerStore.getState().text).toBe('Half a thought');
+    });
+
+    it('AC-8: a Fix that can’t start puts the pull request in the composer as Build, with Send’s line', async () => {
+      starts(() => ({ result: 'cannot_start', reason: 'choose_folder' }));
+      useComposerStore.setState({ mode: 'ask' });
+      const { user, history } = await openHome();
+
+      await user.click(rowOf(comments.title).getByRole('button', { name: 'Fix review comments: api #77' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Choose a folder for Claude to work in.');
+      expect(useComposerStore.getState()).toMatchObject({ chips: [api77], mode: 'build' });
+      expect(within(screen.getByRole('list', { name: 'Context for Claude' })).getByText('api #77')).toBeVisible();
+      expect(history.location.pathname).toBe('/');
+    });
+
+    it('AC-10: Fix is reached by Tab from its row’s title, says what it fixes, and Enter presses it', async () => {
+      const posted = starts(() => started);
+      const { user } = await openHome();
+      act(() => {
+        titleOf(checks.title).focus();
+      });
+
+      await user.tab();
+
+      const fix = rowOf(checks.title).getByRole('button', { name: 'Fix failing checks: web-app #2836' });
+      expect(fix).toHaveFocus();
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Fix failing checks');
+      await user.keyboard('{Enter}');
+      await waitFor(() => {
+        expect(posted).toHaveLength(1);
+      });
+    });
   });
 
   it('022 AC-31: with 100 pull requests in the composer, another row’s + adds nothing and says why', async () => {

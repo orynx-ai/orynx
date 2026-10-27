@@ -64,6 +64,7 @@ import {
   type StartSessionAnswer,
   type StartSessionRequest,
   type Status,
+  type Storage,
   type OpenSprints,
   type SkillList,
   type SyncActivity,
@@ -89,6 +90,7 @@ import {
 } from './endpoints/github.ts';
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
 import { getSyncActivity } from './endpoints/sync-activity.ts';
+import { getStorage } from './endpoints/storage.ts';
 import {
   deleteJiraConnection,
   getJiraConnection,
@@ -299,6 +301,8 @@ export interface ApiClient {
   syncActivity(query: SyncActivityQuery): Promise<SyncActivity>;
   /** Empties the inbox's cache; the server syncs again on its own. */
   clearInboxCache(): Promise<void>;
+  /** Settings › Coding agent › Storage (spec 047, D): the worktrees' size, and what each choice would delete now. */
+  storage(): Promise<Storage>;
   /** Tickets' sprint and its tickets, from the server's cache (spec 008). It syncs with the inbox. */
   tickets(): Promise<Tickets>;
   /** A project's open sprints for Tickets' Sprint menu (spec 020), asked of Jira now. */
@@ -465,6 +469,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     syncActivity: (query) =>
       getSyncActivity(http, query).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     clearInboxCache: () => deleteInboxCache(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    storage: () => getStorage(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     tickets: () => getTickets(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     ticketsSprints: (project) =>
       getTicketsSprints(http, project).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

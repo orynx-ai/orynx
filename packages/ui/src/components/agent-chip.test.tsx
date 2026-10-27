@@ -5,8 +5,8 @@ import { AgentChip } from './agent-chip.tsx';
 import type { SessionItemState } from './session-item.tsx';
 
 describe('AgentChip', () => {
-  it("AC-15: links to the ticket's session and says Claude's state in the sidebar's words", async () => {
-    const states: SessionItemState[] = ['needs_you', 'working', 'done', 'pr_open', 'stopped'];
+  it("AC-15, AC-11 (spec 047): links to the ticket's session and says Claude's state in the sidebar's words", async () => {
+    const states: SessionItemState[] = ['needs_you', 'working', 'done', 'pr_open', 'pr_merged', 'pr_closed', 'stopped'];
     const { container } = render(
       <>
         {states.map((state) => (
@@ -20,6 +20,8 @@ describe('AgentChip', () => {
       ['Working', '/sessions/working'],
       ['Done, ready for PR', '/sessions/done'],
       ['PR open', '/sessions/pr_open'],
+      ['PR merged', '/sessions/pr_merged'],
+      ['PR closed', '/sessions/pr_closed'],
       ['Stopped', '/sessions/stopped'],
     ]);
     await expectNoAxeViolations(container);

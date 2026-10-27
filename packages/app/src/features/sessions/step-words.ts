@@ -295,6 +295,14 @@ export function stepWords(activity: SessionActivity): StepWords {
   }
 }
 
+/** Claude's turns and their cost after its working time (spec 047): "38 turns", "≈ $1.42", "< $0.01". */
+export const usageWords = {
+  turns: (turns: number) => (turns === 1 ? '1 turn' : `${String(turns)} turns`),
+  cost: (usd: number) => (usd < 0.01 ? '< $0.01' : `≈ $${usd.toFixed(2)}`),
+  about:
+    "Claude's working time, its turns with the model, and what they'd cost at API prices. Your company's Claude plan may bill differently.",
+};
+
 /** Jump to latest, once you've scrolled up from the end of Claude's progress (the user's call, 19 Oct 2026). */
 export const followWords = { jump: 'Jump to latest' };
 

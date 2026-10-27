@@ -207,9 +207,36 @@ describe('createMessageReader', () => {
     expect(read(text)).toEqual([]);
   });
 
+  it('047 AC-22, AC-23: says every result’s turns and cost first, even after a problem, and nothing when it has none', () => {
+    const read = createMessageReader(worktree);
+    expect(read(success('Done.', { num_turns: 38, total_cost_usd: 1.42 }))).toEqual([
+      { type: 'usage', turns: 38, costUsd: 1.42 },
+      { type: 'turn_ended', summary: 'Done.', queued: 0, took: null },
+    ]);
+    const stopped = as({
+      type: 'result',
+      subtype: 'error_during_execution',
+      is_error: true,
+      errors: [],
+      num_turns: 2,
+      total_cost_usd: 1.9,
+      ...session,
+    });
+    expect(read(stopped)).toEqual([
+      { type: 'usage', turns: 2, costUsd: 1.9 },
+      { type: 'problem', kind: 'other', code: 'error_during_execution' },
+    ]);
+    expect(read(stopped)).toEqual([{ type: 'usage', turns: 2, costUsd: 1.9 }]);
+    const { num_turns: _turns, ...bare } = success('Bare.') as unknown as Record<string, unknown>;
+    expect(createMessageReader(worktree)(as(bare))).toEqual([
+      { type: 'turn_ended', summary: 'Bare.', queued: 0, took: null },
+    ]);
+  });
+
   it('AC-8: says a turn ended, with Claude’s summary', () => {
     const read = createMessageReader(worktree);
     expect(read(success('Added row selection and a toolbar button.'))).toEqual([
+      { type: 'usage', turns: 4, costUsd: null },
       { type: 'turn_ended', summary: 'Added row selection and a toolbar button.', queued: 0, took: null },
     ]);
   });
@@ -218,6 +245,7 @@ describe('createMessageReader', () => {
     const read = createMessageReader(worktree);
     const took = ['5f0c1d2e-0000-4000-8000-000000000001'];
     expect(read(success('First part.', { user_message_uuids: took, queued_turn_count: 1 }))).toEqual([
+      { type: 'usage', turns: 4, costUsd: null },
       { type: 'turn_ended', summary: 'First part.', queued: 1, took },
     ]);
   });
@@ -270,6 +298,7 @@ describe('createMessageReader', () => {
   ] as const)('AC-13: sorts a turn that ended on API status %i into %s', (status, kind) => {
     const read = createMessageReader(worktree);
     expect(read(success('API Error: …', { is_error: true, api_error_status: status }))).toEqual([
+      { type: 'usage', turns: 4, costUsd: null },
       { type: 'problem', kind, code: `api_${String(status)}` },
     ]);
   });
@@ -287,7 +316,7 @@ describe('createMessageReader', () => {
     expect(
       read(as({ type: 'result', subtype: 'error_during_execution', is_error: true, errors: [], ...session })),
     ).toEqual([]);
-    expect(read(success('late'))).toEqual([]);
+    expect(read(success('late'))).toEqual([{ type: 'usage', turns: 4, costUsd: null }]);
   });
 
   it('AC-21: never puts Claude’s error text in what it says', () => {

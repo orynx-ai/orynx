@@ -26,12 +26,14 @@ describe('SessionItem', () => {
     expect(screen.getByText(sessionStateLabels[state])).toBeVisible();
   });
 
-  it('AC-9: names the five states the way the product spec does', () => {
+  it('AC-9, AC-11 (spec 047): names the seven states the way the product spec does', () => {
     expect(sessionStateLabels).toEqual({
       needs_you: 'Needs you',
       working: 'Working',
       done: 'Done, ready for PR',
       pr_open: 'PR open',
+      pr_merged: 'PR merged',
+      pr_closed: 'PR closed',
       stopped: 'Stopped',
     });
   });

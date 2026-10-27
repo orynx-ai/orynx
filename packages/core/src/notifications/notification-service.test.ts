@@ -59,6 +59,23 @@ describe('notification service (spec 029)', () => {
     expect(heard).toEqual([{ type: 'notifications.changed' }]);
   });
 
+  it('047 AC-19: a cleanup run that deleted sessions adds one unread notification with how many and how much', () => {
+    let at = clock;
+    const { service, heard } = setup(() => at);
+
+    service.sessionsCleaned(3, 4_100_000_000);
+    at += 60 * 60_000;
+    service.sessionsCleaned(1, 850_000_000);
+
+    const list = service.list();
+    expect(list).toMatchObject({ unread: 2, waiting: 0 });
+    expect(list.notifications.map((notification) => notification.what)).toEqual([
+      { kind: 'sessions_cleaned', count: 1, bytes: 850_000_000 },
+      { kind: 'sessions_cleaned', count: 3, bytes: 4_100_000_000 },
+    ]);
+    expect(heard).toEqual([{ type: 'notifications.changed' }, { type: 'notifications.changed' }]);
+  });
+
   it('AC-12: an approval answered anywhere stops waiting but stays unread; the same change twice adds one', () => {
     const { service } = setup();
     service.sessionChanged(working, asked);

@@ -5,6 +5,7 @@ import {
   jiraConnectionQueryOptions,
   jiraProjectsQueryOptions,
   preferencesQueryOptions,
+  storageQueryOptions,
   agentsAccessQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
@@ -223,6 +224,12 @@ export function usePreferences() {
   return useQuery(preferencesQueryOptions(api));
 }
 
+/** What the session worktrees use, and what each Delete old sessions choice would delete now (spec 047, D). */
+export function useStorage() {
+  const api = useApi();
+  return useQuery(storageQueryOptions(api));
+}
+
 /** The list with one entry added once, or one taken off (spec 012). */
 function withCommandChange(list: readonly string[], change: PreferencesChange): string[] {
   const kept = list.filter((entry) => entry !== change.disallowCommand);
@@ -256,6 +263,11 @@ function withChange(preferences: Preferences, change: PreferencesChange): Prefer
     allowedCommands: withCommandChange(preferences.allowedCommands, change),
     editor: change.editor ?? preferences.editor,
     jiraChanges: change.jiraChanges ?? preferences.jiraChanges,
+    // Never is null, so only a missing change keeps the saved choice.
+    deleteSessionsAfterDays:
+      change.deleteSessionsAfterDays === undefined
+        ? preferences.deleteSessionsAfterDays
+        : change.deleteSessionsAfterDays,
   };
 }
 
@@ -299,6 +311,8 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
   }
   const editorStillSet = change.editor !== undefined && current.editor === change.editor;
   const jiraStillSet = change.jiraChanges !== undefined && current.jiraChanges === change.jiraChanges;
+  const cleanupStillSet =
+    change.deleteSessionsAfterDays !== undefined && current.deleteSessionsAfterDays === change.deleteSessionsAfterDays;
   return {
     permissions,
     repositoryPermissions,
@@ -306,6 +320,7 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
     allowedCommands,
     editor: editorStillSet ? saved.editor : current.editor,
     jiraChanges: jiraStillSet ? saved.jiraChanges : current.jiraChanges,
+    deleteSessionsAfterDays: cleanupStillSet ? saved.deleteSessionsAfterDays : current.deleteSessionsAfterDays,
   };
 }
 

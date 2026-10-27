@@ -14,6 +14,8 @@ const chipVariants = cva(
         working: 'bg-info-subtle text-info-foreground',
         done: 'bg-success-subtle text-success',
         pr_open: 'bg-subtle text-muted-foreground',
+        pr_merged: 'bg-success-subtle text-success',
+        pr_closed: 'bg-subtle text-muted-foreground',
         stopped: 'bg-subtle text-muted-foreground',
       },
     },

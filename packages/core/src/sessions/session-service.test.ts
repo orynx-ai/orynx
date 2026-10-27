@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer as createNetServer, type Server } from 'node:net';
@@ -36,10 +36,12 @@ import {
 } from '../test/fake-jira.ts';
 import {
   acceptingPulls,
+  acceptingPullStates,
   acceptingRepository,
   githubToken,
   pullsUrl,
   type FakeOpenedPull,
+  type FakePullState,
 } from '../test/fake-github.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { createTerminalService } from '../terminal/terminal-service.ts';
@@ -51,6 +53,7 @@ import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import type { SessionRecords, StoredSession } from './session-store.ts';
 import { createChangesReader } from './changes.ts';
 import { createContextReader } from './context-reader.ts';
+import { startSessionCleanup } from './session-cleanup.ts';
 import { createSessionService, type SessionReport } from './session-service.ts';
 
 // Real git, a real Claude Code login check and a real Jira client behind a fake Jira: each test does a lot.
@@ -182,6 +185,7 @@ async function setUp({
   services.push(terminal);
   const reports: SessionReport[] = [];
   const changes: { from: string; to: string; quiet: boolean }[] = [];
+  const cleaned: { count: number; bytes: number }[] = [];
   let ids = 0;
   const service = createSessionService({
     records,
@@ -244,6 +248,7 @@ async function setUp({
     onChange: (before, after, { quiet }) => {
       if (before.state !== after.state) changes.push({ from: before.state, to: after.state, quiet });
     },
+    onCleaned: (count, bytes) => cleaned.push({ count, bytes }),
     now,
     newId: () => {
       ids += 1;
@@ -252,7 +257,21 @@ async function setUp({
   });
   services.push(service);
   jira.use(acceptingIssue({ key: 'PROJ-1423', summary: 'Add bulk archive to the content list' }));
-  return { service, records, repos, home, heard, reports, changes, sdk, folders: added, settings, terminal };
+  return {
+    service,
+    records,
+    repos,
+    home,
+    heard,
+    reports,
+    changes,
+    sdk,
+    folders: added,
+    settings,
+    terminal,
+    events,
+    cleaned,
+  };
 }
 
 /** Waits until the session has sent Claude its brief: from there a hanging Claude writes nothing more. */
@@ -1320,7 +1339,7 @@ describe('follow-ups (spec 013)', () => {
     expect((await settled(limited.records)).session).toMatchObject({ state: 'done', problem: null });
   });
 
-  it('AC-14: refuses when the changes were discarded, Claude never started, or the ticket has a newer live session', async () => {
+  it('AC-14: refuses when the changes were discarded or Claude never started; spec 047, AC-5: not for a newer session', async () => {
     const discarded = await setUp();
     await discarded.service.start({ ticketKey: 'PROJ-1423' });
     await settled(discarded.records);
@@ -1337,7 +1356,7 @@ describe('follow-ups (spec 013)', () => {
     await reached(newer.records, 'explore');
     await newer.service.stop(id);
     await newer.service.start({ ticketKey: 'PROJ-1423' });
-    expect(await newer.service.send(id, 'More')).toEqual({ result: 'cannot_send', reason: 'newer_session' });
+    expect(await newer.service.send(id, 'More')).toEqual({ result: 'sent' });
     await newer.service.close();
   });
 
@@ -1403,6 +1422,23 @@ describe('follow-ups (spec 013)', () => {
     time += 30_000;
     letGo();
     expect((await settled(records)).session).toMatchObject({ workedMs: 90_000, runStartedAt: null });
+  });
+
+  it("047 AC-22, AC-23: adds up Claude's turns over every run and keeps the latest cost, a stopped turn's too", async () => {
+    const { service, records, sdk } = await setUp({
+      script: [{ finish: 'First.', turns: 3, costUsd: 0.4 }],
+      later: [[{ hang: true, turns: 2, costUsd: 0.65 }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    expect((await settled(records)).session).toMatchObject({ turns: 3, costUsd: 0.4 });
+    await service.send(id, 'One more thing');
+    await vi.waitFor(() => {
+      expect(sdk.runs[1]).toBeDefined();
+    });
+    expect(await service.stop(id)).toBe('stopped');
+    await vi.waitFor(async () => {
+      expect((await records.get(id))?.session).toMatchObject({ state: 'stopped', turns: 5, costUsd: 0.65 });
+    });
   });
 
   it('AC-2, AC-23: says the files changed at most once a second, with the session’s id only', async () => {
@@ -1517,7 +1553,8 @@ describe('the session detail (spec 013)', () => {
     await reached(newer.records, 'explore');
     await newer.service.stop(id);
     await newer.service.start({ ticketKey: 'PROJ-1423' });
-    expect((await newer.service.get(id))?.followUp).toEqual({ kind: 'newer_session', sessionId: '0000000000000002' });
+    // Both sessions on the ticket keep their box (spec 047, AC-5).
+    expect((await newer.service.get(id))?.followUp).toEqual({ kind: 'open' });
     expect((await newer.service.get('0000000000000002'))?.followUp).toEqual({ kind: 'open' });
     await newer.service.close();
   });
@@ -1742,6 +1779,122 @@ describe('the pull request (spec 014)', () => {
       state: 'pr_open',
       pullRequest: { number: 2841, url: 'https://github.com/acme/web-app/pull/2841' },
     });
+  });
+});
+
+describe('after the pull request (spec 047)', () => {
+  const id = '0000000000000001';
+  const asked = { title: 'PROJ-1423: Add bulk archive to the content list', body: 'What changed.' };
+
+  /** A session whose pull request #2841 is open, its worktree at the pull request's head, and GitHub's answer to change. */
+  async function opened() {
+    const set = await setUp({
+      script: [edit('src/a.ts'), { finish: 'Added row selection.' }],
+      later: [[{ finish: 'Add bulk archive\n\nRow selection.' }]],
+    });
+    await set.service.start({ ticketKey: 'PROJ-1423' });
+    await settled(set.records);
+    await set.repos.git(set.repos.clone, 'remote', 'set-url', 'origin', 'git@github.com:acme/web-app.git');
+    await set.repos.git(
+      set.repos.clone,
+      'config',
+      `url.${set.repos.origin}.pushInsteadOf`,
+      'git@github.com:acme/web-app.git',
+    );
+    await writeFile(
+      join(set.repos.root, '.gitconfig'),
+      '[init]\n\tdefaultBranch = main\n[user]\n\tname = Rakesh D\n\temail = you@company.com\n',
+    );
+    const worktree = join(set.home, 'worktrees', id);
+    await writeFile(join(worktree, 'README.md'), '# web-app\n\nBulk archive.\n');
+    jira.use(...acceptingPulls(), acceptingRepository());
+    expect(await set.service.createPullRequest(id, asked)).toMatchObject({ result: 'opened', number: 2841 });
+    const head = await set.repos.git(worktree, 'rev-parse', 'HEAD');
+    const pulls: FakePullState[] = [{ number: 2841, state: 'open', head }];
+    let asks = 0;
+    jira.events.on('request:start', ({ request }) => {
+      if (request.url.endsWith('/pulls/2841')) asks += 1;
+    });
+    jira.use(acceptingPullStates(pulls));
+    const merge = (state: FakePullState['state']) => {
+      pulls[0] = { number: 2841, state, head };
+    };
+    return { ...set, worktree, merge, asks: () => asks };
+  }
+
+  it('AC-11, AC-12: a merge with nothing to lose makes it PR merged, removes the worktree and keeps the branch', async () => {
+    const { service, records, repos, worktree, heard, merge } = await opened();
+    merge('merged');
+    heard.length = 0;
+
+    await service.watchPulls();
+
+    expect(await service.get(id)).toMatchObject({ state: 'pr_merged', worktreePath: null });
+    expect((await records.get(id))?.session.discardedAt).not.toBeNull();
+    await expect(readdir(worktree)).rejects.toThrow();
+    expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toContain('feat/PROJ-1423');
+    expect(heard).toContainEqual({ type: 'sessions.changed' });
+  });
+
+  it('AC-13: a merge with a file not committed makes it PR merged and keeps the worktree, once', async () => {
+    const { service, worktree, merge, asks } = await opened();
+    await writeFile(join(worktree, 'notes.md'), 'mine\n');
+    merge('merged');
+
+    await service.watchPulls();
+    expect(await service.get(id)).toMatchObject({ state: 'pr_merged', worktreePath: worktree });
+    expect(await readFile(join(worktree, 'notes.md'), 'utf8')).toBe('mine\n');
+
+    // Decided once: a merged session isn't asked about again.
+    const before = asks();
+    await service.watchPulls();
+    expect(asks()).toBe(before);
+  });
+
+  it('AC-14: a pull request closed unmerged is PR closed with its worktree; reopened, it is PR open again', async () => {
+    const { service, worktree, merge } = await opened();
+    merge('closed');
+    await service.watchPulls();
+    expect(await service.get(id)).toMatchObject({ state: 'pr_closed', worktreePath: worktree });
+
+    merge('open');
+    await service.watchPulls();
+    expect(await service.get(id)).toMatchObject({ state: 'pr_open', worktreePath: worktree });
+  });
+
+  it('AC-12: a merged session takes no follow-up, and no longer holds its ticket', async () => {
+    const { service, merge } = await opened();
+    merge('merged');
+    await service.watchPulls();
+
+    expect((await service.get(id))?.followUp).toEqual({ kind: 'merged' });
+    expect(await service.send(id, 'One more thing')).toEqual({ result: 'cannot_send', reason: 'merged' });
+    expect(await service.start({ ticketKey: 'PROJ-1423' })).toEqual({
+      result: 'started',
+      sessionId: '0000000000000002',
+    });
+  });
+
+  it('AC-14: a closed session no longer holds its ticket either, and still takes a follow-up', async () => {
+    const { service, merge } = await opened();
+    merge('closed');
+    await service.watchPulls();
+
+    expect((await service.get(id))?.followUp).toEqual({ kind: 'open' });
+    expect(await service.start({ ticketKey: 'PROJ-1423' })).toMatchObject({ result: 'started' });
+  });
+
+  it("AC-15: when GitHub can't be reached, or nothing changed, nothing is saved", async () => {
+    const { service, records, merge } = await opened();
+    const before = await records.get(id);
+
+    await service.watchPulls();
+    expect(await records.get(id)).toEqual(before);
+
+    merge('merged');
+    jira.use(http.get('https://api.github.com/repos/:owner/:repo/pulls/:number', () => HttpResponse.error()));
+    await service.watchPulls();
+    expect(await records.get(id)).toEqual(before);
   });
 });
 
@@ -2290,5 +2443,114 @@ describe('Claude starting a server (spec 042)', () => {
     const record = await settled(records);
     expect(record.session.activities.some((activity) => activity.kind === 'server')).toBe(false);
     expect(terminal.shells(id).some((shell) => shell.server !== null)).toBe(false);
+  });
+});
+
+describe('deleting old sessions on a schedule (spec 047, D)', () => {
+  const day = 24 * 60 * 60_000;
+  const id = '0000000000000001';
+
+  /** A Done session, last changed at `clock`, seen 40 days later; Delete old sessions set to `days`. */
+  async function finishedLongAgo(days: number | null) {
+    let at = clock;
+    const set = await setUp({ now: () => at });
+    await set.service.start({ ticketKey: 'PROJ-1423' });
+    expect((await settled(set.records)).session.state).toBe('done');
+    at = clock + 40 * day;
+    await set.settings.update((current) => ({
+      ...current,
+      agent: { ...current.agent, deleteSessionsAfterDays: days },
+    }));
+    return { ...set, worktree: join(set.home, 'worktrees', id) };
+  }
+
+  it('AC-21: Never deletes nothing', async () => {
+    const { service, cleaned } = await finishedLongAgo(null);
+    await service.cleanUp();
+    expect(await service.get(id)).not.toBeNull();
+    expect(cleaned).toEqual([]);
+  });
+
+  it('AC-17, AC-19: after 30 days the old session goes as Delete takes it, and the run says how many and how much', async () => {
+    const { service, worktree, cleaned, heard } = await finishedLongAgo(30);
+    const before = (await service.storage()).choices.find((choice) => choice.days === 30);
+    expect(before).toMatchObject({ sessions: 1 });
+    heard.length = 0;
+
+    await service.cleanUp();
+
+    expect(await service.get(id)).toBeNull();
+    await expect(readdir(worktree)).rejects.toThrow();
+    expect(cleaned).toEqual([{ count: 1, bytes: before?.bytes }]);
+    expect(heard).toContainEqual({ type: 'sessions.changed' });
+    expect((await service.storage()).choices.every((choice) => choice.sessions === 0)).toBe(true);
+  });
+
+  it('AC-20: a delete that fails leaves the session and counts nothing; the next run deletes it', async () => {
+    const { service, home, cleaned } = await finishedLongAgo(30);
+    const worktrees = join(home, 'worktrees');
+    await chmod(worktrees, 0o555);
+    try {
+      await service.cleanUp();
+    } finally {
+      await chmod(worktrees, 0o755);
+    }
+    expect(await service.get(id)).not.toBeNull();
+    expect(cleaned).toEqual([]);
+
+    await service.cleanUp();
+    expect(await service.get(id)).toBeNull();
+    expect(cleaned).toHaveLength(1);
+  });
+
+  it('AC-17: runs when Orynx starts', async () => {
+    const { service, events } = await finishedLongAgo(30);
+    const schedule = startSessionCleanup({ sessions: service, events });
+    try {
+      await vi.waitFor(async () => {
+        expect(await service.get(id)).toBeNull();
+      });
+    } finally {
+      schedule.stop();
+    }
+  });
+
+  it('AC-17: runs as soon as a setting is saved, so a new choice deletes at once', async () => {
+    const { service, settings, events, cleaned } = await finishedLongAgo(null);
+    const schedule = startSessionCleanup({ sessions: service, events });
+    try {
+      await settings.update((current) => ({ ...current, agent: { ...current.agent, deleteSessionsAfterDays: 30 } }));
+      events.publish({ type: 'settings.changed' });
+      await vi.waitFor(async () => {
+        expect(await service.get(id)).toBeNull();
+      });
+      expect(cleaned).toHaveLength(1);
+    } finally {
+      schedule.stop();
+    }
+  });
+
+  it('AC-21: runs every hour, deleting nothing while Never', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const { service, settings, events } = await finishedLongAgo(null);
+      const schedule = startSessionCleanup({ sessions: service, events });
+      try {
+        vi.advanceTimersByTime(60 * 60_000);
+        expect(await service.get(id)).not.toBeNull();
+
+        // Saved behind the schedule's back: only the next hour's run sees it.
+        await settings.update((current) => ({ ...current, agent: { ...current.agent, deleteSessionsAfterDays: 30 } }));
+        expect(await service.get(id)).not.toBeNull();
+        vi.advanceTimersByTime(60 * 60_000);
+        await vi.waitFor(async () => {
+          expect(await service.get(id)).toBeNull();
+        });
+      } finally {
+        schedule.stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

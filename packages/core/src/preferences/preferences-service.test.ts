@@ -166,6 +166,19 @@ describe('preferences service', () => {
     expect(seen).toEqual([{ type: 'settings.changed' }]);
   });
 
+  it('047 AC-16, AC-17: Delete old sessions is Never until saved, and is saved beside the rows', async () => {
+    expect((await service().preferences.read()).deleteSessionsAfterDays).toBeNull();
+    expect((await service({ agent: { deleteSessionsAfterDays: 10 } }).preferences.read()).deleteSessionsAfterDays).toBe(
+      null,
+    );
+    const { preferences, settings, seen } = service({ agent: { editor: 'cursor' } });
+
+    expect(await preferences.change({ deleteSessionsAfterDays: 30 })).toMatchObject({ deleteSessionsAfterDays: 30 });
+    expect((await settings.read()).agent).toEqual({ editor: 'cursor', deleteSessionsAfterDays: 30 });
+    expect((await preferences.change({ deleteSessionsAfterDays: null })).deleteSessionsAfterDays).toBeNull();
+    expect(seen).toEqual([{ type: 'settings.changed' }, { type: 'settings.changed' }]);
+  });
+
   it('AC-18: leaves the Jira and GitHub settings as they were', async () => {
     const { preferences, settings } = service({ jira, github: { method: 'gh' } });
 

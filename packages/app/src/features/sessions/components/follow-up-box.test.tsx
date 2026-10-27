@@ -104,27 +104,14 @@ describe('FollowUpBox', () => {
     });
   });
 
-  it('AC-14: says why there’s nothing to carry on in place of the box, and links to a newer session', async () => {
-    serve(makeSession({ id, state: 'stopped', followUp: { kind: 'newer_session', sessionId: 'fedcba9876543210' } }));
-    server.use(
-      sessionsHandler(
-        makeSessionList([makeSessionSummary({ id: 'fedcba9876543210', title: 'Add bulk archive again' })]),
-      ),
-    );
-    const { user, history } = await renderApp({ route });
-
-    expect(await screen.findByText('PROJ-1423 has a newer session.')).toBeVisible();
-    expect(screen.queryByRole('textbox', { name: 'Message Claude' })).toBeNull();
-    await user.click(screen.getByRole('link', { name: 'Open it' }));
-    expect(history.location.pathname).toBe('/sessions/fedcba9876543210');
-  });
-
   it.each([
     [{ kind: 'discarded' } as const, "The changes were discarded, so Claude can't carry on."],
     [
       { kind: 'never_started' } as const,
       "Claude never started, so there's nothing to carry on. Start again from the ticket.",
     ],
+    // Spec 047, AC-12.
+    [{ kind: 'merged' } as const, 'This pull request is merged. Start a new session from the ticket to carry on.'],
   ])('AC-14: says %j has nothing to carry on', async (followUp, line) => {
     serve(makeSession({ id, state: 'stopped', followUp }));
     await renderApp({ route });

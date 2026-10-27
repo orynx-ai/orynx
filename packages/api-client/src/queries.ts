@@ -7,6 +7,8 @@ export const queryKeys = {
   status: ['status'] as const,
   /** Every session list starts with this key, so one invalidation refreshes them all. */
   sessions: ['sessions'] as const,
+  /** Under `sessions`, so the sessions.changed a delete sends measures it again (spec 047, D). */
+  storage: ['sessions', 'storage'] as const,
   jiraConnection: ['jira', 'connection'] as const,
   jiraProjects: ['jira', 'projects'] as const,
   githubConnection: ['github', 'connection'] as const,
@@ -256,6 +258,16 @@ export function jiraProjectsQueryOptions(api: ApiClient) {
     staleTime: 0,
     gcTime: 0,
     retry: false,
+  });
+}
+
+/** Settings › Coding agent › Storage (spec 047, D): measured on the hub, again after each delete. */
+export function storageQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.storage,
+    queryFn: () => api.storage(),
+    // Freshness comes from the event stream: every delete sends sessions.changed.
+    staleTime: Infinity,
   });
 }
 

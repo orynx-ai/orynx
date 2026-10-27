@@ -22,6 +22,11 @@ export type ReadMessage =
    * adapter decides from these whether Claude has finished.
    */
   | { type: 'turn_ended'; summary: string; queued: number; took: readonly string[] | null }
+  /**
+   * What a result says its run used so far (spec 047): its turns with the model, and their cost at API prices (null
+   * when it doesn't say). Every result says it, before it ends the turn or says a problem, even after Stop.
+   */
+  | { type: 'usage'; turns: number; costUsd: number | null }
   /** An edit or a command has ended, so the worktree's files may have changed (spec 013, AC-2). */
   | { type: 'files_changed' }
   /** A command's result (spec 036): its output, whether it failed, and the time since Claude asked for it. */
@@ -72,6 +77,8 @@ const ResultSchema = z.object({
   startup_failure_reason: z.string().optional(),
   user_message_uuids: z.array(z.string()).optional(),
   queued_turn_count: z.number().int().nonnegative().optional(),
+  num_turns: z.number().int().nonnegative().optional(),
+  total_cost_usd: z.number().nonnegative().optional(),
 });
 
 const PathInputSchema = z.object({ file_path: z.string() });
@@ -161,6 +168,23 @@ export function createMessageReader(
     return [{ type: 'problem', kind, code }];
   }
 
+  /** How a result ends the turn: Claude's summary, or the problem, said once. */
+  function endOf(result: z.infer<typeof ResultSchema>): ReadMessage[] {
+    const { subtype, is_error, api_error_status, startup_failure_reason } = result;
+    if (subtype === 'success' && !is_error) {
+      if (failed) return [];
+      const { result: summary = '', queued_turn_count: queued = 0, user_message_uuids: took = null } = result;
+      return [{ type: 'turn_ended', summary, queued, took }];
+    }
+    if (typeof api_error_status === 'number') {
+      return problem(statusKind(api_error_status), `api_${String(api_error_status)}`);
+    }
+    if (startup_failure_reason !== undefined) {
+      return problem(startupIsLogin(startup_failure_reason) ? 'login' : 'other', startup_failure_reason);
+    }
+    return problem('other', subtype);
+  }
+
   return (message) => {
     const init = InitSchema.safeParse(message);
     if (init.success) {
@@ -179,19 +203,12 @@ export function createMessageReader(
 
     const result = ResultSchema.safeParse(message);
     if (result.success) {
-      const { subtype, is_error, api_error_status, startup_failure_reason } = result.data;
-      if (subtype === 'success' && !is_error) {
-        if (failed) return [];
-        const { result: summary = '', queued_turn_count: queued = 0, user_message_uuids: took = null } = result.data;
-        return [{ type: 'turn_ended', summary, queued, took }];
-      }
-      if (typeof api_error_status === 'number') {
-        return problem(statusKind(api_error_status), `api_${String(api_error_status)}`);
-      }
-      if (startup_failure_reason !== undefined) {
-        return problem(startupIsLogin(startup_failure_reason) ? 'login' : 'other', startup_failure_reason);
-      }
-      return problem('other', subtype);
+      const { num_turns, total_cost_usd } = result.data;
+      const usage: ReadMessage[] =
+        num_turns === undefined && total_cost_usd === undefined
+          ? []
+          : [{ type: 'usage', turns: num_turns ?? 0, costUsd: total_cost_usd ?? null }];
+      return [...usage, ...endOf(result.data)];
     }
 
     const blocks = BlocksSchema.safeParse(message);

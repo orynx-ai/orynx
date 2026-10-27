@@ -60,17 +60,32 @@ export function ticketKeyOf(request: ComposerStart): string | null {
   return request.context.find((chip) => chip.kind === 'jira')?.key ?? null;
 }
 
+/** The pull request a start with no folder and no ticket picks its folder by (spec 047): its first, as Q3 has it. */
+export function folderPullOf(request: ComposerStart): Extract<ComposerChip, { kind: 'pull_request' }> | null {
+  if (request.repositoryId !== undefined || ticketKeyOf(request) !== null) return null;
+  return request.context.find((chip) => chip.kind === 'pull_request') ?? null;
+}
+
 /**
  * The folder a composer start works in (Q7): the one the page sent, else the ticket's project's only folder,
  * else the only folder there is. The page sends the folder it shows, so the rest is for a page that couldn't.
+ * Fix on Home sends none: with a pull request and no ticket, it's the one folder whose origin (`origins`, by
+ * folder id) is that pull request's repository (spec 047).
  */
 export function chooseFolder(
   folders: readonly Repository[],
   request: ComposerStart,
+  origins: ReadonlyMap<string, string | null> = new Map(),
 ): Repository | 'no_folder' | 'choose_folder' {
   if (folders.length === 0) return 'no_folder';
   if (request.repositoryId !== undefined) {
     return folders.find((folder) => folder.id === request.repositoryId) ?? 'choose_folder';
+  }
+  const pull = folderPullOf(request);
+  if (pull !== null) {
+    const repository = `${pull.owner}/${pull.name}`.toLowerCase();
+    const found = folders.filter((folder) => origins.get(folder.id)?.toLowerCase() === repository);
+    return found.length === 1 && found[0] !== undefined ? found[0] : 'choose_folder';
   }
   const key = ticketKeyOf(request);
   // One of Orynx's own tickets belongs to no Jira project, so any folder may be its (spec 037).

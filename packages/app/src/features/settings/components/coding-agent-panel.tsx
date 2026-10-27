@@ -52,6 +52,7 @@ import { OtherAgents } from './other-agents.tsx';
 import { SaveError } from './save-error.tsx';
 import { SectionHeading } from './section-heading.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
+import { StorageSection } from './storage-section.tsx';
 
 const groupIcons: Record<(typeof permissionGroups)[number]['id'], IconProps['icon']> = {
   copy: Folder01Icon,
@@ -165,6 +166,7 @@ export function CodingAgentPanel() {
       </section>
       <AllowedCommands />
       <EditorChoice />
+      <StorageSection />
     </div>
   );
 }

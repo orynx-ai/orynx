@@ -37,6 +37,7 @@ import { inboxRoutes } from './routes/inbox.ts';
 import { syncActivityRoutes } from './routes/sync-activity.ts';
 import { jiraRoutes } from './routes/jira.ts';
 import { notificationsRoutes } from './routes/notifications.ts';
+import { storageRoutes } from './routes/storage.ts';
 import { preferencesRoutes } from './routes/preferences.ts';
 import { repositoriesRoutes } from './routes/repositories.ts';
 import { filesRoutes } from './routes/files.ts';
@@ -58,6 +59,7 @@ import { createClaudeAdapter, type QueryFunction } from './agents/claude/claude-
 import { sandboxSettings } from './agents/claude/sandbox.ts';
 import { createChangesReader } from './sessions/changes.ts';
 import { createContextReader } from './sessions/context-reader.ts';
+import { startSessionCleanup } from './sessions/session-cleanup.ts';
 import { createSessionService } from './sessions/session-service.ts';
 import { createMemorySessionStore, type SessionRecords } from './sessions/session-store.ts';
 import { createTerminalService } from './terminal/terminal-service.ts';
@@ -339,6 +341,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       app.log.error(error, 'The sprint sync failed');
     },
   });
+  // The session service is made below; until then a sync has no sessions to watch (spec 047).
+  let watchPulls: () => Promise<void> = () => Promise.resolve();
   const inbox = createInboxService({
     cache,
     settings,
@@ -357,6 +361,12 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     },
     onSynced: (tool, before, after) => {
       notifications.inboxSynced(tool, before, after);
+      // Each time GitHub answers, a session's pull request may have been merged or closed (spec 047).
+      if (tool === 'github') {
+        watchPulls().catch((error: unknown) => {
+          app.log.error(error, 'Watching the sessions’ pull requests failed');
+        });
+      }
     },
   });
   const syncActivity = createSyncActivityService({ cache, states: async () => (await inbox.records()).tools });
@@ -470,6 +480,9 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     onChange: (before, after, change) => {
       notifications.sessionChanged(before, after, change);
     },
+    onCleaned: (count, bytes) => {
+      notifications.sessionsCleaned(count, bytes);
+    },
     // Kinds, ids and codes only: never the ticket's text or Claude's words (AC-21).
     onReport: (report) => {
       switch (report.what) {
@@ -494,7 +507,20 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       }
     },
   });
+  watchPulls = () => sessionService.watchPulls();
+  // Delete old sessions runs on its own only where syncs do (spec 047, D): never in a test by surprise.
+  const cleanup =
+    options.autoSync === true
+      ? startSessionCleanup({
+          sessions: sessionService,
+          events,
+          onError: (error) => {
+            app.log.error(error, 'Deleting old sessions failed');
+          },
+        })
+      : undefined;
   app.addHook('onClose', async () => {
+    cleanup?.stop();
     await sessionService.close();
   });
   const updates =
@@ -582,6 +608,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(setupRoutes, {
         setup: createSetupService({ settings, password: options.password ?? createPasswordStore() }),
       });
+      await api.register(storageRoutes, { sessions: sessionService });
       await api.register(notificationsRoutes, {
         notifications,
         settings: createNotificationSettingsService({ settings, events }),

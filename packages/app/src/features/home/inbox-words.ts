@@ -5,7 +5,7 @@ import { agoText } from '../../words/ago.ts';
 import { calendarDay, day, daysUntil, months, plural, weekdays } from '../../words/calendar.ts';
 import { waitText } from '../../words/tool-line.ts';
 import { chipFromPaste } from './composer-rules.ts';
-import { chipLabel } from './composer-words.ts';
+import { chipLabel, composerWords } from './composer-words.ts';
 
 // Moved to `words/` so Tickets writes them the same way (spec 008); Home's own importers keep these.
 export { toolLine, waitText, type ToolLine } from '../../words/tool-line.ts';
@@ -99,11 +99,19 @@ export function subLine(item: InboxItem): string {
 /**
  * A row's one action (spec 022, D): Open session for a session, or a ticket's or a pull request's chip for + Add to
  * composer, with how the chip reads ("PROJ-1423", "web-app #2841"). A pull request whose link can't be read as one
- * has none.
+ * has none. Your own pull request's comments or failing checks get Fix instead, which starts a Build on its branch
+ * with `message` (spec 047); one from a fork keeps +.
  */
 export type RowAction =
   | { kind: 'session'; sessionId: string; label: 'Open session'; name: string }
   | { kind: 'compose'; chip: ComposerChip; label: string }
+  | {
+      kind: 'fix';
+      chip: Extract<ComposerChip, { kind: 'pull_request' }>;
+      label: string;
+      name: string;
+      message: string;
+    }
   | { kind: 'none' };
 
 export function rowAction(item: InboxItem): RowAction {
@@ -115,7 +123,16 @@ export function rowAction(item: InboxItem): RowAction {
     return { kind: 'compose', chip: { kind: 'jira', key: subject.key }, label: subject.key };
   // A pull request's link, to whichever tab its reason points at, names it as a pasted link does.
   const chip = chipFromPaste(target.url);
-  return chip?.kind === 'pull_request' ? { kind: 'compose', chip, label: chipLabel(chip) } : { kind: 'none' };
+  if (chip?.kind !== 'pull_request') return { kind: 'none' };
+  const label = chipLabel(chip);
+  const { reason } = item;
+  if (subject.kind === 'pull_request' && subject.mine && subject.fork !== true) {
+    if (reason.kind === 'unresolved_comments' || reason.kind === 'checks_failing') {
+      const words = composerWords.fix[reason.kind];
+      return { kind: 'fix', chip, label: words.label, name: `${words.label}: ${label}`, message: words.message(label) };
+    }
+  }
+  return { kind: 'compose', chip, label };
 }
 
 /** How many rows each tab counts; All counts every row. */

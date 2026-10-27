@@ -1,12 +1,18 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { Slot } from 'radix-ui';
 import { cva } from 'class-variance-authority';
-import { GitBranchIcon, StopIcon, Tick02Icon } from '@hugeicons/core-free-icons';
+import {
+  GitBranchIcon,
+  GitMergeIcon,
+  GitPullRequestClosedIcon,
+  StopIcon,
+  Tick02Icon,
+} from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
 import { Icon } from './icon.tsx';
 import { Skeleton } from './skeleton.tsx';
 
-export type SessionItemState = 'needs_you' | 'working' | 'done' | 'pr_open' | 'stopped';
+export type SessionItemState = 'needs_you' | 'working' | 'done' | 'pr_open' | 'pr_merged' | 'pr_closed' | 'stopped';
 
 /** The word for each state, from the product spec ("Session states"). */
 export const sessionStateLabels: Record<SessionItemState, string> = {
@@ -14,6 +20,8 @@ export const sessionStateLabels: Record<SessionItemState, string> = {
   working: 'Working',
   done: 'Done, ready for PR',
   pr_open: 'PR open',
+  pr_merged: 'PR merged',
+  pr_closed: 'PR closed',
   stopped: 'Stopped',
 };
 
@@ -43,6 +51,9 @@ const iconVariants = cva('inline-flex shrink-0 items-center justify-center round
       working: 'bg-info-subtle text-info-foreground',
       done: 'bg-success-subtle text-success',
       pr_open: 'bg-subtle text-muted-foreground',
+      // Merged has no purple token (spec 047, Q1): Done's green, with the merge glyph.
+      pr_merged: 'bg-success-subtle text-success',
+      pr_closed: 'bg-subtle text-muted-foreground',
       stopped: 'bg-subtle text-muted-foreground',
     },
   },
@@ -56,6 +67,8 @@ const wordVariants = cva('shrink-0 font-medium', {
       working: 'text-info-foreground',
       done: 'text-success',
       pr_open: 'text-muted-foreground',
+      pr_merged: 'text-success',
+      pr_closed: 'text-muted-foreground',
       stopped: 'text-muted-foreground',
     },
   },
@@ -94,6 +107,8 @@ const icons: Record<SessionItemState, ReactNode> = {
   ),
   done: <Icon icon={Tick02Icon} className={glyph} />,
   pr_open: <Icon icon={GitBranchIcon} className={glyph} />,
+  pr_merged: <Icon icon={GitMergeIcon} className={glyph} />,
+  pr_closed: <Icon icon={GitPullRequestClosedIcon} className={glyph} />,
   stopped: <Icon icon={StopIcon} className={glyph} />,
 };
 

@@ -215,9 +215,13 @@ test.describe('the Project and Sprint pickers (spec 020)', () => {
 /** Waits for every finite animation to end, so axe never reads a list still fading in (e2e axe notes). */
 async function settled(page: Page) {
   await page.evaluate(async () => {
+    // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
     const moving = document
       .getAnimations()
-      .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity);
+      .filter(
+        (animation) =>
+          animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
+      );
     await Promise.allSettled(moving.map((animation) => animation.finished));
   });
 }

@@ -62,6 +62,11 @@ describe('how a notification reaches you (spec 029)', () => {
     expect(delivery(finished, awake, noon)).toEqual({ popUp: true, desktop: true, sound: 'chime' });
   });
 
+  it('047 AC-19: a cleanup run waits in the bell only: no pop-up, desktop notification or sound', () => {
+    const cleaned: NotificationWhat = { kind: 'sessions_cleaned', count: 3, bytes: 4_100_000_000 };
+    expect(delivery(cleaned, awake, noon)).toEqual({ popUp: false, desktop: false, sound: null });
+  });
+
   it('AC-26, AC-28: the switches, and a row off or with no sound, turn each one off', () => {
     expect(delivery(finished, { ...awake, popUps: false, sounds: false }, noon)).toEqual({
       popUp: false,

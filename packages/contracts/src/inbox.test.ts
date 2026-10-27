@@ -37,6 +37,15 @@ describe('InboxSchema', () => {
     expect(InboxItemSchema.parse(row).target).toEqual({ kind: 'session', sessionId: 'session-1' });
   });
 
+  it('AC-6, AC-7 (spec 047): a pull request row can say it comes from a fork; a row cached before can’t', () => {
+    const subject = { kind: 'pull_request', repository: 'web-app', number: 2836, author: null, mine: true } as const;
+
+    expect(InboxItemSchema.parse(makeInboxItem({ subject: { ...subject, fork: true } })).subject).toMatchObject({
+      fork: true,
+    });
+    expect(InboxItemSchema.parse(makeInboxItem({ subject })).subject).not.toHaveProperty('fork');
+  });
+
   it('links out only to https on github.com or a Jira Cloud site, so a row can never send you elsewhere', () => {
     for (const url of ['https://github.com/acme/web-app/pull/1', 'https://your-team.atlassian.net/browse/PROJ-1']) {
       expect(InboxItemSchema.safeParse({ ...makeInboxItem(), target: { kind: 'external', url } }).success).toBe(true);

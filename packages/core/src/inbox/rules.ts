@@ -67,6 +67,7 @@ function pullRequestRow(record: PullRequestRecord, rules: InboxRules): InboxItem
       number: record.number,
       author: record.author,
       mine: record.mine,
+      ...(record.fork === true ? { fork: true } : {}),
     },
     reason: found.reason,
     waitingSince: found.since,

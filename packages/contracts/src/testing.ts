@@ -64,6 +64,7 @@ import { OrynxSkillListSchema, ReadySkillSchema, type OrynxSkillList, type Ready
 import { OrynxTicketSchema, type OrynxTicket } from './orynx-tickets.ts';
 import { SessionPortSchema, type SessionPort } from './ports.ts';
 import { StatusSchema, type AgentStatus, type Status, type User } from './status.ts';
+import { StorageSchema, type Storage } from './storage.ts';
 import {
   SyncActivitySchema,
   SyncChangeSchema,
@@ -328,6 +329,7 @@ export interface PreferencesOverrides {
   allowedCommands?: string[];
   editor?: Preferences['editor'];
   jiraChanges?: boolean;
+  deleteSessionsAfterDays?: Preferences['deleteSessionsAfterDays'];
 }
 
 /** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
@@ -342,6 +344,7 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
     allowedCommands: overrides.allowedCommands ?? [],
     editor: overrides.editor ?? defaultPreferences.editor,
     jiraChanges: overrides.jiraChanges ?? defaultPreferences.jiraChanges,
+    deleteSessionsAfterDays: overrides.deleteSessionsAfterDays ?? defaultPreferences.deleteSessionsAfterDays,
   });
 }
 
@@ -600,6 +603,15 @@ export function makeSyncTool(overrides: Partial<SyncTool> = {}): SyncTool {
     failedInARow: 0,
     changesToday: 14,
     lastTwoHours: { worked: 60, total: 60 },
+    ...overrides,
+  });
+}
+
+/** Settings › Coding agent › Storage (spec 047, D): no worktree yet, so no choice would delete anything. */
+export function makeStorage(overrides: Partial<Storage> = {}): Storage {
+  return StorageSchema.parse({
+    bytes: 0,
+    choices: [7, 14, 30, 90].map((days) => ({ days, sessions: 0, bytes: 0 })),
     ...overrides,
   });
 }

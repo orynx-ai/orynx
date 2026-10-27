@@ -584,6 +584,8 @@ export function createClaudeAdapter({
                 if (sandbox === null) emit(running, { type: 'work', sessionId: id, work: { kind: 'no_commands' } });
               } else if (said.type === 'work') {
                 emit(running, { type: 'work', sessionId: id, work: said.work });
+              } else if (said.type === 'usage') {
+                emit(running, { ...said, sessionId: id });
               } else if (said.type === 'files_changed') {
                 emit(running, { type: 'files_changed', sessionId: id });
               } else if (said.type === 'command_ended') {
