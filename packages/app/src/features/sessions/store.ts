@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { ComposerChip, DraftedPullRequest } from '@devhub/contracts';
 import { addChip, sameChip, type ChipRefusal } from '../home/composer-rules.ts';
 
@@ -100,3 +101,53 @@ export const useTerminalTabs = create<TerminalTabsState>()((set) => ({
     set((state) => ({ picked: { ...state.picked, [sessionId]: tab } }));
   },
 }));
+
+/** A changed file as Viewed knows it: where it is and its counts. */
+interface ViewedFile {
+  path: string;
+  added: number;
+  removed: number;
+}
+
+const countsOf = (file: ViewedFile) => `+${String(file.added)} −${String(file.removed)}`;
+
+/**
+ * How the Changes tab shows a diff (spec 048), kept in this browser: Wrap lines, on until you turn it off, for every
+ * session; and the files you ticked Viewed, by session and path, each with its counts then, so Viewed clears once Claude
+ * changes the file again.
+ */
+interface DiffViewState {
+  wrap: boolean;
+  setWrap: (wrap: boolean) => void;
+  // shortcut: a deleted session's entries stay in this browser; prune them if the list ever grows noticeable.
+  viewed: Record<string, Record<string, string>>;
+  setViewed: (sessionId: string, file: ViewedFile, viewed: boolean) => void;
+}
+
+export const initialDiffView: Pick<DiffViewState, 'wrap' | 'viewed'> = { wrap: true, viewed: {} };
+
+export function isViewed(state: Pick<DiffViewState, 'viewed'>, sessionId: string, file: ViewedFile): boolean {
+  return state.viewed[sessionId]?.[file.path] === countsOf(file);
+}
+
+export const useDiffView = create<DiffViewState>()(
+  persist(
+    (set) => ({
+      ...initialDiffView,
+      setWrap: (wrap) => {
+        set({ wrap });
+      },
+      setViewed: (sessionId, file, viewed) => {
+        set((state) => {
+          const files = Object.fromEntries(
+            Object.entries(state.viewed[sessionId] ?? {}).filter(([path]) => path !== file.path),
+          );
+          return {
+            viewed: { ...state.viewed, [sessionId]: viewed ? { ...files, [file.path]: countsOf(file) } : files },
+          };
+        });
+      },
+    }),
+    { name: 'devhub.diff', partialize: (state) => ({ wrap: state.wrap, viewed: state.viewed }) },
+  ),
+);

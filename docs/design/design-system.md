@@ -320,7 +320,7 @@ Shows where an agent session is: Plan, Build, Test, Review, Pull request.
 
 - An `<ol>` with `data-state` of `done`, `current` or `todo` on each step; the current one also has `aria-current="step"`.
 - Done steps show a check and a hidden ", done" for screen readers. The current step is the only filled circle.
-- Five steps at most. It sits under the page title, never inside a card.
+- Five steps at most. It sits by the page title, never inside a card: on the title's right where there's room, wrapping under it where there isn't (spec 048, the user's call, 27 Oct 2026).
 
 <details><summary>Example markup</summary>
 
@@ -627,7 +627,7 @@ The files an agent changed, with +/− counts; picking one shows its diff next t
 Shows the agent's code changes as they happen.
 
 - Mono 14/20. Added lines on `success-subtle` with a `+`, removed on `danger-subtle` with a `−`: the sign carries the meaning, colour backs it up.
-- File header shows the path and +/− counts. Wide lines scroll inside the diff, never the page.
+- File header shows the path and +/− counts. With Wrap lines on (the default, remembered in the browser), a wide line wraps under its own code, beside its number; with it off, wide lines scroll inside the diff. Never the page (spec 048, the user's call, 27 Oct 2026).
 - Mark the container as a `region` with an `aria-label` naming the file.
 
 <details><summary>Example markup</summary>

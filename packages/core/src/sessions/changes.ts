@@ -127,11 +127,11 @@ async function readNewFile(worktree: string, path: string): Promise<Buffer | nul
 /** A new file's lines, as git counts them for a file added whole; binary when it isn't read. */
 async function countNewFile(worktree: string, path: string): Promise<ChangedFile> {
   const bytes = await readNewFile(worktree, path);
-  if (bytes === null) return { path, added: 0, removed: 0, binary: true, renamedFrom: null };
+  if (bytes === null) return { path, added: 0, removed: 0, binary: true, renamedFrom: null, created: true };
   let lines = 0;
   for (const byte of bytes) if (byte === 0x0a) lines += 1;
   if (bytes.length > 0 && bytes.at(-1) !== 0x0a) lines += 1;
-  return { path, added: lines, removed: 0, binary: false, renamedFrom: null };
+  return { path, added: lines, removed: 0, binary: false, renamedFrom: null, created: true };
 }
 
 /** A new file's diff: every line added, numbered from 1, as git would show it. */
@@ -186,13 +186,16 @@ export function createChangesReader({ env, timeoutMs = 10_000, mostFiles = 300 }
     if (!(await isWorktree(worktree))) return { ok: false, problem: 'missing' };
     try {
       const commit = await startOf(worktree, start);
-      const diff = ['diff', '--numstat', '-z', '-M', '--no-ext-diff', '--no-textconv', commit, '--'];
-      const [tracked, untracked] = await Promise.all([
-        read(worktree, diff).then(readNumstat),
+      const since = ['-z', '-M', '--no-ext-diff', '--no-textconv', commit, '--'];
+      const [counted, added, untracked] = await Promise.all([
+        read(worktree, ['diff', '--numstat', ...since]).then(readNumstat),
+        // What git calls added since the start, committed or staged, for the New file pill (spec 048).
+        read(worktree, ['diff', '--name-only', '--diff-filter=A', ...since]).then((out) => new Set(out.split('\0'))),
         read(worktree, ['ls-files', '--others', '--exclude-standard', '-z']).then((out) =>
           out.split('\0').filter((path) => path !== ''),
         ),
       ]);
+      const tracked = counted.map((file) => (added.has(file.path) ? { ...file, created: true } : file));
       const byPath = new Map(tracked.map((file) => [file.path, file]));
       return { ok: true, commit, tracked: byPath, untracked: new Set(untracked.filter((path) => !byPath.has(path))) };
     } catch {

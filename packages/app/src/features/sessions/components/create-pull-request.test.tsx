@@ -340,7 +340,7 @@ describe('once the pull request is open (spec 014, Q7)', () => {
     serve(makeSession({ ...opened, state: 'stopped', discardedAt: '2026-10-18T10:00:00.000Z', worktreePath: null }));
     await renderApp({ route });
     expect(await screen.findByRole('link', { name: `Open PR ${pr}` })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Push changes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Push to PR/ })).toBeNull();
   });
 
   it('AC-4: when the session says PR open before Create answers, the dialog waits for the answer, then focus moves on', async () => {

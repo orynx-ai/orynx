@@ -1,0 +1,504 @@
+<!-- Reference design for the session screen, redesigned: "3b · Session, redesigned (PR review fixes)", from the user (27 Oct 2026, spec 048).
+     A static export of the mockup's first state (the Changes tab, Applied fixes open), light only. Source of truth for
+     layout, parts and copy, not for values: it was drawn on an older DevHub palette and type scale, so build with
+     @devhub/ui components and tokens, not these classes. Its sidebar and its Review comments tab aren't built (spec 048, part G). -->
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>DevHub session, redesigned</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400&display=swap">
+<style>/* DevHub — generated from tokens.json */
+:root, [data-theme="light"] {
+  --bg-canvas: #fcfcfb; --bg-sidebar: #f6f5f2; --bg-subtle: #efeee9; --bg-raised: #ffffff;
+  --border-default: #e6e4de; --border-control: #8b887f;
+  --text-primary: #1c1b18; --text-secondary: #5f5c54; --text-placeholder: #6f6c63;
+  --primary: #1c1b18; --on-primary: #ffffff;
+  --accent: #3b5bdb; --accent-subtle: #eef1fd; --accent-text: #2c45b0;
+  --success: #2b7a4b; --success-subtle: #e9f5ee;
+  --warning: #8f5a12; --warning-subtle: #fbf2e2;
+  --danger: #b3372b; --danger-subtle: #fcebe8; --on-danger: #ffffff;
+  --source-jira: var(--accent); --source-github: var(--text-primary); --source-slack: #7b3f8c; --source-slack-subtle: #f5edf7;
+  --shadow-overlay: 0 1px 2px rgba(28,27,24,0.05), 0 8px 24px rgba(28,27,24,0.08);
+}
+[data-theme="dark"] {
+  --bg-canvas: #171614; --bg-sidebar: #12110f; --bg-subtle: #22211e; --bg-raised: #201f1c;
+  --border-default: #2e2c28; --border-control: #706d65;
+  --text-primary: #eceae4; --text-secondary: #aaa69c; --text-placeholder: #8e8a80;
+  --primary: #eceae4; --on-primary: #1c1b18;
+  --accent: #8ea4ff; --accent-subtle: #1f2645; --accent-text: #b6c3ff;
+  --success: #74cf98; --success-subtle: #15291d;
+  --warning: #eab565; --warning-subtle: #2f2513;
+  --danger: #ff9286; --danger-subtle: #361a16; --on-danger: #171614;
+  --source-slack: #d6a3e4; --source-slack-subtle: #2b1d31;
+  --shadow-overlay: 0 8px 24px rgba(0,0,0,0.55);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-canvas: #171614; --bg-sidebar: #12110f; --bg-subtle: #22211e; --bg-raised: #201f1c;
+    --border-default: #2e2c28; --border-control: #706d65;
+    --text-primary: #eceae4; --text-secondary: #aaa69c; --text-placeholder: #8e8a80;
+    --primary: #eceae4; --on-primary: #1c1b18;
+    --accent: #8ea4ff; --accent-subtle: #1f2645; --accent-text: #b6c3ff;
+    --success: #74cf98; --success-subtle: #15291d;
+    --warning: #eab565; --warning-subtle: #2f2513;
+    --danger: #ff9286; --danger-subtle: #361a16; --on-danger: #171614;
+    --source-slack: #d6a3e4; --source-slack-subtle: #2b1d31;
+    --shadow-overlay: 0 8px 24px rgba(0,0,0,0.55);
+    color-scheme: dark;
+  }
+}
+:root {
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px; --space-8: 32px; --space-12: 48px;
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-full: 999px;
+  --font-sans: Geist, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: Newsreader, Georgia, "Times New Roman", serif;
+  --font-mono: "Geist Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+</style>
+<style>@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap");
+
+/* DevHub components. Every color, radius and space comes from tokens.css. */
+
+.dh-root { font-family: var(--font-sans); font-size: 14px; line-height: 20px; color: var(--text-primary); background: var(--bg-canvas); -webkit-font-smoothing: antialiased; }
+.dh-root *, .dh-root *::before, .dh-root *::after { box-sizing: border-box; }
+.dh-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.dh-icon { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.dh-mono { font-family: var(--font-mono); font-size: 12px; }
+
+/* Focus: one ring for everything */
+.dh-root :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Button */
+.dh-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: 36px; padding: 0 14px; border-radius: var(--radius-sm); border: 1px solid transparent; font: inherit; font-weight: 500; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.dh-btn--primary { background: var(--primary); color: var(--on-primary); }
+.dh-btn--primary:hover { opacity: .88; }
+.dh-btn--secondary { background: var(--bg-raised); color: var(--text-primary); border-color: var(--border-control); }
+.dh-btn--secondary:hover { background: var(--bg-subtle); }
+.dh-btn--ghost { background: transparent; color: var(--text-primary); }
+.dh-btn--ghost:hover { background: var(--bg-subtle); }
+.dh-btn--danger { background: var(--danger); color: var(--on-danger); }
+.dh-btn--sm { height: 30px; padding: 0 10px; font-size: 13px; }
+.dh-btn--icon { width: 36px; padding: 0; }
+.dh-btn--icon.dh-btn--sm { width: 30px; }
+.dh-btn[disabled], .dh-btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+
+/* Breadcrumb */
+.dh-breadcrumb ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); list-style: none; margin: 0; padding: 0; font-size: 13px; color: var(--text-secondary); }
+.dh-breadcrumb li { display: inline-flex; align-items: center; gap: var(--space-1); }
+.dh-breadcrumb li + li::before { content: "/"; color: var(--text-secondary); padding: 0 var(--space-1); }
+.dh-breadcrumb a { color: var(--text-secondary); text-decoration: none; border-radius: 4px; padding: 2px 4px; }
+.dh-breadcrumb a:hover { color: var(--text-primary); background: var(--bg-subtle); }
+.dh-breadcrumb [aria-current="page"] { color: var(--text-primary); font-weight: 500; padding: 2px 4px; }
+
+/* Tabs: underline, for switching content inside a page */
+.dh-tabs { display: flex; gap: var(--space-4); border-bottom: 1px solid var(--border-default); overflow-x: auto; }
+.dh-tab { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 2px; border: 0; background: none; font: inherit; font-weight: 500; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+.dh-tab:hover { color: var(--text-primary); }
+.dh-tab[aria-selected="true"] { color: var(--text-primary); }
+.dh-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
+.dh-tab .dh-count { font-size: 12px; font-weight: 500; color: var(--text-secondary); background: var(--bg-subtle); border-radius: var(--radius-full); padding: 0 6px; }
+
+/* Segmented control: for switching a view of the same content (Board / List) */
+.dh-segmented { display: inline-flex; padding: 3px; gap: 2px; background: var(--bg-subtle); border-radius: var(--radius-sm); }
+.dh-segment { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; font: inherit; font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; }
+.dh-segment[aria-pressed="true"], .dh-segment[aria-selected="true"] { background: var(--bg-raised); color: var(--text-primary); box-shadow: 0 0 0 1px var(--border-default); }
+
+/* Sidebar nav */
+.dh-sidebar { display: flex; flex-direction: column; gap: var(--space-4); background: var(--bg-sidebar); padding: var(--space-3); }
+.dh-nav { display: flex; flex-direction: column; gap: 2px; }
+.dh-nav-label { font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--text-secondary); padding: var(--space-2) 10px 4px; }
+.dh-nav-item { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 10px; border-radius: var(--radius-sm); color: var(--text-secondary); text-decoration: none; font-weight: 500; }
+.dh-nav-item:hover { background: var(--bg-subtle); color: var(--text-primary); }
+.dh-nav-item[aria-current="page"] { background: var(--bg-subtle); color: var(--text-primary); }
+.dh-nav-item[aria-current="page"] .dh-icon { color: var(--accent); }
+.dh-nav-item .dh-nav-meta { margin-left: auto; font-size: 12px; color: var(--text-secondary); }
+.dh-nav-item .dh-nav-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* Pills and chips */
+.dh-pill { display: inline-flex; align-items: center; gap: var(--space-1); height: 22px; padding: 0 8px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; white-space: nowrap; background: var(--bg-subtle); color: var(--text-secondary); }
+.dh-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.dh-pill--plain::before { display: none; }
+.dh-pill--info { background: var(--accent-subtle); color: var(--accent-text); }
+.dh-pill--success { background: var(--success-subtle); color: var(--success); }
+.dh-pill--warning { background: var(--warning-subtle); color: var(--warning); }
+.dh-pill--danger { background: var(--danger-subtle); color: var(--danger); }
+.dh-source { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.dh-source-mark { width: 18px; height: 18px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+.dh-source--jira .dh-source-mark { background: var(--accent-subtle); color: var(--source-jira); }
+.dh-source--github .dh-source-mark { background: var(--bg-subtle); color: var(--source-github); }
+.dh-source--slack .dh-source-mark { background: var(--source-slack-subtle); color: var(--source-slack); }
+.dh-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: var(--radius-full); border: 1px solid var(--border-default); background: var(--bg-raised); font: inherit; font-size: 13px; color: var(--text-primary); cursor: pointer; }
+.dh-chip:hover { background: var(--bg-subtle); }
+
+/* Avatar */
+.dh-avatar { width: 24px; height: 24px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; background: var(--bg-subtle); color: var(--text-primary); border: 1px solid var(--border-default); flex-shrink: 0; }
+
+/* Card: one work item on a board or in a list */
+.dh-card { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-default); }
+.dh-card:hover { border-color: var(--border-control); }
+.dh-card-top { display: flex; align-items: center; gap: var(--space-2); }
+.dh-card-key { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+.dh-card-title { font-weight: 500; color: var(--text-primary); text-decoration: none; }
+.dh-card-title:hover { text-decoration: underline; }
+.dh-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 12px; color: var(--text-secondary); }
+
+/* Board column */
+.dh-column { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.dh-column-head { display: flex; align-items: center; gap: var(--space-2); height: 32px; padding: 0 4px; font-weight: 600; }
+.dh-column-head .dh-count { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+
+/* List row: attention items */
+.dh-row { display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); }
+.dh-row:hover { background: var(--bg-subtle); }
+.dh-row + .dh-row { border-top: 1px solid var(--border-default); }
+.dh-row-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.dh-row-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); text-decoration: none; }
+.dh-row-sub { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Input */
+.dh-field { display: flex; flex-direction: column; gap: 6px; }
+.dh-field-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.dh-field-help { font-size: 13px; color: var(--text-secondary); }
+.dh-input { height: 36px; width: 100%; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-control); background: var(--bg-raised); color: var(--text-primary); font: inherit; }
+.dh-input::placeholder { color: var(--text-placeholder); }
+.dh-search { position: relative; display: flex; align-items: center; }
+.dh-search .dh-icon { position: absolute; left: 10px; color: var(--text-secondary); pointer-events: none; }
+.dh-search .dh-input { padding-left: 32px; }
+
+/* Composer: the one place to ask the agent */
+.dh-composer { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-lg); background: var(--bg-raised); border: 1px solid var(--border-default); box-shadow: var(--shadow-overlay); }
+.dh-composer textarea { border: 0; outline: none; resize: none; background: transparent; color: var(--text-primary); font: inherit; font-size: 15px; line-height: 22px; min-height: 48px; padding: 4px; }
+.dh-composer textarea::placeholder { color: var(--text-placeholder); }
+.dh-composer:focus-within { border-color: var(--accent); }
+.dh-composer-bar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.dh-composer-bar .dh-send { margin-left: auto; width: 34px; height: 34px; padding: 0; border-radius: var(--radius-full); }
+.dh-picker { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-raised); font: inherit; font-size: 13px; font-weight: 500; color: var(--text-primary); cursor: pointer; }
+.dh-picker:hover { background: var(--bg-subtle); }
+
+/* Menu */
+.dh-menu { display: flex; flex-direction: column; min-width: 260px; padding: 6px; border-radius: var(--radius-md); background: var(--bg-raised); border: 1px solid var(--border-default); box-shadow: var(--shadow-overlay); }
+.dh-menu-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); padding: 6px 8px 4px; }
+.dh-menu-item { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: none; font: inherit; color: var(--text-primary); text-align: left; cursor: pointer; width: 100%; }
+.dh-menu-item:hover, .dh-menu-item:focus-visible { background: var(--bg-subtle); }
+.dh-menu-item small { display: block; font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); }
+.dh-menu-sep { height: 1px; background: var(--border-default); margin: 6px 0; }
+
+/* Callout: inline approval or notice */
+.dh-callout { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--bg-raised); }
+.dh-callout--warning { background: var(--warning-subtle); border-color: transparent; }
+.dh-callout--info { background: var(--accent-subtle); border-color: transparent; color: var(--accent-text); }
+.dh-callout-title { font-weight: 600; color: var(--text-primary); }
+.dh-callout--info .dh-callout-title { color: var(--accent-text); }
+.dh-callout code { font-family: var(--font-mono); font-size: 12px; background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: var(--radius-sm); padding: 6px 8px; color: var(--text-primary); }
+
+/* Diff */
+.dh-diff { font-family: var(--font-mono); font-size: 12px; line-height: 20px; overflow-x: auto; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); }
+.dh-diff-file { display: flex; align-items: center; gap: var(--space-2); padding: 8px 12px; border-bottom: 1px solid var(--border-default); background: var(--bg-sidebar); font-family: var(--font-mono); }
+.dh-diff-line { display: grid; grid-template-columns: 44px 18px 1fr; white-space: pre; color: var(--text-primary); }
+.dh-diff-line > span:first-child { text-align: right; padding-right: 8px; color: var(--text-secondary); user-select: none; }
+.dh-diff-line--add { background: var(--success-subtle); }
+.dh-diff-line--add > span:nth-child(2) { color: var(--success); }
+.dh-diff-line--del { background: var(--danger-subtle); }
+.dh-diff-line--del > span:nth-child(2) { color: var(--danger); }
+
+/* Activity step (agent timeline) */
+.dh-step { display: grid; grid-template-columns: 22px 1fr; gap: 10px; }
+.dh-step-dot { width: 22px; height: 22px; border-radius: var(--radius-full); display: inline-flex; align-items: center; justify-content: center; background: var(--bg-subtle); color: var(--text-secondary); }
+.dh-step--done .dh-step-dot { background: var(--success-subtle); color: var(--success); }
+.dh-step--wait .dh-step-dot { background: var(--warning-subtle); color: var(--warning); }
+.dh-step-title { font-weight: 500; }
+.dh-step-detail { font-size: 13px; color: var(--text-secondary); }
+
+/* Skip link: first focusable element on every screen */
+.dh-root { position: relative; }
+.dh-skip { position: absolute; left: 8px; top: -60px; z-index: 30; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--primary); color: var(--on-primary); font-weight: 500; text-decoration: none; }
+.dh-skip:focus { top: 8px; }
+
+/* Keyboard hint */
+.dh-kbd { margin-left: auto; font-family: var(--font-mono); font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--text-secondary); }
+
+/* Sidebar search and footer */
+.dh-sidebar-search { display: flex; align-items: center; gap: var(--space-2); width: 100%; height: 34px; padding: 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-canvas); color: var(--text-secondary); font: inherit; cursor: pointer; }
+.dh-sidebar-search:hover { border-color: var(--border-control); color: var(--text-primary); }
+.dh-sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: var(--space-3); border-top: 1px solid var(--border-default); }
+.dh-agent-status { display: flex; align-items: center; gap: var(--space-2); min-height: 30px; padding: 0 10px; font-size: 13px; color: var(--text-secondary); }
+.dh-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: currentColor; }
+
+/* Sidebar v2: header, counts, sessions, user */
+.dh-sidebar-head { display: flex; align-items: center; gap: 10px; padding: 2px 2px 2px 6px; }
+.dh-nav-count { margin-left: auto; min-width: 22px; height: 20px; padding: 0 6px; border-radius: var(--radius-full); border: 1px solid var(--border-default); background: var(--bg-canvas); font-size: 12px; font-weight: 500; line-height: 18px; text-align: center; color: var(--text-secondary); }
+.dh-nav-item[aria-current="page"] .dh-nav-count { background: var(--primary); border-color: transparent; color: var(--on-primary); }
+.dh-nav-head { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 10px 4px; font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--text-secondary); }
+.dh-nav-head a { margin-left: auto; color: var(--text-secondary); text-decoration: none; border-radius: 4px; padding: 0 4px; }
+.dh-nav-head a:hover { color: var(--text-primary); background: var(--bg-subtle); }
+.dh-session { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; }
+.dh-session:hover { background: var(--bg-subtle); }
+.dh-session[aria-current="page"] { background: var(--bg-raised); box-shadow: 0 0 0 1px var(--border-default); }
+.dh-session-icon { width: 20px; height: 20px; margin-top: 1px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dh-session-icon .dh-icon { width: 12px; height: 12px; stroke-width: 2.25; }
+.dh-session-icon--wait { background: var(--warning-subtle); color: var(--warning); }
+.dh-session-icon--run { background: var(--accent-subtle); color: var(--accent-text); }
+.dh-session-icon--done { background: var(--success-subtle); color: var(--success); }
+.dh-session-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.dh-session-title { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-session-sub { display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 16px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; }
+.dh-session-sub .dh-mono { font-size: 11px; }
+.dh-state--wait { color: var(--warning); font-weight: 500; }
+.dh-state--run { color: var(--accent-text); font-weight: 500; }
+.dh-state--done { color: var(--success); font-weight: 500; }
+.dh-user { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; }
+.dh-user:hover { background: var(--bg-subtle); }
+.dh-user .dh-avatar { width: 28px; height: 28px; font-size: 12px; }
+
+/* Resume banner: a session waiting on you */
+.dh-resume { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 14px; border-radius: var(--radius-md); background: var(--warning-subtle); color: var(--text-primary); text-decoration: none; }
+.dh-resume:hover { outline: 1px solid var(--warning); }
+.dh-resume-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.dh-resume-text span:last-child { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Stepper: where a session is in its flow */
+.dh-stepper { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.dh-stepper li { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.dh-stepper li + li::before { content: ""; width: 20px; height: 1px; margin-right: 2px; background: var(--border-control); }
+.dh-step-num { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; border: 1px solid var(--border-control); color: var(--text-secondary); }
+.dh-stepper [data-state="done"] .dh-step-num { background: var(--success-subtle); border-color: transparent; color: var(--success); }
+.dh-stepper [data-state="current"] { color: var(--text-primary); font-weight: 500; }
+.dh-stepper [data-state="current"] .dh-step-num { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+
+/* Empty state */
+.dh-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: var(--space-4) var(--space-2); border: 1px dashed var(--border-default); border-radius: var(--radius-md); font-size: 13px; color: var(--text-secondary); text-align: center; }
+
+/* File list (changed files) */
+.dh-filelist { display: flex; flex-direction: column; border: 1px solid var(--border-default); border-radius: var(--radius-md); overflow: hidden; }
+.dh-file { display: flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 12px; border: 0; border-left: 2px solid transparent; background: var(--bg-raised); font: inherit; font-size: 12px; color: var(--text-primary); text-align: left; cursor: pointer; }
+.dh-file + .dh-file { border-top: 1px solid var(--border-default); }
+.dh-file:hover { background: var(--bg-subtle); }
+.dh-file[aria-current="true"] { background: var(--accent-subtle); border-left-color: var(--accent); }
+.dh-file-path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+
+/* Choice card (radio as a card) */
+.dh-choice { display: flex; gap: 10px; align-items: flex-start; padding: var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--bg-raised); cursor: pointer; }
+.dh-choice:has(input:checked) { border-color: var(--accent); background: var(--accent-subtle); }
+.dh-choice input { margin: 3px 0 0; width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* Page frame: every screen = page bar + optional toolbar + body */
+.dh-main { display: flex; flex-direction: column; min-width: 0; background: var(--bg-canvas); }
+.dh-pagebar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-height: 52px; padding: 6px 24px; border-bottom: 1px solid var(--border-default); }
+.dh-pagebar-actions { margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.dh-pagebar-meta { font-size: 13px; color: var(--text-secondary); }
+.dh-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: 48px; padding: 6px 24px; border-bottom: 1px solid var(--border-default); }
+.dh-pagebody { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-6); min-width: 0; }
+
+/* Panel: a bordered surface holding a list */
+.dh-panel { border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); overflow: hidden; }
+.dh-panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding: 14px 16px 0; }
+.dh-panel .dh-tabs { padding: 0 16px; }
+.dh-panel .dh-row { border-radius: 0; padding: 10px 16px; }
+
+/* Status icons: shape carries the state (Linear-style) */
+.dh-status-icon { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; }
+.dh-status--todo { color: var(--text-secondary); }
+.dh-status--doing { color: var(--warning); }
+.dh-status--review { color: var(--accent); }
+.dh-status--done { color: var(--success); }
+
+/* Card details */
+.dh-card { gap: 6px; padding: 10px 12px 10px; }
+.dh-card-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dh-card-meta { gap: 10px; min-height: 24px; }
+.dh-meta-item { display: inline-flex; align-items: center; gap: 4px; }
+.dh-meta-item .dh-icon { width: 14px; height: 14px; }
+.dh-meta-item--soon { color: var(--warning); font-weight: 500; }
+.dh-prio { display: inline-flex; align-items: center; gap: 4px; }
+.dh-prio svg { width: 14px; height: 14px; }
+.dh-prio rect { fill: var(--border-control); opacity: .35; }
+.dh-prio--high rect, .dh-prio--med rect:nth-child(-n+2), .dh-prio--low rect:first-child { fill: var(--text-primary); opacity: 1; }
+.dh-tag { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.dh-tag--bug { color: var(--danger); }
+.dh-agent-chip { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; margin-left: auto; border-radius: var(--radius-full); font-size: 12px; font-weight: 500; text-decoration: none; background: var(--warning-subtle); color: var(--warning); }
+.dh-card-action { margin-left: auto; color: var(--text-secondary); }
+.dh-card-action:hover { color: var(--accent); }
+.dh-column-head .dh-btn { margin-left: auto; color: var(--text-secondary); }
+
+/* Composer context: what the + button adds */
+.dh-context-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 2px 0; }
+.dh-context { display: inline-flex; align-items: center; gap: 6px; max-width: 300px; height: 28px; padding: 0 2px 0 6px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-sidebar); font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.dh-context-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.dh-context-remove { width: 22px; height: 22px; flex-shrink: 0; border: 0; border-radius: 4px; background: none; color: var(--text-secondary); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.dh-context-remove:hover { background: var(--bg-subtle); color: var(--text-primary); }
+.dh-menu-head { display: flex; align-items: center; gap: 6px; padding: 2px 2px 6px; font-weight: 600; }
+.dh-menu-item .dh-desc { display: block; font-size: 12px; line-height: 16px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dh-menu-item .dh-menu-text { flex: 1; min-width: 0; }
+.dh-menu-foot { padding: 6px 8px 2px; font-size: 12px; color: var(--text-secondary); border-top: 1px solid var(--border-default); margin-top: 4px; }
+
+/* Skills and automations */
+.dh-source--skill .dh-source-mark { background: var(--accent-subtle); color: var(--accent-text); }
+.dh-source--auto .dh-source-mark { background: var(--warning-subtle); color: var(--warning); }
+.dh-switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; border: 0; border-radius: var(--radius-full); background: var(--border-control); cursor: pointer; }
+.dh-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-raised); }
+.dh-switch[aria-checked="true"] { background: var(--accent); }
+.dh-switch[aria-checked="true"]::after { left: 18px; }
+.dh-switch[disabled] { opacity: .45; cursor: not-allowed; }
+.dh-actor { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.dh-actor--claude { background: var(--accent-subtle); color: var(--accent-text); }
+.dh-actor--orynx { background: var(--bg-subtle); color: var(--text-secondary); }
+.dh-actor--you { background: var(--warning-subtle); color: var(--warning); }
+.dh-flow { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
+.dh-flow-step { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding-bottom: 14px; }
+.dh-flow-step:not(:last-child)::before { content: ""; position: absolute; left: 13px; top: 30px; bottom: 2px; width: 2px; border-radius: 2px; background: var(--border-default); }
+.dh-flow-num { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border-control); background: var(--bg-raised); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.dh-flow-step[data-state="done"] .dh-flow-num { background: var(--success-subtle); border-color: transparent; color: var(--success); }
+.dh-flow-step[data-state="current"] .dh-flow-num { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.dh-flow-step[data-state="wait"] .dh-flow-num { background: var(--warning-subtle); border-color: transparent; color: var(--warning); }
+.dh-flow-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px 14px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-raised); }
+.dh-flow-step[data-state="current"] .dh-flow-card { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.dh-flow-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dh-flow-title { font-weight: 600; }
+.dh-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; margin: 0; font-size: 13px; }
+.dh-kv dt { color: var(--text-secondary); }
+.dh-kv dd { margin: 0; min-width: 0; }
+.dh-metric { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dh-metric-label { font-size: 12px; color: var(--text-secondary); }
+.dh-metric-value { font-size: 20px; line-height: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dh-metric-sub { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.dh-meter { height: 6px; border-radius: var(--radius-full); background: var(--bg-subtle); overflow: hidden; }
+.dh-meter > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.dh-editor { width: 100%; min-height: 300px; padding: 12px; border: 1px solid var(--border-control); border-radius: var(--radius-sm); background: var(--bg-raised); color: var(--text-primary); font-family: var(--font-mono); font-size: 12px; line-height: 20px; resize: vertical; }
+.dh-textarea { width: 100%; min-height: 64px; padding: 8px 12px; border: 1px solid var(--border-control); border-radius: var(--radius-sm); background: var(--bg-raised); color: var(--text-primary); font: inherit; resize: vertical; }
+.dh-listnav { display: flex; flex-direction: column; gap: 2px; }
+.dh-listnav-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 0; border-radius: var(--radius-sm); background: none; font: inherit; color: var(--text-primary); text-align: left; cursor: pointer; }
+.dh-listnav-item:hover { background: var(--bg-subtle); }
+.dh-listnav-item[aria-current="true"] { background: var(--bg-raised); box-shadow: 0 0 0 1px var(--border-default); }
+.dh-finding { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; }
+.dh-finding + .dh-finding { border-top: 1px solid var(--border-default); }
+
+/* Segmented as a radio group, and permission rows */
+.dh-segment[aria-checked="true"] { background: var(--bg-raised); color: var(--text-primary); box-shadow: 0 0 0 1px var(--border-default); }
+.dh-segment--block[aria-checked="true"] { color: var(--danger); }
+.dh-perm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 20px; align-items: center; padding: 14px 16px; }
+.dh-perm + .dh-perm { border-top: 1px solid var(--border-default); }
+.dh-perm-title { font-weight: 500; }
+.dh-perm-desc { font-size: 13px; line-height: 18px; color: var(--text-secondary); }
+.dh-perm-warn { grid-column: 1 / -1; display: flex; gap: 6px; align-items: flex-start; font-size: 12px; line-height: 16px; color: var(--warning); }
+.dh-group-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border-default); background: var(--bg-sidebar); }
+.dh-cmd { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 2px 0 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-raised); font-family: var(--font-mono); font-size: 12px; }
+
+/* Notifications */
+.dh-bell { position: relative; }
+.dh-bell-count { position: absolute; top: -4px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--radius-full); background: var(--danger); color: var(--on-danger); font-size: 12px; font-weight: 600; line-height: 18px; text-align: center; border: 2px solid var(--bg-sidebar); box-sizing: content-box; }
+.dh-popover { display: flex; flex-direction: column; width: 400px; max-width: calc(100vw - 32px); border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--bg-raised); box-shadow: var(--shadow-overlay); overflow: hidden; }
+.dh-popover-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 0; }
+.dh-notif { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 12px 14px; color: var(--text-primary); text-decoration: none; }
+.dh-notif + .dh-notif { border-top: 1px solid var(--border-default); }
+.dh-notif:hover { background: var(--bg-subtle); }
+.dh-notif[data-unread="true"]::after { content: ""; position: absolute; top: 18px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.dh-notif-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.dh-notif-title { font-weight: 500; padding-right: 18px; }
+.dh-notif-body { font-size: 13px; line-height: 18px; color: var(--text-secondary); }
+.dh-notif-time { font-size: 12px; color: var(--text-secondary); }
+.dh-notif-group { padding: 10px 14px 4px; font-size: 12px; font-weight: 500; color: var(--text-secondary); background: var(--bg-sidebar); border-top: 1px solid var(--border-default); }
+.dh-toast { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; width: 380px; max-width: calc(100vw - 32px); padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--bg-raised); box-shadow: var(--shadow-overlay); }
+.dh-toast--warning { border-left: 0; box-shadow: var(--shadow-overlay), inset 0 0 0 1px var(--warning); }
+.dh-range { width: 100%; accent-color: var(--accent); }
+.dh-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.dh-table th { text-align: left; font-size: 12px; font-weight: 500; color: var(--text-secondary); padding: 10px 12px; background: var(--bg-sidebar); }
+.dh-table td { padding: 10px 12px; border-top: 1px solid var(--border-default); vertical-align: middle; }
+.dh-table .dh-group-row td { background: var(--bg-sidebar); font-size: 12px; font-weight: 600; color: var(--text-secondary); padding: 8px 12px; }
+
+/* Checkbox (shadcn style) */
+.dh-checkbox { width: 16px; height: 16px; flex-shrink: 0; padding: 0; border-radius: 4px; border: 1px solid var(--primary); background: transparent; color: var(--on-primary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 2px rgba(28,27,24,0.05); }
+.dh-checkbox[aria-checked="true"] { background: var(--primary); }
+.dh-checkbox svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+.dh-checkbox[aria-checked="true"] svg { opacity: 1; }
+.dh-checkbox[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* Select (shadcn style): trigger + listbox */
+.dh-select { position: relative; display: inline-block; }
+.dh-select-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 32px; padding: 0 8px 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-control); background: var(--bg-raised); color: var(--text-primary); font: inherit; font-size: 13px; text-align: left; cursor: pointer; box-shadow: 0 1px 2px rgba(28,27,24,0.05); white-space: nowrap; }
+.dh-select-trigger > svg { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .5; }
+.dh-select-trigger[aria-expanded="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+.dh-select-trigger[disabled] { opacity: .5; cursor: not-allowed; }
+.dh-select-content { position: absolute; top: calc(100% + 4px); left: 0; z-index: 50; min-width: 100%; display: flex; flex-direction: column; padding: 4px; border-radius: var(--radius-sm); border: 1px solid var(--border-default); background: var(--bg-raised); box-shadow: var(--shadow-overlay); }
+.dh-select-item { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 28px 0 8px; border: 0; border-radius: 4px; background: none; color: var(--text-primary); font: inherit; font-size: 13px; text-align: left; cursor: pointer; white-space: nowrap; }
+.dh-select-item:hover, .dh-select-item:focus-visible { background: var(--bg-subtle); }
+.dh-select-check { position: absolute; right: 8px; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+.dh-select-item[aria-selected="true"] .dh-select-check { opacity: 1; }
+
+/* Tooltip: shown on hover and keyboard focus; the control keeps its own aria-label */
+.dh-tip { position: relative; display: inline-flex; }
+.dh-tip-text { position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 60; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--primary); color: var(--on-primary); font-size: 12px; line-height: 16px; font-weight: 500; white-space: nowrap; opacity: 0; transform: translateY(2px); pointer-events: none; transition: opacity .12s, transform .12s; }
+.dh-tip:hover .dh-tip-text, .dh-tip:focus-within .dh-tip-text { opacity: 1; transform: none; }
+
+/* Connection rows and status buttons */
+.dh-conn { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 16px; }
+.dh-conn + .dh-conn { border-top: 1px solid var(--border-default); }
+.dh-conn-mark { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; }
+.dh-status-btn { width: 36px; height: 36px; padding: 0; border-radius: var(--radius-full); border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.dh-status-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.dh-status-btn--ok { background: var(--success-subtle); color: var(--success); }
+.dh-status-btn--warn { background: var(--warning-subtle); color: var(--warning); }
+.dh-status-btn--off { background: var(--bg-raised); color: var(--text-secondary); border-color: var(--border-control); border-style: dashed; }
+.dh-status-btn:hover { box-shadow: 0 0 0 3px var(--bg-subtle); }
+
+/* Dialog */
+.dh-scrim { position: absolute; inset: 0; z-index: 70; display: flex; align-items: flex-start; justify-content: center; padding: 96px 16px; background: rgba(28, 27, 24, 0.45); }
+.dh-dialog { width: 520px; max-width: 100%; display: flex; flex-direction: column; border-radius: var(--radius-lg); border: 1px solid var(--border-default); background: var(--bg-raised); box-shadow: var(--shadow-overlay); }
+.dh-dialog-head { display: flex; align-items: center; gap: 12px; padding: 18px 20px 14px; border-bottom: 1px solid var(--border-default); }
+.dh-dialog-body { display: flex; flex-direction: column; gap: 16px; padding: 18px 20px; }
+.dh-dialog-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border-default); background: var(--bg-sidebar); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.dh-spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border-default); border-top-color: var(--accent); animation: dh-spin .8s linear infinite; }
+@keyframes dh-spin { to { transform: rotate(360deg); } }
+
+/* Terminal: one dark look in both themes (deliberate), colours checked at 4.5:1 on its ground */
+.dh-term { --t-bg: #161513; --t-bg2: #1e1d1a; --t-line: #2e2c28; --t-fg: #e8e6df; --t-dim: #a19d93; --t-green: #7fd19b; --t-red: #ff8f84; --t-amber: #f0b45a; --t-blue: #9db1ff; display: flex; flex-direction: column; min-height: 0; background: var(--t-bg); color: var(--t-fg); border-top: 1px solid var(--border-default); font-family: var(--font-mono); font-size: 12.5px; line-height: 20px; }
+.dh-term ::selection { background: #3b4a7a; }
+.dh-term-bar { display: flex; align-items: center; gap: 2px; padding: 0 8px; height: 38px; background: var(--t-bg2); border-bottom: 1px solid var(--t-line); font-family: var(--font-sans); font-size: 13px; }
+.dh-term-tab { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: none; color: var(--t-dim); font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.dh-term-tab:hover { color: var(--t-fg); background: #2a2925; }
+.dh-term-tab[aria-selected="true"] { color: var(--t-fg); background: #2e2c28; }
+.dh-term-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: none; color: var(--t-dim); cursor: pointer; }
+.dh-term-icon:hover { color: var(--t-fg); background: #2a2925; }
+.dh-term-icon svg, .dh-term-tab svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.dh-term-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--t-line); font-family: var(--font-sans); font-size: 12px; color: var(--t-dim); }
+.dh-term-badge { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border-radius: 4px; background: #2a2925; color: var(--t-fg); font-size: 12px; font-weight: 500; }
+.dh-term-chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border: 1px solid var(--t-line); border-radius: 999px; background: var(--t-bg); color: var(--t-fg); font-family: var(--font-mono); font-size: 12px; cursor: pointer; }
+.dh-term-chip:hover { border-color: var(--t-dim); }
+.dh-term-out { flex: 1; overflow-y: auto; padding: 10px 14px; display: flex; flex-direction: column; gap: 10px; }
+.dh-term-block { border: 1px solid var(--t-line); border-radius: 8px; overflow: hidden; }
+.dh-term-block[data-status="fail"] { border-color: #5a2a26; }
+.dh-term-block-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; background: var(--t-bg2); }
+.dh-term-cmd { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dh-term-cmd::before { content: "$ "; color: var(--t-dim); }
+.dh-term-body { padding: 8px 10px; white-space: pre-wrap; word-break: break-word; }
+.dh-term-input { display: flex; align-items: center; gap: 8px; padding: 8px 14px 10px; border-top: 1px solid var(--t-line); }
+.dh-term-input input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--t-fg); font: inherit; caret-color: var(--t-green); }
+.dh-term-input input::placeholder { color: var(--t-dim); }
+.dh-term-btn { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border: 1px solid var(--t-line); border-radius: 6px; background: var(--t-bg); color: var(--t-fg); font-family: var(--font-sans); font-size: 12px; cursor: pointer; }
+.dh-term-btn:hover { border-color: var(--t-dim); }
+.dh-term-btn--ask { border-color: #4b5a94; color: var(--t-blue); }
+.dh-term :focus-visible { outline: 2px solid var(--t-blue); outline-offset: 1px; }
+.t-dim { color: var(--t-dim); } .t-green { color: var(--t-green); } .t-red { color: var(--t-red); } .t-amber { color: var(--t-amber); } .t-blue { color: var(--t-blue); }
+
+@media (prefers-reduced-motion: reduce) { .dh-root * { transition: none !important; animation: none !important; } }
+</style>
+<style>
+body{margin:0}
+a{color:var(--accent)}a:hover{color:var(--accent-text)}
+.sr-trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.sr-phase{display:flex;align-items:center;gap:10px;width:100%;padding:10px 0;border:0;background:none;font:inherit;color:var(--text-primary);text-align:left;cursor:pointer}
+.sr-phase:hover .sr-phase-title{text-decoration:underline}
+.sr-file{display:flex;flex-direction:column;gap:1px;width:100%;padding:8px 12px;border:0;border-left:2px solid transparent;background:none;font:inherit;text-align:left;cursor:pointer;color:var(--text-primary)}
+.sr-file:hover{background:var(--bg-subtle)}
+.sr-file[aria-current="true"]{background:var(--accent-subtle);border-left-color:var(--accent)}
+.sr-line{display:grid;grid-template-columns:40px 40px 16px minmax(0,1fr);font-family:var(--font-mono);font-size:12px;line-height:20px}
+.sr-line>span:nth-child(-n+2){text-align:right;padding-right:8px;color:var(--text-secondary);user-select:none}
+.sr-add{background:var(--success-subtle)}.sr-add>span:nth-child(3){color:var(--success)}
+.sr-del{background:var(--danger-subtle)}.sr-del>span:nth-child(3){color:var(--danger)}
+.sr-hunk{background:var(--bg-sidebar);color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div data-dc-tpl="3" class="dh-root" style="display: flex; min-height: 1000px; height: 1000px; background: var(--bg-canvas);"><a data-dc-tpl="4" class="dh-skip" href="#main">Skip to content</a><nav data-dc-tpl="5" class="dh-sidebar" aria-label="Main" style="width: 260px; flex: 0 0 auto; border-right: 1px solid var(--border-default); overflow-y: auto;"><div data-dc-tpl="6" class="dh-sidebar-head"><span data-dc-tpl="7" aria-hidden="true" style="width: 26px; height: 26px; border-radius: 6px; background: var(--primary); color: var(--on-primary); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px;">D</span><span data-dc-tpl="8" style="font-weight: 600; font-size: 15px;">DevHub</span><a data-dc-tpl="9" class="dh-btn dh-btn--ghost dh-btn--icon dh-btn--sm dh-bell" href="Notifications.dc.html" aria-label="Notifications, 4 unread" style="margin-left: auto;"><svg data-dc-tpl="10" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><path data-dc-tpl="11" d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path data-dc-tpl="12" d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span data-dc-tpl="13" class="dh-bell-count" aria-hidden="true">4</span></a><button data-dc-tpl="14" class="dh-btn dh-btn--ghost dh-btn--icon dh-btn--sm" type="button" aria-label="Collapse sidebar"><svg data-dc-tpl="15" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><rect data-dc-tpl="16" x="3" y="4" width="18" height="16" rx="2"></rect><line data-dc-tpl="17" x1="9" y1="4" x2="9" y2="20"></line></svg></button></div><button data-dc-tpl="18" class="dh-sidebar-search" type="button"><svg data-dc-tpl="19" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><circle data-dc-tpl="20" cx="11" cy="11" r="7"></circle><line data-dc-tpl="21" x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Search<kbd data-dc-tpl="22" class="dh-kbd">⌘K</kbd></button><div data-dc-tpl="23" class="dh-nav"><a data-dc-tpl="24" class="dh-nav-item" href="Main.dc.html"><svg data-dc-tpl="25" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><path data-dc-tpl="26" d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg><span data-dc-tpl="27" class="dh-nav-text">Home</span></a><a data-dc-tpl="28" class="dh-nav-item" href="Tickets.dc.html"><svg data-dc-tpl="29" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><rect data-dc-tpl="30" x="3" y="4" width="5" height="16" rx="1"></rect><rect data-dc-tpl="31" x="10" y="4" width="5" height="11" rx="1"></rect><rect data-dc-tpl="32" x="17" y="4" width="4" height="7" rx="1"></rect></svg><span data-dc-tpl="33" class="dh-nav-text">Tickets</span></a><a data-dc-tpl="34" class="dh-nav-item" href="Connections.dc.html"><svg data-dc-tpl="35" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><circle data-dc-tpl="36" cx="12" cy="12" r="3"></circle><path data-dc-tpl="37" d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg><span data-dc-tpl="38" class="dh-nav-text">Settings</span></a></div><div data-dc-tpl="39" class="dh-nav"><div data-dc-tpl="41" class="dh-nav-head"><span data-dc-tpl="42"><span class="sc-interp">Needs you</span></span><span data-dc-tpl="43" style="margin-left: auto;"><span class="sc-interp">1</span></span></div><a data-dc-tpl="45" class="dh-session" href="SessionReview.dc.html" aria-current="page"><span data-dc-tpl="46" class="dh-session-icon dh-session-icon--wait" aria-hidden="true"><svg data-dc-tpl="47" class="dh-icon" viewBox="0 0 24 24"><path data-dc-tpl="48" d="M12 7v6M12 17h.01"></path></svg></span><span data-dc-tpl="49" class="dh-session-body"><span data-dc-tpl="50" class="dh-session-title"><span class="sc-interp">Fix review comments</span></span><span data-dc-tpl="51" class="dh-session-sub"><span data-dc-tpl="52" class="dh-mono"><span class="sc-interp">PR #2974</span></span><span data-dc-tpl="53" aria-hidden="true">·</span><span data-dc-tpl="54" class="dh-state--wait"><span class="sc-interp">Ready to push</span></span></span></span></a><div data-dc-tpl="41" class="dh-nav-head"><span data-dc-tpl="42"><span class="sc-interp">Open PRs</span></span><span data-dc-tpl="43" style="margin-left: auto;"><span class="sc-interp">2</span></span></div><a data-dc-tpl="45" class="dh-session" href="Session.dc.html" aria-current="false"><span data-dc-tpl="46" class="dh-session-icon" aria-hidden="true"><svg data-dc-tpl="47" class="dh-icon" viewBox="0 0 24 24"><path data-dc-tpl="48" d="M6 3v12M18 9a3 3 0 1 0 0-.01M6 15a3 3 0 1 0 0 .01M18 9c0 4-6 5-12 6"></path></svg></span><span data-dc-tpl="49" class="dh-session-body"><span data-dc-tpl="50" class="dh-session-title"><span class="sc-interp">Fix review comments</span></span><span data-dc-tpl="51" class="dh-session-sub"><span data-dc-tpl="52" class="dh-mono"><span class="sc-interp">PR #2960</span></span><span data-dc-tpl="53" aria-hidden="true">·</span><span data-dc-tpl="54" class=""><span class="sc-interp">PR open</span></span></span></span></a><a data-dc-tpl="45" class="dh-session" href="Session.dc.html" aria-current="false"><span data-dc-tpl="46" class="dh-session-icon" aria-hidden="true"><svg data-dc-tpl="47" class="dh-icon" viewBox="0 0 24 24"><path data-dc-tpl="48" d="M6 3v12M18 9a3 3 0 1 0 0-.01M6 15a3 3 0 1 0 0 .01M18 9c0 4-6 5-12 6"></path></svg></span><span data-dc-tpl="49" class="dh-session-body"><span data-dc-tpl="50" class="dh-session-title"><span class="sc-interp">Mark comment replies as read</span></span><span data-dc-tpl="51" class="dh-session-sub"><span data-dc-tpl="52" class="dh-mono"><span class="sc-interp">PR #2946</span></span><span data-dc-tpl="53" aria-hidden="true">·</span><span data-dc-tpl="54" class=""><span class="sc-interp">PR open</span></span></span></span></a><div data-dc-tpl="41" class="dh-nav-head"><span data-dc-tpl="42"><span class="sc-interp">Done</span></span><span data-dc-tpl="43" style="margin-left: auto;"><span class="sc-interp">7</span></span></div><button data-dc-tpl="56" class="dh-btn dh-btn--ghost dh-btn--sm" type="button" aria-expanded="false" style="justify-content: flex-start; color: var(--text-secondary);"><span class="sc-interp">Show 7 done</span></button></div><div data-dc-tpl="57" class="dh-sidebar-foot"><a data-dc-tpl="58" class="dh-user" href="Connections.dc.html"><span data-dc-tpl="59" class="dh-avatar">RD</span><span data-dc-tpl="60" class="dh-session-body"><span data-dc-tpl="61" class="dh-session-title">Rakesh Dhariwal</span><span data-dc-tpl="62" class="dh-session-sub"><span data-dc-tpl="63" class="dh-dot" aria-hidden="true" style="color: var(--success);"></span>Claude connected · runs locally</span></span></a></div></nav><main data-dc-tpl="64" id="main" tabindex="-1" class="dh-main" style="flex: 1 1 0%; min-width: 0px; display: flex; flex-direction: column; min-height: 0px;"><header data-dc-tpl="65" class="dh-pagebar"><nav data-dc-tpl="66" class="dh-breadcrumb" aria-label="Breadcrumb"><ol data-dc-tpl="67"><li data-dc-tpl="68"><a data-dc-tpl="69" href="Main.dc.html">Sessions</a></li><li data-dc-tpl="70"><span data-dc-tpl="71" aria-current="page">PR #2974</span></li></ol></nav><div data-dc-tpl="72" class="dh-pagebar-actions"><a data-dc-tpl="73" class="dh-btn dh-btn--ghost dh-btn--sm" href="Terminal.dc.html"><svg data-dc-tpl="74" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline data-dc-tpl="75" points="4 17 10 11 4 5"></polyline><line data-dc-tpl="76" x1="12" y1="19" x2="20" y2="19"></line></svg>Terminal<kbd data-dc-tpl="77" class="dh-kbd" style="margin-left: 4px;">⌃`</kbd></a><a data-dc-tpl="78" class="dh-btn dh-btn--secondary dh-btn--sm" href="#">Open PR #2974<svg data-dc-tpl="79" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><path data-dc-tpl="80" d="M7 17 17 7M9 7h8v8"></path></svg></a><button data-dc-tpl="81" class="dh-btn dh-btn--ghost dh-btn--icon dh-btn--sm" type="button" aria-label="More session actions"><svg data-dc-tpl="82" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><circle data-dc-tpl="83" cx="5" cy="12" r="1"></circle><circle data-dc-tpl="84" cx="12" cy="12" r="1"></circle><circle data-dc-tpl="85" cx="19" cy="12" r="1"></circle></svg></button></div></header><div data-dc-tpl="86" style="display: flex; flex-direction: column; gap: 14px; padding: 18px 24px 14px; border-bottom: 1px solid var(--border-default);"><div data-dc-tpl="87" style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px;"><div data-dc-tpl="88" style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 420px; min-width: 0px;"><h1 data-dc-tpl="89" style="margin: 0px; font-size: 20px; line-height: 28px; font-weight: 600;">Fix review comments on PR #2974</h1><div data-dc-tpl="90" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary);"><span data-dc-tpl="91" class="dh-pill dh-pill--plain dh-mono" style="font-size: 12px;">/fix-review-changes</span><span data-dc-tpl="92">magnus-app</span><span data-dc-tpl="93" aria-hidden="true">·</span><span data-dc-tpl="94" style="display: inline-flex; align-items: center; gap: 4px; max-width: 340px;"><svg data-dc-tpl="95" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px;"><circle data-dc-tpl="96" cx="6" cy="6" r="2"></circle><circle data-dc-tpl="97" cx="6" cy="18" r="2"></circle><circle data-dc-tpl="98" cx="18" cy="8" r="2"></circle><path data-dc-tpl="99" d="M6 8v8M18 10c0 4-6 3-12 6"></path></svg><span data-dc-tpl="100" class="dh-mono sr-trunc" title="rakesh.dhariwal/mai-5934-settings-dialog-save" style="font-size: 12px; color: var(--text-primary);">mai-5934-settings-dialog-save</span><button data-dc-tpl="101" class="dh-btn dh-btn--ghost dh-btn--icon dh-btn--sm" type="button" aria-label="Copy branch name rakesh.dhariwal/mai-5934-settings-dialog-save" style="width: 22px; height: 22px;"><svg data-dc-tpl="102" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true" style="width: 12px; height: 12px;"><rect data-dc-tpl="103" x="9" y="9" width="11" height="11" rx="2"></rect><path data-dc-tpl="104" d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg></button></span><span data-dc-tpl="105" aria-hidden="true">·</span><span data-dc-tpl="106">own worktree</span><span data-dc-tpl="107" aria-hidden="true">·</span><span data-dc-tpl="108">started 5 days ago</span></div></div><ol data-dc-tpl="109" class="dh-stepper" aria-label="Progress" style="padding-top: 6px;"><li data-dc-tpl="111" data-state="done" aria-current="false"><span data-dc-tpl="112" class="dh-step-num"><span class="sc-interp">✓</span></span><span class="sc-interp">Read comments</span></li><li data-dc-tpl="111" data-state="done" aria-current="false"><span data-dc-tpl="112" class="dh-step-num"><span class="sc-interp">✓</span></span><span class="sc-interp">Apply fixes</span></li><li data-dc-tpl="111" data-state="done" aria-current="false"><span data-dc-tpl="112" class="dh-step-num"><span class="sc-interp">✓</span></span><span class="sc-interp">Run tests</span></li><li data-dc-tpl="111" data-state="done" aria-current="false"><span data-dc-tpl="112" class="dh-step-num"><span class="sc-interp">✓</span></span><span class="sc-interp">Check diff</span></li><li data-dc-tpl="111" data-state="current" aria-current="step"><span data-dc-tpl="112" class="dh-step-num"><span class="sc-interp">5</span></span><span class="sc-interp">Push</span></li></ol></div><div data-dc-tpl="113" role="status" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 12px 10px 14px; border-radius: 10px; background: var(--warning-subtle);"><span data-dc-tpl="114" aria-hidden="true" style="width: 24px; height: 24px; border-radius: 50%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: var(--bg-raised); color: var(--warning);"><svg data-dc-tpl="115" class="dh-icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><path data-dc-tpl="116" d="M12 7v6M12 17h.01"></path></svg></span><div data-dc-tpl="117" style="display: flex; flex-direction: column; gap: 1px; flex: 1 1 360px; min-width: 0px;"><span data-dc-tpl="118" style="font-weight: 600;"><span class="sc-interp">Ready to push</span></span><span data-dc-tpl="119" style="font-size: 13px; color: var(--text-secondary);"><span class="sc-interp">All 3 review comments fixed · 128 tests pass · 5 files, +217 −7. Nothing leaves your machine until you push.</span></span></div><button data-dc-tpl="121" class="dh-btn dh-btn--ghost dh-btn--sm" type="button">See the 3 fixes</button><button data-dc-tpl="122" class="dh-btn dh-btn--primary dh-btn--sm" type="button"><svg data-dc-tpl="123" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><path data-dc-tpl="124" d="M12 19V5M5 12l7-7 7 7"></path></svg>Push to PR #2974</button></div></div><div data-dc-tpl="129" style="display: grid; grid-template-columns: 400px minmax(0px, 1fr); flex: 1 1 0%; min-height: 0px;"><section data-dc-tpl="130" aria-labelledby="sr-work" style="display: flex; flex-direction: column; min-height: 0px; border-right: 1px solid var(--border-default);"><div data-dc-tpl="131" style="display: flex; align-items: center; gap: 8px; padding: 14px 20px 6px;"><h2 data-dc-tpl="132" id="sr-work" style="margin: 0px; font-size: 14px; font-weight: 600; flex: 1 1 0%;">What Claude did</h2><span data-dc-tpl="133" style="font-size: 12px; color: var(--text-secondary);">30 min</span><button data-dc-tpl="134" class="dh-btn dh-btn--ghost dh-btn--sm" type="button" style="height: 26px;"><span class="sc-interp">Expand all</span></button></div><div data-dc-tpl="135" style="flex: 1 1 0%; overflow-y: auto; padding: 0px 20px 12px;"><ol data-dc-tpl="136" style="margin: 0px; padding: 0px; list-style: none;"><li data-dc-tpl="138" style="border-bottom: 1px solid var(--border-default);"><button data-dc-tpl="139" class="sr-phase" type="button" aria-expanded="false" aria-controls="ph-read"><span data-dc-tpl="140" aria-hidden="true" style="width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: var(--success-subtle); color: var(--success);"><svg data-dc-tpl="141" class="dh-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; stroke-width: 2.5;"><path data-dc-tpl="142" d="M20 6 9 17l-5-5"></path></svg></span><span data-dc-tpl="143" style="display: flex; flex-direction: column; gap: 1px; flex: 1 1 0%; min-width: 0px;"><span data-dc-tpl="144" class="sr-phase-title" style="font-weight: 500;"><span class="sc-interp">Read the review</span></span><span data-dc-tpl="145" class="sr-trunc" style="font-size: 12px; color: var(--text-secondary);"><span class="sc-interp">3 comments from Priya and Arjun</span></span></span><span data-dc-tpl="146" style="font-size: 12px; color: var(--text-secondary);"><span class="sc-interp">1 min</span></span><svg data-dc-tpl="148" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; color: var(--text-secondary); transition: transform 0.15s; transform: rotate(0deg);"><polyline data-dc-tpl="149" points="9 6 15 12 9 18"></polyline></svg></button></li><li data-dc-tpl="138" style="border-bottom: 1px solid var(--border-default);"><button data-dc-tpl="139" class="sr-phase" type="button" aria-expanded="true" aria-controls="ph-fixes"><span data-dc-tpl="140" aria-hidden="true" style="width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: var(--success-subtle); color: var(--success);"><svg data-dc-tpl="141" class="dh-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; stroke-width: 2.5;"><path data-dc-tpl="142" d="M20 6 9 17l-5-5"></path></svg></span><span data-dc-tpl="143" style="display: flex; flex-direction: column; gap: 1px; flex: 1 1 0%; min-width: 0px;"><span data-dc-tpl="144" class="sr-phase-title" style="font-weight: 500;"><span class="sc-interp">Applied fixes</span></span><span data-dc-tpl="145" class="sr-trunc" style="font-size: 12px; color: var(--text-secondary);"><span class="sc-interp">4 files edited, 1 added</span></span></span><span data-dc-tpl="146" style="font-size: 12px; color: var(--text-secondary);"><span class="sc-interp">18 min</span></span><svg data-dc-tpl="148" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; color: var(--text-secondary); transition: transform 0.15s; transform: rotate(90deg);"><polyline data-dc-tpl="149" points="9 6 15 12 9 18"></polyline></svg></button><ul data-dc-tpl="151" id="ph-fixes" style="margin: 0px 0px 10px 30px; padding: 0px; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13px;"><li data-dc-tpl="153" style="display: flex; flex-direction: column; gap: 3px; min-width: 0px;"><span data-dc-tpl="154" style="color: var(--text-secondary);"><span class="sc-interp">Read the project rules</span></span><span data-dc-tpl="158"><span class="sc-interp">AGENTS.md, CLAUDE.md</span></span></li><li data-dc-tpl="153" style="display: flex; flex-direction: column; gap: 3px; min-width: 0px;"><span data-dc-tpl="154" style="color: var(--text-secondary);"><span class="sc-interp">Looked at how avatar upload works</span></span><button data-dc-tpl="156" type="button" aria-expanded="false" aria-label="Show full command" style="display: block; width: 100%; text-align: left; border: 1px solid var(--border-default); border-radius: 6px; background: var(--bg-sidebar); padding: 4px 8px; font-family: var(--font-mono); font-size: 11.5px; line-height: 18px; color: var(--text-primary); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">$ <span class="sc-interp">cd packages/agent-builder/src; grep -n "uploading\|onUpload\|onChange\|onUploadingChange" components/settings-sections/avatar-picker.tsx | head -40; cat hooks/use-avatar-upload.tsx</span></button></li><li data-dc-tpl="153" style="display: flex; flex-direction: column; gap: 3px; min-width: 0px;"><span data-dc-tpl="154" style="color: var(--text-secondary);"><span class="sc-interp">Edited</span></span><span data-dc-tpl="158"><span class="sc-interp">agent-settings-dialog.tsx, agent-settings-form.tsx, spec.md</span></span></li><li data-dc-tpl="153" style="display: flex; flex-direction: column; gap: 3px; min-width: 0px;"><span data-dc-tpl="154" style="color: var(--text-secondary);"><span class="sc-interp">Added</span></span><span data-dc-tpl="158"><span class="sc-interp">use-avatar-upload.ts, agent-settings-form.test.tsx</span></span></li></ul></li><li data-dc-tpl="138" style="border-bottom: 1px solid var(--border-default);"><button data-dc-tpl="139" class="sr-phase" type="button" aria-expanded="false" aria-controls="ph-tests"><span data-dc-tpl="140" aria-hidden="true" style="width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: var(--success-subtle); color: var(--success);"><svg data-dc-tpl="141" class="dh-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; stroke-width: 2.5;"><path data-dc-tpl="142" d="M20 6 9 17l-5-5"></path></svg></span><span data-dc-tpl="143" style="display: flex; flex-direction: column; gap: 1px; flex: 1 1 0%; min-width: 0px;"><span data-dc-tpl="144" class="sr-phase-title" style="font-weight: 500;"><span class="sc-interp">Ran the tests</span></span><span data-dc-tpl="145" class="sr-trunc" style="font-size: 12px; color: var(--text-secondary);"><span class="sc-interp">128 passed, 1 new test</span></span></span><span data-dc-tpl="146" style="font-size: 12px; color: var(--text-secondary);"><span class="sc-interp">6 min</span></span><svg data-dc-tpl="148" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; color: var(--text-secondary); transition: transform 0.15s; transform: rotate(0deg);"><polyline data-dc-tpl="149" points="9 6 15 12 9 18"></polyline></svg></button></li><li data-dc-tpl="138" style="border-bottom: 1px solid var(--border-default);"><button data-dc-tpl="139" class="sr-phase" type="button" aria-expanded="false" aria-controls="ph-diff"><span data-dc-tpl="140" aria-hidden="true" style="width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: var(--success-subtle); color: var(--success);"><svg data-dc-tpl="141" class="dh-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; stroke-width: 2.5;"><path data-dc-tpl="142" d="M20 6 9 17l-5-5"></path></svg></span><span data-dc-tpl="143" style="display: flex; flex-direction: column; gap: 1px; flex: 1 1 0%; min-width: 0px;"><span data-dc-tpl="144" class="sr-phase-title" style="font-weight: 500;"><span class="sc-interp">Checked the diff</span></span><span data-dc-tpl="145" class="sr-trunc" style="font-size: 12px; color: var(--text-secondary);"><span class="sc-interp">Only files related to the review changed</span></span></span><span data-dc-tpl="146" style="font-size: 12px; color: var(--text-secondary);"><span class="sc-interp">1 min</span></span><svg data-dc-tpl="148" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true" style="width: 14px; height: 14px; color: var(--text-secondary); transition: transform 0.15s; transform: rotate(0deg);"><polyline data-dc-tpl="149" points="9 6 15 12 9 18"></polyline></svg></button></li><li data-dc-tpl="138" style="border-bottom: 1px solid var(--border-default);"><button data-dc-tpl="139" class="sr-phase" type="button" aria-expanded="false" aria-controls="ph-push"><span data-dc-tpl="140" aria-hidden="true" style="width: 20px; height: 20px; border-radius: 50%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: var(--warning-subtle); color: var(--warning);"><svg data-dc-tpl="141" class="dh-icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; stroke-width: 2.5;"><path data-dc-tpl="142" d="M12 7v6M12 17h.01"></path></svg></span><span data-dc-tpl="143" style="display: flex; flex-direction: column; gap: 1px; flex: 1 1 0%; min-width: 0px;"><span data-dc-tpl="144" class="sr-phase-title" style="font-weight: 500;"><span class="sc-interp">Push</span></span><span data-dc-tpl="145" class="sr-trunc" style="font-size: 12px; color: var(--text-secondary);"><span class="sc-interp">Waiting for you</span></span></span><span data-dc-tpl="146" style="font-size: 12px; color: var(--text-secondary);"><span class="sc-interp"></span></span></button></li></ol></div><div data-dc-tpl="159" style="padding: 12px 16px 16px; border-top: 1px solid var(--border-default);"><div data-dc-tpl="160" class="dh-composer" style="padding: 10px 12px;"><label data-dc-tpl="161" for="sr-ask" class="dh-sr-only">Ask Claude to change something</label><textarea data-dc-tpl="162" id="sr-ask" rows="2" placeholder="Ask Claude to change something" style="font-size: 14px;"></textarea><div data-dc-tpl="163" class="dh-composer-bar"><button data-dc-tpl="164" class="dh-btn dh-btn--ghost dh-btn--icon dh-btn--sm" type="button" aria-label="Add context"><svg data-dc-tpl="165" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><line data-dc-tpl="166" x1="12" y1="5" x2="12" y2="19"></line><line data-dc-tpl="167" x1="5" y1="12" x2="19" y2="12"></line></svg></button><button data-dc-tpl="168" class="dh-btn dh-btn--ghost dh-btn--sm" type="button" aria-haspopup="listbox">Default (recommended)<svg data-dc-tpl="169" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><polyline data-dc-tpl="170" points="6 9 12 15 18 9"></polyline></svg></button><button data-dc-tpl="171" class="dh-btn dh-btn--primary dh-send" type="button" aria-label="Send"><svg data-dc-tpl="172" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true"><path data-dc-tpl="173" d="M12 19V5M5 12l7-7 7 7"></path></svg></button></div></div></div></section><section data-dc-tpl="174" aria-label="Review" style="display: flex; flex-direction: column; min-height: 0px;"><div data-dc-tpl="175" style="display: flex; align-items: center; gap: 12px; padding: 0px 20px; border-bottom: 1px solid var(--border-default);"><div data-dc-tpl="176" class="dh-tabs" role="tablist" aria-label="Review" style="border-bottom: 0px; flex: 1 1 0%;"><button data-dc-tpl="178" class="dh-tab" role="tab" type="button" aria-selected="true" tabindex="0"><span class="sc-interp">Changes</span><span data-dc-tpl="179" class="dh-count"><span class="sc-interp">5</span></span></button><button data-dc-tpl="178" class="dh-tab" role="tab" type="button" aria-selected="false" tabindex="-1"><span class="sc-interp">Review comments</span><span data-dc-tpl="179" class="dh-count"><span class="sc-interp">3</span></span></button><button data-dc-tpl="178" class="dh-tab" role="tab" type="button" aria-selected="false" tabindex="-1"><span class="sc-interp">Ports</span><span data-dc-tpl="179" class="dh-count"><span class="sc-interp">1</span></span></button><button data-dc-tpl="178" class="dh-tab" role="tab" type="button" aria-selected="false" tabindex="-1"><span class="sc-interp">Context</span><span data-dc-tpl="179" class="dh-count"><span class="sc-interp">1</span></span></button></div><span data-dc-tpl="181" style="font-size: 13px;"><span data-dc-tpl="182" style="color: var(--success);">+217</span> <span data-dc-tpl="183" style="color: var(--danger);">−7</span></span><button data-dc-tpl="184" class="dh-btn dh-btn--ghost dh-btn--sm" type="button" aria-pressed="true" style="background: var(--bg-subtle); color: var(--text-primary);">Wrap lines</button></div><div data-dc-tpl="186" style="display: grid; grid-template-columns: 240px minmax(0px, 1fr); flex: 1 1 0%; min-height: 0px;"><div data-dc-tpl="187" role="list" aria-label="Changed files" style="overflow-y: auto; border-right: 1px solid var(--border-default); padding: 8px 0px;"><div data-dc-tpl="189" role="listitem"><button data-dc-tpl="190" class="sr-file" type="button" aria-current="true"><span data-dc-tpl="191" style="display: flex; align-items: center; gap: 6px; min-width: 0px;"><span data-dc-tpl="192" class="dh-mono sr-trunc" style="font-size: 12.5px; font-weight: 500; flex: 1 1 0%;"><span class="sc-interp">agent-settings-dialog.tsx</span></span><span data-dc-tpl="194" aria-label="1 review comment, fixed" title="1 review comment, fixed" style="display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--accent-text);"><svg data-dc-tpl="195" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true" style="width: 12px; height: 12px;"><path data-dc-tpl="196" d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg>1</span></span><span data-dc-tpl="197" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-secondary); min-width: 0px;"><span data-dc-tpl="198" class="sr-trunc" style="flex: 1 1 0%;"><span class="sc-interp">agent-builder/src/components/editor</span></span><span data-dc-tpl="199" style="color: var(--success);"><span class="sc-interp">+64</span></span><span data-dc-tpl="200" style="color: var(--danger);"><span class="sc-interp">−4</span></span></span></button></div><div data-dc-tpl="189" role="listitem"><button data-dc-tpl="190" class="sr-file" type="button" aria-current="false"><span data-dc-tpl="191" style="display: flex; align-items: center; gap: 6px; min-width: 0px;"><span data-dc-tpl="192" class="dh-mono sr-trunc" style="font-size: 12.5px; font-weight: 500; flex: 1 1 0%;"><span class="sc-interp">agent-settings-form.tsx</span></span><span data-dc-tpl="194" aria-label="1 review comment, fixed" title="1 review comment, fixed" style="display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--accent-text);"><svg data-dc-tpl="195" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true" style="width: 12px; height: 12px;"><path data-dc-tpl="196" d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg>1</span></span><span data-dc-tpl="197" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-secondary); min-width: 0px;"><span data-dc-tpl="198" class="sr-trunc" style="flex: 1 1 0%;"><span class="sc-interp">agent-builder/src/components/editor</span></span><span data-dc-tpl="199" style="color: var(--success);"><span class="sc-interp">+11</span></span><span data-dc-tpl="200" style="color: var(--danger);"><span class="sc-interp">−1</span></span></span></button></div><div data-dc-tpl="189" role="listitem"><button data-dc-tpl="190" class="sr-file" type="button" aria-current="false"><span data-dc-tpl="191" style="display: flex; align-items: center; gap: 6px; min-width: 0px;"><span data-dc-tpl="192" class="dh-mono sr-trunc" style="font-size: 12.5px; font-weight: 500; flex: 1 1 0%;"><span class="sc-interp">use-avatar-upload.ts</span></span></span><span data-dc-tpl="197" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-secondary); min-width: 0px;"><span data-dc-tpl="198" class="sr-trunc" style="flex: 1 1 0%;"><span class="sc-interp">agent-builder/src/hooks</span></span><span data-dc-tpl="199" style="color: var(--success);"><span class="sc-interp">+125</span></span><span data-dc-tpl="200" style="color: var(--danger);"><span class="sc-interp"></span></span></span></button></div><div data-dc-tpl="189" role="listitem"><button data-dc-tpl="190" class="sr-file" type="button" aria-current="false"><span data-dc-tpl="191" style="display: flex; align-items: center; gap: 6px; min-width: 0px;"><span data-dc-tpl="192" class="dh-mono sr-trunc" style="font-size: 12.5px; font-weight: 500; flex: 1 1 0%;"><span class="sc-interp">spec.md</span></span></span><span data-dc-tpl="197" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-secondary); min-width: 0px;"><span data-dc-tpl="198" class="sr-trunc" style="flex: 1 1 0%;"><span class="sc-interp">specs/agent-settings</span></span><span data-dc-tpl="199" style="color: var(--success);"><span class="sc-interp">+6</span></span><span data-dc-tpl="200" style="color: var(--danger);"><span class="sc-interp">−2</span></span></span></button></div><div data-dc-tpl="189" role="listitem"><button data-dc-tpl="190" class="sr-file" type="button" aria-current="false"><span data-dc-tpl="191" style="display: flex; align-items: center; gap: 6px; min-width: 0px;"><span data-dc-tpl="192" class="dh-mono sr-trunc" style="font-size: 12.5px; font-weight: 500; flex: 1 1 0%;"><span class="sc-interp">agent-settings-form.test.tsx</span></span></span><span data-dc-tpl="197" style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-secondary); min-width: 0px;"><span data-dc-tpl="198" class="sr-trunc" style="flex: 1 1 0%;"><span class="sc-interp">agent-builder/src/__tests__</span></span><span data-dc-tpl="199" style="color: var(--success);"><span class="sc-interp">+11</span></span><span data-dc-tpl="200" style="color: var(--danger);"><span class="sc-interp"></span></span></span></button></div></div><div data-dc-tpl="201" style="display: flex; flex-direction: column; min-height: 0px; min-width: 0px;"><div data-dc-tpl="202" style="display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--border-default); background: var(--bg-sidebar); font-size: 12.5px;"><span data-dc-tpl="203" class="dh-mono sr-trunc" title="packages/agent-builder/src/components/editor/agent-settings-dialog.tsx" style="flex: 1 1 0%;"><span data-dc-tpl="204" style="color: var(--text-secondary);"><span class="sc-interp">packages/agent-builder/src/components/editor</span>/</span><span data-dc-tpl="205" style="font-weight: 500;"><span class="sc-interp">agent-settings-dialog.tsx</span></span></span><label data-dc-tpl="208" style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); cursor: pointer;"><button data-dc-tpl="209" class="dh-checkbox" role="checkbox" type="button" aria-checked="false" aria-label="Mark file as viewed"><svg data-dc-tpl="210" viewBox="0 0 24 24"><path data-dc-tpl="211" d="M20 6 9 17l-5-5"></path></svg></button>Viewed</label></div><div data-dc-tpl="212" style="flex: 1 1 0%; overflow: auto; padding: 4px 0px 24px; background: var(--bg-raised);"><div data-dc-tpl="214" class="sr-line sr-hunk"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp"></span></span><span data-dc-tpl="217"><span class="sc-interp"></span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">@@ -11,10 +11,15 @@ import {</span></span></div><div data-dc-tpl="214" class="sr-line"><span data-dc-tpl="215"><span class="sc-interp">11</span></span><span data-dc-tpl="216"><span class="sc-interp">11</span></span><span data-dc-tpl="217"><span class="sc-interp"> </span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">  DialogTitle,</span></span></div><div data-dc-tpl="214" class="sr-line"><span data-dc-tpl="215"><span class="sc-interp">12</span></span><span data-dc-tpl="216"><span class="sc-interp">12</span></span><span data-dc-tpl="217"><span class="sc-interp"> </span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">} from "@simpplr/element-ui";</span></span></div><div data-dc-tpl="214" class="sr-line"><span data-dc-tpl="215"><span class="sc-interp">13</span></span><span data-dc-tpl="216"><span class="sc-interp">13</span></span><span data-dc-tpl="217"><span class="sc-interp"> </span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">import { useTranslations } from "next-intl";</span></span></div><div data-dc-tpl="214" class="sr-line sr-del"><span data-dc-tpl="215"><span class="sc-interp">14</span></span><span data-dc-tpl="216"><span class="sc-interp"></span></span><span data-dc-tpl="217"><span class="sc-interp">-</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">import { type ComponentProps, useEffect, useState } from "react";</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">14</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">import { type ComponentProps, useEffect, useMemo, useState } from "react";</span></span></div><div data-dc-tpl="220" style="margin: 6px 16px 8px 96px; border: 1px solid var(--border-default); border-radius: 8px; background: var(--bg-raised); font-family: var(--font-sans); font-size: 13px; overflow: hidden;"><div data-dc-tpl="221" style="display: flex; gap: 10px; padding: 10px 12px;"><span data-dc-tpl="222" class="dh-avatar" aria-hidden="true"><span class="sc-interp">PS</span></span><div data-dc-tpl="223" style="display: flex; flex-direction: column; gap: 2px; min-width: 0px;"><span data-dc-tpl="224"><b data-dc-tpl="225" style="font-weight: 600;"><span class="sc-interp">Priya Shah</span></b> <span data-dc-tpl="226" style="color: var(--text-secondary);">reviewed · 5 days ago</span></span><span data-dc-tpl="227"><span class="sc-interp">useState here makes the whole form re-render on every keystroke. Memoize the defaults.</span></span></div></div><div data-dc-tpl="228" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--success-subtle); border-top: 1px solid var(--border-default);"><svg data-dc-tpl="229" class="dh-icon" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--success); width: 14px; height: 14px;"><path data-dc-tpl="230" d="M20 6 9 17l-5-5"></path></svg><span data-dc-tpl="231" style="flex: 1 1 0%;"><b data-dc-tpl="232" style="font-weight: 600;">Fixed by Claude:</b> <span class="sc-interp">moved the defaults into useMemo (line 14 and draftDefaults below).</span></span></div></div><div data-dc-tpl="214" class="sr-line"><span data-dc-tpl="215"><span class="sc-interp">15</span></span><span data-dc-tpl="216"><span class="sc-interp">15</span></span><span data-dc-tpl="217"><span class="sc-interp"> </span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">import { type FieldPath, FormProvider, get, useForm, useWatch } from "react-hook-form";</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">18</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">import {</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">19</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">  AvatarUploadProvider,</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">20</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">  useAvatarUpload,</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">21</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">} from "../../hooks/use-avatar-upload";</span></span></div><div data-dc-tpl="214" class="sr-line sr-hunk"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp"></span></span><span data-dc-tpl="217"><span class="sc-interp"></span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">@@ -168,6 +173,46 @@ export function AgentSettingsDialog</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">176</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">/**</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">177</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp"> * The editor's values, with text inputs the draft writes as "" for undefined, so the form starts clean.</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">178</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp"> */</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">179</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">function draftDefaults(values: AgentConfig): AgentConfig {</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">180</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">  return { ...values, name: values.name ?? "", tagline: values.tagline ?? "", description: values.description ?? "" };</span></span></div><div data-dc-tpl="214" class="sr-line sr-add"><span data-dc-tpl="215"><span class="sc-interp"></span></span><span data-dc-tpl="216"><span class="sc-interp">181</span></span><span data-dc-tpl="217"><span class="sc-interp">+</span></span><span data-dc-tpl="218" style="white-space: pre-wrap; word-break: break-word; padding-right: 12px;"><span class="sc-interp">}</span></span></div></div></div></div><div data-dc-tpl="267" role="status" aria-live="polite" class="dh-sr-only"><span class="sc-interp"></span></div></section></div></main></div>
+</body>
+</html>

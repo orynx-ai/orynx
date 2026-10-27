@@ -16,7 +16,7 @@ import {
 import { portWords } from '../port-words.ts';
 import { useSessionChanges, useSessionPorts } from '../queries.ts';
 import { contextWords } from '../ticket-tab-words.ts';
-import { ChangesPanel } from './changes-panel.tsx';
+import { ChangesPanel, ChangesTools } from './changes-panel.tsx';
 import { ContextPanel, contextOf } from './context-panel.tsx';
 import { PortsPanel } from './ports-panel.tsx';
 
@@ -71,24 +71,27 @@ export function SessionDetails({ session }: { session: Session }) {
         }}
         className="flex min-h-0 flex-col"
       >
-        <div className="flex shrink-0 items-center gap-2 border-b border-border">
-          <TabsList aria-label="Session details" className="min-w-0 flex-1 border-b-0">
-            {ports ? (
-              <TabsTrigger value="ports" {...(listening === 0 ? {} : { count: listening })}>
-                {portWords.tab}
-              </TabsTrigger>
-            ) : null}
+        {/* The Changes tab's tools go under the tabs, on the right, when the pane is too narrow for one line (spec 048). */}
+        <div className="flex shrink-0 flex-wrap items-center gap-x-2 border-b border-border">
+          {/* Changes first, as the redesigned session draws them (spec 048); the tab Orynx opens on is as before. */}
+          <TabsList aria-label="Session details" className="min-w-0 grow border-b-0">
             {ask ? null : (
               <TabsTrigger value="changes" {...(count === undefined ? {} : { count })}>
                 Changes
               </TabsTrigger>
             )}
+            {ports ? (
+              <TabsTrigger value="ports" {...(listening === 0 ? {} : { count: listening })}>
+                {portWords.tab}
+              </TabsTrigger>
+            ) : null}
             {items > 0 ? (
               <TabsTrigger value="context" count={items}>
                 {contextWords.tab}
               </TabsTrigger>
             ) : null}
           </TabsList>
+          {shown === 'changes' ? <ChangesTools sessionId={session.id} /> : null}
           <IconButton
             variant="ghost"
             size="sm"
@@ -101,16 +104,16 @@ export function SessionDetails({ session }: { session: Session }) {
           </IconButton>
         </div>
         {/* Each tab scrolls on its own while the pane is held in view; relative, so hidden words in it are clipped there. */}
-        {ports ? (
-          <TabsContent value="ports" className="relative min-h-0 overflow-y-auto pt-3">
-            {portsPanel}
-          </TabsContent>
-        ) : null}
         {ask ? null : (
           <TabsContent value="changes" className="relative min-h-0 overflow-y-auto pt-3">
             {changes}
           </TabsContent>
         )}
+        {ports ? (
+          <TabsContent value="ports" className="relative min-h-0 overflow-y-auto pt-3">
+            {portsPanel}
+          </TabsContent>
+        ) : null}
         {items > 0 ? (
           <TabsContent value="context" className="relative min-h-0 overflow-y-auto pt-3">
             {context}

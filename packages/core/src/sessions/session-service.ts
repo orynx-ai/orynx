@@ -79,6 +79,7 @@ import {
   removeWaiting,
   replaceStep,
   resumeProgress,
+  stampNew,
   type NewStep,
   type Progress,
 } from './progress.ts';
@@ -505,7 +506,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const next = update(current);
       seen.listsChanged = next.session.state !== current.session.state || next.session.title !== current.session.title;
       seen.before = current.session;
-      return { ...next, session: { ...next.session, updatedAt: new Date(now()).toISOString() } };
+      const at = new Date(now()).toISOString();
+      const activities = stampNew(current.session.activities, next.session.activities, { step: next.session.step, at });
+      return { ...next, session: { ...next.session, activities, updatedAt: at } };
     });
     if (saved === null) return null;
     if (seen.listsChanged) events.publish({ type: 'sessions.changed' });

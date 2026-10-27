@@ -14,6 +14,21 @@ describe('Button', () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
+  it('AC-18 (spec 048): a ghost toggle that is pressed keeps a tint, so Wrap lines shows it is on', () => {
+    const { rerender } = render(
+      <Button variant="ghost" size="sm" aria-pressed>
+        Wrap lines
+      </Button>,
+    );
+    expect(screen.getByRole('button', { name: 'Wrap lines', pressed: true })).toHaveClass('aria-pressed:bg-subtle');
+    rerender(
+      <Button variant="ghost" size="sm" aria-pressed={false}>
+        Wrap lines
+      </Button>,
+    );
+    expect(screen.getByRole('button', { name: 'Wrap lines', pressed: false })).toBeInTheDocument();
+  });
+
   it('defaults to type="button" so it never submits a form by accident', () => {
     render(<Button>Allow once</Button>);
     expect(screen.getByRole('button', { name: 'Allow once' })).toHaveAttribute('type', 'button');

@@ -54,7 +54,7 @@ afterEach(() => {
 });
 
 async function progress() {
-  return within(await screen.findByRole('region', { name: "Claude's progress" }));
+  return within(await screen.findByRole('region', { name: 'What Claude did' }));
 }
 
 describe('SessionProgress', () => {
@@ -351,5 +351,173 @@ describe('SessionProgress', () => {
     await waitFor(() => {
       expect(pane.queryByRole('button', { name: 'Jump to latest' })).toBeNull();
     });
+  });
+});
+
+describe('What Claude did, by step (spec 048)', () => {
+  const longCommand =
+    'cd packages/agent-builder/src; grep -n "uploading" components/avatar-picker.tsx | head -40; cat hooks/use-avatar-upload.tsx';
+  /** Stamped with its step and the minute it started, from 09:56 (spec 048). */
+  const at = (step: 'plan' | 'build' | 'test', minute: number) =>
+    ({ step, at: `2026-10-16T09:${String(minute).padStart(2, '0')}:00.000Z` }) as const;
+  const grouped = (overrides: Partial<Session> = {}) =>
+    session({
+      step: 'test',
+      steps: [
+        { kind: 'plan', label: 'Read comments' },
+        { kind: 'build', label: 'Apply fixes' },
+        { kind: 'test', label: 'Run tests' },
+        { kind: 'pull_request', label: 'Push' },
+      ],
+      activities: [
+        {
+          id: 'step-1',
+          state: 'done',
+          kind: 'worktree',
+          branch: null,
+          base: 'origin/main',
+          fetched: true,
+          ...at('plan', 56),
+        },
+        { id: 'step-2', state: 'done', kind: 'explore', files: ['src/ContentList.tsx'], ...at('plan', 56) },
+        { id: 'step-3', state: 'done', kind: 'edit', files: ['src/ContentList.tsx'], ...at('build', 57) },
+        { id: 'step-4', state: 'running', kind: 'command', commands: ['npm test', longCommand], ...at('test', 59) },
+      ],
+      ...overrides,
+    });
+
+  it('AC-10, AC-11: shows each started step as a row with its time, the current one open, and opens the others in place', async () => {
+    server.use(sessionHandler(grouped()));
+    const { user } = await renderApp({ route });
+    const pane = await progress();
+
+    const read = pane.getByRole('button', { name: /^Read comments, done/ });
+    const fixes = pane.getByRole('button', { name: /^Apply fixes, done/ });
+    const tests = pane.getByRole('button', { name: /^Run tests/ });
+    expect(read).toHaveTextContent('1 min');
+    expect(fixes).toHaveTextContent('2 min');
+    // The step Claude is on has no time yet (Q8), and starts open.
+    expect(tests).not.toHaveTextContent(/min/);
+    expect([read, fixes, tests].map((row) => row.getAttribute('aria-expanded'))).toEqual(['false', 'false', 'true']);
+    // A closed step's rows aren't there; its latest is its summary.
+    expect(pane.queryByText('ContentList.tsx')).toBeNull();
+
+    expect(fixes).toHaveTextContent('Edited 1 file');
+    await user.click(fixes);
+    expect(fixes).toHaveAttribute('aria-expanded', 'true');
+    expect(pane.getByText('ContentList.tsx')).toBeVisible();
+    // Open, its latest row is right under it, so the row's own summary goes.
+    expect(fixes).not.toHaveTextContent('Edited 1 file');
+    await user.keyboard('{Enter}');
+    expect(fixes).toHaveAttribute('aria-expanded', 'false');
+    expect(fixes).toHaveFocus();
+  });
+
+  it('AC-12: Expand all opens every step, then reads Collapse all', async () => {
+    server.use(sessionHandler(grouped()));
+    const { user } = await renderApp({ route });
+    const pane = await progress();
+    const steps = () => pane.getAllByRole('button', { name: /^(Read comments|Apply fixes|Run tests)/ });
+    await user.click(pane.getByRole('button', { name: 'Expand all' }));
+    expect(steps().map((row) => row.getAttribute('aria-expanded'))).toEqual(['true', 'true', 'true']);
+    await user.click(pane.getByRole('button', { name: 'Collapse all' }));
+    expect(steps().map((row) => row.getAttribute('aria-expanded'))).toEqual(['false', 'false', 'false']);
+    expect(pane.getByRole('button', { name: 'Expand all' })).toBeVisible();
+  });
+
+  it('AC-13: shows each command on one line, and in full on a press', async () => {
+    server.use(sessionHandler(grouped()));
+    const { user } = await renderApp({ route });
+    const pane = await progress();
+    const command = pane.getByRole('button', { name: longCommand });
+    expect(command).toHaveAttribute('aria-expanded', 'false');
+    await user.click(command);
+    expect(command).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('AC-14: a step you opened stays open as Claude goes on', async () => {
+    let shown = grouped();
+    server.use(sessionHandler(shown));
+    const { user } = await renderApp({ route });
+    const pane = await progress();
+    await user.click(pane.getByRole('button', { name: /^Apply fixes/ }));
+    shown = grouped({
+      updatedAt: '2026-10-16T10:00:05.000Z',
+      activities: [
+        ...shown.activities,
+        { id: 'step-5', state: 'running', kind: 'explore', files: ['b.ts'], ...at('test', 59) },
+      ],
+    });
+    server.use(sessionHandler(shown));
+    act(() => {
+      FakeEventSource.latest().emit({ type: 'session.changed', sessionId: id });
+    });
+    await waitFor(() => {
+      expect(pane.getByText('b.ts')).toBeVisible();
+    });
+    expect(pane.getByRole('button', { name: /^Apply fixes/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(pane.getByRole('button', { name: /^Run tests/ })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('AC-10: after a follow-up, the step Claude is back in is the one open, and the one it works in', async () => {
+    const base = grouped();
+    server.use(
+      sessionHandler(
+        grouped({
+          step: 'build',
+          activities: [
+            ...base.activities.map((activity) => ({ ...activity, state: 'done' as const })),
+            { id: 'step-5', state: 'done', kind: 'finished', summary: 'Done.', ...at('test', 59) },
+            { id: 'step-6', state: 'running', kind: 'message', text: 'Rename it', ...at('build', 59) },
+          ],
+        }),
+      ),
+    );
+    await renderApp({ route });
+    const pane = await progress();
+    const fixes = pane.getByRole('button', { name: /^Apply fixes/ });
+    expect(fixes).toHaveAttribute('aria-expanded', 'true');
+    // Claude works in it, so it isn't done.
+    expect(fixes).not.toHaveTextContent(', done');
+    expect(pane.getByText('Rename it')).toBeVisible();
+    expect(pane.getByRole('button', { name: /^Run tests, done/ })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('AC-15: a session from before spec 048 keeps the flat list, with no Expand all', async () => {
+    server.use(sessionHandler(session()));
+    await renderApp({ route });
+    const pane = await progress();
+    expect(pane.getByText('Editing files')).toBeVisible();
+    expect(pane.queryByRole('button', { name: 'Expand all' })).toBeNull();
+  });
+
+  it('AC-16: Claude’s summary shows after the steps, in full', async () => {
+    const base = grouped();
+    server.use(
+      sessionHandler(
+        grouped({
+          state: 'done',
+          step: 'test',
+          runStartedAt: null,
+          endedAt: '2026-10-16T10:00:00.000Z',
+          activities: [
+            ...base.activities.map((activity) => ({ ...activity, state: 'done' as const })),
+            {
+              id: 'step-5',
+              state: 'done',
+              kind: 'finished',
+              summary: 'Fixed the **three** comments.',
+              ...at('test', 59),
+            },
+          ],
+        }),
+      ),
+    );
+    await renderApp({ route });
+    const pane = await progress();
+    const summary = pane.getByText('three');
+    expect(summary).toBeVisible();
+    // After the steps, not inside one.
+    expect(summary.closest('[data-slot="activity-group"]')).toBeNull();
   });
 });

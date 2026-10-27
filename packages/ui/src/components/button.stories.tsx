@@ -15,6 +15,10 @@ type Story = StoryObj<typeof meta>;
 export const Primary: Story = { args: { variant: 'primary' } };
 export const Secondary: Story = { args: { variant: 'secondary', children: 'Open in VS Code' } };
 export const Ghost: Story = { args: { variant: 'ghost', children: 'Cancel' } };
+/** A ghost toggle that's on, as Wrap lines is (spec 048). */
+export const GhostPressed: Story = {
+  args: { variant: 'ghost', size: 'sm', 'aria-pressed': true, children: 'Wrap lines' },
+};
 export const Danger: Story = { args: { variant: 'danger', children: 'Discard changes' } };
 /** The quiet one `session.html` draws under the changes: ghost, danger text, a confirm step before it acts. */
 export const DangerGhost: Story = { args: { variant: 'danger-ghost', size: 'sm', children: 'Discard changes' } };

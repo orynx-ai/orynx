@@ -58,8 +58,11 @@ describe('ChangesPanel', () => {
 
     const list = await screen.findByRole('list', { name: 'Changed files' });
     expect(within(list).getAllByRole('button', { name: /^src\// })).toHaveLength(4);
-    expect(screen.getByText('in 4 files · updates live as Claude edits')).toBeVisible();
+    // The totals sit in the tab row, drawn as "+142 −18" and read as words (spec 048).
+    expect(screen.getByText('+142')).toBeVisible();
+    expect(screen.getByText('−18')).toBeVisible();
     expect(screen.getByText('142 lines added, 18 lines removed in 4 files')).toBeInTheDocument();
+    expect(screen.queryByText(/updates live/)).not.toBeInTheDocument();
     expect(within(list).getByRole('button', { name: /^src\/content\/ContentList\.tsx/ })).toHaveAttribute(
       'aria-current',
       'true',
@@ -68,10 +71,47 @@ describe('ChangesPanel', () => {
     expect(within(diff).getByText('const archive = useBulkArchive();', { exact: false })).toBeVisible();
   });
 
-  it('AC-2: says nothing about updating live once Claude has finished', async () => {
+  it('AC-18, AC-19, AC-20 (spec 048): Wrap lines starts pressed, and pressing it lets long lines scroll instead', async () => {
     serve(done, makeSessionChanges(), { [contentList.path]: contentList });
-    await renderApp({ route: `/sessions/${id}` });
-    expect(await screen.findByText('in 4 files')).toBeVisible();
+    const { user } = await renderApp({ route: `/sessions/${id}` });
+    const wrap = await screen.findByRole('button', { name: 'Wrap lines' });
+    expect(wrap).toHaveAttribute('aria-pressed', 'true');
+    const diff = await screen.findByRole('region', { name: 'Changes in ContentList.tsx' });
+    const line = within(diff).getByText('const archive = useBulkArchive();', { exact: false });
+    expect(line).toHaveClass('whitespace-pre-wrap');
+    await user.click(wrap);
+    expect(wrap).toHaveAttribute('aria-pressed', 'false');
+    expect(line).not.toHaveClass('whitespace-pre-wrap');
+  });
+
+  it('AC-21, AC-22 (spec 048): a new file says so, and Viewed stays ticked until Claude changes the file again', async () => {
+    const created = makeChangedFile({ path: 'src/content/useArchive.ts', added: 12, removed: 0, created: true });
+    const state = serve(done, makeSessionChanges({ files: [created, makeChangedFile()], added: 80, removed: 9 }), {
+      [created.path]: makeFileDiff({ path: created.path }),
+    });
+    const { user } = await renderApp({ route: `/sessions/${id}` });
+    const diff = await screen.findByRole('region', { name: 'Changes in useArchive.ts' });
+    expect(within(diff).getByText('New file')).toBeVisible();
+
+    const viewed = within(diff).getByRole('checkbox', { name: 'Viewed' });
+    expect(viewed).not.toBeChecked();
+    await user.click(viewed);
+    expect(viewed).toBeChecked();
+
+    // Claude changes the file again: its counts change, and Viewed clears.
+    state.changes = makeSessionChanges({
+      files: [{ ...created, added: 14 }, makeChangedFile()],
+      added: 82,
+      removed: 9,
+    });
+    FakeEventSource.latest().emit({ type: 'session.files.changed', sessionId: id });
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole('region', { name: 'Changes in useArchive.ts' })).getByRole('checkbox', {
+          name: 'Viewed',
+        }),
+      ).not.toBeChecked();
+    });
   });
 
   it('AC-3: picking a file shows its diff and puts it in the address, so a reload shows it again', async () => {

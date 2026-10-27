@@ -81,7 +81,7 @@ describe('ApprovalCallout (spec 012)', () => {
     await renderApp({ route });
 
     const callout = await screen.findByRole('alert');
-    const steps = within(screen.getByRole('region', { name: "Claude's progress" })).getByRole('list');
+    const steps = within(screen.getByRole('region', { name: 'What Claude did' })).getByRole('list');
     expect(steps.compareDocumentPosition(callout) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -117,7 +117,7 @@ describe('ApprovalCallout (spec 012)', () => {
     await waitFor(() => {
       expect(screen.queryByRole('alert')).toBeNull();
     });
-    expect(screen.getByRole('region', { name: "Claude's progress" })).toHaveFocus();
+    expect(screen.getByRole('region', { name: 'What Claude did' })).toHaveFocus();
   });
 
   it('AC-3, AC-5: Deny and Always allow send their own answers', async () => {
@@ -149,7 +149,9 @@ describe('ApprovalCallout (spec 012)', () => {
     const callout = await screen.findByRole('alert');
     expect(within(callout).getByText('Claude wants to edit a file')).toBeVisible();
     const change = within(callout).getByRole('region', { name: 'Changes in ContentList.tsx' });
-    expect(within(change).getByText('src/content/ContentList.tsx')).toBeVisible();
+    // The folder muted, then the file's name (spec 048).
+    expect(within(change).getByText('ContentList.tsx')).toBeVisible();
+    expect(within(change).getByTitle('src/content/ContentList.tsx')).toHaveTextContent('src/content/ContentList.tsx');
     expect(within(change).getByText('const { selected } = useSelection(items);', { exact: false })).toBeVisible();
     expect(within(callout).getByText('and 12 more lines')).toBeVisible();
     expect(within(callout).queryByRole('button', { name: /Always allow/ })).toBeNull();
@@ -202,7 +204,7 @@ describe('ApprovalCallout (spec 012)', () => {
   it('shows nothing when no call waits', async () => {
     server.use(sessionHandler(waitingOn()));
     await renderApp({ route });
-    expect(await screen.findByRole('region', { name: "Claude's progress" })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'What Claude did' })).toBeVisible();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

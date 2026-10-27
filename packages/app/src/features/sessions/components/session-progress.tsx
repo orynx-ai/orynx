@@ -18,9 +18,12 @@ import {
 } from '@hugeicons/core-free-icons';
 import { stepsOf, type Session, type SessionActivity, type SessionStep } from '@devhub/contracts';
 import {
+  ActivityGroup,
   ActivityList,
   ActivityStep,
+  Button,
   Callout,
+  CommandLine,
   Icon,
   IconButton,
   Markdown,
@@ -33,16 +36,18 @@ import {
 import { usePlatform } from '../../../platform.tsx';
 import { durationText } from '../../../words/duration.ts';
 import { useNow } from '../../../words/use-now.ts';
+import { groupsOf, stepTimeText } from '../activity-groups.ts';
 import { followWords, problemWords, stepWords, usageWords } from '../step-words.ts';
 import { ApprovalCallout } from './approval-callout.tsx';
 import { StepDetails, hasDetails } from './step-details.tsx';
 
 /** Where the session is among its own steps (spec 042), with the steps it passed over (spec 031). */
-export function SessionStepper({ session }: { session: Session }) {
+export function SessionStepper({ session, className }: { session: Session; className?: string }) {
   const steps = stepsOf(session);
   const at = (kind: SessionStep) => steps.findIndex((step) => step.kind === kind);
   return (
     <Stepper
+      className={className}
       aria-label="Session progress"
       steps={steps.map((step) => step.label)}
       current={at(session.step)}
@@ -153,6 +158,21 @@ function commandsDetail(commands: readonly string[]): ReactNode {
   );
 }
 
+/** Commands inside a step's group (spec 048): each on one line, in full on a press, then "and 2 more". */
+function CommandLines({ commands }: { commands: readonly string[] }) {
+  const shown = commands.slice(0, 3);
+  const more = commands.length - shown.length;
+  return (
+    <div className="mt-1 flex flex-col gap-1">
+      {shown.map((command, index) => (
+        // The same command can run twice; their order is fixed.
+        <CommandLine key={index} command={command} />
+      ))}
+      {more > 0 ? <span>{`and ${String(more)} more`}</span> : null}
+    </div>
+  );
+}
+
 /** Claude's summary laid out as the Markdown it writes, not its raw marks. */
 function Summary({ text }: { text: string }) {
   const platform = usePlatform();
@@ -167,8 +187,10 @@ function Summary({ text }: { text: string }) {
 }
 
 /** A step's line under its title: commands as code, the brief's files by name with their paths on hover. */
-function detailOf(activity: SessionActivity, detail: string | null): ReactNode {
-  if (activity.kind === 'command') return commandsDetail(activity.commands);
+function detailOf(activity: SessionActivity, detail: string | null, grouped: boolean): ReactNode {
+  if (activity.kind === 'command') {
+    return grouped ? <CommandLines commands={activity.commands} /> : commandsDetail(activity.commands);
+  }
   if (activity.kind === 'finished' && detail !== null) return <Summary text={activity.summary} />;
   if (activity.kind === 'denied' && activity.about === 'command') return <Command>{activity.text}</Command>;
   if (activity.kind === 'refused' && activity.access === 'run') return <Command>{activity.path}</Command>;
@@ -252,9 +274,12 @@ function WorkedFor({ session }: { session: Session }) {
 }
 
 /**
- * "Claude's progress" (`session.html`): why the session couldn't start when it couldn't, then each step
- * in its words, the latest one still running (AC-4, AC-13), then the follow-up box (spec 013). The box sticks
- * to the window's bottom while the pane is taller than the window (spec 013, Q6b).
+ * "What Claude did" (`session-review.html`, spec 048; "Claude's progress" in `session.html`): why the session couldn't
+ * start when it couldn't, then each step in its words, the latest one still running (AC-4, AC-13), then the follow-up
+ * box (spec 013). A session from spec 048 on groups the steps under its own (`groupsOf`): the one Claude is on starts
+ * open, a step you open stays open, and Claude's last summary shows after them. The approval stays under the last
+ * step, outside the groups, so closing one never hides it. The box sticks to the window's bottom while the pane is
+ * taller than the window (spec 013, Q6b).
  */
 export function SessionProgress({ session, footer }: { session: Session; footer?: ReactNode }) {
   const problem = session.problem === null ? null : problemWords(session.problem, session);
@@ -264,68 +289,126 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
   const [shownId, setShownId] = useState<string | null>(null);
   const shown = session.activities.find((activity) => activity.id === shownId) ?? null;
   const { end, atEnd, jump } = useFollow(session.updatedAt);
+  const groups = groupsOf(session);
+  // Which steps you opened or closed, by kind; the rest follow where Claude is: the step of its latest activity, which
+  // after a follow-up may come before a later one (AC-10).
+  const [opened, setOpened] = useState<Partial<Record<SessionStep, boolean>>>({});
+  const newest = session.activities.findLast((activity) =>
+    groups?.some((group) => group.activities.includes(activity)),
+  );
+  const currentKind = groups?.find((group) => newest !== undefined && group.activities.includes(newest))?.step.kind;
+  const isOpen = (kind: SessionStep) => opened[kind] ?? kind === currentKind;
+  const anyClosed = groups?.some((group) => !isOpen(group.step.kind)) ?? false;
+  const working = session.state === 'working' || session.state === 'needs_you';
+  const last = session.activities.at(-1);
+  const row = (activity: SessionActivity, grouped: boolean, className?: string) => {
+    const words = stepWords(activity);
+    const { state, icon } = look(activity);
+    return (
+      <ActivityStep
+        key={activity.id}
+        state={state}
+        icon={icon}
+        title={titleOf(activity, words.title)}
+        detail={detailOf(activity, words.detail, grouped)}
+        className={className}
+        onOpen={
+          hasDetails(activity)
+            ? () => {
+                setShownId(activity.id);
+              }
+            : undefined
+        }
+      />
+    );
+  };
   return (
     <>
       <Panel
         ref={pane}
         tabIndex={-1}
-        title="Claude's progress"
-        actions={<WorkedFor session={session} />}
-        // Clipped without being a scroll box, so the box at its end can stick to the window.
-        className="overflow-clip"
+        title="What Claude did"
+        actions={
+          <>
+            <WorkedFor session={session} />
+            {groups === null ? null : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setOpened(Object.fromEntries(groups.map((group) => [group.step.kind, anyClosed])));
+                }}
+              >
+                {anyClosed ? 'Expand all' : 'Collapse all'}
+              </Button>
+            )}
+          </>
+        }
+        // Stacked, it's clipped without being a scroll box, so the box at its end can stick to the window. Side by side
+        // (spec 048, Q4), it's held in view under the page bar, as tall as the window less the bar and its gaps, and
+        // its steps scroll on their own above the box.
+        // style-policy-ignore-next-line: the window's height less the page bar and its gaps has no scale step
+        className="overflow-clip @3xl:sticky @3xl:top-20 @3xl:flex @3xl:max-h-[calc(100svh-7rem)] @3xl:flex-col"
       >
-        <div className="flex flex-col gap-4 p-4">
+        <div className="flex flex-col gap-4 p-4 @3xl:min-h-0 @3xl:flex-1 @3xl:overflow-y-auto">
           {problem === null ? null : (
             <Callout tone="danger" role="alert" title={problem.title}>
               <span>{withCode(problem.line)}</span>
             </Callout>
           )}
-          <ActivityList>
-            {session.activities.map((activity) => {
-              const words = stepWords(activity);
-              const { state, icon } = look(activity);
-              return (
-                <ActivityStep
-                  key={activity.id}
-                  state={state}
-                  icon={icon}
-                  title={titleOf(activity, words.title)}
-                  detail={detailOf(activity, words.detail)}
-                  onOpen={
-                    hasDetails(activity)
-                      ? () => {
-                          setShownId(activity.id);
-                        }
-                      : undefined
-                  }
-                />
-              );
-            })}
-          </ActivityList>
+          {groups === null ? (
+            <ActivityList>{session.activities.map((activity) => row(activity, false))}</ActivityList>
+          ) : (
+            <ActivityList className="gap-0">
+              {groups.map((group) => {
+                const latest = group.activities.at(-1);
+                const current = working && group.step.kind === currentKind;
+                const state = current ? (session.state === 'needs_you' ? 'waiting' : undefined) : 'done';
+                const { kind, label } = group.step;
+                return (
+                  <ActivityGroup
+                    key={kind}
+                    state={state}
+                    icon={state === 'done' || latest === undefined ? <Icon icon={Tick02Icon} /> : look(latest).icon}
+                    title={label}
+                    // Only while it's closed: open, its latest row is right under it.
+                    summary={isOpen(kind) || latest === undefined ? undefined : stepWords(latest).title}
+                    time={group.ms === null ? undefined : stepTimeText(group.ms)}
+                    open={isOpen(kind)}
+                    onOpenChange={(open) => {
+                      setOpened((was) => ({ ...was, [kind]: open }));
+                    }}
+                  >
+                    <ActivityList aria-label={label}>
+                      {group.activities.map((activity) => row(activity, true))}
+                    </ActivityList>
+                  </ActivityGroup>
+                );
+              })}
+              {/* Claude's last summary, after the steps and always shown (AC-16). */}
+              {last?.kind === 'finished' ? row(last, true, 'pt-3.5') : null}
+            </ActivityList>
+          )}
           {/* Under the last step, as a chat asks, not at the top (the user's call, 20 Oct 2026). */}
           <ApprovalCallout session={session} afterAll={pane} />
-          {/* The steps pass under the follow-up box, on the pane's own colour; Jump to latest sits over it. */}
-          <div
-            className={
-              footer === undefined ? 'sticky bottom-4 h-0' : 'sticky bottom-0 -mx-4 -mb-4 bg-raised px-4 pt-2 pb-4'
-            }
-          >
-            {atEnd ? null : (
-              <IconButton
-                variant="secondary"
-                label={followWords.jump}
-                onClick={jump}
-                className="absolute end-4 bottom-full mb-2 rounded-full shadow-overlay"
-              >
-                <Icon icon={ArrowDown01Icon} aria-hidden />
-              </IconButton>
-            )}
-            {footer}
-          </div>
+          {/* The steps' end: in view only once you've scrolled to the end of What Claude did. */}
+          <div ref={end} aria-hidden />
+        </div>
+        {/* The steps pass under the follow-up box, on the pane's own colour; Jump to latest sits over it. */}
+        <div className={footer === undefined ? 'sticky bottom-4 h-0' : 'sticky bottom-0 bg-raised px-4 pt-2 pb-4'}>
+          {atEnd ? null : (
+            <IconButton
+              variant="secondary"
+              label={followWords.jump}
+              onClick={jump}
+              className="absolute end-4 bottom-full mb-2 rounded-full shadow-overlay"
+            >
+              <Icon icon={ArrowDown01Icon} aria-hidden />
+            </IconButton>
+          )}
+          {footer}
         </div>
       </Panel>
-      {/* Past the pane's end: in view only once you've scrolled to the end of Claude's progress. */}
-      <div ref={end} aria-hidden />
       <StepDetails
         session={session}
         activity={shown}
@@ -351,7 +434,7 @@ export function SessionStepperSkeleton() {
 export function SessionProgressSkeleton() {
   return (
     <div aria-hidden>
-      <Panel title="Claude's progress">
+      <Panel title="What Claude did">
         <div className="flex flex-col gap-3.5 p-4">
           {[0, 1, 2].map((row) => (
             <span key={row} className="flex gap-3">

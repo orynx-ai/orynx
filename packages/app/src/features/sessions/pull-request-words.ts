@@ -36,6 +36,30 @@ export const pullRequestWords = {
   pushFailed: "Couldn't push the changes. Try again.",
 } as const;
 
+/** "Push to PR #2974": the next-move bar's button (spec 048). */
+export function pushToLabel(number: number): string {
+  return `Push to PR #${String(number)}`;
+}
+
+/**
+ * The next-move bar's words (spec 048, Q7): what's ready, the changes in a line, and what pushing or creating does.
+ * "4 files, +142 −18. Nothing leaves your machine until you push."
+ */
+export const nextMoveWords = {
+  readyToPush: 'Ready to push',
+  readyForPullRequest: 'Ready for a pull request',
+  pushed: (number: number) => `Pushed to PR #${String(number)}`,
+  pushedLine: 'GitHub has everything from this worktree.',
+  changesLine(changes: { files: number; added: number; removed: number } | null, until: 'push' | 'create'): string {
+    const rest = `Nothing leaves your machine until you ${until === 'push' ? 'push' : 'create it'}.`;
+    if (changes === null) return rest;
+    const { files, added, removed } = changes;
+    const counts = [added > 0 ? `+${String(added)}` : '', removed > 0 ? `−${String(removed)}` : ''].join(' ').trim();
+    const inFiles = `${String(files)} ${files === 1 ? 'file' : 'files'}`;
+    return `${counts === '' ? inFiles : `${inFiles}, ${counts}`}. ${rest}`;
+  },
+} as const;
+
 /** "Open PR #2841" (Q11a). */
 export function openPullRequestLabel(number: number): string {
   return `Open PR #${String(number)}`;

@@ -104,6 +104,24 @@ export function removeWaiting(progress: Progress, approvalId: string): Progress 
   return activities.length === progress.activities.length ? progress : { ...progress, activities };
 }
 
+/**
+ * Gives each activity `after` adds the session's step and the time (spec 048). One rebuilt under an id and kind `before`
+ * has keeps that one's stamp; one saved before spec 048 stays without, so its session shows the flat list.
+ */
+export function stampNew(
+  before: readonly SessionActivity[],
+  after: readonly SessionActivity[],
+  stamp: { step: SessionStep; at: string },
+): SessionActivity[] {
+  const seen = new Map(before.map((activity) => [activity.id, activity]));
+  return after.map((activity) => {
+    if (activity.at !== undefined) return activity;
+    const was = seen.get(activity.id);
+    if (was?.kind !== activity.kind) return { ...activity, ...stamp };
+    return was.step === undefined || was.at === undefined ? activity : { ...activity, step: was.step, at: was.at };
+  });
+}
+
 /** Puts `step` where the step with this id is, done unless said otherwise: a worktree that's now made. */
 export function replaceStep(
   progress: Progress,

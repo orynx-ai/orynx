@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { CheckboxBox } from './checkbox.tsx';
 import { DiffView, DiffViewSkeleton, type DiffLine } from './diff-view.tsx';
+import { Pill } from './pill.tsx';
 
 const lines: DiffLine[] = [
   { kind: 'context', number: 41, text: 'export function ContentList({ items }: Props) {' },
@@ -46,6 +48,23 @@ export const WideLine: Story = {
       },
       { kind: 'context', number: 15, text: '}' },
     ],
+  },
+};
+/** Wrap lines on (spec 048): the wide line wraps under its own code, beside its number. */
+export const WideLineWrapped: Story = { args: { ...WideLine.args, wrap: true } };
+/** What the Changes tab adds at the header's end: New file and Viewed (spec 048). */
+export const WithActions: Story = {
+  args: {
+    path: 'packages/agent-builder/src/hooks/use-avatar-upload.ts',
+    actions: (
+      <>
+        <Pill tone="success">New file</Pill>
+        <span className="flex items-center gap-1.5 text-muted-foreground">
+          <CheckboxBox id="viewed" />
+          <label htmlFor="viewed">Viewed</label>
+        </span>
+      </>
+    ),
   },
 };
 /** Only added lines: a new file. */

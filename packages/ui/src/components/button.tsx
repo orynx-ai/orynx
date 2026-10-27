@@ -17,7 +17,8 @@ export const buttonVariants = cva(
       variant: {
         primary: 'bg-primary text-primary-foreground hover:opacity-88',
         secondary: 'border-control bg-raised text-foreground hover:bg-subtle',
-        ghost: 'bg-transparent text-foreground hover:bg-subtle',
+        /** Pressed (`aria-pressed`), a ghost toggle keeps the hover's tint, as Wrap lines does (spec 048). */
+        ghost: 'bg-transparent text-foreground hover:bg-subtle aria-pressed:bg-subtle',
         danger: 'bg-danger text-on-danger hover:opacity-88',
         /** Ghost with danger text, as `session.html` draws Discard changes; pair it with a confirm step. */
         'danger-ghost': 'bg-transparent text-danger hover:bg-danger-subtle',

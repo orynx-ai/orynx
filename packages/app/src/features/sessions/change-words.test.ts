@@ -11,25 +11,23 @@ import {
 } from './change-words.ts';
 
 describe('the Changes tab’s words (spec 013, Q10)', () => {
-  it('AC-2, Q10b: sums up the changes, saying they update live only while Claude works', () => {
-    expect(changesSummary({ added: 142, removed: 18, files: 4, working: true })).toEqual({
+  it('AC-2, AC-18 (spec 048): sums up the changes as "+142 −18", read as words with the files', () => {
+    expect(changesSummary({ added: 142, removed: 18, files: 4 })).toEqual({
       added: '+142',
       removed: '−18',
-      rest: 'in 4 files · updates live as Claude edits',
       spoken: '142 lines added, 18 lines removed in 4 files',
     });
-    expect(changesSummary({ added: 21, removed: 0, files: 1, working: false })).toEqual({
+    expect(changesSummary({ added: 21, removed: 0, files: 1 })).toEqual({
       added: '+21',
       removed: null,
-      rest: 'in 1 file',
       spoken: '21 lines added in 1 file',
     });
-    expect(changesSummary({ added: 0, removed: 3, files: 1, working: false })).toMatchObject({
+    expect(changesSummary({ added: 0, removed: 3, files: 1 })).toMatchObject({
       added: null,
       removed: '−3',
       spoken: '3 lines removed in 1 file',
     });
-    expect(changesSummary({ added: 0, removed: 0, files: 1, working: false })).toMatchObject({ spoken: 'in 1 file' });
+    expect(changesSummary({ added: 0, removed: 0, files: 1 })).toMatchObject({ spoken: 'in 1 file' });
   });
 
   it('AC-6, Q10c: says why there are no changes to show', () => {

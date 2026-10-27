@@ -19,10 +19,9 @@ const session = makeSession({
 });
 
 /** The Session screen with its Terminal open on the Claude tab, Claude's commands as the server has them. */
-/** Terminal, in the page bar's More actions. */
+/** Terminal, in the page bar (spec 048). */
 async function openTerminal(user: Awaited<ReturnType<typeof renderApp>>['user']) {
-  await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'More actions' }));
-  await user.click(await screen.findByRole('menuitem', { name: 'Terminal' }));
+  await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: /^Terminal/ }));
 }
 
 async function openClaudeTab(found: Session, commands: () => ClaudeCommandList | Promise<ClaudeCommandList>) {

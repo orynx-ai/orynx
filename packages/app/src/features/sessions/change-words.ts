@@ -16,23 +16,19 @@ export interface ChangesSummary {
   added: string | null;
   /** "−18", drawn in danger; null for none. */
   removed: string | null;
-  /** "in 4 files · updates live as Claude edits" */
-  rest: string;
   /** The whole line for a screen reader: "142 lines added, 18 lines removed in 4 files". */
   spoken: string;
 }
 
-/** Q10b: "+142 −18 in 4 files · updates live as Claude edits" while Claude works, without the last part after. */
+/** "+142 −18" in the tab row (spec 048), read as "142 lines added, 18 lines removed in 4 files". */
 export function changesSummary({
   added,
   removed,
   files,
-  working,
 }: {
   added: number;
   removed: number;
   files: number;
-  working: boolean;
 }): ChangesSummary {
   const inFiles = `in ${String(files)} ${files === 1 ? 'file' : 'files'}`;
   const counts = [added > 0 ? lines(added, 'added') : null, removed > 0 ? lines(removed, 'removed') : null]
@@ -41,7 +37,6 @@ export function changesSummary({
   return {
     added: added > 0 ? `+${String(added)}` : null,
     removed: removed > 0 ? `−${String(removed)}` : null,
-    rest: working ? `${inFiles} · updates live as Claude edits` : inFiles,
     spoken: counts === '' ? inFiles : `${counts} ${inFiles}`,
   };
 }

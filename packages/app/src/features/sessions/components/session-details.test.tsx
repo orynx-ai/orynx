@@ -51,6 +51,26 @@ describe('SessionDetails', () => {
     expect(new URLSearchParams(history.location.search).get('tab')).toBeNull();
   });
 
+  it('AC-18 (spec 048): the tabs are Changes, Ports and Context, and only Changes shows the totals and Wrap lines', async () => {
+    server.use(sessionHandler(makeSession({ ...sent, terminal: true })));
+    serveChanges(makeSessionChanges());
+    const { user } = await renderApp({ route });
+    const tabs = await screen.findByRole('tablist', { name: 'Session details' });
+    await waitFor(() => {
+      expect(
+        within(tabs)
+          .getAllByRole('tab')
+          .map((tab) => tab.textContent),
+      ).toEqual(['Changes 4', 'Ports', 'Context 4']);
+    });
+    await user.click(within(tabs).getByRole('tab', { name: /^Changes/ }));
+    expect(await screen.findByRole('button', { name: 'Wrap lines' })).toBeVisible();
+    expect(screen.getByText('+142')).toBeVisible();
+    await user.click(within(tabs).getByRole('tab', { name: /^Context/ }));
+    expect(screen.queryByRole('button', { name: 'Wrap lines' })).not.toBeInTheDocument();
+    expect(screen.queryByText('+142')).not.toBeInTheDocument();
+  });
+
   it('013 AC-1: opens on the tab the address names, and an old Ticket link opens Context', async () => {
     server.use(sessionHandler(done));
     await renderApp({ route: `${route}?tab=ticket` });

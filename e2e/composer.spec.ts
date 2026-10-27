@@ -200,6 +200,14 @@ test('023 AC-21, AC-22: a skill from Settings › Skills is in the / list as Ory
   expect(brief).not.toContain('title: Bug bash e2e');
 });
 
+/** What Claude did, once Claude has finished, with every step open (spec 048). */
+async function everyStep(page: Page) {
+  const progress = page.getByRole('region', { name: 'What Claude did' });
+  await expect(progress.getByText('Finished')).toBeVisible({ timeout: 15_000 });
+  await progress.getByRole('button', { name: 'Expand all' }).click();
+  return progress;
+}
+
 test('AC-1, AC-4, AC-24: my words alone start a session on its own branch, and Claude gets exactly them', async ({
   page,
 }) => {
@@ -215,10 +223,10 @@ test('AC-1, AC-4, AC-24: my words alone start a session on its own branch, and C
   const crumbs = page.getByRole('navigation', { name: 'Breadcrumb' });
   await expect(crumbs.getByText('Add a CSV export to the reports page')).toBeVisible();
   await expect(crumbs.getByRole('link', { name: 'Sessions' })).toBeVisible();
-  const progress = page.getByRole('region', { name: "Claude's progress" });
+  const progress = await everyStep(page);
   // Spec 042: the worktree starts from origin/main, and its branch comes at Claude's first edit.
   await expect(progress.getByText('from origin/main')).toBeVisible();
-  await expect(progress.getByText('Made branch feat/add-a-csv-export-to')).toBeVisible({ timeout: 15_000 });
+  await expect(progress.getByText('Made branch feat/add-a-csv-export-to')).toBeVisible();
   await expect(progress.getByText('Your message', { exact: true })).toBeVisible();
   await expect(page.getByRole('tab', { name: /Context/ })).toHaveCount(0);
   await expect.poll(lastBrief).toBe('Add a CSV export to the reports page');
@@ -249,7 +257,7 @@ test('031 AC-2, AC-3, AC-5, AC-25: Ask, picked with the keyboard, reads no folde
   await expect(page.getByRole('tab', { name: /Changes/ })).toHaveCount(0);
   await expect.poll(lastBrief).toBe('What does the README say?');
   // Finished, so it no longer counts among the three sessions that may work at once.
-  await expect(page.getByRole('region', { name: "Claude's progress" }).getByText('Finished')).toBeVisible({
+  await expect(page.getByRole('region', { name: 'What Claude did' }).getByText('Finished')).toBeVisible({
     timeout: 15_000,
   });
   expect(await axe(page, 'main')).toEqual([]);
@@ -395,9 +403,7 @@ test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Ho
   await expect.poll(lastBrief).toMatch(/^Do both\n\nJira ticket PROJ-1377 /);
   expect(lastBrief()).toContain('Pull request acme/web-app #2836: Lazy-load the people directory');
   expect(lastBrief()).toContain('Jira ticket PROJ-1423 (Story): Add bulk archive to the content list');
-  await expect(
-    page.getByRole('region', { name: "Claude's progress" }).getByText('Your message, PROJ-1377, PROJ-1423 and 1 more'),
-  ).toBeVisible();
+  await expect((await everyStep(page)).getByText('Your message, PROJ-1377, PROJ-1423 and 1 more')).toBeVisible();
 });
 
 test('AC-10, AC-21: a ticket Jira can’t find stops Send, says which, and keeps the draft', async ({ page }) => {

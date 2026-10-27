@@ -11,6 +11,7 @@ import {
   removeWaiting,
   replaceStep,
   resumeProgress,
+  stampNew,
   type ClaudeWork,
   type Progress,
 } from './progress.ts';
@@ -557,5 +558,54 @@ describe('a session’s own steps (spec 042)', () => {
     const opened = addPullRequestStep(own(steps(['build', 'Fix it'])), pulled);
     expect(opened.steps).toEqual(steps(['build', 'Fix it'], ['pull_request', 'Pull request']));
     expect(opened.step).toBe('pull_request');
+  });
+});
+
+describe('stamping activities (spec 048)', () => {
+  const stamp = { step: 'build', at: '2026-10-27T10:00:00.000Z' } as const;
+  const later = { step: 'test', at: '2026-10-27T10:05:00.000Z' } as const;
+
+  it('AC-10: gives an activity the session has just added its step and time', () => {
+    const before = fold([{ kind: 'explore', file: 'a.ts' }]).activities;
+    const after = fold([
+      { kind: 'explore', file: 'a.ts' },
+      { kind: 'edit', file: 'a.ts' },
+    ]).activities;
+    const first = stampNew([], before, stamp);
+    expect(stampNew(first, after, later)).toEqual([
+      { ...after[0], ...stamp },
+      { ...after[1], ...later },
+    ]);
+  });
+
+  it('AC-14: keeps the stamp of a step rebuilt under its id, as a running step is while Claude works in it', () => {
+    const running = stampNew([], fold([{ kind: 'explore', file: 'a.ts' }]).activities, stamp);
+    const grown = fold([{ kind: 'explore', file: 'b.ts' }], { step: 'build', activities: running });
+    const made = replaceStep(grown, 'step-1', { kind: 'explore', files: ['a.ts', 'b.ts'] });
+    expect(stampNew(running, made.activities, later)).toEqual([
+      { id: 'step-1', state: 'done', kind: 'explore', files: ['a.ts', 'b.ts'], ...stamp },
+    ]);
+  });
+
+  it('AC-15: leaves a step saved before spec 048 without a stamp, and stamps only what comes after it', () => {
+    const old = fold([{ kind: 'explore', file: 'a.ts' }]).activities;
+    const after = fold([{ kind: 'edit', file: 'a.ts' }], { step: 'plan', activities: old }).activities;
+    expect(stampNew(old, after, later)).toEqual([{ ...after[0] }, { ...after[1], ...later }]);
+    expect(stampNew(old, after, later)[0]).not.toHaveProperty('at');
+  });
+
+  it('stamps a new kind of step afresh, even under an id a removed one had', () => {
+    const waiting = stampNew(
+      [],
+      addWaiting(emptyProgress, { approvalId: 'call-1', about: 'command', text: 'npm test' }).activities,
+      stamp,
+    );
+    const answered = addStep(removeWaiting({ step: 'build', activities: waiting }, 'call-1'), {
+      kind: 'command',
+      commands: ['npm test'],
+    });
+    expect(stampNew(waiting, answered.activities, later)).toEqual([
+      { id: 'step-1', state: 'done', kind: 'command', commands: ['npm test'], ...later },
+    ]);
   });
 });
