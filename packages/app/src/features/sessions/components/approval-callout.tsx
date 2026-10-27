@@ -208,7 +208,7 @@ export function ApprovalCallout({
       </Callout>
       {inView ? null : (
         // Not a second alert: the callout already said it. Review brings it into view, on its first answer.
-        <div className="fixed inset-x-4 bottom-4 z-20 mx-auto max-w-180 rounded-md shadow-overlay">
+        <div className="fixed inset-x-4 bottom-4 z-20 mx-auto max-w-180 rounded-md shadow-overlay max-md:bottom-19">
           <ResumeBanner
             asChild
             title={approvalBar.title}

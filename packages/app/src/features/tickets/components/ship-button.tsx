@@ -157,7 +157,8 @@ export function ShipSelected({ onCleared }: { onCleared: () => void }) {
     <>
       {/* With the page's own 32 px below, room for the 46 px bar and its 16 px from the window's bottom. */}
       <div aria-hidden className="h-4 shrink-0" />
-      <FloatingBar aria-label={selectionWords.bar}>
+      {/* Under 768 px it floats 8 px over the places' pill. */}
+      <FloatingBar aria-label={selectionWords.bar} className="max-md:bottom-19">
         <span role="status" className="text-small whitespace-nowrap text-muted-foreground">
           {move.isError ? selectionWords.moveFailed : selectionWords.count(selected.length)}
         </span>

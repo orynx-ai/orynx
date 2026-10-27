@@ -13,7 +13,10 @@ import { focusMainContent, mainContentId } from './main-content.ts';
 import { Sidebar } from './sidebar.tsx';
 import { useGlobalShortcuts } from './use-shortcuts.ts';
 
-/** Every screen: skip link, sidebar, then the page. Narrow windows stack the sidebar on top. Or Set up Orynx. */
+/**
+ * Every screen: skip link, sidebar, then the page. Narrow windows put a bar on top and the places in a pill at the
+ * bottom. Or Set up Orynx.
+ */
 export function AppShell() {
   useGlobalShortcuts();
   const setup = useSetup();
@@ -36,7 +39,12 @@ export function AppShell() {
         Skip to content
       </a>
       <Sidebar />
-      <main id={mainContentId} tabIndex={-1} className="flex min-w-0 flex-1 flex-col bg-canvas outline-none">
+      {/* Under 768 px it keeps 68 px at its end for the places' pill: 52 px and 16 px under it. */}
+      <main
+        id={mainContentId}
+        tabIndex={-1}
+        className="flex min-w-0 flex-1 flex-col bg-canvas outline-none max-md:pb-17"
+      >
         <FloatingNotices />
         <Outlet />
       </main>
