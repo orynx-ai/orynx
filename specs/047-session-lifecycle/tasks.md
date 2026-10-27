@@ -73,9 +73,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 20: api-client: `storage()` and its query options, keyed under `sessions`, so the sessions.changed every delete sends refetches it with no change to live updates (AC-16, AC-17)
       Check: pnpm test packages/api-client/src/storage.test.ts; pnpm typecheck
       Files: packages/api-client/src/endpoints/storage.ts, packages/api-client/src/storage.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts
-- [ ] Task 21: Settings › Coding agent's Storage section: the size line (skeleton while measured, an error line when it fails), Delete old sessions saved as you pick, each choice's "3 sessions now, 4.1 GB"; the bell's "Orynx deleted 3 old sessions and freed 4.1 GB." (AC-16, AC-17, AC-19)
-      Check: pnpm test packages/app/src/features/settings/components/storage-section.test.tsx packages/app/src/features/settings/components/coding-agent-panel.test.tsx packages/app/src/features/notifications/words.test.ts; pnpm gate style-policy
-      Files: packages/app/src/features/settings/components/storage-section.tsx, packages/app/src/features/settings/components/coding-agent-panel.tsx, packages/app/src/features/notifications/words.ts, and their tests
+- [x] Task 21: Settings › Coding agent's Storage section, last: "Session worktrees use 12 GB on this computer." (a skeleton while measured, left out when measuring fails, as the 050 draft had it), Delete old sessions saved as you pick like Claude changes Jira (no form: the value is the saved preference, so nothing is kept in input state), each choice "After 30 days · 3 sessions now, 4.1 GB". The bell's words moved to Task 17; the description and size line are the 050 draft's words, since 047 gives none (AC-16, AC-17)
+      Check: pnpm test packages/app/src/features/settings packages/app/src/features/notifications; pnpm typecheck; pnpm gate style-policy
+      Files: packages/app/src/features/settings/components/storage-section.tsx, packages/app/src/features/settings/components/coding-agent-panel.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/test/msw.ts, packages/contracts/src/testing.ts, and the section's test
 - [ ] Task 22: e2e: Storage shows the size, saves After 30 days and keeps it after a reload; axe at 360 and 1280 px in light and dark (AC-16, AC-17, AC-25)
       Check: pnpm exec playwright test e2e/coding-agent.spec.ts
       Files: e2e/coding-agent.spec.ts

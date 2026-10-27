@@ -5,6 +5,7 @@ import {
   jiraConnectionQueryOptions,
   jiraProjectsQueryOptions,
   preferencesQueryOptions,
+  storageQueryOptions,
   agentsAccessQueryOptions,
   queryKeys,
   repositoriesQueryOptions,
@@ -221,6 +222,12 @@ export function useConnectionChangeRunning(): boolean {
 export function usePreferences() {
   const api = useApi();
   return useQuery(preferencesQueryOptions(api));
+}
+
+/** What the session worktrees use, and what each Delete old sessions choice would delete now (spec 047, D). */
+export function useStorage() {
+  const api = useApi();
+  return useQuery(storageQueryOptions(api));
 }
 
 /** The list with one entry added once, or one taken off (spec 012). */

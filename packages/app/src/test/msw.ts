@@ -14,6 +14,7 @@ import {
   makeInbox,
   makeJiraConnection,
   makePreferences,
+  makeStorage,
   makeProfile,
   makeSearchIndex,
   makeSessionList,
@@ -109,6 +110,8 @@ export const server = setupServer(
   http.get(apiUrl(apiRoutes.jiraConnection), () => HttpResponse.json(makeJiraConnection())),
   http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(makeGitHubConnection())),
   http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences())),
+  // No session has a worktree yet, so Delete old sessions would delete nothing (spec 047).
+  http.get(apiUrl(apiRoutes.storage), () => HttpResponse.json(makeStorage())),
   // Orynx is set up, with no name, bio or picture of its own (spec 043).
   http.get(apiUrl(apiRoutes.setup), () => HttpResponse.json({ done: true })),
   http.get(apiUrl(apiRoutes.profile), () => HttpResponse.json(makeProfile())),
