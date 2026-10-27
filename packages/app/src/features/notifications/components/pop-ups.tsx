@@ -58,6 +58,8 @@ export function PopUps() {
       const place = notificationPlace(notification.what);
       if (place.kind === 'session') {
         void navigate({ to: '/sessions/$sessionId', params: { sessionId: place.sessionId } });
+      } else if (place.kind === 'about') {
+        void navigate({ to: '/settings/$tab', params: { tab: 'about' } });
       } else platform.openExternal(place.url);
     },
     [close, markRead, navigate, platform],

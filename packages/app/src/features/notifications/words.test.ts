@@ -83,6 +83,15 @@ describe('notification words (spec 029)', () => {
     });
   });
 
+  it('AC-13 (spec 045): says a newer Orynx is out, and opens Settings › About', () => {
+    expect(notificationWords({ kind: 'update_available', version: '0.1.40' })).toEqual({
+      title: 'Orynx 0.1.40 is out',
+      detail: 'Settings › About',
+      desktop: 'Settings › About',
+    });
+    expect(notificationPlace({ kind: 'update_available', version: '0.1.40' })).toEqual({ kind: 'about' });
+  });
+
   it('says when: just now, minutes or hours ago today, yesterday, then the date', () => {
     const now = new Date(2026, 9, 19, 10, 0);
     const at = (date: Date) => date.toISOString();

@@ -29,6 +29,8 @@ export const ApiErrorCodeSchema = z.enum([
   'ports_unreadable',
   /** Change password: the current password typed isn't the saved one, so nothing changed. */
   'wrong_password',
+  /** Nothing to update, Restart to update before a download is ready, or a clone started by hand (spec 045). */
+  'update_unavailable',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;

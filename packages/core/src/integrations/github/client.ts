@@ -645,7 +645,7 @@ function resetTime(headers: Record<string, unknown>, now: () => number): number 
 }
 
 /** The first error code in fetch's chain of causes, kept only when it looks like a code. */
-function networkCode(cause: unknown): string | undefined {
+export function networkCode(cause: unknown): string | undefined {
   for (let error = cause, depth = 0; error instanceof Error && depth < 4; error = error.cause, depth += 1) {
     const code = 'code' in error ? error.code : undefined;
     if (typeof code === 'string') return errorCode.test(code) ? code : undefined;

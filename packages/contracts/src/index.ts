@@ -26,3 +26,4 @@ export * from './status.ts';
 export * from './sync-activity.ts';
 export * from './terminal.ts';
 export * from './tickets.ts';
+export * from './updates.ts';

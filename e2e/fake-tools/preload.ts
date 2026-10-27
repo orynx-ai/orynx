@@ -25,7 +25,9 @@ import {
   acceptingRepository,
   acceptingUser,
 } from '../../packages/core/src/test/fake-github.ts';
+import { http, HttpResponse } from 'msw';
 import { controlPortFor, type FakeTools } from './config.ts';
+import { fakeReleasesUrl } from './releases.ts';
 
 let tools: FakeTools = { issues: [], reviews: [], mine: [] };
 // Each hub's own control port, so two hubs with these fakes can run side by side.
@@ -78,6 +80,8 @@ function handlers() {
     // Create pull request (spec 014): the pull requests GitHub opens join the spec's list.
     ...acceptingPulls({ opened: (tools.pulls ??= []) }),
     acceptingRepository(),
+    // Settings › About's check for updates (spec 045): no release yet, so these hubs put nothing in the bell.
+    http.get(fakeReleasesUrl, () => HttpResponse.json([])),
   ];
 }
 

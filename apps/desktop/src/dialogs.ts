@@ -31,28 +31,6 @@ function cancelThenAction(
     : { buttons: [cancel, action], defaultId: 1, cancelId: 0 };
 }
 
-/** macOS, unsigned: Orynx can't install an update itself, so it says one is out (spec 027, Q1). */
-export function macUpdateDialog(version: string): Dialog {
-  return {
-    type: 'info',
-    message: `Orynx ${version} is out`,
-    detail: 'Download it, then drag it to Applications to replace this one.',
-    ...cancelThenAction('darwin', 'Later', 'Download'),
-  };
-}
-
-/** Linux: the AppImage downloaded the update and installs it on quit (Q1). */
-export function linuxUpdateDialog(version: string): Dialog {
-  return {
-    type: 'info',
-    message: `Orynx ${version} is ready`,
-    detail: 'It installs the next time you quit Orynx.',
-    buttons: ['OK'],
-    defaultId: 0,
-    cancelId: 0,
-  };
-}
-
 /** Another hub already uses this home, such as `pnpm start` (Q2, AC-8). */
 export function alreadyRunningDialog(home: string): Dialog {
   return {

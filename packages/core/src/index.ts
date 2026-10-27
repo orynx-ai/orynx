@@ -38,3 +38,5 @@ export type {
   ApprovalDecision,
   Permissions,
 } from './agents/agent-adapter.ts';
+export { type UpdateHost } from './updates/update-service.ts';
+export { createCloneUpdater, type CloneService } from './updates/clone-updater.ts';

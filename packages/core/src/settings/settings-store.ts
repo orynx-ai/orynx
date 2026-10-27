@@ -44,6 +44,8 @@ const SettingsSchema = z.looseObject({
   notifications: WrittenObjectSchema.optional().catch(undefined),
   /** Who uses Orynx (spec 043), kept as written; the setup service reads what it can. */
   profile: WrittenObjectSchema.optional().catch(undefined),
+  /** The newest version the bell told you about (spec 045), so it's told once, even after Clear cache. */
+  updates: WrittenObjectSchema.optional().catch(undefined),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 

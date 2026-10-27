@@ -74,6 +74,9 @@ import { mcpRoutes } from './routes/mcp.ts';
 import { readGitUserName } from './status/git-user-name.ts';
 import { createStatusService } from './status/status-service.ts';
 import { createPortService } from './ports/port-service.ts';
+import { createReleasesClient } from './integrations/releases/client.ts';
+import { updatesRoutes } from './routes/updates.ts';
+import { createUpdateService, UpdateRefusedError, type UpdateHost } from './updates/update-service.ts';
 
 export interface CoreOptions {
   /** Per-start session token; every /api request must carry it. */
@@ -154,6 +157,11 @@ export interface CoreOptions {
    * the front door; tests get one in memory, with none set.
    */
   password?: PasswordStore;
+  /**
+   * Settings › About's updates (spec 045): which Orynx the host is and what Update does, and a test's fake releases
+   * server. Left out, nothing asks GitHub and /api/updates isn't there, so no test reaches GitHub by surprise.
+   */
+  updates?: { host: UpdateHost; releasesUrl?: string };
 }
 
 /** The HTTP status for each error a connection route can answer with. */
@@ -489,6 +497,31 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
   app.addHook('onClose', async () => {
     await sessionService.close();
   });
+  const updates =
+    options.updates === undefined
+      ? null
+      : createUpdateService({
+          host: options.updates.host,
+          releases: createReleasesClient(
+            options.updates.releasesUrl === undefined ? {} : { url: options.updates.releasesUrl },
+          ),
+          sessions,
+          settings,
+          events,
+          notify: (version) => {
+            notifications.updateAvailable(version);
+          },
+          log: (line) => {
+            app.log.warn(line);
+          },
+        });
+  if (updates !== null) {
+    const stopUpdates = updates.start();
+    app.addHook('onClose', () => {
+      stopUpdates();
+      return Promise.resolve();
+    });
+  }
   const status = createStatusService({
     version: options.version,
     userName: options.userName ?? readGitUserName,
@@ -512,6 +545,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
         if (error instanceof FolderRejectedError || error instanceof SkillRejectedError) {
           const body: ApiError = { code: error.code, message: error.message };
           return reply.code(422).send(body);
+        }
+        if (error instanceof UpdateRefusedError) {
+          const body: ApiError = { code: error.code, message: error.message };
+          return reply.code(409).send(body);
         }
         if (error instanceof ConnectionError) {
           const body: ApiError = { code: error.code, message: error.message };
@@ -569,6 +606,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
         picker: options.filePicker ?? createFilePicker({ searchPath: '', platform: process.platform }),
         home: userHome,
       });
+      if (updates !== null) await api.register(updatesRoutes, { updates });
       await api.register(eventsRoutes, {
         events,
         ...(options.eventsKeepAliveMs === undefined ? {} : { keepAliveMs: options.eventsKeepAliveMs }),

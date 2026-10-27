@@ -85,6 +85,7 @@ import {
   type Tickets,
 } from './tickets.ts';
 import { ClaudeCommandListSchema, TerminalSchema, type ClaudeCommandList, type Terminal } from './terminal.ts';
+import { ReleaseSchema, UpdatesSchema, type Release, type Updates } from './updates.ts';
 
 export interface StatusOverrides {
   version?: string;
@@ -668,4 +669,35 @@ export function makeClaudeCommands(): ClaudeCommandList {
 /** A profile with no name, bio or picture, as a fresh Orynx has (spec 043). */
 export function makeProfile(overrides: Partial<Profile> = {}): Profile {
   return ProfileSchema.parse({ name: '', bio: '', picture: null, ...overrides });
+}
+
+/** Release 0.1.40, out on 22 Oct 2026 with one line of notes, newer than yours, unless the override says otherwise. */
+export function makeRelease(overrides: Partial<Release> = {}): Release {
+  const version = overrides.version ?? '0.1.40';
+  return ReleaseSchema.parse({
+    version,
+    publishedAt: '2026-10-22T10:00:00.000Z',
+    notes: '## New\n\n- Show the inbox tabs',
+    url: `https://github.com/orynx-ai/orynx/releases/tag/v${version}`,
+    newer: true,
+    mine: false,
+    ...overrides,
+  });
+}
+
+/** The desktop app 0.1.37, up to date as of 22 Oct 2026 with no releases listed, unless the override says otherwise. */
+export function makeUpdates(overrides: Partial<Updates> = {}): Updates {
+  return UpdatesSchema.parse({
+    kind: 'desktop',
+    folder: null,
+    running: { release: '0.1.37', commits: 0, commit: null },
+    action: 'update',
+    checking: false,
+    checkedAt: '2026-10-22T10:00:00.000Z',
+    checkFailed: false,
+    releases: [],
+    update: { state: 'idle' },
+    busy: false,
+    ...overrides,
+  });
 }

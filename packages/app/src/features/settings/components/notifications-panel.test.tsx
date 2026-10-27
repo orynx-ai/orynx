@@ -267,7 +267,7 @@ describe('Settings › Notifications: what you’re told about (spec 029)', () =
       within(table)
         .getAllByRole('columnheader')
         .map((head) => head.textContent),
-    ).toEqual(['Event', 'Pop-up', 'Desktop', 'Sound', 'Claude sessions', 'Inbox']);
+    ).toEqual(['Event', 'Pop-up', 'Desktop', 'Sound', 'Claude sessions', 'Inbox', 'Orynx']);
     expect(within(table).getByRole('columnheader', { name: 'Claude sessions' })).toBeVisible();
     expect(within(table).getByRole('columnheader', { name: 'Inbox' })).toBeVisible();
     const approval = within(table).getByRole('row', { name: /Claude is waiting for your approval/ });
@@ -284,6 +284,11 @@ describe('Settings › Notifications: what you’re told about (spec 029)', () =
     expect(within(table).getByRole('combobox', { name: 'Sound for Jira ticket assigned to you' })).toHaveTextContent(
       'None',
     );
+    // Spec 045, AC-13: a newer Orynx pops up, and nothing more, unless you choose.
+    expect(within(table).getByRole('checkbox', { name: 'Pop-up for A new version of Orynx is out' })).toBeChecked();
+    expect(
+      within(table).getByRole('checkbox', { name: 'Desktop notification for A new version of Orynx is out' }),
+    ).not.toBeChecked();
   });
 
   it('AC-39: unticking Pop-up saves it; picking a sound saves it and plays it', async () => {

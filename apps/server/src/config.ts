@@ -21,6 +21,10 @@ const EnvSchema = z.object({
   DEVHUB_KEYCHAIN: z.enum(['os', 'memory']).default('os'),
   DEVHUB_SANDBOX: z.enum(['required', 'assume']).default('required'),
   DEVHUB_LAN: z.enum(['true', 'false']).default('false'),
+  // ./install.sh sets it in the service it writes (spec 045); unset, the clone was started by hand.
+  DEVHUB_SERVICE: z.enum(['launchd', 'systemd']).optional(),
+  // A fake releases server in tests; GitHub's releases otherwise.
+  DEVHUB_RELEASES_URL: z.url().optional(),
 });
 
 /** Settings read from the shell only, never from `.env`: a file must not decide which program DevHub starts. */
@@ -67,6 +71,10 @@ export interface ServerConfig {
   sandbox: z.infer<typeof EnvSchema>['DEVHUB_SANDBOX'];
   /** DEVHUB_LAN: also answer devices on your wifi at https://orynx.local, behind your Orynx password (specs 040, 043). */
   lan: boolean;
+  /** How a clone runs (spec 045): the service ./install.sh set up, or null when started by hand. */
+  service: 'launchd' | 'systemd' | null;
+  /** DEVHUB_RELEASES_URL: where to look for releases instead of GitHub's, or null for GitHub's (spec 045). */
+  releasesUrl: string | null;
   /** The part of the shell's environment Claude Code may see (spec 010, AC-10). Nothing from `.env`. */
   agentEnvironment: Record<string, string>;
   /** The same for the git that makes a session's worktree, with your SSH agent and no prompts (spec 011, Q8d). */
@@ -150,6 +158,8 @@ export function loadConfig({
     claudeCode: shell.data.DEVHUB_CLAUDE_CODE ?? null,
     sandbox: settings.DEVHUB_SANDBOX,
     lan: settings.DEVHUB_LAN === 'true',
+    service: settings.DEVHUB_SERVICE ?? null,
+    releasesUrl: settings.DEVHUB_RELEASES_URL ?? null,
     agentEnvironment: agentEnvironment(env),
     gitEnvironment: gitEnvironment(env),
     terminalEnvironment: terminalEnvironment(env),

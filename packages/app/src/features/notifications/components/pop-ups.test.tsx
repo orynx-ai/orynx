@@ -139,6 +139,17 @@ describe('pop-ups (spec 029)', () => {
     });
   });
 
+  it('AC-13 (spec 045): an update pops up, and clicking it opens Settings › About', async () => {
+    choosing(awake);
+    const { user, history } = await arrive([
+      makeNotification({ id: 'out', what: { kind: 'update_available', version: '0.1.40' } }),
+    ]);
+
+    await user.click(await within(popUps()).findByRole('button', { name: 'Orynx 0.1.40 is out' }));
+
+    expect(history.location.pathname).toBe('/settings/about');
+  });
+
   it('AC-25: four at once show three, newest at the bottom; the fourth shows when one goes', async () => {
     choosing(awake);
     const { user } = await arrive([finished('d'), finished('c'), finished('b'), finished('a')]);

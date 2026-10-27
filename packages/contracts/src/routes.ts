@@ -67,6 +67,9 @@ export const apiPaths = {
   notifications: '/notifications',
   notificationsRead: '/notifications/read',
   notificationSettings: '/notifications/settings',
+  updates: '/updates',
+  updatesCheck: '/updates/check',
+  updatesInstall: '/updates/install',
 } as const;
 
 type ApiPaths = typeof apiPaths;
@@ -136,6 +139,9 @@ export const apiRoutes = {
   notifications: `${apiPrefix}${apiPaths.notifications}`,
   notificationsRead: `${apiPrefix}${apiPaths.notificationsRead}`,
   notificationSettings: `${apiPrefix}${apiPaths.notificationSettings}`,
+  updates: `${apiPrefix}${apiPaths.updates}`,
+  updatesCheck: `${apiPrefix}${apiPaths.updatesCheck}`,
+  updatesInstall: `${apiPrefix}${apiPaths.updatesInstall}`,
 } as const satisfies { [K in keyof ApiPaths]: `${typeof apiPrefix}${ApiPaths[K]}` };
 
 export type ApiRoute = (typeof apiRoutes)[keyof typeof apiRoutes];

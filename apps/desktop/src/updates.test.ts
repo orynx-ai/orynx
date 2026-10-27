@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { watchUpdates, type Updater } from './updates.ts';
+import { watchUpdates, type UpdateState, type Updater, type WatchedUpdates } from './updates.ts';
 
 /** A stand-in for electron-updater's autoUpdater, which talks to GitHub Releases: an outside service. */
 class FakeUpdater extends EventEmitter implements Updater {
@@ -31,23 +31,21 @@ class HttpError extends Error {
 }
 
 let updater: FakeUpdater;
-let shown: { message: string; buttons: string[] }[];
-let answer: string;
-let opened: number;
+let told: UpdateState[];
+let restarts: number;
 let logged: string[];
-let stop: () => void;
+let watched: WatchedUpdates;
 
 function watch(platform: NodeJS.Platform, feedUrl: string | null = null): void {
-  stop = watchUpdates({
+  watched = watchUpdates({
     updater,
     platform,
     feedUrl,
-    notify: (dialog) => {
-      shown.push(dialog);
-      return Promise.resolve(dialog.buttons.indexOf(answer));
+    tell: (state) => {
+      told.push(state);
     },
-    openReleasePage: () => {
-      opened += 1;
+    restart: () => {
+      restarts += 1;
     },
     log: (line) => {
       logged.push(line);
@@ -58,95 +56,107 @@ function watch(platform: NodeJS.Platform, feedUrl: string | null = null): void {
 beforeEach(() => {
   vi.useFakeTimers();
   updater = new FakeUpdater();
-  shown = [];
-  answer = 'Later';
-  opened = 0;
+  told = [];
+  restarts = 0;
   logged = [];
 });
 
 afterEach(() => {
-  stop();
+  watched.stop();
   vi.useRealTimers();
 });
 
-describe('watchUpdates', () => {
-  it('AC-24: on a Mac, checks at launch and every 6 hours, and never downloads', async () => {
-    watch('darwin');
+describe('watchUpdates (spec 045)', () => {
+  it('AC-18, AC-19: on Linux, downloads on its own and tells the hub how far it has got, with no dialog', async () => {
+    watch('linux');
     await vi.advanceTimersByTimeAsync(0);
     expect(updater.checks).toBe(1);
-    expect(updater.autoDownload).toBe(false);
+    expect(updater.autoDownload).toBe(true);
+    // The AppImage still installs a downloaded update when you quit (spec 027).
+    expect(updater.autoInstallOnAppQuit).toBe(true);
+
+    updater.emit('update-available', { version: '0.1.40' });
+    updater.emit('update-downloaded', { version: '0.1.40' });
+    expect(told).toEqual([
+      { type: 'update-state', action: 'none', update: { state: 'idle' } },
+      { type: 'update-state', action: 'none', update: { state: 'downloading', version: '0.1.40' } },
+      { type: 'update-state', action: 'none', update: { state: 'ready', version: '0.1.40' } },
+    ]);
 
     await vi.advanceTimersByTimeAsync(6 * 60 * 60 * 1000);
     expect(updater.checks).toBe(2);
   });
 
-  it('AC-24: on a Mac, shows the notice once in a launch, and Download opens the release page', async () => {
-    answer = 'Download';
-    watch('darwin');
-
-    updater.emit('update-available', { version: '0.1.38' });
-    await vi.advanceTimersByTimeAsync(0);
-    updater.emit('update-available', { version: '0.1.39' });
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(shown.map((dialog) => dialog.message)).toEqual(['Orynx 0.1.38 is out']);
-    expect(opened).toBe(1);
-  });
-
-  it('AC-24: Later closes the notice and opens nothing', async () => {
-    watch('darwin');
-
-    updater.emit('update-available', { version: '0.1.38' });
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(shown).toHaveLength(1);
-    expect(opened).toBe(0);
-  });
-
-  it('AC-25, AC-26: on Linux, downloads in the background, installs only on quit, and says so once', async () => {
+  it('AC-19, AC-22: Restart to update restarts only once the update is ready', () => {
     watch('linux');
+    watched.command({ type: 'restart' });
+    expect(restarts).toBe(0);
 
-    expect(updater.autoDownload).toBe(true);
-    expect(updater.autoInstallOnAppQuit).toBe(true);
-    updater.emit('update-available', { version: '0.1.38' });
-    expect(shown).toEqual([]);
-
-    updater.emit('update-downloaded', { version: '0.1.38' });
-    updater.emit('update-downloaded', { version: '0.1.38' });
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(shown.map((dialog) => dialog.message)).toEqual(['Orynx 0.1.38 is ready']);
+    updater.emit('update-downloaded', { version: '0.1.40' });
+    watched.command({ type: 'restart' });
+    expect(restarts).toBe(1);
   });
 
-  it('AC-23, AC-27, AC-28: a private repo, a bad download or no network shows nothing and only logs', async () => {
-    watch('darwin');
-
-    updater.emit('error', new HttpError(404));
+  it('AC-23: a download that fails says so to the hub and logs why; a failed check only logs', () => {
+    watch('linux');
     // electron-updater's own words for a private repo's feed, with the 404 inside.
     updater.emit(
       'error',
       new Error(
-        'Cannot find channel "latest-mac.yml" update info: HttpError: 404 Not Found\n"method: GET url: https://github.com/orynx-ai/orynx/releases/download/v0.1.38/latest-mac.yml"\n\nPlease double check that your authentication token is correct.',
+        'Cannot find channel "latest-linux.yml" update info: HttpError: 404 Not Found\n"method: GET url: https://github.com/orynx-ai/orynx/releases/download/v0.1.38/latest-linux.yml"',
       ),
     );
-    updater.emit('error', new Error('sha512 checksum mismatch, expected abc, got def'));
-    updater.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'));
-    await vi.advanceTimersByTimeAsync(0);
+    updater.emit('error', new HttpError(502));
+    expect(told).toHaveLength(1);
 
-    expect(shown).toEqual([]);
+    updater.emit('update-available', { version: '0.1.40' });
+    updater.emit('error', new Error('sha512 checksum mismatch, expected abc, got def'));
+    expect(told.at(-1)).toEqual({ type: 'update-state', action: 'none', update: { state: 'failed', log: null } });
     expect(logged).toEqual([
       "Orynx couldn't check for updates (404).",
-      "Orynx couldn't check for updates (404).",
+      "Orynx couldn't check for updates (502).",
       "Orynx couldn't check for updates (sha512 checksum mismatch, expected abc, got def).",
-      "Orynx couldn't check for updates (net::ERR_INTERNET_DISCONNECTED).",
     ]);
   });
 
-  it('AC-29: asks GitHub Releases with no token or header, or the feed a test names', () => {
+  it('AC-23: on Linux, Try again after a failed download checks again, which downloads it again', async () => {
+    watch('linux');
+    await vi.advanceTimersByTimeAsync(0);
+    watched.command({ type: 'download', version: '0.1.40' });
+    expect(updater.checks).toBe(1);
+
+    updater.emit('update-available', { version: '0.1.40' });
+    updater.emit('error', new Error('net::ERR_CONNECTION_RESET'));
+    watched.command({ type: 'download', version: '0.1.40' });
+    expect(updater.checks).toBe(2);
+  });
+
+  it('AC-21: on a Mac, offers Download until it can update itself, and never asks electron-updater', async () => {
+    watch('darwin');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(updater.checks).toBe(0);
+    expect(updater.autoDownload).toBe(false);
+    expect(updater.autoInstallOnAppQuit).toBe(false);
+    expect(told).toEqual([{ type: 'update-state', action: 'download', update: { state: 'idle' } }]);
+  });
+
+  it("logs a message from the hub it can't read, and does nothing", () => {
+    watch('linux');
+    updater.emit('update-downloaded', { version: '0.1.40' });
+    watched.command({ type: 'restart-now' });
+    watched.command('restart');
+    expect(restarts).toBe(0);
+    expect(logged).toEqual([
+      "Orynx couldn't read a message from its hub.",
+      "Orynx couldn't read a message from its hub.",
+    ]);
+  });
+
+  it('AC-24 (spec 027): asks GitHub Releases with no token or header, or the feed a test names', () => {
     watch('linux');
     expect(updater.feed).toBeNull();
     expect(updater.requestHeaders).toBeNull();
-    stop();
+    watched.stop();
 
     updater = new FakeUpdater();
     watch('linux', 'http://127.0.0.1:4555/releases');

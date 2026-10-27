@@ -1,6 +1,6 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -53,6 +53,8 @@ function environment(): Record<string, string> {
     DEVHUB_CLAUDE_CODE: fakeClaude,
     DEVHUB_SANDBOX: 'assume',
     DEVHUB_UPDATES_URL: releases.url,
+    // The hub's check for Settings › About (spec 045, AC-24): the fake list, never api.github.com.
+    DEVHUB_RELEASES_URL: releases.listUrl,
     LOG_LEVEL: 'info',
     PATH: `${fakeGh}${delimiter}${env['PATH'] ?? ''}`,
     // electron-updater only checks from an AppImage, which sets APPIMAGE; this run uses linux-unpacked.
@@ -67,8 +69,11 @@ interface Recorded {
 }
 
 /** Opens the packed app, and swaps the OS's browser and message boxes for recorders: outside services. */
-async function launch(answer = 'Later'): Promise<{ app: ElectronApplication; page: Page }> {
-  const app = await electron.launch({ executablePath: executable, env: environment() });
+async function launch(
+  answer = 'Later',
+  executablePath = executable,
+): Promise<{ app: ElectronApplication; page: Page }> {
+  const app = await electron.launch({ executablePath, env: environment() });
   opened = app;
   await app.evaluate(({ dialog, shell }, pressed) => {
     const recorded: Recorded = { opened: [], shown: [] };
@@ -180,24 +185,94 @@ test('AC-21, AC-22: the log holds this launch, and the hub reports the version A
   await expect.poll(log).toContain(`The window opens ${new URL(page.url()).origin}.`);
 });
 
-test('AC-23, AC-29: a private repo answers 404, and Orynx only logs it, asking with no token', async () => {
+test('AC-23, AC-29 (spec 027), 045 AC-12: with no release yet, Orynx only logs it, asking with no token', async () => {
   const { app } = await launch();
 
-  await expect.poll(log).toContain("Orynx couldn't check for updates (404).");
+  // The hub asks GitHub's list at start; Linux's updater also asks for its feed, which has none yet.
+  await expect
+    .poll(() => releases.requests.map(({ url }) => new URL(url, releases.url).pathname))
+    .toContain('/repos/orynx-ai/orynx/releases');
+  if (process.platform === 'linux') await expect.poll(log).toContain("Orynx couldn't check for updates (404).");
   expect((await recorded(app)).shown).toEqual([]);
-  expect(releases.requests.length).toBeGreaterThan(0);
-  for (const { headers } of releases.requests) expect(headers.authorization).toBeUndefined();
+  for (const { headers } of releases.requests) {
+    expect(headers.authorization).toBeUndefined();
+    expect(headers.cookie).toBeUndefined();
+  }
 });
 
-test('AC-24: on a Mac, a newer release shows the notice once, and Download opens the release page', async () => {
-  test.skip(process.platform !== 'darwin', 'Linux downloads updates instead (unit-tested in updates.test.ts)');
+test('045 AC-1, AC-13, AC-24: a newer release shows in About and once in the bell, with no dialog of its own', async () => {
   releases.offer('9.9.9');
-  const { app } = await launch('Download');
+  const { app, page } = await launch();
 
-  await expect.poll(async () => (await recorded(app)).shown, { timeout: 15_000 }).toEqual(['Orynx 9.9.9 is out']);
-  await expect
-    .poll(async () => (await recorded(app)).opened)
-    .toEqual(['https://github.com/orynx-ai/orynx/releases/latest']);
+  await page.goto(new URL('/settings/about', page.url()).href);
+  await expect(page.getByRole('group', { name: 'Version' })).toContainText('Desktop app');
+  await expect(page.getByRole('group', { name: 'Version' })).toContainText(
+    await app.evaluate(({ app: electronApp }) => electronApp.getVersion()),
+  );
+  await expect(page.getByRole('group', { name: 'Updates' })).toContainText('Orynx 9.9.9 is out.');
+  await expect(page.getByRole('button', { name: 'Notifications, 1 unread' }).first()).toBeVisible();
+  expect((await recorded(app)).shown).toEqual([]);
+});
+
+test('045 AC-20: on a Mac, Update downloads and checks the zip, and Restart to update swaps in the new Orynx.app', async () => {
+  test.skip(
+    process.platform !== 'darwin',
+    'Only a Mac swaps Orynx.app itself; Linux installs through electron-updater',
+  );
+  // Zipping, unzipping and checking a 290 MB app with 30,000 files takes minutes on a laptop.
+  test.setTimeout(1_200_000);
+  // A copy of the packed app to update, and a 9.9.9 made from another copy: its version changed, signed again ad hoc
+  // as the release is, and zipped as electron-builder zips it.
+  const packed = join(executable, '..', '..', '..');
+  const installed = join(home, 'Applications', 'Orynx.app');
+  const next = join(home, 'next', 'Orynx.app');
+  await mkdir(join(home, 'Applications'));
+  await mkdir(join(home, 'next'));
+  execFileSync('ditto', [packed, installed]);
+  execFileSync('ditto', [packed, next]);
+  execFileSync('plutil', [
+    '-replace',
+    'CFBundleShortVersionString',
+    '-string',
+    '9.9.9',
+    join(next, 'Contents', 'Info.plist'),
+  ]);
+  execFileSync('codesign', ['--force', '--deep', '--sign', '-', next]);
+  const zip = join(home, 'next.zip');
+  execFileSync('ditto', ['-c', '-k', '--keepParent', next, zip]);
+  releases.offer('9.9.9', await readFile(zip));
+
+  const { app, page } = await launch('Later', join(installed, 'Contents', 'MacOS', 'Orynx'));
+  await page.goto(new URL('/settings/about', page.url()).href);
+  const updates = page.getByRole('group', { name: 'Updates' });
+  await updates.getByRole('button', { name: 'Update', exact: true }).click();
+  const restart = updates.getByRole('button', { name: 'Restart to update' });
+  await expect(restart).toBeVisible({ timeout: 600_000 });
+
+  const closed = new Promise((done) => app.process().once('exit', done));
+  await restart.click();
+  await closed;
+  opened = null;
+  try {
+    await expect
+      .poll(() =>
+        execFileSync(
+          'plutil',
+          ['-extract', 'CFBundleShortVersionString', 'raw', join(installed, 'Contents', 'Info.plist')],
+          { encoding: 'utf8' },
+        ).trim(),
+      )
+      .toBe('9.9.9');
+    // The new one opens on its own; it is this home's hub that answers again.
+    await expect.poll(log, { timeout: 60_000 }).toMatch(/The window opens [\s\S]*The window opens/);
+  } finally {
+    // The reopened app isn't Playwright's: stop it by its path. pkill exits 1 when it has gone already.
+    try {
+      execFileSync('pkill', ['-f', installed]);
+    } catch {
+      // Nothing left to stop.
+    }
+  }
 });
 
 test('AC-5: opening Orynx again starts no second copy', async () => {

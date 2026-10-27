@@ -18,6 +18,7 @@ export {
   jiraProjectsQueryOptions,
   notificationSettingsQueryOptions,
   notificationsQueryOptions,
+  updatesQueryOptions,
   preferencesQueryOptions,
   profileQueryOptions,
   queryKeys,

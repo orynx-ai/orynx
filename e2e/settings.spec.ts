@@ -58,9 +58,15 @@ async function layoutShiftScore(page: Page): Promise<number> {
 }
 
 async function axeViolations(page: Page): Promise<string[]> {
-  // Controls fade from their loading look (Coding agent's rows); mid-fade colours aren't the page's real ones.
+  // Controls fade from their loading look (Coding agent's rows); mid-fade colours aren't the page's real ones. A
+  // scroll-driven animation, such as the sidebar's fade, never finishes, so it's left out.
   await page.evaluate(() =>
-    Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined))),
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.timeline === document.timeline)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
   );
   await page.addScriptTag({ path: axePath });
   return page.evaluate(async () => {
@@ -106,6 +112,7 @@ test('AC-1: Given Settings, when I pick each tab, then the address follows it an
     'Notifications',
     'Repositories',
     'Inbox rules',
+    'About',
   ]);
 
   for (const [name, path] of [
@@ -113,6 +120,7 @@ test('AC-1: Given Settings, when I pick each tab, then the address follows it an
     ['Notifications', '/settings/notifications'],
     ['Repositories', '/settings/repositories'],
     ['Inbox rules', '/settings/inbox-rules'],
+    ['About', '/settings/about'],
   ] as const) {
     await page.getByRole('tab', { name }).click();
     await expect(page).toHaveURL(path);
@@ -124,9 +132,9 @@ test('AC-1: Given Settings, when I pick each tab, then the address follows it an
 test('AC-20: Given a narrow window, when Settings opens on its last tab, then that tab is in full view in the tab list', async ({
   page,
 }) => {
-  await page.goto('/settings/inbox-rules');
+  await page.goto('/settings/about');
   const list = page.getByRole('tablist', { name: 'Settings sections' });
-  const tab = page.getByRole('tab', { name: 'Inbox rules' });
+  const tab = page.getByRole('tab', { name: 'About' });
   await expect(tab).toHaveAttribute('aria-selected', 'true');
 
   const listBox = await list.boundingBox();
@@ -137,8 +145,8 @@ test('AC-20: Given a narrow window, when Settings opens on its last tab, then th
 
   // Back to the first tab without a click on it, in the same page, as the Back button does.
   await page.goto('/settings/connections');
-  await page.getByRole('tab', { name: 'Inbox rules' }).click();
-  await expect(page).toHaveURL('/settings/inbox-rules');
+  await page.getByRole('tab', { name: 'About' }).click();
+  await expect(page).toHaveURL('/settings/about');
   await page.goBack();
   const first = page.getByRole('tab', { name: 'Connections' });
   await expect(first).toHaveAttribute('aria-selected', 'true');

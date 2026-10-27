@@ -202,6 +202,18 @@ describe('the panel (spec 029)', () => {
     expect(within(mainNav()).getByRole('button', { name: 'Notifications' })).toBeVisible();
   });
 
+  it('AC-13 (spec 045): opening an update notification goes to Settings › About', async () => {
+    listing([makeNotification({ id: 'out', what: { kind: 'update_available', version: '0.1.40' } })]);
+    const asked = reading();
+    const { user, history } = await renderApp();
+    const panel = await openPanel(user);
+
+    await user.click(within(panel).getByRole('button', { name: 'Orynx 0.1.40 is out, unread' }));
+
+    expect(history.location.pathname).toBe('/settings/about');
+    expect(asked).toEqual([{ ids: ['out'] }]);
+  });
+
   it('AC-8: opening a review request opens the pull request outside Orynx', async () => {
     listing([review]);
     reading();

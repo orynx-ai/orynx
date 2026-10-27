@@ -22,6 +22,8 @@ export interface NotificationService {
   sessionChanged(before: Session, after: Session, change?: { quiet: boolean }): void;
   /** The inbox service's `onSynced`. */
   inboxSynced(tool: InboxTool, before: readonly unknown[] | null, after: readonly unknown[]): void;
+  /** The update service's `notify`: a newer Orynx is out (spec 045, AC-13). */
+  updateAvailable(version: string): void;
 }
 
 export interface NotificationServiceOptions {
@@ -115,6 +117,12 @@ export function createNotificationService({
             ? githubNotifications(readable(before, PullRequestRecordSchema), readable(after, PullRequestRecordSchema))
             : jiraNotifications(readable(before, JiraIssueRecordSchema), readable(after, JiraIssueRecordSchema), at),
         );
+      });
+    },
+
+    updateAvailable(version) {
+      safely(() => {
+        add([{ id: `update_available:${version}`, what: { kind: 'update_available', version } }]);
       });
     },
   };
