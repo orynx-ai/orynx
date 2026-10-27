@@ -51,6 +51,16 @@ const tools: FakeTools = {
   reviews: [],
   mine: [],
   pulls: [],
+  // Spec 048: two unresolved threads on #2841; the fake Claude Code replies to the first only.
+  reviewThreads: [
+    {
+      resolved: false,
+      path: 'src/archive.ts',
+      line: 3,
+      comments: [{ author: 'priya', body: 'Use the existing useSelection hook here.' }],
+    },
+    { resolved: false, path: 'README.md', line: null, comments: [{ author: 'sam', body: 'Say what archive does.' }] },
+  ],
   // Spec 031: your own pull request, on its own branch; `octocat` is the fake GitHub's login.
   pullRequests: [
     {
@@ -339,6 +349,20 @@ test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360
       url: seen.opened,
       show: async (p: Page, width: number) => expect(atHand(p, width, `Open PR ${pr}`, 'link')).toBeVisible(),
     },
+    {
+      // Spec 048, AC-20.
+      name: 'Reply to reviewers with the drafts',
+      url: seen.opened,
+      show: async (p: Page, width: number) => {
+        await atHand(p, width, 'Reply to reviewers').click();
+        if (width < 768) await p.getByRole('menuitem', { name: 'Reply to reviewers' }).click();
+        await expect(dialog(p, 'Reply to reviewers').getByRole('group', { name: 'src/archive.ts line 3' })).toBeVisible(
+          {
+            timeout: 10_000,
+          },
+        );
+      },
+    },
   ];
   for (const state of states) {
     if (state.url === undefined) throw new Error('A session the earlier tests start is missing');
@@ -354,6 +378,31 @@ test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360
       }
     }
   }
+});
+
+test('spec 048, AC-2, AC-3, AC-8: Reply to reviewers posts Claude’s reply and resolves, only on Post replies', async ({
+  page,
+}) => {
+  await page.goto(seen.opened ?? '');
+  await page.getByRole('button', { name: 'Reply to reviewers' }).click();
+  const replies = dialog(page, 'Reply to reviewers');
+  const first = replies.getByRole('group', { name: 'src/archive.ts line 3' });
+  await expect(first.getByRole('textbox', { name: 'Reply' })).toHaveValue('Done: it uses useSelection now.', {
+    timeout: 10_000,
+  });
+  await expect(first.getByRole('checkbox', { name: 'Resolve' })).toBeChecked();
+  const second = replies.getByRole('group', { name: 'README.md' });
+  await expect(second.getByRole('textbox', { name: 'Reply' })).toHaveValue('');
+  // AC-8: drafting wrote nothing to GitHub.
+  expect(((await (await page.request.get(control)).json()) as FakeTools).threadWrites).toEqual([]);
+
+  await replies.getByRole('button', { name: 'Post replies' }).click();
+  await expect(replies).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByRole('button', { name: 'Reply to reviewers' })).toBeFocused();
+  expect(((await (await page.request.get(control)).json()) as FakeTools).threadWrites).toEqual([
+    { thread: 'PRRT_1', reply: 'Done: it uses useSelection now.' },
+    { thread: 'PRRT_1', resolved: true },
+  ]);
 });
 
 test('spec 047, AC-11, AC-12, AC-25: after Sync, a merged pull request makes the session PR merged everywhere, its worktree gone and its branch kept', async ({

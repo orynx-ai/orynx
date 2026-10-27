@@ -354,6 +354,12 @@ async function write(asked: string): Promise<void> {
     );
     return;
   }
+  // Spec 048: replies to a pull request's review threads, as JSON; it answers the first thread only.
+  if (asked.includes('The unresolved review threads')) {
+    const first = /Thread (\S+) on /.exec(asked)?.[1] ?? '';
+    sendResult(JSON.stringify({ replies: [{ thread: first, reply: 'Done: it uses useSelection now.' }] }));
+    return;
+  }
   if (asked.includes('(no draft)')) {
     send({ type: 'assistant', parent_tool_use_id: null, error: 'authentication_failed', message: { content: [] } });
     return;

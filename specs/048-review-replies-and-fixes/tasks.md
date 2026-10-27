@@ -64,7 +64,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: Post replies, failures kept in the list, and the button in the page bar and More actions (AC-1, AC-3, AC-5, AC-9)
       Check: pnpm test packages/app/src/features/sessions/components/reply-to-reviewers.test.tsx packages/app/src/features/sessions/components/session-header.test.tsx
       Files: packages/app/src/features/sessions/components/reply-to-reviewers.tsx, session-header.tsx, their tests
-- [ ] Task 19: e2e: Reply to reviewers on the pull requests hub posts only on the click, and has no axe violations at 1280 and 360 px in both themes (AC-3, AC-8, AC-20)
+- [x] Task 19: e2e: Reply to reviewers on the pull requests hub posts only on the click, and has no axe violations at 1280 and 360 px in both themes (AC-3, AC-8, AC-20)
       Check: pnpm exec playwright test e2e/pull-requests.spec.ts
       Files: e2e/pull-requests.spec.ts, e2e/fake-tools/preload.ts
 - [x] Task 20: Docs: GitHub's writes in the integration-adapter skill, and review replies in learn/connecting-github.md (part A)
