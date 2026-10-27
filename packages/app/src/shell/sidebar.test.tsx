@@ -183,19 +183,16 @@ describe('Sidebar', () => {
     useUiStore.setState({ sidebarCollapsed: true });
     const { user } = await renderApp();
     const nav = mainNav();
-    // The narrow bar's Search is an icon alone, so it has one.
-    within(nav)
-      .getByRole('button', { name: /^Search/ })
-      .focus();
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Search (⌘K)');
+    within(nav).getByRole('link', { name: 'Sessions' }).focus();
 
+    // Search shows its words in the pill too.
     await user.tab();
 
-    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveFocus();
+    expect(within(nav).getByRole('button', { name: 'Search' })).toHaveFocus();
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('a narrow window floats the places in a pill named Places (the user’s call, 27 Oct 2026)', async () => {
+  it('a narrow window floats the places and Search in a pill named Places (the user’s call, 27 Oct 2026)', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: false,
       media: query,
@@ -211,6 +208,7 @@ describe('Sidebar', () => {
         .getAllByRole('link')
         .map((link) => link.textContent),
     ).toEqual(['Home', 'Tickets', 'Settings', 'Sessions']);
+    expect(within(places).getByRole('button', { name: 'Search' })).toHaveAttribute('aria-haspopup', 'dialog');
   });
 
   it('AC-8 (spec 020): has no New task, collapsed or not; Home carries its shortcut for screen readers', async () => {

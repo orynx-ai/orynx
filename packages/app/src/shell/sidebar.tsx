@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, MouseEvent, ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import {
   HistoryIcon,
@@ -25,9 +25,9 @@ import { useWide } from './use-wide.ts';
 /**
  * Design system: SidebarNav. Places, every session and the agent's state. New task left it in spec 020:
  * Home does the same job, and its shortcut still goes there (spec 001).
- * Under 768 px it is a compact bar above the content (spec 001, Q3): the logo with Search as an icon
- * button. It scrolls away with the page. The places, with Sessions linking to the full list, float in a pill
- * at the window's bottom (the user's call, 27 Oct 2026). Collapsed, it is a rail of icons, Sessions among them (spec 020), each with its name in a tooltip.
+ * Under 768 px it is a compact bar above the content (spec 001, Q3): the logo with Terminal, the bell and
+ * the profile menu. It scrolls away with the page. The places, with Sessions linking to the full list, and
+ * Search float in a pill at the window's bottom (the user's call, 27 Oct 2026). Collapsed, it is a rail of icons, Sessions among them (spec 020), each with its name in a tooltip.
  * From 768 px it stays in place while the page scrolls, as tall as the window (the user's call,
  * 2026-10-17); in a short window its session list scrolls inside it. It is 300 px wide by default
  * and the user can drag its edge between 260 and 400 px (spec 001, Q10). The width is a
@@ -37,6 +37,10 @@ const sidebarId = 'sidebar';
 
 /** The places' icons, one step down the scale (spec 039, Q4), in the narrow pill too. */
 const navIcon = 'size-4';
+
+/** A place: 36 px with 14 px words from 768 px (spec 039, Q4); under it, an icon over 12 px words in the pill. */
+const placeLook =
+  'group flex min-h-9 cursor-pointer items-center gap-2.5 rounded-sm px-3 text-small font-medium text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:text-foreground max-md:flex-col max-md:gap-0.5 max-md:rounded-full max-md:px-2 max-md:py-1 max-md:text-label';
 
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
@@ -51,6 +55,11 @@ export function Sidebar() {
   const wide = useWide();
   const needYou = useInboxCount();
   const inSprint = useTicketsCount();
+  const openSearchHere = (event: MouseEvent<HTMLButtonElement>) => {
+    // Safari doesn't focus a clicked button; focus it, so closing search gives focus back here.
+    event.currentTarget.focus();
+    openSearch(true);
+  };
 
   const places = (
     <>
@@ -115,7 +124,7 @@ export function Sidebar() {
           <BrandMark />
           <span className={cn('text-title font-medium', collapsed && 'md:sr-only')}>Orynx</span>
         </span>
-        {/* The narrow bar has no footer, so Terminal, the bell and the profile menu sit here, before Search (spec 029, Q1). */}
+        {/* The narrow bar has no footer, so Terminal, the bell and the profile menu sit here (spec 029, Q1). */}
         {wide ? null : (
           <span className="ms-auto flex items-center gap-1">
             <TerminalButton tooltipSide="bottom" />
@@ -136,39 +145,42 @@ export function Sidebar() {
         </IconButton>
       </div>
 
-      <div className="flex gap-2 md:flex-col">
-        {/* Only its icon shows on the rail and the narrow bar, so its words and key are in a tooltip there. */}
-        <Tooltip label={collapsed || !wide ? `Search (${search.label})` : null} side={wide ? 'right' : 'bottom'}>
+      {wide ? (
+        <>
+          {/* Only its icon shows on the rail, so its words and key are in a tooltip there. */}
+          <Tooltip label={collapsed ? `Search (${search.label})` : null} side="right">
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-keyshortcuts={search.ariaKeyShortcuts}
+              onClick={openSearchHere}
+              className={cn(
+                // One step down the scale (spec 039, Q4): 36 px, 14 px words, a 16 px icon.
+                'flex h-9 w-full cursor-pointer items-center gap-2 rounded-sm border border-border bg-canvas px-3 text-small text-muted-foreground hover:border-control hover:text-foreground',
+                collapsed && 'justify-center px-0',
+              )}
+            >
+              <Icon icon={Search01Icon} aria-hidden className="size-4" />
+              <Label collapsed={collapsed}>Search</Label>
+              <Kbd className={cn('ms-auto', collapsed && 'hidden')}>{search.label}</Kbd>
+            </button>
+          </Tooltip>
+          <div className="flex flex-col gap-0.5">{places}</div>
+        </>
+      ) : (
+        // Under 768 px the places and Search float in a pill at the window's bottom (the user's call, 27 Oct 2026).
+        <FloatingBar aria-label="Places" className="gap-0.5 p-1">
+          {places}
           <button
             type="button"
             aria-haspopup="dialog"
             aria-keyshortcuts={search.ariaKeyShortcuts}
-            onClick={(event) => {
-              // Safari doesn't focus a clicked button; focus it, so closing search gives focus back here.
-              event.currentTarget.focus();
-              openSearch(true);
-            }}
-            className={cn(
-              // One step down the scale (spec 039, Q4): 36 px, 14 px words, a 16 px icon; 40 px in the narrow bar.
-              'flex h-9 w-full cursor-pointer items-center gap-2 rounded-sm border border-border bg-canvas px-3 text-small text-muted-foreground hover:border-control hover:text-foreground max-md:size-10 max-md:justify-center max-md:px-0',
-              collapsed && 'md:justify-center md:px-0',
-            )}
+            onClick={openSearchHere}
+            className={placeLook}
           >
-            <Icon icon={Search01Icon} aria-hidden className="size-4" />
-            <Label collapsed={collapsed} className="max-md:sr-only">
-              Search
-            </Label>
-            <Kbd className={cn('ms-auto max-md:hidden', collapsed && 'md:hidden')}>{search.label}</Kbd>
+            <Icon icon={Search01Icon} aria-hidden className={navIcon} />
+            <Label collapsed={false}>Search</Label>
           </button>
-        </Tooltip>
-      </div>
-
-      {wide ? (
-        <div className="flex flex-col gap-0.5">{places}</div>
-      ) : (
-        // Under 768 px the places float in a pill at the bottom of the window (the user's call, 27 Oct 2026).
-        <FloatingBar aria-label="Places" className="gap-0.5 p-1">
-          {places}
         </FloatingBar>
       )}
 
@@ -235,14 +247,7 @@ function NavItem({
         // A place is its path: Home stays current with its tab, search or page in the address.
         activeOptions={{ exact, includeSearch: false }}
         aria-keyshortcuts={keyShortcuts}
-        className={cn(
-          // 36 px with 14 px words from 768 px (spec 039, Q4); the narrow bar keeps its own sizes below.
-          'group flex min-h-9 items-center gap-2.5 rounded-sm px-3 text-small font-medium text-muted-foreground no-underline hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:text-foreground',
-          // Narrow windows: icon over a 12 px label, four in the pill.
-          'max-md:flex-col max-md:gap-0.5 max-md:rounded-full max-md:px-3 max-md:py-1 max-md:text-label',
-          collapsed && 'md:justify-center md:px-0',
-          className,
-        )}
+        className={cn(placeLook, collapsed && 'md:justify-center md:px-0', className)}
       >
         <span className="contents group-aria-[current=page]:text-info">{icon}</span>
         {/* Hidden at 0, and on the collapsed rail and the narrow bar, where there is no room (spec 007, Q1b). */}
