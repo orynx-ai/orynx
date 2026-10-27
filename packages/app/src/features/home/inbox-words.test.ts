@@ -126,7 +126,7 @@ describe('Home’s words', () => {
     const yours = (reason: InboxReason, path: string, fork = false) =>
       rowAction(
         makeInboxItem({
-          id: 'github:acme/web-app#2836',
+          id: 'github:acme/web-app/pull/2836',
           title: 'Fix timezone shift in event cards',
           subject: {
             kind: 'pull_request',

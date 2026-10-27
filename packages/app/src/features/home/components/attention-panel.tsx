@@ -1,7 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type MouseEvent, type RefObject } from 'react';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { defaultPreferences, type ComposerChip, type Inbox, type InboxRules } from '@devhub/contracts';
-import { ArrowRight01Icon, PlusSignIcon, Tick02Icon } from '@hugeicons/core-free-icons';
+import {
+  defaultPreferences,
+  type ComposerChip,
+  type ComposerStart,
+  type Inbox,
+  type InboxRules,
+} from '@devhub/contracts';
+import { ArrowRight01Icon, PlusSignIcon, Tick02Icon, Wrench01Icon } from '@hugeicons/core-free-icons';
 import {
   AttentionActions,
   AttentionList,
@@ -22,15 +28,25 @@ import {
 } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { countKey, homeTabLabels, homeTabs, itemsInTab, tabTools, type HomeTab } from '../inbox-tabs.ts';
-import { emptyText, reasonPill, rowAction, subLine, tabCounts, toolLine, type ToolLine } from '../inbox-words.ts';
+import {
+  emptyText,
+  reasonPill,
+  rowAction,
+  subLine,
+  tabCounts,
+  toolLine,
+  type RowAction,
+  type ToolLine,
+} from '../inbox-words.ts';
 import { defaultView, filterMenus, searchFor, showView, searchForTab, viewOf, type HomeView } from '../inbox-view.ts';
-import { useInbox, useInboxRules, type HomeItem } from '../queries.ts';
+import { useInbox, useInboxRules, useStartFromComposer, type HomeItem } from '../queries.ts';
+import { useAgentChoice } from './agent-picker.tsx';
 import { useNow } from '../use-now.ts';
 import { InboxToolbar } from './inbox-toolbar.tsx';
 import { OrderMenu } from './order-menu.tsx';
 import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
 import { holds } from '../composer-rules.ts';
-import { chipLabel, composerWords, refusedLine } from '../composer-words.ts';
+import { composerWords, refusedLine } from '../composer-words.ts';
 import { useComposerStore } from '../store.ts';
 
 const panelTitle = 'Needs your attention';
@@ -484,12 +500,59 @@ function RowActionButton({ item, onSaid }: { item: HomeItem; onSaid: (said: stri
   }
   return (
     <AttentionActions>
-      <AddToComposer
-        chip={action.chip}
-        label={action.kind === 'fix' ? chipLabel(action.chip) : action.label}
-        onSaid={onSaid}
-      />
+      {action.kind === 'fix' ? (
+        <FixPullRequest action={action} />
+      ) : (
+        <AddToComposer chip={action.chip} label={action.label} onSaid={onSaid} />
+      )}
     </AttentionActions>
+  );
+}
+
+/**
+ * Spec 047: Fix on your own pull request's row starts a Build on its branch with the composer's model and effort, and
+ * opens it; the draft stays as it is. What stops it is said under the composer: the choice beside a live session, or
+ * the pull request put in the composer as Build, with Send's line.
+ */
+function FixPullRequest({ action }: { action: Extract<RowAction, { kind: 'fix' }> }) {
+  const navigate = useNavigate();
+  const start = useStartFromComposer();
+  const model = useComposerStore((state) => state.model);
+  const effort = useComposerStore((state) => state.effort);
+  const choice = useAgentChoice(model, effort);
+  const addChip = useComposerStore((state) => state.addChip);
+  const setMode = useComposerStore((state) => state.setMode);
+  const setTried = useComposerStore((state) => state.setTried);
+  return (
+    <IconButton
+      variant="ghost"
+      size="sm"
+      label={action.label}
+      aria-label={action.name}
+      disabled={start.isPending}
+      onClick={() => {
+        const request: ComposerStart = { message: action.message, context: [action.chip], ...choice, mode: 'build' };
+        start.mutate(request, {
+          onSuccess: (answer) => {
+            if (answer.result === 'started') {
+              setTried(null);
+              void navigate({ to: '/sessions/$sessionId', params: { sessionId: answer.sessionId } });
+              return;
+            }
+            if (answer.result !== 'existing') {
+              addChip(action.chip);
+              setMode('build');
+            }
+            setTried({ request, answer, draft: false });
+          },
+          onError: () => {
+            setTried({ request, answer: 'failed', draft: false });
+          },
+        });
+      }}
+    >
+      <Icon icon={Wrench01Icon} aria-hidden />
+    </IconButton>
   );
 }
 

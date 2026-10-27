@@ -2,7 +2,7 @@ import { useRef, useState, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useForm, useWatch } from 'react-hook-form';
-import type { ComposerChip, ComposerStart, StartSessionAnswer } from '@devhub/contracts';
+import type { ComposerChip, ComposerStart } from '@devhub/contracts';
 import {
   Button,
   Callout,
@@ -32,16 +32,15 @@ import { ContextStrip } from './context-strip.tsx';
 import { useSkillSuggestions } from './skill-suggestions.tsx';
 import { FolderPicker } from './folder-picker.tsx';
 import { composerFormSchema, type ComposerFormValues } from '../schemas.ts';
-import { useComposerStore } from '../store.ts';
+import { useComposerStore, type StartTried } from '../store.ts';
 
 /** One line under the box, or the choice when the work already has a session (spec 047, AC-1). */
 type Said = { line: string; link: SettingsLink | null } | { held: string; pull: boolean; sessionId: string };
 
-/** What Send's answer says under the box, when it started nothing (AC-21 to AC-23). */
-function saidFor(answer: StartSessionAnswer, chips: readonly ComposerChip[]): Said | null {
+/** What a start's answer says under the box, when it started nothing (AC-21 to AC-23). */
+function saidFor(answer: StartTried['answer'], chips: readonly ComposerChip[]): Said {
+  if (answer === 'failed') return { line: composerWords.failed, link: null };
   switch (answer.result) {
-    case 'started':
-      return null;
     case 'existing': {
       // Only the first ticket's session stops a start (spec 022, Q2); with no ticket, your pull request's (spec 031).
       const ticket = firstTicket(chips);
@@ -61,7 +60,8 @@ function saidFor(answer: StartSessionAnswer, chips: readonly ComposerChip[]): Sa
 /**
  * Home's composer (spec 015): your words, the chips Claude will read, and Send. Send starts a session and opens
  * it; anything that stops it shows one line under the box, and the draft stays (AC-21 to AC-23). The draft lives
- * in the composer's store, so leaving Home keeps it (Q14).
+ * in the composer's store, so leaving Home keeps it (Q14), as does what the last start said, so a row's Fix says it
+ * here too (spec 047).
  */
 export function HomeComposer() {
   const navigate = useNavigate();
@@ -79,6 +79,8 @@ export function HomeComposer() {
   const choice = useAgentChoice(model, effort);
   const mode = useComposerStore((state) => state.mode);
   const setMode = useComposerStore((state) => state.setMode);
+  const tried = useComposerStore((state) => state.tried);
+  const setTried = useComposerStore((state) => state.setTried);
   const repositories = useRepositories();
   const status = useStatus();
   const start = useStartFromComposer();
@@ -112,13 +114,13 @@ export function HomeComposer() {
       suggestions.track(event.target);
       setRefused(null);
       // What was said about the last try no longer fits once the draft changes.
-      if (start.isError || start.data !== undefined) start.reset();
+      if (tried !== null) setTried(null);
     },
   });
   // More than 5 skills named waits until some go (spec 022, Q5).
   const canSend = (message.trim() !== '' || ticketKey !== null) && !suggestions.tooMany;
 
-  const answered = start.data === undefined ? null : saidFor(start.data, start.variables.context);
+  const answered = tried === null ? null : saidFor(tried.answer, tried.request.context);
   const tooLong = form.formState.errors.message?.message;
   const said: Said | null =
     refused !== null
@@ -126,19 +128,28 @@ export function HomeComposer() {
       : suggestions.tooMany
         ? { line: composerWords.skills.tooMany, link: null }
         : tooLong === undefined
-          ? start.isError
-            ? { line: composerWords.failed, link: null }
-            : answered
+          ? answered
           : { line: tooLong, link: null };
 
-  /** Starts a session and opens it; anything else is said under the box, and the draft stays. */
-  function begin(request: ComposerStart) {
+  /**
+   * Starts a session and opens it; anything else is said under the box, and the draft stays. `draft` is false for a
+   * row's Fix sent again beside a live session: that was never the draft, so the draft stays when it starts.
+   */
+  function begin(request: ComposerStart, draft = true) {
     start.mutate(request, {
       onSuccess: (answer) => {
-        if (answer.result !== 'started') return;
-        form.reset({ message: '' });
-        sent(request.repositoryId ?? null);
+        if (answer.result !== 'started') {
+          setTried({ request, answer, draft });
+          return;
+        }
+        if (draft) {
+          form.reset({ message: '' });
+          sent(request.repositoryId ?? null);
+        } else setTried(null);
         void navigate({ to: '/sessions/$sessionId', params: { sessionId: answer.sessionId } });
+      },
+      onError: () => {
+        setTried({ request, answer: 'failed', draft });
       },
     });
   }
@@ -233,7 +244,7 @@ export function HomeComposer() {
                 size="sm"
                 onClick={() => {
                   // The draft didn't change since, or this choice would be gone: send it again, beside the live one.
-                  if (start.variables !== undefined) begin({ ...start.variables, another: true });
+                  if (tried !== null) begin({ ...tried.request, another: true }, tried.draft);
                 }}
               >
                 {composerWords.existing.another}
