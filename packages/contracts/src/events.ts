@@ -36,6 +36,8 @@ export const ServerEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('skills.changed') }),
   /** A notification came, was read, or an approval it holds ended; refetch GET /api/notifications (spec 029). */
   z.object({ type: z.literal('notifications.changed') }),
+  /** A check for updates or an update moved on, or a session's state changed whether one may run (spec 045). */
+  z.object({ type: z.literal('updates.changed') }),
 ]);
 export type ServerEvent = z.infer<typeof ServerEventSchema>;
 export type ServerEventType = ServerEvent['type'];

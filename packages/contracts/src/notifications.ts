@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { GitHubLinkSchema } from './github.ts';
 import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
 import { SessionIdSchema, SessionReadySchema, SessionSourceSchema } from './session.ts';
+import { OrynxVersionSchema } from './updates.ts';
 
 /**
  * Spec 029: what Orynx tells you about. A notification holds the facts the app words ("Claude wants to run a
@@ -62,6 +63,8 @@ export const NotificationWhatSchema = z.discriminatedUnion('kind', [
     kind: z.literal('jira_assigned'),
     ticket: z.object({ key: JiraIssueKeySchema, title: z.string().min(1), url: JiraLinkSchema }),
   }),
+  /** A newer Orynx is out, told once per version (spec 045, AC-13). */
+  z.object({ kind: z.literal('update_available'), version: OrynxVersionSchema }),
 ]);
 export type NotificationWhat = z.infer<typeof NotificationWhatSchema>;
 export type NotificationKind = NotificationWhat['kind'];
@@ -103,6 +106,7 @@ export const NotificationEventSchema = z.enum([
   'review_requested',
   'checks_failed',
   'jira_assigned',
+  'update_available',
 ]);
 export type NotificationEvent = z.infer<typeof NotificationEventSchema>;
 
@@ -178,6 +182,7 @@ export const defaultNotificationSettings: NotificationSettings = {
     review_requested: { popUp: true, desktop: false, sound: 'none' },
     checks_failed: { popUp: true, desktop: false, sound: 'none' },
     jira_assigned: { popUp: false, desktop: false, sound: 'none' },
+    update_available: { popUp: true, desktop: false, sound: 'none' },
   },
   doNotDisturb: { on: false, length: 'hour', until: null },
   quietHours: { on: true, from: '19:00', to: '09:00', days: [true, true, true, true, true, false, false] },

@@ -59,6 +59,9 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
     case 'notifications.changed':
       // One came, was read, or its approval ended: the bell, its panel and the pop-ups read the list again (spec 029).
       return [queryKeys.notifications];
+    case 'updates.changed':
+      // Settings › About reads it again once it has a query (spec 045, task 14).
+      return [];
   }
 }
 

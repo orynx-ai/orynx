@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: The spec changes from the plan: F reuses the Orynx restarted notice, AC-33 goes, AC-5's axe check lives in the panel test
       Check: pnpm gate specs
       Files: specs/045-in-app-updates/spec.md
-- [ ] Task 2: The updates contract: release, answer, install request and refusals, `updates.changed`, `update_available`, routes and builders (AC-6 to AC-13)
+- [x] Task 2: The updates contract: release, answer, install request and refusals, `updates.changed`, `update_available`, routes and builders (AC-6 to AC-13)
       Check: pnpm test packages/contracts/src/updates.test.ts packages/contracts/src/notifications.test.ts; pnpm typecheck
       Files: packages/contracts/src/updates.ts, updates.test.ts, notifications.ts, events.ts, routes.ts, index.ts, testing.ts
 - [ ] Task 3: Versions: parse tags, compare, read `git describe` (AC-2, AC-7, AC-14)

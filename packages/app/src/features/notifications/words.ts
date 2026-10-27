@@ -67,6 +67,8 @@ export function notificationWords(what: NotificationWhat): NotificationWords {
     }
     case 'jira_assigned':
       return { title: `${what.ticket.key} assigned to you`, detail: what.ticket.title, desktop: what.ticket.title };
+    case 'update_available':
+      return { title: `Orynx ${what.version} is out`, detail: 'Settings › About', desktop: 'Settings › About' };
   }
 }
 
@@ -83,9 +85,12 @@ export function aboutOpenSession(what: NotificationWhat, pathname: string): bool
   return 'session' in what && pathname === `/sessions/${what.session.id}`;
 }
 
-/** Where opening a notification goes: its Session screen, or the pull request or ticket outside Orynx. */
+/** Where opening a notification goes: its Session screen, or the pull request, ticket or release outside Orynx. */
 export function notificationPlace(what: NotificationWhat): NotificationPlace {
   if ('session' in what) return { kind: 'session', sessionId: what.session.id };
+  if (what.kind === 'update_available') {
+    return { kind: 'external', url: `https://github.com/orynx-ai/orynx/releases/tag/v${what.version}` };
+  }
   return { kind: 'external', url: 'pullRequest' in what ? what.pullRequest.url : what.ticket.url };
 }
 
