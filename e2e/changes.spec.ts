@@ -356,6 +356,20 @@ test('AC-11, AC-12, AC-18: after Done, a follow-up carries on where Claude left 
   await other.close();
 });
 
+test('047 AC-22, AC-23: after Done the time shows the turns and their cost, a follow-up adds its turns, and the tooltip says what the cost is', async ({
+  page,
+}) => {
+  if (seen.done === undefined) throw new Error('A session the earlier tests start is missing');
+  await page.goto(seen.done);
+  // Its first run and the follow-up above each ended one turn of 3, at $0.42 so far.
+  const line = progressOf(page).getByText(/^\d+ (min \d+ )?s · 6 turns · ≈ \$0\.42$/);
+  await expect(line).toBeVisible();
+  await line.focus();
+  await expect(page.getByRole('tooltip')).toHaveText(
+    "Claude's working time, its turns with the model, and what they'd cost at API prices. Your company's Claude plan may bill differently.",
+  );
+});
+
 test('AC-13: after Stop, a follow-up carries on as well', async ({ page }) => {
   await ship(page, 'CHG-3');
   await expect(progressOf(page).getByText('Editing files')).toBeVisible({ timeout: 15_000 });

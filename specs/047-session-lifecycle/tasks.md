@@ -88,7 +88,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 24: The progress line: "4 min 12 s · 38 turns · ≈ $1.42" ("1 turn", "< $0.01") with its tooltip; time only before the first turn ends or for an older session (AC-22, AC-24)
       Check: pnpm test packages/app/src/features/sessions/components/session-progress.test.tsx; pnpm gate style-policy
       Files: packages/app/src/features/sessions/components/session-progress.tsx, packages/app/src/features/sessions/step-words.ts, and their tests
-- [ ] Task 25: e2e: the line after Done, a follow-up adds the turns, and its tooltip; axe at 360 and 1280 px in light and dark (AC-22, AC-23, AC-25)
+- [x] Task 25: e2e: the line after Done, a follow-up adds the turns, and its tooltip; axe at 360 and 1280 px in light and dark (AC-22, AC-23, AC-25)
       Check: pnpm exec playwright test e2e/changes.spec.ts
       Files: e2e/changes.spec.ts, e2e/fake-claude/session.ts
 
