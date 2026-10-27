@@ -471,6 +471,8 @@ test('AC-22: the Session screen has no axe violations, at 1280 and 360 px, in li
         await page.emulateMedia({ colorScheme });
         await page.goto(state.url);
         await expect(state.shows(page)).toBeVisible();
+        // The next-move bar comes once the changes have loaded, fading in (spec 048): axe reads it once it's there.
+        await expect(page.getByRole('status', { name: 'Ready for a pull request' })).toBeVisible();
         const where = `${state.name} at ${String(width)} px, ${colorScheme}`;
         expect(await check(), where).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth), where).toBeLessThanOrEqual(width);

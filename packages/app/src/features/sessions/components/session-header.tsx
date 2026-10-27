@@ -4,12 +4,10 @@ import {
   ArrowUpRight01Icon,
   ComputerTerminal01Icon,
   GitBranchIcon,
-  GitPullRequestIcon,
   Loading03Icon,
   MoreHorizontalIcon,
   SourceCodeIcon,
   StopIcon,
-  Upload01Icon,
   VisualStudioCodeIcon,
 } from '@hugeicons/core-free-icons';
 import type { Session, SessionState } from '@devhub/contracts';
@@ -18,6 +16,7 @@ import {
   CopyButton,
   Icon,
   IconButton,
+  Kbd,
   Menu,
   MenuContent,
   MenuItem,
@@ -35,15 +34,13 @@ import { agoText } from '../../../words/ago.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { needsApprovalLabel } from '../approval-words.ts';
 import { editorLink, openInLabel } from '../change-words.ts';
-import { openPullRequestLabel, pullRequestWords } from '../pull-request-words.ts';
-import { useEditor, useHasChanges, useSessionPorts } from '../queries.ts';
-import { CreatePullRequest } from './create-pull-request.tsx';
+import { openPullRequestLabel } from '../pull-request-words.ts';
+import { useEditor, useSessionPorts } from '../queries.ts';
 import { DeleteSession } from './delete-session.tsx';
 import { RenameSession } from './rename-session.tsx';
 import { SessionMenuItems, useLinkCopied, type SessionMenuPick } from './session-menu.tsx';
 import { SessionTerminal } from './terminal/session-terminal.tsx';
 import { terminalWords } from './terminal/terminal-words.ts';
-import { PushChanges } from './push-changes.tsx';
 
 /** The state pill's colour, as the sidebar colours each state (Q10b). */
 const stateTones: Record<SessionState, PillTone> = {
@@ -55,24 +52,6 @@ const stateTones: Record<SessionState, PillTone> = {
   pr_closed: 'neutral',
   stopped: 'neutral',
 };
-
-/**
- * Create pull request shows once Claude isn't working, while the worktree is there and no pull request is open
- * (spec 014, Q2): Done, or Stopped after Stop, an error or Orynx closing.
- */
-function canCreatePullRequest(session: Session): boolean {
-  const working = session.state === 'working' || session.state === 'needs_you';
-  return !working && session.pullRequest === null && session.discardedAt === null && session.worktreePath !== null;
-}
-
-/**
- * Push changes shows once a pull request is open, whenever Claude isn't working and the worktree is there (Q7), until
- * origin's branch has everything, whoever pushed it.
- */
-function canPush(session: Session): boolean {
-  const working = session.state === 'working' || session.state === 'needs_you';
-  return !working && session.discardedAt === null && session.worktreePath !== null && session.unpushed;
-}
 
 /** Before Claude's first edit, a Build session has no branch (spec 042, Q11). */
 const noBranchYet = 'No branch yet';
@@ -164,39 +143,38 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
 }
 
 /**
- * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop while Claude works (AC-9);
- * once Claude is done, Create pull request when there's something to put in one; once the pull request is open,
- * Open PR and Push changes, with no primary button (spec 014, Q10e). Terminal and Open in the editor wait in More
- * actions (spec 038), then Rename, Pin and Delete (spec 039, where Delete took Discard changes' place, the user's call,
- * 20 Oct 2026). Under 768 px everything but Stop moves into More actions, so the bar keeps to one line.
- * Stop keeps focus while it runs; once the session has stopped, the title takes focus, because the button is gone.
+ * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop while Claude works (AC-9),
+ * Terminal with its shortcut (spec 048), and Open PR once the pull request is open; Create pull request and Push are
+ * the next-move bar's (spec 048). Open in the editor waits in More actions, then Rename, Pin and Delete (spec 039,
+ * where Delete took Discard changes' place, the user's call, 20 Oct 2026). Under 768 px everything but Stop moves into
+ * More actions, so the bar keeps to one line. Stop keeps focus while it runs; once the session has stopped, the title
+ * takes focus, because the button is gone. `openPullRequest` and `more` are the screen's, for the bar's focus.
  */
-export function SessionActions({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
+export function SessionActions({
+  session,
+  title,
+  openPullRequest,
+  more,
+}: {
+  session: Session;
+  title: RefObject<HTMLHeadingElement | null>;
+  openPullRequest: RefObject<HTMLAnchorElement | null>;
+  more: RefObject<HTMLButtonElement | null>;
+}) {
   const platform = usePlatform();
   const wide = useWide();
-  const more = useRef<HTMLButtonElement>(null);
-  const createDialog = useRef<{ open: () => void }>(null);
-  const pushDialog = useRef<{ open: () => void }>(null);
+  const terminalButton = useRef<HTMLButtonElement>(null);
   const terminalDialog = useRef<{ open: () => void }>(null);
   // The dialog an item opens, once the menu has closed and let go of focus.
-  const picked = useRef<'create' | 'push' | 'terminal' | SessionMenuPick | null>(null);
+  const picked = useRef<'terminal' | SessionMenuPick | null>(null);
   // Rename and Delete (spec 039), opened as the sidebar's ⋯ opens them.
   const [sessionDialog, setSessionDialog] = useState<SessionMenuPick | null>(null);
-  // Once you've created the pull request, focus goes to Open PR, now or as soon as it shows (spec 014, AC-4);
-  // under 768 px Open PR is in More actions, so to that.
-  const justOpened = useRef(false);
-  const openPullRequest = useRef<HTMLAnchorElement>(null);
   const { pullRequest } = session;
-  useEffect(() => {
-    if (pullRequest === null || !justOpened.current) return;
-    justOpened.current = false;
-    (openPullRequest.current ?? more.current)?.focus();
-  }, [pullRequest]);
+  const shortcut = terminalShortcut(platform);
   const api = useApi();
   const stop = useMutation({ mutationFn: () => api.stopSession(session.id) });
   const working = session.state === 'working' || session.state === 'needs_you';
   const stopping = stop.isPending || (stop.isSuccess && working);
-  const hasChanges = useHasChanges(session.id);
   // The editor Settings picks, VS Code until Settings answers otherwise (spec 013, Q9).
   const preferences = useEditor();
   const editor = preferences.data ?? (preferences.isError ? 'vscode' : null);
@@ -206,17 +184,16 @@ export function SessionActions({ session, title }: { session: Session; title: Re
     if (stop.isSuccess && !working) title.current?.focus();
   }, [stop.isSuccess, working, title]);
 
-  const offerCreate = canCreatePullRequest(session) && hasChanges;
-  const offerPush = pullRequest !== null && canPush(session);
   // An Ask session has no worktree to open (spec 026); nor is there one once discarded or before it's made.
   const kept = session.mode !== 'ask' && session.discardedAt === null;
   const editorPath = kept && editor !== null ? session.worktreePath : null;
-  const menu = wide ? undefined : more;
   // Rename, Pin and Delete are always there (spec 039, AC-34), so More actions is too.
 
   return (
     <>
-      {session.terminal ? <SessionTerminal ref={terminalDialog} session={session} returnTo={more} /> : null}
+      {session.terminal ? (
+        <SessionTerminal ref={terminalDialog} session={session} returnTo={wide ? terminalButton : more} />
+      ) : null}
       {working ? (
         <Button
           variant="secondary"
@@ -235,16 +212,21 @@ export function SessionActions({ session, title }: { session: Session; title: Re
           {stopping ? 'Stopping…' : 'Stop'}
         </Button>
       ) : null}
-      <CreatePullRequest
-        ref={createDialog}
-        session={session}
-        show={offerCreate}
-        {...(menu === undefined ? {} : { menu })}
-        onOpened={() => {
-          if (pullRequest === null) justOpened.current = true;
-          else (openPullRequest.current ?? more.current)?.focus();
-        }}
-      />
+      {session.terminal && wide ? (
+        <Button
+          ref={terminalButton}
+          variant="ghost"
+          size="sm"
+          aria-keyshortcuts={shortcut.ariaKeyShortcuts}
+          onClick={() => {
+            terminalDialog.current?.open();
+          }}
+        >
+          <Icon icon={ComputerTerminal01Icon} aria-hidden />
+          {terminalWords.button}
+          <Kbd aria-hidden>{shortcut.label}</Kbd>
+        </Button>
+      ) : null}
       {pullRequest === null || !wide ? null : (
         <Button asChild variant="secondary" size="sm">
           <a
@@ -260,18 +242,6 @@ export function SessionActions({ session, title }: { session: Session; title: Re
             <Icon icon={ArrowUpRight01Icon} aria-hidden />
           </a>
         </Button>
-      )}
-      {pullRequest === null ? null : (
-        <PushChanges
-          ref={pushDialog}
-          session={session}
-          repository={pullRequest.repository}
-          show={offerPush}
-          onPushed={() => {
-            (openPullRequest.current ?? more.current)?.focus();
-          }}
-          {...(menu === undefined ? {} : { menu })}
-        />
       )}
       <RenameSession
         session={session}
@@ -309,33 +279,18 @@ export function SessionActions({ session, title }: { session: Session; title: Re
               setSessionDialog(dialog);
               return;
             }
-            const dialogs = {
-              create: createDialog,
-              push: pushDialog,
-              terminal: terminalDialog,
-            };
-            dialogs[dialog].current?.open();
+            terminalDialog.current?.open();
           }}
         >
-          {session.terminal ? (
+          {session.terminal && !wide ? (
             <MenuItem
               icon={<Icon icon={ComputerTerminal01Icon} />}
-              aria-keyshortcuts={terminalShortcut(platform).ariaKeyShortcuts}
+              aria-keyshortcuts={shortcut.ariaKeyShortcuts}
               onSelect={() => {
                 picked.current = 'terminal';
               }}
             >
               {terminalWords.button}
-            </MenuItem>
-          ) : null}
-          {!wide && offerCreate ? (
-            <MenuItem
-              icon={<Icon icon={GitPullRequestIcon} />}
-              onSelect={() => {
-                picked.current = 'create';
-              }}
-            >
-              {pullRequestWords.create}
             </MenuItem>
           ) : null}
           {!wide && pullRequest !== null ? (
@@ -347,16 +302,6 @@ export function SessionActions({ session, title }: { session: Session; title: Re
               }}
             >
               {openPullRequestLabel(pullRequest.number)}
-            </MenuItem>
-          ) : null}
-          {!wide && offerPush ? (
-            <MenuItem
-              icon={<Icon icon={Upload01Icon} />}
-              onSelect={() => {
-                picked.current = 'push';
-              }}
-            >
-              {pullRequestWords.push}
             </MenuItem>
           ) : null}
           {editor === null || editorPath === null ? null : (

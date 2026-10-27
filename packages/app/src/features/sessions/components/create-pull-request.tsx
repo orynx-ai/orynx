@@ -1,14 +1,4 @@
-import {
-  useEffect,
-  useId,
-  useImperativeHandle,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type Ref,
-  type RefObject,
-  type SubmitEvent,
-} from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { GitPullRequestIcon } from '@hugeicons/core-free-icons';
 import { Link } from '@tanstack/react-router';
@@ -228,18 +218,12 @@ export function CreatePullRequest({
   session,
   show,
   onOpened,
-  menu,
-  ref,
 }: {
   session: Session;
   /** Whether the page offers it (Q2). An open dialog stays until it closes itself, even once the PR shows. */
   show: boolean;
   /** Called once the dialog has closed after the pull request opened, so focus can move on (AC-4). */
   onOpened: () => void;
-  /** Opened from this menu's item rather than a button of its own (under 768 px); closing gives the menu focus. */
-  menu?: RefObject<HTMLElement | null>;
-  /** Opens the dialog, for the menu's item. */
-  ref?: Ref<{ open: () => void }>;
 }) {
   const [open, setOpen] = useState(false);
   /** The dialog is closing because the pull request opened. */
@@ -272,12 +256,6 @@ export function CreatePullRequest({
     }
     if (current === undefined) askForDraft();
   }
-
-  useImperativeHandle(ref, () => ({
-    open: () => {
-      openChange(true);
-    },
-  }));
 
   function createNow(values: { title: string; body: string }) {
     create.mutate(values, {
@@ -325,7 +303,7 @@ export function CreatePullRequest({
   if (!show && !open) return null;
   return (
     <Dialog open={open} onOpenChange={openChange}>
-      {show && menu === undefined ? (
+      {show ? (
         <DialogTrigger asChild>
           <Button variant="primary" size="sm">
             <Icon icon={GitPullRequestIcon} aria-hidden />
@@ -344,9 +322,6 @@ export function CreatePullRequest({
             onOpened();
             return;
           }
-          if (menu === undefined) return;
-          event.preventDefault();
-          menu.current?.focus();
         }}
       >
         <div className="flex flex-col gap-1">

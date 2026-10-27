@@ -250,7 +250,7 @@ test('AC-17, AC-19: Push changes updates the branch, and a follow-up on a PR-ope
   // Your edit in your editor, then back to Orynx: Push changes shows once the session has something to push.
   await page.reload();
 
-  await page.getByRole('button', { name: 'Push changes' }).click();
+  await page.getByRole('button', { name: `Push to PR ${pr}` }).click();
   const message = dialog(page, 'Push changes').getByRole('textbox', { name: 'Commit message' });
   await expect(message).toHaveValue('Use the existing useSelection hook', { timeout: 10_000 });
   await expect(
@@ -270,7 +270,7 @@ test('AC-17, AC-19: Push changes updates the branch, and a follow-up on a PR-ope
   await box.press('Enter');
   await expect(page.getByRole('main').getByText('Working', { exact: true })).toBeVisible();
   await expect(page.getByRole('main').getByText('PR open', { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole('button', { name: 'Push changes' })).toBeVisible();
+  await expect(page.getByRole('button', { name: `Push to PR ${pr}` })).toBeVisible();
 });
 
 test('AC-21: the dialog works from the keyboard, and Enter in the title creates nothing', async ({ page }) => {
@@ -323,14 +323,14 @@ test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360
     {
       name: 'Done, with Create pull request',
       url: seen.secret,
-      show: async (p: Page, width: number) => expect(atHand(p, width, 'Create pull request')).toBeVisible(),
+      // In the next-move bar at every width (spec 048).
+      show: async (p: Page) => expect(p.getByRole('button', { name: 'Create pull request' })).toBeVisible(),
     },
     {
       name: 'the dialog with the draft',
       url: seen.secret,
-      show: async (p: Page, width: number) => {
-        await atHand(p, width, 'Create pull request').click();
-        if (width < 768) await p.getByRole('menuitem', { name: 'Create pull request' }).click();
+      show: async (p: Page) => {
+        await p.getByRole('button', { name: 'Create pull request' }).click();
         await expect(dialog(p).getByRole('textbox', { name: 'Title' })).toBeVisible({ timeout: 10_000 });
       },
     },
@@ -468,7 +468,7 @@ test.describe('a Build on my own pull request (spec 031)', () => {
     await expect(page.getByRole('button', { name: 'Create pull request' })).toHaveCount(0);
     expect(repository.git(repository.clone, 'branch', '--list', branch)).toBe('');
 
-    await page.getByRole('button', { name: 'Push changes' }).click();
+    await page.getByRole('button', { name: `Push to PR ${yours}` }).click();
     await dialog(page, 'Push changes').getByRole('textbox', { name: 'Commit message' }).fill('Answer the review');
     await dialog(page, 'Push changes').getByRole('button', { name: 'Push changes' }).click();
     await expect(dialog(page, 'Push changes')).toHaveCount(0, { timeout: 15_000 });
@@ -491,7 +491,7 @@ test.describe('a Build on my own pull request (spec 031)', () => {
     writeFileSync(join(await worktreeOf(page, on.url ?? ''), 'src', 'again.ts'), 'export const again = true;\n');
     await page.reload();
 
-    await page.getByRole('button', { name: 'Push changes' }).click();
+    await page.getByRole('button', { name: `Push to PR ${yours}` }).click();
     await dialog(page, 'Push changes').getByRole('textbox', { name: 'Commit message' }).fill('Again');
     await dialog(page, 'Push changes').getByRole('button', { name: 'Push changes' }).click();
     await expect(dialog(page, 'Push changes').getByRole('alert')).toContainText(

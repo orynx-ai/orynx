@@ -1,5 +1,5 @@
 // Design: docs/design/screens/session.html — page bar, title row, stepper, Claude's progress with the approval callout and the follow-up box, the Changes tab; spec 014's dialog and PR-open buttons: Design: none, settled in its Q10; the Context tab (in place of Ticket), the details held in view, the full-screen view, an Ask session's page with no stepper or Changes, and the session's buttons small in the page bar with Open in the editor and Discard changes in More actions (everything but Stop in it under 768 px): Design: none — the user's call, 19 Oct 2026; the approval callout under the last step, and Stop turning while Claude runs: Design: none — the user's call, 20 Oct 2026; no Open in Jira in the page bar (the Context tab keeps it): Design: none — the user's call, 20 Oct 2026
-import { useRef, type ReactNode } from 'react';
+import { useCallback, useRef, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import type { Session } from '@devhub/contracts';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
@@ -7,6 +7,7 @@ import { NotFoundScreen } from '../not-found/not-found-screen.tsx';
 import { ChangesSkeleton } from './components/changes-panel.tsx';
 import { contextOf } from './components/context-panel.tsx';
 import { FollowUpBox } from './components/follow-up-box.tsx';
+import { NextMove } from './components/next-move.tsx';
 import { SessionDetails } from './components/session-details.tsx';
 import { SessionActions, SessionHeader, SessionHeaderSkeleton } from './components/session-header.tsx';
 import {
@@ -77,6 +78,13 @@ export function SessionScreen() {
   const session = useSession(sessionId);
   // Stop and Discard hand focus to the title once their buttons are gone.
   const title = useRef<HTMLHeadingElement>(null);
+  // Once the pull request opens or a push lands, focus goes to Open PR, or More actions, where it is under 768 px
+  // (spec 014, AC-4).
+  const openPullRequest = useRef<HTMLAnchorElement>(null);
+  const more = useRef<HTMLButtonElement>(null);
+  const focusPullRequest = useCallback(() => {
+    (openPullRequest.current ?? more.current)?.focus();
+  }, []);
 
   if (session.isPending) {
     return (
@@ -118,7 +126,7 @@ export function SessionScreen() {
     <>
       <PageBar
         breadcrumb={<PageBreadcrumb crumbs={crumbsFor(found)} />}
-        actions={<SessionActions session={found} title={title} />}
+        actions={<SessionActions session={found} title={title} openPullRequest={openPullRequest} more={more} />}
       />
       <PageBody width="full">
         <TitleRow
@@ -127,6 +135,7 @@ export function SessionScreen() {
           // On the title's right, its steps end at the row's end, as `session-review.html` draws them.
           stepper={found.mode === 'ask' ? null : <SessionStepper session={found} className="@5xl:justify-end" />}
         />
+        <NextMove session={found} focusPullRequest={focusPullRequest} />
         <Panes
           progress={<SessionProgress session={found} footer={<FollowUpBox session={found} />} />}
           details={found.mode === 'ask' && contextOf(found).length === 0 ? null : <SessionDetails session={found} />}

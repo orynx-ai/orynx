@@ -107,14 +107,15 @@ describe('SessionHeader', () => {
     expect(within(main).getByText('own worktree')).toBeVisible();
   });
 
-  it('puts Create pull request in the page bar, with Open in the editor and Delete in More actions', async () => {
+  it('puts Create pull request in the next-move bar (spec 048), with Open in the editor and Delete in More actions', async () => {
     server.use(
       sessionHandler(done),
       http.get(apiUrl(apiRoutes.sessionChanges), () => HttpResponse.json(makeSessionChanges())),
     );
     const { user } = await renderApp({ route });
 
-    expect(await within(pageBar()).findByRole('button', { name: 'Create pull request' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Create pull request' })).toBeVisible();
+    expect(within(pageBar()).queryByRole('button', { name: 'Create pull request' })).toBeNull();
     const more = within(pageBar()).getByRole('button', { name: 'More actions' });
     await user.click(more);
     const menu = screen.getByRole('menu');
@@ -129,7 +130,7 @@ describe('SessionHeader', () => {
     );
   });
 
-  it('under 768 px puts Create pull request in More actions too, and Esc on its dialog gives More actions focus', async () => {
+  it('under 768 px keeps Create pull request in the next-move bar (spec 048), and Esc on its dialog gives it focus back', async () => {
     narrow();
     server.use(
       sessionHandler(done),
@@ -143,7 +144,6 @@ describe('SessionHeader', () => {
     await user.click(more);
     await waitFor(() => {
       expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
-        'Create pull request',
         'Open in VS Code',
         'Rename',
         'Pin',
@@ -151,14 +151,15 @@ describe('SessionHeader', () => {
         'Delete',
       ]);
     });
-    expect(screen.queryByRole('button', { name: 'Create pull request' })).toBeNull();
+    await user.keyboard('{Escape}');
 
-    await user.click(screen.getByRole('menuitem', { name: 'Create pull request' }));
+    const create = screen.getByRole('button', { name: 'Create pull request' });
+    await user.click(create);
     expect(await screen.findByRole('dialog', { name: 'Create pull request' })).toBeVisible();
     await user.keyboard('{Escape}');
 
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(more).toHaveFocus();
+    expect(create).toHaveFocus();
   });
 
   it('AC-11, AC-14 (spec 047): once its pull request is merged or closed, the pill says so', async () => {
@@ -175,7 +176,7 @@ describe('SessionHeader', () => {
     }
   });
 
-  it('under 768 px, once the pull request is open, More actions holds Open PR and Push changes', async () => {
+  it('under 768 px, once the pull request is open, More actions holds Open PR, and Push to PR is in the next-move bar', async () => {
     narrow();
     const open = makeSession({
       ...done,
@@ -190,16 +191,34 @@ describe('SessionHeader', () => {
     const { user, platform } = await renderApp({ route });
     const more = await within(pageBar()).findByRole('button', { name: 'More actions' });
     expect(within(pageBar()).queryByRole('link', { name: /^Open PR/ })).toBeNull();
-    expect(within(pageBar()).queryByRole('button', { name: 'Push changes' })).toBeNull();
+    expect(within(pageBar()).queryByRole('button', { name: /Push/ })).toBeNull();
 
     await user.click(more);
     const pr = `#${String(2841)}`;
     await user.click(screen.getByRole('menuitem', { name: `Open PR ${pr}` }));
     expect(platform.openExternal).toHaveBeenCalledWith(open.pullRequest?.url);
 
-    await user.click(more);
-    await user.click(screen.getByRole('menuitem', { name: 'Push changes' }));
+    await user.click(screen.getByRole('button', { name: `Push to PR ${pr}` }));
     expect(await screen.findByRole('dialog', { name: 'Push changes' })).toBeVisible();
+  });
+
+  it('AC-8 (spec 048): Terminal sits in the page bar with its shortcut, not in More actions', async () => {
+    server.use(sessionHandler(makeSession({ ...done, terminal: true })));
+    const { user } = await renderApp({ route });
+    const terminal = await within(pageBar()).findByRole('button', { name: /^Terminal/ });
+    expect(terminal).toHaveAttribute('aria-keyshortcuts', 'Control+`');
+    await user.click(within(pageBar()).getByRole('button', { name: 'More actions' }));
+    expect(screen.queryByRole('menuitem', { name: 'Terminal' })).toBeNull();
+  });
+
+  it('AC-8 (spec 048): under 768 px, Terminal is in More actions', async () => {
+    narrow();
+    server.use(sessionHandler(makeSession({ ...done, terminal: true })));
+    const { user } = await renderApp({ route });
+    const more = await within(pageBar()).findByRole('button', { name: 'More actions' });
+    expect(within(pageBar()).queryByRole('button', { name: /^Terminal/ })).toBeNull();
+    await user.click(more);
+    expect(await screen.findByRole('menuitem', { name: 'Terminal' })).toBeVisible();
   });
 
   it('012 AC-1, Q8d: while a call waits, the pill says the session needs your approval, and Stop stays', async () => {

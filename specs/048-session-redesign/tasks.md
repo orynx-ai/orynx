@@ -41,7 +41,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: The title row: the meta line (state, skills, folder, branch with Copy branch name, own worktree, started …) and the stepper beside the title; "Started" leaves the page bar (AC-6, AC-7, AC-9)
       Check: pnpm test packages/app/src/features/sessions/components/session-header.test.tsx packages/app/src/features/sessions/session-screen.test.tsx
       Files: packages/app/src/features/sessions/components/session-header.tsx, packages/app/src/features/sessions/session-screen.tsx, their tests
-- [ ] Task 14: The next-move bar (Ready to push, Ready for a pull request, Pushed), opening today's dialogs, and Terminal in the page bar from 768 px (AC-1, AC-2, AC-3, AC-4, AC-5, AC-8)
+- [x] Task 14: The next-move bar (Ready to push, Ready for a pull request, Pushed), opening today's dialogs, and Terminal in the page bar from 768 px (AC-1, AC-2, AC-3, AC-4, AC-5, AC-8)
       Check: pnpm test packages/app/src/features/sessions/components/next-move.test.tsx packages/app/src/features/sessions/components/session-header.test.tsx
       Files: packages/app/src/features/sessions/components/next-move.tsx, packages/app/src/features/sessions/components/next-move.test.tsx, packages/app/src/features/sessions/components/session-header.tsx, packages/app/src/features/sessions/pull-request-words.ts, packages/app/src/features/sessions/session-screen.tsx, e2e/pull-requests.spec.ts, e2e/terminal.spec.ts
 - [ ] Task 15: The layout from 1024 px: the page the window's height, each pane scrolling on its own, the follow-up box at the left foot, Claude's progress followed inside its pane, the skeleton in the new shape, and the `Design:` note (AC-17, AC-24, AC-25, AC-26)

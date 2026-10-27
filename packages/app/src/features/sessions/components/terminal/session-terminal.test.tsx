@@ -19,24 +19,21 @@ function pageBar() {
   return screen.getByRole('banner');
 }
 
-/** More actions in the page bar, and Terminal in it. */
-async function openFromMenu(user: Awaited<ReturnType<typeof renderApp>>['user']) {
-  const more = await within(pageBar()).findByRole('button', { name: 'More actions' });
-  await user.click(more);
-  const item = await screen.findByRole('menuitem', { name: 'Terminal' });
-  await user.click(item);
-  return { more, item };
+/** Terminal in the page bar (spec 048). */
+async function openTerminal(user: Awaited<ReturnType<typeof renderApp>>['user']) {
+  const button = await within(pageBar()).findByRole('button', { name: /^Terminal/ });
+  await user.click(button);
+  return button;
 }
 
 describe('SessionTerminal', () => {
-  it('AC-1 (038): Terminal is in More actions, not the page bar, and opens the dialog on your shell', async () => {
+  it('AC-1 (038), AC-8 (spec 048): Terminal is in the page bar with its shortcut, and opens the dialog on your shell', async () => {
     server.use(sessionHandler(session));
     const { user } = await renderApp({ route });
     await screen.findByRole('heading', { level: 1, name: 'Add bulk archive' });
-    expect(within(pageBar()).queryByRole('button', { name: 'Terminal' })).toBeNull();
 
-    const { item } = await openFromMenu(user);
-    expect(item).toHaveAttribute('aria-keyshortcuts', 'Control+`');
+    const button = await openTerminal(user);
+    expect(button).toHaveAttribute('aria-keyshortcuts', 'Control+`');
 
     const dialog = await screen.findByRole('dialog', { name: 'Terminal' });
     expect(within(dialog).getByText('Add bulk archive · PROJ-1423')).toBeVisible();
@@ -45,15 +42,15 @@ describe('SessionTerminal', () => {
     expect(await within(tabs).findByRole('tab', { name: 'zsh · worktree' })).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('AC-2: Close terminal, Esc outside your shell, and ⌃` close it, and focus is back on More actions', async () => {
+  it('AC-2: Close terminal, Esc outside your shell, and ⌃` close it, and focus is back on Terminal', async () => {
     server.use(sessionHandler(session));
     const { user } = await renderApp({ route });
-    const { more } = await openFromMenu(user);
+    const terminal = await openTerminal(user);
     await user.click(await screen.findByRole('button', { name: 'Close terminal' }));
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Terminal' })).toBeNull();
     });
-    expect(more).toHaveFocus();
+    expect(terminal).toHaveFocus();
 
     await user.keyboard('{Control>}[Backquote]{/Control}');
     await user.click(await screen.findByRole('tab', { name: 'Claude' }));
@@ -61,7 +58,7 @@ describe('SessionTerminal', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Terminal' })).toBeNull();
     });
-    expect(more).toHaveFocus();
+    expect(terminal).toHaveFocus();
 
     await user.keyboard('{Control>}[Backquote]{/Control}');
     await screen.findByRole('dialog', { name: 'Terminal' });
@@ -69,27 +66,28 @@ describe('SessionTerminal', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Terminal' })).toBeNull();
     });
-    expect(more).toHaveFocus();
+    expect(terminal).toHaveFocus();
   });
 
   it('AC-1: opens on the tab you last had for this session', async () => {
     server.use(sessionHandler(session));
     const { user } = await renderApp({ route });
-    await openFromMenu(user);
+    await openTerminal(user);
     await user.click(await screen.findByRole('tab', { name: 'Claude' }));
     await user.keyboard('{Escape}');
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Terminal' })).toBeNull();
     });
 
-    await openFromMenu(user);
+    await openTerminal(user);
     expect(await screen.findByRole('tab', { name: 'Claude' })).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('AC-3: a session with no Terminal has no item, and ⌃` does nothing', async () => {
+  it('AC-3: a session with no Terminal has no button or item, and ⌃` does nothing', async () => {
     server.use(sessionHandler({ ...session, terminal: false }));
     const { user } = await renderApp({ route });
     await screen.findByRole('heading', { level: 1, name: 'Add bulk archive' });
+    expect(within(pageBar()).queryByRole('button', { name: /^Terminal/ })).toBeNull();
 
     await user.click(within(pageBar()).getByRole('button', { name: 'More actions' }));
     expect(await screen.findByRole('menuitem', { name: 'Open in VS Code' })).toBeVisible();

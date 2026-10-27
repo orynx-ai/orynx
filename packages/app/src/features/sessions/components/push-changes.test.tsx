@@ -43,10 +43,10 @@ function serve(
 const dialog = () => screen.getByRole('dialog', { name: 'Push changes' });
 
 describe('Push changes (spec 014, Q7)', () => {
-  it('AC-17: sits in the page bar once the pull request is open, and not while Claude works or after Discard', async () => {
+  it('AC-17: sits in the next-move bar (spec 048) once the pull request is open, and not while Claude works or after Discard', async () => {
     serve(open);
     const first = await renderApp({ route });
-    expect(await screen.findByRole('button', { name: 'Push changes' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: `Push to PR ${pr}` })).toBeVisible();
     first.unmount();
     for (const session of [
       makeSession({ ...open, state: 'working' }),
@@ -57,7 +57,7 @@ describe('Push changes (spec 014, Q7)', () => {
       serve(session);
       const { unmount } = await renderApp({ route });
       await screen.findByRole('heading', { level: 1 });
-      expect(screen.queryByRole('button', { name: 'Push changes' })).toBeNull();
+      expect(screen.queryByRole('button', { name: `Push to PR ${pr}` })).toBeNull();
       unmount();
     }
   });
@@ -65,7 +65,7 @@ describe('Push changes (spec 014, Q7)', () => {
   it("AC-17: drafts Claude's commit message, says what will happen, and pushes what you leave", async () => {
     const sent = serve(open);
     const { user } = await renderApp({ route });
-    await user.click(await screen.findByRole('button', { name: 'Push changes' }));
+    await user.click(await screen.findByRole('button', { name: `Push to PR ${pr}` }));
     const message = await within(dialog()).findByRole('textbox', { name: 'Commit message' });
     expect(message).toHaveValue('Use the existing useSelection hook in the content list');
     await waitFor(() => {
@@ -88,7 +88,7 @@ describe('Push changes (spec 014, Q7)', () => {
   it('goes once origin has everything, and gives Open PR focus', async () => {
     serve(open);
     const { user } = await renderApp({ route });
-    await user.click(await screen.findByRole('button', { name: 'Push changes' }));
+    await user.click(await screen.findByRole('button', { name: `Push to PR ${pr}` }));
     await within(dialog()).findByRole('textbox', { name: 'Commit message' });
     // The server says so while the push answers, before the dialog closes.
     server.use(sessionHandler(makeSession({ ...open, unpushed: false })));
@@ -100,14 +100,14 @@ describe('Push changes (spec 014, Q7)', () => {
     });
     expect(screen.getByRole('link', { name: `Open PR ${pr}` })).toHaveFocus();
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'Push changes' })).toBeNull();
+      expect(screen.queryByRole('button', { name: `Push to PR ${pr}` })).toBeNull();
     });
   });
 
   it('AC-17: waits busy while it pushes', async () => {
     serve(open, { push: 'slow' });
     const { user } = await renderApp({ route });
-    await user.click(await screen.findByRole('button', { name: 'Push changes' }));
+    await user.click(await screen.findByRole('button', { name: `Push to PR ${pr}` }));
     await within(dialog()).findByRole('textbox', { name: 'Commit message' });
     await user.click(within(dialog()).getByRole('button', { name: 'Push changes' }));
     expect(await within(dialog()).findByRole('button', { name: /Pushing…/ })).toHaveAttribute('aria-disabled', 'true');
@@ -117,7 +117,7 @@ describe('Push changes (spec 014, Q7)', () => {
   it("AC-17: says there's nothing new to push", async () => {
     serve(open, { draft: { result: 'nothing_new' } });
     const { user } = await renderApp({ route });
-    await user.click(await screen.findByRole('button', { name: 'Push changes' }));
+    await user.click(await screen.findByRole('button', { name: `Push to PR ${pr}` }));
     expect(
       await within(dialog()).findByText('Nothing new to push: GitHub already has everything in the worktree.'),
     ).toBeVisible();
@@ -127,7 +127,7 @@ describe('Push changes (spec 014, Q7)', () => {
   it('AC-8, AC-9: says why a push failed, and keeps the message', async () => {
     serve(open, { push: { result: 'failed', problem: { kind: 'push_rejected' } } });
     const { user } = await renderApp({ route });
-    await user.click(await screen.findByRole('button', { name: 'Push changes' }));
+    await user.click(await screen.findByRole('button', { name: `Push to PR ${pr}` }));
     const message = await within(dialog()).findByRole('textbox', { name: 'Commit message' });
     await user.type(message, '!');
     await user.click(within(dialog()).getByRole('button', { name: 'Push changes' }));
@@ -140,14 +140,14 @@ describe('Push changes (spec 014, Q7)', () => {
   it("says when Orynx's server didn't answer the press, or the worktree is gone", async () => {
     serve(open, { push: 'fails' });
     const { user } = await renderApp({ route });
-    await user.click(await screen.findByRole('button', { name: 'Push changes' }));
+    await user.click(await screen.findByRole('button', { name: `Push to PR ${pr}` }));
     await within(dialog()).findByRole('textbox', { name: 'Commit message' });
     await user.click(within(dialog()).getByRole('button', { name: 'Push changes' }));
     expect(await within(dialog()).findByRole('alert')).toHaveTextContent("Couldn't push the changes. Try again.");
     await user.keyboard('{Escape}');
 
     serve(open, { draft: { result: 'cannot', reason: 'missing' } });
-    await user.click(screen.getByRole('button', { name: 'Push changes' }));
+    await user.click(screen.getByRole('button', { name: `Push to PR ${pr}` }));
     expect(
       await within(dialog()).findByText('The worktree is missing. It was moved or deleted outside Orynx.'),
     ).toBeVisible();
@@ -156,7 +156,7 @@ describe('Push changes (spec 014, Q7)', () => {
   it('Q11d: an empty commit message sends nothing and says so', async () => {
     const sent = serve(open);
     const { user } = await renderApp({ route });
-    await user.click(await screen.findByRole('button', { name: 'Push changes' }));
+    await user.click(await screen.findByRole('button', { name: `Push to PR ${pr}` }));
     await user.clear(await within(dialog()).findByRole('textbox', { name: 'Commit message' }));
     await user.click(within(dialog()).getByRole('button', { name: 'Push changes' }));
     expect(await within(dialog()).findByText('Write a commit message.')).toBeVisible();

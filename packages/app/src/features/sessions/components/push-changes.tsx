@@ -1,19 +1,10 @@
-import {
-  useEffect,
-  useId,
-  useImperativeHandle,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type Ref,
-  type RefObject,
-  type SubmitEvent,
-} from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import type { DraftedPush, PushAnswer, Session } from '@devhub/contracts';
-import { Button, Dialog, DialogContent, DialogTitle, DialogTrigger, Field, Input, Skeleton } from '@devhub/ui';
-import { cannotPushWords, failureLine, pullRequestWords, pushHappensLine } from '../pull-request-words.ts';
+import { Upload01Icon } from '@hugeicons/core-free-icons';
+import { Button, Dialog, DialogContent, DialogTitle, DialogTrigger, Field, Icon, Input, Skeleton } from '@devhub/ui';
+import { cannotPushWords, failureLine, pullRequestWords, pushHappensLine, pushToLabel } from '../pull-request-words.ts';
 import { useDraftPush, usePushChanges } from '../queries.ts';
 import { pushFormSchema, type PushFormValues } from '../schemas.ts';
 
@@ -107,8 +98,6 @@ export function PushChanges({
   repository,
   show,
   onPushed,
-  menu,
-  ref,
 }: {
   session: Session;
   repository: string;
@@ -116,10 +105,6 @@ export function PushChanges({
   show: boolean;
   /** Called once the dialog has closed after the push, as its button goes, so focus can move on. */
   onPushed: () => void;
-  /** Opened from this menu's item rather than a button of its own (under 768 px); closing gives the menu focus. */
-  menu?: RefObject<HTMLElement | null>;
-  /** Opens the dialog, for the menu's item. */
-  ref?: Ref<{ open: () => void }>;
 }) {
   const [open, setOpen] = useState(false);
   const describedBy = useId();
@@ -138,11 +123,6 @@ export function PushChanges({
   const cancel = () => {
     openChange(false);
   };
-  useImperativeHandle(ref, () => ({
-    open: () => {
-      openChange(true);
-    },
-  }));
 
   function pushNow(message: string) {
     push.mutate(message, {
@@ -202,10 +182,12 @@ export function PushChanges({
   if (!show && !open) return null;
   return (
     <Dialog open={open} onOpenChange={openChange}>
-      {show && menu === undefined ? (
+      {show ? (
         <DialogTrigger asChild>
-          <Button variant="secondary" size="sm">
-            {pullRequestWords.push}
+          {/* The next-move bar's one primary button (spec 048). */}
+          <Button variant="primary" size="sm">
+            <Icon icon={Upload01Icon} aria-hidden />
+            {session.pullRequest === null ? pullRequestWords.push : pushToLabel(session.pullRequest.number)}
           </Button>
         </DialogTrigger>
       ) : null}
@@ -220,9 +202,6 @@ export function PushChanges({
             onPushed();
             return;
           }
-          if (menu === undefined) return;
-          event.preventDefault();
-          menu.current?.focus();
         }}
       >
         <div className="flex flex-col gap-1">
