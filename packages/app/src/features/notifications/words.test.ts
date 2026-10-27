@@ -92,6 +92,21 @@ describe('notification words (spec 029)', () => {
     expect(notificationPlace({ kind: 'update_available', version: '0.1.40' })).toEqual({ kind: 'about' });
   });
 
+  it('047 AC-19: a cleanup run says how many old sessions went and the space freed, and opens Settings › Coding agent', () => {
+    expect(notificationWords({ kind: 'sessions_cleaned', count: 3, bytes: 4_100_000_000 })).toEqual({
+      title: 'Orynx deleted 3 old sessions',
+      detail: 'Freed 4.1 GB',
+      desktop: 'Freed 4.1 GB',
+    });
+    expect(notificationWords({ kind: 'sessions_cleaned', count: 1, bytes: 850_000_000 }).title).toBe(
+      'Orynx deleted 1 old session',
+    );
+    expect(notificationPlace({ kind: 'sessions_cleaned', count: 1, bytes: 0 })).toEqual({
+      kind: 'settings',
+      tab: 'coding-agent',
+    });
+  });
+
   it('says when: just now, minutes or hours ago today, yesterday, then the date', () => {
     const now = new Date(2026, 9, 19, 10, 0);
     const at = (date: Date) => date.toISOString();

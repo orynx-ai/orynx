@@ -328,6 +328,7 @@ export interface PreferencesOverrides {
   allowedCommands?: string[];
   editor?: Preferences['editor'];
   jiraChanges?: boolean;
+  deleteSessionsAfterDays?: Preferences['deleteSessionsAfterDays'];
 }
 
 /** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
@@ -342,6 +343,7 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
     allowedCommands: overrides.allowedCommands ?? [],
     editor: overrides.editor ?? defaultPreferences.editor,
     jiraChanges: overrides.jiraChanges ?? defaultPreferences.jiraChanges,
+    deleteSessionsAfterDays: overrides.deleteSessionsAfterDays ?? defaultPreferences.deleteSessionsAfterDays,
   });
 }
 

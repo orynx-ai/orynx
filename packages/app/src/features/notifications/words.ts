@@ -1,6 +1,7 @@
 import type { Notification, NotificationWhat } from '@devhub/contracts';
 import { personName } from '../../shell/person-name.ts';
 import { dayMonth, minute } from '../../words/calendar.ts';
+import { sizeText } from '../../words/size.ts';
 import { waitText } from '../../words/tool-line.ts';
 import { sourceLabel } from '../sessions/source-label.ts';
 
@@ -69,6 +70,11 @@ export function notificationWords(what: NotificationWhat): NotificationWords {
       return { title: `${what.ticket.key} assigned to you`, detail: what.ticket.title, desktop: what.ticket.title };
     case 'update_available':
       return { title: `Orynx ${what.version} is out`, detail: 'Settings › About', desktop: 'Settings › About' };
+    case 'sessions_cleaned': {
+      const freed = `Freed ${sizeText(what.bytes)}`;
+      const sessions = what.count === 1 ? '1 old session' : `${String(what.count)} old sessions`;
+      return { title: `Orynx deleted ${sessions}`, detail: freed, desktop: freed };
+    }
   }
 }
 
@@ -79,15 +85,22 @@ export const testWords = {
 } as const;
 
 export type NotificationPlace =
-  { kind: 'session'; sessionId: string } | { kind: 'external'; url: string } | { kind: 'about' };
+  | { kind: 'session'; sessionId: string }
+  | { kind: 'external'; url: string }
+  | { kind: 'about' }
+  | { kind: 'settings'; tab: 'coding-agent' };
 
 /** Whether it's about the session open at `pathname`, which already shows it, its approval callout included. */
 export function aboutOpenSession(what: NotificationWhat, pathname: string): boolean {
   return 'session' in what && pathname === `/sessions/${what.session.id}`;
 }
 
-/** Where opening a notification goes: its Session screen, Settings › About, or the pull request or ticket outside. */
+/**
+ * Where opening a notification goes: its Session screen, Settings › About, the pull request or ticket outside
+ * Orynx, or, for a cleanup run, Settings › Coding agent, where Delete old sessions is.
+ */
 export function notificationPlace(what: NotificationWhat): NotificationPlace {
+  if (what.kind === 'sessions_cleaned') return { kind: 'settings', tab: 'coding-agent' };
   if ('session' in what) return { kind: 'session', sessionId: what.session.id };
   if (what.kind === 'update_available') return { kind: 'about' };
   return { kind: 'external', url: 'pullRequest' in what ? what.pullRequest.url : what.ticket.url };

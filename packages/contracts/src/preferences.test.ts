@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   apiRoutes,
+  cleanupDays,
   defaultPreferences,
   EditorSchema,
   InboxRuleIdSchema,
@@ -59,8 +60,18 @@ describe('PreferencesSchema', () => {
       allowedCommands: [],
       editor: 'vscode',
       jiraChanges: false,
+      deleteSessionsAfterDays: null,
     });
     expect(PreferencesSchema.parse(defaultPreferences)).toEqual(defaultPreferences);
+  });
+
+  it('047 AC-16: Delete old sessions starts at Never, and offers 7, 14, 30 and 90 days', () => {
+    expect(defaultPreferences.deleteSessionsAfterDays).toBeNull();
+    expect(cleanupDays).toEqual([7, 14, 30, 90]);
+    expect(
+      PreferencesSchema.parse({ ...defaultPreferences, deleteSessionsAfterDays: 30 }).deleteSessionsAfterDays,
+    ).toBe(30);
+    expect(PreferencesSchema.safeParse({ ...defaultPreferences, deleteSessionsAfterDays: 10 }).success).toBe(false);
   });
 
   it('044 Q8: a change may turn Claude changes Jira on or off alone', () => {
@@ -132,6 +143,12 @@ describe('PreferencesChangeSchema', () => {
     expect(PreferencesChangeSchema.safeParse({ permissions: { push: 'never' }, repository: 'orynx' }).success).toBe(
       false,
     );
+  });
+
+  it('047 AC-17: takes Delete old sessions alone, Never included', () => {
+    expect(PreferencesChangeSchema.parse({ deleteSessionsAfterDays: 30 })).toEqual({ deleteSessionsAfterDays: 30 });
+    expect(PreferencesChangeSchema.parse({ deleteSessionsAfterDays: null })).toEqual({ deleteSessionsAfterDays: null });
+    expect(PreferencesChangeSchema.safeParse({ deleteSessionsAfterDays: 3 }).success).toBe(false);
   });
 
   it('013 AC-26: takes the editor alone', () => {

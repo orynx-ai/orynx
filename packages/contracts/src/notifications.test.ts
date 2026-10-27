@@ -6,6 +6,7 @@ import {
   NotificationListSchema,
   NotificationSettingsChangeSchema,
   NotificationSettingsSchema,
+  notificationEventOf,
   ServerEventSchema,
   withNotificationChange,
 } from './index.ts';
@@ -28,6 +29,18 @@ describe('notifications (spec 029)', () => {
       unread: 1,
       waiting: 1,
     });
+  });
+
+  it('047 AC-19: a cleanup run says how many sessions it deleted and the space it freed, in the bell only', () => {
+    const cleaned = makeNotification({ what: { kind: 'sessions_cleaned', count: 3, bytes: 4_100_000_000 } });
+    expect(NotificationListSchema.parse(makeNotificationList([cleaned])).notifications).toEqual([cleaned]);
+    expect(notificationEventOf('sessions_cleaned')).toBeNull();
+    expect(
+      NotificationListSchema.safeParse({
+        ...makeNotificationList([cleaned]),
+        notifications: [{ ...cleaned, what: { kind: 'sessions_cleaned', count: 0, bytes: 0 } }],
+      }).success,
+    ).toBe(false);
   });
 
   it('AC-22: a pull request links to github.com only, and a ticket to a Jira site only', () => {

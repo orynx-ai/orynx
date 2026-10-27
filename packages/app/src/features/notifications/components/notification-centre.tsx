@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import {
   Alert02Icon,
+  Delete02Icon,
   Download04Icon,
   GitPullRequestIcon,
   PauseIcon,
@@ -59,6 +60,7 @@ export const notificationLooks: Record<NotificationKind, { icon: IconSvgElement;
   checks_failed: { icon: Alert02Icon, tone: 'danger' },
   jira_assigned: { icon: Ticket01Icon, tone: 'neutral' },
   update_available: { icon: Download04Icon, tone: 'neutral' },
+  sessions_cleaned: { icon: Delete02Icon, tone: 'neutral' },
 };
 
 /** Still waiting on you: an approval nobody has answered (Needs you). */
@@ -93,6 +95,7 @@ export function NotificationCentre({ side = 'right', tooltipSide }: Notification
     const place = notificationPlace(notification.what);
     if (place.kind === 'session') void navigate({ to: '/sessions/$sessionId', params: { sessionId: place.sessionId } });
     else if (place.kind === 'about') void navigate({ to: '/settings/$tab', params: { tab: 'about' } });
+    else if (place.kind === 'settings') void navigate({ to: '/settings/$tab', params: { tab: place.tab } });
     else platform.openExternal(place.url);
   }
 

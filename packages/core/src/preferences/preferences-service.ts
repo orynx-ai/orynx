@@ -1,4 +1,5 @@
 import {
+  CleanupDaysSchema,
   defaultPreferences,
   EditorSchema,
   InboxRuleIdSchema,
@@ -85,6 +86,7 @@ function fromSettings(settings: Settings): Preferences {
     if (typeof on === 'boolean') inboxRules[rule] = on;
   }
   const editor = EditorSchema.safeParse(settings.agent?.['editor']);
+  const cleanup = CleanupDaysSchema.safeParse(settings.agent?.['deleteSessionsAfterDays']);
   return {
     permissions: writtenPermissions(settings),
     repositoryPermissions: writtenRepositoryPermissions(settings),
@@ -93,6 +95,8 @@ function fromSettings(settings: Settings): Preferences {
     editor: editor.success ? editor.data : defaultPreferences.editor,
     // Only a saved true turns it on (spec 044): anything else asks.
     jiraChanges: settings.agent?.['jiraChanges'] === true,
+    // Only a choice Settings offers turns cleanup on (spec 047, D): anything else is Never.
+    deleteSessionsAfterDays: cleanup.success ? cleanup.data : null,
   };
 }
 
@@ -121,6 +125,9 @@ function applied(current: Settings, change: PreferencesChange): Settings {
   }
   if (change.editor !== undefined) next.agent = { ...next.agent, editor: change.editor };
   if (change.jiraChanges !== undefined) next.agent = { ...next.agent, jiraChanges: change.jiraChanges };
+  if (change.deleteSessionsAfterDays !== undefined) {
+    next.agent = { ...next.agent, deleteSessionsAfterDays: change.deleteSessionsAfterDays };
+  }
   if (change.inboxRules !== undefined) {
     next.inbox = { ...current.inbox, rules: { ...writtenRules(current), ...change.inboxRules } };
   }
