@@ -89,7 +89,7 @@ Open http://127.0.0.1:4317 on this computer. The first time, Orynx asks who you 
 
 Forgot the password? Delete `~/.devhub/password` and restart Orynx (see below): setup opens again on this computer, with your profile filled in.
 
-To update, run `git pull && ./install.sh` in the clone. You still need Claude Code signed in on this computer, and a Jira Cloud API token and GitHub (the gh CLI or a token) to connect in Settings.
+To update, press Update in Settings › About, or run `git pull && ./install.sh` in the clone. An Orynx installed before Update was there needs `./install.sh` run once more by hand first. You still need Claude Code signed in on this computer, and a Jira Cloud API token and GitHub (the gh CLI or a token) to connect in Settings.
 
 ### Keep it as an app
 

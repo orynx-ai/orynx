@@ -15,6 +15,10 @@ fail() {
   printf '\nOrynx install: %s\n' "$*" >&2
   exit 1
 }
+# Settings › About's Update runs this with no terminal: sudo then fails at once instead of waiting for a password.
+as_root() {
+  if [ -t 0 ]; then sudo "$@"; else sudo -n "$@"; fi
+}
 
 [ "$os" = Darwin ] || [ "$os" = Linux ] || fail "Orynx installs on macOS or Linux."
 [ "$(id -u)" -ne 0 ] || fail "run ./install.sh as yourself, not root. It asks for sudo when it needs it."
@@ -72,22 +76,35 @@ trust_note=""
 if [ "$os" = Darwin ]; then
   if ! security verify-cert -c "$tls/orynx.crt" -p ssl -s orynx.local >/dev/null 2>&1; then
     echo "So this Mac's browsers trust https://orynx.local, macOS asks for your password once."
-    sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$tls/ca.crt" ||
+    as_root security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "$tls/ca.crt" ||
       trust_note="This Mac doesn't trust the certificate yet; run ./install.sh again to add it."
   fi
 else
-  echo "So this computer trusts https://orynx.local and can use ports 80 and 443, Linux asks for sudo."
+  anchor="" refresh=""
   if command -v update-ca-certificates >/dev/null; then
-    sudo cp "$tls/ca.crt" /usr/local/share/ca-certificates/orynx-local-ca.crt && sudo update-ca-certificates >/dev/null
+    anchor=/usr/local/share/ca-certificates/orynx-local-ca.crt refresh=update-ca-certificates
   elif command -v update-ca-trust >/dev/null; then
-    sudo cp "$tls/ca.crt" /etc/pki/ca-trust/source/anchors/orynx-local-ca.crt && sudo update-ca-trust
+    anchor=/etc/pki/ca-trust/source/anchors/orynx-local-ca.crt refresh=update-ca-trust
   else
     trust_note="Add $tls/ca.crt to this computer's trusted certificates by hand."
   fi
+  # Each step only when it's still needed, so a run to update asks for no sudo.
+  trusted=yes
+  [ -z "$anchor" ] || cmp -s "$tls/ca.crt" "$anchor" || trusted=""
   # Linux keeps ports below 1024 for root; let any user listen from 80 up, now and after a restart.
-  if [ "$(sysctl -n net.ipv4.ip_unprivileged_port_start)" -gt 80 ]; then
-    echo "net.ipv4.ip_unprivileged_port_start=80" | sudo tee /etc/sysctl.d/60-orynx.conf >/dev/null
-    sudo sysctl -q -w net.ipv4.ip_unprivileged_port_start=80
+  ports=yes
+  [ "$(sysctl -n net.ipv4.ip_unprivileged_port_start)" -le 80 ] || ports=""
+  if [ -z "$trusted" ] || [ -z "$ports" ]; then
+    echo "So this computer trusts https://orynx.local and can use ports 80 and 443, Linux asks for sudo."
+    [ -t 0 ] || sudo -n true 2>/dev/null ||
+      fail "this step needs sudo, which can't ask for a password without a terminal. Run ./install.sh in a terminal."
+  fi
+  if [ -z "$trusted" ]; then
+    as_root cp "$tls/ca.crt" "$anchor" && as_root "$refresh" >/dev/null
+  fi
+  if [ -z "$ports" ]; then
+    echo "net.ipv4.ip_unprivileged_port_start=80" | as_root tee /etc/sysctl.d/60-orynx.conf >/dev/null
+    as_root sysctl -q -w net.ipv4.ip_unprivileged_port_start=80
   fi
   command -v avahi-publish >/dev/null ||
     trust_note="$trust_note Install avahi-utils so other devices find orynx.local."
@@ -110,6 +127,7 @@ if [ "$os" = Darwin ]; then
   <key>EnvironmentVariables</key>
   <dict>
     <key>DEVHUB_LAN</key><string>true</string>
+    <key>DEVHUB_SERVICE</key><string>launchd</string>
     <key>DEVHUB_HOME</key><string>$home</string>
     <key>NODE_ENV</key><string>production</string>
     <key>PATH</key><string>$PATH</string>
@@ -135,7 +153,7 @@ After=network-online.target
 [Service]
 WorkingDirectory=$repo
 ExecStart=$node_bin $repo/apps/server/dist/main.mjs --serve-web
-Environment="DEVHUB_LAN=true" "DEVHUB_HOME=$home" "NODE_ENV=production" "PATH=$PATH"
+Environment="DEVHUB_LAN=true" "DEVHUB_SERVICE=systemd" "DEVHUB_HOME=$home" "NODE_ENV=production" "PATH=$PATH"
 Restart=on-failure
 
 [Install]
