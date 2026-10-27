@@ -1,0 +1,65 @@
+WEBVTT
+
+1
+00:00:00.250 --> 00:00:01.881 line:78%
+Jira says what to build.
+
+2
+00:00:02.000 --> 00:00:03.545 line:78%
+GitHub, what to review.
+
+3
+00:00:03.500 --> 00:00:05.435 line:78%
+Your agent lives in a terminal.
+
+4
+00:00:05.500 --> 00:00:07.021 line:78%
+And nothing connects them.
+
+5
+00:00:07.750 --> 00:00:11.902 line:78%
+Orynx brings it together. Hand your agent the ticket, and keep your flow.
+
+6
+00:00:12.750 --> 00:00:15.536 line:78%
+Your sprint, and your own tickets, side by side.
+
+7
+00:00:16.750 --> 00:00:18.788 line:78%
+Anything is one keystroke away.
+
+8
+00:00:20.250 --> 00:00:22.729 line:78%
+Paste a ticket key, and send it to Claude.
+
+9
+00:00:24.250 --> 00:00:28.042 line:78%
+It works in its own git worktree, so your checkout stays untouched.
+
+10
+00:00:28.750 --> 00:00:31.903 line:78%
+What it did reads like a checklist, not a wall of chat.
+
+11
+00:00:32.750 --> 00:00:35.910 line:78%
+The raw output stays in the terminal, where it belongs.
+
+12
+00:00:36.750 --> 00:00:38.775 line:78%
+Anything risky waits for your click.
+
+13
+00:00:40.750 --> 00:00:43.692 line:78%
+Or go hands-off. You decide how far it goes.
+
+14
+00:00:44.750 --> 00:00:46.053 line:78%
+Even from your phone.
+
+15
+00:00:48.750 --> 00:00:50.484 line:78%
+Then it ships the pull request.
+
+16
+00:00:52.750 --> 00:00:56.795 line:78%
+Orynx. It runs on your machine, and your tokens stay in your keychain.

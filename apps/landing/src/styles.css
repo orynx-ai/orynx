@@ -660,6 +660,249 @@ h3 {
   font-size: 0.8125rem;
 }
 
+/* Tour: the narrated video */
+
+.tour-video {
+  margin-top: 40px;
+}
+
+.tour-video {
+  position: relative;
+  isolation: isolate;
+}
+
+.tour-video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  background: var(--bg);
+}
+
+.tour-video:fullscreen {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: var(--bezel);
+}
+
+.tour-video:fullscreen video {
+  height: 100%;
+  object-fit: contain;
+}
+
+.tour-video video::cue {
+  background: rgb(11 10 9 / 0.82);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+/* The start button sits low, between the poster's corner tags, so the headline stays readable. */
+.player-start {
+  position: absolute;
+  bottom: clamp(14px, 7%, 56px);
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 20px 8px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgb(32 31 28 / 0.82);
+  box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font: 500 1rem/1 var(--font-sans);
+  color: var(--text);
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition:
+    border-color 0.2s var(--ease),
+    background 0.2s var(--ease);
+}
+
+.player-start[hidden] {
+  display: none;
+}
+
+.player-start:hover {
+  border-color: var(--text-3);
+  background: rgb(32 31 28 / 0.94);
+}
+
+.player-start-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--on-ink);
+  transition: transform 0.25s var(--ease);
+}
+
+.player-start:hover .player-start-icon {
+  transform: scale(1.08);
+}
+
+.player-start-icon svg {
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  fill: currentColor;
+}
+
+.player-start-time {
+  font: 400 0.875rem/1 var(--font-mono);
+  color: var(--text-3);
+}
+
+.player-bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 28px 12px 10px;
+  background: linear-gradient(to bottom, rgb(11 10 9 / 0), rgb(11 10 9 / 0.86));
+  transition: opacity 0.3s var(--ease);
+}
+
+.player-bar[hidden] {
+  display: none;
+}
+
+.tour-video.is-idle {
+  cursor: none;
+}
+
+.tour-video.is-idle .player-bar {
+  opacity: 0;
+}
+
+.player-btn {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.player-btn:hover {
+  background: rgb(236 234 228 / 0.1);
+}
+
+.player-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.player-btn svg.stroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.player-btn[aria-pressed='true'] {
+  color: var(--success);
+}
+
+.icon-pause,
+.tour-video.is-playing .icon-play,
+.icon-muted,
+.player-btn[aria-pressed='true'] .icon-sound {
+  display: none;
+}
+
+.tour-video.is-playing .icon-pause,
+.player-btn[aria-pressed='true'] .icon-muted {
+  display: block;
+}
+
+.player-btn[data-mute][aria-pressed='true'] {
+  color: var(--text);
+}
+
+.player-time {
+  flex-shrink: 0;
+  padding-inline: 6px 10px;
+  font: 400 0.8125rem/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* The seek bar: the played part is --p wide. */
+.player-seek {
+  --p: 0%;
+  flex: 1;
+  min-width: 48px;
+  height: 4px;
+  margin: 0 8px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--text) var(--p), rgb(236 234 228 / 0.22) var(--p));
+  cursor: pointer;
+  appearance: none;
+}
+
+.player-seek::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 0 4px rgb(236 234 228 / 0.16);
+  appearance: none;
+  transition: transform 0.15s var(--ease);
+}
+
+.player-seek::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 0 0 4px rgb(236 234 228 / 0.16);
+}
+
+.player-seek:hover::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+@media (max-width: 520px) {
+  .player-time {
+    display: none;
+  }
+
+  .player-start {
+    gap: 10px;
+    padding: 6px 16px 6px 6px;
+    font-size: 0.875rem;
+  }
+
+  .player-start-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .player-start-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
 /* Product: screens in tabs */
 
 .section-head-center {
