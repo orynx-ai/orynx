@@ -62,8 +62,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 20: e2e: the About tab against a fake releases API, Settings' tab list with About, and every e2e hub pointed at the fake (AC-1, AC-3, AC-6, AC-7, AC-14, AC-30)
       Check: pnpm test:e2e e2e/about.spec.ts e2e/settings.spec.ts
       Files: e2e/about.spec.ts, e2e/settings.spec.ts, e2e/fake-tools/preload.ts, e2e/fake-tools/releases.ts, playwright.config.ts
-- [ ] Task 21: Desktop e2e: no dialog, About shows the update from the fake releases server, the Mac swap on a copy of the packed app (AC-13, AC-18, AC-20, AC-24)
+- [x] Task 21: Desktop e2e: no dialog, About shows the update from the fake releases server, the Mac swap on a copy of the packed app (AC-13, AC-18, AC-20, AC-24)
       Check: pnpm --filter @devhub/desktop package --dir; pnpm test:e2e:desktop
+      Skipped at the user's request (27 Oct 2026): the last run passed 9 of 10 on a Mac; the Mac swap test timed out waiting for the 290 MB unzip, and its waits are longer now, unrun.
       Files: e2e/desktop/desktop.spec.ts, e2e/desktop/fake-releases.ts
 - [ ] Task 22: Docs: updates in learn/desktop-app.md, README's update line, architecture's config keys, the bridge and the releases integration
       Check: pnpm gate learn-freshness; pnpm gate handbook-size
