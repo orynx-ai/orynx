@@ -153,13 +153,13 @@ export async function postPush(http: AxiosInstance, id: string, message: string)
   return PushAnswerSchema.parse(res.data);
 }
 
-/** The pull request's unresolved review threads with Claude's replies, which writes nothing (spec 048). */
+/** The pull request's unresolved review threads with Claude's replies, which writes nothing (spec 049). */
 export async function postRepliesDraft(http: AxiosInstance, id: string): Promise<ReplyDraftAnswer> {
   const res = await http.post<unknown>(pathFor(apiRoutes.sessionRepliesDraft, id));
   return ReplyDraftAnswerSchema.parse(res.data);
 }
 
-/** Posts the replies as you left them, and resolves the ticked threads (spec 048). */
+/** Posts the replies as you left them, and resolves the ticked threads (spec 049). */
 export async function postReplies(http: AxiosInstance, id: string, request: ReplyRequest): Promise<ReplyAnswer> {
   const res = await http.post<unknown>(pathFor(apiRoutes.sessionReplies, id), ReplyRequestSchema.parse(request));
   return ReplyAnswerSchema.parse(res.data);

@@ -70,7 +70,7 @@ A pull request chip in Home's composer is read when you press Send. `context-rea
 
 ## Opening pull requests (spec 014)
 
-Create pull request, and since spec 048 Post replies, are the only things Orynx writes to GitHub, and only on your press. The session's git pushes the branch with your own git login (`learn/sessions-and-worktrees.md`); then `client.ts` opens the PR with the token `connection.credentials()` gives, the same way the inbox reads:
+Create pull request, and since spec 049 Post replies, are the only things Orynx writes to GitHub, and only on your press. The session's git pushes the branch with your own git login (`learn/sessions-and-worktrees.md`); then `client.ts` opens the PR with the token `connection.credentials()` gives, the same way the inbox reads:
 
 - `openPull()` is `POST /repos/{owner}/{repo}/pulls` with the head, the base, your title and your description. A 422 that says "already exists" is `exists`, and Orynx then links that open PR (`findOpenPull()`, `GET …/pulls?head=owner:branch&state=open`) as it is. A 422 that says "No commits between" is `no_commits`.
 - A 403 with `X-GitHub-SSO` is `sso`, with GitHub's own link to authorize the token, kept only when it's https on github.com. Any other 403, or the 404 GitHub gives for a repository the account can't see, is `forbidden`. The rate limit, a refused token, the network and the 10-second limit read as for the other calls.
@@ -79,7 +79,7 @@ Create pull request, and since spec 048 Post replies, are the only things Orynx 
 
 A classic token or gh login with `repo` can open PRs (spec 004, Q3). A fine-grained token needs Pull requests: write on the repository, or GitHub answers 403 and the dialog says the account can't open pull requests there.
 
-## Replying to reviewers (spec 048)
+## Replying to reviewers (spec 049)
 
 Reply to reviewers reads and writes review threads through GraphQL only, with the same token and octokit settings:
 

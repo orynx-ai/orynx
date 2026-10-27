@@ -354,7 +354,7 @@ async function write(asked: string): Promise<void> {
     );
     return;
   }
-  // Spec 048: replies to a pull request's review threads, as JSON; it answers the first thread only.
+  // Spec 049: replies to a pull request's review threads, as JSON; it answers the first thread only.
   if (asked.includes('The unresolved review threads')) {
     const first = /Thread (\S+) on /.exec(asked)?.[1] ?? '';
     sendResult(JSON.stringify({ replies: [{ thread: first, reply: 'Done: it uses useSelection now.' }] }));

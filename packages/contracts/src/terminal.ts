@@ -42,7 +42,7 @@ export type ClaudeCommand = z.infer<typeof ClaudeCommandSchema>;
 
 /**
  * GET /api/sessions/:id/commands: the last `terminalLimits.claudeCommands`, and how many earlier ones aren't kept (spec
- * 048). A command waiting for your answer is in the session's `approvals`.
+ * 049). A command waiting for your answer is in the session's `approvals`.
  */
 export const ClaudeCommandListSchema = z.object({
   commands: z.array(ClaudeCommandSchema),

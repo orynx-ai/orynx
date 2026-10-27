@@ -51,13 +51,13 @@ async function openDialog() {
   return rendered;
 }
 
-describe('Reply to reviewers (spec 048)', () => {
-  it('AC-1: sits in the page bar after Push changes while the pull request is open, and nowhere before or after', async () => {
+describe('Reply to reviewers (spec 049)', () => {
+  it('AC-1: sits in the page bar after Open PR while the pull request is open, and nowhere before or after', async () => {
     serve(open);
     const first = await renderApp({ route });
     const bar = await screen.findByRole('button', { name: 'Reply to reviewers' });
-    const buttons = screen.getAllByRole('button').map((button) => button.textContent);
-    expect(buttons.indexOf('Reply to reviewers')).toBeGreaterThan(buttons.indexOf('Push changes'));
+    const link = screen.getByRole('link', { name: 'Open PR #2841' });
+    expect(link.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(bar).toBeVisible();
     first.unmount();
     for (const session of [

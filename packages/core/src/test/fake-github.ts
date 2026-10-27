@@ -181,7 +181,7 @@ export interface FakePullContext {
     | { type: 'StatusContext'; context: string; state: string }
   )[];
   threads?: readonly {
-    /** GitHub's id for the thread; `PRRT_<n>` by its place unless said (spec 048). */
+    /** GitHub's id for the thread; `PRRT_<n>` by its place unless said (spec 049). */
     id?: string;
     resolved: boolean;
     path: string;
@@ -190,11 +190,11 @@ export interface FakePullContext {
   }[];
 }
 
-/** What Reply to reviewers posted on the fake GitHub, in order (spec 048). */
+/** What Reply to reviewers posted on the fake GitHub, in order (spec 049). */
 export type FakeThreadWrite = { thread: string; reply: string } | { thread: string; resolved: true };
 
 /**
- * GitHub's GraphQL API for Reply to reviewers (spec 048), for a good token: these pull requests' review threads with
+ * GitHub's GraphQL API for Reply to reviewers (spec 049), for a good token: these pull requests' review threads with
  * their ids, and a reply to or Resolve of one, each kept in `posted`. A thread named in `refuse` is refused with
  * GitHub's own words, as a token that may read but not write is. Any other query falls through.
  */

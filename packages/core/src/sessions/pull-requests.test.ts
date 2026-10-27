@@ -762,7 +762,7 @@ describe('pushing changes to the pull request (spec 014, Q7)', () => {
   });
 });
 
-describe('replying to reviewers (spec 048)', () => {
+describe('replying to reviewers (spec 049)', () => {
   const pullRequest = makeSessionPullRequest();
   const reviewed: FakePullContext = {
     number: 2841,

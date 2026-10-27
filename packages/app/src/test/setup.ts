@@ -63,7 +63,7 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup();
-  // A stubbed matchMedia (a narrow window) or Notification would otherwise reach every test after it (spec 048).
+  // A stubbed matchMedia (a narrow window) or Notification would otherwise reach every test after it (spec 049).
   vi.unstubAllGlobals();
   server.resetHandlers();
   localStorage.clear();

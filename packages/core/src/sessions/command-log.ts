@@ -59,7 +59,7 @@ export function logRunEnded(log: CommandLog): CommandLog {
 }
 
 /**
- * The log as `session.json` keeps it (spec 048): its last `terminalLimits.claudeCommands`, each with its last 200 lines,
+ * The log as `session.json` keeps it (spec 049): its last `terminalLimits.claudeCommands`, each with its last 200 lines,
  * so a long session stays a few MB; and how many in all fell off the front.
  */
 export function keepLast(log: CommandLog, dropped: number): { commandLog: CommandLog; commandsDropped: number } {

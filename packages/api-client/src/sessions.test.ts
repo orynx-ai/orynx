@@ -525,7 +525,7 @@ describe('Create pull request and Push changes (spec 014)', () => {
     expect(body).toEqual({ message: 'Use the existing hook' });
   });
 
-  it('AC-2, AC-3 (spec 048): drafts replies to the reviewers, then posts them with each reply trimmed', async () => {
+  it('AC-2, AC-3 (spec 049): drafts replies to the reviewers, then posts them with each reply trimmed', async () => {
     let body: unknown = null;
     server.use(
       http.post(at(apiRoutes.sessionRepliesDraft, id), () => HttpResponse.json(makeReplyDraft())),
@@ -542,7 +542,7 @@ describe('Create pull request and Push changes (spec 014)', () => {
     expect(body).toEqual({ threads: [{ id: 'PRRT_a', reply: 'Done.', resolve: true }] });
   });
 
-  it('AC-5 (spec 048): rejects a replies answer that breaks the contract, and a 404 as not_found', async () => {
+  it('AC-5 (spec 049): rejects a replies answer that breaks the contract, and a 404 as not_found', async () => {
     server.use(
       http.post(at(apiRoutes.sessionReplies, id), () => HttpResponse.json({ result: 'posted', failed: [{ id: 'x' }] })),
       http.post(at(apiRoutes.sessionRepliesDraft, id), () =>

@@ -59,7 +59,7 @@ Never throw from a route because one integration failed. Return the other source
 | Tool   | Writes in v1                                                                                                                                                                                                                      |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Jira   | A new issue, from a board column's + button; from a session (spec 044), a comment, a move through the issue's own transitions, or an assignment to the user or nobody, each after the user's Allow or with Claude changes Jira on |
-| GitHub | Push the session branch and open the PR, only after the user clicks Create pull request; reply to and resolve review threads, only after the user clicks Post replies (spec 048)                                                  |
+| GitHub | Push the session branch and open the PR, only after the user clicks Create pull request; reply to and resolve review threads, only after the user clicks Post replies (spec 049)                                                  |
 | Slack  | Nothing (Reply opens Slack)                                                                                                                                                                                                       |
 
 Any other write: stop and ask.

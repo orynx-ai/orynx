@@ -91,7 +91,7 @@ describe('Jira tools in a session (spec 044)', () => {
     ]);
   });
 
-  it('AC-17 (spec 048): Claude reads every page by passing `next` back', async () => {
+  it('AC-17 (spec 049): Claude reads every page by passing `next` back', async () => {
     const issues = Array.from({ length: 250 }, (_, n) => ({ key: `MAG-${String(n + 1)}` }));
     jira.use(acceptingIssueSearch(issues));
     const { run, tools } = setUp();

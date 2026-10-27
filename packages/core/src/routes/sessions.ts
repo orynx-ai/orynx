@@ -298,7 +298,7 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
     async (request, reply) => (await service.push(request.params.id, request.body)) ?? reply.code(404).send(notFound),
   );
 
-  // Spec 048: Claude's replies to the review threads, which write nothing; then posting them, only on your press.
+  // Spec 049: Claude's replies to the review threads, which write nothing; then posting them, only on your press.
   app.post(
     apiPaths.sessionRepliesDraft,
     { schema: { params: SessionParamsSchema, response: { 200: ReplyDraftAnswerSchema, 404: ApiErrorSchema } } },

@@ -212,7 +212,7 @@ export function makePullRequestDraft(overrides: Partial<PullRequestDraft> = {}):
 }
 
 /** Claude's commit message for changes after review (spec 014, Q7): 2 files to commit, to pull request 2841. */
-/** A reviewer's thread on src/ContentList.tsx line 42, with Claude's reply and Resolve ticked (spec 048). */
+/** A reviewer's thread on src/ContentList.tsx line 42, with Claude's reply and Resolve ticked (spec 049). */
 export function makeReviewThread(overrides: Partial<ReviewThread> = {}): ReviewThread {
   return ReviewThreadSchema.parse({
     id: 'PRRT_kwDOAbc1',
@@ -226,7 +226,7 @@ export function makeReviewThread(overrides: Partial<ReviewThread> = {}): ReviewT
   });
 }
 
-/** Reply to reviewers on #2841: one thread Claude replied to, and one it left (spec 048). */
+/** Reply to reviewers on #2841: one thread Claude replied to, and one it left (spec 049). */
 export function makeReplyDraft(overrides: Partial<Omit<ReplyDraft, 'result'>> = {}): ReplyDraft {
   return ReplyDraftSchema.parse({
     result: 'draft',

@@ -232,9 +232,9 @@ export interface ApiClient {
   draftPush(id: string): Promise<PushDraftAnswer>;
   /** Commits what's new and pushes it to the pull request with your message (spec 014, Q7). */
   pushChanges(id: string, message: string): Promise<PushAnswer>;
-  /** The review threads with Claude's replies, why there can't be any, or GitHub's problem; writes nothing (spec 048). */
+  /** The review threads with Claude's replies, why there can't be any, or GitHub's problem; writes nothing (spec 049). */
   draftReplies(id: string): Promise<ReplyDraftAnswer>;
-  /** Posts the replies and resolves the ticked threads; the threads that failed, with why (spec 048). */
+  /** Posts the replies and resolves the ticked threads; the threads that failed, with why (spec 049). */
   postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer>;
   /** The saved Jira site and email, and whether `.env` holds a Jira token. */
   jiraConnection(): Promise<JiraConnection>;

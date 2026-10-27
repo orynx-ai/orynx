@@ -10,7 +10,7 @@ export default defineProject({
     environmentOptions: { jsdom: { url: 'http://127.0.0.1:4317/' } },
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./src/test/setup.ts'],
-    // Each file shares its worker's modules: importing them again per file was half the run (spec 048, AC-21).
+    // Each file shares its worker's modules: importing them again per file was half the run (spec 049, AC-21).
     // setup.ts resets the stores, MSW and the DOM after every test, so nothing one file leaves reaches the next.
     isolate: false,
     css: false,

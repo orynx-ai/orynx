@@ -245,7 +245,7 @@ describe('GET /api/sessions/:id/commands', () => {
 
     const ran = await app.inject({ method: 'GET', url: commands('0123456789abcdef'), headers });
     expect(ran.statusCode).toBe(200);
-    // AC-14 (spec 048): with how many earlier ones aren't kept.
+    // AC-14 (spec 049): with how many earlier ones aren't kept.
     expect(ClaudeCommandListSchema.parse(ran.json())).toEqual({
       commands: [{ id: 'toolu_1', state: 'running', command: 'npm test' }],
       dropped: 37,
@@ -648,7 +648,7 @@ describe('Create pull request and Push changes (spec 014)', () => {
   });
 });
 
-describe('Reply to reviewers (spec 048)', () => {
+describe('Reply to reviewers (spec 049)', () => {
   const draftOf = (id: string) => apiRoutes.sessionRepliesDraft.replace(':id', id);
   const postOf = (id: string) => apiRoutes.sessionReplies.replace(':id', id);
   const replies = { threads: [{ id: 'PRRT_a', reply: 'Done.', resolve: true }] };

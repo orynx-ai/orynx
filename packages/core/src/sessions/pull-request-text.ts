@@ -229,7 +229,7 @@ export function commitMessage(subject: string): string {
   return `${subject}\n\n${coAuthorLine}`;
 }
 
-/** Claude's instructions for replies to a pull request's review threads (spec 048). */
+/** Claude's instructions for replies to a pull request's review threads (spec 049). */
 export const replyInstructions = [
   "You write replies to a pull request's review comments, for changes another Claude session made to address them.",
   "You get the unresolved review threads, each with its id, file, line and comments, and the session's diff.",
@@ -275,7 +275,7 @@ const RepliesSchema = z.object({
 
 /**
  * Claude's replies by thread, for these threads only, each at most `mostReplyCharacters`; null when the answer holds
- * no JSON of that shape, so every box starts empty (spec 048, AC-4).
+ * no JSON of that shape, so every box starts empty (spec 049, AC-4).
  */
 export function readReplies(answer: string, threads: readonly string[]): ReadonlyMap<string, string> | null {
   const start = answer.indexOf('{');

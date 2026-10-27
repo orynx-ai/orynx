@@ -69,7 +69,7 @@ describe('repository service', () => {
     expect(seen).toEqual([{ type: 'settings.changed' }]);
   });
 
-  it('AC-16 (spec 048): says when a saved folder is gone or no longer a repository, and keeps it saved', async () => {
+  it('AC-16 (spec 049): says when a saved folder is gone or no longer a repository, and keeps it saved', async () => {
     const moved = join(home, 'code', 'moved');
     await mkdir(join(moved, '.git'), { recursive: true });
     const { repositories, settings } = service();

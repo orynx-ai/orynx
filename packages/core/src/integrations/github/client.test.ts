@@ -664,7 +664,7 @@ describe('GitHub client: a session’s pull request after it opens (spec 047)', 
   });
 });
 
-describe('review threads (spec 048)', () => {
+describe('review threads (spec 049)', () => {
   const pull = { owner: 'acme', name: 'web-app', number: 2841 };
   const threads = [
     {

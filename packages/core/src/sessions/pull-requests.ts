@@ -101,11 +101,11 @@ export interface PullRequests {
    */
   link(id: string): Promise<void>;
   /**
-   * The pull request's unresolved review threads, with Claude's reply to each its changes address (spec 048). Reads
+   * The pull request's unresolved review threads, with Claude's reply to each its changes address (spec 049). Reads
    * only: GitHub, the worktree and Claude's answer to a call with no tools. Null for no such session.
    */
   draftReplies(id: string): Promise<ReplyDraftAnswer | null>;
-  /** Posts each reply as you, then resolves each ticked thread, only from your press (spec 048); one at a time. */
+  /** Posts each reply as you, then resolves each ticked thread, only from your press (spec 049); one at a time. */
   postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer | null>;
 }
 

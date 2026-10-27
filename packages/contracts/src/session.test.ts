@@ -318,7 +318,7 @@ describe('a session in spec 013', () => {
     expect(SessionSchema.safeParse({ ...makeSession(), workedMs: -1 }).success).toBe(false);
   });
 
-  it('048 AC-10, AC-12: says when the worktree changed beyond what Claude edited, and an older session reads as unchanged', () => {
+  it('049 AC-10, AC-12: says when the worktree changed beyond what Claude edited, and an older session reads as unchanged', () => {
     expect(SessionSchema.parse(makeSession({ changed: true }))).toMatchObject({ changed: true });
     const { changed: _changed, ...older } = makeSession();
     expect(SessionSchema.parse(older)).toMatchObject({ changed: false });

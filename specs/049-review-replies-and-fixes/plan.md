@@ -1,6 +1,6 @@
 # Plan: Review replies, five fixes, and faster tests
 
-Spec: `specs/048-review-replies-and-fixes/spec.md`
+Spec: `specs/049-review-replies-and-fixes/spec.md`
 
 ## Order of work
 

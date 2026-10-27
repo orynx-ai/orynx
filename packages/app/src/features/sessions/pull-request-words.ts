@@ -166,7 +166,7 @@ export function deleteKeepsPullRequest(number: number): string {
   return `Pull request #${String(number)} and the branch on GitHub stay.`;
 }
 
-/** Reply to reviewers (spec 048). */
+/** Reply to reviewers (spec 049). */
 export const replyWords = {
   button: 'Reply to reviewers',
   drafting: 'Claude is drafting replies…',

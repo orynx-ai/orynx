@@ -176,7 +176,7 @@ describe('pushing changes to the pull request (spec 014, Q7)', () => {
   });
 });
 
-describe('replying to reviewers (spec 048)', () => {
+describe('replying to reviewers (spec 049)', () => {
   it('AC-2: lists each unresolved thread with its last comment, Claude’s reply and whether Resolve starts ticked', () => {
     const draft = makeReplyDraft();
     expect(ReplyDraftAnswerSchema.parse(draft)).toEqual(draft);

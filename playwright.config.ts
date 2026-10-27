@@ -70,7 +70,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env['CI']),
   retries: process.env['CI'] ? 1 : 0,
-  // CI runs three shards; each writes a blob, and one job merges them into the HTML report (spec 048).
+  // CI runs three shards; each writes a blob, and one job merges them into the HTML report (spec 049).
   reporter: process.env['CI'] ? [['github'], ['blob']] : 'list',
   use: {
     baseURL: `http://127.0.0.1:${String(port)}`,

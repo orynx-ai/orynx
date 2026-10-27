@@ -69,7 +69,7 @@ describe('the command log', () => {
     expect(others.reduce<CommandLog>((log, work) => logWork(log, work), [])).toEqual([]);
   });
 
-  it('AC-14 (spec 048): keeps the last 200 commands, oldest first, and counts every one it drops', () => {
+  it('AC-14 (spec 049): keeps the last 200 commands, oldest first, and counts every one it drops', () => {
     const full = Array.from({ length: 200 }, (_, n) =>
       logWork([], { kind: 'command', id: `toolu_${String(n)}`, command: `echo ${String(n)}` }),
     ).flat();
@@ -82,12 +82,12 @@ describe('the command log', () => {
     expect(two.commandsDropped).toBe(2);
   });
 
-  it('AC-15 (spec 048): leaves a shorter log as it is', () => {
+  it('AC-15 (spec 049): leaves a shorter log as it is', () => {
     const log = logWork([], lint);
     expect(keepLast(log, 0)).toEqual({ commandLog: log, commandsDropped: 0 });
   });
 
-  it('AC-14 (spec 048): a command denied after some were dropped still gets an id of its own', () => {
+  it('AC-14 (spec 049): a command denied after some were dropped still gets an id of its own', () => {
     const full = Array.from({ length: 200 }, (_, n) =>
       logWork([], { kind: 'command', id: `toolu_${String(n)}`, command: 'ls' }),
     ).flat();

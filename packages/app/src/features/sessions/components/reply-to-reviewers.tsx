@@ -36,7 +36,7 @@ import { repliesFormSchema, type RepliesFormValues } from '../schemas.ts';
 type Failure = Extract<ReplyAnswer, { result: 'posted' }>['failed'][number];
 
 /**
- * Each unresolved thread with Claude's reply and Resolve, as you leave them (spec 048). Post replies sends only the
+ * Each unresolved thread with Claude's reply and Resolve, as you leave them (spec 049). Post replies sends only the
  * threads with a reply or a tick. The threads that posted leave the list; a refused one stays with GitHub's words,
  * its box emptied when its reply went out, so a second press never posts it twice.
  */
@@ -170,7 +170,7 @@ function Note({ line, children }: { line: string; children: ReactNode }) {
 }
 
 /**
- * Reply to reviewers (spec 048): once the pull request is open, Claude's reply to each review thread its changes
+ * Reply to reviewers (spec 049): once the pull request is open, Claude's reply to each review thread its changes
  * address, to edit, and Post replies, the only thing here that writes to GitHub (rule 11). Opening it asks GitHub for
  * the threads and Claude for the replies.
  */

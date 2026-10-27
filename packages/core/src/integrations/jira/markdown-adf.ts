@@ -1,6 +1,6 @@
 /**
  * Markdown as Jira's document format (ADF), for a comment Claude writes from a session (spec 044): headings,
- * paragraphs whose lines break as written, bullet and numbered lists, and since spec 048 lists nested under an item,
+ * paragraphs whose lines break as written, bullet and numbered lists, and since spec 049 lists nested under an item,
  * quotes, pipe tables with a header row, fenced code, and inside a line bold, italics, code and links.
  * shortcut: a `|` escaped inside a table cell still splits it; read `\|` if a comment needs one.
  */
@@ -14,7 +14,10 @@ type AdfBlock =
   | { type: 'codeBlock'; attrs?: { language: string }; content?: AdfInline[] }
   | { type: 'blockquote'; content: AdfBlock[] }
   | { type: 'table'; content: { type: 'tableRow'; content: AdfCell[] }[] };
-interface AdfCell { type: 'tableHeader' | 'tableCell'; content: AdfBlock[] }
+interface AdfCell {
+  type: 'tableHeader' | 'tableCell';
+  content: AdfBlock[];
+}
 
 export interface AdfDocument {
   version: 1;

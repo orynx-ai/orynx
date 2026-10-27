@@ -164,16 +164,16 @@ export const PushAnswerSchema = z.discriminatedUnion('result', [
 ]);
 export type PushAnswer = z.infer<typeof PushAnswerSchema>;
 
-/** GitHub's own limit on a comment's length, which a reply to a reviewer keeps to (spec 048). */
+/** GitHub's own limit on a comment's length, which a reply to a reviewer keeps to (spec 049). */
 export const mostReplyCharacters = 65_536;
-/** Reply to reviewers lists at most this many threads, as the brief reads them (spec 048). */
+/** Reply to reviewers lists at most this many threads, as the brief reads them (spec 049). */
 export const mostReviewThreads = 50;
 
-/** Why Orynx can't reply to reviewers (spec 048): the session has no open pull request, or GitHub isn't connected. */
+/** Why Orynx can't reply to reviewers (spec 049): the session has no open pull request, or GitHub isn't connected. */
 export const CannotReplyReasonSchema = z.enum(['no_pull_request', 'not_connected']);
 export type CannotReplyReason = z.infer<typeof CannotReplyReasonSchema>;
 
-/** One unresolved review thread on the session's pull request, with Claude's reply to it (spec 048). */
+/** One unresolved review thread on the session's pull request, with Claude's reply to it (spec 049). */
 export const ReviewThreadSchema = z.object({
   /** GitHub's id for the thread, which a reply and Resolve name. */
   id: z.string().min(1),

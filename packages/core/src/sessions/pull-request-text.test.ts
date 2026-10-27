@@ -235,7 +235,7 @@ describe('a pull request for a session with no ticket (spec 015, AC-34)', () => 
   });
 });
 
-describe('Claude’s replies to review threads (spec 048)', () => {
+describe('Claude’s replies to review threads (spec 049)', () => {
   it('AC-2: reads the JSON, even fenced, for the threads asked about only, trimmed', () => {
     const answer = [
       'Here you go:',

@@ -51,7 +51,7 @@ const tools: FakeTools = {
   reviews: [],
   mine: [],
   pulls: [],
-  // Spec 048: two unresolved threads on #2841; the fake Claude Code replies to the first only.
+  // Spec 049: two unresolved threads on #2841; the fake Claude Code replies to the first only.
   reviewThreads: [
     {
       resolved: false,
@@ -350,7 +350,7 @@ test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360
       show: async (p: Page, width: number) => expect(atHand(p, width, `Open PR ${pr}`, 'link')).toBeVisible(),
     },
     {
-      // Spec 048, AC-20.
+      // Spec 049, AC-20.
       name: 'Reply to reviewers with the drafts',
       url: seen.opened,
       show: async (p: Page, width: number) => {
@@ -380,7 +380,7 @@ test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360
   }
 });
 
-test('spec 048, AC-2, AC-3, AC-8: Reply to reviewers posts Claude’s reply and resolves, only on Post replies', async ({
+test('spec 049, AC-2, AC-3, AC-8: Reply to reviewers posts Claude’s reply and resolves, only on Post replies', async ({
   page,
 }) => {
   await page.goto(seen.opened ?? '');

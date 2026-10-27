@@ -1256,7 +1256,7 @@ async function reached(records: SessionRecords, kind: string, id = '000000000000
 
 const edit = (file: string): FakeTurn => ({ tool: 'Write', input: { file_path: file, content: 'x\n' } });
 
-describe('what a finished Build is ready for (spec 048)', () => {
+describe('what a finished Build is ready for (spec 049)', () => {
   const format: FakeTurn = { tool: 'Bash', input: { command: 'pnpm format' } };
   const runs = { mode: 'edit_and_run_allowed' as const, allowedCommands: ['pnpm format'] };
 

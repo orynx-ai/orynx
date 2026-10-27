@@ -211,7 +211,7 @@ export interface JiraClient {
   account(request: JiraCheckRequest): Promise<JiraAccount>;
   /**
    * Any JQL Claude sends from a session (spec 044), as it is: `limit` issues (`POST /rest/api/3/search/jql`) from the
-   * page `next` names, or the first, and whether Jira found more (spec 048). A query Jira refuses (400) comes back with
+   * page `next` names, or the first, and whether Jira found more (spec 049). A query Jira refuses (400) comes back with
    * Jira's own words, at most 500 characters.
    */
   search(request: JiraCheckRequest, jql: string, limit: number, next?: string): Promise<JiraSearch>;

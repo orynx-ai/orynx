@@ -68,7 +68,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # The app has the most tests, so it runs in two shards (spec 048).
+          # The app has the most tests, so it runs in two shards (spec 049).
           - { name: app-1, dir: packages/app, shard: 1/2 }
           - { name: app-2, dir: packages/app, shard: 2/2 }
           - { name: ui, dir: packages/ui }
@@ -145,7 +145,7 @@ jobs:
 
   # Advisory, not required (the user's call, 22 Oct 2026): a failing or slow e2e run warns and keeps its report, but
   # never fails CI, a pull request or a release. The step's own limit ends it before the job's, so a hang isn't a
-  # cancelled job, which would still fail the run. Three shards run side by side (spec 048), each starting every hub.
+  # cancelled job, which would still fail the run. Three shards run side by side (spec 049), each starting every hub.
   e2e:
     name: End-to-end (Playwright, ${{ matrix.shard }} of 3)
     runs-on: ubuntu-latest

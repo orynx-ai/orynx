@@ -76,7 +76,7 @@ export const StoredSessionSchema = z.object({
   approvalLog: z.array(ApprovalRecordSchema).default([]),
   /** The Terminal's Claude tab: every command Claude ran, with its output (spec 036). A session saved before has none. */
   commandLog: z.array(ClaudeCommandSchema).default([]),
-  /** How many commands fell off the front of `commandLog` (spec 048). */
+  /** How many commands fell off the front of `commandLog` (spec 049). */
   commandsDropped: z.int().nonnegative().default(0),
   /**
    * What outside the worktree the brief named, as real paths, which Claude may read on every run, a follow-up's
@@ -121,7 +121,7 @@ export interface SessionRecords extends SessionStore {
 
 /**
  * What a finished session is ready for, from what Claude did, as its stepper is (spec 031): an Ask, or a Build where
- * Claude edited no file and no command it ran changed one (spec 048), leaves nothing to ship.
+ * Claude edited no file and no command it ran changed one (spec 049), leaves nothing to ship.
  */
 export function readyFor({ mode, workOn, activities, changed }: Session): SessionReady {
   if (mode === 'ask' || !(changed || activities.some((activity) => activity.kind === 'edit'))) return 'nothing';

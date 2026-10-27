@@ -70,7 +70,7 @@ describe('the Terminal’s Claude tab', () => {
     expect(log).toHaveAttribute('aria-live', 'polite');
   });
 
-  it('AC-14, AC-15 (spec 048): says how many earlier commands aren’t kept, and nothing when every one is', async () => {
+  it('AC-14, AC-15 (spec 049): says how many earlier commands aren’t kept, and nothing when every one is', async () => {
     await openClaudeTab(session, () => ({ ...makeClaudeCommands(), dropped: 37 }));
     const log = await screen.findByRole('log', { name: "Claude's commands" });
     expect(
@@ -78,7 +78,7 @@ describe('the Terminal’s Claude tab', () => {
     ).toBeVisible();
   });
 
-  it('AC-15 (spec 048): says nothing about earlier commands when none were dropped, and “one” for a single one', async () => {
+  it('AC-15 (spec 049): says nothing about earlier commands when none were dropped, and “one” for a single one', async () => {
     let list = makeClaudeCommands();
     await openClaudeTab(session, () => list);
     const log = await screen.findByRole('log', { name: "Claude's commands" });

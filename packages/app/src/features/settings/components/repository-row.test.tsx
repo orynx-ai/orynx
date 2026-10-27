@@ -24,7 +24,7 @@ describe('RepositoryRow', () => {
     expect(screen.getByText('Jira PROJ')).toBeVisible();
   });
 
-  it('AC-16 (spec 048): says Folder not found on a folder that’s gone, and nothing on one that’s there', async () => {
+  it('AC-16 (spec 049): says Folder not found on a folder that’s gone, and nothing on one that’s there', async () => {
     const { container, unmount } = row({ found: false });
     expect(screen.getByText('Folder not found')).toBeVisible();
     await expectNoAxeViolations(container);

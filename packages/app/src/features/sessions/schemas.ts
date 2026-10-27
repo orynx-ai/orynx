@@ -36,7 +36,7 @@ export const pushFormSchema = z.object({
 });
 export type PushFormValues = z.input<typeof pushFormSchema>;
 
-/** Reply to reviewers (spec 048): each thread's reply and Resolve, the reply at most GitHub's comment limit. */
+/** Reply to reviewers (spec 049): each thread's reply and Resolve, the reply at most GitHub's comment limit. */
 export const repliesFormSchema = z.object({
   threads: z.array(
     z.object({

@@ -28,7 +28,7 @@ describe('ClaudeCommandListSchema', () => {
     expect(ClaudeCommandListSchema.parse({ commands })).toEqual({ commands, dropped: 0 });
   });
 
-  it('AC-14 (spec 048): says how many earlier commands aren’t kept, and 0 for an answer from before 048', () => {
+  it('AC-14 (spec 049): says how many earlier commands aren’t kept, and 0 for an answer from before 049', () => {
     expect(ClaudeCommandListSchema.parse({ commands: [], dropped: 37 })).toEqual({ commands: [], dropped: 37 });
     expect(ClaudeCommandListSchema.parse({ commands: [] })).toEqual({ commands: [], dropped: 0 });
     expect(ClaudeCommandListSchema.safeParse({ commands: [], dropped: -1 }).success).toBe(false);

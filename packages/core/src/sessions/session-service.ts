@@ -190,9 +190,9 @@ export interface SessionService {
   draftPush(id: string): Promise<PushDraftAnswer | null>;
   /** Commits what's new and pushes it to the pull request, on your press only (Q7); null for no such session. */
   push(id: string, request: PushRequest): Promise<PushAnswer | null>;
-  /** The review threads with Claude's replies, which writes nothing (spec 048); null for no such session. */
+  /** The review threads with Claude's replies, which writes nothing (spec 049); null for no such session. */
   draftReplies(id: string): Promise<ReplyDraftAnswer | null>;
-  /** Posts the replies and resolves the ticked threads, on your press only (spec 048); null for no such session. */
+  /** Posts the replies and resolves the ticked threads, on your press only (spec 049); null for no such session. */
   postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer | null>;
   /**
    * Spec 047: asks GitHub about each pull request of a session in PR open or PR closed whose worktree is still there,
@@ -459,11 +459,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   /** When the Claude Code each session last started has ended: a resume waits for it (spec 013). */
   const agentEnded = new Map<string, Promise<void>>();
   const fileTimers = new Map<string, { timer: NodeJS.Timeout; again: boolean }>();
-  /** Each session's check of its worktree after a command, which Claude's finish waits for (spec 048). */
+  /** Each session's check of its worktree after a command, which Claude's finish waits for (spec 049). */
   const worktreeChecks = new Map<string, Promise<void>>();
 
   /**
-   * Once a command ends, whether the worktree now differs from where it started (spec 048): a formatter or codegen
+   * Once a command ends, whether the worktree now differs from where it started (spec 049): a formatter or codegen
    * changes files Claude never edited. Only for a Build that has nothing to ship yet; once true it stays true.
    */
   function checkWorktree(id: string) {
@@ -683,7 +683,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
               commandLog: logRunEnded(next.commandLog),
             };
           });
-        // A command's check of the worktree goes first, so Done, and its notification, say what it found (spec 048).
+        // A command's check of the worktree goes first, so Done, and its notification, say what it found (spec 049).
         const checking = finished ? worktreeChecks.get(id) : undefined;
         track(checking === undefined ? update() : checking.then(update));
         return;

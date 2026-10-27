@@ -13,7 +13,7 @@ export interface RepositoryRowProps {
 }
 
 /**
- * One folder in Settings › Repositories: its name, its path with `~`, Folder not found when it's gone (spec 048), its
+ * One folder in Settings › Repositories: its name, its path with `~`, Folder not found when it's gone (spec 049), its
  * Jira project, and More actions (spec 020): Edit, Duplicate and Delete. The name is never cut off; on a narrow row the
  * path wraps under it.
  */

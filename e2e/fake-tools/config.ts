@@ -79,7 +79,7 @@ export interface FakeTools {
   /** Pull requests whose details and diff GitHub gives the composer, in acme/web-app (spec 015). */
   /** `head` is its branch; `author` makes it yours when it's the fake's own login, `octocat` (spec 031). */
   pullRequests?: { number: number; title: string; body?: string; diff: string; head?: string; author?: string }[];
-  /** Review threads on acme/web-app #2841 (spec 048), and every reply and Resolve posted to them, in order. */
+  /** Review threads on acme/web-app #2841 (spec 049), and every reply and Resolve posted to them, in order. */
   reviewThreads?: NonNullable<FakePullContext['threads']>;
   threadWrites?: FakeThreadWrite[];
 }

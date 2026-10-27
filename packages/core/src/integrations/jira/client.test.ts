@@ -1128,7 +1128,7 @@ describe('Jira client: a search Claude asked for (spec 044)', () => {
     ]);
   });
 
-  it('AC-17 (spec 048): reads the page `next` names, and the last page has no `next`', async () => {
+  it('AC-17 (spec 049): reads the page `next` names, and the last page has no `next`', async () => {
     const issues = Array.from({ length: 250 }, (_, n) => ({ key: `MAG-${String(n + 1)}` }));
     jira.use(acceptingIssueSearch(issues));
 

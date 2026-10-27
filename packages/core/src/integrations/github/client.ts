@@ -97,7 +97,7 @@ export type GitHubDefaultBranch = { ok: true; branch: string } | { ok: false; pr
 export type GitHubPullState =
   { ok: true; state: 'open' | 'closed' | 'merged'; head: string } | { ok: false; problem: GitHubPullProblem };
 
-/** An unresolved review thread with GitHub's id for it, and every comment in it, oldest first (spec 048). */
+/** An unresolved review thread with GitHub's id for it, and every comment in it, oldest first (spec 049). */
 export interface GitHubReviewThread {
   id: string;
   path: string;
@@ -137,11 +137,11 @@ export interface GitHubClient {
   defaultBranch(token: string, repository: string): Promise<GitHubDefaultBranch>;
   /** A pull request's state and head commit (`GET /repos/{o}/{r}/pulls/{n}`), for a session watching it (spec 047). */
   pullState(token: string, pull: { repository: string; number: number }): Promise<GitHubPullState>;
-  /** The pull request's unresolved review threads, among its first 50, for Reply to reviewers (spec 048). */
+  /** The pull request's unresolved review threads, among its first 50, for Reply to reviewers (spec 049). */
   reviewThreads(token: string, pull: GitHubPullRef): Promise<GitHubReviewThreads>;
-  /** Replies to a review thread as you (`addPullRequestReviewThreadReply`), only on your press (spec 048). */
+  /** Replies to a review thread as you (`addPullRequestReviewThreadReply`), only on your press (spec 049). */
   replyToThread(token: string, threadId: string, body: string): Promise<GitHubThreadChange>;
-  /** Resolves a review thread (`resolveReviewThread`), only on your press (spec 048). */
+  /** Resolves a review thread (`resolveReviewThread`), only on your press (spec 049). */
   resolveThread(token: string, threadId: string): Promise<GitHubThreadChange>;
 }
 
@@ -294,7 +294,7 @@ const PullContextDataSchema = z.object({
     .nullable(),
 });
 
-// Reply to reviewers (spec 048): the first 50 threads of 20 comments, as the brief reads them, each with its id.
+// Reply to reviewers (spec 049): the first 50 threads of 20 comments, as the brief reads them, each with its id.
 const reviewThreadsQuery = `
   query DevHubReviewThreads($owner: String!, $name: String!, $number: Int!) {
     repository(owner: $owner, name: $name) {
@@ -747,7 +747,7 @@ export function createGitHubClient({
     },
   };
 
-  /** A reply or Resolve; GitHub's words when it refused it, so the dialog can say why (spec 048, AC-5). */
+  /** A reply or Resolve; GitHub's words when it refused it, so the dialog can say why (spec 049, AC-5). */
   async function changeThread(
     token: string,
     mutation: string,
