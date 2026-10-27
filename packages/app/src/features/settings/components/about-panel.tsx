@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId } from 'react';
 import type { Updates } from '@devhub/contracts';
 import { SettingList, SettingRow, Skeleton } from '@devhub/ui';
 import { useUpdates } from '../queries.ts';
@@ -58,24 +58,42 @@ export function AboutPanel() {
 }
 
 /** "Desktop app", "Installed from ~/Code/orynx" or "Started by hand from ~/Code/orynx" (Q7). */
-function kindLine({ kind, folder }: Updates): ReactNode {
+function kindLine({ kind, folder }: Updates): string {
   if (kind === 'desktop' || folder === null) return 'Desktop app';
-  const shown = <code className="font-mono text-code">{folder}</code>;
-  return kind === 'service' ? <>Installed from {shown}</> : <>Started by hand from {shown}</>;
+  return kind === 'service' ? `Installed from ${folder}` : `Started by hand from ${folder}`;
 }
 
+/**
+ * The version, then which Orynx it is, one line each: a long version or folder is cut and shown whole on hover, so
+ * the row is as tall as its skeleton at every width (AC-4).
+ */
 function VersionRow({ updates }: { updates: Updates | undefined }) {
   const id = useId();
+  const version = updates === undefined ? null : versionText(updates.running);
+  const kind = updates === undefined ? null : kindLine(updates);
   return (
     <SettingRow
       role="group"
       aria-labelledby={id}
       titleId={id}
       title="Version"
-      description={updates === undefined ? <Skeleton className="my-0.5 h-4 w-40 max-w-full" /> : kindLine(updates)}
-      control={
-        updates === undefined ? <Skeleton className="my-1 h-4 w-16" /> : <span>{versionText(updates.running)}</span>
+      description={
+        version === null ? (
+          <Skeleton className="my-0.5 h-4 w-32 max-w-full" />
+        ) : (
+          <span className="block truncate text-foreground" title={version}>
+            {version}
+          </span>
+        )
       }
-    />
+    >
+      {kind === null ? (
+        <Skeleton className="my-0.5 h-4 w-48 max-w-full" />
+      ) : (
+        <span className="truncate text-small text-muted-foreground" title={kind}>
+          {kind}
+        </span>
+      )}
+    </SettingRow>
   );
 }

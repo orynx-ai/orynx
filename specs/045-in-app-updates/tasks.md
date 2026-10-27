@@ -59,7 +59,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 19: Release notes from feat and fix commits since the last release, used by release.yml (AC-34 to AC-36)
       Check: node --test scripts/lib/release-notes.test.ts
       Files: scripts/lib/release-notes.ts, release-notes.test.ts, scripts/release-notes.ts, .github/workflows/release.yml
-- [ ] Task 20: e2e: the About tab against a fake releases API, Settings' tab list with About, and every e2e hub pointed at the fake (AC-1, AC-3, AC-6, AC-7, AC-14, AC-30)
+- [x] Task 20: e2e: the About tab against a fake releases API, Settings' tab list with About, and every e2e hub pointed at the fake (AC-1, AC-3, AC-6, AC-7, AC-14, AC-30)
       Check: pnpm test:e2e e2e/about.spec.ts e2e/settings.spec.ts
       Files: e2e/about.spec.ts, e2e/settings.spec.ts, e2e/fake-tools/preload.ts, e2e/fake-tools/releases.ts, playwright.config.ts
 - [ ] Task 21: Desktop e2e: no dialog, About shows the update from the fake releases server, the Mac swap on a copy of the packed app (AC-13, AC-18, AC-20, AC-24)

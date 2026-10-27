@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 import { fakeClaude, fakeClaudeDir, fakeClaudeDirFor } from './e2e/fake-claude/config.ts';
+import { fakeReleasesPort, fakeReleasesUrl } from './e2e/fake-tools/releases.ts';
 import { setUpHome } from './e2e/set-up.ts';
 import {
   approvalsHubPort,
@@ -80,6 +81,13 @@ export default defineConfig({
   ],
   webServer: [
     {
+      // GitHub's releases for Settings › About (spec 045), first, so every hub's check at start finds it.
+      command: 'node e2e/fake-tools/releases.ts',
+      url: `http://127.0.0.1:${String(fakeReleasesPort)}/`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+    {
       command: 'pnpm start',
       url: `http://127.0.0.1:${String(port)}/`,
       reuseExistingServer: false,
@@ -100,6 +108,8 @@ export default defineConfig({
         DEVHUB_CLAUDE_CODE: fakeClaude,
         // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
         DEVHUB_SANDBOX: 'assume',
+        // Every hub checks for updates with the fake releases, never api.github.com (spec 045, AC-24).
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
       },
     },
     {
@@ -121,6 +131,7 @@ export default defineConfig({
         DEVHUB_CLAUDE_CODE: fakeClaude,
         // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
         DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDir,
       },
@@ -143,6 +154,7 @@ export default defineConfig({
         DEVHUB_CLAUDE_CODE: fakeClaude,
         // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
         DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(sessionsHubPort),
       },
@@ -163,6 +175,7 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
         DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(approvalsHubPort),
       },
@@ -184,6 +197,7 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
         DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(changesHubPort),
       },
@@ -206,6 +220,7 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
         DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(pullRequestsHubPort),
       },
@@ -227,6 +242,7 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
         DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(composerHubPort),
       },
@@ -247,6 +263,7 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
         DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(syncActivityHubPort),
       },
@@ -269,6 +286,7 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
         DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(terminalHubPort),
       },
@@ -290,6 +308,7 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
         DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
       },
     },
   ],

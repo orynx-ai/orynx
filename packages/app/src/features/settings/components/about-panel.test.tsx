@@ -31,14 +31,14 @@ describe('Settings › About: Version (spec 045)', () => {
     });
     const row = await versionRow();
     expect(await row.findByText('0.1.37 + 4 commits (abc1234)')).toBeVisible();
-    expect(row.getByText(/^Installed from/)).toHaveTextContent('Installed from ~/Code/orynx');
+    expect(row.getByText('Installed from ~/Code/orynx')).toBeVisible();
   });
 
   it('AC-2: one commit past a release, on the release itself, and with no release at all', async () => {
     answering({ kind: 'by_hand', folder: '~/orynx', running: { release: '0.1.37', commits: 1, commit: 'abc1234' } });
     const row = await versionRow();
     expect(await row.findByText('0.1.37 + 1 commit (abc1234)')).toBeVisible();
-    expect(row.getByText(/^Started by hand from/)).toHaveTextContent('Started by hand from ~/orynx');
+    expect(row.getByText('Started by hand from ~/orynx')).toBeVisible();
   });
 
   it('AC-2: a clone on its release tag shows the release alone, and one with no tag its commit alone', async () => {
