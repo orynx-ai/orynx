@@ -153,9 +153,13 @@ async function axe(page: Page, selector = 'body'): Promise<string[]> {
   return page.evaluate(async (context) => {
     const target = document.querySelector(context);
     if (target === null) throw new Error(`Nothing matches ${context}`);
+    // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
     const moving = document
       .getAnimations()
-      .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity);
+      .filter(
+        (animation) =>
+          animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
+      );
     await Promise.allSettled(moving.map((animation) => animation.finished));
     const results = await window.axe.run(target, { resultTypes: ['violations'] });
     return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
