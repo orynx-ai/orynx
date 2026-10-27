@@ -1,10 +1,11 @@
-// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023); docs/design/screens/notification-settings/NotificationSettings.dc.html — the Notifications tab (spec 029); the Coding agent tab and the tabs' icons: Design: none — the user's redesign mockup 4a · Settings › Coding agent (redesign), 19 Oct 2026; the title kept for screen readers only and the note under the Connections tab alone: the user's call, 20 Oct 2026 (less noise)
+// Design: docs/design/screens/settings.html — page bar, title, local-first callout (closable: spec 020), tabs, the connection list, and the Repositories and Inbox rules tabs; docs/design/screens/skills.html — the Skills tab (spec 023); docs/design/screens/notification-settings/NotificationSettings.dc.html — the Notifications tab (spec 029); the Coding agent tab and the tabs' icons: Design: none — the user's redesign mockup 4a · Settings › Coding agent (redesign), 19 Oct 2026; the title kept for screen readers only and the note under the Connections tab alone: the user's call, 20 Oct 2026 (less noise); the About tab (spec 045): Design: none — the user's call, 22 Oct 2026 (Q1), laid out with the Coding agent tab's setting rows
 import { useRef } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import {
   Book02Icon,
   Folder01Icon,
   InboxIcon,
+  InformationCircleIcon,
   Notification01Icon,
   Plug01Icon,
   RoboticIcon,
@@ -13,6 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger, Callout, Icon, type IconSvgElement } from '@devhub/ui';
 import { PageBar, PageBody, PageBreadcrumb } from '../../shell/page-frame.tsx';
 import { useUiStore } from '../../stores/ui-store.ts';
+import { AboutPanel } from './components/about-panel.tsx';
 import { CodingAgentPanel } from './components/coding-agent-panel.tsx';
 import { InboxRulesPanel } from './components/inbox-rules-panel.tsx';
 import { NotificationsPanel } from './components/notifications-panel.tsx';
@@ -31,6 +33,7 @@ const tabIcons: Record<SettingsTab, IconSvgElement> = {
   notifications: Notification01Icon,
   repositories: Folder01Icon,
   'inbox-rules': InboxIcon,
+  about: InformationCircleIcon,
 };
 
 export function SettingsScreen() {
@@ -53,7 +56,7 @@ export function SettingsScreen() {
             <TestNotification />
           ) : tab === 'connections' ? (
             <ConnectionsSummary />
-          ) : (
+          ) : tab === 'about' ? null : (
             // Under 768 px the bar has room only for the crumbs.
             <span className="text-small text-muted-foreground max-md:hidden">Changes save automatically</span>
           )
@@ -113,6 +116,9 @@ export function SettingsScreen() {
           </TabsContent>
           <TabsContent value="inbox-rules" className="pt-6">
             <InboxRulesPanel />
+          </TabsContent>
+          <TabsContent value="about" className="pt-6">
+            <AboutPanel />
           </TabsContent>
         </Tabs>
       </PageBody>

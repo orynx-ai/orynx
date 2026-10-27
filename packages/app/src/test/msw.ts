@@ -21,6 +21,7 @@ import {
   makeStatus,
   makeTerminal,
   makeTickets,
+  makeUpdates,
 } from '@devhub/contracts/testing';
 
 /** The origin the app under test calls. MSW stands in for the network, nothing else. */
@@ -133,6 +134,8 @@ export const server = setupServer(
   // Nothing to tell you yet, and Settings › Notifications as a fresh Orynx has it (spec 029).
   http.get(apiUrl(apiRoutes.notifications), () => HttpResponse.json(makeNotificationList())),
   http.get(apiUrl(apiRoutes.notificationSettings), () => HttpResponse.json(defaultNotificationSettings)),
+  // The desktop app 0.1.37, up to date, with no releases listed (spec 045).
+  http.get(apiUrl(apiRoutes.updates), () => HttpResponse.json(makeUpdates())),
   http.get(apiUrl(apiRoutes.search), () =>
     HttpResponse.json(
       makeSearchIndex({ tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } } }),

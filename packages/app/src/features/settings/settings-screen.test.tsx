@@ -14,7 +14,7 @@ describe('SettingsScreen', () => {
     expect(history.location.pathname).toBe('/settings/connections');
   });
 
-  it('AC-1: has the seven tabs, Skills after Coding agent (spec 023) and Notifications after Skills (spec 029, AC-32), each at its own address', async () => {
+  it('AC-1: has the seven tabs, Skills after Coding agent (spec 023), Notifications after Skills (spec 029, AC-32) and About last (spec 045, AC-3), each at its own address', async () => {
     const { user, history } = await renderApp({ route: '/settings/connections' });
 
     const tabs = within(await screen.findByRole('tablist', { name: 'Settings sections' })).getAllByRole('tab');
@@ -25,6 +25,7 @@ describe('SettingsScreen', () => {
       'Notifications',
       'Repositories',
       'Inbox rules',
+      'About',
     ]);
 
     for (const [name, path] of [
@@ -33,6 +34,7 @@ describe('SettingsScreen', () => {
       ['Notifications', '/settings/notifications'],
       ['Repositories', '/settings/repositories'],
       ['Inbox rules', '/settings/inbox-rules'],
+      ['About', '/settings/about'],
     ] as const) {
       await user.click(screen.getByRole('tab', { name }));
       expect(history.location.pathname).toBe(path);

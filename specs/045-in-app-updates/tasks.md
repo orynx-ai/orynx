@@ -44,7 +44,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: api-client: getUpdates, postUpdatesCheck, postUpdatesInstall and updatesQueryOptions; `updates.changed` and `sessions.changed` refresh it
       Check: pnpm test packages/api-client/src/updates.test.ts packages/app/src/live-updates.test.tsx
       Files: packages/api-client/src/endpoints/updates.ts, updates.test.ts, client.ts, queries.ts, index.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx
-- [ ] Task 15: The About tab with its Version part, its loading skeletons and its axe check (AC-1 to AC-5)
+- [x] Task 15: The About tab with its Version part, its loading skeletons and its axe check (AC-1 to AC-5)
       Check: pnpm test packages/app/src/features/settings
       Files: packages/app/src/features/settings/tabs.ts, settings-screen.tsx, settings-screen.test.tsx, queries.ts, components/about-panel.tsx, about-panel.test.tsx, packages/app/src/test/msw.ts
 - [ ] Task 16: The Updates part: up to date, out, checking, couldn't check, no releases, downloading, ready, updating, failed, busy, and by hand with its commands (AC-6 to AC-11, AC-18 to AC-23, AC-25, AC-27 to AC-30)

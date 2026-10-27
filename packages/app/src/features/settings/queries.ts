@@ -11,6 +11,7 @@ import {
   sessionsQueryOptions,
   orynxSkillsQueryOptions,
   statusQueryOptions,
+  updatesQueryOptions,
   type ApiRequestError,
 } from '@devhub/api-client';
 import { InboxRuleIdSchema, permissionsFor } from '@devhub/contracts';
@@ -36,6 +37,12 @@ import type {
   UpdateRepositoryRequest,
 } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
+
+/** Settings › About (spec 045): the version, the releases and an update's progress. Kept fresh by events. */
+export function useUpdates() {
+  const api = useApi();
+  return useQuery(updatesQueryOptions(api));
+}
 
 /** What the hub is connected to. Kept fresh by `status.changed` events, not polling. */
 export function useStatus() {
