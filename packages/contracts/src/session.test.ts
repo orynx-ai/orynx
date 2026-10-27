@@ -318,6 +318,12 @@ describe('a session in spec 013', () => {
     expect(SessionSchema.safeParse({ ...makeSession(), workedMs: -1 }).success).toBe(false);
   });
 
+  it('049 AC-10, AC-12: says when the worktree changed beyond what Claude edited, and an older session reads as unchanged', () => {
+    expect(SessionSchema.parse(makeSession({ changed: true }))).toMatchObject({ changed: true });
+    const { changed: _changed, ...older } = makeSession();
+    expect(SessionSchema.parse(older)).toMatchObject({ changed: false });
+  });
+
   it("047 AC-22, AC-24: carries Claude's turns and their cost, and a session saved before spec 047 reads with none", () => {
     expect(SessionSchema.parse(makeSession({ turns: 38, costUsd: 1.42 }))).toMatchObject({ turns: 38, costUsd: 1.42 });
     expect(SessionSchema.safeParse({ ...makeSession(), turns: -1 }).success).toBe(false);

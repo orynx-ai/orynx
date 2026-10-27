@@ -97,6 +97,21 @@ export type GitHubDefaultBranch = { ok: true; branch: string } | { ok: false; pr
 export type GitHubPullState =
   { ok: true; state: 'open' | 'closed' | 'merged'; head: string } | { ok: false; problem: GitHubPullProblem };
 
+/** An unresolved review thread with GitHub's id for it, and every comment in it, oldest first (spec 049). */
+export interface GitHubReviewThread {
+  id: string;
+  path: string;
+  line: number | null;
+  comments: { author: string; body: string }[];
+}
+
+export type GitHubReviewThreads =
+  { ok: true; threads: GitHubReviewThread[] } | { ok: false; problem: GitHubPullProblem };
+
+/** A reply or Resolve done; or GitHub's own words when it refused it, at most 500 characters; or a problem. */
+export type GitHubThreadChange =
+  { ok: true } | { ok: false; problem: GitHubProblem | { kind: 'refused'; message: string } };
+
 export interface GitHubClient {
   readonly timeoutMs: number;
   /** Asks GitHub who this token belongs to (`GET /user`). */
@@ -122,6 +137,12 @@ export interface GitHubClient {
   defaultBranch(token: string, repository: string): Promise<GitHubDefaultBranch>;
   /** A pull request's state and head commit (`GET /repos/{o}/{r}/pulls/{n}`), for a session watching it (spec 047). */
   pullState(token: string, pull: { repository: string; number: number }): Promise<GitHubPullState>;
+  /** The pull request's unresolved review threads, among its first 50, for Reply to reviewers (spec 049). */
+  reviewThreads(token: string, pull: GitHubPullRef): Promise<GitHubReviewThreads>;
+  /** Replies to a review thread as you (`addPullRequestReviewThreadReply`), only on your press (spec 049). */
+  replyToThread(token: string, threadId: string, body: string): Promise<GitHubThreadChange>;
+  /** Resolves a review thread (`resolveReviewThread`), only on your press (spec 049). */
+  resolveThread(token: string, threadId: string): Promise<GitHubThreadChange>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -204,7 +225,7 @@ const InboxDataSchema = z.object({
 /** What octokit's GraphqlResponseError holds: GitHub answered 200, with errors and maybe some data. */
 const GraphqlFailureSchema = z.object({
   name: z.literal('GraphqlResponseError'),
-  errors: z.array(z.object({ type: z.string().optional() })).optional(),
+  errors: z.array(z.object({ type: z.string().optional(), message: z.string().optional() })).optional(),
   data: z.unknown(),
   headers: z.record(z.string(), z.unknown()).optional(),
 });
@@ -273,6 +294,34 @@ const PullContextDataSchema = z.object({
     .nullable(),
 });
 
+// Reply to reviewers (spec 049): the first 50 threads of 20 comments, as the brief reads them, each with its id.
+const reviewThreadsQuery = `
+  query DevHubReviewThreads($owner: String!, $name: String!, $number: Int!) {
+    repository(owner: $owner, name: $name) {
+      pullRequest(number: $number) {
+        reviewThreads(first: 50) {
+          nodes { id isResolved path line comments(first: 20) { nodes { author { login } body } } }
+        }
+      }
+    }
+  }
+`;
+const replyToThreadMutation = `
+  mutation DevHubReplyToThread($thread: ID!, $body: String!) {
+    addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $thread, body: $body }) { comment { id } }
+  }
+`;
+const resolveThreadMutation = `
+  mutation DevHubResolveThread($thread: ID!) {
+    resolveReviewThread(input: { threadId: $thread }) { thread { isResolved } }
+  }
+`;
+const ReviewThreadsDataSchema = z.object({
+  repository: z
+    .object({ pullRequest: z.object({ reviewThreads: z.object({ nodes: z.array(z.unknown()) }) }).nullable() })
+    .nullable(),
+});
+
 const FailedContextSchema = z.discriminatedUnion('__typename', [
   z.object({
     __typename: z.literal('CheckRun'),
@@ -282,6 +331,7 @@ const FailedContextSchema = z.discriminatedUnion('__typename', [
   z.object({ __typename: z.literal('StatusContext'), context: z.string(), state: z.enum(['FAILURE', 'ERROR']) }),
 ]);
 const ThreadSchema = z.object({
+  id: z.string().optional(),
   isResolved: z.boolean(),
   path: z.string(),
   line: z.int().nullish(),
@@ -652,7 +702,75 @@ export function createGitHubClient({
         return failed(error, signal);
       }
     },
+
+    async reviewThreads(token, { owner, name, number }) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const data = ReviewThreadsDataSchema.safeParse(
+          await octokit.graphql(reviewThreadsQuery, { owner, name, number }),
+        );
+        if (!data.success) return { ok: false, problem: { kind: 'unreachable', code: undefined } };
+        const pull = data.data.repository?.pullRequest;
+        if (pull === null || pull === undefined) return { ok: false, problem: { kind: 'not_found' } };
+        const threads = pull.reviewThreads.nodes.flatMap((node): GitHubReviewThread[] => {
+          const thread = ThreadSchema.safeParse(node);
+          if (!thread.success || thread.data.isResolved || thread.data.id === undefined) return [];
+          const comments = thread.data.comments.nodes.map((comment) => ({
+            author: comment.author?.login ?? 'Someone',
+            body: comment.body,
+          }));
+          return [{ id: thread.data.id, path: thread.data.path, line: thread.data.line ?? null, comments }];
+        });
+        return { ok: true, threads };
+      } catch (error) {
+        const graphql = GraphqlFailureSchema.safeParse(error);
+        if (!graphql.success) return failed(error, signal);
+        const { errors = [], headers = {} } = graphql.data;
+        if (errors.some((reported) => reported.type === 'RATE_LIMITED')) {
+          return { ok: false, problem: { kind: 'rate_limited', resetAt: resetTime(headers, now) } };
+        }
+        // Missing, or hidden from this token: single sign-on answers FORBIDDEN with no pull request.
+        if (errors.some((reported) => reported.type === 'NOT_FOUND' || reported.type === 'FORBIDDEN')) {
+          return { ok: false, problem: { kind: 'not_found' } };
+        }
+        return { ok: false, problem: { kind: 'github_error', status: 200 } };
+      }
+    },
+
+    replyToThread(token, threadId, body) {
+      return changeThread(token, replyToThreadMutation, { thread: threadId, body });
+    },
+
+    resolveThread(token, threadId) {
+      return changeThread(token, resolveThreadMutation, { thread: threadId });
+    },
   };
+
+  /** A reply or Resolve; GitHub's words when it refused it, so the dialog can say why (spec 049, AC-5). */
+  async function changeThread(
+    token: string,
+    mutation: string,
+    variables: Record<string, string>,
+  ): Promise<GitHubThreadChange> {
+    const signal = AbortSignal.timeout(timeoutMs);
+    try {
+      const octokit = await octokitFor(token, signal);
+      await octokit.graphql(mutation, variables);
+      return { ok: true };
+    } catch (error) {
+      const graphql = GraphqlFailureSchema.safeParse(error);
+      if (!graphql.success) return failed(error, signal);
+      const { errors = [], headers = {} } = graphql.data;
+      if (errors.some((reported) => reported.type === 'RATE_LIMITED')) {
+        return { ok: false, problem: { kind: 'rate_limited', resetAt: resetTime(headers, now) } };
+      }
+      const said = errors.find((reported) => reported.message !== undefined && reported.message !== '')?.message;
+      return said === undefined
+        ? { ok: false, problem: { kind: 'github_error', status: 200 } }
+        : { ok: false, problem: { kind: 'refused', message: said.slice(0, 500) } };
+    }
+  }
 }
 
 function problemOf(error: Failure, timedOut: boolean, now: () => number): GitHubProblem {

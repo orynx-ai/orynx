@@ -24,6 +24,7 @@ import {
   acceptingPulls,
   acceptingPullStates,
   acceptingRepository,
+  acceptingReviewThreads,
   acceptingUser,
 } from '../../packages/core/src/test/fake-github.ts';
 import { http, HttpResponse } from 'msw';
@@ -77,6 +78,9 @@ function handlers() {
       })),
     ),
     // A session's pull request merged or closed (spec 047); a request for the diff goes on to the next handler.
+    acceptingReviewThreads([{ number: 2841, threads: tools.reviewThreads ?? [] }], {
+      posted: (tools.threadWrites ??= []),
+    }),
     acceptingPullStates(tools.pullStates ?? []),
     acceptingPullDiff((tools.pullRequests ?? []).map(({ number, diff }) => ({ number, diff }))),
     acceptingInboxQuery({ reviews: tools.reviews, mine: tools.mine }),

@@ -9,8 +9,11 @@ import {
   PushAnswerSchema,
   PushDraftAnswerSchema,
   PushRequestSchema,
+  ReplyAnswerSchema,
+  ReplyDraftAnswerSchema,
+  ReplyRequestSchema,
 } from './index.ts';
-import { makePullRequestDraft, makePushDraft } from './testing.ts';
+import { makePullRequestDraft, makePushDraft, makeReplyDraft, makeReviewThread } from './testing.ts';
 
 describe('the draft (spec 014)', () => {
   it('AC-2: carries the title, the description and what will happen', () => {
@@ -170,5 +173,69 @@ describe('pushing changes to the pull request (spec 014, Q7)', () => {
   it('has its paths under the session', () => {
     expect(apiRoutes.sessionPushDraft).toBe('/api/sessions/:id/push/draft');
     expect(apiRoutes.sessionPush).toBe('/api/sessions/:id/push');
+  });
+});
+
+describe('replying to reviewers (spec 049)', () => {
+  it('AC-2: lists each unresolved thread with its last comment, Claude’s reply and whether Resolve starts ticked', () => {
+    const draft = makeReplyDraft();
+    expect(ReplyDraftAnswerSchema.parse(draft)).toEqual(draft);
+    expect(draft.threads[0]).toEqual(makeReviewThread());
+    expect(makeReviewThread({ line: null }).line).toBeNull();
+  });
+
+  it('AC-4, AC-6, AC-7: says when Claude couldn’t draft, why it can’t, and GitHub’s problem', () => {
+    for (const answer of [
+      makeReplyDraft({ byClaude: false, threads: [] }),
+      { result: 'cannot', reason: 'no_pull_request' },
+      { result: 'cannot', reason: 'not_connected' },
+      { result: 'failed', problem: { kind: 'github_unreachable' } },
+    ] as const) {
+      expect(ReplyDraftAnswerSchema.parse(answer)).toEqual(answer);
+    }
+    expect(
+      ReplyDraftAnswerSchema.safeParse({ ...makeReplyDraft(), threads: Array(51).fill(makeReviewThread()) }).success,
+    ).toBe(false);
+  });
+
+  it('AC-3: takes each thread’s reply, trimmed, and whether to resolve it; refuses a reply longer than 65,536', () => {
+    expect(
+      ReplyRequestSchema.parse({ threads: [{ id: 'PRRT_1', reply: '  Fixed in 3f2c1ab. ', resolve: true }] }),
+    ).toEqual({ threads: [{ id: 'PRRT_1', reply: 'Fixed in 3f2c1ab.', resolve: true }] });
+    expect(ReplyRequestSchema.safeParse({ threads: [] }).success).toBe(false);
+    expect(
+      ReplyRequestSchema.safeParse({ threads: [{ id: 'PRRT_1', reply: 'x'.repeat(65_537), resolve: false }] }).success,
+    ).toBe(false);
+  });
+
+  it('AC-3: refuses a thread with neither a reply nor Resolve, which would post nothing', () => {
+    expect(ReplyRequestSchema.safeParse({ threads: [{ id: 'PRRT_1', reply: ' ', resolve: false }] }).success).toBe(
+      false,
+    );
+  });
+
+  it('AC-5: answers which threads failed and why: GitHub’s own words or a GitHub problem', () => {
+    const answer = {
+      result: 'posted',
+      failed: [
+        {
+          id: 'PRRT_2',
+          problem: { kind: 'github_said', message: 'Resource not accessible by integration' },
+          replied: false,
+        },
+        { id: 'PRRT_3', problem: { kind: 'github_unreachable' }, replied: true },
+      ],
+    } as const;
+    expect(ReplyAnswerSchema.parse(answer)).toEqual(answer);
+    expect(ReplyAnswerSchema.parse({ result: 'posted', failed: [] })).toEqual({ result: 'posted', failed: [] });
+    expect(ReplyAnswerSchema.parse({ result: 'cannot', reason: 'not_connected' })).toEqual({
+      result: 'cannot',
+      reason: 'not_connected',
+    });
+  });
+
+  it('has its paths under the session', () => {
+    expect(apiRoutes.sessionRepliesDraft).toBe('/api/sessions/:id/replies/draft');
+    expect(apiRoutes.sessionReplies).toBe('/api/sessions/:id/replies');
   });
 });

@@ -13,8 +13,9 @@ export interface RepositoryRowProps {
 }
 
 /**
- * One folder in Settings › Repositories: its name, its path with `~`, its Jira project, and More actions
- * (spec 020): Edit, Duplicate and Delete. The name is never cut off; on a narrow row the path wraps under it.
+ * One folder in Settings › Repositories: its name, its path with `~`, Folder not found when it's gone (spec 049), its
+ * Jira project, and More actions (spec 020): Edit, Duplicate and Delete. The name is never cut off; on a narrow row the
+ * path wraps under it.
  */
 export function RepositoryRow({ folder, onEdit, onDuplicate, onDelete, moreRef }: RepositoryRowProps) {
   // The action picked runs once the menu has closed and let go of focus (it keeps focus inside while
@@ -30,6 +31,7 @@ export function RepositoryRow({ folder, onEdit, onDuplicate, onDelete, moreRef }
       <span className="min-w-0 grow basis-50 font-mono text-code wrap-anywhere text-muted-foreground">
         {folder.displayPath}
       </span>
+      {folder.found ? null : <Pill tone="warning">Folder not found</Pill>}
       {folder.jiraProject === null ? null : <Pill plain>Jira {folder.jiraProject}</Pill>}
       <Menu>
         <MenuTrigger asChild>

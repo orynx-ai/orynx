@@ -109,11 +109,15 @@ describe('the notifications a session change raises (spec 029)', () => {
       { ...working, ...ended, activities: edited },
       { ...working, ...ended, activities: edited, workOn: 'pull_request' as const },
       { ...working, ...ended, mode: 'ask' as const },
+      // AC-10 (spec 049): a file only a command Claude ran changed.
+      { ...working, ...ended, changed: true },
+      { ...working, ...ended, changed: true, workOn: 'pull_request' as const },
+      { ...working, ...ended },
     ].map((after) =>
       sessionNotifications(working, after).added.map(({ what }) => ('ready' in what ? what.ready : null)),
     );
 
-    expect(ready).toEqual([['pull_request'], ['push'], ['nothing']]);
+    expect(ready).toEqual([['pull_request'], ['push'], ['nothing'], ['pull_request'], ['push'], ['nothing']]);
   });
 
   it('a follow-up that finishes again raises a second notification, under its own id', () => {

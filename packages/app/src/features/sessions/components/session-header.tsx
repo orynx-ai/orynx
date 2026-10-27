@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { useMutation } from '@tanstack/react-query';
 import {
   ArrowUpRight01Icon,
+  Comment01Icon,
   ComputerTerminal01Icon,
   GitBranchIcon,
   Loading03Icon,
@@ -33,9 +34,10 @@ import { agoText } from '../../../words/ago.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { needsApprovalLabel } from '../approval-words.ts';
 import { editorLink, openInLabel } from '../change-words.ts';
-import { openPullRequestLabel } from '../pull-request-words.ts';
+import { openPullRequestLabel, replyWords } from '../pull-request-words.ts';
 import { useEditor, useSessionPorts } from '../queries.ts';
 import { DeleteSession } from './delete-session.tsx';
+import { ReplyToReviewers } from './reply-to-reviewers.tsx';
 import { RenameSession } from './rename-session.tsx';
 import { SessionMenuItems, useLinkCopied, type SessionMenuPick } from './session-menu.tsx';
 import { SessionTerminal } from './terminal/session-terminal.tsx';
@@ -171,7 +173,7 @@ export function SessionHeader({
 
 /**
  * The session's buttons, small, in the page bar (the user's call, 19 Oct 2026): Stop while Claude works (AC-9), and
- * Open PR once the pull request is open; Create pull request and Push are the next-move bar's (spec 048). Terminal,
+ * Open PR and Reply to reviewers (spec 049) once the pull request is open; Create pull request and Push are the next-move bar's (spec 048). Terminal,
  * with its shortcut, and Open in the editor wait in More actions (the user's call, 27 Oct 2026), then Rename, Pin and Delete (spec 039,
  * where Delete took Discard changes' place, the user's call, 20 Oct 2026). Under 768 px everything but Stop moves into
  * More actions, so the bar keeps to one line. Stop keeps focus while it runs; once the session has stopped, the title
@@ -191,8 +193,9 @@ export function SessionActions({
   const platform = usePlatform();
   const wide = useWide();
   const terminalDialog = useRef<{ open: () => void }>(null);
+  const replyDialog = useRef<{ open: () => void }>(null);
   // The dialog an item opens, once the menu has closed and let go of focus.
-  const picked = useRef<'terminal' | SessionMenuPick | null>(null);
+  const picked = useRef<'terminal' | 'reply' | SessionMenuPick | null>(null);
   // Rename and Delete (spec 039), opened as the sidebar's ⋯ opens them.
   const [sessionDialog, setSessionDialog] = useState<SessionMenuPick | null>(null);
   const { pullRequest } = session;
@@ -205,6 +208,8 @@ export function SessionActions({
   const preferences = useEditor();
   const editor = preferences.data ?? (preferences.isError ? 'vscode' : null);
   const linkCopied = useLinkCopied();
+  // Reviewers' threads take replies while the pull request is open (spec 049).
+  const offerReply = pullRequest !== null && session.state === 'pr_open';
 
   useEffect(() => {
     if (stop.isSuccess && !working) title.current?.focus();
@@ -252,6 +257,16 @@ export function SessionActions({
           </a>
         </Button>
       )}
+      {pullRequest === null ? null : (
+        <ReplyToReviewers
+          ref={replyDialog}
+          session={session}
+          repository={pullRequest.repository}
+          number={pullRequest.number}
+          show={offerReply}
+          {...(wide ? {} : { menu: more })}
+        />
+      )}
       <RenameSession
         session={session}
         open={sessionDialog === 'rename'}
@@ -288,7 +303,7 @@ export function SessionActions({
               setSessionDialog(dialog);
               return;
             }
-            terminalDialog.current?.open();
+            (dialog === 'reply' ? replyDialog : terminalDialog).current?.open();
           }}
         >
           {session.terminal ? (
@@ -311,6 +326,16 @@ export function SessionActions({
               }}
             >
               {openPullRequestLabel(pullRequest.number)}
+            </MenuItem>
+          ) : null}
+          {!wide && offerReply ? (
+            <MenuItem
+              icon={<Icon icon={Comment01Icon} />}
+              onSelect={() => {
+                picked.current = 'reply';
+              }}
+            >
+              {replyWords.button}
             </MenuItem>
           ) : null}
           {editor === null || editorPath === null ? null : (

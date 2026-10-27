@@ -30,6 +30,7 @@ function session(id: string, skills: string[], orynxSkills?: string[]): StoredSe
     pushedCommit: null,
     approvalLog: [],
     commandLog: [],
+    commandsDropped: 0,
   };
 }
 

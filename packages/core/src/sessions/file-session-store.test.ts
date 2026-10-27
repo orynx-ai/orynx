@@ -27,6 +27,7 @@ function record(overrides: Partial<StoredSession['session']> = {}, id = '0123456
     pushedCommit: null,
     approvalLog: [],
     commandLog: [],
+    commandsDropped: 0,
   };
 }
 

@@ -68,7 +68,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: app, dir: packages/app }
+          # The app has the most tests, so it runs in two shards (spec 049).
+          - { name: app-1, dir: packages/app, shard: 1/2 }
+          - { name: app-2, dir: packages/app, shard: 2/2 }
           - { name: ui, dir: packages/ui }
           - { name: core, dir: packages/core }
           - { name: contracts, dir: packages/contracts }
@@ -83,7 +85,7 @@ jobs:
       # One package covers a small part of the code, so the thresholds wait for the merge job.
       - name: Test ${{ matrix.dir }}
         run: >-
-          pnpm exec vitest run ${{ matrix.dir }}/
+          pnpm exec vitest run ${{ matrix.dir }}/ ${{ matrix.shard && format('--shard={0}', matrix.shard) || '' }}
           --reporter=default --reporter=blob --outputFile.blob=.vitest/blob/blob-${{ matrix.name }}.json
           --coverage --coverage.reporter=json
           --coverage.thresholds.lines=0 --coverage.thresholds.functions=0
@@ -113,13 +115,16 @@ jobs:
           pattern: vitest-blob-*
           path: .vitest/blob/
           merge-multiple: true
-      # A package left out of the matrix would lose its tests without a sound.
+      # A package left out of the matrix, or a shard of one, would lose its tests without a sound.
       - name: Every package sent a report
         run: |
           missing=()
           for config in packages/*/vitest.config.ts apps/*/vitest.config.ts; do
             name=$(basename "$(dirname "$config")")
-            [ -f ".vitest/blob/blob-$name.json" ] || missing+=("$name")
+            if [ "$name" = app ]; then expected=(app-1 app-2); else expected=("$name"); fi
+            for report in "${expected[@]}"; do
+              [ -f ".vitest/blob/blob-$report.json" ] || missing+=("$report")
+            done
           done
           if [ ${#missing[@]} -gt 0 ]; then
             echo "::error::No test report from ${missing[*]}. Its unit-test job died, or it is missing from the matrix in .github/workflows/ci.yml."
@@ -140,25 +145,64 @@ jobs:
 
   # Advisory, not required (the user's call, 22 Oct 2026): a failing or slow e2e run warns and keeps its report, but
   # never fails CI, a pull request or a release. The step's own limit ends it before the job's, so a hang isn't a
-  # cancelled job, which would still fail the run.
+  # cancelled job, which would still fail the run. Three shards run side by side (spec 049), each starting every hub.
   e2e:
-    name: End-to-end (Playwright)
+    name: End-to-end (Playwright, ${{ matrix.shard }} of 3)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - run: pnpm exec playwright install --with-deps chromium
+      # Chromium is kept between runs, by Playwright's version; the system libraries it needs come each run.
+      - id: playwright
+        run: echo "version=$(pnpm exec playwright --version | tr ' ' '-')" >> "$GITHUB_OUTPUT"
+      - id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-chromium-${{ steps.playwright.outputs.version }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
       - id: e2e
-        run: pnpm test:e2e
+        run: pnpm test:e2e --shard=${{ matrix.shard }}/3
         timeout-minutes: 20
         continue-on-error: true
       - name: Say the e2e run failed
         if: steps.e2e.outcome != 'success'
-        run: echo "::warning::The end-to-end run failed or ran out of time. It doesn't fail CI; its report is the playwright-report artifact."
+        run: echo "::warning::End-to-end shard ${{ matrix.shard }} of 3 failed or ran out of time. It doesn't fail CI; its report is the playwright-report artifact."
       - uses: actions/upload-artifact@v7
-        if: steps.e2e.outcome != 'success'
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-blob-${{ matrix.shard }}
+          path: blob-report/
+          if-no-files-found: ignore
+          retention-days: 1
+
+  # The three shards' reports as one HTML report. Advisory, as the shards are.
+  e2e-report:
+    name: End-to-end report
+    needs: e2e
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: playwright-blob-*
+          path: all-blob-reports/
+          merge-multiple: true
+      - run: pnpm exec playwright merge-reports --reporter html all-blob-reports/
+      - uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/

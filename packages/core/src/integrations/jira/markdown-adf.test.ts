@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { markdownToAdf } from './markdown-adf.ts';
 
-const text = (value: string, ...marks: ('strong' | 'code')[]) =>
+const text = (value: string, ...marks: ('strong' | 'code' | 'em')[]) =>
   marks.length === 0
     ? { type: 'text', text: value }
     : { type: 'text', text: value, marks: marks.map((type) => ({ type })) };
 const paragraph = (...content: unknown[]) => ({ type: 'paragraph', content });
+const link = (value: string, href: string) => ({
+  type: 'text',
+  text: value,
+  marks: [{ type: 'link', attrs: { href } }],
+});
 
 describe('markdownToAdf (spec 044)', () => {
   it.each([
@@ -53,6 +58,137 @@ describe('markdownToAdf (spec 044)', () => {
       [{ type: 'codeBlock', attrs: { language: 'ts' }, content: [text('const a = 1;\n\nconst b = 2;')] }],
     ],
     ['an unclosed mark as its text', 'a ** b and `c', [paragraph(text('a ** b and `c'))]],
+    [
+      'AC-13: a link, its text marked',
+      'See [the PR](https://github.com/acme/web/pull/2) or [mail](mailto:dev@example.com).',
+      [
+        paragraph(
+          text('See '),
+          link('the PR', 'https://github.com/acme/web/pull/2'),
+          text(' or '),
+          link('mail', 'mailto:dev@example.com'),
+          text('.'),
+        ),
+      ],
+    ],
+    [
+      'AC-13: a link to anything but http, https or mailto as its text',
+      '[x](javascript:alert(1)) and [y](file:///etc/hosts)',
+      [paragraph(text('[x](javascript:alert(1)) and [y](file:///etc/hosts)'))],
+    ],
+    [
+      'AC-13: italics, with * or _',
+      '*one* and _two_',
+      [paragraph(text('one', 'em'), text(' and '), text('two', 'em'))],
+    ],
+    [
+      'AC-13: underscores inside a word, and a lone star, as their text',
+      'use snake_case_names and 2 * 3 * 4',
+      [paragraph(text('use snake_case_names and 2 * 3 * 4'))],
+    ],
+    [
+      'AC-13: a quote, up to the first line that isn’t one',
+      '> Fixed in main.\n> See **the PR**.\nThanks',
+      [
+        {
+          type: 'blockquote',
+          content: [
+            paragraph(text('Fixed in main.'), { type: 'hardBreak' }, text('See '), text('the PR', 'strong'), text('.')),
+          ],
+        },
+        paragraph(text('Thanks')),
+      ],
+    ],
+    [
+      'AC-13: a list nested under an item, of either kind',
+      '- one\n  - one a\n  - one b\n- steps\n  1. build\n  2. test\n- two',
+      [
+        {
+          type: 'bulletList',
+          content: [
+            {
+              type: 'listItem',
+              content: [
+                paragraph(text('one')),
+                {
+                  type: 'bulletList',
+                  content: [
+                    { type: 'listItem', content: [paragraph(text('one a'))] },
+                    { type: 'listItem', content: [paragraph(text('one b'))] },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'listItem',
+              content: [
+                paragraph(text('steps')),
+                {
+                  type: 'orderedList',
+                  content: [
+                    { type: 'listItem', content: [paragraph(text('build'))] },
+                    { type: 'listItem', content: [paragraph(text('test'))] },
+                  ],
+                },
+              ],
+            },
+            { type: 'listItem', content: [paragraph(text('two'))] },
+          ],
+        },
+      ],
+    ],
+    [
+      'AC-13: a pipe table with a header row, its cells marked, an empty cell as an empty paragraph',
+      '| File | Change |\n| --- | :---: |\n| `a.ts` | **fixed** |\n| b.ts | |\nAfter',
+      [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableHeader', content: [paragraph(text('File'))] },
+                { type: 'tableHeader', content: [paragraph(text('Change'))] },
+              ],
+            },
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableCell', content: [paragraph(text('a.ts', 'code'))] },
+                { type: 'tableCell', content: [paragraph(text('fixed', 'strong'))] },
+              ],
+            },
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableCell', content: [paragraph(text('b.ts'))] },
+                { type: 'tableCell', content: [paragraph()] },
+              ],
+            },
+          ],
+        },
+        paragraph(text('After')),
+      ],
+    ],
+    [
+      'AC-13: a table straight after a line of text',
+      'Changed:\n| File |\n| --- |\n| a.ts |',
+      [
+        paragraph(text('Changed:')),
+        {
+          type: 'table',
+          content: [
+            { type: 'tableRow', content: [{ type: 'tableHeader', content: [paragraph(text('File'))] }] },
+            { type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph(text('a.ts'))] }] },
+          ],
+        },
+      ],
+    ],
+    [
+      'AC-13: pipes with no --- line under them as their text',
+      '| not | a table |',
+      [paragraph(text('| not | a table |'))],
+    ],
   ])('writes %s', (_, markdown, content) => {
     expect(markdownToAdf(markdown)).toEqual({ version: 1, type: 'doc', content });
   });

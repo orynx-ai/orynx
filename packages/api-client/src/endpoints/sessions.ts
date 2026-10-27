@@ -8,10 +8,14 @@ import {
   PushAnswerSchema,
   PushDraftAnswerSchema,
   PushRequestSchema,
+  ReplyAnswerSchema,
+  ReplyDraftAnswerSchema,
+  ReplyRequestSchema,
   RespondToApprovalRequestSchema,
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
   SessionBriefSchema,
+  SessionChangeRequestSchema,
   SessionChangesSchema,
   SessionListSchema,
   SessionSchema,
@@ -23,16 +27,18 @@ import {
   type PullRequestDraftAnswer,
   type PushAnswer,
   type PushDraftAnswer,
+  type ReplyAnswer,
+  type ReplyDraftAnswer,
+  type ReplyRequest,
   type SendMessageAnswer,
   type SendMessageInput,
-  type SessionBrief,
-  type SessionChanges,
   type Session,
+  type SessionBrief,
+  type SessionChangeRequest,
+  type SessionChanges,
+  type SessionDeleteQuery,
   type SessionList,
   type SessionListQuery,
-  SessionChangeRequestSchema,
-  type SessionChangeRequest,
-  type SessionDeleteQuery,
   type StartSessionAnswer,
   type StartSessionRequest,
 } from '@devhub/contracts';
@@ -145,4 +151,16 @@ export async function postPushDraft(http: AxiosInstance, id: string): Promise<Pu
 export async function postPush(http: AxiosInstance, id: string, message: string): Promise<PushAnswer> {
   const res = await http.post<unknown>(pathFor(apiRoutes.sessionPush, id), PushRequestSchema.parse({ message }));
   return PushAnswerSchema.parse(res.data);
+}
+
+/** The pull request's unresolved review threads with Claude's replies, which writes nothing (spec 049). */
+export async function postRepliesDraft(http: AxiosInstance, id: string): Promise<ReplyDraftAnswer> {
+  const res = await http.post<unknown>(pathFor(apiRoutes.sessionRepliesDraft, id));
+  return ReplyDraftAnswerSchema.parse(res.data);
+}
+
+/** Posts the replies as you left them, and resolves the ticked threads (spec 049). */
+export async function postReplies(http: AxiosInstance, id: string, request: ReplyRequest): Promise<ReplyAnswer> {
+  const res = await http.post<unknown>(pathFor(apiRoutes.sessionReplies, id), ReplyRequestSchema.parse(request));
+  return ReplyAnswerSchema.parse(res.data);
 }

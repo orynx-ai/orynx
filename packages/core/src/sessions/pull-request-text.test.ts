@@ -4,6 +4,7 @@ import { makeChangedFile, makeFileDiff } from '@devhub/contracts/testing';
 import {
   coAuthorLine,
   commitMessage,
+  type DraftInputs,
   draftInstructions,
   draftInstructionsFor,
   draftPrompt,
@@ -12,7 +13,7 @@ import {
   pushPrompt,
   readCommitMessage,
   readDraft,
-  type DraftInputs,
+  readReplies,
 } from './pull-request-text.ts';
 
 const jiraUrl = 'https://your-team.atlassian.net/browse/PROJ-1423';
@@ -231,5 +232,29 @@ describe('a pull request for a session with no ticket (spec 015, AC-34)', () => 
   it('names the task, not a ticket, when Claude writes a Push changes message', () => {
     const prompt = pushPrompt({ ticket: task, summaries: ['Fixed the header.'], files: [], moreFiles: 0, diffs: [] });
     expect(prompt.startsWith('The task\n\nAdd a CSV export to the reports page')).toBe(true);
+  });
+});
+
+describe('Claude’s replies to review threads (spec 049)', () => {
+  it('AC-2: reads the JSON, even fenced, for the threads asked about only, trimmed', () => {
+    const answer = [
+      'Here you go:',
+      '```json',
+      JSON.stringify({
+        replies: [
+          { thread: 'PRRT_a', reply: '  Done: it uses useSelection now. ' },
+          { thread: 'PRRT_zz', reply: 'Not a thread.' },
+          { thread: 'PRRT_c', reply: '   ' },
+        ],
+      }),
+      '```',
+    ].join('\n');
+    expect(readReplies(answer, ['PRRT_a', 'PRRT_c'])).toEqual(new Map([['PRRT_a', 'Done: it uses useSelection now.']]));
+  });
+
+  it('AC-4: answers null for anything that isn’t that JSON', () => {
+    for (const answer of ['Sure, I fixed them all!', '{"replies": "all of them"}', '{ not json }', '}{']) {
+      expect(readReplies(answer, ['PRRT_a'])).toBeNull();
+    }
   });
 });

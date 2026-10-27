@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { logEnd, logRunEnded, logWork, type CommandLog } from './command-log.ts';
+import { keepLast, logEnd, logRunEnded, logWork, type CommandLog } from './command-log.ts';
 
 const lint = { kind: 'command', id: 'toolu_1', command: 'npm run lint' } as const;
 
@@ -67,6 +67,32 @@ describe('the command log', () => {
       { kind: 'finished', summary: 'Done.' },
     ] as const;
     expect(others.reduce<CommandLog>((log, work) => logWork(log, work), [])).toEqual([]);
+  });
+
+  it('AC-14 (spec 049): keeps the last 200 commands, oldest first, and counts every one it drops', () => {
+    const full = Array.from({ length: 200 }, (_, n) =>
+      logWork([], { kind: 'command', id: `toolu_${String(n)}`, command: `echo ${String(n)}` }),
+    ).flat();
+    const one = keepLast(logWork(full, { kind: 'command', id: 'toolu_200', command: 'echo 200' }), 0);
+    expect(one.commandLog).toHaveLength(200);
+    expect([one.commandLog[0]?.id, one.commandLog.at(-1)?.id]).toEqual(['toolu_1', 'toolu_200']);
+    expect(one.commandsDropped).toBe(1);
+
+    const two = keepLast(logWork(one.commandLog, { kind: 'command', id: 'toolu_201', command: 'ls' }), 1);
+    expect(two.commandsDropped).toBe(2);
+  });
+
+  it('AC-15 (spec 049): leaves a shorter log as it is', () => {
+    const log = logWork([], lint);
+    expect(keepLast(log, 0)).toEqual({ commandLog: log, commandsDropped: 0 });
+  });
+
+  it('AC-14 (spec 049): a command denied after some were dropped still gets an id of its own', () => {
+    const full = Array.from({ length: 200 }, (_, n) =>
+      logWork([], { kind: 'command', id: `toolu_${String(n)}`, command: 'ls' }),
+    ).flat();
+    const log = logWork(full, { kind: 'denied', about: 'command', text: 'npm install date-fns' }, 5);
+    expect(log.at(-1)).toEqual({ id: 'denied-206', state: 'denied', command: 'npm install date-fns' });
   });
 
   it('marks a command still running when Claude’s run ends as stopped, and leaves the rest', () => {

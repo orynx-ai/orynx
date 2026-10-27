@@ -48,7 +48,8 @@ const inputRefused = (error: z.ZodError) => failed(`Orynx couldn't take that: ${
 
 const SearchSchema = z.object({
   jql: z.string().trim().min(1, 'Send a JQL query.').max(2_000),
-  limit: z.int().min(1).max(100, 'Ask for at most 100 issues; narrow the query for the rest.').default(50),
+  limit: z.int().min(1).max(100, 'Ask for at most 100 issues a page; pass `next` for the rest.').default(50),
+  next: z.string().min(1).max(2_000).optional(),
 });
 const IssueSchema = z.object({ key: JiraIssueKeySchema });
 const CommentSchema = z.object({
@@ -110,7 +111,7 @@ export function jiraTools(context: JiraToolsContext): OrynxTool[] {
     {
       name: 'search_jira',
       description:
-        "Searches the user's Jira with JQL, as they would in Jira: `assignee = currentUser() AND issuetype = Bug AND project = MAG`. Answers with each issue's key, summary, type, status and its category, priority, assignee, due date and last update, at most `limit` (50 by default, at most 100), and whether Jira found more; narrow the query rather than asking for more. Read an issue's description and comments with get_jira_issue.",
+        "Searches the user's Jira with JQL, as they would in Jira: `assignee = currentUser() AND issuetype = Bug AND project = MAG`. Answers with each issue's key, summary, type, status and its category, priority, assignee, due date and last update, at most `limit` (50 by default, at most 100), whether Jira found more, and `next` while it has more: pass `next` to read the next page; narrow the query when you only need a few. Read an issue's description and comments with get_jira_issue.",
       input: SearchSchema,
       asks: () => Promise.resolve(null),
       async run(input) {
@@ -118,13 +119,13 @@ export function jiraTools(context: JiraToolsContext): OrynxTool[] {
         if (!search.success) return inputRefused(search.error);
         const request = await context.request();
         if (request === null) return notConnected;
-        const answer = await jira.search(request, search.data.jql, search.data.limit);
+        const answer = await jira.search(request, search.data.jql, search.data.limit, search.data.next);
         if (!answer.ok)
           return failed(
             'refused' in answer ? `Jira refused the query: ${answer.refused}` : problemText(answer.problem),
           );
         await context.did({ action: 'searched', found: answer.issues.length, more: answer.more });
-        return { text: JSON.stringify({ issues: answer.issues, more: answer.more }) };
+        return { text: JSON.stringify({ issues: answer.issues, more: answer.more, next: answer.next }) };
       },
     },
     {

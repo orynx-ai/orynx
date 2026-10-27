@@ -19,10 +19,15 @@ import { http, HttpResponse } from 'msw';
 import {
   acceptingPulls,
   acceptingRepository,
+  acceptingReviewThreads,
+  githubLogin,
   githubToken,
+  graphqlUrl,
   pullsUrl,
   useFakeGitHub,
   type FakeOpenedPull,
+  type FakePullContext,
+  type FakeThreadWrite,
 } from '../test/fake-github.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { createBranchGit } from './branch-git.ts';
@@ -117,6 +122,7 @@ async function setUp({
     pushedCommit: null,
     approvalLog: [],
     commandLog: [],
+    commandsDropped: 0,
   };
   await records.create(record);
   await records.writeBrief(id, brief);
@@ -753,5 +759,159 @@ describe('pushing changes to the pull request (spec 014, Q7)', () => {
     expect(await opened.pulls.push(id, { message: 'x' })).toEqual({ result: 'cannot', reason: 'missing' });
     expect(await opened.pulls.draftPush('fedcba9876543210')).toBeNull();
     expect(await opened.pulls.push('fedcba9876543210', { message: 'x' })).toBeNull();
+  });
+});
+
+describe('replying to reviewers (spec 049)', () => {
+  const pullRequest = makeSessionPullRequest();
+  const reviewed: FakePullContext = {
+    number: 2841,
+    threads: [
+      {
+        id: 'PRRT_a',
+        resolved: false,
+        path: 'src/ContentList.tsx',
+        line: 42,
+        comments: [
+          { author: 'priya', body: 'Use the existing useSelection hook here.' },
+          { author: githubLogin, body: 'Will do.' },
+        ],
+      },
+      { id: 'PRRT_b', resolved: true, path: 'src/api.ts', line: 7, comments: [{ author: 'sam', body: 'Rename?' }] },
+      { id: 'PRRT_c', resolved: false, path: 'README.md', line: null, comments: [{ author: null, body: 'A typo.' }] },
+    ],
+  };
+  const claudeReplies = JSON.stringify({
+    replies: [
+      { thread: 'PRRT_a', reply: 'Done: the list uses useSelection now.' },
+      { thread: 'PRRT_zz', reply: 'A thread that isn’t there.' },
+    ],
+  });
+  const left = {
+    id: 'PRRT_c',
+    path: 'README.md',
+    line: null,
+    author: 'Someone',
+    body: 'A typo.',
+    reply: '',
+    resolve: false,
+  };
+
+  it('AC-2: Claude drafts a reply for each thread its changes address, from the threads and the diff', async () => {
+    const posted: FakeThreadWrite[] = [];
+    const { worktree, sdk, pulls } = await setUp({
+      draft: [{ finish: claudeReplies }],
+      session: { state: 'pr_open', pullRequest },
+    });
+    github.use(acceptingReviewThreads([reviewed], { posted }));
+    await writeFile(join(worktree, 'README.md'), '# web-app\n\nUses useSelection.\n');
+
+    expect(await pulls.draftReplies(id)).toEqual({
+      result: 'draft',
+      number: 2841,
+      byClaude: true,
+      threads: [
+        {
+          id: 'PRRT_a',
+          path: 'src/ContentList.tsx',
+          line: 42,
+          author: githubLogin,
+          body: 'Will do.',
+          reply: 'Done: the list uses useSelection now.',
+          resolve: true,
+        },
+        left,
+      ],
+    });
+    const [prompt = ''] = sdk.runs[0]?.prompts ?? [];
+    expect(prompt).toContain('PRRT_a on src/ContentList.tsx line 42');
+    expect(prompt).toContain('priya: Use the existing useSelection hook here.');
+    expect(prompt).toContain('+Uses useSelection.');
+    expect(prompt).not.toContain('PRRT_b');
+    // AC-8: a draft writes nothing to GitHub.
+    expect(posted).toEqual([]);
+  });
+
+  it("AC-4: when Claude can't draft, or answers with something else, every box starts empty and unticked", async () => {
+    for (const options of [{ noClaude: true }, { draft: [{ finish: 'Sure, I fixed them all!' }] }]) {
+      const { pulls } = await setUp({ ...options, session: { state: 'pr_open', pullRequest } });
+      github.use(acceptingReviewThreads([reviewed]));
+      const answer = await pulls.draftReplies(id);
+      expect(answer).toMatchObject({ result: 'draft', byClaude: false });
+      expect(answer?.result === 'draft' && answer.threads.map(({ reply, resolve }) => ({ reply, resolve }))).toEqual([
+        { reply: '', resolve: false },
+        { reply: '', resolve: false },
+      ]);
+    }
+  });
+
+  it('AC-7: with no unresolved thread, answers none and never asks Claude', async () => {
+    const { sdk, pulls } = await setUp({ session: { state: 'pr_open', pullRequest } });
+    github.use(acceptingReviewThreads([{ number: 2841, threads: [] }]));
+    expect(await pulls.draftReplies(id)).toEqual({ result: 'draft', number: 2841, byClaude: false, threads: [] });
+    expect(sdk.runs).toHaveLength(0);
+  });
+
+  it('AC-6: says why it can’t: no pull request, GitHub not connected, or GitHub not answering', async () => {
+    expect(await (await setUp()).pulls.draftReplies(id)).toEqual({ result: 'cannot', reason: 'no_pull_request' });
+    const offline = await setUp({ connected: false, session: { state: 'pr_open', pullRequest } });
+    expect(await offline.pulls.draftReplies(id)).toEqual({ result: 'cannot', reason: 'not_connected' });
+    const { pulls } = await setUp({ session: { state: 'pr_open', pullRequest } });
+    github.use(http.post(graphqlUrl, () => HttpResponse.error()));
+    expect(await pulls.draftReplies(id)).toEqual({ result: 'failed', problem: { kind: 'github_unreachable' } });
+    expect(await pulls.draftReplies('fedcba9876543210')).toBeNull();
+  });
+
+  it('AC-3: posts each reply as you left it, then resolves the ticked threads, in order', async () => {
+    const posted: FakeThreadWrite[] = [];
+    const { pulls } = await setUp({ session: { state: 'pr_open', pullRequest } });
+    github.use(acceptingReviewThreads([reviewed], { posted }));
+
+    expect(
+      await pulls.postReplies(id, {
+        threads: [
+          { id: 'PRRT_a', reply: 'Done: it uses useSelection.', resolve: true },
+          { id: 'PRRT_c', reply: '', resolve: true },
+        ],
+      }),
+    ).toEqual({ result: 'posted', failed: [] });
+    expect(posted).toEqual([
+      { thread: 'PRRT_a', reply: 'Done: it uses useSelection.' },
+      { thread: 'PRRT_a', resolved: true },
+      { thread: 'PRRT_c', resolved: true },
+    ]);
+  });
+
+  it('AC-5: a thread GitHub refuses comes back with its words, and says when its reply went out before Resolve failed', async () => {
+    const posted: FakeThreadWrite[] = [];
+    const { pulls } = await setUp({ session: { state: 'pr_open', pullRequest } });
+    github.use(acceptingReviewThreads([reviewed], { posted, refuse: ['PRRT_a'], refuseResolve: ['PRRT_c'] }));
+    const said = { kind: 'github_said', message: 'Resource not accessible by personal access token' };
+
+    expect(
+      await pulls.postReplies(id, {
+        threads: [
+          { id: 'PRRT_a', reply: 'Done.', resolve: true },
+          { id: 'PRRT_c', reply: 'Fixed the typo.', resolve: true },
+        ],
+      }),
+    ).toEqual({
+      result: 'posted',
+      failed: [
+        { id: 'PRRT_a', problem: said, replied: false },
+        { id: 'PRRT_c', problem: said, replied: true },
+      ],
+    });
+    expect(posted).toEqual([{ thread: 'PRRT_c', reply: 'Fixed the typo.' }]);
+  });
+
+  it('AC-6: posts nothing without a pull request or a GitHub connection', async () => {
+    const request = { threads: [{ id: 'PRRT_a', reply: 'Done.', resolve: true }] };
+    expect(await (await setUp()).pulls.postReplies(id, request)).toEqual({
+      result: 'cannot',
+      reason: 'no_pull_request',
+    });
+    const offline = await setUp({ connected: false, session: { state: 'pr_open', pullRequest } });
+    expect(await offline.pulls.postReplies(id, request)).toEqual({ result: 'cannot', reason: 'not_connected' });
   });
 });

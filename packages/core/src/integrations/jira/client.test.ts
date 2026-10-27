@@ -1104,6 +1104,7 @@ describe('Jira client: a search Claude asked for (spec 044)', () => {
     expect(answer).toEqual({
       ok: true,
       more: true,
+      next: 'next',
       issues: [
         {
           key: 'MAG-12',
@@ -1125,6 +1126,24 @@ describe('Jira client: a search Claude asked for (spec 044)', () => {
         maxResults: 50,
       },
     ]);
+  });
+
+  it('AC-17 (spec 049): reads the page `next` names, and the last page has no `next`', async () => {
+    const issues = Array.from({ length: 250 }, (_, n) => ({ key: `MAG-${String(n + 1)}` }));
+    jira.use(acceptingIssueSearch(issues));
+
+    const pages = [];
+    let next: string | undefined;
+    do {
+      const answer = await client.search(credentials, 'project = MAG', 100, next);
+      if (!answer.ok) throw new Error('Jira refused the search');
+      pages.push({ keys: answer.issues.map((issue) => issue.key), more: answer.more, next: answer.next });
+      next = answer.next ?? undefined;
+    } while (next !== undefined && pages.length < 5);
+
+    expect(pages.map((page) => page.keys.length)).toEqual([100, 100, 50]);
+    expect(pages.at(-1)).toMatchObject({ more: false, next: null });
+    expect(pages.flatMap((page) => page.keys)).toEqual(issues.map((issue) => issue.key));
   });
 
   it('AC-9: says Jira found no more once it says the page is the last', async () => {

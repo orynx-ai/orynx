@@ -91,6 +91,26 @@ describe('Jira tools in a session (spec 044)', () => {
     ]);
   });
 
+  it('AC-17 (spec 049): Claude reads every page by passing `next` back', async () => {
+    const issues = Array.from({ length: 250 }, (_, n) => ({ key: `MAG-${String(n + 1)}` }));
+    jira.use(acceptingIssueSearch(issues));
+    const { run, tools } = setUp();
+
+    const sizes: number[] = [];
+    let next: string | null = null;
+    do {
+      const answer = await run('search_jira', { jql: 'project = MAG', limit: 100, ...(next === null ? {} : { next }) });
+      const page = JSON.parse(answer.text) as { issues: unknown[]; more: boolean; next: string | null };
+      sizes.push(page.issues.length);
+      next = page.next ?? null;
+    } while (next !== null && sizes.length < 5);
+
+    expect(sizes).toEqual([100, 100, 50]);
+    expect(tools.find((tool) => tool.name === 'search_jira')?.description).toContain(
+      'pass `next` to read the next page',
+    );
+  });
+
   it('AC-9, AC-10: refuses more than 100, an empty query or a key that isn’t one, and never asks Jira', async () => {
     const { run, steps, asked } = setUp();
 

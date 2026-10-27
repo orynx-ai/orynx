@@ -1,5 +1,11 @@
 import type { FakeIssue } from '../../packages/core/src/test/fake-jira.ts';
-import type { FakeOpenedPull, FakePull, FakePullState } from '../../packages/core/src/test/fake-github.ts';
+import type {
+  FakeOpenedPull,
+  FakePull,
+  FakePullContext,
+  FakePullState,
+  FakeThreadWrite,
+} from '../../packages/core/src/test/fake-github.ts';
 
 /**
  * The second e2e hub: the real server as `pnpm start` builds it, with Jira and GitHub faked inside its
@@ -73,4 +79,7 @@ export interface FakeTools {
   /** Pull requests whose details and diff GitHub gives the composer, in acme/web-app (spec 015). */
   /** `head` is its branch; `author` makes it yours when it's the fake's own login, `octocat` (spec 031). */
   pullRequests?: { number: number; title: string; body?: string; diff: string; head?: string; author?: string }[];
+  /** Review threads on acme/web-app #2841 (spec 049), and every reply and Resolve posted to them, in order. */
+  reviewThreads?: NonNullable<FakePullContext['threads']>;
+  threadWrites?: FakeThreadWrite[];
 }

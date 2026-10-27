@@ -149,11 +149,22 @@ export function jiraIssue(issue: FakeIssue) {
   };
 }
 
-/** Jira's enhanced search (`POST /rest/api/3/search/jql`) for the good credentials, answering with `issues`. */
+/**
+ * Jira's enhanced search (`POST /rest/api/3/search/jql`) for the good credentials, answering with `issues`, paged as
+ * Jira pages: `maxResults` at a time, `nextPageToken` carries on, and `isLast` says when it's done.
+ */
 export function acceptingIssueSearch(issues: readonly FakeIssue[], { site = jiraSite }: { site?: string } = {}) {
-  return http.post(issueSearchUrl(site), ({ request }) => {
+  return http.post(issueSearchUrl(site), async ({ request }) => {
     if (request.headers.get('authorization') !== `Basic ${goodBasicValue}`) return refused();
-    return HttpResponse.json({ issues: issues.map(jiraIssue), isLast: true });
+    const body = (await request.clone().json()) as { maxResults?: number; nextPageToken?: string };
+    const startAt = Number(body.nextPageToken ?? 0);
+    const page = issues.slice(startAt, startAt + (body.maxResults ?? 50));
+    const next = startAt + page.length;
+    return HttpResponse.json({
+      issues: page.map(jiraIssue),
+      isLast: next >= issues.length,
+      ...(next >= issues.length ? {} : { nextPageToken: String(next) }),
+    });
   });
 }
 

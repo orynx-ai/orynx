@@ -7,7 +7,7 @@ import { mostMessageCharacters, RefusalReasonSchema } from './session.ts';
  */
 
 /** Shell tabs per session; lines kept of each of Claude's commands; the most one input request carries. */
-export const terminalLimits = { tabs: 5, claudeLines: 200, inputChars: 65_536 } as const;
+export const terminalLimits = { tabs: 5, claudeLines: 200, claudeCommands: 200, inputChars: 65_536 } as const;
 
 /**
  * Home's Terminal: your shell tabs in Orynx's home folder (DEVHUB_HOME), on the session Terminal's routes under this
@@ -40,8 +40,14 @@ export const ClaudeCommandSchema = z.discriminatedUnion('state', [
 ]);
 export type ClaudeCommand = z.infer<typeof ClaudeCommandSchema>;
 
-/** GET /api/sessions/:id/commands. A command waiting for your answer is in the session's `approvals`. */
-export const ClaudeCommandListSchema = z.object({ commands: z.array(ClaudeCommandSchema) });
+/**
+ * GET /api/sessions/:id/commands: the last `terminalLimits.claudeCommands`, and how many earlier ones aren't kept (spec
+ * 049). A command waiting for your answer is in the session's `approvals`.
+ */
+export const ClaudeCommandListSchema = z.object({
+  commands: z.array(ClaudeCommandSchema),
+  dropped: z.int().nonnegative().default(0),
+});
 export type ClaudeCommandList = z.infer<typeof ClaudeCommandListSchema>;
 
 /** A shell tab: `number` 1 is the first, which can't be closed. */

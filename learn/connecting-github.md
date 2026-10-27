@@ -70,7 +70,7 @@ A pull request chip in Home's composer is read when you press Send. `context-rea
 
 ## Opening pull requests (spec 014)
 
-Create pull request is the one thing Orynx writes to GitHub, and only on your press. The session's git pushes the branch with your own git login (`learn/sessions-and-worktrees.md`); then `client.ts` opens the PR with the token `connection.credentials()` gives, the same way the inbox reads:
+Create pull request, and since spec 049 Post replies, are the only things Orynx writes to GitHub, and only on your press. The session's git pushes the branch with your own git login (`learn/sessions-and-worktrees.md`); then `client.ts` opens the PR with the token `connection.credentials()` gives, the same way the inbox reads:
 
 - `openPull()` is `POST /repos/{owner}/{repo}/pulls` with the head, the base, your title and your description. A 422 that says "already exists" is `exists`, and Orynx then links that open PR (`findOpenPull()`, `GET …/pulls?head=owner:branch&state=open`) as it is. A 422 that says "No commits between" is `no_commits`.
 - A 403 with `X-GitHub-SSO` is `sso`, with GitHub's own link to authorize the token, kept only when it's https on github.com. Any other 403, or the 404 GitHub gives for a repository the account can't see, is `forbidden`. The rate limit, a refused token, the network and the 10-second limit read as for the other calls.
@@ -78,6 +78,14 @@ Create pull request is the one thing Orynx writes to GitHub, and only on your pr
 - A PR's `html_url` must be https on github.com (`GitHubLinkSchema`, which lives in `contracts/github.ts` beside `GitHubRepositorySchema` from spec 014), or the answer reads as not GitHub's.
 
 A classic token or gh login with `repo` can open PRs (spec 004, Q3). A fine-grained token needs Pull requests: write on the repository, or GitHub answers 403 and the dialog says the account can't open pull requests there.
+
+## Replying to reviewers (spec 049)
+
+Reply to reviewers reads and writes review threads through GraphQL only, with the same token and octokit settings:
+
+- `reviewThreads()` (`DevHubReviewThreads`) reads the pull request's first 50 threads, as the brief does, and keeps the unresolved ones with GitHub's id for each and their comments. Opening the dialog reads only: the threads, the worktree's diff and Claude's answer to a call with no tools (`replyPrompt()` and `readReplies()` in `pull-request-text.ts`).
+- `replyToThread()` (`addPullRequestReviewThreadReply`) and `resolveThread()` (`resolveReviewThread`) run only from Post replies, one thread at a time, in order, and one press at a time for each session (`postReplies()` in `pull-requests.ts`). A refusal comes back with GitHub's own words, at most 500 characters, and says whether the reply went out before the Resolve failed, so the dialog never posts it twice.
+- A classic token or gh login with `repo` can reply and resolve; a fine-grained token needs Pull requests: write, or GitHub refuses it in its own words.
 
 ## Keeping the token in its place
 

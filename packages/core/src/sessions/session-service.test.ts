@@ -50,7 +50,7 @@ import type { SessionPort } from '@devhub/contracts';
 import { execSync, spawn } from 'node:child_process';
 import { http, HttpResponse } from 'msw';
 import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
-import type { SessionRecords, StoredSession } from './session-store.ts';
+import { listedSession, type SessionRecords, type StoredSession } from './session-store.ts';
 import { createChangesReader } from './changes.ts';
 import { createContextReader } from './context-reader.ts';
 import { startSessionCleanup } from './session-cleanup.ts';
@@ -507,14 +507,21 @@ describe('running a session', () => {
       tool: 'Read',
       input: { file_path: n % 2 === 0 ? 'README.md' : 'missing.md' },
     }));
-    const { service, records, heard } = await setUp({ script: [...burst, { finish: 'Read a lot.' }] });
+    const { service, records, heard, events } = await setUp({ script: [...burst, { finish: 'Read a lot.' }] });
+    const heardAt: number[] = [];
+    events.subscribe((event) => {
+      if (event.type === 'session.changed') heardAt.push(performance.now());
+    });
     await service.start({ ticketKey: 'PROJ-1423' });
     await settled(records);
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     const stepEvents = heard.filter((event) => event.type === 'session.changed');
     expect(stepEvents.length).toBeGreaterThan(0);
-    expect(stepEvents.length).toBeLessThan(8);
+    // The gaps, not a count: a slow machine takes longer over the burst, and the throttle rightly lets more through.
+    const gaps = heardAt.slice(1).map((at, index) => at - (heardAt[index] ?? at));
+    expect(gaps.every((gap) => gap >= 245)).toBe(true);
+    expect(stepEvents.length).toBeLessThan(burst.length);
     expect(stepEvents.every((event) => event.sessionId === '0000000000000001')).toBe(true);
     // Started, and done.
     expect(heard.filter((event) => event.type === 'sessions.changed').length).toBeGreaterThanOrEqual(2);
@@ -651,10 +658,12 @@ async function hasStep(records: SessionRecords, kind: string, id = '000000000000
 }
 
 /** Waits until the session has this many calls waiting for an answer, and gives them. */
-async function waitingCalls(records: SessionRecords, count = 1, id = '0000000000000001') {
+/** `answered`: a call just answered stays listed for a moment, so it never counts as the next one waiting. */
+async function waitingCalls(records: SessionRecords, count = 1, id = '0000000000000001', answered?: string) {
   for (let tries = 0; tries < 500; tries++) {
     const record = await records.get(id);
-    if (record !== null && record.session.approvals.length === count) return record.session.approvals;
+    const { approvals = [] } = record?.session ?? {};
+    if (approvals.length === count && approvals.every((call) => call.id !== answered)) return approvals;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(`The session never had ${String(count)} calls waiting`);
@@ -1246,6 +1255,55 @@ async function reached(records: SessionRecords, kind: string, id = '000000000000
 }
 
 const edit = (file: string): FakeTurn => ({ tool: 'Write', input: { file_path: file, content: 'x\n' } });
+
+describe('what a finished Build is ready for (spec 049)', () => {
+  const format: FakeTurn = { tool: 'Bash', input: { command: 'pnpm format' } };
+  const runs = { mode: 'edit_and_run_allowed' as const, allowedCommands: ['pnpm format'] };
+
+  it('AC-10: a file only a command changed makes it ready for a pull request, before it says Done', async () => {
+    let letGo: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      letGo = resolve;
+    });
+    const { service, records, heard } = await setUp({
+      script: [{ gate }, format, { finish: 'Formatted.' }],
+      ...runs,
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const readme = join((await reached(records, 'worktree')).worktree ?? '', 'README.md');
+    // Claude starts once git has made the worktree; till then its folder may not be there.
+    for (
+      let tries = 0;
+      tries < 500 &&
+      !(await readFile(readme).then(
+        () => true,
+        () => false,
+      ));
+      tries++
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    // What the formatter does: it changes a file Claude never edited.
+    await writeFile(readme, 'Formatted.\n');
+    heard.length = 0;
+    letGo();
+    const record = await settled(records);
+
+    expect(record.session.changed).toBe(true);
+    expect(record.session.activities.some((activity) => activity.kind === 'edit')).toBe(false);
+    expect(listedSession(record.session).ready).toBe('pull_request');
+    expect(heard).toContainEqual({ type: 'sessions.changed' });
+  });
+
+  it('AC-11: a command that changed nothing leaves it Done, with nothing to ship', async () => {
+    const { service, records } = await setUp({ script: [format, { finish: 'Nothing to format.' }], ...runs });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const record = await settled(records);
+
+    expect(record.session.changed).toBe(false);
+    expect(listedSession(record.session).ready).toBe('nothing');
+  });
+});
 
 describe('follow-ups (spec 013)', () => {
   const id = '0000000000000001';
@@ -1945,6 +2003,7 @@ describe('Claude’s commands (spec 036)', () => {
           ms: expect.any(Number) as unknown,
         },
       ],
+      dropped: 0,
     });
     expect(heard).toContainEqual({ type: 'session.changed', sessionId: '0000000000000001' });
   });
@@ -1986,7 +2045,7 @@ describe('Claude’s commands (spec 036)', () => {
     const { service, records } = await setUp();
     await service.start({ ticketKey: 'PROJ-1423' });
     await settled(records);
-    expect(await service.commands('0000000000000001')).toEqual({ commands: [] });
+    expect(await service.commands('0000000000000001')).toEqual({ commands: [], dropped: 0 });
     expect(await service.commands('ffffffffffffffff')).toBeNull();
   });
 });
@@ -2251,7 +2310,7 @@ describe('Claude changing Jira (spec 044)', () => {
     expect(writes).toEqual([]);
     expect(await service.respond(id, first?.id ?? '', 'deny')).toBe('answered');
 
-    const [second] = await waitingCalls(records);
+    const [second] = await waitingCalls(records, 1, id, first?.id);
     expect(writes).toEqual([]);
     expect(await service.respond(id, second?.id ?? '', 'allow_once')).toBe('answered');
     const record = await settled(records);

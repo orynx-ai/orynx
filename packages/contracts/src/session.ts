@@ -559,6 +559,11 @@ export const SessionSchema = SessionSummarySchema.extend({
   turns: z.int().nonnegative().default(0),
   /** What those turns would cost at API prices, as Claude Code totals it (spec 047); null until a turn says. */
   costUsd: z.number().nonnegative().nullable().default(null),
+  /**
+   * The worktree differs from where it started, by a command as well as Claude's edits, as a command's end last found
+   * (spec 049); false before spec 049, when only Claude's edits counted.
+   */
+  changed: z.boolean().default(false),
   /** Null until you create the pull request (spec 014); a session saved before spec 014 has none. */
   pullRequest: SessionPullRequestSchema.nullable().default(null),
   /**

@@ -18,6 +18,8 @@ export const RepositorySchema = z.object({
   /** The path as the row shows it, with `~` for the home folder. */
   displayPath: z.string(),
   jiraProject: JiraProjectKeySchema.nullable(),
+  /** False when the folder is gone or no longer a git repository, as Orynx last looked (spec 049). */
+  found: z.boolean().default(true),
 });
 export type Repository = z.infer<typeof RepositorySchema>;
 
