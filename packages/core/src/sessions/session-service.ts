@@ -591,6 +591,21 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   }
 
   function heard(id: string, run: Run, event: AgentEvent) {
+    // A stopped turn's turns and cost count too (spec 047), so they come before Stop's cut-off.
+    if (event.type === 'usage') {
+      track(
+        change(id, (record) => ({
+          ...record,
+          session: {
+            ...record.session,
+            turns: record.session.turns + event.turns,
+            // shortcut: assumes Claude Code's total carries across a resume; if a follow-up starts it at 0, add each run's.
+            costUsd: event.costUsd ?? record.session.costUsd,
+          },
+        })),
+      );
+      return;
+    }
     if (stopping(run)) return;
     switch (event.type) {
       case 'started':
@@ -1424,6 +1439,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         worktreePath: null,
         workedMs: 0,
         runStartedAt: at,
+        turns: 0,
+        costUsd: null,
         pullRequest: null,
         context: [{ kind: 'jira', key: ticketKey }],
         mode: 'build',
@@ -1520,6 +1537,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         worktreePath: null,
         workedMs: 0,
         runStartedAt: at,
+        turns: 0,
+        costUsd: null,
         pullRequest:
           pull === null
             ? null

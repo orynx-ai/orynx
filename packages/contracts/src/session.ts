@@ -546,6 +546,10 @@ export const SessionSchema = SessionSummarySchema.extend({
   workedMs: z.int().nonnegative().default(0),
   /** When the current run started; null while Claude isn't working. */
   runStartedAt: z.iso.datetime().nullable().default(null),
+  /** Claude's turns with the model, added up over every run as each turn ends (spec 047); 0 before spec 047. */
+  turns: z.int().nonnegative().default(0),
+  /** What those turns would cost at API prices, as Claude Code totals it (spec 047); null until a turn says. */
+  costUsd: z.number().nonnegative().nullable().default(null),
   /** Null until you create the pull request (spec 014); a session saved before spec 014 has none. */
   pullRequest: SessionPullRequestSchema.nullable().default(null),
   /**

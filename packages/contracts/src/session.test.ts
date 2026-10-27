@@ -302,6 +302,14 @@ describe('a session in spec 013', () => {
     expect(SessionSchema.safeParse({ ...makeSession(), workedMs: -1 }).success).toBe(false);
   });
 
+  it("047 AC-22, AC-24: carries Claude's turns and their cost, and a session saved before spec 047 reads with none", () => {
+    expect(SessionSchema.parse(makeSession({ turns: 38, costUsd: 1.42 }))).toMatchObject({ turns: 38, costUsd: 1.42 });
+    expect(SessionSchema.safeParse({ ...makeSession(), turns: -1 }).success).toBe(false);
+    expect(SessionSchema.safeParse({ ...makeSession(), costUsd: -0.5 }).success).toBe(false);
+    const { turns: _turns, costUsd: _cost, ...older } = makeSession();
+    expect(SessionSchema.parse(older)).toMatchObject({ turns: 0, costUsd: null });
+  });
+
   it('a session saved before spec 013 reads with no ticket, the box open, no path and no time worked', () => {
     const {
       ticket: _ticket,

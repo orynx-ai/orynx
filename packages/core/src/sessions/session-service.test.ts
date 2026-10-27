@@ -1424,6 +1424,23 @@ describe('follow-ups (spec 013)', () => {
     expect((await settled(records)).session).toMatchObject({ workedMs: 90_000, runStartedAt: null });
   });
 
+  it("047 AC-22, AC-23: adds up Claude's turns over every run and keeps the latest cost, a stopped turn's too", async () => {
+    const { service, records, sdk } = await setUp({
+      script: [{ finish: 'First.', turns: 3, costUsd: 0.4 }],
+      later: [[{ hang: true, turns: 2, costUsd: 0.65 }]],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    expect((await settled(records)).session).toMatchObject({ turns: 3, costUsd: 0.4 });
+    await service.send(id, 'One more thing');
+    await vi.waitFor(() => {
+      expect(sdk.runs[1]).toBeDefined();
+    });
+    expect(await service.stop(id)).toBe('stopped');
+    await vi.waitFor(async () => {
+      expect((await records.get(id))?.session).toMatchObject({ state: 'stopped', turns: 5, costUsd: 0.65 });
+    });
+  });
+
   it('AC-2, AC-23: says the files changed at most once a second, with the session’s id only', async () => {
     const { service, records, heard } = await setUp({
       script: [edit('src/a.ts'), edit('src/b.ts'), edit('src/c.ts'), { finish: 'Done.' }],
@@ -2490,7 +2507,9 @@ describe('deleting old sessions on a schedule (spec 047, D)', () => {
     const { service, events } = await finishedLongAgo(30);
     const schedule = startSessionCleanup({ sessions: service, events });
     try {
-      await vi.waitFor(async () => { expect(await service.get(id)).toBeNull(); });
+      await vi.waitFor(async () => {
+        expect(await service.get(id)).toBeNull();
+      });
     } finally {
       schedule.stop();
     }
@@ -2502,7 +2521,9 @@ describe('deleting old sessions on a schedule (spec 047, D)', () => {
     try {
       await settings.update((current) => ({ ...current, agent: { ...current.agent, deleteSessionsAfterDays: 30 } }));
       events.publish({ type: 'settings.changed' });
-      await vi.waitFor(async () => { expect(await service.get(id)).toBeNull(); });
+      await vi.waitFor(async () => {
+        expect(await service.get(id)).toBeNull();
+      });
       expect(cleaned).toHaveLength(1);
     } finally {
       schedule.stop();
@@ -2522,7 +2543,9 @@ describe('deleting old sessions on a schedule (spec 047, D)', () => {
         await settings.update((current) => ({ ...current, agent: { ...current.agent, deleteSessionsAfterDays: 30 } }));
         expect(await service.get(id)).not.toBeNull();
         vi.advanceTimersByTime(60 * 60_000);
-        await vi.waitFor(async () => { expect(await service.get(id)).toBeNull(); });
+        await vi.waitFor(async () => {
+          expect(await service.get(id)).toBeNull();
+        });
       } finally {
         schedule.stop();
       }
