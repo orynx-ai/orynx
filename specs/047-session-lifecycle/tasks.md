@@ -46,7 +46,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: The GitHub client's `pullState`: a pull request's state (open, closed, merged) and head commit, one REST call; any failure is a problem, not a throw (AC-11, AC-14, AC-15)
       Check: pnpm test packages/core/src/integrations/github/client.test.ts
       Files: packages/core/src/integrations/github/client.ts, packages/core/src/integrations/github/client.test.ts, packages/core/src/test/fake-github.ts
-- [ ] Task 13: "Nothing would be lost": nothing uncommitted, and HEAD is the given commit or an ancestor of it (`merge-base --is-ancestor`), or with no PR on origin's branch; fails closed (AC-12, AC-13, AC-18)
+- [x] Task 13: "Nothing would be lost": nothing uncommitted, and HEAD is the given commit or an ancestor of it (`merge-base --is-ancestor`), or with no PR on origin's branch; fails closed (AC-12, AC-13, AC-18)
       Check: pnpm test packages/core/src/sessions/branch-git.test.ts
       Files: packages/core/src/sessions/branch-git.ts, packages/core/src/sessions/branch-git.test.ts
 - [ ] Task 14: The watch: with each inbox sync, PR open and PR closed sessions with a worktree get their state from GitHub; a merge where nothing would be lost removes the worktree as Delete does, branch kept, once; working sessions wait; GitHub unreachable changes nothing (AC-11, AC-12, AC-13, AC-14, AC-15)

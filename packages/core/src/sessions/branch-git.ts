@@ -55,6 +55,13 @@ export interface BranchGit {
    * `detached`: the worktree has no branch of its own (your pull request's, spec 031), so its HEAD goes to `branch`.
    */
   push(worktree: string, branch: string, options?: { detached?: boolean }): Promise<Pushed>;
+  /**
+   * Nothing would be lost by removing the worktree (spec 047): no file git doesn't ignore is uncommitted, and HEAD
+   * is one of `against` (a pull request's head, origin's branch) or older on it. With nothing in `against`, only the
+   * files count, since the branch keeps its commits. A worktree that's gone has nothing to lose. Whatever git can't
+   * answer is false, so the worktree stays.
+   */
+  nothingToLose(worktree: string, against: readonly string[]): Promise<boolean>;
 }
 
 export interface BranchGitOptions {
@@ -143,6 +150,24 @@ export function createBranchGit({
     return paths(await read(worktree, ['ls-files', '--others', '--exclude-standard', '-z']));
   }
 
+  async function uncommitted(worktree: string): Promise<string[]> {
+    const [changed, added] = await Promise.all([
+      read(worktree, ['diff', '--name-only', '-z', '--no-ext-diff', 'HEAD', '--']).then(paths),
+      untracked(worktree),
+    ]);
+    return [...new Set([...changed, ...added])].sort();
+  }
+
+  /** HEAD is `commit` or older on it. Not `merge-base --is-ancestor`: its quiet "no" isn't a failure to simple-git. */
+  async function within(worktree: string, head: string, commit: string): Promise<boolean> {
+    if (commit.startsWith('-')) return false;
+    try {
+      return (await read(worktree, ['merge-base', head, commit])).trim() === head;
+    } catch {
+      return false;
+    }
+  }
+
   /** A file's text when it's a regular file inside the worktree with one link, small enough; null otherwise. */
   async function readInside(worktree: string, path: string): Promise<string | null> {
     try {
@@ -171,13 +196,7 @@ export function createBranchGit({
       }
     },
 
-    async uncommitted(worktree) {
-      const [changed, added] = await Promise.all([
-        read(worktree, ['diff', '--name-only', '-z', '--no-ext-diff', 'HEAD', '--']).then(paths),
-        untracked(worktree),
-      ]);
-      return [...new Set([...changed, ...added])].sort();
-    },
+    uncommitted,
 
     async newFiles(worktree, start) {
       const commit = await startOf(worktree, start);
@@ -277,6 +296,23 @@ export function createBranchGit({
         if (rejected.test(words)) return { ok: false, problem: 'rejected' };
         if (notSignedIn.test(words)) return { ok: false, problem: 'auth' };
         return { ok: false, problem: 'failed' };
+      }
+    },
+
+    async nothingToLose(worktree, against) {
+      try {
+        await stat(worktree);
+      } catch (error) {
+        return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+      }
+      try {
+        if (!(await isWorktree(worktree)) || (await uncommitted(worktree)).length > 0) return false;
+        if (against.length === 0) return true;
+        const head = (await read(worktree, ['rev-parse', 'HEAD'])).trim();
+        for (const commit of against) if (await within(worktree, head, commit)) return true;
+        return false;
+      } catch {
+        return false;
       }
     },
   };

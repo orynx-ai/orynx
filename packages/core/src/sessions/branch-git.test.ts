@@ -339,3 +339,83 @@ describe('pushing from your pull request’s branch (spec 031)', () => {
     expect(await repos.git(repos.origin, 'rev-parse', 'refs/heads/fix/content-list')).toBe(theirs);
   });
 });
+
+describe('nothing would be lost by removing the worktree (spec 047)', () => {
+  /** A session's worktree with one commit, ignoring dist/, pushed as its pull request's head. */
+  async function pushed() {
+    const set = await setUp();
+    await withIdentity(set.repos);
+    await writeFile(join(set.worktree, 'new.ts'), 'new\n');
+    await writeFile(join(set.worktree, '.gitignore'), 'dist/\n');
+    await set.git.commit(set.worktree, 'PROJ-1423: Add bulk archive');
+    await set.git.push(set.worktree, 'feat/PROJ-1423');
+    return { ...set, head: await set.repos.git(set.worktree, 'rev-parse', 'HEAD') };
+  }
+
+  it("AC-12: is true at its pull request's head, merged or squashed, even once GitHub deletes the branch", async () => {
+    const { repos, worktree, git, head } = await pushed();
+    expect(await git.nothingToLose(worktree, [head])).toBe(true);
+    await repos.git(repos.origin, 'branch', '-D', 'feat/PROJ-1423');
+    expect(await git.nothingToLose(worktree, [head])).toBe(true);
+  });
+
+  it("AC-12: is true when the worktree is older than its pull request's head on that branch", async () => {
+    const { repos, worktree, git } = await pushed();
+    const later = await repos.commitInOrigin('reviewer.ts', 'feat/PROJ-1423');
+    await repos.git(worktree, 'fetch', '-q', 'origin');
+    expect(await git.nothingToLose(worktree, [later])).toBe(true);
+  });
+
+  it('AC-13: is false with a changed or new file; an ignored one is not work', async () => {
+    const { worktree, git, head } = await pushed();
+    await mkdir(join(worktree, 'dist'));
+    await writeFile(join(worktree, 'dist', 'out.js'), 'built\n');
+    expect(await git.nothingToLose(worktree, [head])).toBe(true);
+    await writeFile(join(worktree, 'notes.md'), 'mine\n');
+    expect(await git.nothingToLose(worktree, [head])).toBe(false);
+    await rm(join(worktree, 'notes.md'));
+    await writeFile(join(worktree, 'new.ts'), 'changed\n');
+    expect(await git.nothingToLose(worktree, [head])).toBe(false);
+  });
+
+  it('AC-13: is false with a commit the pull request never got', async () => {
+    const { worktree, git, head } = await pushed();
+    await writeFile(join(worktree, 'more.ts'), 'more\n');
+    await git.commit(worktree, 'PROJ-1423: One more');
+    expect(await git.nothingToLose(worktree, [head])).toBe(false);
+  });
+
+  it("AC-13: is false when git doesn't know the commit to compare with: it can't tell, so the worktree stays", async () => {
+    const { worktree, git } = await pushed();
+    expect(await git.nothingToLose(worktree, ['f'.repeat(40)])).toBe(false);
+    expect(await git.nothingToLose(worktree, ['--all'])).toBe(false);
+  });
+
+  it("AC-18: with no pull request, compares with origin's branch, as of the last push", async () => {
+    const { worktree, git } = await pushed();
+    const onOrigin = 'refs/remotes/origin/feat/PROJ-1423';
+    expect(await git.nothingToLose(worktree, [onOrigin])).toBe(true);
+    await writeFile(join(worktree, 'more.ts'), 'more\n');
+    await git.commit(worktree, 'PROJ-1423: Not pushed');
+    expect(await git.nothingToLose(worktree, [onOrigin])).toBe(false);
+  });
+
+  it('AC-18: with nothing to compare with, only files not committed count: the branch keeps its commits', async () => {
+    const { worktree, git } = await pushed();
+    await writeFile(join(worktree, 'more.ts'), 'more\n');
+    await git.commit(worktree, 'PROJ-1423: Not pushed');
+    expect(await git.nothingToLose(worktree, [])).toBe(true);
+    await writeFile(join(worktree, 'notes.md'), 'mine\n');
+    expect(await git.nothingToLose(worktree, [])).toBe(false);
+  });
+
+  it("AC-18: a worktree that's gone has nothing to lose; a folder git can't read keeps what's in it", async () => {
+    const { repos, worktree, git, head } = await pushed();
+    const broken = join(repos.root, 'not-a-worktree');
+    await mkdir(broken);
+    await writeFile(join(broken, 'work.ts'), 'work\n');
+    expect(await git.nothingToLose(broken, [head])).toBe(false);
+    await rm(worktree, { recursive: true, force: true });
+    expect(await git.nothingToLose(worktree, [head])).toBe(true);
+  });
+});
