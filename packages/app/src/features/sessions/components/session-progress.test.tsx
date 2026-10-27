@@ -2,10 +2,12 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Session } from '@devhub/contracts';
 import { makeSession } from '@devhub/contracts/testing';
+import { expectNoAxeViolations } from '@devhub/ui/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { FakeIntersectionObserver } from '../../../test/fake-intersection-observer.ts';
 import { server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
+import { followUpBox } from '../follow-up-words.ts';
 
 const id = '0123456789abcdef';
 const route = `/sessions/${id}`;
@@ -54,7 +56,7 @@ afterEach(() => {
 });
 
 async function progress() {
-  return within(await screen.findByRole('region', { name: 'What Claude did' }));
+  return within(await screen.findByRole('region', { name: 'What agent did' }));
 }
 
 describe('SessionProgress', () => {
@@ -352,9 +354,31 @@ describe('SessionProgress', () => {
       expect(pane.queryByRole('button', { name: 'Jump to latest' })).toBeNull();
     });
   });
+
+  it('Full screen shows the steps and the follow-up box in a dialog that fills the window (the user’s call, 27 Oct 2026)', async () => {
+    server.use(sessionHandler(session({ state: 'done', runStartedAt: null })));
+    const { user } = await renderApp({ route });
+    const pane = await progress();
+    const button = pane.getByRole('button', { name: 'Full screen' });
+
+    await user.click(button);
+    const full = await screen.findByRole('dialog', { name: 'What agent did' });
+    expect(within(full).getAllByRole('listitem')).toHaveLength(4);
+    expect(within(full).getByRole('textbox', { name: followUpBox.label })).toBeVisible();
+    // The steps show in one place at a time.
+    expect(pane.queryAllByRole('listitem', { hidden: true })).toHaveLength(0);
+    await expectNoAxeViolations(full);
+
+    await user.click(within(full).getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'What agent did' })).toBeNull();
+    });
+    expect(button).toHaveFocus();
+    expect(pane.getAllByRole('listitem')).toHaveLength(4);
+  });
 });
 
-describe('What Claude did, by step (spec 048)', () => {
+describe('What agent did, by step (spec 048)', () => {
   const longCommand =
     'cd packages/agent-builder/src; grep -n "uploading" components/avatar-picker.tsx | head -40; cat hooks/use-avatar-upload.tsx';
   /** Stamped with its step and the minute it started, from 09:56 (spec 048). */

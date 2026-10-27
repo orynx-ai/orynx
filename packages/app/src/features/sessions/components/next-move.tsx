@@ -71,6 +71,8 @@ export function NextMove({ session, focusPullRequest }: { session: Session; focu
       aria-label={look.title}
       tone={look.tone}
       title={look.title}
+      // One row, the button at its end, as `session-review.html` draws the bar (the user's call, 27 Oct 2026).
+      actionsAt="end"
       // Both always, so a dialog that's open stays open as the bar moves on (spec 014, AC-4); each shows its button
       // only while it's offered.
       actions={

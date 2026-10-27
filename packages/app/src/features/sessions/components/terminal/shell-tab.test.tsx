@@ -68,7 +68,8 @@ function typed(asked: string[], tabId = 'tab-1') {
 
 async function openShell() {
   const rendered = await renderApp({ route });
-  await rendered.user.click(await within(screen.getByRole('banner')).findByRole('button', { name: /^Terminal/ }));
+  await rendered.user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'More actions' }));
+  await rendered.user.click(await screen.findByRole('menuitem', { name: 'Terminal' }));
   const shell = await screen.findByRole('textbox', { name: 'zsh · worktree' });
   return { ...rendered, shell };
 }
@@ -196,7 +197,8 @@ describe('the Terminal’s shell tab (spec 038)', () => {
       }),
     );
     const { user } = await renderApp({ route });
-    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: /^Terminal/ }));
+    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Terminal' }));
     expect(await screen.findByRole('log', { name: 'Terminal output' })).toHaveAttribute('aria-busy', 'true');
   });
 
@@ -209,7 +211,8 @@ describe('the Terminal’s shell tab (spec 038)', () => {
       ),
     );
     const { user } = await renderApp({ route });
-    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: /^Terminal/ }));
+    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'More actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Terminal' }));
 
     expect(await screen.findByText("Couldn't reach Orynx.")).toBeVisible();
     fails = false;

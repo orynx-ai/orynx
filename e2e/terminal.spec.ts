@@ -104,10 +104,11 @@ async function typeLine(page: Page, line: string) {
   await page.keyboard.press('Enter');
 }
 
-/** Terminal, from the page bar (spec 048); the shell takes your keys once it's drawn. */
+/** Terminal, from the page bar's More actions; the shell takes your keys once it's drawn. */
 async function openTerminal(page: Page) {
   await page.goto(sessionUrl);
-  await page.getByRole('main').getByRole('button', { name: 'Terminal', exact: true }).click();
+  await page.getByRole('button', { name: 'More actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Terminal' }).click();
   await expect(page.getByRole('dialog', { name: 'Terminal' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: /· worktree$/ })).toBeFocused();
 }
@@ -141,10 +142,6 @@ test.beforeAll(async ({ browser }, testInfo) => {
   await page.getByRole('button', { name: 'Send to Claude' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   sessionUrl = page.url();
-  // Its worktree is there once Claude has finished; Terminal in the page bar is at hand before that (spec 048).
-  await expect(page.getByRole('main').getByText('Done, ready for PR', { exact: true })).toBeVisible({
-    timeout: 15_000,
-  });
   await page.close();
 });
 
@@ -212,7 +209,7 @@ test('AC-6, AC-7 (038): + opens another shell, and exit closes it', async ({ pag
   await expect(page.getByRole('textbox', { name: /· worktree$/ })).toBeVisible();
 });
 
-test('AC-2, AC-31: Esc stays in your shell, Close gives focus back to Terminal, and nothing fails axe', async ({
+test('AC-2, AC-31: Esc stays in your shell, Close gives focus back to More actions, and nothing fails axe', async ({
   page,
 }) => {
   await openTerminal(page);
@@ -240,5 +237,5 @@ test('AC-2, AC-31: Esc stays in your shell, Close gives focus back to Terminal, 
 
   await page.getByRole('button', { name: 'Close terminal' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole('main').getByRole('button', { name: 'Terminal', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'More actions', exact: true })).toBeFocused();
 });

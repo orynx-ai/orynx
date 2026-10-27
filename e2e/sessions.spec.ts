@@ -159,7 +159,7 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35, 031 AC-11: Ship then Send s
   const other = await context.newPage();
   await other.goto(page.url());
 
-  const progress = page.getByRole('region', { name: 'What Claude did' });
+  const progress = page.getByRole('region', { name: 'What agent did' });
   await expect(progress.getByText('Finished')).toBeVisible({ timeout: 15_000 });
   await expect(progress.getByText('Added row selection and an Archive selected button.')).toBeVisible();
   // Each step opened, every row shows (spec 048). Spec 042: Orynx reads the ask first, and the branch comes at
@@ -182,7 +182,7 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35, 031 AC-11: Ship then Send s
   await expect(page.getByRole('list', { name: 'Session progress' }).getByRole('listitem').nth(2)).toHaveText(
     'Test, skipped',
   );
-  await expect(other.getByRole('region', { name: 'What Claude did' }).getByText('Finished')).toBeVisible();
+  await expect(other.getByRole('region', { name: 'What agent did' }).getByText('Finished')).toBeVisible();
 
   // The repository's own checkout is as it was; Claude's file is in the session's worktree only.
   expect(repository.git(repository.clone, 'status', '--porcelain=v1', '--branch')).toBe(before);
@@ -202,7 +202,7 @@ test('AC-9, 039 AC-32: Stop keeps the worktree, and Delete takes the session and
   await page.getByRole('button', { name: 'Send to Claude' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   const url = page.url();
-  const progress = page.getByRole('region', { name: 'What Claude did' });
+  const progress = page.getByRole('region', { name: 'What agent did' });
   await expect(progress.getByText('Editing files')).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
@@ -251,7 +251,7 @@ test('AC-11, AC-18, 022 AC-39: with two folders, the composer asks which, picked
   // The title's line: the folder, in its own worktree (spec 048).
   await expect(page.getByRole('main').getByText('mobile', { exact: true })).toBeVisible();
   await expect(page.getByRole('main').getByText('own worktree')).toBeVisible();
-  await expect(page.getByRole('region', { name: 'What Claude did' }).getByText('Finished')).toBeVisible({
+  await expect(page.getByRole('region', { name: 'What agent did' }).getByText('Finished')).toBeVisible({
     timeout: 15_000,
   });
   const inMobile = repository.git(mobile, 'worktree', 'list', '--porcelain');
@@ -283,7 +283,7 @@ test('AC-13: when Jira won’t give the ticket, the session says it couldn’t s
   await page.goto(`/sessions/${started.sessionId}`);
   seen.failed = page.url();
 
-  const alert = page.getByRole('region', { name: 'What Claude did' }).getByRole('alert');
+  const alert = page.getByRole('region', { name: 'What agent did' }).getByRole('alert');
   await expect(alert).toContainText("Claude couldn't start");
   await expect(alert).toContainText(
     "Orynx couldn't read PROJ-1427 from Jira. Check Settings › Connections, then start again.",
@@ -309,7 +309,7 @@ test('AC-15, AC-18, 022 AC-28: Home opens a live session, and a row’s +, Send,
   await page.getByRole('textbox', { name: 'Describe a task for Claude' }).focus();
   await page.keyboard.press('Enter');
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
-  await expect(page.getByRole('region', { name: 'What Claude did' }).getByText('Editing files')).toBeVisible({
+  await expect(page.getByRole('region', { name: 'What agent did' }).getByText('Editing files')).toBeVisible({
     timeout: 15_000,
   });
 
@@ -362,7 +362,7 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
         await page.setViewportSize({ width, height: 800 });
         await page.emulateMedia({ colorScheme });
         await page.goto(url);
-        await expect(page.getByRole('region', { name: 'What Claude did' })).toBeVisible();
+        await expect(page.getByRole('region', { name: 'What agent did' })).toBeVisible();
         // It comes once the changes have loaded, fading in: axe reads it once it's there.
         if (bar) await expect(page.getByRole('status', { name: 'Ready for a pull request' })).toBeVisible();
         expect(await check(), `${url} at ${String(width)} px, ${colorScheme}`).toEqual([]);
@@ -380,14 +380,14 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
   expect(await check('[role="dialog"]')).toEqual([]);
 });
 
-test('AC-17 (spec 048): side by side, What Claude did scrolls on its own, with the follow-up box at its foot', async ({
+test('AC-17 (spec 048): side by side, What agent did scrolls on its own, with the follow-up box at its foot', async ({
   page,
 }) => {
   if (seen.done === undefined) throw new Error('A session the earlier tests start is missing');
   // A short window, so every step opened is taller than the pane can be.
   await page.setViewportSize({ width: 1280, height: 600 });
   await page.goto(seen.done);
-  const progress = page.getByRole('region', { name: 'What Claude did' });
+  const progress = page.getByRole('region', { name: 'What agent did' });
   await progress.getByRole('button', { name: 'Expand all' }).click();
   const box = page.getByRole('textbox', { name: 'Message Claude' });
   const tabs = page.getByRole('tablist', { name: 'Session details' });
@@ -472,7 +472,7 @@ test('042 AC-1, AC-3, AC-6, AC-8, AC-33: a run reads as one, opens on Ports, lea
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   const id = new URL(page.url()).pathname.split('/').at(-1) ?? '';
 
-  const progress = page.getByRole('region', { name: 'What Claude did' });
+  const progress = page.getByRole('region', { name: 'What agent did' });
   await expect(progress.getByText('Run · from main · no branch yet')).toBeVisible();
   const stepper = page.getByRole('list', { name: 'Session progress' }).getByRole('listitem');
   await expect(stepper).toHaveCount(2);

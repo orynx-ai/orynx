@@ -50,7 +50,7 @@ function serve(brief: { text: string | null } | 'fails' = { text: 'Only the test
   );
 }
 
-const progress = async () => within(await screen.findByRole('region', { name: 'What Claude did' }));
+const progress = async () => within(await screen.findByRole('region', { name: 'What agent did' }));
 
 describe('a step in full (the user’s call, 19 Oct 2026)', () => {
   it('Sent Claude the brief shows exactly what Claude was sent, and Esc gives focus back to the step', async () => {

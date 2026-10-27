@@ -91,17 +91,20 @@ export function SessionDetails({ session }: { session: Session }) {
               </TabsTrigger>
             ) : null}
           </TabsList>
-          {shown === 'changes' ? <ChangesTools sessionId={session.id} /> : null}
-          <IconButton
-            variant="ghost"
-            size="sm"
-            label={contextWords.fullScreen}
-            onClick={() => {
-              setFull(true);
-            }}
-          >
-            <Icon icon={ArrowExpand01Icon} aria-hidden />
-          </IconButton>
+          {/* Together, so Full screen never wraps onto a line of its own (the user's call, 27 Oct 2026). */}
+          <span className="ms-auto flex shrink-0 items-center gap-2">
+            {shown === 'changes' ? <ChangesTools sessionId={session.id} /> : null}
+            <IconButton
+              variant="ghost"
+              size="sm"
+              label={contextWords.fullScreen}
+              onClick={() => {
+                setFull(true);
+              }}
+            >
+              <Icon icon={ArrowExpand01Icon} aria-hidden />
+            </IconButton>
+          </span>
         </div>
         {/* Each tab scrolls on its own while the pane is held in view; relative, so hidden words in it are clipped there. */}
         {ask ? null : (

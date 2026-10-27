@@ -202,23 +202,13 @@ describe('SessionHeader', () => {
     expect(await screen.findByRole('dialog', { name: 'Push changes' })).toBeVisible();
   });
 
-  it('AC-8 (spec 048): Terminal sits in the page bar with its shortcut, not in More actions', async () => {
-    server.use(sessionHandler(makeSession({ ...done, terminal: true })));
-    const { user } = await renderApp({ route });
-    const terminal = await within(pageBar()).findByRole('button', { name: /^Terminal/ });
-    expect(terminal).toHaveAttribute('aria-keyshortcuts', 'Control+`');
-    await user.click(within(pageBar()).getByRole('button', { name: 'More actions' }));
-    expect(screen.queryByRole('menuitem', { name: 'Terminal' })).toBeNull();
-  });
-
-  it('AC-8 (spec 048): under 768 px, Terminal is in More actions', async () => {
-    narrow();
+  it('Terminal is in More actions with its shortcut, not in the page bar (the user’s call, 27 Oct 2026)', async () => {
     server.use(sessionHandler(makeSession({ ...done, terminal: true })));
     const { user } = await renderApp({ route });
     const more = await within(pageBar()).findByRole('button', { name: 'More actions' });
     expect(within(pageBar()).queryByRole('button', { name: /^Terminal/ })).toBeNull();
     await user.click(more);
-    expect(await screen.findByRole('menuitem', { name: 'Terminal' })).toBeVisible();
+    expect(await screen.findByRole('menuitem', { name: 'Terminal' })).toHaveAttribute('aria-keyshortcuts', 'Control+`');
   });
 
   it('012 AC-1, Q8d: while a call waits, the pill says the session needs your approval, and Stop stays', async () => {

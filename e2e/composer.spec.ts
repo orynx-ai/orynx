@@ -200,9 +200,9 @@ test('023 AC-21, AC-22: a skill from Settings › Skills is in the / list as Ory
   expect(brief).not.toContain('title: Bug bash e2e');
 });
 
-/** What Claude did, once Claude has finished, with every step open (spec 048). */
+/** What agent did, once Claude has finished, with every step open (spec 048). */
 async function everyStep(page: Page) {
-  const progress = page.getByRole('region', { name: 'What Claude did' });
+  const progress = page.getByRole('region', { name: 'What agent did' });
   await expect(progress.getByText('Finished')).toBeVisible({ timeout: 15_000 });
   await progress.getByRole('button', { name: 'Expand all' }).click();
   return progress;
@@ -257,7 +257,7 @@ test('031 AC-2, AC-3, AC-5, AC-25: Ask, picked with the keyboard, reads no folde
   await expect(page.getByRole('tab', { name: /Changes/ })).toHaveCount(0);
   await expect.poll(lastBrief).toBe('What does the README say?');
   // Finished, so it no longer counts among the three sessions that may work at once.
-  await expect(page.getByRole('region', { name: 'What Claude did' }).getByText('Finished')).toBeVisible({
+  await expect(page.getByRole('region', { name: 'What agent did' }).getByText('Finished')).toBeVisible({
     timeout: 15_000,
   });
   expect(await axe(page, 'main')).toEqual([]);

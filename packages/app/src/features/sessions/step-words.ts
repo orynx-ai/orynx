@@ -92,7 +92,7 @@ function ticketWords(activity: Extract<SessionActivity, { kind: 'ticket' }>): St
   }
 }
 
-/** What Claude did in Jira (spec 044, Q4, Q10): "Searched Jira" with how many it found, "Moved MAG-12 to In Review". */
+/** What agent did in Jira (spec 044, Q4, Q10): "Searched Jira" with how many it found, "Moved MAG-12 to In Review". */
 function jiraWords(activity: Extract<SessionActivity, { kind: 'jira' }>): StepWords {
   const key = activity.key ?? 'an issue';
   switch (activity.action) {
@@ -304,6 +304,9 @@ export const usageWords = {
 };
 
 /** Jump to latest, once you've scrolled up from the end of Claude's progress (the user's call, 19 Oct 2026). */
+/** The left pane's heading (the user's call, 27 Oct 2026: the agent, not Claude by name). */
+export const progressTitle = 'What agent did';
+
 export const followWords = { jump: 'Jump to latest' };
 
 /** The words of a step shown in full (the user's call, 19 Oct 2026). */

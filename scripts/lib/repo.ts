@@ -5,10 +5,13 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 /** Absolute path of the repository root. This file lives in scripts/lib/. */
 export const repoRoot: string = resolve(import.meta.dirname, '..', '..');
 
-/** Runs git and returns stdout. Throws when git exits non-zero, so callers fail loudly. */
+/** Runs git in the repo at `cwd` and returns stdout. Throws when git exits non-zero, so callers fail loudly. */
 export function git(args: readonly string[], cwd: string = repoRoot): string {
+  // A hook run from a worktree sets GIT_DIR, which git obeys over `cwd`; without it, `cwd` says which repo.
+  const { GIT_DIR: _dir, GIT_WORK_TREE: _workTree, ...env } = process.env;
   return execFileSync('git', [...args], {
     cwd,
+    env,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 512 * 1024 * 1024,

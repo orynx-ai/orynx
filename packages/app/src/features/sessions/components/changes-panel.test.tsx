@@ -71,16 +71,16 @@ describe('ChangesPanel', () => {
     expect(within(diff).getByText('const archive = useBulkArchive();', { exact: false })).toBeVisible();
   });
 
-  it('AC-18, AC-19, AC-20 (spec 048): Wrap lines starts pressed, and pressing it lets long lines scroll instead', async () => {
+  it('AC-18, AC-19, AC-20 (spec 048): Wrap lines starts on, and switching it off lets long lines scroll instead', async () => {
     serve(done, makeSessionChanges(), { [contentList.path]: contentList });
     const { user } = await renderApp({ route: `/sessions/${id}` });
-    const wrap = await screen.findByRole('button', { name: 'Wrap lines' });
-    expect(wrap).toHaveAttribute('aria-pressed', 'true');
+    const wrap = await screen.findByRole('switch', { name: 'Wrap lines' });
+    expect(wrap).toBeChecked();
     const diff = await screen.findByRole('region', { name: 'Changes in ContentList.tsx' });
     const line = within(diff).getByText('const archive = useBulkArchive();', { exact: false });
     expect(line).toHaveClass('whitespace-pre-wrap');
     await user.click(wrap);
-    expect(wrap).toHaveAttribute('aria-pressed', 'false');
+    expect(wrap).not.toBeChecked();
     expect(line).not.toHaveClass('whitespace-pre-wrap');
   });
 

@@ -9,6 +9,14 @@ const meta = {
     steps: ['Plan', 'Build', 'Test', 'Review', 'Pull request'],
     current: 2,
   },
+  // Its words show by its container's width, as on the Session screen.
+  decorators: [
+    (Story) => (
+      <div className="@container">
+        <Story />
+      </div>
+    ),
+  ],
 } satisfies Meta<typeof Stepper>;
 
 export default meta;
@@ -26,7 +34,7 @@ export const OnYourPullRequest: Story = { args: { steps: ['Plan', 'Build', 'Test
 export const Narrow: Story = {
   decorators: [
     (Story) => (
-      <div className="max-w-72">
+      <div className="@container max-w-72">
         <Story />
       </div>
     ),
@@ -40,7 +48,7 @@ export const ClaudesStepsNarrow: Story = {
   args: claudesSteps,
   decorators: [
     (Story) => (
-      <div className="max-w-72">
+      <div className="@container max-w-72">
         <Story />
       </div>
     ),

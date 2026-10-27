@@ -32,7 +32,7 @@ const reviewSession = makeSession({
 
 const ids = (activities: readonly SessionActivity[]) => activities.map((activity) => activity.id);
 
-describe('What Claude did, by step (spec 048)', () => {
+describe('What agent did, by step (spec 048)', () => {
   it('AC-10: groups the activities under the steps that started, in the stepper’s order, each with how long it took', () => {
     const groups = groupsOf(reviewSession);
     expect(groups?.map((group) => [group.step.label, ids(group.activities), group.ms])).toEqual([

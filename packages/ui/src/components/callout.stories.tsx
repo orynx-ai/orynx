@@ -55,6 +55,22 @@ export const LongCommand: Story = {
   },
 };
 
+/** The Session screen's next-move bar (spec 048): the words on the left, the button at the row's end. */
+export const ActionsAtEnd: Story = {
+  args: {
+    tone: 'warning',
+    role: 'status',
+    title: 'Ready to push',
+    actionsAt: 'end',
+    children: (
+      <span className="text-small text-muted-foreground">
+        2 files, +91 −29. Nothing leaves your machine until you push.
+      </span>
+    ),
+    actions: <Button size="sm">Push to PR #2974</Button>,
+  },
+};
+
 export const Info: Story = {
   args: {
     tone: 'info',

@@ -80,4 +80,19 @@ describe('notesSinceLastRelease', () => {
     commit('test(core): cover delete');
     assert.equal(notesSinceLastRelease('HEAD', repo), '## Fixed\n\n- Keep the branch on delete\n');
   });
+
+  it('reads the repo it is given inside a git hook, whose GIT_DIR names this one', () => {
+    commit('fix(core): keep the branch on delete');
+    // A pre-push hook run from a worktree has GIT_DIR set to the worktree's git dir.
+    const hookGitDir = execFileSync('git', ['rev-parse', '--absolute-git-dir'], {
+      cwd: import.meta.dirname,
+      encoding: 'utf8',
+    }).trim();
+    process.env['GIT_DIR'] = hookGitDir;
+    try {
+      assert.equal(notesSinceLastRelease('HEAD', repo), '## Fixed\n\n- Keep the branch on delete\n');
+    } finally {
+      delete process.env['GIT_DIR'];
+    }
+  });
 });
