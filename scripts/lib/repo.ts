@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 /** Absolute path of the repository root. This file lives in scripts/lib/. */
@@ -32,8 +32,9 @@ export function listFiles(root: string = repoRoot): string[] {
   const out = git(['ls-files', '-z', '--cached', '--others', '--exclude-standard'], root);
   const files = new Set<string>();
   for (const file of out.split('\0')) {
-    // A tracked file deleted from the working tree is still in the index; skip it.
-    if (file.length > 0 && existsSync(join(root, file))) files.add(file);
+    // A tracked file deleted from the working tree is still in the index, and an untracked link to a folder (an
+    // installed skill) is listed as a file: skip both, as neither can be read.
+    if (file.length > 0 && statSync(join(root, file), { throwIfNoEntry: false })?.isFile() === true) files.add(file);
   }
   return [...files].sort();
 }
