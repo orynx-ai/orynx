@@ -66,9 +66,12 @@ jobs:
         run: echo "version=$(node --disable-warning=ExperimentalWarning scripts/release-version.ts ${{ github.run_number }})" >> "$GITHUB_OUTPUT"
       - name: Pack Orynx ${{ steps.version.outputs.version }}
         run: |
-          # Signing opens every file in the app at once (~30k, most in the hub's node_modules), and a macOS
-          # runner allows 256 open files: EMFILE without this.
-          if [ "$RUNNER_OS" = macOS ]; then ulimit -Sn 65536; fi
+          # Signing opens every file in the app at once (~30k, most in the hub's node_modules): EMFILE unless
+          # both limits allow it. macOS caps a process at kern.maxfilesperproc whatever ulimit says.
+          if [ "$RUNNER_OS" = macOS ]; then
+            sudo sysctl -w kern.maxfiles=524288 kern.maxfilesperproc=524288
+            ulimit -Sn 65536
+          fi
           pnpm --filter @devhub/desktop package ${{ matrix.target }} --publish never
       - name: The packed app passes its e2e run
         if: runner.os == 'Linux'
