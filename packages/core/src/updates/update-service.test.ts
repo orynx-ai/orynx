@@ -5,6 +5,7 @@ import { makeSessionSummary } from '@devhub/contracts/testing';
 import { createEventBus } from '../events/event-bus.ts';
 import { createReleasesClient, releasesUrl } from '../integrations/releases/client.ts';
 import { createMemorySessionStore } from '../sessions/session-store.ts';
+import { createMemorySettingsStore, type SettingsStore } from '../settings/settings-store.ts';
 import { answeringReleases, githubRelease, useFakeReleases } from '../test/fake-releases.ts';
 import { fakeHost } from '../test/fake-update-host.ts';
 import { createUpdateService, UpdateRefusedError, type UpdateHost } from './update-service.ts';
@@ -21,6 +22,7 @@ let stops: (() => void)[];
 
 beforeEach(() => {
   asked = 0;
+  told = [];
   logged = [];
   published = [];
   clock = Date.parse('2026-10-22T10:00:00.000Z');
@@ -35,17 +37,22 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+let told: string[];
+
 function service({
   host = fakeHost().host,
   sessions = createMemorySessionStore(),
-}: { host?: UpdateHost; sessions?: ReturnType<typeof createMemorySessionStore> } = {}) {
+  settings = createMemorySettingsStore(),
+}: { host?: UpdateHost; sessions?: ReturnType<typeof createMemorySessionStore>; settings?: SettingsStore } = {}) {
   const events = createEventBus();
   events.subscribe((event) => published.push(event));
   return createUpdateService({
     host,
     releases: createReleasesClient(),
     sessions,
+    settings,
     events,
+    notify: (version) => told.push(version),
     log: (line) => logged.push(line),
     now: () => clock,
   });
@@ -222,5 +229,31 @@ describe('update service (spec 045)', () => {
     expect(await clone.check()).toMatchObject({ kind: 'by_hand', folder: '~/Code/orynx', action: 'commands' });
     await expect(clone.install('update')).rejects.toMatchObject({ code: 'update_unavailable' });
     expect(byHand.pressed).toEqual([]);
+  });
+
+  it('AC-13: tells you once per newer version, remembered in settings.json, and never about your own', async () => {
+    const settings = createMemorySettingsStore();
+    server.use(answeringReleases([githubRelease({ tag_name: 'v0.1.37' })]));
+    const updates = service({ settings });
+    await updates.check();
+    expect(told).toEqual([]);
+
+    server.use(answeringReleases([githubRelease({ tag_name: 'v0.1.40' }), githubRelease({ tag_name: 'v0.1.39' })]));
+    clock += minute;
+    await updates.check();
+    clock += minute;
+    await updates.check();
+    expect(told).toEqual(['0.1.40']);
+    expect((await settings.read()).updates).toEqual({ told: '0.1.40' });
+
+    // Orynx started again, as after Clear cache or a restart: the same version isn't told twice.
+    clock += minute;
+    await service({ settings }).check();
+    expect(told).toEqual(['0.1.40']);
+
+    server.use(answeringReleases([githubRelease({ tag_name: 'v0.1.41' })]));
+    clock += minute;
+    await updates.check();
+    expect(told).toEqual(['0.1.40', '0.1.41']);
   });
 });

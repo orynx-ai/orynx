@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: GET /api/updates, POST check and POST install, wired into createServer only when the host passes `updates` (AC-6, AC-9, AC-12)
       Check: pnpm test packages/core/src/routes/updates.test.ts
       Files: packages/core/src/routes/updates.ts, updates.test.ts, packages/core/src/create-server.ts, packages/core/src/index.ts
-- [ ] Task 7: The update notification, once per version, remembered in settings.json (AC-13)
+- [x] Task 7: The update notification, once per version, remembered in settings.json (AC-13)
       Check: pnpm test packages/core/src/updates/update-service.test.ts packages/core/src/notifications
       Files: packages/core/src/updates/update-service.ts, update-service.test.ts, packages/core/src/notifications/notification-service.ts, packages/core/src/settings/settings-store.ts
 - [ ] Task 8: The clone updater: the version from git, refusals, `git pull --ff-only && ./install.sh` detached with update.log, failure from the exit code (AC-2, AC-25, AC-27, AC-28)

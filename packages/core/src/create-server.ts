@@ -506,7 +506,11 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
             options.updates.releasesUrl === undefined ? {} : { url: options.updates.releasesUrl },
           ),
           sessions,
+          settings,
           events,
+          notify: (version) => {
+            notifications.updateAvailable(version);
+          },
           log: (line) => {
             app.log.warn(line);
           },

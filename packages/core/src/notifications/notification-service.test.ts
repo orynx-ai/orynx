@@ -148,3 +148,23 @@ describe('notification service (spec 029)', () => {
     expect(service.list()).toEqual({ notifications: [], unread: 0, waiting: 0 });
   });
 });
+
+describe('the update notification (spec 045)', () => {
+  it('AC-13: tells you a newer Orynx is out, unread, and tells every tab', () => {
+    const { service, heard } = setup();
+    service.updateAvailable('0.1.40');
+    expect(service.list()).toEqual({
+      notifications: [
+        {
+          id: 'update_available:0.1.40',
+          at: '2026-10-19T10:00:00.000Z',
+          read: false,
+          what: { kind: 'update_available', version: '0.1.40' },
+        },
+      ],
+      unread: 1,
+      waiting: 0,
+    });
+    expect(heard).toEqual([{ type: 'notifications.changed' }]);
+  });
+});

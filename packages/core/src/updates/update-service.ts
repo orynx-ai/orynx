@@ -1,17 +1,19 @@
-import type {
-  OrynxKind,
-  OrynxVersion,
-  RunningVersion,
-  UpdateAction,
-  UpdateInstall,
-  UpdateProgress,
-  Updates,
+import {
+  OrynxVersionSchema,
+  type OrynxKind,
+  type OrynxVersion,
+  type RunningVersion,
+  type UpdateAction,
+  type UpdateInstall,
+  type UpdateProgress,
+  type Updates,
 } from '@devhub/contracts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { ReleasesClient, ReleasesProblem } from '../integrations/releases/client.ts';
 import { publishedReleases, type PublishedRelease } from '../integrations/releases/map.ts';
 import type { SessionStore } from '../sessions/session-store.ts';
-import { isNewer } from './versions.ts';
+import type { SettingsStore } from '../settings/settings-store.ts';
+import { compareVersions, isNewer } from './versions.ts';
 
 /**
  * What the host gives the update service (spec 045): which Orynx it is, the version it runs, and what Update and
@@ -58,7 +60,11 @@ export interface UpdateServiceOptions {
   host: UpdateHost;
   releases: ReleasesClient;
   sessions: SessionStore;
+  /** Where the newest version told about is kept (`settings.json`), so it's told once (AC-13). */
+  settings: SettingsStore;
   events: EventBus;
+  /** Tells the bell a newer version is out. */
+  notify: (version: OrynxVersion) => void;
   /** A warning for the hub's log: why a check failed. */
   log: (line: string) => void;
   now?: () => number;
@@ -87,7 +93,9 @@ export function createUpdateService({
   host,
   releases,
   sessions,
+  settings,
   events,
+  notify,
   log,
   now = Date.now,
 }: UpdateServiceOptions): UpdateService {
@@ -106,12 +114,27 @@ export function createUpdateService({
     return (await sessions.list()).some((session) => session.state === 'working' || session.state === 'needs_you');
   }
 
+  /** One notification per newer version, never again for one already told about (AC-13). */
+  async function tellOnce(): Promise<void> {
+    const newest = found[0]?.version;
+    if (newest === undefined || !isNewer(newest, host.running.release)) return;
+    const told = OrynxVersionSchema.safeParse((await settings.read()).updates?.['told']);
+    if (told.success && compareVersions(newest, told.data) <= 0) return;
+    await settings.update((current) => ({ ...current, updates: { ...current.updates, told: newest } }));
+    notify(newest);
+  }
+
   async function ask(): Promise<void> {
     const answer = await releases.releases();
     if (answer.ok) {
       found = publishedReleases(answer.releases);
       checkedAt = now();
       checkFailed = false;
+      await tellOnce().catch((error: unknown) => {
+        log(
+          `Orynx couldn't keep which update it told you about (${error instanceof Error ? error.message : 'unknown'}).`,
+        );
+      });
     } else {
       checkFailed = true;
       log(`Orynx couldn't check for updates (${reasonOf(answer.problem)}).`);
