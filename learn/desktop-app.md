@@ -1,4 +1,4 @@
-<!-- learn-sources: apps/desktop/src/main.ts apps/desktop/src/hub.ts apps/desktop/src/login-path.ts apps/desktop/src/updates.ts apps/desktop/src/links.ts apps/desktop/src/log-file.ts apps/desktop/electron-builder.yml scripts/pack-desktop.ts scripts/lib/release-version.ts .github/workflows/release.yml .github/workflows/sync-release.yml e2e/desktop/desktop.spec.ts -->
+<!-- learn-sources: apps/desktop/src/main.ts apps/desktop/src/hub.ts apps/desktop/src/login-path.ts apps/desktop/src/updates.ts apps/desktop/src/mac-update.ts apps/server/src/desktop-updates.ts packages/core/src/updates/update-service.ts scripts/lib/release-notes.ts apps/desktop/src/links.ts apps/desktop/src/log-file.ts apps/desktop/electron-builder.yml scripts/pack-desktop.ts scripts/lib/release-version.ts .github/workflows/release.yml .github/workflows/sync-release.yml e2e/desktop/desktop.spec.ts -->
 
 # The desktop app: how Orynx installs, starts, releases and updates
 
@@ -74,7 +74,7 @@ Each push runs `.github/workflows/release.yml`, one run at a time:
 1. It checks that the commit is on `origin/main`.
 2. It runs `ci.yml`'s jobs (`workflow_call`).
 3. It packs macOS arm64 on `macos-latest` and Linux x64 on `ubuntu-latest`, and runs `pnpm test:e2e:desktop` on the Linux build under `xvfb-run`.
-4. It publishes `v<version>` with the `.dmg`, the `.zip`, the AppImage, `latest-mac.yml`, `latest-linux.yml` and the blockmaps, with GitHub's notes. It needs only `GITHUB_TOKEN`.
+4. It publishes `v<version>` with the `.dmg`, the `.zip`, the AppImage, `latest-mac.yml`, `latest-linux.yml` and the blockmaps, with notes `scripts/release-notes.ts` writes from the commits since the last release: each `feat` under "New" and each `fix` under "Fixed", scope left out (spec 045, Q4); a release with neither has no notes. It needs only `GITHUB_TOKEN`.
 
 The version is major.minor from `apps/desktop/package.json` and the run number as the patch: `0.1.37`. `scripts/release-version.ts` writes it into `apps/desktop` and `apps/server` in the CI checkout only, so About Orynx, the file names and `/api/status` agree, and nothing is committed. To start `0.2`, change `apps/desktop/package.json` on `main`. A re-run of a run that already published fails at its tag and changes nothing.
 
@@ -82,11 +82,17 @@ The version is major.minor from `apps/desktop/package.json` and the run number a
 
 ## Updates
 
-`updates.ts` checks this repo's Releases at launch and every 6 hours, with no token. An unsigned Mac can't install an update, so it shows "Orynx 0.1.38 is out" once per launch and Download opens the release page. Linux's AppImage downloads the update, checks its sha512 against `latest-linux.yml`, says "It installs the next time you quit Orynx.", and installs it on quit. Orynx never restarts itself, so a running session is never cut off.
+Settings › About shows the version, the updates and each release's notes (spec 045). The hub does the checking for every kind of Orynx: `GET api.github.com/repos/orynx-ai/orynx/releases?per_page=10` with no token, cookie or account, at start, every 6 hours and on Check for updates, at most once a minute (GitHub allows 60 an hour without a token). A newer version is told once in the bell, remembered in `settings.json`. The app shows no dialog of its own.
 
-**While the repo is private** every check is a 404 and only the log says so ("Orynx couldn't check for updates (404)."). electron-updater wraps that 404 in a long message of its own, and the log reads the status out of it. No token ships in the app. When the repo goes public, the same builds start finding updates: nothing changes in Orynx.
+The app and its hub talk over the utility process's port, and the page still talks only to the hub. `updates.ts` tells the hub what the updater is doing (`{ type: 'update-state', action, update }`), and the hub asks it to download or restart (`{ type: 'download', version }`, `{ type: 'restart' }`). Each side parses what it gets with zod. The app imports no `@devhub` package, so it keeps its own copy of the two shapes, and `apps/server/src/desktop-updates.test.ts` checks the copy against the hub's.
 
-To see the macOS notice by hand, serve a `latest-mac.yml` with a higher version and start the packed app with `DEVHUB_UPDATES_URL=http://127.0.0.1:<port>`, as the e2e test does.
+- **Linux**: electron-updater checks `latest-linux.yml` at launch and every 6 hours, downloads the AppImage in the background and checks its sha512. Restart to update stops the hub as Quit does, then calls `quitAndInstall`. Quitting installs it too.
+- **macOS**: Apple's updater needs a Developer ID, so Update runs `mac-update.ts`. It reads `latest-mac.yml` from the release, downloads the zip, checks its sha512, unpacks it with `ditto` beside the app, then checks the new bundle's version and `codesign --verify`. Restart to update stops the hub (it runs from inside the bundle), moves the old `Orynx.app` aside and the new one in, puts the old one back if that fails, and opens the new one. The next start deletes the old one. When the app's folder can't be written, such as an app run from the `.dmg`, About offers Download, which opens the release page.
+- While a session is working or waiting for you, Update and Restart to update wait. Orynx never restarts without your click, except the AppImage's install on quit.
+
+A failed check or download goes to `logs/orynx.log` ("Orynx couldn't check for updates (404).", "Orynx couldn't download the update (<reason>)."), and About names that log. electron-updater wraps a 404 in a long message of its own, and the log reads the status out of it.
+
+To try it by hand, serve a releases list, `latest-mac.yml` and the zip, and start the packed app with `DEVHUB_RELEASES_URL` and `DEVHUB_UPDATES_URL` pointing at them, as `e2e/desktop/fake-releases.ts` does.
 
 ## Installing it (until the install guide, spec 018)
 

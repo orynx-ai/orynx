@@ -66,7 +66,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
       Check: pnpm --filter @devhub/desktop package --dir; pnpm test:e2e:desktop
       Skipped at the user's request (27 Oct 2026): the last run passed 9 of 10 on a Mac; the Mac swap test timed out waiting for the 290 MB unzip, and its waits are longer now, unrun.
       Files: e2e/desktop/desktop.spec.ts, e2e/desktop/fake-releases.ts
-- [ ] Task 22: Docs: updates in learn/desktop-app.md, README's update line, architecture's config keys, the bridge and the releases integration
+- [x] Task 22: Docs: updates in learn/desktop-app.md, README's update line, architecture's config keys, the bridge and the releases integration
       Check: pnpm gate learn-freshness; pnpm gate handbook-size
       Files: learn/desktop-app.md, README.md, docs/architecture.md
 - [ ] Task 23: STOP and run /review
