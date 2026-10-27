@@ -62,10 +62,27 @@ describe('repository service', () => {
       name: 'app',
       displayPath: '~/code/app',
       jiraProject: 'PROJ',
+      found: true,
     });
     expect((await settings.read()).repositories).toEqual([{ id: added.id, path: app, jiraProject: 'PROJ' }]);
     expect(await repositories.list()).toEqual([added]);
     expect(seen).toEqual([{ type: 'settings.changed' }]);
+  });
+
+  it('AC-16 (spec 048): says when a saved folder is gone or no longer a repository, and keeps it saved', async () => {
+    const moved = join(home, 'code', 'moved');
+    await mkdir(join(moved, '.git'), { recursive: true });
+    const { repositories, settings } = service();
+    const added = await repositories.add({ path: '~/code/moved', jiraProject: null });
+    expect(added.found).toBe(true);
+
+    await rm(moved, { recursive: true });
+    expect(await repositories.list()).toMatchObject([{ id: added.id, found: false }]);
+    await mkdir(moved);
+    expect(await repositories.list()).toMatchObject([{ id: added.id, found: false }]);
+    await mkdir(join(moved, '.git'));
+    expect(await repositories.list()).toMatchObject([{ id: added.id, found: true }]);
+    expect((await settings.read()).repositories).toHaveLength(1);
   });
 
   it('AC-6: keeps the folders in the order they were added', async () => {

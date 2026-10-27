@@ -22,8 +22,15 @@ describe('RepositorySchema', () => {
       name: 'intranet-web',
       displayPath: '~/code/intranet-web',
       jiraProject: 'PROJ',
+      found: true,
     });
     expect(makeRepository({ jiraProject: null }).jiraProject).toBeNull();
+  });
+
+  it('AC-16 (spec 048): says when the folder is gone, and an answer from before 048 reads as found', () => {
+    expect(RepositorySchema.parse(makeRepository({ found: false })).found).toBe(false);
+    const { found: _found, ...older } = makeRepository();
+    expect(RepositorySchema.parse(older).found).toBe(true);
   });
 
   it('wraps the list, in the order the folders were added', () => {

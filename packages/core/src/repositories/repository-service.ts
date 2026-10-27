@@ -11,7 +11,7 @@ import {
 import type { z } from 'zod';
 import type { EventBus } from '../events/event-bus.ts';
 import { SavedRepositorySchema, type SavedRepository, type SettingsStore } from '../settings/settings-store.ts';
-import { checkFolder, displayPath, folderIdentity, type FolderProblem } from './folder-check.ts';
+import { checkFolder, displayPath, folderIdentity, stillRepository, type FolderProblem } from './folder-check.ts';
 
 /** Why a folder wasn't added. The message goes under the Folder field as it is (spec 005, Q8e). */
 export class FolderRejectedError extends Error {
@@ -111,6 +111,7 @@ export function createRepositoryService(options: RepositoryServiceOptions): Repo
       name: basename(folder.path),
       displayPath: displayPath(folder.path, await home()),
       jiraProject: folder.jiraProject,
+      found: await stillRepository(folder.path),
     };
   }
 

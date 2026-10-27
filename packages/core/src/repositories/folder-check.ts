@@ -63,6 +63,11 @@ async function isInside(path: string, folder: string): Promise<boolean> {
   }
 }
 
+/** Whether a saved folder is still a git repository (spec 048); false for anything that can't be read. */
+export async function stillRepository(folder: string): Promise<boolean> {
+  return hasGit(folder).catch(() => false);
+}
+
 /** Whether `folder` holds `.git`: a folder in a plain clone, a file in a worktree. */
 async function hasGit(folder: string): Promise<boolean> {
   try {
