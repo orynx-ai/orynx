@@ -1,4 +1,8 @@
+import { z } from 'zod';
 import { describe, expect, it } from 'vitest';
+import { DesktopUpdateStateSchema, HubUpdateCommandSchema } from '@devhub/contracts';
+// The desktop app's own copy of the messages: it imports no @devhub package (spec 027).
+import { UpdateCommandSchema, UpdateStateSchema } from '../../desktop/src/updates.ts';
 import { desktopUpdateHost, type ParentPort } from './desktop-updates.ts';
 
 /** The utility process's port to the desktop app: Electron's, outside the hub, so the test holds both ends. */
@@ -77,5 +81,10 @@ describe('desktop update bridge (spec 045)', () => {
       "Orynx couldn't read a message from the desktop app's updater.",
       "Orynx couldn't read a message from the desktop app's updater.",
     ]);
+  });
+
+  it("keeps the desktop app's copy of the messages the same as the hub's", () => {
+    expect(z.toJSONSchema(UpdateStateSchema)).toEqual(z.toJSONSchema(DesktopUpdateStateSchema));
+    expect(z.toJSONSchema(UpdateCommandSchema)).toEqual(z.toJSONSchema(HubUpdateCommandSchema));
   });
 });

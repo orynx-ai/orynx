@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { alreadyRunningDialog, linuxUpdateDialog, macUpdateDialog, stoppedDialog } from './dialogs.ts';
+import { alreadyRunningDialog, stoppedDialog } from './dialogs.ts';
 
 const home = join(homedir(), '.devhub');
 
@@ -11,26 +11,6 @@ function onScreen(platform: NodeJS.Platform, dialog: { buttons: string[] }): str
 }
 
 describe('dialogs', () => {
-  it('AC-24: the macOS update notice offers Later, then Download, with Download the default', () => {
-    const dialog = macUpdateDialog('0.1.38');
-
-    expect(dialog).toMatchObject({
-      message: 'Orynx 0.1.38 is out',
-      detail: 'Download it, then drag it to Applications to replace this one.',
-    });
-    expect(onScreen('darwin', dialog)).toEqual(['Later', 'Download']);
-    expect(dialog.buttons[dialog.defaultId]).toBe('Download');
-    expect(dialog.buttons[dialog.cancelId]).toBe('Later');
-  });
-
-  it('AC-25: the Linux notice says the update installs when Orynx quits', () => {
-    expect(linuxUpdateDialog('0.1.38')).toMatchObject({
-      message: 'Orynx 0.1.38 is ready',
-      detail: 'It installs the next time you quit Orynx.',
-      buttons: ['OK'],
-    });
-  });
-
   it('AC-8: another Orynx on this home names the folder as ~ and offers Quit', () => {
     expect(alreadyRunningDialog(home)).toMatchObject({
       message: 'Orynx is already running',

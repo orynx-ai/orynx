@@ -11,8 +11,6 @@ import { openLogFile } from './log-file.ts';
 import { mergePaths, readLoginPath } from './login-path.ts';
 import { watchUpdates } from './updates.ts';
 
-const releasesPage = 'https://github.com/orynx-ai/orynx/releases/latest';
-
 const config = loadConfig();
 // Electron's own data (page storage, caches) sits beside the hub's, so a test's temporary home keeps
 // everything apart; the single-instance lock is kept per home with it.
@@ -60,6 +58,15 @@ async function stopped(): Promise<void> {
   const box = stoppedDialog(config.home, process.platform);
   if (box.buttons[await show(box)] === 'Open again') app.relaunch();
   app.exit(0);
+}
+
+/** Restart to update: stop the hub as Quit does (AC-19), then install the downloaded update and open it. */
+function restartToUpdate(running: UtilityProcess): void {
+  quitting = true;
+  running.once('exit', () => {
+    autoUpdater.quitAndInstall(true, true);
+  });
+  running.kill();
 }
 
 async function start(): Promise<void> {
@@ -116,13 +123,21 @@ async function start(): Promise<void> {
 
   if (app.isPackaged) {
     autoUpdater.logger = null;
-    watchUpdates({
+    // The updater tells the hub, and Settings › About shows it: no dialog of its own (spec 045, Q5).
+    const updates = watchUpdates({
       updater: autoUpdater,
       platform: process.platform,
       feedUrl: config.updatesUrl,
-      notify: show,
-      openReleasePage: () => void shell.openExternal(releasesPage),
+      tell: (state) => {
+        child.postMessage(state);
+      },
+      restart: () => {
+        restartToUpdate(child);
+      },
       log: note,
+    });
+    child.on('message', (message: unknown) => {
+      updates.command(message);
     });
   }
 }
