@@ -118,9 +118,13 @@ async function axe(page: Page, selector = 'body') {
   return page.evaluate(async (context) => {
     const target = document.querySelector(context);
     if (target === null) throw new Error(`Nothing matches ${context}`);
+    // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
     const moving = document
       .getAnimations()
-      .filter((animation) => animation.effect?.getComputedTiming().endTime !== Infinity);
+      .filter(
+        (animation) =>
+          animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
+      );
     await Promise.allSettled(moving.map((animation) => animation.finished));
     const results = await window.axe.run(target, { resultTypes: ['violations'] });
     return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
@@ -305,6 +309,52 @@ test('AC-6 to AC-8, AC-11, AC-14, AC-20, 022 AC-9, AC-10: a ticket, a pasted pul
   expect(brief).toMatch(/\n\nFile \S*fake-gh\/picked\/notes\.md\n\nThe user added this file from their computer\./);
   expect(brief).toContain(`Read it at ${picked}.`);
   expect(brief).not.toContain('Export every column.');
+});
+
+test('047 AC-1 to AC-3, AC-25: a ticket with a session offers Open session or a new one beside it', async ({
+  page,
+}) => {
+  // PROJ-1423 has a session from the test before.
+  await page.goto('/');
+  const jira = await openKind(page, /^Ticket/, 'Ticket');
+  await jira.getByRole('combobox', { name: 'Search tickets by key or title' }).fill('bulk');
+  await jira.getByRole('option', { name: /PROJ-1423/ }).click();
+  await page.keyboard.press('Escape');
+  await box(page).fill('Only the tests');
+  await page.getByRole('button', { name: 'Send to Claude' }).click();
+
+  const choice = page.getByRole('alert').filter({ hasText: 'PROJ-1423 already has a session' });
+  await expect(choice).toContainText('Open it to carry on, or start a new session on its own branch.');
+  await expect(page).toHaveURL(/\/$/);
+  for (const width of [1280, 360]) {
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.emulateMedia({ colorScheme });
+      await expect(choice).toBeVisible();
+      expect(await axe(page, 'main'), `the choice at ${String(width)} px, ${colorScheme}`).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: 'light' });
+
+  // AC-3: Open session opens the live one, and the draft waits on Home (a reload would clear it, by design).
+  await choice.getByRole('link', { name: 'Open session' }).click();
+  await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);
+  const first = page.url();
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: /^Home/ }).click();
+  await expect(box(page)).toHaveValue('Only the tests');
+  await expect(chips(page)).toHaveText(['PROJ-1423']);
+
+  // AC-2: Start a new session starts a second one beside it, with the same draft.
+  await page.getByRole('button', { name: 'Send to Claude' }).click();
+  await choice.getByRole('button', { name: 'Start a new session' }).click();
+  await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);
+  expect(page.url()).not.toBe(first);
+  await expect.poll(lastBrief).toMatch(/^Only the tests\n\nJira ticket PROJ-1423 /);
+  await expect(
+    page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: /^Add bulk archive to the content list/ }),
+  ).toHaveCount(2);
 });
 
 test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Home’s rows reach Claude, and +1 opens them all', async ({

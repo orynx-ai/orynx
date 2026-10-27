@@ -16,7 +16,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: The composer's `existing` answer is an `info` Callout with Start a new session (resends with `another: true`) and Open session (AC-1, AC-2, AC-3). Moving the answer into the composer store waits for Task 9, the first that needs it.
       Check: pnpm test packages/app/src/features/home/components/home-composer.test.tsx packages/app/src/features/home/composer-words.test.ts; pnpm gate style-policy
       Files: packages/app/src/features/home/components/home-composer.tsx, packages/app/src/features/home/composer-words.ts, and their tests
-- [ ] Task 5: e2e: a second session on a ticket from the callout, Open session, and the callout's axe at 360 and 1280 px in light and dark (AC-1, AC-2, AC-3, AC-25)
+- [x] Task 5: e2e: a second session on a ticket from the callout, Open session, and the callout's axe at 360 and 1280 px in light and dark (AC-1, AC-2, AC-3, AC-25)
       Check: pnpm exec playwright test e2e/composer.spec.ts
       Files: e2e/composer.spec.ts
 
