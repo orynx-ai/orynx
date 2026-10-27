@@ -1,52 +1,17 @@
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ServerEvent, UpdateProgress } from '@devhub/contracts';
+import type { ServerEvent } from '@devhub/contracts';
 import { makeSessionSummary } from '@devhub/contracts/testing';
 import { createEventBus } from '../events/event-bus.ts';
 import { createReleasesClient, releasesUrl } from '../integrations/releases/client.ts';
 import { createMemorySessionStore } from '../sessions/session-store.ts';
 import { answeringReleases, githubRelease, useFakeReleases } from '../test/fake-releases.ts';
+import { fakeHost } from '../test/fake-update-host.ts';
 import { createUpdateService, UpdateRefusedError, type UpdateHost } from './update-service.ts';
 
 const server = useFakeReleases();
 const releasesPath = releasesUrl.split('?')[0] ?? releasesUrl;
 const minute = 60_000;
-
-/** The host's side, as the desktop app or a clone gives it: what it runs, and what Update and Restart do. */
-function fakeHost(overrides: Partial<UpdateHost> = {}) {
-  const pressed: string[] = [];
-  let update: UpdateProgress = { state: 'idle' };
-  const listeners = new Set<() => void>();
-  const host: UpdateHost = {
-    kind: 'desktop',
-    folder: null,
-    running: { release: '0.1.37', commits: 0, commit: null },
-    state: () => ({ action: 'update', update }),
-    update: (version) => {
-      pressed.push(`update ${version}`);
-      update = { state: 'downloading', version };
-      for (const listener of listeners) listener();
-      return Promise.resolve();
-    },
-    restart: () => {
-      pressed.push('restart');
-      return Promise.resolve();
-    },
-    watch: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    ...overrides,
-  };
-  return {
-    host,
-    pressed,
-    set: (next: UpdateProgress) => {
-      update = next;
-      for (const listener of listeners) listener();
-    },
-  };
-}
 
 let asked: number;
 let logged: string[];

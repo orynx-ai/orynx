@@ -17,7 +17,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: The update service: start, every 6 hours, at most once a minute, the log line, busy while a session works or waits (AC-6 to AC-12, AC-22, AC-29)
       Check: pnpm test packages/core/src/updates/update-service.test.ts
       Files: packages/core/src/updates/update-service.ts, update-service.test.ts
-- [ ] Task 6: GET /api/updates, POST check and POST install, wired into createServer only when the host passes `updates` (AC-6, AC-9, AC-12)
+- [x] Task 6: GET /api/updates, POST check and POST install, wired into createServer only when the host passes `updates` (AC-6, AC-9, AC-12)
       Check: pnpm test packages/core/src/routes/updates.test.ts
       Files: packages/core/src/routes/updates.ts, updates.test.ts, packages/core/src/create-server.ts, packages/core/src/index.ts
 - [ ] Task 7: The update notification, once per version, remembered in settings.json (AC-13)
