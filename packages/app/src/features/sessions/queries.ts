@@ -17,6 +17,7 @@ import {
 import {
   terminalLimits,
   type ApprovalDecision,
+  type ReplyRequest,
   type SendMessageInput,
   type Session,
   type SessionChangeRequest,
@@ -190,6 +191,18 @@ export function useDraftPush(sessionId: string) {
 export function usePushChanges(sessionId: string) {
   const api = useApi();
   return useMutation({ mutationFn: (message: string) => api.pushChanges(sessionId, message) });
+}
+
+/** Claude's replies to the pull request's review threads, asked each time the dialog opens; writes nothing (spec 048). */
+export function useDraftReplies(sessionId: string) {
+  const api = useApi();
+  return useMutation({ mutationFn: () => api.draftReplies(sessionId) });
+}
+
+/** Reply to reviewers' Post replies (spec 048), on your press only. */
+export function usePostReplies(sessionId: string) {
+  const api = useApi();
+  return useMutation({ mutationFn: (request: ReplyRequest) => api.postReplies(sessionId, request) });
 }
 
 /** Claude's commands with their output, for the Terminal's Claude tab (spec 036); `session.changed` keeps them fresh. */

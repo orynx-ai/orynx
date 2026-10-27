@@ -58,10 +58,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: api-client: draftReplies and postReplies (AC-2, AC-3)
       Check: pnpm test packages/api-client/src/endpoints/sessions.test.ts
       Files: packages/api-client/src/endpoints/sessions.ts, client.ts, their tests
-- [ ] Task 17: The Reply to reviewers dialog: skeleton, error with Try again, none waiting, and Claude's drafts (AC-2, AC-4, AC-6, AC-7)
+- [x] Task 17: The Reply to reviewers dialog: skeleton, error with Try again, none waiting, and Claude's drafts (AC-2, AC-4, AC-6, AC-7)
       Check: pnpm test packages/app/src/features/sessions/components/reply-to-reviewers.test.tsx
       Files: packages/app/src/features/sessions/components/reply-to-reviewers.tsx, its test, ../queries.ts, ../schemas.ts, ../pull-request-words.ts
-- [ ] Task 18: Post replies, failures kept in the list, and the button in the page bar and More actions (AC-1, AC-3, AC-5, AC-9)
+- [x] Task 18: Post replies, failures kept in the list, and the button in the page bar and More actions (AC-1, AC-3, AC-5, AC-9)
       Check: pnpm test packages/app/src/features/sessions/components/reply-to-reviewers.test.tsx packages/app/src/features/sessions/components/session-header.test.tsx
       Files: packages/app/src/features/sessions/components/reply-to-reviewers.tsx, session-header.tsx, their tests
 - [ ] Task 19: e2e: Reply to reviewers on the pull requests hub posts only on the click, and has no axe violations at 1280 and 360 px in both themes (AC-3, AC-8, AC-20)

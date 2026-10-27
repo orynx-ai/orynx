@@ -1,9 +1,11 @@
 import type {
   CannotOpenReason,
   CannotPushReason,
+  CannotReplyReason,
   CreatePullRequestProblem,
   DraftedPullRequest,
   DraftedPush,
+  ReplyProblem,
 } from '@devhub/contracts';
 import { clockText } from '../../words/calendar.ts';
 
@@ -162,4 +164,61 @@ export function failureLine(
 /** Delete's extra line once a pull request is open (Q11g; Discard's until spec 039). */
 export function deleteKeepsPullRequest(number: number): string {
   return `Pull request #${String(number)} and the branch on GitHub stay.`;
+}
+
+/** Reply to reviewers (spec 048). */
+export const replyWords = {
+  button: 'Reply to reviewers',
+  drafting: 'Claude is drafting replies…',
+  notDrafted: "Claude couldn't draft replies. Write your own, or leave a thread as it is.",
+  reply: 'Reply',
+  resolve: 'Resolve',
+  post: 'Post replies',
+  posting: 'Posting…',
+  notRead: "Orynx couldn't read the review threads.",
+  postFailed: "Couldn't post the replies. Try again.",
+  close: 'Close',
+} as const;
+
+/** "acme/web-app #2841", under the dialog's title. */
+export function replyWhereLine(repository: string, number: number): string {
+  return `${repository} #${String(number)}`;
+}
+
+/** The empty dialog (AC-7). */
+export function noThreadsLine(number: number): string {
+  return `No review threads are waiting on #${String(number)}.`;
+}
+
+/** Where a thread is: "src/ContentList.tsx line 42", or the file alone for a comment on the whole file. */
+export function threadPlace({ path, line }: { path: string; line: number | null }): string {
+  return line === null ? path : `${path} line ${String(line)}`;
+}
+
+/** Why Reply to reviewers can't read or post anything. */
+export function cannotReplyLine(reason: CannotReplyReason): string {
+  return reason === 'not_connected'
+    ? 'Connect GitHub to reply to reviewers.'
+    : "There's no open pull request to reply on.";
+}
+
+/** Why GitHub didn't take a thread's reply or Resolve, or the threads couldn't be read (AC-5, AC-6). */
+export function replyProblemLine(problem: ReplyProblem, repository: string): string {
+  switch (problem.kind) {
+    case 'github_said':
+      return `GitHub refused this: ${problem.message}`;
+    case 'github_forbidden':
+      return `Your GitHub account can't reply in ${repository}.`;
+    case 'github_sso':
+      return `Authorize your GitHub token for ${repository.split('/')[0] ?? repository}'s single sign-on, then try again.`;
+    case 'rate_limited':
+      return problem.resetAt === null
+        ? "GitHub's rate limit is used up."
+        : `GitHub's rate limit is used up until ${clockText(problem.resetAt)}.`;
+    case 'github_unreachable':
+      return "Couldn't reach GitHub. Try again.";
+    case 'no_commits':
+    case 'github_refused':
+      return 'GitHub refused it. Try again.';
+  }
 }

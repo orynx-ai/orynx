@@ -18,6 +18,8 @@ Correct these now, or the work goes ahead on them.
 - When everything posts, the dialog closes and focus goes back to Reply to reviewers. When a thread fails, the dialog stays open. The threads that posted leave the list, so pressing again never posts twice, and each failed thread says "GitHub refused this: <GitHub's reason>".
 - While the threads load, each row is a skeleton. When GitHub can't be reached: "Orynx couldn't read the review threads. <problem>" with **Try again**. When none are unresolved: "No review threads are waiting on #2836." with **Close**.
 - It needs the token's `repo` scope, which Orynx already requires (spec 004, Q3). Replying and resolving are GraphQL calls: `addPullRequestReviewThreadReply` and `resolveReviewThread`.
+- Lines written while building, in Push changes' words where they fit; a person hasn't confirmed them yet (27 Oct 2026). GitHub's problems: "Your GitHub account can't reply in acme/web-app.", "Authorize your GitHub token for acme's single sign-on, then try again.", "GitHub's rate limit is used up until 14:05.", "Couldn't reach GitHub. Try again." and "GitHub refused it. Try again." A post that never reached Orynx: "Couldn't post the replies. Try again." Why it can't: "Connect GitHub to reply to reviewers." and "There's no open pull request to reply on." A reply too long: "Keep the reply under 65,536 characters." While posting, the button reads "Posting…".
+- A reply that went out before its Resolve failed keeps its thread in the list with Resolve ticked and its box emptied, so a second press resolves it without posting the reply again.
 
 **B. Five fixes**
 

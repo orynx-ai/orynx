@@ -5,6 +5,7 @@ import {
   mostMessageCharacters,
   mostPullRequestBodyCharacters,
   mostPullRequestTitleCharacters,
+  mostReplyCharacters,
 } from '@devhub/contracts';
 import { tooLongLine } from './follow-up-words.ts';
 
@@ -34,6 +35,18 @@ export const pushFormSchema = z.object({
     .max(mostCommitMessageCharacters, 'Keep the message under 256 characters.'),
 });
 export type PushFormValues = z.input<typeof pushFormSchema>;
+
+/** Reply to reviewers (spec 048): each thread's reply and Resolve, the reply at most GitHub's comment limit. */
+export const repliesFormSchema = z.object({
+  threads: z.array(
+    z.object({
+      threadId: z.string().min(1),
+      reply: z.string().max(mostReplyCharacters, 'Keep the reply under 65,536 characters.'),
+      resolve: z.boolean(),
+    }),
+  ),
+});
+export type RepliesFormValues = z.input<typeof repliesFormSchema>;
 
 /** Rename session (spec 039): the contract's limits, in Q5's words. */
 export const renameSessionSchema = z.object({
