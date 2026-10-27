@@ -55,9 +55,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: Merged and closed sessions don't hold their ticket or PR (`isLive`), so a new start asks nothing; `sessionsByTicket` keeps them, since the Tickets chip says PR merged (AC-11). A merged session's follow-up box says "This pull request is merged. Start a new session from the ticket to carry on." and a send is refused as `merged` (AC-12, AC-16)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/ticket-sessions.test.ts packages/app/src/features/sessions/follow-up-words.test.ts packages/app/src/features/sessions/components/follow-up-box.test.tsx; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/core/src/sessions/session-service.ts, packages/app/src/features/sessions/follow-up-words.ts, and their tests
-- [ ] Task 16: e2e: the fake GitHub merges a session's PR; after Sync the session is PR merged in the sidebar and on Tickets, its worktree is gone and its branch stays; axe for the new states at 360 and 1280 px in light and dark (AC-11, AC-12, AC-25)
+- [x] Task 16: e2e: the fake GitHub merges a session's PR; after Sync the session is PR merged in the sidebar, on Tickets and on its page with the merged line, its worktree is gone and its branch stays; axe for the new state on the session, Sessions and Tickets pages at 360 and 1280 px in light and dark (AC-11, AC-12, AC-25). The hub gets Sprint 42 so Tickets has cards; the fake's pull states sit in `FakeTools.pullStates`
       Check: pnpm exec playwright test e2e/pull-requests.spec.ts
-      Files: e2e/pull-requests.spec.ts, e2e/fake-tools/preload.ts, packages/core/src/test/fake-github.ts
+      Files: e2e/pull-requests.spec.ts, e2e/fake-tools/config.ts, e2e/fake-tools/preload.ts
 
 ## D. Cleanup schedule
 

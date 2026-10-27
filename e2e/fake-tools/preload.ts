@@ -22,6 +22,7 @@ import {
   acceptingPullContext,
   acceptingPullDiff,
   acceptingPulls,
+  acceptingPullStates,
   acceptingRepository,
   acceptingUser,
 } from '../../packages/core/src/test/fake-github.ts';
@@ -75,6 +76,8 @@ function handlers() {
         ...(author === undefined ? {} : { author }),
       })),
     ),
+    // A session's pull request merged or closed (spec 047); a request for the diff goes on to the next handler.
+    acceptingPullStates(tools.pullStates ?? []),
     acceptingPullDiff((tools.pullRequests ?? []).map(({ number, diff }) => ({ number, diff }))),
     acceptingInboxQuery({ reviews: tools.reviews, mine: tools.mine }),
     // Create pull request (spec 014): the pull requests GitHub opens join the spec's list.

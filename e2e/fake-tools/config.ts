@@ -1,5 +1,5 @@
 import type { FakeIssue } from '../../packages/core/src/test/fake-jira.ts';
-import type { FakeOpenedPull, FakePull } from '../../packages/core/src/test/fake-github.ts';
+import type { FakeOpenedPull, FakePull, FakePullState } from '../../packages/core/src/test/fake-github.ts';
 
 /**
  * The second e2e hub: the real server as `pnpm start` builds it, with Jira and GitHub faked inside its
@@ -68,6 +68,8 @@ export interface FakeTools {
   brokenIssues?: string[];
   /** The pull requests GitHub has (spec 014): it opens more into this list, which `GET /tools` gives back. */
   pulls?: FakeOpenedPull[];
+  /** Where GitHub says a pull request in acme/web-app is, merged or closed, with its head commit (spec 047). */
+  pullStates?: FakePullState[];
   /** Pull requests whose details and diff GitHub gives the composer, in acme/web-app (spec 015). */
   /** `head` is its branch; `author` makes it yours when it's the fake's own login, `octocat` (spec 031). */
   pullRequests?: { number: number; title: string; body?: string; diff: string; head?: string; author?: string }[];
