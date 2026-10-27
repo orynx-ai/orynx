@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: The releases client and map: one GET with no token, GitHub's problems, drafts and prereleases left out (AC-10, AC-12, AC-17)
       Check: pnpm test packages/core/src/integrations/releases
       Files: packages/core/src/integrations/releases/client.ts, client.test.ts, map.ts, map.test.ts, packages/core/src/test/fake-releases.ts
-- [ ] Task 5: The update service: start, every 6 hours, at most once a minute, the log line, busy while a session works or waits (AC-6 to AC-12, AC-22, AC-29)
+- [x] Task 5: The update service: start, every 6 hours, at most once a minute, the log line, busy while a session works or waits (AC-6 to AC-12, AC-22, AC-29)
       Check: pnpm test packages/core/src/updates/update-service.test.ts
       Files: packages/core/src/updates/update-service.ts, update-service.test.ts
 - [ ] Task 6: GET /api/updates, POST check and POST install, wired into createServer only when the host passes `updates` (AC-6, AC-9, AC-12)
