@@ -163,3 +163,76 @@ export const PushAnswerSchema = z.discriminatedUnion('result', [
   z.object({ result: z.literal('failed'), problem: GitProblemSchema }),
 ]);
 export type PushAnswer = z.infer<typeof PushAnswerSchema>;
+
+/** GitHub's own limit on a comment's length, which a reply to a reviewer keeps to (spec 048). */
+export const mostReplyCharacters = 65_536;
+/** Reply to reviewers lists at most this many threads, as the brief reads them (spec 048). */
+export const mostReviewThreads = 50;
+
+/** Why Orynx can't reply to reviewers (spec 048): the session has no open pull request, or GitHub isn't connected. */
+export const CannotReplyReasonSchema = z.enum(['no_pull_request', 'not_connected']);
+export type CannotReplyReason = z.infer<typeof CannotReplyReasonSchema>;
+
+/** One unresolved review thread on the session's pull request, with Claude's reply to it (spec 048). */
+export const ReviewThreadSchema = z.object({
+  /** GitHub's id for the thread, which a reply and Resolve name. */
+  id: z.string().min(1),
+  path: z.string().min(1),
+  /** Null for a comment on the whole file. */
+  line: z.int().positive().nullable(),
+  /** Who wrote the thread's last comment, and what it says. */
+  author: z.string().min(1),
+  body: z.string(),
+  /** Claude's reply; empty when its changes don't address the thread, or it couldn't draft. */
+  reply: z.string().max(mostReplyCharacters),
+  /** Resolve starts ticked on a thread Claude replied to. */
+  resolve: z.boolean(),
+});
+export type ReviewThread = z.infer<typeof ReviewThreadSchema>;
+
+export const ReplyDraftSchema = z.object({
+  result: z.literal('draft'),
+  number: z.int().positive(),
+  threads: z.array(ReviewThreadSchema).max(mostReviewThreads),
+  /** False when Claude couldn't draft, so every box starts empty and unticked. */
+  byClaude: z.boolean(),
+});
+export type ReplyDraft = z.infer<typeof ReplyDraftSchema>;
+
+/** POST /api/sessions/:id/replies/draft: the threads with Claude's replies, why there can't be any, or GitHub's problem. */
+export const ReplyDraftAnswerSchema = z.discriminatedUnion('result', [
+  ReplyDraftSchema,
+  z.object({ result: z.literal('cannot'), reason: CannotReplyReasonSchema }),
+  z.object({ result: z.literal('failed'), problem: OpenProblemSchema }),
+]);
+export type ReplyDraftAnswer = z.infer<typeof ReplyDraftAnswerSchema>;
+
+/** POST /api/sessions/:id/replies: each thread's reply as you left it, and whether to resolve it. Only on your click. */
+export const ReplyRequestSchema = z.object({
+  threads: z
+    .array(
+      z
+        .object({ id: z.string().min(1), reply: z.string().trim().max(mostReplyCharacters), resolve: z.boolean() })
+        .refine((thread) => thread.reply !== '' || thread.resolve, { message: 'Write a reply or tick Resolve.' }),
+    )
+    .min(1)
+    .max(mostReviewThreads),
+});
+export type ReplyRequest = z.infer<typeof ReplyRequestSchema>;
+
+/** Why GitHub didn't take one thread's reply or Resolve: GitHub's own words, or a problem reaching it. */
+export const ReplyProblemSchema = z.union([
+  OpenProblemSchema,
+  z.object({ kind: z.literal('github_said'), message: z.string().min(1).max(500) }),
+]);
+export type ReplyProblem = z.infer<typeof ReplyProblemSchema>;
+
+/** The answer to POST /api/sessions/:id/replies: the threads that failed, none when every one posted. */
+export const ReplyAnswerSchema = z.discriminatedUnion('result', [
+  z.object({
+    result: z.literal('posted'),
+    failed: z.array(z.object({ id: z.string().min(1), problem: ReplyProblemSchema })),
+  }),
+  z.object({ result: z.literal('cannot'), reason: CannotReplyReasonSchema }),
+]);
+export type ReplyAnswer = z.infer<typeof ReplyAnswerSchema>;

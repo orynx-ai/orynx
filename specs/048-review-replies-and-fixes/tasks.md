@@ -43,7 +43,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **A. Reply to reviewers**
 
-- [ ] Task 12: Contracts for the review threads draft and the replies (AC-2 to AC-7)
+- [x] Task 12: Contracts for the review threads draft and the replies (AC-2 to AC-7)
       Check: pnpm test packages/contracts/src/pull-requests.test.ts; pnpm typecheck
       Files: packages/contracts/src/pull-requests.ts, routes.ts, testing.ts, index.ts
 - [ ] Task 13: The GitHub client reads a PR's unresolved threads with their ids, replies to one, and resolves one (AC-2, AC-3, AC-5, AC-6)
