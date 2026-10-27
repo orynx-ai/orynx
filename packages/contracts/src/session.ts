@@ -181,7 +181,16 @@ export type SessionId = z.infer<typeof SessionIdSchema>;
 export const SessionActivityStateSchema = z.enum(['running', 'done']);
 export type SessionActivityState = z.infer<typeof SessionActivityStateSchema>;
 
-const ActivityBaseSchema = z.object({ id: z.string().min(1), state: SessionActivityStateSchema });
+/**
+ * `step` is the session's step when the activity was added and `at` when (spec 048), so What Claude did can group the
+ * activities by step and time each group. A session saved before spec 048 has neither.
+ */
+const ActivityBaseSchema = z.object({
+  id: z.string().min(1),
+  state: SessionActivityStateSchema,
+  step: SessionStepSchema.optional(),
+  at: z.iso.datetime().optional(),
+});
 /** Paths relative to the worktree, in the order Claude first touched them. */
 const FilesSchema = z.array(z.string().min(1));
 

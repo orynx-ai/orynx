@@ -143,6 +143,22 @@ describe('SessionSchema', () => {
     expect(SessionSchema.parse(session)).toEqual(session);
   });
 
+  it('AC-10, AC-15 (spec 048): an activity keeps the step it happened in and when it started; one saved before reads without', () => {
+    const stamped = {
+      id: 'a1',
+      state: 'done',
+      kind: 'edit',
+      files: ['src/a.ts'],
+      step: 'build',
+      at: '2026-10-27T10:00:00.000Z',
+    };
+    expect(SessionActivitySchema.parse(stamped)).toEqual(stamped);
+    const old = { id: 'a2', state: 'done', kind: 'edit', files: ['src/a.ts'] };
+    expect(SessionActivitySchema.parse(old)).toEqual(old);
+    expect(SessionActivitySchema.safeParse({ ...old, step: 'deploy' }).success).toBe(false);
+    expect(SessionActivitySchema.safeParse({ ...old, at: 'yesterday' }).success).toBe(false);
+  });
+
   it('AC-8, AC-9, AC-10, AC-14: holds how a session ended', () => {
     for (const activity of [
       { id: 'a1', state: 'done', kind: 'finished', summary: 'Added row selection and a toolbar button.' },

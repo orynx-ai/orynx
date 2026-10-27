@@ -34,6 +34,15 @@ describe('SessionChangesSchema', () => {
     expect(SessionChangesSchema.parse(changes)).toEqual(changes);
   });
 
+  it('AC-21 (spec 048): marks a file git calls added; an older answer reads as not new', () => {
+    expect(makeChangedFile({ path: 'src/new.ts', created: true })).toMatchObject({ path: 'src/new.ts', created: true });
+    const old = makeChangedFile();
+    expect(SessionChangesSchema.parse(makeSessionChanges({ files: [old] }))).toMatchObject({
+      files: [{ path: old.path }],
+    });
+    expect(old.created).toBeUndefined();
+  });
+
   it('AC-6: says why there are no changes to list', () => {
     for (const state of ['no_worktree', 'discarded', 'missing'] as const) {
       expect(SessionChangesSchema.parse({ state })).toEqual({ state });

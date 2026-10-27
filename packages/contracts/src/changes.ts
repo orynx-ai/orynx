@@ -17,6 +17,8 @@ export const ChangedFileSchema = z.object({
   binary: z.boolean(),
   /** Where git says the file was before it was renamed; null when it wasn't. */
   renamedFrom: z.string().min(1).nullable(),
+  /** git calls it added, for the diff's New file pill (spec 048); left out, as in an older answer, it isn't. */
+  created: z.boolean().optional(),
 });
 export type ChangedFile = z.infer<typeof ChangedFileSchema>;
 

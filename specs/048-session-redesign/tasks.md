@@ -5,7 +5,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Add the mockup as the session design, and write the Stepper-beside-the-title, DiffView wrap and session-panes notes (Q3, Q4, Q5, Q6)
       Check: pnpm exec prettier --check docs/design/design-system.md .claude/skills/clean-ui/SKILL.md; the screenshot opens
       Files: docs/design/screens/session-review.html, docs/design/screens/session-review-light.png, docs/design/design-system.md, .claude/skills/clean-ui/SKILL.md
-- [ ] Task 2: An activity's optional `at` and `step`, and a changed file's `created` (default false), with factories (AC-15, AC-21)
+- [x] Task 2: An activity's optional `at` and `step`, and a changed file's `created` (default false), with factories (AC-15, AC-21)
       Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/changes.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/changes.ts, packages/contracts/src/testing.ts, packages/contracts/src/session.test.ts, packages/contracts/src/changes.test.ts
 - [ ] Task 3: Stamp each new activity with the session's step and the time in `change()`, keeping the stamp when a step is rebuilt (AC-10, AC-14, AC-15)
