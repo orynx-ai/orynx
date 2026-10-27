@@ -134,7 +134,8 @@ export interface JiraFoundIssue {
  * own words about it (spec 044, Q6).
  */
 export type JiraSearch =
-  | { ok: true; issues: JiraFoundIssue[]; more: boolean }
+  /** `next` reads the page after this one; null on the last page. */
+  | { ok: true; issues: JiraFoundIssue[]; more: boolean; next: string | null }
   | { ok: false; problem: JiraProblem }
   | { ok: false; refused: string };
 
@@ -209,11 +210,11 @@ export interface JiraClient {
   /** Who these credentials belong to (`GET /rest/api/3/myself`), for a sprint Tickets reads by its id (spec 020). */
   account(request: JiraCheckRequest): Promise<JiraAccount>;
   /**
-   * Any JQL Claude sends from a session (spec 044), as it is: its first `limit` issues (`POST /rest/api/3/search/jql`)
-   * and whether Jira found more. A query Jira refuses (400) comes back with Jira's own words, at most 500 characters.
-   * shortcut: one page only, at most 100; Claude narrows the query rather than paging. Page on if that falls short.
+   * Any JQL Claude sends from a session (spec 044), as it is: `limit` issues (`POST /rest/api/3/search/jql`) from the
+   * page `next` names, or the first, and whether Jira found more (spec 048). A query Jira refuses (400) comes back with
+   * Jira's own words, at most 500 characters.
    */
-  search(request: JiraCheckRequest, jql: string, limit: number): Promise<JiraSearch>;
+  search(request: JiraCheckRequest, jql: string, limit: number, next?: string): Promise<JiraSearch>;
   /** Comments on an issue (`POST /rest/api/3/issue/{key}/comment`), the Markdown written as Jira's own format. */
   comment(request: JiraCheckRequest, key: string, markdown: string): Promise<JiraChange>;
   /**
@@ -489,7 +490,11 @@ const FoundIssueSchema = z.object({
   }),
 });
 
-const FoundPageSchema = z.object({ issues: z.array(z.unknown()), isLast: z.boolean().nullish() });
+const FoundPageSchema = z.object({
+  issues: z.array(z.unknown()),
+  isLast: z.boolean().nullish(),
+  nextPageToken: z.string().nullish(),
+});
 
 const TransitionsSchema = z.object({
   fields: z.object({ status: z.object({ name: z.string() }).nullish() }),
@@ -824,13 +829,18 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
       };
     },
 
-    async search(request, jql, limit) {
+    async search(request, jql, limit, next) {
       const answer = await withJira(request, async (client, sdk) => {
         try {
           const page = await client.sendRequest({
             url: '/rest/api/3/search/jql',
             method: 'POST',
-            body: { jql, fields: foundFields, maxResults: limit },
+            body: {
+              jql,
+              fields: foundFields,
+              maxResults: limit,
+              ...(next === undefined ? {} : { nextPageToken: next }),
+            },
             schema: FoundPageSchema,
             signal: AbortSignal.timeout(timeoutMs),
           });
@@ -852,7 +862,8 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
               },
             ];
           });
-          return { issues, more: page.isLast === false };
+          const more = page.isLast === false;
+          return { issues, more, next: more ? (page.nextPageToken ?? null) : null };
         } catch (error) {
           // Jira read the query and refused it: its words let Claude fix it.
           if (sdk.isApiError(error) && error.status === 400) return { refused: jiraReason(error.body, request) };

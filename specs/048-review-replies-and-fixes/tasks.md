@@ -22,7 +22,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: Markdown → ADF: pipe tables with a header row, and nested lists (AC-13)
       Check: pnpm test packages/core/src/integrations/jira/markdown-adf.test.ts
       Files: packages/core/src/integrations/jira/markdown-adf.ts, markdown-adf.test.ts
-- [ ] Task 6: search_jira answers with `next` and reads the page after it (AC-17)
+- [x] Task 6: search_jira answers with `next` and reads the page after it (AC-17)
       Check: pnpm test packages/core/src/integrations/jira/client.test.ts packages/core/src/sessions/jira-tools.test.ts
       Files: packages/core/src/integrations/jira/client.ts, packages/core/src/sessions/jira-tools.ts, their tests
 - [ ] Task 7: The command log keeps the last 200 commands and counts the ones it dropped (AC-14, AC-15)
