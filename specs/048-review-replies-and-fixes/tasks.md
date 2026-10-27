@@ -16,7 +16,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **B. Five fixes**
 
-- [ ] Task 4: Markdown → ADF: links (http, https, mailto only), italics and quotes (AC-13)
+- [x] Task 4: Markdown → ADF: links (http, https, mailto only), italics and quotes (AC-13)
       Check: pnpm test packages/core/src/integrations/jira/markdown-adf.test.ts
       Files: packages/core/src/integrations/jira/markdown-adf.ts, markdown-adf.test.ts
 - [ ] Task 5: Markdown → ADF: pipe tables with a header row, and nested lists (AC-13)
