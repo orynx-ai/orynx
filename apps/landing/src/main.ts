@@ -253,3 +253,26 @@ if (player && video) {
     document.addEventListener('fullscreenchange', sync);
   }
 }
+
+// The docs' On this page menu on narrow screens: the ⋯ button opens it; a link, Esc or a click outside closes it.
+const tocToggle = document.querySelector<HTMLButtonElement>('[data-toc-toggle]');
+const toc = document.getElementById('toc');
+if (tocToggle && toc) {
+  const setOpen = (open: boolean) => {
+    tocToggle.setAttribute('aria-expanded', String(open));
+    toc.classList.toggle('is-open', open);
+  };
+  tocToggle.addEventListener('click', () => {
+    setOpen(!toc.classList.contains('is-open'));
+  });
+  document.addEventListener('click', (event) => {
+    const target = event.target as Element;
+    if (tocToggle.contains(target)) return;
+    if (!toc.contains(target) || target.closest('a')) setOpen(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !toc.classList.contains('is-open')) return;
+    setOpen(false);
+    tocToggle.focus();
+  });
+}

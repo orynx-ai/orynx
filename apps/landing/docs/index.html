@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orynx Docs — From install to pull request</title>
+    <meta
+      name="description"
+      content="How to use Orynx end to end: install it, connect Jira, GitHub and Claude, work from the inbox and the board, watch Claude build a ticket in its own worktree, approve its steps and open the pull request."
+    />
+    <meta name="theme-color" content="#12110f" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Orynx" />
+    <meta property="og:title" content="Orynx Docs — From install to pull request" />
+    <meta property="og:image" content="/og.png" />
+    <!-- The On this page menu folds behind its button only when the script that opens it can run. -->
+    <script>
+      document.documentElement.classList.add('js');
+    </script>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/docs.css" />
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="wrap header-inner">
+        <a class="brand" href="/" aria-label="Orynx home">
+          <svg class="brand-mark" viewBox="0 0 100 63.77" aria-hidden="true" focusable="false">
+            <rect x="0" y="11.45" width="22.91" height="48.81" rx="11.46" />
+            <path
+              d="M49.08 3.62L70.73 25.26A4.51 4.51 0 0 1 72.05 28.45L72.05 61.49A2.01 2.01 0 0 1 68.54 62.82L31.07 20.6A12.38 12.38 0 0 1 49.08 3.62Z"
+            />
+            <rect x="78.31" y="13.88" width="21.69" height="49.89" rx="10.85" />
+          </svg>
+          <span>Orynx</span>
+        </a>
+        <nav class="site-nav" aria-label="Main">
+          <a href="/#product">Product</a>
+          <a href="/#how-it-works">How it works</a>
+          <a href="/#local-first">Local-first</a>
+          <a href="/docs/" aria-current="page">Docs</a>
+        </nav>
+        <div class="header-end">
+          <a class="btn btn-primary btn-small" href="#install">Get started</a>
+          <button
+            class="toc-toggle"
+            type="button"
+            aria-label="On this page"
+            aria-expanded="false"
+            aria-controls="toc"
+            data-toc-toggle
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="5" cy="12" r="1.8" />
+              <circle cx="12" cy="12" r="1.8" />
+              <circle cx="19" cy="12" r="1.8" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="wrap docs">
+      <nav class="toc" id="toc" aria-label="On this page">
+        <p class="eyebrow">On this page</p>
+        <div class="toc-groups">
+          <div>
+            <p class="toc-part">Get started</p>
+            <ol>
+              <li><a href="#overview">What Orynx is</a></li>
+              <li><a href="#install">Install</a></li>
+              <li><a href="#setup">Set up Orynx</a></li>
+              <li><a href="#connect">Connect your tools</a></li>
+              <li><a href="#repositories">Add your repositories</a></li>
+              <li><a href="#permissions">Choose what Claude may do</a></li>
+            </ol>
+          </div>
+          <div>
+            <p class="toc-part">Every day</p>
+            <ol>
+              <li><a href="#home">Home and the inbox</a></li>
+              <li><a href="#start">Start a task</a></li>
+              <li><a href="#tickets">The tickets board</a></li>
+              <li><a href="#search">Search</a></li>
+              <li><a href="#sessions">Work in a session</a></li>
+              <li><a href="#ship">Ship the pull request</a></li>
+              <li><a href="#notifications">Notifications</a></li>
+            </ol>
+          </div>
+          <div>
+            <p class="toc-part">Anywhere</p>
+            <ol>
+              <li><a href="#phone">Use it from your phone</a></li>
+              <li><a href="#app">Keep it as an app</a></li>
+            </ol>
+          </div>
+          <div>
+            <p class="toc-part">Reference</p>
+            <ol>
+              <li><a href="#settings">Settings</a></li>
+              <li><a href="#shortcuts">Keyboard shortcuts</a></li>
+              <li><a href="#maintain">Update and uninstall</a></li>
+              <li><a href="#troubleshooting">Troubleshooting</a></li>
+            </ol>
+          </div>
+        </div>
+      </nav>
+
+      <article class="doc">
+        <header class="doc-intro">
+          <p class="eyebrow">Docs</p>
+          <h1>From install to <em>pull request.</em></h1>
+          <p class="lede">
+            Everything you need to run Orynx: install it, connect your tools, and hand Claude a ticket while you watch
+            and approve.
+          </p>
+        </header>
+
+        <section id="overview" aria-labelledby="overview-title">
+          <h2 id="overview-title">What Orynx is</h2>
+          <p>
+            Orynx is an app on your own machine. It brings the Jira tickets and GitHub pull requests that need you into
+            one inbox, and runs Claude on a ticket in its own git worktree while you watch, approve and ship.
+          </p>
+          <ul>
+            <li>
+              <strong>A small server</strong> runs on your machine at <code>127.0.0.1:4317</code>. It talks to Jira,
+              GitHub and Claude with your own logins.
+            </li>
+            <li>
+              <strong>The app</strong> is a web page served by that server. Open it in a browser, install it as an app,
+              or reach it from your phone at <code>https://orynx.local</code>.
+            </li>
+            <li>
+              <strong>There is no Orynx cloud.</strong> Tokens live in your OS keychain, and tickets and pull requests
+              are cached in a file on your disk.
+            </li>
+          </ul>
+          <p>
+            The rest of this guide follows the path of a first day: install, connect, then take a ticket to a pull
+            request.
+          </p>
+        </section>
+
+        <section id="install" aria-labelledby="install-title">
+          <h2 id="install-title">Install</h2>
+          <p>Orynx runs on macOS and Linux. You need:</p>
+          <ul>
+            <li>Node 24, or nvm to install it</li>
+            <li>Claude Code, signed in on this machine</li>
+            <li>A Jira Cloud API token, and the gh CLI or a GitHub token</li>
+          </ul>
+          <p>Clone the repository and run its install script:</p>
+          <figure class="terminal" aria-label="Commands to install Orynx">
+            <div class="terminal-bar">
+              <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <button
+                class="copy"
+                type="button"
+                data-copy="git clone https://github.com/orynx-ai/orynx.git && cd orynx && ./install.sh"
+              >
+                Copy
+              </button>
+              <span class="sr-only" role="status" data-copy-status></span>
+            </div>
+            <pre><code>git clone https://github.com/orynx-ai/orynx.git
+cd orynx
+./install.sh</code></pre>
+          </figure>
+          <p>The script:</p>
+          <ol class="steps">
+            <li>Uses Node 24, through nvm if you have it, and builds Orynx.</li>
+            <li>
+              Makes a certificate for <code>orynx.local</code> in <code>~/.devhub/tls</code>, and asks for your
+              machine's password once so this machine trusts it.
+            </li>
+            <li>Starts Orynx whenever you log in: a LaunchAgent on macOS, a systemd user service on Linux.</li>
+          </ol>
+          <p class="note">
+            <strong>Keep the clone.</strong> <code>install.sh</code> builds the folder it sits in, so there is no
+            <code>curl | sh</code>. Updates come from the same folder.
+          </p>
+        </section>
+
+        <section id="setup" aria-labelledby="setup-title">
+          <h2 id="setup-title">Set up Orynx</h2>
+          <p>
+            Open <code>http://127.0.0.1:4317</code> on this machine. Until setup is done, every page shows
+            <strong>Set up Orynx</strong>.
+          </p>
+          <ol class="steps">
+            <li><strong>Picture</strong>, optional: press Add picture and crop it.</li>
+            <li><strong>Name</strong>, filled in from your git <code>user.name</code>. Change it if you like.</li>
+            <li><strong>Bio</strong>, optional, up to 160 characters.</li>
+            <li>
+              <strong>Password</strong> and <strong>Confirm password</strong>, at least 8 characters. Your phone and
+              other devices on your wifi ask for it at <code>orynx.local</code>.
+            </li>
+            <li>Press <strong>Finish setup</strong>. Home opens.</li>
+          </ol>
+          <p>
+            This machine never asks for the password: <code>http://127.0.0.1:4317</code> and
+            <code>https://orynx.local</code> both open straight away. Until you finish setup here, other devices see
+            only "Finish setting up Orynx", so nobody else on the wifi can choose the password.
+          </p>
+          <p>
+            To change your name, bio, picture or password later, open the profile menu at the bottom of the sidebar and
+            pick your name. Changing the password signs your other devices out.
+          </p>
+        </section>
+
+        <section id="connect" aria-labelledby="connect-title">
+          <h2 id="connect-title">Connect your tools</h2>
+          <p>
+            Open <strong>Settings › Connections</strong>. Each tool shows <strong>Connected</strong>,
+            <strong>Needs reconnecting</strong> or <strong>Not connected</strong>; select its status to manage it. Orynx
+            uses your own logins, so it never sees more than you can.
+          </p>
+          <figure class="window">
+            <img
+              src="/src/assets/screens/settings-1440.webp"
+              srcset="/src/assets/screens/settings-1440.webp 1440w, /src/assets/screens/settings-2880.webp 2880w"
+              sizes="(min-width: 1248px) 720px, calc(100vw - 48px)"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="Orynx Settings, Connections. A note says everything stays on this machine: tokens live in your OS keychain and the cache is a local file. Jira and GitHub are connected; Slack is not connected yet."
+            />
+            <figcaption>Settings › Connections, with Jira and GitHub connected.</figcaption>
+          </figure>
+          <h3>Claude</h3>
+          <p>
+            There is nothing to connect. Orynx uses the login Claude Code already has on this machine: a claude.ai
+            account, an API key, Amazon Bedrock or Google Vertex AI. Check it in
+            <strong>Settings › Coding agent</strong>: the Claude card says <strong>Active</strong> and who you are
+            signed in as.
+          </p>
+          <p>
+            If it says <strong>Not signed in</strong>, run <code>claude</code> in a terminal, sign in, then press
+            <strong>Check again</strong>.
+          </p>
+          <h3>Jira</h3>
+          <p>Orynx works with Jira Cloud (<code>your-team.atlassian.net</code>).</p>
+          <ol class="steps">
+            <li>
+              Create an API token at
+              <a href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                >id.atlassian.com › Security › API tokens</a
+              >.
+            </li>
+            <li>
+              In Settings › Connections, open <strong>Jira</strong> and fill in <strong>Jira site</strong>,
+              <strong>Email</strong> and <strong>API token</strong>.
+            </li>
+            <li>
+              Press <strong>Connect</strong>. Orynx reads the issues assigned to you, your sprint and their comments.
+            </li>
+          </ol>
+          <p>
+            <strong>Test connection</strong> checks it any time. When a token expires, Jira shows Needs reconnecting:
+            paste a new token and press <strong>Reconnect</strong>.
+          </p>
+          <h3>GitHub</h3>
+          <p>Open <strong>GitHub</strong> and pick how to connect:</p>
+          <ul>
+            <li>
+              <strong>Use my gh login</strong>: Orynx asks the gh command-line tool for your token each time and keeps
+              no copy. Picked for you when gh is installed.
+            </li>
+            <li>
+              <strong>Use a personal access token</strong>: a classic token with the <code>repo</code> scope, or a
+              fine-grained token. If your company uses single sign-on, authorize the token for it. Orynx keeps it in
+              your keychain.
+            </li>
+          </ul>
+          <p>
+            Orynx reads pull requests, checks and review comments, and pushes session branches and opens pull requests
+            only on your click or a permission you turned on. It works with github.com.
+          </p>
+          <h3>Slack</h3>
+          <p>
+            Reading your Slack mentions needs a Slack app your workspace admin approves. Open <strong>Slack</strong> and
+            press <strong>Copy request for your admin</strong> to send them what it needs. Until then, Slack items are
+            left out of your inbox.
+          </p>
+        </section>
+
+        <section id="repositories" aria-labelledby="repositories-title">
+          <h2 id="repositories-title">Add your repositories</h2>
+          <p>
+            Claude works only in folders you add. Open <strong>Settings › Repositories</strong> and press
+            <strong>Add local folder</strong>.
+          </p>
+          <ol class="steps">
+            <li>
+              <strong>Folder</strong>: the full path of a git repository, like <code>~/code/web-app</code>, or press
+              <strong>Choose folder</strong>.
+            </li>
+            <li><strong>Jira project</strong>, optional: tickets from this project open in this folder.</li>
+            <li>Press <strong>Add folder</strong>.</li>
+          </ol>
+          <p>
+            Each folder's <strong>More actions</strong> menu has <strong>Edit</strong>, <strong>Duplicate</strong> (to
+            map the same folder to a second Jira project) and <strong>Delete</strong>. Deleting only removes it from
+            Orynx; the folder stays on disk.
+          </p>
+          <h3>How Orynx picks the folder for a task</h3>
+          <ul>
+            <li>
+              A ticket's key picks the folder mapped to its project: <code>PROJ-1423</code> opens in the folder for
+              PROJ. If several match, Orynx asks.
+            </li>
+            <li>A pull request picks the folder whose git remote is that repository.</li>
+            <li>
+              Otherwise Orynx uses the folder you used last, or your only one. Change it any time from the composer's
+              <strong>Repository</strong> menu.
+            </li>
+          </ul>
+        </section>
+
+        <section id="permissions" aria-labelledby="permissions-title">
+          <h2 id="permissions-title">Choose what Claude may do</h2>
+          <p>
+            Open <strong>Settings › Coding agent</strong>. Under <strong>What Claude can do without asking</strong>,
+            start from a level, then change any row. Anything set to Ask waits for your click in the session. Changes
+            save automatically.
+          </p>
+          <figure class="window">
+            <img
+              src="/src/assets/screens/agent-1440.webp"
+              srcset="/src/assets/screens/agent-1440.webp 1440w, /src/assets/screens/agent-2880.webp 2880w"
+              sizes="(min-width: 1248px) 720px, calc(100vw - 48px)"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="Orynx Settings, Coding agent. Under What Claude can do without asking, four levels: Cautious, Balanced, Hands-off and Custom."
+            />
+            <figcaption>Settings › Coding agent: pick a level, then adjust any row.</figcaption>
+          </figure>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Level</th>
+                  <th scope="col">What it means</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Cautious</td>
+                  <td>Asks before every edit and command.</td>
+                </tr>
+                <tr>
+                  <td>Balanced</td>
+                  <td>Recommended. Edits freely, runs your allowed commands, asks for the rest.</td>
+                </tr>
+                <tr>
+                  <td>Hands-off</td>
+                  <td>Runs, pushes and opens pull requests by itself.</td>
+                </tr>
+                <tr>
+                  <td>Custom</td>
+                  <td>Your own mix. Changing any row picks it.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Row</th>
+                  <th scope="col">Fresh install</th>
+                  <th scope="col">Cautious</th>
+                  <th scope="col">Balanced</th>
+                  <th scope="col">Hands-off</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Edit files</td>
+                  <td>Allow</td>
+                  <td>Ask</td>
+                  <td>Allow</td>
+                  <td>Allow</td>
+                </tr>
+                <tr>
+                  <td>Run commands</td>
+                  <td>Ask</td>
+                  <td>Ask</td>
+                  <td>Allowed only</td>
+                  <td>Any</td>
+                </tr>
+                <tr>
+                  <td>Commands that use the network</td>
+                  <td>Ask</td>
+                  <td>Ask</td>
+                  <td>Ask</td>
+                  <td>Allow</td>
+                </tr>
+                <tr>
+                  <td>Commands outside the sandbox</td>
+                  <td>Ask</td>
+                  <td>Ask</td>
+                  <td>Ask</td>
+                  <td>Allow</td>
+                </tr>
+                <tr>
+                  <td>Deleting outside the session's copy</td>
+                  <td>Ask</td>
+                  <td>Ask</td>
+                  <td>Ask</td>
+                  <td>Ask</td>
+                </tr>
+                <tr>
+                  <td>Push the branch</td>
+                  <td>Block</td>
+                  <td>Ask</td>
+                  <td>Ask</td>
+                  <td>Allow</td>
+                </tr>
+                <tr>
+                  <td>Open a pull request</td>
+                  <td>Block</td>
+                  <td>Ask</td>
+                  <td>Ask</td>
+                  <td>Allow</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            A fresh Orynx shows <strong>Custom</strong>: Claude edits files freely, asks before any command, and never
+            pushes or opens a pull request by itself. You still can, with one click.
+          </p>
+          <ul>
+            <li><strong>Rules for</strong> sets the rules for all repositories or gives one repository its own.</li>
+            <li>
+              <strong>Allowed commands</strong> run without asking, inside the sandbox with no network, when Run
+              commands is set to Allowed only. Add one here, or press <strong>Always allow</strong> when Claude asks.
+            </li>
+            <li>
+              <strong>Claude changes Jira</strong>, off by default, lets Claude comment, change status and assign
+              without asking.
+            </li>
+          </ul>
+        </section>
+
+        <section id="home" aria-labelledby="home-title">
+          <h2 id="home-title">Home and the inbox</h2>
+          <p>
+            Home answers two questions: what should Claude build next, and who is waiting on you. The composer is at the
+            top and <strong>Needs your attention</strong> is below it.
+          </p>
+          <figure class="window">
+            <img
+              src="/src/assets/screens/home-1440.webp"
+              srcset="/src/assets/screens/home-1440.webp 1440w, /src/assets/screens/home-2880.webp 2880w"
+              sizes="(min-width: 1248px) 720px, calc(100vw - 48px)"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="Orynx Home. The composer asks what to ship today, and Needs your attention lists Jira tickets and GitHub pull requests with reasons such as Review requested, Checks failing and Due tomorrow."
+            />
+            <figcaption>Home: the composer, then everything that needs you, each with its reason.</figcaption>
+          </figure>
+          <h3>Needs your attention</h3>
+          <p>
+            One list of the tickets and pull requests that need you, in tabs <strong>All</strong>,
+            <strong>Jira</strong> and <strong>Pull requests</strong>. Every row says why it is there and for how long:
+          </p>
+          <ul>
+            <li><strong>Review requested · 2 d</strong>: a pull request waits for your review.</li>
+            <li>
+              <strong>Checks failing</strong> or <strong>3 unresolved comments</strong>: your own pull request needs
+              work.
+            </li>
+            <li>
+              <strong>Due tomorrow</strong>, <strong>Overdue · 3 d</strong>, <strong>Bug</strong>,
+              <strong>To do</strong>, <strong>In progress</strong>: a Jira ticket assigned to you.
+            </li>
+            <li><strong>Approve command</strong>: a Claude session waits for you.</li>
+          </ul>
+          <p>On a row:</p>
+          <ul>
+            <li><strong>+</strong> adds the item to the composer as context.</li>
+            <li>
+              <strong>Fix failing checks</strong> or <strong>Fix review comments</strong> starts Claude on your pull
+              request.
+            </li>
+            <li>A ticket's title opens its details; a pull request's title opens it on GitHub.</li>
+          </ul>
+          <p>
+            Sort with <strong>Newest first</strong> or <strong>Longest wait first</strong>, search, and filter by
+            reason, project, status, type or repository. Choose what counts as needing you in
+            <strong>Settings › Inbox rules</strong>.
+          </p>
+          <h3>Sync</h3>
+          <p>
+            Orynx syncs Jira and GitHub every 2 minutes. The page bar says when it last did; press
+            <strong>Sync</strong> to sync now, or <strong>Sync activity</strong> to see each tool's last sync and fix
+            one that needs reconnecting.
+          </p>
+          <h3>When Claude is waiting</h3>
+          <p>
+            If a session needs your approval, a banner on Home says
+            <strong>Claude is waiting for your approval</strong> and what it wants to do. Press
+            <strong>Review</strong> to open the session.
+          </p>
+        </section>
+
+        <section id="start" aria-labelledby="start-title">
+          <h2 id="start-title">Start a task</h2>
+          <p>Everything starts in the composer on Home. Press <kbd>⌥⌘N</kbd> anywhere to jump to it.</p>
+          <ol class="steps">
+            <li>
+              Pick <strong>Build</strong> (Claude works on a branch in its own worktree) or <strong>Ask</strong> (Claude
+              answers and changes nothing).
+            </li>
+            <li>
+              Describe the task, or paste a Jira key like <code>PROJ-1423</code> or a GitHub pull request link: it turns
+              into a chip. With a ticket added, the ticket is the brief, and the box can stay empty.
+            </li>
+            <li>Check the <strong>Repository</strong>. Orynx picks it from the ticket, and you can change it.</li>
+            <li>Press <strong>Send to Claude</strong>, or <kbd>Enter</kbd>. The session opens.</li>
+          </ol>
+          <h3>Add context</h3>
+          <p>The <strong>+</strong> button tells Claude what to work from:</p>
+          <ul>
+            <li><strong>Git repository</strong>: the folder Claude works in.</li>
+            <li>
+              <strong>Ticket</strong>: a Jira or Orynx ticket, by key or title. Claude gets its description, comments
+              and linked issues.
+            </li>
+            <li>
+              <strong>Pull request</strong>: by repository, number or title. Claude gets its diff, failing checks and
+              review comments.
+            </li>
+            <li>
+              <strong>File</strong>: any file on your machine. Claude reads it where it is. Files that look like
+              secrets, such as <code>id_rsa</code>, are refused.
+            </li>
+          </ul>
+          <p>Remove a chip with its ×. Past two chips, <strong>+N</strong> shows them all.</p>
+          <h3>Model and effort</h3>
+          <p>
+            The agent picker shows Claude's state and lets you choose the model for this task, and an
+            <strong>Effort</strong> from Low to Max. The list of models is whatever Claude Code offers today.
+          </p>
+          <h3>Skills</h3>
+          <p>
+            Type <code>/</code> in the composer to pick a skill: yours from <strong>Settings › Skills</strong> (tagged
+            Orynx), your own Claude Code skills from <code>~/.claude</code> (tagged Yours), or the repository's
+            <code>.claude/skills</code>. Up to 5 per task.
+          </p>
+          <p class="note">
+            <strong>Limits.</strong> Up to three sessions work at once. If a ticket already has a session, Orynx offers
+            <strong>Open session</strong> or <strong>Start a new session</strong>.
+          </p>
+        </section>
+
+        <section id="tickets" aria-labelledby="tickets-title">
+          <h2 id="tickets-title">The tickets board</h2>
+          <p>
+            <strong>Tickets</strong> shows your sprint as a board or a list. Pick the project and sprint in the page
+            bar, and switch between Board and List at its end.
+          </p>
+          <figure class="window">
+            <img
+              src="/src/assets/screens/tickets-1440.webp"
+              srcset="/src/assets/screens/tickets-1440.webp 1440w, /src/assets/screens/tickets-2880.webp 2880w"
+              sizes="(min-width: 1248px) 720px, calc(100vw - 48px)"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="Orynx Tickets. A sprint board with To do, In progress, In review and Done columns. Cards show each ticket's priority, due date and Claude's state, such as Needs you, Working and Done, ready for PR."
+            />
+            <figcaption>Tickets: your sprint, with Claude's state on every card it works on.</figcaption>
+          </figure>
+          <ul>
+            <li><strong>Columns</strong>: To do, In progress, In review and Done.</li>
+            <li>
+              <strong>Filters</strong>: search, Source (Jira or Orynx), Assignee, and under Filters: status, type,
+              priority and due date.
+            </li>
+            <li>
+              <strong>A card</strong> shows the key, type, title, priority and due date. Click its title for the full
+              ticket, with <strong>Open in Jira</strong> and <strong>Add to composer</strong>.
+            </li>
+          </ul>
+          <h3>Hand a ticket to Claude</h3>
+          <p>
+            Press <strong>Ship</strong> on a card. Orynx adds the ticket to the composer on Home; add anything else,
+            then press Send to Claude. To start several, tick their checkboxes and press <strong>Ship all</strong>.
+          </p>
+          <p>Once a ticket has a session, its card shows Claude's state and links to the session:</p>
+          <div class="table-scroll">
+            <table>
+              <tbody>
+                <tr>
+                  <td>Needs you</td>
+                  <td>Claude waits for your approval.</td>
+                </tr>
+                <tr>
+                  <td>Working</td>
+                  <td>Claude is on it.</td>
+                </tr>
+                <tr>
+                  <td>Done, ready for PR</td>
+                  <td>Finished. Create the pull request when you are happy.</td>
+                </tr>
+                <tr>
+                  <td>Done, ready to push</td>
+                  <td>Finished on a ticket that already has a pull request.</td>
+                </tr>
+                <tr>
+                  <td>PR open · PR merged · PR closed</td>
+                  <td>Where the pull request stands on GitHub.</td>
+                </tr>
+                <tr>
+                  <td>Stopped</td>
+                  <td>You or Claude stopped the session.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <h3>Orynx tickets</h3>
+          <p>
+            For work that is not in Jira, press <strong>New</strong> in the page bar, or + on a column. An Orynx ticket
+            (<code>ORX-12</code>) has a title, description, type, priority, status and due date. It is saved in Orynx on
+            this machine and never added to Jira. Without Jira connected, the board shows only Orynx tickets.
+          </p>
+          <p>Claude can list, create and update Orynx tickets during a session. Deleting one always asks you first.</p>
+        </section>
+
+        <section id="search" aria-labelledby="search-title">
+          <h2 id="search-title">Search</h2>
+          <p>
+            Press <kbd>⌘K</kbd> (<kbd>Ctrl+K</kbd> on Linux), or Search at the top of the sidebar. Find a ticket by key
+            or title, a pull request by number or repository, or a session.
+          </p>
+          <ul>
+            <li>A ticket opens its details, a session opens its page, and a pull request opens on GitHub.</li>
+            <li>
+              Search covers what Orynx has synced: your sprint and assigned Jira issues, Orynx tickets, your open pull
+              requests and those waiting for your review, and every session.
+            </li>
+          </ul>
+        </section>
+
+        <section id="sessions" aria-labelledby="sessions-title">
+          <h2 id="sessions-title">Work in a session</h2>
+          <p>
+            A session is one task for Claude. In Build, it gets its own git worktree under
+            <code>~/.devhub/worktrees</code>, so your own checkout stays untouched. The branch is made at Claude's first
+            edit and named after the ticket, like <code>feat/PROJ-1423</code>, following your repository's style. An Ask
+            session reads the folder in place and changes nothing.
+          </p>
+          <figure class="window">
+            <img
+              src="/src/assets/screens/session-1440.webp"
+              srcset="/src/assets/screens/session-1440.webp 1440w, /src/assets/screens/session-2880.webp 2880w"
+              sizes="(min-width: 1248px) 720px, calc(100vw - 48px)"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="An Orynx session for a Jira story. On the left, Claude's progress: made a worktree, made a plan and edited 4 files, then Claude asks to run the orders tests, with Allow once, Always allow and Deny. On the right, the live diff of four changed files."
+            />
+            <figcaption>A session: Claude's steps on the left, the live diff on the right.</figcaption>
+          </figure>
+          <h3>Follow along</h3>
+          <ul>
+            <li>
+              <strong>The stepper</strong> at the top shows where Claude is: Plan, Build, Test, Review, Pull request.
+              For a question or a run, Claude names its own steps.
+            </li>
+            <li>
+              <strong>What agent did</strong> lists every step as it happens, with time, turns and cost: made a
+              worktree, made a plan, edited files, ran commands. Open <strong>Sent Claude the brief</strong> to see
+              exactly what Claude was sent.
+            </li>
+            <li><strong>Changes</strong> shows the live diff, file by file, with a Viewed box on each.</li>
+            <li>
+              <strong>Ports</strong> lists the servers Claude or you started in this session, with Open, Restart and
+              Stop.
+            </li>
+            <li><strong>Context</strong> shows the ticket and everything else Claude was given.</li>
+          </ul>
+          <p>Each pane has a Full screen button.</p>
+          <h3>Approve or deny</h3>
+          <p>
+            When Claude needs your permission, it stops and asks: <strong>Claude wants to run a command</strong>, edit a
+            file, start a server, or change a Jira issue. Your answer:
+          </p>
+          <ul>
+            <li><strong>Allow once</strong>: this time only.</li>
+            <li>
+              <strong>Always allow</strong>: adds the command to your allowed commands, or allows servers in this
+              repository, so Claude stops asking.
+            </li>
+            <li><strong>Deny</strong>: Claude does not do it and carries on.</li>
+          </ul>
+          <p>
+            You can answer from the session, the banner on Home, a notification, or your phone. What Claude may do
+            without asking is set in <a href="#permissions">Settings › Coding agent</a>.
+          </p>
+          <h3>Steer with follow-ups</h3>
+          <p>
+            Use <strong>Message Claude</strong> at the bottom of the session to ask for a change. Claude carries on in
+            the same worktree with everything it already knows; there is no need to start over.
+          </p>
+          <h3>Terminal and editor</h3>
+          <ul>
+            <li>
+              Press <kbd>⌃`</kbd> for the terminal. The <strong>Claude</strong> tab shows the commands Claude ran; add
+              your own shell in the session's worktree with New terminal.
+            </li>
+            <li>
+              <strong>More actions › Open in VS Code</strong> (or Cursor, chosen in Settings › Coding agent) opens the
+              worktree in your editor.
+            </li>
+          </ul>
+          <h3>Manage sessions</h3>
+          <p>
+            Recent sessions sit in the sidebar; <strong>View all</strong> lists every one, with search and filters. Each
+            session's ⋯ menu has <strong>Stop</strong>, <strong>Rename</strong>, <strong>Pin</strong>,
+            <strong>Copy link</strong> and <strong>Delete</strong>. Deleting removes the worktree too, and can also
+            delete the branch. Changes that were not pushed are lost.
+          </p>
+        </section>
+
+        <section id="ship" aria-labelledby="ship-title">
+          <h2 id="ship-title">Ship the pull request</h2>
+          <p>
+            When Claude finishes, the session says <strong>Ready for a pull request</strong>, with the files and lines
+            it changed. Nothing leaves your machine until you create it.
+          </p>
+          <ol class="steps">
+            <li>Review the diff in Changes. Ask for anything else with a follow-up.</li>
+            <li>
+              Press <strong>Create pull request</strong>. Claude drafts the title and description; edit them as you
+              like.
+            </li>
+            <li>
+              Press <strong>Create pull request</strong> in the dialog. Orynx pushes the branch and opens the pull
+              request on GitHub, and the page bar shows <strong>Open PR #2841</strong>.
+            </li>
+          </ol>
+          <p>
+            If you ask for more changes later, the session says <strong>Ready to push</strong>: press
+            <strong>Push to PR #2841</strong>, check the commit message Claude drafted, and push.
+          </p>
+          <p>
+            Prefer Claude to do this on its own? Set <strong>Push the branch</strong> and
+            <strong>Open a pull request</strong> to Allow, or pick Hands-off, in
+            <a href="#permissions">Settings › Coding agent</a>.
+          </p>
+        </section>
+
+        <section id="notifications" aria-labelledby="notifications-title">
+          <h2 id="notifications-title">Notifications</h2>
+          <p>
+            Orynx tells you when Claude waits for you, when a session finishes, and when someone requests your review,
+            your checks fail or a ticket is assigned to you.
+          </p>
+          <ul>
+            <li>
+              <strong>The bell</strong> at the bottom of the sidebar keeps every notification, with a Needs you tab and
+              Mark all read.
+            </li>
+            <li>
+              <strong>Pop-ups</strong> appear in the corner, up to three. An approval stays until you answer it; for a
+              command, press <strong>Allow once</strong> right there.
+            </li>
+            <li>
+              <strong>Desktop notifications and sounds</strong> reach you while you work elsewhere. Turn them on in
+              Settings › Notifications.
+            </li>
+          </ul>
+          <p>
+            Settings › Notifications also sets what you hear about, and <strong>Do not disturb</strong>: pause for an
+            hour, until tomorrow, or until you turn it back on. Quiet hours (19:00–09:00 on weekdays, by default) still
+            let approvals through. <strong>Send a test notification</strong> shows how it looks.
+          </p>
+        </section>
+
+        <section id="phone" aria-labelledby="phone-title">
+          <h2 id="phone-title">Use it from your phone</h2>
+          <p>
+            Any phone or other machine on the same wifi can open Orynx at <code>https://orynx.local</code>. Your code
+            and tokens stay on the machine that runs it.
+          </p>
+          <ol class="steps">
+            <li>On the other device, open <code>https://orynx.local</code>.</li>
+            <li>Enter the Orynx password you chose at setup. A cookie keeps the device signed in for a year.</li>
+            <li>
+              Trust the Orynx certificate once, so the browser stops warning and lets you install the app (below).
+            </li>
+          </ol>
+          <h3>Trust the certificate once</h3>
+          <p>
+            The certificate comes from a certificate authority made on your machine. On the device, open
+            <code>http://orynx.local/orynx-ca.crt</code>, then:
+          </p>
+          <ul>
+            <li>
+              <strong>iPhone or iPad:</strong> Settings › General › VPN &amp; Device Management › install the Orynx
+              profile, then Settings › General › About › Certificate Trust Settings › turn on Orynx local CA.
+            </li>
+            <li>
+              <strong>Android:</strong> Settings › Security › Encryption &amp; credentials › Install a certificate › CA
+              certificate, and pick the file.
+            </li>
+            <li>
+              <strong>Mac:</strong> open the file to add it to the System keychain, then in Keychain Access open it ›
+              Trust › Always Trust.
+            </li>
+            <li>
+              <strong>Windows:</strong> open the file › Install Certificate › Local Machine › Trusted Root Certification
+              Authorities.
+            </li>
+            <li>
+              <strong>Linux:</strong> copy it to <code>/usr/local/share/ca-certificates/</code> and run
+              <code>sudo update-ca-certificates</code>. Chrome and Firefox may want it imported in their own settings
+              too.
+            </li>
+          </ul>
+          <p>
+            The certificate authority can sign only for <code>orynx.local</code> and <code>localhost</code>, so trusting
+            it lets nobody pose as any other site.
+          </p>
+          <h3>Safe on a shared wifi</h3>
+          <ul>
+            <li>
+              Orynx itself listens only on <code>127.0.0.1</code>. The wifi reaches it through a front door on ports 443
+              and 80 that answers only the name <code>orynx.local</code>.
+            </li>
+            <li>
+              A device sees nothing of Orynx until it enters your password. Whoever has the password can use Orynx as
+              you, Claude's sessions included, so pick one you use nowhere else.
+            </li>
+            <li>
+              After 10 wrong passwords in 15 minutes, from any device, Orynx stops checking until the oldest is 15
+              minutes old.
+            </li>
+            <li>
+              Everything goes over https. <code>http://orynx.local</code> only hands out the certificate and redirects.
+            </li>
+          </ul>
+        </section>
+
+        <section id="app" aria-labelledby="app-title">
+          <h2 id="app-title">Keep it as an app</h2>
+          <p>Orynx installs from the browser as an app, with its own window and icon:</p>
+          <ul>
+            <li>
+              <strong>Chrome or Edge:</strong> the install icon at the end of the address bar, or ⋮ › Cast, save and
+              share › Install page as app.
+            </li>
+            <li><strong>Safari on a Mac:</strong> File › Add to Dock.</li>
+            <li><strong>iPhone or iPad:</strong> Share › Add to Home Screen.</li>
+            <li><strong>Android:</strong> Chrome's ⋮ › Add to Home screen.</li>
+          </ul>
+          <h3>The desktop app</h3>
+          <p>
+            Orynx also comes as a desktop app, from
+            <a href="https://github.com/orynx-ai/orynx/releases">GitHub releases</a>: a <code>.dmg</code> for Apple
+            silicon Macs and an <code>.AppImage</code> for Linux. It runs Orynx itself, with no install script, and
+            stays on this machine: for <code>orynx.local</code> on your phone, install with <code>./install.sh</code>.
+          </p>
+          <ul>
+            <li>
+              <strong>macOS:</strong> open the <code>.dmg</code> and drag Orynx to Applications. The first open says
+              macOS can't check it: System Settings › Privacy &amp; Security › Open Anyway, once per install.
+            </li>
+            <li>
+              <strong>Linux:</strong> <code>chmod +x</code> the AppImage and open it. It needs FUSE 2
+              (<code>libfuse2</code>), and sessions run commands only with <code>bubblewrap</code> and
+              <code>socat</code> installed.
+            </li>
+          </ul>
+          <p>The desktop app updates itself from Settings › About: press <strong>Restart to update</strong>.</p>
+        </section>
+
+        <section id="settings" aria-labelledby="settings-title">
+          <h2 id="settings-title">Settings</h2>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Tab</th>
+                  <th scope="col">What it holds</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Connections</td>
+                  <td>Jira, GitHub and Slack: connect, test, reconnect, disconnect.</td>
+                </tr>
+                <tr>
+                  <td>Coding agent</td>
+                  <td>
+                    Claude's login, what it may do without asking, allowed commands, Claude changes Jira, other agents
+                    (MCP), the editor for Open in editor, and deleting old sessions to free disk space.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Skills</td>
+                  <td>
+                    Your Orynx skills: how Claude should do one kind of work. Add the starter skills, or press New
+                    skill.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Notifications</td>
+                  <td>
+                    Pop-ups, desktop notifications, sounds, what you are told about, do not disturb and quiet hours.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Repositories</td>
+                  <td>The folders Claude can work in, and their Jira projects.</td>
+                </tr>
+                <tr>
+                  <td>Inbox rules</td>
+                  <td>What shows under Needs your attention, and Clear cache.</td>
+                </tr>
+                <tr>
+                  <td>About</td>
+                  <td>Version, updates and what's new.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Theme lives in the profile menu at the bottom of the sidebar: <strong>Appearance</strong> › Light, Dark or
+            System. Name, bio, picture and password are under your name in the same menu.
+          </p>
+          <p>
+            <strong>Other agents</strong> (in Coding agent) lets Claude Code, Cursor, Codex or any MCP client on this
+            machine use your Orynx tickets. Turn it on and press <strong>Copy MCP config</strong>.
+          </p>
+        </section>
+
+        <section id="shortcuts" aria-labelledby="shortcuts-title">
+          <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Keys</th>
+                  <th scope="col">What it does</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><kbd>⌘K</kbd></td>
+                  <td>Search tickets, pull requests and sessions. Press again to close.</td>
+                </tr>
+                <tr>
+                  <td><kbd>⌥⌘N</kbd></td>
+                  <td>New task: Home, with the cursor in the composer. <kbd>⌘N</kbd> in the desktop app.</td>
+                </tr>
+                <tr>
+                  <td><kbd>⌃`</kbd></td>
+                  <td>Terminal. On a session, that session's terminal.</td>
+                </tr>
+                <tr>
+                  <td><kbd>Enter</kbd></td>
+                  <td>Send the composer or a follow-up.</td>
+                </tr>
+                <tr>
+                  <td><kbd>Shift+Enter</kbd></td>
+                  <td>New line in the composer.</td>
+                </tr>
+                <tr>
+                  <td><kbd>/</kbd></td>
+                  <td>Pick a skill in the composer.</td>
+                </tr>
+                <tr>
+                  <td><kbd>Esc</kbd></td>
+                  <td>Close a menu or dialog.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>On Linux, use <kbd>Ctrl</kbd> for <kbd>⌘</kbd> and <kbd>Ctrl+Alt</kbd> for <kbd>⌥⌘</kbd>.</p>
+        </section>
+
+        <section id="maintain" aria-labelledby="maintain-title">
+          <h2 id="maintain-title">Update and uninstall</h2>
+          <h3>Update</h3>
+          <p>
+            Press <strong>Update</strong> in Settings › About, or run <code>git pull &amp;&amp; ./install.sh</code> in
+            the clone. An Orynx installed before Update was there needs <code>./install.sh</code> run once more by hand
+            first.
+          </p>
+          <h3>Forgot the password, or sign every device out</h3>
+          <p>
+            Delete <code>~/.devhub/password</code> and restart Orynx. Setup opens again on this machine, with your
+            profile filled in, and every other device must sign in with the new password.
+          </p>
+          <pre><code># macOS
+launchctl kickstart -k gui/$(id -u)/dev.orynx.server
+# Linux
+systemctl --user restart orynx</code></pre>
+          <h3>Uninstall</h3>
+          <p>macOS:</p>
+          <pre><code>launchctl bootout gui/$(id -u)/dev.orynx.server
+rm ~/Library/LaunchAgents/dev.orynx.server.plist
+sudo security remove-trusted-cert -d ~/.devhub/tls/ca.crt</code></pre>
+          <p>Linux:</p>
+          <pre><code>systemctl --user disable --now orynx && rm ~/.config/systemd/user/orynx.service
+sudo rm /usr/local/share/ca-certificates/orynx-local-ca.crt /etc/sysctl.d/60-orynx.conf
+sudo update-ca-certificates</code></pre>
+          <p>Your settings, cache and certificate stay in <code>~/.devhub</code> until you delete it.</p>
+        </section>
+
+        <section id="troubleshooting" aria-labelledby="troubleshooting-title">
+          <h2 id="troubleshooting-title">Troubleshooting</h2>
+          <h3>The page says "Orynx restarted"</h3>
+          <p>The server makes a new session token every time it starts. Reload the page.</p>
+          <h3>Settings says "Can't reach your-team.atlassian.net"</h3>
+          <p>
+            Check the VPN first. <code>UNABLE_TO_GET_ISSUER_CERT_LOCALLY</code> in the log means a proxy on your network
+            re-signs TLS with a root your OS does not trust.
+          </p>
+          <h3>Settings says "Orynx can't find the gh command"</h3>
+          <p>
+            Orynx looks for gh on the PATH of the terminal that started it. Run <code>which gh</code> there, or connect
+            GitHub with a personal access token instead.
+          </p>
+          <h3><code>./install.sh</code> says Orynx didn't answer</h3>
+          <p>
+            Read <code>~/.devhub/orynx.log</code> on macOS, or <code>journalctl --user -u orynx</code> on Linux. "can't
+            listen on port 443" or "80" means another web server holds it. A <code>pnpm start</code> left running holds
+            4317.
+          </p>
+          <h3>Another device can't open orynx.local</h3>
+          <p>
+            Check it is on the same wifi: guest and office networks often keep devices from seeing each other. Android
+            finds <code>.local</code> names from Android 12. A second machine running Orynx on the same wifi can't take
+            the name; its log says so.
+          </p>
+        </section>
+      </article>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap footer-inner">
+        <a class="brand" href="/" aria-label="Orynx home">
+          <svg class="brand-mark" viewBox="0 0 100 63.77" aria-hidden="true" focusable="false">
+            <rect x="0" y="11.45" width="22.91" height="48.81" rx="11.46" />
+            <path
+              d="M49.08 3.62L70.73 25.26A4.51 4.51 0 0 1 72.05 28.45L72.05 61.49A2.01 2.01 0 0 1 68.54 62.82L31.07 20.6A12.38 12.38 0 0 1 49.08 3.62Z"
+            />
+            <rect x="78.31" y="13.88" width="21.69" height="49.89" rx="10.85" />
+          </svg>
+          <span>Orynx</span>
+        </a>
+        <p class="footer-tagline">Everything around your code.</p>
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="/#product">Product</a>
+          <a href="/#how-it-works">How it works</a>
+          <a href="/#local-first">Local-first</a>
+          <a href="/docs/">Docs</a>
+          <a class="footer-github" href="https://github.com/orynx-ai/orynx">orynx-ai/orynx</a>
+        </nav>
+        <p class="footer-legal">© <span data-year>2026</span> Orynx</p>
+      </div>
+    </footer>
+  </body>
+</html>
