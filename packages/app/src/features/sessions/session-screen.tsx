@@ -3,8 +3,6 @@ import { useRef, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import type { Session } from '@devhub/contracts';
 import { PageBar, PageBody, PageBreadcrumb, type Crumb } from '../../shell/page-frame.tsx';
-import { agoText } from '../../words/ago.ts';
-import { useNow } from '../../words/use-now.ts';
 import { NotFoundScreen } from '../not-found/not-found-screen.tsx';
 import { ChangesSkeleton } from './components/changes-panel.tsx';
 import { contextOf } from './components/context-panel.tsx';
@@ -57,11 +55,26 @@ function Panes({ progress, details }: { progress: ReactNode; details: ReactNode 
   );
 }
 
+/**
+ * The title and its line, with the stepper on their right where there's room and under them where there isn't (spec
+ * 048, Q3). Beside the title the stepper keeps the 36rem it needs to show every step's words, so the row goes side by
+ * side from 64rem.
+ */
+function TitleRow({ header, stepper }: { header: ReactNode; stepper: ReactNode }) {
+  return (
+    <div className="@container">
+      <div className="flex flex-col gap-3 @5xl:flex-row @5xl:items-start @5xl:gap-6">
+        <div className="min-w-0 @5xl:flex-1">{header}</div>
+        {stepper === null ? null : <div className="@5xl:w-144 @5xl:shrink-0 @5xl:pt-1">{stepper}</div>}
+      </div>
+    </div>
+  );
+}
+
 /** One Claude session (specs 011 to 013): where it is, what Claude has done and changed, and Stop. */
 export function SessionScreen() {
   const { sessionId } = useParams({ from: '/sessions/$sessionId' });
   const session = useSession(sessionId);
-  const now = useNow();
   // Stop and Discard hand focus to the title once their buttons are gone.
   const title = useRef<HTMLHeadingElement>(null);
 
@@ -70,8 +83,7 @@ export function SessionScreen() {
       <>
         <PageBar breadcrumb={<PageBreadcrumb crumbs={[sessionsCrumb]} />} />
         <PageBody width="full" aria-busy>
-          <SessionHeaderSkeleton />
-          <SessionStepperSkeleton />
+          <TitleRow header={<SessionHeaderSkeleton />} stepper={<SessionStepperSkeleton />} />
           <Panes
             progress={<SessionProgressSkeleton />}
             details={
@@ -106,13 +118,15 @@ export function SessionScreen() {
     <>
       <PageBar
         breadcrumb={<PageBreadcrumb crumbs={crumbsFor(found)} />}
-        meta={`Started ${agoText(now.getTime() - Date.parse(found.startedAt))}`}
         actions={<SessionActions session={found} title={title} />}
       />
       <PageBody width="full">
-        <SessionHeader session={found} title={title} />
-        {/* The steps follow what the session does: an Ask session plans, builds and opens nothing (spec 026). */}
-        {found.mode === 'ask' ? null : <SessionStepper session={found} />}
+        <TitleRow
+          header={<SessionHeader session={found} title={title} />}
+          // The steps follow what the session does: an Ask session plans, builds and opens nothing (spec 026).
+          // On the title's right, its steps end at the row's end, as `session-review.html` draws them.
+          stepper={found.mode === 'ask' ? null : <SessionStepper session={found} className="@5xl:justify-end" />}
+        />
         <Panes
           progress={<SessionProgress session={found} footer={<FollowUpBox session={found} />} />}
           details={found.mode === 'ask' && contextOf(found).length === 0 ? null : <SessionDetails session={found} />}

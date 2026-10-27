@@ -89,7 +89,7 @@ export function ChangesTools({ sessionId }: { sessionId: string }) {
   const { added, removed, files, moreFiles } = changes.data;
   const summary = changesSummary({ added, removed, files: files.length + moreFiles });
   return (
-    <>
+    <span className="ms-auto flex shrink-0 items-center gap-2">
       <span className="shrink-0 text-small">
         <span aria-hidden>
           {summary.added === null ? null : <span className="text-success">{summary.added} </span>}
@@ -107,7 +107,7 @@ export function ChangesTools({ sessionId }: { sessionId: string }) {
       >
         Wrap lines
       </Button>
-    </>
+    </span>
   );
 }
 

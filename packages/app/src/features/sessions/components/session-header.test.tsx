@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiRoutes, type Session } from '@devhub/contracts';
+import { apiRoutes, type Session, type SessionActivity } from '@devhub/contracts';
 import {
   makePushDraft,
   makeSession,
@@ -54,18 +54,38 @@ function narrow() {
 const done = makeSession({ ...working, state: 'done', worktreePath: '/Users/you/.devhub/worktrees/x' });
 
 describe('SessionHeader', () => {
-  it('AC-6: the title row has the title, the state, the branch and where Claude works; Stop is in the page bar', async () => {
-    server.use(sessionHandler(working));
-    await renderApp({ route });
+  it('AC-6, AC-7 (spec 048): one line under the title has the state, the skills, the folder, the branch to copy, the worktree and when it started', async () => {
+    const brief: SessionActivity = {
+      id: 'step-1',
+      state: 'done',
+      kind: 'brief',
+      key: null,
+      tickets: [],
+      message: true,
+      pullRequests: [],
+      files: [],
+      skills: ['/fix-review-changes'],
+    };
+    server.use(sessionHandler(makeSession({ ...working, activities: [brief] })));
+    const { user } = await renderApp({ route });
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Add bulk archive to the content list' }),
     ).toBeVisible();
     const main = screen.getByRole('main');
     expect(within(main).getByText('Working')).toBeVisible();
-    expect(within(main).getByText('feat/PROJ-1423')).toBeVisible();
-    expect(within(main).getByText('in web-app · separate worktree, your main checkout is untouched')).toBeVisible();
+    expect(within(main).getByText('/fix-review-changes')).toBeVisible();
+    expect(within(main).getByText('web-app')).toBeVisible();
+    expect(within(main).getByText('feat/PROJ-1423')).toHaveAttribute('title', 'feat/PROJ-1423');
+    expect(within(main).getByText('own worktree')).toBeVisible();
+    expect(within(main).getByText('started 4 min ago')).toBeVisible();
+    // When it started moved out of the page bar (spec 048).
+    expect(within(pageBar()).queryByText(/started/i)).toBeNull();
     expect(within(pageBar()).getByRole('button', { name: 'Stop' })).toBeVisible();
+
+    await user.click(within(main).getByRole('button', { name: 'Copy branch name feat/PROJ-1423' }));
+    expect(await navigator.clipboard.readText()).toBe('feat/PROJ-1423');
+    expect(await within(main).findByRole('button', { name: 'Copied' })).toBeVisible();
   });
 
   it('AC-14 (spec 031): a session on your pull request’s branch says so', async () => {
@@ -83,10 +103,8 @@ describe('SessionHeader', () => {
     );
     await renderApp({ route });
     const main = await screen.findByRole('main');
-    expect(
-      await within(main).findByText(`in web-app · on #${String(number)}'s branch, in a separate worktree`),
-    ).toBeVisible();
-    expect(within(main).getByText('fix/content-list')).toBeVisible();
+    expect(await within(main).findByText('fix/content-list')).toBeVisible();
+    expect(within(main).getByText('own worktree')).toBeVisible();
   });
 
   it('puts Create pull request in the page bar, with Open in the editor and Delete in More actions', async () => {

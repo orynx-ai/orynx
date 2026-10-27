@@ -66,7 +66,7 @@ describe('SessionScreen', () => {
     await renderApp({ route });
 
     expect(await screen.findByText('Ask session · reads web-app in place and changes nothing')).toBeVisible();
-    expect(screen.queryByText(/separate worktree/)).toBeNull();
+    expect(screen.queryByText('own worktree')).toBeNull();
     expect(screen.queryByRole('list', { name: 'Session progress' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Create pull request' })).toBeNull();
     expect(screen.getByRole('textbox', { name: 'Message Claude' })).toBeVisible();
@@ -107,7 +107,8 @@ describe('SessionScreen', () => {
     expect(await within(crumbs).findByText('PROJ-1423')).toHaveAttribute('aria-current', 'page');
     expect(within(crumbs).getByRole('link', { name: 'Tickets' })).toHaveAttribute('href', '/tickets');
     expect(within(crumbs).getByRole('link', { name: 'Sprint 42' })).toHaveAttribute('href', '/tickets');
-    expect(within(pageBar()).getByText('Started 4 min ago')).toBeVisible();
+    // When it started is on the line under the title now (spec 048).
+    expect(within(screen.getByRole('main')).getByText('started 4 min ago')).toBeVisible();
 
     // The user's call, 20 Oct 2026: the Context tab's ticket keeps the way to Jira.
     expect(within(pageBar()).queryByRole('link', { name: 'Open in Jira' })).toBeNull();

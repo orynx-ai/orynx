@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import {
   ArrowUpRight01Icon,
   ComputerTerminal01Icon,
+  GitBranchIcon,
   GitPullRequestIcon,
   Loading03Icon,
   MoreHorizontalIcon,
@@ -14,6 +15,7 @@ import {
 import type { Session, SessionState } from '@devhub/contracts';
 import {
   Button,
+  CopyButton,
   Icon,
   IconButton,
   Menu,
@@ -29,6 +31,8 @@ import { useApi } from '../../../api.tsx';
 import { usePlatform } from '../../../platform.tsx';
 import { terminalShortcut } from '../../../shell/shortcuts.ts';
 import { useWide } from '../../../shell/use-wide.ts';
+import { agoText } from '../../../words/ago.ts';
+import { useNow } from '../../../words/use-now.ts';
 import { needsApprovalLabel } from '../approval-words.ts';
 import { editorLink, openInLabel } from '../change-words.ts';
 import { openPullRequestLabel, pullRequestWords } from '../pull-request-words.ts';
@@ -94,38 +98,66 @@ function SessionAddress({ session }: { session: Session }) {
   );
 }
 
+/** The dot between the title row's parts, for the eye only. */
+function Dot() {
+  return <span aria-hidden>·</span>;
+}
+
 /**
- * The Session screen's title row (`session.html`): the title, the state, the branch and where Claude works. Its
+ * The Session screen's title row (`session-review.html`, spec 048): the title, then one line with the state, the
+ * skills your message named, the folder, the branch with Copy branch name, the worktree and when it started. Its
  * buttons are in the page bar, in {@link SessionActions} (the user's call, 19 Oct 2026).
  */
 export function SessionHeader({ session, title }: { session: Session; title: RefObject<HTMLHeadingElement | null> }) {
+  const now = useNow();
+  const skills = session.activities.flatMap((activity) => (activity.kind === 'brief' ? activity.skills : []));
+  const { branch, folder } = session;
+  const ask = session.mode === 'ask';
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <h1 ref={title} tabIndex={-1} className="m-0 text-title-lg font-medium">
         {session.title}
       </h1>
-      <div className="flex flex-wrap items-center gap-2 text-small text-muted-foreground">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 text-small text-muted-foreground">
         <Pill tone={stateTones[session.state]}>
           {/* The sidebar's "Needs you" is said in full here, where you answer (spec 012, Q8d). */}
           {session.state === 'needs_you' ? needsApprovalLabel : sessionStateLabel(session.state, session.ready)}
         </Pill>
-        {session.branch !== null ? (
-          <code className="rounded-sm bg-subtle px-2 font-mono text-code text-foreground">{session.branch}</code>
+        {skills.map((skill) => (
+          <code key={skill} className="rounded-sm bg-subtle px-2 font-mono text-code text-foreground">
+            {skill}
+          </code>
+        ))}
+        {/* An Ask may have no folder at all (spec 031, Q8d). */}
+        {folder === null ? (
+          <span>Ask session · changes nothing</span>
+        ) : ask ? (
+          <span>Ask session · reads {folder.name} in place and changes nothing</span>
+        ) : (
+          <span>{folder.name}</span>
+        )}
+        {branch !== null ? (
+          <span className="inline-flex min-w-0 items-center gap-1">
+            <Dot />
+            <Icon icon={GitBranchIcon} aria-hidden className="size-4 shrink-0" />
+            <code title={branch} className="min-w-0 truncate font-mono text-code text-foreground">
+              {branch}
+            </code>
+            <CopyButton text={branch} label="Copy branch name" what={`branch name ${branch}`} />
+          </span>
         ) : session.mode === 'build' && session.worktreePath !== null ? (
           // The branch comes at Claude's first edit (spec 042).
           <span className="rounded-sm bg-subtle px-2">{noBranchYet}</span>
         ) : null}
         <SessionAddress session={session} />
-        {/* An Ask may have no folder at all (spec 031, Q8d). */}
-        {session.folder === null ? (
-          <span>Ask session · changes nothing</span>
-        ) : session.mode === 'ask' ? (
-          <span>Ask session · reads {session.folder.name} in place and changes nothing</span>
-        ) : session.workOn === 'pull_request' && session.pullRequest !== null ? (
-          <span>{`in ${session.folder.name} · on #${String(session.pullRequest.number)}'s branch, in a separate worktree`}</span>
-        ) : (
-          <span>in {session.folder.name} · separate worktree, your main checkout is untouched</span>
+        {ask ? null : (
+          <>
+            <Dot />
+            <span>own worktree</span>
+          </>
         )}
+        <Dot />
+        <span>started {agoText(now.getTime() - Date.parse(session.startedAt))}</span>
       </div>
     </div>
   );

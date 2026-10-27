@@ -248,9 +248,9 @@ test('AC-11, AC-18, 022 AC-39: with two folders, the composer asks which, picked
   await page.getByRole('button', { name: 'Send to Claude' }).click();
 
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
-  await expect(
-    page.getByRole('main').getByText('in mobile · separate worktree, your main checkout is untouched'),
-  ).toBeVisible();
+  // The title's line: the folder, in its own worktree (spec 048).
+  await expect(page.getByRole('main').getByText('mobile', { exact: true })).toBeVisible();
+  await expect(page.getByRole('main').getByText('own worktree')).toBeVisible();
   await expect(page.getByRole('region', { name: 'What Claude did' }).getByText('Finished')).toBeVisible({
     timeout: 15_000,
   });

@@ -458,7 +458,9 @@ test.describe('a Build on my own pull request (spec 031)', () => {
 
     await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);
     on.url = new URL(page.url()).pathname;
-    await expect(page.getByText(`in web-app · on ${yours}'s branch, in a separate worktree`)).toBeVisible();
+    // The title's line: the pull request's branch, in its own worktree (spec 048).
+    await expect(page.getByRole('main').getByText(branch, { exact: true })).toBeVisible();
+    await expect(page.getByRole('main').getByText('own worktree')).toBeVisible();
     await expect(progressOf(page).getByText(`${branch} from ${yours}`)).toBeVisible();
     await expect(page.getByRole('main').getByText('PR open', { exact: true })).toBeVisible({ timeout: 15_000 });
     const stepper = page.getByRole('list', { name: 'Session progress' });

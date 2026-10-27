@@ -71,9 +71,10 @@ export function SessionDetails({ session }: { session: Session }) {
         }}
         className="flex min-h-0 flex-col"
       >
-        <div className="flex shrink-0 items-center gap-2 border-b border-border">
+        {/* The Changes tab's tools go under the tabs, on the right, when the pane is too narrow for one line (spec 048). */}
+        <div className="flex shrink-0 flex-wrap items-center gap-x-2 border-b border-border">
           {/* Changes first, as the redesigned session draws them (spec 048); the tab Orynx opens on is as before. */}
-          <TabsList aria-label="Session details" className="min-w-0 flex-1 border-b-0">
+          <TabsList aria-label="Session details" className="min-w-0 grow border-b-0">
             {ask ? null : (
               <TabsTrigger value="changes" {...(count === undefined ? {} : { count })}>
                 Changes

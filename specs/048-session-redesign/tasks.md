@@ -38,7 +38,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: What Claude did: the rename, the groups (the current one open), Expand all / Collapse all, commands as `CommandLine`, the approval in the current group and the summary after the groups (AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/sessions/components/session-progress.test.tsx packages/app/src/features/sessions/session-screen.test.tsx
       Files: packages/app/src/features/sessions/components/session-progress.tsx, packages/app/src/features/sessions/step-words.ts, their tests, e2e/approvals.spec.ts, e2e/changes.spec.ts, e2e/composer.spec.ts, e2e/pull-requests.spec.ts, e2e/sessions.spec.ts
-- [ ] Task 13: The title row: the meta line (state, skills, folder, branch with Copy branch name, own worktree, started …) and the stepper beside the title; "Started" leaves the page bar (AC-6, AC-7, AC-9)
+- [x] Task 13: The title row: the meta line (state, skills, folder, branch with Copy branch name, own worktree, started …) and the stepper beside the title; "Started" leaves the page bar (AC-6, AC-7, AC-9)
       Check: pnpm test packages/app/src/features/sessions/components/session-header.test.tsx packages/app/src/features/sessions/session-screen.test.tsx
       Files: packages/app/src/features/sessions/components/session-header.tsx, packages/app/src/features/sessions/session-screen.tsx, their tests
 - [ ] Task 14: The next-move bar (Ready to push, Ready for a pull request, Pushed), opening today's dialogs, and Terminal in the page bar from 768 px (AC-1, AC-2, AC-3, AC-4, AC-5, AC-8)

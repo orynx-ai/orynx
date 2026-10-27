@@ -42,11 +42,12 @@ import { ApprovalCallout } from './approval-callout.tsx';
 import { StepDetails, hasDetails } from './step-details.tsx';
 
 /** Where the session is among its own steps (spec 042), with the steps it passed over (spec 031). */
-export function SessionStepper({ session }: { session: Session }) {
+export function SessionStepper({ session, className }: { session: Session; className?: string }) {
   const steps = stepsOf(session);
   const at = (kind: SessionStep) => steps.findIndex((step) => step.kind === kind);
   return (
     <Stepper
+      className={className}
       aria-label="Session progress"
       steps={steps.map((step) => step.label)}
       current={at(session.step)}
