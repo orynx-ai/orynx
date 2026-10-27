@@ -129,14 +129,17 @@ export function SessionHeader({ session, title }: { session: Session; title: Ref
           <span className="rounded-sm bg-subtle px-2">{noBranchYet}</span>
         ) : null}
         <SessionAddress session={session} />
+        {/* Each dot goes with what follows it, so a wrapped line never ends on one. */}
         {ask ? null : (
-          <>
+          <span className="inline-flex gap-2">
             <Dot />
-            <span>own worktree</span>
-          </>
+            own worktree
+          </span>
         )}
-        <Dot />
-        <span>started {agoText(now.getTime() - Date.parse(session.startedAt))}</span>
+        <span className="inline-flex gap-2">
+          <Dot />
+          started {agoText(now.getTime() - Date.parse(session.startedAt))}
+        </span>
       </div>
     </div>
   );
@@ -224,7 +227,10 @@ export function SessionActions({
         >
           <Icon icon={ComputerTerminal01Icon} aria-hidden />
           {terminalWords.button}
-          <Kbd aria-hidden>{shortcut.label}</Kbd>
+          {/* From 1280 px: narrower, the bar keeps the room for the breadcrumb. */}
+          <Kbd aria-hidden className="hidden xl:inline-flex">
+            {shortcut.label}
+          </Kbd>
         </Button>
       ) : null}
       {pullRequest === null || !wide ? null : (
