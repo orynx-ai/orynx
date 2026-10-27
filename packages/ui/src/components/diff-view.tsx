@@ -1,4 +1,4 @@
-import { useId, type ComponentProps } from 'react';
+import { useId, type ComponentProps, type ReactNode } from 'react';
 import { cva } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
 import { CopyButton } from './copy-button.tsx';
@@ -23,6 +23,10 @@ export type DiffViewProps = Omit<ComponentProps<'div'>, 'children'> & {
   path: string;
   /** The lines to show, already split; spec 013 turns git's output into them. */
   lines: readonly DiffLine[];
+  /** Wide lines wrap under their own code, beside their number, instead of scrolling sideways (spec 048). */
+  wrap?: boolean;
+  /** At the header's end, after the counts: the New file pill and Viewed (spec 048). */
+  actions?: ReactNode;
 };
 
 const lineVariants = cva('flex min-h-5', {
@@ -48,14 +52,15 @@ function fileName(path: string): string {
  * Design system: DiffView (`dh-diff`). Claude's changes to one file. From shadcn's `code-block`,
  * without its Shiki highlighter (spec 006 Q6b): mono 14/20, added lines on `success-subtle` with
  * "+", removed lines on `danger-subtle` with "−". A region named after the file, with the path and
- * its counts on top. Wide lines scroll sideways inside the diff (it takes keyboard focus for that),
- * never the page; copying takes only the code, without numbers or signs.
+ * its counts on top. Wide lines scroll sideways inside the diff (it takes keyboard focus for that), or wrap with `wrap`
+ * (spec 048), never the page; copying takes only the code, without numbers or signs.
  */
-export function DiffView({ path, lines, className, ...props }: DiffViewProps) {
+export function DiffView({ path, lines, wrap = false, actions, className, ...props }: DiffViewProps) {
   const added = lines.filter((line) => line.kind === 'added').length;
   const removed = lines.filter((line) => line.kind === 'removed').length;
   const spoken = spokenCounts(added, removed);
   const pathId = useId();
+  const textClass = cn('pe-3', wrap && 'min-w-0 wrap-anywhere whitespace-pre-wrap');
   return (
     <div
       data-slot="diff-view"
@@ -67,7 +72,8 @@ export function DiffView({ path, lines, className, ...props }: DiffViewProps) {
     >
       <div className="group flex items-center gap-2 border-b border-border bg-sidebar px-3 py-2 font-mono text-code">
         <span id={pathId} title={path} className="min-w-0 truncate">
-          {path}
+          <span className="text-muted-foreground">{path.slice(0, path.lastIndexOf('/') + 1)}</span>
+          <span className="font-medium">{fileName(path)}</span>
         </span>
         {/* As tall as the path's line, so the header keeps its height (the user's call, 19 Oct 2026). */}
         <CopyButton text={path} reveal="hover" className="-my-1.5 me-auto" />
@@ -76,6 +82,9 @@ export function DiffView({ path, lines, className, ...props }: DiffViewProps) {
           {removed > 0 ? <span className="text-danger">−{removed}</span> : null}
         </span>
         {spoken ? <span className="sr-only">{spoken}</span> : null}
+        {actions === undefined ? null : (
+          <span className="flex shrink-0 items-center gap-2 font-sans text-small">{actions}</span>
+        )}
       </div>
       {/* The code scrolls, which clips anything outside it, so the focus ring is drawn inside. */}
       <pre
@@ -84,21 +93,21 @@ export function DiffView({ path, lines, className, ...props }: DiffViewProps) {
         aria-labelledby={pathId}
         className="m-0 overflow-x-auto py-1 font-mono text-code focus-visible:-outline-offset-2"
       >
-        <code className="grid min-w-max">
+        <code className={cn('grid', wrap ? 'min-w-0' : 'min-w-max')}>
           {lines.map((line, index) =>
             // Lines have no id of their own; their order is fixed for a given diff.
             line.kind === 'hunk' ? (
               // The gap between hunks (spec 006 Q4c): the header in the code's column, left out of a copy.
               <span key={index} data-kind="hunk" className="flex min-h-5 bg-sidebar text-muted-foreground select-none">
                 <span className="w-15.5 shrink-0" />
-                <span className="pe-3">{line.text}</span>
+                <span className={textClass}>{line.text}</span>
               </span>
             ) : (
               <span key={index} data-kind={line.kind} className={lineVariants({ kind: line.kind })}>
                 <span className="w-11 shrink-0 pe-2 text-end text-muted-foreground select-none">{line.number}</span>
                 <span className={signVariants({ kind: line.kind })}>{signs[line.kind]}</span>
                 {/* An empty line holds a newline, so copying keeps the blank line. */}
-                <span className="pe-3">{line.text === '' ? '\n' : line.text}</span>
+                <span className={textClass}>{line.text === '' ? '\n' : line.text}</span>
               </span>
             ),
           )}

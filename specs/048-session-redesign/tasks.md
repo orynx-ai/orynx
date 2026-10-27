@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: `CommandLine` in @devhub/ui: a command on one line, cut, that shows in full on a press (AC-13)
       Check: pnpm test packages/ui/src/components/command-line.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/command-line.tsx, packages/ui/src/components/command-line.stories.tsx, packages/ui/src/components/command-line.test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 7: `DiffView` gets `wrap` and header `actions`, with the folder muted before the name (AC-19, AC-21)
+- [x] Task 7: `DiffView` gets `wrap` and header `actions`, with the folder muted before the name (AC-19, AC-21)
       Check: pnpm test packages/ui/src/components/diff-view.test.tsx
       Files: packages/ui/src/components/diff-view.tsx, packages/ui/src/components/diff-view.stories.tsx, packages/ui/src/components/diff-view.test.tsx
 - [ ] Task 8: `FileList` rows on two lines: the name, then the folder and the counts (AC-18)
