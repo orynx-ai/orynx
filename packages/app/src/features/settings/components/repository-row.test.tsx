@@ -24,6 +24,16 @@ describe('RepositoryRow', () => {
     expect(screen.getByText('Jira PROJ')).toBeVisible();
   });
 
+  it('AC-16 (spec 048): says Folder not found on a folder that’s gone, and nothing on one that’s there', async () => {
+    const { container, unmount } = row({ found: false });
+    expect(screen.getByText('Folder not found')).toBeVisible();
+    await expectNoAxeViolations(container);
+    unmount();
+
+    row();
+    expect(screen.queryByText('Folder not found')).toBeNull();
+  });
+
   it('AC-17 (spec 020): More actions names the folder, shows its tooltip, and offers Edit, Duplicate and Delete', async () => {
     const user = userEvent.setup();
     const { container, onEdit, onDuplicate, onDelete } = row();

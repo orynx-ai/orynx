@@ -37,7 +37,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: The repository list says when a saved folder is gone (AC-16)
       Check: pnpm test packages/contracts/src/repositories.test.ts packages/core/src/repositories/ packages/core/src/routes/repositories.test.ts
       Files: packages/contracts/src/repositories.ts, packages/contracts/src/testing.ts, packages/core/src/repositories/repository-service.ts, their tests
-- [ ] Task 11: Settings › Repositories shows Folder not found on that row (AC-16, AC-20)
+- [x] Task 11: Settings › Repositories shows Folder not found on that row (AC-16, AC-20)
       Check: pnpm test packages/app/src/features/settings/components/repository-row.test.tsx packages/app/src/features/settings/components/repositories-panel.test.tsx
       Files: packages/app/src/features/settings/components/repository-row.tsx, its test
 
