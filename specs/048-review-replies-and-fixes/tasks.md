@@ -4,7 +4,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **C. Test speed (local)**
 
-- [ ] Task 1: The two flaky session-service tests wait on the fake clock and the event they need, not real time (part C)
+- [x] Task 1: The two flaky session-service tests wait on the fake clock and the event they need, not real time (part C)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts, 5 runs in a row
       Files: packages/core/src/sessions/session-service.test.ts
 - [ ] Task 2: The app's unit tests share one module graph per worker (AC-21)
