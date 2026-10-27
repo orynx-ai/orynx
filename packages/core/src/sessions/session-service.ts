@@ -54,6 +54,7 @@ import { logEnd, logRunEnded, logWork } from './command-log.ts';
 import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
 import {
   chooseFolder,
+  folderPullOf,
   composerPlan,
   contextAfter,
   noReads,
@@ -1321,6 +1322,14 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return origin.ok ? origin.repository : null;
   }
 
+  /** A composer start's folder; each folder's origin is read only for a pull request that picks by it (spec 047). */
+  async function folderFor(request: ComposerStart): Promise<ReturnType<typeof chooseFolder>> {
+    const folders = await repositories.list();
+    if (folderPullOf(request) === null) return chooseFolder(folders, request);
+    const origins = await Promise.all(folders.map(async (folder) => [folder.id, await originOf(folder.path)] as const));
+    return chooseFolder(folders, request, new Map(origins));
+  }
+
   /** Whether the follow-up box takes a message, or why not (spec 013, AC-14). */
   function followUpOf(record: StoredSession): SessionFollowUp {
     const { session } = record;
@@ -1432,7 +1441,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     if (!(await claude.connected())) return { result: 'cannot_start', reason: 'signed_out' };
     if ((await workingCount()) >= mostWorking) return { result: 'cannot_start', reason: 'too_many' };
     // An Ask sent with no folder reads none (spec 031); a Build always has one.
-    const folder = ask && request.repositoryId === undefined ? null : chooseFolder(await repositories.list(), request);
+    const folder = ask && request.repositoryId === undefined ? null : await folderFor(request);
     if (typeof folder === 'string') return { result: 'cannot_start', reason: folder };
 
     const read = await options.context.read(request.context);
