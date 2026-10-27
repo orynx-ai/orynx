@@ -9,6 +9,7 @@ import { otherHub, waitForHub } from './hub.ts';
 import { navigationAction, newWindowAction } from './links.ts';
 import { openLogFile } from './log-file.ts';
 import { mergePaths, readLoginPath } from './login-path.ts';
+import { createMacUpdater, type MacUpdater } from './mac-update.ts';
 import { watchUpdates } from './updates.ts';
 
 const config = loadConfig();
@@ -60,11 +61,26 @@ async function stopped(): Promise<void> {
   app.exit(0);
 }
 
-/** Restart to update: stop the hub as Quit does (AC-19), then install the downloaded update and open it. */
-function restartToUpdate(running: UtilityProcess): void {
+/**
+ * Restart to update: stop the hub as Quit does (AC-19), then install the downloaded update and open it. A Mac
+ * swaps Orynx.app only once the hub has stopped, because the hub runs from inside it (AC-20).
+ */
+function restartToUpdate(running: UtilityProcess, mac: MacUpdater | null, log: (line: string) => void): void {
   quitting = true;
   running.once('exit', () => {
-    autoUpdater.quitAndInstall(true, true);
+    if (mac === null) {
+      autoUpdater.quitAndInstall(true, true);
+      return;
+    }
+    void mac
+      .swap()
+      .catch((error: unknown) => {
+        log(`Orynx couldn't install the update (${error instanceof Error ? error.message : String(error)}).`);
+      })
+      .finally(() => {
+        app.relaunch();
+        app.exit(0);
+      });
   });
   running.kill();
 }
@@ -124,15 +140,21 @@ async function start(): Promise<void> {
   if (app.isPackaged) {
     autoUpdater.logger = null;
     // The updater tells the hub, and Settings › About shows it: no dialog of its own (spec 045, Q5).
+    const mac =
+      process.platform === 'darwin'
+        ? // …/Orynx.app/Contents/MacOS/Orynx
+          createMacUpdater({ app: join(app.getPath('exe'), '..', '..', '..'), feedUrl: config.updatesUrl })
+        : null;
     const updates = watchUpdates({
       updater: autoUpdater,
       platform: process.platform,
       feedUrl: config.updatesUrl,
+      mac,
       tell: (state) => {
         child.postMessage(state);
       },
       restart: () => {
-        restartToUpdate(child);
+        restartToUpdate(child, mac, note);
       },
       log: note,
     });

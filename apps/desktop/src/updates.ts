@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { MacUpdater } from './mac-update.ts';
 
 /** The part of electron-updater's `autoUpdater` Orynx uses. */
 export interface Updater {
@@ -39,6 +40,8 @@ export interface WatchUpdatesOptions {
   platform: NodeJS.Platform;
   /** A test's fake releases server (DEVHUB_UPDATES_URL), or null for this repo's GitHub Releases. */
   feedUrl: string | null;
+  /** The Mac's own update (Q2a); null where it can't run, such as an app that isn't packed. */
+  mac?: MacUpdater | null;
   /** Tells the hub how far an update has got; Settings › About shows it. */
   tell: (state: UpdateState) => void;
   /** Restart to update: stops the hub as Quit does, then installs and opens the new version. */
@@ -66,10 +69,19 @@ function reason(error: Error): string {
 /**
  * Electron's updater keeps its job (spec 027), and tells the hub what it is doing instead of showing a dialog of its
  * own (spec 045, Q5). Linux's AppImage downloads an update in the background, checking at launch and every 6 hours
- * with no token, and installs it on Restart to update or on quit. A Mac offers Download, which opens the release
- * page. Orynx never restarts without your click, so a session is never cut off.
+ * with no token, and installs it on Restart to update or on quit. A Mac downloads one only on Update, with its own
+ * code (Q2a), or offers Download, which opens the release page, when it can't replace Orynx.app. Orynx never
+ * restarts without your click, so a session is never cut off.
  */
-export function watchUpdates({ updater, platform, feedUrl, tell, restart, log }: WatchUpdatesOptions): WatchedUpdates {
+export function watchUpdates({
+  updater,
+  platform,
+  feedUrl,
+  mac: macUpdater = null,
+  tell,
+  restart,
+  log,
+}: WatchUpdatesOptions): WatchedUpdates {
   const mac = platform === 'darwin';
   updater.autoDownload = !mac;
   updater.autoInstallOnAppQuit = !mac;
@@ -87,10 +99,35 @@ export function watchUpdates({ updater, platform, feedUrl, tell, restart, log }:
         log("Orynx couldn't read a message from its hub.");
         return;
       }
-      if (command.data.type === 'restart' && state.update.state === 'ready') restart();
+      if (command.data.type === 'restart') {
+        if (state.update.state === 'ready') restart();
+        return;
+      }
+      if (macUpdater === null || state.action !== 'update') return;
+      if (state.update.state !== 'idle' && state.update.state !== 'failed') return;
+      const { version } = command.data;
+      set({ state: 'downloading', version });
+      macUpdater.download(version).then(
+        () => {
+          set({ state: 'ready', version });
+        },
+        (error: unknown) => {
+          log(`Orynx couldn't download the update (${error instanceof Error ? error.message : String(error)}).`);
+          set({ state: 'failed', log: null });
+        },
+      );
     },
   };
-  if (mac) return { ...commands, stop: () => undefined };
+  if (mac) {
+    if (macUpdater !== null) {
+      void macUpdater.cleanUp().catch(() => undefined);
+      void macUpdater.canReplace().then((can) => {
+        state = { ...state, action: can ? 'update' : 'download' };
+        tell(state);
+      });
+    }
+    return { ...commands, stop: () => undefined };
+  }
 
   if (feedUrl !== null) updater.setFeedURL({ provider: 'generic', url: feedUrl });
   updater.on('update-available', ({ version }) => {

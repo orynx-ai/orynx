@@ -38,7 +38,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 12: The desktop updater sends its state to the hub, drops its native dialogs, and restarts on Linux through quitAndInstall after stopping the hub (AC-13, AC-18, AC-19, AC-22)
       Check: pnpm test apps/desktop/src/updates.test.ts apps/desktop/src/dialogs.test.ts
       Files: apps/desktop/src/updates.ts, updates.test.ts, dialogs.ts, dialogs.test.ts, main.ts
-- [ ] Task 13: The Mac's own update: latest-mac.yml, download, sha512, unzip, swap, reopen, put back on failure, Download when the folder can't be written (AC-20, AC-21, AC-23)
+- [x] Task 13: The Mac's own update: latest-mac.yml, download, sha512, unzip, swap, reopen, put back on failure, Download when the folder can't be written (AC-20, AC-21, AC-23)
       Check: pnpm test apps/desktop/src/mac-update.test.ts
       Files: apps/desktop/src/mac-update.ts, mac-update.test.ts, apps/desktop/src/main.ts
 - [ ] Task 14: api-client: getUpdates, postUpdatesCheck, postUpdatesInstall and updatesQueryOptions; `updates.changed` and `sessions.changed` refresh it
