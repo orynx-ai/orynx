@@ -7,9 +7,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: `another` on the composer's start (AC-2)
       Check: pnpm test packages/contracts/src/session.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts
-- [ ] Task 2: `composeNow` starts beside a live session when `another` is set, for a ticket and for your own PR in its own detached worktree (AC-2, AC-4)
-      Check: pnpm test packages/core/src/sessions/session-service.test.ts
-      Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-service.test.ts
+- [x] Task 2: `composeNow` starts beside a live session when `another` is set, for a ticket and for your own PR in its own detached worktree (AC-2, AC-4)
+      Check: pnpm test packages/core/src/sessions/compose.test.ts packages/core/src/sessions/session-service.test.ts
+      Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/compose.test.ts
 - [ ] Task 3: Both sessions keep their follow-up box (`newer_session` goes), and `sessionsByTicket` shows the newest session that isn't Stopped (AC-5)
       Check: pnpm test packages/core/src/sessions/ticket-sessions.test.ts packages/core/src/sessions/session-service.test.ts packages/contracts/src/session.test.ts packages/app/src/features/sessions/follow-up-words.test.ts packages/app/src/features/sessions/components/follow-up-box.test.tsx; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/ticket-sessions.ts, packages/app/src/features/sessions/follow-up-words.ts, and their tests

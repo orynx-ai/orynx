@@ -1427,8 +1427,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   async function composeNow(request: ComposerStart): Promise<StartSessionAnswer> {
     const key = ticketKeyOf(request);
     const ask = request.mode === 'ask';
-    // A ticket's live session stops a Build on it; an Ask only reads, so it starts beside one (spec 026).
-    if (key !== null && !ask) {
+    // A ticket's live session stops a Build on it, unless you asked for another (spec 047); an Ask only reads, so it
+    // starts beside one (spec 026).
+    const another = request.another === true;
+    if (key !== null && !ask && !another) {
       const live = await liveSessionOn(key);
       if (live !== null) return { result: 'existing', sessionId: live };
     }
@@ -1440,9 +1442,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     const read = await options.context.read(request.context);
     if (!read.ok) return { result: 'context_failed', chip: read.chip, problem: read.problem };
-    // A Build on your own pull request works on its branch (spec 031, Q3), one session at a time.
+    // A Build on your own pull request works on its branch (spec 031, Q3), one session at a time unless you asked for
+    // another, in a worktree of its own, detached as every one on a pull request is (spec 047).
     const pull = ask || folder === null ? null : pullToWorkOn(read.chips, await originOf(folder.path));
-    if (pull !== null) {
+    if (pull !== null && !another) {
       const live = await liveSessionOnPull(pullKey(`${pull.owner}/${pull.name}`, pull.number));
       if (live !== null) return { result: 'existing', sessionId: live };
     }

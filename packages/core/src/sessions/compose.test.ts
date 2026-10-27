@@ -325,6 +325,26 @@ describe('a composer start that can’t happen (spec 015)', () => {
     await nothingMade(set, 1, heardBefore);
   });
 
+  it('spec 047, AC-2: `another` starts a second session beside the ticket’s live one, in its own worktree', async () => {
+    const set = await setUp();
+    await set.sessions.start({ ticketKey: 'PROJ-1423' });
+    await settled(set.records);
+
+    const answer = await set.sessions.start(
+      makeComposerStart({
+        message: 'Only the tests',
+        repositoryId: set.folder?.id,
+        context: [ticketChip],
+        another: true,
+      }),
+    );
+
+    expect(answer).toEqual({ result: 'started', sessionId: '0000000000000002' });
+    const second = await settled(set.records, '0000000000000002');
+    expect(second.session.source).toEqual({ kind: 'jira', key: 'PROJ-1423' });
+    expect(second.worktree).not.toBe((await set.records.get('0000000000000001'))?.worktree);
+  });
+
   it('AC-5 (spec 022): a live session on a ticket after the first doesn’t stop the start', async () => {
     const set = await setUp();
     await set.sessions.start({ ticketKey: 'PROJ-1423' });
@@ -827,6 +847,33 @@ describe('a Build on your pull request (spec 031)', () => {
 
     expect(await answer(set)).toEqual({ result: 'existing', sessionId: '0000000000000001' });
     expect(await set.records.get('0000000000000002')).toBeNull();
+  });
+
+  it('spec 047, AC-4: `another` on your pull request works on its branch in a second detached worktree', async () => {
+    const set = await onGitHub();
+    set.outside.use(yours());
+    const newest = await set.repos.commitInOrigin('fix.txt', 'fix/content-list');
+    await answer(set);
+    const first = await settled(set.records);
+
+    expect(
+      await set.sessions.start(
+        makeComposerStart({
+          message: 'Answer the review comments',
+          repositoryId: set.folder?.id,
+          context: [pullChip],
+          another: true,
+        }),
+      ),
+    ).toEqual({ result: 'started', sessionId: '0000000000000002' });
+
+    const second = await settled(set.records, '0000000000000002');
+    expect(second.session).toMatchObject({ workOn: 'pull_request', branch: 'fix/content-list' });
+    expect(second.worktree).not.toBe(first.worktree);
+    expect(await set.repos.git(second.worktree ?? '', 'rev-parse', 'HEAD')).toBe(newest);
+    // An edit in one worktree isn't in the other's.
+    await writeFile(join(first.worktree ?? '', 'mine.ts'), 'mine\n');
+    expect(await readdir(second.worktree ?? '')).not.toContain('mine.ts');
   });
 
   it('AC-19: someone else’s pull request is context for a new branch', async () => {
