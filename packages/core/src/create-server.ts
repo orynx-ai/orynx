@@ -339,6 +339,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       app.log.error(error, 'The sprint sync failed');
     },
   });
+  // The session service is made below; until then a sync has no sessions to watch (spec 047).
+  let watchPulls: () => Promise<void> = () => Promise.resolve();
   const inbox = createInboxService({
     cache,
     settings,
@@ -357,6 +359,12 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     },
     onSynced: (tool, before, after) => {
       notifications.inboxSynced(tool, before, after);
+      // Each time GitHub answers, a session's pull request may have been merged or closed (spec 047).
+      if (tool === 'github') {
+        watchPulls().catch((error: unknown) => {
+          app.log.error(error, 'Watching the sessions’ pull requests failed');
+        });
+      }
     },
   });
   const syncActivity = createSyncActivityService({ cache, states: async () => (await inbox.records()).tools });
@@ -494,6 +502,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       }
     },
   });
+  watchPulls = () => sessionService.watchPulls();
   app.addHook('onClose', async () => {
     await sessionService.close();
   });

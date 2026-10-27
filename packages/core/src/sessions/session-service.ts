@@ -183,6 +183,12 @@ export interface SessionService {
   draftPush(id: string): Promise<PushDraftAnswer | null>;
   /** Commits what's new and pushes it to the pull request, on your press only (Q7); null for no such session. */
   push(id: string, request: PushRequest): Promise<PushAnswer | null>;
+  /**
+   * Spec 047: asks GitHub about each pull request of a session in PR open or PR closed whose worktree is still there,
+   * and saves it as merged, closed or open again. A merge where nothing would be lost removes the worktree as Delete
+   * does, branch kept, once. GitHub not answering changes nothing. One watch at a time.
+   */
+  watchPulls(): Promise<void>;
   /** Stops every running session and waits for every change still being saved, for the server's shutdown. */
   close(): Promise<void>;
 }
@@ -1596,14 +1602,61 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return 'deleted';
   }
 
+  /** The worktree of a merged session goes as Delete takes it, servers and shells first, its branch kept (spec 047). */
+  async function removeMerged(id: string, record: StoredSession): Promise<boolean> {
+    if (record.worktree === null || record.repository === null) return false;
+    await stopServers(id, record);
+    await options.terminal?.stopAll(id);
+    const removed = await worktrees.remove(record.repository.path, record.worktree, null);
+    if (!removed.ok) report(record, 'git', 'remove');
+    return removed.ok;
+  }
+
+  const pullStates = { open: 'pr_open', closed: 'pr_closed', merged: 'pr_merged' } as const;
+
+  async function watchPullsNow(): Promise<void> {
+    const credentials = await options.github?.credentials();
+    if (credentials?.ok !== true) return;
+    const watched = (await records.list()).filter(
+      (listed) => (listed.state === 'pr_open' || listed.state === 'pr_closed') && listed.discardedAt == null,
+    );
+    for (const { id } of watched) {
+      const pull = (await records.get(id))?.session.pullRequest ?? null;
+      if (pull === null) continue;
+      const answer = await githubClient.pullState(credentials.token, pull);
+      if (!answer.ok) continue;
+      const state = pullStates[answer.state];
+      // Read again after GitHub answered: a follow-up may have started, and then the next sync decides.
+      await publishing.get(id);
+      const record = await records.get(id);
+      if (record === null || record.session.state === state || isWorking(record.session)) continue;
+      const gone =
+        state === 'pr_merged' &&
+        record.worktree !== null &&
+        (await branchGit.nothingToLose(record.worktree, [answer.head])) &&
+        (await removeMerged(id, record));
+      const at = new Date(now()).toISOString();
+      await change(id, (current) =>
+        isWorking(current.session)
+          ? current
+          : { ...current, session: { ...current.session, state, ...(gone ? { discardedAt: at } : {}) } },
+      );
+      // A merged session's state changes once, so only this tells its Changes tab the files are gone.
+      if (gone) filesChanged(id);
+    }
+  }
+
+  let watching: Promise<void> | undefined;
+
   const branchGit = createBranchGit({ env: options.worktrees.env });
+  const githubClient = options.githubClient ?? createGitHubClient();
   const pullRequests = createPullRequests({
     records,
     save: change,
     now,
     onReport: (report) => options.onReport?.(report),
     github: options.github ?? { credentials: () => Promise.resolve(null) },
-    client: options.githubClient ?? createGitHubClient(),
+    client: githubClient,
     git: branchGit,
     changes: options.changes,
     adapter,
@@ -1709,6 +1762,17 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     remove(id, { branch = false } = {}) {
       return whileEnding(id, removeNow(id, branch));
+    },
+
+    watchPulls() {
+      if (watching === undefined) {
+        watching = watchPullsNow().finally(() => {
+          watching = undefined;
+        });
+        // Closing waits for a watch under way, so a worktree is never left half removed.
+        track(watching);
+      }
+      return watching;
     },
 
     async changes(id) {

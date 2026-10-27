@@ -36,10 +36,12 @@ import {
 } from '../test/fake-jira.ts';
 import {
   acceptingPulls,
+  acceptingPullStates,
   acceptingRepository,
   githubToken,
   pullsUrl,
   type FakeOpenedPull,
+  type FakePullState,
 } from '../test/fake-github.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { createTerminalService } from '../terminal/terminal-service.ts';
@@ -1743,6 +1745,100 @@ describe('the pull request (spec 014)', () => {
       state: 'pr_open',
       pullRequest: { number: 2841, url: 'https://github.com/acme/web-app/pull/2841' },
     });
+  });
+});
+
+describe('after the pull request (spec 047)', () => {
+  const id = '0000000000000001';
+  const asked = { title: 'PROJ-1423: Add bulk archive to the content list', body: 'What changed.' };
+
+  /** A session whose pull request #2841 is open, its worktree at the pull request's head, and GitHub's answer to change. */
+  async function opened() {
+    const set = await setUp({
+      script: [edit('src/a.ts'), { finish: 'Added row selection.' }],
+      later: [[{ finish: 'Add bulk archive\n\nRow selection.' }]],
+    });
+    await set.service.start({ ticketKey: 'PROJ-1423' });
+    await settled(set.records);
+    await set.repos.git(set.repos.clone, 'remote', 'set-url', 'origin', 'git@github.com:acme/web-app.git');
+    await set.repos.git(
+      set.repos.clone,
+      'config',
+      `url.${set.repos.origin}.pushInsteadOf`,
+      'git@github.com:acme/web-app.git',
+    );
+    await writeFile(
+      join(set.repos.root, '.gitconfig'),
+      '[init]\n\tdefaultBranch = main\n[user]\n\tname = Rakesh D\n\temail = you@company.com\n',
+    );
+    const worktree = join(set.home, 'worktrees', id);
+    await writeFile(join(worktree, 'README.md'), '# web-app\n\nBulk archive.\n');
+    jira.use(...acceptingPulls(), acceptingRepository());
+    expect(await set.service.createPullRequest(id, asked)).toMatchObject({ result: 'opened', number: 2841 });
+    const head = await set.repos.git(worktree, 'rev-parse', 'HEAD');
+    const pulls: FakePullState[] = [{ number: 2841, state: 'open', head }];
+    let asks = 0;
+    jira.events.on('request:start', ({ request }) => {
+      if (request.url.endsWith('/pulls/2841')) asks += 1;
+    });
+    jira.use(acceptingPullStates(pulls));
+    const merge = (state: FakePullState['state']) => {
+      pulls[0] = { number: 2841, state, head };
+    };
+    return { ...set, worktree, merge, asks: () => asks };
+  }
+
+  it('AC-11, AC-12: a merge with nothing to lose makes it PR merged, removes the worktree and keeps the branch', async () => {
+    const { service, records, repos, worktree, heard, merge } = await opened();
+    merge('merged');
+    heard.length = 0;
+
+    await service.watchPulls();
+
+    expect(await service.get(id)).toMatchObject({ state: 'pr_merged', worktreePath: null });
+    expect((await records.get(id))?.session.discardedAt).not.toBeNull();
+    await expect(readdir(worktree)).rejects.toThrow();
+    expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toContain('feat/PROJ-1423');
+    expect(heard).toContainEqual({ type: 'sessions.changed' });
+  });
+
+  it('AC-13: a merge with a file not committed makes it PR merged and keeps the worktree, once', async () => {
+    const { service, worktree, merge, asks } = await opened();
+    await writeFile(join(worktree, 'notes.md'), 'mine\n');
+    merge('merged');
+
+    await service.watchPulls();
+    expect(await service.get(id)).toMatchObject({ state: 'pr_merged', worktreePath: worktree });
+    expect(await readFile(join(worktree, 'notes.md'), 'utf8')).toBe('mine\n');
+
+    // Decided once: a merged session isn't asked about again.
+    const before = asks();
+    await service.watchPulls();
+    expect(asks()).toBe(before);
+  });
+
+  it('AC-14: a pull request closed unmerged is PR closed with its worktree; reopened, it is PR open again', async () => {
+    const { service, worktree, merge } = await opened();
+    merge('closed');
+    await service.watchPulls();
+    expect(await service.get(id)).toMatchObject({ state: 'pr_closed', worktreePath: worktree });
+
+    merge('open');
+    await service.watchPulls();
+    expect(await service.get(id)).toMatchObject({ state: 'pr_open', worktreePath: worktree });
+  });
+
+  it("AC-15: when GitHub can't be reached, or nothing changed, nothing is saved", async () => {
+    const { service, records, merge } = await opened();
+    const before = await records.get(id);
+
+    await service.watchPulls();
+    expect(await records.get(id)).toEqual(before);
+
+    merge('merged');
+    jira.use(http.get('https://api.github.com/repos/:owner/:repo/pulls/:number', () => HttpResponse.error()));
+    await service.watchPulls();
+    expect(await records.get(id)).toEqual(before);
   });
 });
 
