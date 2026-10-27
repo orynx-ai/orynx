@@ -1,10 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterAll, afterEach, beforeAll } from 'vitest';
+import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { useComposerStore } from '../features/home/store.ts';
 import { useTestPopUpStore } from '../features/notifications/store.ts';
 import { useSearchStore } from '../features/search/store.ts';
-import { useDiffView, useTerminalTabs } from '../features/sessions/store.ts';
+import { useDiffView, usePullRequestDrafts, useSessionDrafts, useTerminalTabs } from '../features/sessions/store.ts';
 import { useTicketsStore } from '../features/tickets/store.ts';
 import { useTicketDialogStore } from '../features/tickets/ticket-dialog-store.ts';
 import { useConnectionStore } from '../stores/connection-store.ts';
@@ -63,6 +63,8 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup();
+  // A stubbed matchMedia (a narrow window) or Notification would otherwise reach every test after it (spec 048).
+  vi.unstubAllGlobals();
   server.resetHandlers();
   localStorage.clear();
   delete document.documentElement.dataset['theme'];
@@ -76,6 +78,8 @@ afterEach(() => {
   useTestPopUpStore.setState(useTestPopUpStore.getInitialState());
   useTerminalTabs.setState(useTerminalTabs.getInitialState());
   useDiffView.setState(useDiffView.getInitialState());
+  useSessionDrafts.setState(useSessionDrafts.getInitialState());
+  usePullRequestDrafts.setState(usePullRequestDrafts.getInitialState());
   useRecentSearches.setState(useRecentSearches.getInitialState());
   FakeEventSource.instances = [];
   FakeIntersectionObserver.instances = [];
