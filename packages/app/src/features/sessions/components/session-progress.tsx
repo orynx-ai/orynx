@@ -344,10 +344,13 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
             )}
           </>
         }
-        // Clipped without being a scroll box, so the box at its end can stick to the window.
-        className="overflow-clip"
+        // Stacked, it's clipped without being a scroll box, so the box at its end can stick to the window. Side by side
+        // (spec 048, Q4), it's held in view under the page bar, as tall as the window less the bar and its gaps, and
+        // its steps scroll on their own above the box.
+        // style-policy-ignore-next-line: the window's height less the page bar and its gaps has no scale step
+        className="overflow-clip @3xl:sticky @3xl:top-20 @3xl:flex @3xl:max-h-[calc(100svh-7rem)] @3xl:flex-col"
       >
-        <div className="flex flex-col gap-4 p-4">
+        <div className="flex flex-col gap-4 p-4 @3xl:min-h-0 @3xl:flex-1 @3xl:overflow-y-auto">
           {problem === null ? null : (
             <Callout tone="danger" role="alert" title={problem.title}>
               <span>{withCode(problem.line)}</span>
@@ -388,28 +391,24 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
           )}
           {/* Under the last step, as a chat asks, not at the top (the user's call, 20 Oct 2026). */}
           <ApprovalCallout session={session} afterAll={pane} />
-          {/* The steps pass under the follow-up box, on the pane's own colour; Jump to latest sits over it. */}
-          <div
-            className={
-              footer === undefined ? 'sticky bottom-4 h-0' : 'sticky bottom-0 -mx-4 -mb-4 bg-raised px-4 pt-2 pb-4'
-            }
-          >
-            {atEnd ? null : (
-              <IconButton
-                variant="secondary"
-                label={followWords.jump}
-                onClick={jump}
-                className="absolute end-4 bottom-full mb-2 rounded-full shadow-overlay"
-              >
-                <Icon icon={ArrowDown01Icon} aria-hidden />
-              </IconButton>
-            )}
-            {footer}
-          </div>
+          {/* The steps' end: in view only once you've scrolled to the end of What Claude did. */}
+          <div ref={end} aria-hidden />
+        </div>
+        {/* The steps pass under the follow-up box, on the pane's own colour; Jump to latest sits over it. */}
+        <div className={footer === undefined ? 'sticky bottom-4 h-0' : 'sticky bottom-0 bg-raised px-4 pt-2 pb-4'}>
+          {atEnd ? null : (
+            <IconButton
+              variant="secondary"
+              label={followWords.jump}
+              onClick={jump}
+              className="absolute end-4 bottom-full mb-2 rounded-full shadow-overlay"
+            >
+              <Icon icon={ArrowDown01Icon} aria-hidden />
+            </IconButton>
+          )}
+          {footer}
         </div>
       </Panel>
-      {/* Past the pane's end: in view only once you've scrolled to the end of Claude's progress. */}
-      <div ref={end} aria-hidden />
       <StepDetails
         session={session}
         activity={shown}

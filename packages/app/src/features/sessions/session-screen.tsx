@@ -1,4 +1,4 @@
-// Design: docs/design/screens/session.html — page bar, title row, stepper, Claude's progress with the approval callout and the follow-up box, the Changes tab; spec 014's dialog and PR-open buttons: Design: none, settled in its Q10; the Context tab (in place of Ticket), the details held in view, the full-screen view, an Ask session's page with no stepper or Changes, and the session's buttons small in the page bar with Open in the editor and Discard changes in More actions (everything but Stop in it under 768 px): Design: none — the user's call, 19 Oct 2026; the approval callout under the last step, and Stop turning while Claude runs: Design: none — the user's call, 20 Oct 2026; no Open in Jira in the page bar (the Context tab keeps it): Design: none — the user's call, 20 Oct 2026
+// Design: docs/design/screens/session-review.html — the title row with the stepper beside it, the next-move bar, What Claude did by step with its follow-up box at its foot, the panes scrolling on their own, and the Changes tab's file column, Wrap lines, Viewed and New file (spec 048); docs/design/screens/session.html — the states session-review.html doesn't draw: working, waiting for your approval, stopped, an Ask, and the stacked page; spec 014's dialogs: Design: none, settled in its Q10; the Context tab (in place of Ticket), the full-screen view, and Open in the editor and Delete in More actions (everything but Stop in it under 768 px): Design: none — the user's call, 19 Oct 2026; the approval callout under the last step, and Stop turning while Claude runs: Design: none — the user's call, 20 Oct 2026; no Open in Jira in the page bar (the Context tab keeps it): Design: none — the user's call, 20 Oct 2026
 import { useCallback, useRef, type ReactNode } from 'react';
 import { useParams } from '@tanstack/react-router';
 import type { Session } from '@devhub/contracts';
@@ -31,27 +31,28 @@ function crumbsFor(session: Session): Crumb[] {
 }
 
 /**
- * Claude's progress and the work beside it (spec 013, Q6): side by side when there's room, each its own height,
- * the progress first when they stack. As `session.html` sizes them: 360 and 480 px to start, grown 2 to 3. Side
- * by side, the details stay in view under the page bar while the progress scrolls, and scroll on their own (the
- * user's call, 19 Oct 2026).
+ * What Claude did and the work beside it (spec 013, Q6; spec 048, Q4): side by side once there's 48rem for them, What
+ * Claude did 400 px wide and the tabs the rest, each held in view under the page bar and scrolling on its own, What
+ * Claude did with its follow-up box at its foot. Narrower, they stack, What Claude did first, and the window scrolls.
  */
 function Panes({ progress, details }: { progress: ReactNode; details: ReactNode }) {
   return (
-    // A container, so the loading form can tell side by side (896 px and up) from stacked.
-    <div className="@container flex flex-wrap items-start gap-5">
-      <div className="min-w-0 grow-2 basis-90">{progress}</div>
-      {/* An Ask session that was sent nothing has no details: the progress takes the width (spec 026). */}
-      {details === null ? null : (
-        <section
-          aria-label="Work details"
-          // 24 px under the 56 px page bar, and as tall as the window less those 80 px and 32 px under it.
-          // style-policy-ignore-next-line: the window's height less the page bar and its gaps has no scale step
-          className="min-w-0 grow-3 basis-120 @4xl:sticky @4xl:top-20 @4xl:flex @4xl:max-h-[calc(100svh-7rem)] @4xl:flex-col"
-        >
-          {details}
-        </section>
-      )}
+    // A container, so each pane and the loading form can tell side by side (768 px and up) from stacked.
+    <div className="@container">
+      <div className="flex flex-col gap-5 @3xl:flex-row @3xl:items-start">
+        {/* An Ask session that was sent nothing has no details: What Claude did takes the width (spec 026). */}
+        <div className={details === null ? 'min-w-0' : 'min-w-0 @3xl:w-100 @3xl:shrink-0'}>{progress}</div>
+        {details === null ? null : (
+          <section
+            aria-label="Work details"
+            // 24 px under the 56 px page bar, and as tall as the window less those 80 px and 32 px under it.
+            // style-policy-ignore-next-line: the window's height less the page bar and its gaps has no scale step
+            className="min-w-0 @3xl:sticky @3xl:top-20 @3xl:flex @3xl:max-h-[calc(100svh-7rem)] @3xl:flex-1 @3xl:flex-col"
+          >
+            {details}
+          </section>
+        )}
+      </div>
     </div>
   );
 }
@@ -97,7 +98,7 @@ export function SessionScreen() {
             details={
               // The tabs' row, then the Changes tab's own loading form; only beside the progress. Stacked under
               // it, the progress's real length would push it down, so the details appear once they've loaded.
-              <div aria-hidden className="flex flex-col gap-3 @max-4xl:hidden">
+              <div aria-hidden className="flex flex-col gap-3 @max-3xl:hidden">
                 <div className="h-12 border-b border-border" />
                 <ChangesSkeleton />
               </div>

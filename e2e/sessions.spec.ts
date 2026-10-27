@@ -351,7 +351,11 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
       return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
     }, selector);
   };
-  for (const url of [seen.done, seen.failed]) {
+  // The finished session has the next-move bar (spec 048); the one that couldn't start has none.
+  for (const [url, bar] of [
+    [seen.done, true],
+    [seen.failed, false],
+  ] as const) {
     if (url === undefined) throw new Error('A session the earlier tests start is missing');
     for (const width of [1280, 360]) {
       for (const colorScheme of ['light', 'dark'] as const) {
@@ -359,6 +363,8 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
         await page.emulateMedia({ colorScheme });
         await page.goto(url);
         await expect(page.getByRole('region', { name: 'What Claude did' })).toBeVisible();
+        // It comes once the changes have loaded, fading in: axe reads it once it's there.
+        if (bar) await expect(page.getByRole('status', { name: 'Ready for a pull request' })).toBeVisible();
         expect(await check(), `${url} at ${String(width)} px, ${colorScheme}`).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       }
@@ -372,6 +378,29 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
   await card.getByRole('button', { name: 'Speed up the site picker' }).click();
   await expect(page.getByRole('dialog').getByRole('heading', { name: 'Description' })).toBeVisible();
   expect(await check('[role="dialog"]')).toEqual([]);
+});
+
+test('AC-17 (spec 048): side by side, What Claude did scrolls on its own, with the follow-up box at its foot', async ({
+  page,
+}) => {
+  if (seen.done === undefined) throw new Error('A session the earlier tests start is missing');
+  // A short window, so every step opened is taller than the pane can be.
+  await page.setViewportSize({ width: 1280, height: 600 });
+  await page.goto(seen.done);
+  const progress = page.getByRole('region', { name: 'What Claude did' });
+  await progress.getByRole('button', { name: 'Expand all' }).click();
+  const box = page.getByRole('textbox', { name: 'Message Claude' });
+  const tabs = page.getByRole('tablist', { name: 'Session details' });
+
+  // The pane stays within the window, with its box at its foot and the tabs beside it in view.
+  expect((await progress.boundingBox())?.height ?? Infinity).toBeLessThanOrEqual(600);
+  await expect(box).toBeInViewport();
+  await expect(tabs).toBeInViewport();
+  // Reading down to Claude's last step moves only the pane.
+  await progress.getByText('Added row selection and an Archive selected button.').scrollIntoViewIfNeeded();
+  await expect(box).toBeInViewport();
+  await expect(tabs).toBeInViewport();
+  await expect(progress.getByText('Made a worktree')).not.toBeInViewport();
 });
 
 test('039 AC-18, AC-21, AC-24-AC-28, AC-32, AC-35: a row’s ⋯ shows on hover; rename, pin, search and delete', async ({

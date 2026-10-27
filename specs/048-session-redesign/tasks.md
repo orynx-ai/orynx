@@ -44,9 +44,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: The next-move bar (Ready to push, Ready for a pull request, Pushed), opening today's dialogs, and Terminal in the page bar from 768 px (AC-1, AC-2, AC-3, AC-4, AC-5, AC-8)
       Check: pnpm test packages/app/src/features/sessions/components/next-move.test.tsx packages/app/src/features/sessions/components/session-header.test.tsx
       Files: packages/app/src/features/sessions/components/next-move.tsx, packages/app/src/features/sessions/components/next-move.test.tsx, packages/app/src/features/sessions/components/session-header.tsx, packages/app/src/features/sessions/pull-request-words.ts, packages/app/src/features/sessions/session-screen.tsx, e2e/pull-requests.spec.ts, e2e/terminal.spec.ts
-- [ ] Task 15: The layout from 1024 px: the page the window's height, each pane scrolling on its own, the follow-up box at the left foot, Claude's progress followed inside its pane, the skeleton in the new shape, and the `Design:` note (AC-17, AC-24, AC-25, AC-26)
-      Check: pnpm test packages/app/src/features/sessions/session-screen.test.tsx; pnpm gate design-source; pnpm test:e2e e2e/session-layout.spec.ts
-      Files: packages/app/src/features/sessions/session-screen.tsx, packages/app/src/features/sessions/components/session-progress.tsx, packages/app/src/features/sessions/session-screen.test.tsx, e2e/session-layout.spec.ts, learn/sessions-and-worktrees.md, README.md
+- [x] Task 15: The layout from 1024 px: the page the window's height, each pane scrolling on its own, the follow-up box at the left foot, Claude's progress followed inside its pane, the skeleton in the new shape, and the `Design:` note (AC-17, AC-24, AC-25, AC-26)
+      Check: pnpm test packages/app/src/features/sessions/session-screen.test.tsx; pnpm gate design-source; pnpm test:e2e e2e/sessions.spec.ts (its AC-17 test, beside the finished session it reuses)
+      Files: packages/app/src/features/sessions/session-screen.tsx, packages/app/src/features/sessions/components/session-progress.tsx, packages/app/src/features/sessions/session-screen.test.tsx, e2e/sessions.spec.ts, learn/sessions-and-worktrees.md
 - [ ] Task 16: Open the page in a real browser at 360, 768, 1280 and 1440 px, light and dark, for a ready-to-push, a working and a stopped session; fix what's off (AC-27)
       Check: no sideways scroll, no layout shift while it loads, and Storybook a11y clean for the new stories (pnpm storybook)
       Files: whatever the look-over changes
