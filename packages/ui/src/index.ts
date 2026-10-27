@@ -1,6 +1,8 @@
 export {
+  ActivityGroup,
   ActivityList,
   ActivityStep,
+  type ActivityGroupProps,
   type ActivityListProps,
   type ActivityStepProps,
   type ActivityStepState,

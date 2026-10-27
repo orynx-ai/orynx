@@ -1,6 +1,9 @@
 import type { ComponentProps, ReactNode } from 'react';
+import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
 import { cva } from 'class-variance-authority';
+import { Collapsible } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
+import { Icon } from './icon.tsx';
 
 export type ActivityListProps = ComponentProps<'ol'>;
 
@@ -83,5 +86,63 @@ export function ActivityStep({ state, icon, title, detail, onOpen, className, ..
         {detail ? <div className="text-small text-muted-foreground">{detail}</div> : null}
       </div>
     </li>
+  );
+}
+
+export type ActivityGroupProps = Omit<ComponentProps<typeof Collapsible.Root>, 'asChild' | 'title'> & {
+  /** Done is green, waiting for you is amber; leave it out for the step Claude is on. */
+  state?: ActivityStepState | undefined;
+  /** The icon of the step's latest row, drawn at 14 px in the dot. */
+  icon: ReactNode;
+  /** The step, in the stepper's words: "Apply fixes". */
+  title: ReactNode;
+  /** One line, cut: the step's latest row. */
+  summary?: ReactNode;
+  /** How long the step took: "18 min"; left out while it goes on. */
+  time?: string | undefined;
+  /** The step's rows, shown under it once it's open. */
+  children: ReactNode;
+};
+
+/**
+ * One step of the session in What Claude did (spec 048, `session-review.html`): its dot, words, latest row and time, and
+ * a chevron, as one button across the row that opens the step's rows in place. From Radix Collapsible, as `HistoryRow`:
+ * `aria-expanded` and `aria-controls` come with it, and Enter or Space open it as a click does.
+ */
+export function ActivityGroup({
+  state,
+  icon,
+  title,
+  summary,
+  time,
+  children,
+  className,
+  ...props
+}: ActivityGroupProps) {
+  return (
+    <Collapsible.Root asChild {...props}>
+      <li data-slot="activity-group" className={cn('border-b border-border', className)}>
+        <Collapsible.Trigger className="group flex w-full cursor-pointer items-center gap-3 rounded-sm border-0 bg-transparent py-2.5 text-start text-foreground">
+          <span aria-hidden className={dotVariants({ state: state ?? 'plain' })}>
+            {icon}
+          </span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="font-medium group-hover:underline">
+              {title}
+              {state ? <span className="sr-only">{spokenStates[state]}</span> : null}
+            </span>
+            {summary ? <span className="truncate text-small text-muted-foreground">{summary}</span> : null}
+          </span>
+          {time === undefined ? null : <span className="shrink-0 text-small text-muted-foreground">{time}</span>}
+          <Icon
+            icon={ArrowRight01Icon}
+            aria-hidden
+            className="size-4 shrink-0 text-muted-foreground group-data-[state=open]:rotate-90 motion-safe:transition-transform"
+          />
+        </Collapsible.Trigger>
+        {/* Under the words, past the dot and its gap. */}
+        <Collapsible.Content className="ps-9 pb-3">{children}</Collapsible.Content>
+      </li>
+    </Collapsible.Root>
   );
 }

@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Mark the files git calls added as `created` (AC-21)
       Check: pnpm test packages/core/src/sessions/changes.test.ts
       Files: packages/core/src/sessions/changes.ts, packages/core/src/sessions/changes.test.ts
-- [ ] Task 5: `ActivityGroup` in @devhub/ui: a step's row (dot, words, summary, time, chevron) that opens its rows in place (AC-11, AC-14)
+- [x] Task 5: `ActivityGroup` in @devhub/ui: a step's row (dot, words, summary, time, chevron) that opens its rows in place (AC-11, AC-14)
       Check: pnpm test packages/ui/src/components/activity-step.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/activity-step.tsx, packages/ui/src/components/activity-step.stories.tsx, packages/ui/src/components/activity-step.test.tsx, packages/ui/src/index.ts, docs/design-map.md
 - [ ] Task 6: `CommandLine` in @devhub/ui: a command on one line, cut, that shows in full on a press (AC-13)
