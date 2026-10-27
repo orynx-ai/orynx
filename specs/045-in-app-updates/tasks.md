@@ -50,7 +50,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: The Updates part: up to date, out, checking, couldn't check, no releases, downloading, ready, updating, failed, busy, and by hand with its commands (AC-6 to AC-11, AC-18 to AC-23, AC-25, AC-27 to AC-30)
       Check: pnpm test packages/app/src/features/settings/components/updates-section.test.tsx
       Files: packages/app/src/features/settings/components/updates-section.tsx, updates-section.test.tsx, update-words.ts, about-panel.tsx, queries.ts
-- [ ] Task 17: The What's new part: newest first, New and Your version, notes as Markdown, links in the browser, the empty state, no notes (AC-14 to AC-17)
+- [x] Task 17: The What's new part: newest first, New and Your version, notes as Markdown, links in the browser, the empty state, no notes (AC-14 to AC-17)
       Check: pnpm test packages/app/src/features/settings/components/whats-new.test.tsx
       Files: packages/app/src/features/settings/components/whats-new.tsx, whats-new.test.tsx, about-panel.tsx
 - [ ] Task 18: The update notification's look, words and place, which opens Settings › About from the centre and from a pop-up (AC-13)

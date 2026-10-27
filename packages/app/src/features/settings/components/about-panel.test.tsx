@@ -67,6 +67,16 @@ describe('Settings › About: Version (spec 045)', () => {
     expect(within(panel).queryByText('0.1.37')).toBeNull();
   });
 
+  it('AC-4: while the hub’s first check of GitHub is on its way, Updates and What’s new hold their places', async () => {
+    answering({ checkedAt: null, checking: true });
+    const row = await versionRow();
+    expect(await row.findByText('0.1.37')).toBeVisible();
+    const panel = screen.getByRole('tabpanel', { name: 'About' });
+    expect(panel.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(within(panel).queryByRole('group', { name: 'Updates' })).toBeNull();
+    expect(within(panel).queryByText('No releases yet')).toBeNull();
+  });
+
   it('says so when the Orynx server does not answer', async () => {
     server.use(http.get(apiUrl(apiRoutes.updates), () => HttpResponse.error()));
     await renderApp({ route: '/settings/about' });
