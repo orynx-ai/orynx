@@ -24,8 +24,19 @@ const notSignedIn =
   "Claude Code isn't signed in on this computer. Run claude in a terminal and sign in with your company login, then check again.";
 
 async function axeViolations(page: Page): Promise<string[]> {
-  // Controls fade between looks (PR #12's one quiet motion); mid-fade colours aren't the page's real ones.
-  await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)));
+  // Controls fade between looks (PR #12's one quiet motion); mid-fade colours aren't the page's real ones. Only
+  // animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
+  await page.evaluate(() =>
+    Promise.allSettled(
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
+        )
+        .map((animation) => animation.finished),
+    ),
+  );
   await page.addScriptTag({ path: axePath });
   return page.evaluate(async () => {
     const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
@@ -141,6 +152,51 @@ test.describe('the first hub, whose Claude Code is never signed in', () => {
       await expectCardsLaidOut(page);
     });
   }
+});
+
+test.describe('Storage (spec 047, D)', () => {
+  test('AC-16, AC-17, AC-25: says what the worktrees use, keeps After 30 days after a reload, and passes axe at 1280 and 360 px in light and dark', async ({
+    page,
+  }, testInfo) => {
+    // One preference for the whole hub: the phone project would change it under the desktop one.
+    test.skip(testInfo.project.name !== 'desktop', 'one preference for the whole hub');
+    const storage = page.getByRole('region', { name: 'Storage' });
+    const picker = storage.getByRole('combobox', { name: 'Delete old sessions' });
+    const pick = async (name: string | RegExp) => {
+      const saved = page.waitForResponse(
+        (answer) => answer.url().endsWith(apiRoutes.preferences) && answer.request().method() === 'PATCH',
+      );
+      await picker.click();
+      await page.getByRole('option', { name }).click();
+      await saved;
+    };
+
+    await page.goto('/settings/coding-agent');
+    await expect(storage.getByText(/^Session worktrees use .+ on this computer\.$/)).toBeVisible();
+    await expect(picker).toHaveText('Never');
+    try {
+      await pick(/^After 30 days/);
+      await page.reload();
+      await expect(picker).toHaveText(/^After 30 days/);
+
+      for (const colorScheme of ['light', 'dark'] as const) {
+        for (const width of [1280, 360]) {
+          await page.emulateMedia({ colorScheme });
+          await page.setViewportSize({ width, height: 800 });
+          await storage.scrollIntoViewIfNeeded();
+          expect(await axeViolations(page), `${colorScheme} at ${String(width)} px`).toEqual([]);
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+          ).toBe(0);
+        }
+      }
+    } finally {
+      // Never again, as the hub's other tests expect it.
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await pick('Never');
+    }
+    await expect(picker).toHaveText('Never');
+  });
 });
 
 test.describe('the second hub, whose Claude Code answers what this file writes', () => {

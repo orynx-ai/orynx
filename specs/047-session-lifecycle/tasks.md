@@ -76,7 +76,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 21: Settings › Coding agent's Storage section, last: "Session worktrees use 12 GB on this computer." (a skeleton while measured, left out when measuring fails, as the 050 draft had it), Delete old sessions saved as you pick like Claude changes Jira (no form: the value is the saved preference, so nothing is kept in input state), each choice "After 30 days · 3 sessions now, 4.1 GB". The bell's words moved to Task 17; the description and size line are the 050 draft's words, since 047 gives none (AC-16, AC-17)
       Check: pnpm test packages/app/src/features/settings packages/app/src/features/notifications; pnpm typecheck; pnpm gate style-policy
       Files: packages/app/src/features/settings/components/storage-section.tsx, packages/app/src/features/settings/components/coding-agent-panel.tsx, packages/app/src/features/settings/queries.ts, packages/app/src/test/msw.ts, packages/contracts/src/testing.ts, and the section's test
-- [ ] Task 22: e2e: Storage shows the size, saves After 30 days and keeps it after a reload; axe at 360 and 1280 px in light and dark (AC-16, AC-17, AC-25)
+- [x] Task 22: e2e: Storage shows the size, saves After 30 days and keeps it after a reload; axe at 360 and 1280 px in light and dark; the file's own axe helper waits only for animations on the page's clock, as `95921fd` made the others (AC-16, AC-17, AC-25)
       Check: pnpm exec playwright test e2e/coding-agent.spec.ts
       Files: e2e/coding-agent.spec.ts
 
