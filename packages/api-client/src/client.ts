@@ -44,6 +44,9 @@ import {
   type FileDiff,
   type PullRequestDraftAnswer,
   type PushAnswer,
+  type ReplyAnswer,
+  type ReplyDraftAnswer,
+  type ReplyRequest,
   type PushDraftAnswer,
   type SendMessageAnswer,
   type SendMessageInput,
@@ -133,6 +136,8 @@ import {
   postPullRequestDraft,
   postPush,
   postPushDraft,
+  postReplies,
+  postRepliesDraft,
   postSession,
   postSessionDiscard,
   patchSession,
@@ -227,6 +232,10 @@ export interface ApiClient {
   draftPush(id: string): Promise<PushDraftAnswer>;
   /** Commits what's new and pushes it to the pull request with your message (spec 014, Q7). */
   pushChanges(id: string, message: string): Promise<PushAnswer>;
+  /** The review threads with Claude's replies, why there can't be any, or GitHub's problem; writes nothing (spec 048). */
+  draftReplies(id: string): Promise<ReplyDraftAnswer>;
+  /** Posts the replies and resolves the ticked threads; the threads that failed, with why (spec 048). */
+  postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer>;
   /** The saved Jira site and email, and whether `.env` holds a Jira token. */
   jiraConnection(): Promise<JiraConnection>;
   /** Checks with Jira, then saves; rejects with integration_rejected, integration_unreachable or keychain_unavailable. */
@@ -406,6 +415,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     draftPush: (id) => postPushDraft(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     pushChanges: (id, message) =>
       postPush(http, id, message).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    draftReplies: (id) =>
+      postRepliesDraft(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    postReplies: (id, request) =>
+      postReplies(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     jiraConnection: () => getJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     connectJira: (request) =>
       putJiraConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

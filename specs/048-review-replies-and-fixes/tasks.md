@@ -55,7 +55,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: Post replies, one thread at a time, only from its route; threads that posted drop out (AC-3, AC-5, AC-8)
       Check: pnpm test packages/core/src/sessions/review-replies.test.ts packages/core/src/routes/sessions.test.ts
       Files: packages/core/src/sessions/review-replies.ts, session-service.ts, packages/core/src/routes/sessions.ts, their tests
-- [ ] Task 16: api-client: draftReplies and postReplies (AC-2, AC-3)
+- [x] Task 16: api-client: draftReplies and postReplies (AC-2, AC-3)
       Check: pnpm test packages/api-client/src/endpoints/sessions.test.ts
       Files: packages/api-client/src/endpoints/sessions.ts, client.ts, their tests
 - [ ] Task 17: The Reply to reviewers dialog: skeleton, error with Try again, none waiting, and Claude's drafts (AC-2, AC-4, AC-6, AC-7)
