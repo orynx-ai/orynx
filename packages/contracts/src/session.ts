@@ -627,6 +627,8 @@ export const ComposerStartSchema = z
     ...AgentChoiceSchema.shape,
     /** Ask or Build (spec 026); left out, Build, as before. */
     mode: SessionModeSchema.optional(),
+    /** Start beside the ticket's or pull request's live session instead of answering `existing` (spec 047). */
+    another: z.literal(true).optional(),
   })
   .superRefine(({ message, context }, check) => {
     checkChips(context, check);

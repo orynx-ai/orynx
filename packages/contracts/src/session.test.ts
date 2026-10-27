@@ -528,6 +528,12 @@ describe("the composer's start (spec 015)", () => {
     expect(SessionSchema.parse(saved).mode).toBe('build');
   });
 
+  it('spec 047, AC-2: takes `another` to start beside a live session, left out otherwise', () => {
+    expect(ComposerStartSchema.parse(body({ another: true })).another).toBe(true);
+    expect(ComposerStartSchema.parse(body({})).another).toBeUndefined();
+    expect(ComposerStartSchema.safeParse(body({ another: 'yes' })).success).toBe(false);
+  });
+
   it('AC-20: keeps a ticket, pull requests and files in the order you added them', () => {
     const context = [file('notes.md'), ticket, pull(2836), pull(2841)];
     expect(ComposerStartSchema.parse(body({ message: 'Use the notes', context })).context).toEqual(context);

@@ -4,7 +4,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## A. Another session on the same ticket or PR
 
-- [ ] Task 1: `another` on the composer's start (AC-2)
+- [x] Task 1: `another` on the composer's start (AC-2)
       Check: pnpm test packages/contracts/src/session.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts
 - [ ] Task 2: `composeNow` starts beside a live session when `another` is set, for a ticket and for your own PR in its own detached worktree (AC-2, AC-4)
