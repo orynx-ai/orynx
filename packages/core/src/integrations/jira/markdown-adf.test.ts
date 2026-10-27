@@ -99,6 +99,96 @@ describe('markdownToAdf (spec 044)', () => {
         paragraph(text('Thanks')),
       ],
     ],
+    [
+      'AC-13: a list nested under an item, of either kind',
+      '- one\n  - one a\n  - one b\n- steps\n  1. build\n  2. test\n- two',
+      [
+        {
+          type: 'bulletList',
+          content: [
+            {
+              type: 'listItem',
+              content: [
+                paragraph(text('one')),
+                {
+                  type: 'bulletList',
+                  content: [
+                    { type: 'listItem', content: [paragraph(text('one a'))] },
+                    { type: 'listItem', content: [paragraph(text('one b'))] },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'listItem',
+              content: [
+                paragraph(text('steps')),
+                {
+                  type: 'orderedList',
+                  content: [
+                    { type: 'listItem', content: [paragraph(text('build'))] },
+                    { type: 'listItem', content: [paragraph(text('test'))] },
+                  ],
+                },
+              ],
+            },
+            { type: 'listItem', content: [paragraph(text('two'))] },
+          ],
+        },
+      ],
+    ],
+    [
+      'AC-13: a pipe table with a header row, its cells marked, an empty cell as an empty paragraph',
+      '| File | Change |\n| --- | :---: |\n| `a.ts` | **fixed** |\n| b.ts | |\nAfter',
+      [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableHeader', content: [paragraph(text('File'))] },
+                { type: 'tableHeader', content: [paragraph(text('Change'))] },
+              ],
+            },
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableCell', content: [paragraph(text('a.ts', 'code'))] },
+                { type: 'tableCell', content: [paragraph(text('fixed', 'strong'))] },
+              ],
+            },
+            {
+              type: 'tableRow',
+              content: [
+                { type: 'tableCell', content: [paragraph(text('b.ts'))] },
+                { type: 'tableCell', content: [paragraph()] },
+              ],
+            },
+          ],
+        },
+        paragraph(text('After')),
+      ],
+    ],
+    [
+      'AC-13: a table straight after a line of text',
+      'Changed:\n| File |\n| --- |\n| a.ts |',
+      [
+        paragraph(text('Changed:')),
+        {
+          type: 'table',
+          content: [
+            { type: 'tableRow', content: [{ type: 'tableHeader', content: [paragraph(text('File'))] }] },
+            { type: 'tableRow', content: [{ type: 'tableCell', content: [paragraph(text('a.ts'))] }] },
+          ],
+        },
+      ],
+    ],
+    [
+      'AC-13: pipes with no --- line under them as their text',
+      '| not | a table |',
+      [paragraph(text('| not | a table |'))],
+    ],
   ])('writes %s', (_, markdown, content) => {
     expect(markdownToAdf(markdown)).toEqual({ version: 1, type: 'doc', content });
   });
