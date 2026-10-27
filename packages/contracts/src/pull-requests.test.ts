@@ -218,8 +218,12 @@ describe('replying to reviewers (spec 048)', () => {
     const answer = {
       result: 'posted',
       failed: [
-        { id: 'PRRT_2', problem: { kind: 'github_said', message: 'Resource not accessible by integration' } },
-        { id: 'PRRT_3', problem: { kind: 'github_unreachable' } },
+        {
+          id: 'PRRT_2',
+          problem: { kind: 'github_said', message: 'Resource not accessible by integration' },
+          replied: false,
+        },
+        { id: 'PRRT_3', problem: { kind: 'github_unreachable' }, replied: true },
       ],
     } as const;
     expect(ReplyAnswerSchema.parse(answer)).toEqual(answer);

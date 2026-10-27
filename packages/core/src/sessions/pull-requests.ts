@@ -6,14 +6,24 @@ import type {
   CannotPushReason,
   FileDiff,
   GitProblem,
+  OpenProblem,
   PullRequestDraftAnswer,
   PushAnswer,
   PushDraftAnswer,
   PushRequest,
+  ReplyAnswer,
+  ReplyDraftAnswer,
+  ReplyProblem,
+  ReplyRequest,
   Session,
 } from '@devhub/contracts';
 import type { AgentAdapter } from '../agents/agent-adapter.ts';
-import type { GitHubClient, GitHubOpenProblem } from '../integrations/github/client.ts';
+import type {
+  GitHubClient,
+  GitHubOpenProblem,
+  GitHubPullProblem,
+  GitHubThreadChange,
+} from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
 import type { BranchGit, CommitProblem, PushProblem } from './branch-git.ts';
 import { sessionStartPoint, type ChangesReader, type ReadyChanges, type StartPoint } from './changes.ts';
@@ -27,6 +37,9 @@ import {
   pushPrompt,
   readCommitMessage,
   readDraft,
+  readReplies,
+  replyInstructions,
+  replyPrompt,
   type DraftTicket,
 } from './pull-request-text.ts';
 import { firstSecretFile } from './secret-files.ts';
@@ -87,6 +100,13 @@ export interface PullRequests {
    * `gh pr create` opens one Orynx didn't (spec 026). Nothing when GitHub has none or can't be asked.
    */
   link(id: string): Promise<void>;
+  /**
+   * The pull request's unresolved review threads, with Claude's reply to each its changes address (spec 048). Reads
+   * only: GitHub, the worktree and Claude's answer to a call with no tools. Null for no such session.
+   */
+  draftReplies(id: string): Promise<ReplyDraftAnswer | null>;
+  /** Posts each reply as you, then resolves each ticked thread, only from your press (spec 048); one at a time. */
+  postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer | null>;
 }
 
 /** Claude's draft reads at most this many lines of the diff, then counts only (Q4). */
@@ -148,7 +168,7 @@ function summariesSincePush(session: Session): string[] {
 }
 
 /** GitHub's refusal in the dialog's terms (Q11d). A refused token reads as a refusal: Settings says the rest. */
-function openProblem(problem: GitHubOpenProblem): CreatePullRequestProblem {
+function openProblem(problem: GitHubOpenProblem): OpenProblem {
   switch (problem.kind) {
     case 'forbidden':
       return { kind: 'github_forbidden' };
@@ -169,6 +189,16 @@ function openProblem(problem: GitHubOpenProblem): CreatePullRequestProblem {
     case 'github_error':
       return { kind: 'github_refused' };
   }
+}
+
+/** Why the review threads couldn't be read; a pull request GitHub no longer shows this token reads as a refusal. */
+function threadsProblem(problem: GitHubPullProblem): OpenProblem {
+  return problem.kind === 'not_found' ? { kind: 'github_refused' } : openProblem(problem);
+}
+
+/** GitHub's refusal of a reply or Resolve in the dialog's terms: its own words, or a problem every call has. */
+function replyProblem(problem: Extract<GitHubThreadChange, { ok: false }>['problem']): ReplyProblem {
+  return problem.kind === 'refused' ? { kind: 'github_said', message: problem.message } : openProblem(problem);
 }
 
 export function createPullRequests(options: PullRequestsOptions): PullRequests {
@@ -359,6 +389,83 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
     async unpushed(record) {
       const ready = await readyToPush(record);
       return !('result' in ready && ready.result === 'nothing_new');
+    },
+
+    async draftReplies(id) {
+      const record = await records.get(id);
+      if (record === null) return null;
+      const { session } = record;
+      const pull = session.pullRequest;
+      if (pull === null) return { result: 'cannot', reason: 'no_pull_request' };
+      const credentials = await options.github.credentials();
+      if (credentials?.ok !== true) return { result: 'cannot', reason: 'not_connected' };
+      const [owner = '', name = ''] = pull.repository.split('/');
+      const found = await client.reviewThreads(credentials.token, { owner, name, number: pull.number });
+      if (!found.ok) return { result: 'failed', problem: threadsProblem(found.problem) };
+      const { threads } = found;
+      if (threads.length === 0) return { result: 'draft', number: pull.number, threads: [], byClaude: false };
+      const start = startOf(record);
+      const listed = start === null || record.worktree === null ? null : await changes.list(record.worktree, start, []);
+      const files = listed?.ok === true ? listed.changes : { files: [], moreFiles: 0 };
+      const diffs =
+        listed?.ok === true && start !== null && record.worktree !== null
+          ? await diffsFor(record.worktree, start, listed.changes).catch(() => [])
+          : [];
+      const prompt = replyPrompt({ threads, summaries: summariesOf(session), ...files, diffs });
+      const written = adapter === null ? null : await adapter.write(prompt, replyInstructions);
+      const replies =
+        written?.ok === true
+          ? readReplies(
+              written.text,
+              threads.map((thread) => thread.id),
+            )
+          : null;
+      return {
+        result: 'draft',
+        number: pull.number,
+        byClaude: replies !== null,
+        threads: threads.map((thread) => {
+          const last = thread.comments.at(-1);
+          const reply = replies?.get(thread.id) ?? '';
+          const { id: threadId, path, line } = thread;
+          return {
+            id: threadId,
+            path,
+            line,
+            author: last?.author ?? 'Someone',
+            body: last?.body ?? '',
+            reply,
+            resolve: reply !== '',
+          };
+        }),
+      };
+    },
+
+    postReplies(id, request) {
+      return oneAtATime(id, async () => {
+        const record = await records.get(id);
+        if (record === null) return null;
+        if (record.session.pullRequest === null) return { result: 'cannot', reason: 'no_pull_request' } as const;
+        const credentials = await options.github.credentials();
+        if (credentials?.ok !== true) return { result: 'cannot', reason: 'not_connected' } as const;
+        const failed: Extract<ReplyAnswer, { result: 'posted' }>['failed'] = [];
+        // One thread at a time, in order, so a refusal says exactly which thread and how far it got.
+        for (const thread of request.threads) {
+          let replied = false;
+          if (thread.reply !== '') {
+            const answer = await client.replyToThread(credentials.token, thread.id, thread.reply);
+            if (!answer.ok) {
+              failed.push({ id: thread.id, problem: replyProblem(answer.problem), replied });
+              continue;
+            }
+            replied = true;
+          }
+          if (!thread.resolve) continue;
+          const answer = await client.resolveThread(credentials.token, thread.id);
+          if (!answer.ok) failed.push({ id: thread.id, problem: replyProblem(answer.problem), replied });
+        }
+        return { result: 'posted', failed } as const;
+      });
     },
 
     async link(id) {

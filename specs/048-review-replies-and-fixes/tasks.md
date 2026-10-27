@@ -49,10 +49,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: The GitHub client reads a PR's unresolved threads with their ids, replies to one, and resolves one (AC-2, AC-3, AC-5, AC-6)
       Check: pnpm test packages/core/src/integrations/github/client.test.ts
       Files: packages/core/src/integrations/github/client.ts, client.test.ts, packages/core/src/test/fake-github.ts
-- [ ] Task 14: The replies service: Claude drafts one reply per thread it addressed, from the threads and the session's diff (AC-2, AC-4)
+- [x] Task 14: The replies service: Claude drafts one reply per thread it addressed, from the threads and the session's diff (AC-2, AC-4)
       Check: pnpm test packages/core/src/sessions/review-replies.test.ts
       Files: packages/core/src/sessions/review-replies.ts, review-replies.test.ts
-- [ ] Task 15: Post replies, one thread at a time, only from its route; threads that posted drop out (AC-3, AC-5, AC-8)
+- [x] Task 15: Post replies, one thread at a time, only from its route; threads that posted drop out (AC-3, AC-5, AC-8)
       Check: pnpm test packages/core/src/sessions/review-replies.test.ts packages/core/src/routes/sessions.test.ts
       Files: packages/core/src/sessions/review-replies.ts, session-service.ts, packages/core/src/routes/sessions.ts, their tests
 - [ ] Task 16: api-client: draftReplies and postReplies (AC-2, AC-3)

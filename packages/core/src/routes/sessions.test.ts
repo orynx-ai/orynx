@@ -3,21 +3,23 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import {
-  apiRoutes,
   ApiErrorSchema,
+  apiRoutes,
   ClaudeCommandListSchema,
   FileDiffSchema,
+  PortActionAnswerSchema,
+  ReplyAnswerSchema,
+  ReplyDraftAnswerSchema,
   SendMessageAnswerSchema,
+  type Session,
   SessionBriefSchema,
   SessionChangesSchema,
   SessionListSchema,
+  SessionPortsSchema,
   SessionSchema,
+  type SessionSummary,
   StartSessionAnswerSchema,
   tokenHeader,
-  type Session,
-  type SessionSummary,
-  PortActionAnswerSchema,
-  SessionPortsSchema,
 } from '@devhub/contracts';
 import { makeSession, makeSessionSummary } from '@devhub/contracts/testing';
 import { gitEnvironment } from '../agents/agent-environment.ts';
@@ -643,6 +645,60 @@ describe('Create pull request and Push changes (spec 014)', () => {
       expect(res.statusCode).toBe(404);
       expect(ApiErrorSchema.parse(res.json()).code).toBe('not_found');
     }
+  });
+});
+
+describe('Reply to reviewers (spec 048)', () => {
+  const draftOf = (id: string) => apiRoutes.sessionRepliesDraft.replace(':id', id);
+  const postOf = (id: string) => apiRoutes.sessionReplies.replace(':id', id);
+  const replies = { threads: [{ id: 'PRRT_a', reply: 'Done.', resolve: true }] };
+
+  it('AC-6: a session with no pull request can’t draft or post replies; GitHub is never asked', async () => {
+    const { app } = await serverWith({ id: 'done', state: 'done' });
+    const answers = await Promise.all([
+      app.inject({ method: 'POST', url: draftOf('done'), headers }),
+      app.inject({ method: 'POST', url: postOf('done'), headers, payload: replies }),
+    ]);
+    expect(answers.map((res) => res.statusCode)).toEqual([200, 200]);
+    expect(answers.map((res) => res.json<unknown>())).toEqual([
+      ReplyDraftAnswerSchema.parse({ result: 'cannot', reason: 'no_pull_request' }),
+      ReplyAnswerSchema.parse({ result: 'cannot', reason: 'no_pull_request' }),
+    ]);
+  });
+
+  it('AC-3: refuses a thread with nothing to post, and a reply too long, before anything happens', async () => {
+    const { app } = await serverWith({ id: 'done', state: 'pr_open' });
+    const bad = await Promise.all([
+      app.inject({ method: 'POST', url: postOf('done'), headers, payload: { threads: [] } }),
+      app.inject({
+        method: 'POST',
+        url: postOf('done'),
+        headers,
+        payload: { threads: [{ id: 'PRRT_a', reply: ' ', resolve: false }] },
+      }),
+      app.inject({
+        method: 'POST',
+        url: postOf('done'),
+        headers,
+        payload: { threads: [{ id: 'PRRT_a', reply: 'x'.repeat(65_537), resolve: true }] },
+      }),
+    ]);
+    expect(bad.map((res) => res.statusCode)).toEqual([400, 400, 400]);
+  });
+
+  it('answers 404 for a session it doesn’t have, and 401 without the session token', async () => {
+    const { app } = await serverWith();
+    for (const res of [
+      await app.inject({ method: 'POST', url: draftOf('nope'), headers }),
+      await app.inject({ method: 'POST', url: postOf('nope'), headers, payload: replies }),
+    ]) {
+      expect(res.statusCode).toBe(404);
+      expect(ApiErrorSchema.parse(res.json()).code).toBe('not_found');
+    }
+    const { [tokenHeader]: _token, ...noToken } = headers;
+    expect(
+      (await app.inject({ method: 'POST', url: postOf('nope'), headers: noToken, payload: replies })).statusCode,
+    ).toBe(401);
   });
 });
 

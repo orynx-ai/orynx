@@ -231,7 +231,8 @@ export type ReplyProblem = z.infer<typeof ReplyProblemSchema>;
 export const ReplyAnswerSchema = z.discriminatedUnion('result', [
   z.object({
     result: z.literal('posted'),
-    failed: z.array(z.object({ id: z.string().min(1), problem: ReplyProblemSchema })),
+    /** `replied`: its reply went out before its Resolve failed, so a second press mustn't post it again. */
+    failed: z.array(z.object({ id: z.string().min(1), problem: ReplyProblemSchema, replied: z.boolean() })),
   }),
   z.object({ result: z.literal('cannot'), reason: CannotReplyReasonSchema }),
 ]);

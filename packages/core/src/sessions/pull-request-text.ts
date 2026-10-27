@@ -1,5 +1,6 @@
 import type { ChangedFile, FileDiff } from '@devhub/contracts';
-import { mostPullRequestBodyCharacters, mostPullRequestTitleCharacters } from '@devhub/contracts';
+import { mostPullRequestBodyCharacters, mostPullRequestTitleCharacters, mostReplyCharacters } from '@devhub/contracts';
+import { z } from 'zod';
 
 /**
  * The words around Create pull request and Push changes (spec 014): what Claude is sent for a draft (Q4), how its
@@ -226,4 +227,72 @@ export function readCommitMessage(answer: string): string | null {
 /** A commit Orynx makes: your words, then the Co-Authored-By line (Q5). */
 export function commitMessage(subject: string): string {
   return `${subject}\n\n${coAuthorLine}`;
+}
+
+/** Claude's instructions for replies to a pull request's review threads (spec 048). */
+export const replyInstructions = [
+  "You write replies to a pull request's review comments, for changes another Claude session made to address them.",
+  "You get the unresolved review threads, each with its id, file, line and comments, and the session's diff.",
+  'For each thread the changes address, write a short reply in GitHub Markdown, one or two sentences, saying what',
+  "changed. Leave out every thread the changes don't address. Use only what the threads and the diff show.",
+  'Answer with JSON and nothing else: {"replies":[{"thread":"<id>","reply":"<text>"}]}',
+].join(' ');
+
+export interface ReplyThread {
+  id: string;
+  path: string;
+  line: number | null;
+  comments: readonly { author: string; body: string }[];
+}
+
+export interface ReplyInputs {
+  threads: readonly ReplyThread[];
+  summaries: readonly string[];
+  files: readonly ChangedFile[];
+  moreFiles: number;
+  diffs: readonly FileDiff[];
+}
+
+export function replyPrompt(inputs: ReplyInputs): string {
+  const threads = inputs.threads.map((thread) => {
+    const where = thread.line === null ? thread.path : `${thread.path} line ${String(thread.line)}`;
+    const comments = thread.comments.map((comment) => `${comment.author}: ${comment.body}`).join('\n');
+    return `Thread ${thread.id} on ${where}\n${comments}`;
+  });
+  return [
+    section('The unresolved review threads', threads.join('\n\n')),
+    section("Claude's summaries", inputs.summaries.join('\n\n')),
+    section('Changed files', filesSection(inputs.files, inputs.moreFiles)),
+    section('The diff', diffSection(inputs.diffs)),
+  ]
+    .filter((part) => part !== null)
+    .join('\n\n');
+}
+
+const RepliesSchema = z.object({
+  replies: z.array(z.object({ thread: z.string(), reply: z.string() })),
+});
+
+/**
+ * Claude's replies by thread, for these threads only, each at most `mostReplyCharacters`; null when the answer holds
+ * no JSON of that shape, so every box starts empty (spec 048, AC-4).
+ */
+export function readReplies(answer: string, threads: readonly string[]): ReadonlyMap<string, string> | null {
+  const start = answer.indexOf('{');
+  const end = answer.lastIndexOf('}');
+  if (start === -1 || end < start) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(answer.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+  const replies = RepliesSchema.safeParse(parsed);
+  if (!replies.success) return null;
+  const known = new Set(threads);
+  return new Map(
+    replies.data.replies
+      .filter(({ thread, reply }) => known.has(thread) && reply.trim() !== '')
+      .map(({ thread, reply }) => [thread, reply.trim().slice(0, mostReplyCharacters)]),
+  );
 }

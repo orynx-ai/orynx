@@ -19,6 +19,9 @@ import type {
   PushAnswer,
   PushDraftAnswer,
   PushRequest,
+  ReplyAnswer,
+  ReplyDraftAnswer,
+  ReplyRequest,
   Repository,
   SendMessageAnswer,
   Session,
@@ -187,6 +190,10 @@ export interface SessionService {
   draftPush(id: string): Promise<PushDraftAnswer | null>;
   /** Commits what's new and pushes it to the pull request, on your press only (Q7); null for no such session. */
   push(id: string, request: PushRequest): Promise<PushAnswer | null>;
+  /** The review threads with Claude's replies, which writes nothing (spec 048); null for no such session. */
+  draftReplies(id: string): Promise<ReplyDraftAnswer | null>;
+  /** Posts the replies and resolves the ticked threads, on your press only (spec 048); null for no such session. */
+  postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer | null>;
   /**
    * Spec 047: asks GitHub about each pull request of a session in PR open or PR closed whose worktree is still there,
    * and saves it as merged, closed or open again. A merge where nothing would be lost removes the worktree as Delete
@@ -1783,6 +1790,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     createPullRequest: (id, request) => whilePublishing(id, pullRequests.create(id, request)),
     draftPush: (id) => pullRequests.draftPush(id),
     push: (id, request) => whilePublishing(id, pullRequests.push(id, request)),
+    draftReplies: (id) => pullRequests.draftReplies(id),
+    postReplies: (id, request) => pullRequests.postReplies(id, request),
 
     start(request) {
       // Starts on one ticket go one at a time, from Ship or the composer; so do composer starts with no ticket.

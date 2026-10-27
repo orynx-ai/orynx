@@ -1,33 +1,36 @@
 import type { FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
+  type ApiError,
   ApiErrorSchema,
-  ClaudeCommandListSchema,
   apiPaths,
+  ClaudeCommandListSchema,
   CreatePullRequestAnswerSchema,
   CreatePullRequestRequestSchema,
   FileDiffQuerySchema,
   FileDiffSchema,
+  PortActionAnswerSchema,
   PullRequestDraftAnswerSchema,
   PushAnswerSchema,
   PushDraftAnswerSchema,
   PushRequestSchema,
+  ReplyAnswerSchema,
+  ReplyDraftAnswerSchema,
+  ReplyRequestSchema,
   RespondToApprovalRequestSchema,
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
   SessionBriefSchema,
   SessionChangeRequestSchema,
-  SessionDeleteQuerySchema,
   SessionChangesSchema,
+  SessionDeleteQuerySchema,
   SessionListQuerySchema,
   SessionListSchema,
-  SessionSchema,
   SessionPortParamsSchema,
   SessionPortsSchema,
-  PortActionAnswerSchema,
+  SessionSchema,
   StartSessionAnswerSchema,
   StartSessionRequestSchema,
-  type ApiError,
 } from '@devhub/contracts';
 import type { RespondResult, SessionService } from '../sessions/session-service.ts';
 import { listSessions, type SessionStore } from '../sessions/session-store.ts';
@@ -293,6 +296,26 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
       },
     },
     async (request, reply) => (await service.push(request.params.id, request.body)) ?? reply.code(404).send(notFound),
+  );
+
+  // Spec 048: Claude's replies to the review threads, which write nothing; then posting them, only on your press.
+  app.post(
+    apiPaths.sessionRepliesDraft,
+    { schema: { params: SessionParamsSchema, response: { 200: ReplyDraftAnswerSchema, 404: ApiErrorSchema } } },
+    async (request, reply) => (await service.draftReplies(request.params.id)) ?? reply.code(404).send(notFound),
+  );
+
+  app.post(
+    apiPaths.sessionReplies,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        body: ReplyRequestSchema,
+        response: { 200: ReplyAnswerSchema, 404: ApiErrorSchema },
+      },
+    },
+    async (request, reply) =>
+      (await service.postReplies(request.params.id, request.body)) ?? reply.code(404).send(notFound),
   );
 
   app.post(

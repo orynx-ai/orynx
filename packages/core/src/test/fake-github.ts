@@ -203,8 +203,15 @@ export function acceptingReviewThreads(
   {
     posted = [],
     refuse = [],
+    refuseResolve = [],
     tokens = [githubToken, ghToken],
-  }: { posted?: FakeThreadWrite[]; refuse?: readonly string[]; tokens?: readonly string[] } = {},
+  }: {
+    posted?: FakeThreadWrite[];
+    refuse?: readonly string[];
+    /** Threads whose reply goes through but whose Resolve is refused. */
+    refuseResolve?: readonly string[];
+    tokens?: readonly string[];
+  } = {},
 ) {
   return http.post(graphqlUrl, async ({ request }) => {
     const sent = (await request.clone().json()) as { query?: unknown; variables?: Record<string, unknown> };
@@ -239,7 +246,7 @@ export function acceptingReviewThreads(
       return HttpResponse.json({ data: { repository: { pullRequest: { reviewThreads: { nodes } } } } });
     }
     const thread = String(variables['thread']);
-    if (refuse.includes(thread)) {
+    if (refuse.includes(thread) || (!replying && refuseResolve.includes(thread))) {
       return HttpResponse.json({
         data: null,
         errors: [{ type: 'FORBIDDEN', message: 'Resource not accessible by personal access token' }],
