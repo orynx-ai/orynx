@@ -29,7 +29,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: The diff's browser-only state: Wrap lines (on by default, every session) and Viewed (per session and file, cleared when its counts change) (AC-20, AC-22)
       Check: pnpm test packages/app/src/features/sessions/store.test.ts
       Files: packages/app/src/features/sessions/store.ts, packages/app/src/features/sessions/store.test.ts
-- [ ] Task 10: The Changes tab: the file column beside the diff from 1024 px, the totals and Wrap lines in the tab row, Viewed and New file in the diff's header, and the tabs as Changes, Ports, Context (AC-18, AC-19, AC-20, AC-21, AC-22, AC-23, AC-25)
+- [x] Task 10: The Changes tab: the file column beside the diff from 1024 px, the totals and Wrap lines in the tab row, Viewed and New file in the diff's header, and the tabs as Changes, Ports, Context (AC-18, AC-19, AC-20, AC-21, AC-22, AC-23, AC-25)
       Check: pnpm test packages/app/src/features/sessions/components/changes-panel.test.tsx packages/app/src/features/sessions/components/session-details.test.tsx
       Files: packages/app/src/features/sessions/components/changes-panel.tsx, packages/app/src/features/sessions/components/session-details.tsx, packages/app/src/features/sessions/change-words.ts, their tests, e2e/changes.spec.ts
 - [ ] Task 11: Group the activities by step, with each group's summary and time in words ("< 1 min", "18 min", "1 h 5 min"), flat when any activity has no step (AC-10, AC-15, Q8)

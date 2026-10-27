@@ -78,20 +78,20 @@ const tabs = () => within(screen.getByRole('tablist', { name: 'Session details' 
 const portList = () => screen.findByRole('list', { name: 'Ports', busy: false });
 
 describe('the Ports tab (spec 042)', () => {
-  it('AC-1, AC-33: a run session opens on Ports, first of the tabs, with how many listen', async () => {
+  it('AC-1, AC-33: a run session opens on Ports, after Changes (spec 048), with how many listen', async () => {
     listening([web]);
     await renderApp({ route });
     await waitFor(() => {
-      expect(tabs().map((tab) => tab.textContent)).toEqual(['Ports 1', 'Changes 0', 'Context 1']);
+      expect(tabs().map((tab) => tab.textContent)).toEqual(['Changes 0', 'Ports 1', 'Context 1']);
     });
-    expect(tabs()[0]).toHaveAttribute('aria-selected', 'true');
+    expect(tabs()[1]).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('AC-33: any other session opens on Changes, with Ports still first', async () => {
+  it('AC-33: any other session opens on Changes, with Ports after it (spec 048)', async () => {
     listening([web], makeSession({ ...runSession, intent: 'change' }));
     await renderApp({ route });
     await waitFor(() => {
-      expect(tabs()[0]?.textContent).toBe('Ports 1');
+      expect(tabs()[1]?.textContent).toBe('Ports 1');
     });
     expect(screen.getByRole('tab', { name: /Changes/ })).toHaveAttribute('aria-selected', 'true');
   });
@@ -111,7 +111,7 @@ describe('the Ports tab (spec 042)', () => {
         'Nothing listens from this session. Servers Claude or you start here show up on their own.',
       ),
     ).toBeVisible();
-    expect(tabs()[0]?.textContent).toBe('Ports');
+    expect(tabs()[1]?.textContent).toBe('Ports');
   });
 
   it('AC-9: ports it couldn’t read say so, with Try again', async () => {

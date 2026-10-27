@@ -191,7 +191,9 @@ test('AC-1, AC-2, AC-18: the Changes tab lists Claude’s edit as it lands, in e
       timeout: 15_000,
     });
     await expect(tab.getByRole('tab', { name: 'Changes 1' })).toHaveAttribute('aria-selected', 'true');
-    await expect(tab.getByText('in 1 file · updates live as Claude edits')).toBeVisible();
+    // The totals and Wrap lines sit in the tabs' row (spec 048).
+    await expect(tab.getByText('1 line added in 1 file')).toBeAttached();
+    await expect(tab.getByRole('button', { name: 'Wrap lines', pressed: true })).toBeVisible();
     const diff = tab.getByRole('region', { name: 'Changes in archive.ts' });
     await expect(diff.getByText('export const archive = true;')).toBeVisible();
   }
@@ -200,7 +202,7 @@ test('AC-1, AC-2, AC-18: the Changes tab lists Claude’s edit as it lands, in e
 
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await expect(page.getByRole('main').getByText('Stopped', { exact: true })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText('in 1 file', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 line added in 1 file')).toBeAttached();
   await page.getByRole('button', { name: 'More actions', exact: true }).click();
   await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeVisible();
   await page.keyboard.press('Escape');
@@ -415,9 +417,14 @@ test('AC-21: the box, the tabs and the file list all work from the keyboard, in 
   await page.keyboard.press('Tab');
   const changes = page.getByRole('tab', { name: /^Changes/ });
   await expect(changes).toBeFocused();
+  // Changes, Ports, then Context (spec 048).
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('tab', { name: /^Ports/ })).toBeFocused();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Context 1' })).toBeFocused();
   await expect(page.getByRole('tab', { name: 'Context 1' })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('ArrowLeft');
+  await expect(page.getByRole('tab', { name: /^Ports/ })).toBeFocused();
   await page.keyboard.press('ArrowLeft');
   await expect(changes).toHaveAttribute('aria-selected', 'true');
 

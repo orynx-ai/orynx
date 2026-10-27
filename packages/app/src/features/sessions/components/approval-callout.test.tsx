@@ -149,7 +149,9 @@ describe('ApprovalCallout (spec 012)', () => {
     const callout = await screen.findByRole('alert');
     expect(within(callout).getByText('Claude wants to edit a file')).toBeVisible();
     const change = within(callout).getByRole('region', { name: 'Changes in ContentList.tsx' });
-    expect(within(change).getByText('src/content/ContentList.tsx')).toBeVisible();
+    // The folder muted, then the file's name (spec 048).
+    expect(within(change).getByText('ContentList.tsx')).toBeVisible();
+    expect(within(change).getByTitle('src/content/ContentList.tsx')).toHaveTextContent('src/content/ContentList.tsx');
     expect(within(change).getByText('const { selected } = useSelection(items);', { exact: false })).toBeVisible();
     expect(within(callout).getByText('and 12 more lines')).toBeVisible();
     expect(within(callout).queryByRole('button', { name: /Always allow/ })).toBeNull();
