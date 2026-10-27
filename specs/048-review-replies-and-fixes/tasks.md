@@ -10,7 +10,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: The app's unit tests share one module graph per worker (AC-21)
       Check: pnpm exec vitest run packages/app/ --sequence.shuffle, 3 runs with new seeds, all pass and each under half of 118.7 s
       Files: packages/app/vitest.config.ts, packages/app/src/test/setup.ts (only if a leak shows)
-- [ ] Task 3: The same trial for ui and core, kept only where it passes and saves time (part C)
+- [x] Task 3: The same trial for ui and core, kept only where it passes and saves time (part C)
       Check: pnpm exec vitest run packages/ui/ --sequence.shuffle and packages/core/, 3 runs each
       Files: packages/ui/vitest.config.ts, packages/core/vitest.config.ts
 
