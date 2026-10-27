@@ -19,7 +19,16 @@ async function folder(): Promise<string> {
 describe('updateHost (spec 045)', () => {
   it('AC-1: inside the desktop app, says so with its stamped version', async () => {
     const home = await folder();
-    const host = await updateHost({ desktop: true, service: null, version: '0.1.37', repo: home, home, env: {} });
+    const port = { on: () => undefined, postMessage: () => undefined };
+    const host = await updateHost({
+      desktop: port,
+      service: null,
+      version: '0.1.37',
+      repo: home,
+      home,
+      env: {},
+      log: () => undefined,
+    });
     expect(host).toMatchObject({
       kind: 'desktop',
       folder: null,
@@ -29,17 +38,11 @@ describe('updateHost (spec 045)', () => {
 
   it('AC-25, AC-30: a clone is a service when ./install.sh says so, and started by hand otherwise', async () => {
     const repo = await folder();
-    const service = await updateHost({
-      desktop: false,
-      service: 'launchd',
-      version: '0.1.0',
-      repo,
-      home: repo,
-      env: {},
-    });
+    const options = { desktop: null, version: '0.1.0', repo, home: repo, env: {}, log: () => undefined };
+    const service = await updateHost({ ...options, service: 'launchd' });
     expect(service.kind).toBe('service');
     expect(service.state().action).toBe('update');
-    const byHand = await updateHost({ desktop: false, service: null, version: '0.1.0', repo, home: repo, env: {} });
+    const byHand = await updateHost({ ...options, service: null });
     expect(byHand.kind).toBe('by_hand');
     expect(byHand.state().action).toBe('commands');
   });

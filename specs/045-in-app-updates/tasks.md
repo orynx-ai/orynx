@@ -32,7 +32,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: The server host picks its kind and hands `updates` to createServer: DEVHUB_SERVICE, DEVHUB_RELEASES_URL (AC-1, AC-2, AC-30)
       Check: pnpm test apps/server/src/config.test.ts apps/server/src/updates-host.test.ts; pnpm gate env-policy
       Files: apps/server/src/config.ts, config.test.ts, main.ts, updates-host.ts, updates-host.test.ts, .env.example
-- [ ] Task 11: The hub's side of the desktop messages: state in, download and restart out (AC-18 to AC-23)
+- [x] Task 11: The hub's side of the desktop messages: state in, download and restart out (AC-18 to AC-23)
       Check: pnpm test apps/server/src/desktop-updates.test.ts
       Files: apps/server/src/desktop-updates.ts, desktop-updates.test.ts, apps/server/src/updates-host.ts, packages/contracts/src/updates.ts
 - [ ] Task 12: The desktop updater sends its state to the hub, drops its native dialogs, and restarts on Linux through quitAndInstall after stopping the hub (AC-13, AC-18, AC-19, AC-22)

@@ -89,3 +89,27 @@ export type Updates = z.infer<typeof UpdatesSchema>;
 /** POST /api/updates/install: Update, or Restart to update once it's downloaded. Never a command of its own. */
 export const UpdateInstallSchema = z.strictObject({ step: z.enum(['update', 'restart']) });
 export type UpdateInstall = z.infer<typeof UpdateInstallSchema>;
+
+/**
+ * The desktop app's updater to its hub, over the utility process's port (spec 045): what a newer release offers on
+ * this computer, and how far its download has got. The app keeps its own copy of this shape (it imports no
+ * `@devhub` package), and each side parses what it receives.
+ */
+export const DesktopUpdateStateSchema = z.object({
+  type: z.literal('update-state'),
+  action: z.enum(['update', 'download', 'none']),
+  update: z.discriminatedUnion('state', [
+    z.object({ state: z.literal('idle') }),
+    z.object({ state: z.literal('downloading'), version: OrynxVersionSchema }),
+    z.object({ state: z.literal('ready'), version: OrynxVersionSchema }),
+    z.object({ state: z.literal('failed'), log: z.null() }),
+  ]),
+});
+export type DesktopUpdateState = z.infer<typeof DesktopUpdateStateSchema>;
+
+/** The hub to the desktop app: Update downloads this version, Restart to update installs it. */
+export const HubUpdateCommandSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('download'), version: OrynxVersionSchema }),
+  z.object({ type: z.literal('restart') }),
+]);
+export type HubUpdateCommand = z.infer<typeof HubUpdateCommandSchema>;
