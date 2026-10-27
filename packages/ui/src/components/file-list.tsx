@@ -37,22 +37,18 @@ export function spokenCounts(added: number, removed: number): string {
     .join(', ');
 }
 
-/**
- * Splits a path into its folder part, which may be cut off, and its file name, which stays whole.
- * The last "/" goes with the name, so a cut path reads "src/cont…/ContentList.tsx".
- */
+/** Splits a path into its folder, which may be cut off, and its file name. */
 function splitPath(path: string): { folder: string; name: string } {
   const slash = path.lastIndexOf('/');
-  if (slash === -1) return { folder: '', name: path };
-  return { folder: path.slice(0, slash), name: path.slice(slash) };
+  return { folder: path.slice(0, Math.max(0, slash)), name: path.slice(slash + 1) };
 }
 
 /**
  * Design system: FileList (`dh-filelist`). The files Claude changed, with their + and − counts;
- * picking one shows its diff. Each file is a 40 px button; the shown one has `aria-current` and an
- * `info` edge and tint. The path is mono; when it's too long, only the folder part is cut off, so
- * the file name stays whole (spec 006 Q3b), and the full path shows on hover. Beside each file, a copy
- * button for its path shows on hover or focus (the user's call, 19 Oct 2026).
+ * picking one shows its diff. Each file is a 56 px button; the shown one has `aria-current` and an
+ * `info` edge and tint. Its name is mono on the first line, and its folder and counts on the second
+ * (spec 048, `session-review.html`); a long folder is cut off and the full path shows on hover. Beside
+ * each file, a copy button for its path shows on hover or focus (the user's call, 19 Oct 2026).
  */
 export function FileList({ files, current, onSelect, maxRows, className, ...props }: FileListProps) {
   return (
@@ -60,9 +56,9 @@ export function FileList({ files, current, onSelect, maxRows, className, ...prop
       data-slot="file-list"
       className={cn(
         'm-0 flex list-none flex-col divide-y divide-border overflow-hidden rounded-md border border-border p-0',
-        // 8 rows of 40 px and their 7 dividers are 327 px; at 328 the next row's divider shows the list goes on.
+        // 8 rows of 56 px and their 7 dividers are 455 px; at 456 the next row's divider shows the list goes on.
         // Relative, so each row's hidden words are clipped here, not stacked below the page (the user's report, 22 Oct).
-        maxRows === 8 && 'relative box-content max-h-82 overflow-y-auto',
+        maxRows === 8 && 'relative box-content max-h-114 overflow-y-auto',
         className,
       )}
       {...props}
@@ -82,24 +78,23 @@ export function FileList({ files, current, onSelect, maxRows, className, ...prop
               onClick={() => {
                 onSelect(file.path);
               }}
-              className="flex min-h-10 w-full min-w-0 cursor-pointer items-center gap-2 border-0 border-s-2 border-transparent bg-transparent px-3 text-start text-small text-foreground focus-visible:-outline-offset-2 aria-current:border-info"
+              className="flex min-h-14 w-full min-w-0 cursor-pointer flex-col justify-center border-0 border-s-2 border-transparent bg-transparent px-3 py-2 text-start text-small text-foreground focus-visible:-outline-offset-2 aria-current:border-info"
             >
               {/* Named by its content: the whole path, then the counts as words. The drawn path and counts
                   aren't read out (the two path parts would read with a gap between them), and the
                   spaces keep the words apart; flex layout ignores them. */}
               <span className="sr-only">{file.path}</span>{' '}
-              <span aria-hidden title={file.path} className="flex min-w-0 flex-1 font-mono text-code">
-                <span className="min-w-0 truncate">{folder}</span>
-                {/* Never shrinks, so the folder gives way first; cut only when the name alone is too wide. */}
-                <span className="max-w-full shrink-0 truncate">{name}</span>
-              </span>
-              <span aria-hidden className="flex shrink-0 gap-2">
-                {/* Green is 4.14:1 on the shown row's tint, so there the + count is in the text colour; the sign
-                    still says it (the user's call, spec 013, 18 Oct 2026). */}
-                {file.added > 0 ? (
-                  <span className={file.path === current ? 'text-foreground' : 'text-success'}>+{file.added}</span>
-                ) : null}
-                {file.removed > 0 ? <span className="text-danger">−{file.removed}</span> : null}
+              <span aria-hidden title={file.path} className="flex w-full min-w-0 flex-col">
+                <span className="truncate font-mono text-code font-medium">{name}</span>
+                <span className="flex min-w-0 gap-2 text-muted-foreground">
+                  <span className="min-w-0 flex-1 truncate">{folder}</span>
+                  {/* Green is 4.14:1 on the shown row's tint, so there the + count is in the text colour; the sign
+                      still says it (the user's call, spec 013, 18 Oct 2026). */}
+                  {file.added > 0 ? (
+                    <span className={file.path === current ? 'text-foreground' : 'text-success'}>+{file.added}</span>
+                  ) : null}
+                  {file.removed > 0 ? <span className="text-danger">−{file.removed}</span> : null}
+                </span>
               </span>
               {spoken ? <span className="sr-only">{spoken}</span> : null}
             </button>
@@ -113,7 +108,7 @@ export function FileList({ files, current, onSelect, maxRows, className, ...prop
 
 /**
  * The list's loading form (spec 006 Q4a): `rows` rows built like the real ones (a divider, then a
- * 40 px row) in the same frame, so nothing moves when the files arrive. Hidden from screen readers.
+ * 56 px row of two lines) in the same frame, so nothing moves when the files arrive. Hidden from screen readers.
  */
 export function FileListSkeleton({
   rows = 4,
@@ -129,9 +124,9 @@ export function FileListSkeleton({
     >
       {Array.from({ length: rows }, (_, row) => (
         <div key={row} className="flex">
-          <div className="flex h-10 w-full items-center gap-2 border-s-2 border-s-transparent bg-raised px-3">
-            <Skeleton className="h-3.5 flex-1" />
-            <Skeleton className="h-3.5 w-14" />
+          <div className="flex h-14 w-full flex-col justify-center gap-1.5 border-s-2 border-s-transparent bg-raised px-3">
+            <Skeleton className="h-3.5 w-2/5" />
+            <Skeleton className="h-3.5 w-3/5" />
           </div>
         </div>
       ))}

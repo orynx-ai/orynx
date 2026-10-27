@@ -23,7 +23,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: `DiffView` gets `wrap` and header `actions`, with the folder muted before the name (AC-19, AC-21)
       Check: pnpm test packages/ui/src/components/diff-view.test.tsx
       Files: packages/ui/src/components/diff-view.tsx, packages/ui/src/components/diff-view.stories.tsx, packages/ui/src/components/diff-view.test.tsx
-- [ ] Task 8: `FileList` rows on two lines: the name, then the folder and the counts (AC-18)
+- [x] Task 8: `FileList` rows on two lines: the name, then the folder and the counts (AC-18)
       Check: pnpm test packages/ui/src/components/file-list.test.tsx
       Files: packages/ui/src/components/file-list.tsx, packages/ui/src/components/file-list.stories.tsx, packages/ui/src/components/file-list.test.tsx
 - [ ] Task 9: The diff's browser-only state: Wrap lines (on by default, every session) and Viewed (per session and file, cleared when its counts change) (AC-20, AC-22)

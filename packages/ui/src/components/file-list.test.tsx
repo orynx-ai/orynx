@@ -35,9 +35,10 @@ describe('FileList', () => {
     expect(buttons.filter((button) => button.hasAttribute('aria-current'))).toHaveLength(1);
     // The full path shows on hover, since the folder part can be cut off.
     expect(within(list).getByTitle('src/content/api/contentApi.ts')).toBeVisible();
-    // Only the folder part can be cut off; the last "/" stays with the name: "src/cont…/ContentList.tsx".
-    expect(within(list).getByText('src/content/api')).toBeInTheDocument();
-    expect(within(list).getByText('/contentApi.ts')).toBeInTheDocument();
+    // AC-18 (spec 048): the file's name on the first line, its folder (which may be cut off) on the second.
+    expect(within(list).getByText('contentApi.ts')).toHaveClass('font-mono');
+    expect(within(list).getByText('src/content/api')).toHaveClass('truncate');
+    expect(within(list).getByText('contentApi.ts').nextElementSibling).toHaveTextContent('src/content/api+31−2');
     // A path is read once: the hover text doesn't describe the button too.
     expect(buttons[1]).not.toHaveAccessibleDescription();
     // Beside each file, a button that copies its path (the user's call, 19 Oct 2026).
