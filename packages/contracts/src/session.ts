@@ -448,15 +448,13 @@ export const SessionTicketSchema = z.object({
 export type SessionTicket = z.infer<typeof SessionTicketSchema>;
 
 /**
- * Whether the follow-up box takes a message (spec 013, Q1), or why not: the changes are discarded, Claude
- * never started, or the ticket has a newer live session, which the box links to. Three sessions already
- * working is said only when you send, because it can change at any moment.
+ * Whether the follow-up box takes a message (spec 013, Q1), or why not: the changes are discarded, or Claude
+ * never started. Three sessions already working is said only when you send, because it can change at any moment.
  */
 export const SessionFollowUpSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('open') }),
   z.object({ kind: z.literal('discarded') }),
   z.object({ kind: z.literal('never_started') }),
-  z.object({ kind: z.literal('newer_session'), sessionId: SessionIdSchema }),
 ]);
 export type SessionFollowUp = z.infer<typeof SessionFollowUpSchema>;
 
@@ -692,13 +690,13 @@ export type SendMessageInput = z.input<typeof SendMessageRequestSchema>;
 
 /**
  * The answer to a follow-up. One that can't go says why, and nothing is sent (AC-14, AC-15): three sessions
- * already working, the changes discarded, Claude never started, or the ticket has a newer live session.
+ * already working, the changes discarded, or Claude never started.
  */
 export const SendMessageAnswerSchema = z.discriminatedUnion('result', [
   z.object({ result: z.literal('sent') }),
   z.object({
     result: z.literal('cannot_send'),
-    reason: z.enum(['too_many', 'discarded', 'never_started', 'newer_session']),
+    reason: z.enum(['too_many', 'discarded', 'never_started']),
   }),
   /** A chip added to the follow-up that Jira, GitHub or the computer couldn't give, by its place, as at start. */
   z.object({

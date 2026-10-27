@@ -104,21 +104,6 @@ describe('FollowUpBox', () => {
     });
   });
 
-  it('AC-14: says why there’s nothing to carry on in place of the box, and links to a newer session', async () => {
-    serve(makeSession({ id, state: 'stopped', followUp: { kind: 'newer_session', sessionId: 'fedcba9876543210' } }));
-    server.use(
-      sessionsHandler(
-        makeSessionList([makeSessionSummary({ id: 'fedcba9876543210', title: 'Add bulk archive again' })]),
-      ),
-    );
-    const { user, history } = await renderApp({ route });
-
-    expect(await screen.findByText('PROJ-1423 has a newer session.')).toBeVisible();
-    expect(screen.queryByRole('textbox', { name: 'Message Claude' })).toBeNull();
-    await user.click(screen.getByRole('link', { name: 'Open it' }));
-    expect(history.location.pathname).toBe('/sessions/fedcba9876543210');
-  });
-
   it.each([
     [{ kind: 'discarded' } as const, "The changes were discarded, so Claude can't carry on."],
     [

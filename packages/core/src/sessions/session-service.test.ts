@@ -1320,7 +1320,7 @@ describe('follow-ups (spec 013)', () => {
     expect((await settled(limited.records)).session).toMatchObject({ state: 'done', problem: null });
   });
 
-  it('AC-14: refuses when the changes were discarded, Claude never started, or the ticket has a newer live session', async () => {
+  it('AC-14: refuses when the changes were discarded or Claude never started; spec 047, AC-5: not for a newer session', async () => {
     const discarded = await setUp();
     await discarded.service.start({ ticketKey: 'PROJ-1423' });
     await settled(discarded.records);
@@ -1337,7 +1337,7 @@ describe('follow-ups (spec 013)', () => {
     await reached(newer.records, 'explore');
     await newer.service.stop(id);
     await newer.service.start({ ticketKey: 'PROJ-1423' });
-    expect(await newer.service.send(id, 'More')).toEqual({ result: 'cannot_send', reason: 'newer_session' });
+    expect(await newer.service.send(id, 'More')).toEqual({ result: 'sent' });
     await newer.service.close();
   });
 
@@ -1517,7 +1517,8 @@ describe('the session detail (spec 013)', () => {
     await reached(newer.records, 'explore');
     await newer.service.stop(id);
     await newer.service.start({ ticketKey: 'PROJ-1423' });
-    expect((await newer.service.get(id))?.followUp).toEqual({ kind: 'newer_session', sessionId: '0000000000000002' });
+    // Both sessions on the ticket keep their box (spec 047, AC-5).
+    expect((await newer.service.get(id))?.followUp).toEqual({ kind: 'open' });
     expect((await newer.service.get('0000000000000002'))?.followUp).toEqual({ kind: 'open' });
     await newer.service.close();
   });

@@ -1258,8 +1258,6 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return cannot('never_started');
     }
     const key = ticketOf(record);
-    const live = ask ? null : await liveSessionOn(key);
-    if (live !== null && live !== id) return cannot('newer_session');
     if ((await workingCount()) >= mostWorking) return cannot('too_many');
 
     const run = newRun();
@@ -1324,14 +1322,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   }
 
   /** Whether the follow-up box takes a message, or why not (spec 013, AC-14). */
-  async function followUpOf(record: StoredSession): Promise<SessionFollowUp> {
+  function followUpOf(record: StoredSession): SessionFollowUp {
     const { session } = record;
     if (session.discardedAt !== null) return { kind: 'discarded' };
     if (record.claudeSessionId === null && !isWorking(session)) return { kind: 'never_started' };
-    if (session.source?.kind === 'jira' && session.mode !== 'ask') {
-      const live = await liveSessionOn(session.source.key);
-      if (live !== null && live !== session.id) return { kind: 'newer_session', sessionId: live };
-    }
+    // Every session on a ticket carries on, whatever started beside it since (spec 047, AC-5).
     return { kind: 'open' };
   }
 
@@ -1643,11 +1638,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       if (record === null) return null;
       const { session } = record;
       const key = session.source?.kind === 'jira' ? session.source.key : null;
-      const [saved, known, followUp, unpushed] = await Promise.all([
+      const [saved, known, unpushed] = await Promise.all([
         // A session saved before spec 013 kept only its brief.
         session.ticket ?? records.readBrief(id).then((brief) => (brief === null ? null : ticketFromBrief(brief))),
         key === null ? null : describeTicket(key),
-        followUpOf(record),
         pullRequests.unpushed(record),
       ]);
       const ticket: SessionTicket | null =
@@ -1667,7 +1661,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         ...session,
         ready: readyFor(session),
         ticket,
-        followUp,
+        followUp: followUpOf(record),
         worktreePath: made ? record.worktree : null,
         terminal,
         unpushed,

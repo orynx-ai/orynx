@@ -283,16 +283,12 @@ describe('a session in spec 013', () => {
   });
 
   it('AC-14: says whether the follow-up box is open, or why not, with the newer session when there is one', () => {
-    for (const followUp of [
-      { kind: 'open' },
-      { kind: 'discarded' },
-      { kind: 'never_started' },
-      { kind: 'newer_session', sessionId: 'fedcba9876543210' },
-    ] as const) {
+    for (const followUp of [{ kind: 'open' }, { kind: 'discarded' }, { kind: 'never_started' }] as const) {
       expect(SessionSchema.parse(makeSession({ followUp })).followUp).toEqual(followUp);
     }
-    const noId = { ...makeSession(), followUp: { kind: 'newer_session' } };
-    expect(SessionSchema.safeParse(noId).success).toBe(false);
+    // Every session on a ticket carries on, so none says a newer one took over (spec 047, AC-5).
+    const newer = { ...makeSession(), followUp: { kind: 'newer_session', sessionId: 'fedcba9876543210' } };
+    expect(SessionSchema.safeParse(newer).success).toBe(false);
   });
 
   it("AC-20: carries the worktree's path for Open in", () => {
@@ -489,7 +485,7 @@ describe('a follow-up (spec 013)', () => {
 
   it("AC-14, AC-15: answers sent, or why it can't send", () => {
     expect(SendMessageAnswerSchema.parse({ result: 'sent' })).toEqual({ result: 'sent' });
-    for (const reason of ['too_many', 'discarded', 'never_started', 'newer_session'] as const) {
+    for (const reason of ['too_many', 'discarded', 'never_started'] as const) {
       expect(SendMessageAnswerSchema.parse({ result: 'cannot_send', reason })).toEqual({
         result: 'cannot_send',
         reason,
