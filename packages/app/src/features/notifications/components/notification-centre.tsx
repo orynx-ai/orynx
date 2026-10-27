@@ -92,6 +92,7 @@ export function NotificationCentre({ side = 'right', tooltipSide }: Notification
     if (!notification.read) markRead.mutate({ ids: [notification.id] });
     const place = notificationPlace(notification.what);
     if (place.kind === 'session') void navigate({ to: '/sessions/$sessionId', params: { sessionId: place.sessionId } });
+    else if (place.kind === 'about') void navigate({ to: '/settings/$tab', params: { tab: 'about' } });
     else platform.openExternal(place.url);
   }
 

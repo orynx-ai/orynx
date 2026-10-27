@@ -283,6 +283,10 @@ const eventGroups: readonly {
       { id: 'jira_assigned', label: 'Jira ticket assigned to you', line: 'In Jira' },
     ],
   },
+  {
+    heading: 'Orynx',
+    events: [{ id: 'update_available', label: 'A new version of Orynx is out', line: 'In Settings › About' }],
+  },
 ];
 
 function EventsSection({ saved, loading, save }: SectionProps) {

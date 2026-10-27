@@ -78,19 +78,18 @@ export const testWords = {
   detail: 'This is how Orynx tells you Claude is waiting.',
 } as const;
 
-export type NotificationPlace = { kind: 'session'; sessionId: string } | { kind: 'external'; url: string };
+export type NotificationPlace =
+  { kind: 'session'; sessionId: string } | { kind: 'external'; url: string } | { kind: 'about' };
 
 /** Whether it's about the session open at `pathname`, which already shows it, its approval callout included. */
 export function aboutOpenSession(what: NotificationWhat, pathname: string): boolean {
   return 'session' in what && pathname === `/sessions/${what.session.id}`;
 }
 
-/** Where opening a notification goes: its Session screen, or the pull request, ticket or release outside Orynx. */
+/** Where opening a notification goes: its Session screen, Settings › About, or the pull request or ticket outside. */
 export function notificationPlace(what: NotificationWhat): NotificationPlace {
   if ('session' in what) return { kind: 'session', sessionId: what.session.id };
-  if (what.kind === 'update_available') {
-    return { kind: 'external', url: `https://github.com/orynx-ai/orynx/releases/tag/v${what.version}` };
-  }
+  if (what.kind === 'update_available') return { kind: 'about' };
   return { kind: 'external', url: 'pullRequest' in what ? what.pullRequest.url : what.ticket.url };
 }
 
