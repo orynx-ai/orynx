@@ -71,7 +71,7 @@ function makeRepository() {
   git(seed, 'commit', '-m', 'first');
   git(seed, 'push', 'origin', 'main');
   git(root, 'clone', origin, clone);
-  return { root, clone };
+  return { root, clone, origin, seed, git };
 }
 
 const repository = makeRepository();
@@ -500,4 +500,69 @@ test('AC-30, AC-31: Home, its chips and the + popup fit 360 px and have no axe v
       await expect(page.getByRole('button', { name: 'Add context' })).toBeFocused();
     }
   }
+});
+
+test('047 AC-6, AC-10, AC-25: Fix review comments, by keyboard, starts a Build on my pull request’s branch and opens it', async ({
+  page,
+}) => {
+  // My pull request #2900 on web-app's fix/people-page, with a review comment waiting for me. Last in this file: from
+  // here on, the folder's origin reads as github.com/acme/web-app, the bare repository standing in for it.
+  const { git, seed, origin, clone } = repository;
+  git(seed, 'checkout', '-b', 'fix/people-page');
+  writeFileSync(join(seed, 'people.ts'), 'export const page = 20;\n');
+  git(seed, 'add', '.');
+  git(seed, 'commit', '-m', 'Page the people directory');
+  git(seed, 'push', 'origin', 'fix/people-page');
+  const github = 'git@github.com:acme/web-app.git';
+  git(clone, 'remote', 'set-url', 'origin', github);
+  git(clone, 'config', `url.${origin}.insteadOf`, github);
+  await page.goto('/');
+  const put = await page.request.put(`http://127.0.0.1:${String(controlPortFor(composerHubPort))}/tools`, {
+    data: {
+      ...tools,
+      mine: [
+        {
+          number: 2900,
+          title: 'Page the people directory',
+          author: { login: 'octocat', name: 'The Octocat' },
+          threads: [{ resolved: false, lastBy: 'priya-s', at: '2026-10-17T08:00:00Z' }],
+        },
+      ],
+      pullRequests: [
+        ...(tools.pullRequests ?? []),
+        { number: 2900, title: 'Page the people directory', diff, head: 'fix/people-page', author: 'octocat' },
+      ],
+    } satisfies FakeTools,
+  });
+  expect(put.status()).toBe(204);
+  await api(page, 'POST', '/api/inbox/refresh');
+  await page.goto('/');
+
+  const row = page
+    .getByRole('region', { name: 'Needs your attention' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Page the people directory' });
+  const fix = row.getByRole('button', { name: `Fix review comments: web-app #${String(2900)}` });
+  for (const width of [1280, 360]) {
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.emulateMedia({ colorScheme });
+      await expect(fix).toBeVisible();
+      expect(await axe(page, 'main'), `Fix at ${String(width)} px, ${colorScheme}`).toEqual([]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.emulateMedia({ colorScheme: 'light' });
+
+  // AC-10: Tab from the row's title reaches Fix, its tooltip says what it fixes, and Enter presses it.
+  await row.getByRole('link', { name: 'Page the people directory' }).focus();
+  await page.keyboard.press('Tab');
+  await expect(fix).toBeFocused();
+  await expect(page.getByRole('tooltip')).toHaveText('Fix review comments');
+  await page.keyboard.press('Enter');
+
+  await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);
+  await expect(page.getByText(`in web-app · on #${String(2900)}'s branch, in a separate worktree`)).toBeVisible();
+  await expect.poll(lastBrief).toMatch(/^Fix the unresolved review comments on web-app #2900\./);
 });

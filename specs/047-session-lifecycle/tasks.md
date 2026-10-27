@@ -34,9 +34,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: The composer's last answer moves into the composer store, so Send and Fix both write it. The row's Fix `IconButton` (`Wrench01Icon`) starts the session with the composer's model and effort and opens it. An `existing` answer shows A's callout under the composer; a `cannot_start` or `context_failed` answer puts the PR in the composer as Build with Send's line. The draft is untouched when it starts (AC-6, AC-7, AC-8, AC-9, AC-10)
       Check: pnpm test packages/app/src/features/home/components/attention-panel.test.tsx packages/app/src/features/home/home-screen.test.tsx; pnpm gate style-policy; pnpm gate icon-buttons
       Files: packages/app/src/features/home/components/attention-panel.tsx, packages/app/src/features/home/components/home-composer.tsx, packages/app/src/features/home/store.ts, and their tests
-- [ ] Task 10: e2e: Fix review comments starts a Build on the PR's branch and opens it; by keyboard; axe at 360 and 1280 px in light and dark (AC-6, AC-10, AC-25)
+- [x] Task 10: e2e: Fix review comments starts a Build on the PR's branch and opens it; by keyboard; axe at 360 and 1280 px in light and dark (AC-6, AC-10, AC-25)
       Check: pnpm exec playwright test e2e/composer.spec.ts
-      Files: e2e/composer.spec.ts, e2e/fake-tools/config.ts (if a mine PR with unresolved comments needs a field)
+      Files: e2e/composer.spec.ts (the fakes needed no new field)
 
 ## C. After the merge
 
