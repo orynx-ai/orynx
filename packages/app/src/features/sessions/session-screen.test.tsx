@@ -42,7 +42,7 @@ describe('SessionScreen', () => {
     );
     const { user } = await renderApp({ route });
 
-    const progress = await screen.findByRole('region', { name: "Claude's progress" });
+    const progress = await screen.findByRole('region', { name: 'What Claude did' });
     expect(within(progress).getByRole('textbox', { name: 'Message Claude' })).toBeVisible();
     const details = screen.getByRole('region', { name: 'Work details' });
     const tabs = within(details).getByRole('tablist', { name: 'Session details' });
@@ -85,7 +85,7 @@ describe('SessionScreen', () => {
       sessionHandler({ ...working, mode: 'ask', branch: null, worktreePath: null, source: null, context: [] }),
     );
     await renderApp({ route });
-    expect(await screen.findByRole('region', { name: "Claude's progress" })).toBeVisible();
+    expect(await screen.findByRole('region', { name: 'What Claude did' })).toBeVisible();
     expect(screen.queryByRole('region', { name: 'Work details' })).toBeNull();
   });
 
@@ -161,7 +161,7 @@ describe('SessionScreen', () => {
         .map((tab) => tab.textContent),
     ).toEqual(['Changes']);
     expect(within(tabs).getByRole('tab', { name: /Changes/ })).toHaveAttribute('aria-selected', 'true');
-    const progress = screen.getByRole('region', { name: "Claude's progress" });
+    const progress = screen.getByRole('region', { name: 'What Claude did' });
     // 022 AC-17: a file by its name, with its full path in the tooltip.
     expect(within(progress).getByText('Your message, web-app #2836 and notes.md')).toHaveAttribute(
       'title',

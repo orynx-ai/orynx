@@ -159,18 +159,20 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35, 031 AC-11: Ship then Send s
   const other = await context.newPage();
   await other.goto(page.url());
 
-  const progress = page.getByRole('region', { name: "Claude's progress" });
-  // Spec 042: Orynx reads the ask first, and the branch comes at Claude's first edit.
+  const progress = page.getByRole('region', { name: 'What Claude did' });
+  await expect(progress.getByText('Finished')).toBeVisible({ timeout: 15_000 });
+  await expect(progress.getByText('Added row selection and an Archive selected button.')).toBeVisible();
+  // Each step opened, every row shows (spec 048). Spec 042: Orynx reads the ask first, and the branch comes at
+  // Claude's first edit.
+  await progress.getByRole('button', { name: 'Expand all' }).click();
   await expect(progress.getByText('Code change · from main')).toBeVisible();
   await expect(progress.getByText('Made a worktree')).toBeVisible();
   await expect(progress.getByText('from origin/main')).toBeVisible();
   await expect(progress.getByText('Sent Claude the brief')).toBeVisible();
   await expect(progress.getByText('Explored the code')).toBeVisible();
   await expect(progress.getByText('Made a plan')).toBeVisible();
-  await expect(progress.getByText('Made branch feat/PROJ-1423')).toBeVisible({ timeout: 15_000 });
-  await expect(progress.getByText('Edited 1 file')).toBeVisible({ timeout: 15_000 });
-  await expect(progress.getByText('Finished')).toBeVisible({ timeout: 15_000 });
-  await expect(progress.getByText('Added row selection and an Archive selected button.')).toBeVisible();
+  await expect(progress.getByText('Made branch feat/PROJ-1423')).toBeVisible();
+  await expect(progress.getByText('Edited 1 file')).toBeVisible();
   await expect(page.getByRole('main').getByText('Done, ready for PR')).toBeVisible();
   await expect(page.getByRole('list', { name: 'Session progress' }).getByText('Review')).toHaveAttribute(
     'aria-current',
@@ -180,7 +182,7 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35, 031 AC-11: Ship then Send s
   await expect(page.getByRole('list', { name: 'Session progress' }).getByRole('listitem').nth(2)).toHaveText(
     'Test, skipped',
   );
-  await expect(other.getByRole('region', { name: "Claude's progress" }).getByText('Finished')).toBeVisible();
+  await expect(other.getByRole('region', { name: 'What Claude did' }).getByText('Finished')).toBeVisible();
 
   // The repository's own checkout is as it was; Claude's file is in the session's worktree only.
   expect(repository.git(repository.clone, 'status', '--porcelain=v1', '--branch')).toBe(before);
@@ -200,7 +202,7 @@ test('AC-9, 039 AC-32: Stop keeps the worktree, and Delete takes the session and
   await page.getByRole('button', { name: 'Send to Claude' }).click();
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   const url = page.url();
-  const progress = page.getByRole('region', { name: "Claude's progress" });
+  const progress = page.getByRole('region', { name: 'What Claude did' });
   await expect(progress.getByText('Editing files')).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
@@ -249,7 +251,7 @@ test('AC-11, AC-18, 022 AC-39: with two folders, the composer asks which, picked
   await expect(
     page.getByRole('main').getByText('in mobile · separate worktree, your main checkout is untouched'),
   ).toBeVisible();
-  await expect(page.getByRole('region', { name: "Claude's progress" }).getByText('Finished')).toBeVisible({
+  await expect(page.getByRole('region', { name: 'What Claude did' }).getByText('Finished')).toBeVisible({
     timeout: 15_000,
   });
   const inMobile = repository.git(mobile, 'worktree', 'list', '--porcelain');
@@ -281,7 +283,7 @@ test('AC-13: when Jira won’t give the ticket, the session says it couldn’t s
   await page.goto(`/sessions/${started.sessionId}`);
   seen.failed = page.url();
 
-  const alert = page.getByRole('region', { name: "Claude's progress" }).getByRole('alert');
+  const alert = page.getByRole('region', { name: 'What Claude did' }).getByRole('alert');
   await expect(alert).toContainText("Claude couldn't start");
   await expect(alert).toContainText(
     "Orynx couldn't read PROJ-1427 from Jira. Check Settings › Connections, then start again.",
@@ -307,7 +309,7 @@ test('AC-15, AC-18, 022 AC-28: Home opens a live session, and a row’s +, Send,
   await page.getByRole('textbox', { name: 'Describe a task for Claude' }).focus();
   await page.keyboard.press('Enter');
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
-  await expect(page.getByRole('region', { name: "Claude's progress" }).getByText('Editing files')).toBeVisible({
+  await expect(page.getByRole('region', { name: 'What Claude did' }).getByText('Editing files')).toBeVisible({
     timeout: 15_000,
   });
 
@@ -356,7 +358,7 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
         await page.setViewportSize({ width, height: 800 });
         await page.emulateMedia({ colorScheme });
         await page.goto(url);
-        await expect(page.getByRole('region', { name: "Claude's progress" })).toBeVisible();
+        await expect(page.getByRole('region', { name: 'What Claude did' })).toBeVisible();
         expect(await check(), `${url} at ${String(width)} px, ${colorScheme}`).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       }
@@ -441,15 +443,16 @@ test('042 AC-1, AC-3, AC-6, AC-8, AC-33: a run reads as one, opens on Ports, lea
   await page.waitForURL(/\/sessions\/[0-9a-f]{16}$/);
   const id = new URL(page.url()).pathname.split('/').at(-1) ?? '';
 
-  const progress = page.getByRole('region', { name: "Claude's progress" });
+  const progress = page.getByRole('region', { name: 'What Claude did' });
   await expect(progress.getByText('Run · from main · no branch yet')).toBeVisible();
   const stepper = page.getByRole('list', { name: 'Session progress' }).getByRole('listitem');
   await expect(stepper).toHaveCount(2);
   await expect(stepper.nth(1)).toContainText('Start server');
   await expect(page.getByRole('main').getByText('No branch yet', { exact: true })).toBeVisible();
   const tabs = page.getByRole('tablist', { name: 'Session details' }).getByRole('tab');
-  await expect(tabs.first()).toHaveText('Ports');
-  await expect(tabs.first()).toHaveAttribute('aria-selected', 'true');
+  // Ports after Changes (spec 048), and the tab a run opens on.
+  await expect(tabs.nth(1)).toHaveText('Ports');
+  await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
   await expect(
     page.getByText('Nothing listens from this session. Servers Claude or you start here show up on their own.'),
   ).toBeVisible();
@@ -478,7 +481,7 @@ test('042 AC-1, AC-3, AC-6, AC-8, AC-33: a run reads as one, opens on Ports, lea
     const ports = page.getByRole('list', { name: 'Ports' });
     await expect(ports.getByText(address)).toBeVisible({ timeout: 10_000 });
     await expect(ports.getByText(/^Found in the worktree · /)).toBeVisible();
-    await expect(tabs.first()).toHaveText('Ports 1');
+    await expect(tabs.nth(1)).toHaveText('Ports 1');
     await page.getByRole('button', { name: `Stop ${address}` }).click();
     const ask = page.getByRole('alertdialog', { name: `Stop ${address}?` });
     await ask.getByRole('button', { name: 'Stop', exact: true }).click();

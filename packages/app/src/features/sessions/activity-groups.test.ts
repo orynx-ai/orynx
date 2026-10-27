@@ -42,7 +42,7 @@ describe('What Claude did, by step (spec 048)', () => {
     ]);
   });
 
-  it('AC-16: leaves Claude’s finish out of the groups, so its summary shows after them', () => {
+  it('AC-16: leaves Claude’s finish out of the groups when it’s the last thing, so its summary shows after them', () => {
     expect(groupsOf(reviewSession)?.flatMap((group) => ids(group.activities))).not.toContain('a5');
   });
 
@@ -71,6 +71,9 @@ describe('What Claude did, by step (spec 048)', () => {
     const build = groupsOf(followed)?.find((group) => group.step.kind === 'build');
     expect(build && ids(build.activities)).toEqual(['a3', 'a6', 'a7']);
     expect(build?.ms).toBe(18 * 60_000 + 60_000 + 4 * 60_000);
+    // The first finish stays in its step, at no time; only the last shows after the groups.
+    const test = groupsOf(followed)?.find((group) => group.step.kind === 'test');
+    expect(test && [ids(test.activities), test.ms]).toEqual([['a4', 'a5'], 6 * 60_000]);
   });
 
   it('puts an activity whose step the session doesn’t have with the step before it', () => {

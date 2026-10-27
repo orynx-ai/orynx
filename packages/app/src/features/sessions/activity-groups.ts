@@ -15,7 +15,8 @@ const stamped = (activity: SessionActivity): activity is Stamped =>
 /**
  * What Claude did, by the session's own steps, in the stepper's order, for the steps that started (spec 048). Each
  * activity lasts until the next one starts; the last until the run ended, or on while Claude works. Claude's finish
- * shows after the groups, so it's in none, and nor is the wait after it for your follow-up. An activity whose step
+ * takes no time, so the wait after it for your follow-up isn't counted; the last one, when it's the last activity,
+ * shows after the groups instead (AC-16). An activity whose step
  * the session doesn't have goes with the one before it. Null for the flat list: an Ask, or a session with an activity
  * saved before spec 048, which has no step or time.
  */
@@ -32,9 +33,10 @@ export function groupsOf(
   activities.forEach((activity, index) => {
     if (order.some((step) => step.kind === activity.step)) kind = activity.step;
     const step = order.find((one) => one.kind === kind);
-    if (step === undefined || activity.kind === 'finished') return;
+    const finished = activity.kind === 'finished';
+    if (step === undefined || (finished && index === activities.length - 1)) return;
     const next = activities[index + 1]?.at ?? (working ? null : session.endedAt);
-    const span = next === null ? null : Date.parse(next) - Date.parse(activity.at);
+    const span = finished ? 0 : next === null ? null : Date.parse(next) - Date.parse(activity.at);
     const group = groups.get(step.kind) ?? { step, activities: [], ms: 0 };
     group.activities.push(activity);
     group.ms = group.ms === null || span === null ? null : group.ms + Math.max(0, span);

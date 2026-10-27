@@ -124,7 +124,7 @@ function untouched(worktree: string) {
 
 const changedFiles = (page: Page) => page.getByRole('list', { name: 'Changed files' });
 const followUpBox = (page: Page) => page.getByRole('textbox', { name: 'Message Claude' });
-const progressOf = (page: Page) => page.getByRole('region', { name: "Claude's progress" });
+const progressOf = (page: Page) => page.getByRole('region', { name: 'What Claude did' });
 
 /**
  * The folder an Open in link opens, as a real path: the hub names the worktree under its own home's path, which

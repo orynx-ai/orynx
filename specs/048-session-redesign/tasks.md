@@ -35,7 +35,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: Group the activities by step, with each group's summary and time in words ("< 1 min", "18 min", "1 h 5 min"), flat when any activity has no step (AC-10, AC-15, Q8)
       Check: pnpm test packages/app/src/features/sessions/activity-groups.test.ts
       Files: packages/app/src/features/sessions/activity-groups.ts, packages/app/src/features/sessions/activity-groups.test.ts
-- [ ] Task 12: What Claude did: the rename, the groups (the current one open), Expand all / Collapse all, commands as `CommandLine`, the approval in the current group and the summary after the groups (AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16)
+- [x] Task 12: What Claude did: the rename, the groups (the current one open), Expand all / Collapse all, commands as `CommandLine`, the approval in the current group and the summary after the groups (AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/sessions/components/session-progress.test.tsx packages/app/src/features/sessions/session-screen.test.tsx
       Files: packages/app/src/features/sessions/components/session-progress.tsx, packages/app/src/features/sessions/step-words.ts, their tests, e2e/approvals.spec.ts, e2e/changes.spec.ts, e2e/composer.spec.ts, e2e/pull-requests.spec.ts, e2e/sessions.spec.ts
 - [ ] Task 13: The title row: the meta line (state, skills, folder, branch with Copy branch name, own worktree, started …) and the stepper beside the title; "Started" leaves the page bar (AC-6, AC-7, AC-9)
