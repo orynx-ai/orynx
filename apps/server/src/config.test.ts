@@ -21,6 +21,8 @@ describe('loadConfig', () => {
       claudeCode: null,
       sandbox: 'required',
       lan: false,
+      service: null,
+      releasesUrl: null,
       agentEnvironment: {},
       gitEnvironment: { GIT_TERMINAL_PROMPT: '0' },
       terminalEnvironment: { TERM: 'xterm-256color', COLORTERM: 'truecolor' },
@@ -38,6 +40,19 @@ describe('loadConfig', () => {
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
     });
+  });
+
+  it('045 AC-25, AC-30: a clone is a service only when ./install.sh set DEVHUB_SERVICE', () => {
+    expect(loadConfig({ env: { DEVHUB_SERVICE: 'launchd' } }).service).toBe('launchd');
+    expect(loadConfig({ env: { DEVHUB_SERVICE: 'systemd' } }).service).toBe('systemd');
+    expect(() => loadConfig({ env: { DEVHUB_SERVICE: 'cron' } })).toThrow(/DEVHUB_SERVICE/);
+  });
+
+  it('045 AC-12: asks a test’s fake releases server when DEVHUB_RELEASES_URL names one', () => {
+    expect(loadConfig({ env: { DEVHUB_RELEASES_URL: 'http://127.0.0.1:4999/releases' } }).releasesUrl).toBe(
+      'http://127.0.0.1:4999/releases',
+    );
+    expect(() => loadConfig({ env: { DEVHUB_RELEASES_URL: 'not a url' } })).toThrow(/DEVHUB_RELEASES_URL/);
   });
 
   it('040 AC-1: answers your wifi only when DEVHUB_LAN=true, which ./install.sh sets', () => {

@@ -28,6 +28,7 @@ import { startLan } from './lan.ts';
 import { createSessionToken, removeRuntimeFile, writeRuntimeFile } from './runtime-file.ts';
 import { trustSystemCertificates } from './system-certificates.ts';
 import { tokenNotices } from './token-notices.ts';
+import { updateHost } from './updates-host.ts';
 import { serveWeb } from './web.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -65,6 +66,16 @@ const sandbox =
 
 // The password other devices on the wifi ask for (spec 043): Set up Orynx saves it, the front door checks it.
 const password = createPasswordStore(passwordFilePath(config.home));
+
+// Settings › About (spec 045): the desktop app runs this hub as its utility process, which has a parent port.
+const updates = await updateHost({
+  desktop: 'parentPort' in process,
+  service: config.service,
+  version: packageJson.version,
+  repo: join(here, '..', '..', '..'),
+  home: config.home,
+  env: config.terminalEnvironment,
+});
 
 const app = await createServer({
   token,
@@ -114,6 +125,8 @@ const app = await createServer({
   password,
   // Home's list syncs at start, every 2 minutes while a page is open, and when a tool connects.
   autoSync: true,
+  // Checks GitHub's releases at start and every 6 hours; the e2e run names a fake with DEVHUB_RELEASES_URL.
+  updates: { host: updates, ...(config.releasesUrl === null ? {} : { releasesUrl: config.releasesUrl }) },
   logger: {
     level: config.logLevel,
     ...(config.pretty ? { transport: { target: 'pino-pretty', options: { ignore: 'pid,hostname' } } } : {}),

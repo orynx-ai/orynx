@@ -29,7 +29,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: install.sh: DEVHUB_SERVICE in the LaunchAgent and the unit, the Linux sudo skip, no waiting for a password without a terminal (AC-25, AC-28)
       Check: bash -n install.sh; pnpm test packages/core/src/updates/clone-updater.test.ts
       Files: install.sh, README.md
-- [ ] Task 10: The server host picks its kind and hands `updates` to createServer: DEVHUB_SERVICE, DEVHUB_RELEASES_URL (AC-1, AC-2, AC-30)
+- [x] Task 10: The server host picks its kind and hands `updates` to createServer: DEVHUB_SERVICE, DEVHUB_RELEASES_URL (AC-1, AC-2, AC-30)
       Check: pnpm test apps/server/src/config.test.ts apps/server/src/updates-host.test.ts; pnpm gate env-policy
       Files: apps/server/src/config.ts, config.test.ts, main.ts, updates-host.ts, updates-host.test.ts, .env.example
 - [ ] Task 11: The hub's side of the desktop messages: state in, download and restart out (AC-18 to AC-23)
