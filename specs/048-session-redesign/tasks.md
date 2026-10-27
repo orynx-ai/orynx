@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: An activity's optional `at` and `step`, and a changed file's `created` (default false), with factories (AC-15, AC-21)
       Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/changes.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/changes.ts, packages/contracts/src/testing.ts, packages/contracts/src/session.test.ts, packages/contracts/src/changes.test.ts
-- [ ] Task 3: Stamp each new activity with the session's step and the time in `change()`, keeping the stamp when a step is rebuilt (AC-10, AC-14, AC-15)
+- [x] Task 3: Stamp each new activity with the session's step and the time in `change()`, keeping the stamp when a step is rebuilt (AC-10, AC-14, AC-15)
       Check: pnpm test packages/core/src/sessions/progress.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/progress.ts, packages/core/src/sessions/progress.test.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-service.test.ts
 - [ ] Task 4: Mark the files git calls added as `created` (AC-21)

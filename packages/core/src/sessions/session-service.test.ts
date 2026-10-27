@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { createServer as createNetServer, type Server } from 'node:net';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { PermissionMode, ServerEvent } from '@devhub/contracts';
+import type { PermissionMode, ServerEvent, SessionStep } from '@devhub/contracts';
 import { makeSessionPullRequest } from '@devhub/contracts/testing';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { createClaudeAdapter } from '../agents/claude/claude-adapter.ts';
@@ -82,6 +82,8 @@ afterEach(async () => {
 });
 
 const clock = Date.parse('2026-10-18T09:56:00.000Z');
+/** A step's stamp at the test clock's time (spec 048). */
+const at = (step: SessionStep) => ({ step, at: new Date(clock).toISOString() });
 
 interface SetUpOptions {
   /** How Claude Code's login check answers. */
@@ -437,9 +439,18 @@ describe('running a session', () => {
       endedAt: '2026-10-18T09:56:00.000Z',
     });
     expect(record.session.activities).toEqual([
-      // The branch comes at Claude's first edit (spec 042).
-      { id: 'step-1', state: 'done', kind: 'worktree', branch: null, base: 'origin/main', fetched: true },
+      // The branch comes at Claude's first edit (spec 042). Each step keeps the session's step and the time (spec 048).
       {
+        ...at('plan'),
+        id: 'step-1',
+        state: 'done',
+        kind: 'worktree',
+        branch: null,
+        base: 'origin/main',
+        fetched: true,
+      },
+      {
+        ...at('plan'),
         id: 'step-2',
         state: 'done',
         kind: 'brief',
@@ -450,11 +461,11 @@ describe('running a session', () => {
         files: [],
         skills: [],
       },
-      { id: 'step-3', state: 'done', kind: 'explore', files: ['README.md'] },
-      { id: 'step-4', state: 'done', kind: 'plan', items: ['Add a toolbar button'] },
-      { id: 'step-5', state: 'done', kind: 'branch_made', branch: 'feat/PROJ-1423', from: 'orynx' },
-      { id: 'step-6', state: 'done', kind: 'edit', files: ['src/toolbar.ts'] },
-      { id: 'step-7', state: 'done', kind: 'finished', summary: 'Added a toolbar button.' },
+      { ...at('plan'), id: 'step-3', state: 'done', kind: 'explore', files: ['README.md'] },
+      { ...at('plan'), id: 'step-4', state: 'done', kind: 'plan', items: ['Add a toolbar button'] },
+      { ...at('plan'), id: 'step-5', state: 'done', kind: 'branch_made', branch: 'feat/PROJ-1423', from: 'orynx' },
+      { ...at('build'), id: 'step-6', state: 'done', kind: 'edit', files: ['src/toolbar.ts'] },
+      { ...at('review'), id: 'step-7', state: 'done', kind: 'finished', summary: 'Added a toolbar button.' },
     ]);
     expect(record.claudeSessionId).toBe('b2c7e0f4-0000-4000-8000-000000000001');
     // The Changes tab compares the worktree with this commit (spec 013, AC-4).
@@ -1299,13 +1310,20 @@ describe('follow-ups (spec 013)', () => {
     expect(again.session).toMatchObject({ state: 'done', step: 'review' });
     expect(again.session.activities.slice(-3)).toEqual([
       {
+        ...at('build'),
         id: expect.any(String) as unknown,
         state: 'done',
         kind: 'message',
         text: 'Use the existing useSelection hook instead',
       },
-      { id: expect.any(String) as unknown, state: 'done', kind: 'edit', files: ['src/b.ts'] },
-      { id: expect.any(String) as unknown, state: 'done', kind: 'finished', summary: 'Used the existing hook.' },
+      { ...at('build'), id: expect.any(String) as unknown, state: 'done', kind: 'edit', files: ['src/b.ts'] },
+      {
+        ...at('review'),
+        id: expect.any(String) as unknown,
+        state: 'done',
+        kind: 'finished',
+        summary: 'Used the existing hook.',
+      },
     ]);
     expect(sdk.runs[1]?.options).toMatchObject({
       resume: 'b2c7e0f4-0000-4000-8000-000000000001',
