@@ -91,6 +91,8 @@ export function watchUpdates({
     tell(state);
   };
   tell(state);
+  // A failed check also arrives as 'error' below; this only keeps its promise from going unhandled.
+  const check = (): void => void updater.checkForUpdates().catch(() => undefined);
 
   const commands = {
     command(message: unknown) {
@@ -101,6 +103,11 @@ export function watchUpdates({
       }
       if (command.data.type === 'restart') {
         if (state.update.state === 'ready') restart();
+        return;
+      }
+      // Linux downloads on its own: Try again after a failed download checks again, which downloads it (AC-23).
+      if (!mac) {
+        if (state.update.state === 'failed') check();
         return;
       }
       if (macUpdater === null || state.action !== 'update') return;
@@ -141,8 +148,6 @@ export function watchUpdates({
     if (state.update.state === 'downloading') set({ state: 'failed', log: null });
   });
 
-  // A failed check also arrives as 'error' above; this only keeps its promise from going unhandled.
-  const check = (): void => void updater.checkForUpdates().catch(() => undefined);
   check();
   const timer = setInterval(check, everySixHours);
   timer.unref();

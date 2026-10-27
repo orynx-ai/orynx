@@ -256,4 +256,15 @@ describe('update service (spec 045)', () => {
     await updates.check();
     expect(told).toEqual(['0.1.40', '0.1.41']);
   });
+
+  it('AC-23: Try again after a failed download asks the host again, even where the update downloads on its own', async () => {
+    const linux = fakeHost({
+      state: () => ({ action: 'none', update: { state: 'failed', log: '~/.devhub/logs/orynx.log' } }),
+    });
+    const updates = service({ host: linux.host });
+    server.use(answeringReleases([githubRelease({ tag_name: 'v0.1.40' })]));
+    await updates.check();
+    await updates.install('update');
+    expect(linux.pressed).toEqual(['update 0.1.40']);
+  });
 });

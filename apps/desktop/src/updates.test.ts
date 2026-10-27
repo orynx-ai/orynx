@@ -119,6 +119,18 @@ describe('watchUpdates (spec 045)', () => {
     ]);
   });
 
+  it('AC-23: on Linux, Try again after a failed download checks again, which downloads it again', async () => {
+    watch('linux');
+    await vi.advanceTimersByTimeAsync(0);
+    watched.command({ type: 'download', version: '0.1.40' });
+    expect(updater.checks).toBe(1);
+
+    updater.emit('update-available', { version: '0.1.40' });
+    updater.emit('error', new Error('net::ERR_CONNECTION_RESET'));
+    watched.command({ type: 'download', version: '0.1.40' });
+    expect(updater.checks).toBe(2);
+  });
+
   it('AC-21: on a Mac, offers Download until it can update itself, and never asks electron-updater', async () => {
     watch('darwin');
     await vi.advanceTimersByTimeAsync(0);

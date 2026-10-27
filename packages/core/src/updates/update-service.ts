@@ -193,7 +193,9 @@ export function createUpdateService({
       } else {
         const newest = found[0];
         const moving = update.state === 'downloading' || update.state === 'ready' || update.state === 'updating';
-        if (action !== 'update' || moving || newest === undefined || !isNewer(newest.version, host.running.release)) {
+        // Try again after a failure, even where the update downloads on its own (Linux's AppImage, AC-23).
+        const offered = action === 'update' || update.state === 'failed';
+        if (!offered || moving || newest === undefined || !isNewer(newest.version, host.running.release)) {
           throw nothingToDo();
         }
         await host.update(newest.version);
