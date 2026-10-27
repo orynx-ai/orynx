@@ -1,0 +1,340 @@
+/* The user guide (docs/index.html): styles.css gives the tokens, header and footer; this adds the reading layout. */
+
+.site-nav a[aria-current='page'] {
+  color: var(--text);
+  background: var(--raised);
+}
+
+.header-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The ⋯ button that opens On this page on narrow screens. */
+.toc-toggle {
+  display: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.toc-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.toc-toggle:hover,
+.toc-toggle[aria-expanded='true'] {
+  background: var(--raised);
+}
+
+.docs {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: clamp(40px, 6vw, 88px);
+  padding-block: 56px 120px;
+}
+
+/* On this page: sticky beside the guide on wide screens, above it on narrow ones. */
+.toc {
+  position: sticky;
+  top: calc(var(--header) + 32px);
+  align-self: start;
+  max-height: calc(100vh - var(--header) - 64px);
+  overflow-y: auto;
+  font-size: 0.875rem;
+}
+
+.toc .eyebrow {
+  margin-bottom: 16px;
+}
+
+.toc-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.toc-part {
+  margin-bottom: 6px;
+  padding-left: 11px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.toc a {
+  display: block;
+  padding: 4px 10px;
+  border-left: 1px solid var(--line);
+  color: var(--text-3);
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+
+.toc a:hover {
+  color: var(--text);
+}
+
+/* The guide itself */
+
+.doc {
+  max-width: 720px;
+  color: var(--text-2);
+}
+
+.doc-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 40px;
+  border-bottom: 1px solid var(--line);
+}
+
+.doc-intro h1 {
+  font-size: clamp(2.5rem, 1.8rem + 2.6vw, 3.75rem);
+  color: var(--text);
+}
+
+.doc-intro .lede {
+  margin-inline: 0;
+}
+
+.doc section {
+  padding-top: 56px;
+}
+
+.doc h2 {
+  margin-bottom: 16px;
+  font-size: clamp(1.75rem, 1.5rem + 1vw, 2.25rem);
+  color: var(--text);
+}
+
+.doc h3 {
+  margin: 32px 0 8px;
+  color: var(--text);
+}
+
+.doc p,
+.doc ul,
+.doc ol,
+.doc figure,
+.doc table,
+.doc .note,
+.doc pre {
+  margin-bottom: 16px;
+}
+
+.doc a {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.doc a:hover {
+  text-decoration-color: var(--text);
+}
+
+.doc strong {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.doc ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doc ul li {
+  position: relative;
+  padding-left: 22px;
+}
+
+.doc ul li::before {
+  content: '';
+  position: absolute;
+  top: 0.8em;
+  left: 2px;
+  width: 8px;
+  height: 1px;
+  background: var(--text-3);
+}
+
+/* Numbered steps */
+.doc ol.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  counter-reset: step;
+}
+
+.doc ol.steps > li {
+  position: relative;
+  padding-left: 40px;
+  counter-increment: step;
+}
+
+.doc ol.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  top: 1px;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font: 400 0.75rem/1 var(--font-mono);
+  color: var(--text);
+}
+
+.doc code,
+.doc kbd {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--raised);
+  font: 400 0.875em var(--font-mono);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.doc pre {
+  overflow-x: auto;
+  padding: 20px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--bg-alt);
+  font: 400 0.875rem/1.75 var(--font-mono);
+  color: var(--text);
+}
+
+.doc pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
+}
+
+.doc .window {
+  margin-block: 8px 24px;
+}
+
+.doc figcaption {
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  font-size: 0.875rem;
+  color: var(--text-3);
+}
+
+.note {
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+}
+
+.note strong {
+  color: var(--warning);
+}
+
+/* Reference tables scroll sideways inside themselves, never the page. */
+.table-scroll {
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.doc table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.doc th,
+.doc td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.doc th {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.doc td:first-child {
+  color: var(--text);
+}
+
+.doc kbd {
+  white-space: nowrap;
+}
+
+@media (max-width: 1080px) {
+  .docs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+
+  .toc {
+    position: static;
+    max-height: none;
+    padding: 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--bg-alt);
+  }
+
+  .toc-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+
+  /* With the script, On this page is a menu under the header, opened by the ⋯ button. */
+  .js .toc-toggle {
+    display: inline-grid;
+  }
+
+  .js .toc {
+    position: fixed;
+    top: calc(var(--header) + 8px);
+    right: var(--gutter);
+    left: var(--gutter);
+    z-index: 60;
+    display: none;
+    max-height: calc(100dvh - var(--header) - 24px);
+    overflow-y: auto;
+    background: var(--raised);
+    box-shadow: 0 24px 60px -16px rgb(0 0 0 / 0.75);
+  }
+
+  .js .toc.is-open {
+    display: block;
+  }
+}
+
+@media (max-width: 760px) {
+  .docs {
+    padding-top: 32px;
+  }
+}
+
+/* The install commands keep the landing page's terminal look. */
+.doc .terminal pre {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
