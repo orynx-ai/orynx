@@ -34,7 +34,6 @@ export function NextMove({ session, focusPullRequest }: { session: Session; focu
   const changes = useSessionChanges(session.id);
   const hasChanges = useHasChanges(session.id);
   const { pullRequest } = session;
-  const working = session.state === 'working' || session.state === 'needs_you';
   // Focus goes to Open PR once it shows, which is after Create's dialog has closed (spec 014, AC-4).
   const justOpened = useRef(false);
   useEffect(() => {
@@ -45,7 +44,9 @@ export function NextMove({ session, focusPullRequest }: { session: Session; focu
 
   const offerCreate = canCreatePullRequest(session) && hasChanges;
   const offerPush = pullRequest !== null && canPush(session);
-  const pushed = pullRequest !== null && !working && !session.unpushed && session.discardedAt === null;
+  // Only while the pull request is open: merged or closed (spec 047), there's nothing to say.
+  const pushed =
+    pullRequest !== null && session.state === 'pr_open' && !session.unpushed && session.discardedAt === null;
   if (!offerCreate && !offerPush && !pushed) return null;
 
   const ready = changes.data?.state === 'ready' ? changes.data : null;

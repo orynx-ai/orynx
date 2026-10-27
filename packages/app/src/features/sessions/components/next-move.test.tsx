@@ -77,6 +77,16 @@ describe('the next-move bar (spec 048)', () => {
     expect(await screen.findByRole('dialog', { name: 'Create pull request' })).toBeVisible();
   });
 
+  it('AC-5: says nothing once the pull request is merged or closed (spec 047)', async () => {
+    for (const state of ['pr_merged', 'pr_closed'] as const) {
+      serve(makeSession({ ...unpushed, state, unpushed: false }));
+      const { unmount } = await renderApp({ route });
+      await screen.findByRole('heading', { level: 1 });
+      expect(screen.queryByRole('status', { name: /^(Ready|Pushed)/ })).toBeNull();
+      unmount();
+    }
+  });
+
   it('AC-5: shows nothing while Claude works or waits for you, once stopped with nothing to push, or for an Ask', async () => {
     for (const session of [
       makeSession({ ...unpushed, state: 'working' }),
