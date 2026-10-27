@@ -26,7 +26,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: `FileList` rows on two lines: the name, then the folder and the counts (AC-18)
       Check: pnpm test packages/ui/src/components/file-list.test.tsx
       Files: packages/ui/src/components/file-list.tsx, packages/ui/src/components/file-list.stories.tsx, packages/ui/src/components/file-list.test.tsx
-- [ ] Task 9: The diff's browser-only state: Wrap lines (on by default, every session) and Viewed (per session and file, cleared when its counts change) (AC-20, AC-22)
+- [x] Task 9: The diff's browser-only state: Wrap lines (on by default, every session) and Viewed (per session and file, cleared when its counts change) (AC-20, AC-22)
       Check: pnpm test packages/app/src/features/sessions/store.test.ts
       Files: packages/app/src/features/sessions/store.ts, packages/app/src/features/sessions/store.test.ts
 - [ ] Task 10: The Changes tab: the file column beside the diff from 1024 px, the totals and Wrap lines in the tab row, Viewed and New file in the diff's header, and the tabs as Changes, Ports, Context (AC-18, AC-19, AC-20, AC-21, AC-22, AC-23, AC-25)
