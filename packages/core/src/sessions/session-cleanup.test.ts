@@ -6,7 +6,7 @@ import { makeSession } from '@devhub/contracts/testing';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { createBranchGit } from './branch-git.ts';
-import { folderBytes, sessionsToClean } from './session-cleanup.ts';
+import { folderBytes, measureStorage, sessionsToClean } from './session-cleanup.ts';
 import { StoredSessionSchema, type StoredSession } from './session-store.ts';
 import { createWorktrees } from './worktrees.ts';
 
@@ -75,7 +75,7 @@ async function setUp() {
   const ids = async (records: StoredSession[], days: 7 | 14 | 30 | 90) =>
     (await sessionsToClean(records, days, now, git)).map((record) => record.session.id);
 
-  return { repos, stored, commit, ids };
+  return { repos, stored, commit, ids, git };
 }
 
 describe('which sessions a cleanup run deletes (spec 047, D)', () => {
@@ -153,5 +153,38 @@ describe("a folder's size (spec 047, D)", () => {
 
     expect(await folderBytes(folder)).toBe(1234);
     expect(await folderBytes(join(repos.worktrees, 'missing'))).toBe(0);
+  });
+});
+
+describe('what Settings › Coding agent › Storage shows (spec 047, D)', () => {
+  it("AC-16, AC-17: every worktree's size, and for each choice the sessions it would delete now and their size", async () => {
+    const { repos, stored, git } = await setUp();
+    const month = await stored({ updatedAt: daysAgo(40) });
+    const fortnight = await stored({ updatedAt: daysAgo(20) });
+    const kept = await stored({ updatedAt: daysAgo(40), pinnedAt: daysAgo(40) });
+    const size = async (record: StoredSession) => folderBytes(record.worktree ?? '');
+
+    const storage = await measureStorage([month, fortnight, kept], repos.worktrees, now, git);
+
+    expect(storage.bytes).toBe((await size(month)) + (await size(fortnight)) + (await size(kept)));
+    expect(storage.choices).toEqual([
+      { days: 7, sessions: 2, bytes: (await size(month)) + (await size(fortnight)) },
+      { days: 14, sessions: 2, bytes: (await size(month)) + (await size(fortnight)) },
+      { days: 30, sessions: 1, bytes: await size(month) },
+      { days: 90, sessions: 0, bytes: 0 },
+    ]);
+  });
+
+  it('AC-16: is nothing at all before any session has a worktree', async () => {
+    const { repos, git } = await setUp();
+    expect(await measureStorage([], join(repos.worktrees, 'none-yet'), now, git)).toEqual({
+      bytes: 0,
+      choices: [
+        { days: 7, sessions: 0, bytes: 0 },
+        { days: 14, sessions: 0, bytes: 0 },
+        { days: 30, sessions: 0, bytes: 0 },
+        { days: 90, sessions: 0, bytes: 0 },
+      ],
+    });
   });
 });

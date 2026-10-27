@@ -362,6 +362,19 @@ describe('removing a worktree', () => {
     expect(await repos.git(repos.clone, 'branch', '--list', 'feat/PROJ-1423')).toBe('');
   });
 
+  it('047 AC-20: takes away the empty folder a delete that failed halfway left, and forgets the worktree', async () => {
+    const { repos, worktrees } = await setUp();
+    const path = join(repos.worktrees, '0123456789abcdef');
+    await worktrees.make(repos.clone, path, plan);
+    // What git leaves when it emptied the folder but couldn't remove it, then forgot the worktree.
+    await rm(path, { recursive: true, force: true });
+    await repos.git(repos.clone, 'worktree', 'prune');
+    await mkdir(path);
+
+    expect(await worktrees.remove(repos.clone, path, null)).toEqual({ ok: true });
+    expect(await exists(path)).toBe(false);
+  });
+
   it('AC-10: carries on when the branch is already gone, or the worktree was never made', async () => {
     const { repos, worktrees } = await setUp();
     expect(await worktrees.remove(repos.clone, join(repos.worktrees, 'fedcba9876543210'), 'feat/PROJ-9')).toEqual({

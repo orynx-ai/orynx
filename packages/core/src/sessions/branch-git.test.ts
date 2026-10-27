@@ -418,4 +418,11 @@ describe('nothing would be lost by removing the worktree (spec 047)', () => {
     await rm(worktree, { recursive: true, force: true });
     expect(await git.nothingToLose(worktree, [head])).toBe(true);
   });
+
+  it('AC-20: an empty folder, as a delete that failed halfway leaves one, has nothing to lose', async () => {
+    const { repos, git, head } = await pushed();
+    const emptied = join(repos.worktrees, 'emptied');
+    await mkdir(emptied);
+    expect(await git.nothingToLose(emptied, [head])).toBe(true);
+  });
 });

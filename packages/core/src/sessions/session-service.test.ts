@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer as createNetServer, type Server } from 'node:net';
@@ -53,6 +53,7 @@ import { openFileSessionStore, sessionsFolder } from './file-session-store.ts';
 import type { SessionRecords, StoredSession } from './session-store.ts';
 import { createChangesReader } from './changes.ts';
 import { createContextReader } from './context-reader.ts';
+import { startSessionCleanup } from './session-cleanup.ts';
 import { createSessionService, type SessionReport } from './session-service.ts';
 
 // Real git, a real Claude Code login check and a real Jira client behind a fake Jira: each test does a lot.
@@ -184,6 +185,7 @@ async function setUp({
   services.push(terminal);
   const reports: SessionReport[] = [];
   const changes: { from: string; to: string; quiet: boolean }[] = [];
+  const cleaned: { count: number; bytes: number }[] = [];
   let ids = 0;
   const service = createSessionService({
     records,
@@ -246,6 +248,7 @@ async function setUp({
     onChange: (before, after, { quiet }) => {
       if (before.state !== after.state) changes.push({ from: before.state, to: after.state, quiet });
     },
+    onCleaned: (count, bytes) => cleaned.push({ count, bytes }),
     now,
     newId: () => {
       ids += 1;
@@ -254,7 +257,21 @@ async function setUp({
   });
   services.push(service);
   jira.use(acceptingIssue({ key: 'PROJ-1423', summary: 'Add bulk archive to the content list' }));
-  return { service, records, repos, home, heard, reports, changes, sdk, folders: added, settings, terminal };
+  return {
+    service,
+    records,
+    repos,
+    home,
+    heard,
+    reports,
+    changes,
+    sdk,
+    folders: added,
+    settings,
+    terminal,
+    events,
+    cleaned,
+  };
 }
 
 /** Waits until the session has sent Claude its brief: from there a hanging Claude writes nothing more. */
@@ -2409,5 +2426,108 @@ describe('Claude starting a server (spec 042)', () => {
     const record = await settled(records);
     expect(record.session.activities.some((activity) => activity.kind === 'server')).toBe(false);
     expect(terminal.shells(id).some((shell) => shell.server !== null)).toBe(false);
+  });
+});
+
+describe('deleting old sessions on a schedule (spec 047, D)', () => {
+  const day = 24 * 60 * 60_000;
+  const id = '0000000000000001';
+
+  /** A Done session, last changed at `clock`, seen 40 days later; Delete old sessions set to `days`. */
+  async function finishedLongAgo(days: number | null) {
+    let at = clock;
+    const set = await setUp({ now: () => at });
+    await set.service.start({ ticketKey: 'PROJ-1423' });
+    expect((await settled(set.records)).session.state).toBe('done');
+    at = clock + 40 * day;
+    await set.settings.update((current) => ({
+      ...current,
+      agent: { ...current.agent, deleteSessionsAfterDays: days },
+    }));
+    return { ...set, worktree: join(set.home, 'worktrees', id) };
+  }
+
+  it('AC-21: Never deletes nothing', async () => {
+    const { service, cleaned } = await finishedLongAgo(null);
+    await service.cleanUp();
+    expect(await service.get(id)).not.toBeNull();
+    expect(cleaned).toEqual([]);
+  });
+
+  it('AC-17, AC-19: after 30 days the old session goes as Delete takes it, and the run says how many and how much', async () => {
+    const { service, worktree, cleaned, heard } = await finishedLongAgo(30);
+    const before = (await service.storage()).choices.find((choice) => choice.days === 30);
+    expect(before).toMatchObject({ sessions: 1 });
+    heard.length = 0;
+
+    await service.cleanUp();
+
+    expect(await service.get(id)).toBeNull();
+    await expect(readdir(worktree)).rejects.toThrow();
+    expect(cleaned).toEqual([{ count: 1, bytes: before?.bytes }]);
+    expect(heard).toContainEqual({ type: 'sessions.changed' });
+    expect((await service.storage()).choices.every((choice) => choice.sessions === 0)).toBe(true);
+  });
+
+  it('AC-20: a delete that fails leaves the session and counts nothing; the next run deletes it', async () => {
+    const { service, home, cleaned } = await finishedLongAgo(30);
+    const worktrees = join(home, 'worktrees');
+    await chmod(worktrees, 0o555);
+    try {
+      await service.cleanUp();
+    } finally {
+      await chmod(worktrees, 0o755);
+    }
+    expect(await service.get(id)).not.toBeNull();
+    expect(cleaned).toEqual([]);
+
+    await service.cleanUp();
+    expect(await service.get(id)).toBeNull();
+    expect(cleaned).toHaveLength(1);
+  });
+
+  it('AC-17: runs when Orynx starts', async () => {
+    const { service, events } = await finishedLongAgo(30);
+    const schedule = startSessionCleanup({ sessions: service, events });
+    try {
+      await vi.waitFor(async () => { expect(await service.get(id)).toBeNull(); });
+    } finally {
+      schedule.stop();
+    }
+  });
+
+  it('AC-17: runs as soon as a setting is saved, so a new choice deletes at once', async () => {
+    const { service, settings, events, cleaned } = await finishedLongAgo(null);
+    const schedule = startSessionCleanup({ sessions: service, events });
+    try {
+      await settings.update((current) => ({ ...current, agent: { ...current.agent, deleteSessionsAfterDays: 30 } }));
+      events.publish({ type: 'settings.changed' });
+      await vi.waitFor(async () => { expect(await service.get(id)).toBeNull(); });
+      expect(cleaned).toHaveLength(1);
+    } finally {
+      schedule.stop();
+    }
+  });
+
+  it('AC-21: runs every hour, deleting nothing while Never', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const { service, settings, events } = await finishedLongAgo(null);
+      const schedule = startSessionCleanup({ sessions: service, events });
+      try {
+        vi.advanceTimersByTime(60 * 60_000);
+        expect(await service.get(id)).not.toBeNull();
+
+        // Saved behind the schedule's back: only the next hour's run sees it.
+        await settings.update((current) => ({ ...current, agent: { ...current.agent, deleteSessionsAfterDays: 30 } }));
+        expect(await service.get(id)).not.toBeNull();
+        vi.advanceTimersByTime(60 * 60_000);
+        await vi.waitFor(async () => { expect(await service.get(id)).toBeNull(); });
+      } finally {
+        schedule.stop();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

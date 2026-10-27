@@ -5,6 +5,8 @@ import { isOrynxKey, permissionsFor } from '@devhub/contracts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import { ticketTools } from '../orynx-tickets/tools.ts';
 import type {
+  CleanupDays,
+  Storage,
   ClaudeCommandList,
   AgentChoice,
   ApprovalDecision,
@@ -48,6 +50,7 @@ import type { GitHubSyncCredentials } from '../integrations/github/connection.ts
 import type { JiraCheckRequest, JiraClient } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
+import { folderBytes, measureStorage, sessionsToClean } from './session-cleanup.ts';
 import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
 import { sessionStartPoint, type ChangesReader, type StartPoint } from './changes.ts';
 import { logEnd, logRunEnded, logWork } from './command-log.ts';
@@ -189,6 +192,14 @@ export interface SessionService {
    * does, branch kept, once. GitHub not answering changes nothing. One watch at a time.
    */
   watchPulls(): Promise<void>;
+  /**
+   * Spec 047, D: one run of Settings › Coding agent's Delete old sessions. The ended, unpinned sessions older than the
+   * choice, with nothing to lose, go as Delete takes them, branch kept, one at a time; one that fails stays for the next
+   * run. Never deletes nothing. A run asked for during another runs after it. Tells `onCleaned` when it deleted any.
+   */
+  cleanUp(): Promise<void>;
+  /** GET /api/storage (spec 047, D): the worktrees' size, and what each choice would delete now. */
+  storage(): Promise<Storage>;
   /** Stops every running session and waits for every change still being saved, for the server's shutdown. */
   close(): Promise<void>;
 }
@@ -221,6 +232,8 @@ export interface SessionServiceOptions {
       allowedCommands: readonly string[];
       /** Claude changes Jira without asking (spec 044, Q8). */
       jiraChanges: boolean;
+      /** Delete old sessions after this many days; null, never (spec 047, D). */
+      deleteSessionsAfterDays: CleanupDays | null;
     }>;
     /** Saves Always allow's entry to the list (spec 012, AC-5), or turns Claude changes Jira on (spec 044, AC-17). */
     change(change: { allowCommand: string } | { jiraChanges: true }): Promise<unknown>;
@@ -244,6 +257,8 @@ export interface SessionServiceOptions {
    * itself, Discard or Orynx closing, which you know about already.
    */
   onChange?: (before: Session, after: Session, change: { quiet: boolean }) => void;
+  /** Told after a cleanup run that deleted sessions: how many, and the bytes their worktrees held (spec 047, D). */
+  onCleaned?: (count: number, bytes: number) => void;
   now?: () => number;
   newId?: () => string;
   /** The Session screen hears about new steps at most this often; 250 ms (AC-4). */
@@ -1651,6 +1666,30 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   let watching: Promise<void> | undefined;
 
+  /** Every session as saved, for the cleanup's choice. */
+  async function storedSessions(): Promise<StoredSession[]> {
+    const found = await Promise.all((await records.list()).map(({ id }) => records.get(id)));
+    return found.filter((record) => record !== null);
+  }
+
+  async function cleanUpNow(): Promise<void> {
+    const days = (await options.preferences.read()).deleteSessionsAfterDays;
+    if (days === null) return;
+    let count = 0;
+    let bytes = 0;
+    for (const record of await sessionsToClean(await storedSessions(), days, now(), branchGit)) {
+      const size = record.worktree === null ? 0 : await folderBytes(record.worktree);
+      // As Delete takes it, so it refuses a session a follow-up has started since; one that fails stays for next time.
+      if ((await whileEnding(record.session.id, removeNow(record.session.id, false))) !== 'deleted') continue;
+      count += 1;
+      bytes += size;
+    }
+    if (count > 0) options.onCleaned?.(count, bytes);
+  }
+
+  let cleaning: Promise<void> = Promise.resolve();
+  let nextClean: Promise<void> | undefined;
+
   const branchGit = createBranchGit({ env: options.worktrees.env });
   const githubClient = options.githubClient ?? createGitHubClient();
   const pullRequests = createPullRequests({
@@ -1765,6 +1804,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     remove(id, { branch = false } = {}) {
       return whileEnding(id, removeNow(id, branch));
+    },
+
+    cleanUp() {
+      // One run at a time; a run asked for during one waits for it, and runs once however often it was asked.
+      if (nextClean === undefined) {
+        nextClean = cleaning.then(() => {
+          nextClean = undefined;
+          return cleanUpNow();
+        });
+        cleaning = nextClean.catch(() => undefined);
+        // Closing waits for a run under way, so a worktree is never left half removed.
+        track(nextClean);
+      }
+      return nextClean;
+    },
+
+    async storage() {
+      return measureStorage(await storedSessions(), options.worktrees.root, now(), branchGit);
     },
 
     watchPulls() {

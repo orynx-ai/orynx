@@ -58,8 +58,8 @@ export interface BranchGit {
   /**
    * Nothing would be lost by removing the worktree (spec 047): no file git doesn't ignore is uncommitted, and HEAD
    * is one of `against` (a pull request's head, origin's branch) or older on it. With nothing in `against`, only the
-   * files count, since the branch keeps its commits. A worktree that's gone has nothing to lose. Whatever git can't
-   * answer is false, so the worktree stays.
+   * files count, since the branch keeps its commits. A worktree that's gone, or an empty folder, has nothing to lose.
+   * Whatever git can't answer is false, so the worktree stays.
    */
   nothingToLose(worktree: string, against: readonly string[]): Promise<boolean>;
 }
@@ -306,6 +306,8 @@ export function createBranchGit({
         return error instanceof Error && 'code' in error && error.code === 'ENOENT';
       }
       try {
+        // A delete that failed halfway leaves the folder empty: nothing is in it to lose (spec 047, AC-20).
+        if ((await readdir(worktree)).length === 0) return true;
         if (!(await isWorktree(worktree)) || (await uncommitted(worktree)).length > 0) return false;
         if (against.length === 0) return true;
         const head = (await read(worktree, ['rev-parse', 'HEAD'])).trim();

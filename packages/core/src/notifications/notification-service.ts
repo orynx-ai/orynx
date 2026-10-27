@@ -24,6 +24,8 @@ export interface NotificationService {
   inboxSynced(tool: InboxTool, before: readonly unknown[] | null, after: readonly unknown[]): void;
   /** The update service's `notify`: a newer Orynx is out (spec 045, AC-13). */
   updateAvailable(version: string): void;
+  /** The session service's `onCleaned` (spec 047, D): a cleanup run deleted `count` sessions, freeing `bytes`. */
+  sessionsCleaned(count: number, bytes: number): void;
 }
 
 export interface NotificationServiceOptions {
@@ -123,6 +125,12 @@ export function createNotificationService({
     updateAvailable(version) {
       safely(() => {
         add([{ id: `update_available:${version}`, what: { kind: 'update_available', version } }]);
+      });
+    },
+
+    sessionsCleaned(count, bytes) {
+      safely(() => {
+        add([{ id: `sessions_cleaned:${String(now())}`, what: { kind: 'sessions_cleaned', count, bytes } }]);
       });
     },
   };
