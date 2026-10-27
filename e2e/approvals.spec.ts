@@ -44,6 +44,7 @@ const tools: FakeTools = {
     { key: 'PROJ-2014', summary: 'Look at an edit', status: 'To Do', category: 'new' },
     { key: 'PROJ-2015', summary: 'Ask from the bell (runs tests)', status: 'To Do', category: 'new' },
     { key: 'PROJ-2016', summary: 'Ask in a pop-up (runs tests)', status: 'To Do', category: 'new' },
+    { key: 'PROJ-2017', summary: 'Answer from the bell (runs tests)', status: 'To Do', category: 'new' },
   ],
   reviews: [],
   mine: [],
@@ -494,6 +495,28 @@ test('spec 029, AC-1, AC-4, AC-9, AC-45, AC-46: the bell counts Claude waiting, 
   await page.goto(url);
   await finished(page);
   expect(ran('PROJ-2015')).toEqual(['npm test -- content-list']);
+});
+
+test('the bell’s panel keeps its height when Needs you holds less than All', async ({ page }) => {
+  await build(page, 'PROJ-2017');
+  await page.goto('/');
+  const bell = page.getByRole('navigation', { name: 'Main' }).getByRole('button', { name: /^Notifications/ });
+  await expect(bell).toHaveAccessibleName(/unread$/, { timeout: 15_000 });
+  await bell.click();
+  const panel = page.getByRole('dialog', { name: 'Notifications' });
+  const asking = panel.getByRole('listitem').filter({ hasText: 'PROJ-2017' });
+  await asking.getByRole('button', { name: 'Allow once' }).click();
+  // Answered, the ask stays in All and leaves Needs you.
+  await expect(asking.getByRole('button', { name: 'Allow once' })).toBeHidden();
+  await expect(asking).toBeVisible();
+  const height = async () => Math.round((await panel.boundingBox())?.height ?? 0);
+  const all = await height();
+
+  const needsYou = panel.getByRole('tab', { name: /^Needs you/ });
+  await needsYou.click();
+  await expect(needsYou).toHaveAttribute('aria-selected', 'true');
+  await expect(panel.getByText('Nothing is waiting for you.')).toBeVisible();
+  expect(await height()).toBe(all);
 });
 
 test('spec 029, AC-23, AC-46: Claude asking pops up on another page, and Allow once there runs the command', async ({

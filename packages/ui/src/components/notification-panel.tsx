@@ -34,9 +34,10 @@ export type NotificationPanelContentProps = ComponentProps<typeof Popover.Conten
 };
 
 /**
- * The panel itself: 372 px, never wider or taller than the window allows, at most 600 px tall, with its list
- * scrolling between the head and the foot. It opens beside the sidebar's foot by default, its bottom level with
- * the bell (the user's call: the bell sits at the bottom); pass `side` and `align` to open it elsewhere.
+ * The panel itself: 372 × 600 px, never wider or taller than the window allows, with its list scrolling between
+ * the head and the foot. Its height stays put, so a tab with less in it (nothing in Needs you) doesn't shrink it.
+ * It opens beside the sidebar's foot by default, its bottom level with the bell (the user's call: the bell sits at
+ * the bottom); pass `side` and `align` to open it elsewhere.
  */
 export function NotificationPanelContent({
   actions,
@@ -63,7 +64,7 @@ export function NotificationPanelContent({
         )}
         {...props}
       >
-        <div className="flex max-h-150 min-h-0 flex-col">
+        <div className="flex h-150 min-h-0 flex-col">
           <div className="flex items-center gap-1 ps-3.5 pe-2 pt-2.5">
             <h2 id={headingId} className="flex-1 font-medium">
               Notifications
