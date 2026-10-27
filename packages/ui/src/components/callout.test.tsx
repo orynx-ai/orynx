@@ -43,6 +43,23 @@ describe('Callout', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('spec 048: with its buttons at the end, reads its words first, then its buttons, with no accessibility violations', async () => {
+    const { container } = render(
+      <Callout
+        tone="warning"
+        role="status"
+        title="Ready to push"
+        actionsAt="end"
+        actions={<Button size="sm">Push to PR #2974</Button>}
+      >
+        <span>2 files, +91 −29.</span>
+      </Callout>,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(/^Ready to push2 files, \+91 −29\.Push to PR #2974$/);
+    expect(screen.getByRole('button', { name: 'Push to PR #2974' })).toBeVisible();
+    await expectNoAxeViolations(container);
+  });
+
   it('has no close button unless asked for one', () => {
     render(<Callout title="Claude wants to run a command">npm test</Callout>);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();

@@ -35,6 +35,12 @@ export type CalloutProps = Omit<ComponentProps<'div'>, 'title'> &
     /** Buttons that say what each choice does: "Allow once", "Deny". */
     actions?: ReactNode;
     /**
+     * Where the buttons go: under the words (the default), or at the row's end, the words a column beside them, as the
+     * Session screen's next-move bar is drawn (`session-review.html`, spec 048). At the end, they go under the words
+     * when there isn't room for both.
+     */
+    actionsAt?: 'below' | 'end';
+    /**
      * Gives the callout a close button at its end, for a notice the person may hide (spec 020). The
      * caller remembers the choice and moves focus on, since the button goes with the callout.
      */
@@ -52,20 +58,27 @@ export function Callout({
   title,
   icon,
   actions,
+  actionsAt = 'below',
   onClose,
   closeLabel = 'Close',
   className,
   children,
   ...props
 }: CalloutProps) {
+  const atEnd = actionsAt === 'end';
+  const buttons = <div className="flex flex-wrap gap-2">{actions}</div>;
   return (
-    <div className={cn(calloutVariants({ tone }), className)} {...props}>
+    <div
+      className={cn(calloutVariants({ tone }), atEnd && 'flex-wrap items-center gap-y-2 py-3', className)}
+      {...props}
+    >
       {icon ? <span className="mt-0.5 flex shrink-0">{icon}</span> : null}
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <div className={cn('flex min-w-0 flex-1 flex-col', atEnd ? 'basis-90 gap-0.5' : 'gap-2')}>
         <span className={cn('font-medium', titleColour[tone ?? 'info'])}>{title}</span>
         {children}
-        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+        {actions && !atEnd ? buttons : null}
       </div>
+      {actions && atEnd ? buttons : null}
       {onClose ? (
         // Level with the title: the 32 px button reaches 6 px above and below its 20 px line.
         <IconButton variant="ghost" size="sm" label={closeLabel} className="-my-1.5 -me-1.5 shrink-0" onClick={onClose}>

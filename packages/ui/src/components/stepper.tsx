@@ -36,15 +36,13 @@ export type StepperProps = Omit<ComponentProps<'ol'>, 'children'> & {
  * Design system: Stepper (`dh-stepper`). Where an agent session is, by its own steps (spec 042). Done steps
  * show a check and say ", done" to screen readers; skipped ones show a dash and say ", skipped"; the current
  * step is the only filled circle and has `aria-current="step"`. It sits under the page title, never inside a
- * card. Narrower than 36rem (a phone), only the current step shows its words, the others their mark, and the
- * lines between them go, so five steps stay on one line; a screen reader still hears every step.
+ * card. Where its container (the nearest `@container` around it) is narrower than 36rem (a phone), only the current
+ * step shows its words, the others their mark, and the lines between them go, so five steps stay on one line; a screen
+ * reader still hears every step. It isn't a container itself, so it is as wide as its steps and can sit beside a title.
  */
 export function Stepper({ steps, current, skipped = [], className, ...props }: StepperProps) {
   return (
-    <ol
-      className={cn('@container m-0 flex list-none flex-wrap items-center gap-1.5 p-0 text-small', className)}
-      {...props}
-    >
+    <ol className={cn('m-0 flex list-none flex-wrap items-center gap-1.5 p-0 text-small', className)} {...props}>
       {steps.map((label, index) => {
         const state: StepState =
           index < current ? (skipped.includes(index) ? 'skipped' : 'done') : index === current ? 'current' : 'todo';
