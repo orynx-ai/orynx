@@ -101,8 +101,14 @@ export const composerWords = {
   },
   /** Home's heading, as the switch stands (spec 031, Q8b). */
   heading: { build: 'What should we ship today?', ask: 'What do you want to know?' },
-  existing: (key: string) => `${key} already has a session.`,
-  openSession: 'Open session',
+  /** The ticket or pull request already has a live session (spec 047, AC-1): open it, or start another beside it. */
+  existing: {
+    title: (key: string) => `${key} already has a session`,
+    ticket: 'Open it to carry on, or start a new session on its own branch.',
+    pull: "Open it to carry on, or start a new session on the same branch, from what's on GitHub.",
+    another: 'Start a new session',
+    open: 'Open session',
+  },
   failed: "Couldn't start Claude. Try again.",
   tooLong: 'Keep it under 10,000 characters.',
   quickStarts: { label: 'Quick starts', ticket: 'Pick up a ticket', review: 'Review a pull request' },

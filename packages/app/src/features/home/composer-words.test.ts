@@ -96,7 +96,15 @@ describe('the composer’s words (spec 015, Q13)', () => {
       link: { label: 'Open Settings › Repositories', tab: 'repositories' },
     });
     expect(cannotStartLine('choose_folder')).toEqual({ line: 'Choose a folder for Claude to work in.', link: null });
-    expect(composerWords.existing('PROJ-1423')).toBe('PROJ-1423 already has a session.');
+    // Spec 047, AC-1: the choice when the work already has a session.
+    expect(composerWords.existing).toEqual({
+      title: expect.any(Function) as unknown,
+      ticket: 'Open it to carry on, or start a new session on its own branch.',
+      pull: "Open it to carry on, or start a new session on the same branch, from what's on GitHub.",
+      another: 'Start a new session',
+      open: 'Open session',
+    });
+    expect(composerWords.existing.title('PROJ-1423')).toBe('PROJ-1423 already has a session');
     expect(composerWords.failed).toBe("Couldn't start Claude. Try again.");
     expect(composerWords.tooLong).toBe('Keep it under 10,000 characters.');
   });

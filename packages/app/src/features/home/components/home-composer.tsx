@@ -2,8 +2,10 @@ import { useRef, useState, type SubmitEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useForm, useWatch } from 'react-hook-form';
-import type { ComposerChip, StartSessionAnswer } from '@devhub/contracts';
+import type { ComposerChip, ComposerStart, StartSessionAnswer } from '@devhub/contracts';
 import {
+  Button,
+  Callout,
   Composer,
   ComposerBar,
   ComposerSend,
@@ -32,11 +34,8 @@ import { FolderPicker } from './folder-picker.tsx';
 import { composerFormSchema, type ComposerFormValues } from '../schemas.ts';
 import { useComposerStore } from '../store.ts';
 
-interface Said {
-  line: string;
-  link: SettingsLink | null;
-  session: string | null;
-}
+/** One line under the box, or the choice when the work already has a session (spec 047, AC-1). */
+type Said = { line: string; link: SettingsLink | null } | { held: string; pull: boolean; sessionId: string };
 
 /** What Send's answer says under the box, when it started nothing (AC-21 to AC-23). */
 function saidFor(answer: StartSessionAnswer, chips: readonly ComposerChip[]): Said | null {
@@ -45,17 +44,16 @@ function saidFor(answer: StartSessionAnswer, chips: readonly ComposerChip[]): Sa
       return null;
     case 'existing': {
       // Only the first ticket's session stops a start (spec 022, Q2); with no ticket, your pull request's (spec 031).
+      const ticket = firstTicket(chips);
       const pull = chips.find((chip) => chip.kind === 'pull_request');
-      const held = firstTicket(chips) ?? (pull === undefined ? '' : `#${String(pull.number)}`);
-      return { line: composerWords.existing(held), link: null, session: answer.sessionId };
+      const held = ticket ?? (pull === undefined ? '' : `#${String(pull.number)}`);
+      return { held, pull: ticket === null && pull !== undefined, sessionId: answer.sessionId };
     }
     case 'cannot_start':
-      return { ...cannotStartLine(answer.reason), session: null };
+      return cannotStartLine(answer.reason);
     case 'context_failed': {
       const chip = chips[answer.chip];
-      return chip === undefined
-        ? { line: composerWords.failed, link: null, session: null }
-        : { ...contextFailedLine(chip, answer.problem), session: null };
+      return chip === undefined ? { line: composerWords.failed, link: null } : contextFailedLine(chip, answer.problem);
     }
   }
 }
@@ -124,30 +122,38 @@ export function HomeComposer() {
   const tooLong = form.formState.errors.message?.message;
   const said: Said | null =
     refused !== null
-      ? { line: refused, link: null, session: null }
+      ? { line: refused, link: null }
       : suggestions.tooMany
-        ? { line: composerWords.skills.tooMany, link: null, session: null }
+        ? { line: composerWords.skills.tooMany, link: null }
         : tooLong === undefined
           ? start.isError
-            ? { line: composerWords.failed, link: null, session: null }
+            ? { line: composerWords.failed, link: null }
             : answered
-          : { line: tooLong, link: null, session: null };
+          : { line: tooLong, link: null };
+
+  /** Starts a session and opens it; anything else is said under the box, and the draft stays. */
+  function begin(request: ComposerStart) {
+    start.mutate(request, {
+      onSuccess: (answer) => {
+        if (answer.result !== 'started') return;
+        form.reset({ message: '' });
+        sent(request.repositoryId ?? null);
+        void navigate({ to: '/sessions/$sessionId', params: { sessionId: answer.sessionId } });
+      },
+    });
+  }
 
   function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     void form.handleSubmit(({ message: words }) => {
       const repositoryId = shown.kind === 'folder' ? shown.folder.id : undefined;
-      start.mutate(
-        { message: words, context: chips, ...(repositoryId === undefined ? {} : { repositoryId }), ...choice, mode },
-        {
-          onSuccess: (answer) => {
-            if (answer.result !== 'started') return;
-            form.reset({ message: '' });
-            sent(repositoryId ?? null);
-            void navigate({ to: '/sessions/$sessionId', params: { sessionId: answer.sessionId } });
-          },
-        },
-      );
+      begin({
+        message: words,
+        context: chips,
+        ...(repositoryId === undefined ? {} : { repositoryId }),
+        ...choice,
+        mode,
+      });
     })(event);
   }
 
@@ -216,7 +222,33 @@ export function HomeComposer() {
         </Composer>
         {suggestions.list}
       </div>
-      {said === null ? null : (
+      {said === null ? null : 'held' in said ? (
+        <Callout
+          tone="info"
+          role="alert"
+          title={composerWords.existing.title(said.held)}
+          actions={
+            <>
+              <Button
+                size="sm"
+                onClick={() => {
+                  // The draft didn't change since, or this choice would be gone: send it again, beside the live one.
+                  if (start.variables !== undefined) begin({ ...start.variables, another: true });
+                }}
+              >
+                {composerWords.existing.another}
+              </Button>
+              <Button asChild size="sm">
+                <Link to="/sessions/$sessionId" params={{ sessionId: said.sessionId }}>
+                  {composerWords.existing.open}
+                </Link>
+              </Button>
+            </>
+          }
+        >
+          <span>{said.pull ? composerWords.existing.pull : composerWords.existing.ticket}</span>
+        </Callout>
+      ) : (
         <p role="alert" className="m-0 text-small text-danger">
           {said.line}
           {said.link === null ? null : (
@@ -224,14 +256,6 @@ export function HomeComposer() {
               {' '}
               <Link to="/settings/$tab" params={{ tab: said.link.tab }} className="text-info underline">
                 {said.link.label}
-              </Link>
-            </>
-          )}
-          {said.session === null ? null : (
-            <>
-              {' '}
-              <Link to="/sessions/$sessionId" params={{ sessionId: said.session }} className="text-info underline">
-                {composerWords.openSession}
               </Link>
             </>
           )}

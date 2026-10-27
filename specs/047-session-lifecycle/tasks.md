@@ -13,9 +13,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Both sessions keep their follow-up box (`newer_session` goes), and `sessionsByTicket` shows the newest session that isn't Stopped (AC-5)
       Check: pnpm test packages/core/src/sessions/ticket-sessions.test.ts packages/core/src/sessions/session-service.test.ts packages/contracts/src/session.test.ts packages/app/src/features/sessions/follow-up-words.test.ts packages/app/src/features/sessions/components/follow-up-box.test.tsx; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/ticket-sessions.ts, packages/app/src/features/sessions/follow-up-words.ts, and their tests
-- [ ] Task 4: The composer's `existing` answer is an `info` Callout with Start a new session (resends with `another: true`) and Open session; the answer lives in the composer store (AC-1, AC-2, AC-3)
-      Check: pnpm test packages/app/src/features/home/components/home-composer.test.tsx packages/app/src/features/home/composer-words.test.ts packages/app/src/features/home/store.test.ts; pnpm gate style-policy
-      Files: packages/app/src/features/home/components/home-composer.tsx, packages/app/src/features/home/composer-words.ts, packages/app/src/features/home/store.ts, and their tests
+- [x] Task 4: The composer's `existing` answer is an `info` Callout with Start a new session (resends with `another: true`) and Open session (AC-1, AC-2, AC-3). Moving the answer into the composer store waits for Task 9, the first that needs it.
+      Check: pnpm test packages/app/src/features/home/components/home-composer.test.tsx packages/app/src/features/home/composer-words.test.ts; pnpm gate style-policy
+      Files: packages/app/src/features/home/components/home-composer.tsx, packages/app/src/features/home/composer-words.ts, and their tests
 - [ ] Task 5: e2e: a second session on a ticket from the callout, Open session, and the callout's axe at 360 and 1280 px in light and dark (AC-1, AC-2, AC-3, AC-25)
       Check: pnpm exec playwright test e2e/composer.spec.ts
       Files: e2e/composer.spec.ts
@@ -31,7 +31,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 8: `rowAction` gives Fix review comments and Fix failing checks for your own open, non-fork pull request's rows, with their messages (AC-6, AC-7)
       Check: pnpm test packages/app/src/features/home/inbox-words.test.ts packages/app/src/features/home/composer-words.test.ts
       Files: packages/app/src/features/home/inbox-words.ts, packages/app/src/features/home/composer-words.ts, and their tests
-- [ ] Task 9: The row's Fix `IconButton` (`Wrench01Icon`) starts the session with the composer's model and effort and opens it. An `existing` answer shows A's callout under the composer; a `cannot_start` or `context_failed` answer puts the PR in the composer as Build with Send's line. The draft is untouched when it starts (AC-6, AC-7, AC-8, AC-9, AC-10)
+- [ ] Task 9: The composer's last answer moves into the composer store, so Send and Fix both write it. The row's Fix `IconButton` (`Wrench01Icon`) starts the session with the composer's model and effort and opens it. An `existing` answer shows A's callout under the composer; a `cannot_start` or `context_failed` answer puts the PR in the composer as Build with Send's line. The draft is untouched when it starts (AC-6, AC-7, AC-8, AC-9, AC-10)
       Check: pnpm test packages/app/src/features/home/components/attention-panel.test.tsx packages/app/src/features/home/home-screen.test.tsx; pnpm gate style-policy; pnpm gate icon-buttons
       Files: packages/app/src/features/home/components/attention-panel.tsx, packages/app/src/features/home/queries.ts, packages/app/src/features/home/store.ts, and their tests
 - [ ] Task 10: e2e: Fix review comments starts a Build on the PR's branch and opens it; by keyboard; axe at 360 and 1280 px in light and dark (AC-6, AC-10, AC-25)
