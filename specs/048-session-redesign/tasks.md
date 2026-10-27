@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: Add the mockup as the session design, and write the Stepper-beside-the-title, DiffView wrap and session-panes notes (Q3, Q4, Q5, Q6)
+- [x] Task 1: Add the mockup as the session design, and write the Stepper-beside-the-title, DiffView wrap and session-panes notes (Q3, Q4, Q5, Q6)
       Check: pnpm exec prettier --check docs/design/design-system.md .claude/skills/clean-ui/SKILL.md; the screenshot opens
       Files: docs/design/screens/session-review.html, docs/design/screens/session-review-light.png, docs/design/design-system.md, .claude/skills/clean-ui/SKILL.md
 - [ ] Task 2: An activity's optional `at` and `step`, and a changed file's `created` (default false), with factories (AC-15, AC-21)
