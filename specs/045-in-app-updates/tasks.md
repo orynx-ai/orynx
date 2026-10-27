@@ -56,7 +56,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: The update notification's look, words and place, which opens Settings › About from the centre and from a pop-up (AC-13)
       Check: pnpm test packages/app/src/features/notifications
       Files: packages/app/src/features/notifications/words.ts, words.test.ts, components/notification-centre.tsx, components/pop-ups.tsx, notification-centre.test.tsx, packages/app/src/features/settings/components/notifications-panel.tsx
-- [ ] Task 19: Release notes from feat and fix commits since the last release, used by release.yml (AC-34 to AC-36)
+- [x] Task 19: Release notes from feat and fix commits since the last release, used by release.yml (AC-34 to AC-36)
       Check: node --test scripts/lib/release-notes.test.ts
       Files: scripts/lib/release-notes.ts, release-notes.test.ts, scripts/release-notes.ts, .github/workflows/release.yml
 - [ ] Task 20: e2e: the About tab against a fake releases API, Settings' tab list with About, and every e2e hub pointed at the fake (AC-1, AC-3, AC-6, AC-7, AC-14, AC-30)

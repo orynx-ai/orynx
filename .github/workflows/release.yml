@@ -98,12 +98,21 @@ jobs:
     permissions:
       contents: write
     steps:
+      # The whole history and its tags, for the notes: every feat and fix since the last release (spec 045, Q4).
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Write the release notes
+        run: node --disable-warning=ExperimentalWarning scripts/release-notes.ts "$GITHUB_SHA" > release-notes.md
       - uses: actions/download-artifact@v8
         with:
           pattern: orynx-*
           path: release
           merge-multiple: true
-      # A re-run of a run that already published fails here: its tag is taken.
+      # A re-run of a run that already published fails here: its tag is taken. Empty notes leave the release with none.
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -111,4 +120,4 @@ jobs:
         run: >-
           gh release create "v$VERSION" release/*
           --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA"
-          --title "Orynx $VERSION" --generate-notes
+          --title "Orynx $VERSION" --notes-file release-notes.md
