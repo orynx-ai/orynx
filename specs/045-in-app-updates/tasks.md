@@ -23,7 +23,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: The update notification, once per version, remembered in settings.json (AC-13)
       Check: pnpm test packages/core/src/updates/update-service.test.ts packages/core/src/notifications
       Files: packages/core/src/updates/update-service.ts, update-service.test.ts, packages/core/src/notifications/notification-service.ts, packages/core/src/settings/settings-store.ts
-- [ ] Task 8: The clone updater: the version from git, refusals, `git pull --ff-only && ./install.sh` detached with update.log, failure from the exit code (AC-2, AC-25, AC-27, AC-28)
+- [x] Task 8: The clone updater: the version from git, refusals, `git pull --ff-only && ./install.sh` detached with update.log, failure from the exit code (AC-2, AC-25, AC-27, AC-28)
       Check: pnpm test packages/core/src/updates/clone-updater.test.ts
       Files: packages/core/src/updates/clone-updater.ts, clone-updater.test.ts
 - [ ] Task 9: install.sh: DEVHUB_SERVICE in the LaunchAgent and the unit, the Linux sudo skip, no waiting for a password without a terminal (AC-25, AC-28)
