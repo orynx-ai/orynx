@@ -93,3 +93,5 @@ The work is not done until every question has an answer. Write the date with eac
 ## Design
 
 None: no file in `docs/design/screens/` draws these. Reply to reviewers sits in `session.html`'s page bar beside Push changes (spec 014). Folder not found is a `Pill` on `settings.html`'s Repositories row (Q5).
+
+On 27 Oct 2026, with spec 048's `session-review.html` on `main`, the user chose to ship this dialog ("Ship the dialog"). That mockup's Review comments tab, its notes in the diff and its marks in the file list stay for their own spec, which can reuse this spec's threads, draft and posting.
