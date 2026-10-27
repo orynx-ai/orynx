@@ -277,8 +277,9 @@ function projectOf(key: string): string {
   return key.slice(0, key.lastIndexOf('-'));
 }
 
+/** A session that holds its ticket or pull request: not Stopped, and its pull request not merged or closed (spec 047). */
 function isLive(session: { state: Session['state'] }): boolean {
-  return session.state !== 'stopped';
+  return session.state !== 'stopped' && session.state !== 'pr_merged' && session.state !== 'pr_closed';
 }
 
 function isWorking(session: { state: Session['state'] }): boolean {
@@ -1255,6 +1256,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       result: 'cannot_send',
       reason,
     });
+    if (session.state === 'pr_merged') return cannot('merged');
     if (session.discardedAt !== null) return cannot('discarded');
     const { claudeSessionId } = record;
     const { branch } = session;
@@ -1339,6 +1341,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   /** Whether the follow-up box takes a message, or why not (spec 013, AC-14). */
   function followUpOf(record: StoredSession): SessionFollowUp {
     const { session } = record;
+    if (session.state === 'pr_merged') return { kind: 'merged' };
     if (session.discardedAt !== null) return { kind: 'discarded' };
     if (record.claudeSessionId === null && !isWorking(session)) return { kind: 'never_started' };
     // Every session on a ticket carries on, whatever started beside it since (spec 047, AC-5).

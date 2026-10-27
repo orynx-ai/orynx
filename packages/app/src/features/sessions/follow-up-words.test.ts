@@ -26,4 +26,10 @@ describe('the follow-up box’s words (spec 013, Q10d)', () => {
     expect(sendFailedLine).toBe("Couldn't send your message. Try again.");
     expect(tooLongLine).toBe('Keep it under 10,000 characters.');
   });
+
+  it('spec 047, AC-12: a merged pull request ends the session: start a new one from the ticket', () => {
+    const line = 'This pull request is merged. Start a new session from the ticket to carry on.';
+    expect(followUpOffLine({ kind: 'merged' })).toBe(line);
+    expect(cannotSendLine('merged')).toBe(line);
+  });
 });

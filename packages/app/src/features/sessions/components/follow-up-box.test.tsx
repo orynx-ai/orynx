@@ -110,6 +110,8 @@ describe('FollowUpBox', () => {
       { kind: 'never_started' } as const,
       "Claude never started, so there's nothing to carry on. Start again from the ticket.",
     ],
+    // Spec 047, AC-12.
+    [{ kind: 'merged' } as const, 'This pull request is merged. Start a new session from the ticket to carry on.'],
   ])('AC-14: says %j has nothing to carry on', async (followUp, line) => {
     serve(makeSession({ id, state: 'stopped', followUp }));
     await renderApp({ route });

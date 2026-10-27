@@ -1828,6 +1828,28 @@ describe('after the pull request (spec 047)', () => {
     expect(await service.get(id)).toMatchObject({ state: 'pr_open', worktreePath: worktree });
   });
 
+  it('AC-12: a merged session takes no follow-up, and no longer holds its ticket', async () => {
+    const { service, merge } = await opened();
+    merge('merged');
+    await service.watchPulls();
+
+    expect((await service.get(id))?.followUp).toEqual({ kind: 'merged' });
+    expect(await service.send(id, 'One more thing')).toEqual({ result: 'cannot_send', reason: 'merged' });
+    expect(await service.start({ ticketKey: 'PROJ-1423' })).toEqual({
+      result: 'started',
+      sessionId: '0000000000000002',
+    });
+  });
+
+  it('AC-14: a closed session no longer holds its ticket either, and still takes a follow-up', async () => {
+    const { service, merge } = await opened();
+    merge('closed');
+    await service.watchPulls();
+
+    expect((await service.get(id))?.followUp).toEqual({ kind: 'open' });
+    expect(await service.start({ ticketKey: 'PROJ-1423' })).toMatchObject({ result: 'started' });
+  });
+
   it("AC-15: when GitHub can't be reached, or nothing changed, nothing is saved", async () => {
     const { service, records, merge } = await opened();
     const before = await records.get(id);

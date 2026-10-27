@@ -9,6 +9,7 @@ export const followUpBox = {
 
 const discarded = "The changes were discarded, so Claude can't carry on.";
 const neverStarted = "Claude never started, so there's nothing to carry on. Start again from the ticket.";
+const merged = 'This pull request is merged. Start a new session from the ticket to carry on.';
 
 /** AC-14: the line in place of the box. */
 export function followUpOffLine(followUp: Exclude<SessionFollowUp, { kind: 'open' }>): string {
@@ -17,6 +18,8 @@ export function followUpOffLine(followUp: Exclude<SessionFollowUp, { kind: 'open
       return discarded;
     case 'never_started':
       return neverStarted;
+    case 'merged':
+      return merged;
   }
 }
 
@@ -29,6 +32,8 @@ export function cannotSendLine(reason: CannotSendReason): string {
       return discarded;
     case 'never_started':
       return neverStarted;
+    case 'merged':
+      return merged;
   }
 }
 
