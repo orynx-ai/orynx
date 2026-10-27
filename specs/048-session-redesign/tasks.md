@@ -32,7 +32,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: The Changes tab: the file column beside the diff from 1024 px, the totals and Wrap lines in the tab row, Viewed and New file in the diff's header, and the tabs as Changes, Ports, Context (AC-18, AC-19, AC-20, AC-21, AC-22, AC-23, AC-25)
       Check: pnpm test packages/app/src/features/sessions/components/changes-panel.test.tsx packages/app/src/features/sessions/components/session-details.test.tsx
       Files: packages/app/src/features/sessions/components/changes-panel.tsx, packages/app/src/features/sessions/components/session-details.tsx, packages/app/src/features/sessions/change-words.ts, their tests, e2e/changes.spec.ts
-- [ ] Task 11: Group the activities by step, with each group's summary and time in words ("< 1 min", "18 min", "1 h 5 min"), flat when any activity has no step (AC-10, AC-15, Q8)
+- [x] Task 11: Group the activities by step, with each group's summary and time in words ("< 1 min", "18 min", "1 h 5 min"), flat when any activity has no step (AC-10, AC-15, Q8)
       Check: pnpm test packages/app/src/features/sessions/activity-groups.test.ts
       Files: packages/app/src/features/sessions/activity-groups.ts, packages/app/src/features/sessions/activity-groups.test.ts
 - [ ] Task 12: What Claude did: the rename, the groups (the current one open), Expand all / Collapse all, commands as `CommandLine`, the approval in the current group and the summary after the groups (AC-10, AC-11, AC-12, AC-13, AC-14, AC-15, AC-16)
