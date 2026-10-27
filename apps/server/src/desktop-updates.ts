@@ -1,9 +1,4 @@
-import {
-  DesktopUpdateStateSchema,
-  OrynxVersionSchema,
-  type DesktopUpdateState,
-  type HubUpdateCommand,
-} from '@devhub/contracts';
+import { DesktopUpdateStateSchema, OrynxVersionSchema, type HubUpdateCommand } from '@devhub/contracts';
 import type { UpdateHost } from '@devhub/core';
 
 /** The part of Electron's `process.parentPort` the hub uses, inside the desktop app's utility process. */
@@ -16,6 +11,8 @@ export interface DesktopUpdateHostOptions {
   port: ParentPort;
   /** The version stamped into the packed app. */
   version: string;
+  /** The app's log as people read it, which says why a download failed (AC-23). */
+  logFile: string;
   /** A warning for the hub's log. */
   log: (line: string) => void;
 }
@@ -24,8 +21,8 @@ export interface DesktopUpdateHostOptions {
  * The desktop app's updates (spec 045): Electron's updater keeps its job, and tells the hub how far it has got over
  * the utility process's port. The page still talks only to the hub, and the window still gets no preload.
  */
-export function desktopUpdateHost({ port, version, log }: DesktopUpdateHostOptions): UpdateHost {
-  let state: Omit<DesktopUpdateState, 'type'> = { action: 'none', update: { state: 'idle' } };
+export function desktopUpdateHost({ port, version, logFile, log }: DesktopUpdateHostOptions): UpdateHost {
+  let state: ReturnType<UpdateHost['state']> = { action: 'none', update: { state: 'idle' } };
   const listeners = new Set<() => void>();
 
   function set(next: typeof state): void {
@@ -43,7 +40,8 @@ export function desktopUpdateHost({ port, version, log }: DesktopUpdateHostOptio
       log("Orynx couldn't read a message from the desktop app's updater.");
       return;
     }
-    set({ action: message.data.action, update: message.data.update });
+    const { action, update } = message.data;
+    set({ action, update: update.state === 'failed' ? { state: 'failed', log: logFile } : update });
   });
 
   return {

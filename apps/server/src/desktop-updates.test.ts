@@ -29,7 +29,12 @@ function fakePort() {
 function bridge() {
   const end = fakePort();
   const logged: string[] = [];
-  const host = desktopUpdateHost({ port: end.port, version: '0.1.37', log: (line) => logged.push(line) });
+  const host = desktopUpdateHost({
+    port: end.port,
+    version: '0.1.37',
+    logFile: '~/.devhub/logs/orynx.log',
+    log: (line) => logged.push(line),
+  });
   return { ...end, host, logged };
 }
 
@@ -54,8 +59,9 @@ describe('desktop update bridge (spec 045)', () => {
     expect(host.state()).toEqual({ action: 'none', update: { state: 'downloading', version: '0.1.40' } });
     tell({ type: 'update-state', action: 'download', update: { state: 'idle' } });
     expect(host.state().action).toBe('download');
+    // The app's log says why, so the row names it.
     tell({ type: 'update-state', action: 'update', update: { state: 'failed', log: null } });
-    expect(host.state().update).toEqual({ state: 'failed', log: null });
+    expect(host.state().update).toEqual({ state: 'failed', log: '~/.devhub/logs/orynx.log' });
     expect(changes).toBe(3);
   });
 

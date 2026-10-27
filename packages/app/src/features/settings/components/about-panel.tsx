@@ -4,6 +4,7 @@ import { SettingList, SettingRow, Skeleton } from '@devhub/ui';
 import { useUpdates } from '../queries.ts';
 import { versionText } from '../update-words.ts';
 import { ServerUnreachable } from './server-unreachable.tsx';
+import { UpdateCommands, UpdatesRow } from './updates-section.tsx';
 
 /**
  * Settings › About (spec 045): the version you run, the updates and what's new. Until the hub answers, each part
@@ -26,8 +27,11 @@ export function AboutPanel() {
             description={<Skeleton className="my-0.5 h-4 w-32" />}
             control={<Skeleton className="h-8 w-36" />}
           />
-        ) : null}
+        ) : (
+          <UpdatesRow updates={loaded} />
+        )}
       </SettingList>
+      {loaded === undefined ? null : <UpdateCommands updates={loaded} />}
       <section aria-labelledby={whatsNew} className="flex flex-col gap-3">
         <h2 id={whatsNew} className="m-0 text-body font-medium">
           What’s new

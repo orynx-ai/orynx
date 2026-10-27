@@ -1,3 +1,5 @@
+import { homedir } from 'node:os';
+import { join, sep } from 'node:path';
 import { createCloneUpdater, type CloneService, type UpdateHost } from '@devhub/core';
 import { desktopUpdateHost, type ParentPort } from './desktop-updates.ts';
 
@@ -28,6 +30,11 @@ export function updateHost({
   env,
   log,
 }: UpdateHostOptions): Promise<UpdateHost> {
-  if (desktop !== null) return Promise.resolve(desktopUpdateHost({ port: desktop, version, log }));
+  if (desktop !== null) {
+    const file = join(home, 'logs', 'orynx.log');
+    const user = homedir();
+    const logFile = file.startsWith(`${user}${sep}`) ? `~${file.slice(user.length)}` : file;
+    return Promise.resolve(desktopUpdateHost({ port: desktop, version, logFile, log }));
+  }
   return createCloneUpdater({ folder: repo, service, home, env });
 }

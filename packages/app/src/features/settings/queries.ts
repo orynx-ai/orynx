@@ -35,13 +35,46 @@ import type {
   Status,
   RepositoryList,
   UpdateRepositoryRequest,
+  UpdateInstall,
+  Updates,
 } from '@devhub/contracts';
 import { useApi } from '../../api.tsx';
 
-/** Settings › About (spec 045): the version, the releases and an update's progress. Kept fresh by events. */
+/**
+ * Settings › About (spec 045): the version, the releases and an update's progress. Kept fresh by events, and asked
+ * every 2 seconds while a clone updates, so the page notices when the hub is back with a new token (AC-25).
+ */
 export function useUpdates() {
   const api = useApi();
-  return useQuery(updatesQueryOptions(api));
+  return useQuery({
+    ...updatesQueryOptions(api),
+    refetchInterval: (query) => (query.state.data?.update.state === 'updating' ? 2000 : false),
+  });
+}
+
+/** Check for updates: the answer replaces the last one at once (AC-8). */
+export function useCheckForUpdates() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<Updates, ApiRequestError>({
+    mutationFn: () => api.checkForUpdates(),
+    onSuccess: (updates) => {
+      queryClient.setQueryData(queryKeys.updates, updates);
+    },
+  });
+}
+
+/** Update or Restart to update. A refusal reads the updates again, so the row says why. */
+export function useInstallUpdate() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<Updates, ApiRequestError, UpdateInstall>({
+    mutationFn: (request) => api.installUpdate(request),
+    onSuccess: (updates) => {
+      queryClient.setQueryData(queryKeys.updates, updates);
+    },
+    onError: () => queryClient.invalidateQueries({ queryKey: queryKeys.updates }),
+  });
 }
 
 /** What the hub is connected to. Kept fresh by `status.changed` events, not polling. */
