@@ -79,6 +79,8 @@ export interface FakePull {
   )[];
   /** Review threads: resolved or not, and who wrote the last comment when. */
   threads?: readonly { resolved: boolean; lastBy: string | null; at: string }[];
+  /** From a fork: its head is in another repository. */
+  fork?: boolean;
 }
 
 /** One pull request as the inbox's GraphQL query gets it back. */
@@ -94,6 +96,7 @@ export function pullNode(pull: FakePull) {
     createdAt: pull.createdAt ?? '2026-10-10T09:00:00Z',
     author,
     repository: { name: repository, nameWithOwner: `${owner}/${repository}` },
+    isCrossRepository: pull.fork ?? false,
     timelineItems: {
       nodes: (pull.requests ?? []).map((request) => ({
         createdAt: request.at,

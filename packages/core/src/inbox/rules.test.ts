@@ -143,6 +143,27 @@ describe('inbox rules', () => {
     });
   });
 
+  it('AC-6, AC-7 (spec 047): your pull request from a fork says so on its row, and only that one', () => {
+    const rows = items({
+      github: [
+        mine({ checksFailedAt: '2026-10-17T07:00:00.000Z', fork: true }),
+        mine({
+          id: 'acme/web-app#2837',
+          number: 2837,
+          url: 'https://github.com/acme/web-app/pull/2837',
+          checksFailedAt: '2026-10-17T07:00:00.000Z',
+        }),
+      ],
+    });
+
+    expect(
+      rows.map((row) => (row.subject.kind === 'pull_request' ? [row.subject.number, row.subject.fork] : null)),
+    ).toEqual([
+      [2836, true],
+      [2837, undefined],
+    ]);
+  });
+
   it('AC-11: a pull request with failing checks and unresolved comments is one row, as failing checks (Q4)', () => {
     const both = mine({
       checksFailedAt: '2026-10-17T07:00:00.000Z',

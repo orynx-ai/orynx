@@ -194,6 +194,25 @@ describe('GitHub client: the inbox (spec 007)', () => {
     github.events.removeAllListeners();
   });
 
+  it('AC-6, AC-7 (spec 047): asks whether each of your pull requests comes from a fork', async () => {
+    let query = '';
+    github.use(acceptingInboxQuery({ mine: [{ number: 2836, fork: true }, { number: 2837 }] }));
+    github.events.on('request:start', ({ request }) => {
+      void request
+        .clone()
+        .json()
+        .then((body) => {
+          query = (body as { query: string }).query;
+        });
+    });
+
+    const answer = await client.inbox(githubToken);
+
+    expect(answer.ok && answer.mine.map((pull) => pull.isCrossRepository)).toEqual([true, false]);
+    expect(query.slice(query.indexOf('mine:'))).toContain('isCrossRepository');
+    github.events.removeAllListeners();
+  });
+
   it('leaves out search results that aren’t pull requests', async () => {
     github.use(
       http.post(graphqlUrl, () =>

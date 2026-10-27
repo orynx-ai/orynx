@@ -151,6 +151,8 @@ const PullSchema = z.object({
   createdAt: z.string(),
   author: ActorSchema,
   repository: z.object({ name: z.string(), nameWithOwner: z.string() }),
+  /** Asked for your own pull requests only: one from a fork gets no Fix on Home (spec 047). */
+  isCrossRepository: z.boolean().optional(),
   timelineItems: nodes(
     z.object({ createdAt: z.string(), requestedReviewer: z.object({ login: z.string().optional() }).nullish() }),
   ).optional(),
@@ -360,6 +362,7 @@ const inboxQuery = `
           number title url createdAt
           author { login ... on User { name } }
           repository { name nameWithOwner }
+          isCrossRepository
           commits(last: 1) {
             nodes {
               commit {

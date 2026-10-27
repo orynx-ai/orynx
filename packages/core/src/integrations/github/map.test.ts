@@ -64,6 +64,12 @@ describe('GitHub map', () => {
     expect(kept.map((record) => record.author)).toEqual(['Arjun Mehta', 'dependabot', null]);
   });
 
+  it('AC-6, AC-7 (spec 047): marks your pull request from a fork, and only that one', () => {
+    const kept = records({ mine: [{ number: 1, fork: true }, { number: 2 }] });
+
+    expect(kept.map((record) => record.fork)).toEqual([true, undefined]);
+  });
+
   it('AC-9: your pull request with failing checks, failing since the first failing check finished', () => {
     const [record] = records({
       mine: [

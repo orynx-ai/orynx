@@ -22,9 +22,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 ## B. Fix on Home
 
-- [ ] Task 6: The inbox reads `isCrossRepository`, so a pull request from a fork is known on its row (AC-6, AC-7)
-      Check: pnpm test packages/core/src/integrations/github/client.test.ts packages/core/src/integrations/github/map.test.ts packages/contracts/src/inbox.test.ts
-      Files: packages/core/src/integrations/github/client.ts, packages/core/src/integrations/github/map.ts, packages/contracts/src/inbox.ts, packages/core/src/test/fake-github.ts, and their tests
+- [x] Task 6: The inbox reads `isCrossRepository`, so a pull request from a fork is known on its row (AC-6, AC-7)
+      Check: pnpm test packages/core/src/integrations/github/client.test.ts packages/core/src/integrations/github/map.test.ts packages/contracts/src/inbox.test.ts packages/core/src/inbox/rules.test.ts
+      Files: packages/core/src/integrations/github/client.ts, packages/core/src/integrations/github/map.ts, packages/core/src/inbox/rules.ts, packages/contracts/src/inbox.ts, packages/core/src/test/fake-github.ts, and their tests
 - [ ] Task 7: A Build that names no folder, with no ticket and a pull request chip, works in the folder whose origin is that pull request's repository; none or several answer `choose_folder` (AC-6, AC-8)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/compose.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/compose.ts, and their tests
