@@ -63,11 +63,31 @@ describe('the Terminal’s Claude tab', () => {
     const log = await screen.findByRole('log', { name: "Claude's commands" });
     await within(log).findByText('npm run lint');
 
-    list = { commands: [...list.commands, { id: 'toolu_6', state: 'running', command: 'pnpm build' }] };
+    list = { ...list, commands: [...list.commands, { id: 'toolu_6', state: 'running', command: 'pnpm build' }] };
     FakeEventSource.latest().emit({ type: 'session.changed', sessionId: id });
 
     expect(await within(log).findByText('pnpm build')).toBeVisible();
     expect(log).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('AC-14, AC-15 (spec 048): says how many earlier commands aren’t kept, and nothing when every one is', async () => {
+    await openClaudeTab(session, () => ({ ...makeClaudeCommands(), dropped: 37 }));
+    const log = await screen.findByRole('log', { name: "Claude's commands" });
+    expect(
+      await within(log).findByText("Orynx keeps the last 200 commands. 37 earlier ones aren't shown."),
+    ).toBeVisible();
+  });
+
+  it('AC-15 (spec 048): says nothing about earlier commands when none were dropped, and “one” for a single one', async () => {
+    let list = makeClaudeCommands();
+    await openClaudeTab(session, () => list);
+    const log = await screen.findByRole('log', { name: "Claude's commands" });
+    await within(log).findByText('npm run lint');
+    expect(within(log).queryByText(/^Orynx keeps the last/)).toBeNull();
+
+    list = { ...list, dropped: 1 };
+    FakeEventSource.latest().emit({ type: 'session.changed', sessionId: id });
+    expect(await within(log).findByText("Orynx keeps the last 200 commands. 1 earlier one isn't shown.")).toBeVisible();
   });
 
   it('AC-21, AC-22: a command waiting for you has the callout’s choices, and answering it answers the session’s call', async () => {
@@ -79,7 +99,7 @@ describe('the Terminal’s Claude tab', () => {
       }),
     );
     const waiting = makeSession({ ...session, state: 'needs_you', approvals: [makeSessionApproval()] });
-    const { user } = await openClaudeTab(waiting, () => ({ commands: [] }));
+    const { user } = await openClaudeTab(waiting, () => ({ commands: [], dropped: 0 }));
 
     expect(await screen.findByRole('tab', { name: 'Claude Needs you' })).toHaveAttribute('aria-selected', 'true');
     const log = screen.getByRole('log', { name: "Claude's commands" });
@@ -109,7 +129,7 @@ describe('the Terminal’s Claude tab', () => {
       ...session,
       activities: [{ id: 'step-1', state: 'done', kind: 'command', commands: ['npm test', 'npm run lint'] }],
     });
-    await openClaudeTab(older, () => ({ commands: [] }));
+    await openClaudeTab(older, () => ({ commands: [], dropped: 0 }));
 
     const log = await screen.findByRole('log', { name: "Claude's commands" });
     expect(await within(log).findByText('npm run lint')).toBeVisible();
@@ -117,14 +137,14 @@ describe('the Terminal’s Claude tab', () => {
   });
 
   it('AC-24: says Nothing yet before Claude has run a command', async () => {
-    await openClaudeTab(session, () => ({ commands: [] }));
+    await openClaudeTab(session, () => ({ commands: [], dropped: 0 }));
     expect(await screen.findByText('Nothing yet.')).toBeVisible();
   });
 
   it('AC-27: holds the blocks’ place while they load', async () => {
     await openClaudeTab(session, async () => {
       await delay('infinite');
-      return { commands: [] };
+      return { commands: [], dropped: 0 };
     });
     expect(await screen.findByRole('log', { name: "Claude's commands" })).toHaveAttribute('aria-busy', 'true');
   });

@@ -25,10 +25,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: search_jira answers with `next` and reads the page after it (AC-17)
       Check: pnpm test packages/core/src/integrations/jira/client.test.ts packages/core/src/sessions/jira-tools.test.ts
       Files: packages/core/src/integrations/jira/client.ts, packages/core/src/sessions/jira-tools.ts, their tests
-- [ ] Task 7: The command log keeps the last 200 commands and counts the ones it dropped (AC-14, AC-15)
+- [x] Task 7: The command log keeps the last 200 commands and counts the ones it dropped (AC-14, AC-15)
       Check: pnpm test packages/core/src/sessions/command-log.test.ts packages/contracts/src/terminal.test.ts
       Files: packages/contracts/src/terminal.ts, packages/core/src/sessions/command-log.ts, where the log is saved and served, their tests
-- [ ] Task 8: The Claude tab says how many earlier commands aren't shown (AC-14, AC-15)
+- [x] Task 8: The Claude tab says how many earlier commands aren't shown (AC-14, AC-15)
       Check: pnpm test packages/app/src/features/sessions/components/terminal/
       Files: packages/app/src/features/sessions/components/terminal/claude-tab.tsx, its test, terminal-words.ts
 - [ ] Task 9: A Build's turn end records whether the worktree changed, and "ready for" reads it (AC-10, AC-11, AC-12)

@@ -56,6 +56,7 @@ async function setUp({ session = {}, terminal = true }: { session?: Partial<Sess
     pushedCommit: null,
     approvalLog: [],
     commandLog: [],
+    commandsDropped: 0,
   });
   const env = { PATH: '/usr/bin:/bin', HOME: home, SHELL: '/bin/sh' };
   app = await createServer({

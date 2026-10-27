@@ -157,6 +157,9 @@ export function ClaudeTab({ session }: { session: Session }) {
         ) : count === 0 ? (
           <p className="text-small text-muted-foreground">{terminalWords.nothingYet}</p>
         ) : null}
+        {(commands.data?.dropped ?? 0) > 0 ? (
+          <p className="text-small text-muted-foreground">{terminalWords.dropped(commands.data?.dropped ?? 0)}</p>
+        ) : null}
         {ran.map((command) =>
           command.state === 'note' ? (
             <p key={command.id} className="text-small text-muted-foreground">

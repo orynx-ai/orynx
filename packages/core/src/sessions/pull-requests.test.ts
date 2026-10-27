@@ -117,6 +117,7 @@ async function setUp({
     pushedCommit: null,
     approvalLog: [],
     commandLog: [],
+    commandsDropped: 0,
   };
   await records.create(record);
   await records.writeBrief(id, brief);

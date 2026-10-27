@@ -53,7 +53,7 @@ import { createBranchGit } from './branch-git.ts';
 import { folderBytes, measureStorage, sessionsToClean } from './session-cleanup.ts';
 import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
 import { sessionStartPoint, type ChangesReader, type StartPoint } from './changes.ts';
-import { logEnd, logRunEnded, logWork } from './command-log.ts';
+import { keepLast, logEnd, logRunEnded, logWork } from './command-log.ts';
 import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
 import {
   chooseFolder,
@@ -628,7 +628,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
           change(id, (record) => {
             const next = {
               ...withProgress(record, (progress) => addWork(progress, event.work)),
-              commandLog: logWork(record.commandLog, event.work),
+              ...keepLast(logWork(record.commandLog, event.work, record.commandsDropped), record.commandsDropped),
             };
             if (!finished) return next;
             const at = now();
@@ -1460,6 +1460,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       pushedCommit: null,
       approvalLog: [],
       commandLog: [],
+      commandsDropped: 0,
     };
     await records.create(record);
     events.publish({ type: 'sessions.changed' });
@@ -1562,6 +1563,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       claudeSessionId: null,
       approvalLog: [],
       commandLog: [],
+      commandsDropped: 0,
       reads: { files: [...plan.reads.files], folders: [...plan.reads.folders] },
     };
     startPlans.set(id, {
@@ -1796,7 +1798,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
     async commands(id) {
       const record = await records.get(id);
-      return record === null ? null : { commands: [...record.commandLog] };
+      return record === null ? null : { commands: [...record.commandLog], dropped: record.commandsDropped };
     },
 
     async stop(id) {

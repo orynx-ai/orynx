@@ -1954,6 +1954,7 @@ describe('Claude’s commands (spec 036)', () => {
           ms: expect.any(Number) as unknown,
         },
       ],
+      dropped: 0,
     });
     expect(heard).toContainEqual({ type: 'session.changed', sessionId: '0000000000000001' });
   });
@@ -1995,7 +1996,7 @@ describe('Claude’s commands (spec 036)', () => {
     const { service, records } = await setUp();
     await service.start({ ticketKey: 'PROJ-1423' });
     await settled(records);
-    expect(await service.commands('0000000000000001')).toEqual({ commands: [] });
+    expect(await service.commands('0000000000000001')).toEqual({ commands: [], dropped: 0 });
     expect(await service.commands('ffffffffffffffff')).toBeNull();
   });
 });

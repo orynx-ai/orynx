@@ -51,6 +51,7 @@ async function serverWith(...sessions: Partial<Session>[]): Promise<{ app: Fasti
       pushedCommit: null,
       approvalLog: [],
       commandLog: [],
+      commandsDropped: 0,
     });
   }
   app = await createServer({ token, port, version: '1.2.3', sessions: store });
@@ -237,15 +238,19 @@ describe('GET /api/sessions/:id/commands', () => {
     await store.update('0123456789abcdef', (record) => ({
       ...record,
       commandLog: [{ id: 'toolu_1', state: 'running', command: 'npm test' }],
+      commandsDropped: 37,
     }));
 
     const ran = await app.inject({ method: 'GET', url: commands('0123456789abcdef'), headers });
     expect(ran.statusCode).toBe(200);
+    // AC-14 (spec 048): with how many earlier ones aren't kept.
     expect(ClaudeCommandListSchema.parse(ran.json())).toEqual({
       commands: [{ id: 'toolu_1', state: 'running', command: 'npm test' }],
+      dropped: 37,
     });
     expect((await app.inject({ method: 'GET', url: commands('00000000000000cc'), headers })).json()).toEqual({
       commands: [],
+      dropped: 0,
     });
     const missing = await app.inject({ method: 'GET', url: commands('fedcba9876543210'), headers });
     expect(missing.statusCode).toBe(404);
@@ -485,6 +490,7 @@ describe('GET /api/sessions/:id/changes and its diff (spec 013)', () => {
       pushedCommit: null,
       approvalLog: [],
       commandLog: [],
+      commandsDropped: 0,
     });
     app = await createServer({
       token,
@@ -542,6 +548,7 @@ describe('GET /api/sessions/:id/changes and its diff (spec 013)', () => {
       pushedCommit: null,
       approvalLog: [],
       commandLog: [],
+      commandsDropped: 0,
     });
     app = await createServer({ token, port, version: '1.2.3', sessions: store });
     expect((await app.inject({ method: 'GET', url: changesOf('gone'), headers })).json()).toEqual({ state: 'missing' });

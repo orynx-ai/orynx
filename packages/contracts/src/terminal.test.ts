@@ -25,7 +25,14 @@ describe('ClaudeCommandListSchema', () => {
       { id: 'note-1', state: 'note', command: 'pnpm test' },
       { id: 'toolu_9', state: 'stopped', command: 'pnpm build' },
     ];
-    expect(ClaudeCommandListSchema.parse({ commands })).toEqual({ commands });
+    expect(ClaudeCommandListSchema.parse({ commands })).toEqual({ commands, dropped: 0 });
+  });
+
+  it('AC-14 (spec 048): says how many earlier commands aren’t kept, and 0 for an answer from before 048', () => {
+    expect(ClaudeCommandListSchema.parse({ commands: [], dropped: 37 })).toEqual({ commands: [], dropped: 37 });
+    expect(ClaudeCommandListSchema.parse({ commands: [] })).toEqual({ commands: [], dropped: 0 });
+    expect(ClaudeCommandListSchema.safeParse({ commands: [], dropped: -1 }).success).toBe(false);
+    expect(terminalLimits.claudeCommands).toBe(200);
   });
 
   it('refuses an ended command with no time, or an empty command', () => {

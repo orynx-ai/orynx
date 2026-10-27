@@ -1,4 +1,4 @@
-import { homeTerminalId } from '@devhub/contracts';
+import { homeTerminalId, terminalLimits } from '@devhub/contracts';
 
 /** Every word the session's Terminal shows (spec 036, Q8; spec 038), in one place. */
 export const terminalWords = {
@@ -22,6 +22,9 @@ export const terminalWords = {
   noOutput: "Output wasn't kept for this command.",
   denied: 'Denied by you. Claude will continue without it.',
   sentFromTerminal: 'Sent from your terminal:',
+  /** Above the commands once some fell off the front (spec 048). */
+  dropped: (count: number) =>
+    `Orynx keeps the last ${String(terminalLimits.claudeCommands)} commands. ${String(count)} earlier ${count === 1 ? "one isn't" : "ones aren't"} shown.`,
   // Your shell tabs (Q8b to Q8l).
   yourShell: 'Your shell · runs as you',
   shellLog: 'Terminal output',
