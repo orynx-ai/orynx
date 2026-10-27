@@ -11,3 +11,5 @@ AGENTS.md
 .github/copilot-instructions.md
 .cursor/rules/
 packages/ui/src/styles/tokens.css
+# Written by `npx skills add`; left in the shape the skills CLI writes it.
+skills-lock.json

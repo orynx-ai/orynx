@@ -31,3 +31,9 @@ cache.db-*
 # The desktop app's staged hub and its installers (spec 027).
 apps/desktop/.stage/
 apps/desktop/release/
+
+# Skills added with `npx skills add` are pinned in skills-lock.json, not stored here:
+# `npx skills experimental_install` restores them (brag alone is 16 MB of audio).
+.claude/skills/brag/
+# Scratch output of the /brag skill: renders, stems, screenshots and its local voice model (hundreds of MB).
+brag-output/
