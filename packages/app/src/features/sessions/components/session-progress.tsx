@@ -390,8 +390,15 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
         {/* The steps' end: in view only once you've scrolled to the end of What agent did. */}
         <div ref={end} aria-hidden />
       </div>
-      {/* The steps pass under the follow-up box, on the pane's own colour; Jump to latest sits over it. */}
-      <div className={footer === undefined ? 'sticky bottom-4 h-0' : 'sticky bottom-0 bg-raised px-4 pt-2 pb-4'}>
+      {/* The steps pass under the follow-up box, on the pane's own colour; Jump to latest sits over it. Under 768 px
+          both clear the places' pill at the window's bottom. */}
+      <div
+        className={
+          footer === undefined
+            ? 'sticky bottom-4 h-0 max-md:bottom-19'
+            : 'sticky bottom-0 bg-raised px-4 pt-2 pb-4 max-md:pb-21'
+        }
+      >
         {atEnd ? null : (
           <IconButton
             variant="secondary"

@@ -104,7 +104,8 @@ export function PopUps() {
     .slice(0, most);
 
   return (
-    <ToastRegion>
+    // Under 768 px they stack 8 px over the places' pill.
+    <ToastRegion className="max-md:bottom-19">
       <TestPopUp />
       {showing.map((notification) => (
         <PopUp

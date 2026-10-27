@@ -195,6 +195,24 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('a narrow window floats the places in a pill named Places (the user’s call, 27 Oct 2026)', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    await renderApp();
+
+    const places = within(mainNav()).getByRole('group', { name: 'Places' });
+
+    expect(
+      within(places)
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Home', 'Tickets', 'Settings', 'Sessions']);
+  });
+
   it('AC-8 (spec 020): has no New task, collapsed or not; Home carries its shortcut for screen readers', async () => {
     const { user } = await renderApp();
     const nav = mainNav();
