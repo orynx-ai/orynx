@@ -21,6 +21,8 @@ import {
   type NotificationList,
   type NotificationSettings,
   type NotificationSettingsChange,
+  type UpdateInstall,
+  type Updates,
   type Preferences,
   type PreferencesChange,
   type Profile,
@@ -101,6 +103,7 @@ import {
   postNotificationsRead,
 } from './endpoints/notifications.ts';
 import { getPreferences, patchPreferences } from './endpoints/preferences.ts';
+import { getUpdates, postUpdatesCheck, postUpdatesInstall } from './endpoints/updates.ts';
 import { getProfile, getSetup, postSetup, putPassword, putProfile } from './endpoints/setup.ts';
 import {
   deleteRepository,
@@ -259,6 +262,12 @@ export interface ApiClient {
   notificationSettings(): Promise<NotificationSettings>;
   /** Saves one change and returns every setting. */
   changeNotificationSettings(change: NotificationSettingsChange): Promise<NotificationSettings>;
+  /** Settings › About: the version, the releases and an update's progress (spec 045). */
+  updates(): Promise<Updates>;
+  /** Check for updates: GitHub at most once a minute (AC-9). */
+  checkForUpdates(): Promise<Updates>;
+  /** Update or Restart to update; rejects with session_working or update_unavailable. */
+  installUpdate(request: UpdateInstall): Promise<Updates>;
   /** Settings › Repositories, in the order the folders were added. */
   repositories(): Promise<RepositoryList>;
   /** Checks the folder on disk, then saves it; rejects with folder_rejected and the message for the Folder field. */
@@ -427,6 +436,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       getNotificationSettings(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     changeNotificationSettings: (change) =>
       patchNotificationSettings(http, change).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    updates: () => getUpdates(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    checkForUpdates: () => postUpdatesCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    installUpdate: (request) =>
+      postUpdatesInstall(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     repositories: () => getRepositories(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     addRepository: (request) =>
       postRepository(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

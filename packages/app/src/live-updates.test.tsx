@@ -11,7 +11,9 @@ import {
   makeSearchTicket,
   makeSession,
   makeStatus,
+  makeUpdates,
 } from '@devhub/contracts/testing';
+import { queryKeys } from '@devhub/api-client';
 import type { Permissions } from '@devhub/contracts';
 import { FakeEventSource } from './test/fake-event-source.ts';
 import { apiUrl, server } from './test/msw.ts';
@@ -153,6 +155,18 @@ describe('LiveUpdates', () => {
       expect(asked).toEqual(['0123456789abcdef', '0123456789abcdef']);
     });
   });
+
+  it.each(['updates.changed', 'sessions.changed'] as const)(
+    'AC-8, AC-22 (spec 045): makes Settings › About read again when the server says %s',
+    async (type) => {
+      const { queryClient } = await renderApp();
+      queryClient.setQueryData(queryKeys.updates, makeUpdates());
+      FakeEventSource.latest().emit({ type });
+      await waitFor(() => {
+        expect(queryClient.getQueryState(queryKeys.updates)?.isInvalidated).toBe(true);
+      });
+    },
+  );
 
   it('closes the stream when the app goes away', async () => {
     const { unmount } = await renderApp();

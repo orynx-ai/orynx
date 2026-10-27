@@ -41,7 +41,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: The Mac's own update: latest-mac.yml, download, sha512, unzip, swap, reopen, put back on failure, Download when the folder can't be written (AC-20, AC-21, AC-23)
       Check: pnpm test apps/desktop/src/mac-update.test.ts
       Files: apps/desktop/src/mac-update.ts, mac-update.test.ts, apps/desktop/src/main.ts
-- [ ] Task 14: api-client: getUpdates, postUpdatesCheck, postUpdatesInstall and updatesQueryOptions; `updates.changed` and `sessions.changed` refresh it
+- [x] Task 14: api-client: getUpdates, postUpdatesCheck, postUpdatesInstall and updatesQueryOptions; `updates.changed` and `sessions.changed` refresh it
       Check: pnpm test packages/api-client/src/updates.test.ts packages/app/src/live-updates.test.tsx
       Files: packages/api-client/src/endpoints/updates.ts, updates.test.ts, client.ts, queries.ts, index.ts, packages/app/src/live-updates.tsx, live-updates.test.tsx
 - [ ] Task 15: The About tab with its Version part, its loading skeletons and its axe check (AC-1 to AC-5)

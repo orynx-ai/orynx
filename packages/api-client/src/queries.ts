@@ -35,6 +35,8 @@ export const queryKeys = {
   claudeLogin: ['claude', 'login'] as const,
   agentModels: ['agent', 'models'] as const,
   search: ['search'] as const,
+  /** Settings › About (spec 045); updates.changed and sessions.changed refresh it. */
+  updates: ['updates'] as const,
 };
 
 export function statusQueryOptions(api: ApiClient) {
@@ -205,6 +207,15 @@ export function notificationsQueryOptions(api: ApiClient) {
     queryKey: queryKeys.notifications,
     queryFn: () => api.notifications(),
     // Freshness comes from the event stream (notifications.changed), not from polling.
+    staleTime: Infinity,
+  });
+}
+
+export function updatesQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.updates,
+    queryFn: () => api.updates(),
+    // Freshness comes from the event stream (updates.changed, and sessions.changed for whether one may run).
     staleTime: Infinity,
   });
 }

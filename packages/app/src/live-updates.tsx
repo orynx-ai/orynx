@@ -25,8 +25,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       ];
     case 'sessions.changed':
       // A session waiting for approval is a row on Home (spec 007), a ticket's agent chip (spec 008), and a
-      // search result (spec 009).
-      return [queryKeys.sessions, queryKeys.inbox, queryKeys.tickets, queryKeys.search];
+      // search result (spec 009). A session working or waiting holds Update back (spec 045, AC-22).
+      return [queryKeys.sessions, queryKeys.inbox, queryKeys.tickets, queryKeys.search, queryKeys.updates];
     case 'session.changed':
       // One session's steps changed: only its Session screen refetches (spec 011, AC-4).
       return [sessionQueryKey(event.sessionId)];
@@ -60,8 +60,8 @@ function keysFor(event: ServerEvent): readonly (readonly string[])[] {
       // One came, was read, or its approval ended: the bell, its panel and the pop-ups read the list again (spec 029).
       return [queryKeys.notifications];
     case 'updates.changed':
-      // Settings › About reads it again once it has a query (spec 045, task 14).
-      return [];
+      // A check or an update moved on: Settings › About reads it again (spec 045).
+      return [queryKeys.updates];
   }
 }
 
