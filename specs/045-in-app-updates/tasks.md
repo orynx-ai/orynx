@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: The spec changes from the plan: F reuses the Orynx restarted notice, AC-33 goes, AC-5's axe check lives in the panel test
+- [x] Task 1: The spec changes from the plan: F reuses the Orynx restarted notice, AC-33 goes, AC-5's axe check lives in the panel test
       Check: pnpm gate specs
       Files: specs/045-in-app-updates/spec.md
 - [ ] Task 2: The updates contract: release, answer, install request and refusals, `updates.changed`, `update_available`, routes and builders (AC-6 to AC-13)
