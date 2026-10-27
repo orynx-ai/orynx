@@ -3,6 +3,7 @@ dist/
 storybook-static/
 coverage/
 playwright-report/
+blob-report/
 test-results/
 *.tsbuildinfo
 .turbo/

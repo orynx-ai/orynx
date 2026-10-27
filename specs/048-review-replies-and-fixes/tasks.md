@@ -73,10 +73,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **C. CI**
 
-- [ ] Task 21: The app's unit tests run as 2 shards, and the merge job checks every shard's report (AC-18, AC-19)
+- [x] Task 21: The app's unit tests run as 2 shards, and the merge job checks every shard's report (AC-18, AC-19)
       Check: both shards run locally into blobs, then pnpm exec vitest --merge-reports --coverage passes; pnpm format:check
       Files: .github/workflows/ci.yml
-- [ ] Task 22: The e2e run splits into 3 shards with one merged report, and Chromium is cached (AC-18)
+- [x] Task 22: The e2e run splits into 3 shards with one merged report, and Chromium is cached (AC-18)
       Check: pnpm exec playwright test --shard=1/3 --list lists a third of the tests; pnpm format:check
       Files: .github/workflows/ci.yml, playwright.config.ts
 - [ ] Task 23: STOP and run /review
