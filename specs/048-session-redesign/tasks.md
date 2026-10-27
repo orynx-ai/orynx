@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: Stamp each new activity with the session's step and the time in `change()`, keeping the stamp when a step is rebuilt (AC-10, AC-14, AC-15)
       Check: pnpm test packages/core/src/sessions/progress.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/progress.ts, packages/core/src/sessions/progress.test.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-service.test.ts
-- [ ] Task 4: Mark the files git calls added as `created` (AC-21)
+- [x] Task 4: Mark the files git calls added as `created` (AC-21)
       Check: pnpm test packages/core/src/sessions/changes.test.ts
       Files: packages/core/src/sessions/changes.ts, packages/core/src/sessions/changes.test.ts
 - [ ] Task 5: `ActivityGroup` in @devhub/ui: a step's row (dot, words, summary, time, chevron) that opens its rows in place (AC-11, AC-14)

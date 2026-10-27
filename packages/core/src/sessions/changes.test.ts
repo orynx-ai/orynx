@@ -31,13 +31,14 @@ const file = (
   path: string,
   added: number,
   removed: number,
-  more: Partial<{ binary: boolean; renamedFrom: string }> = {},
+  more: Partial<{ binary: boolean; renamedFrom: string; created: true }> = {},
 ) => ({
   path,
   added,
   removed,
   binary: more.binary ?? false,
   renamedFrom: more.renamedFrom ?? null,
+  ...(more.created ? { created: true } : {}),
 });
 
 function changesOf(listed: ListedChanges) {
@@ -69,12 +70,12 @@ describe('listing a worktree’s changes', () => {
       changes: {
         state: 'ready',
         files: [
-          file('.gitignore', 1, 0),
+          file('.gitignore', 1, 0, { created: true }),
           file('a.ts', 1, 1),
           file('b.ts', 1, 0),
           file('c.ts', 0, 1),
           file('d.ts', 1, 1),
-          file('new.ts', 3, 0),
+          file('new.ts', 3, 0, { created: true }),
         ],
         moreFiles: 0,
         added: 7,
@@ -99,6 +100,28 @@ describe('listing a worktree’s changes', () => {
     });
   });
 
+  it('AC-21 (spec 048): marks a file Claude added as new, committed or not, and a changed, renamed or deleted one as not', async () => {
+    const { repos, worktree, startCommit, reader } = await setUp();
+    await writeFile(join(worktree, 'committed.ts'), 'one\n');
+    await repos.git(worktree, 'add', 'committed.ts');
+    await repos.git(worktree, 'commit', '-m', 'Claude added this');
+    await writeFile(join(worktree, 'staged.ts'), 'one\n');
+    await repos.git(worktree, 'add', 'staged.ts');
+    await writeFile(join(worktree, 'loose.ts'), 'one\n');
+    await writeFile(join(worktree, 'a.ts'), 'changed\n');
+    await repos.git(worktree, 'mv', 'b.ts', 'moved.ts');
+    await rm(join(worktree, 'c.ts'));
+    const listed = await reader.list(worktree, { commit: startCommit }, []);
+    expect(filesOf(listed)).toEqual([
+      file('a.ts', 1, 1),
+      file('c.ts', 0, 1),
+      file('committed.ts', 1, 0, { created: true }),
+      file('loose.ts', 1, 0, { created: true }),
+      file('moved.ts', 0, 0, { renamedFrom: 'b.ts' }),
+      file('staged.ts', 1, 0, { created: true }),
+    ]);
+  });
+
   it('AC-5: says where a file Claude renamed came from', async () => {
     const { repos, worktree, startCommit, reader } = await setUp();
     await repos.git(worktree, 'mv', 'a.ts', 'renamed.ts');
@@ -114,8 +137,8 @@ describe('listing a worktree’s changes', () => {
     await writeFile(join(worktree, 'icon.png'), Buffer.from([0x00, 0xff, 0x00]));
     const listed = await reader.list(worktree, { commit: startCommit }, []);
     expect(filesOf(listed)).toEqual([
-      file('icon.png', 0, 0, { binary: true }),
-      file('logo.png', 0, 0, { binary: true }),
+      file('icon.png', 0, 0, { binary: true, created: true }),
+      file('logo.png', 0, 0, { binary: true, created: true }),
     ]);
   });
 
@@ -127,8 +150,8 @@ describe('listing a worktree’s changes', () => {
     await link(outside, join(worktree, 'hard.txt'));
     const listed = await reader.list(worktree, { commit: startCommit }, []);
     expect(filesOf(listed)).toEqual([
-      file('hard.txt', 0, 0, { binary: true }),
-      file('link.txt', 0, 0, { binary: true }),
+      file('hard.txt', 0, 0, { binary: true, created: true }),
+      file('link.txt', 0, 0, { binary: true, created: true }),
     ]);
   });
 
