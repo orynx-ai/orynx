@@ -122,7 +122,12 @@ describe('ActivityGroup (spec 048)', () => {
       const [open, setOpen] = useState(false);
       return (
         <>
-          <button type="button" onClick={() => { setOpen(true); }}>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(true);
+            }}
+          >
             Expand all
           </button>
           <ActivityList aria-label="Steps">
