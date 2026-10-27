@@ -7,6 +7,7 @@ import {
   acceptingPulls,
   acceptingPullStates,
   acceptingRepository,
+  acceptingReviewThreads,
   githubLogin,
   githubToken,
   graphqlUrl,
@@ -19,6 +20,7 @@ import {
   type FakeOpenedPull,
   type FakePullContext,
   type FakePullState,
+  type FakeThreadWrite,
 } from '../../test/fake-github.ts';
 import { createGitHubClient, type GitHubCheck } from './client.ts';
 
@@ -659,5 +661,86 @@ describe('GitHub client: a session’s pull request after it opens (spec 047)', 
 
     github.use(http.get(pullUrl('acme', 'web-app', 2841), () => HttpResponse.error()));
     expect(await client.pullState(githubToken, pull)).toMatchObject({ ok: false, problem: { kind: 'unreachable' } });
+  });
+});
+
+describe('review threads (spec 048)', () => {
+  const pull = { owner: 'acme', name: 'web-app', number: 2841 };
+  const threads = [
+    {
+      id: 'PRRT_a',
+      resolved: false,
+      path: 'src/ContentList.tsx',
+      line: 42,
+      comments: [
+        { author: 'priya', body: 'Use the existing useSelection hook here.' },
+        { author: githubLogin, body: 'Will do.' },
+      ],
+    },
+    { id: 'PRRT_b', resolved: true, path: 'src/api.ts', line: 7, comments: [{ author: 'sam', body: 'Rename?' }] },
+    { id: 'PRRT_c', resolved: false, path: 'README.md', line: null, comments: [{ author: null, body: 'A typo.' }] },
+  ];
+
+  it('AC-2: reads only the unresolved threads, each with its id and every comment, oldest first', async () => {
+    github.use(acceptingReviewThreads([{ number: 2841, threads }]));
+    expect(await client.reviewThreads(githubToken, pull)).toEqual({
+      ok: true,
+      threads: [
+        {
+          id: 'PRRT_a',
+          path: 'src/ContentList.tsx',
+          line: 42,
+          comments: [
+            { author: 'priya', body: 'Use the existing useSelection hook here.' },
+            { author: githubLogin, body: 'Will do.' },
+          ],
+        },
+        { id: 'PRRT_c', path: 'README.md', line: null, comments: [{ author: 'Someone', body: 'A typo.' }] },
+      ],
+    });
+  });
+
+  it('AC-6: a pull request GitHub hasn’t got is not found, and one it can’t be asked about is unreachable', async () => {
+    github.use(acceptingReviewThreads([{ number: 2841, threads }]));
+    expect(await client.reviewThreads(githubToken, { ...pull, number: 9 })).toEqual({
+      ok: false,
+      problem: { kind: 'not_found' },
+    });
+    github.use(http.post(graphqlUrl, () => HttpResponse.error()));
+    expect(await client.reviewThreads(githubToken, pull)).toMatchObject({
+      ok: false,
+      problem: { kind: 'unreachable' },
+    });
+  });
+
+  it('AC-3: replies to a thread, then resolves it, as you', async () => {
+    const posted: FakeThreadWrite[] = [];
+    github.use(acceptingReviewThreads([], { posted }));
+
+    expect(await client.replyToThread(githubToken, 'PRRT_a', 'Done: the list uses useSelection now.')).toEqual({
+      ok: true,
+    });
+    expect(await client.resolveThread(githubToken, 'PRRT_a')).toEqual({ ok: true });
+
+    expect(posted).toEqual([
+      { thread: 'PRRT_a', reply: 'Done: the list uses useSelection now.' },
+      { thread: 'PRRT_a', resolved: true },
+    ]);
+  });
+
+  it('AC-5: a reply or Resolve GitHub refuses comes back with GitHub’s own words, and GitHub not answering as such', async () => {
+    github.use(acceptingReviewThreads([], { refuse: ['PRRT_a'] }));
+    const refused = {
+      ok: false,
+      problem: { kind: 'refused', message: 'Resource not accessible by personal access token' },
+    };
+    expect(await client.replyToThread(githubToken, 'PRRT_a', 'Done.')).toEqual(refused);
+    expect(await client.resolveThread(githubToken, 'PRRT_a')).toEqual(refused);
+
+    github.use(http.post(graphqlUrl, () => HttpResponse.error()));
+    expect(await client.replyToThread(githubToken, 'PRRT_a', 'Done.')).toMatchObject({
+      ok: false,
+      problem: { kind: 'unreachable' },
+    });
   });
 });

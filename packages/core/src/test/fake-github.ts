@@ -181,11 +181,77 @@ export interface FakePullContext {
     | { type: 'StatusContext'; context: string; state: string }
   )[];
   threads?: readonly {
+    /** GitHub's id for the thread; `PRRT_<n>` by its place unless said (spec 048). */
+    id?: string;
     resolved: boolean;
     path: string;
     line: number | null;
     comments: readonly { author: string | null; body: string }[];
   }[];
+}
+
+/** What Reply to reviewers posted on the fake GitHub, in order (spec 048). */
+export type FakeThreadWrite = { thread: string; reply: string } | { thread: string; resolved: true };
+
+/**
+ * GitHub's GraphQL API for Reply to reviewers (spec 048), for a good token: these pull requests' review threads with
+ * their ids, and a reply to or Resolve of one, each kept in `posted`. A thread named in `refuse` is refused with
+ * GitHub's own words, as a token that may read but not write is. Any other query falls through.
+ */
+export function acceptingReviewThreads(
+  pulls: readonly FakePullContext[],
+  {
+    posted = [],
+    refuse = [],
+    tokens = [githubToken, ghToken],
+  }: { posted?: FakeThreadWrite[]; refuse?: readonly string[]; tokens?: readonly string[] } = {},
+) {
+  return http.post(graphqlUrl, async ({ request }) => {
+    const sent = (await request.clone().json()) as { query?: unknown; variables?: Record<string, unknown> };
+    const query = typeof sent.query === 'string' ? sent.query : '';
+    const reading = query.includes('DevHubReviewThreads');
+    const replying = query.includes('DevHubReplyToThread');
+    if (!reading && !replying && !query.includes('DevHubResolveThread')) return undefined;
+    if (!tokens.some((token) => request.headers.get('authorization') === `token ${token}`)) {
+      return HttpResponse.json({ message: 'Bad credentials', status: '401' }, { status: 401 });
+    }
+    const variables = sent.variables ?? {};
+    if (reading) {
+      const pull = pulls.find(
+        (candidate) =>
+          (candidate.owner ?? 'acme') === variables['owner'] &&
+          (candidate.repository ?? 'web-app') === variables['name'] &&
+          candidate.number === variables['number'],
+      );
+      if (pull === undefined) return notFound(String(variables['owner']), String(variables['name']));
+      const nodes = (pull.threads ?? []).map((thread, place) => ({
+        id: thread.id ?? `PRRT_${String(place + 1)}`,
+        isResolved: thread.resolved,
+        path: thread.path,
+        line: thread.line,
+        comments: {
+          nodes: thread.comments.map((comment) => ({
+            author: comment.author === null ? null : { login: comment.author },
+            body: comment.body,
+          })),
+        },
+      }));
+      return HttpResponse.json({ data: { repository: { pullRequest: { reviewThreads: { nodes } } } } });
+    }
+    const thread = String(variables['thread']);
+    if (refuse.includes(thread)) {
+      return HttpResponse.json({
+        data: null,
+        errors: [{ type: 'FORBIDDEN', message: 'Resource not accessible by personal access token' }],
+      });
+    }
+    if (replying) {
+      posted.push({ thread, reply: String(variables['body']) });
+      return HttpResponse.json({ data: { addPullRequestReviewThreadReply: { comment: { id: 'PRRC_1' } } } });
+    }
+    posted.push({ thread, resolved: true });
+    return HttpResponse.json({ data: { resolveReviewThread: { thread: { isResolved: true } } } });
+  });
 }
 
 /** GitHub's answer when a repository or pull request is missing or hidden from the token. */
