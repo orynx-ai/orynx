@@ -27,12 +27,13 @@ import {
   Panel,
   Skeleton,
   Stepper,
+  Tooltip,
   type ActivityStepState,
 } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { durationText } from '../../../words/duration.ts';
 import { useNow } from '../../../words/use-now.ts';
-import { followWords, problemWords, stepWords } from '../step-words.ts';
+import { followWords, problemWords, stepWords, usageWords } from '../step-words.ts';
 import { ApprovalCallout } from './approval-callout.tsx';
 import { StepDetails, hasDetails } from './step-details.tsx';
 
@@ -226,13 +227,28 @@ function withCode(line: string): ReactNode[] {
 
 /**
  * How long Claude has worked, over its first run and every follow-up (spec 013, Q3): moving each second while
- * a run goes on, and still while Claude waits for you to follow up.
+ * a run goes on, and still while Claude waits for you to follow up. Once a turn has ended, its turns and their cost
+ * follow (spec 047), with a tooltip that says what the cost is; before that, or for an older session, the time alone.
  */
 function WorkedFor({ session }: { session: Session }) {
-  const { runStartedAt } = session;
+  const { runStartedAt, turns, costUsd } = session;
   const now = useNow(runStartedAt === null ? 60_000 : 1_000);
   const running = runStartedAt === null ? 0 : Math.max(0, now.getTime() - Date.parse(runStartedAt));
-  return <span className="text-small text-muted-foreground">{durationText(session.workedMs + running)}</span>;
+  const parts = [
+    durationText(session.workedMs + running),
+    ...(turns > 0 ? [usageWords.turns(turns)] : []),
+    ...(costUsd === null ? [] : [usageWords.cost(costUsd)]),
+  ];
+  const look = 'text-small text-muted-foreground';
+  if (parts.length === 1) return <span className={look}>{parts[0]}</span>;
+  return (
+    <Tooltip label={usageWords.about}>
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the tooltip says what the cost is, so a keyboard must reach it (WCAG 1.4.13) */}
+      <span tabIndex={0} className={look}>
+        {parts.join(' · ')}
+      </span>
+    </Tooltip>
+  );
 }
 
 /**
