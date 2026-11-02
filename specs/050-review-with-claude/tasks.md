@@ -76,7 +76,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 19: e2e: from Home's row to a posted review on the fake GitHub, nothing written before the press, axe clean at 360 and 1280 px in light and dark (AC-1, AC-2, AC-16, AC-17, AC-25)
       Check: pnpm exec playwright test e2e/review-with-claude.spec.ts
       Files: e2e/review-with-claude.spec.ts, the e2e hub's fake GitHub (review request, pull head, reviews)
-- [ ] Task 20: Docs: a review session's checkout and posting in `learn/sessions-and-worktrees.md` and `learn/connecting-github.md`, and the agent-runtime skill's Ask rule
+- [x] Task 20: Docs: a review session's checkout and posting in `learn/sessions-and-worktrees.md` and `learn/connecting-github.md`, and the agent-runtime skill's Ask rule
       Check: pnpm gate learn-freshness; pnpm gate handbook-size
       Files: learn/sessions-and-worktrees.md, learn/connecting-github.md, .claude/skills/agent-runtime/SKILL.md, .claude/skills/integration-adapter/SKILL.md
 - [ ] Task 21: STOP and run /review
