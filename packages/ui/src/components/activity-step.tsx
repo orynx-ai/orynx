@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import { ArrowRight01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { cva } from 'class-variance-authority';
 import { Collapsible } from 'radix-ui';
 import { cn } from '../lib/cn.ts';
@@ -128,6 +128,46 @@ export function ActivityStep({
         </div>
       </Collapsible.Root>
     </li>
+  );
+}
+
+/** Where Claude is with one of its to-dos, as its `TodoWrite` says. */
+export type ActivityChecklistStatus = 'pending' | 'in_progress' | 'completed';
+
+export type ActivityChecklistProps = Omit<ComponentProps<'ul'>, 'children'> & {
+  /** In Claude's order; an item without a status has no mark, as in a plan from before spec 046. */
+  items: readonly { text: string; status?: ActivityChecklistStatus | undefined }[];
+};
+
+/**
+ * Claude's to-do list in an open plan step (spec 046, the design system's `dh-step-items`): a tick for what it did,
+ * its words shimmering for what it's on, and an outlined dot with muted words for what's to come.
+ */
+export function ActivityChecklist({ items, className, ...props }: ActivityChecklistProps) {
+  return (
+    <ul className={cn('m-0 flex list-none flex-col gap-1.5 p-0 text-small', className)} {...props}>
+      {items.map(({ text, status }, index) => (
+        // A plan's items can repeat; their order is fixed.
+        <li key={index} className="flex items-center gap-2">
+          {status === undefined ? null : (
+            <span aria-hidden className="inline-flex size-3.5 shrink-0 items-center justify-center">
+              {status === 'completed' ? <Icon icon={Tick02Icon} className="size-3.5 text-success" /> : null}
+              {status === 'pending' ? <span className="size-3 rounded-full border border-control" /> : null}
+            </span>
+          )}
+          <span
+            className={cn(
+              status === 'in_progress' && 'motion-safe:animate-shimmer motion-safe:shimmer',
+              status === 'pending' && 'text-muted-foreground',
+            )}
+          >
+            {text}
+          </span>
+          {status === 'completed' ? <span className="sr-only">, done</span> : null}
+          {status === 'pending' ? <span className="sr-only">, to come</span> : null}
+        </li>
+      ))}
+    </ul>
   );
 }
 

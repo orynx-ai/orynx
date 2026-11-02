@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { FileSearchIcon, PencilEdit01Icon, TerminalIcon } from '@hugeicons/core-free-icons';
 import { describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
-import { ActivityGroup, ActivityList, ActivityStep } from './activity-step.tsx';
+import { ActivityChecklist, ActivityGroup, ActivityList, ActivityStep } from './activity-step.tsx';
 import { Icon } from './icon.tsx';
 
 describe('ActivityStep', () => {
@@ -153,6 +153,37 @@ describe('ActivityStep', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Read 6 files' }));
     expect(onOpen).toHaveBeenCalledOnce();
     await expectNoAxeViolations(container);
+  });
+});
+
+describe('ActivityChecklist (spec 046)', () => {
+  it('AC-16: marks what Claude did, shimmers what it is on, and outlines what is to come, in words too', async () => {
+    const { container } = render(
+      <ActivityChecklist
+        aria-label="Made a plan"
+        items={[
+          { text: 'Read the route', status: 'completed' },
+          { text: 'Add the endpoint', status: 'in_progress' },
+          { text: 'Write the tests', status: 'pending' },
+        ]}
+      />,
+    );
+    const items = within(screen.getByRole('list', { name: 'Made a plan' })).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Read the route, done',
+      'Add the endpoint',
+      'Write the tests, to come',
+    ]);
+    expect(screen.getByText('Add the endpoint')).toHaveClass('motion-safe:shimmer');
+    expect(screen.getByText('Write the tests')).toHaveClass('text-muted-foreground');
+    await expectNoAxeViolations(container);
+  });
+
+  it('AC-14: items with no status are a plain list with no marks', () => {
+    render(<ActivityChecklist aria-label="Made a plan" items={[{ text: 'Read the route' }, { text: 'Add it' }]} />);
+    const items = screen.getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual(['Read the route', 'Add it']);
+    expect(screen.getByText('Read the route')).not.toHaveClass('motion-safe:shimmer');
   });
 });
 

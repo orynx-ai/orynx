@@ -6,7 +6,7 @@ import {
   PencilEdit01Icon,
   TerminalIcon,
 } from '@hugeicons/core-free-icons';
-import { ActivityGroup, ActivityList, ActivityStep } from './activity-step.tsx';
+import { ActivityChecklist, ActivityGroup, ActivityList, ActivityStep } from './activity-step.tsx';
 import { Icon } from './icon.tsx';
 
 const meta = {
@@ -83,6 +83,28 @@ export const OpenLongList: Story = {
           pnpm --filter @acme/content exec vitest run src/content/components/bulk-archive --reporter=verbose --coverage
         </li>
       </ul>
+    ),
+  },
+};
+/** Claude's plan, open: done, in progress and to come (spec 046, AC-16). */
+export const Plan: Story = {
+  args: {
+    state: 'done',
+    icon: <Icon icon={CheckListIcon} />,
+    title: 'Made a plan',
+    detail: undefined,
+    defaultOpen: true,
+    details: (
+      <ActivityChecklist
+        aria-label="Made a plan"
+        items={[
+          { text: 'Read the inbox route', status: 'completed' },
+          { text: 'Add row selection', status: 'completed' },
+          { text: 'Add the archive endpoint', status: 'in_progress' },
+          { text: 'Write the tests', status: 'pending' },
+          { text: 'Update the docs', status: 'pending' },
+        ]}
+      />
     ),
   },
 };

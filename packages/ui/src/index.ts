@@ -1,7 +1,10 @@
 export {
+  ActivityChecklist,
   ActivityGroup,
   ActivityList,
   ActivityStep,
+  type ActivityChecklistProps,
+  type ActivityChecklistStatus,
   type ActivityGroupProps,
   type ActivityListProps,
   type ActivityStepProps,
