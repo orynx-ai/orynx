@@ -124,6 +124,17 @@ export async function openFileSessionStore(
 
   const known = (id: string) => SessionIdSchema.safeParse(id).success && records.has(id);
 
+  /** A file kept beside a session's record; null for an unknown session, or when it has none. */
+  async function readKept(id: string, name: string): Promise<string | null> {
+    if (!known(id)) return null;
+    try {
+      return await readFile(join(root, id, name), 'utf8');
+    } catch (error) {
+      if (isMissing(error)) return null;
+      throw error;
+    }
+  }
+
   return {
     list: () => Promise.resolve([...records.values()].map((record) => listedSession(record.session))),
     get: (id) => Promise.resolve(known(id) ? (records.get(id) ?? null) : null),
@@ -145,6 +156,10 @@ export async function openFileSessionStore(
       inTurn(id, async () => {
         await writeAtomically(await folderFor(id), 'brief.md', text);
       }),
+    writeDiff: (id, text) =>
+      inTurn(id, async () => {
+        await writeAtomically(await folderFor(id), 'pull-request.diff', text);
+      }),
     remove: (id) =>
       inTurn(id, async () => {
         if (!known(id)) return false;
@@ -152,14 +167,7 @@ export async function openFileSessionStore(
         await rm(join(root, id), { recursive: true, force: true });
         return true;
       }),
-    async readBrief(id) {
-      if (!known(id)) return null;
-      try {
-        return await readFile(join(root, id, 'brief.md'), 'utf8');
-      } catch (error) {
-        if (isMissing(error)) return null;
-        throw error;
-      }
-    },
+    readBrief: (id) => readKept(id, 'brief.md'),
+    readDiff: (id) => readKept(id, 'pull-request.diff'),
   };
 }

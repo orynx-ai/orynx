@@ -2,7 +2,7 @@ import { lstat, readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative } from 'node:path';
 import { simpleGit, type SimpleGit } from 'simple-git';
 import type { ChangedFile, FileDiff, SessionChanges } from '@devhub/contracts';
-import { parseUnifiedDiff } from './unified-diff.ts';
+import { parseUnifiedDiff, unquotePath } from './unified-diff.ts';
 
 /**
  * What differs in a session's worktree from the commit its branch started from (spec 013, Q4): Claude's
@@ -258,4 +258,50 @@ export function createChangesReader({ env, timeoutMs = 10_000, mostFiles = 300 }
       }
     },
   };
+}
+
+/** A pull request's whole diff from GitHub (spec 050), split into each file's `diff --git` section, by its path now. */
+function diffSections(text: string): Map<string, string> {
+  const sections = new Map<string, string[]>();
+  let current: string[] | null = null;
+  for (const line of text.split('\n')) {
+    const header = /^diff --git (?:a\/\S*|"a\/.*") (b\/.*|"b\/.*")$/.exec(line);
+    if (header !== null) {
+      current = [];
+      sections.set(unquotePath(header[1] ?? '').slice(2), current);
+    }
+    current?.push(line);
+  }
+  return new Map([...sections].map(([path, lines]) => [path, lines.join('\n')]));
+}
+
+/** The Changes tab's list from a pull request's diff (spec 050, AC-6), in GitHub's order, at most `mostFiles`. */
+export function changesFromDiff(text: string, mostFiles = 300): ReadyChanges {
+  const all = [...diffSections(text)].map(([path, section]) => {
+    const parsed = parseUnifiedDiff(section, Number.MAX_SAFE_INTEGER);
+    const count = (kind: 'added' | 'removed') => parsed.lines.filter((line) => line.kind === kind).length;
+    const created = /^new file mode /m.test(section);
+    return {
+      path,
+      added: count('added'),
+      removed: count('removed'),
+      binary: parsed.binary,
+      renamedFrom: parsed.renamedFrom,
+      ...(created ? { created } : {}),
+    };
+  });
+  const files = all.slice(0, mostFiles);
+  return {
+    state: 'ready',
+    files,
+    moreFiles: all.length - files.length,
+    added: files.reduce((sum, file) => sum + file.added, 0),
+    removed: files.reduce((sum, file) => sum + file.removed, 0),
+  };
+}
+
+/** One file's diff from a pull request's diff (spec 050); null when the file isn't in it. */
+export function fileDiffFromDiff(text: string, path: string): FileDiff | null {
+  const section = diffSections(text).get(path);
+  return section === undefined ? null : { path, ...parseUnifiedDiff(section) };
 }

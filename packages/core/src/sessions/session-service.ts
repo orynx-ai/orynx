@@ -63,7 +63,13 @@ import {
   ticketFromBrief,
   type BriefChip,
 } from './brief.ts';
-import { sessionStartPoint, type ChangesReader, type StartPoint } from './changes.ts';
+import {
+  changesFromDiff,
+  fileDiffFromDiff,
+  sessionStartPoint,
+  type ChangesReader,
+  type StartPoint,
+} from './changes.ts';
 import { keepLast, logEnd, logRunEnded, logWork } from './command-log.ts';
 import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
 import {
@@ -1104,9 +1110,20 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     startPlans.delete(id);
     const place = askPlace(record);
     if (start === undefined || place === null) return;
-    if (record.session.review !== null && record.repository !== null) {
-      if (!(await checkOut(id, run, record, start.reviewBase ?? 'main'))) return;
-    } else if (record.repository === null || record.session.review !== null) await mkdir(place, { recursive: true });
+    const { review } = record.session;
+    if (review !== null) {
+      // A review reads its pull request's checkout, or the diff alone in an empty folder (spec 050, AC-6).
+      const read =
+        record.repository === null ? 'no_folder' : await checkOut(id, run, record, start.reviewBase ?? 'main');
+      if (read === 'stopped') return;
+      if (read !== 'made') {
+        await mkdir(place, { recursive: true });
+        if (read === 'no_folder') {
+          const step = { kind: 'diff_only', repository: review.repository, reason: 'no_folder' } as const;
+          await change(id, (current) => withProgress(current, (progress) => addStep(progress, step)));
+        }
+      }
+    } else if (record.repository === null) await mkdir(place, { recursive: true });
     await records.writeBrief(id, briefText(start.brief));
     await change(id, (current) =>
       withProgress(current, (progress) => addStep(progress, { kind: 'brief', ...start.briefStep })),
@@ -1117,12 +1134,17 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
 
   /**
    * A review's checkout of its pull request's head (spec 050): a worktree step while git fetches, then the merge base
-   * as the session's start, so Changes shows the pull request's diff, and the head as the commit Claude reads. False
-   * when it couldn't, and the session has ended.
+   * as the session's start, so Changes shows the pull request's diff, and the head as the commit Claude reads. When
+   * git can't, the step gives way to reading the diff alone (AC-6); `stopped` when Stop came.
    */
-  async function checkOut(id: string, run: Run, record: StoredSession, base: string): Promise<boolean> {
+  async function checkOut(
+    id: string,
+    run: Run,
+    record: StoredSession,
+    base: string,
+  ): Promise<'made' | 'diff_only' | 'stopped'> {
     const { review, worktree, repository } = { ...record, review: record.session.review };
-    if (review === null || worktree === null || repository === null) return false;
+    if (review === null || worktree === null || repository === null) return 'diff_only';
     const making = {
       kind: 'worktree',
       branch: null,
@@ -1140,16 +1162,28 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       { number: review.number, base },
       run.controller.signal,
     );
+    if (!made.ok && made.problem.kind === 'stopped') return 'stopped';
     if (!made.ok) {
-      await worktreeFailure(id, made.problem);
-      return false;
+      const reason = made.problem.kind === 'folder' ? 'no_folder' : 'fetch_failed';
+      const step = { kind: 'diff_only', repository: review.repository, reason } as const;
+      await change(id, (current) => withProgress(current, (progress) => replaceStep(progress, stepId, step)));
+      return stopping(run) ? 'stopped' : 'diff_only';
     }
     await change(id, (current) => {
       const next = withProgress(current, (progress) => replaceStep(progress, stepId, { ...making, fetched: true }));
       const reviewed = next.session.review === null ? null : { ...next.session.review, commit: made.head };
       return { ...next, startCommit: made.startCommit, session: { ...next.session, review: reviewed } };
     });
-    return !stopping(run);
+    return stopping(run) ? 'stopped' : 'made';
+  }
+
+  /**
+   * A review's Changes without a checkout come from GitHub's diff, kept at its start (spec 050, AC-6); null for any
+   * other session, and a review that has its checkout.
+   */
+  async function reviewDiff(record: StoredSession): Promise<string | null> {
+    if (record.session.review === null || record.startCommit !== null) return null;
+    return records.readDiff(record.session.id);
   }
 
   /**
@@ -1709,6 +1743,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       choice: { model: request.model, effort: request.effort },
     });
     await records.create(record);
+    // GitHub's diff, for a review that can't check its pull request out (spec 050, AC-6). Too large: none, so Changes
+    // are empty and every comment is refused (shortcut: no file list from the counts; upgrade if big reviews need it).
+    if (reviewed?.diff.kind === 'text') await records.writeDiff(id, reviewed.diff.text);
     events.publish({ type: 'sessions.changed' });
     begin(id);
     return { result: 'started', sessionId: id };
@@ -2002,6 +2039,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const record = await records.get(id);
       if (record === null) return null;
       if (record.session.discardedAt !== null) return { state: 'discarded' };
+      const diff = await reviewDiff(record);
+      if (diff !== null) return changesFromDiff(diff);
       const start = startPointOf(record);
       if (start === null || record.worktree === null) return { state: 'no_worktree' };
       const listed = await options.changes.list(record.worktree, start, editOrder(record.session));
@@ -2012,6 +2051,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     async fileDiff(id, path) {
       const record = await records.get(id);
       if (record?.session.discardedAt !== null) return null;
+      const diff = await reviewDiff(record);
+      if (diff !== null) return fileDiffFromDiff(diff, path);
       const start = startPointOf(record);
       if (start === null || record.worktree === null) return null;
       const read = await options.changes.fileDiff(record.worktree, start, path);

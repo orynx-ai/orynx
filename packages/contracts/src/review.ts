@@ -12,11 +12,8 @@ export const ReviewCommentChangeSchema = z
   .refine((change) => change.keep !== undefined || change.text !== undefined, { message: 'Keep or text.' });
 export type ReviewCommentChange = z.infer<typeof ReviewCommentChangeSchema>;
 
-/**
- * Why Orynx can't post a review (spec 050): the session isn't a review, GitHub isn't connected, or Orynx doesn't know
- * which commit Claude read yet.
- */
-export const CannotReviewReasonSchema = z.enum(['not_review', 'not_connected', 'not_read']);
+/** Why Orynx can't post a review (spec 050): the session isn't a review, or GitHub isn't connected. */
+export const CannotReviewReasonSchema = z.enum(['not_review', 'not_connected']);
 export type CannotReviewReason = z.infer<typeof CannotReviewReasonSchema>;
 
 /** GET /api/sessions/:id/review/status: how many commits the author pushed since Claude read the pull request (AC-18). */

@@ -28,7 +28,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: A review's run makes the checkout, saves the merge base as its start, and runs Claude read-only in it with the review note in the brief; the Changes tab lists the PR's files (AC-4, AC-7)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/brief.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/brief.ts, their tests
-- [ ] Task 8: Diff only: with no folder or a failed fetch, the first step says why, GitHub's diff is saved, and Changes and a file's diff come from it (AC-6)
+- [x] Task 8: Diff only: with no folder or a failed fetch, the first step says why, GitHub's diff is saved, and Changes and a file's diff come from it; a review with no checkout posts on the latest commit, so `not_read` goes (AC-6)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/changes.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/changes.ts, packages/core/src/sessions/file-session-store.ts, their tests
 - [ ] Task 9: `review_comment` is wired into a review's run as a step; the last answer becomes the summary and its verdict; comments stay after Stop; every `mode === 'ask'` check is reviewed for a review session (AC-8, AC-11, AC-13, AC-22)

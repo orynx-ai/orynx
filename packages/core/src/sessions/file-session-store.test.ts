@@ -271,6 +271,18 @@ describe('the file session store', () => {
     expect(await store.readBrief('../../etc')).toBeNull();
   });
 
+  it("050 AC-6: keeps a review's diff from GitHub beside it, and nothing for a session that has none", async () => {
+    const store = await openFileSessionStore(home, { now });
+    await store.create(record());
+    expect(await store.readDiff('0123456789abcdef')).toBeNull();
+    await store.writeDiff('0123456789abcdef', 'diff --git a/a.ts b/a.ts\n');
+    expect(await store.readDiff('0123456789abcdef')).toBe('diff --git a/a.ts b/a.ts\n');
+    expect(await readFile(join(sessionsFolder(home), '0123456789abcdef', 'pull-request.diff'), 'utf8')).toBe(
+      'diff --git a/a.ts b/a.ts\n',
+    );
+    expect(await store.readDiff('../../etc')).toBeNull();
+  });
+
   it('skips a session it can’t read, and anything that isn’t a session’s folder', async () => {
     const store = await openFileSessionStore(home, { now });
     await store.create(record());

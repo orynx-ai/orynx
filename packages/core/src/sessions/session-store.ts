@@ -116,6 +116,10 @@ export interface SessionRecords extends SessionStore {
   writeBrief(id: string, text: string): Promise<void>;
   /** What Claude was sent at the start; null when nothing was (spec 013, AC-9). */
   readBrief(id: string): Promise<string | null>;
+  /** Saves a review's pull request diff as GitHub gave it (spec 050). */
+  writeDiff(id: string, text: string): Promise<void>;
+  /** A review's pull request diff; null when it has none. */
+  readDiff(id: string): Promise<string | null>;
   /** Forgets the session and everything kept with it (spec 039); false when there was no such session. */
   remove(id: string): Promise<boolean>;
 }
@@ -164,6 +168,7 @@ export function listedSession(session: Session): ListedSession {
 export function createMemorySessionStore(sessions: readonly SessionSummary[] = []): SessionRecords {
   const records = new Map<string, StoredSession>();
   const briefs = new Map<string, string>();
+  const diffs = new Map<string, string>();
   return {
     list: () => Promise.resolve([...sessions, ...[...records.values()].map((record) => listedSession(record.session))]),
     get: (id) => Promise.resolve(records.get(id) ?? null),
@@ -183,8 +188,14 @@ export function createMemorySessionStore(sessions: readonly SessionSummary[] = [
       return Promise.resolve();
     },
     readBrief: (id) => Promise.resolve(briefs.get(id) ?? null),
+    writeDiff(id, text) {
+      diffs.set(id, text);
+      return Promise.resolve();
+    },
+    readDiff: (id) => Promise.resolve(diffs.get(id) ?? null),
     remove(id) {
       briefs.delete(id);
+      diffs.delete(id);
       return Promise.resolve(records.delete(id));
     },
   };

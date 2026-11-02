@@ -1454,4 +1454,64 @@ describe('a review of someone else’s pull request (spec 050)', () => {
     });
     expect(await checkout()).toEqual(before);
   });
+
+  const prDiff = [
+    'diff --git a/src/people.ts b/src/people.ts',
+    '--- a/src/people.ts',
+    '+++ b/src/people.ts',
+    '@@ -1,2 +1,3 @@',
+    ' export const people = [];',
+    '-export const load = () => people;',
+    '+export const load = async () => people;',
+    '+export const more = 1;',
+    '',
+  ].join('\n');
+
+  it("AC-6: with no saved folder for the repository, Claude reviews GitHub's diff in an empty folder", async () => {
+    const set = await setUp({ folders: false });
+    set.outside.use(acceptingPullDiff([{ number: 2836, diff: prDiff }]));
+
+    expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000001' });
+    const record = await settled(set.records);
+
+    const worktree = join(set.home, 'worktrees', '0000000000000001');
+    expect(record).toMatchObject({
+      repository: null,
+      worktree,
+      startCommit: null,
+      session: { review: { commit: null } },
+    });
+    expect(record.session.activities[0]).toMatchObject({
+      kind: 'diff_only',
+      repository: 'acme/web-app',
+      reason: 'no_folder',
+    });
+    expect(record.session.state).toBe('done');
+    expect(set.sdk.runs[0]?.options.cwd).toBe(worktree);
+    expect(await readdir(worktree)).toEqual([]);
+    expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain("the pull request's diff alone");
+    expect(await set.sessions.changes('0000000000000001')).toMatchObject({
+      state: 'ready',
+      files: [{ path: 'src/people.ts', added: 2, removed: 1 }],
+    });
+    expect(await set.sessions.fileDiff('0000000000000001', 'src/people.ts')).toMatchObject({
+      path: 'src/people.ts',
+      lines: expect.arrayContaining([{ kind: 'added', number: 3, text: 'export const more = 1;' }]) as unknown,
+    });
+    expect(await set.sessions.fileDiff('0000000000000001', 'src/other.ts')).toBeNull();
+  });
+
+  it("AC-6: when git can't fetch the pull request, its worktree step gives way to the diff, and the review goes on", async () => {
+    const set = await onGitHub();
+    set.outside.use(acceptingPullDiff([{ number: 2836, diff: prDiff }]));
+    // origin has no refs/pull/2836/head.
+
+    await set.sessions.start(review());
+    const record = await settled(set.records);
+
+    expect(record.session.state).toBe('done');
+    expect(record.session.activities.map((step) => step.kind)).not.toContain('worktree');
+    expect(record.session.activities[0]).toMatchObject({ kind: 'diff_only', reason: 'fetch_failed', state: 'done' });
+    expect(await set.sessions.changes('0000000000000001')).toMatchObject({ files: [{ path: 'src/people.ts' }] });
+  });
 });

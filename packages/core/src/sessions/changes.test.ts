@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
-import { createChangesReader, type ListedChanges } from './changes.ts';
+import { changesFromDiff, createChangesReader, fileDiffFromDiff, type ListedChanges } from './changes.ts';
 import { createWorktrees } from './worktrees.ts';
 
 // Each test makes real repositories and a worktree with git, which can pass 5 seconds when every file runs at once.
@@ -344,5 +344,58 @@ describe('reading one file’s diff', () => {
       problem: 'missing',
     });
     expect(await reader.fileDiff(worktree, { commit: 'f'.repeat(40) }, 'a.ts')).toEqual({ ok: false, problem: 'git' });
+  });
+});
+
+describe("a pull request's diff from GitHub (spec 050)", () => {
+  const diff = [
+    'diff --git a/src/people.ts b/src/people.ts',
+    'index 1111111..2222222 100644',
+    '--- a/src/people.ts',
+    '+++ b/src/people.ts',
+    '@@ -1,2 +1,3 @@',
+    ' export const people = [];',
+    '-export const load = () => people;',
+    '+export const load = async () => people;',
+    '+export const more = 1;',
+    'diff --git a/docs/new.md b/docs/new.md',
+    'new file mode 100644',
+    'index 0000000..3333333',
+    '--- /dev/null',
+    '+++ b/docs/new.md',
+    '@@ -0,0 +1 @@',
+    '+# New',
+    '',
+  ].join('\n');
+
+  it("AC-6: lists each file with its counts, in GitHub's order", () => {
+    expect(changesFromDiff(diff)).toEqual({
+      state: 'ready',
+      files: [
+        { path: 'src/people.ts', added: 2, removed: 1, binary: false, renamedFrom: null },
+        { path: 'docs/new.md', added: 1, removed: 0, binary: false, renamedFrom: null, created: true },
+      ],
+      moreFiles: 0,
+      added: 3,
+      removed: 1,
+    });
+    expect(changesFromDiff('')).toEqual({ state: 'ready', files: [], moreFiles: 0, added: 0, removed: 0 });
+  });
+
+  it("AC-6: gives one file's lines, numbered as the Changes tab numbers them, and nothing for a file not in it", () => {
+    expect(fileDiffFromDiff(diff, 'src/people.ts')).toEqual({
+      path: 'src/people.ts',
+      lines: [
+        { kind: 'hunk', text: '@@ -1,2 +1,3 @@' },
+        { kind: 'context', number: 1, text: 'export const people = [];' },
+        { kind: 'removed', number: 2, text: 'export const load = () => people;' },
+        { kind: 'added', number: 2, text: 'export const load = async () => people;' },
+        { kind: 'added', number: 3, text: 'export const more = 1;' },
+      ],
+      binary: false,
+      renamedFrom: null,
+      cut: false,
+    });
+    expect(fileDiffFromDiff(diff, 'src/missing.ts')).toBeNull();
   });
 });

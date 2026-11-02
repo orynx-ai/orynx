@@ -51,7 +51,7 @@ Correct these now, or the work goes ahead on them.
   - Claude's recommendation on the line under the choices, for example "Claude would request changes."
   - "6 of 8 comments will be posted."
 - The dialog's **Post review** button is the only thing that writes to GitHub (rule 11). There is no Settings permission for it, because posting is always your press.
-- It posts one review with `POST /repos/{owner}/{repo}/pulls/{n}/reviews`. The review carries the commit Claude read as `commit_id`, the summary, the verdict, and every kept comment not posted yet, each with its path, line and side. GitHub takes all of it or none, so half a review never goes out.
+- It posts one review with `POST /repos/{owner}/{repo}/pulls/{n}/reviews`. The review carries the commit Claude read as `commit_id` (a review from the diff alone sends none, so GitHub takes the latest, which its diff came from; 2 Nov 2026), the summary, the verdict, and every kept comment not posted yet, each with its path, line and side. GitHub takes all of it or none, so half a review never goes out.
 - Comment and Request changes need a summary, which is GitHub's rule. Approve can go without one. When it's missing, the field says "Write a summary to comment or request changes." and nothing is sent.
 - If the author pushed after Claude read the PR, the dialog says "The author pushed 2 commits since Claude read it. The comments go on the commit Claude read." Orynx checks the PR's head when the dialog opens.
 - The review goes out as you, with your GitHub token, and nothing is added to the text (Q4).

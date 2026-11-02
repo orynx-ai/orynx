@@ -66,7 +66,7 @@ describe('posting a review (spec 050)', () => {
       url,
       comments: 7,
     });
-    for (const reason of ['not_review', 'not_connected', 'not_read'] as const) {
+    for (const reason of ['not_review', 'not_connected'] as const) {
       expect(PostReviewAnswerSchema.parse({ result: 'cannot', reason })).toEqual({ result: 'cannot', reason });
     }
     for (const problem of [
