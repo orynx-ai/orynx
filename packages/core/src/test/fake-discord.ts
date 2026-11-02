@@ -58,12 +58,70 @@ export function acceptingBot({
   ];
 }
 
+/** A message as Discord's API gives it. */
+export interface FakeDiscordMessage {
+  id: string;
+  channel_id: string;
+  author: { id: string; username: string; global_name?: string | null; bot?: boolean };
+  content?: string;
+  mentions?: { id: string; username: string; global_name?: string | null }[];
+  timestamp: string;
+  attachments?: { filename: string }[];
+}
+
+/**
+ * Each server's message search for mentions: its matches, oldest first, or `indexing` (Discord's 202 while it builds
+ * its index), or `forbidden` (the bot can't read it). `asked` collects each search's query.
+ */
+export function discordMentions(
+  byServer: Record<string, readonly FakeDiscordMessage[] | 'indexing' | 'forbidden'>,
+  asked: string[] = [],
+) {
+  return http.get(`${discordApi}/guilds/:guild/messages/search`, ({ params, request }) => {
+    const guild = String(params['guild']);
+    asked.push(`${guild}?${new URL(request.url).searchParams.toString()}`);
+    const found = byServer[guild] ?? [];
+    if (found === 'indexing') {
+      return HttpResponse.json(
+        { message: 'Index not yet available. Try again later', code: 110000, retry_after: 2 },
+        { status: 202 },
+      );
+    }
+    if (found === 'forbidden') return HttpResponse.json({ message: 'Missing Access', code: 50001 }, { status: 403 });
+    return HttpResponse.json({
+      total_results: found.length,
+      messages: found.map((message) => [{ ...message, hit: true }]),
+    });
+  });
+}
+
+/** Channels by id, with their names. */
+export function discordChannels(channels: Record<string, string>) {
+  return http.get(`${discordApi}/channels/:channel`, ({ params }) => {
+    const name = channels[String(params['channel'])];
+    return name === undefined
+      ? HttpResponse.json({ message: 'Unknown Channel', code: 10003 }, { status: 404 })
+      : HttpResponse.json({ id: params['channel'], name, type: 0 });
+  });
+}
+
+/** Each channel's messages, oldest first; a read gives those after `after`, newest first, as Discord does. */
+export function discordHistory(byChannel: Record<string, readonly FakeDiscordMessage[]>, asked: string[] = []) {
+  return http.get(`${discordApi}/channels/:channel/messages`, ({ params, request }) => {
+    const channel = String(params['channel']);
+    const after = BigInt(new URL(request.url).searchParams.get('after') ?? '0');
+    asked.push(channel);
+    const messages = (byChannel[channel] ?? []).filter((message) => BigInt(message.id) > after).reverse();
+    return HttpResponse.json(messages);
+  });
+}
+
 /**
  * MSW standing in for Discord, an outside service, for the test file that calls this. It answers for the bot and
  * fails any other request, so no test can reach the real internet.
  */
 export function useFakeDiscord() {
-  const server = setupServer(...acceptingBot());
+  const server = setupServer(...acceptingBot(), discordMentions({}), discordChannels({}), discordHistory({}));
   beforeAll(() => {
     server.listen({ onUnhandledFrame: 'error' });
   });

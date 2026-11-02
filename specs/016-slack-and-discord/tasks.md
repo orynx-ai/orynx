@@ -52,7 +52,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: Discord's `connection.ts`, routes, status ("<bot> · 2 servers"), env `DEVHUB_DISCORD_BOT_TOKEN`; a trace-level leak test (AC-6 to AC-9, AC-33)
       Check: pnpm test packages/core/src/integrations/discord/connection.test.ts packages/core/src/routes/discord.test.ts packages/core/src/integrations/discord/no-token-leaks.test.ts; pnpm gate env-policy
       Files: packages/core/src/integrations/discord/connection.ts, packages/core/src/routes/discord.ts, packages/core/src/settings/settings-store.ts, packages/core/src/status/status-service.ts, packages/core/src/create-server.ts, apps/server/src/config.ts, their tests
-- [ ] Task 14: Discord's client reads mentions by guild search per server (202 index not ready, 403 skipped), whether you replied after in that channel or thread, and names; `map.ts` and `rules.ts` make the rows (AC-14 to AC-17)
+- [x] Task 14: Discord's client reads mentions by guild search per server (202 index not ready, 403 skipped), whether you replied after in that channel or thread, and names; `map.ts` and `rules.ts` make the rows (AC-14 to AC-17)
       Check: pnpm test packages/core/src/integrations/discord/client.test.ts packages/core/src/integrations/discord/map.test.ts packages/core/src/integrations/discord/rules.test.ts
       Files: packages/core/src/integrations/discord/client.ts, map.ts, rules.ts, their tests, packages/core/src/test/fake-discord.ts
 
