@@ -340,7 +340,7 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     if (!where.ok) return describeJiraProblem(where.problem, site);
     if (where.at !== null && columnOf(where.at, layout) === column) return null;
     const move = where.transitions.find((held) => held.toStatus !== null && columnOf(held.toStatus, layout) === column);
-    if (move === undefined) return `there’s no move there from ${where.status ?? 'its status'}`;
+    if (move === undefined) return `its workflow has no move there from ${where.status ?? 'its status'}`;
     return reasonOf(await jira.transition(request, key, move.id), site);
   }
 

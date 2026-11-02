@@ -219,6 +219,27 @@ describe('New ticket in Jira (spec 019)', () => {
     await expectNoAxeViolations(dialog());
   });
 
+  it('AC-14: Save in’s two buttons are Tab stops before Title, Enter picks one, and Esc closes with nothing made', async () => {
+    jiraServer();
+    const { user } = await renderApp({ route: '/tickets' });
+    const opener = await screen.findByRole('button', { name: 'New ticket' });
+    await user.click(opener);
+    expect(await within(dialog()).findByRole('combobox', { name: 'Type' })).toHaveTextContent('Task');
+
+    await user.tab({ shift: true });
+    expect(within(saveIn()).getByRole('button', { name: 'Orynx' })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(within(saveIn()).getByRole('button', { name: 'Jira · PROJ' })).toHaveFocus();
+    await user.tab();
+    await user.keyboard('{Enter}');
+    expect(within(saveIn()).getByRole('button', { name: 'Orynx' })).toHaveAttribute('aria-pressed', 'true');
+    expect(dialog()).toHaveAccessibleDescription('Saved in Orynx on this computer. It isn’t added to Jira.');
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(opener).toHaveFocus();
+  });
+
   it('AC-2: Type and Priority wait as skeletons for PROJ’s types, and Create ticket waits with them', async () => {
     jiraServer({ slow: true });
     const { user } = await renderApp({ route: '/tickets' });

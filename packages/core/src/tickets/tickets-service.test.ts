@@ -940,7 +940,7 @@ describe('a new Jira ticket (spec 019)', () => {
       key: 'MAI-142',
       url,
       missed: 'column',
-      reason: 'there’s no move there from To Do',
+      reason: 'its workflow has no move there from To Do',
     });
     expect(writes.map((write) => write.path)).toEqual(['issue', 'sprint']);
   });

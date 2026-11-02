@@ -169,7 +169,7 @@ describe('Create ticket on Jira (spec 019)', () => {
       key: 'PROJ-1424',
       url,
       missed: 'column',
-      reason: 'there’s no move there from To Do',
+      reason: 'its workflow has no move there from To Do',
     });
     const { user } = await renderApp({ route: '/tickets' });
     await fillIn(user, 'New ticket in In review');
@@ -177,7 +177,7 @@ describe('Create ticket on Jira (spec 019)', () => {
     await user.click(within(dialog()).getByRole('button', { name: 'Create ticket' }));
 
     expect(await within(dialog()).findByRole('alert')).toHaveTextContent(
-      'Made PROJ-1424, but Jira didn’t move it to In review: there’s no move there from To Do.',
+      'Made PROJ-1424, but Jira didn’t move it to In review: its workflow has no move there from To Do.',
     );
   });
 
