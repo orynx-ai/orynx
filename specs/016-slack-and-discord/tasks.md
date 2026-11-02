@@ -46,7 +46,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **Core: Discord**
 
-- [ ] Task 12: Discord's `client.ts` over `fetch` (REST v10, 10 s limit): the bot, the application's owner or team, Message Content from its flags, the servers; problems for refused, intent off, rate limited and no answer; MSW `fake-discord.ts` (AC-6, AC-7, AC-8)
+- [x] Task 12: Discord's `client.ts` over `fetch` (REST v10, 10 s limit): the bot, the application's owner or team, Message Content from its flags, the servers; problems for refused, intent off, rate limited and no answer; MSW `fake-discord.ts` (AC-6, AC-7, AC-8)
       Check: pnpm test packages/core/src/integrations/discord/client.test.ts packages/core/src/integrations/discord/problems.test.ts
       Files: packages/core/src/integrations/discord/client.ts, problems.ts, their tests, packages/core/src/test/fake-discord.ts
 - [ ] Task 13: Discord's `connection.ts`, routes, status ("<bot> · 2 servers"), env `DEVHUB_DISCORD_BOT_TOKEN`; a trace-level leak test (AC-6 to AC-9, AC-33)
