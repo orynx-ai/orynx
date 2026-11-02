@@ -267,11 +267,10 @@ export function stepWords(activity: SessionActivity): StepWords {
     case 'commented':
       return { title: `Commented on ${activity.path}:${String(activity.line)}`, detail: null };
     case 'diff_only': {
-      // git's own words, its first line, or the folder Orynx couldn't find (spec 050, Q5).
       const why =
         activity.reason === 'no_folder'
           ? `no saved folder holds ${activity.repository}`
-          : (activity.detail?.split('\n')[0]?.replace(/\.$/, '') ?? `git couldn't fetch ${activity.repository}`);
+          : `git couldn't fetch ${activity.repository}`;
       return { title: `Claude reviews from the diff only: ${why}.`, detail: null };
     }
     case 'message':

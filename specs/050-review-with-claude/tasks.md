@@ -16,7 +16,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **Core**
 
-- [ ] Task 4: `worktrees.review()` fetches `pull/<n>/head` and the base, adds a detached worktree at the head, and returns the head and the merge base; a fork's PR works, and no branch or remote ref is left (AC-4, AC-5)
+- [x] Task 4: `worktrees.review()` fetches `pull/<n>/head` and the base, adds a detached worktree at the head, and returns the head and the merge base; a fork's PR works, and no branch or remote ref is left (AC-4, AC-5)
       Check: pnpm test packages/core/src/sessions/worktrees.test.ts
       Files: packages/core/src/sessions/worktrees.ts, packages/core/src/sessions/worktrees.test.ts
 - [ ] Task 5: `review_comment` checks the line against the diff, refuses the 21st, and saves; `readVerdict` reads and drops the summary's last line (AC-8, AC-9, AC-10)

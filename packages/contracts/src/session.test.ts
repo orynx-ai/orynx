@@ -539,15 +539,8 @@ describe('a review session (spec 050)', () => {
   it('AC-6, AC-8: holds the steps a review adds: a comment, and reviewing from the diff only', () => {
     const steps: SessionActivity[] = [
       { id: 'a1', state: 'done', kind: 'commented', path: 'src/a.ts', line: 42, side: 'new' },
-      { id: 'a2', state: 'done', kind: 'diff_only', repository: 'acme/web-app', reason: 'no_folder', detail: null },
-      {
-        id: 'a3',
-        state: 'done',
-        kind: 'diff_only',
-        repository: 'acme/web-app',
-        reason: 'fetch_failed',
-        detail: "fatal: couldn't find remote ref",
-      },
+      { id: 'a2', state: 'done', kind: 'diff_only', repository: 'acme/web-app', reason: 'no_folder' },
+      { id: 'a3', state: 'done', kind: 'diff_only', repository: 'acme/web-app', reason: 'fetch_failed' },
     ];
     for (const step of steps) expect(SessionActivitySchema.parse(step)).toEqual(step);
   });

@@ -314,13 +314,12 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   }),
   /**
    * A review reads the pull request's diff alone (spec 050, AC-6): no saved folder holds its repository, or git
-   * couldn't fetch it, with git's own words.
+   * couldn't fetch it. Never git's own words, which can hold paths and remote addresses.
    */
   ActivityBaseSchema.extend({
     kind: z.literal('diff_only'),
     repository: GitHubRepositorySchema,
     reason: z.enum(['no_folder', 'fetch_failed']),
-    detail: z.string().min(1).max(500).nullable(),
   }),
   /** You wrote to Claude in the follow-up box (spec 013): exactly the text Claude got. */
   ActivityBaseSchema.extend({ kind: z.literal('message'), text: z.string().min(1) }),

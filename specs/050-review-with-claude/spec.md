@@ -18,7 +18,7 @@ Correct these now, or the work goes ahead on them.
 
 - Orynx finds the PR's repository among Settings › Repositories by the folder's `origin`, as a Build on your own PR does (`chooseFolder`). It fetches the PR's head (`pull/<n>/head`, so a PR from a fork works too) and its base branch into that folder's git. It then makes a detached worktree at the head under `~/.devhub/worktrees/`, and Claude reads there. The fetch adds objects and `FETCH_HEAD` to your repository, never a branch.
 - The session's start commit is the merge base of head and base. So the Changes tab shows exactly the PR's changes, the same files and counts GitHub shows.
-- When no saved folder holds the repository, or the fetch fails, Claude reviews from the diff alone in an empty folder. The first step says "Claude reviews from the diff only: <reason>.", where the reason is "no saved folder holds acme/web-app" or git's own message.
+- When no saved folder holds the repository, or the fetch fails, Claude reviews from the diff alone in an empty folder. The first step says "Claude reviews from the diff only: <reason>.", where the reason is "no saved folder holds acme/web-app" or "git couldn't fetch acme/web-app". Not git's own message, which can hold paths and remote addresses (`worktrees.ts`; changed while building, 2 Nov 2026).
 - The brief is the PR chip's brief from spec 031: the description, failing checks, unresolved review comments, and the diff up to 2,000 lines. To that it adds a review note, which tells Claude:
   - it is reviewing a teammate's pull request
   - comment only on what matters: bugs, risk, missing tests, unclear code

@@ -559,22 +559,10 @@ describe('stepWords (spec 050)', () => {
     });
   });
 
-  it("AC-6: a review from the diff only says why: no saved folder, or git's first line", () => {
-    expect(
-      step({ kind: 'diff_only', state: 'done', repository: 'acme/web-app', reason: 'no_folder', detail: null }).title,
-    ).toBe('Claude reviews from the diff only: no saved folder holds acme/web-app.');
-    expect(
-      step({
-        kind: 'diff_only',
-        state: 'done',
-        repository: 'acme/web-app',
-        reason: 'fetch_failed',
-        detail: "fatal: couldn't find remote ref pull/2841/head.\nmore",
-      }).title,
-    ).toBe("Claude reviews from the diff only: fatal: couldn't find remote ref pull/2841/head.");
-    expect(
-      step({ kind: 'diff_only', state: 'done', repository: 'acme/web-app', reason: 'fetch_failed', detail: null })
-        .title,
-    ).toBe("Claude reviews from the diff only: git couldn't fetch acme/web-app.");
+  it("AC-6: a review from the diff only says why: no saved folder, or git couldn't fetch it", () => {
+    const diffOnly = (reason: 'no_folder' | 'fetch_failed') =>
+      step({ kind: 'diff_only', state: 'done', repository: 'acme/web-app', reason }).title;
+    expect(diffOnly('no_folder')).toBe('Claude reviews from the diff only: no saved folder holds acme/web-app.');
+    expect(diffOnly('fetch_failed')).toBe("Claude reviews from the diff only: git couldn't fetch acme/web-app.");
   });
 });

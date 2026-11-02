@@ -27,7 +27,7 @@ export type WorktreeProblem =
   /** The folder is gone or isn't a git repository any more. */
   | { kind: 'folder' }
   /** A git command failed; `step` is safe to log. */
-  | { kind: 'git'; step: 'prepare' | 'add' | 'remove' | 'branch' }
+  | { kind: 'git'; step: 'prepare' | 'add' | 'remove' | 'branch' | 'fetch' }
   /** Stop came while git was working. */
   | { kind: 'stopped' };
 
@@ -35,6 +35,8 @@ export type Prepared = { ok: true; plan: WorktreePlan } | { ok: false; problem: 
 /** `startCommit` is what the new branch starts from: the Changes tab compares the worktree with it (spec 013, AC-4). */
 export type Made = { ok: true; fetched: boolean; startCommit: string } | { ok: false; problem: WorktreeProblem };
 export type Removed = { ok: true } | { ok: false; problem: WorktreeProblem };
+/** A review's checkout (spec 050): the commit Claude reads, and where it left the base, which the diff starts from. */
+export type ReviewMade = { ok: true; head: string; startCommit: string } | { ok: false; problem: WorktreeProblem };
 
 /**
  * What the quick read learns about a repository's branches (spec 042): where a worktree starts by default, the
@@ -80,6 +82,12 @@ export interface Worktrees {
    * only when it's inside `root`.
    */
   remove(repo: string, path: string, branch: string | null): Promise<Removed>;
+  /**
+   * Fetches pull request `number`'s head (`refs/pull/<n>/head`, so a fork's works too) and its base, then makes a
+   * detached worktree at the head (spec 050). No branch or ref is made for the pull request: its head goes to
+   * `FETCH_HEAD` only. `startCommit` is the merge base, so the Changes tab shows what GitHub's diff does.
+   */
+  review(repo: string, path: string, pull: { number: number; base: string }, signal?: AbortSignal): Promise<ReviewMade>;
 }
 
 export interface WorktreesOptions {
@@ -239,6 +247,33 @@ export function createWorktrees({ env, root, fetchTimeoutMs = 20_000 }: Worktree
         );
         const startCommit = (await git(path, signal).raw(['rev-parse', 'HEAD'])).trim();
         return { ok: true, fetched, startCommit };
+      } catch {
+        return { ok: false, problem: signal?.aborted ? { kind: 'stopped' } : { kind: 'git', step: 'add' } };
+      }
+    },
+
+    async review(repo, path, { number, base }, signal) {
+      if (!(await isRepository(repo))) return { ok: false, problem: { kind: 'folder' } };
+      const limit = AbortSignal.timeout(fetchTimeoutMs);
+      const either = signal === undefined ? limit : AbortSignal.any([signal, limit]);
+      let head: string;
+      try {
+        await git(repo, either).raw(['fetch', '--no-tags', 'origin', `refs/pull/${String(number)}/head`]);
+        // Read before the base's fetch replaces FETCH_HEAD.
+        head = (await git(repo, signal).raw(['rev-parse', 'FETCH_HEAD'])).trim();
+        await git(repo, either).raw([
+          'fetch',
+          '--no-tags',
+          'origin',
+          `+refs/heads/${base}:refs/remotes/origin/${base}`,
+        ]);
+      } catch {
+        return { ok: false, problem: signal?.aborted ? { kind: 'stopped' } : { kind: 'git', step: 'fetch' } };
+      }
+      try {
+        await git(repo, signal).raw(['worktree', 'add', '--detach', path, head]);
+        const startCommit = (await git(repo, signal).raw(['merge-base', head, `origin/${base}`])).trim();
+        return { ok: true, head, startCommit };
       } catch {
         return { ok: false, problem: signal?.aborted ? { kind: 'stopped' } : { kind: 'git', step: 'add' } };
       }
