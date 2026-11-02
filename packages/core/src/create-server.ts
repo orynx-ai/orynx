@@ -10,6 +10,8 @@ import { ConnectionError } from './integrations/connection-error.ts';
 import { createGitHubClient } from './integrations/github/client.ts';
 import { createGitHubConnection } from './integrations/github/connection.ts';
 import { createSlackClient } from './integrations/slack/client.ts';
+import { createDiscordClient } from './integrations/discord/client.ts';
+import { createDiscordConnection } from './integrations/discord/connection.ts';
 import { createSlackConnection } from './integrations/slack/connection.ts';
 import { createGhCli, type GhCli } from './integrations/github/gh.ts';
 import { createJiraClient } from './integrations/jira/client.ts';
@@ -36,6 +38,7 @@ import { claudeRoutes } from './routes/claude.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
 import { slackRoutes } from './routes/slack.ts';
+import { discordRoutes } from './routes/discord.ts';
 import { inboxRoutes } from './routes/inbox.ts';
 import { syncActivityRoutes } from './routes/sync-activity.ts';
 import { jiraRoutes } from './routes/jira.ts';
@@ -175,6 +178,8 @@ const statusFor: Record<ConnectionError['code'], number> = {
   integration_rejected: 422,
   integration_unreachable: 502,
   keychain_unavailable: 503,
+  // A team's Discord bot: the form asks for your user ID (spec 016, AC-8).
+  user_id_needed: 422,
 };
 
 declare module 'fastify' {
@@ -320,6 +325,23 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     },
     onError: (error) => {
       app.log.error(error, "Slack's status line failed");
+    },
+  });
+  const discordClient = createDiscordClient();
+  const discord = createDiscordConnection({
+    settings,
+    tokens: app.tokens,
+    discord: discordClient,
+    events,
+    envToken: options.envTokens?.discord !== undefined,
+    onProblem: (problem) => {
+      app.log.warn(
+        { discord: problem },
+        problem.kind === 'keychain_unavailable' ? 'The keychain could not be reached' : 'The Discord check failed',
+      );
+    },
+    onError: (error) => {
+      app.log.error(error, "Discord's status line failed");
     },
   });
   const claude = createClaudeLogin({
@@ -574,6 +596,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     jira: () => jira.status(),
     github: () => github.status(),
     slack: () => slack.status(),
+    discord: () => discord.status(),
     claude: () => claude.connected(),
   });
 
@@ -620,6 +643,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
       await api.register(slackRoutes, { slack });
+      await api.register(discordRoutes, { discord });
       await api.register(claudeRoutes, { claude });
       await api.register(agentRoutes, {
         // Signed out, Claude Code has nothing to offer, so it isn't started.
