@@ -1,11 +1,15 @@
 import { realpath } from 'node:fs/promises';
 import { isOrynxKey, orynxStatusNames, type ComposerChip, type ContextProblem } from '@devhub/contracts';
 import { readableFile } from '../files/file-paths.ts';
+import type { DiscordClient, DiscordProblem } from '../integrations/discord/client.ts';
+import type { DiscordSyncCredentials } from '../integrations/discord/connection.ts';
 import type { GitHubClient, GitHubPullProblem } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
 import type { JiraClient, JiraProblem } from '../integrations/jira/client.ts';
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
+import type { SlackClient, SlackProblem } from '../integrations/slack/client.ts';
+import type { SlackSyncCredentials } from '../integrations/slack/connection.ts';
 import type { BriefChip } from './brief.ts';
 
 /**
@@ -30,9 +34,32 @@ export interface ContextReaderOptions {
   githubConnection: { credentials(): Promise<GitHubSyncCredentials | null> };
   /** Orynx's own tickets (spec 037), read for an `ORX-` key instead of Jira. Left out, there are none. */
   orynx?: Pick<OrynxTicketService, 'get'>;
+  /** Slack's and Discord's threads (spec 016); left out, a thread chip reads as not connected. */
+  slack?: SlackClient;
+  slackConnection?: { credentials(): Promise<SlackSyncCredentials | null> };
+  discord?: DiscordClient;
+  discordConnection?: { credentials(): Promise<DiscordSyncCredentials | null> };
 }
 
 type ChipRead = { ok: true; chip: BriefChip } | { ok: false; problem: ContextProblem };
+
+/** A thread Slack or Discord couldn't give (spec 016, AC-32): gone, refused, slow, or anything else. */
+function fromChat(problem: SlackProblem | DiscordProblem | { kind: 'not_found' }): ContextProblem {
+  switch (problem.kind) {
+    case 'not_found':
+      return 'not_found';
+    case 'rejected':
+    case 'missing_scopes':
+    case 'intent_off':
+    case 'user_id_needed':
+      return 'not_connected';
+    case 'unreachable':
+    case 'timeout':
+      return 'unreachable';
+    default:
+      return 'other';
+  }
+}
 
 /** Refused credentials need connecting again; a missing ticket and a slow Jira are said as such. */
 function fromJira(problem: JiraProblem): ContextProblem {
@@ -72,6 +99,10 @@ export function createContextReader({
   jiraConnection,
   github,
   githubConnection,
+  slack,
+  slackConnection,
+  discord,
+  discordConnection,
 }: ContextReaderOptions): ContextReader {
   /** One of Orynx's own tickets, with what Jira would hold in a status and a priority as lines of facts. */
   async function readOrynxTicket(key: string): Promise<ChipRead> {
@@ -138,13 +169,29 @@ export function createContextReader({
     return { ok: true, chip: { kind: 'file', path: chip.path, real: await realpath(found) } };
   }
 
+  /** A Slack thread, with its token (spec 016, C). */
+  async function readSlackThread(chip: Extract<ComposerChip, { kind: 'slack_thread' }>): Promise<ChipRead> {
+    const credentials = await slackConnection?.credentials();
+    if (credentials?.ok !== true || slack === undefined) return { ok: false, problem: 'not_connected' };
+    const answer = await slack.thread(credentials.token, chip);
+    if (!answer.ok) return { ok: false, problem: fromChat(answer.problem) };
+    return { ok: true, chip: { kind: 'thread', tool: 'slack', ...answer.thread } };
+  }
+
+  /** A Discord message's thread, with the bot's token (spec 016, C). */
+  async function readDiscordThread(chip: Extract<ComposerChip, { kind: 'discord_thread' }>): Promise<ChipRead> {
+    const credentials = await discordConnection?.credentials();
+    if (credentials?.ok !== true || discord === undefined) return { ok: false, problem: 'not_connected' };
+    const answer = await discord.thread(credentials.token, chip);
+    if (!answer.ok) return { ok: false, problem: fromChat(answer.problem) };
+    return { ok: true, chip: { kind: 'thread', tool: 'discord', ...answer.thread } };
+  }
+
   function readChip(chip: ComposerChip): Promise<ChipRead> {
     if (chip.kind === 'jira') return readTicket(chip.key);
     if (chip.kind === 'pull_request') return readPull(chip);
-    // shortcut: threads read as not connected until Slack and Discord read them (spec 016, task 17).
-    if (chip.kind === 'slack_thread' || chip.kind === 'discord_thread') {
-      return Promise.resolve({ ok: false, problem: 'not_connected' });
-    }
+    if (chip.kind === 'slack_thread') return readSlackThread(chip);
+    if (chip.kind === 'discord_thread') return readDiscordThread(chip);
     return readFile(chip);
   }
 

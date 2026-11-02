@@ -44,7 +44,7 @@ import { acceptingIssue, acceptingIssueSearch, goodToken, jiraEmail, jiraSite } 
 import { useTestRepositories } from '../test/git-repository.ts';
 import { briefText, composerBrief, type BriefChip, type BriefPullRequest } from './brief.ts';
 import { createChangesReader } from './changes.ts';
-import { chooseFolder, composerPlan, pullToWorkOn } from './compose.ts';
+import { chooseFolder, composerPlan, labelled, pullToWorkOn } from './compose.ts';
 import { createSkillsService } from '../skills/skills-service.ts';
 import { createContextReader } from './context-reader.ts';
 import { openFileSessionStore } from './file-session-store.ts';
@@ -1575,5 +1575,30 @@ describe('a review of someone else’s pull request (spec 050)', () => {
     expect(await set.sessions.send('0000000000000001', 'Look harder at the SQL')).toEqual({ result: 'sent' });
     await settled(set.records);
     expect(set.sdk.runs[1]?.options.cwd).toBe(join(set.home, 'worktrees', '0000000000000001'));
+  });
+});
+
+describe('labelled (spec 016, C)', () => {
+  it('AC-30: a thread chip keeps the names its tool gave, whatever the page said; other chips stay as they were', () => {
+    const slack = {
+      kind: 'slack_thread',
+      channel: 'C024BE91L',
+      ts: '1793613600.000100',
+      label: { from: 'Old name', channel: 'old', server: null },
+    } as const;
+    const ticket = { kind: 'jira', key: 'PROJ-1' } as const;
+    const read = [
+      {
+        kind: 'thread' as const,
+        tool: 'slack' as const,
+        label: { from: 'Neha K.', channel: 'web-platform', server: null },
+        messages: [],
+      },
+      { kind: 'jira' as const, key: 'PROJ-1', summary: 'A', type: null, description: null, comments: [], links: [] },
+    ];
+    expect(labelled([slack, ticket], read)).toEqual([
+      { ...slack, label: { from: 'Neha K.', channel: 'web-platform', server: null } },
+      ticket,
+    ]);
   });
 });

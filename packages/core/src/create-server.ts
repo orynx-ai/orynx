@@ -486,6 +486,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       jiraConnection: jira,
       github: githubClient,
       githubConnection: github,
+      slack: slackClient,
+      slackConnection: slack,
+      discord: discordClient,
+      discordConnection: discord,
     }),
     describeTicket: async (key) => {
       if (isOrynxKey(key)) return describeOrynxTicket(orynxTickets, key);

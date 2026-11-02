@@ -49,7 +49,7 @@ export interface AgentBrief {
   message: string;
   /** Exactly the context chips the user added: nothing else is sent. */
   context: readonly {
-    kind: 'jira' | 'pull_request' | 'slack_thread' | 'file' | 'skill';
+    kind: 'jira' | 'pull_request' | 'slack_thread' | 'discord_thread' | 'file' | 'skill';
     title: string;
     body: string;
   }[];

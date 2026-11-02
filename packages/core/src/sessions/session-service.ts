@@ -83,6 +83,7 @@ import {
   folderPullOf,
   composerPlan,
   contextAfter,
+  labelled,
   noReads,
   readsAfter,
   pullToWorkOn,
@@ -1448,7 +1449,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         ? current
         : {
             ...current,
-            session: { ...current.session, context: contextAfter(current.session, context) },
+            session: { ...current.session, context: contextAfter(current.session, labelled(context, read.chips)) },
             reads: readsAfter(current.reads ?? noReads, read.chips),
           };
     const live = runs.get(id);
@@ -1773,7 +1774,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
           pull === null
             ? null
             : { number: pull.number, url: pull.url, repository: `${pull.owner}/${pull.name}`, openedAt: pull.openedAt },
-        context: [...request.context],
+        context: labelled(request.context, read.chips),
         mode: ask ? 'ask' : 'build',
         workOn: pull === null ? 'new_branch' : 'pull_request',
         skipped: [],

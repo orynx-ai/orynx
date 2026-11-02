@@ -166,6 +166,18 @@ function chipId(chip: ComposerChip): string {
 }
 
 /**
+ * The chips as the session keeps them (spec 016, C): a thread with the names its tool gave, not what the page said,
+ * since a label is only how the chip reads. `read` is the context reader's chips, in the same order.
+ */
+export function labelled(context: readonly ComposerChip[], read: readonly BriefChip[]): ComposerChip[] {
+  return context.map((chip, place) => {
+    const found = read[place];
+    if ((chip.kind !== 'slack_thread' && chip.kind !== 'discord_thread') || found?.kind !== 'thread') return chip;
+    return { ...chip, label: found.label };
+  });
+}
+
+/**
  * What the session was sent once a follow-up adds `added` (spec 025): what it held, or its ticket alone for a
  * session saved before it kept a list, then each new chip once.
  */
