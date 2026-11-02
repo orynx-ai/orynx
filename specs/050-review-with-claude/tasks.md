@@ -61,7 +61,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: Home's Review requested row on someone else's PR gets Review with Claude, which starts the review and opens it; a live review shows spec 047's callout (AC-1, AC-2, AC-3)
       Check: pnpm test packages/app/src/features/home/inbox-words.test.ts packages/app/src/features/home/components/attention-panel.test.tsx
       Files: packages/app/src/features/home/inbox-words.ts, packages/app/src/features/home/components/attention-panel.tsx, the composer words for the callout, their tests
-- [ ] Task 16: A review session shows the Changes tab with each comment as a note under its line, Keep and Edit (react-hook-form), and the file list's counts (AC-8, AC-12, AC-24)
+- [x] Task 16: A review session shows the Changes tab with each comment as a note under its line, Keep and Edit (react-hook-form), and the file list's counts (AC-8, AC-12, AC-24)
       Check: pnpm test packages/app/src/features/sessions/components/changes-panel.test.tsx packages/app/src/features/sessions/components/session-details.test.tsx
       Files: packages/app/src/features/sessions/components/changes-panel.tsx, session-details.tsx, components/review-note.tsx, review-words.ts, schemas.ts, queries.ts, their tests
 - [ ] Task 17: The next-move bar for a review: "Claude left 6 comments", "Claude found nothing to comment on.", after Stop, and "Review posted" with Open on GitHub (AC-11, AC-13, AC-21, AC-22)

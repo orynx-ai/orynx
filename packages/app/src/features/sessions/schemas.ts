@@ -6,8 +6,10 @@ import {
   mostPullRequestBodyCharacters,
   mostPullRequestTitleCharacters,
   mostReplyCharacters,
+  mostReviewTextCharacters,
 } from '@devhub/contracts';
 import { tooLongLine } from './follow-up-words.ts';
+import { reviewWords } from './review-words.ts';
 
 /** The follow-up box (spec 013): the contract's rule, with its own words for too long (Q10d). */
 export const followUpFormSchema = z.object({
@@ -57,3 +59,9 @@ export const renameSessionSchema = z.object({
     .max(sessionTitleLimit, `Keep the name to ${String(sessionTitleLimit)} characters`),
 });
 export type RenameSessionValues = z.input<typeof renameSessionSchema>;
+
+/** Edit on one of Claude's review comments (spec 050): GitHub's limit, in 049's words. */
+export const reviewCommentFormSchema = z.object({
+  text: z.string().trim().min(1, reviewWords.empty).max(mostReviewTextCharacters, reviewWords.tooLong),
+});
+export type ReviewCommentFormValues = z.input<typeof reviewCommentFormSchema>;

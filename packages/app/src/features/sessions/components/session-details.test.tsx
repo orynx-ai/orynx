@@ -2,7 +2,13 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type SessionChanges } from '@devhub/contracts';
-import { makeChangedFile, makeSession, makeSessionChanges, makeSessionTicket } from '@devhub/contracts/testing';
+import {
+  makeChangedFile,
+  makeSession,
+  makeSessionChanges,
+  makeSessionReview,
+  makeSessionTicket,
+} from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -104,6 +110,24 @@ describe('SessionDetails', () => {
     await renderApp({ route: `${route}?tab=context` });
     expect(await screen.findByRole('tab', { name: /Changes/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('tab', { name: /Context/ })).toBeNull();
+  });
+});
+
+describe("a review's tabs (spec 050)", () => {
+  const pull = { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2841 } as const;
+
+  it('AC-8: a review opens on the Changes of the pull request it reads, beside its Context; a plain Ask still has none', async () => {
+    serveChanges(makeSessionChanges());
+    server.use(sessionHandler(makeSession({ ...sent, mode: 'ask', context: [pull], review: makeSessionReview() })));
+    const { unmount } = await renderApp({ route });
+    expect(await screen.findByRole('tab', { name: /^Changes/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Context 1' })).toBeVisible();
+    unmount();
+
+    server.use(sessionHandler(makeSession({ ...sent, mode: 'ask', context: [pull] })));
+    await renderApp({ route });
+    expect(await screen.findByRole('tab', { name: 'Context 1' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('tab', { name: /^Changes/ })).toBeNull();
   });
 });
 

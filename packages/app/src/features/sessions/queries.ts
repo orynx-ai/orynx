@@ -23,6 +23,7 @@ import {
   type SessionChangeRequest,
   type SessionListQuery,
   type TerminalSize,
+  type ReviewCommentChange,
 } from '@devhub/contracts';
 import type { TerminalScreen } from '@devhub/ui';
 import { useApi } from '../../api.tsx';
@@ -203,6 +204,20 @@ export function useDraftReplies(sessionId: string) {
 export function usePostReplies(sessionId: string) {
   const api = useApi();
   return useMutation({ mutationFn: (request: ReplyRequest) => api.postReplies(sessionId, request) });
+}
+
+/**
+ * Keep, or your edit of, one of Claude's review comments (spec 050). The session reads again once it's saved, as
+ * `session.changed` would have it.
+ */
+export function useChangeReviewComment(sessionId: string) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ commentId, change }: { commentId: string; change: ReviewCommentChange }) =>
+      api.changeReviewComment(sessionId, commentId, change),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) }),
+  });
 }
 
 /** Claude's commands with their output, for the Terminal's Claude tab (spec 036); `session.changed` keeps them fresh. */

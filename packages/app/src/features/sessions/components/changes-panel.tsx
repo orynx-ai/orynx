@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import type { ChangedFile, Editor, FileDiff, Session } from '@devhub/contracts';
+import type { ChangedFile, Editor, FileDiff, ReviewComment, Session } from '@devhub/contracts';
 import {
   Button,
   CheckboxBox,
@@ -24,6 +24,7 @@ import {
 } from '../change-words.ts';
 import { useEditor, useSessionChanges, useSessionDiff } from '../queries.ts';
 import { isViewed, useDiffView } from '../store.ts';
+import { ReviewNote } from './review-note.tsx';
 
 /** "Couldn't read the changes." with Try again, as the sessions list says it couldn't load. */
 function Unreadable({ onRetry }: { onRetry: () => void }) {
@@ -78,7 +79,35 @@ function ShownDiff({ session, file, editor }: { session: Session; file: ChangedF
   if (file.binary) return <DiffView path={file.path} lines={[{ kind: 'hunk', text: binaryLine }]} actions={actions} />;
   if (diff.isPending) return <DiffViewSkeleton />;
   if (diff.isError) return <Unreadable onRetry={() => void diff.refetch()} />;
-  return <DiffView path={file.path} lines={linesOf(file, diff.data, editor)} wrap={wrap} actions={actions} />;
+  // A review's comments, each under its line: a removed line's by the old file's number, any other's by the new.
+  const comments = session.review?.comments.filter((comment) => comment.path === file.path) ?? [];
+  const noteFor = (line: { kind: string; number: number }) => {
+    const here = comments.filter(
+      (comment) => comment.line === line.number && (comment.side === 'old') === (line.kind === 'removed'),
+    );
+    return here.length === 0 ? null : (
+      <div className="flex flex-col gap-2">
+        {here.map((comment) => (
+          <ReviewNote key={comment.id} sessionId={session.id} comment={comment} />
+        ))}
+      </div>
+    );
+  };
+  return (
+    <DiffView
+      path={file.path}
+      lines={linesOf(file, diff.data, editor)}
+      wrap={wrap}
+      actions={actions}
+      {...(comments.length === 0 ? {} : { noteFor })}
+    />
+  );
+}
+
+/** Each changed file with how many of a review's comments are on it (spec 050). */
+function withComments(files: readonly ChangedFile[], comments: readonly ReviewComment[] | undefined) {
+  if (comments === undefined) return files;
+  return files.map((file) => ({ ...file, comments: comments.filter((comment) => comment.path === file.path).length }));
 }
 
 /** The Changes tab's totals, "+142 −18", and Wrap lines, at the end of the tabs' row (spec 048, AC-18). */
@@ -160,7 +189,7 @@ export function ChangesPanel({ session }: { session: Session }) {
           <div className="flex min-w-0 flex-col gap-2 @xl:sticky @xl:top-0 @xl:w-60 @xl:shrink-0">
             <FileList
               aria-label="Changed files"
-              files={files}
+              files={withComments(files, session.review?.comments)}
               current={shown?.path}
               maxRows={8}
               onSelect={(path) => {
