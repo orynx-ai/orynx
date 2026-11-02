@@ -87,6 +87,11 @@ export const selectionWords = {
 /** The board's columns, left to right. */
 export const columnOrder: readonly TicketColumn[] = ['to_do', 'in_progress', 'in_review', 'done'];
 
+/** Jira's words as the end of a sentence: with a full stop, unless they already end in one. */
+function sentence(words: string): string {
+  return /[.!?]$/.test(words) ? words : `${words}.`;
+}
+
 /** Q9c. */
 export const columnNames: Record<TicketColumn, string> = {
   to_do: 'To do',
@@ -223,6 +228,16 @@ export const orynxTicketWords = {
       : `Goes to Jira’s ${project} project, in ${sprint}.`,
   typesFailed: (project: string) => `Couldn’t read ${project}’s ticket types from Jira.`,
   tryAgain: 'Try again',
+  /** Spec 019, Q7d to Q7f: what came of a new Jira ticket, with Jira's own words. */
+  jiraRefused: (reason: string) => `Jira didn’t make the ticket: ${sentence(reason)}`,
+  madeButSprint: (key: string, sprint: string, reason: string) =>
+    `Made ${key}, but Jira didn’t add it to ${sprint}: ${sentence(reason)}`,
+  madeButColumn: (key: string, column: TicketColumn, reason: string) =>
+    `Made ${key}, but Jira didn’t move it to ${columnNames[column]}: ${sentence(reason)}`,
+  jiraUnreachable: (project: string) =>
+    `Couldn’t reach Jira. Check ${project} before you try again, in case the ticket was made.`,
+  openKeyInJira: (key: string) => `Open ${key} in Jira`,
+  close: 'Close',
   editTitle: (key: string) => `Edit ${key}`,
   create: 'Create ticket',
   saveChanges: 'Save changes',

@@ -65,6 +65,11 @@ export interface TicketFormProps {
   saving: boolean;
   /** One line above the buttons: a save that failed, or a ticket someone else saved first (Q12e). */
   problem: string | null;
+  /**
+   * A ticket that's made, though not all of it (spec 019, AC-10): these take Cancel and the action's place, and the
+   * fields can't change, so nothing makes it twice.
+   */
+  done?: ReactNode;
   /** Saves; the form takes no second submit until what this returns has settled. */
   onSubmit: (fields: OrynxTicketFields) => Promise<unknown>;
   onCancel: () => void;
@@ -101,6 +106,7 @@ export function TicketForm({
   submitLabel,
   saving,
   problem,
+  done,
   onSubmit,
   onCancel,
 }: TicketFormProps) {
@@ -255,7 +261,10 @@ export function TicketForm({
 
   return (
     <form noValidate onSubmit={submit} className="flex min-h-0 flex-col">
-      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto p-6">
+      <fieldset
+        disabled={done !== undefined}
+        className="m-0 flex min-h-0 min-w-0 flex-col gap-4 overflow-y-auto border-0 p-6"
+      >
         <div className="flex flex-col gap-1">
           <DialogTitle id={headingId}>{heading}</DialogTitle>
           {jira?.orynx === true ? (
@@ -330,14 +339,18 @@ export function TicketForm({
             {problem}
           </p>
         )}
-      </div>
+      </fieldset>
       <DialogFoot>
-        <Button variant="secondary" onClick={onCancel}>
-          {words.cancel}
-        </Button>
-        <Button type="submit" variant="primary" pending={saving} disabled={onJira && type === undefined}>
-          {submitLabel}
-        </Button>
+        {done ?? (
+          <>
+            <Button variant="secondary" onClick={onCancel}>
+              {words.cancel}
+            </Button>
+            <Button type="submit" variant="primary" pending={saving} disabled={onJira && type === undefined}>
+              {submitLabel}
+            </Button>
+          </>
+        )}
       </DialogFoot>
     </form>
   );

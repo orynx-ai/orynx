@@ -1,7 +1,8 @@
-import { useId } from 'react';
+import { useCallback, useId, type ReactNode } from 'react';
 import { PlusSignIcon } from '@hugeicons/core-free-icons';
-import type { OrynxTicketFields, TicketColumn } from '@devhub/contracts';
-import { BrandMark, Button, Dialog, DialogContent, Icon, IconButton } from '@devhub/ui';
+import type { NewJiraTicket, NewJiraTicketAnswer, OrynxTicketFields, TicketColumn } from '@devhub/contracts';
+import { BrandMark, Button, Dialog, DialogContent, ExternalLink, Icon, IconButton } from '@devhub/ui';
+import { usePlatform } from '../../../platform.tsx';
 import { useCreateJiraTicket, useCreateOrynxTicket, useJiraTicketTypes } from '../queries.ts';
 import { useTicketsStore } from '../store.ts';
 import { orynxTicketWords as words } from '../ticket-words.ts';
@@ -85,6 +86,22 @@ export interface JiraTarget {
   sprint: { id: number; name: string } | null;
 }
 
+/** What Jira didn't do, in its words (AC-9 to AC-11); null for a ticket that's made in full, or none asked for yet. */
+function jiraLine(target: JiraTarget, asked: NewJiraTicket, answer: NewJiraTicketAnswer): string | null {
+  switch (answer.result) {
+    case 'made':
+      return null;
+    case 'refused':
+      return words.jiraRefused(answer.reason);
+    case 'unreachable':
+      return words.jiraUnreachable(target.project);
+    case 'made_but':
+      return answer.missed === 'sprint'
+        ? words.madeButSprint(answer.key, target.sprint?.name ?? target.project, answer.reason)
+        : words.madeButColumn(answer.key, asked.column, answer.reason);
+  }
+}
+
 /**
  * The New ticket form in a dialog (spec 037, AC-6 to AC-12): Task, Medium and the column it was opened from by
  * default. It closes once the ticket is made, and focus goes back to the button that opened it; a save that fails
@@ -107,11 +124,43 @@ export function NewTicketDialog({
   const types = useJiraTicketTypes(target?.project ?? null, column !== null);
   const headingId = useId();
   const noteId = useId();
+  const platform = usePlatform();
   const saving = create.isPending || createJira.isPending;
   const reset = () => {
     create.reset();
     createJira.reset();
   };
+  // Close takes focus once it replaces Create ticket, so it isn't lost (AC-10).
+  const focusClose = useCallback((button: HTMLButtonElement | null) => {
+    button?.focus();
+  }, []);
+  const { data: answer, variables: asked } = createJira;
+  const line = target === null || answer === undefined ? null : jiraLine(target, asked, answer);
+  // Made, though not in full (Q5): it's kept, never made again, and Jira holds the rest.
+  const done: ReactNode =
+    answer?.result === 'made_but' ? (
+      <>
+        <ExternalLink
+          href={answer.url}
+          size="body"
+          onOpen={(href) => {
+            platform.openExternal(href);
+          }}
+        >
+          {words.openKeyInJira(answer.key)}
+        </ExternalLink>
+        <Button
+          ref={focusClose}
+          variant="secondary"
+          onClick={() => {
+            close();
+            reset();
+          }}
+        >
+          {words.close}
+        </Button>
+      </>
+    ) : undefined;
 
   return (
     <Dialog
@@ -179,7 +228,8 @@ export function NewTicketDialog({
             defaults={newTicketFields(column)}
             submitLabel={words.create}
             saving={saving}
-            problem={create.isError || createJira.isError ? words.saveFailed : null}
+            problem={create.isError || createJira.isError ? words.saveFailed : line}
+            done={done}
             onSubmit={(fields) =>
               create.mutateAsync(fields).then(
                 () => {
