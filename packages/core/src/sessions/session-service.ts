@@ -54,7 +54,15 @@ import type { JiraCheckRequest, JiraClient } from '../integrations/jira/client.t
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
 import { folderBytes, measureStorage, sessionsToClean } from './session-cleanup.ts';
-import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief, type BriefChip } from './brief.ts';
+import {
+  askNote,
+  briefText,
+  composerBrief,
+  reviewNote,
+  sessionNote,
+  ticketFromBrief,
+  type BriefChip,
+} from './brief.ts';
 import { sessionStartPoint, type ChangesReader, type StartPoint } from './changes.ts';
 import { keepLast, logEnd, logRunEnded, logWork } from './command-log.ts';
 import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
@@ -423,8 +431,12 @@ function editOrder(session: Session): string[] {
   return session.activities.flatMap((activity) => (activity.kind === 'edit' ? activity.files : []));
 }
 
-/** Where an Ask session's Claude reads: the folder in place, or its own empty folder when it has none (spec 031). */
+/**
+ * Where an Ask session's Claude reads: the folder in place, or its own empty folder when it has none (spec 031). A
+ * review reads its own worktree: the pull request's checkout, or the empty folder of a review from the diff (spec 050).
+ */
 function askPlace(record: StoredSession): string | null {
+  if (record.session.review !== null) return record.worktree;
   return record.repository?.path ?? record.worktree;
 }
 
@@ -1092,13 +1104,52 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     startPlans.delete(id);
     const place = askPlace(record);
     if (start === undefined || place === null) return;
-    if (record.repository === null) await mkdir(place, { recursive: true });
+    if (record.session.review !== null && record.repository !== null) {
+      if (!(await checkOut(id, run, record, start.reviewBase ?? 'main'))) return;
+    } else if (record.repository === null || record.session.review !== null) await mkdir(place, { recursive: true });
     await records.writeBrief(id, briefText(start.brief));
     await change(id, (current) =>
       withProgress(current, (progress) => addStep(progress, { kind: 'brief', ...start.briefStep })),
     );
     if (stopping(run)) return;
     await startClaude(id, run, start.brief, place, null, null, start.ticketNote, start.choice);
+  }
+
+  /**
+   * A review's checkout of its pull request's head (spec 050): a worktree step while git fetches, then the merge base
+   * as the session's start, so Changes shows the pull request's diff, and the head as the commit Claude reads. False
+   * when it couldn't, and the session has ended.
+   */
+  async function checkOut(id: string, run: Run, record: StoredSession, base: string): Promise<boolean> {
+    const { review, worktree, repository } = { ...record, review: record.session.review };
+    if (review === null || worktree === null || repository === null) return false;
+    const making = {
+      kind: 'worktree',
+      branch: null,
+      base: `origin/${base}`,
+      fetched: false,
+      pullRequest: review.number,
+    } as const;
+    const withStep = await change(id, (current) =>
+      withProgress(current, (progress) => addStep(progress, making, 'running')),
+    );
+    const stepId = withStep?.session.activities.at(-1)?.id ?? '';
+    const made = await worktrees.review(
+      repository.path,
+      worktree,
+      { number: review.number, base },
+      run.controller.signal,
+    );
+    if (!made.ok) {
+      await worktreeFailure(id, made.problem);
+      return false;
+    }
+    await change(id, (current) => {
+      const next = withProgress(current, (progress) => replaceStep(progress, stepId, { ...making, fetched: true }));
+      const reviewed = next.session.review === null ? null : { ...next.session.review, commit: made.head };
+      return { ...next, startCommit: made.startCommit, session: { ...next.session, review: reviewed } };
+    });
+    return !stopping(run);
   }
 
   /**
@@ -1139,9 +1190,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const record = await records.get(id);
     const pull = record?.session.workOn === 'pull_request' ? (record.session.pullRequest?.number ?? null) : null;
     const note =
-      branch === null
-        ? askNote(record?.repository != null)
-        : sessionNote(branch, adapter.runsCommands, ticketNote, first, pull);
+      branch !== null
+        ? sessionNote(branch, adapter.runsCommands, ticketNote, first, pull)
+        : record?.session.review != null
+          ? reviewNote(record.startCommit !== null)
+          : askNote(record?.repository != null);
     // Orynx's ticket tools, made in this session's name; an Ask session gets the reading ones only (spec 037).
     const tools =
       options.tickets === undefined || record === null
@@ -1638,8 +1691,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
               },
       },
       repository: folder === null ? null : { id: folder.id, path: folder.path },
-      // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031).
-      worktree: ask && folder !== null ? null : join(options.worktrees.root, id),
+      // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031). A
+      // review always has one: its pull request's checkout, or an empty folder (spec 050).
+      worktree: ask && folder !== null && reviewed === null ? null : join(options.worktrees.root, id),
       startCommit: null,
       pushedCommit: null,
       claudeSessionId: null,
@@ -1651,6 +1705,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     startPlans.set(id, {
       ...plan,
       ...(pull === null ? {} : { branchName: pull.head }),
+      ...(reviewed === null ? {} : { reviewBase: reviewed.base }),
       choice: { model: request.model, effort: request.effort },
     });
     await records.create(record);

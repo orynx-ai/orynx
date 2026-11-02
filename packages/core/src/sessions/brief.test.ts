@@ -4,6 +4,7 @@ import {
   composerBrief,
   diffForBrief,
   askNote,
+  reviewNote,
   sessionNote,
   ticketBrief,
   ticketFromBrief,
@@ -339,5 +340,20 @@ describe('the note without a ticket (spec 015, Q8c)', () => {
     );
     expect(note).not.toContain('ticket');
     expect(sessionNote('feat/PROJ-1423', false, true)).toContain('Make the change the ticket asks for.');
+  });
+});
+
+describe('the review note (spec 050)', () => {
+  it('AC-7, AC-8: says what a review may do, how to comment, and how to end, with a checkout or the diff alone', () => {
+    const checkout = reviewNote(true);
+    expect(checkout).toContain('this is a review session');
+    expect(checkout).toContain("a checkout of the pull request's head");
+    expect(checkout).toContain('review_comment');
+    expect(checkout).toContain('at most 20');
+    expect(checkout).toContain("Don't repeat a comment that's already on the pull request.");
+    expect(checkout).toContain('Nothing goes to GitHub');
+    expect(checkout).toContain('Verdict: request changes');
+    expect(reviewNote(false)).toContain("the pull request's diff alone");
+    expect(reviewNote(false)).not.toContain('checkout');
   });
 });

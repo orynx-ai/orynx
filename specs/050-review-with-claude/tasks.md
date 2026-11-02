@@ -25,7 +25,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: A composer start with `review` makes a review session: folder by the PR's origin, `existing` for the PR's live review unless `another`, the title "Review web-app #2841" (AC-2, AC-3)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/compose.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/compose.ts, packages/core/src/sessions/session-store.ts, their tests
-- [ ] Task 7: A review's run makes the checkout, saves the merge base as its start, and runs Claude read-only in it with the review note in the brief; the Changes tab lists the PR's files (AC-4, AC-7)
+- [x] Task 7: A review's run makes the checkout, saves the merge base as its start, and runs Claude read-only in it with the review note in the brief; the Changes tab lists the PR's files (AC-4, AC-7)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/brief.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/brief.ts, their tests
 - [ ] Task 8: Diff only: with no folder or a failed fetch, the first step says why, GitHub's diff is saved, and Changes and a file's diff come from it (AC-6)

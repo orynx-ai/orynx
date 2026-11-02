@@ -1349,6 +1349,7 @@ describe('a review of someone else’s pull request (spec 050)', () => {
 
   it('AC-2: makes an Ask titled after the pull request, in the folder whose origin is its repository', async () => {
     const set = await onGitHub();
+    await pullInOrigin(set);
 
     expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000001' });
 
@@ -1373,6 +1374,7 @@ describe('a review of someone else’s pull request (spec 050)', () => {
 
   it("AC-3: the pull request's live review answers `existing`, unless you ask for another; a stopped one doesn't", async () => {
     const set = await onGitHub();
+    await pullInOrigin(set);
     expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000001' });
     await settled(set.records);
 
@@ -1400,5 +1402,56 @@ describe('a review of someone else’s pull request (spec 050)', () => {
     }));
     expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000004' });
     await settled(set.records, '0000000000000004');
+  });
+
+  /** #2836's head, which origin holds only as `refs/pull/2836/head`, as a fork's is; and where it left main. */
+  async function pullInOrigin(set: Awaited<ReturnType<typeof setUp>>) {
+    const from = await set.repos.git(set.repos.origin, 'rev-parse', 'refs/heads/main');
+    const head = await set.repos.commitInOrigin('people.ts', 'feat/lazy-people');
+    await set.repos.git(set.repos.origin, 'update-ref', 'refs/pull/2836/head', head);
+    await set.repos.git(set.repos.origin, 'update-ref', '-d', 'refs/heads/feat/lazy-people');
+    return { from, head };
+  }
+
+  it("AC-4, AC-7: Claude reads a detached checkout of the pull request's head, read-only, and Changes lists its files", async () => {
+    const set = await onGitHub({
+      script: [
+        { tool: 'Grep', input: { pattern: 'export' } },
+        { tool: 'Edit', input: { file_path: 'people.ts', old_string: 'x', new_string: 'y' } },
+        { tool: 'Bash', input: { command: 'npm test' } },
+        { finish: 'Reads well.\nVerdict: approve' },
+      ],
+    });
+    const { from, head } = await pullInOrigin(set);
+    const checkout = () =>
+      Promise.all([
+        set.repos.git(set.repos.clone, 'branch', '--show-current'),
+        set.repos.git(set.repos.clone, 'rev-parse', 'HEAD'),
+      ]);
+    const before = await checkout();
+
+    await set.sessions.start(review());
+    const record = await settled(set.records);
+
+    const worktree = join(set.home, 'worktrees', '0000000000000001');
+    expect(record).toMatchObject({ worktree, startCommit: from, session: { branch: null, review: { commit: head } } });
+    expect(record.session.activities.find((step) => step.kind === 'worktree')).toMatchObject({
+      branch: null,
+      base: 'origin/main',
+      fetched: true,
+      pullRequest: 2836,
+    });
+    expect(set.sdk.runs[0]?.options.cwd).toBe(worktree);
+    expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain('this is a review session');
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([
+      ['Grep', 'allow'],
+      ['Edit', 'deny'],
+      ['Bash', 'deny'],
+    ]);
+    expect(await set.sessions.changes('0000000000000001')).toMatchObject({
+      state: 'ready',
+      files: [{ path: 'people.ts', added: 1, removed: 0 }],
+    });
+    expect(await checkout()).toEqual(before);
   });
 });

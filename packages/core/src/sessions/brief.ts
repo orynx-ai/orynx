@@ -309,6 +309,25 @@ export function askNote(folder = true): string {
   ].join(' ');
 }
 
+/**
+ * The note for a review session (spec 050): Claude reviews a teammate's pull request in a checkout of its head, or
+ * from the diff alone, leaves line comments with `review_comment`, and ends with a summary and its verdict.
+ */
+export function reviewNote(checkout: boolean): string {
+  return [
+    "You're reviewing a teammate's pull request: this is a review session.",
+    checkout
+      ? "The folder is a checkout of the pull request's head. Read the code around each change, and the repository's CLAUDE.md if it has one."
+      : "You have the pull request's diff alone, in the brief.",
+    "You can read and search. You can't change files or run commands, and nothing you try will be allowed.",
+    'Comment only on what matters: bugs, risk, missing tests, unclear code.',
+    "Don't repeat a comment that's already on the pull request.",
+    'Leave each comment with review_comment on a line of the diff, at most 20 in all.',
+    'Nothing goes to GitHub: the user keeps, edits or drops each comment, then posts the review.',
+    'End with a short summary for the author, then a last line of its own: `Verdict: approve`, `Verdict: comment` or `Verdict: request changes`.',
+  ].join(' ');
+}
+
 const briefTitle = /^Jira ticket [A-Z][A-Z0-9_]*-\d+(?: \(([^)\n]*)\))?: [^\n]*$/;
 
 /**
