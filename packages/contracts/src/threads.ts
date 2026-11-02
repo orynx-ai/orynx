@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { DiscordIdSchema } from './discord.ts';
+import { DiscordIdSchema, DiscordLinkSchema } from './discord.ts';
+import { SlackLinkSchema } from './slack.ts';
 
 /**
  * Slack and Discord threads as Claude's context (spec 016, C). A chip names the thread by its ids; the server reads
@@ -75,3 +76,32 @@ export const ThreadPreviewAnswerSchema = z.discriminatedUnion('result', [
   z.object({ result: z.literal('not_found') }),
 ]);
 export type ThreadPreviewAnswer = z.infer<typeof ThreadPreviewAnswerSchema>;
+
+/** A link to a posted Slack or Discord message. */
+export const ThreadMessageLinkSchema = z.union([SlackLinkSchema, DiscordLinkSchema]);
+
+/** The most a reply in the thread holds (spec 016, E). */
+export const mostThreadReplyCharacters = 2000;
+
+/** POST /api/sessions/:id/thread-reply: the reply, as you left it, posted in the session's first thread. */
+export const ThreadReplyRequestSchema = z.object({
+  text: z.string().trim().min(1).max(mostThreadReplyCharacters),
+});
+export type ThreadReplyRequest = z.infer<typeof ThreadReplyRequestSchema>;
+
+/** Posted, with its link; or not, in the tool's own words, such as Slack's `is_archived` (AC-42). */
+export const ThreadReplyAnswerSchema = z.discriminatedUnion('result', [
+  z.object({ result: z.literal('posted'), url: ThreadMessageLinkSchema }),
+  z.object({ result: z.literal('failed'), reason: z.string().min(1).max(500) }),
+]);
+export type ThreadReplyAnswer = z.infer<typeof ThreadReplyAnswerSchema>;
+
+/**
+ * Where a session's reply in its thread stands (spec 016, E): put off with Not now, or posted, with its link and its
+ * channel's name (null in a DM). Null while it's still offered.
+ */
+export const ThreadReplySchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('dismissed') }),
+  z.object({ state: z.literal('posted'), url: ThreadMessageLinkSchema, channel: z.string().min(1).nullable() }),
+]);
+export type ThreadReply = z.infer<typeof ThreadReplySchema>;

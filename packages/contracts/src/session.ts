@@ -7,7 +7,7 @@ import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
 import { RepositoryIdSchema } from './repositories.ts';
 import { looksLikeSecret } from './secret-names.ts';
 import { TicketColumnSchema } from './ticket-column.ts';
-import { DiscordThreadChipSchema, SlackThreadChipSchema, type ThreadChip } from './threads.ts';
+import { DiscordThreadChipSchema, SlackThreadChipSchema, ThreadReplySchema, type ThreadChip } from './threads.ts';
 
 /**
  * Where a Claude session is, as the sidebar shows it (spec: "Session states").
@@ -520,6 +520,8 @@ export const SessionPullRequestSchema = z.object({
   /** `owner/name`, as the dialog and the lines say it. */
   repository: GitHubRepositorySchema,
   openedAt: z.iso.datetime(),
+  /** Its title as it was opened (spec 016, E's reply); none on one opened before spec 016. */
+  title: z.string().min(1).max(256).optional(),
 });
 export type SessionPullRequest = z.infer<typeof SessionPullRequestSchema>;
 
@@ -667,6 +669,8 @@ export const SessionSchema = SessionSummarySchema.extend({
   unpushed: z.boolean().default(true),
   /** An Ask that reviews someone else's pull request (spec 050); null for any other session, and before spec 050. */
   review: SessionReviewSchema.nullable().default(null),
+  /** Its reply in the first thread it was sent (spec 016, E); null while offered, and on every other session. */
+  threadReply: ThreadReplySchema.nullable().default(null),
 });
 export type Session = z.infer<typeof SessionSchema>;
 

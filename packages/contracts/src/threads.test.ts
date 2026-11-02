@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   apiRoutes,
   ComposerStartSchema,
+  SessionSchema,
+  ThreadReplyAnswerSchema,
+  ThreadReplyRequestSchema,
   composerLimits,
   threadFromLink,
   ThreadPreviewAnswerSchema,
   ThreadPreviewQuerySchema,
 } from './index.ts';
+import { makeSession } from './testing.ts';
 
 const slack = { kind: 'slack_thread', channel: 'C024BE91L', ts: '1700000000.123456' } as const;
 const discord = {
@@ -90,5 +94,53 @@ describe('thread preview (spec 016)', () => {
     });
     expect(ThreadPreviewQuerySchema.safeParse({ link: 'a'.repeat(2049) }).success).toBe(false);
     expect(apiRoutes.threadPreview).toBe('/api/threads/preview');
+  });
+});
+
+describe('a reply in the thread (spec 016, E)', () => {
+  it('AC-40: takes the reply you edited, trimmed, up to 2,000 characters', () => {
+    expect(ThreadReplyRequestSchema.parse({ text: ' A fix is up for review. ' })).toEqual({
+      text: 'A fix is up for review.',
+    });
+    expect(ThreadReplyRequestSchema.safeParse({ text: '  ' }).success).toBe(false);
+    expect(ThreadReplyRequestSchema.safeParse({ text: 'a'.repeat(2001) }).success).toBe(false);
+  });
+
+  it('AC-41, AC-42: answers where it was posted, or the tool’s own words', () => {
+    const posted = { result: 'posted', url: 'https://acme.slack.com/archives/C024BE91L/p1700000100000001' };
+    expect(ThreadReplyAnswerSchema.parse(posted)).toEqual(posted);
+    const failed = { result: 'failed', reason: 'is_archived' };
+    expect(ThreadReplyAnswerSchema.parse(failed)).toEqual(failed);
+    expect(ThreadReplyAnswerSchema.safeParse({ result: 'posted', url: 'https://example.com/x' }).success).toBe(false);
+  });
+
+  it('AC-41, AC-43, AC-44: a session keeps whether its reply was posted or put off, none by default', () => {
+    expect(makeSession().threadReply).toBeNull();
+    const posted = {
+      state: 'posted',
+      url: 'https://acme.slack.com/archives/C024BE91L/p1700000100000001',
+      channel: 'web-platform',
+    } as const;
+    expect(SessionSchema.parse({ ...makeSession(), threadReply: posted }).threadReply).toEqual(posted);
+    expect(SessionSchema.parse({ ...makeSession(), threadReply: { state: 'dismissed' } }).threadReply).toEqual({
+      state: 'dismissed',
+    });
+  });
+
+  it('AC-40: a session’s pull request keeps its title, which one saved before spec 016 has none of', () => {
+    const pullRequest = {
+      number: 2841,
+      url: 'https://github.com/acme/web-app/pull/2841',
+      repository: 'acme/web-app',
+      openedAt: '2026-11-02T10:00:00.000Z',
+    };
+    const parse = (pull: object) => SessionSchema.parse({ ...makeSession(), pullRequest: pull }).pullRequest;
+    expect(parse({ ...pullRequest, title: 'Fix the archive API' })?.title).toBe('Fix the archive API');
+    expect(parse(pullRequest)?.title).toBeUndefined();
+  });
+
+  it('lives at /api/sessions/:id/thread-reply, with dismiss beside it', () => {
+    expect(apiRoutes.sessionThreadReply).toBe('/api/sessions/:id/thread-reply');
+    expect(apiRoutes.sessionThreadReplyDismiss).toBe('/api/sessions/:id/thread-reply/dismiss');
   });
 });
