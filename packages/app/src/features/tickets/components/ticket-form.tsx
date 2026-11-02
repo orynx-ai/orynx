@@ -261,85 +261,87 @@ export function TicketForm({
 
   return (
     <form noValidate onSubmit={submit} className="flex min-h-0 flex-col">
-      <fieldset
-        disabled={done !== undefined}
-        className="m-0 flex min-h-0 min-w-0 flex-col gap-4 overflow-y-auto border-0 p-6"
-      >
-        <div className="flex flex-col gap-1">
-          <DialogTitle id={headingId}>{heading}</DialogTitle>
-          {jira?.orynx === true ? (
-            <Controller
-              control={form.control}
-              name="place"
-              render={({ field }) => (
-                <SegmentedControl
-                  aria-label={words.saveIn}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  className="mt-2 self-start"
-                >
-                  <SegmentedControlItem value="jira">{words.jiraPlace(jira.project)}</SegmentedControlItem>
-                  <SegmentedControlItem value="orynx">{words.orynxPlace}</SegmentedControlItem>
-                </SegmentedControl>
-              )}
-            />
-          ) : null}
-          {onJira ? jira.note : note}
-        </div>
-        <Field label={words.fields.title} error={errors.title?.message}>
-          <Input autoComplete="off" {...form.register('title')} />
-        </Field>
-        <Field label={words.fields.description} error={errors.description?.message}>
-          <Textarea rows={6} {...form.register('description')} />
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {onJira ? jiraFields(jira.types, jira.project) : orynxFields}
-          <Field label={words.fields.status}>
-            <Controller
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger ref={field.ref} onBlur={field.onBlur}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((status) => (
-                      <SelectItem key={status.value} value={status.value}>
-                        {status.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+      {/* Once the fields are off it holds nothing focusable, so the box takes focus itself to scroll by keyboard; a
+          disabled fieldset can't. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scroll box a keyboard must reach (axe's scrollable-region-focusable) */}
+      <div tabIndex={done === undefined ? undefined : 0} className="min-h-0 overflow-y-auto">
+        <fieldset disabled={done !== undefined} className="m-0 flex min-w-0 flex-col gap-4 border-0 p-6">
+          <div className="flex flex-col gap-1">
+            <DialogTitle id={headingId}>{heading}</DialogTitle>
+            {jira?.orynx === true ? (
+              <Controller
+                control={form.control}
+                name="place"
+                render={({ field }) => (
+                  <SegmentedControl
+                    aria-label={words.saveIn}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    className="mt-2 self-start"
+                  >
+                    <SegmentedControlItem value="jira">{words.jiraPlace(jira.project)}</SegmentedControlItem>
+                    <SegmentedControlItem value="orynx">{words.orynxPlace}</SegmentedControlItem>
+                  </SegmentedControl>
+                )}
+              />
+            ) : null}
+            {onJira ? jira.note : note}
+          </div>
+          <Field label={words.fields.title} error={errors.title?.message}>
+            <Input autoComplete="off" {...form.register('title')} />
           </Field>
-        </div>
-        {/* On Jira, only a type whose create screen has one; while the types come, it holds its place (AC-4, AC-16). */}
-        {onJira && type !== undefined && !type.dueDate ? null : (
-          <Field label={words.fields.dueDate} className="sm:max-w-60">
-            <Controller
-              control={form.control}
-              name="dueDate"
-              render={({ field }) => (
-                <DatePicker
-                  ref={field.ref}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  onBlur={field.onBlur}
-                  placeholder={words.pickDate}
-                  clearLabel={words.clearDate}
-                />
-              )}
-            />
+          <Field label={words.fields.description} error={errors.description?.message}>
+            <Textarea rows={6} {...form.register('description')} />
           </Field>
-        )}
-        {problem === null ? null : (
-          <p role="alert" className="m-0 text-small text-danger">
-            {problem}
-          </p>
-        )}
-      </fieldset>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {onJira ? jiraFields(jira.types, jira.project) : orynxFields}
+            <Field label={words.fields.status}>
+              <Controller
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger ref={field.ref} onBlur={field.onBlur}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Field>
+          </div>
+          {/* On Jira, only a type whose create screen has one; while the types come, it holds its place (AC-4, AC-16). */}
+          {onJira && type !== undefined && !type.dueDate ? null : (
+            <Field label={words.fields.dueDate} className="sm:max-w-60">
+              <Controller
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <DatePicker
+                    ref={field.ref}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    onBlur={field.onBlur}
+                    placeholder={words.pickDate}
+                    clearLabel={words.clearDate}
+                  />
+                )}
+              />
+            </Field>
+          )}
+          {problem === null ? null : (
+            <p role="alert" className="m-0 text-small text-danger">
+              {problem}
+            </p>
+          )}
+        </fieldset>
+      </div>
       <DialogFoot>
         {done ?? (
           <>
