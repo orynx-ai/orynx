@@ -108,6 +108,7 @@ export {
   type ContextPickerContentProps,
   type ContextPickerTriggerProps,
 } from './components/context-picker.tsx';
+export { DiffNote, type DiffNoteProps } from './components/diff-note.tsx';
 export {
   DiffView,
   DiffViewSkeleton,
