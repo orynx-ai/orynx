@@ -100,7 +100,7 @@ export function subLine(item: InboxItem): string {
  * A row's one action (spec 022, D): Open session for a session, or a ticket's or a pull request's chip for + Add to
  * composer, with how the chip reads ("PROJ-1423", "web-app #2841"). A pull request whose link can't be read as one
  * has none. Your own pull request's comments or failing checks get Fix instead, which starts a Build on its branch
- * with `message` (spec 047); one from a fork keeps +.
+ * with `message` (spec 047); one from a fork keeps +. A review asked of you gets Review with Claude (spec 050).
  */
 export type RowAction =
   | { kind: 'session'; sessionId: string; label: 'Open session'; name: string }
@@ -112,6 +112,7 @@ export type RowAction =
       name: string;
       message: string;
     }
+  | { kind: 'review'; chip: Extract<ComposerChip, { kind: 'pull_request' }>; label: string; name: string }
   | { kind: 'none' };
 
 export function rowAction(item: InboxItem): RowAction {
@@ -126,6 +127,9 @@ export function rowAction(item: InboxItem): RowAction {
   if (chip?.kind !== 'pull_request') return { kind: 'none' };
   const label = chipLabel(chip);
   const { reason } = item;
+  if (subject.kind === 'pull_request' && !subject.mine && reason.kind === 'review_requested') {
+    return { kind: 'review', chip, label: composerWords.review.label, name: composerWords.review.name(label) };
+  }
   if (subject.kind === 'pull_request' && subject.mine && subject.fork !== true) {
     if (reason.kind === 'unresolved_comments' || reason.kind === 'checks_failing') {
       const words = composerWords.fix[reason.kind];

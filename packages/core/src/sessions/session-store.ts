@@ -87,12 +87,13 @@ export const StoredSessionSchema = z.object({
 export type StoredSession = z.infer<typeof StoredSessionSchema>;
 
 /**
- * A session as lists see it: its summary, when it was discarded, whether it was an Ask (spec 026), and the pull
- * request whose own branch it works on (spec 031), as `pullKey` names it.
+ * A session as lists see it: its summary, when it was discarded, whether it was an Ask (spec 026), the pull request
+ * whose own branch it works on (spec 031), and the one it reviews (spec 050), each as `pullKey` names it.
  */
 export type ListedSession = SessionSummary & {
   discardedAt?: string | null;
   pullRequest?: string | null;
+  reviewing?: string | null;
 };
 
 /** A pull request by its repository and number, as `acme/web-app#2836`, in one case, since GitHub's names have none. */
@@ -115,6 +116,10 @@ export interface SessionRecords extends SessionStore {
   writeBrief(id: string, text: string): Promise<void>;
   /** What Claude was sent at the start; null when nothing was (spec 013, AC-9). */
   readBrief(id: string): Promise<string | null>;
+  /** Saves a review's pull request diff as GitHub gave it (spec 050). */
+  writeDiff(id: string, text: string): Promise<void>;
+  /** A review's pull request diff; null when it has none. */
+  readDiff(id: string): Promise<string | null>;
   /** Forgets the session and everything kept with it (spec 039); false when there was no such session. */
   remove(id: string): Promise<boolean>;
 }
@@ -129,15 +134,41 @@ export function readyFor({ mode, workOn, activities, changed }: Session): Sessio
 }
 
 export function listedSession(session: Session): ListedSession {
-  const { id, title, state, source, updatedAt, pinnedAt, discardedAt, mode, workOn, pullRequest: pull } = session;
+  const {
+    id,
+    title,
+    state,
+    source,
+    updatedAt,
+    pinnedAt,
+    discardedAt,
+    mode,
+    workOn,
+    pullRequest: pull,
+    review,
+  } = session;
   const pullRequest = workOn === 'pull_request' && pull !== null ? pullKey(pull.repository, pull.number) : null;
-  return { id, title, state, ready: readyFor(session), source, updatedAt, pinnedAt, discardedAt, mode, pullRequest };
+  const reviewing = review === null ? null : pullKey(review.repository, review.number);
+  return {
+    id,
+    title,
+    state,
+    ready: readyFor(session),
+    source,
+    updatedAt,
+    pinnedAt,
+    discardedAt,
+    mode,
+    pullRequest,
+    reviewing,
+  };
 }
 
 /** Sessions held in memory: `sessions` are list-only summaries, as tests of Tickets and the inbox give them. */
 export function createMemorySessionStore(sessions: readonly SessionSummary[] = []): SessionRecords {
   const records = new Map<string, StoredSession>();
   const briefs = new Map<string, string>();
+  const diffs = new Map<string, string>();
   return {
     list: () => Promise.resolve([...sessions, ...[...records.values()].map((record) => listedSession(record.session))]),
     get: (id) => Promise.resolve(records.get(id) ?? null),
@@ -157,8 +188,14 @@ export function createMemorySessionStore(sessions: readonly SessionSummary[] = [
       return Promise.resolve();
     },
     readBrief: (id) => Promise.resolve(briefs.get(id) ?? null),
+    writeDiff(id, text) {
+      diffs.set(id, text);
+      return Promise.resolve();
+    },
+    readDiff: (id) => Promise.resolve(diffs.get(id) ?? null),
     remove(id) {
       briefs.delete(id);
+      diffs.delete(id);
       return Promise.resolve(records.delete(id));
     },
   };

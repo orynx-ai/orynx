@@ -4,9 +4,11 @@ import { join } from 'node:path';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
+  ComposerStartSchema,
   CreateOrynxTicketSchema,
   isOrynxKey,
   type ComposerChip,
+  type ComposerStart,
   type Permissions,
   type ServerEvent,
 } from '@devhub/contracts';
@@ -1330,5 +1332,248 @@ describe('which branch a Build works on (spec 031)', () => {
   it('only the first pull request counts', () => {
     expect(pullToWorkOn([pull({ mine: false, number: 1 }), pull({ number: 2 })], 'acme/web-app')).toBeNull();
     expect(pullToWorkOn([pull({ number: 1 }), pull({ number: 2 })], 'acme/web-app')).toMatchObject({ number: 1 });
+  });
+});
+
+describe('a review of someone else’s pull request (spec 050)', () => {
+  /** web-app's folder, whose origin reads as github.com/acme/web-app and is the bare repository standing in for it. */
+  async function onGitHub(options: Parameters<typeof setUp>[0] = {}) {
+    const set = await setUp(options);
+    const github = 'git@github.com:acme/web-app.git';
+    await set.repos.git(set.repos.clone, 'remote', 'set-url', 'origin', github);
+    await set.repos.git(set.repos.clone, 'config', `url.${set.repos.origin}.insteadOf`, github);
+    return set;
+  }
+  const review = (change: Partial<ComposerStart> = {}) =>
+    ComposerStartSchema.parse({ message: '', context: [pullChip], mode: 'ask', review: true, ...change });
+
+  it('AC-2: makes an Ask titled after the pull request, in the folder whose origin is its repository', async () => {
+    const set = await onGitHub();
+    await pullInOrigin(set);
+
+    expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000001' });
+
+    const record = await settled(set.records);
+    expect(record.repository?.id).toBe(set.folder?.id);
+    expect(record.session).toMatchObject({
+      title: 'Review web-app #2836',
+      mode: 'ask',
+      source: { kind: 'pull_request', number: 2836 },
+      pullRequest: null,
+      review: {
+        repository: 'acme/web-app',
+        number: 2836,
+        url: 'https://github.com/acme/web-app/pull/2836',
+        comments: [],
+        // Claude finished with "Done." and no verdict line.
+        summary: 'Done.',
+        verdict: null,
+        posted: [],
+      },
+    });
+  });
+
+  it("AC-3: the pull request's live review answers `existing`, unless you ask for another; a stopped one doesn't", async () => {
+    const set = await onGitHub();
+    await pullInOrigin(set);
+    expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000001' });
+    await settled(set.records);
+
+    expect(await set.sessions.start(review())).toEqual({ result: 'existing', sessionId: '0000000000000001' });
+    expect(await set.sessions.start(review({ another: true }))).toEqual({
+      result: 'started',
+      sessionId: '0000000000000002',
+    });
+    await settled(set.records, '0000000000000002');
+    // A Build or an Ask on the same pull request isn't a review of it.
+    expect(
+      await set.sessions.start(
+        makeComposerStart({ message: 'What changed?', context: [pullChip], mode: 'ask', repositoryId: set.folder?.id }),
+      ),
+    ).toEqual({ result: 'started', sessionId: '0000000000000003' });
+    await settled(set.records, '0000000000000003');
+
+    await set.records.update('0000000000000001', (record) => ({
+      ...record,
+      session: { ...record.session, state: 'stopped' },
+    }));
+    await set.records.update('0000000000000002', (record) => ({
+      ...record,
+      session: { ...record.session, state: 'stopped' },
+    }));
+    expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000004' });
+    await settled(set.records, '0000000000000004');
+  });
+
+  /** #2836's head, which origin holds only as `refs/pull/2836/head`, as a fork's is; and where it left main. */
+  async function pullInOrigin(set: Awaited<ReturnType<typeof setUp>>) {
+    const from = await set.repos.git(set.repos.origin, 'rev-parse', 'refs/heads/main');
+    const head = await set.repos.commitInOrigin('people.ts', 'feat/lazy-people');
+    await set.repos.git(set.repos.origin, 'update-ref', 'refs/pull/2836/head', head);
+    await set.repos.git(set.repos.origin, 'update-ref', '-d', 'refs/heads/feat/lazy-people');
+    return { from, head };
+  }
+
+  it("AC-4, AC-7: Claude reads a detached checkout of the pull request's head, read-only, and Changes lists its files", async () => {
+    const set = await onGitHub({
+      script: [
+        { tool: 'Grep', input: { pattern: 'export' } },
+        { tool: 'Edit', input: { file_path: 'people.ts', old_string: 'x', new_string: 'y' } },
+        { tool: 'Bash', input: { command: 'npm test' } },
+        { finish: 'Reads well.\nVerdict: approve' },
+      ],
+    });
+    const { from, head } = await pullInOrigin(set);
+    const checkout = () =>
+      Promise.all([
+        set.repos.git(set.repos.clone, 'branch', '--show-current'),
+        set.repos.git(set.repos.clone, 'rev-parse', 'HEAD'),
+      ]);
+    const before = await checkout();
+
+    await set.sessions.start(review());
+    const record = await settled(set.records);
+
+    const worktree = join(set.home, 'worktrees', '0000000000000001');
+    expect(record).toMatchObject({ worktree, startCommit: from, session: { branch: null, review: { commit: head } } });
+    expect(record.session.activities.find((step) => step.kind === 'worktree')).toMatchObject({
+      branch: null,
+      base: 'origin/main',
+      fetched: true,
+      pullRequest: 2836,
+    });
+    expect(set.sdk.runs[0]?.options.cwd).toBe(worktree);
+    expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain('this is a review session');
+    expect(set.sdk.runs[0]?.decisions.map(({ tool, result }) => [tool, result.behavior])).toEqual([
+      ['Grep', 'allow'],
+      ['Edit', 'deny'],
+      ['Bash', 'deny'],
+    ]);
+    expect(await set.sessions.changes('0000000000000001')).toMatchObject({
+      state: 'ready',
+      files: [{ path: 'people.ts', added: 1, removed: 0 }],
+    });
+    expect(await checkout()).toEqual(before);
+  });
+
+  const prDiff = [
+    'diff --git a/src/people.ts b/src/people.ts',
+    '--- a/src/people.ts',
+    '+++ b/src/people.ts',
+    '@@ -1,2 +1,3 @@',
+    ' export const people = [];',
+    '-export const load = () => people;',
+    '+export const load = async () => people;',
+    '+export const more = 1;',
+    '',
+  ].join('\n');
+
+  it("AC-6: with no saved folder for the repository, Claude reviews GitHub's diff in an empty folder", async () => {
+    const set = await setUp({ folders: false });
+    set.outside.use(acceptingPullDiff([{ number: 2836, diff: prDiff }]));
+
+    expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000001' });
+    const record = await settled(set.records);
+
+    const worktree = join(set.home, 'worktrees', '0000000000000001');
+    expect(record).toMatchObject({
+      repository: null,
+      worktree,
+      startCommit: null,
+      session: { review: { commit: null } },
+    });
+    expect(record.session.activities[0]).toMatchObject({
+      kind: 'diff_only',
+      repository: 'acme/web-app',
+      reason: 'no_folder',
+    });
+    expect(record.session.state).toBe('done');
+    expect(set.sdk.runs[0]?.options.cwd).toBe(worktree);
+    expect(await readdir(worktree)).toEqual([]);
+    expect(JSON.stringify(set.sdk.runs[0]?.options.systemPrompt)).toContain("the pull request's diff alone");
+    expect(await set.sessions.changes('0000000000000001')).toMatchObject({
+      state: 'ready',
+      files: [{ path: 'src/people.ts', added: 2, removed: 1 }],
+    });
+    expect(await set.sessions.fileDiff('0000000000000001', 'src/people.ts')).toMatchObject({
+      path: 'src/people.ts',
+      lines: expect.arrayContaining([{ kind: 'added', number: 3, text: 'export const more = 1;' }]) as unknown,
+    });
+    expect(await set.sessions.fileDiff('0000000000000001', 'src/other.ts')).toBeNull();
+  });
+
+  it("AC-6: when git can't fetch the pull request, its worktree step gives way to the diff, and the review goes on", async () => {
+    const set = await onGitHub();
+    set.outside.use(acceptingPullDiff([{ number: 2836, diff: prDiff }]));
+    // origin has no refs/pull/2836/head.
+
+    await set.sessions.start(review());
+    const record = await settled(set.records);
+
+    expect(record.session.state).toBe('done');
+    expect(record.session.activities.map((step) => step.kind)).not.toContain('worktree');
+    expect(record.session.activities[0]).toMatchObject({ kind: 'diff_only', reason: 'fetch_failed', state: 'done' });
+    expect(await set.sessions.changes('0000000000000001')).toMatchObject({ files: [{ path: 'src/people.ts' }] });
+  });
+
+  it('AC-8, AC-9, AC-11: each comment on a line of the diff is kept and is a step; the last message is the summary and verdict', async () => {
+    const set = await onGitHub({
+      script: [
+        { tool: 'mcp__orynx__review_comment', input: { path: 'people.ts', line: 1, text: 'Export a type too.' } },
+        { tool: 'mcp__orynx__review_comment', input: { path: 'people.ts', line: 9, text: 'Not in the diff.' } },
+        { finish: 'One small thing.\n\nVerdict: comment' },
+      ],
+    });
+    await pullInOrigin(set);
+
+    await set.sessions.start(review());
+    const record = await settled(set.records);
+
+    expect(record.session.review).toMatchObject({
+      comments: [
+        { id: 'c1', path: 'people.ts', line: 1, side: 'new', text: 'Export a type too.', keep: true, postedAt: null },
+      ],
+      summary: 'One small thing.',
+      verdict: 'comment',
+    });
+    expect(record.session.activities.filter((step) => step.kind === 'commented')).toMatchObject([
+      { path: 'people.ts', line: 1, side: 'new' },
+    ]);
+    expect(set.sdk.runs[0]?.results.map(({ tool, isError }) => [tool, isError])).toEqual([
+      ['mcp__orynx__review_comment', false],
+      ['mcp__orynx__review_comment', true],
+    ]);
+  });
+
+  it('AC-22: comments Claude made stay when you stop it', async () => {
+    const set = await onGitHub({
+      script: [
+        { tool: 'mcp__orynx__review_comment', input: { path: 'people.ts', line: 1, text: 'Export a type too.' } },
+        { hang: true },
+      ],
+    });
+    await pullInOrigin(set);
+    await set.sessions.start(review());
+    for (let tries = 0; tries < 500; tries++) {
+      if ((await set.records.get('0000000000000001'))?.session.review?.comments.length === 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    await set.sessions.stop('0000000000000001');
+    const record = await settled(set.records);
+    expect(record.session.state).toBe('stopped');
+    expect(record.session.review?.comments).toHaveLength(1);
+  });
+
+  it('a follow-up reviews on in the same checkout, never your folder', async () => {
+    const set = await onGitHub({ script: [{ finish: 'Fine.\nVerdict: approve' }] });
+    await pullInOrigin(set);
+    await set.sessions.start(review());
+    await settled(set.records);
+    await started(set.records, '0000000000000001');
+
+    expect(await set.sessions.send('0000000000000001', 'Look harder at the SQL')).toEqual({ result: 'sent' });
+    await settled(set.records);
+    expect(set.sdk.runs[1]?.options.cwd).toBe(join(set.home, 'worktrees', '0000000000000001'));
   });
 });

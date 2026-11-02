@@ -46,6 +46,25 @@ describe('FileList', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('050 AC-8: says how many comments a file has beside its counts, and nothing for a file with none', () => {
+    render(
+      <FileList
+        aria-label="Changed files"
+        files={[
+          { path: 'src/a.ts', added: 2, removed: 1, comments: 2 },
+          { path: 'src/b.ts', added: 1, removed: 0, comments: 1 },
+          { path: 'src/c.ts', added: 1, removed: 0, comments: 0 },
+        ]}
+        onSelect={() => undefined}
+      />,
+    );
+    const [a, b, c] = screen.getAllByRole('button', { name: /^src\// });
+    expect(a).toHaveAccessibleName('src/a.ts 2 lines added, 1 line removed, 2 comments');
+    expect(b).toHaveAccessibleName('src/b.ts 1 line added, 1 comment');
+    expect(c).toHaveAccessibleName('src/c.ts 1 line added');
+    expect(within(a ?? document.body).getByText('2')).toBeVisible();
+  });
+
   it('013 Q6c: a list that scrolls past 8 files still lets you reach and pick each one with the keyboard', async () => {
     const many: ChangedFile[] = Array.from({ length: 20 }, (_, n) => ({
       path: `src/many/file-${String(n + 1).padStart(2, '0')}.ts`,

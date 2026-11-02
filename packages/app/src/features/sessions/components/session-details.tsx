@@ -40,8 +40,9 @@ export function SessionDetails({ session }: { session: Session }) {
   const count = useChangedCount(session.id);
   const [full, setFull] = useState(false);
   const items = contextOf(session).length;
-  // An Ask session changes nothing, so it has Context alone (spec 026).
-  const ask = session.mode === 'ask';
+  // An Ask session changes nothing, so it has Context alone (spec 026); a review shows its pull request's changes
+  // (spec 050).
+  const ask = session.mode === 'ask' && session.review === null;
   // Ports, first, where Orynx can find a session's servers: a Build with a worktree, not on Windows (spec 042).
   const ports = session.terminal;
   const listening = useSessionPorts(session).data?.length ?? 0;

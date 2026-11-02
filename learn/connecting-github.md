@@ -1,4 +1,4 @@
-<!-- learn-sources: packages/contracts/src/github.ts packages/core/src/integrations/github/gh.ts packages/core/src/integrations/github/client.ts packages/core/src/integrations/github/connection.ts packages/core/src/integrations/github/problems.ts packages/core/src/integrations/checked-status.ts packages/core/src/routes/github.ts packages/core/src/settings/settings-store.ts apps/server/src/config.ts playwright.config.ts packages/core/src/test/fake-gh.ts packages/app/src/features/settings/components/github-connection-form.tsx packages/app/src/features/settings/components/github-connection-row.tsx -->
+<!-- learn-sources: packages/contracts/src/github.ts packages/core/src/integrations/github/gh.ts packages/core/src/integrations/github/client.ts packages/core/src/sessions/review.ts packages/core/src/integrations/github/connection.ts packages/core/src/integrations/github/problems.ts packages/core/src/integrations/checked-status.ts packages/core/src/routes/github.ts packages/core/src/settings/settings-store.ts apps/server/src/config.ts playwright.config.ts packages/core/src/test/fake-gh.ts packages/app/src/features/settings/components/github-connection-form.tsx packages/app/src/features/settings/components/github-connection-row.tsx -->
 
 # Connecting GitHub: the gh login or a token
 
@@ -70,7 +70,7 @@ A pull request chip in Home's composer is read when you press Send. `context-rea
 
 ## Opening pull requests (spec 014)
 
-Create pull request, and since spec 049 Post replies, are the only things Orynx writes to GitHub, and only on your press. The session's git pushes the branch with your own git login (`learn/sessions-and-worktrees.md`); then `client.ts` opens the PR with the token `connection.credentials()` gives, the same way the inbox reads:
+Create pull request, since spec 049 Post replies, and since spec 050 Post review, are the only things Orynx writes to GitHub, and only on your press. The session's git pushes the branch with your own git login (`learn/sessions-and-worktrees.md`); then `client.ts` opens the PR with the token `connection.credentials()` gives, the same way the inbox reads:
 
 - `openPull()` is `POST /repos/{owner}/{repo}/pulls` with the head, the base, your title and your description. A 422 that says "already exists" is `exists`, and Orynx then links that open PR (`findOpenPull()`, `GET …/pulls?head=owner:branch&state=open`) as it is. A 422 that says "No commits between" is `no_commits`.
 - A 403 with `X-GitHub-SSO` is `sso`, with GitHub's own link to authorize the token, kept only when it's https on github.com. Any other 403, or the 404 GitHub gives for a repository the account can't see, is `forbidden`. The rate limit, a refused token, the network and the 10-second limit read as for the other calls.
@@ -86,6 +86,15 @@ Reply to reviewers reads and writes review threads through GraphQL only, with th
 - `reviewThreads()` (`DevHubReviewThreads`) reads the pull request's first 50 threads, as the brief does, and keeps the unresolved ones with GitHub's id for each and their comments. Opening the dialog reads only: the threads, the worktree's diff and Claude's answer to a call with no tools (`replyPrompt()` and `readReplies()` in `pull-request-text.ts`).
 - `replyToThread()` (`addPullRequestReviewThreadReply`) and `resolveThread()` (`resolveReviewThread`) run only from Post replies, one thread at a time, in order, and one press at a time for each session (`postReplies()` in `pull-requests.ts`). A refusal comes back with GitHub's own words, at most 500 characters, and says whether the reply went out before the Resolve failed, so the dialog never posts it twice.
 - A classic token or gh login with `repo` can reply and resolve; a fine-grained token needs Pull requests: write, or GitHub refuses it in its own words.
+
+## Posting a review (spec 050)
+
+A review session reviews someone else's pull request (`learn/sessions-and-worktrees.md`); Post review is its one write, through REST with the same token and octokit settings:
+
+- `postReview()` is `POST /repos/{owner}/{repo}/pulls/{n}/reviews`, one call with the summary, the verdict (`COMMENT`, `APPROVE` or `REQUEST_CHANGES`) and every kept comment not posted yet, each on its `path`, `line` and `side` (`RIGHT` for the new file's line, `LEFT` for a removed one). GitHub takes all of it or none. `commit_id` is the head Claude read; a review from the diff alone sends none, so GitHub takes the latest commit, which its diff came from.
+- A 422 comes back in GitHub's own words, whether its reasons are strings ("Line could not be resolved") or objects; a 403 with `X-GitHub-SSO`, any other 403 or a 404, the rate limit and the network read as for opening a pull request. `postReview()` in `sessions/review.ts` runs one press at a time for each session and marks only what GitHub took as posted.
+- `commitsBetween()` (`GET /repos/{o}/{r}/compare/{base}...{head}`) counts the commits pushed after the one Claude read, for the dialog's line; `pullState()` gives the head now.
+- A classic token or gh login with `repo` can post a review; a fine-grained token needs Pull requests: write.
 
 ## Keeping the token in its place
 

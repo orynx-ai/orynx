@@ -3,6 +3,7 @@ import type {
   FakeOpenedPull,
   FakePull,
   FakePullContext,
+  FakePostedReview,
   FakePullState,
   FakeThreadWrite,
 } from '../../packages/core/src/test/fake-github.ts';
@@ -82,4 +83,6 @@ export interface FakeTools {
   /** Review threads on acme/web-app #2841 (spec 049), and every reply and Resolve posted to them, in order. */
   reviewThreads?: NonNullable<FakePullContext['threads']>;
   threadWrites?: FakeThreadWrite[];
+  /** Every review posted (spec 050), in order. */
+  postedReviews?: FakePostedReview[];
 }

@@ -1,4 +1,4 @@
-import { useId, type ComponentProps, type ReactNode } from 'react';
+import { Fragment, useId, type ComponentProps, type ReactNode } from 'react';
 import { cva } from 'class-variance-authority';
 import { cn } from '../lib/cn.ts';
 import { CopyButton } from './copy-button.tsx';
@@ -27,6 +27,8 @@ export type DiffViewProps = Omit<ComponentProps<'div'>, 'children'> & {
   wrap?: boolean;
   /** At the header's end, after the counts: the New file pill and Viewed (spec 048). */
   actions?: ReactNode;
+  /** What goes under a line, such as a review's `DiffNote` (spec 050); null for none. */
+  noteFor?: (line: { kind: DiffLineKind; number: number }) => ReactNode;
 };
 
 const lineVariants = cva('flex min-h-5', {
@@ -55,7 +57,7 @@ function fileName(path: string): string {
  * its counts on top. Wide lines scroll sideways inside the diff (it takes keyboard focus for that), or wrap with `wrap`
  * (spec 048), never the page; copying takes only the code, without numbers or signs.
  */
-export function DiffView({ path, lines, wrap = false, actions, className, ...props }: DiffViewProps) {
+export function DiffView({ path, lines, wrap = false, actions, noteFor, className, ...props }: DiffViewProps) {
   const added = lines.filter((line) => line.kind === 'added').length;
   const removed = lines.filter((line) => line.kind === 'removed').length;
   const spoken = spokenCounts(added, removed);
@@ -103,18 +105,27 @@ export function DiffView({ path, lines, wrap = false, actions, className, ...pro
                 <span className={textClass}>{line.text}</span>
               </span>
             ) : (
-              <span key={index} data-kind={line.kind} className={lineVariants({ kind: line.kind })}>
-                <span className="w-11 shrink-0 pe-2 text-end text-muted-foreground select-none">{line.number}</span>
-                <span className={signVariants({ kind: line.kind })}>{signs[line.kind]}</span>
-                {/* An empty line holds a newline, so copying keeps the blank line. */}
-                <span className={textClass}>{line.text === '' ? '\n' : line.text}</span>
-              </span>
+              <Fragment key={index}>
+                <span data-kind={line.kind} className={lineVariants({ kind: line.kind })}>
+                  <span className="w-11 shrink-0 pe-2 text-end text-muted-foreground select-none">{line.number}</span>
+                  <span className={signVariants({ kind: line.kind })}>{signs[line.kind]}</span>
+                  {/* An empty line holds a newline, so copying keeps the blank line. */}
+                  <span className={textClass}>{line.text === '' ? '\n' : line.text}</span>
+                </span>
+                {/* Under the line, from where its code starts, as session-review.html draws a reviewer's note. */}
+                <NoteSlot>{noteFor?.(line)}</NoteSlot>
+              </Fragment>
             ),
           )}
         </code>
       </pre>
     </div>
   );
+}
+
+function NoteSlot({ children }: { children: ReactNode }) {
+  if (children === null || children === undefined || children === false) return null;
+  return <span className="my-1.5 ms-15.5 me-3 block font-sans whitespace-normal">{children}</span>;
 }
 
 /** Line widths for the loading form, so it reads as code rather than as a block. */

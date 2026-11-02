@@ -7,7 +7,7 @@ import {
   type Inbox,
   type InboxRules,
 } from '@devhub/contracts';
-import { ArrowRight01Icon, PlusSignIcon, Tick02Icon, Wrench01Icon } from '@hugeicons/core-free-icons';
+import { ArrowRight01Icon, FileSearchIcon, PlusSignIcon, Tick02Icon, Wrench01Icon } from '@hugeicons/core-free-icons';
 import {
   AttentionActions,
   AttentionList,
@@ -502,6 +502,8 @@ function RowActionButton({ item, onSaid }: { item: HomeItem; onSaid: (said: stri
     <AttentionActions>
       {action.kind === 'fix' ? (
         <FixPullRequest action={action} />
+      ) : action.kind === 'review' ? (
+        <ReviewPullRequest action={action} />
       ) : (
         <AddToComposer chip={action.chip} label={action.label} onSaid={onSaid} />
       )}
@@ -552,6 +554,47 @@ function FixPullRequest({ action }: { action: Extract<RowAction, { kind: 'fix' }
       }}
     >
       <Icon icon={Wrench01Icon} aria-hidden />
+    </IconButton>
+  );
+}
+
+/**
+ * Spec 050: Review with Claude on a review asked of you starts a review of the pull request with the composer's model
+ * and effort, and opens it; the draft stays as it is. The pull request's live review shows the composer's choice
+ * (spec 047); anything else that stops it is said under the composer, with Send's line.
+ */
+function ReviewPullRequest({ action }: { action: Extract<RowAction, { kind: 'review' }> }) {
+  const navigate = useNavigate();
+  const start = useStartFromComposer();
+  const model = useComposerStore((state) => state.model);
+  const effort = useComposerStore((state) => state.effort);
+  const choice = useAgentChoice(model, effort);
+  const setTried = useComposerStore((state) => state.setTried);
+  return (
+    <IconButton
+      variant="ghost"
+      size="sm"
+      label={action.label}
+      aria-label={action.name}
+      disabled={start.isPending}
+      onClick={() => {
+        const request: ComposerStart = { message: '', context: [action.chip], ...choice, mode: 'ask', review: true };
+        start.mutate(request, {
+          onSuccess: (answer) => {
+            if (answer.result === 'started') {
+              setTried(null);
+              void navigate({ to: '/sessions/$sessionId', params: { sessionId: answer.sessionId } });
+              return;
+            }
+            setTried({ request, answer, draft: false });
+          },
+          onError: () => {
+            setTried({ request, answer: 'failed', draft: false });
+          },
+        });
+      }}
+    >
+      <Icon icon={FileSearchIcon} aria-hidden />
     </IconButton>
   );
 }

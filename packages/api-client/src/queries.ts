@@ -150,6 +150,15 @@ export function sessionChangesQueryOptions(api: ApiClient, id: string) {
   });
 }
 
+/** A review's commits pushed since Claude read it (spec 050), under the session, so its changes read it again. */
+export function sessionReviewStatusQueryKey(id: string) {
+  return [...queryKeys.sessions, 'review-status', id] as const;
+}
+
+export function sessionReviewStatusQueryOptions(api: ApiClient, id: string) {
+  return queryOptions({ queryKey: sessionReviewStatusQueryKey(id), queryFn: () => api.reviewStatus(id), staleTime: 0 });
+}
+
 export function sessionDiffQueryOptions(api: ApiClient, id: string, path: string) {
   return queryOptions({
     queryKey: sessionDiffQueryKey(id, path),

@@ -28,6 +28,8 @@ export interface StartPlan {
   reads: AgentReads;
   /** The model and effort the composer picked; left out, Claude Code's own default. */
   choice?: AgentChoice;
+  /** A review's pull request's base branch, which its checkout fetches (spec 050). */
+  reviewBase?: string;
 }
 
 /** Nothing outside the worktree, as for Ship's start. */

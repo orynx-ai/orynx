@@ -22,6 +22,9 @@ import {
   composerLimits,
   StartSessionAnswerSchema,
   StartSessionRequestSchema,
+  mostReviewComments,
+  mostReviewTextCharacters,
+  type Session,
   type SessionActivity,
 } from './index.ts';
 import {
@@ -446,6 +449,100 @@ describe('StartSessionRequestSchema', () => {
     for (const ticketKey of ['proj-1423', 'PROJ', 'PROJ-0', '../PROJ-1']) {
       expect(StartSessionRequestSchema.safeParse({ ticketKey }).success).toBe(false);
     }
+  });
+});
+
+describe('a review session (spec 050)', () => {
+  const pull = { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2841 } as const;
+  const comment = {
+    id: 'c1',
+    path: 'src/a.ts',
+    line: 42,
+    side: 'new',
+    text: 'This drops the error.',
+    keep: true,
+    postedAt: null,
+  };
+  const review = {
+    repository: 'acme/web-app',
+    number: 2841,
+    url: 'https://github.com/acme/web-app/pull/2841',
+    commit: null,
+    comments: [comment],
+    summary: null,
+    verdict: null,
+  };
+
+  it('AC-2: a composer start reviews one pull request in an Ask, with or without a message', () => {
+    const start = ComposerStartSchema.parse({ message: '', context: [pull], mode: 'ask', review: true });
+    expect(start).toMatchObject({ review: true, mode: 'ask' });
+    expect(
+      ComposerStartSchema.safeParse({ message: 'Look at the SQL', context: [pull], mode: 'ask', review: true }).success,
+    ).toBe(true);
+  });
+
+  it('AC-2: refuses a review that is a Build, has no pull request, or has anything beside it', () => {
+    const file = { kind: 'file', path: '/Users/me/notes.md' } as const;
+    for (const wrong of [
+      { message: '', context: [pull], review: true },
+      { message: '', context: [pull], mode: 'build', review: true },
+      { message: 'Review it', context: [], mode: 'ask', review: true },
+      { message: '', context: [pull, file], mode: 'ask', review: true },
+      { message: '', context: [pull, { ...pull, number: 2842 }], mode: 'ask', review: true },
+      { message: '', context: [{ kind: 'jira', key: 'PROJ-1' }], mode: 'ask', review: true },
+    ]) {
+      expect(ComposerStartSchema.safeParse(wrong).success).toBe(false);
+    }
+  });
+
+  it('AC-8, AC-12: keeps each comment with its line, side, text, Keep and when it was posted', () => {
+    const posted = { ...comment, id: 'c2', side: 'old', keep: false, postedAt: '2026-11-02T10:00:00.000Z' };
+    const session = SessionSchema.parse(
+      makeSession({
+        mode: 'ask',
+        review: {
+          ...review,
+          commit: 'a'.repeat(40),
+          comments: [comment, posted],
+          summary: 'Two bugs.',
+          verdict: 'request_changes',
+          posted: [{ url: 'https://github.com/acme/web-app/pull/2841#pullrequestreview-1', at: posted.postedAt }],
+        },
+      } as Partial<Session>),
+    );
+    expect(session.review?.comments).toEqual([comment, posted]);
+    expect(session.review).toMatchObject({ verdict: 'request_changes', summary: 'Two bugs.' });
+  });
+
+  it('AC-10, AC-12: refuses a 21st comment, an empty one, one past GitHub’s 65,536 characters, and a line that isn’t one', () => {
+    const many = Array.from({ length: mostReviewComments + 1 }, (_, index) => ({
+      ...comment,
+      id: `c${String(index)}`,
+    }));
+    for (const comments of [
+      many,
+      [{ ...comment, text: '  ' }],
+      [{ ...comment, text: 'x'.repeat(mostReviewTextCharacters + 1) }],
+      [{ ...comment, line: 0 }],
+      [{ ...comment, side: 'left' }],
+    ]) {
+      expect(SessionSchema.safeParse({ ...makeSession(), review: { ...review, comments } }).success).toBe(false);
+    }
+  });
+
+  it('a session saved before spec 050 reads with no review, and a review with nothing posted yet', () => {
+    const { review: _review, ...older } = makeSession();
+    expect(SessionSchema.parse(older).review).toBeNull();
+    expect(SessionSchema.parse({ ...makeSession(), review }).review?.posted).toEqual([]);
+  });
+
+  it('AC-6, AC-8: holds the steps a review adds: a comment, and reviewing from the diff only', () => {
+    const steps: SessionActivity[] = [
+      { id: 'a1', state: 'done', kind: 'commented', path: 'src/a.ts', line: 42, side: 'new' },
+      { id: 'a2', state: 'done', kind: 'diff_only', repository: 'acme/web-app', reason: 'no_folder' },
+      { id: 'a3', state: 'done', kind: 'diff_only', repository: 'acme/web-app', reason: 'fetch_failed' },
+    ];
+    for (const step of steps) expect(SessionActivitySchema.parse(step)).toEqual(step);
   });
 });
 

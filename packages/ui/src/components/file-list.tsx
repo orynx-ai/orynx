@@ -1,6 +1,8 @@
 import type { ComponentProps } from 'react';
+import { Comment01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '../lib/cn.ts';
 import { CopyButton } from './copy-button.tsx';
+import { Icon } from './icon.tsx';
 import { Skeleton } from './skeleton.tsx';
 
 export interface ChangedFile {
@@ -9,6 +11,8 @@ export interface ChangedFile {
   /** Lines added and removed; a count of zero is left out. */
   added: number;
   removed: number;
+  /** A review's comments on the file (spec 050); none is left out. */
+  comments?: number;
 }
 
 export type FileListProps = Omit<ComponentProps<'ul'>, 'onSelect'> & {
@@ -65,7 +69,13 @@ export function FileList({ files, current, onSelect, maxRows, className, ...prop
     >
       {files.map((file) => {
         const { folder, name } = splitPath(file.path);
-        const spoken = spokenCounts(file.added, file.removed);
+        const comments = file.comments ?? 0;
+        const spoken = [
+          spokenCounts(file.added, file.removed),
+          ...(comments > 0 ? [`${String(comments)} ${comments === 1 ? 'comment' : 'comments'}`] : []),
+        ]
+          .filter((part) => part !== '')
+          .join(', ');
         return (
           // The row takes the shown file's tint, so the copy button beside the file's button sits on it too.
           <li
@@ -94,6 +104,12 @@ export function FileList({ files, current, onSelect, maxRows, className, ...prop
                     <span className={file.path === current ? 'text-foreground' : 'text-success'}>+{file.added}</span>
                   ) : null}
                   {file.removed > 0 ? <span className="text-danger">−{file.removed}</span> : null}
+                  {comments > 0 ? (
+                    <span className="flex items-center gap-1">
+                      <Icon icon={Comment01Icon} className="size-4" />
+                      {comments}
+                    </span>
+                  ) : null}
                 </span>
               </span>
               {spoken ? <span className="sr-only">{spoken}</span> : null}

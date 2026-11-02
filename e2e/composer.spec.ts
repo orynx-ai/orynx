@@ -365,13 +365,19 @@ test('047 AC-1 to AC-3, AC-25: a ticket with a session offers Open session or a 
   ).toHaveCount(2);
 });
 
-test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added from Home’s rows reach Claude, and +1 opens them all', async ({
+test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added to the composer reach Claude, and +1 opens them all', async ({
   page,
 }) => {
   await page.goto('/');
   const panel = page.getByRole('region', { name: 'Needs your attention' });
   await panel.getByRole('button', { name: 'Add PROJ-1377 to the composer' }).click();
-  await panel.getByRole('button', { name: 'Add web-app #2836 to the composer' }).click();
+  // A review request's row has Review with Claude in place of + (spec 050), so its pull request comes by its link.
+  await expect(panel.getByRole('button', { name: 'Review web-app #2836 with Claude' })).toBeVisible();
+  await box(page).evaluate((element, link) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', link);
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, 'https://github.com/acme/web-app/pull/2836');
   await expect(panel.getByRole('button', { name: 'Remove PROJ-1377 from the composer' })).toBeVisible();
   // PROJ-1423 has a live session from the test before, so its row has Open session; it comes from the list, second,
   // since only the first ticket's session stops a start (AC-5).

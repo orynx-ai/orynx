@@ -55,12 +55,16 @@ import {
   SessionSchema,
   SessionSummarySchema,
   SessionPullRequestSchema,
+  SessionReviewSchema,
+  ReviewCommentSchema,
   SessionTicketSchema,
   type ComposerStart,
   type Session,
   type SessionApproval,
   type SessionList,
   type SessionPullRequest,
+  type SessionReview,
+  type ReviewComment,
   type SessionSummary,
   type SessionTicket,
 } from './session.ts';
@@ -188,6 +192,35 @@ export function makeSessionPullRequest(overrides: Partial<SessionPullRequest> = 
     url: 'https://github.com/acme/web-app/pull/2841',
     repository: 'acme/web-app',
     openedAt: '2026-10-16T10:30:00.000Z',
+    ...overrides,
+  });
+}
+
+/** Claude's comment on line 42 of src/a.ts in acme/web-app #2841 (spec 050): kept, not posted. */
+export function makeReviewComment(overrides: Partial<ReviewComment> = {}): ReviewComment {
+  return ReviewCommentSchema.parse({
+    id: 'c1',
+    path: 'src/a.ts',
+    line: 42,
+    side: 'new',
+    text: 'This drops the error from `save()`.',
+    keep: true,
+    postedAt: null,
+    ...overrides,
+  });
+}
+
+/** Claude's review of Priya's acme/web-app #2841 (spec 050): read at one commit, one comment, nothing posted. */
+export function makeSessionReview(overrides: Partial<SessionReview> = {}): SessionReview {
+  return SessionReviewSchema.parse({
+    repository: 'acme/web-app',
+    number: 2841,
+    url: 'https://github.com/acme/web-app/pull/2841',
+    commit: '0123456789abcdef0123456789abcdef01234567',
+    comments: [makeReviewComment()],
+    summary: 'One bug in the error path; the rest reads well.',
+    verdict: 'request_changes',
+    posted: [],
     ...overrides,
   });
 }

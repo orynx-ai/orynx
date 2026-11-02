@@ -12,6 +12,7 @@ import {
   sessionPortsQueryOptions,
   sessionTerminalQueryOptions,
   sessionQueryKey,
+  sessionReviewStatusQueryOptions,
   sessionsQueryOptions,
 } from '@devhub/api-client';
 import {
@@ -23,6 +24,8 @@ import {
   type SessionChangeRequest,
   type SessionListQuery,
   type TerminalSize,
+  type ReviewCommentChange,
+  type PostReviewRequest,
 } from '@devhub/contracts';
 import type { TerminalScreen } from '@devhub/ui';
 import { useApi } from '../../api.tsx';
@@ -203,6 +206,36 @@ export function useDraftReplies(sessionId: string) {
 export function usePostReplies(sessionId: string) {
   const api = useApi();
   return useMutation({ mutationFn: (request: ReplyRequest) => api.postReplies(sessionId, request) });
+}
+
+/**
+ * Keep, or your edit of, one of Claude's review comments (spec 050). The session reads again once it's saved, as
+ * `session.changed` would have it.
+ */
+export function useChangeReviewComment(sessionId: string) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ commentId, change }: { commentId: string; change: ReviewCommentChange }) =>
+      api.changeReviewComment(sessionId, commentId, change),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) }),
+  });
+}
+
+/** How many commits were pushed since Claude read the pull request, asked as Post review opens (spec 050, AC-18). */
+export function useReviewStatus(sessionId: string, enabled: boolean) {
+  const api = useApi();
+  return useQuery({ ...sessionReviewStatusQueryOptions(api, sessionId), enabled });
+}
+
+/** Post review (spec 050), on your press only; the session reads again once it's posted. */
+export function usePostReview(sessionId: string) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (request: PostReviewRequest) => api.postReview(sessionId, request),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) }),
+  });
 }
 
 /** Claude's commands with their output, for the Terminal's Claude tab (spec 036); `session.changed` keeps them fresh. */

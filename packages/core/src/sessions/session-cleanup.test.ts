@@ -2,7 +2,7 @@ import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { Session } from '@devhub/contracts';
-import { makeSession } from '@devhub/contracts/testing';
+import { makeSession, makeSessionReview } from '@devhub/contracts/testing';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { useTestRepositories } from '../test/git-repository.ts';
 import { createBranchGit } from './branch-git.ts';
@@ -131,6 +131,15 @@ describe('which sessions a cleanup run deletes (spec 047, D)', () => {
     await repos.git(ahead.worktree ?? '', 'push', '-q', 'origin', 'HEAD:refs/heads/feat/mine');
     await repos.git(ahead.worktree ?? '', 'fetch', '-q', 'origin');
     expect(await ids([ahead], 30)).toEqual([ahead.session.id]);
+  });
+
+  it("050: a review's worktree goes whatever its HEAD, and one from the diff alone too: a review holds nothing of yours", async () => {
+    const { stored, commit, ids } = await setUp();
+    const reviewing = { mode: 'ask', review: makeSessionReview() } as const;
+    const checkout = await stored(reviewing, 'no_branch');
+    await commit(checkout, 'theirs.ts');
+    const diffOnly = { ...(await stored(reviewing)), worktree: '/nowhere/empty-0000000000000099', startCommit: null };
+    expect(await ids([checkout, diffOnly], 30)).toEqual([checkout.session.id, diffOnly.session.id]);
   });
 
   it('AC-18: a session whose worktree is already gone has nothing to lose; one with none at all goes too', async () => {

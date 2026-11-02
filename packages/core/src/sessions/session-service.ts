@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir, realpath } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
-import { isOrynxKey, permissionsFor } from '@devhub/contracts';
+import { isOrynxKey, mostReviewComments, permissionsFor } from '@devhub/contracts';
+import { readVerdict, reviewTools } from './review-tools.ts';
+import { createReviews } from './review.ts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import { ticketTools } from '../orynx-tickets/tools.ts';
 import type {
@@ -38,6 +40,10 @@ import type {
   StartSessionAnswer,
   StartSessionRequest,
   ComposerStart,
+  PostReviewAnswer,
+  PostReviewRequest,
+  ReviewCommentChange,
+  ReviewStatus,
   TicketStart,
 } from '@devhub/contracts';
 import {
@@ -54,8 +60,22 @@ import type { JiraCheckRequest, JiraClient } from '../integrations/jira/client.t
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
 import { folderBytes, measureStorage, sessionsToClean } from './session-cleanup.ts';
-import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
-import { sessionStartPoint, type ChangesReader, type StartPoint } from './changes.ts';
+import {
+  askNote,
+  briefText,
+  composerBrief,
+  reviewNote,
+  sessionNote,
+  ticketFromBrief,
+  type BriefChip,
+} from './brief.ts';
+import {
+  changesFromDiff,
+  fileDiffFromDiff,
+  sessionStartPoint,
+  type ChangesReader,
+  type StartPoint,
+} from './changes.ts';
 import { keepLast, logEnd, logRunEnded, logWork } from './command-log.ts';
 import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
 import {
@@ -194,6 +214,16 @@ export interface SessionService {
   draftReplies(id: string): Promise<ReplyDraftAnswer | null>;
   /** Posts the replies and resolves the ticked threads, on your press only (spec 049); null for no such session. */
   postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer | null>;
+  /** Keeps, drops or edits one of Claude's review comments (spec 050); a posted one stays as it went. */
+  changeReviewComment(
+    id: string,
+    commentId: string,
+    change: ReviewCommentChange,
+  ): Promise<'changed' | 'posted' | 'not_found'>;
+  /** How many commits were pushed since Claude read the pull request (spec 050); null for no such session. */
+  reviewStatus(id: string): Promise<ReviewStatus | null>;
+  /** Posts one review, on your press only (spec 050); null for no such session. */
+  postReview(id: string, request: PostReviewRequest): Promise<PostReviewAnswer | null>;
   /**
    * Spec 047: asks GitHub about each pull request of a session in PR open or PR closed whose worktree is still there,
    * and saves it as merged, closed or open again. A merge where nothing would be lost removes the worktree as Delete
@@ -298,6 +328,10 @@ const unread = {
 
 function projectOf(key: string): string {
   return key.slice(0, key.lastIndexOf('-'));
+}
+
+function isPullChip(chip: BriefChip): chip is Extract<BriefChip, { kind: 'pull_request' }> {
+  return chip.kind === 'pull_request';
 }
 
 /** A session that holds its ticket or pull request: not Stopped, and its pull request not merged or closed (spec 047). */
@@ -419,8 +453,12 @@ function editOrder(session: Session): string[] {
   return session.activities.flatMap((activity) => (activity.kind === 'edit' ? activity.files : []));
 }
 
-/** Where an Ask session's Claude reads: the folder in place, or its own empty folder when it has none (spec 031). */
+/**
+ * Where an Ask session's Claude reads: the folder in place, or its own empty folder when it has none (spec 031). A
+ * review reads its own worktree: the pull request's checkout, or the empty folder of a review from the diff (spec 050).
+ */
 function askPlace(record: StoredSession): string | null {
+  if (record.session.review !== null) return record.worktree;
   return record.repository?.path ?? record.worktree;
 }
 
@@ -671,10 +709,17 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
             };
             if (!finished) return next;
             const at = now();
+            // A review's summary and verdict are Claude's last message (spec 050).
+            const { review } = next.session;
+            const summed =
+              review !== null && event.work.kind === 'finished'
+                ? { ...review, ...readVerdict(event.work.summary) }
+                : review;
             return {
               ...next,
               session: {
                 ...next.session,
+                review: summed,
                 // Once the pull request is open, Claude finishing a follow-up leaves it open (spec 014, AC-19).
                 state: next.session.pullRequest === null ? 'done' : 'pr_open',
                 endedAt: new Date(at).toISOString(),
@@ -1088,13 +1133,110 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     startPlans.delete(id);
     const place = askPlace(record);
     if (start === undefined || place === null) return;
-    if (record.repository === null) await mkdir(place, { recursive: true });
+    const { review } = record.session;
+    if (review !== null) {
+      // A review reads its pull request's checkout, or the diff alone in an empty folder (spec 050, AC-6).
+      const read =
+        record.repository === null ? 'no_folder' : await checkOut(id, run, record, start.reviewBase ?? 'main');
+      if (read === 'stopped') return;
+      if (read !== 'made') {
+        await mkdir(place, { recursive: true });
+        if (read === 'no_folder') {
+          const step = { kind: 'diff_only', repository: review.repository, reason: 'no_folder' } as const;
+          await change(id, (current) => withProgress(current, (progress) => addStep(progress, step)));
+        }
+      }
+    } else if (record.repository === null) await mkdir(place, { recursive: true });
     await records.writeBrief(id, briefText(start.brief));
     await change(id, (current) =>
       withProgress(current, (progress) => addStep(progress, { kind: 'brief', ...start.briefStep })),
     );
     if (stopping(run)) return;
     await startClaude(id, run, start.brief, place, null, null, start.ticketNote, start.choice);
+  }
+
+  /**
+   * A review's checkout of its pull request's head (spec 050): a worktree step while git fetches, then the merge base
+   * as the session's start, so Changes shows the pull request's diff, and the head as the commit Claude reads. When
+   * git can't, the step gives way to reading the diff alone (AC-6); `stopped` when Stop came.
+   */
+  async function checkOut(
+    id: string,
+    run: Run,
+    record: StoredSession,
+    base: string,
+  ): Promise<'made' | 'diff_only' | 'stopped'> {
+    const { review, worktree, repository } = { ...record, review: record.session.review };
+    if (review === null || worktree === null || repository === null) return 'diff_only';
+    const making = {
+      kind: 'worktree',
+      branch: null,
+      base: `origin/${base}`,
+      fetched: false,
+      pullRequest: review.number,
+    } as const;
+    const withStep = await change(id, (current) =>
+      withProgress(current, (progress) => addStep(progress, making, 'running')),
+    );
+    const stepId = withStep?.session.activities.at(-1)?.id ?? '';
+    const made = await worktrees.review(
+      repository.path,
+      worktree,
+      { number: review.number, base },
+      run.controller.signal,
+    );
+    if (!made.ok && made.problem.kind === 'stopped') return 'stopped';
+    if (!made.ok) {
+      const reason = made.problem.kind === 'folder' ? 'no_folder' : 'fetch_failed';
+      const step = { kind: 'diff_only', repository: review.repository, reason } as const;
+      await change(id, (current) => withProgress(current, (progress) => replaceStep(progress, stepId, step)));
+      return stopping(run) ? 'stopped' : 'diff_only';
+    }
+    await change(id, (current) => {
+      const next = withProgress(current, (progress) => replaceStep(progress, stepId, { ...making, fetched: true }));
+      const reviewed = next.session.review === null ? null : { ...next.session.review, commit: made.head };
+      return { ...next, startCommit: made.startCommit, session: { ...next.session, review: reviewed } };
+    });
+    return stopping(run) ? 'stopped' : 'made';
+  }
+
+  async function fileDiffNow(id: string, path: string): Promise<FileDiff | 'unreadable' | null> {
+    const record = await records.get(id);
+    if (record?.session.discardedAt !== null) return null;
+    const diff = await reviewDiff(record);
+    if (diff !== null) return fileDiffFromDiff(diff, path);
+    const start = startPointOf(record);
+    if (start === null || record.worktree === null) return null;
+    const read = await options.changes.fileDiff(record.worktree, start, path);
+    if (read.ok) return read.diff;
+    return read.problem === 'git' ? 'unreadable' : null;
+  }
+
+  /** Keeps Claude's review comment, ticked to keep, with its step (spec 050); `full` with 20 already (AC-10). */
+  async function saveComment(
+    id: string,
+    comment: { path: string; line: number; side: 'new' | 'old'; text: string },
+  ): Promise<'saved' | 'full'> {
+    const outcome = { saved: false };
+    await change(id, (current) => {
+      const { review } = current.session;
+      if (review === null || review.comments.length >= mostReviewComments) return current;
+      outcome.saved = true;
+      const kept = { ...comment, id: `c${String(review.comments.length + 1)}`, keep: true, postedAt: null };
+      const { path, line, side } = comment;
+      const next = withProgress(current, (progress) => addStep(progress, { kind: 'commented', path, line, side }));
+      return { ...next, session: { ...next.session, review: { ...review, comments: [...review.comments, kept] } } };
+    });
+    return outcome.saved ? 'saved' : 'full';
+  }
+
+  /**
+   * A review's Changes without a checkout come from GitHub's diff, kept at its start (spec 050, AC-6); null for any
+   * other session, and a review that has its checkout.
+   */
+  async function reviewDiff(record: StoredSession): Promise<string | null> {
+    if (record.session.review === null || record.startCommit !== null) return null;
+    return records.readDiff(record.session.id);
   }
 
   /**
@@ -1135,9 +1277,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const record = await records.get(id);
     const pull = record?.session.workOn === 'pull_request' ? (record.session.pullRequest?.number ?? null) : null;
     const note =
-      branch === null
-        ? askNote(record?.repository != null)
-        : sessionNote(branch, adapter.runsCommands, ticketNote, first, pull);
+      branch !== null
+        ? sessionNote(branch, adapter.runsCommands, ticketNote, first, pull)
+        : record?.session.review != null
+          ? reviewNote(record.startCommit !== null)
+          : askNote(record?.repository != null);
     // Orynx's ticket tools, made in this session's name; an Ask session gets the reading ones only (spec 037).
     const tools =
       options.tickets === undefined || record === null
@@ -1164,6 +1308,16 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       onEdit: () => makeBranch(id),
       // A Build's own tools (spec 042): Claude changes its steps; an Ask has none. Then Jira's (spec 044).
       orynxTools: [
+        // A review's comments on the pull request's diff (spec 050).
+        ...(record?.session.review == null
+          ? []
+          : reviewTools({
+              diffLines: async (path) => {
+                const diff = await fileDiffNow(id, path);
+                return diff === null || diff === 'unreadable' ? null : diff.lines;
+              },
+              save: (comment) => saveComment(id, comment),
+            })),
         ...(first.readOnly
           ? []
           : sessionTools({
@@ -1399,6 +1553,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return newestLive((session) => session.pullRequest === key);
   }
 
+  /** A pull request holds one live review at a time (spec 050, AC-3), though a review is an Ask. */
+  async function liveReviewOn(key: string): Promise<string | null> {
+    const live = (await records.list()).filter((session) => session.reviewing === key && isLive(session));
+    live.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    return live[0]?.id ?? null;
+  }
+
   /** The folder's origin on GitHub as `owner/name`, or null. */
   async function originOf(folder: string): Promise<string | null> {
     const origin = await branchGit.origin(folder);
@@ -1495,6 +1656,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         // `get()` says whether the Terminal opens (spec 036) and what's left to push, so what is saved here never counts.
         terminal: false,
         unpushed: true,
+        review: null,
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -1526,10 +1688,18 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const live = await liveSessionOn(key);
       if (live !== null) return { result: 'existing', sessionId: live };
     }
+    // A review's pull request, the start's only chip (spec 050).
+    const reviewing = request.review === true ? folderPullOf(request) : null;
+    if (reviewing !== null && !another) {
+      const live = await liveReviewOn(pullKey(`${reviewing.owner}/${reviewing.name}`, reviewing.number));
+      if (live !== null) return { result: 'existing', sessionId: live };
+    }
     if (!(await claude.connected())) return { result: 'cannot_start', reason: 'signed_out' };
     if ((await workingCount()) >= mostWorking) return { result: 'cannot_start', reason: 'too_many' };
-    // An Ask sent with no folder reads none (spec 031); a Build always has one.
-    const folder = ask && request.repositoryId === undefined ? null : await folderFor(request);
+    // An Ask sent with no folder reads none (spec 031); a Build always has one. A review reads the folder whose origin
+    // is its pull request's repository, or the diff alone when there's none (spec 050, AC-6).
+    const chosen = reviewing !== null || !ask || request.repositoryId !== undefined ? await folderFor(request) : null;
+    const folder = reviewing !== null && typeof chosen === 'string' ? null : chosen;
     if (typeof folder === 'string') return { result: 'cannot_start', reason: folder };
 
     const read = await options.context.read(request.context);
@@ -1543,7 +1713,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     }
     // The skills your message names, for this folder (spec 022, AC-53); none without the service.
     const skills = (await options.skills?.named(request.message, folder?.path ?? null)) ?? [];
-    const { title, ticket, plan } = composerPlan(request.message, read.chips, skills);
+    const planned = composerPlan(request.message, read.chips, skills);
+    const { ticket, plan } = planned;
+    const reviewed = reviewing === null ? null : (read.chips.find(isPullChip) ?? null);
+    const title = reviewed === null ? planned.title : `Review ${reviewed.name} #${String(reviewed.number)}`;
 
     const id = newId();
     const at = new Date(now()).toISOString();
@@ -1558,9 +1731,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         source:
           pull !== null
             ? { kind: 'pull_request', number: pull.number }
-            : ticket === null
-              ? null
-              : { kind: 'jira', key: ticket.key },
+            : reviewed !== null
+              ? { kind: 'pull_request', number: reviewed.number }
+              : ticket === null
+                ? null
+                : { kind: 'jira', key: ticket.key },
         updatedAt: at,
         folder: folder === null ? null : { name: folder.name, displayPath: folder.displayPath },
         branch: null,
@@ -1598,10 +1773,24 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         // `get()` says whether the Terminal opens (spec 036) and what's left to push, so what is saved here never counts.
         terminal: false,
         unpushed: true,
+        review:
+          reviewed === null
+            ? null
+            : {
+                repository: `${reviewed.owner}/${reviewed.name}`,
+                number: reviewed.number,
+                url: reviewed.url,
+                commit: null,
+                comments: [],
+                summary: null,
+                verdict: null,
+                posted: [],
+              },
       },
       repository: folder === null ? null : { id: folder.id, path: folder.path },
-      // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031).
-      worktree: ask && folder !== null ? null : join(options.worktrees.root, id),
+      // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031). A
+      // review always has one: its pull request's checkout, or an empty folder (spec 050).
+      worktree: ask && folder !== null && reviewed === null ? null : join(options.worktrees.root, id),
       startCommit: null,
       pushedCommit: null,
       claudeSessionId: null,
@@ -1613,9 +1802,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     startPlans.set(id, {
       ...plan,
       ...(pull === null ? {} : { branchName: pull.head }),
+      ...(reviewed === null ? {} : { reviewBase: reviewed.base }),
       choice: { model: request.model, effort: request.effort },
     });
     await records.create(record);
+    // GitHub's diff, for a review that can't check its pull request out (spec 050, AC-6). Too large: none, so Changes
+    // are empty and every comment is refused (shortcut: no file list from the counts; upgrade if big reviews need it).
+    if (reviewed?.diff.kind === 'text') await records.writeDiff(id, reviewed.diff.text);
     events.publish({ type: 'sessions.changed' });
     begin(id);
     return { result: 'started', sessionId: id };
@@ -1772,6 +1965,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     adapter,
     ensureBranch: (id) => makeBranch(id),
   });
+  const reviews = createReviews({
+    records,
+    save: change,
+    github: options.github ?? { credentials: () => Promise.resolve(null) },
+    client: githubClient,
+    now,
+  });
   /** Each session's create or push under way, which Discard and closing wait for. */
   const publishing = new Map<string, Promise<unknown>>();
   function whilePublishing<T>(id: string, work: Promise<T>): Promise<T> {
@@ -1792,6 +1992,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     push: (id, request) => whilePublishing(id, pullRequests.push(id, request)),
     draftReplies: (id) => pullRequests.draftReplies(id),
     postReplies: (id, request) => pullRequests.postReplies(id, request),
+    changeReviewComment: (id, commentId, change) => reviews.changeComment(id, commentId, change),
+    reviewStatus: (id) => reviews.status(id),
+    postReview: (id, request) => reviews.post(id, request),
 
     start(request) {
       // Starts on one ticket go one at a time, from Ship or the composer; so do composer starts with no ticket.
@@ -1909,6 +2112,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const record = await records.get(id);
       if (record === null) return null;
       if (record.session.discardedAt !== null) return { state: 'discarded' };
+      const diff = await reviewDiff(record);
+      if (diff !== null) return changesFromDiff(diff);
       const start = startPointOf(record);
       if (start === null || record.worktree === null) return { state: 'no_worktree' };
       const listed = await options.changes.list(record.worktree, start, editOrder(record.session));
@@ -1916,15 +2121,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return listed.problem === 'missing' ? { state: 'missing' } : 'unreadable';
     },
 
-    async fileDiff(id, path) {
-      const record = await records.get(id);
-      if (record?.session.discardedAt !== null) return null;
-      const start = startPointOf(record);
-      if (start === null || record.worktree === null) return null;
-      const read = await options.changes.fileDiff(record.worktree, start, path);
-      if (read.ok) return read.diff;
-      return read.problem === 'git' ? 'unreadable' : null;
-    },
+    fileDiff: fileDiffNow,
 
     async brief(id) {
       if ((await records.get(id)) === null) return null;

@@ -568,3 +568,108 @@ test.describe('a Build on my own pull request (spec 031)', () => {
     expect(repository.git(repository.origin, 'branch', '--list', branch)).toContain(branch);
   });
 });
+
+test.describe('Review with Claude (spec 050)', () => {
+  const reviewed = 2950;
+  const title = 'Lazy-load the people directory';
+
+  /** #2950 asks for your review; its head is on origin only as `refs/pull/2950/head`, as a fork's is. */
+  async function askForReview(page: Page): Promise<string> {
+    const theirs = join(repository.root, 'theirs');
+    repository.git(repository.root, 'clone', '-q', repository.origin, theirs);
+    writeFileSync(join(theirs, 'people.ts'), 'export const pageSize = 50;\n');
+    repository.git(theirs, 'add', '.');
+    repository.git(theirs, 'commit', '-qm', 'Lazy-load the people directory');
+    repository.git(theirs, 'push', '-q', 'origin', `HEAD:refs/pull/${String(reviewed)}/head`);
+    const head = repository.git(theirs, 'rev-parse', 'HEAD');
+    const now = (await (await page.request.get(control)).json()) as FakeTools;
+    const held: FakeTools = {
+      ...now,
+      reviews: [{ number: reviewed, title, requests: [{ login: 'octocat', at: new Date().toISOString() }] }],
+      pullRequests: [
+        ...(now.pullRequests ?? []),
+        { number: reviewed, title, diff: 'diff --git a/people.ts b/people.ts\n+export const pageSize = 50;\n' },
+      ],
+      pullStates: [...(now.pullStates ?? []), { number: reviewed, state: 'open', head }],
+      postedReviews: [],
+    };
+    expect((await page.request.put(control, { data: held })).status()).toBe(204);
+    await page.goto('/');
+    await api(page, 'POST', '/api/inbox/refresh');
+    return head;
+  }
+
+  const posted = async (page: Page) =>
+    ((await (await page.request.get(control)).json()) as FakeTools).postedReviews ?? [];
+
+  test('AC-1, AC-2, AC-16, AC-17, AC-25: from Home’s row to one review on GitHub, posted only on your press', async ({
+    page,
+  }) => {
+    const head = await askForReview(page);
+    const panel = page.getByRole('region', { name: 'Needs your attention' });
+    await panel.getByRole('button', { name: `Review web-app #${String(reviewed)} with Claude` }).click();
+
+    await expect(page).toHaveURL(/\/sessions\/[0-9a-f]{16}$/);
+    await expect(page.getByRole('heading', { level: 1, name: `Review web-app #${String(reviewed)}` })).toBeVisible();
+    const move = page.getByRole('status', { name: 'Claude found nothing to comment on.' });
+    await expect(move).toBeVisible({ timeout: 15_000 });
+    // The Changes tab shows the pull request's own file, from the checkout of its head.
+    await expect(
+      page.getByRole('list', { name: 'Changed files' }).getByRole('button', { name: /^people\.ts/ }),
+    ).toBeVisible();
+    // Claude read and finished: GitHub has nothing yet (AC-17).
+    expect(await posted(page)).toEqual([]);
+
+    const check = async () => {
+      await page.addScriptTag({ path: axePath });
+      return page.evaluate(async () => {
+        const moving = document
+          .getAnimations()
+          .filter(
+            (animation) =>
+              animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
+          );
+        await Promise.allSettled(moving.map((animation) => animation.finished));
+        const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
+        return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
+      });
+    };
+    const url = page.url();
+    for (const width of [1280, 360]) {
+      for (const colorScheme of ['light', 'dark'] as const) {
+        await page.setViewportSize({ width, height: 800 });
+        await page.emulateMedia({ colorScheme });
+        await page.goto(url);
+        await page.getByRole('button', { name: 'Post review' }).click();
+        const said = `${String(width)} px, ${colorScheme}`;
+        await expect(dialog(page, `Post your review on #${String(reviewed)}`)).toBeVisible();
+        expect(await check(), said).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth), said).toBeLessThanOrEqual(width);
+        await page.keyboard.press('Escape');
+      }
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.emulateMedia({ colorScheme: 'light' });
+    expect(await posted(page)).toEqual([]);
+
+    await page.getByRole('button', { name: 'Post review' }).click();
+    const post = dialog(page, `Post your review on #${String(reviewed)}`);
+    await expect(post.getByRole('textbox', { name: 'Summary' })).toHaveValue(
+      'Added row selection and an Archive selected button.',
+    );
+    await post.getByRole('button', { name: 'Post review' }).click();
+
+    await expect(page.getByRole('status', { name: 'Review posted' })).toBeVisible();
+    expect(await posted(page)).toEqual([
+      {
+        owner: 'acme',
+        repository: 'web-app',
+        number: reviewed,
+        commit_id: head,
+        body: 'Added row selection and an Archive selected button.',
+        event: 'COMMENT',
+        comments: [],
+      },
+    ]);
+  });
+});

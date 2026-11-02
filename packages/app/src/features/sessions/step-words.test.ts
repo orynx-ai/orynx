@@ -550,3 +550,19 @@ describe('stepWords (spec 042)', () => {
     expect(step({ ...server, event: 'exited', port: null }).title).toBe('The server ended before it listened');
   });
 });
+
+describe('stepWords (spec 050)', () => {
+  it('AC-8: a comment is a step on its file and line', () => {
+    expect(step({ kind: 'commented', state: 'done', path: 'src/a.ts', line: 42, side: 'new' })).toEqual({
+      title: 'Commented on src/a.ts:42',
+      detail: null,
+    });
+  });
+
+  it("AC-6: a review from the diff only says why: no saved folder, or git couldn't fetch it", () => {
+    const diffOnly = (reason: 'no_folder' | 'fetch_failed') =>
+      step({ kind: 'diff_only', state: 'done', repository: 'acme/web-app', reason }).title;
+    expect(diffOnly('no_folder')).toBe('Claude reviews from the diff only: no saved folder holds acme/web-app.');
+    expect(diffOnly('fetch_failed')).toBe("Claude reviews from the diff only: git couldn't fetch acme/web-app.");
+  });
+});

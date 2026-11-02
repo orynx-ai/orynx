@@ -31,6 +31,8 @@ export const ApiErrorCodeSchema = z.enum([
   'wrong_password',
   /** Nothing to update, Restart to update before a download is ready, or a clone started by hand (spec 045). */
   'update_unavailable',
+  /** A review comment went to GitHub already, so it stays as it went (spec 050). */
+  'already_posted',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;

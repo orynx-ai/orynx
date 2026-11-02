@@ -305,6 +305,22 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({ kind: z.literal('no_commands'), reason: z.enum(['no_sandbox']) }),
   /** Claude finished, with its own summary of what it changed. */
   ActivityBaseSchema.extend({ kind: z.literal('finished'), summary: z.string() }),
+  /** Claude left a review comment on a line of the pull request's diff (spec 050); Orynx kept it, GitHub has nothing. */
+  ActivityBaseSchema.extend({
+    kind: z.literal('commented'),
+    path: z.string().min(1),
+    line: z.int().positive(),
+    side: z.enum(['new', 'old']),
+  }),
+  /**
+   * A review reads the pull request's diff alone (spec 050, AC-6): no saved folder holds its repository, or git
+   * couldn't fetch it. Never git's own words, which can hold paths and remote addresses.
+   */
+  ActivityBaseSchema.extend({
+    kind: z.literal('diff_only'),
+    repository: GitHubRepositorySchema,
+    reason: z.enum(['no_folder', 'fetch_failed']),
+  }),
   /** You wrote to Claude in the follow-up box (spec 013): exactly the text Claude got. */
   ActivityBaseSchema.extend({ kind: z.literal('message'), text: z.string().min(1) }),
   /**
@@ -513,6 +529,49 @@ export const ComposerChipSchema = z.discriminatedUnion('kind', [
 ]);
 export type ComposerChip = z.infer<typeof ComposerChipSchema>;
 
+/** GitHub's limit on a review's and a comment's text (spec 050). */
+export const mostReviewTextCharacters = 65_536;
+/** Claude's line comments in one review session (spec 050, Q5). */
+export const mostReviewComments = 20;
+
+/**
+ * A line comment Claude left (spec 050), on the new file's line (added or unchanged) or the old file's (removed), as
+ * the Changes tab numbers them. You keep or drop it and may edit its text; `postedAt` once it went out in a review.
+ */
+export const ReviewCommentSchema = z.object({
+  id: z.string().min(1),
+  path: z.string().min(1),
+  line: z.int().positive(),
+  side: z.enum(['new', 'old']),
+  text: z.string().trim().min(1).max(mostReviewTextCharacters),
+  keep: z.boolean(),
+  postedAt: z.iso.datetime().nullable(),
+});
+export type ReviewComment = z.infer<typeof ReviewCommentSchema>;
+
+export const ReviewVerdictSchema = z.enum(['comment', 'approve', 'request_changes']);
+export type ReviewVerdict = z.infer<typeof ReviewVerdictSchema>;
+
+/**
+ * A review of someone else's pull request (spec 050): which one, the commit Claude read (null until Orynx knows it),
+ * Claude's comments, its summary and the verdict it would give (null until a run ends with them), and each review you
+ * posted from it.
+ */
+export const SessionReviewSchema = z.object({
+  repository: GitHubRepositorySchema,
+  number: z.int().positive(),
+  url: GitHubLinkSchema,
+  commit: z
+    .string()
+    .regex(/^[0-9a-f]{40}$/)
+    .nullable(),
+  comments: z.array(ReviewCommentSchema).max(mostReviewComments),
+  summary: z.string().nullable(),
+  verdict: ReviewVerdictSchema.nullable(),
+  posted: z.array(z.object({ url: GitHubLinkSchema, at: z.iso.datetime() })).default([]),
+});
+export type SessionReview = z.infer<typeof SessionReviewSchema>;
+
 /** GET /api/sessions/:id: everything the Session screen shows (spec 011). */
 export const SessionSchema = SessionSummarySchema.extend({
   /** The folder Claude works in, as Settings › Repositories shows it; null for an Ask with no folder (spec 031). */
@@ -585,6 +644,8 @@ export const SessionSchema = SessionSummarySchema.extend({
    * pushed it, and nothing waits to be committed. The server works it out as it sends a session.
    */
   unpushed: z.boolean().default(true),
+  /** An Ask that reviews someone else's pull request (spec 050); null for any other session, and before spec 050. */
+  review: SessionReviewSchema.nullable().default(null),
 });
 export type Session = z.infer<typeof SessionSchema>;
 
@@ -656,10 +717,15 @@ export const ComposerStartSchema = z
     mode: SessionModeSchema.optional(),
     /** Start beside the ticket's or pull request's live session instead of answering `existing` (spec 047). */
     another: z.literal(true).optional(),
+    /** Review the one pull request in `context`, someone else's, in an Ask (spec 050); the pull request is the brief. */
+    review: z.literal(true).optional(),
   })
-  .superRefine(({ message, context }, check) => {
+  .superRefine(({ message, context, mode, review }, check) => {
     checkChips(context, check);
-    if (message === '' && !context.some((chip) => chip.kind === 'jira'))
+    if (review === true) {
+      if (mode !== 'ask' || context.length !== 1 || context[0]?.kind !== 'pull_request')
+        check.addIssue({ code: 'custom', message: 'A review is an Ask on one pull request.' });
+    } else if (message === '' && !context.some((chip) => chip.kind === 'jira'))
       check.addIssue({ code: 'custom', message: 'A message, or a ticket as the brief.' });
   });
 export type ComposerStart = z.infer<typeof ComposerStartSchema>;

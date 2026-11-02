@@ -97,6 +97,37 @@ describe('DiffView', () => {
     expect(within(region).getByText('2 lines added, 1 line removed')).toBeInTheDocument();
   });
 
+  it('050 AC-8: puts a note under the line it is on, by side: a removed line by its old number, any other by its new', async () => {
+    const { container } = render(
+      <DiffView
+        path="src/content/ContentList.tsx"
+        lines={lines}
+        noteFor={(line) =>
+          line.kind === 'removed' && line.number === 42 ? (
+            <aside aria-label="Note on old 42">Why drop the rows?</aside>
+          ) : line.kind !== 'removed' && line.number === 43 ? (
+            <aside aria-label="Note on new 43">Name it archive.</aside>
+          ) : null
+        }
+      />,
+    );
+    const code = screen.getByRole('region', { name: 'Changes in ContentList.tsx' });
+    const order = [...code.querySelectorAll('[data-kind], aside')].map((node) =>
+      node.tagName === 'ASIDE' ? node.getAttribute('aria-label') : node.textContent,
+    );
+    expect(order).toEqual([
+      '41 export function ContentList({ items }: Props) {',
+      '42−  const [rows] = useState(items);',
+      'Note on old 42',
+      '42+  const { selected, toggle } = useSelection(items);',
+      '43+  const archive = useBulkArchive();',
+      'Note on new 43',
+      '44+\n',
+      '45   return (',
+    ]);
+    await expectNoAxeViolations(container);
+  });
+
   it('AC-26: the loading form is hidden from screen readers (its size is checked in the browser)', async () => {
     const { container } = render(<DiffViewSkeleton lines={6} />);
 

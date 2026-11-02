@@ -120,6 +120,8 @@ export const composerWords = {
     },
     checks_failing: { label: 'Fix failing checks', message: (label: string) => `Fix the failing checks on ${label}.` },
   },
+  /** Review with Claude on someone else's pull request (spec 050): its tooltip, and its name for the row's pull request. */
+  review: { label: 'Review with Claude', name: (label: string) => `Review ${label} with Claude` },
   /** A Home row's + (spec 022, Q3, Q12): its tooltip, its name for the chip it adds, and what a screen reader hears. */
   row: {
     add: 'Add to composer',

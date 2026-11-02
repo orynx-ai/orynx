@@ -25,6 +25,7 @@ import {
   acceptingPullStates,
   acceptingRepository,
   acceptingReviewThreads,
+  acceptingReviews,
   acceptingUser,
 } from '../../packages/core/src/test/fake-github.ts';
 import { http, HttpResponse } from 'msw';
@@ -81,6 +82,8 @@ function handlers() {
     acceptingReviewThreads([{ number: 2841, threads: tools.reviewThreads ?? [] }], {
       posted: (tools.threadWrites ??= []),
     }),
+    // Post review (spec 050): each review GitHub takes joins the spec's list.
+    acceptingReviews({ posted: (tools.postedReviews ??= []) }),
     acceptingPullStates(tools.pullStates ?? []),
     acceptingPullDiff((tools.pullRequests ?? []).map(({ number, diff }) => ({ number, diff }))),
     acceptingInboxQuery({ reviews: tools.reviews, mine: tools.mine }),

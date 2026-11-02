@@ -112,6 +112,27 @@ export type GitHubReviewThreads =
 export type GitHubThreadChange =
   { ok: true } | { ok: false; problem: GitHubProblem | { kind: 'refused'; message: string } };
 
+/**
+ * One review on a pull request (spec 050): the commit it was read at, the summary, the verdict, and its line
+ * comments, each on the new file's line (`RIGHT`) or the old file's (`LEFT`).
+ */
+export interface GitHubReview {
+  repository: string;
+  number: number;
+  /** Null: GitHub takes the pull request's latest commit. */
+  commit: string | null;
+  body: string;
+  event: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES';
+  comments: { path: string; line: number; side: 'LEFT' | 'RIGHT'; body: string }[];
+}
+
+/** A review posted, with its place on github.com; or GitHub's own words when it refused it, or a problem. */
+export type GitHubReviewPosted =
+  { ok: true; url: string } | { ok: false; problem: GitHubOpenProblem | { kind: 'refused'; message: string } };
+
+/** How many commits `head` is past `base` (spec 050). */
+export type GitHubCommitsBetween = { ok: true; ahead: number } | { ok: false; problem: GitHubPullProblem };
+
 export interface GitHubClient {
   readonly timeoutMs: number;
   /** Asks GitHub who this token belongs to (`GET /user`). */
@@ -143,6 +164,13 @@ export interface GitHubClient {
   replyToThread(token: string, threadId: string, body: string): Promise<GitHubThreadChange>;
   /** Resolves a review thread (`resolveReviewThread`), only on your press (spec 049). */
   resolveThread(token: string, threadId: string): Promise<GitHubThreadChange>;
+  /** Posts one review as you (`POST /repos/{o}/{r}/pulls/{n}/reviews`), only on your press (spec 050). */
+  postReview(token: string, review: GitHubReview): Promise<GitHubReviewPosted>;
+  /** How far `head` is past `base` (`GET /repos/{o}/{r}/compare/{base}...{head}`), for a review (spec 050). */
+  commitsBetween(
+    token: string,
+    commits: { repository: string; base: string; head: string },
+  ): Promise<GitHubCommitsBetween>;
 }
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
@@ -203,6 +231,16 @@ const PullSchema = z.object({
 const RestPullSchema = z.object({ number: z.int().positive(), html_url: GitHubLinkSchema });
 
 const RepositorySchema = z.object({ default_branch: z.string().min(1) });
+
+const PostedReviewSchema = z.object({ html_url: GitHubLinkSchema });
+
+const CompareSchema = z.object({ ahead_by: z.int().nonnegative() });
+
+/** A review GitHub refused (422): its reasons are strings or objects with a message, else its own message. */
+const RefusalSchema = z.object({
+  message: z.string().optional(),
+  errors: z.array(z.union([z.string(), z.object({ message: z.string().optional() })])).optional(),
+});
 
 const PullStateSchema = z.object({
   state: z.enum(['open', 'closed']),
@@ -744,6 +782,51 @@ export function createGitHubClient({
 
     resolveThread(token, threadId) {
       return changeThread(token, resolveThreadMutation, { thread: threadId });
+    },
+
+    async postReview(token, { repository, number, commit, body, event, comments }) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const answer = await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+          ...partsOf(repository),
+          pull_number: number,
+          ...(commit === null ? {} : { commit_id: commit }),
+          body,
+          event,
+          comments,
+        });
+        const posted = PostedReviewSchema.safeParse(answer.data);
+        return posted.success ? { ok: true, url: posted.data.html_url } : notGitHub;
+      } catch (error) {
+        const failure = FailureSchema.safeParse(error);
+        if (failure.success && failure.data.status === 422) {
+          // GitHub's own words, so the dialog can say why (spec 050, AC-19).
+          const refusal = RefusalSchema.safeParse(failure.data.response?.data).data;
+          const reasons = (refusal?.errors ?? []).map((one) => (typeof one === 'string' ? one : (one.message ?? '')));
+          const said = reasons.find((reason) => reason !== '') ?? refusal?.message;
+          if (said !== undefined && said !== '')
+            return { ok: false, problem: { kind: 'refused', message: said.slice(0, 500) } };
+        }
+        return openFailed(error, signal);
+      }
+    },
+
+    async commitsBetween(token, { repository, base, head }) {
+      const signal = AbortSignal.timeout(timeoutMs);
+      try {
+        const octokit = await octokitFor(token, signal);
+        const answer = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+          ...partsOf(repository),
+          basehead: `${base}...${head}`,
+        });
+        const compared = CompareSchema.safeParse(answer.data);
+        return compared.success ? { ok: true, ahead: compared.data.ahead_by } : notGitHub;
+      } catch (error) {
+        const failure = FailureSchema.safeParse(error);
+        if (failure.success && failure.data.status === 404) return { ok: false, problem: { kind: 'not_found' } };
+        return failed(error, signal);
+      }
     },
   };
 

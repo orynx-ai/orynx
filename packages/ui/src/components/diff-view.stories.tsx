@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { CheckboxBox } from './checkbox.tsx';
+import { ClaudeIcon } from '@hugeicons/core-free-icons';
+import { DiffNote } from './diff-note.tsx';
 import { DiffView, DiffViewSkeleton, type DiffLine } from './diff-view.tsx';
+import { Icon } from './icon.tsx';
 import { Pill } from './pill.tsx';
 
 const lines: DiffLine[] = [
@@ -92,6 +95,19 @@ export const Hunks: Story = {
   },
 };
 /** Loading: shown here above the real diff, with the same number of lines. */
+/** A review's comment under the line it's on (spec 050), with Wrap lines on as the Changes tab has it. */
+export const WithNote: Story = {
+  args: {
+    wrap: true,
+    noteFor: (line) =>
+      line.kind === 'added' && line.number === 43 ? (
+        <DiffNote aria-label="Claude on line 43" mark={<Icon icon={ClaudeIcon} />} author="Claude">
+          Nothing calls archive yet: wire it to the toolbar, or leave it out of this change.
+        </DiffNote>
+      ) : null,
+  },
+};
+
 export const Loading: Story = {
   render: (args) => (
     <div className="flex flex-col gap-3">

@@ -461,3 +461,64 @@ describe('what the quick read learns about branches (spec 042)', () => {
     expect(await worktrees.hints(repos.worktrees)).toBeNull();
   });
 });
+
+describe('a review’s checkout of someone else’s pull request (spec 050)', () => {
+  const path = (repos: { worktrees: string }) => join(repos.worktrees, 'fedcba9876543210');
+
+  /** A pull request whose head origin holds only as `refs/pull/2841/head`, as a fork's is; its branch point too. */
+  async function pullInOrigin(repos: Awaited<ReturnType<typeof repositories>>) {
+    const from = await repos.git(repos.origin, 'rev-parse', 'refs/heads/main');
+    const head = await repos.commitInOrigin('pr.txt', 'their-branch');
+    await repos.git(repos.origin, 'update-ref', 'refs/pull/2841/head', head);
+    await repos.git(repos.origin, 'update-ref', '-d', 'refs/heads/their-branch');
+    return { from, head };
+  }
+
+  it('AC-4, AC-5: fetches the head by its pull ref, makes a detached worktree there, and starts the diff where it left main', async () => {
+    const { repos, worktrees } = await setUp();
+    const { from, head } = await pullInOrigin(repos);
+    // main moves on after the branch left it: the diff still starts at the branch point, as GitHub's does.
+    await repos.commitInOrigin('later.txt');
+
+    expect(await worktrees.review(repos.clone, path(repos), { number: 2841, base: 'main' })).toEqual({
+      ok: true,
+      head,
+      startCommit: from,
+    });
+    expect(await repos.git(path(repos), 'rev-parse', 'HEAD')).toBe(head);
+    expect(await repos.git(path(repos), 'branch', '--show-current')).toBe('');
+  });
+
+  it('AC-4: leaves the folder with no branch or ref for the pull request, and its own checkout as it was', async () => {
+    const { repos, worktrees } = await setUp();
+    await pullInOrigin(repos);
+    const checkout = () =>
+      Promise.all([
+        repos.git(repos.clone, 'branch', '--show-current'),
+        repos.git(repos.clone, 'rev-parse', 'HEAD'),
+        repos.git(repos.clone, 'status', '--porcelain=v1'),
+      ]);
+    const before = await checkout();
+
+    expect(await worktrees.review(repos.clone, path(repos), { number: 2841, base: 'main' })).toMatchObject({
+      ok: true,
+    });
+    expect(await checkout()).toEqual(before);
+    expect(await repos.git(repos.clone, 'for-each-ref', '--format=%(refname)')).toBe(
+      ['refs/heads/main', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main'].join('\n'),
+    );
+  });
+
+  it("AC-6: a pull request origin doesn't have, or a folder that isn't a repository, is a problem and no worktree", async () => {
+    const { repos, worktrees } = await setUp();
+    expect(await worktrees.review(repos.clone, path(repos), { number: 9, base: 'main' })).toEqual({
+      ok: false,
+      problem: { kind: 'git', step: 'fetch' },
+    });
+    expect(await exists(path(repos))).toBe(false);
+    expect(await worktrees.review(repos.root, path(repos), { number: 2841, base: 'main' })).toEqual({
+      ok: false,
+      problem: { kind: 'folder' },
+    });
+  });
+});

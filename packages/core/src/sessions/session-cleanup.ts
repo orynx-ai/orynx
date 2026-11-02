@@ -25,7 +25,8 @@ function keptBy(record: StoredSession): string[] | null {
 }
 
 async function nothingToLose(record: StoredSession, git: Pick<BranchGit, 'nothingToLose'>): Promise<boolean> {
-  if (record.worktree === null) return true;
+  // A review reads someone else's pull request, read-only (spec 050): nothing in its worktree is yours.
+  if (record.worktree === null || record.session.review !== null) return true;
   const against = keptBy(record);
   return against !== null && git.nothingToLose(record.worktree, against);
 }
