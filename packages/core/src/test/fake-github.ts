@@ -426,6 +426,69 @@ export function acceptingPullStates(
   });
 }
 
+/** A review GitHub got (spec 050), as the request's body had it. */
+export interface FakePostedReview {
+  owner: string;
+  repository: string;
+  number: number;
+  commit_id: string;
+  body: string;
+  event: string;
+  comments: { path: string; line: number; side: string; body: string }[];
+}
+
+/**
+ * GitHub's REST `POST …/pulls/{n}/reviews` (spec 050): each review goes into `posted`, and the answer links to it. A
+ * review with a comment on a line in `refuseLines` (`path:line`) is refused whole with GitHub's 422, as a line
+ * outside the diff is.
+ */
+export function acceptingReviews({
+  posted = [],
+  refuseLines = [],
+  tokens = [githubToken, ghToken],
+}: { posted?: FakePostedReview[]; refuseLines?: readonly string[]; tokens?: readonly string[] } = {}) {
+  return http.post(
+    'https://api.github.com/repos/:owner/:repository/pulls/:number/reviews',
+    async ({ request, params }) => {
+      const no = refused(request, tokens);
+      if (no !== null) return no;
+      const review = (await request.json()) as Omit<FakePostedReview, 'owner' | 'repository' | 'number'>;
+      if (review.comments.some((comment) => refuseLines.includes(`${comment.path}:${String(comment.line)}`))) {
+        return HttpResponse.json(
+          { message: 'Unprocessable Entity', errors: ['Line could not be resolved'] },
+          { status: 422 },
+        );
+      }
+      const owner = String(params['owner']);
+      const repository = String(params['repository']);
+      const number = Number(params['number']);
+      posted.push({ owner, repository, number, ...review });
+      const id = posted.length;
+      return HttpResponse.json({
+        id,
+        state: review.event === 'APPROVE' ? 'APPROVED' : review.event === 'COMMENT' ? 'COMMENTED' : 'CHANGES_REQUESTED',
+        html_url: `https://github.com/${owner}/${repository}/pull/${String(number)}#pullrequestreview-${String(id)}`,
+      });
+    },
+  );
+}
+
+/**
+ * GitHub's REST `GET …/compare/{base}...{head}` (spec 050) over one line of commits, oldest first: `ahead_by` is how
+ * far along `head` is from `base`. A commit the line doesn't hold is GitHub's 404.
+ */
+export function acceptingCompare(history: readonly string[], { tokens = [githubToken, ghToken] } = {}) {
+  return http.get('https://api.github.com/repos/:owner/:repository/compare/:basehead', ({ request, params }) => {
+    const no = refused(request, tokens);
+    if (no !== null) return no;
+    const [base = '', head = ''] = String(params['basehead']).split('...');
+    if (!history.includes(base) || !history.includes(head))
+      return HttpResponse.json({ message: 'Not Found', status: '404' }, { status: 404 });
+    const ahead = history.indexOf(head) - history.indexOf(base);
+    return HttpResponse.json({ status: ahead > 0 ? 'ahead' : 'identical', ahead_by: Math.max(ahead, 0) });
+  });
+}
+
 /** A pull request GitHub holds, as the fake opens and lists them (spec 014). */
 export interface FakeOpenedPull {
   owner: string;

@@ -10,7 +10,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: The review endpoints' shapes: a comment's change, the status (commits pushed since), posting and its answer; their routes (AC-12, AC-16, AC-18, AC-19, AC-20)
       Check: pnpm test packages/contracts/src/review.test.ts; pnpm typecheck
       Files: packages/contracts/src/review.ts, packages/contracts/src/review.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
-- [ ] Task 3: The GitHub client posts a review in one call, and `pullState` says how many commits the PR has; 403, SSO, rate limit, 422 and no network each map to a problem (AC-16, AC-19, AC-20)
+- [x] Task 3: The GitHub client posts a review in one call, and `commitsBetween` says how many commits were pushed after the one Claude read (GitHub's compare); 403, SSO, rate limit, 422 and no network each map to a problem (AC-16, AC-19, AC-20)
       Check: pnpm test packages/core/src/integrations/github/client.test.ts
       Files: packages/core/src/integrations/github/client.ts, packages/core/src/integrations/github/client.test.ts, packages/core/src/test/fake-github.ts
 

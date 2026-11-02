@@ -6,6 +6,8 @@ import {
   acceptingPullDiff,
   acceptingPulls,
   acceptingPullStates,
+  acceptingCompare,
+  acceptingReviews,
   acceptingRepository,
   acceptingReviewThreads,
   githubLogin,
@@ -20,9 +22,10 @@ import {
   type FakeOpenedPull,
   type FakePullContext,
   type FakePullState,
+  type FakePostedReview,
   type FakeThreadWrite,
 } from '../../test/fake-github.ts';
-import { createGitHubClient, type GitHubCheck } from './client.ts';
+import { createGitHubClient, type GitHubCheck, type GitHubReview } from './client.ts';
 
 const github = useFakeGitHub();
 const client = createGitHubClient({ timeoutMs: 200 });
@@ -741,6 +744,113 @@ describe('review threads (spec 049)', () => {
     expect(await client.replyToThread(githubToken, 'PRRT_a', 'Done.')).toMatchObject({
       ok: false,
       problem: { kind: 'unreachable' },
+    });
+  });
+});
+
+describe('GitHub client: posting a review (spec 050)', () => {
+  const commit = 'b'.repeat(40);
+  const review: GitHubReview = {
+    repository: 'acme/web-app',
+    number: 2841,
+    commit,
+    body: 'Two bugs in the error path.',
+    event: 'REQUEST_CHANGES',
+    comments: [
+      { path: 'src/a.ts', line: 42, side: 'RIGHT', body: 'This drops the error.' },
+      { path: 'src/b.ts', line: 7, side: 'LEFT', body: 'Why remove the guard?' },
+    ],
+  };
+  const reviewsUrl = 'https://api.github.com/repos/acme/web-app/pulls/2841/reviews';
+
+  it('AC-16: posts one review, at the commit Claude read, sending the token to api.github.com only', async () => {
+    const posted: FakePostedReview[] = [];
+    const seen: Request[] = [];
+    github.use(acceptingReviews({ posted }));
+    github.events.on('request:start', ({ request }) => {
+      seen.push(request.clone());
+    });
+
+    expect(await client.postReview(githubToken, review)).toEqual({
+      ok: true,
+      url: 'https://github.com/acme/web-app/pull/2841#pullrequestreview-1',
+    });
+    expect(posted).toEqual([
+      {
+        owner: 'acme',
+        repository: 'web-app',
+        number: 2841,
+        commit_id: commit,
+        body: review.body,
+        event: 'REQUEST_CHANGES',
+        comments: review.comments,
+      },
+    ]);
+    expect(seen.map((request) => request.url)).toEqual([reviewsUrl]);
+    expect(seen[0]?.headers.get('authorization')).toBe(`token ${githubToken}`);
+    github.events.removeAllListeners();
+  });
+
+  it("AC-19: a review GitHub refuses comes back with GitHub's own words, and nothing is posted", async () => {
+    const posted: FakePostedReview[] = [];
+    github.use(acceptingReviews({ posted, refuseLines: ['src/b.ts:7'] }));
+    expect(await client.postReview(githubToken, review)).toEqual({
+      ok: false,
+      problem: { kind: 'refused', message: 'Line could not be resolved' },
+    });
+    expect(posted).toEqual([]);
+
+    github.use(http.post(reviewsUrl, () => HttpResponse.json({ message: 'Validation Failed' }, { status: 422 })));
+    expect(await client.postReview(githubToken, review)).toEqual({
+      ok: false,
+      problem: { kind: 'refused', message: 'Validation Failed' },
+    });
+  });
+
+  it('AC-20: single sign-on, no permission, the rate limit and no network are each a problem, never a throw', async () => {
+    const sso = 'https://github.com/orgs/acme/sso?authorization_request=abc';
+    github.use(
+      http.post(reviewsUrl, () =>
+        HttpResponse.json(
+          { message: 'Forbidden' },
+          { status: 403, headers: { 'x-github-sso': `required; url=${sso}` } },
+        ),
+      ),
+    );
+    expect(await client.postReview(githubToken, review)).toEqual({ ok: false, problem: { kind: 'sso', url: sso } });
+
+    github.use(http.post(reviewsUrl, () => HttpResponse.json({ message: 'Resource not accessible' }, { status: 403 })));
+    expect(await client.postReview(githubToken, review)).toEqual({ ok: false, problem: { kind: 'forbidden' } });
+
+    github.use(http.post(reviewsUrl, () => HttpResponse.json({ message: 'Not Found' }, { status: 404 })));
+    expect(await client.postReview(githubToken, review)).toEqual({ ok: false, problem: { kind: 'forbidden' } });
+
+    github.use(
+      http.post(reviewsUrl, () =>
+        HttpResponse.json(
+          { message: 'API rate limit exceeded' },
+          { status: 403, headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1793628300' } },
+        ),
+      ),
+    );
+    expect(await client.postReview(githubToken, review)).toEqual({
+      ok: false,
+      problem: { kind: 'rate_limited', resetAt: 1_793_628_300_000 },
+    });
+
+    github.use(http.post(reviewsUrl, () => HttpResponse.error()));
+    expect(await client.postReview(githubToken, review)).toMatchObject({ ok: false, problem: { kind: 'unreachable' } });
+  });
+
+  it('AC-18: counts the commits pushed after the one Claude read', async () => {
+    const history = ['1'.repeat(40), commit, 'c'.repeat(40), 'd'.repeat(40)];
+    github.use(acceptingCompare(history));
+    const pull = { repository: 'acme/web-app', base: commit };
+    expect(await client.commitsBetween(githubToken, { ...pull, head: 'd'.repeat(40) })).toEqual({ ok: true, ahead: 2 });
+    expect(await client.commitsBetween(githubToken, { ...pull, head: commit })).toEqual({ ok: true, ahead: 0 });
+    expect(await client.commitsBetween(githubToken, { ...pull, head: 'e'.repeat(40) })).toEqual({
+      ok: false,
+      problem: { kind: 'not_found' },
     });
   });
 });
