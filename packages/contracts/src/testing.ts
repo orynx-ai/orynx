@@ -12,6 +12,8 @@ import {
 } from './changes.ts';
 import { ClaudeSignedInSchema, type ClaudeSignedIn } from './claude.ts';
 import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
+import { SlackConnectionSchema, type SlackConnection } from './slack.ts';
+import { DiscordConnectionSchema, type DiscordConnection } from './discord.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
 import {
@@ -402,6 +404,24 @@ export function makeJiraConnection(overrides: Partial<JiraConnection> = {}): Jir
 /** GitHub as the server reports it: not connected, no `.env` token and no gh, unless the override says otherwise. */
 export function makeGitHubConnection(overrides: Partial<GitHubConnection> = {}): GitHubConnection {
   return GitHubConnectionSchema.parse({ saved: null, envToken: false, ghFound: false, ...overrides });
+}
+
+/** Slack connected as Neha K. in Acme, unless the override says otherwise (spec 016). */
+export function makeSlackConnection(overrides: Partial<SlackConnection> = {}): SlackConnection {
+  return SlackConnectionSchema.parse({
+    saved: { workspace: 'Acme', url: 'https://acme.slack.com/', userId: 'U024BE7LH', name: 'Neha K.' },
+    envToken: false,
+    ...overrides,
+  });
+}
+
+/** Discord connected through a bot named Orynx, unless the override says otherwise (spec 016). */
+export function makeDiscordConnection(overrides: Partial<DiscordConnection> = {}): DiscordConnection {
+  return DiscordConnectionSchema.parse({
+    saved: { bot: 'Orynx', userId: '80351110224678912' },
+    envToken: false,
+    ...overrides,
+  });
 }
 
 export interface PreferencesOverrides {

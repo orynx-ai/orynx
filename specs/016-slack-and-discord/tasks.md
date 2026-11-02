@@ -16,7 +16,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: `discord` joins `IntegrationIdSchema` and `StatusSchema.integrations`; every record keyed by a tool is filled (token keys, keychain account, `makeStatus`, the app's `toolNames`, `howToConnect`, `reads`, `items`), and Discord reads `not_connected` (AC-5, AC-9)
       Check: pnpm test packages/contracts/src/status.test.ts; pnpm typecheck
       Files: packages/contracts/src/status.ts, packages/contracts/src/testing.ts, packages/core/src/secrets/keychain.ts, packages/core/src/status/status-service.ts, apps/server/src/config.ts, .env.example, packages/app/src/features/settings/components/connection-words.ts
-- [ ] Task 4: Slack's and Discord's connection shapes (request with token, Discord's optional user ID; saved connection; answer) and their paths in `routes.ts` (AC-2, AC-3, AC-6, AC-7, AC-8)
+- [x] Task 4: Slack's and Discord's connection shapes (request with token, Discord's optional user ID; saved connection; answer) and their paths in `routes.ts` (AC-2, AC-3, AC-6, AC-7, AC-8)
       Check: pnpm test packages/contracts/src/slack.test.ts packages/contracts/src/discord.test.ts; pnpm typecheck
       Files: packages/contracts/src/slack.ts, packages/contracts/src/discord.ts, their tests, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
 - [ ] Task 5: The inbox grows: `slack` and `discord` sources, tabs and tool states; the `message` subject, the `no_reply` reason, `SlackLinkSchema` and `DiscordLinkSchema` in targets and sync changes; every record and switch filled (AC-10, AC-11, AC-16, AC-19)

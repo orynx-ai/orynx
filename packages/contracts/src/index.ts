@@ -7,6 +7,8 @@ export * from './errors.ts';
 export * from './files.ts';
 export * from './events.ts';
 export * from './github.ts';
+export * from './slack.ts';
+export * from './discord.ts';
 export * from './inbox.ts';
 export * from './jira.ts';
 export * from './jira-tickets.ts';
