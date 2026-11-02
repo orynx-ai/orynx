@@ -1,6 +1,8 @@
 import type { InboxItem, InboxReason, InboxRules, SessionSummary } from '@devhub/contracts';
+import type { DiscordMessageRecord } from '../integrations/discord/map.ts';
 import type { PullRequestRecord } from '../integrations/github/map.ts';
 import type { JiraIssueRecord } from '../integrations/jira/map.ts';
+import type { SlackMessageRecord } from '../integrations/slack/map.ts';
 import { sessionsByTicket } from '../sessions/ticket-sessions.ts';
 
 /**
@@ -12,7 +14,35 @@ import { sessionsByTicket } from '../sessions/ticket-sessions.ts';
 export interface InboxSources {
   jira: readonly JiraIssueRecord[];
   github: readonly PullRequestRecord[];
+  /** Slack's and Discord's messages waiting on your reply (spec 016); none when left out. */
+  slack?: readonly SlackMessageRecord[];
+  discord?: readonly DiscordMessageRecord[];
   sessions: readonly SessionSummary[];
+}
+
+/** How long a message must wait before it's a row (Settings › Inbox rules, spec 016), and the time now. */
+export interface ReplyWait {
+  waitMs: number;
+  now: number;
+}
+
+/** A message waiting on your reply (spec 016, B): who, where, and a link back to it. */
+function messageRow(tool: 'slack' | 'discord', record: SlackMessageRecord | DiscordMessageRecord): InboxItem {
+  return {
+    id: `${tool}:${record.id}`,
+    source: tool,
+    tab: tool,
+    title: record.title,
+    subject: {
+      kind: 'message',
+      from: record.from,
+      channel: record.channel,
+      server: 'server' in record ? record.server : null,
+    },
+    reason: { kind: 'no_reply' },
+    waitingSince: record.waitingSince,
+    target: { kind: 'external', url: record.url },
+  };
 }
 
 /** Q2e: a due date first, then a high-priority bug, then the status category. */
@@ -91,8 +121,16 @@ function sessionRow(session: SessionSummary): InboxItem {
 }
 
 /** Home's rows, longest wait first. */
-export function inboxItems(sources: InboxSources, rules: InboxRules): InboxItem[] {
+export function inboxItems(sources: InboxSources, rules: InboxRules, wait?: ReplyWait): InboxItem[] {
   const rows = new Map<string, InboxItem>();
+  // A message counts once it has waited as long as Settings says, so a change there needs no sync (spec 016).
+  const waited = (record: { waitingSince: string }) =>
+    wait === undefined || wait.now - Date.parse(record.waitingSince) >= wait.waitMs;
+  for (const tool of ['slack', 'discord'] as const) {
+    if (!rules[`${tool}_waiting`]) continue;
+    for (const record of sources[tool] ?? [])
+      if (waited(record)) rows.set(`${tool}:${record.id}`, messageRow(tool, record));
+  }
   if (rules.jira_assigned) for (const record of sources.jira) rows.set(`jira:${record.key}`, jiraRow(record));
   for (const record of sources.github) {
     const row = pullRequestRow(record, rules);

@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { SlackLinkSchema } from '@devhub/contracts';
+import { SlackLinkSchema, type InboxProblem } from '@devhub/contracts';
+import type { SlackProblem } from './client.ts';
+import { describeSlackProblem } from './problems.ts';
 import { tsTime, type SlackMessage } from './rules.ts';
 
 /**
@@ -70,4 +72,18 @@ export function slackRecord(
     waitingSince: slackTime(message.ts),
     url: messageLink(workspace, message.channel, message.ts, message.threadTs),
   };
+}
+
+/** A failed sync as Home's line says it (spec 007, Q5b): a missing scope in Slack's own words. */
+export function slackInboxProblem(problem: SlackProblem): InboxProblem {
+  switch (problem.kind) {
+    case 'rejected':
+      return { kind: 'rejected' };
+    case 'missing_scopes':
+      return { kind: 'other', message: describeSlackProblem(problem) };
+    case 'rate_limited':
+      return { kind: 'rate_limited', until: problem.resetAt === null ? null : new Date(problem.resetAt).toISOString() };
+    default:
+      return { kind: 'no_answer' };
+  }
 }

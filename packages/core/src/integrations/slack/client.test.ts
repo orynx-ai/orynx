@@ -196,6 +196,17 @@ describe('Slack messages waiting on you (spec 016, B)', () => {
     expect(answer.ok && answer.records).toHaveLength(2);
   });
 
+  it('a sender Slack can’t name reads as someone, and the rest of the read goes on', async () => {
+    slack.use(
+      knownUsers(),
+      slackMentions([mention('1793613600.000100', { user: 'U0GONE0001' })]),
+      slackThreads({ 'C024BE91L/1793613600.000100': [{ ts: '1793613600.000100', user: 'U0GONE0001' }] }),
+    );
+
+    const answer = await client.waiting(slackToken, account, { since });
+    expect(answer.ok && answer.records.map((record) => record.from)).toEqual(['someone']);
+  });
+
   it('a refused token or the rate limit stops the read with its problem', async () => {
     slack.use(http.post(`${slackApi}/search.messages`, () => HttpResponse.json({ ok: false, error: 'invalid_auth' })));
     expect(await client.waiting(slackToken, account, { since })).toEqual({ ok: false, problem: { kind: 'rejected' } });

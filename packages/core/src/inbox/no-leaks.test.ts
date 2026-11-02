@@ -26,6 +26,23 @@ import {
   jiraSite,
   myselfUrl,
 } from '../test/fake-jira.ts';
+import {
+  acceptingBot,
+  discordChannels,
+  discordHistory,
+  discordMentions,
+  discordToken,
+  discordUserId,
+} from '../test/fake-discord.ts';
+import {
+  acceptingAuthTest,
+  knownUsers,
+  slackDms,
+  slackMentions,
+  slackThreads,
+  slackToken,
+  slackUserId,
+} from '../test/fake-slack.ts';
 import { cacheFilePath, openInboxCache } from './inbox-cache.ts';
 
 const sessionToken = 'inbox-leaks-session-token-0123456789';
@@ -96,6 +113,77 @@ afterEach(async () => {
 });
 
 describe('the inbox never leaks', () => {
+  it('016 AC-24, AC-33: a Slack and Discord sync logs no token, and keeps no message past its first line', async () => {
+    home = await mkdtemp(join(tmpdir(), 'devhub-inbox-leaks-'));
+    const settings = createFileSettingsStore(home);
+    await settings.update(() => ({
+      slack: { workspace: 'Acme', url: 'https://acme.slack.com/', userId: slackUserId, name: 'Rakesh D.' },
+      discord: { bot: 'Orynx', userId: discordUserId },
+    }));
+    const privateLine = 'The whole stack trace, which stays in the chat';
+    // The hub reads the last 7 days by the real clock, so the mentions are from 3 hours ago.
+    const sent = Date.now() - 3 * 3_600_000;
+    const ts = `${String(Math.floor(sent / 1000))}.000100`;
+    const slackMention = {
+      ts,
+      user: 'U0NEHA0001',
+      text: `<@${slackUserId}> can you confirm?\n${privateLine}`,
+      channel: { id: 'C024BE91L', name: 'web-platform' },
+    };
+    const discordMention = {
+      id: '1434477000000000001',
+      channel_id: '1100000000000000002',
+      author: { id: '1100000000000000050', username: 'arjun' },
+      content: `Mind a look?\n${privateLine}`,
+      mentions: [{ id: discordUserId, username: 'rakesh' }],
+      timestamp: new Date(sent).toISOString(),
+    };
+    outside.use(
+      acceptingAuthTest(),
+      knownUsers(),
+      slackMentions([slackMention]),
+      slackThreads({ [`C024BE91L/${ts}`]: [slackMention] }),
+      ...slackDms({}),
+      ...acceptingBot({ servers: [{ id: '1100000000000000001', name: 'Acme' }] }),
+      discordMentions({ '1100000000000000001': [discordMention] }),
+      discordChannels({ '1100000000000000002': 'web-platform' }),
+      discordHistory({ '1100000000000000002': [discordMention] }),
+    );
+    const log: string[] = [];
+    app = await createServer({
+      token: sessionToken,
+      port,
+      version: 'test',
+      userName: () => Promise.resolve(null),
+      keychain: createMemoryKeychain({ slack: slackToken, discord: discordToken }),
+      settings,
+      cache: openInboxCache(cacheFilePath(home)),
+      logger: {
+        level: 'trace',
+        stream: new Writable({
+          write(chunk: Buffer, _encoding, done) {
+            log.push(chunk.toString());
+            done();
+          },
+        }),
+      },
+    });
+
+    await app.inject({ method: 'POST', url: apiRoutes.inboxRefresh, headers });
+    const activity = await app.inject({ method: 'GET', url: apiRoutes.syncActivity, headers });
+    await app.close();
+    app = undefined;
+
+    const cache = (await readFile(cacheFilePath(home))).toString('latin1');
+    expect(cache).toContain('can you confirm?');
+    expect(cache).toContain('Mind a look?');
+    for (const secret of [slackToken, discordToken, privateLine]) {
+      expect(log.join('')).not.toContain(secret);
+      expect(cache).not.toContain(secret);
+      expect(activity.body).not.toContain(secret);
+    }
+  });
+
   it('AC-28: a sync writes no token to the log, and no token, description or comment text to cache.db or search', async () => {
     home = await mkdtemp(join(tmpdir(), 'devhub-inbox-leaks-'));
     const settings = createFileSettingsStore(home);

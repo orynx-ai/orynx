@@ -1,6 +1,8 @@
 import { syncActivityLimits, type SyncChange } from '@devhub/contracts';
+import { DiscordMessageRecordSchema, type DiscordMessageRecord } from '../integrations/discord/map.ts';
 import { PullRequestRecordSchema, type PullRequestRecord } from '../integrations/github/map.ts';
 import { JiraIssueRecordSchema, type JiraIssueRecord } from '../integrations/jira/map.ts';
+import { SlackMessageRecordSchema, type SlackMessageRecord } from '../integrations/slack/map.ts';
 import type { InboxTool } from './inbox-cache.ts';
 
 /** An item as a change shows it, and what of it counts as changing. */
@@ -29,17 +31,41 @@ function githubItem(record: PullRequestRecord): Item {
   };
 }
 
+/** A message waiting on you (spec 016): "Neha K. in #web-platform", its first line, and its link. */
+function messageItem(record: SlackMessageRecord | DiscordMessageRecord): Item {
+  const { id, from, channel, title, url } = record;
+  return {
+    id,
+    change: { ref: channel === null ? from : `${from} in #${channel}`, title, url },
+    shown: JSON.stringify([title]),
+  };
+}
+
+const readers: Record<InboxTool, (record: unknown) => Item | null> = {
+  jira: (record) => {
+    const parsed = JiraIssueRecordSchema.safeParse(record);
+    return parsed.success ? { ...jiraItem(parsed.data), id: parsed.data.key } : null;
+  },
+  github: (record) => {
+    const parsed = PullRequestRecordSchema.safeParse(record);
+    return parsed.success ? githubItem(parsed.data) : null;
+  },
+  slack: (record) => {
+    const parsed = SlackMessageRecordSchema.safeParse(record);
+    return parsed.success ? messageItem(parsed.data) : null;
+  },
+  discord: (record) => {
+    const parsed = DiscordMessageRecordSchema.safeParse(record);
+    return parsed.success ? messageItem(parsed.data) : null;
+  },
+};
+
 /** Records that still read as the tool's schema says; one from an older shape is left out. */
 function items(tool: InboxTool, records: readonly unknown[]): Map<string, Item> {
   const found = new Map<string, Item>();
   for (const record of records) {
-    if (tool === 'jira') {
-      const parsed = JiraIssueRecordSchema.safeParse(record);
-      if (parsed.success) found.set(parsed.data.key, jiraItem(parsed.data));
-    } else {
-      const parsed = PullRequestRecordSchema.safeParse(record);
-      if (parsed.success) found.set(parsed.data.id, githubItem(parsed.data));
-    }
+    const item = readers[tool](record);
+    if (item !== null) found.set(item.id, item);
   }
   return found;
 }

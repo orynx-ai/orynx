@@ -13,7 +13,7 @@ import { InboxProblemSchema, notificationLimits, type InboxProblem, type InboxSo
  * can't read, or one another version wrote, is deleted and made again.
  */
 
-export type InboxTool = 'jira' | 'github';
+export type InboxTool = InboxSource;
 
 /** A part of the cache with its own records and last sync: a tool's inbox, or Tickets' sprint (spec 008). */
 export type CachePart = InboxTool | 'jira_sprint';

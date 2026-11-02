@@ -7,6 +7,13 @@ import {
   type Preferences,
 } from '@devhub/contracts';
 import type { EventBus } from '../events/event-bus.ts';
+import type { DiscordClient } from '../integrations/discord/client.ts';
+import { discordAccount, type DiscordSyncCredentials } from '../integrations/discord/connection.ts';
+import {
+  discordInboxProblem,
+  DiscordMessageRecordSchema,
+  type DiscordMessageRecord,
+} from '../integrations/discord/map.ts';
 import type { GitHubClient } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
 import {
@@ -23,6 +30,9 @@ import {
   jiraRecords,
   type JiraIssueRecord,
 } from '../integrations/jira/map.ts';
+import type { SlackClient } from '../integrations/slack/client.ts';
+import { slackAccount, type SlackSyncCredentials } from '../integrations/slack/connection.ts';
+import { slackInboxProblem, SlackMessageRecordSchema, type SlackMessageRecord } from '../integrations/slack/map.ts';
 import type { SessionStore } from '../sessions/session-store.ts';
 import type { Settings, SettingsStore } from '../settings/settings-store.ts';
 import type { SprintSyncOutcome } from '../tickets/tickets-service.ts';
@@ -68,6 +78,8 @@ export interface InboxService {
 export interface InboxRecords {
   jira: JiraIssueRecord[];
   github: PullRequestRecord[];
+  slack: SlackMessageRecord[];
+  discord: DiscordMessageRecord[];
   tools: Inbox['tools'];
 }
 
@@ -79,9 +91,14 @@ export interface InboxServiceOptions {
   connections: {
     jira: { credentials(): Promise<JiraSyncCredentials | null> };
     github: { credentials(): Promise<GitHubSyncCredentials | null> };
+    /** Slack and Discord (spec 016); not connected when left out. */
+    slack?: { credentials(): Promise<SlackSyncCredentials | null> };
+    discord?: { credentials(): Promise<DiscordSyncCredentials | null> };
   };
   jira: JiraClient;
   github: GitHubClient;
+  slack?: SlackClient;
+  discord?: DiscordClient;
   /**
    * Tickets' sprint (spec 008), read beside the tools in each sync but on its own: Home's rows and Refresh
    * never wait for it, and it tells open pages itself when it ends. It has its own part of the cache, so it
@@ -104,15 +121,29 @@ export interface InboxServiceOptions {
   now?: () => number;
 }
 
-/** How one tool's part of a sync ended. */
-type Outcome = 'answered' | 'failed' | 'not_connected';
+/**
+ * How one tool's part of a sync ended. `waiting`: the tool answered that it isn't ready yet, as Discord does while it
+ * indexes a server (spec 016, AC-17); nothing is written, so the tool stays as it was.
+ */
+type Outcome = 'answered' | 'failed' | 'not_connected' | 'waiting';
 
-const syncedTools = ['jira', 'github'] as const satisfies readonly InboxTool[];
+const syncedTools = ['jira', 'github', 'slack', 'discord'] as const satisfies readonly InboxTool[];
+
+/** How far back Slack and Discord are read (spec 016, B). */
+const lookBackMs = 7 * 86_400_000;
 
 /** The account a tool is connected as, from the saved settings; null when it isn't connected. */
-function accountOf(settings: Settings, tool: InboxTool): string | null {
-  if (tool === 'jira') return settings.jira === undefined ? null : jiraAccount(settings.jira);
-  return settings.github?.method ?? null;
+export function accountOf(settings: Settings, tool: InboxTool): string | null {
+  switch (tool) {
+    case 'jira':
+      return settings.jira === undefined ? null : jiraAccount(settings.jira);
+    case 'github':
+      return settings.github?.method ?? null;
+    case 'slack':
+      return settings.slack === undefined ? null : slackAccount(settings.slack);
+    case 'discord':
+      return settings.discord === undefined ? null : discordAccount(settings.discord);
+  }
 }
 
 /** Records that still read as the schema says; one from an older shape is left out rather than failing. */
@@ -243,6 +274,49 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     );
   }
 
+  async function syncSlack(started: number): Promise<Outcome> {
+    const credentials = await connections.slack?.credentials();
+    if (credentials == null || options.slack === undefined) return 'not_connected';
+    if (!credentials.ok) return fail('slack', credentials.connection, credentials.problem, started);
+    const { userId, url } = credentials.saved;
+    const answer = await options.slack.waiting(credentials.token, { userId, url }, { since: now() - lookBackMs });
+    if (!answer.ok) return fail('slack', credentials.connection, slackInboxProblem(answer.problem), started);
+    return keep(
+      'slack',
+      credentials.connection,
+      answer.records.map((record) => ({ id: record.id, data: record })),
+      started,
+    );
+  }
+
+  async function syncDiscord(started: number): Promise<Outcome> {
+    const credentials = await connections.discord?.credentials();
+    if (credentials == null || options.discord === undefined) return 'not_connected';
+    if (!credentials.ok) return fail('discord', credentials.connection, credentials.problem, started);
+    const answer = await options.discord.waiting(
+      credentials.token,
+      { userId: credentials.saved.userId },
+      { since: now() - lookBackMs },
+    );
+    if (!answer.ok) return fail('discord', credentials.connection, discordInboxProblem(answer.problem), started);
+    // shortcut: a server still indexing leaves Discord as it was, rows from the other servers included, until a sync
+    // where every server answers; with many servers indexing for long, keep each server's rows apart instead.
+    if (answer.indexing) return 'waiting';
+    return keep(
+      'discord',
+      credentials.connection,
+      answer.records.map((record) => ({ id: record.id, data: record })),
+      started,
+    );
+  }
+
+  const syncs: Record<InboxTool, (started: number) => Promise<Outcome>> = {
+    jira: syncJira,
+    github: syncGitHub,
+    slack: syncSlack,
+    discord: syncDiscord,
+  };
+
   async function sprintPass(sprint: NonNullable<InboxServiceOptions['sprint']>): Promise<void> {
     try {
       // A sprint a disconnected Jira left behind goes, as a tool's rows do.
@@ -282,9 +356,7 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
   async function run(tools: readonly InboxTool[]): Promise<void> {
     if (tools.includes('jira')) syncSprint();
     const started = now();
-    const outcomes = await Promise.allSettled(
-      tools.map((tool) => (tool === 'jira' ? syncJira(started) : syncGitHub(started))),
-    );
+    const outcomes = await Promise.allSettled(tools.map((tool) => syncs[tool](started)));
     const ended = outcomes.map((outcome, index): Outcome => {
       const tool = tools[index] ?? 'jira';
       if (outcome.status === 'rejected') {
@@ -328,8 +400,7 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
   }
 
   function sync(tool?: InboxSource): Promise<void> {
-    // shortcut: Slack and Discord ask nothing until their syncs join (spec 016, task 15).
-    return ask(tool === undefined ? syncedTools : syncedTools.filter((each) => each === tool));
+    return ask(tool === undefined ? syncedTools : [tool]);
   }
 
   function syncAfterChange(): Promise<void> {
@@ -341,17 +412,26 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
 
   async function connectedRecords(): Promise<InboxRecords> {
     const saved = await settings.read();
-    const jira = cachedFor(saved, 'jira');
-    const github = cachedFor(saved, 'github');
+    const cached = {
+      jira: cachedFor(saved, 'jira'),
+      github: cachedFor(saved, 'github'),
+      slack: cachedFor(saved, 'slack'),
+      discord: cachedFor(saved, 'discord'),
+    };
+    const stateOf = (tool: InboxTool) => {
+      const found = cached[tool];
+      return found === 'not_connected' ? ({ state: 'not_connected' } as const) : toolState(found, broken.has(tool));
+    };
+    const kept = <T>(tool: InboxTool, schema: z.ZodType<T>): T[] => {
+      const found = cached[tool];
+      return found === 'not_connected' ? [] : records(found, schema);
+    };
     return {
-      jira: jira === 'not_connected' ? [] : records(jira, JiraIssueRecordSchema),
-      github: github === 'not_connected' ? [] : records(github, PullRequestRecordSchema),
-      tools: {
-        jira: jira === 'not_connected' ? { state: 'not_connected' } : toolState(jira, broken.has('jira')),
-        github: github === 'not_connected' ? { state: 'not_connected' } : toolState(github, broken.has('github')),
-        slack: { state: 'not_connected' },
-        discord: { state: 'not_connected' },
-      },
+      jira: kept('jira', JiraIssueRecordSchema),
+      github: kept('github', PullRequestRecordSchema),
+      slack: kept('slack', SlackMessageRecordSchema),
+      discord: kept('discord', DiscordMessageRecordSchema),
+      tools: { jira: stateOf('jira'), github: stateOf('github'), slack: stateOf('slack'), discord: stateOf('discord') },
     };
   }
 
@@ -362,8 +442,11 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
         options.sessions.list(),
         options.preferences.read(),
       ]);
-      const items = inboxItems({ jira: found.jira, github: found.github, sessions }, preferences.inboxRules);
-      const anyConnected = found.tools.jira.state !== 'not_connected' || found.tools.github.state !== 'not_connected';
+      const items = inboxItems({ ...found, sessions }, preferences.inboxRules, {
+        waitMs: preferences.replyWaitMinutes * 60_000,
+        now: now(),
+      });
+      const anyConnected = Object.values(found.tools).some((tool) => tool.state !== 'not_connected');
       return { items, tools: found.tools, syncedAt: anyConnected ? cache.syncedAt() : null };
     },
 

@@ -144,7 +144,7 @@ function requests(): () => string[] {
   return () => urls;
 }
 
-/** Slack and Discord, which have no sync of their own until spec 016's task 15. */
+/** Slack and Discord, which these tests never connect. */
 const chatNotConnected = { slack: { state: 'not_connected' }, discord: { state: 'not_connected' } } as const;
 
 describe('inbox service', () => {
@@ -507,6 +507,8 @@ describe('inbox service', () => {
       expect(await inbox.records()).toEqual({
         jira: [],
         github: [],
+        slack: [],
+        discord: [],
         tools: { jira: { state: 'syncing' }, github: { state: 'not_connected' }, ...chatNotConnected },
       });
     });

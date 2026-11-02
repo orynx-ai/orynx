@@ -131,8 +131,14 @@ export function createSlackClient({ timeoutMs = 10_000, now = Date.now }: SlackC
       try {
         const names = new Map<string, string>();
         async function nameOf(id: string): Promise<string> {
-          if (!names.has(id))
-            names.set(id, nameOfUser((await call(token, 'users.info', { user: id }))['user']) ?? 'someone');
+          if (!names.has(id)) {
+            // A person Slack won't name (gone, or from another workspace) reads as someone; anything else stops the read.
+            const person = await call(token, 'users.info', { user: id }).catch((error: unknown): Answer => {
+              if (problemOf(error, now).kind === 'slack_error') return {};
+              throw error;
+            });
+            names.set(id, nameOfUser(person['user']) ?? 'someone');
+          }
           return names.get(id) ?? 'someone';
         }
         // Slack's after: leaves out the day it names, so the day before; the rules hold the exact 7 days.

@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { DiscordLinkSchema } from '@devhub/contracts';
+import { DiscordLinkSchema, type InboxProblem } from '@devhub/contracts';
+import type { DiscordProblem } from './client.ts';
+import { describeDiscordProblem } from './problems.ts';
 import type { DiscordMessage } from './rules.ts';
 
 /** Discord's shapes as Orynx's (spec 016, B), pure. A record is one row of the inbox, never the thread (AC-24). */
@@ -51,4 +53,19 @@ export function discordRecord(
     waitingSince: new Date(message.at).toISOString(),
     url: `https://discord.com/channels/${where.guild}/${message.channel}/${message.id}`,
   };
+}
+
+/** A failed sync as Home's line says it (spec 007, Q5b): the intent or a missing user ID in Orynx's words. */
+export function discordInboxProblem(problem: DiscordProblem): InboxProblem {
+  switch (problem.kind) {
+    case 'rejected':
+      return { kind: 'rejected' };
+    case 'intent_off':
+    case 'user_id_needed':
+      return { kind: 'other', message: describeDiscordProblem(problem) };
+    case 'rate_limited':
+      return { kind: 'rate_limited', until: problem.resetAt === null ? null : new Date(problem.resetAt).toISOString() };
+    default:
+      return { kind: 'no_answer' };
+  }
 }

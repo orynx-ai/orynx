@@ -1,8 +1,7 @@
 import type { EventBus } from '../events/event-bus.ts';
-import { jiraAccount } from '../integrations/jira/connection.ts';
 import type { Settings, SettingsStore } from '../settings/settings-store.ts';
 import type { InboxTool } from './inbox-cache.ts';
-import type { InboxService } from './inbox-service.ts';
+import { accountOf, type InboxService } from './inbox-service.ts';
 
 /**
  * When the inbox syncs on its own (spec 007): once at start, every 2 minutes while a page has the event
@@ -23,12 +22,14 @@ export interface InboxScheduleOptions {
   onError?: (error: unknown) => void;
 }
 
-const tools: readonly InboxTool[] = ['jira', 'github'];
+const tools: readonly InboxTool[] = ['jira', 'github', 'slack', 'discord'];
 
 function accounts(settings: Settings): Record<InboxTool, string | null> {
   return {
-    jira: settings.jira === undefined ? null : jiraAccount(settings.jira),
-    github: settings.github?.method ?? null,
+    jira: accountOf(settings, 'jira'),
+    github: accountOf(settings, 'github'),
+    slack: accountOf(settings, 'slack'),
+    discord: accountOf(settings, 'discord'),
   };
 }
 

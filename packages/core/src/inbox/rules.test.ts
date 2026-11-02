@@ -3,6 +3,8 @@ import { defaultPreferences, type InboxRules } from '@devhub/contracts';
 import { makeSessionSummary } from '@devhub/contracts/testing';
 import type { PullRequestRecord } from '../integrations/github/map.ts';
 import type { JiraIssueRecord } from '../integrations/jira/map.ts';
+import type { DiscordMessageRecord } from '../integrations/discord/map.ts';
+import type { SlackMessageRecord } from '../integrations/slack/map.ts';
 import { inboxItems, type InboxSources } from './rules.ts';
 
 function issue(overrides: Partial<JiraIssueRecord> = {}): JiraIssueRecord {
@@ -297,5 +299,75 @@ describe('inbox rules', () => {
         session_waiting: false,
       }),
     ).toEqual([]);
+  });
+});
+
+describe('Slack and Discord rows (spec 016, B)', () => {
+  const now = Date.parse('2026-11-02T13:00:00.000Z');
+  const hour = 3_600_000;
+  const slack = (overrides: Partial<SlackMessageRecord> = {}): SlackMessageRecord => ({
+    id: 'C024BE91L/1793613600.000100',
+    title: 'Can you confirm the archive API returns 207?',
+    from: 'Neha K.',
+    channel: 'web-platform',
+    waitingSince: '2026-11-02T10:00:00.000Z',
+    url: 'https://acme.slack.com/archives/C024BE91L/p1793613600000100',
+    ...overrides,
+  });
+  const discord: DiscordMessageRecord = {
+    id: '1100000000000000002/1434477000000000001',
+    title: 'Mind a look before standup?',
+    from: 'Arjun M.',
+    channel: 'web-platform',
+    server: 'Acme',
+    waitingSince: '2026-11-02T09:00:00.000Z',
+    url: 'https://discord.com/channels/1100000000000000001/1100000000000000002/1434477000000000001',
+  };
+  const chat = (sources: Partial<InboxSources>, rules: Partial<InboxRules> = {}, waitMs = 2 * hour) =>
+    inboxItems(
+      { jira: [], github: [], sessions: [], ...sources },
+      { ...defaultPreferences.inboxRules, ...rules },
+      { waitMs, now },
+    );
+
+  it('AC-10, AC-16: a message waiting past the wait is a row, longest wait first, linking to its tool', () => {
+    expect(chat({ slack: [slack()], discord: [discord] })).toEqual([
+      {
+        id: 'discord:1100000000000000002/1434477000000000001',
+        source: 'discord',
+        tab: 'discord',
+        title: 'Mind a look before standup?',
+        subject: { kind: 'message', from: 'Arjun M.', channel: 'web-platform', server: 'Acme' },
+        reason: { kind: 'no_reply' },
+        waitingSince: '2026-11-02T09:00:00.000Z',
+        target: { kind: 'external', url: discord.url },
+      },
+      {
+        id: 'slack:C024BE91L/1793613600.000100',
+        source: 'slack',
+        tab: 'slack',
+        title: 'Can you confirm the archive API returns 207?',
+        subject: { kind: 'message', from: 'Neha K.', channel: 'web-platform', server: null },
+        reason: { kind: 'no_reply' },
+        waitingSince: '2026-11-02T10:00:00.000Z',
+        target: { kind: 'external', url: slack().url },
+      },
+    ]);
+  });
+
+  it('AC-13, AC-18: a message joins once it has waited as long as the wait, which Settings can change', () => {
+    const newer = slack({ id: 'C024BE91L/1', waitingSince: '2026-11-02T12:00:00.000Z' });
+    expect(chat({ slack: [slack(), newer] }).map((row) => row.id)).toEqual(['slack:C024BE91L/1793613600.000100']);
+    expect(chat({ slack: [slack(), newer] }, {}, 4 * hour)).toEqual([]);
+    expect(chat({ slack: [slack(), newer] }, {}, 30 * 60_000)).toHaveLength(2);
+  });
+
+  it('AC-18: each tool’s rule turns its rows off', () => {
+    expect(chat({ slack: [slack()], discord: [discord] }, { slack_waiting: false }).map((row) => row.source)).toEqual([
+      'discord',
+    ]);
+    expect(chat({ slack: [slack()], discord: [discord] }, { discord_waiting: false }).map((row) => row.source)).toEqual(
+      ['slack'],
+    );
   });
 });
