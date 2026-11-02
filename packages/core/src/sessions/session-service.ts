@@ -3,6 +3,7 @@ import { mkdir, realpath } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { isOrynxKey, mostReviewComments, permissionsFor } from '@devhub/contracts';
 import { readVerdict, reviewTools } from './review-tools.ts';
+import { createReviews } from './review.ts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import { ticketTools } from '../orynx-tickets/tools.ts';
 import type {
@@ -39,6 +40,10 @@ import type {
   StartSessionAnswer,
   StartSessionRequest,
   ComposerStart,
+  PostReviewAnswer,
+  PostReviewRequest,
+  ReviewCommentChange,
+  ReviewStatus,
   TicketStart,
 } from '@devhub/contracts';
 import {
@@ -209,6 +214,16 @@ export interface SessionService {
   draftReplies(id: string): Promise<ReplyDraftAnswer | null>;
   /** Posts the replies and resolves the ticked threads, on your press only (spec 049); null for no such session. */
   postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer | null>;
+  /** Keeps, drops or edits one of Claude's review comments (spec 050); a posted one stays as it went. */
+  changeReviewComment(
+    id: string,
+    commentId: string,
+    change: ReviewCommentChange,
+  ): Promise<'changed' | 'posted' | 'not_found'>;
+  /** How many commits were pushed since Claude read the pull request (spec 050); null for no such session. */
+  reviewStatus(id: string): Promise<ReviewStatus | null>;
+  /** Posts one review, on your press only (spec 050); null for no such session. */
+  postReview(id: string, request: PostReviewRequest): Promise<PostReviewAnswer | null>;
   /**
    * Spec 047: asks GitHub about each pull request of a session in PR open or PR closed whose worktree is still there,
    * and saves it as merged, closed or open again. A merge where nothing would be lost removes the worktree as Delete
@@ -1950,6 +1965,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     adapter,
     ensureBranch: (id) => makeBranch(id),
   });
+  const reviews = createReviews({
+    records,
+    save: change,
+    github: options.github ?? { credentials: () => Promise.resolve(null) },
+    client: githubClient,
+    now,
+  });
   /** Each session's create or push under way, which Discard and closing wait for. */
   const publishing = new Map<string, Promise<unknown>>();
   function whilePublishing<T>(id: string, work: Promise<T>): Promise<T> {
@@ -1970,6 +1992,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     push: (id, request) => whilePublishing(id, pullRequests.push(id, request)),
     draftReplies: (id) => pullRequests.draftReplies(id),
     postReplies: (id, request) => pullRequests.postReplies(id, request),
+    changeReviewComment: (id, commentId, change) => reviews.changeComment(id, commentId, change),
+    reviewStatus: (id) => reviews.status(id),
+    postReview: (id, request) => reviews.post(id, request),
 
     start(request) {
       // Starts on one ticket go one at a time, from Ship or the composer; so do composer starts with no ticket.

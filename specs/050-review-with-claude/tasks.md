@@ -37,7 +37,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: `review.ts`: change a comment (keep, text), the status from the PR's head, and post one review with the kept, unposted comments, marking them posted; errors leave nothing marked (AC-12, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21)
       Check: pnpm test packages/core/src/sessions/review.test.ts
       Files: packages/core/src/sessions/review.ts, packages/core/src/sessions/review.test.ts, packages/core/src/sessions/pull-requests.ts (shared error mapping)
-- [ ] Task 11: The routes: PATCH a comment, GET the status, POST the review, against the real server with the fake GitHub (AC-12, AC-16, AC-17)
+- [x] Task 11: The routes: PATCH a comment, GET the status, POST the review, against the real server with the fake GitHub (AC-12, AC-16, AC-17)
       Check: pnpm test packages/core/src/routes/sessions.test.ts
       Files: packages/core/src/routes/sessions.ts, packages/core/src/routes/sessions.test.ts, packages/core/src/create-server.ts (only if wiring needs it)
 

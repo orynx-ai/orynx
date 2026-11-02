@@ -8,8 +8,10 @@ import {
   ClaudeCommandListSchema,
   FileDiffSchema,
   PortActionAnswerSchema,
+  PostReviewAnswerSchema,
   ReplyAnswerSchema,
   ReplyDraftAnswerSchema,
+  ReviewStatusSchema,
   SendMessageAnswerSchema,
   type Session,
   SessionBriefSchema,
@@ -21,7 +23,7 @@ import {
   StartSessionAnswerSchema,
   tokenHeader,
 } from '@devhub/contracts';
-import { makeSession, makeSessionSummary } from '@devhub/contracts/testing';
+import { makeReviewComment, makeSession, makeSessionReview, makeSessionSummary } from '@devhub/contracts/testing';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { createServer } from '../create-server.ts';
 import { createWorktrees } from '../sessions/worktrees.ts';
@@ -699,6 +701,92 @@ describe('Reply to reviewers (spec 049)', () => {
     expect(
       (await app.inject({ method: 'POST', url: postOf('nope'), headers: noToken, payload: replies })).statusCode,
     ).toBe(401);
+  });
+});
+
+describe('a review session (spec 050)', () => {
+  const commentOf = (id: string, comment: string) =>
+    apiRoutes.sessionReviewComment.replace(':id', id).replace(':commentId', comment);
+  const statusOf = (id: string) => apiRoutes.sessionReviewStatus.replace(':id', id);
+  const postOf = (id: string) => apiRoutes.sessionReview.replace(':id', id);
+  const reviewing = {
+    id: 'review',
+    state: 'done',
+    mode: 'ask',
+    review: makeSessionReview({
+      comments: [
+        makeReviewComment({ id: 'c1' }),
+        makeReviewComment({ id: 'c2', postedAt: '2026-11-01T09:00:00.000Z' }),
+      ],
+    }),
+  } as const;
+
+  it('AC-12: keeps or edits a comment; one already posted stays as it went', async () => {
+    const { app, store } = await serverWith(reviewing);
+    const changed = await app.inject({
+      method: 'PATCH',
+      url: commentOf('review', 'c1'),
+      headers,
+      payload: { keep: false, text: 'Handle the error.' },
+    });
+    expect(changed.statusCode).toBe(204);
+    expect((await store.get('review'))?.session.review?.comments[0]).toMatchObject({
+      keep: false,
+      text: 'Handle the error.',
+    });
+
+    const posted = await app.inject({
+      method: 'PATCH',
+      url: commentOf('review', 'c2'),
+      headers,
+      payload: { keep: false },
+    });
+    expect(posted.statusCode).toBe(409);
+    expect(ApiErrorSchema.parse(posted.json()).code).toBe('already_posted');
+  });
+
+  it('AC-12: refuses nothing to change or empty text, and a comment or session it doesn’t have', async () => {
+    const { app } = await serverWith(reviewing);
+    const answers = await Promise.all([
+      app.inject({ method: 'PATCH', url: commentOf('review', 'c1'), headers, payload: {} }),
+      app.inject({ method: 'PATCH', url: commentOf('review', 'c1'), headers, payload: { text: ' ' } }),
+      app.inject({ method: 'PATCH', url: commentOf('review', 'c9'), headers, payload: { keep: true } }),
+      app.inject({ method: 'PATCH', url: commentOf('nope', 'c1'), headers, payload: { keep: true } }),
+    ]);
+    expect(answers.map((res) => res.statusCode)).toEqual([400, 400, 404, 404]);
+  });
+
+  it("AC-15, AC-17: says it can't ask GitHub while GitHub isn't connected, and refuses a summary GitHub would", async () => {
+    const { app } = await serverWith(reviewing, { id: 'build', state: 'done' });
+    const answers = await Promise.all([
+      app.inject({ method: 'GET', url: statusOf('review'), headers }),
+      app.inject({ method: 'POST', url: postOf('review'), headers, payload: { summary: 'Ok.', verdict: 'comment' } }),
+      app.inject({ method: 'GET', url: statusOf('build'), headers }),
+      app.inject({ method: 'POST', url: postOf('build'), headers, payload: { summary: '', verdict: 'approve' } }),
+    ]);
+    expect(answers.map((res) => res.json<unknown>())).toEqual([
+      ReviewStatusSchema.parse({ result: 'cannot', reason: 'not_connected' }),
+      PostReviewAnswerSchema.parse({ result: 'cannot', reason: 'not_connected' }),
+      ReviewStatusSchema.parse({ result: 'cannot', reason: 'not_review' }),
+      PostReviewAnswerSchema.parse({ result: 'cannot', reason: 'not_review' }),
+    ]);
+    const empty = await app.inject({
+      method: 'POST',
+      url: postOf('review'),
+      headers,
+      payload: { summary: ' ', verdict: 'request_changes' },
+    });
+    expect(empty.statusCode).toBe(400);
+  });
+
+  it('answers 404 for a session it doesn’t have', async () => {
+    const { app } = await serverWith();
+    for (const res of [
+      await app.inject({ method: 'GET', url: statusOf('nope'), headers }),
+      await app.inject({ method: 'POST', url: postOf('nope'), headers, payload: { summary: 'x', verdict: 'comment' } }),
+    ]) {
+      expect(res.statusCode).toBe(404);
+    }
   });
 });
 

@@ -10,6 +10,8 @@ import {
   FileDiffQuerySchema,
   FileDiffSchema,
   PortActionAnswerSchema,
+  PostReviewAnswerSchema,
+  PostReviewRequestSchema,
   PullRequestDraftAnswerSchema,
   PushAnswerSchema,
   PushDraftAnswerSchema,
@@ -18,6 +20,8 @@ import {
   ReplyDraftAnswerSchema,
   ReplyRequestSchema,
   RespondToApprovalRequestSchema,
+  ReviewCommentChangeSchema,
+  ReviewStatusSchema,
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
   SessionBriefSchema,
@@ -51,6 +55,13 @@ const serverFailed: ApiError = {
 };
 
 const ApprovalParamsSchema = SessionParamsSchema.extend({ approvalId: z.string().min(1).max(64) });
+
+const ReviewCommentParamsSchema = SessionParamsSchema.extend({ commentId: z.string().min(1).max(64) });
+
+const noComment: ApiError = { code: 'not_found', message: 'There is no such review comment.' };
+
+/** A comment that went to GitHub already (spec 050); the page words it itself. */
+const alreadyPosted: ApiError = { code: 'already_posted', message: 'That comment is on GitHub already.' };
 
 const notListed: ApiError = { code: 'not_found', message: 'That file isn’t among this session’s changes.' };
 
@@ -316,6 +327,43 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
     },
     async (request, reply) =>
       (await service.postReplies(request.params.id, request.body)) ?? reply.code(404).send(notFound),
+  );
+
+  // Spec 050: a review's comments, what was pushed since Claude read it, and posting it, only on your press.
+  app.patch(
+    apiPaths.sessionReviewComment,
+    {
+      schema: {
+        params: ReviewCommentParamsSchema,
+        body: ReviewCommentChangeSchema,
+        response: { 204: z.undefined(), 404: ApiErrorSchema, 409: ApiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const { id, commentId } = request.params;
+      const result = await service.changeReviewComment(id, commentId, request.body);
+      if (result === 'changed') return reply.code(204).send();
+      return result === 'posted' ? reply.code(409).send(alreadyPosted) : reply.code(404).send(noComment);
+    },
+  );
+
+  app.get(
+    apiPaths.sessionReviewStatus,
+    { schema: { params: SessionParamsSchema, response: { 200: ReviewStatusSchema, 404: ApiErrorSchema } } },
+    async (request, reply) => (await service.reviewStatus(request.params.id)) ?? reply.code(404).send(notFound),
+  );
+
+  app.post(
+    apiPaths.sessionReview,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        body: PostReviewRequestSchema,
+        response: { 200: PostReviewAnswerSchema, 404: ApiErrorSchema },
+      },
+    },
+    async (request, reply) =>
+      (await service.postReview(request.params.id, request.body)) ?? reply.code(404).send(notFound),
   );
 
   app.post(
