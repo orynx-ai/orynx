@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 describe('New ticket says where the ticket goes (spec 039)', () => {
-  it('AC-40: from the page bar’s New, the dialog says it stays in Orynx, not Jira', async () => {
+  it('AC-40: from the page bar’s New, an Orynx ticket says it stays in Orynx, not Jira (Jira first, spec 019)', async () => {
     server.use(ticketsHandler());
     const { user } = await renderApp({ route: '/tickets' });
     await screen.findByText('6 tickets');
@@ -25,6 +25,8 @@ describe('New ticket says where the ticket goes (spec 039)', () => {
     await user.click(within(banner).getByRole('button', { name: 'New ticket' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'New ticket' });
+    expect(dialog).toHaveAccessibleDescription('Goes to Jira’s PROJ project, in Sprint 42.');
+    await user.click(within(dialog).getByRole('button', { name: 'Orynx' }));
     expect(dialog).toHaveAccessibleDescription('Saved in Orynx on this computer. It isn’t added to Jira.');
   });
 
@@ -35,9 +37,9 @@ describe('New ticket says where the ticket goes (spec 039)', () => {
 
     await user.click(screen.getByRole('button', { name: 'New ticket in In progress' }));
 
-    expect(await screen.findByRole('dialog', { name: 'New ticket' })).toHaveAccessibleDescription(
-      'Saved in Orynx on this computer. It isn’t added to Jira.',
-    );
+    const dialog = await screen.findByRole('dialog', { name: 'New ticket' });
+    await user.click(within(dialog).getByRole('button', { name: 'Orynx' }));
+    expect(dialog).toHaveAccessibleDescription('Saved in Orynx on this computer. It isn’t added to Jira.');
   });
 
   it('AC-41: without Jira it doesn’t mention Jira', async () => {

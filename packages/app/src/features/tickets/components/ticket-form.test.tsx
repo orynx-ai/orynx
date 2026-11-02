@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Ticket } from '@devhub/contracts';
-import { makeOrynxTicket, makeTicket, makeTickets } from '@devhub/contracts/testing';
+import { makeJiraTicketTypes, makeOrynxTicket, makeTicket, makeTickets } from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -15,12 +15,18 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** The server: Sprint 42, the tickets made so far, and what each POST was sent. */
+/**
+ * The server: Sprint 42, the tickets made so far, and what each POST was sent. The sprint spans projects, so New
+ * ticket offers Orynx alone (spec 019, AC-7), as spec 037 drew it.
+ */
 function orynxServer({ fails = false, slow = false } = {}) {
   const made: Ticket[] = [];
   const sent: unknown[] = [];
+  const sprint = { id: 42, name: 'Sprint 42', endsAt: '2026-10-24T17:00:00.000Z', projectKey: null };
   server.use(
-    http.get(apiUrl(apiRoutes.tickets), () => HttpResponse.json(makeTickets({ tickets: [...designTickets, ...made] }))),
+    http.get(apiUrl(apiRoutes.tickets), () =>
+      HttpResponse.json(makeTickets({ sprint, tickets: [...designTickets, ...made] })),
+    ),
     http.post(apiUrl(apiRoutes.orynxTickets), async ({ request }) => {
       const body = (await request.json()) as { title: string; status: Ticket['column'] };
       sent.push(body);
@@ -176,5 +182,181 @@ describe('New ticket (spec 037)', () => {
     if (below === undefined) throw new Error('No New ticket under the empty line');
     await user.click(below);
     expect(dialog()).toBeVisible();
+  });
+});
+
+describe('New ticket in Jira (spec 019)', () => {
+  /** Sprint 42 of PROJ on the board, and PROJ's types as `types` says, slow or failing when asked. */
+  function jiraServer({ types = makeJiraTicketTypes(), slow = false, fails = false } = {}) {
+    let asked = 0;
+    server.use(
+      http.get(apiUrl(apiRoutes.tickets), () => HttpResponse.json(makeTickets({ tickets: designTickets }))),
+      http.get(apiUrl(apiRoutes.jiraTicketTypes), async () => {
+        asked += 1;
+        if (slow) await delay(100);
+        if (fails && asked === 1) {
+          return HttpResponse.json({ code: 'integration_unreachable', message: 'No.' }, { status: 502 });
+        }
+        return HttpResponse.json(types);
+      }),
+    );
+  }
+
+  const saveIn = () => within(dialog()).getByRole('group', { name: 'Save in' });
+
+  it('AC-1, AC-14, AC-15: a column’s + opens on Jira’s PROJ, saying where the ticket goes, in that column', async () => {
+    jiraServer();
+    const { user } = await renderApp({ route: '/tickets' });
+
+    await user.click(await screen.findByRole('button', { name: 'New ticket in In progress' }));
+
+    expect(dialog()).toHaveAccessibleDescription('Goes to Jira’s PROJ project, in Sprint 42.');
+    expect(within(dialog()).getByRole('textbox', { name: 'Title' })).toHaveFocus();
+    expect(within(saveIn()).getByRole('button', { name: 'Jira · PROJ' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(saveIn()).getByRole('button', { name: 'Orynx' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(dialog()).getByRole('combobox', { name: 'Status' })).toHaveTextContent('In progress');
+    expect(await within(dialog()).findByRole('combobox', { name: 'Type' })).toHaveTextContent('Task');
+    await expectNoAxeViolations(dialog());
+  });
+
+  it('AC-2: Type and Priority wait as skeletons for PROJ’s types, and Create ticket waits with them', async () => {
+    jiraServer({ slow: true });
+    const { user } = await renderApp({ route: '/tickets' });
+    await user.click(await screen.findByRole('button', { name: 'New ticket' }));
+
+    expect(within(dialog()).queryByRole('combobox', { name: 'Type' })).toBeNull();
+    expect(within(dialog()).getByRole('button', { name: 'Create ticket' })).toBeDisabled();
+
+    expect(await within(dialog()).findByRole('combobox', { name: 'Type' })).toHaveTextContent('Task');
+    expect(within(dialog()).getByRole('combobox', { name: 'Priority' })).toHaveTextContent('Medium');
+    expect(within(dialog()).getByRole('button', { name: 'Create ticket' })).toBeEnabled();
+    await user.click(within(dialog()).getByRole('combobox', { name: 'Type' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Task', 'Story', 'Bug']);
+  });
+
+  it('AC-4: a type’s own priorities and due date: a pick it allows stays, else Medium, else its default', async () => {
+    const five = makeJiraTicketTypes().types[0]?.priorities ?? [];
+    jiraServer({
+      types: makeJiraTicketTypes({
+        types: [
+          { id: '10001', name: 'Task', priorities: five, defaultPriorityId: '3', dueDate: true },
+          { id: '10002', name: 'Story', priorities: five.slice(0, 3), defaultPriorityId: '3', dueDate: false },
+          {
+            id: '10009',
+            name: 'Incident',
+            priorities: [
+              { id: '10', name: 'P1' },
+              { id: '11', name: 'P2' },
+            ],
+            defaultPriorityId: '11',
+            dueDate: true,
+          },
+        ],
+      }),
+    });
+    const { user } = await renderApp({ route: '/tickets' });
+    await user.click(await screen.findByRole('button', { name: 'New ticket' }));
+    const pick = async (name: 'Type' | 'Priority', option: string) => {
+      await user.click(await within(dialog()).findByRole('combobox', { name }));
+      await user.click(screen.getByRole('option', { name: option }));
+    };
+
+    await pick('Priority', 'High');
+    await pick('Type', 'Story');
+    expect(within(dialog()).getByRole('combobox', { name: 'Priority' })).toHaveTextContent('High');
+    expect(within(dialog()).queryByRole('button', { name: 'Due date' })).toBeNull();
+
+    await pick('Type', 'Incident');
+    expect(within(dialog()).getByRole('combobox', { name: 'Priority' })).toHaveTextContent('P2');
+    expect(within(dialog()).getByRole('button', { name: 'Due date' })).toBeVisible();
+  });
+
+  it('AC-5: switching to Orynx keeps the title and description, and says it stays in Orynx; back keeps them too', async () => {
+    jiraServer();
+    const { user } = await renderApp({ route: '/tickets' });
+    await user.click(await screen.findByRole('button', { name: 'New ticket' }));
+    await user.type(within(dialog()).getByRole('textbox', { name: 'Title' }), 'Add bulk archive');
+    await user.type(within(dialog()).getByRole('textbox', { name: 'Description' }), 'Several at once.');
+
+    await user.click(within(saveIn()).getByRole('button', { name: 'Orynx' }));
+
+    expect(dialog()).toHaveAccessibleDescription('Saved in Orynx on this computer. It isn’t added to Jira.');
+    expect(within(dialog()).getByRole('textbox', { name: 'Title' })).toHaveValue('Add bulk archive');
+    expect(within(dialog()).getByRole('combobox', { name: 'Type' })).toHaveTextContent('Task');
+
+    await user.click(within(saveIn()).getByRole('button', { name: 'Jira · PROJ' }));
+    expect(dialog()).toHaveAccessibleDescription('Goes to Jira’s PROJ project, in Sprint 42.');
+    expect(within(dialog()).getByRole('textbox', { name: 'Description' })).toHaveValue('Several at once.');
+  });
+
+  it('AC-6: with No sprint picked for PROJ, the ticket goes in no sprint', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.tickets), () =>
+        HttpResponse.json(
+          makeTickets({ sprint: null, choice: { projectKey: 'PROJ', sprintId: 'none' }, tickets: designTickets }),
+        ),
+      ),
+    );
+    const { user } = await renderApp({ route: '/tickets' });
+    await user.click(await screen.findByRole('button', { name: 'New ticket in To do' }));
+
+    expect(dialog()).toHaveAccessibleDescription('Goes to Jira’s PROJ project, with no sprint.');
+  });
+
+  it('AC-7: with only Orynx in Source, there’s no Save in and the ticket stays in Orynx', async () => {
+    jiraServer();
+    const { user } = await renderApp({ route: '/tickets?source=orynx' });
+    await user.click(await within(screen.getByRole('banner')).findByRole('button', { name: 'New ticket' }));
+
+    expect(within(dialog()).queryByRole('group', { name: 'Save in' })).toBeNull();
+    expect(dialog()).toHaveAccessibleDescription('Saved in Orynx on this computer. It isn’t added to Jira.');
+  });
+
+  it('AC-7: with No sprint and no project, there’s nowhere in Jira to put it, so no Save in', async () => {
+    server.use(
+      http.get(apiUrl(apiRoutes.tickets), () =>
+        HttpResponse.json(
+          makeTickets({ sprint: null, choice: { projectKey: null, sprintId: 'none' }, tickets: designTickets }),
+        ),
+      ),
+    );
+    const { user } = await renderApp({ route: '/tickets' });
+    await user.click(await screen.findByRole('button', { name: 'New ticket in To do' }));
+
+    expect(within(dialog()).queryByRole('group', { name: 'Save in' })).toBeNull();
+  });
+
+  it('AC-8: types Jira won’t give say so with Try again, Create ticket is off, and Orynx is still there', async () => {
+    jiraServer({ fails: true });
+    const { user } = await renderApp({ route: '/tickets' });
+    await user.click(await screen.findByRole('button', { name: 'New ticket' }));
+
+    expect(await within(dialog()).findByText('Couldn’t read PROJ’s ticket types from Jira.')).toBeVisible();
+    expect(within(dialog()).queryByRole('combobox', { name: 'Type' })).toBeNull();
+    expect(within(dialog()).getByRole('button', { name: 'Create ticket' })).toBeDisabled();
+    await expectNoAxeViolations(dialog());
+
+    await user.click(within(dialog()).getByRole('button', { name: 'Try again' }));
+    expect(await within(dialog()).findByRole('combobox', { name: 'Type' })).toHaveTextContent('Task');
+  });
+
+  it('AC-13: on Jira, an empty title is refused in 037’s words, and nothing is sent', async () => {
+    const sent: unknown[] = [];
+    jiraServer();
+    server.use(
+      http.post(apiUrl(apiRoutes.jiraTickets), async ({ request }) => {
+        sent.push(await request.json());
+        return HttpResponse.json({ result: 'unreachable' });
+      }),
+    );
+    const { user } = await renderApp({ route: '/tickets' });
+    await user.click(await screen.findByRole('button', { name: 'New ticket' }));
+    await within(dialog()).findByRole('combobox', { name: 'Type' });
+
+    await user.click(within(dialog()).getByRole('button', { name: 'Create ticket' }));
+
+    expect(await within(dialog()).findByText('Add a title.')).toBeVisible();
+    expect(within(dialog()).getByRole('textbox', { name: 'Title' })).toHaveFocus();
+    expect(sent).toEqual([]);
   });
 });

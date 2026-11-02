@@ -213,6 +213,16 @@ export const orynxTicketWords = {
   savedHere: (jira: boolean) =>
     jira ? 'Saved in Orynx on this computer. It isn’t added to Jira.' : 'Saved in Orynx on this computer.',
   newTicketIn: (column: TicketColumn) => `New ticket in ${columnNames[column]}`,
+  /** Spec 019, Q7: where a new ticket is saved, and the line under the heading while it's Jira. */
+  saveIn: 'Save in',
+  jiraPlace: (project: string) => `Jira · ${project}`,
+  orynxPlace: 'Orynx',
+  goesToJira: (project: string, sprint: string | null) =>
+    sprint === null
+      ? `Goes to Jira’s ${project} project, with no sprint.`
+      : `Goes to Jira’s ${project} project, in ${sprint}.`,
+  typesFailed: (project: string) => `Couldn’t read ${project}’s ticket types from Jira.`,
+  tryAgain: 'Try again',
   editTitle: (key: string) => `Edit ${key}`,
   create: 'Create ticket',
   saveChanges: 'Save changes',

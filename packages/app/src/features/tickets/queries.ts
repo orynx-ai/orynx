@@ -1,5 +1,6 @@
 import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  jiraTicketTypesQueryOptions,
   orynxTicketQueryOptions,
   queryKeys,
   ticketQueryOptions,
@@ -9,6 +10,7 @@ import {
 import {
   isOrynxKey,
   type CreateOrynxTicket,
+  type NewJiraTicket,
   type TicketColumn,
   type Tickets,
   type TicketsChoice,
@@ -36,6 +38,22 @@ function yoursInSprint(tickets: Tickets): number {
 export function useTicketsCount(): number | undefined {
   const api = useApi();
   return useQuery({ ...ticketsQueryOptions(api), select: yoursInSprint }).data;
+}
+
+/** A project's types for a new Jira ticket, asked of Jira only while the New ticket dialog is open (spec 019). */
+export function useJiraTicketTypes(project: string | null, open: boolean) {
+  const api = useApi();
+  return useQuery({ ...jiraTicketTypesQueryOptions(api, project ?? ''), enabled: open && project !== null });
+}
+
+/** Makes a Jira ticket (spec 019); Tickets reads again once it's made, as the server's sprint pass does. */
+export function useCreateJiraTicket() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ticket: NewJiraTicket) => api.createJiraTicket(ticket),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.tickets }),
+  });
 }
 
 /** A project's open sprints, asked of Jira only while the Sprint menu is open (spec 020). */

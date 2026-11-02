@@ -17,12 +17,12 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: The API client: the project's types and a new Jira ticket, parsed with the contract (AC-2, AC-3)
       Check: pnpm test packages/api-client/src/jira-tickets.test.ts
       Files: packages/api-client/src/endpoints/tickets.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/api-client/src/jira-tickets.test.ts
-- [ ] Task 6: The form: Save in, Jira's types and priorities, their loading and failed states, and the due date by type (AC-2, AC-4, AC-5, AC-8, AC-13, AC-14, AC-15)
-      Check: pnpm test packages/app/src/features/tickets/components/ticket-form.test.tsx
-      Files: packages/app/src/features/tickets/components/ticket-form.tsx, packages/app/src/features/tickets/components/ticket-form.test.tsx, packages/app/src/features/tickets/schemas.ts, packages/app/src/features/tickets/ticket-words.ts, packages/app/src/features/tickets/queries.ts
-- [ ] Task 7: The dialog and Tickets: Jira first, its line, made, made-but, refused and unreachable, and where New and + show (AC-1, AC-3, AC-6, AC-7, AC-9, AC-10, AC-11, AC-12)
-      Check: pnpm test packages/app/src/features/tickets/components/new-ticket.test.tsx packages/app/src/features/tickets/tickets-screen.test.tsx
-      Files: packages/app/src/features/tickets/components/new-ticket.tsx, packages/app/src/features/tickets/components/new-ticket.test.tsx, packages/app/src/features/tickets/tickets-screen.tsx, packages/app/src/features/tickets/tickets-screen.test.tsx, packages/app/src/features/tickets/ticket-words.ts
+- [x] Task 6: The form opens on Jira first: Save in, its line, Jira's types and priorities, their loading and failed states, the due date by type, and where New and + show (AC-1, AC-2, AC-4, AC-5, AC-6, AC-7, AC-8, AC-13, AC-14, AC-15)
+      Check: pnpm test packages/app/src/features/tickets
+      Files: packages/app/src/features/tickets/components/ticket-form.tsx, packages/app/src/features/tickets/components/ticket-form.test.tsx, packages/app/src/features/tickets/components/new-ticket.tsx, packages/app/src/features/tickets/components/new-ticket.test.tsx, packages/app/src/features/tickets/tickets-screen.tsx, packages/app/src/features/tickets/schemas.ts, packages/app/src/features/tickets/ticket-words.ts, packages/app/src/features/tickets/queries.ts, packages/app/src/test/msw.ts
+- [ ] Task 7: Create ticket on Jira: made, made-but (read-only, Open in Jira and Close), refused and unreachable, and one ticket per press (AC-3, AC-9, AC-10, AC-11, AC-12)
+      Check: pnpm test packages/app/src/features/tickets/components/new-ticket.test.tsx
+      Files: packages/app/src/features/tickets/components/new-ticket.tsx, packages/app/src/features/tickets/components/new-ticket.test.tsx, packages/app/src/features/tickets/components/ticket-form.tsx, packages/app/src/features/tickets/ticket-words.ts
 - [ ] Task 8: e2e: the dialog on Jira at 360 and 1280 px, in light and dark, with axe on each state (AC-16, AC-17)
       Check: pnpm test:e2e e2e/orynx-tickets.spec.ts
       Files: e2e/orynx-tickets.spec.ts, e2e/fake-tools (if the fake Jira needs the new endpoints)

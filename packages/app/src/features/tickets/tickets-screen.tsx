@@ -17,7 +17,7 @@ import { TicketsList, TicketsListSkeleton } from './components/tickets-list.tsx'
 import { SprintPickers } from './components/sprint-pickers.tsx';
 import { TicketsToolbar } from './components/tickets-toolbar.tsx';
 import { ShipSelected } from './components/ship-button.tsx';
-import { NewTicketButton, NewTicketDialog, NewTicketInColumn } from './components/new-ticket.tsx';
+import { NewTicketButton, NewTicketDialog, NewTicketInColumn, type JiraTarget } from './components/new-ticket.tsx';
 import { SyncStatus } from '../home/components/sync-status.tsx';
 import {
   defaultFilters,
@@ -103,6 +103,15 @@ export function TicketsScreen() {
   const choice = data?.choice ?? defaultTicketsChoice;
   // No sprint shows its tickets with no sprint of their own (spec 020, AC-39).
   const withoutSprint = choice.sprintId === 'none';
+  // Spec 019: while Jira's tickets show, a new one goes to Jira first, in the page bar's project or else the sprint's,
+  // and in the sprint on screen or, for No sprint, none. A sprint over several projects, or No sprint for no project,
+  // has nowhere to put it.
+  const jiraProject = orynxOnly ? null : (choice.projectKey ?? sprint?.projectKey ?? null);
+  const jiraTarget: JiraTarget | null =
+    jiraProject === null || (sprint === null && !withoutSprint)
+      ? null
+      : { project: jiraProject, sprint: sprint === null ? null : { id: sprint.id, name: sprint.name } };
+  const canCreate = orynxShown || jiraTarget !== null;
   // Q8c: Jira answered and there's no sprint to show, or the picked project has none (spec 020, AC-28). The page
   // keeps its bar and pickers, the same elements, so a pick that empties or fills it keeps focus where it was.
   const noSprint = !orynxOnly && !loading && sprint === null && !withoutSprint;
@@ -198,7 +207,7 @@ export function TicketsScreen() {
         shown={shown}
         unfiltered={unfiltered}
         now={now}
-        addTo={orynxShown ? (column) => <NewTicketInColumn column={column} /> : undefined}
+        addTo={canCreate ? (column) => <NewTicketInColumn column={column} /> : undefined}
       />
     );
   } else {
@@ -224,7 +233,7 @@ export function TicketsScreen() {
           <>
             {/* When the tools last synced, as the button that opens Sync activity, then Sync (spec 039, Q2). */}
             <SyncStatus />
-            {orynxShown && !noSprint ? <NewTicketButton inPageBar compact={!wide} /> : null}
+            {canCreate && !noSprint ? <NewTicketButton inPageBar compact={!wide} /> : null}
             {noSprint ? null : (
               <>
                 <SegmentedControl
@@ -292,7 +301,7 @@ export function TicketsScreen() {
               assignee.current?.focus();
             }}
           />
-          <NewTicketDialog jira={!jiraOff} />
+          <NewTicketDialog jira={!jiraOff} target={jiraTarget} orynx={orynxShown} />
         </PageBody>
       </Fragment>
     </>
