@@ -28,7 +28,7 @@ Before Task 1: the user applies the design-system patch (Q1a) and it's committed
 - [x] Task 8: App: the running step shimmers, a failed command step is red with its words, and its commands and Claude's to-dos have their marks (AC-1, AC-3, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17)
       Check: pnpm test packages/app/src/features/sessions/step-words.test.ts packages/app/src/features/sessions/components/session-progress.test.tsx packages/app/src/features/sessions/components/step-details.test.tsx
       Files: packages/app/src/features/sessions/step-words.ts, packages/app/src/features/sessions/step-words.test.ts, packages/app/src/features/sessions/components/session-progress.tsx, packages/app/src/features/sessions/components/step-details.tsx, their tests
-- [ ] Task 9: e2e: open Edited 1 file in place on the Session screen, its file opens Changes, and axe finds nothing (AC-5, AC-6, AC-19, AC-20)
+- [x] Task 9: e2e: open Edited 1 file in place on the Session screen, its file opens Changes, and axe finds nothing (AC-5, AC-6, AC-19, AC-20)
       Check: pnpm exec playwright test e2e/sessions.spec.ts
       Files: e2e/sessions.spec.ts
 - [ ] Task 10: STOP and run /review
