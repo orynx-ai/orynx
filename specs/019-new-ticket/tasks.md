@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: The contract: a project's types, a new Jira ticket and its answer, two paths and their builders (AC-2, AC-9, AC-10, AC-11, AC-18)
+- [x] Task 1: The contract: a project's types, a new Jira ticket and its answer, two paths and their builders (AC-2, AC-9, AC-10, AC-11, AC-18)
       Check: pnpm test packages/contracts/src/jira-tickets.test.ts; pnpm typecheck
       Files: packages/contracts/src/jira-tickets.ts, packages/contracts/src/jira-tickets.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
 - [ ] Task 2: Jira's client: create metadata, create, add to sprint, and transitions by status id (AC-2, AC-4, AC-9, AC-11)
