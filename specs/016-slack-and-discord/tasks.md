@@ -70,7 +70,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: `context-reader` reads thread chips (not found, no access and not connected become `context_failed`); the brief's thread section (header, "Neha K., 14:05: …", oldest first, 200 messages and 40,000 characters, "N earlier messages left out."); the stored chip's label comes from what was read (the sessions leak test isn't extended: it fakes Jira with its own MSW server, and thread text reaches only brief.md; the inbox and integration leak tests cover both tokens) (AC-30, AC-31, AC-32)
       Check: pnpm test packages/core/src/sessions/context-reader.test.ts packages/core/src/sessions/brief.test.ts packages/core/src/sessions/compose.test.ts packages/core/src/sessions/no-leaks.test.ts
       Files: packages/core/src/sessions/brief.ts, packages/core/src/sessions/compose.ts, packages/core/src/sessions/no-leaks.test.ts, their tests
-- [ ] Task 19: `GET /api/threads/preview?link=` answers the sender and place, `not_connected` or `not_found` (AC-26, AC-27)
+- [x] Task 19: `GET /api/threads/preview?link=` answers the sender and place, `not_connected` or `not_found` (AC-26, AC-27)
       Check: pnpm test packages/core/src/routes/threads.test.ts
       Files: packages/core/src/routes/threads.ts, packages/core/src/routes/threads.test.ts, packages/core/src/create-server.ts
 - [ ] Task 20: Create pull request saves the PR's title; `thread-reply.ts` posts to the first thread chip (Slack `chat.postMessage` in the thread as you; Discord a Reply from the bot, no pings) and saves `posted`, or answers `failed` with the tool's words; dismiss saves `dismissed`; the two routes (AC-40 to AC-44)

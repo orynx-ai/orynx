@@ -39,6 +39,8 @@ import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
 import { slackRoutes } from './routes/slack.ts';
 import { discordRoutes } from './routes/discord.ts';
+import { threadsRoutes } from './routes/threads.ts';
+import { createThreadPreview } from './threads/thread-preview.ts';
 import { inboxRoutes } from './routes/inbox.ts';
 import { syncActivityRoutes } from './routes/sync-activity.ts';
 import { jiraRoutes } from './routes/jira.ts';
@@ -650,6 +652,14 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       await api.register(githubRoutes, { github });
       await api.register(slackRoutes, { slack });
       await api.register(discordRoutes, { discord });
+      await api.register(threadsRoutes, {
+        preview: createThreadPreview({
+          slack: slackClient,
+          slackConnection: slack,
+          discord: discordClient,
+          discordConnection: discord,
+        }),
+      });
       await api.register(claudeRoutes, { claude });
       await api.register(agentRoutes, {
         // Signed out, Claude Code has nothing to offer, so it isn't started.
