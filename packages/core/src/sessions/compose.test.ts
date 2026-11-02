@@ -4,9 +4,11 @@ import { join } from 'node:path';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
+  ComposerStartSchema,
   CreateOrynxTicketSchema,
   isOrynxKey,
   type ComposerChip,
+  type ComposerStart,
   type Permissions,
   type ServerEvent,
 } from '@devhub/contracts';
@@ -1330,5 +1332,73 @@ describe('which branch a Build works on (spec 031)', () => {
   it('only the first pull request counts', () => {
     expect(pullToWorkOn([pull({ mine: false, number: 1 }), pull({ number: 2 })], 'acme/web-app')).toBeNull();
     expect(pullToWorkOn([pull({ number: 1 }), pull({ number: 2 })], 'acme/web-app')).toMatchObject({ number: 1 });
+  });
+});
+
+describe('a review of someone else’s pull request (spec 050)', () => {
+  /** web-app's folder, whose origin reads as github.com/acme/web-app and is the bare repository standing in for it. */
+  async function onGitHub(options: Parameters<typeof setUp>[0] = {}) {
+    const set = await setUp(options);
+    const github = 'git@github.com:acme/web-app.git';
+    await set.repos.git(set.repos.clone, 'remote', 'set-url', 'origin', github);
+    await set.repos.git(set.repos.clone, 'config', `url.${set.repos.origin}.insteadOf`, github);
+    return set;
+  }
+  const review = (change: Partial<ComposerStart> = {}) =>
+    ComposerStartSchema.parse({ message: '', context: [pullChip], mode: 'ask', review: true, ...change });
+
+  it('AC-2: makes an Ask titled after the pull request, in the folder whose origin is its repository', async () => {
+    const set = await onGitHub();
+
+    expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000001' });
+
+    const record = await settled(set.records);
+    expect(record.repository?.id).toBe(set.folder?.id);
+    expect(record.session).toMatchObject({
+      title: 'Review web-app #2836',
+      mode: 'ask',
+      source: { kind: 'pull_request', number: 2836 },
+      pullRequest: null,
+      review: {
+        repository: 'acme/web-app',
+        number: 2836,
+        url: 'https://github.com/acme/web-app/pull/2836',
+        comments: [],
+        summary: null,
+        verdict: null,
+        posted: [],
+      },
+    });
+  });
+
+  it("AC-3: the pull request's live review answers `existing`, unless you ask for another; a stopped one doesn't", async () => {
+    const set = await onGitHub();
+    expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000001' });
+    await settled(set.records);
+
+    expect(await set.sessions.start(review())).toEqual({ result: 'existing', sessionId: '0000000000000001' });
+    expect(await set.sessions.start(review({ another: true }))).toEqual({
+      result: 'started',
+      sessionId: '0000000000000002',
+    });
+    await settled(set.records, '0000000000000002');
+    // A Build or an Ask on the same pull request isn't a review of it.
+    expect(
+      await set.sessions.start(
+        makeComposerStart({ message: 'What changed?', context: [pullChip], mode: 'ask', repositoryId: set.folder?.id }),
+      ),
+    ).toEqual({ result: 'started', sessionId: '0000000000000003' });
+    await settled(set.records, '0000000000000003');
+
+    await set.records.update('0000000000000001', (record) => ({
+      ...record,
+      session: { ...record.session, state: 'stopped' },
+    }));
+    await set.records.update('0000000000000002', (record) => ({
+      ...record,
+      session: { ...record.session, state: 'stopped' },
+    }));
+    expect(await set.sessions.start(review())).toEqual({ result: 'started', sessionId: '0000000000000004' });
+    await settled(set.records, '0000000000000004');
   });
 });

@@ -87,12 +87,13 @@ export const StoredSessionSchema = z.object({
 export type StoredSession = z.infer<typeof StoredSessionSchema>;
 
 /**
- * A session as lists see it: its summary, when it was discarded, whether it was an Ask (spec 026), and the pull
- * request whose own branch it works on (spec 031), as `pullKey` names it.
+ * A session as lists see it: its summary, when it was discarded, whether it was an Ask (spec 026), the pull request
+ * whose own branch it works on (spec 031), and the one it reviews (spec 050), each as `pullKey` names it.
  */
 export type ListedSession = SessionSummary & {
   discardedAt?: string | null;
   pullRequest?: string | null;
+  reviewing?: string | null;
 };
 
 /** A pull request by its repository and number, as `acme/web-app#2836`, in one case, since GitHub's names have none. */
@@ -129,9 +130,34 @@ export function readyFor({ mode, workOn, activities, changed }: Session): Sessio
 }
 
 export function listedSession(session: Session): ListedSession {
-  const { id, title, state, source, updatedAt, pinnedAt, discardedAt, mode, workOn, pullRequest: pull } = session;
+  const {
+    id,
+    title,
+    state,
+    source,
+    updatedAt,
+    pinnedAt,
+    discardedAt,
+    mode,
+    workOn,
+    pullRequest: pull,
+    review,
+  } = session;
   const pullRequest = workOn === 'pull_request' && pull !== null ? pullKey(pull.repository, pull.number) : null;
-  return { id, title, state, ready: readyFor(session), source, updatedAt, pinnedAt, discardedAt, mode, pullRequest };
+  const reviewing = review === null ? null : pullKey(review.repository, review.number);
+  return {
+    id,
+    title,
+    state,
+    ready: readyFor(session),
+    source,
+    updatedAt,
+    pinnedAt,
+    discardedAt,
+    mode,
+    pullRequest,
+    reviewing,
+  };
 }
 
 /** Sessions held in memory: `sessions` are list-only summaries, as tests of Tickets and the inbox give them. */

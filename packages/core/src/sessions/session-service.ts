@@ -54,7 +54,7 @@ import type { JiraCheckRequest, JiraClient } from '../integrations/jira/client.t
 import type { JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { createBranchGit } from './branch-git.ts';
 import { folderBytes, measureStorage, sessionsToClean } from './session-cleanup.ts';
-import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief } from './brief.ts';
+import { askNote, briefText, composerBrief, sessionNote, ticketFromBrief, type BriefChip } from './brief.ts';
 import { sessionStartPoint, type ChangesReader, type StartPoint } from './changes.ts';
 import { keepLast, logEnd, logRunEnded, logWork } from './command-log.ts';
 import { terminalWorktree, type TerminalService } from '../terminal/terminal-service.ts';
@@ -298,6 +298,10 @@ const unread = {
 
 function projectOf(key: string): string {
   return key.slice(0, key.lastIndexOf('-'));
+}
+
+function isPullChip(chip: BriefChip): chip is Extract<BriefChip, { kind: 'pull_request' }> {
+  return chip.kind === 'pull_request';
 }
 
 /** A session that holds its ticket or pull request: not Stopped, and its pull request not merged or closed (spec 047). */
@@ -1399,6 +1403,13 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return newestLive((session) => session.pullRequest === key);
   }
 
+  /** A pull request holds one live review at a time (spec 050, AC-3), though a review is an Ask. */
+  async function liveReviewOn(key: string): Promise<string | null> {
+    const live = (await records.list()).filter((session) => session.reviewing === key && isLive(session));
+    live.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    return live[0]?.id ?? null;
+  }
+
   /** The folder's origin on GitHub as `owner/name`, or null. */
   async function originOf(folder: string): Promise<string | null> {
     const origin = await branchGit.origin(folder);
@@ -1527,10 +1538,18 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const live = await liveSessionOn(key);
       if (live !== null) return { result: 'existing', sessionId: live };
     }
+    // A review's pull request, the start's only chip (spec 050).
+    const reviewing = request.review === true ? folderPullOf(request) : null;
+    if (reviewing !== null && !another) {
+      const live = await liveReviewOn(pullKey(`${reviewing.owner}/${reviewing.name}`, reviewing.number));
+      if (live !== null) return { result: 'existing', sessionId: live };
+    }
     if (!(await claude.connected())) return { result: 'cannot_start', reason: 'signed_out' };
     if ((await workingCount()) >= mostWorking) return { result: 'cannot_start', reason: 'too_many' };
-    // An Ask sent with no folder reads none (spec 031); a Build always has one.
-    const folder = ask && request.repositoryId === undefined ? null : await folderFor(request);
+    // An Ask sent with no folder reads none (spec 031); a Build always has one. A review reads the folder whose origin
+    // is its pull request's repository, or the diff alone when there's none (spec 050, AC-6).
+    const chosen = reviewing !== null || !ask || request.repositoryId !== undefined ? await folderFor(request) : null;
+    const folder = reviewing !== null && typeof chosen === 'string' ? null : chosen;
     if (typeof folder === 'string') return { result: 'cannot_start', reason: folder };
 
     const read = await options.context.read(request.context);
@@ -1544,7 +1563,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     }
     // The skills your message names, for this folder (spec 022, AC-53); none without the service.
     const skills = (await options.skills?.named(request.message, folder?.path ?? null)) ?? [];
-    const { title, ticket, plan } = composerPlan(request.message, read.chips, skills);
+    const planned = composerPlan(request.message, read.chips, skills);
+    const { ticket, plan } = planned;
+    const reviewed = reviewing === null ? null : (read.chips.find(isPullChip) ?? null);
+    const title = reviewed === null ? planned.title : `Review ${reviewed.name} #${String(reviewed.number)}`;
 
     const id = newId();
     const at = new Date(now()).toISOString();
@@ -1559,9 +1581,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         source:
           pull !== null
             ? { kind: 'pull_request', number: pull.number }
-            : ticket === null
-              ? null
-              : { kind: 'jira', key: ticket.key },
+            : reviewed !== null
+              ? { kind: 'pull_request', number: reviewed.number }
+              : ticket === null
+                ? null
+                : { kind: 'jira', key: ticket.key },
         updatedAt: at,
         folder: folder === null ? null : { name: folder.name, displayPath: folder.displayPath },
         branch: null,
@@ -1599,7 +1623,19 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         // `get()` says whether the Terminal opens (spec 036) and what's left to push, so what is saved here never counts.
         terminal: false,
         unpushed: true,
-        review: null,
+        review:
+          reviewed === null
+            ? null
+            : {
+                repository: `${reviewed.owner}/${reviewed.name}`,
+                number: reviewed.number,
+                url: reviewed.url,
+                commit: null,
+                comments: [],
+                summary: null,
+                verdict: null,
+                posted: [],
+              },
       },
       repository: folder === null ? null : { id: folder.id, path: folder.path },
       // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031).

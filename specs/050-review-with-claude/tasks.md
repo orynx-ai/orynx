@@ -22,7 +22,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: `review_comment` checks the line against the diff, refuses the 21st, and saves; `readVerdict` reads and drops the summary's last line (AC-8, AC-9, AC-10)
       Check: pnpm test packages/core/src/sessions/review-tools.test.ts
       Files: packages/core/src/sessions/review-tools.ts, packages/core/src/sessions/review-tools.test.ts
-- [ ] Task 6: A composer start with `review` makes a review session: folder by the PR's origin, `existing` for the PR's live review unless `another`, the title "Review web-app #2841" (AC-2, AC-3)
+- [x] Task 6: A composer start with `review` makes a review session: folder by the PR's origin, `existing` for the PR's live review unless `another`, the title "Review web-app #2841" (AC-2, AC-3)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/sessions/compose.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/compose.ts, packages/core/src/sessions/session-store.ts, their tests
 - [ ] Task 7: A review's run makes the checkout, saves the merge base as its start, and runs Claude read-only in it with the review note in the brief; the Changes tab lists the PR's files (AC-4, AC-7)
