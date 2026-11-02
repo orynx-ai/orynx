@@ -34,7 +34,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **Core: Slack**
 
-- [ ] Task 9: Add `@slack/web-api`; Slack's `client.ts` checks a token (`auth.test` with its scopes) and maps refused, missing scopes, rate limited and no answer to problems; `problems.ts` words them; MSW `fake-slack.ts` (AC-2, AC-3, AC-4)
+- [x] Task 9: Add `@slack/web-api`; Slack's `client.ts` checks a token (`auth.test` with its scopes) and maps refused, missing scopes, rate limited and no answer to problems; `problems.ts` words them; MSW `fake-slack.ts` (AC-2, AC-3, AC-4)
       Check: pnpm test packages/core/src/integrations/slack/client.test.ts packages/core/src/integrations/slack/problems.test.ts
       Files: packages/core/package.json, packages/core/src/integrations/slack/client.ts, problems.ts, their tests, packages/core/src/test/fake-slack.ts
 - [ ] Task 10: Slack's `connection.ts` (check, keychain, settings, status line "<name> in <workspace>"), its routes, `status-service` and `create-server` wiring; a trace-level leak test (AC-2, AC-3, AC-4, AC-9, AC-33)
