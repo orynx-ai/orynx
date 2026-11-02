@@ -7,6 +7,7 @@ import {
   discordHistory,
   discordMentions,
   discordMessage,
+  discordPosts,
   discordServers,
   discordToken,
   discordUserId,
@@ -269,5 +270,34 @@ describe('a Discord thread as Claude’s context (spec 016, C)', () => {
   it('AC-32: a deleted message, or one the bot can’t read, is not found', async () => {
     discord.use(discordServers({ [acme]: 'Acme' }), discordChannels({ [channel]: 'web-platform' }), discordMessage({}));
     expect(await client.thread(discordToken, target)).toEqual({ ok: false, problem: { kind: 'not_found' } });
+  });
+});
+
+describe('a reply in a Discord thread (spec 016, E)', () => {
+  const target = { guild: '1100000000000000001', channel: '1100000000000000002', message: '1434477000000000001' };
+
+  it('AC-41: posts as the bot, as a Reply to the message, pinging nobody, and answers its link', async () => {
+    const posted: { channel: string; body: unknown }[] = [];
+    discord.use(discordPosts(posted));
+
+    expect(await client.postReply(discordToken, target, 'A fix is up')).toEqual({
+      ok: true,
+      url: 'https://discord.com/channels/1100000000000000001/1100000000000000002/1434480000000000001',
+    });
+    expect(posted).toEqual([
+      {
+        channel: '1100000000000000002',
+        body: {
+          content: 'A fix is up',
+          message_reference: { message_id: '1434477000000000001', fail_if_not_exists: false },
+          allowed_mentions: { parse: [] },
+        },
+      },
+    ]);
+  });
+
+  it('AC-42: a refused post answers in Discord’s own words', async () => {
+    discord.use(discordPosts([], true));
+    expect(await client.postReply(discordToken, target, 'hi')).toEqual({ ok: false, reason: 'Missing Permissions' });
   });
 });

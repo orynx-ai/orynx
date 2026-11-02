@@ -134,6 +134,21 @@ export function slackChannels(channels: Record<string, string>) {
   });
 }
 
+/** `chat.postMessage`, keeping what was posted; `error` makes Slack refuse it with that code. */
+export function slackPosts(posted: { channel: string; thread_ts: string; text: string }[] = [], error?: string) {
+  return http.post(`${slackApi}/chat.postMessage`, async ({ request }) => {
+    const fields = await fieldsOf(request);
+    if (error !== undefined) return HttpResponse.json({ ok: false, error });
+    const message = {
+      channel: fields.get('channel') ?? '',
+      thread_ts: fields.get('thread_ts') ?? '',
+      text: fields.get('text') ?? '',
+    };
+    posted.push(message);
+    return HttpResponse.json({ ok: true, channel: message.channel, ts: '1793620000.000100' });
+  });
+}
+
 /**
  * MSW standing in for Slack, an outside service, for the test file that calls this. It answers `auth.test`,
  * `users.info`, no mentions and no DMs, and fails any other request, so no test can reach the real internet.

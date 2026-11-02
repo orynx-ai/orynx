@@ -73,7 +73,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 19: `GET /api/threads/preview?link=` answers the sender and place, `not_connected` or `not_found` (AC-26, AC-27)
       Check: pnpm test packages/core/src/routes/threads.test.ts
       Files: packages/core/src/routes/threads.ts, packages/core/src/routes/threads.test.ts, packages/core/src/create-server.ts
-- [ ] Task 20: Create pull request saves the PR's title; `thread-reply.ts` posts to the first thread chip (Slack `chat.postMessage` in the thread as you; Discord a Reply from the bot, no pings) and saves `posted`, or answers `failed` with the tool's words; dismiss saves `dismissed`; the two routes (AC-40 to AC-44)
+- [x] Task 20: Create pull request saves the PR's title; `thread-reply.ts` posts to the first thread chip (Slack `chat.postMessage` in the thread as you; Discord a Reply from the bot, no pings) and saves `posted`, or answers `failed` with the tool's words; dismiss saves `dismissed`; the two routes (AC-40 to AC-44)
       Check: pnpm test packages/core/src/sessions/thread-reply.test.ts packages/core/src/routes/sessions.test.ts packages/core/src/sessions/pull-requests.test.ts
       Files: packages/core/src/sessions/thread-reply.ts, packages/core/src/sessions/pull-requests.ts, packages/core/src/routes/sessions.ts, packages/core/src/integrations/slack/client.ts, packages/core/src/integrations/discord/client.ts, their tests
 

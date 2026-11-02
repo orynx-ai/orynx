@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { networkCode } from '../github/client.ts';
-import type { ChatThread } from '../slack/client.ts';
+import type { ChatThread, PostedReply } from '../slack/client.ts';
 import { discordRecord, plainText, type DiscordMessageRecord } from './map.ts';
 import { mentionWaits, snowflakeAt, type DiscordMessage } from './rules.ts';
 
@@ -62,6 +62,12 @@ export interface DiscordClient {
    * that Reply to it among the next 100.
    */
   thread(token: string, chip: { guild: string; channel: string; message: string }): Promise<DiscordThreadAnswer>;
+  /** Posts `text` as the bot, as a Reply to the message, pinging nobody (spec 016, E). */
+  postReply(
+    token: string,
+    chip: { guild: string; channel: string; message: string },
+    text: string,
+  ): Promise<PostedReply>;
 }
 
 export interface DiscordClientOptions {
@@ -289,6 +295,39 @@ export function createDiscordClient({ timeoutMs = 10_000, now = Date.now }: Disc
         }
         throw error;
       }
+    },
+
+    async postReply(token, { guild, channel, message }, text) {
+      let response: Response;
+      try {
+        response = await fetch(`${discordApi}/channels/${channel}/messages`, {
+          method: 'POST',
+          headers: {
+            authorization: `Bot ${token}`,
+            'content-type': 'application/json',
+            'user-agent': 'Orynx (https://orynx.local, 1)',
+          },
+          body: JSON.stringify({
+            content: text,
+            message_reference: { message_id: message, fail_if_not_exists: false },
+            allowed_mentions: { parse: [] },
+          }),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+      } catch (error) {
+        const timedOut = error instanceof Error && error.name === 'TimeoutError';
+        return { ok: false, reason: timedOut ? "discord.com didn't answer in 10 seconds" : "can't reach discord.com" };
+      }
+      const body: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const words = typeof body === 'object' && body !== null && 'message' in body ? String(body.message) : '';
+        return {
+          ok: false,
+          reason: words === '' ? `Discord answered ${String(response.status)}` : words.slice(0, 500),
+        };
+      }
+      const id = typeof body === 'object' && body !== null && 'id' in body ? String(body.id) : message;
+      return { ok: true, url: `https://discord.com/channels/${guild}/${channel}/${id}` };
     },
 
     async check(token, userId) {

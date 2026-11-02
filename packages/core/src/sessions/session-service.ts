@@ -4,6 +4,7 @@ import { join, resolve, sep } from 'node:path';
 import { isOrynxKey, mostReviewComments, permissionsFor } from '@devhub/contracts';
 import { readVerdict, reviewTools } from './review-tools.ts';
 import { createReviews } from './review.ts';
+import { createThreadReplies, type ThreadRepliesOptions, type ThreadReplyOutcome } from './thread-reply.ts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import { ticketTools } from '../orynx-tickets/tools.ts';
 import type {
@@ -226,6 +227,10 @@ export interface SessionService {
   reviewStatus(id: string): Promise<ReviewStatus | null>;
   /** Posts one review, on your press only (spec 050); null for no such session. */
   postReview(id: string, request: PostReviewRequest): Promise<PostReviewAnswer | null>;
+  /** Posts the reply in the session's thread, on your press only (spec 016, E); null for no such session. */
+  postThreadReply(id: string, text: string): Promise<ThreadReplyOutcome | null>;
+  /** Not now on the reply in the thread (spec 016, AC-43); false for no such session. */
+  dismissThreadReply(id: string): Promise<boolean>;
   /**
    * Spec 047: asks GitHub about each pull request of a session in PR open or PR closed whose worktree is still there,
    * and saves it as merged, closed or open again. A merge where nothing would be lost removes the worktree as Delete
@@ -284,6 +289,8 @@ export interface SessionServiceOptions {
   /** 004's GitHub connection, for the pull request's token (spec 014). Without it, GitHub isn't connected. */
   github?: { credentials(): Promise<GitHubSyncCredentials | null> };
   githubClient?: GitHubClient;
+  /** Slack and Discord, for the one reply in a session's thread (spec 016, E). Left out, it says not connected. */
+  chat?: Pick<ThreadRepliesOptions, 'slack' | 'discord'>;
   /** Null when the server was built without Claude Code: then no session can start (AC-22). */
   adapter: AgentAdapter | null;
   /** Orynx's own tickets, whose tools every session's agent gets (spec 037); left out, it gets none. */
@@ -1974,6 +1981,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     adapter,
     ensureBranch: (id) => makeBranch(id),
   });
+  const threadReplies = createThreadReplies({ records, save: change, ...options.chat });
   const reviews = createReviews({
     records,
     save: change,
@@ -2004,6 +2012,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     changeReviewComment: (id, commentId, change) => reviews.changeComment(id, commentId, change),
     reviewStatus: (id) => reviews.status(id),
     postReview: (id, request) => reviews.post(id, request),
+    postThreadReply: (id, text) => threadReplies.post(id, text),
+    dismissThreadReply: (id) => threadReplies.dismiss(id),
 
     start(request) {
       // Starts on one ticket go one at a time, from Ship or the composer; so do composer starts with no ticket.

@@ -523,6 +523,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     // The pull request's token, the gh way or the token way, and the client that opens it (spec 014).
     github,
     githubClient,
+    chat: {
+      slack: { client: slackClient, connection: slack },
+      discord: { client: discordClient, connection: discord },
+    },
     adapter,
     tickets: orynxTickets,
     events,

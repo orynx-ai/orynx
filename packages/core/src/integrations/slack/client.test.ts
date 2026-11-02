@@ -8,6 +8,7 @@ import {
   slackChannels,
   slackDms,
   slackMentions,
+  slackPosts,
   slackThreads,
   slackToken,
   slackUserId,
@@ -273,5 +274,37 @@ describe('a Slack thread as Claude’s context (spec 016, C)', () => {
       ok: false,
       problem: { kind: 'not_found' },
     });
+  });
+});
+
+describe('a reply in a Slack thread (spec 016, E)', () => {
+  it('AC-41: posts as you in the thread, without unfurling, and answers its link', async () => {
+    const posted: { channel: string; thread_ts: string; text: string }[] = [];
+    slack.use(slackPosts(posted));
+
+    expect(
+      await client.postReply(
+        slackToken,
+        'https://acme.slack.com/',
+        { channel: 'C024BE91L', ts: '1793613600.000100' },
+        'A fix is up',
+      ),
+    ).toEqual({
+      ok: true,
+      url: 'https://acme.slack.com/archives/C024BE91L/p1793620000000100?thread_ts=1793613600.000100&cid=C024BE91L',
+    });
+    expect(posted).toEqual([{ channel: 'C024BE91L', thread_ts: '1793613600.000100', text: 'A fix is up' }]);
+  });
+
+  it('AC-42: a refused post answers in Slack’s own words', async () => {
+    slack.use(slackPosts([], 'is_archived'));
+    expect(
+      await client.postReply(
+        slackToken,
+        'https://acme.slack.com/',
+        { channel: 'C024BE91L', ts: '1793613600.000100' },
+        'hi',
+      ),
+    ).toEqual({ ok: false, reason: 'is_archived' });
   });
 });

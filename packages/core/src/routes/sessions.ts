@@ -35,6 +35,8 @@ import {
   SessionSchema,
   StartSessionAnswerSchema,
   StartSessionRequestSchema,
+  ThreadReplyAnswerSchema,
+  ThreadReplyRequestSchema,
 } from '@devhub/contracts';
 import type { RespondResult, SessionService } from '../sessions/session-service.ts';
 import { listSessions, type SessionStore } from '../sessions/session-store.ts';
@@ -364,6 +366,36 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
     },
     async (request, reply) =>
       (await service.postReview(request.params.id, request.body)) ?? reply.code(404).send(notFound),
+  );
+
+  // The one reply in a session's thread, on Post reply only (spec 016, E), and Not now.
+  app.post(
+    apiPaths.sessionThreadReply,
+    {
+      schema: {
+        params: SessionParamsSchema,
+        body: ThreadReplyRequestSchema,
+        response: { 200: ThreadReplyAnswerSchema, 400: ApiErrorSchema, 404: ApiErrorSchema, 409: ApiErrorSchema },
+      },
+    },
+    async (request, reply) => {
+      const outcome = await service.postThreadReply(request.params.id, request.body.text);
+      if (outcome === null) return reply.code(404).send(notFound);
+      if (!('cannot' in outcome)) return outcome;
+      if (outcome.cannot === 'posted') {
+        return reply.code(409).send({ code: 'already_posted', message: 'The reply is in the thread already.' });
+      }
+      const message =
+        outcome.cannot === 'no_thread' ? 'This session has no thread.' : "This session's pull request isn't open yet.";
+      return reply.code(400).send({ code: 'bad_request', message });
+    },
+  );
+
+  app.post(
+    apiPaths.sessionThreadReplyDismiss,
+    { schema: { params: SessionParamsSchema, response: { 204: z.undefined(), 404: ApiErrorSchema } } },
+    async (request, reply) =>
+      (await service.dismissThreadReply(request.params.id)) ? reply.code(204).send() : reply.code(404).send(notFound),
   );
 
   app.post(

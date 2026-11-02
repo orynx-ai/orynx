@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { slackScopes } from '@devhub/contracts';
 import { networkCode } from '../github/client.ts';
-import { plainText, slackRecord, slackTime, type SlackMessageRecord } from './map.ts';
+import { messageLink, plainText, slackRecord, slackTime, type SlackMessageRecord } from './map.ts';
 import { firstUnanswered, mentionWaits, type SlackMessage } from './rules.ts';
 
 /**
@@ -62,7 +62,17 @@ export interface SlackClient {
   ): Promise<SlackWaiting>;
   /** A thread's messages, up to 1,000, for Claude's brief (spec 016, C). */
   thread(token: string, chip: { channel: string; ts: string }): Promise<SlackThreadAnswer>;
+  /** Posts `text` in the thread as you (spec 016, E): its link, or Slack's own words for why not. */
+  postReply(
+    token: string,
+    workspace: string,
+    chip: { channel: string; ts: string },
+    text: string,
+  ): Promise<PostedReply>;
 }
+
+/** A reply posted, with its link, or the tool's own words for why not (spec 016, AC-41, AC-42). */
+export type PostedReply = { ok: true; url: string } | { ok: false; reason: string };
 
 export interface SlackClientOptions {
   timeoutMs?: number;
@@ -293,6 +303,22 @@ export function createSlackClient({ timeoutMs = 10_000, now = Date.now }: SlackC
       }
     },
 
+    async postReply(token, workspace, { channel, ts }, text) {
+      try {
+        const posted = await call(token, 'chat.postMessage', {
+          channel,
+          thread_ts: ts,
+          text,
+          unfurl_links: false,
+          unfurl_media: false,
+        });
+        return { ok: true, url: messageLink(workspace, channel, String(posted['ts']), ts) };
+      } catch (error) {
+        const problem = problemOf(error, now);
+        return { ok: false, reason: problem.kind === 'slack_error' ? problem.error : describeProblemWord(problem) };
+      }
+    },
+
     async check(token) {
       try {
         const who = await call(token, 'auth.test');
@@ -370,3 +396,21 @@ const silent = {
   getLevel: () => 'error' as never,
   setName: () => undefined,
 };
+
+/** A failure that isn't Slack's own code, in a few words for the reply's callout. */
+function describeProblemWord(problem: SlackProblem): string {
+  switch (problem.kind) {
+    case 'rejected':
+      return "Slack didn't accept the saved token";
+    case 'missing_scopes':
+      return `missing ${problem.missing.join(', ')}`;
+    case 'rate_limited':
+      return 'rate limited';
+    case 'timeout':
+      return "slack.com didn't answer in 10 seconds";
+    case 'unreachable':
+      return "can't reach slack.com";
+    case 'slack_error':
+      return problem.error;
+  }
+}

@@ -137,6 +137,15 @@ export function discordMessage(byChannel: Record<string, readonly FakeDiscordMes
   });
 }
 
+/** Posting a message in a channel, keeping what was posted; `refuse` makes Discord answer 403 Missing Permissions. */
+export function discordPosts(posted: { channel: string; body: unknown }[] = [], refuse = false) {
+  return http.post(`${discordApi}/channels/:channel/messages`, async ({ params, request }) => {
+    if (refuse) return HttpResponse.json({ message: 'Missing Permissions', code: 50013 }, { status: 403 });
+    posted.push({ channel: String(params['channel']), body: await request.json() });
+    return HttpResponse.json({ id: '1434480000000000001', channel_id: params['channel'] });
+  });
+}
+
 /**
  * MSW standing in for Discord, an outside service, for the test file that calls this. It answers for the bot and
  * fails any other request, so no test can reach the real internet.
