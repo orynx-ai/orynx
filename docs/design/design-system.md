@@ -338,6 +338,41 @@ Shows where an agent session is: Plan, Build, Test, Review, Pull request.
 
 </details>
 
+### Activity step
+
+One step in Claude's progress on the Session screen (`dh-step`): a 24px dot with the step's icon, a title, and a detail line under it (spec 046).
+
+- Done is a `success-subtle` dot, waiting for you an amber one, and anything else a plain `bg-subtle` one. Refused, denied, stopped and interrupted steps keep the plain dot.
+- **Running:** a band of `text-secondary` passes across the `text-primary` title, left to right, every 2s, linear. Only a step that's running and not waiting for you has it. With reduced motion, the title is plain text in its usual colour.
+- **Failed:** a `danger-subtle` dot with a `danger` ×, and a hidden ", failed". Only a command step with a command that ended with an error fails.
+- **To come:** an outlined dot (1px `border-control`, no fill) and words in `text-secondary`, with a hidden ", to come". It marks Claude's to-do items it hasn't started.
+- **Open in place:** a step with more to show has a title that's a button, with a chevron after it that points right and turns down when open (`aria-expanded`). Its details sit under the title, lined up with it. Only the title is the button, so a link in the detail line still works. The step stays open while it updates.
+
+<details><summary>Example markup</summary>
+
+```html
+<div class="dh-root" style="padding:16px;background:var(--bg-canvas)">
+  <ol class="dh-steps" aria-live="polite">
+    <li class="dh-step dh-step--done"><span class="dh-step-dot" aria-hidden="true">✓</span><div><div class="dh-step-title">Read your ask<span class="dh-sr-only">, done</span></div></div></li>
+    <li class="dh-step dh-step--done"><span class="dh-step-dot" aria-hidden="true">✓</span><div>
+      <button class="dh-step-title dh-step-toggle" type="button" aria-expanded="true" aria-controls="plan-items">Made a plan<span class="dh-sr-only">, done</span><span class="dh-step-chevron" aria-hidden="true">›</span></button>
+      <ul class="dh-step-items" id="plan-items">
+        <li class="dh-step-item dh-step-item--done"><span class="dh-step-mark" aria-hidden="true">✓</span>Read the inbox route<span class="dh-sr-only">, done</span></li>
+        <li class="dh-step-item"><span class="dh-step-mark" aria-hidden="true"></span><span class="dh-shimmer">Add the archive endpoint</span></li>
+        <li class="dh-step-item dh-step-item--todo"><span class="dh-step-mark" aria-hidden="true"></span>Write the tests<span class="dh-sr-only">, to come</span></li>
+      </ul>
+    </div></li>
+    <li class="dh-step dh-step--failed"><span class="dh-step-dot" aria-hidden="true">×</span><div>
+      <button class="dh-step-title dh-step-toggle" type="button" aria-expanded="false">Ran 3 commands, 1 failed<span class="dh-sr-only">, failed</span><span class="dh-step-chevron" aria-hidden="true">›</span></button>
+      <div class="dh-step-detail">npm install · npm test · npm run lint</div>
+    </div></li>
+    <li class="dh-step"><span class="dh-step-dot" aria-hidden="true">›</span><div><div class="dh-step-title"><span class="dh-shimmer">Exploring the code</span></div></div></li>
+  </ol>
+</div>
+```
+
+</details>
+
 ### Button
 
 Triggers an action; one `primary` button per view, everything else `secondary` or `ghost`.
@@ -863,6 +898,22 @@ Shows the agent's code changes as they happen.
 .dh-step--wait .dh-step-dot { background: var(--warning-subtle); color: var(--warning); }
 .dh-step-title { font-weight: 500; }
 .dh-step-detail { font-size: 14px; color: var(--text-secondary); }
+.dh-steps { display: flex; flex-direction: column; gap: 14px; list-style: none; margin: 0; padding: 0; }
+.dh-step--failed .dh-step-dot { background: var(--danger-subtle); color: var(--danger); }
+.dh-step-toggle { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0; border: 0; background: none; font: inherit; font-weight: 500; color: var(--text-primary); text-align: start; cursor: pointer; border-radius: 4px; }
+.dh-step-toggle:hover { text-decoration: underline; }
+.dh-step-chevron { color: var(--text-secondary); transition: transform 150ms; }
+.dh-step-toggle[aria-expanded="true"] .dh-step-chevron { transform: rotate(90deg); }
+.dh-step-items { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 6px 0 0; padding: 0; font-size: 14px; }
+.dh-step-item { display: flex; align-items: center; gap: var(--space-2); }
+.dh-step-mark { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dh-step-item--done .dh-step-mark { color: var(--success); }
+.dh-step-item--todo { color: var(--text-secondary); }
+.dh-step-item--todo .dh-step-mark { border: 1px solid var(--border-control); border-radius: var(--radius-full); }
+@media (prefers-reduced-motion: no-preference) {
+  .dh-shimmer { background: linear-gradient(90deg, var(--text-primary) 40%, var(--text-secondary) 50%, var(--text-primary) 60%) 100% 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: dh-shimmer 2s linear infinite; }
+  @keyframes dh-shimmer { to { background-position: 0 0; } }
+}
 
 /* Skip link: first focusable element on every screen */
 .dh-root { position: relative; }
