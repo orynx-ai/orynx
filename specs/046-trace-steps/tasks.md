@@ -4,7 +4,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 Before Task 1: the user applies the design-system patch (Q1a) and it's committed as `docs(046): …`.
 
-- [ ] Task 1: Contracts: each command's result on the command step, each to-do's status on the plan step, both optional (AC-12, AC-14, AC-16)
+- [x] Task 1: Contracts: each command's result on the command step, each to-do's status on the plan step, both optional (AC-12, AC-14, AC-16)
       Check: pnpm test packages/contracts/src/session.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts
 - [ ] Task 2: Core: keep each to-do's status from `TodoWrite` on the plan step, re-planned in place (AC-16, AC-17)

@@ -162,6 +162,39 @@ describe('SessionSchema', () => {
     expect(SessionActivitySchema.safeParse({ ...old, at: 'yesterday' }).success).toBe(false);
   });
 
+  it("AC-12, AC-16 (spec 046): a command step keeps each call's result and a plan each to-do's status", () => {
+    const command = {
+      id: 'a1',
+      state: 'done',
+      kind: 'command',
+      commands: ['npm install', 'npm test'],
+      calls: [
+        { id: 'call-1', failed: false },
+        { id: 'call-2', failed: true },
+      ],
+    };
+    expect(SessionActivitySchema.parse(command)).toEqual(command);
+    // A call still running has no result yet.
+    const running = { ...command, state: 'running', calls: [{ id: 'call-1', failed: null }] };
+    expect(SessionActivitySchema.parse(running)).toEqual(running);
+    const plan = {
+      id: 'a2',
+      state: 'done',
+      kind: 'plan',
+      items: ['Read the route', 'Add the endpoint', 'Write the tests'],
+      statuses: ['completed', 'in_progress', 'pending'],
+    };
+    expect(SessionActivitySchema.parse(plan)).toEqual(plan);
+    expect(SessionActivitySchema.safeParse({ ...plan, statuses: ['started'] }).success).toBe(false);
+  });
+
+  it('AC-14 (spec 046): a command step and a plan saved before read without results or statuses', () => {
+    const command = { id: 'a1', state: 'done', kind: 'command', commands: ['npm test'] };
+    expect(SessionActivitySchema.parse(command)).toEqual(command);
+    const plan = { id: 'a2', state: 'done', kind: 'plan', items: ['Read the route'] };
+    expect(SessionActivitySchema.parse(plan)).toEqual(plan);
+  });
+
   it('AC-8, AC-9, AC-10, AC-14: holds how a session ended', () => {
     for (const activity of [
       { id: 'a1', state: 'done', kind: 'finished', summary: 'Added row selection and a toolbar button.' },
