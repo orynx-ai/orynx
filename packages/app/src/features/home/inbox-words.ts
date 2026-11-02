@@ -72,6 +72,8 @@ export function reasonPill(item: InboxItem, now: Date): ReasonPill {
         : withWait('In progress', waited, 'warning');
     case 'due':
       return duePill(reason.on, reason.highPriorityBug, now);
+    case 'no_reply':
+      return withWait('No reply', waited, 'warning');
   }
 }
 
@@ -92,6 +94,12 @@ export function subLine(item: InboxItem): string {
       if (source === null) return 'Claude session';
       const what = source.kind === 'jira' ? source.key : `PR #${String(source.number)}`;
       return `${what} · Claude session`;
+    }
+    case 'message': {
+      // Spec 016, B: "Neha K. in #web-platform", "· Acme" on Discord, "Arjun M. · direct message".
+      if (subject.channel === null) return `${subject.from} · direct message`;
+      const where = `${subject.from} in #${subject.channel}`;
+      return subject.server === null ? where : `${where} · ${subject.server}`;
     }
   }
 }
@@ -145,6 +153,8 @@ export function tabCounts(items: readonly InboxItem[]): Record<'all' | InboxTab,
     all: items.length,
     jira: items.filter((item) => item.tab === 'jira').length,
     pull_requests: items.filter((item) => item.tab === 'pull_requests').length,
+    slack: items.filter((item) => item.tab === 'slack').length,
+    discord: items.filter((item) => item.tab === 'discord').length,
   };
 }
 

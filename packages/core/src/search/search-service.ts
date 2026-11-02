@@ -43,7 +43,7 @@ export interface SearchSources {
   orynx?: readonly OrynxTicket[];
   pullRequests: readonly PullRequestRecord[];
   sessions: readonly SessionSummary[];
-  tools: InboxRecords['tools'];
+  tools: Pick<InboxRecords['tools'], 'jira' | 'github'>;
 }
 
 /** Keys in the order a person counts them: PROJ-7 before PROJ-1377. */
@@ -100,7 +100,7 @@ export function searchIndex(sources: SearchSources): SearchIndex {
     .sort((a, b) => opened(b) - opened(a) || a.id.localeCompare(b.id))
     .map(({ id, repository, number, title, author, url }) => ({ id, repository, number, title, author, url }));
   const sessions = [...sources.sessions].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
-  return { tickets, pullRequests, sessions, tools: sources.tools };
+  return { tickets, pullRequests, sessions, tools: { jira: sources.tools.jira, github: sources.tools.github } };
 }
 
 export function createSearchService(options: SearchServiceOptions): SearchService {

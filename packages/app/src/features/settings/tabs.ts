@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IntegrationIdSchema } from '@devhub/contracts';
 
 /**
  * Settings tabs, in the product spec's order with Skills after Coding agent (spec 023), Notifications after Skills
@@ -34,6 +35,6 @@ export const SettingsSearchSchema = z.object({
   skill: z.string().optional().catch(undefined),
   new: z.literal(true).optional().catch(undefined),
   /** Connections opens this tool's dialog, as Sync activity's Reconnect asks (spec 035): `?tool=jira`. */
-  tool: z.enum(['jira', 'github']).optional().catch(undefined),
+  tool: IntegrationIdSchema.optional().catch(undefined),
 });
 export type SettingsSearch = z.infer<typeof SettingsSearchSchema>;

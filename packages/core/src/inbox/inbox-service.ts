@@ -1,5 +1,11 @@
 import type { z } from 'zod';
-import { syncActivityLimits, type Inbox, type InboxProblem, type Preferences } from '@devhub/contracts';
+import {
+  syncActivityLimits,
+  type Inbox,
+  type InboxProblem,
+  type InboxSource,
+  type Preferences,
+} from '@devhub/contracts';
 import type { EventBus } from '../events/event-bus.ts';
 import type { GitHubClient } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
@@ -39,7 +45,7 @@ export interface InboxService {
    * Asks every connected tool now (Refresh), or only `tool` (spec 035's Sync now). A call while a sync runs waits
    * for that one, and for one more pass after it if the running one doesn't cover every tool asked for.
    */
-  sync(tool?: InboxTool): Promise<void>;
+  sync(tool?: InboxSource): Promise<void>;
   /**
    * A sync that sees a change just made, such as a tool connecting: a sync already running read the old
    * state, so another one follows it. Resolves when that one has ended.
@@ -321,8 +327,9 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
     return running;
   }
 
-  function sync(tool?: InboxTool): Promise<void> {
-    return ask(tool === undefined ? syncedTools : [tool]);
+  function sync(tool?: InboxSource): Promise<void> {
+    // shortcut: Slack and Discord ask nothing until their syncs join (spec 016, task 15).
+    return ask(tool === undefined ? syncedTools : syncedTools.filter((each) => each === tool));
   }
 
   function syncAfterChange(): Promise<void> {
@@ -342,6 +349,8 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
       tools: {
         jira: jira === 'not_connected' ? { state: 'not_connected' } : toolState(jira, broken.has('jira')),
         github: github === 'not_connected' ? { state: 'not_connected' } : toolState(github, broken.has('github')),
+        slack: { state: 'not_connected' },
+        discord: { state: 'not_connected' },
       },
     };
   }

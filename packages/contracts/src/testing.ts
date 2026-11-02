@@ -502,14 +502,44 @@ export function makeInboxItem(overrides: Partial<InboxItem> = {}): InboxItem {
   });
 }
 
-/** The list with no rows, both tools synced at 10:00 on 17 Oct 2026, unless the override says otherwise. */
-export function makeInbox(overrides: Partial<Inbox> = {}): Inbox {
+/**
+ * Neha K.'s mention in #web-platform on Slack, waiting on your reply since 10:00 on 15 Oct 2026, unless the override
+ * says otherwise (spec 016).
+ */
+export function makeSlackItem(overrides: Partial<InboxItem> = {}): InboxItem {
+  return makeInboxItem({
+    id: 'slack:C024BE91L/1700000000.123456',
+    source: 'slack',
+    tab: 'slack',
+    title: 'Can you confirm the archive API returns 207 for partial failures?',
+    subject: { kind: 'message', from: 'Neha K.', channel: 'web-platform', server: null },
+    reason: { kind: 'no_reply' },
+    target: { kind: 'external', url: 'https://acme.slack.com/archives/C024BE91L/p1700000000123456' },
+    ...overrides,
+  });
+}
+
+/**
+ * The list with no rows, Jira and GitHub synced at 10:00 on 17 Oct 2026 and Slack and Discord not connected, unless
+ * the override says otherwise.
+ */
+/** What a test may change in the list: any field, and any tools' states, the rest kept. */
+export type InboxOverrides = Omit<Partial<Inbox>, 'tools'> & { tools?: Partial<Inbox['tools']> };
+
+export function makeInbox(overrides: InboxOverrides = {}): Inbox {
   const synced = { state: 'synced', at: '2026-10-17T10:00:00.000Z' } as const;
+  const { tools, ...rest } = overrides;
   return InboxSchema.parse({
     items: [],
-    tools: { jira: synced, github: synced },
     syncedAt: '2026-10-17T10:00:00.000Z',
-    ...overrides,
+    ...rest,
+    tools: {
+      jira: synced,
+      github: synced,
+      slack: { state: 'not_connected' },
+      discord: { state: 'not_connected' },
+      ...tools,
+    },
   });
 }
 

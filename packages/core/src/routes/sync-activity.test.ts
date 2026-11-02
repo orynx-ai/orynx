@@ -105,8 +105,8 @@ describe('/api/sync-activity', () => {
     const app = await server();
 
     for (const [method, url] of [
-      ['GET', `${apiRoutes.syncActivity}?tool=slack`],
-      ['POST', `${apiRoutes.inboxRefresh}?tool=slack`],
+      ['GET', `${apiRoutes.syncActivity}?tool=teams`],
+      ['POST', `${apiRoutes.inboxRefresh}?tool=teams`],
     ] as const) {
       expect((await app.inject({ method, url, headers })).statusCode).toBe(400);
     }

@@ -19,7 +19,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: Slack's and Discord's connection shapes (request with token, Discord's optional user ID; saved connection; answer) and their paths in `routes.ts` (AC-2, AC-3, AC-6, AC-7, AC-8)
       Check: pnpm test packages/contracts/src/slack.test.ts packages/contracts/src/discord.test.ts; pnpm typecheck
       Files: packages/contracts/src/slack.ts, packages/contracts/src/discord.ts, their tests, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
-- [ ] Task 5: The inbox grows: `slack` and `discord` sources, tabs and tool states; the `message` subject, the `no_reply` reason, `SlackLinkSchema` and `DiscordLinkSchema` in targets and sync changes; every record and switch filled (AC-10, AC-11, AC-16, AC-19)
+- [x] Task 5: The inbox grows: `slack` and `discord` sources, tabs and tool states; the `message` subject, the `no_reply` reason, `SlackLinkSchema` and `DiscordLinkSchema` in targets and sync changes; every record and switch filled (AC-10, AC-11, AC-16, AC-19)
       Check: pnpm test packages/contracts/src/inbox.test.ts packages/contracts/src/sync-activity.test.ts; pnpm typecheck
       Files: packages/contracts/src/inbox.ts, packages/contracts/src/slack.ts, packages/contracts/src/discord.ts, packages/contracts/src/sync-activity.ts, packages/contracts/src/testing.ts, their tests, the app's and core's records that typecheck names
 - [ ] Task 6: Preferences: `slack_waiting` and `discord_waiting` rules, on by default, and `replyWaitMinutes` (30, 60, 120, 240, 1440; 120 by default); the `reply_waiting` notification event, on by default (AC-13, AC-18, AC-25)
@@ -100,7 +100,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 25: The Slack and Discord tabs, shown once connected, in the address (`/?inbox=slack`), with counts and arrow keys; `/?inbox=slack` without Slack opens on All (AC-19, AC-20)
       Check: pnpm test packages/app/src/features/home/inbox-tabs.test.ts packages/app/src/features/home/components/attention-panel.test.tsx
       Files: packages/app/src/features/home/inbox-tabs.ts, packages/app/src/features/home/components/attention-panel.tsx, their tests
-- [ ] Task 26: Message rows: logo, title, "Neha K. in #web-platform" / "· direct message" / "· Acme", "No reply · 3 h", Reply; skeletons, the empty line, the not-connected and failed lines; Sync activity names both tools (AC-10, AC-11, AC-16, AC-21, AC-22, AC-23)
+- [ ] Task 26: Message rows: (the pill, sub line, counts and Reason filter landed in task 5) logo, title, "Neha K. in #web-platform" / "· direct message" / "· Acme", "No reply · 3 h", Reply; skeletons, the empty line, the not-connected and failed lines; Sync activity names both tools (AC-10, AC-11, AC-16, AC-21, AC-22, AC-23)
       Check: pnpm test packages/app/src/features/home/inbox-words.test.ts packages/app/src/features/home/components/attention-panel.test.tsx packages/app/src/words/tool-line.test.ts packages/app/src/features/sync-activity/
       Files: packages/app/src/features/home/inbox-words.ts, packages/app/src/features/home/components/attention-panel.tsx, packages/app/src/words/tool-line.ts, packages/app/src/features/sync-activity/sync-words.ts, their tests
 

@@ -23,6 +23,9 @@ export const slackScopes = [
 /** A Slack workspace's address, the only kind of Slack link Orynx opens: https on `<workspace>.slack.com`. */
 export const slackWorkspaceHost = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.slack\.com$/;
 
+/** A link to a Slack message, as Orynx opens it: https on the workspace's own host. */
+export const SlackLinkSchema = z.url({ protocol: /^https$/, hostname: slackWorkspaceHost });
+
 export const SlackTokenSchema = tokenSchema('Paste your Slack token.');
 
 /** PUT /api/slack/connection: check the token with Slack, then save it. */

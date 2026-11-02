@@ -1,8 +1,15 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiRoutes, type Inbox, type InboxItem } from '@devhub/contracts';
-import { makeInbox, makeInboxItem, makePreferences, makeStatus, makeTicketDetail } from '@devhub/contracts/testing';
+import { apiRoutes, type InboxItem } from '@devhub/contracts';
+import {
+  makeInbox,
+  makeInboxItem,
+  makePreferences,
+  makeStatus,
+  makeTicketDetail,
+  type InboxOverrides,
+} from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -48,7 +55,7 @@ const approval = makeInboxItem({
 });
 const everyRow = [review, ticket, comments, checks, approval];
 
-function inboxWith(items: InboxItem[], overrides: Partial<Inbox> = {}) {
+function inboxWith(items: InboxItem[], overrides: InboxOverrides = {}) {
   server.use(http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json(makeInbox({ items, ...overrides }))));
 }
 

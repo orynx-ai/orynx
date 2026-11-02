@@ -1,8 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiRoutes, type Inbox } from '@devhub/contracts';
-import { makeInbox, makeInboxItem } from '@devhub/contracts/testing';
+import { apiRoutes } from '@devhub/contracts';
+import { makeInbox, makeInboxItem, type InboxOverrides } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -13,7 +13,7 @@ function minutesBefore(minutes: number): string {
   return new Date(noon.getTime() - minutes * 60_000).toISOString();
 }
 
-function inboxAs(overrides: Partial<Inbox>) {
+function inboxAs(overrides: InboxOverrides) {
   server.use(http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json(makeInbox(overrides))));
 }
 

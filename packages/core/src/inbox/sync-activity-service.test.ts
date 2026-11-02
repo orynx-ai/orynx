@@ -7,6 +7,8 @@ const now = Date.parse('2026-10-20T13:00:00.000Z');
 const failing: Inbox['tools'] = {
   jira: { state: 'failed', problem: { kind: 'rejected' }, lastSyncedAt: '2026-10-20T12:00:00.000Z' },
   github: { state: 'not_connected' },
+  slack: { state: 'not_connected' },
+  discord: { state: 'not_connected' },
 };
 const keepAll = { after: '2026-01-01T00:00:00.000Z' };
 const change = {

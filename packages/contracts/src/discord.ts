@@ -4,6 +4,11 @@ import { tokenOrBlankSchema, tokenSchema } from './token.ts';
 /** A Discord id (a snowflake): 17 to 20 digits. */
 export const DiscordIdSchema = z.string().regex(/^\d{17,20}$/);
 
+/** A link to a Discord message, as Orynx opens it: https on discord.com, under /channels/. */
+export const DiscordLinkSchema = z
+  .url({ protocol: /^https$/, hostname: /^discord\.com$/ })
+  .refine((url) => url.startsWith('https://discord.com/channels/'), 'Not a link to a Discord message.');
+
 export const DiscordTokenSchema = tokenSchema("Paste your bot's token.");
 
 /** Your Discord user ID, which Orynx asks for only when a team owns the bot's application (spec 016, AC-8). */
