@@ -55,6 +55,13 @@ export type ActivityStepProps = Omit<ComponentProps<'li'>, 'title'> & {
   detail?: ReactNode;
   /** Makes the title a button that shows the step in full, such as everything Claude was sent. */
   onOpen?: (() => void) | undefined;
+  /**
+   * What the step shows once it's open, under its title (spec 046): its title becomes the button that opens and
+   * closes it, with a chevron. Leave it out for a step with nothing more to show.
+   */
+  details?: ReactNode;
+  /** Starts open, as a story shows it. */
+  defaultOpen?: boolean | undefined;
 };
 
 /**
@@ -62,7 +69,18 @@ export type ActivityStepProps = Omit<ComponentProps<'li'>, 'title'> & {
  * step's icon, a title and a detail line. From shadcn's `TraceLine`, with its shimmer on a running step's title
  * (spec 046). A step with more to show has a title you can press (the user's call, 19 Oct 2026).
  */
-export function ActivityStep({ state, running, icon, title, detail, onOpen, className, ...props }: ActivityStepProps) {
+export function ActivityStep({
+  state,
+  running,
+  icon,
+  title,
+  detail,
+  onOpen,
+  details,
+  defaultOpen,
+  className,
+  ...props
+}: ActivityStepProps) {
   const look = state ?? 'plain';
   // Its own span, so a button's colour never covers the band.
   const words =
@@ -76,25 +94,39 @@ export function ActivityStep({ state, running, icon, title, detail, onOpen, clas
       <span aria-hidden className={dotVariants({ state: look })}>
         {icon}
       </span>
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="font-medium">
-          {onOpen === undefined ? (
-            words
-          ) : (
-            <button
-              type="button"
-              onClick={onOpen}
-              className="cursor-pointer rounded-xs border-0 bg-transparent p-0 text-start font-medium text-foreground hover:underline"
-            >
-              {words}
-            </button>
-          )}
-          {/* The dot's colour tells the state to the eye; these words tell it to screen readers. */}
-          {state ? <span className="sr-only">{spokenStates[state]}</span> : null}
-        </span>
-        {/* A div, so a detail may hold blocks such as Claude's summary laid out as Markdown. */}
-        {detail ? <div className="text-small text-muted-foreground">{detail}</div> : null}
-      </div>
+      <Collapsible.Root asChild defaultOpen={defaultOpen}>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-medium">
+            {details !== undefined ? (
+              // Only the title is the button: a link in the detail line still works (spec 046).
+              <Collapsible.Trigger className="group inline-flex cursor-pointer items-center gap-1 rounded-xs border-0 bg-transparent p-0 text-start font-medium text-foreground hover:underline">
+                {words}
+                <Icon
+                  icon={ArrowRight01Icon}
+                  aria-hidden
+                  className="size-4 shrink-0 text-muted-foreground group-data-[state=open]:rotate-90 motion-safe:transition-transform"
+                />
+              </Collapsible.Trigger>
+            ) : onOpen === undefined ? (
+              words
+            ) : (
+              <button
+                type="button"
+                onClick={onOpen}
+                className="cursor-pointer rounded-xs border-0 bg-transparent p-0 text-start font-medium text-foreground hover:underline"
+              >
+                {words}
+              </button>
+            )}
+            {/* The dot's colour tells the state to the eye; these words tell it to screen readers. */}
+            {state ? <span className="sr-only">{spokenStates[state]}</span> : null}
+          </span>
+          {/* A div, so a detail may hold blocks such as Claude's summary laid out as Markdown. */}
+          {detail ? <div className="text-small text-muted-foreground">{detail}</div> : null}
+          {/* Under the title and its line, lined up with them. */}
+          {details === undefined ? null : <Collapsible.Content className="pt-1">{details}</Collapsible.Content>}
+        </div>
+      </Collapsible.Root>
     </li>
   );
 }

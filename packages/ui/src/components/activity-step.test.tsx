@@ -73,6 +73,76 @@ describe('ActivityStep', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('AC-5, AC-9, AC-10 (spec 046): a step with details opens and closes in place by its title, several at once', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <ActivityList aria-label="Claude's progress">
+        <ActivityStep
+          state="done"
+          icon={<Icon icon={PencilEdit01Icon} />}
+          title="Edited 2 files"
+          detail="a.ts and b.ts"
+          details={<p>src/a.ts and src/b.ts</p>}
+        />
+        <ActivityStep
+          state="done"
+          icon={<Icon icon={FileSearchIcon} />}
+          title="Explored the code"
+          details={<p>src/c.ts</p>}
+        />
+        <ActivityStep state="done" icon={<Icon icon={TerminalIcon} />} title="Made the worktree" />
+      </ActivityList>,
+    );
+    const edited = screen.getByRole('button', { name: 'Edited 2 files' });
+    expect(edited).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('src/a.ts and src/b.ts')).not.toBeInTheDocument();
+
+    await user.click(edited);
+    expect(edited).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('src/a.ts and src/b.ts')).toBeVisible();
+    // Nothing opens over the page.
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // The detail line stays outside the button, so a link in it still works.
+    expect(edited).not.toHaveTextContent('a.ts and b.ts');
+
+    await user.click(screen.getByRole('button', { name: 'Explored the code' }));
+    expect(screen.getByText('src/a.ts and src/b.ts')).toBeVisible();
+    expect(screen.getByText('src/c.ts')).toBeVisible();
+
+    await user.click(edited);
+    expect(edited).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('src/a.ts and src/b.ts')).not.toBeInTheDocument();
+    // A step with nothing more to show has no button.
+    expect(screen.queryByRole('button', { name: 'Made the worktree' })).not.toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it('AC-19 (spec 046): its title is one Tab stop that Enter and Space open and close, then the details come next', async () => {
+    const user = userEvent.setup();
+    render(
+      <ActivityList aria-label="Claude's progress">
+        <ActivityStep
+          state="done"
+          icon={<Icon icon={PencilEdit01Icon} />}
+          title="Edited 1 file"
+          details={<button type="button">Copy src/a.ts</button>}
+        />
+      </ActivityList>,
+    );
+    await user.tab();
+    const title = screen.getByRole('button', { name: 'Edited 1 file' });
+    expect(title).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(title).toHaveAttribute('aria-expanded', 'true');
+    expect(title).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Copy src/a.ts' })).toHaveFocus();
+    await user.tab({ shift: true });
+    await user.keyboard(' ');
+    expect(title).toHaveAttribute('aria-expanded', 'false');
+    expect(title).toHaveFocus();
+  });
+
   it('a step with more to show has a title you can press', async () => {
     const onOpen = vi.fn();
     const { container } = render(

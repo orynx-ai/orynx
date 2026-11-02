@@ -16,7 +16,7 @@ Before Task 1: the user applies the design-system patch (Q1a) and it's committed
 - [x] Task 4: UI: `ActivityStep`'s running shimmer (off under reduced motion) and its failed state (AC-1, AC-2, AC-3, AC-4, AC-15, AC-21)
       Check: pnpm test packages/ui/src/components/activity-step.test.tsx; pnpm gate style-policy component-coverage
       Files: packages/ui/src/styles/theme.css, packages/ui/src/components/activity-step.tsx, packages/ui/src/components/activity-step.stories.tsx, packages/ui/src/components/activity-step.test.tsx
-- [ ] Task 5: UI: `ActivityStep` opens in place: the title is the button, with a chevron, `aria-expanded`, and details under the title (AC-5, AC-9, AC-10, AC-19, AC-22, AC-23)
+- [x] Task 5: UI: `ActivityStep` opens in place: the title is the button, with a chevron, `aria-expanded`, and details under the title (AC-5, AC-9, AC-10, AC-19, AC-22, AC-23)
       Check: pnpm test packages/ui/src/components/activity-step.test.tsx; pnpm gate component-coverage icon-buttons
       Files: packages/ui/src/components/activity-step.tsx, packages/ui/src/components/activity-step.stories.tsx, packages/ui/src/components/activity-step.test.tsx
 - [ ] Task 6: UI: Claude's to-do list, with a tick for done, a shimmer for in progress and an outlined dot for to come (AC-16, AC-21, AC-23)

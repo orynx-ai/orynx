@@ -43,6 +43,49 @@ export const Failed: Story = {
     detail: 'npm install, npm test and npm run lint',
   },
 };
+/** A step with more to show, closed: its title is the button that opens it in place (spec 046). */
+export const Closed: Story = { args: { state: 'done', details: <p className="m-0">ContentList.tsx</p> } };
+/** The same step, open: its details under the title, lined up with it. */
+export const Open: Story = {
+  args: {
+    state: 'done',
+    icon: <Icon icon={PencilEdit01Icon} />,
+    title: 'Edited 2 files',
+    detail: 'ContentList.tsx and contentApi.ts',
+    defaultOpen: true,
+    details: (
+      <ul className="m-0 flex list-none flex-col gap-1 p-0 font-mono text-code">
+        <li>src/content/ContentList.tsx</li>
+        <li>src/content/api/contentApi.ts</li>
+      </ul>
+    ),
+  },
+};
+/** Open, with long paths cut off with the full path on hover, and long commands that wrap (AC-22). */
+export const OpenLongList: Story = {
+  args: {
+    state: 'done',
+    icon: <Icon icon={TerminalIcon} />,
+    title: 'Ran 4 commands',
+    detail: undefined,
+    defaultOpen: true,
+    details: (
+      <ul className="m-0 flex list-none flex-col gap-1 p-0 font-mono text-code">
+        {[
+          'src/content/components/bulk-archive/__tests__/bulk-archive-toolbar.integration.test.tsx',
+          'src/content/components/bulk-archive/bulk-archive-confirmation-dialog.tsx',
+        ].map((path) => (
+          <li key={path} title={path} className="truncate">
+            {path}
+          </li>
+        ))}
+        <li className="wrap-anywhere">
+          pnpm --filter @acme/content exec vitest run src/content/components/bulk-archive --reporter=verbose --coverage
+        </li>
+      </ul>
+    ),
+  },
+};
 /** A step with more to show: its title is a button. */
 export const Openable: Story = { args: { state: 'done', onOpen: () => undefined } };
 export const Waiting: Story = {
