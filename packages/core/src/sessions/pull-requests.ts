@@ -18,12 +18,7 @@ import type {
   Session,
 } from '@devhub/contracts';
 import type { AgentAdapter } from '../agents/agent-adapter.ts';
-import type {
-  GitHubClient,
-  GitHubOpenProblem,
-  GitHubPullProblem,
-  GitHubThreadChange,
-} from '../integrations/github/client.ts';
+import type { GitHubClient, GitHubOpenProblem, GitHubPullProblem } from '../integrations/github/client.ts';
 import type { GitHubSyncCredentials } from '../integrations/github/connection.ts';
 import type { BranchGit, CommitProblem, PushProblem } from './branch-git.ts';
 import { sessionStartPoint, type ChangesReader, type ReadyChanges, type StartPoint } from './changes.ts';
@@ -192,12 +187,15 @@ function openProblem(problem: GitHubOpenProblem): OpenProblem {
 }
 
 /** Why the review threads couldn't be read; a pull request GitHub no longer shows this token reads as a refusal. */
-function threadsProblem(problem: GitHubPullProblem): OpenProblem {
+export function threadsProblem(problem: GitHubPullProblem): OpenProblem {
   return problem.kind === 'not_found' ? { kind: 'github_refused' } : openProblem(problem);
 }
 
-/** GitHub's refusal of a reply or Resolve in the dialog's terms: its own words, or a problem every call has. */
-function replyProblem(problem: Extract<GitHubThreadChange, { ok: false }>['problem']): ReplyProblem {
+/**
+ * GitHub's refusal of a reply, a Resolve (spec 049) or a review (spec 050) in the dialog's terms: its own words, or a
+ * problem every call has.
+ */
+export function replyProblem(problem: GitHubOpenProblem | { kind: 'refused'; message: string }): ReplyProblem {
   return problem.kind === 'refused' ? { kind: 'github_said', message: problem.message } : openProblem(problem);
 }
 

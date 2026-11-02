@@ -34,7 +34,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: `review_comment` is wired into a review's run as a step; the last answer becomes the summary and its verdict; comments stay after Stop; every `mode === 'ask'` check is reviewed for a review session (AC-8, AC-11, AC-13, AC-22)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-service.test.ts
-- [ ] Task 10: `review.ts`: change a comment (keep, text), the status from the PR's head, and post one review with the kept, unposted comments, marking them posted; errors leave nothing marked (AC-12, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21)
+- [x] Task 10: `review.ts`: change a comment (keep, text), the status from the PR's head, and post one review with the kept, unposted comments, marking them posted; errors leave nothing marked (AC-12, AC-16, AC-17, AC-18, AC-19, AC-20, AC-21)
       Check: pnpm test packages/core/src/sessions/review.test.ts
       Files: packages/core/src/sessions/review.ts, packages/core/src/sessions/review.test.ts, packages/core/src/sessions/pull-requests.ts (shared error mapping)
 - [ ] Task 11: The routes: PATCH a comment, GET the status, POST the review, against the real server with the fake GitHub (AC-12, AC-16, AC-17)

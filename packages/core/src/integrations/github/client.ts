@@ -119,7 +119,8 @@ export type GitHubThreadChange =
 export interface GitHubReview {
   repository: string;
   number: number;
-  commit: string;
+  /** Null: GitHub takes the pull request's latest commit. */
+  commit: string | null;
   body: string;
   event: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES';
   comments: { path: string; line: number; side: 'LEFT' | 'RIGHT'; body: string }[];
@@ -790,7 +791,7 @@ export function createGitHubClient({
         const answer = await octokit.request('POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
           ...partsOf(repository),
           pull_number: number,
-          commit_id: commit,
+          ...(commit === null ? {} : { commit_id: commit }),
           body,
           event,
           comments,
