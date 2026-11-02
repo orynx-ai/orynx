@@ -184,7 +184,7 @@ describe('AttentionPanel', () => {
     expect(row.queryByRole('button', { name: /composer$/ })).toBeNull();
   });
 
-  it('AC-6, 022 AC-30, AC-33: a review request’s + adds the pull request, and its title opens GitHub with no arrow', async () => {
+  it('AC-6, 022 AC-33: a review request’s title opens GitHub with no arrow', async () => {
     const { user, platform } = await openHome();
     const row = rowOf('Lazy-load the people directory');
 
@@ -194,13 +194,90 @@ describe('AttentionPanel', () => {
     const title = row.getByRole('link', { name: 'Lazy-load the people directory' });
     expect(title.querySelector('svg')).toBeNull();
 
-    await user.click(row.getByRole('button', { name: 'Add web-app #2841 to the composer' }));
-    expect(useComposerStore.getState().chips).toEqual([
-      { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2841 },
-    ]);
+    // Review with Claude in place of + (spec 050).
+    expect(row.queryByRole('button', { name: /to the composer$/ })).toBeNull();
 
     await user.click(title);
     expect(platform.openExternal).toHaveBeenCalledWith('https://github.com/acme/web-app/pull/2841/files');
+  });
+
+  describe('Review with Claude (spec 050)', () => {
+    const web2841 = { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2841 } as const;
+
+    function starts(answer: (body: { another?: true }) => object) {
+      const posted: unknown[] = [];
+      server.use(
+        http.get(apiUrl(apiRoutes.status), () =>
+          HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+        ),
+        http.get(apiUrl(apiRoutes.agentModels), () =>
+          HttpResponse.json({
+            state: 'ready',
+            models: [{ value: 'sonnet', displayName: 'Sonnet', description: 'Everyday tasks', efforts: ['high'] }],
+          }),
+        ),
+        http.post(apiUrl(apiRoutes.sessions), async ({ request }) => {
+          const body = (await request.json()) as { another?: true };
+          posted.push(body);
+          return HttpResponse.json(answer(body));
+        }),
+      );
+      return posted;
+    }
+
+    it('AC-1, AC-2: starts a review of the pull request with the composer’s model, opens it, and leaves the draft', async () => {
+      const posted = starts(() => ({ result: 'started', sessionId: '0123456789abcdef' }));
+      useComposerStore.setState({ text: 'Half a thought', model: 'sonnet', effort: 'high' });
+      const { user, history } = await openHome();
+      const row = rowOf(review.title);
+      expect(row.queryByRole('button', { name: /to the composer$/ })).toBeNull();
+
+      await user.click(row.getByRole('button', { name: 'Review web-app #2841 with Claude' }));
+
+      await waitFor(() => {
+        expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
+      });
+      expect(posted).toEqual([
+        { message: '', context: [web2841], model: 'sonnet', effort: 'high', mode: 'ask', review: true },
+      ]);
+      expect(useComposerStore.getState()).toMatchObject({ text: 'Half a thought', chips: [] });
+    });
+
+    it('AC-3: its live review shows the composer’s choice, and Start a new session starts another beside it', async () => {
+      const posted = starts((body) =>
+        body.another === true
+          ? { result: 'started', sessionId: '0123456789abcdef' }
+          : { result: 'existing', sessionId: '00000000000000ee' },
+      );
+      const { user, history } = await openHome();
+
+      await user.click(rowOf(review.title).getByRole('button', { name: 'Review web-app #2841 with Claude' }));
+
+      const alert = await screen.findByRole('alert');
+      expect(within(alert).getByText(`#${String(2841)} already has a session`)).toBeVisible();
+      await user.click(within(alert).getByRole('button', { name: 'Start a new session' }));
+      await waitFor(() => {
+        expect(history.location.pathname).toBe('/sessions/0123456789abcdef');
+      });
+      expect(posted[1]).toEqual({ ...(posted[0] as object), another: true });
+    });
+
+    it('AC-24: is reached by Tab from its row’s title, with its tooltip, and Enter presses it', async () => {
+      const posted = starts(() => ({ result: 'started', sessionId: '0123456789abcdef' }));
+      const { user } = await openHome();
+      act(() => {
+        titleOf(review.title).focus();
+      });
+
+      await user.tab();
+
+      expect(rowOf(review.title).getByRole('button', { name: 'Review web-app #2841 with Claude' })).toHaveFocus();
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('Review with Claude');
+      await user.keyboard('{Enter}');
+      await waitFor(() => {
+        expect(posted).toHaveLength(1);
+      });
+    });
   });
 
   describe('Fix on your own pull request (spec 047)', () => {
@@ -342,12 +419,21 @@ describe('AttentionPanel', () => {
         number: n + 1,
       })),
     });
+    // Your own pull request from a fork keeps + (spec 047).
+    const forked = makeInboxItem({
+      id: 'github:acme/web-app/pull/2850',
+      title: 'Bump the date library',
+      subject: { kind: 'pull_request', repository: 'web-app', number: 2850, author: 'You', mine: true, fork: true },
+      reason: { kind: 'checks_failing' },
+      target: { kind: 'external', url: 'https://github.com/acme/web-app/pull/2850/checks' },
+    });
+    inboxWith([forked]);
     const { user } = await openHome();
-    const row = rowOf('Lazy-load the people directory');
-    await user.click(row.getByRole('button', { name: 'Add web-app #2841 to the composer' }));
+    const row = rowOf('Bump the date library');
+    await user.click(row.getByRole('button', { name: 'Add web-app #2850 to the composer' }));
     expect(useComposerStore.getState().chips).toHaveLength(100);
     expect(screen.getByText('A session takes up to 100 pull requests.')).toBeInTheDocument();
-    expect(row.getByRole('button', { name: 'Add web-app #2841 to the composer' })).toHaveFocus();
+    expect(row.getByRole('button', { name: 'Add web-app #2850 to the composer' })).toHaveFocus();
   });
 
   it("AC-12: shows a session waiting on your ticket in the ticket's row, and Open session goes to the session in Orynx", async () => {
@@ -712,7 +798,7 @@ describe('AttentionPanel when a sync changes the rows', () => {
       'Search',
       'Reason',
       review.title,
-      'Add web-app #2841 to the composer',
+      'Review web-app #2841 with Claude',
       ticket.title,
       'Add PROJ-1423 to the composer',
     ]);

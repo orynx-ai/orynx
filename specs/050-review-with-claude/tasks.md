@@ -58,7 +58,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **app**
 
-- [ ] Task 15: Home's Review requested row on someone else's PR gets Review with Claude, which starts the review and opens it; a live review shows spec 047's callout (AC-1, AC-2, AC-3)
+- [x] Task 15: Home's Review requested row on someone else's PR gets Review with Claude, which starts the review and opens it; a live review shows spec 047's callout (AC-1, AC-2, AC-3)
       Check: pnpm test packages/app/src/features/home/inbox-words.test.ts packages/app/src/features/home/components/attention-panel.test.tsx
       Files: packages/app/src/features/home/inbox-words.ts, packages/app/src/features/home/components/attention-panel.tsx, the composer words for the callout, their tests
 - [ ] Task 16: A review session shows the Changes tab with each comment as a note under its line, Keep and Edit (react-hook-form), and the file list's counts (AC-8, AC-12, AC-24)

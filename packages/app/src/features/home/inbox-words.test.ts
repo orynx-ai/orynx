@@ -108,12 +108,17 @@ describe('Home’s words', () => {
     ).toBe('PROJ-1');
   });
 
-  it('022 AC-30: a pull request’s one action adds it to the composer, named for it', () => {
-    for (const reason of [
-      { kind: 'review_requested' },
-      { kind: 'checks_failing' },
-      { kind: 'unresolved_comments', count: 2 },
-    ] as const) {
+  it('050 AC-1: a review asked of you on someone else’s pull request gets Review with Claude, named for it', () => {
+    expect(rowAction(makeInboxItem({ reason: { kind: 'review_requested' } }))).toEqual({
+      kind: 'review',
+      chip: { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2841 },
+      label: 'Review with Claude',
+      name: 'Review web-app #2841 with Claude',
+    });
+  });
+
+  it('022 AC-30: any other pull request’s one action adds it to the composer, named for it', () => {
+    for (const reason of [{ kind: 'checks_failing' }, { kind: 'unresolved_comments', count: 2 }] as const) {
       expect(rowAction(makeInboxItem({ reason }))).toEqual({
         kind: 'compose',
         chip: { kind: 'pull_request', owner: 'acme', name: 'web-app', number: 2841 },
