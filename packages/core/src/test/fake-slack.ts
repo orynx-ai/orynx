@@ -55,12 +55,81 @@ export function knownUsers(people: Record<string, { display: string; real?: stri
   });
 }
 
+/** A message as Slack's search or history gives it. */
+export interface FakeSlackMessage {
+  ts: string;
+  user?: string;
+  bot_id?: string;
+  text?: string;
+  thread_ts?: string;
+  files?: { name: string }[];
+}
+
+/** A mention as `search.messages` finds it: the message, its channel and its permalink. */
+export interface FakeMention extends FakeSlackMessage {
+  channel: { id: string; name: string; is_im?: boolean; is_mpim?: boolean };
+}
+
+/** Form fields Slack's SDK posts. */
+async function fieldsOf(request: Request): Promise<URLSearchParams> {
+  return new URLSearchParams(await request.text());
+}
+
 /**
- * MSW standing in for Slack, an outside service, for the test file that calls this. It answers `auth.test` and
- * `users.info` and fails any other request, so no test can reach the real internet.
+ * `search.messages`, finding these mentions, oldest first as Orynx asks; `queries` collects what was searched for.
+ */
+export function slackMentions(mentions: readonly FakeMention[], queries: string[] = []) {
+  return http.post(`${slackApi}/search.messages`, async ({ request }) => {
+    queries.push((await fieldsOf(request)).get('query') ?? '');
+    const matches = mentions.map((mention) => ({
+      ...mention,
+      type: 'message',
+      permalink: `https://acme.slack.com/archives/${mention.channel.id}/p${mention.ts.replace('.', '')}${
+        mention.thread_ts === undefined ? '' : `?thread_ts=${mention.thread_ts}&cid=${mention.channel.id}`
+      }`,
+    }));
+    return HttpResponse.json({ ok: true, messages: { matches, total: matches.length } });
+  });
+}
+
+/** `conversations.replies` for these threads, by `channel/ts` of their first message; `asked` counts the calls. */
+export function slackThreads(threads: Record<string, readonly FakeSlackMessage[]>, asked: string[] = []) {
+  return http.post(`${slackApi}/conversations.replies`, async ({ request }) => {
+    const fields = await fieldsOf(request);
+    const key = `${fields.get('channel') ?? ''}/${fields.get('ts') ?? ''}`;
+    asked.push(key);
+    const messages = threads[key];
+    if (messages === undefined) return HttpResponse.json({ ok: false, error: 'thread_not_found' });
+    return HttpResponse.json({ ok: true, messages });
+  });
+}
+
+/** Your DMs, by channel id, for `users.conversations` and `conversations.history`; `asked` counts history calls. */
+export function slackDms(dms: Record<string, readonly FakeSlackMessage[]>, asked: string[] = []) {
+  return [
+    http.post(`${slackApi}/users.conversations`, () =>
+      HttpResponse.json({
+        ok: true,
+        channels: Object.keys(dms).map((id) => ({ id, is_im: true })),
+        response_metadata: { next_cursor: '' },
+      }),
+    ),
+    http.post(`${slackApi}/conversations.history`, async ({ request }) => {
+      const channel = (await fieldsOf(request)).get('channel') ?? '';
+      asked.push(channel);
+      // Newest first, as Slack gives a channel's history.
+      const messages = [...(dms[channel] ?? [])].reverse();
+      return HttpResponse.json({ ok: true, messages, has_more: false });
+    }),
+  ];
+}
+
+/**
+ * MSW standing in for Slack, an outside service, for the test file that calls this. It answers `auth.test`,
+ * `users.info`, no mentions and no DMs, and fails any other request, so no test can reach the real internet.
  */
 export function useFakeSlack() {
-  const server = setupServer(acceptingAuthTest(), knownUsers());
+  const server = setupServer(acceptingAuthTest(), knownUsers(), slackMentions([]), slackThreads({}), ...slackDms({}));
   beforeAll(() => {
     server.listen({ onUnhandledFrame: 'error' });
   });
