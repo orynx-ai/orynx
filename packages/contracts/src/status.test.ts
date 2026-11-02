@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ConnectionCheckSchema, IntegrationStatusSchema, ServerEventSchema, StatusSchema } from './index.ts';
+import {
+  ConnectionCheckSchema,
+  IntegrationIdSchema,
+  IntegrationStatusSchema,
+  ServerEventSchema,
+  StatusSchema,
+} from './index.ts';
 import { makeStatus } from './testing.ts';
 
 describe('StatusSchema', () => {
@@ -22,6 +28,13 @@ describe('StatusSchema', () => {
     });
     expect(status.integrations.github.state).toBe('connected');
     expect(status.integrations.jira.state).toBe('not_connected');
+  });
+
+  it('016 AC-5: knows Discord as a fourth tool, not connected until it is set up', () => {
+    expect(IntegrationIdSchema.options).toEqual(['jira', 'github', 'slack', 'discord']);
+    expect(makeStatus().integrations.discord).toEqual({ state: 'not_connected', detail: null });
+    const { discord: _left, ...withoutDiscord } = makeStatus().integrations;
+    expect(StatusSchema.safeParse({ ...makeStatus(), integrations: withoutDiscord }).success).toBe(false);
   });
 });
 

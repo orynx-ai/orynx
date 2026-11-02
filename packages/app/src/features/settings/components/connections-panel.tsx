@@ -34,7 +34,7 @@ function ConnectionRow({
 }
 
 /**
- * The page bar on Settings › Connections: "2 of 3 connected · 1 needs attention" (spec 030). Empty until the
+ * The page bar on Settings › Connections: "2 of 4 connected · 1 needs attention" (spec 030). Empty until the
  * status comes, and under 768 px, where the bar has room only for the crumbs.
  */
 export function ConnectionsSummary() {

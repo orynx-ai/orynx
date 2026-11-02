@@ -116,7 +116,13 @@ export function makeStatus(overrides: StatusOverrides = {}): Status {
     version: overrides.version ?? '0.0.0-test',
     user: { name: null, ...overrides.user },
     agent: { id: 'claude', connected: false, ...overrides.agent },
-    integrations: { jira: notConnected, github: notConnected, slack: notConnected, ...overrides.integrations },
+    integrations: {
+      jira: notConnected,
+      github: notConnected,
+      slack: notConnected,
+      discord: notConnected,
+      ...overrides.integrations,
+    },
   });
 }
 

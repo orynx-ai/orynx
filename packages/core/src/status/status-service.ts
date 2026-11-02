@@ -20,7 +20,7 @@ const notConnected: IntegrationStatus = { state: 'not_connected', detail: null }
 
 /**
  * Reports what the hub is connected to. Jira (spec 003), GitHub (spec 004) and Claude (spec 010) have
- * real checks, which run side by side; Slack is not connected until spec 016 replaces its line.
+ * real checks, which run side by side; Slack and Discord are not connected until spec 016 gives them lines.
  */
 export function createStatusService(options: StatusServiceOptions): StatusService {
   let userName: Promise<string | null> | undefined;
@@ -38,7 +38,7 @@ export function createStatusService(options: StatusServiceOptions): StatusServic
         version: options.version,
         user: { name },
         agent: { id: 'claude', connected: claude },
-        integrations: { jira, github, slack: notConnected },
+        integrations: { jira, github, slack: notConnected, discord: notConnected },
       };
     },
   };

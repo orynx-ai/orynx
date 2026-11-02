@@ -33,6 +33,9 @@ describe('GET /api/status', () => {
     const status = StatusSchema.parse(res.json());
     expect(status.version).toBe('1.2.3');
     expect(status.integrations.jira.state).toBe('not_connected');
+    // 016 AC-5: Slack and Discord read not connected until each is set up.
+    expect(status.integrations.slack.state).toBe('not_connected');
+    expect(status.integrations.discord.state).toBe('not_connected');
   });
 
   it('accepts localhost as well as 127.0.0.1', async () => {

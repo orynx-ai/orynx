@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const IntegrationIdSchema = z.enum(['jira', 'github', 'slack']);
+export const IntegrationIdSchema = z.enum(['jira', 'github', 'slack', 'discord']);
 export type IntegrationId = z.infer<typeof IntegrationIdSchema>;
 
 /** Settings › Connections shows one of these per tool. */
@@ -47,6 +47,7 @@ export const StatusSchema = z.object({
     jira: IntegrationStatusSchema,
     github: IntegrationStatusSchema,
     slack: IntegrationStatusSchema,
+    discord: IntegrationStatusSchema,
   }),
 });
 export type Status = z.infer<typeof StatusSchema>;

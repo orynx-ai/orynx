@@ -31,7 +31,7 @@ describe('ConnectionsPanel (spec 030)', () => {
     answerWith(mixedStatus);
     await renderApp({ route: '/settings/connections' });
 
-    expect(await screen.findByText('1 of 3 connected · 1 needs attention')).toBeVisible();
+    expect(await screen.findByText('1 of 4 connected · 1 needs attention')).toBeVisible();
     expect(screen.queryByText('Changes save automatically')).not.toBeInTheDocument();
   });
 
@@ -42,7 +42,7 @@ describe('ConnectionsPanel (spec 030)', () => {
     );
     await renderApp({ route: '/settings/connections' });
 
-    expect(await screen.findByText('1 of 3 connected')).toBeVisible();
+    expect(await screen.findByText('1 of 4 connected')).toBeVisible();
   });
 
   it('AC-3: spells out the three looks in a key under the list', async () => {

@@ -15,17 +15,28 @@ export const lookWords: Record<StatusButtonState, { label: string; tip: string; 
   not_connected: { label: 'Not connected', tip: 'Not connected · select to connect', tone: 'neutral' },
 };
 
-export const toolNames: Record<IntegrationId, string> = { jira: 'Jira', github: 'GitHub', slack: 'Slack' };
+export const toolNames: Record<IntegrationId, string> = {
+  jira: 'Jira',
+  github: 'GitHub',
+  slack: 'Slack',
+  discord: 'Discord',
+};
 
 /** Under a tool's name until the server has a line for it (specs 003 and 004). */
 export const howToConnect: Record<IntegrationId, string> = {
   jira: 'Connect with your site address, email and a personal API token.',
   github: 'Reuses your gh command-line login, or a personal access token.',
   slack: 'Reading your mentions needs a Slack app your admin approves.',
+  discord: 'Reading your mentions needs a Discord bot you make.',
 };
 
 /** What leaves the inbox when a tool stops working. */
-const items: Record<IntegrationId, string> = { jira: 'tickets', github: 'pull requests', slack: 'mentions' };
+const items: Record<IntegrationId, string> = {
+  jira: 'tickets',
+  github: 'pull requests',
+  slack: 'mentions',
+  discord: 'mentions',
+};
 
 /** The dialog's first line, by state (spec 030, 10a). */
 export function leadLine(tool: IntegrationId, look: StatusButtonState): string {
@@ -43,6 +54,7 @@ export const reads: Record<IntegrationId, string> = {
   jira: 'Issues assigned to you, your sprint, comments',
   github: 'Pull requests, checks, review comments',
   slack: 'Mentions, DMs, threads you add',
+  discord: "Mentions in your bot's servers, threads you add",
 };
 export const githubWrites = 'Pushes session branches and opens pull requests on your click';
 
