@@ -692,7 +692,15 @@ describe('AttentionPanel states', () => {
 
   it('AC-26: says when every rule is off', async () => {
     inboxWith([]);
-    rulesOff('jira_assigned', 'review_requested', 'checks_failing', 'unresolved_comments', 'session_waiting');
+    rulesOff(
+      'jira_assigned',
+      'review_requested',
+      'checks_failing',
+      'unresolved_comments',
+      'session_waiting',
+      'slack_waiting',
+      'discord_waiting',
+    );
     const { panel } = await openTab('/', 'Every inbox rule is off');
 
     expect(within(panel).getByRole('link', { name: 'Turn some on in Settings › Inbox rules.' })).toBeVisible();

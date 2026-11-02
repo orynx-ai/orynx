@@ -81,6 +81,26 @@ describe('adding a chip (spec 015)', () => {
     expect(addChip([file('a.md')], file('a.md'))).toEqual({ ok: true, chips: [file('a.md')] });
     expect(addChip([], ticket)).toEqual({ ok: true, chips: [ticket] });
   });
+
+  it('016: up to 10 threads, Slack’s and Discord’s together, and the same thread twice changes nothing', () => {
+    const slack = (n: number): ComposerChip => ({
+      kind: 'slack_thread',
+      channel: 'C024BE91L',
+      ts: `17000000${String(n).padStart(2, '0')}.000000`,
+    });
+    const discord: ComposerChip = {
+      kind: 'discord_thread',
+      guild: '1100000000000000001',
+      channel: '1100000000000000002',
+      message: '1100000000000000003',
+    };
+    const nine = Array.from({ length: 9 }, (_, n) => slack(n));
+    expect(addChip(nine, discord).ok).toBe(true);
+    expect(addChip([...nine, discord], slack(10))).toEqual({ ok: false, refusal: 'too_many_threads' });
+    // A thread's label is how it reads, not which thread it is.
+    const labelled = { ...slack(1), label: { from: 'Neha K.', channel: 'web-platform', server: null } };
+    expect(addChip([slack(1)], labelled)).toEqual({ ok: true, chips: [slack(1)] });
+  });
 });
 
 describe('which folder the composer shows (spec 015, Q7)', () => {

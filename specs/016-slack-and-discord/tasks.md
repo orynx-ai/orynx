@@ -25,7 +25,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Preferences: `slack_waiting` and `discord_waiting` rules, on by default, and `replyWaitMinutes` (30, 60, 120, 240, 1440; 120 by default); the `reply_waiting` notification event, on by default (AC-13, AC-18, AC-25)
       Check: pnpm test packages/contracts/src/preferences.test.ts packages/contracts/src/notifications.test.ts; pnpm typecheck
       Files: packages/contracts/src/preferences.ts, packages/contracts/src/notifications.ts, packages/contracts/src/testing.ts, their tests
-- [ ] Task 7: Thread chips `slack_thread` and `discord_thread` with an optional `label`; the preview's query and answer (`found` with names, `not_connected`, `not_found`); a link parser for both tools (AC-26, AC-27, AC-32)
+- [x] Task 7: Thread chips `slack_thread` and `discord_thread` with an optional `label`; the preview's query and answer (`found` with names, `not_connected`, `not_found`); a link parser for both tools (AC-26, AC-27, AC-32)
       Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/threads.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/threads.ts, packages/contracts/src/threads.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
 - [ ] Task 8: The session's `threadReply` and its pull request's optional `title`; the reply request (text up to 2,000 characters) and answers (`posted`, `failed` with the tool's words) and the dismiss path (AC-40 to AC-44)

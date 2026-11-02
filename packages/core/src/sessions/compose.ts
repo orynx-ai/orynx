@@ -160,6 +160,8 @@ export function composerPlan(
 function chipId(chip: ComposerChip): string {
   if (chip.kind === 'jira') return `jira:${chip.key}`;
   if (chip.kind === 'pull_request') return `pr:${chip.owner}/${chip.name}#${String(chip.number)}`.toLowerCase();
+  if (chip.kind === 'slack_thread') return `slack:${chip.channel}/${chip.ts}`;
+  if (chip.kind === 'discord_thread') return `discord:${chip.message}`;
   return `file:${chip.path}`;
 }
 

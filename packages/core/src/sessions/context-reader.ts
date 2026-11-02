@@ -141,6 +141,10 @@ export function createContextReader({
   function readChip(chip: ComposerChip): Promise<ChipRead> {
     if (chip.kind === 'jira') return readTicket(chip.key);
     if (chip.kind === 'pull_request') return readPull(chip);
+    // shortcut: threads read as not connected until Slack and Discord read them (spec 016, task 17).
+    if (chip.kind === 'slack_thread' || chip.kind === 'discord_thread') {
+      return Promise.resolve({ ok: false, problem: 'not_connected' });
+    }
     return readFile(chip);
   }
 

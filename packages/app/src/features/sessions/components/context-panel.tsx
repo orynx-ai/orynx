@@ -26,8 +26,17 @@ function useSubLine(): (chip: ComposerChip) => string | null {
       const id = `${chip.owner}/${chip.name}#${String(chip.number)}`.toLowerCase();
       return index.data?.pullRequests.find((known) => known.id.toLowerCase() === id)?.title ?? null;
     }
+    if (chip.kind === 'slack_thread') return 'Slack thread';
+    if (chip.kind === 'discord_thread') return 'Discord thread';
     return chip.path;
   };
+}
+
+/** The mark beside a chip that isn't a file. */
+function sourceOf(chip: Exclude<ComposerChip, { kind: 'file' }>) {
+  if (chip.kind === 'jira') return ticketSource(chip.key);
+  if (chip.kind === 'slack_thread') return 'slack';
+  return chip.kind === 'discord_thread' ? 'discord' : 'github';
 }
 
 function Name({ chip }: { chip: ComposerChip }) {
@@ -81,7 +90,7 @@ export function ContextPanel({ session }: { session: Session }) {
               {chip.kind === 'file' ? (
                 <Icon icon={File01Icon} aria-hidden className="text-muted-foreground" />
               ) : (
-                <SourceMark source={chip.kind === 'jira' ? ticketSource(chip.key) : 'github'} label="none" />
+                <SourceMark source={sourceOf(chip)} label="none" />
               )}
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <Name chip={chip} />
