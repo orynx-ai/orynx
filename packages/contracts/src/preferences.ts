@@ -56,7 +56,7 @@ export type Editor = z.infer<typeof EditorSchema>;
 
 /**
  * Settings › Inbox rules: one per row of the product spec's "What counts as needs you" table. Home
- * (spec 007) applies them. Slack's rule and its wait time join in spec 016 (spec 005, Q6).
+ * (spec 007) applies them. Slack's and Discord's rules join in spec 016, with one wait for both.
  */
 export const InboxRuleIdSchema = z.enum([
   'jira_assigned',
@@ -64,6 +64,8 @@ export const InboxRuleIdSchema = z.enum([
   'checks_failing',
   'unresolved_comments',
   'session_waiting',
+  'slack_waiting',
+  'discord_waiting',
 ]);
 export type InboxRuleId = z.infer<typeof InboxRuleIdSchema>;
 
@@ -75,6 +77,11 @@ export type InboxRules = z.infer<typeof InboxRulesSchema>;
 export const cleanupDays = [7, 14, 30, 90] as const;
 export const CleanupDaysSchema = z.union(cleanupDays.map((days) => z.literal(days)));
 export type CleanupDays = z.infer<typeof CleanupDaysSchema>;
+
+/** Settings › Inbox rules' "Wait before a message counts" (spec 016, B): 30 min, 1 h, 2 h, 4 h or 1 day. */
+export const replyWaitMinutes = [30, 60, 120, 240, 1440] as const;
+export const ReplyWaitMinutesSchema = z.union(replyWaitMinutes.map((minutes) => z.literal(minutes)));
+export type ReplyWaitMinutes = z.infer<typeof ReplyWaitMinutesSchema>;
 
 /** GET /api/preferences, and the answer to PATCH: the saved values, or the defaults for anything never set. */
 export const PreferencesSchema = z.object({
@@ -90,6 +97,8 @@ export const PreferencesSchema = z.object({
   jiraChanges: z.boolean(),
   /** Delete old sessions after this many days (spec 047, D); null, the default, never. */
   deleteSessionsAfterDays: CleanupDaysSchema.nullable(),
+  /** How long a Slack or Discord message waits on your reply before Home lists it (spec 016, B). */
+  replyWaitMinutes: ReplyWaitMinutesSchema,
 });
 export type Preferences = z.infer<typeof PreferencesSchema>;
 
@@ -103,11 +112,14 @@ export const defaultPreferences: Preferences = {
     checks_failing: true,
     unresolved_comments: true,
     session_waiting: true,
+    slack_waiting: true,
+    discord_waiting: true,
   },
   allowedCommands: [],
   editor: 'vscode',
   jiraChanges: false,
   deleteSessionsAfterDays: null,
+  replyWaitMinutes: 120,
 };
 
 /**
@@ -129,10 +141,11 @@ export const PreferencesChangeSchema = z
     editor: EditorSchema.optional(),
     jiraChanges: z.boolean().optional(),
     deleteSessionsAfterDays: CleanupDaysSchema.nullable().optional(),
+    replyWaitMinutes: ReplyWaitMinutesSchema.optional(),
   })
   .refine((change) => Object.values(change).some((value) => value !== undefined), {
     message:
-      'Send a permission, at least one rule, a command, the editor, Claude changes Jira, or Delete old sessions.',
+      'Send a permission, at least one rule, a command, the editor, Claude changes Jira, Delete old sessions, or the reply wait.',
   })
   .refine((change) => change.repository === undefined || change.permissions !== undefined, {
     message: 'Send the permissions to change for that repository.',

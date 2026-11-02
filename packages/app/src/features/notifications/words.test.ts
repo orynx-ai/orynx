@@ -83,6 +83,36 @@ describe('notification words (spec 029)', () => {
     });
   });
 
+  it('016 AC-25: says who is waiting on your reply and where, never the message, and opens it outside Orynx', () => {
+    const url = 'https://acme.slack.com/archives/C024BE91L/p1700000000123456';
+    const waiting = (where: Partial<Extract<NotificationWhat, { kind: 'reply_waiting' }>>): NotificationWhat => ({
+      kind: 'reply_waiting',
+      tool: 'slack',
+      from: 'Neha K.',
+      channel: 'web-platform',
+      server: null,
+      url,
+      ...where,
+    });
+
+    expect(notificationWords(waiting({}))).toEqual({
+      title: 'Neha K. is waiting on your reply',
+      detail: '#web-platform · Slack',
+      desktop: '#web-platform · Slack',
+    });
+    expect(notificationWords(waiting({ from: 'Arjun M.', channel: null })).detail).toBe('Direct message · Slack');
+    expect(
+      notificationWords(
+        waiting({
+          tool: 'discord',
+          server: 'Acme',
+          url: 'https://discord.com/channels/1100000000000000001/1100000000000000002/1100000000000000003',
+        }),
+      ).detail,
+    ).toBe('#web-platform · Acme · Discord');
+    expect(notificationPlace(waiting({}))).toEqual({ kind: 'external', url });
+  });
+
   it('AC-13 (spec 045): says a newer Orynx is out, and opens Settings › About', () => {
     expect(notificationWords({ kind: 'update_available', version: '0.1.40' })).toEqual({
       title: 'Orynx 0.1.40 is out',

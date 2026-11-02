@@ -435,6 +435,7 @@ export interface PreferencesOverrides {
   editor?: Preferences['editor'];
   jiraChanges?: boolean;
   deleteSessionsAfterDays?: Preferences['deleteSessionsAfterDays'];
+  replyWaitMinutes?: Preferences['replyWaitMinutes'];
 }
 
 /** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
@@ -450,6 +451,7 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
     editor: overrides.editor ?? defaultPreferences.editor,
     jiraChanges: overrides.jiraChanges ?? defaultPreferences.jiraChanges,
     deleteSessionsAfterDays: overrides.deleteSessionsAfterDays ?? defaultPreferences.deleteSessionsAfterDays,
+    replyWaitMinutes: overrides.replyWaitMinutes ?? defaultPreferences.replyWaitMinutes,
   });
 }
 

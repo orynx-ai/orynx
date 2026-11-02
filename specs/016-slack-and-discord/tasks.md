@@ -22,7 +22,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 5: The inbox grows: `slack` and `discord` sources, tabs and tool states; the `message` subject, the `no_reply` reason, `SlackLinkSchema` and `DiscordLinkSchema` in targets and sync changes; every record and switch filled (AC-10, AC-11, AC-16, AC-19)
       Check: pnpm test packages/contracts/src/inbox.test.ts packages/contracts/src/sync-activity.test.ts; pnpm typecheck
       Files: packages/contracts/src/inbox.ts, packages/contracts/src/slack.ts, packages/contracts/src/discord.ts, packages/contracts/src/sync-activity.ts, packages/contracts/src/testing.ts, their tests, the app's and core's records that typecheck names
-- [ ] Task 6: Preferences: `slack_waiting` and `discord_waiting` rules, on by default, and `replyWaitMinutes` (30, 60, 120, 240, 1440; 120 by default); the `reply_waiting` notification event, on by default (AC-13, AC-18, AC-25)
+- [x] Task 6: Preferences: `slack_waiting` and `discord_waiting` rules, on by default, and `replyWaitMinutes` (30, 60, 120, 240, 1440; 120 by default); the `reply_waiting` notification event, on by default (AC-13, AC-18, AC-25)
       Check: pnpm test packages/contracts/src/preferences.test.ts packages/contracts/src/notifications.test.ts; pnpm typecheck
       Files: packages/contracts/src/preferences.ts, packages/contracts/src/notifications.ts, packages/contracts/src/testing.ts, their tests
 - [ ] Task 7: Thread chips `slack_thread` and `discord_thread` with an optional `label`; the preview's query and answer (`found` with names, `not_connected`, `not_found`); a link parser for both tools (AC-26, AC-27, AC-32)
@@ -61,7 +61,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [ ] Task 15: The inbox service, schedule, cache, sync changes and sync activity sync a map of tools; `read()` applies the two rules and the wait; "index not ready" reads `syncing`; one tool failing keeps the others; the cache holds only row fields (AC-10, AC-13, AC-17, AC-18, AC-23, AC-24)
       Check: pnpm test packages/core/src/inbox/
       Files: packages/core/src/inbox/inbox-service.ts, inbox-cache.ts, inbox-schedule.ts, tool-state.ts, sync-changes.ts, sync-activity-service.ts, no-leaks.test.ts, their tests, packages/core/src/create-server.ts
-- [ ] Task 16: `replyWaitMinutes` is saved and read through `preferences-service`; `reply_waiting` fires once per new Slack or Discord row (AC-18, AC-25)
+- [ ] Task 16: (saving `replyWaitMinutes` landed in task 6) `reply_waiting` fires once per new Slack or Discord row (AC-18, AC-25)
       Check: pnpm test packages/core/src/preferences/preferences-service.test.ts packages/core/src/notifications/
       Files: packages/core/src/preferences/preferences-service.ts, packages/core/src/notifications/inbox-notifications.ts, notification-service.ts, their tests
 - [ ] Task 17: Reading a thread: Slack's whole thread, Discord's thread channel or a message and its Replies; names, files by name; `context-reader` maps not found, no access and not connected to `context_failed` (AC-30, AC-32)

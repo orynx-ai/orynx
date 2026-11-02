@@ -6,6 +6,7 @@ import {
   PermissionModeSchema,
   permissionsFromMode,
   PermissionsSchema,
+  ReplyWaitMinutesSchema,
   RepositoryIdSchema,
   type InboxRules,
   type Permissions,
@@ -87,6 +88,7 @@ function fromSettings(settings: Settings): Preferences {
   }
   const editor = EditorSchema.safeParse(settings.agent?.['editor']);
   const cleanup = CleanupDaysSchema.safeParse(settings.agent?.['deleteSessionsAfterDays']);
+  const wait = ReplyWaitMinutesSchema.safeParse(settings.inbox?.['replyWaitMinutes']);
   return {
     permissions: writtenPermissions(settings),
     repositoryPermissions: writtenRepositoryPermissions(settings),
@@ -97,6 +99,8 @@ function fromSettings(settings: Settings): Preferences {
     jiraChanges: settings.agent?.['jiraChanges'] === true,
     // Only a choice Settings offers turns cleanup on (spec 047, D): anything else is Never.
     deleteSessionsAfterDays: cleanup.success ? cleanup.data : null,
+    // Only a choice Settings offers counts (spec 016): anything else is 2 h.
+    replyWaitMinutes: wait.success ? wait.data : defaultPreferences.replyWaitMinutes,
   };
 }
 
@@ -131,6 +135,7 @@ function applied(current: Settings, change: PreferencesChange): Settings {
   if (change.inboxRules !== undefined) {
     next.inbox = { ...current.inbox, rules: { ...writtenRules(current), ...change.inboxRules } };
   }
+  if (change.replyWaitMinutes !== undefined) next.inbox = { ...next.inbox, replyWaitMinutes: change.replyWaitMinutes };
   if (change.allowCommand !== undefined || change.disallowCommand !== undefined) {
     // One entry at a time (spec 012): taken off wherever it is, added once at the end.
     const list = writtenCommands(current).filter((entry) => entry !== change.disallowCommand);

@@ -179,6 +179,18 @@ describe('preferences service', () => {
     expect(seen).toEqual([{ type: 'settings.changed' }, { type: 'settings.changed' }]);
   });
 
+  it('016 AC-18: the reply wait is 2 h until saved, and is saved beside the inbox rules', async () => {
+    expect((await service().preferences.read()).replyWaitMinutes).toBe(120);
+    expect((await service({ inbox: { replyWaitMinutes: 90 } }).preferences.read()).replyWaitMinutes).toBe(120);
+
+    const { preferences, settings } = service({ inbox: { rules: { slack_waiting: false } } });
+    expect(await preferences.change({ replyWaitMinutes: 240 })).toMatchObject({
+      replyWaitMinutes: 240,
+      inboxRules: { slack_waiting: false, discord_waiting: true },
+    });
+    expect((await settings.read()).inbox).toEqual({ rules: { slack_waiting: false }, replyWaitMinutes: 240 });
+  });
+
   it('AC-18: leaves the Jira and GitHub settings as they were', async () => {
     const { preferences, settings } = service({ jira, github: { method: 'gh' } });
 

@@ -5,6 +5,7 @@ import {
   MarkNotificationsReadSchema,
   NotificationListSchema,
   NotificationSettingsChangeSchema,
+  NotificationWhatSchema,
   NotificationSettingsSchema,
   notificationEventOf,
   ServerEventSchema,
@@ -93,6 +94,21 @@ describe('notifications (spec 029)', () => {
 });
 
 describe('notification settings (spec 029)', () => {
+  it('016 AC-25: someone waiting on your reply names who and where, links to the message, and pops up by default', () => {
+    const what = {
+      kind: 'reply_waiting',
+      tool: 'slack',
+      from: 'Neha K.',
+      channel: 'web-platform',
+      server: null,
+      url: 'https://acme.slack.com/archives/C024BE91L/p1700000000123456',
+    } as const;
+    expect(NotificationWhatSchema.parse(what)).toEqual(what);
+    expect(NotificationWhatSchema.safeParse({ ...what, url: 'https://example.com/x' }).success).toBe(false);
+    expect(notificationEventOf('reply_waiting')).toBe('reply_waiting');
+    expect(defaultNotificationSettings.events.reply_waiting).toEqual({ popUp: true, desktop: false, sound: 'none' });
+  });
+
   it("starts with the design's defaults", () => {
     const settings = NotificationSettingsSchema.parse(defaultNotificationSettings);
     expect(settings).toMatchObject({ popUps: true, desktop: true, onlyInBackground: true, sounds: true, volume: 60 });

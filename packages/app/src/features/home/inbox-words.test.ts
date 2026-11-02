@@ -323,6 +323,8 @@ describe('Home’s words', () => {
       checks_failing: false,
       unresolved_comments: false,
       session_waiting: false,
+      slack_waiting: false,
+      discord_waiting: false,
     };
 
     expect(emptyText('all', rules)).toEqual({
@@ -361,6 +363,29 @@ describe('Home’s words', () => {
     expect(emptyText('all', off)).toEqual({
       title: 'Every inbox rule is off',
       line: 'Turn some on in Settings › Inbox rules.',
+      rulesOff: true,
+    });
+  });
+
+  it('016 AC-22: Slack’s and Discord’s tabs say nobody is waiting on a reply, or that their rule is off', () => {
+    const rules = defaultPreferences.inboxRules;
+    expect(emptyText('slack', rules)).toEqual({
+      title: 'Nobody is waiting on a reply in Slack',
+      line: "Mentions and DMs you haven't answered show up here.",
+      rulesOff: false,
+    });
+    expect(emptyText('discord', rules)).toEqual({
+      title: 'Nobody is waiting on a reply in Discord',
+      line: "Mentions you haven't answered show up here.",
+      rulesOff: false,
+    });
+    expect(emptyText('slack', { ...rules, slack_waiting: false })).toEqual({
+      title: 'The Slack rule is off',
+      line: 'Turn it on in Settings › Inbox rules.',
+      rulesOff: true,
+    });
+    expect(emptyText('discord', { ...rules, discord_waiting: false })).toMatchObject({
+      title: 'The Discord rule is off',
       rulesOff: true,
     });
   });

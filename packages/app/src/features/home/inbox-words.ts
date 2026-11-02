@@ -195,6 +195,19 @@ export function emptyText(tab: 'all' | InboxTab, rules: InboxRules): EmptyText {
         }
       : { title: 'The Jira rule is off', line: 'Turn them on in Settings › Inbox rules.', rulesOff: true };
   }
+  if (tab === 'slack' || tab === 'discord') {
+    // Spec 016, Q8.
+    const name = tab === 'slack' ? 'Slack' : 'Discord';
+    if (!rules[`${tab}_waiting`]) {
+      return { title: `The ${name} rule is off`, line: 'Turn it on in Settings › Inbox rules.', rulesOff: true };
+    }
+    const what = tab === 'slack' ? 'Mentions and DMs' : 'Mentions';
+    return {
+      title: `Nobody is waiting on a reply in ${name}`,
+      line: `${what} you haven't answered show up here.`,
+      rulesOff: false,
+    };
+  }
   return pullRequestRules.some((rule) => rules[rule])
     ? {
         title: 'No pull requests need you',
