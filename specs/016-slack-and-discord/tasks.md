@@ -2,35 +2,35 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-**Contracts**
+**ui** (first: `SourceMark` must know Discord before the tool enum grows)
 
-- [ ] Task 1: `discord` joins `IntegrationIdSchema` and `StatusSchema.integrations`; every record keyed by a tool is filled (token keys, keychain account, `makeStatus`, the app's `toolNames`, `howToConnect`, `reads`, `items`), and Discord reads `not_connected` (AC-5, AC-9)
-      Check: pnpm test packages/contracts/src/status.test.ts; pnpm typecheck
-      Files: packages/contracts/src/status.ts, packages/contracts/src/testing.ts, packages/core/src/secrets/keychain.ts, packages/core/src/status/status-service.ts, apps/server/src/config.ts, .env.example, packages/app/src/features/settings/components/connection-words.ts
-- [ ] Task 2: Slack's and Discord's connection shapes (request with token, Discord's optional user ID; saved connection; answer) and their paths in `routes.ts` (AC-2, AC-3, AC-6, AC-7, AC-8)
-      Check: pnpm test packages/contracts/src/slack.test.ts packages/contracts/src/discord.test.ts; pnpm typecheck
-      Files: packages/contracts/src/slack.ts, packages/contracts/src/discord.ts, their tests, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
-- [ ] Task 3: The inbox grows: `slack` and `discord` sources, tabs and tool states; the `message` subject, the `no_reply` reason, `SlackLinkSchema` and `DiscordLinkSchema` in targets and sync changes; every record and switch filled (AC-10, AC-11, AC-16, AC-19)
-      Check: pnpm test packages/contracts/src/inbox.test.ts packages/contracts/src/sync-activity.test.ts; pnpm typecheck
-      Files: packages/contracts/src/inbox.ts, packages/contracts/src/slack.ts, packages/contracts/src/discord.ts, packages/contracts/src/sync-activity.ts, packages/contracts/src/testing.ts, their tests, the app's and core's records that typecheck names
-- [ ] Task 4: Preferences: `slack_waiting` and `discord_waiting` rules, on by default, and `replyWaitMinutes` (30, 60, 120, 240, 1440; 120 by default); the `reply_waiting` notification event, on by default (AC-13, AC-18, AC-25)
-      Check: pnpm test packages/contracts/src/preferences.test.ts packages/contracts/src/notifications.test.ts; pnpm typecheck
-      Files: packages/contracts/src/preferences.ts, packages/contracts/src/notifications.ts, packages/contracts/src/testing.ts, their tests
-- [ ] Task 5: Thread chips `slack_thread` and `discord_thread` with an optional `label`; the preview's query and answer (`found` with names, `not_connected`, `not_found`); a link parser for both tools (AC-26, AC-27, AC-32)
-      Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/threads.test.ts; pnpm typecheck
-      Files: packages/contracts/src/session.ts, packages/contracts/src/threads.ts, packages/contracts/src/threads.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
-- [ ] Task 6: The session's `threadReply` and its pull request's optional `title`; the reply request (text up to 2,000 characters) and answers (`posted`, `failed` with the tool's words) and the dismiss path (AC-40 to AC-44)
-      Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/threads.test.ts; pnpm typecheck
-      Files: packages/contracts/src/session.ts, packages/contracts/src/threads.ts, packages/contracts/src/routes.ts, packages/contracts/src/testing.ts, their tests
-
-**ui**
-
-- [ ] Task 7: Discord's tokens (`--source-discord`, `--source-discord-subtle`, `--brand-discord`, light, dark and auto) and their theme names; `docs/design-map.md` rows (AC-45)
+- [x] Task 1: Discord's tokens (`--source-discord`, `--source-discord-subtle`, `--brand-discord`, light, dark and auto) and their theme names; `docs/design-map.md` rows (AC-45)
       Check: pnpm gate style-policy; pnpm test packages/ui/src/components/source-mark.test.tsx
       Files: packages/ui/src/styles/tokens.css, packages/ui/src/styles/theme.css, docs/design-map.md
-- [ ] Task 8: `SourceMark` draws Discord's logo (Simple Icons, CC0) with its name; a story per size in both themes, with no axe violations (AC-16, AC-45)
+- [ ] Task 2: `SourceMark` draws Discord's logo (Simple Icons, CC0) with its name; a story per size in both themes, with no axe violations (AC-16, AC-45)
       Check: pnpm test packages/ui/src/components/source-mark.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/source-mark.tsx, source-mark.stories.tsx, source-mark.test.tsx
+
+**Contracts**
+
+- [ ] Task 3: `discord` joins `IntegrationIdSchema` and `StatusSchema.integrations`; every record keyed by a tool is filled (token keys, keychain account, `makeStatus`, the app's `toolNames`, `howToConnect`, `reads`, `items`), and Discord reads `not_connected` (AC-5, AC-9)
+      Check: pnpm test packages/contracts/src/status.test.ts; pnpm typecheck
+      Files: packages/contracts/src/status.ts, packages/contracts/src/testing.ts, packages/core/src/secrets/keychain.ts, packages/core/src/status/status-service.ts, apps/server/src/config.ts, .env.example, packages/app/src/features/settings/components/connection-words.ts
+- [ ] Task 4: Slack's and Discord's connection shapes (request with token, Discord's optional user ID; saved connection; answer) and their paths in `routes.ts` (AC-2, AC-3, AC-6, AC-7, AC-8)
+      Check: pnpm test packages/contracts/src/slack.test.ts packages/contracts/src/discord.test.ts; pnpm typecheck
+      Files: packages/contracts/src/slack.ts, packages/contracts/src/discord.ts, their tests, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
+- [ ] Task 5: The inbox grows: `slack` and `discord` sources, tabs and tool states; the `message` subject, the `no_reply` reason, `SlackLinkSchema` and `DiscordLinkSchema` in targets and sync changes; every record and switch filled (AC-10, AC-11, AC-16, AC-19)
+      Check: pnpm test packages/contracts/src/inbox.test.ts packages/contracts/src/sync-activity.test.ts; pnpm typecheck
+      Files: packages/contracts/src/inbox.ts, packages/contracts/src/slack.ts, packages/contracts/src/discord.ts, packages/contracts/src/sync-activity.ts, packages/contracts/src/testing.ts, their tests, the app's and core's records that typecheck names
+- [ ] Task 6: Preferences: `slack_waiting` and `discord_waiting` rules, on by default, and `replyWaitMinutes` (30, 60, 120, 240, 1440; 120 by default); the `reply_waiting` notification event, on by default (AC-13, AC-18, AC-25)
+      Check: pnpm test packages/contracts/src/preferences.test.ts packages/contracts/src/notifications.test.ts; pnpm typecheck
+      Files: packages/contracts/src/preferences.ts, packages/contracts/src/notifications.ts, packages/contracts/src/testing.ts, their tests
+- [ ] Task 7: Thread chips `slack_thread` and `discord_thread` with an optional `label`; the preview's query and answer (`found` with names, `not_connected`, `not_found`); a link parser for both tools (AC-26, AC-27, AC-32)
+      Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/threads.test.ts; pnpm typecheck
+      Files: packages/contracts/src/session.ts, packages/contracts/src/threads.ts, packages/contracts/src/threads.test.ts, packages/contracts/src/routes.ts, packages/contracts/src/index.ts, packages/contracts/src/testing.ts
+- [ ] Task 8: The session's `threadReply` and its pull request's optional `title`; the reply request (text up to 2,000 characters) and answers (`posted`, `failed` with the tool's words) and the dismiss path (AC-40 to AC-44)
+      Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/threads.test.ts; pnpm typecheck
+      Files: packages/contracts/src/session.ts, packages/contracts/src/threads.ts, packages/contracts/src/routes.ts, packages/contracts/src/testing.ts, their tests
 
 **Core: Slack**
 

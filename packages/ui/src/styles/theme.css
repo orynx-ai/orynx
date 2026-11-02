@@ -125,6 +125,8 @@
   --color-github: var(--source-github);
   --color-slack: var(--source-slack);
   --color-slack-subtle: var(--source-slack-subtle);
+  --color-discord: var(--source-discord);
+  --color-discord-subtle: var(--source-discord-subtle);
 
   /* Brand logos (SourceMark only): each company's own colours. */
   --color-brand-jira: var(--brand-jira);
@@ -133,6 +135,7 @@
   --color-brand-slack-blue: var(--brand-slack-blue);
   --color-brand-slack-green: var(--brand-slack-green);
   --color-brand-slack-yellow: var(--brand-slack-yellow);
+  --color-brand-discord: var(--brand-discord);
 }
 
 /* DetailList (`dh-kv`): a term column as wide as the widest term, the rest for the details. */
