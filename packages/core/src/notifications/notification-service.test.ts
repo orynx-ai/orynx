@@ -135,6 +135,52 @@ describe('notification service (spec 029)', () => {
     ).toEqual(['jira_assigned', 'review_requested']);
   });
 
+  it('016 AC-25: a Slack or Discord message tells you once it has waited your wait, and only once', () => {
+    const { service } = setup();
+    const hour = 3_600_000;
+    const message = (id: string, waited: number) => ({
+      id,
+      title: 'Can you confirm the archive API returns 207?',
+      from: 'Neha K.',
+      channel: 'web-platform',
+      waitingSince: new Date(clock - waited).toISOString(),
+      url: 'https://acme.slack.com/archives/C024BE91L/p1793613600000100',
+    });
+    const twoHours = { replyWaitMs: 2 * hour };
+    service.inboxSynced('slack', [], [], twoHours);
+
+    service.inboxSynced('slack', [], [message('C1/1', 3 * hour), message('C1/2', hour)], twoHours);
+    service.inboxSynced('slack', [], [message('C1/1', 3 * hour)], twoHours);
+    service.inboxSynced('discord', [], [], twoHours);
+    service.inboxSynced(
+      'discord',
+      [],
+      [{ ...message('C2/9', 5 * hour), server: 'Acme', url: 'https://discord.com/channels/1/2/9' }],
+      twoHours,
+    );
+
+    const told = service.list().notifications.map((notification) => notification.what);
+    // Both were told at the same moment, so by tool.
+    expect(told.sort((a, b) => ('tool' in a && 'tool' in b ? a.tool.localeCompare(b.tool) : 0))).toEqual([
+      {
+        kind: 'reply_waiting',
+        tool: 'discord',
+        from: 'Neha K.',
+        channel: 'web-platform',
+        server: 'Acme',
+        url: 'https://discord.com/channels/1/2/9',
+      },
+      {
+        kind: 'reply_waiting',
+        tool: 'slack',
+        from: 'Neha K.',
+        channel: 'web-platform',
+        server: null,
+        url: 'https://acme.slack.com/archives/C024BE91L/p1793613600000100',
+      },
+    ]);
+  });
+
   it('AC-21: a sync with nothing before it (a new account, Clear cache) raises nothing', () => {
     const { service } = setup();
     service.inboxSynced('jira', [], [issue]);

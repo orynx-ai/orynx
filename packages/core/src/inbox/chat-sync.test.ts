@@ -94,6 +94,7 @@ function setup(initial: Settings = connected) {
     events,
   });
   const cache = openInboxCache(':memory:');
+  const synced: { tool: string; replyWaitMs: number }[] = [];
   const inbox = createInboxService({
     cache,
     settings,
@@ -117,9 +118,10 @@ function setup(initial: Settings = connected) {
     sessions: createMemorySessionStore([]),
     preferences: createPreferencesService({ settings, events }),
     events,
+    onSynced: (tool, _before, _after, chat) => synced.push({ tool, replyWaitMs: chat.replyWaitMs }),
     now: () => now,
   });
-  return { inbox, cache, settings };
+  return { inbox, cache, settings, synced };
 }
 
 describe('Slack and Discord in the inbox (spec 016)', () => {
@@ -218,5 +220,18 @@ describe('Slack and Discord in the inbox (spec 016)', () => {
     const read = await inbox.read();
     expect(read.tools.slack).toEqual({ state: 'not_connected' });
     expect(read.items.map((item) => item.source)).toEqual(['discord']);
+  });
+
+  it('AC-25: each answered sync hands notifications the wait Settings has, for Slack and Discord alike', async () => {
+    bothAnswering();
+    const { inbox, settings, synced } = setup();
+    await settings.update((current) => ({ ...current, inbox: { replyWaitMinutes: 30 } }));
+
+    await inbox.sync();
+
+    expect(synced.sort((a, b) => a.tool.localeCompare(b.tool))).toEqual([
+      { tool: 'discord', replyWaitMs: 30 * 60_000 },
+      { tool: 'slack', replyWaitMs: 30 * 60_000 },
+    ]);
   });
 });

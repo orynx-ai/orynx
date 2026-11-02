@@ -1,6 +1,8 @@
 import type { NotificationWhat } from '@devhub/contracts';
+import type { DiscordMessageRecord } from '../integrations/discord/map.ts';
 import type { PullRequestRecord } from '../integrations/github/map.ts';
 import type { JiraIssueRecord } from '../integrations/jira/map.ts';
+import type { SlackMessageRecord } from '../integrations/slack/map.ts';
 
 /** A notification a sync raises, under the id it's kept by (spec 029). */
 export interface InboxNotice {
@@ -54,5 +56,29 @@ export function jiraNotifications(
     .map((record) => ({
       id: `jira_assigned:${record.key}:${at}`,
       what: { kind: 'jira_assigned', ticket: { key: record.key, title: record.summary, url: record.url } },
+    }));
+}
+
+/**
+ * Slack's and Discord's messages that have waited your wait (spec 016, AC-25): who and where, never the message. Each
+ * keeps its own id, so a message that waits through many syncs is told once.
+ */
+export function replyNotifications(
+  tool: 'slack' | 'discord',
+  after: readonly (SlackMessageRecord | DiscordMessageRecord)[],
+  { replyWaitMs, now }: { replyWaitMs: number; now: number },
+): InboxNotice[] {
+  return after
+    .filter((record) => now - Date.parse(record.waitingSince) >= replyWaitMs)
+    .map((record) => ({
+      id: `reply_waiting:${tool}:${record.id}`,
+      what: {
+        kind: 'reply_waiting',
+        tool,
+        from: record.from,
+        channel: record.channel,
+        server: 'server' in record ? record.server : null,
+        url: record.url,
+      },
     }));
 }

@@ -61,7 +61,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 15: The inbox service, schedule, cache, sync changes and sync activity sync a map of tools; `read()` applies the two rules and the wait; "index not ready" reads `syncing`; one tool failing keeps the others; the cache holds only row fields (AC-10, AC-13, AC-17, AC-18, AC-23, AC-24)
       Check: pnpm test packages/core/src/inbox/
       Files: packages/core/src/inbox/inbox-service.ts, inbox-cache.ts, inbox-schedule.ts, tool-state.ts, sync-changes.ts, sync-activity-service.ts, no-leaks.test.ts, their tests, packages/core/src/create-server.ts
-- [ ] Task 16: (saving `replyWaitMinutes` landed in task 6) `reply_waiting` fires once per new Slack or Discord row (AC-18, AC-25)
+- [x] Task 16: (saving `replyWaitMinutes` landed in task 6) `reply_waiting` fires once per new Slack or Discord row (AC-18, AC-25)
       Check: pnpm test packages/core/src/preferences/preferences-service.test.ts packages/core/src/notifications/
       Files: packages/core/src/preferences/preferences-service.ts, packages/core/src/notifications/inbox-notifications.ts, notification-service.ts, their tests
 - [ ] Task 17: Reading a thread: Slack's whole thread, Discord's thread channel or a message and its Replies; names, files by name; `context-reader` maps not found, no access and not connected to `context_failed` (AC-30, AC-32)

@@ -116,7 +116,13 @@ export interface InboxServiceOptions {
    * Told after each sync a tool answered, with what the last answered sync kept for the same account (null when
    * none did: the first sync, a new account, or after Clear cache) and what this one kept (spec 029).
    */
-  onSynced?: (tool: InboxTool, before: readonly unknown[] | null, after: readonly unknown[]) => void;
+  onSynced?: (
+    tool: InboxTool,
+    before: readonly unknown[] | null,
+    after: readonly unknown[],
+    /** How long Slack's and Discord's messages wait before they count (spec 016). */
+    chat: { replyWaitMs: number },
+  ) => void;
   /** The clock, in milliseconds. */
   now?: () => number;
 }
@@ -234,10 +240,12 @@ export function createInboxService(options: InboxServiceOptions): InboxService {
         kept.map((record) => record.data),
       ),
     );
+    const { replyWaitMinutes } = await options.preferences.read();
     options.onSynced?.(
       tool,
       before,
       kept.map((record) => record.data),
+      { replyWaitMs: replyWaitMinutes * 60_000 },
     );
     return 'answered';
   }

@@ -403,8 +403,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     onError: (error) => {
       app.log.error(error, 'The inbox sync failed');
     },
-    onSynced: (tool, before, after) => {
-      notifications.inboxSynced(tool, before, after);
+    onSynced: (tool, before, after, chat) => {
+      notifications.inboxSynced(tool, before, after, chat);
       // Each time GitHub answers, a session's pull request may have been merged or closed (spec 047).
       if (tool === 'github') {
         watchPulls().catch((error: unknown) => {
