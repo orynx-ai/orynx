@@ -41,6 +41,14 @@ describe('SourceMark', () => {
     ]);
   });
 
+  it("016 AC-16: draws Discord's logo in its brand blurple, named Discord", () => {
+    const { container } = render(<SourceMark source="discord" />);
+
+    expect(screen.getByText('Discord')).toBeVisible();
+    const fills = [...logo(container).querySelectorAll('path')].map((path) => path.getAttribute('class'));
+    expect(fills).toEqual(['fill-brand-discord']);
+  });
+
   it("draws Jira's logo in its brand blues, with gradients of its own on every mark", () => {
     const { container } = render(
       <>
@@ -100,6 +108,7 @@ describe('SourceMark', () => {
         <SourceMark source="jira" />
         <SourceMark source="github" size="lg" label="hidden" />
         <SourceMark source="slack" size="lg" label="none" />
+        <SourceMark source="discord" size="lg" label="hidden" />
         <SourceMark source="orynx" label="hidden" />
       </>,
     );

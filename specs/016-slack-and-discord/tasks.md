@@ -7,7 +7,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Discord's tokens (`--source-discord`, `--source-discord-subtle`, `--brand-discord`, light, dark and auto) and their theme names; `docs/design-map.md` rows (AC-45)
       Check: pnpm gate style-policy; pnpm test packages/ui/src/components/source-mark.test.tsx
       Files: packages/ui/src/styles/tokens.css, packages/ui/src/styles/theme.css, docs/design-map.md
-- [ ] Task 2: `SourceMark` draws Discord's logo (Simple Icons, CC0) with its name; a story per size in both themes, with no axe violations (AC-16, AC-45)
+- [x] Task 2: `SourceMark` draws Discord's logo (Simple Icons, CC0) with its name; a story per size in both themes, with no axe violations (AC-16, AC-45)
       Check: pnpm test packages/ui/src/components/source-mark.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/source-mark.tsx, source-mark.stories.tsx, source-mark.test.tsx
 
