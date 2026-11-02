@@ -43,7 +43,7 @@ import { durationText } from '../../../words/duration.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { groupsOf, stepTimeText } from '../activity-groups.ts';
 import { contextWords } from '../ticket-tab-words.ts';
-import { followWords, problemWords, progressTitle, stepWords, usageWords } from '../step-words.ts';
+import { failedCommands, followWords, problemWords, progressTitle, stepWords, usageWords } from '../step-words.ts';
 import { ApprovalCallout } from './approval-callout.tsx';
 import { StepDetails, hasDetails } from './step-details.tsx';
 
@@ -103,6 +103,10 @@ const plainKinds = new Set<SessionActivity['kind']>([
 ]);
 
 function look(activity: SessionActivity): { state: ActivityStepState | undefined; icon: ReactNode } {
+  // Red once it's done: while it runs, it shimmers as any running step does (spec 046, AC-13).
+  if (activity.kind === 'command' && activity.state === 'done' && failedCommands(activity) > 0) {
+    return { state: 'failed', icon: <Icon icon={Cancel01Icon} /> };
+  }
   if (activity.state === 'done' && !plainKinds.has(activity.kind)) {
     return { state: 'done', icon: <Icon icon={Tick02Icon} /> };
   }
@@ -317,6 +321,7 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
       <ActivityStep
         key={activity.id}
         state={state}
+        running={activity.state === 'running'}
         icon={icon}
         title={titleOf(activity, words.title)}
         detail={detailOf(activity, words.detail, grouped)}

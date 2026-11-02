@@ -179,4 +179,127 @@ describe('a step opened in place (spec 046)', () => {
     });
     expect(pane.getByRole('button', { name: 'Running a command' })).toHaveAttribute('aria-expanded', 'true');
   });
+
+  it('AC-1, AC-3: the running step’s title shimmers; a call waiting for you and the steps done stay still', async () => {
+    server.use(
+      sessionHandler(
+        makeSession({
+          id,
+          state: 'needs_you',
+          activities: [
+            { id: 'step-1', state: 'done', kind: 'edit', files: ['src/a.ts'] },
+            { id: 'step-2', state: 'running', kind: 'explore', files: ['src/b.ts'] },
+            { id: 'step-3', state: 'running', kind: 'waiting', approvalId: 'ap-1', about: 'command', text: 'npm test' },
+          ],
+        }),
+      ),
+    );
+    await renderApp({ route });
+    const pane = await progress();
+    expect(await pane.findByText('Exploring the code')).toHaveClass('motion-safe:shimmer');
+    expect(pane.getByText('Waiting for your approval')).not.toHaveClass('motion-safe:shimmer');
+    expect(pane.getByText('Edited 1 file')).not.toHaveClass('motion-safe:shimmer');
+  });
+
+  it('AC-12, AC-13, AC-15: a done command step with a failure is red, says so, and marks each command; still running, it isn’t', async () => {
+    const calls = [
+      { id: 't1', failed: false },
+      { id: 't2', failed: true },
+      { id: 't3', failed: false },
+    ];
+    const commands = ['npm install', 'npm test', 'npm run lint'];
+    server.use(
+      sessionHandler(
+        makeSession({
+          id,
+          state: 'done',
+          activities: [
+            { id: 'step-1', state: 'done', kind: 'command', commands, calls },
+            { id: 'step-2', state: 'done', kind: 'refused', access: 'run', reason: 'push', path: 'git push' },
+            { id: 'step-3', state: 'done', kind: 'denied', about: 'command', text: 'rm -rf dist' },
+            { id: 'step-4', state: 'done', kind: 'stopped' },
+            {
+              id: 'step-5',
+              state: 'running',
+              kind: 'command',
+              commands: ['npm test'],
+              calls: [{ id: 't4', failed: true }],
+            },
+          ],
+        }),
+      ),
+    );
+    const { user } = await renderApp({ route });
+    const pane = await progress();
+    const [failed, ...rest] = pane.getAllByRole('listitem').filter((row) => row.dataset['slot'] === 'activity-step');
+    expect(failed).toHaveTextContent(/^Ran 3 commands, 1 failed, failed/);
+    // Refused, denied and stopped keep their plain dot, and the one still running isn't red yet.
+    expect(rest.filter((row) => row.textContent.includes(', failed'))).toEqual([]);
+    expect(pane.getByText('Running a command')).toHaveClass('motion-safe:shimmer');
+
+    await user.click(pane.getByRole('button', { name: 'Ran 3 commands, 1 failed' }));
+    const marks = within(failed ?? document.body)
+      .getAllByRole('listitem')
+      .map((row) => row.textContent);
+    expect(marks).toEqual(['npm install', 'npm test, failed', 'npm run lint']);
+  });
+
+  it('AC-14: a session saved before keeps its command steps green and its plan a plain list', async () => {
+    server.use(
+      sessionHandler(
+        makeSession({
+          id,
+          state: 'done',
+          activities: [
+            { id: 'step-1', state: 'done', kind: 'plan', items: ['Read the route', 'Add it'] },
+            { id: 'step-2', state: 'done', kind: 'command', commands: ['npm test'] },
+          ],
+        }),
+      ),
+    );
+    const { user } = await renderApp({ route });
+    const pane = await progress();
+    expect(await pane.findByText('Ran 1 command')).toBeVisible();
+    expect(pane.getAllByText(', done')).toHaveLength(2);
+    await user.click(pane.getByRole('button', { name: 'Made a plan' }));
+    const plan = pane.getByRole('list', { name: 'Made a plan' });
+    expect(
+      within(plan)
+        .getAllByRole('listitem')
+        .map((row) => row.textContent),
+    ).toEqual(['Read the route', 'Add it']);
+  });
+
+  it('AC-16, AC-17: the open plan marks done, in progress and to come, and moves on as Claude ticks one off', async () => {
+    const planned = (statuses: ('pending' | 'in_progress' | 'completed')[]): Session =>
+      makeSession({
+        id,
+        state: 'working',
+        updatedAt: `2026-10-16T10:00:0${String(statuses.filter((one) => one === 'completed').length)}.000Z`,
+        activities: [
+          { id: 'step-1', state: 'done', kind: 'plan', items: ['One', 'Two', 'Three', 'Four', 'Five'], statuses },
+          { id: 'step-2', state: 'running', kind: 'edit', files: ['src/a.ts'] },
+        ],
+      });
+    server.use(sessionHandler(planned(['completed', 'completed', 'in_progress', 'pending', 'pending'])));
+    const { user } = await renderApp({ route });
+    const pane = await progress();
+    await user.click(pane.getByRole('button', { name: 'Made a plan' }));
+    const items = () =>
+      within(pane.getByRole('list', { name: 'Made a plan' }))
+        .getAllByRole('listitem')
+        .map((row) => row.textContent);
+    expect(items()).toEqual(['One, done', 'Two, done', 'Three', 'Four, to come', 'Five, to come']);
+    expect(pane.getByText('Three')).toHaveClass('motion-safe:shimmer');
+
+    server.use(sessionHandler(planned(['completed', 'completed', 'completed', 'in_progress', 'pending'])));
+    act(() => {
+      FakeEventSource.latest().emit({ type: 'session.changed', sessionId: id });
+    });
+    await waitFor(() => {
+      expect(items()).toEqual(['One, done', 'Two, done', 'Three, done', 'Four', 'Five, to come']);
+    });
+    expect(pane.getByText('Four')).toHaveClass('motion-safe:shimmer');
+    expect(pane.getByRole('button', { name: 'Made a plan' })).toHaveAttribute('aria-expanded', 'true');
+  });
 });

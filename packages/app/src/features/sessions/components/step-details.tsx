@@ -1,9 +1,19 @@
 import { useNavigate } from '@tanstack/react-router';
 import type { Session, SessionActivity } from '@devhub/contracts';
-import { AttentionList, Button, CalloutCode, CopyButton, Markdown, Skeleton } from '@devhub/ui';
+import { Cancel01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
+import {
+  ActivityChecklist,
+  AttentionList,
+  Button,
+  CalloutCode,
+  CopyButton,
+  Icon,
+  Markdown,
+  Skeleton,
+} from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
 import { useSessionBrief } from '../queries.ts';
-import { stepDetailWords as words } from '../step-words.ts';
+import { stepDetailWords as words, stepWords } from '../step-words.ts';
 
 /**
  * The steps whose title opens them in place: there's more to them than their one line (the user's call, 19 Oct 2026).
@@ -114,21 +124,34 @@ export function StepDetails({ session, activity }: { session: Session; activity:
       );
     case 'plan':
       return (
-        <ol className="m-0 flex flex-col gap-2 ps-5">
-          {activity.items.map((item, index) => (
-            // The plan's items can repeat; their order is fixed.
-            <li key={index}>{item}</li>
-          ))}
-        </ol>
+        <ActivityChecklist
+          aria-label={stepWords(activity).title}
+          // Marks by place; a plan saved before spec 046 has none (AC-14).
+          items={activity.items.map((text, index) => ({ text, status: activity.statuses?.[index] }))}
+        />
       );
     case 'command':
       return (
-        <div className="flex flex-col gap-2">
-          {activity.commands.map((command, index) => (
-            // The same command can run twice; their order is fixed.
-            <CalloutCode key={index}>{command}</CalloutCode>
-          ))}
-        </div>
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {activity.commands.map((command, index) => {
+            // A tick or a × once it has ended (spec 046, AC-12); none while it runs, or for a step saved before.
+            const failed = activity.calls?.[index]?.failed ?? null;
+            return (
+              // The same command can run twice; their order is fixed.
+              <li key={index} className="flex items-start gap-2">
+                <CalloutCode className="min-w-0 flex-1">{command}</CalloutCode>
+                {failed === null ? null : (
+                  <Icon
+                    icon={failed ? Cancel01Icon : Tick02Icon}
+                    aria-hidden
+                    className={failed ? 'mt-2 size-4 shrink-0 text-danger' : 'mt-2 size-4 shrink-0 text-success'}
+                  />
+                )}
+                {failed === true ? <span className="sr-only">{words.failed}</span> : null}
+              </li>
+            );
+          })}
+        </ul>
       );
     case 'message':
       return <p className="m-0 whitespace-pre-wrap">{activity.text}</p>;

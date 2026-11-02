@@ -177,6 +177,11 @@ function readingWords(activity: Extract<SessionActivity, { kind: 'reading' }>): 
   };
 }
 
+/** How many of a command step's commands ended with an error (spec 046); none for a step saved before. */
+export function failedCommands(activity: Extract<SessionActivity, { kind: 'command' }>): number {
+  return activity.calls?.filter((call) => call.failed === true).length ?? 0;
+}
+
 /** A server of the session's (spec 042): where it listens, or that it never did. */
 function serverWords(activity: Extract<SessionActivity, { kind: 'server' }>): StepWords {
   const at = activity.port === null ? null : `localhost:${String(activity.port)}`;
@@ -253,10 +258,11 @@ export function stepWords(activity: SessionActivity): StepWords {
       return { title: 'Waiting for your approval', detail: waitingDetail(activity) };
     case 'command': {
       const count = activity.commands.length;
-      return {
-        title: running ? 'Running a command' : `Ran ${String(count)} ${count === 1 ? 'command' : 'commands'}`,
-        detail: listOf(activity.commands),
-      };
+      const failed = failedCommands(activity);
+      let title = running ? 'Running a command' : `Ran ${String(count)} ${count === 1 ? 'command' : 'commands'}`;
+      // Once it's done, a failure is in its title (spec 046, Q7).
+      if (!running && failed > 0) title = count === 1 ? 'A command failed' : `${title}, ${String(failed)} failed`;
+      return { title, detail: listOf(activity.commands) };
     }
     case 'denied':
       return { title: deniedTitles[activity.about], detail: activity.text };
@@ -320,6 +326,8 @@ export const followWords = { jump: 'Jump to latest' };
 
 /** The words of a step shown in full (the user's call, 19 Oct 2026), now open in place (spec 046). */
 export const stepDetailWords = {
+  /** A command that ended with an error, to a screen reader (spec 046, Q7). */
+  failed: ', failed',
   briefNone: 'Nothing was sent to Claude yet.',
   briefFailed: "Couldn't read what Claude was sent.",
   tryAgain: 'Try again',
