@@ -22,6 +22,7 @@ import {
   sessionPagesQueryOptions,
   sessionQueryKey,
   sessionQueryOptions,
+  sessionReviewStatusQueryKey,
   sessionsQueryOptions,
 } from './index.ts';
 
@@ -562,5 +563,60 @@ describe('Create pull request and Push changes (spec 014)', () => {
     );
     await expect(api.draftPullRequest(id)).rejects.toThrow();
     await expect(api.draftPush(id)).rejects.toMatchObject({ code: 'not_found' });
+  });
+});
+
+describe('a review session (spec 050)', () => {
+  const api = createApiClient({ baseURL, token: 't' });
+  const id = '0123456789abcdef';
+  it('AC-12: keeps or edits one comment, with the text trimmed', async () => {
+    let seen: { url: string; body: unknown } | null = null;
+    server.use(
+      http.patch(`${baseURL}/api/sessions/:id/review/comments/:commentId`, async ({ request }) => {
+        seen = { url: request.url, body: await request.json() };
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await api.changeReviewComment(id, 'c1', { keep: false, text: '  Handle the error. ' });
+    expect(seen).toEqual({
+      url: `${baseURL}/api/sessions/${id}/review/comments/c1`,
+      body: { keep: false, text: 'Handle the error.' },
+    });
+  });
+
+  it('AC-16, AC-18: reads how many commits were pushed since, then posts the review', async () => {
+    let body: unknown = null;
+    const url = 'https://github.com/acme/web-app/pull/2841#pullrequestreview-1';
+    server.use(
+      http.get(at(apiRoutes.sessionReviewStatus, id), () => HttpResponse.json({ result: 'ready', pushed: 2 })),
+      http.post(at(apiRoutes.sessionReview, id), async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ result: 'posted', url, comments: 6 });
+      }),
+    );
+    expect(await api.reviewStatus(id)).toEqual({ result: 'ready', pushed: 2 });
+    expect(await api.postReview(id, { summary: ' Two bugs. ', verdict: 'request_changes' })).toEqual({
+      result: 'posted',
+      url,
+      comments: 6,
+    });
+    expect(body).toEqual({ summary: 'Two bugs.', verdict: 'request_changes' });
+  });
+
+  it('AC-19: rejects an answer that breaks the contract, and a posted comment as already_posted', async () => {
+    server.use(
+      http.post(at(apiRoutes.sessionReview, id), () =>
+        HttpResponse.json({ result: 'posted', url: 'https://evil.example' }),
+      ),
+      http.patch(`${baseURL}/api/sessions/:id/review/comments/:commentId`, () =>
+        HttpResponse.json({ code: 'already_posted', message: 'That comment is on GitHub already.' }, { status: 409 }),
+      ),
+    );
+    await expect(api.postReview(id, { summary: 'x', verdict: 'comment' })).rejects.toThrow();
+    await expect(api.changeReviewComment(id, 'c1', { keep: false })).rejects.toMatchObject({ code: 'already_posted' });
+  });
+
+  it('keys the status under the session, so a change to the session reads it again', () => {
+    expect(sessionReviewStatusQueryKey(id).slice(0, 1)).toEqual(queryKeys.sessions);
   });
 });

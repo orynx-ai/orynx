@@ -47,6 +47,10 @@ import {
   type ReplyAnswer,
   type ReplyDraftAnswer,
   type ReplyRequest,
+  type PostReviewAnswer,
+  type PostReviewRequest,
+  type ReviewCommentChange,
+  type ReviewStatus,
   type PushDraftAnswer,
   type SendMessageAnswer,
   type SendMessageInput,
@@ -138,6 +142,9 @@ import {
   postPushDraft,
   postReplies,
   postRepliesDraft,
+  postReview,
+  getReviewStatus,
+  patchReviewComment,
   postSession,
   postSessionDiscard,
   patchSession,
@@ -236,6 +243,12 @@ export interface ApiClient {
   draftReplies(id: string): Promise<ReplyDraftAnswer>;
   /** Posts the replies and resolves the ticked threads; the threads that failed, with why (spec 049). */
   postReplies(id: string, request: ReplyRequest): Promise<ReplyAnswer>;
+  /** Keeps, drops or edits one of Claude's review comments (spec 050). */
+  changeReviewComment(id: string, commentId: string, change: ReviewCommentChange): Promise<void>;
+  /** How many commits were pushed since Claude read the pull request, or why Orynx can't say (spec 050). */
+  reviewStatus(id: string): Promise<ReviewStatus>;
+  /** Posts one review, only on your press: its link, why it can't, or GitHub's problem (spec 050). */
+  postReview(id: string, request: PostReviewRequest): Promise<PostReviewAnswer>;
   /** The saved Jira site and email, and whether `.env` holds a Jira token. */
   jiraConnection(): Promise<JiraConnection>;
   /** Checks with Jira, then saves; rejects with integration_rejected, integration_unreachable or keychain_unavailable. */
@@ -419,6 +432,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       postRepliesDraft(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     postReplies: (id, request) =>
       postReplies(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    changeReviewComment: (id, commentId, change) =>
+      patchReviewComment(http, id, commentId, change).catch((error: unknown) =>
+        Promise.reject(toApiRequestError(error)),
+      ),
+    reviewStatus: (id) => getReviewStatus(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    postReview: (id, request) =>
+      postReview(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     jiraConnection: () => getJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     connectJira: (request) =>
       putJiraConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

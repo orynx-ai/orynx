@@ -43,9 +43,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **api-client**
 
-- [ ] Task 12: `patchReviewComment`, `getReviewStatus` and `postReview`, with query options and keys (AC-12, AC-16, AC-18)
-      Check: pnpm test packages/api-client/src/endpoints/sessions.test.ts
-      Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/endpoints/sessions.test.ts, packages/api-client/src/query-keys.ts, packages/api-client/src/index.ts
+- [x] Task 12: `patchReviewComment`, `getReviewStatus` and `postReview`, with query options and keys (AC-12, AC-16, AC-18)
+      Check: pnpm test packages/api-client/src/sessions.test.ts
+      Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/api-client/src/sessions.test.ts
 
 **ui**
 

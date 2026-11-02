@@ -4,6 +4,8 @@ import {
   CreatePullRequestAnswerSchema,
   CreatePullRequestRequestSchema,
   FileDiffSchema,
+  PostReviewAnswerSchema,
+  PostReviewRequestSchema,
   PullRequestDraftAnswerSchema,
   PushAnswerSchema,
   PushDraftAnswerSchema,
@@ -12,6 +14,8 @@ import {
   ReplyDraftAnswerSchema,
   ReplyRequestSchema,
   RespondToApprovalRequestSchema,
+  ReviewCommentChangeSchema,
+  ReviewStatusSchema,
   SendMessageAnswerSchema,
   SendMessageRequestSchema,
   SessionBriefSchema,
@@ -41,6 +45,10 @@ import {
   type SessionListQuery,
   type StartSessionAnswer,
   type StartSessionRequest,
+  type PostReviewAnswer,
+  type PostReviewRequest,
+  type ReviewCommentChange,
+  type ReviewStatus,
 } from '@devhub/contracts';
 
 const pathFor = (route: string, id: string) => route.replace(':id', encodeURIComponent(id));
@@ -163,4 +171,31 @@ export async function postRepliesDraft(http: AxiosInstance, id: string): Promise
 export async function postReplies(http: AxiosInstance, id: string, request: ReplyRequest): Promise<ReplyAnswer> {
   const res = await http.post<unknown>(pathFor(apiRoutes.sessionReplies, id), ReplyRequestSchema.parse(request));
   return ReplyAnswerSchema.parse(res.data);
+}
+
+/** Keeps, drops or edits one of Claude's review comments (spec 050, AC-12). */
+export async function patchReviewComment(
+  http: AxiosInstance,
+  id: string,
+  commentId: string,
+  change: ReviewCommentChange,
+): Promise<void> {
+  const path = pathFor(apiRoutes.sessionReviewComment, id).replace(':commentId', encodeURIComponent(commentId));
+  await http.patch(path, ReviewCommentChangeSchema.parse(change));
+}
+
+/** How many commits were pushed since Claude read the pull request (spec 050, AC-18). */
+export async function getReviewStatus(http: AxiosInstance, id: string): Promise<ReviewStatus> {
+  const res = await http.get<unknown>(pathFor(apiRoutes.sessionReviewStatus, id));
+  return ReviewStatusSchema.parse(res.data);
+}
+
+/** Posts one review with your summary and verdict, and the kept comments not posted yet (spec 050). */
+export async function postReview(
+  http: AxiosInstance,
+  id: string,
+  request: PostReviewRequest,
+): Promise<PostReviewAnswer> {
+  const res = await http.post<unknown>(pathFor(apiRoutes.sessionReview, id), PostReviewRequestSchema.parse(request));
+  return PostReviewAnswerSchema.parse(res.data);
 }
