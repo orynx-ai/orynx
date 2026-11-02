@@ -462,7 +462,14 @@ describe('running a session', () => {
         skills: [],
       },
       { ...at('plan'), id: 'step-3', state: 'done', kind: 'explore', files: ['README.md'] },
-      { ...at('plan'), id: 'step-4', state: 'done', kind: 'plan', items: ['Add a toolbar button'] },
+      {
+        ...at('plan'),
+        id: 'step-4',
+        state: 'done',
+        kind: 'plan',
+        items: ['Add a toolbar button'],
+        statuses: ['pending'],
+      },
       { ...at('plan'), id: 'step-5', state: 'done', kind: 'branch_made', branch: 'feat/PROJ-1423', from: 'orynx' },
       { ...at('build'), id: 'step-6', state: 'done', kind: 'edit', files: ['src/toolbar.ts'] },
       { ...at('review'), id: 'step-7', state: 'done', kind: 'finished', summary: 'Added a toolbar button.' },
@@ -880,6 +887,26 @@ describe('approvals (spec 012)', () => {
     expect(record.session.activities).toContainEqual(
       expect.objectContaining({ kind: 'command', commands: ['npm test'] }) as unknown,
     );
+  });
+
+  it('AC-12 (spec 046): the command step says which of its commands ended with an error', async () => {
+    const { service, records, settings, folders } = await setUp({
+      script: [
+        { tool: 'Bash', input: { command: 'npm run build' } },
+        { tool: 'Bash', input: { command: 'npm test' }, fails: true },
+        { tool: 'Bash', input: { command: 'npm run lint' } },
+        { finish: 'One test fails.' },
+      ],
+    });
+    const repository = folders[0]?.id ?? '';
+    await settings.update((current) => ({
+      ...current,
+      agent: { ...current.agent, repositoryPermissions: { [repository]: { commands: 'any' } } },
+    }));
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const step = (await settled(records)).session.activities.find((activity) => activity.kind === 'command');
+    expect(step).toMatchObject({ commands: ['npm run build', 'npm test', 'npm run lint'] });
+    expect(step?.kind === 'command' && step.calls?.map((call) => call.failed)).toEqual([false, true, false]);
   });
 
   it('AC-11: a change in Settings applies to Claude’s next call', async () => {

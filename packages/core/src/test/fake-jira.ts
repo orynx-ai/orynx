@@ -539,8 +539,8 @@ export interface FakeJiraWrite {
 
 /** The fake issue's workflow from To Do (spec 044): Start leads to In Progress, Review to In Review. */
 export const fakeTransitions = [
-  { id: '21', name: 'Start', to: { id: '3', name: 'In Progress' } },
-  { id: '31', name: 'Review', to: { id: '10003', name: 'In Review' } },
+  { id: '21', name: 'Start', to: { id: '3', name: 'In Progress', statusCategory: { key: 'indeterminate' } } },
+  { id: '31', name: 'Review', to: { id: '10003', name: 'In Review', statusCategory: { key: 'indeterminate' } } },
 ] as const;
 
 /**
@@ -601,5 +601,122 @@ export function acceptingJiraChanges(
         () => new HttpResponse(null, { status: 204 }),
       ),
     ),
+  ];
+}
+
+export const createMetaTypesUrl = (project: string, site: string = jiraSite) =>
+  `https://${site}/rest/api/3/issue/createmeta/${project}/issuetypes`;
+export const createMetaFieldsUrl = (project: string, typeId: string, site: string = jiraSite) =>
+  `${createMetaTypesUrl(project, site)}/${typeId}`;
+export const newIssueUrl = (site: string = jiraSite) => `https://${site}/rest/api/3/issue`;
+export const sprintAddUrl = (sprintId: number | ':sprintId', site: string = jiraSite) =>
+  `https://${site}/rest/agile/1.0/sprint/${String(sprintId)}/issue`;
+
+/** A type a project offers a new issue (spec 019), and which fields its create screen has. */
+export interface FakeCreateType {
+  id: string;
+  name: string;
+  subtask?: boolean;
+  /** Field ids on the create screen besides summary, issuetype and project; priority comes with Jira's five. */
+  fields: readonly string[];
+}
+
+/** MAI's types: Task and Bug have a due date and Story hasn't; Sub-task is a sub-task. */
+export const fakeCreateTypes: readonly FakeCreateType[] = [
+  { id: '10001', name: 'Task', fields: ['description', 'priority', 'duedate', 'assignee'] },
+  { id: '10002', name: 'Story', fields: ['description', 'priority', 'assignee'] },
+  { id: '10003', name: 'Sub-task', subtask: true, fields: ['description', 'priority', 'parent'] },
+  { id: '10004', name: 'Bug', fields: ['description', 'priority', 'duedate', 'assignee'] },
+];
+
+/** What a new ticket asked of the fake Jira (spec 019): the issue's fields, the sprint it joined, and its move. */
+export interface FakeNewTicketWrite {
+  path: 'issue' | 'sprint' | 'transitions';
+  body: unknown;
+}
+
+/** The new issue's workflow from To Do (spec 019), by the design board's status ids. */
+export const newIssueTransitions = [
+  { id: '11', name: 'To Do', to: { id: '10000', name: 'To Do', statusCategory: { key: 'new' } } },
+  { id: '21', name: 'Start', to: { id: '3', name: 'In Progress', statusCategory: { key: 'indeterminate' } } },
+  { id: '31', name: 'Review', to: { id: '10001', name: 'In Review', statusCategory: { key: 'indeterminate' } } },
+  { id: '41', name: 'Done', to: { id: '10002', name: 'Done', statusCategory: { key: 'done' } } },
+] as const;
+
+/**
+ * Jira as a new ticket meets it (spec 019), for the good credentials: the project's create metadata, a new issue
+ * (`key`) in To Do, the sprint it joins, its transitions and its move. Each write lands in `writes`.
+ */
+export function acceptingNewJiraTicket(
+  writes: FakeNewTicketWrite[],
+  {
+    project = 'MAI',
+    key = 'MAI-142',
+    types = fakeCreateTypes,
+    transitions = newIssueTransitions,
+    site = jiraSite,
+  }: {
+    project?: string;
+    key?: string;
+    types?: readonly FakeCreateType[];
+    transitions?: readonly unknown[];
+    site?: string;
+  } = {},
+) {
+  const signedIn = (request: Request) => request.headers.get('authorization') === `Basic ${goodBasicValue}`;
+  const field = (fieldId: string) =>
+    fieldId === 'priority'
+      ? {
+          fieldId,
+          key: fieldId,
+          name: 'Priority',
+          required: false,
+          allowedValues: defaultPriorities,
+          defaultValue: { id: '3' },
+        }
+      : { fieldId, key: fieldId, name: fieldId, required: false };
+  return [
+    http.get(createMetaTypesUrl(':project', site), ({ request, params }) => {
+      if (!signedIn(request)) return refused();
+      // As Jira answers a project it hides.
+      if (params['project'] !== project) {
+        return HttpResponse.json({ errorMessages: ['No project could be found.'] }, { status: 404 });
+      }
+      const issueTypes = types.map(({ id, name, subtask = false }) => ({ id, name, subtask }));
+      return HttpResponse.json({ issueTypes, maxResults: 50, startAt: 0, total: issueTypes.length });
+    }),
+    http.get(`${createMetaTypesUrl(project, site)}/:typeId`, ({ request, params }) => {
+      if (!signedIn(request)) return refused();
+      const type = types.find((held) => held.id === params['typeId']);
+      if (type === undefined) return HttpResponse.json({ errorMessages: ['No such type.'] }, { status: 404 });
+      const fields = ['summary', 'issuetype', 'project', ...type.fields].map(field);
+      return HttpResponse.json({ fields, maxResults: 200, startAt: 0, total: fields.length });
+    }),
+    http.post(newIssueUrl(site), async ({ request }) => {
+      if (!signedIn(request)) return refused();
+      writes.push({ path: 'issue', body: await request.json() });
+      return HttpResponse.json({ id: '10142', key, self: `https://${site}/rest/api/3/issue/10142` }, { status: 201 });
+    }),
+    http.post(sprintAddUrl(':sprintId', site), async ({ request, params }) => {
+      if (!signedIn(request)) return refused();
+      writes.push({
+        path: 'sprint',
+        body: { sprintId: Number(params['sprintId']), ...((await request.json()) as object) },
+      });
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.get(issueUrl(key, site), ({ request }) => {
+      if (!signedIn(request)) return refused();
+      return HttpResponse.json({
+        key,
+        fields: { status: { id: '10000', name: 'To Do', statusCategory: { key: 'new' } } },
+        transitions,
+      });
+    }),
+    http.post(`${issueUrl(key, site)}/transitions`, async ({ request }) => {
+      if (!signedIn(request)) return refused();
+      writes.push({ path: 'transitions', body: await request.json() });
+      return new HttpResponse(null, { status: 204 });
+    }),
   ];
 }

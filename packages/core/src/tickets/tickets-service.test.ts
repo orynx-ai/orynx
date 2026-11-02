@@ -5,7 +5,7 @@ import { delay, http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { CreateOrynxTicketSchema, type SessionSummary } from '@devhub/contracts';
-import { makeSessionSummary } from '@devhub/contracts/testing';
+import { makeNewJiraTicket, makeSessionSummary } from '@devhub/contracts/testing';
 import { createEventBus } from '../events/event-bus.ts';
 import { cacheFilePath, openInboxCache, type InboxCache } from '../inbox/inbox-cache.ts';
 import { createJiraClient } from '../integrations/jira/client.ts';
@@ -24,8 +24,14 @@ import {
   acceptingPrioritySearch,
   acceptingSprintIssueSearch,
   acceptingStatusList,
+  acceptingNewJiraTicket,
   boardConfigurationUrl,
   designBoardColumns,
+  myAccountId,
+  newIssueTransitions,
+  newIssueUrl,
+  sprintAddUrl,
+  type FakeNewTicketWrite,
   fieldListUrl,
   goodToken,
   jiraEmail,
@@ -785,5 +791,171 @@ describe('Orynx tickets on the board (spec 037)', () => {
     } finally {
       await rm(home, { recursive: true, force: true });
     }
+  });
+});
+
+describe('a new Jira ticket (spec 019)', () => {
+  const url = `https://${jiraSite}/browse/MAI-142`;
+
+  /** MAI's create screens, its new MAI-142, and Sprint 14 on board 7, the design's board. */
+  function acceptingNewTicket(options: Parameters<typeof acceptingNewJiraTicket>[1] = {}): FakeNewTicketWrite[] {
+    const writes: FakeNewTicketWrite[] = [];
+    outside.use(
+      acceptingMyself(),
+      ...acceptingNewJiraTicket(writes, options),
+      ...acceptingProjectSprints({ MAI: [{ id: 7, sprints: [{ id: 14 }] }] }),
+      acceptingBoardConfiguration(7, designBoardColumns),
+      acceptingStatusList(),
+    );
+    return writes;
+  }
+
+  it('AC-2, AC-4: lists MAI’s types with their priorities, Jira’s default and whether each has a due date', async () => {
+    acceptingNewTicket();
+    const { tickets } = setup({ settings: jiraConnected });
+
+    const types = await tickets.jiraTypes('MAI');
+
+    expect(types.map((type) => [type.name, type.dueDate, type.defaultPriorityId])).toEqual([
+      ['Task', true, '3'],
+      ['Story', false, '3'],
+      ['Bug', true, '3'],
+    ]);
+    expect(types[0]?.priorities.map((priority) => priority.name)).toEqual([
+      'Highest',
+      'High',
+      'Medium',
+      'Low',
+      'Lowest',
+    ]);
+  });
+
+  it('AC-8: with Jira not connected, or refusing to read the types, it says so in spec 003’s words', async () => {
+    acceptingNewTicket();
+    await expect(setup().tickets.jiraTypes('MAI')).rejects.toMatchObject({ code: 'bad_request' });
+    await expect(setup({ settings: jiraConnected }).tickets.jiraTypes('NOPE')).rejects.toMatchObject({
+      code: 'integration_unreachable',
+      message: `There's no Jira at ${jiraSite}. Check the address.`,
+    });
+  });
+
+  it('AC-3: makes the issue, assigned to you, adds it to Sprint 14 and moves it to In progress', async () => {
+    const writes = acceptingNewTicket();
+    const { tickets } = setup({ settings: jiraConnected });
+
+    const answer = await tickets.createJira(makeNewJiraTicket({ description: 'Archive **several** at once.' }));
+
+    expect(answer).toEqual({ result: 'made', key: 'MAI-142', url });
+    expect(writes).toEqual([
+      {
+        path: 'issue',
+        body: {
+          fields: expect.objectContaining({
+            project: { key: 'MAI' },
+            summary: 'Add bulk archive',
+            issuetype: { id: '10001' },
+            priority: { id: '3' },
+            assignee: { accountId: myAccountId },
+          }) as unknown,
+        },
+      },
+      { path: 'sprint', body: { sprintId: 14, issues: ['MAI-142'] } },
+      { path: 'transitions', body: { transition: { id: '21' } } },
+    ]);
+  });
+
+  it('AC-3: a column the board puts after the first In progress one is In review, matched by status id', async () => {
+    const writes = acceptingNewTicket();
+    const { tickets } = setup({ settings: jiraConnected });
+
+    expect(await tickets.createJira(makeNewJiraTicket({ column: 'in_review' }))).toMatchObject({ result: 'made' });
+    expect(writes.at(-1)).toEqual({ path: 'transitions', body: { transition: { id: '31' } } });
+  });
+
+  it('AC-6: with No sprint, and in To do, it joins no sprint and doesn’t move', async () => {
+    const writes = acceptingNewTicket();
+    const { tickets } = setup({ settings: jiraConnected });
+
+    expect(await tickets.createJira(makeNewJiraTicket({ sprintId: null, column: 'to_do' }))).toEqual({
+      result: 'made',
+      key: 'MAI-142',
+      url,
+    });
+    expect(writes.map((write) => write.path)).toEqual(['issue']);
+  });
+
+  it('AC-4: sends only what the type’s create screen has: a Story has no due date there', async () => {
+    const writes = acceptingNewTicket();
+    const { tickets } = setup({ settings: jiraConnected });
+
+    await tickets.createJira(makeNewJiraTicket({ typeId: '10002', dueDate: '2026-11-06', column: 'to_do' }));
+    await tickets.createJira(makeNewJiraTicket({ typeId: '10001', dueDate: '2026-11-06', column: 'to_do' }));
+
+    const sent = writes.filter((write) => write.path === 'issue').map((write) => write.body);
+    expect(sent[0]).not.toHaveProperty('fields.duedate');
+    expect(sent[1]).toHaveProperty('fields.duedate', '2026-11-06');
+  });
+
+  it('AC-9: an issue Jira refuses is refused in Jira’s words, and nothing else is asked', async () => {
+    const writes = acceptingNewTicket();
+    outside.use(
+      http.post(newIssueUrl(), () =>
+        HttpResponse.json({ errors: { customfield_10011: 'Epic Name is required.' } }, { status: 400 }),
+      ),
+    );
+    const { tickets } = setup({ settings: jiraConnected });
+
+    expect(await tickets.createJira(makeNewJiraTicket())).toEqual({
+      result: 'refused',
+      reason: 'Epic Name is required.',
+    });
+    expect(writes).toEqual([]);
+  });
+
+  it('AC-10: made, but Jira won’t add it to the sprint: it’s kept, with Jira’s words, and not moved', async () => {
+    const writes = acceptingNewTicket();
+    outside.use(
+      http.post(sprintAddUrl(14), () =>
+        HttpResponse.json({ errorMessages: ['Sprint 14 is closed.'] }, { status: 400 }),
+      ),
+    );
+    const { tickets } = setup({ settings: jiraConnected });
+
+    expect(await tickets.createJira(makeNewJiraTicket())).toEqual({
+      result: 'made_but',
+      key: 'MAI-142',
+      url,
+      missed: 'sprint',
+      reason: 'Sprint 14 is closed.',
+    });
+    expect(writes.map((write) => write.path)).toEqual(['issue']);
+  });
+
+  it('AC-10: made, but the workflow has no way to the column: it’s kept, and says so', async () => {
+    const writes = acceptingNewTicket({ transitions: newIssueTransitions.filter((move) => move.id !== '31') });
+    const { tickets } = setup({ settings: jiraConnected });
+
+    expect(await tickets.createJira(makeNewJiraTicket({ column: 'in_review' }))).toEqual({
+      result: 'made_but',
+      key: 'MAI-142',
+      url,
+      missed: 'column',
+      reason: 'its workflow has no move there from To Do',
+    });
+    expect(writes.map((write) => write.path)).toEqual(['issue', 'sprint']);
+  });
+
+  it('AC-11: a create Jira doesn’t answer in time is unreachable, and nothing more is asked', async () => {
+    const writes = acceptingNewTicket();
+    outside.use(
+      http.post(newIssueUrl(), async () => {
+        await delay(500);
+        return HttpResponse.json({ key: 'MAI-142' }, { status: 201 });
+      }),
+    );
+    const { tickets } = setup({ settings: jiraConnected });
+
+    expect(await tickets.createJira(makeNewJiraTicket())).toEqual({ result: 'unreachable' });
+    expect(writes).toEqual([]);
   });
 });

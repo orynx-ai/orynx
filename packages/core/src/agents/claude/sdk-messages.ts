@@ -1,6 +1,7 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { isAbsolute, relative } from 'node:path';
 import { z } from 'zod';
+import { TodoStatusSchema } from '@devhub/contracts';
 import type { AgentProblemKind, AgentWork } from '../agent-adapter.ts';
 
 /**
@@ -84,7 +85,9 @@ const ResultSchema = z.object({
 const PathInputSchema = z.object({ file_path: z.string() });
 const CommandInputSchema = z.object({ command: z.string().min(1) });
 const NotebookInputSchema = z.object({ notebook_path: z.string() });
-const TodoInputSchema = z.object({ todos: z.array(z.object({ content: z.string().min(1) })) });
+const TodoInputSchema = z.object({
+  todos: z.array(z.object({ content: z.string().min(1), status: TodoStatusSchema.optional().catch(undefined) })),
+});
 
 /** Errors on an assistant message that mean the login didn't work, or that a limit was reached. */
 const loginErrors = new Set([
@@ -155,7 +158,13 @@ export function createMessageReader(
       }
       case 'TodoWrite': {
         const todos = TodoInputSchema.safeParse(input);
-        return todos.success ? { kind: 'plan', items: todos.data.todos.map((todo) => todo.content) } : null;
+        if (!todos.success) return null;
+        const items = todos.data.todos.map((todo) => todo.content);
+        const statuses = todos.data.todos.map((todo) => todo.status);
+        // Marks only when every item has one, so they never fall out of place with the items (spec 046, AC-14).
+        return statuses.every((status) => status !== undefined)
+          ? { kind: 'plan', items, statuses }
+          : { kind: 'plan', items };
       }
       default:
         return null;

@@ -2,6 +2,10 @@ import type { FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
   apiPaths,
+  JiraTicketTypesQuerySchema,
+  JiraTicketTypesSchema,
+  NewJiraTicketAnswerSchema,
+  NewJiraTicketSchema,
   OpenSprintsQuerySchema,
   OpenSprintsSchema,
   TicketDetailAnswerSchema,
@@ -17,7 +21,7 @@ import type { TicketsService } from '../tickets/tickets-service.ts';
  * Tickets' sprint (spec 008), from the cache. It syncs with the inbox, so Refresh and Clear cache live there.
  * Spec 020 adds the project's open sprints for the Sprint menu, asked of Jira now, and the choice of sprint,
  * whose first sync starts at once. A Jira problem is a JiraConnectionError, which the /api error handler answers.
- * Spec 022 adds one ticket in full for the ticket dialog.
+ * Spec 022 adds one ticket in full for the ticket dialog, and spec 019 a new Jira ticket with its project's types.
  */
 export const ticketsRoutes: FastifyPluginCallbackZod<{
   tickets: TicketsService;
@@ -37,6 +41,24 @@ export const ticketsRoutes: FastifyPluginCallbackZod<{
     apiPaths.ticket,
     { schema: { params: TicketKeyParamsSchema, response: { 200: TicketDetailAnswerSchema } } },
     (request) => tickets.detail(request.params.key),
+  );
+
+  // A project's types for a new Jira ticket (spec 019), asked of Jira each time the dialog opens on Jira.
+  app.get(
+    apiPaths.jiraTicketTypes,
+    { schema: { querystring: JiraTicketTypesQuerySchema, response: { 200: JiraTicketTypesSchema } } },
+    async (request) => ({ types: await tickets.jiraTypes(request.query.project) }),
+  );
+
+  app.post(
+    apiPaths.jiraTickets,
+    { schema: { body: NewJiraTicketSchema, response: { 200: NewJiraTicketAnswerSchema } } },
+    async (request) => {
+      const answer = await tickets.createJira(request.body);
+      // A sprint pass at once, so the board shows the new ticket without waiting for the 2-minute sync.
+      if (answer.result === 'made' || answer.result === 'made_but') void inbox.sprintAfterChange();
+      return answer;
+    },
   );
 
   app.put(

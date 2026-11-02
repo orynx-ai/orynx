@@ -13,6 +13,7 @@ import {
   makeNotificationList,
   makeInbox,
   makeJiraConnection,
+  makeJiraTicketTypes,
   makePreferences,
   makeStorage,
   makeProfile,
@@ -127,6 +128,8 @@ export const server = setupServer(
   http.get(apiUrl(apiRoutes.tickets), () =>
     HttpResponse.json(makeTickets({ jira: { state: 'not_connected' }, sprint: null, tickets: [] })),
   ),
+  // A Jira project's types for New ticket: Task, Story and Bug (spec 019).
+  http.get(apiUrl(apiRoutes.jiraTicketTypes), () => HttpResponse.json(makeJiraTicketTypes())),
   // Claude Code isn't signed in, as the default status says.
   http.get(apiUrl(apiRoutes.claudeLogin), () => HttpResponse.json({ state: 'signed_out' })),
   http.post(apiUrl(apiRoutes.claudeLoginCheck), () => HttpResponse.json({ state: 'signed_out' })),

@@ -95,6 +95,12 @@ import {
 } from './tickets.ts';
 import { ClaudeCommandListSchema, TerminalSchema, type ClaudeCommandList, type Terminal } from './terminal.ts';
 import { ReleaseSchema, UpdatesSchema, type Release, type Updates } from './updates.ts';
+import {
+  JiraTicketTypesSchema,
+  NewJiraTicketSchema,
+  type JiraTicketTypes,
+  type NewJiraTicket,
+} from './jira-tickets.ts';
 
 export interface StatusOverrides {
   version?: string;
@@ -783,6 +789,39 @@ export function makeUpdates(overrides: Partial<Updates> = {}): Updates {
     releases: [],
     update: { state: 'idle' },
     busy: false,
+    ...overrides,
+  });
+}
+
+/** Jira's default five priorities, highest first, as a type's create screen lists them (spec 019). */
+const jiraPriorities = ['Highest', 'High', 'Medium', 'Low', 'Lowest'].map((name, at) => ({ id: String(at + 1), name }));
+
+/**
+ * MAI's types for a new Jira ticket (spec 019): Task, Story and Bug, each with Jira's five priorities and Medium by
+ * default; Task and Bug have a due date and Story hasn't, unless the override says otherwise.
+ */
+export function makeJiraTicketTypes(overrides: Partial<JiraTicketTypes> = {}): JiraTicketTypes {
+  return JiraTicketTypesSchema.parse({
+    types: [
+      { id: '10001', name: 'Task', priorities: jiraPriorities, defaultPriorityId: '3', dueDate: true },
+      { id: '10002', name: 'Story', priorities: jiraPriorities, defaultPriorityId: '3', dueDate: false },
+      { id: '10004', name: 'Bug', priorities: jiraPriorities, defaultPriorityId: '3', dueDate: true },
+    ],
+    ...overrides,
+  });
+}
+
+/** "Add bulk archive", a Medium Task for MAI's In progress in Sprint 14, as the form sends it, unless the override says otherwise. */
+export function makeNewJiraTicket(overrides: Partial<NewJiraTicket> = {}): NewJiraTicket {
+  return NewJiraTicketSchema.parse({
+    projectKey: 'MAI',
+    sprintId: 14,
+    column: 'in_progress',
+    title: 'Add bulk archive',
+    description: '',
+    typeId: '10001',
+    priorityId: '3',
+    dueDate: null,
     ...overrides,
   });
 }

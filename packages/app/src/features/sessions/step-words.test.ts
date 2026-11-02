@@ -329,6 +329,28 @@ describe('stepWords (Q10a)', () => {
     });
   });
 
+  it('AC-12, AC-13 (spec 046, Q7): a command step with a command that failed says so once it’s done', () => {
+    const calls = (...failed: (boolean | null)[]) =>
+      failed.map((one, index) => ({ id: `t${String(index)}`, failed: one }));
+    expect(step({ kind: 'command', state: 'done', commands: ['npm test'], calls: calls(true) }).title).toBe(
+      'A command failed',
+    );
+    const three = ['npm install', 'npm test', 'npm run lint'];
+    expect(step({ kind: 'command', state: 'done', commands: three, calls: calls(false, true, false) }).title).toBe(
+      'Ran 3 commands, 1 failed',
+    );
+    expect(step({ kind: 'command', state: 'done', commands: three, calls: calls(true, true, false) }).title).toBe(
+      'Ran 3 commands, 2 failed',
+    );
+    // Still running, it says what it's doing; and with none failed, as before.
+    expect(step({ kind: 'command', state: 'running', commands: three, calls: calls(false, true, null) }).title).toBe(
+      'Running a command',
+    );
+    expect(step({ kind: 'command', state: 'done', commands: three, calls: calls(false, false, false) }).title).toBe(
+      'Ran 3 commands',
+    );
+  });
+
   it('012 AC-3, AC-8, Q8c: a call you denied, with the command or the path', () => {
     expect(step({ kind: 'denied', state: 'done', about: 'command', text: 'rm -rf dist' })).toEqual({
       title: 'You denied a command',

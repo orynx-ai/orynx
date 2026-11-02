@@ -97,6 +97,7 @@ import {
   addStep,
   addWaiting,
   addWork,
+  endCommand,
   changeSteps,
   endProgress,
   removeWaiting,
@@ -791,7 +792,12 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         filesChanged(id);
         return;
       case 'command_ended':
-        track(change(id, (record) => ({ ...record, commandLog: logEnd(record.commandLog, event) })));
+        track(
+          change(id, (record) => ({
+            ...withProgress(record, (progress) => endCommand(progress, event.id, event.failed)),
+            commandLog: logEnd(record.commandLog, event),
+          })),
+        );
         checkWorktree(id);
         return;
       case 'problem':

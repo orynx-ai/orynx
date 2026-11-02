@@ -28,6 +28,8 @@ export const queryKeys = {
   ticketsSprints: ['jira', 'sprints'] as const,
   /** One ticket in full (spec 022); not under `tickets` either, for the same reason. */
   ticket: ['jira', 'ticket'] as const,
+  /** A project's types for a new Jira ticket (spec 019); not under `tickets` either. */
+  jiraTicketTypes: ['jira', 'ticket-types'] as const,
   /** Orynx's own tickets, one by one (spec 037); tickets.changed refreshes them. */
   orynxTicket: ['orynx-tickets'] as const,
   /** Whether agents outside Orynx may use its tickets (spec 037); settings.changed refreshes it. */
@@ -321,6 +323,20 @@ export function ticketQueryOptions(api: ApiClient, key: string) {
     queryKey: [...queryKeys.ticket, key] as const,
     queryFn: () => api.ticket(key),
     staleTime: 0,
+    retry: false,
+  });
+}
+
+/**
+ * A project's types for a new Jira ticket (spec 019): asked of Jira each time the dialog opens on Jira, kept nowhere
+ * once it closes, and not asked again by itself when it fails, so the dialog's Try again asks.
+ */
+export function jiraTicketTypesQueryOptions(api: ApiClient, project: string) {
+  return queryOptions({
+    queryKey: [...queryKeys.jiraTicketTypes, project] as const,
+    queryFn: () => api.jiraTicketTypes(project),
+    staleTime: 0,
+    gcTime: 0,
     retry: false,
   });
 }

@@ -19,7 +19,12 @@ import {
   goodBasicValue,
   acceptingIssue,
   acceptingJiraChanges,
+  acceptingNewJiraTicket,
+  createMetaTypesUrl,
   type FakeJiraWrite,
+  type FakeNewTicketWrite,
+  newIssueUrl,
+  sprintAddUrl,
   issueUrl,
   issueSearchUrl,
   goodToken,
@@ -1195,9 +1200,11 @@ describe('Jira client: changes a session asks for (spec 044)', () => {
     expect(await client.transitions(credentials, 'MAG-12')).toEqual({
       ok: true,
       status: 'To Do',
+      // By id and category too, so a new ticket's move matches the board's statuses by id (spec 019).
+      at: { id: '10000', category: 'new' },
       transitions: [
-        { id: '21', to: 'In Progress' },
-        { id: '31', to: 'In Review' },
+        { id: '21', to: 'In Progress', toStatus: { id: '3', category: 'indeterminate' } },
+        { id: '31', to: 'In Review', toStatus: { id: '10003', category: 'indeterminate' } },
       ],
     });
   });
@@ -1248,6 +1255,144 @@ describe('Jira client: changes a session asks for (spec 044)', () => {
     expect(await client.comment({ ...credentials, apiToken: 'fake-wrong-token' }, 'MAG-12', 'Hi')).toEqual({
       ok: false,
       problem: { kind: 'rejected' },
+    });
+  });
+});
+
+describe('Jira client: a new ticket (spec 019)', () => {
+  const bare = {
+    projectKey: 'MAI',
+    summary: 'Add bulk archive',
+    typeId: '10002',
+    description: null,
+    priorityId: null,
+    dueDate: null,
+    assigneeId: null,
+  };
+
+  it('AC-2, AC-4: lists a project’s types without sub-tasks, each with its create screen and its priorities', async () => {
+    const asked: string[] = [];
+    jira.use(...acceptingNewJiraTicket([]));
+    jira.events.on('request:start', ({ request }) => {
+      asked.push(new URL(request.url).pathname);
+    });
+
+    const answer = await client.createTypes(credentials, 'MAI');
+
+    expect(answer.ok && answer.types.map((type) => [type.name, type.onScreen])).toEqual([
+      ['Task', ['summary', 'issuetype', 'project', 'description', 'priority', 'duedate', 'assignee']],
+      ['Story', ['summary', 'issuetype', 'project', 'description', 'priority', 'assignee']],
+      ['Bug', ['summary', 'issuetype', 'project', 'description', 'priority', 'duedate', 'assignee']],
+    ]);
+    expect(answer.ok && answer.types[0]).toMatchObject({
+      id: '10001',
+      defaultPriorityId: '3',
+      priorities: [
+        { id: '1', name: 'Highest' },
+        { id: '2', name: 'High' },
+        { id: '3', name: 'Medium' },
+        { id: '4', name: 'Low' },
+        { id: '5', name: 'Lowest' },
+      ],
+    });
+    // The types, then each type's screen: never the sub-task's.
+    expect(asked).toHaveLength(4);
+    expect(asked).not.toContain('/rest/api/3/issue/createmeta/MAI/issuetypes/10003');
+  });
+
+  it('AC-8: a project Jira hides, a refused token and a slow Jira are problems', async () => {
+    jira.use(...acceptingNewJiraTicket([]));
+    expect(await client.createTypes(credentials, 'NOPE')).toEqual({ ok: false, problem: { kind: 'not_found' } });
+    expect(await client.createTypes({ ...credentials, apiToken: 'fake-wrong-token' }, 'MAI')).toEqual({
+      ok: false,
+      problem: { kind: 'rejected' },
+    });
+    jira.use(
+      http.get(createMetaTypesUrl('MAI'), async () => {
+        await delay(400);
+        return HttpResponse.json({ issueTypes: [] });
+      }),
+    );
+    expect(await client.createTypes(credentials, 'MAI')).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+
+  it('AC-3: makes the issue in Jira’s own fields, the description as Jira’s format, and says its key', async () => {
+    const writes: FakeNewTicketWrite[] = [];
+    jira.use(...acceptingNewJiraTicket(writes));
+    const issue = {
+      projectKey: 'MAI',
+      summary: 'Add bulk archive',
+      typeId: '10001',
+      description: 'Archive **several** at once.',
+      priorityId: '3',
+      dueDate: '2026-11-06',
+      assigneeId: myAccountId,
+    };
+
+    expect(await client.createIssue(credentials, issue)).toEqual({ ok: true, key: 'MAI-142' });
+    // A field left null is left to Jira's default.
+    expect(
+      await client.createIssue(credentials, {
+        ...issue,
+        description: null,
+        priorityId: null,
+        dueDate: null,
+        assigneeId: null,
+      }),
+    ).toEqual({ ok: true, key: 'MAI-142' });
+    expect(writes.map((write) => write.body)).toEqual([
+      {
+        fields: {
+          project: { key: 'MAI' },
+          summary: 'Add bulk archive',
+          issuetype: { id: '10001' },
+          description: markdownToAdf('Archive **several** at once.'),
+          priority: { id: '3' },
+          duedate: '2026-11-06',
+          assignee: { accountId: myAccountId },
+        },
+      },
+      { fields: { project: { key: 'MAI' }, summary: 'Add bulk archive', issuetype: { id: '10001' } } },
+    ]);
+  });
+
+  it('AC-9: an issue Jira refuses comes back with Jira’s own words for each field', async () => {
+    jira.use(
+      http.post(newIssueUrl(), () =>
+        HttpResponse.json(
+          { errorMessages: [], errors: { customfield_10011: 'Epic Name is required.' } },
+          { status: 400 },
+        ),
+      ),
+    );
+    expect(await client.createIssue(credentials, bare)).toEqual({ ok: false, refused: 'Epic Name is required.' });
+  });
+
+  it('AC-11: a create Jira doesn’t answer in time is a timeout, never a refusal', async () => {
+    jira.use(
+      http.post(newIssueUrl(), async () => {
+        await delay(400);
+        return HttpResponse.json({ key: 'MAI-142' }, { status: 201 });
+      }),
+    );
+    expect(await client.createIssue(credentials, bare)).toEqual({ ok: false, problem: { kind: 'timeout' } });
+  });
+
+  it('AC-3, AC-10: adds the issue to a sprint, or says in Jira’s words why not', async () => {
+    const writes: FakeNewTicketWrite[] = [];
+    jira.use(...acceptingNewJiraTicket(writes));
+
+    expect(await client.addToSprint(credentials, 14, 'MAI-142')).toEqual({ ok: true });
+    expect(writes).toEqual([{ path: 'sprint', body: { sprintId: 14, issues: ['MAI-142'] } }]);
+
+    jira.use(
+      http.post(sprintAddUrl(14), () =>
+        HttpResponse.json({ errorMessages: ['Sprint 14 is closed.'] }, { status: 400 }),
+      ),
+    );
+    expect(await client.addToSprint(credentials, 14, 'MAI-142')).toEqual({
+      ok: false,
+      refused: 'Sprint 14 is closed.',
     });
   });
 });

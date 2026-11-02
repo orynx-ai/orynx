@@ -202,6 +202,10 @@ export type RefusalReason = z.infer<typeof RefusalReasonSchema>;
  * One step in "Claude's progress". It's data, not words: the app says each kind in its own words
  * (spec 011, Q10a), so the server never holds copy.
  */
+/** Where Claude is with one of its to-dos, as its `TodoWrite` says (spec 046). */
+export const TodoStatusSchema = z.enum(['pending', 'in_progress', 'completed']);
+export type TodoStatus = z.infer<typeof TodoStatusSchema>;
+
 export const SessionActivitySchema = z.discriminatedUnion('kind', [
   /**
    * Orynx made the branch and the worktree, from `base`; `fetched` is false when the fetch failed (Q1a). With
@@ -273,7 +277,12 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   }),
   ActivityBaseSchema.extend({ kind: z.literal('explore'), files: FilesSchema }),
   /** The plan's items, from Claude's to-do list. */
-  ActivityBaseSchema.extend({ kind: z.literal('plan'), items: z.array(z.string().min(1)) }),
+  ActivityBaseSchema.extend({
+    kind: z.literal('plan'),
+    items: z.array(z.string().min(1)),
+    /** Each item's status, by its place in `items` (spec 046, Q5); absent before spec 046. */
+    statuses: z.array(TodoStatusSchema).optional(),
+  }),
   ActivityBaseSchema.extend({ kind: z.literal('edit'), files: FilesSchema }),
   /**
    * A call Orynx refused: outside the worktree (spec 011, Q6), a push or a background command (spec 012,
@@ -294,7 +303,15 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     text: z.string().nullable(),
   }),
   /** Commands that ran, in the order they were allowed. */
-  ActivityBaseSchema.extend({ kind: z.literal('command'), commands: z.array(z.string().min(1)) }),
+  ActivityBaseSchema.extend({
+    kind: z.literal('command'),
+    commands: z.array(z.string().min(1)),
+    /**
+     * Each command's call, by its place in `commands`: whether it ended with an error, null while it runs (spec 046,
+     * Q4). Absent before spec 046.
+     */
+    calls: z.array(z.object({ id: z.string().min(1), failed: z.boolean().nullable() })).optional(),
+  }),
   /** You denied a call: `text` is the command, the edit's path, or the ticket's key (spec 037). */
   ActivityBaseSchema.extend({
     kind: z.literal('denied'),

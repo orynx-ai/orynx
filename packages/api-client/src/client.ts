@@ -73,6 +73,9 @@ import {
   type Status,
   type Storage,
   type OpenSprints,
+  type JiraTicketTypes,
+  type NewJiraTicket,
+  type NewJiraTicketAnswer,
   type SkillList,
   type SyncActivity,
   type SyncActivityQuery,
@@ -153,7 +156,14 @@ import {
   postSessionStop,
 } from './endpoints/sessions.ts';
 import { getStatus } from './endpoints/status.ts';
-import { getTicket, getTickets, getTicketsSprints, putTicketsChoice } from './endpoints/tickets.ts';
+import {
+  getJiraTicketTypes,
+  getTicket,
+  getTickets,
+  getTicketsSprints,
+  postJiraTicket,
+  putTicketsChoice,
+} from './endpoints/tickets.ts';
 import { deleteOrynxTicket, getOrynxTicket, patchOrynxTicket, postOrynxTicket } from './endpoints/orynx-tickets.ts';
 import { getAgentsAccess, postMcpConfig, putAgentsAccess } from './endpoints/agents-access.ts';
 import { postFileCheck, postFilePicker } from './endpoints/files.ts';
@@ -333,6 +343,10 @@ export interface ApiClient {
   chooseTicketsSprint(choice: TicketsChoice): Promise<void>;
   /** One ticket in full for the ticket dialog (spec 022), asked of Jira now, or why there's none. */
   ticket(key: string): Promise<TicketDetailAnswer>;
+  /** A project's types for a new Jira ticket (spec 019), asked of Jira now. */
+  jiraTicketTypes(project: string): Promise<JiraTicketTypes>;
+  /** Makes a Jira ticket in a project, sprint and column (spec 019), and says what came of it. */
+  createJiraTicket(ticket: NewJiraTicket): Promise<NewJiraTicketAnswer>;
   /** One of Orynx's own tickets (spec 037), or that there's none. */
   orynxTicket(key: string): Promise<OrynxTicketAnswer>;
   createOrynxTicket(ticket: CreateOrynxTicket): Promise<OrynxTicket>;
@@ -509,6 +523,10 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     chooseTicketsSprint: (choice) =>
       putTicketsChoice(http, choice).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     ticket: (key) => getTicket(http, key).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    jiraTicketTypes: (project) =>
+      getJiraTicketTypes(http, project).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    createJiraTicket: (ticket) =>
+      postJiraTicket(http, ticket).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     orynxTicket: (key) => getOrynxTicket(http, key).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     createOrynxTicket: (ticket) =>
       postOrynxTicket(http, ticket).catch((error: unknown) => Promise.reject(toApiRequestError(error))),

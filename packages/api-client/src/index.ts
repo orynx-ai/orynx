@@ -47,6 +47,7 @@ export {
   storageQueryOptions,
   skillsQueryOptions,
   syncActivityQueryOptions,
+  jiraTicketTypesQueryOptions,
   ticketQueryOptions,
   ticketsQueryOptions,
   ticketsSprintsQueryOptions,

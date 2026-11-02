@@ -2,7 +2,7 @@
 /// <reference lib="dom" />
 import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
-import { makeTicket, makeTickets } from '../packages/contracts/src/testing.ts';
+import { makeJiraTicketTypes, makeTicket, makeTickets } from '../packages/contracts/src/testing.ts';
 
 declare global {
   interface Window {
@@ -225,3 +225,56 @@ async function settled(page: Page) {
     await Promise.allSettled(moving.map((animation) => animation.finished));
   });
 }
+
+test.describe('New ticket in Jira (spec 019)', () => {
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test(`AC-16, AC-17: Given the dialog on Jira in ${colorScheme}, when PROJ's types load, arrive, and Jira refuses then makes the ticket but not in the sprint, then axe finds nothing and nothing scrolls sideways`, async ({
+      page,
+    }) => {
+      await answerSprint(page);
+      // PROJ's types wait until the loading state has been checked.
+      let release: (value: unknown) => void = () => undefined;
+      const held = new Promise((resolve) => {
+        release = resolve;
+      });
+      await page.route('**/api/tickets/jira/types**', async (route) => {
+        await held;
+        await route.fulfill({ json: makeJiraTicketTypes() });
+      });
+      const url = 'https://your-team.atlassian.net/browse/PROJ-1424';
+      const answers = [
+        { result: 'refused', reason: 'Epic Name is required.' },
+        { result: 'made_but', key: 'PROJ-1424', url, missed: 'sprint', reason: 'Sprint 42 is closed.' },
+      ];
+      await page.route('**/api/tickets/jira', (route) => route.fulfill({ json: answers.shift() }));
+      await page.emulateMedia({ colorScheme });
+      await page.goto('/tickets');
+      await expect(page.getByRole('heading', { level: 1, name: 'Sprint 42 tickets' })).toBeAttached();
+
+      await page.getByRole('button', { name: 'New ticket', exact: true }).first().click();
+      const dialog = page.getByRole('dialog', { name: 'New ticket' });
+      await expect(dialog.getByRole('group', { name: 'Save in' })).toBeVisible();
+      await expect(dialog.getByRole('combobox', { name: 'Type' })).toHaveCount(0);
+      expect(await axeViolations(page, '[role="dialog"]')).toEqual([]);
+
+      release(undefined);
+      await expect(dialog.getByRole('combobox', { name: 'Type' })).toHaveText('Task');
+      expect(await axeViolations(page, '[role="dialog"]')).toEqual([]);
+      expect(await horizontalOverflow(page)).toBe(0);
+      // Save in keeps to one line, even at 360 px: its group never scrolls sideways.
+      expect(
+        await dialog.getByRole('group', { name: 'Save in' }).evaluate((group) => group.scrollWidth - group.clientWidth),
+      ).toBe(0);
+
+      await dialog.getByRole('textbox', { name: 'Title' }).fill('Add bulk archive');
+      await dialog.getByRole('button', { name: 'Create ticket' }).click();
+      await expect(dialog.getByRole('alert')).toHaveText('Jira didn’t make the ticket: Epic Name is required.');
+      expect(await axeViolations(page, '[role="dialog"]')).toEqual([]);
+
+      await dialog.getByRole('button', { name: 'Create ticket' }).click();
+      await expect(dialog.getByRole('link', { name: 'Open PROJ-1424 in Jira' })).toBeVisible();
+      expect(await axeViolations(page, '[role="dialog"]')).toEqual([]);
+      expect(await horizontalOverflow(page)).toBe(0);
+    });
+  }
+});

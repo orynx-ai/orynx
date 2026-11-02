@@ -82,7 +82,7 @@ describe('createMessageReader', () => {
     ]);
   });
 
-  it('AC-4: turns Claude’s to-do list into the plan’s items', () => {
+  it('AC-4, AC-16 (spec 046): turns Claude’s to-do list into the plan’s items, each with its status', () => {
     const read = createMessageReader(worktree);
     read(
       toolUse('t1', 'TodoWrite', {
@@ -90,6 +90,25 @@ describe('createMessageReader', () => {
           { content: 'Row selection', status: 'in_progress', activeForm: 'Adding row selection' },
           { content: 'A bulkArchive API call', status: 'pending', activeForm: 'Adding the call' },
         ],
+      }),
+    );
+    expect(read(toolResult('t1'))).toEqual([
+      {
+        type: 'work',
+        work: {
+          kind: 'plan',
+          items: ['Row selection', 'A bulkArchive API call'],
+          statuses: ['in_progress', 'pending'],
+        },
+      },
+    ]);
+  });
+
+  it('AC-14 (spec 046): leaves the statuses out when a to-do has none Orynx knows', () => {
+    const read = createMessageReader(worktree);
+    read(
+      toolUse('t1', 'TodoWrite', {
+        todos: [{ content: 'Row selection', status: 'completed' }, { content: 'A bulkArchive API call' }],
       }),
     );
     expect(read(toolResult('t1'))).toEqual([

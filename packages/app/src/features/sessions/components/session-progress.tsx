@@ -43,7 +43,7 @@ import { durationText } from '../../../words/duration.ts';
 import { useNow } from '../../../words/use-now.ts';
 import { groupsOf, stepTimeText } from '../activity-groups.ts';
 import { contextWords } from '../ticket-tab-words.ts';
-import { followWords, problemWords, progressTitle, stepWords, usageWords } from '../step-words.ts';
+import { failedCommands, followWords, problemWords, progressTitle, stepWords, usageWords } from '../step-words.ts';
 import { ApprovalCallout } from './approval-callout.tsx';
 import { StepDetails, hasDetails } from './step-details.tsx';
 
@@ -103,6 +103,10 @@ const plainKinds = new Set<SessionActivity['kind']>([
 ]);
 
 function look(activity: SessionActivity): { state: ActivityStepState | undefined; icon: ReactNode } {
+  // Red once it's done: while it runs, it shimmers as any running step does (spec 046, AC-13).
+  if (activity.kind === 'command' && activity.state === 'done' && failedCommands(activity) > 0) {
+    return { state: 'failed', icon: <Icon icon={Cancel01Icon} /> };
+  }
   if (activity.state === 'done' && !plainKinds.has(activity.kind)) {
     return { state: 'done', icon: <Icon icon={Tick02Icon} /> };
   }
@@ -296,10 +300,7 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
   const problem = session.problem === null ? null : problemWords(session.problem, session);
   // Focus comes here once you've answered the last call waiting for you (spec 012, AC-18).
   const pane = useRef<HTMLElement>(null);
-  // The step shown in full, by its id, so it follows the session as it changes.
-  const [shownId, setShownId] = useState<string | null>(null);
   const [full, setFull] = useState(false);
-  const shown = session.activities.find((activity) => activity.id === shownId) ?? null;
   const { end, atEnd, jump } = useFollow(session.updatedAt);
   const groups = groupsOf(session);
   // Which steps you opened or closed, by kind; the rest follow where Claude is: the step of its latest activity, which
@@ -320,17 +321,13 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
       <ActivityStep
         key={activity.id}
         state={state}
+        running={activity.state === 'running'}
         icon={icon}
         title={titleOf(activity, words.title)}
         detail={detailOf(activity, words.detail, grouped)}
         className={className}
-        onOpen={
-          hasDetails(activity)
-            ? () => {
-                setShownId(activity.id);
-              }
-            : undefined
-        }
+        // It opens in place, and stays open as the session changes: its key is the step's id (spec 046, AC-8).
+        details={hasDetails(activity) ? <StepDetails session={session} activity={activity} /> : undefined}
       />
     );
   };
@@ -485,13 +482,6 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
           </DialogContent>
         ) : null}
       </Dialog>
-      <StepDetails
-        session={session}
-        activity={shown}
-        onClose={() => {
-          setShownId(null);
-        }}
-      />
     </>
   );
 }

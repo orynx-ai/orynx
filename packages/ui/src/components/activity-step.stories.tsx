@@ -1,6 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { CheckListIcon, FileSearchIcon, PencilEdit01Icon, TerminalIcon } from '@hugeicons/core-free-icons';
-import { ActivityGroup, ActivityList, ActivityStep } from './activity-step.tsx';
+import {
+  Cancel01Icon,
+  CheckListIcon,
+  FileSearchIcon,
+  PencilEdit01Icon,
+  TerminalIcon,
+} from '@hugeicons/core-free-icons';
+import { ActivityChecklist, ActivityGroup, ActivityList, ActivityStep } from './activity-step.tsx';
 import { Icon } from './icon.tsx';
 
 const meta = {
@@ -24,8 +30,84 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Done: Story = { args: { state: 'done' } };
-/** A step with more to show: its title is a button. */
-export const Openable: Story = { args: { state: 'done', onOpen: () => undefined } };
+/** Claude is on it: its title shimmers, or is still under reduced motion (spec 046). */
+export const Running: Story = {
+  args: { running: true, title: 'Exploring the code', detail: 'ContentList.tsx and contentApi.ts' },
+};
+/** A command step with a command that ended with an error (spec 046). */
+export const Failed: Story = {
+  args: {
+    state: 'failed',
+    icon: <Icon icon={Cancel01Icon} />,
+    title: 'Ran 3 commands, 1 failed',
+    detail: 'npm install, npm test and npm run lint',
+  },
+};
+/** A step with more to show, closed: its title is the button that opens it in place (spec 046). */
+export const Closed: Story = { args: { state: 'done', details: <p className="m-0">ContentList.tsx</p> } };
+/** The same step, open: its details under the title, lined up with it. */
+export const Open: Story = {
+  args: {
+    state: 'done',
+    icon: <Icon icon={PencilEdit01Icon} />,
+    title: 'Edited 2 files',
+    detail: 'ContentList.tsx and contentApi.ts',
+    defaultOpen: true,
+    details: (
+      <ul className="m-0 flex list-none flex-col gap-1 p-0 font-mono text-code">
+        <li>src/content/ContentList.tsx</li>
+        <li>src/content/api/contentApi.ts</li>
+      </ul>
+    ),
+  },
+};
+/** Open, with long paths cut off with the full path on hover, and long commands that wrap (AC-22). */
+export const OpenLongList: Story = {
+  args: {
+    state: 'done',
+    icon: <Icon icon={TerminalIcon} />,
+    title: 'Ran 4 commands',
+    detail: undefined,
+    defaultOpen: true,
+    details: (
+      <ul className="m-0 flex list-none flex-col gap-1 p-0 font-mono text-code">
+        {[
+          'src/content/components/bulk-archive/__tests__/bulk-archive-toolbar.integration.test.tsx',
+          'src/content/components/bulk-archive/bulk-archive-confirmation-dialog.tsx',
+        ].map((path) => (
+          <li key={path} title={path} className="truncate">
+            {path}
+          </li>
+        ))}
+        <li className="wrap-anywhere">
+          pnpm --filter @acme/content exec vitest run src/content/components/bulk-archive --reporter=verbose --coverage
+        </li>
+      </ul>
+    ),
+  },
+};
+/** Claude's plan, open: done, in progress and to come (spec 046, AC-16). */
+export const Plan: Story = {
+  args: {
+    state: 'done',
+    icon: <Icon icon={CheckListIcon} />,
+    title: 'Made a plan',
+    detail: undefined,
+    defaultOpen: true,
+    details: (
+      <ActivityChecklist
+        aria-label="Made a plan"
+        items={[
+          { text: 'Read the inbox route', status: 'completed' },
+          { text: 'Add row selection', status: 'completed' },
+          { text: 'Add the archive endpoint', status: 'in_progress' },
+          { text: 'Write the tests', status: 'pending' },
+          { text: 'Update the docs', status: 'pending' },
+        ]}
+      />
+    ),
+  },
+};
 export const Waiting: Story = {
   args: {
     state: 'waiting',

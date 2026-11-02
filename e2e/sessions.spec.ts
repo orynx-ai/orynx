@@ -173,6 +173,14 @@ test('AC-1, AC-2, AC-3, AC-4, AC-7, AC-8, 022 AC-35, 031 AC-11: Ship then Send s
   await expect(progress.getByText('Made a plan')).toBeVisible();
   await expect(progress.getByText('Made branch feat/PROJ-1423')).toBeVisible();
   await expect(progress.getByText('Edited 1 file')).toBeVisible();
+  // A step opens in place, under its title, and its file opens Changes (spec 046, AC-5, AC-6).
+  const edited = progress.getByRole('button', { name: 'Edited 1 file' });
+  await edited.click();
+  await expect(edited).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  // Its full path: under macOS's linked temp folder, the worktree's whole path.
+  await progress.getByRole('button', { name: /^(?!Copy ).*src\/archive\.ts$/ }).click();
+  await expect(page).toHaveURL(/[?&]file=[^&]*archive\.ts/);
   await expect(page.getByRole('main').getByText('Done, ready for PR')).toBeVisible();
   await expect(page.getByRole('list', { name: 'Session progress' }).getByText('Review')).toHaveAttribute(
     'aria-current',
@@ -365,6 +373,18 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
         await expect(page.getByRole('region', { name: 'What agent did' })).toBeVisible();
         // It comes once the changes have loaded, fading in: axe reads it once it's there.
         if (bar) await expect(page.getByRole('status', { name: 'Ready for a pull request' })).toBeVisible();
+        if (bar) {
+          // Its steps open in place too (spec 046, AC-19, AC-21, AC-22): one Tab stop each, then Enter.
+          const progress = page.getByRole('region', { name: 'What agent did' });
+          await progress.getByRole('button', { name: 'Expand all' }).click();
+          for (const name of ['Edited 1 file', 'Made a plan']) {
+            const step = progress.getByRole('button', { name });
+            await step.focus();
+            await page.keyboard.press('Enter');
+            await expect(step).toHaveAttribute('aria-expanded', 'true');
+            await expect(step).toBeFocused();
+          }
+        }
         expect(await check(), `${url} at ${String(width)} px, ${colorScheme}`).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       }

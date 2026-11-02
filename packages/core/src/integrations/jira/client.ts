@@ -142,9 +142,50 @@ export type JiraSearch =
 /** A change a session asked for (spec 044): done; a problem; or, when Jira refused it, Jira's own words. */
 export type JiraChange = { ok: true } | { ok: false; problem: JiraProblem } | { ok: false; refused: string };
 
-/** An issue's status's name, and where it can move from there: each transition's id and the status it leads to. */
+/** A status by its id and Jira's category for it (`new`, `indeterminate`, `done`), for matching a board's columns. */
+export interface JiraStatusRef {
+  id: string;
+  category: string;
+}
+
+/**
+ * An issue's status's name, and where it can move from there: each transition's id and the status it leads to, by
+ * name for a session (spec 044) and by id for a new ticket's column (spec 019); null where Jira didn't say.
+ */
 export type JiraTransitions =
-  { ok: true; status: string | null; transitions: { id: string; to: string }[] } | { ok: false; problem: JiraProblem };
+  | {
+      ok: true;
+      status: string | null;
+      at: JiraStatusRef | null;
+      transitions: { id: string; to: string; toStatus: JiraStatusRef | null }[];
+    }
+  | { ok: false; problem: JiraProblem };
+
+/** One type a project offers a new issue (spec 019): its create screen's field ids, and the screen's priorities. */
+export interface JiraCreateType {
+  id: string;
+  name: string;
+  onScreen: string[];
+  priorities: { id: string; name: string }[];
+  defaultPriorityId: string | null;
+}
+
+export type JiraCreateTypes = { ok: true; types: JiraCreateType[] } | { ok: false; problem: JiraProblem };
+
+/** A new issue (spec 019): a null field is left to Jira's default. The description is Markdown. */
+export interface JiraNewIssueFields {
+  projectKey: string;
+  summary: string;
+  typeId: string;
+  description: string | null;
+  priorityId: string | null;
+  dueDate: string | null;
+  assigneeId: string | null;
+}
+
+/** A new issue's key; a problem; or, when Jira refused it, Jira's own words (spec 019, AC-9). */
+export type JiraNewIssue =
+  { ok: true; key: string } | { ok: false; problem: JiraProblem } | { ok: false; refused: string };
 
 /** Who the credentials belong to, for "Assigned to you" on a sprint Tickets reads by its id (spec 020). */
 export type JiraAccount = { ok: true; accountId: string } | { ok: false; problem: JiraProblem };
@@ -226,6 +267,15 @@ export interface JiraClient {
   transition(request: JiraCheckRequest, key: string, transitionId: string): Promise<JiraChange>;
   /** Assigns an issue to an account, or to nobody (`PUT /rest/api/3/issue/{key}/assignee`). */
   assign(request: JiraCheckRequest, key: string, accountId: string | null): Promise<JiraChange>;
+  /**
+   * A project's types for a new issue (spec 019), without sub-tasks, at most 20: the create metadata's types
+   * (`GET /rest/api/3/issue/createmeta/{project}/issuetypes`), then each one's create screen side by side. Never cached.
+   */
+  createTypes(request: JiraCheckRequest, projectKey: string): Promise<JiraCreateTypes>;
+  /** Makes an issue (`POST /rest/api/3/issue`), the description as Jira's own format; a refusal is Jira's words. */
+  createIssue(request: JiraCheckRequest, issue: JiraNewIssueFields): Promise<JiraNewIssue>;
+  /** Adds an issue to a sprint (`POST /rest/agile/1.0/sprint/{id}/issue`). */
+  addToSprint(request: JiraCheckRequest, sprintId: number, key: string): Promise<JiraChange>;
   /**
    * A project's active sprints, then its future ones (spec 020, AC-26): its Scrum boards
    * (`/rest/agile/1.0/board?projectKeyOrId=`, at most 10), then each board's open sprints
@@ -496,10 +546,43 @@ const FoundPageSchema = z.object({
   nextPageToken: z.string().nullish(),
 });
 
-const TransitionsSchema = z.object({
-  fields: z.object({ status: z.object({ name: z.string() }).nullish() }),
-  transitions: z.array(z.object({ id: z.string(), to: z.object({ name: z.string() }) })).nullish(),
+/** A status by name, and by id and category when Jira gives them (spec 019). */
+const TransitionStatusSchema = z.object({
+  name: z.string(),
+  id: z.string().nullish(),
+  statusCategory: z.object({ key: z.string() }).nullish(),
 });
+
+const TransitionsSchema = z.object({
+  fields: z.object({ status: TransitionStatusSchema.nullish() }),
+  transitions: z.array(z.object({ id: z.string(), to: TransitionStatusSchema })).nullish(),
+});
+
+function statusRef(status: z.infer<typeof TransitionStatusSchema> | null | undefined): JiraStatusRef | null {
+  const id = status?.id;
+  const category = status?.statusCategory?.key;
+  return id === undefined || id === null || category === undefined ? null : { id, category };
+}
+
+/** Jira says `issueTypes` and `fields` in its documentation, and `values` on some sites; either is read. */
+const CreateTypesPageSchema = z.object({
+  issueTypes: z.array(z.object({ id: z.string(), name: z.string(), subtask: z.boolean().nullish() })).nullish(),
+  values: z.array(z.object({ id: z.string(), name: z.string(), subtask: z.boolean().nullish() })).nullish(),
+});
+const CreateFieldSchema = z.object({
+  fieldId: z.string(),
+  allowedValues: z.array(z.unknown()).nullish(),
+  defaultValue: z.unknown().optional(),
+});
+const CreateFieldsPageSchema = z.object({
+  fields: z.array(CreateFieldSchema).nullish(),
+  values: z.array(CreateFieldSchema).nullish(),
+});
+const NamedIdSchema = z.object({ id: z.string().min(1), name: z.string().min(1) });
+const NewIssueSchema = z.object({ key: z.string().min(1) });
+const mostCreateTypes = 20;
+// shortcut: a create screen with more than 200 fields loses the rest, which a priority or due date then reads as off it.
+const mostScreenFields = 200;
 
 /** Jira's error answer: its messages, and its words for each field. */
 const JiraErrorBodySchema = z.object({
@@ -559,21 +642,31 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
     request: JiraCheckRequest,
     send: (client: JiraCore.Client, signal: AbortSignal) => Promise<unknown>,
   ): Promise<JiraChange> {
+    const answer = await attempt(request, send);
+    return answer.ok ? { ok: true } : answer;
+  }
+
+  /** {@link change}, keeping what Jira answered, such as a new issue's key (spec 019). */
+  async function attempt<T>(
+    request: JiraCheckRequest,
+    send: (client: JiraCore.Client, signal: AbortSignal) => Promise<T>,
+  ): Promise<{ ok: true; value: T } | { ok: false; problem: JiraProblem } | { ok: false; refused: string }> {
     const answer = await withJira(request, async (client, sdk) => {
       try {
-        await send(client, AbortSignal.timeout(timeoutMs));
-        return null;
+        return { done: await send(client, AbortSignal.timeout(timeoutMs)) };
       } catch (error) {
         // A 403 that is a sign-in (an AuthError) stays a problem: it says nothing about this change.
         if (sdk.isApiError(error) && (error.status === 400 || error.status === 403)) {
           const { body } = error;
-          if (!sdk.isAuthError(error)) return jiraReason(body, request);
+          if (!sdk.isAuthError(error)) return { refused: jiraReason(body, request) };
         }
         throw error;
       }
     });
     if (!answer.ok) return answer;
-    return answer.value === null ? { ok: true } : { ok: false, refused: answer.value };
+    return 'refused' in answer.value
+      ? { ok: false, refused: answer.value.refused }
+      : { ok: true, value: answer.value.done };
   }
 
   /**
@@ -899,9 +992,11 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
       return {
         ok: true,
         status: answer.value.fields.status?.name ?? null,
+        at: statusRef(answer.value.fields.status),
         transitions: (answer.value.transitions ?? []).map((transition) => ({
           id: transition.id,
           to: transition.to.name,
+          toStatus: statusRef(transition.to),
         })),
       };
     },
@@ -923,6 +1018,83 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
           url: `/rest/api/3/issue/${encodeURIComponent(key)}/assignee`,
           method: 'PUT',
           body: { accountId },
+          signal,
+        }),
+      );
+    },
+
+    async createTypes(request, projectKey) {
+      const answer = await withJira(request, async (client) => {
+        // The types and every type's screen share one wait, like the project list.
+        const signal = AbortSignal.timeout(timeoutMs);
+        const url = `/rest/api/3/issue/createmeta/${encodeURIComponent(projectKey)}/issuetypes`;
+        const page = await client.sendRequest({
+          url,
+          method: 'GET',
+          searchParams: { maxResults: 50 },
+          schema: CreateTypesPageSchema,
+          signal,
+        });
+        const types = (page.issueTypes ?? page.values ?? []).filter((type) => type.subtask !== true);
+        // Side by side, so a project's types cost one wait, not one each.
+        return Promise.all(
+          types.slice(0, mostCreateTypes).map(async ({ id, name }): Promise<JiraCreateType> => {
+            const screen = await client.sendRequest({
+              url: `${url}/${encodeURIComponent(id)}`,
+              method: 'GET',
+              searchParams: { maxResults: mostScreenFields },
+              schema: CreateFieldsPageSchema,
+              signal,
+            });
+            const fields = screen.fields ?? screen.values ?? [];
+            const priority = fields.find((field) => field.fieldId === 'priority');
+            // Each priority is checked on its own, so an odd one is left out rather than failing the type.
+            const priorities = (priority?.allowedValues ?? []).flatMap((value) => {
+              const parsed = NamedIdSchema.safeParse(value);
+              return parsed.success ? [{ id: parsed.data.id, name: parsed.data.name }] : [];
+            });
+            const preset = NamedIdSchema.pick({ id: true }).safeParse(priority?.defaultValue);
+            return {
+              id,
+              name,
+              onScreen: fields.map((field) => field.fieldId),
+              priorities,
+              defaultPriorityId: preset.success ? preset.data.id : null,
+            };
+          }),
+        );
+      });
+      return answer.ok ? { ok: true, types: answer.value } : answer;
+    },
+
+    async createIssue(request, issue) {
+      const fields = {
+        project: { key: issue.projectKey },
+        summary: issue.summary,
+        issuetype: { id: issue.typeId },
+        ...(issue.description === null ? {} : { description: markdownToAdf(issue.description) }),
+        ...(issue.priorityId === null ? {} : { priority: { id: issue.priorityId } }),
+        ...(issue.dueDate === null ? {} : { duedate: issue.dueDate }),
+        ...(issue.assigneeId === null ? {} : { assignee: { accountId: issue.assigneeId } }),
+      };
+      const answer = await attempt(request, (client, signal) =>
+        client.sendRequest({
+          url: '/rest/api/3/issue',
+          method: 'POST',
+          body: { fields },
+          schema: NewIssueSchema,
+          signal,
+        }),
+      );
+      return answer.ok ? { ok: true, key: answer.value.key } : answer;
+    },
+
+    addToSprint(request, sprintId, key) {
+      return change(request, (client, signal) =>
+        client.sendRequest({
+          url: `/rest/agile/1.0/sprint/${String(sprintId)}/issue`,
+          method: 'POST',
+          body: { issues: [key] },
           signal,
         }),
       );

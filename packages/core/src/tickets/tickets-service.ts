@@ -3,19 +3,25 @@ import {
   defaultTicketsChoice,
   TicketsChoiceSchema,
   type InboxProblem,
+  type JiraTicketType,
+  type NewJiraTicket,
+  type NewJiraTicketAnswer,
   type Ticket,
+  type TicketColumn,
   type TicketDetailAnswer,
   type Tickets,
   type TicketsChoice,
 } from '@devhub/contracts';
 import type { CachedTool, InboxCache } from '../inbox/inbox-cache.ts';
 import { toolState } from '../inbox/tool-state.ts';
-import type { JiraClient, JiraSprintRef } from '../integrations/jira/client.ts';
-import { jiraAccount, type JiraSyncCredentials } from '../integrations/jira/connection.ts';
+import type { JiraChange, JiraClient, JiraSprintRef } from '../integrations/jira/client.ts';
+import { jiraAccount, JiraConnectionError, type JiraSyncCredentials } from '../integrations/jira/connection.ts';
 import { jiraInboxProblem } from '../integrations/jira/map.ts';
-import { ticketDetailOf } from '../integrations/jira/ticket-map.ts';
+import { describeJiraProblem } from '../integrations/jira/problems.ts';
+import { jiraTicketTypeOf, ticketDetailOf } from '../integrations/jira/ticket-map.ts';
 import {
   boardLayout,
+  columnOf,
   pickSprint,
   sprintRecord,
   SprintRecordSchema,
@@ -47,6 +53,16 @@ export interface TicketsService {
   choose(choice: TicketsChoice): Promise<void>;
   /** One ticket in full for the ticket dialog (spec 022), asked of Jira now; nothing is kept. */
   detail(key: string): Promise<TicketDetailAnswer>;
+  /**
+   * A project's types for a new Jira ticket (spec 019, Q2), asked of Jira now; nothing is kept. Jira not connected,
+   * or not answering, is a {@link JiraConnectionError} in spec 003's words.
+   */
+  jiraTypes(projectKey: string): Promise<JiraTicketType[]>;
+  /**
+   * A new Jira ticket (spec 019), assigned to you, added to its sprint and moved to its column. Once made it's kept:
+   * a later step that fails says so in Jira's words, and nothing is retried or deleted (Q5).
+   */
+  createJira(ticket: NewJiraTicket): Promise<NewJiraTicketAnswer>;
 }
 
 /** How a sprint sync ended, as the inbox's sync counts its tools. */
@@ -92,6 +108,12 @@ const StoredSprintSchema = z.union([
 
 function sameChoice(a: TicketsChoice, b: TicketsChoice): boolean {
   return a.projectKey === b.projectKey && a.sprintId === b.sprintId;
+}
+
+/** Null for a change Jira made; else Jira's own words, or the problem in spec 003's. */
+function reasonOf(change: JiraChange, site: string): string | null {
+  if (change.ok) return null;
+  return 'refused' in change ? change.refused : describeJiraProblem(change.problem, site);
 }
 
 /** The saved choice, or your sprint when there is none or it can't be read. */
@@ -286,6 +308,42 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
     };
   }
 
+  /** The sprint's board, so In review reads as the board says (spec 008, Q2); null when it can't be read. */
+  async function boardOfSprint(
+    credentials: Extract<JiraSyncCredentials, { ok: true }>,
+    sprintId: number,
+  ): Promise<BoardLayout | null> {
+    const found = await jira.sprint(credentials.request, sprintId);
+    const boardId = found.ok ? found.sprint?.boardId : null;
+    if (boardId === null || boardId === undefined) return null;
+    const board = await jira.boardColumns(credentials.request, boardId);
+    if (!board.ok || board.columns === null) return null;
+    const layout = await layoutOf(credentials, board.columns);
+    return 'kind' in layout ? null : layout;
+  }
+
+  /**
+   * Moves a new issue to `column` by one of its own transitions, matched by status id against the board (spec 019);
+   * null once it's there, else why not. Without a board, To do, In progress and Done follow the category alone.
+   */
+  async function moveTo(
+    credentials: Extract<JiraSyncCredentials, { ok: true }>,
+    key: string,
+    column: TicketColumn,
+    sprintId: number | null,
+  ): Promise<string | null> {
+    const { request, site } = credentials;
+    // To do and Done follow the category; only In progress and In review need the board.
+    const needsBoard = sprintId !== null && (column === 'in_progress' || column === 'in_review');
+    const layout = needsBoard ? await boardOfSprint(credentials, sprintId) : null;
+    const where = await jira.transitions(request, key);
+    if (!where.ok) return describeJiraProblem(where.problem, site);
+    if (where.at !== null && columnOf(where.at, layout) === column) return null;
+    const move = where.transitions.find((held) => held.toStatus !== null && columnOf(held.toStatus, layout) === column);
+    if (move === undefined) return `its workflow has no move there from ${where.status ?? 'its status'}`;
+    return reasonOf(await jira.transition(request, key, move.id), site);
+  }
+
   /** Orynx's own tickets (spec 037), whatever Jira says, and the file kept aside if it couldn't read its own. */
   async function readOrynx(): Promise<{ rows: Ticket[]; kept: string | null }> {
     if (options.orynx === undefined) return { rows: [], kept: null };
@@ -345,6 +403,57 @@ export function createTicketsService(options: TicketsServiceOptions): TicketsSer
           session: sessionsByTicket(sessions).get(answer.issue.key) ?? null,
         }),
       };
+    },
+
+    async jiraTypes(projectKey) {
+      const credentials = await connection.credentials();
+      if (credentials === null) throw new JiraConnectionError('bad_request', 'Connect Jira in Connections first.');
+      if (!credentials.ok) {
+        throw new JiraConnectionError(
+          'integration_rejected',
+          describeJiraProblem({ kind: 'rejected' }, credentials.site),
+        );
+      }
+      const answer = await jira.createTypes(credentials.request, projectKey);
+      if (answer.ok) return answer.types.map(jiraTicketTypeOf);
+      const { kind } = answer.problem;
+      throw new JiraConnectionError(
+        kind === 'rejected' || kind === 'sign_in_needed' ? 'integration_rejected' : 'integration_unreachable',
+        describeJiraProblem(answer.problem, credentials.site),
+      );
+    },
+
+    async createJira(ticket) {
+      const credentials = await connection.credentials();
+      if (!credentials?.ok) return { result: 'unreachable' };
+      const { request, site } = credentials;
+      // Who you are and the type's create screen side by side, so a slow Jira costs one wait, not two.
+      const [me, types] = await Promise.all([jira.account(request), jira.createTypes(request, ticket.projectKey)]);
+      if (!me.ok || !types.ok) return { result: 'unreachable' };
+      const screen = types.types.find((type) => type.id === ticket.typeId)?.onScreen;
+      // Only what the screen has, so Jira never refuses a field it hides; an unknown type gets Jira's own refusal.
+      const on = (field: string) => screen === undefined || screen.includes(field);
+      const made = await jira.createIssue(request, {
+        projectKey: ticket.projectKey,
+        summary: ticket.title,
+        typeId: ticket.typeId,
+        description: on('description') && ticket.description.trim() !== '' ? ticket.description : null,
+        priorityId: on('priority') ? ticket.priorityId : null,
+        dueDate: on('duedate') ? ticket.dueDate : null,
+        // shortcut: a screen with no assignee leaves the issue unassigned; assign it afterwards if a team needs that.
+        assigneeId: on('assignee') ? me.accountId : null,
+      });
+      if (!made.ok) return 'refused' in made ? { result: 'refused', reason: made.refused } : { result: 'unreachable' };
+      const { key } = made;
+      const url = `https://${site}/browse/${key}`;
+      if (ticket.sprintId !== null) {
+        const missed = reasonOf(await jira.addToSprint(request, ticket.sprintId, key), site);
+        if (missed !== null) return { result: 'made_but', key, url, missed: 'sprint', reason: missed };
+      }
+      const missed = await moveTo(credentials, key, ticket.column, ticket.sprintId);
+      return missed === null
+        ? { result: 'made', key, url }
+        : { result: 'made_but', key, url, missed: 'column', reason: missed };
     },
 
     async choose(choice) {
