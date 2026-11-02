@@ -160,7 +160,7 @@ describe('the Claude adapter', () => {
     });
     expect(works(events)).toEqual([
       { kind: 'explore', file: 'src/a.ts' },
-      { kind: 'plan', items: ['Add a toolbar button'] },
+      { kind: 'plan', items: ['Add a toolbar button'], statuses: ['pending'] },
       { kind: 'edit', file: 'src/a.ts' },
       { kind: 'finished', summary: 'Changed a to 2.' },
     ]);

@@ -10,7 +10,7 @@ Before Task 1: the user applies the design-system patch (Q1a) and it's committed
 - [x] Task 2: Core: keep each to-do's status from `TodoWrite` on the plan step, re-planned in place (AC-16, AC-17)
       Check: pnpm test packages/core/src/agents/claude/sdk-messages.test.ts packages/core/src/sessions/progress.test.ts
       Files: packages/core/src/agents/agent-adapter.ts, packages/core/src/agents/claude/sdk-messages.ts, packages/core/src/agents/claude/sdk-messages.test.ts, packages/core/src/sessions/progress.ts, packages/core/src/sessions/progress.test.ts
-- [ ] Task 3: Core: the command step keeps each call's id, and `command_ended` marks it failed or not (AC-12, AC-13)
+- [x] Task 3: Core: the command step keeps each call's id, and `command_ended` marks it failed or not (AC-12, AC-13)
       Check: pnpm test packages/core/src/sessions/progress.test.ts packages/core/src/sessions/session-service.test.ts
       Files: packages/core/src/sessions/progress.ts, packages/core/src/sessions/progress.test.ts, packages/core/src/sessions/session-service.ts, packages/core/src/sessions/session-service.test.ts
 - [ ] Task 4: UI: `ActivityStep`'s running shimmer (off under reduced motion) and its failed state (AC-1, AC-2, AC-3, AC-4, AC-15, AC-21)

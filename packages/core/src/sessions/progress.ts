@@ -235,6 +235,19 @@ export function changeSteps(
   };
 }
 
+/** A command's end (spec 036's `command_ended`): its call on the command step says whether it failed (spec 046). */
+export function endCommand(progress: Progress, id: string, failed: boolean): Progress {
+  const step = progress.activities.find(
+    (activity) => activity.kind === 'command' && activity.calls?.some((call) => call.id === id),
+  );
+  if (step?.kind !== 'command') return progress;
+  const calls = step.calls?.map((call) => (call.id === id ? { ...call, failed } : call));
+  return {
+    ...progress,
+    activities: progress.activities.map((activity) => (activity === step ? { ...step, calls } : activity)),
+  };
+}
+
 export function addWork(progress: Progress, work: ClaudeWork): Progress {
   const running = progress.activities.at(-1)?.state === 'running' ? progress.activities.at(-1) : undefined;
   switch (work.kind) {
@@ -271,10 +284,16 @@ export function addWork(progress: Progress, work: ClaudeWork): Progress {
     case 'refused':
       return addStep(progress, { kind: 'refused', ...work.refusal });
     case 'command': {
+      const call = { id: work.id, failed: null };
       const next =
         running?.kind === 'command'
-          ? withLast(progress, { ...running, commands: [...running.commands, work.command] })
-          : addStep(progress, { kind: 'command', commands: [work.command] }, 'running');
+          ? withLast(progress, {
+              ...running,
+              commands: [...running.commands, work.command],
+              // A step saved before spec 046 has no calls; one added now would sit beside the wrong command.
+              ...(running.calls === undefined ? {} : { calls: [...running.calls, call] }),
+            })
+          : addStep(progress, { kind: 'command', commands: [work.command], calls: [call] }, 'running');
       // Test is reached by a command once Claude has built something; before any edit, a command is setting up, or
       // planning where the session has no Set up.
       const edited = progress.activities.some((activity) => activity.kind === 'edit');

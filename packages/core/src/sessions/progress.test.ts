@@ -7,6 +7,7 @@ import {
   addWork,
   changeSteps,
   emptyProgress,
+  endCommand,
   endProgress,
   removeWaiting,
   replaceStep,
@@ -73,6 +74,39 @@ describe('session progress', () => {
     expect(progress.activities).toEqual([
       { id: 'step-1', state: 'done', kind: 'plan', items: ['One', 'Two'], statuses: ['completed', 'in_progress'] },
       { id: 'step-2', state: 'running', kind: 'edit', files: ['src/a.ts'] },
+    ]);
+  });
+
+  it('AC-12, AC-13 (spec 046): a command step keeps each call, running until its end says whether it failed', () => {
+    const running = fold([
+      { kind: 'command', id: 'call-1', command: 'npm install' },
+      { kind: 'command', id: 'call-2', command: 'npm test' },
+    ]);
+    const ended = endCommand(endCommand(running, 'call-2', true), 'call-1', false);
+    expect(ended.activities).toEqual([
+      {
+        id: 'step-1',
+        state: 'running',
+        kind: 'command',
+        commands: ['npm install', 'npm test'],
+        calls: [
+          { id: 'call-1', failed: false },
+          { id: 'call-2', failed: true },
+        ],
+      },
+    ]);
+    // An end Orynx has no call for, such as a read's, changes nothing.
+    expect(endCommand(ended, 'call-9', true)).toBe(ended);
+  });
+
+  it('AC-14 (spec 046): a command step saved before keeps no calls, so its commands never get the wrong marks', () => {
+    const old: Progress = {
+      step: 'test',
+      activities: [{ id: 'step-1', state: 'running', kind: 'command', commands: ['npm install'] }],
+    };
+    const next = fold([{ kind: 'command', id: 'call-2', command: 'npm test' }], old);
+    expect(next.activities).toEqual([
+      { id: 'step-1', state: 'running', kind: 'command', commands: ['npm install', 'npm test'] },
     ]);
   });
 
@@ -240,10 +274,19 @@ describe('commands and approvals (spec 012)', () => {
   it('AC-2: groups commands into one step, running until another kind of work starts', () => {
     const progress = fold([
       { kind: 'command', id: 'toolu_1', command: 'npm test' },
-      { kind: 'command', id: 'toolu_1', command: 'npm run lint' },
+      { kind: 'command', id: 'toolu_2', command: 'npm run lint' },
     ]);
     expect(progress.activities).toEqual([
-      { id: 'step-1', state: 'running', kind: 'command', commands: ['npm test', 'npm run lint'] },
+      {
+        id: 'step-1',
+        state: 'running',
+        kind: 'command',
+        commands: ['npm test', 'npm run lint'],
+        calls: [
+          { id: 'toolu_1', failed: null },
+          { id: 'toolu_2', failed: null },
+        ],
+      },
     ]);
     expect(fold([{ kind: 'explore', file: 'a' }], progress).activities[0]?.state).toBe('done');
   });
