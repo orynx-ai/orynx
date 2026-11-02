@@ -318,10 +318,8 @@ export const progressTitle = 'What agent did';
 
 export const followWords = { jump: 'Jump to latest' };
 
-/** The words of a step shown in full (the user's call, 19 Oct 2026). */
+/** The words of a step shown in full (the user's call, 19 Oct 2026), now open in place (spec 046). */
 export const stepDetailWords = {
-  briefTitle: 'What Claude was sent',
-  close: 'Close',
   briefNone: 'Nothing was sent to Claude yet.',
   briefFailed: "Couldn't read what Claude was sent.",
   tryAgain: 'Try again',

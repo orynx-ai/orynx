@@ -296,10 +296,7 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
   const problem = session.problem === null ? null : problemWords(session.problem, session);
   // Focus comes here once you've answered the last call waiting for you (spec 012, AC-18).
   const pane = useRef<HTMLElement>(null);
-  // The step shown in full, by its id, so it follows the session as it changes.
-  const [shownId, setShownId] = useState<string | null>(null);
   const [full, setFull] = useState(false);
-  const shown = session.activities.find((activity) => activity.id === shownId) ?? null;
   const { end, atEnd, jump } = useFollow(session.updatedAt);
   const groups = groupsOf(session);
   // Which steps you opened or closed, by kind; the rest follow where Claude is: the step of its latest activity, which
@@ -324,13 +321,8 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
         title={titleOf(activity, words.title)}
         detail={detailOf(activity, words.detail, grouped)}
         className={className}
-        onOpen={
-          hasDetails(activity)
-            ? () => {
-                setShownId(activity.id);
-              }
-            : undefined
-        }
+        // It opens in place, and stays open as the session changes: its key is the step's id (spec 046, AC-8).
+        details={hasDetails(activity) ? <StepDetails session={session} activity={activity} /> : undefined}
       />
     );
   };
@@ -485,13 +477,6 @@ export function SessionProgress({ session, footer }: { session: Session; footer?
           </DialogContent>
         ) : null}
       </Dialog>
-      <StepDetails
-        session={session}
-        activity={shown}
-        onClose={() => {
-          setShownId(null);
-        }}
-      />
     </>
   );
 }

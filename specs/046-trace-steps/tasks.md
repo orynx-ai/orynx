@@ -22,7 +22,7 @@ Before Task 1: the user applies the design-system patch (Q1a) and it's committed
 - [x] Task 6: UI: Claude's to-do list, with a tick for done, a shimmer for in progress and an outlined dot for to come (AC-16, AC-21, AC-23)
       Check: pnpm test packages/ui/src/components/activity-step.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/activity-step.tsx, packages/ui/src/components/activity-step.stories.tsx, packages/ui/src/components/activity-step.test.tsx, packages/ui/src/index.ts
-- [ ] Task 7: App: steps open in place with what the dialog showed, the `StepDetails` dialog goes, and Finished stops opening (AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-18, AC-19)
+- [x] Task 7: App: steps open in place with what the dialog showed, the `StepDetails` dialog goes, and Finished stops opening (AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-18, AC-19)
       Check: pnpm test packages/app/src/features/sessions/components/step-details.test.tsx packages/app/src/features/sessions/components/session-progress.test.tsx
       Files: packages/app/src/features/sessions/components/step-details.tsx, packages/app/src/features/sessions/components/step-details.test.tsx, packages/app/src/features/sessions/components/session-progress.tsx, packages/app/src/features/sessions/components/session-progress.test.tsx
 - [ ] Task 8: App: the running step shimmers, a failed command step is red with its words, and its commands and Claude's to-dos have their marks (AC-1, AC-3, AC-12, AC-13, AC-14, AC-15, AC-16, AC-17)

@@ -53,8 +53,6 @@ export type ActivityStepProps = Omit<ComponentProps<'li'>, 'title'> & {
   title: ReactNode;
   /** One line more: which files, the counts, why it waits. */
   detail?: ReactNode;
-  /** Makes the title a button that shows the step in full, such as everything Claude was sent. */
-  onOpen?: (() => void) | undefined;
   /**
    * What the step shows once it's open, under its title (spec 046): its title becomes the button that opens and
    * closes it, with a chevron. Leave it out for a step with nothing more to show.
@@ -75,7 +73,6 @@ export function ActivityStep({
   icon,
   title,
   detail,
-  onOpen,
   details,
   defaultOpen,
   className,
@@ -107,16 +104,8 @@ export function ActivityStep({
                   className="size-4 shrink-0 text-muted-foreground group-data-[state=open]:rotate-90 motion-safe:transition-transform"
                 />
               </Collapsible.Trigger>
-            ) : onOpen === undefined ? (
-              words
             ) : (
-              <button
-                type="button"
-                onClick={onOpen}
-                className="cursor-pointer rounded-xs border-0 bg-transparent p-0 text-start font-medium text-foreground hover:underline"
-              >
-                {words}
-              </button>
+              words
             )}
             {/* The dot's colour tells the state to the eye; these words tell it to screen readers. */}
             {state ? <span className="sr-only">{spokenStates[state]}</span> : null}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FileSearchIcon, PencilEdit01Icon, TerminalIcon } from '@hugeicons/core-free-icons';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '../testing.ts';
 import { ActivityChecklist, ActivityGroup, ActivityList, ActivityStep } from './activity-step.tsx';
 import { Icon } from './icon.tsx';
@@ -141,18 +141,6 @@ describe('ActivityStep', () => {
     await user.keyboard(' ');
     expect(title).toHaveAttribute('aria-expanded', 'false');
     expect(title).toHaveFocus();
-  });
-
-  it('a step with more to show has a title you can press', async () => {
-    const onOpen = vi.fn();
-    const { container } = render(
-      <ActivityList aria-label="Claude's progress">
-        <ActivityStep state="done" icon={<Icon icon={FileSearchIcon} />} title="Read 6 files" onOpen={onOpen} />
-      </ActivityList>,
-    );
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Read 6 files' }));
-    expect(onOpen).toHaveBeenCalledOnce();
-    await expectNoAxeViolations(container);
   });
 });
 

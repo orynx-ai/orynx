@@ -108,8 +108,6 @@ export const Plan: Story = {
     ),
   },
 };
-/** A step with more to show: its title is a button. */
-export const Openable: Story = { args: { state: 'done', onOpen: () => undefined } };
 export const Waiting: Story = {
   args: {
     state: 'waiting',
