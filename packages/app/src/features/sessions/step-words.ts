@@ -264,6 +264,16 @@ export function stepWords(activity: SessionActivity): StepWords {
       return { title: "Commands are off: Claude Code's sandbox can't run on this computer", detail: null };
     case 'finished':
       return { title: 'Finished', detail: activity.summary.trim() === '' ? null : activity.summary };
+    case 'commented':
+      return { title: `Commented on ${activity.path}:${String(activity.line)}`, detail: null };
+    case 'diff_only': {
+      // git's own words, its first line, or the folder Orynx couldn't find (spec 050, Q5).
+      const why =
+        activity.reason === 'no_folder'
+          ? `no saved folder holds ${activity.repository}`
+          : (activity.detail?.split('\n')[0]?.replace(/\.$/, '') ?? `git couldn't fetch ${activity.repository}`);
+      return { title: `Claude reviews from the diff only: ${why}.`, detail: null };
+    }
     case 'message':
       return { title: 'You asked Claude', detail: firstLines(activity.text) };
     case 'pull_request':

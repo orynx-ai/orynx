@@ -1495,6 +1495,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         // `get()` says whether the Terminal opens (spec 036) and what's left to push, so what is saved here never counts.
         terminal: false,
         unpushed: true,
+        review: null,
       },
       repository: { id: folder.id, path: folder.path },
       worktree: join(options.worktrees.root, id),
@@ -1598,6 +1599,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         // `get()` says whether the Terminal opens (spec 036) and what's left to push, so what is saved here never counts.
         terminal: false,
         unpushed: true,
+        review: null,
       },
       repository: folder === null ? null : { id: folder.id, path: folder.path },
       // An Ask session makes no worktree: Claude reads the folder itself (spec 026), or an empty one (spec 031).

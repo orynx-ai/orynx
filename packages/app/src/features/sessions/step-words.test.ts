@@ -550,3 +550,31 @@ describe('stepWords (spec 042)', () => {
     expect(step({ ...server, event: 'exited', port: null }).title).toBe('The server ended before it listened');
   });
 });
+
+describe('stepWords (spec 050)', () => {
+  it('AC-8: a comment is a step on its file and line', () => {
+    expect(step({ kind: 'commented', state: 'done', path: 'src/a.ts', line: 42, side: 'new' })).toEqual({
+      title: 'Commented on src/a.ts:42',
+      detail: null,
+    });
+  });
+
+  it("AC-6: a review from the diff only says why: no saved folder, or git's first line", () => {
+    expect(
+      step({ kind: 'diff_only', state: 'done', repository: 'acme/web-app', reason: 'no_folder', detail: null }).title,
+    ).toBe('Claude reviews from the diff only: no saved folder holds acme/web-app.');
+    expect(
+      step({
+        kind: 'diff_only',
+        state: 'done',
+        repository: 'acme/web-app',
+        reason: 'fetch_failed',
+        detail: "fatal: couldn't find remote ref pull/2841/head.\nmore",
+      }).title,
+    ).toBe("Claude reviews from the diff only: fatal: couldn't find remote ref pull/2841/head.");
+    expect(
+      step({ kind: 'diff_only', state: 'done', repository: 'acme/web-app', reason: 'fetch_failed', detail: null })
+        .title,
+    ).toBe("Claude reviews from the diff only: git couldn't fetch acme/web-app.");
+  });
+});

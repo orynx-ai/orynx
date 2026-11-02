@@ -4,7 +4,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **Contracts and GitHub**
 
-- [ ] Task 1: The review on a session, its comments, the `commented` step, and `review: true` on a composer start, allowed only for an Ask with one pull request (AC-2, AC-8, AC-12)
+- [x] Task 1: The review on a session, its comments, the `commented` step, and `review: true` on a composer start, allowed only for an Ask with one pull request (AC-2, AC-8, AC-12)
       Check: pnpm test packages/contracts/src/session.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/testing.ts, packages/contracts/src/session.test.ts
 - [ ] Task 2: The review endpoints' shapes: a comment's change, the status (commits pushed since), posting and its answer; their routes (AC-12, AC-16, AC-18, AC-19, AC-20)
