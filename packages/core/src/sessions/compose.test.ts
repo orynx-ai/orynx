@@ -1365,7 +1365,8 @@ describe('a review of someone else’s pull request (spec 050)', () => {
         number: 2836,
         url: 'https://github.com/acme/web-app/pull/2836',
         comments: [],
-        summary: null,
+        // Claude finished with "Done." and no verdict line.
+        summary: 'Done.',
         verdict: null,
         posted: [],
       },
@@ -1513,5 +1514,66 @@ describe('a review of someone else’s pull request (spec 050)', () => {
     expect(record.session.activities.map((step) => step.kind)).not.toContain('worktree');
     expect(record.session.activities[0]).toMatchObject({ kind: 'diff_only', reason: 'fetch_failed', state: 'done' });
     expect(await set.sessions.changes('0000000000000001')).toMatchObject({ files: [{ path: 'src/people.ts' }] });
+  });
+
+  it('AC-8, AC-9, AC-11: each comment on a line of the diff is kept and is a step; the last message is the summary and verdict', async () => {
+    const set = await onGitHub({
+      script: [
+        { tool: 'mcp__orynx__review_comment', input: { path: 'people.ts', line: 1, text: 'Export a type too.' } },
+        { tool: 'mcp__orynx__review_comment', input: { path: 'people.ts', line: 9, text: 'Not in the diff.' } },
+        { finish: 'One small thing.\n\nVerdict: comment' },
+      ],
+    });
+    await pullInOrigin(set);
+
+    await set.sessions.start(review());
+    const record = await settled(set.records);
+
+    expect(record.session.review).toMatchObject({
+      comments: [
+        { id: 'c1', path: 'people.ts', line: 1, side: 'new', text: 'Export a type too.', keep: true, postedAt: null },
+      ],
+      summary: 'One small thing.',
+      verdict: 'comment',
+    });
+    expect(record.session.activities.filter((step) => step.kind === 'commented')).toMatchObject([
+      { path: 'people.ts', line: 1, side: 'new' },
+    ]);
+    expect(set.sdk.runs[0]?.results.map(({ tool, isError }) => [tool, isError])).toEqual([
+      ['mcp__orynx__review_comment', false],
+      ['mcp__orynx__review_comment', true],
+    ]);
+  });
+
+  it('AC-22: comments Claude made stay when you stop it', async () => {
+    const set = await onGitHub({
+      script: [
+        { tool: 'mcp__orynx__review_comment', input: { path: 'people.ts', line: 1, text: 'Export a type too.' } },
+        { hang: true },
+      ],
+    });
+    await pullInOrigin(set);
+    await set.sessions.start(review());
+    for (let tries = 0; tries < 500; tries++) {
+      if ((await set.records.get('0000000000000001'))?.session.review?.comments.length === 1) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    await set.sessions.stop('0000000000000001');
+    const record = await settled(set.records);
+    expect(record.session.state).toBe('stopped');
+    expect(record.session.review?.comments).toHaveLength(1);
+  });
+
+  it('a follow-up reviews on in the same checkout, never your folder', async () => {
+    const set = await onGitHub({ script: [{ finish: 'Fine.\nVerdict: approve' }] });
+    await pullInOrigin(set);
+    await set.sessions.start(review());
+    await settled(set.records);
+    await started(set.records, '0000000000000001');
+
+    expect(await set.sessions.send('0000000000000001', 'Look harder at the SQL')).toEqual({ result: 'sent' });
+    await settled(set.records);
+    expect(set.sdk.runs[1]?.options.cwd).toBe(join(set.home, 'worktrees', '0000000000000001'));
   });
 });

@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { mkdir, realpath } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
-import { isOrynxKey, permissionsFor } from '@devhub/contracts';
+import { isOrynxKey, mostReviewComments, permissionsFor } from '@devhub/contracts';
+import { readVerdict, reviewTools } from './review-tools.ts';
 import type { OrynxTicketService } from '../orynx-tickets/ticket-service.ts';
 import { ticketTools } from '../orynx-tickets/tools.ts';
 import type {
@@ -693,10 +694,17 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
             };
             if (!finished) return next;
             const at = now();
+            // A review's summary and verdict are Claude's last message (spec 050).
+            const { review } = next.session;
+            const summed =
+              review !== null && event.work.kind === 'finished'
+                ? { ...review, ...readVerdict(event.work.summary) }
+                : review;
             return {
               ...next,
               session: {
                 ...next.session,
+                review: summed,
                 // Once the pull request is open, Claude finishing a follow-up leaves it open (spec 014, AC-19).
                 state: next.session.pullRequest === null ? 'done' : 'pr_open',
                 endedAt: new Date(at).toISOString(),
@@ -1177,6 +1185,36 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return stopping(run) ? 'stopped' : 'made';
   }
 
+  async function fileDiffNow(id: string, path: string): Promise<FileDiff | 'unreadable' | null> {
+    const record = await records.get(id);
+    if (record?.session.discardedAt !== null) return null;
+    const diff = await reviewDiff(record);
+    if (diff !== null) return fileDiffFromDiff(diff, path);
+    const start = startPointOf(record);
+    if (start === null || record.worktree === null) return null;
+    const read = await options.changes.fileDiff(record.worktree, start, path);
+    if (read.ok) return read.diff;
+    return read.problem === 'git' ? 'unreadable' : null;
+  }
+
+  /** Keeps Claude's review comment, ticked to keep, with its step (spec 050); `full` with 20 already (AC-10). */
+  async function saveComment(
+    id: string,
+    comment: { path: string; line: number; side: 'new' | 'old'; text: string },
+  ): Promise<'saved' | 'full'> {
+    const outcome = { saved: false };
+    await change(id, (current) => {
+      const { review } = current.session;
+      if (review === null || review.comments.length >= mostReviewComments) return current;
+      outcome.saved = true;
+      const kept = { ...comment, id: `c${String(review.comments.length + 1)}`, keep: true, postedAt: null };
+      const { path, line, side } = comment;
+      const next = withProgress(current, (progress) => addStep(progress, { kind: 'commented', path, line, side }));
+      return { ...next, session: { ...next.session, review: { ...review, comments: [...review.comments, kept] } } };
+    });
+    return outcome.saved ? 'saved' : 'full';
+  }
+
   /**
    * A review's Changes without a checkout come from GitHub's diff, kept at its start (spec 050, AC-6); null for any
    * other session, and a review that has its checkout.
@@ -1255,6 +1293,16 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       onEdit: () => makeBranch(id),
       // A Build's own tools (spec 042): Claude changes its steps; an Ask has none. Then Jira's (spec 044).
       orynxTools: [
+        // A review's comments on the pull request's diff (spec 050).
+        ...(record?.session.review == null
+          ? []
+          : reviewTools({
+              diffLines: async (path) => {
+                const diff = await fileDiffNow(id, path);
+                return diff === null || diff === 'unreadable' ? null : diff.lines;
+              },
+              save: (comment) => saveComment(id, comment),
+            })),
         ...(first.readOnly
           ? []
           : sessionTools({
@@ -2048,17 +2096,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       return listed.problem === 'missing' ? { state: 'missing' } : 'unreadable';
     },
 
-    async fileDiff(id, path) {
-      const record = await records.get(id);
-      if (record?.session.discardedAt !== null) return null;
-      const diff = await reviewDiff(record);
-      if (diff !== null) return fileDiffFromDiff(diff, path);
-      const start = startPointOf(record);
-      if (start === null || record.worktree === null) return null;
-      const read = await options.changes.fileDiff(record.worktree, start, path);
-      if (read.ok) return read.diff;
-      return read.problem === 'git' ? 'unreadable' : null;
-    },
+    fileDiff: fileDiffNow,
 
     async brief(id) {
       if ((await records.get(id)) === null) return null;
