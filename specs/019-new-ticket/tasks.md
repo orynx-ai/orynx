@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: The routes: GET a project's types and POST a new Jira ticket, which starts a sprint pass (AC-2, AC-3, AC-18)
       Check: pnpm test packages/core/src/routes/tickets.test.ts; pnpm gate secrets
       Files: packages/core/src/routes/tickets.ts, packages/core/src/routes/tickets.test.ts
-- [ ] Task 5: The API client: the project's types and a new Jira ticket, parsed with the contract (AC-2, AC-3)
+- [x] Task 5: The API client: the project's types and a new Jira ticket, parsed with the contract (AC-2, AC-3)
       Check: pnpm test packages/api-client/src/jira-tickets.test.ts
       Files: packages/api-client/src/endpoints/tickets.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts, packages/api-client/src/jira-tickets.test.ts
 - [ ] Task 6: The form: Save in, Jira's types and priorities, their loading and failed states, and the due date by type (AC-2, AC-4, AC-5, AC-8, AC-13, AC-14, AC-15)
