@@ -1,5 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { CheckListIcon, FileSearchIcon, PencilEdit01Icon, TerminalIcon } from '@hugeicons/core-free-icons';
+import {
+  Cancel01Icon,
+  CheckListIcon,
+  FileSearchIcon,
+  PencilEdit01Icon,
+  TerminalIcon,
+} from '@hugeicons/core-free-icons';
 import { ActivityGroup, ActivityList, ActivityStep } from './activity-step.tsx';
 import { Icon } from './icon.tsx';
 
@@ -24,6 +30,19 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Done: Story = { args: { state: 'done' } };
+/** Claude is on it: its title shimmers, or is still under reduced motion (spec 046). */
+export const Running: Story = {
+  args: { running: true, title: 'Exploring the code', detail: 'ContentList.tsx and contentApi.ts' },
+};
+/** A command step with a command that ended with an error (spec 046). */
+export const Failed: Story = {
+  args: {
+    state: 'failed',
+    icon: <Icon icon={Cancel01Icon} />,
+    title: 'Ran 3 commands, 1 failed',
+    detail: 'npm install, npm test and npm run lint',
+  },
+};
 /** A step with more to show: its title is a button. */
 export const Openable: Story = { args: { state: 'done', onOpen: () => undefined } };
 export const Waiting: Story = {

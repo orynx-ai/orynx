@@ -45,6 +45,34 @@ describe('ActivityStep', () => {
     await expectNoAxeViolations(container);
   });
 
+  it('AC-1, AC-3 (spec 046): a running step shimmers on its title alone, and one waiting for you never does', () => {
+    render(
+      <ActivityList aria-label="Claude's progress">
+        <ActivityStep running icon={<Icon icon={FileSearchIcon} />} title="Exploring the code" detail="a.ts" />
+        <ActivityStep running state="waiting" icon={<Icon icon={TerminalIcon} />} title="Wants to run npm test" />
+        <ActivityStep state="done" icon={<Icon icon={PencilEdit01Icon} />} title="Edited 2 files" />
+      </ActivityList>,
+    );
+    // The band runs only where motion is allowed: under reduced motion the title is plain text (AC-2).
+    expect(screen.getByText('Exploring the code')).toHaveClass('motion-safe:shimmer', 'motion-safe:animate-shimmer');
+    expect(screen.getByText('a.ts')).not.toHaveClass('motion-safe:shimmer');
+    expect(screen.getByText('Wants to run npm test')).not.toHaveClass('motion-safe:shimmer');
+    expect(screen.getByText('Edited 2 files')).not.toHaveClass('motion-safe:shimmer');
+    // A screen reader hears nothing new: the title's own tense says it's running.
+    expect(screen.getAllByRole('listitem')[0]?.textContent).toBe('Exploring the codea.ts');
+  });
+
+  it('AC-12 (spec 046): a failed step says so in words as well as in red', async () => {
+    const { container } = render(
+      <ActivityList aria-label="Claude's progress">
+        <ActivityStep state="failed" icon={<Icon icon={TerminalIcon} />} title="A command failed" />
+      </ActivityList>,
+    );
+    expect(screen.getByRole('listitem')).toHaveTextContent('A command failed, failed');
+    expect(screen.getByText(', failed')).toHaveClass('sr-only');
+    await expectNoAxeViolations(container);
+  });
+
   it('a step with more to show has a title you can press', async () => {
     const onOpen = vi.fn();
     const { container } = render(

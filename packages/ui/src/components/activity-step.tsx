@@ -23,7 +23,7 @@ export function ActivityList({ className, ...props }: ActivityListProps) {
   );
 }
 
-export type ActivityStepState = 'done' | 'waiting';
+export type ActivityStepState = 'done' | 'waiting' | 'failed';
 
 const dotVariants = cva(
   'inline-flex size-6 shrink-0 items-center justify-center rounded-full [&_svg]:size-3.5 [&_svg]:stroke-2',
@@ -32,6 +32,7 @@ const dotVariants = cva(
       state: {
         done: 'bg-success-subtle text-success',
         waiting: 'bg-warning-subtle text-warning',
+        failed: 'bg-danger-subtle text-danger',
         plain: 'bg-subtle text-muted-foreground',
       },
     },
@@ -39,11 +40,13 @@ const dotVariants = cva(
 );
 
 /** The sidebar's words for these states: Stepper's ", done" and the session's "Needs you". */
-const spokenStates: Record<ActivityStepState, string> = { done: ', done', waiting: ', needs you' };
+const spokenStates: Record<ActivityStepState, string> = { done: ', done', waiting: ', needs you', failed: ', failed' };
 
 export type ActivityStepProps = Omit<ComponentProps<'li'>, 'title'> & {
-  /** Done is green, waiting for you is amber; leave it out for a step that's running or still to come. */
+  /** Done is green, waiting for you is amber, failed is red; leave it out for a step that's running or plain. */
   state?: ActivityStepState | undefined;
+  /** Claude is on it: its title shimmers, unless it has a state, as a call waiting for you does (spec 046, AC-3). */
+  running?: boolean | undefined;
   /** A lucide icon for what the step did (read, edit, run). Drawn at 14 px in the dot. */
   icon: ReactNode;
   /** What Claude did or wants to do, in a few words. */
@@ -56,11 +59,18 @@ export type ActivityStepProps = Omit<ComponentProps<'li'>, 'title'> & {
 
 /**
  * Design system: activity step (`dh-step`). One step in Claude's progress: a 24 px dot with the
- * step's icon, a title and a detail line. From shadcn's `TraceLine`, without its shimmer: the
- * product needs no motion. A step with more to show has a title you can press (the user's call, 19 Oct 2026).
+ * step's icon, a title and a detail line. From shadcn's `TraceLine`, with its shimmer on a running step's title
+ * (spec 046). A step with more to show has a title you can press (the user's call, 19 Oct 2026).
  */
-export function ActivityStep({ state, icon, title, detail, onOpen, className, ...props }: ActivityStepProps) {
+export function ActivityStep({ state, running, icon, title, detail, onOpen, className, ...props }: ActivityStepProps) {
   const look = state ?? 'plain';
+  // Its own span, so a button's colour never covers the band.
+  const words =
+    running === true && state === undefined ? (
+      <span className="motion-safe:animate-shimmer motion-safe:shimmer">{title}</span>
+    ) : (
+      title
+    );
   return (
     <li data-slot="activity-step" data-state={look} className={cn('flex gap-3', className)} {...props}>
       <span aria-hidden className={dotVariants({ state: look })}>
@@ -69,14 +79,14 @@ export function ActivityStep({ state, icon, title, detail, onOpen, className, ..
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="font-medium">
           {onOpen === undefined ? (
-            title
+            words
           ) : (
             <button
               type="button"
               onClick={onOpen}
               className="cursor-pointer rounded-xs border-0 bg-transparent p-0 text-start font-medium text-foreground hover:underline"
             >
-              {title}
+              {words}
             </button>
           )}
           {/* The dot's colour tells the state to the eye; these words tell it to screen readers. */}

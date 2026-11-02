@@ -43,6 +43,8 @@
   --animate-menu-out: menu-out 100ms ease-in forwards;
   --animate-fade-in: fade-in 150ms ease-out;
   --animate-sheet-in: sheet-in 200ms cubic-bezier(0.2, 0, 0, 1);
+  /* The one loop: a running step's band (spec 046, Q2), the design system's 2 s. */
+  --animate-shimmer: shimmer 2s linear infinite;
 
   /* A menu grows out of its trigger: Radix sets the origin to the side it opened on. */
   @keyframes menu-in {
@@ -61,6 +63,15 @@
     from {
       opacity: 0;
       transform: translateX(24px);
+    }
+  }
+  /* The band crosses the words left to right: the gradient is three times as wide, and slides from its end. */
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: 0 0;
     }
   }
   /* Something that just appeared: an alert, a tab's content. */
@@ -167,6 +178,15 @@
     --fade-bottom: 0px;
   }
 }
+/* A running step's words (spec 046, design system's `dh-shimmer`): a text-secondary band over text-primary, with
+   animate-shimmer. Both go under motion-safe:, so reduced motion keeps the title's own colour. */
+@utility shimmer {
+  background: linear-gradient(90deg, var(--text-primary) 40%, var(--text-secondary) 50%, var(--text-primary) 60%) 100%
+    0 / 300% 100%;
+  background-clip: text;
+  color: transparent;
+}
+
 @utility scroll-fade-y {
   @supports (animation-timeline: scroll()) {
     mask-image: linear-gradient(
