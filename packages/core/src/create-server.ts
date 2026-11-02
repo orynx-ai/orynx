@@ -9,6 +9,8 @@ import { createEventBus, type EventBus } from './events/event-bus.ts';
 import { ConnectionError } from './integrations/connection-error.ts';
 import { createGitHubClient } from './integrations/github/client.ts';
 import { createGitHubConnection } from './integrations/github/connection.ts';
+import { createSlackClient } from './integrations/slack/client.ts';
+import { createSlackConnection } from './integrations/slack/connection.ts';
 import { createGhCli, type GhCli } from './integrations/github/gh.ts';
 import { createJiraClient } from './integrations/jira/client.ts';
 import { createJiraConnection } from './integrations/jira/connection.ts';
@@ -33,6 +35,7 @@ import { agentRoutes } from './routes/agent.ts';
 import { claudeRoutes } from './routes/claude.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
+import { slackRoutes } from './routes/slack.ts';
 import { inboxRoutes } from './routes/inbox.ts';
 import { syncActivityRoutes } from './routes/sync-activity.ts';
 import { jiraRoutes } from './routes/jira.ts';
@@ -302,6 +305,23 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       app.log.error(error, "GitHub's status line failed");
     },
   });
+  const slackClient = createSlackClient();
+  const slack = createSlackConnection({
+    settings,
+    tokens: app.tokens,
+    slack: slackClient,
+    events,
+    envToken: options.envTokens?.slack !== undefined,
+    onProblem: (problem) => {
+      app.log.warn(
+        { slack: problem },
+        problem.kind === 'keychain_unavailable' ? 'The keychain could not be reached' : 'The Slack check failed',
+      );
+    },
+    onError: (error) => {
+      app.log.error(error, "Slack's status line failed");
+    },
+  });
   const claude = createClaudeLogin({
     // No program, so the folder is never made and nothing runs.
     claudeCode: options.claudeCode ?? createClaudeCode({ program: null, env: {}, workFolder: tmpdir() }),
@@ -553,6 +573,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     userName: options.userName ?? readGitUserName,
     jira: () => jira.status(),
     github: () => github.status(),
+    slack: () => slack.status(),
     claude: () => claude.connected(),
   });
 
@@ -598,6 +619,7 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       if (terminal !== null) await api.register(terminalRoutes, { sessions, terminal, orynxHome: devhubHome });
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
+      await api.register(slackRoutes, { slack });
       await api.register(claudeRoutes, { claude });
       await api.register(agentRoutes, {
         // Signed out, Claude Code has nothing to offer, so it isn't started.

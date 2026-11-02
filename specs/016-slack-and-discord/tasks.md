@@ -37,7 +37,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Add `@slack/web-api`; Slack's `client.ts` checks a token (`auth.test` with its scopes) and maps refused, missing scopes, rate limited and no answer to problems; `problems.ts` words them; MSW `fake-slack.ts` (AC-2, AC-3, AC-4)
       Check: pnpm test packages/core/src/integrations/slack/client.test.ts packages/core/src/integrations/slack/problems.test.ts
       Files: packages/core/package.json, packages/core/src/integrations/slack/client.ts, problems.ts, their tests, packages/core/src/test/fake-slack.ts
-- [ ] Task 10: Slack's `connection.ts` (check, keychain, settings, status line "<name> in <workspace>"), its routes, `status-service` and `create-server` wiring; a trace-level leak test (AC-2, AC-3, AC-4, AC-9, AC-33)
+- [x] Task 10: Slack's `connection.ts` (check, keychain, settings, status line "<name> in <workspace>"), its routes, `status-service` and `create-server` wiring; a trace-level leak test (AC-2, AC-3, AC-4, AC-9, AC-33)
       Check: pnpm test packages/core/src/integrations/slack/connection.test.ts packages/core/src/routes/slack.test.ts packages/core/src/integrations/slack/no-token-leaks.test.ts
       Files: packages/core/src/integrations/slack/connection.ts, packages/core/src/routes/slack.ts, packages/core/src/settings/settings-store.ts, packages/core/src/status/status-service.ts, packages/core/src/create-server.ts, their tests
 - [ ] Task 11: Slack's client reads waiting messages (mentions by search, DMs and group DMs from the last 7 days, whether you replied after, names, permalinks; at most 100 checked); `map.ts` and `rules.ts` make the rows, leaving out @here, @channel, groups, bots and you (AC-10 to AC-15)

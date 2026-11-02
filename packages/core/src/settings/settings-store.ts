@@ -7,6 +7,7 @@ import {
   JiraProjectKeySchema,
   JiraSavedConnectionSchema,
   RepositoryIdSchema,
+  SlackSavedConnectionSchema,
 } from '@devhub/contracts';
 
 /** One folder in Settings › Repositories as settings.json keeps it; the name and `~` path are worked out on read. */
@@ -29,6 +30,8 @@ const SettingsSchema = z.looseObject({
   jira: JiraSavedConnectionSchema.optional(),
   /** The way GitHub accepted: the gh login or a token in the keychain (spec 004). */
   github: GitHubSavedConnectionSchema.optional(),
+  /** Who the Slack token belongs to, as Slack said (spec 016). */
+  slack: SlackSavedConnectionSchema.optional(),
   /**
    * Settings' own values (spec 005): Coding agent, Inbox rules (only the rules the person changed) and
    * Repositories, kept as written. The services take what they can read and keep the rest through every
