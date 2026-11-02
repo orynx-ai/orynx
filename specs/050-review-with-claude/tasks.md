@@ -52,7 +52,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: `DiffNote`: the reviewer's note box from `session-review.html` (mark, author line, body, optional footer), with stories for Claude's draft, kept, dropped, editing and posted (AC-8, AC-25)
       Check: pnpm test packages/ui/src/components/diff-note.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/diff-note.tsx, .stories.tsx, .test.tsx, packages/ui/src/index.ts, docs/design-map.md
-- [ ] Task 14: `DiffView` takes a note under a line, and `FileList` an optional count beside a file's +/− (AC-8, AC-25)
+- [x] Task 14: `DiffView` takes a note under a line, and `FileList` an optional count beside a file's +/− (AC-8, AC-25)
       Check: pnpm test packages/ui/src/components/diff-view.test.tsx packages/ui/src/components/file-list.test.tsx
       Files: packages/ui/src/components/diff-view.tsx, file-list.tsx, their stories and tests
 

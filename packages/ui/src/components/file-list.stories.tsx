@@ -32,6 +32,14 @@ export const Changes: Story = {
     return <FileList {...args} current={current} onSelect={setCurrent} />;
   },
 };
+/** A review: each file with Claude's comments says how many (spec 050). */
+export const WithComments: Story = {
+  args: { files: files.map((file, index) => ({ ...file, comments: [2, 0, 1, 0][index] ?? 0 })) },
+  render: (args) => {
+    const [current, setCurrent] = useState(args.current);
+    return <FileList {...args} current={current} onSelect={setCurrent} />;
+  },
+};
 /** Long paths in a narrow column: only the folder part is cut off; the file name stays whole. */
 export const LongPaths: Story = {
   args: {
