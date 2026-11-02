@@ -172,6 +172,17 @@ export interface JiraCreateType {
 
 export type JiraCreateTypes = { ok: true; types: JiraCreateType[] } | { ok: false; problem: JiraProblem };
 
+/** A new issue (spec 019): a null field is left to Jira's default. The description is Markdown. */
+export interface JiraNewIssueFields {
+  projectKey: string;
+  summary: string;
+  typeId: string;
+  description: string | null;
+  priorityId: string | null;
+  dueDate: string | null;
+  assigneeId: string | null;
+}
+
 /** A new issue's key; a problem; or, when Jira refused it, Jira's own words (spec 019, AC-9). */
 export type JiraNewIssue =
   { ok: true; key: string } | { ok: false; problem: JiraProblem } | { ok: false; refused: string };
@@ -261,8 +272,8 @@ export interface JiraClient {
    * (`GET /rest/api/3/issue/createmeta/{project}/issuetypes`), then each one's create screen side by side. Never cached.
    */
   createTypes(request: JiraCheckRequest, projectKey: string): Promise<JiraCreateTypes>;
-  /** Makes an issue (`POST /rest/api/3/issue`) with Jira's own fields; a refusal comes back in Jira's words. */
-  createIssue(request: JiraCheckRequest, fields: Record<string, unknown>): Promise<JiraNewIssue>;
+  /** Makes an issue (`POST /rest/api/3/issue`), the description as Jira's own format; a refusal is Jira's words. */
+  createIssue(request: JiraCheckRequest, issue: JiraNewIssueFields): Promise<JiraNewIssue>;
   /** Adds an issue to a sprint (`POST /rest/agile/1.0/sprint/{id}/issue`). */
   addToSprint(request: JiraCheckRequest, sprintId: number, key: string): Promise<JiraChange>;
   /**
@@ -1056,7 +1067,16 @@ export function createJiraClient({ timeoutMs = 10_000, fetch }: JiraClientOption
       return answer.ok ? { ok: true, types: answer.value } : answer;
     },
 
-    async createIssue(request, fields) {
+    async createIssue(request, issue) {
+      const fields = {
+        project: { key: issue.projectKey },
+        summary: issue.summary,
+        issuetype: { id: issue.typeId },
+        ...(issue.description === null ? {} : { description: markdownToAdf(issue.description) }),
+        ...(issue.priorityId === null ? {} : { priority: { id: issue.priorityId } }),
+        ...(issue.dueDate === null ? {} : { duedate: issue.dueDate }),
+        ...(issue.assigneeId === null ? {} : { assignee: { accountId: issue.assigneeId } }),
+      };
       const answer = await attempt(request, (client, signal) =>
         client.sendRequest({
           url: '/rest/api/3/issue',

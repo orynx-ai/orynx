@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Jira's client: create metadata, create, add to sprint, and transitions by status id (AC-2, AC-4, AC-9, AC-11)
       Check: pnpm test packages/core/src/integrations/jira/client.test.ts
       Files: packages/core/src/integrations/jira/client.ts, packages/core/src/integrations/jira/client.test.ts, packages/core/src/test/fake-jira.ts
-- [ ] Task 3: The tickets service makes a Jira ticket, adds it to the sprint and moves it to its column (AC-3, AC-6, AC-9, AC-10, AC-11)
+- [x] Task 3: The tickets service makes a Jira ticket, adds it to the sprint and moves it to its column (AC-3, AC-6, AC-9, AC-10, AC-11)
       Check: pnpm test packages/core/src/tickets/tickets-service.test.ts
       Files: packages/core/src/tickets/tickets-service.ts, packages/core/src/tickets/tickets-service.test.ts
 - [ ] Task 4: The routes: GET a project's types and POST a new Jira ticket, which starts a sprint pass (AC-2, AC-3, AC-18)

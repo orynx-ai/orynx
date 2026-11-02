@@ -1,5 +1,5 @@
-import { TicketDetailSchema, type TicketColumn, type TicketDetail } from '@devhub/contracts';
-import type { JiraIssueContext } from './client.ts';
+import { TicketDetailSchema, type JiraTicketType, type TicketColumn, type TicketDetail } from '@devhub/contracts';
+import type { JiraCreateType, JiraIssueContext } from './client.ts';
 import { isoTime } from './map.ts';
 import { columnOf } from './sprint-map.ts';
 
@@ -33,4 +33,22 @@ export function ticketDetailOf(
     comments: issue.comments.map((comment) => ({ ...comment, created: isoTime(comment.created) })),
     session,
   });
+}
+
+/** A type a new ticket can take (spec 019, Q2): its priorities only when its create screen has one. */
+export function jiraTicketTypeOf({
+  id,
+  name,
+  onScreen,
+  priorities,
+  defaultPriorityId,
+}: JiraCreateType): JiraTicketType {
+  const priority = onScreen.includes('priority');
+  return {
+    id,
+    name,
+    priorities: priority ? priorities : [],
+    defaultPriorityId: priority ? defaultPriorityId : null,
+    dueDate: onScreen.includes('duedate'),
+  };
 }

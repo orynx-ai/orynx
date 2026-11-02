@@ -1260,6 +1260,16 @@ describe('Jira client: changes a session asks for (spec 044)', () => {
 });
 
 describe('Jira client: a new ticket (spec 019)', () => {
+  const bare = {
+    projectKey: 'MAI',
+    summary: 'Add bulk archive',
+    typeId: '10002',
+    description: null,
+    priorityId: null,
+    dueDate: null,
+    assigneeId: null,
+  };
+
   it('AC-2, AC-4: lists a project’s types without sub-tasks, each with its create screen and its priorities', async () => {
     const asked: string[] = [];
     jira.use(...acceptingNewJiraTicket([]));
@@ -1306,13 +1316,44 @@ describe('Jira client: a new ticket (spec 019)', () => {
     expect(await client.createTypes(credentials, 'MAI')).toEqual({ ok: false, problem: { kind: 'timeout' } });
   });
 
-  it('AC-3: makes the issue with the fields it’s given, and says its key', async () => {
+  it('AC-3: makes the issue in Jira’s own fields, the description as Jira’s format, and says its key', async () => {
     const writes: FakeNewTicketWrite[] = [];
     jira.use(...acceptingNewJiraTicket(writes));
-    const fields = { project: { key: 'MAI' }, summary: 'Add bulk archive', issuetype: { id: '10001' } };
+    const issue = {
+      projectKey: 'MAI',
+      summary: 'Add bulk archive',
+      typeId: '10001',
+      description: 'Archive **several** at once.',
+      priorityId: '3',
+      dueDate: '2026-11-06',
+      assigneeId: myAccountId,
+    };
 
-    expect(await client.createIssue(credentials, fields)).toEqual({ ok: true, key: 'MAI-142' });
-    expect(writes).toEqual([{ path: 'issue', body: { fields } }]);
+    expect(await client.createIssue(credentials, issue)).toEqual({ ok: true, key: 'MAI-142' });
+    // A field left null is left to Jira's default.
+    expect(
+      await client.createIssue(credentials, {
+        ...issue,
+        description: null,
+        priorityId: null,
+        dueDate: null,
+        assigneeId: null,
+      }),
+    ).toEqual({ ok: true, key: 'MAI-142' });
+    expect(writes.map((write) => write.body)).toEqual([
+      {
+        fields: {
+          project: { key: 'MAI' },
+          summary: 'Add bulk archive',
+          issuetype: { id: '10001' },
+          description: markdownToAdf('Archive **several** at once.'),
+          priority: { id: '3' },
+          duedate: '2026-11-06',
+          assignee: { accountId: myAccountId },
+        },
+      },
+      { fields: { project: { key: 'MAI' }, summary: 'Add bulk archive', issuetype: { id: '10001' } } },
+    ]);
   });
 
   it('AC-9: an issue Jira refuses comes back with Jira’s own words for each field', async () => {
@@ -1324,7 +1365,7 @@ describe('Jira client: a new ticket (spec 019)', () => {
         ),
       ),
     );
-    expect(await client.createIssue(credentials, {})).toEqual({ ok: false, refused: 'Epic Name is required.' });
+    expect(await client.createIssue(credentials, bare)).toEqual({ ok: false, refused: 'Epic Name is required.' });
   });
 
   it('AC-11: a create Jira doesn’t answer in time is a timeout, never a refusal', async () => {
@@ -1334,7 +1375,7 @@ describe('Jira client: a new ticket (spec 019)', () => {
         return HttpResponse.json({ key: 'MAI-142' }, { status: 201 });
       }),
     );
-    expect(await client.createIssue(credentials, {})).toEqual({ ok: false, problem: { kind: 'timeout' } });
+    expect(await client.createIssue(credentials, bare)).toEqual({ ok: false, problem: { kind: 'timeout' } });
   });
 
   it('AC-3, AC-10: adds the issue to a sprint, or says in Jira’s words why not', async () => {
