@@ -64,10 +64,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: A review session shows the Changes tab with each comment as a note under its line, Keep and Edit (react-hook-form), and the file list's counts (AC-8, AC-12, AC-24)
       Check: pnpm test packages/app/src/features/sessions/components/changes-panel.test.tsx packages/app/src/features/sessions/components/session-details.test.tsx
       Files: packages/app/src/features/sessions/components/changes-panel.tsx, session-details.tsx, components/review-note.tsx, review-words.ts, schemas.ts, queries.ts, their tests
-- [ ] Task 17: The next-move bar for a review: "Claude left 6 comments", "Claude found nothing to comment on.", after Stop, and "Review posted" with Open on GitHub (AC-11, AC-13, AC-21, AC-22)
+- [x] Task 17: The next-move bar for a review: "Claude left 6 comments", "Claude found nothing to comment on.", after Stop, and "Review posted" with Open on GitHub (AC-11, AC-13, AC-21, AC-22)
       Check: pnpm test packages/app/src/features/sessions/components/next-move.test.tsx
       Files: packages/app/src/features/sessions/components/next-move.tsx, review-words.ts, its test
-- [ ] Task 18: The Post review dialog: summary, the verdict starting on Comment, Claude's recommendation, the count, the pushed-since line, the summary error, GitHub's errors, Posting…, and focus back on close (AC-14, AC-15, AC-16, AC-18, AC-19, AC-20, AC-24)
+- [x] Task 18: The Post review dialog: summary, the verdict starting on Comment, Claude's recommendation, the count, the pushed-since line, the summary error, GitHub's errors, Posting…, and focus back on close (AC-14, AC-15, AC-16, AC-18, AC-19, AC-20, AC-24)
       Check: pnpm test packages/app/src/features/sessions/components/post-review.test.tsx
       Files: packages/app/src/features/sessions/components/post-review.tsx, post-review.test.tsx, review-words.ts, schemas.ts, the session screen's `Design:` note
 

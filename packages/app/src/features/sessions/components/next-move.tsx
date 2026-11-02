@@ -4,6 +4,7 @@ import { Callout } from '@devhub/ui';
 import { nextMoveWords } from '../pull-request-words.ts';
 import { useHasChanges, useSessionChanges } from '../queries.ts';
 import { CreatePullRequest } from './create-pull-request.tsx';
+import { ReviewMove } from './post-review.tsx';
 import { PushChanges } from './push-changes.tsx';
 
 /**
@@ -31,6 +32,12 @@ function canPush(session: Session): boolean {
  * stay open while the bar moves on. Once the pull request opens or a push lands, `focusPullRequest` moves focus on.
  */
 export function NextMove({ session, focusPullRequest }: { session: Session; focusPullRequest: () => void }) {
+  // A review reads someone else's pull request: it never makes one, it posts a review (spec 050).
+  if (session.review !== null) return <ReviewMove session={session} review={session.review} />;
+  return <PullRequestMove session={session} focusPullRequest={focusPullRequest} />;
+}
+
+function PullRequestMove({ session, focusPullRequest }: { session: Session; focusPullRequest: () => void }) {
   const changes = useSessionChanges(session.id);
   const hasChanges = useHasChanges(session.id);
   const { pullRequest } = session;
