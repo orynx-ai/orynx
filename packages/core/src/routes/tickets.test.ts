@@ -1,18 +1,21 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Writable } from 'node:stream';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import {
   apiRoutes,
   ApiErrorSchema,
+  JiraTicketTypesSchema,
+  NewJiraTicketAnswerSchema,
   OpenSprintsSchema,
   TicketDetailAnswerSchema,
   TicketsSchema,
   tokenHeader,
 } from '@devhub/contracts';
-import { makeSessionSummary } from '@devhub/contracts/testing';
+import { makeNewJiraTicket, makeSessionSummary } from '@devhub/contracts/testing';
 import { createServer, type CoreOptions } from '../create-server.ts';
 import { cacheFilePath, openInboxCache } from '../inbox/inbox-cache.ts';
 import { createMemoryKeychain } from '../secrets/memory-keychain.ts';
@@ -29,6 +32,8 @@ import {
   acceptingMySprintSearch,
   acceptingSprintIssueSearch,
   acceptingStatusList,
+  acceptingNewJiraTicket,
+  type FakeNewTicketWrite,
   goodToken,
   jiraEmail,
   jiraSite,
@@ -289,5 +294,100 @@ describe('/api/tickets/:key (spec 022)', () => {
 
     const odd = await app.inject({ method: 'GET', url: url('proj-1'), headers });
     expect(odd.statusCode).toBe(400);
+  });
+});
+
+describe('/api/tickets/jira (spec 019)', () => {
+  const types = `${apiRoutes.jiraTicketTypes}?project=MAI`;
+
+  it('refuses a request without the session token', async () => {
+    const app = await server({ settings: createMemorySettingsStore(jiraConnected) });
+    const read = await app.inject({ method: 'GET', url: types, headers: { host: headers.host } });
+    const make = await app.inject({
+      method: 'POST',
+      url: apiRoutes.jiraTickets,
+      headers: { host: headers.host },
+      payload: makeNewJiraTicket(),
+    });
+    expect([read.statusCode, make.statusCode]).toEqual([401, 401]);
+  });
+
+  it('AC-2, AC-8: answers MAI’s types, and says when Jira isn’t connected or can’t read them', async () => {
+    outside.use(...acceptingNewJiraTicket([]));
+    const app = await server({ settings: createMemorySettingsStore(jiraConnected) });
+
+    const found = await app.inject({ method: 'GET', url: types, headers });
+    expect(found.statusCode).toBe(200);
+    expect(JiraTicketTypesSchema.parse(found.json()).types.map((type) => type.name)).toEqual(['Task', 'Story', 'Bug']);
+
+    const hidden = await app.inject({ method: 'GET', url: `${apiRoutes.jiraTicketTypes}?project=NOPE`, headers });
+    expect(hidden.statusCode).toBe(502);
+    const odd = await app.inject({ method: 'GET', url: `${apiRoutes.jiraTicketTypes}?project=mai`, headers });
+    expect(odd.statusCode).toBe(400);
+
+    const disconnected = await server({ port, settings: createMemorySettingsStore({}) });
+    expect((await disconnected.inject({ method: 'GET', url: types, headers })).statusCode).toBe(400);
+  });
+
+  it('AC-3: makes the ticket, then reads the sprint again so the board shows it', async () => {
+    const writes: FakeNewTicketWrite[] = [];
+    acceptingSprint([{ key: 'PROJ-1423', summary: 'Add bulk archive to the content list', priority: null }]);
+    outside.use(...acceptingNewJiraTicket(writes, { project: 'PROJ', key: 'PROJ-1424' }));
+    const app = await server({ settings: createMemorySettingsStore(jiraConnected) });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: apiRoutes.jiraTickets,
+      headers,
+      payload: makeNewJiraTicket({ projectKey: 'PROJ', sprintId: null, column: 'to_do' }),
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(NewJiraTicketAnswerSchema.parse(response.json())).toEqual({
+      result: 'made',
+      key: 'PROJ-1424',
+      url: `https://${jiraSite}/browse/PROJ-1424`,
+    });
+    // The sprint pass the new ticket started, with no Refresh.
+    await vi.waitFor(async () => {
+      expect((await readTickets(app)).sprint).not.toBeNull();
+    });
+  });
+
+  it('AC-18: takes only what the contract allows, and logs no title, description or token', async () => {
+    outside.use(...acceptingNewJiraTicket([]));
+    const log: string[] = [];
+    const app = await server({
+      settings: createMemorySettingsStore(jiraConnected),
+      logger: {
+        level: 'trace',
+        stream: new Writable({
+          write(chunk: Buffer, _encoding, done) {
+            log.push(chunk.toString());
+            done();
+          },
+        }),
+      },
+    });
+    const ticket = makeNewJiraTicket({
+      title: 'Secret plan',
+      description: 'Hidden words',
+      sprintId: null,
+      column: 'to_do',
+    });
+
+    const odd = await app.inject({
+      method: 'POST',
+      url: apiRoutes.jiraTickets,
+      headers,
+      payload: { ...ticket, title: '' },
+    });
+    const made = await app.inject({ method: 'POST', url: apiRoutes.jiraTickets, headers, payload: ticket });
+
+    expect(odd.statusCode).toBe(400);
+    expect(made.statusCode).toBe(200);
+    const everything = log.join('\n');
+    expect(log.length).toBeGreaterThan(2);
+    for (const secret of ['Secret plan', 'Hidden words', goodToken]) expect(everything).not.toContain(secret);
   });
 });
