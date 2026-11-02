@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { networkCode } from '../github/client.ts';
-import { discordRecord, type DiscordMessageRecord } from './map.ts';
+import type { ChatThread } from '../slack/client.ts';
+import { discordRecord, plainText, type DiscordMessageRecord } from './map.ts';
 import { mentionWaits, snowflakeAt, type DiscordMessage } from './rules.ts';
 
 /**
@@ -40,6 +41,10 @@ export type DiscordCheck =
 export type DiscordWaiting =
   { ok: true; records: DiscordMessageRecord[]; indexing: boolean } | { ok: false; problem: DiscordProblem };
 
+/** A thread Discord gave, or `not_found`: deleted, or somewhere the bot can't read. */
+export type DiscordThreadAnswer =
+  { ok: true; thread: ChatThread } | { ok: false; problem: DiscordProblem | { kind: 'not_found' } };
+
 export interface DiscordClient {
   /** Asks Discord about the bot: its name, its owner (or `userId` for a team's), Message Content, and its servers. */
   check(token: string, userId?: string): Promise<DiscordCheck>;
@@ -52,6 +57,11 @@ export interface DiscordClient {
     account: { userId: string },
     options: { since: number; most?: number },
   ): Promise<DiscordWaiting>;
+  /**
+   * A message's thread for Claude's brief (spec 016, C): a thread channel's messages, or a message and the messages
+   * that Reply to it among the next 100.
+   */
+  thread(token: string, chip: { guild: string; channel: string; message: string }): Promise<DiscordThreadAnswer>;
 }
 
 export interface DiscordClientOptions {
@@ -84,6 +94,7 @@ const MessageSchema = z.object({
   mentions: z.array(PersonSchema).catch([]),
   timestamp: z.string(),
   attachments: z.array(z.object({ filename: z.string() })).catch([]),
+  message_reference: z.object({ message_id: z.string().optional() }).nullish(),
 });
 type RawMessage = z.infer<typeof MessageSchema>;
 const MessagesSchema = z.array(z.unknown());
@@ -233,6 +244,49 @@ export function createDiscordClient({ timeoutMs = 10_000, now = Date.now }: Disc
         return { ok: true, records, indexing };
       } catch (error) {
         if (error instanceof DiscordFailure) return { ok: false, problem: error.problem };
+        throw error;
+      }
+    },
+
+    async thread(token, { guild, channel, message }) {
+      try {
+        const root = await allowed(() => get(token, `/channels/${channel}/messages/${message}`, z.unknown()));
+        const [first] = readMessages([root]);
+        const place = await allowed(() =>
+          get(token, `/channels/${channel}`, z.object({ name: z.string().nullish(), type: z.int().catch(0) })),
+        );
+        const server = await allowed(() => get(token, `/guilds/${guild}`, z.object({ name: z.string() })));
+        if (first === undefined || place === null) return { ok: false, problem: { kind: 'not_found' } };
+        // Discord's thread channels are types 10 to 12: the thread is the channel. Anything else: Replies to it.
+        const inThread = place.type >= 10 && place.type <= 12;
+        const path = inThread
+          ? `/channels/${channel}/messages?limit=100`
+          : `/channels/${channel}/messages?after=${message}&limit=100`;
+        const later = readMessages(await get(token, path, MessagesSchema));
+        const replies = inThread ? later : later.filter((each) => each.message_reference?.message_id === message);
+        const all = [first, ...replies.filter((each) => each.id !== first.id)].sort((a, b) =>
+          BigInt(a.id) < BigInt(b.id) ? -1 : 1,
+        );
+        const names = new Map<string, string>();
+        for (const each of all)
+          for (const person of [each.author, ...each.mentions]) names.set(person.id, nameOf(person));
+        return {
+          ok: true,
+          thread: {
+            label: { from: nameOf(first.author), channel: place.name ?? 'a channel', server: server?.name ?? null },
+            messages: all.map((each) => ({
+              from: nameOf(each.author),
+              at: new Date(each.timestamp).toISOString(),
+              text: plainText(each.content, names),
+              files: each.attachments.map((file) => file.filename),
+            })),
+          },
+        };
+      } catch (error) {
+        if (error instanceof DiscordFailure) {
+          const gone = error.problem.kind === 'discord_error' && error.problem.status === 404;
+          return { ok: false, problem: gone ? { kind: 'not_found' } : error.problem };
+        }
         throw error;
       }
     },

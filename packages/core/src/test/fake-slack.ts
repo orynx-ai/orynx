@@ -124,6 +124,16 @@ export function slackDms(dms: Record<string, readonly FakeSlackMessage[]>, asked
   ];
 }
 
+/** Channels by id for `conversations.info`: a name, or `dm` for a direct message. */
+export function slackChannels(channels: Record<string, string>) {
+  return http.post(`${slackApi}/conversations.info`, async ({ request }) => {
+    const id = (await fieldsOf(request)).get('channel') ?? '';
+    const name = channels[id];
+    if (name === undefined) return HttpResponse.json({ ok: false, error: 'channel_not_found' });
+    return HttpResponse.json({ ok: true, channel: name === 'dm' ? { id, is_im: true } : { id, name } });
+  });
+}
+
 /**
  * MSW standing in for Slack, an outside service, for the test file that calls this. It answers `auth.test`,
  * `users.info`, no mentions and no DMs, and fails any other request, so no test can reach the real internet.

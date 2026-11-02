@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { slackScopes } from '@devhub/contracts';
 import { networkCode } from '../github/client.ts';
-import { slackRecord, type SlackMessageRecord } from './map.ts';
+import { plainText, slackRecord, slackTime, type SlackMessageRecord } from './map.ts';
 import { firstUnanswered, mentionWaits, type SlackMessage } from './rules.ts';
 
 /**
@@ -27,6 +27,24 @@ export type SlackProblem =
 export type SlackCheck =
   { ok: true; userId: string; name: string; workspace: string; url: string } | { ok: false; problem: SlackProblem };
 
+/** One message of a thread as Claude's brief gives it (spec 016, C): who, when, the words, and files by name. */
+export interface ThreadMessage {
+  from: string;
+  at: string;
+  text: string;
+  files: string[];
+}
+
+/** A thread: who started it and where, and its messages, oldest first. */
+export interface ChatThread {
+  label: { from: string; channel: string | null; server: string | null };
+  messages: ThreadMessage[];
+}
+
+/** A thread Slack gave, or `not_found`: deleted, or somewhere the token can't read. */
+export type SlackThreadAnswer =
+  { ok: true; thread: ChatThread } | { ok: false; problem: SlackProblem | { kind: 'not_found' } };
+
 /** The messages waiting on your reply, as inbox rows (spec 016, B). */
 export type SlackWaiting = { ok: true; records: SlackMessageRecord[] } | { ok: false; problem: SlackProblem };
 
@@ -42,6 +60,8 @@ export interface SlackClient {
     account: { userId: string; url: string },
     options: { since: number; most?: number },
   ): Promise<SlackWaiting>;
+  /** A thread's messages, up to 1,000, for Claude's brief (spec 016, C). */
+  thread(token: string, chip: { channel: string; ts: string }): Promise<SlackThreadAnswer>;
 }
 
 export interface SlackClientOptions {
@@ -105,6 +125,11 @@ function threadOf(match: Match): string | null {
 
 const day = 86_400_000;
 
+/** Slack's words for a thread or channel that isn't there, or that the token can't read. */
+const missing = new Set(['channel_not_found', 'thread_not_found', 'message_not_found', 'not_in_channel']);
+/** A thread's messages Orynx reads at most: five of Slack's pages. */
+const mostThreadPages = 5;
+
 const refused = new Set(['invalid_auth', 'not_authed', 'token_revoked', 'token_expired', 'account_inactive']);
 /** A Slack error code is lower-case words joined by underscores; anything else isn't kept. */
 const slackCode = /^[a-z_]{1,64}$/;
@@ -122,6 +147,22 @@ export function createSlackClient({ timeoutMs = 10_000, now = Date.now }: SlackC
     return (await web.apiCall(method, args)) as Answer;
   }
 
+  /** Names people by id, asking Slack once each; a person Slack won't name (gone, or elsewhere) reads as someone. */
+  function namer(token: string) {
+    const names = new Map<string, string>();
+    async function nameOf(id: string): Promise<string> {
+      if (!names.has(id)) {
+        const person = await call(token, 'users.info', { user: id }).catch((error: unknown): Answer => {
+          if (problemOf(error, now).kind === 'slack_error') return {};
+          throw error;
+        });
+        names.set(id, nameOfUser(person['user']) ?? 'someone');
+      }
+      return names.get(id) ?? 'someone';
+    }
+    return { names, nameOf };
+  }
+
   function failed(error: unknown): { ok: false; problem: SlackProblem } {
     return { ok: false, problem: problemOf(error, now) };
   }
@@ -129,18 +170,7 @@ export function createSlackClient({ timeoutMs = 10_000, now = Date.now }: SlackC
   return {
     async waiting(token, { userId, url }, { since, most = 100 }) {
       try {
-        const names = new Map<string, string>();
-        async function nameOf(id: string): Promise<string> {
-          if (!names.has(id)) {
-            // A person Slack won't name (gone, or from another workspace) reads as someone; anything else stops the read.
-            const person = await call(token, 'users.info', { user: id }).catch((error: unknown): Answer => {
-              if (problemOf(error, now).kind === 'slack_error') return {};
-              throw error;
-            });
-            names.set(id, nameOfUser(person['user']) ?? 'someone');
-          }
-          return names.get(id) ?? 'someone';
-        }
+        const { names, nameOf } = namer(token);
         // Slack's after: leaves out the day it names, so the day before; the rules hold the exact 7 days.
         const after = new Date(since - day).toISOString().slice(0, 10);
         const found = await call(token, 'search.messages', {
@@ -208,6 +238,58 @@ export function createSlackClient({ timeoutMs = 10_000, now = Date.now }: SlackC
         return { ok: true, records };
       } catch (error) {
         return failed(error);
+      }
+    },
+
+    async thread(token, { channel, ts }) {
+      try {
+        const { names, nameOf } = namer(token);
+        const info = await call(token, 'conversations.info', { channel });
+        const place = info['channel'] as { name?: unknown; is_im?: unknown; is_mpim?: unknown } | undefined;
+        const raws: z.infer<typeof RawMessageSchema>[] = [];
+        let cursor = '';
+        for (let page = 0; page < mostThreadPages; page += 1) {
+          const answer = await call(token, 'conversations.replies', {
+            channel,
+            ts,
+            limit: 200,
+            ...(cursor === '' ? {} : { cursor }),
+          });
+          raws.push(...readList(RawMessageSchema, answer['messages']));
+          cursor = (answer.response_metadata as { next_cursor?: string } | undefined)?.next_cursor ?? '';
+          if (cursor === '') break;
+        }
+        const first = raws[0];
+        if (first === undefined) return { ok: false, problem: { kind: 'not_found' } };
+        for (const raw of raws) {
+          if (raw.user != null) await nameOf(raw.user);
+          for (const [, id] of (raw.text ?? '').matchAll(/<@([UW][A-Z0-9]+)/g)) if (id !== undefined) await nameOf(id);
+        }
+        const fromOf = (raw: z.infer<typeof RawMessageSchema>) =>
+          raw.user == null ? 'a bot' : (names.get(raw.user) ?? 'someone');
+        const direct = place?.is_im === true || place?.is_mpim === true;
+        return {
+          ok: true,
+          thread: {
+            label: {
+              from: fromOf(first),
+              channel: direct || typeof place?.name !== 'string' ? null : place.name,
+              server: null,
+            },
+            messages: raws.map((raw) => ({
+              from: fromOf(raw),
+              at: slackTime(raw.ts),
+              text: plainText(raw.text ?? '', names),
+              files: (raw.files ?? []).map((file) => file.name),
+            })),
+          },
+        };
+      } catch (error) {
+        const problem = problemOf(error, now);
+        if (problem.kind === 'slack_error' && missing.has(problem.error)) {
+          return { ok: false, problem: { kind: 'not_found' } };
+        }
+        return { ok: false, problem };
       }
     },
 

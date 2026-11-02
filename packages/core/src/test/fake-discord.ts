@@ -67,6 +67,7 @@ export interface FakeDiscordMessage {
   mentions?: { id: string; username: string; global_name?: string | null }[];
   timestamp: string;
   attachments?: { filename: string }[];
+  message_reference?: { message_id: string };
 }
 
 /**
@@ -95,13 +96,23 @@ export function discordMentions(
   });
 }
 
-/** Channels by id, with their names. */
+/** Channels by id, with their names; a name starting `thread:` is a thread channel (type 11). */
 export function discordChannels(channels: Record<string, string>) {
   return http.get(`${discordApi}/channels/:channel`, ({ params }) => {
     const name = channels[String(params['channel'])];
+    if (name === undefined) return HttpResponse.json({ message: 'Unknown Channel', code: 10003 }, { status: 404 });
+    const thread = name.startsWith('thread:');
+    return HttpResponse.json({ id: params['channel'], name: thread ? name.slice(7) : name, type: thread ? 11 : 0 });
+  });
+}
+
+/** Servers by id, with their names, as `GET /guilds/:id` gives them. */
+export function discordServers(servers: Record<string, string>) {
+  return http.get(`${discordApi}/guilds/:guild`, ({ params }) => {
+    const name = servers[String(params['guild'])];
     return name === undefined
-      ? HttpResponse.json({ message: 'Unknown Channel', code: 10003 }, { status: 404 })
-      : HttpResponse.json({ id: params['channel'], name, type: 0 });
+      ? HttpResponse.json({ message: 'Unknown Guild', code: 10004 }, { status: 404 })
+      : HttpResponse.json({ id: params['guild'], name });
   });
 }
 
@@ -113,6 +124,16 @@ export function discordHistory(byChannel: Record<string, readonly FakeDiscordMes
     asked.push(channel);
     const messages = (byChannel[channel] ?? []).filter((message) => BigInt(message.id) > after).reverse();
     return HttpResponse.json(messages);
+  });
+}
+
+/** One message by its id, from the same channels' messages. */
+export function discordMessage(byChannel: Record<string, readonly FakeDiscordMessage[]>) {
+  return http.get(`${discordApi}/channels/:channel/messages/:message`, ({ params }) => {
+    const found = byChannel[String(params['channel'])]?.find((message) => message.id === params['message']);
+    return found === undefined
+      ? HttpResponse.json({ message: 'Unknown Message', code: 10008 }, { status: 404 })
+      : HttpResponse.json(found);
   });
 }
 

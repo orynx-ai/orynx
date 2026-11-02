@@ -5,6 +5,7 @@ import {
   acceptingAuthTest,
   knownUsers,
   slackApi,
+  slackChannels,
   slackDms,
   slackMentions,
   slackThreads,
@@ -210,5 +211,67 @@ describe('Slack messages waiting on you (spec 016, B)', () => {
   it('a refused token or the rate limit stops the read with its problem', async () => {
     slack.use(http.post(`${slackApi}/search.messages`, () => HttpResponse.json({ ok: false, error: 'invalid_auth' })));
     expect(await client.waiting(slackToken, account, { since })).toEqual({ ok: false, problem: { kind: 'rejected' } });
+  });
+});
+
+describe('a Slack thread as Claude’s context (spec 016, C)', () => {
+  const people = knownUsers({ U0NEHA0001: { display: 'Neha K.' }, U0ARJUN001: { display: 'Arjun M.' } });
+
+  it('AC-30: reads the whole thread oldest first, with who wrote each message, names for mentions, files by name', async () => {
+    slack.use(
+      people,
+      slackChannels({ C024BE91L: 'web-platform' }),
+      slackThreads({
+        'C024BE91L/1793613600.000100': [
+          { ts: '1793613600.000100', user: 'U0NEHA0001', text: 'Search returns archived sites for <@U0ARJUN001>' },
+          {
+            ts: '1793613660.000200',
+            user: 'U0ARJUN001',
+            text: 'Seeing it too',
+            thread_ts: '1793613600.000100',
+            files: [{ name: 'trace.log' }],
+          },
+        ],
+      }),
+    );
+
+    expect(await client.thread(slackToken, { channel: 'C024BE91L', ts: '1793613600.000100' })).toEqual({
+      ok: true,
+      thread: {
+        label: { from: 'Neha K.', channel: 'web-platform', server: null },
+        messages: [
+          {
+            from: 'Neha K.',
+            at: '2026-11-02T10:00:00.000Z',
+            text: 'Search returns archived sites for @Arjun M.',
+            files: [],
+          },
+          { from: 'Arjun M.', at: '2026-11-02T10:01:00.000Z', text: 'Seeing it too', files: ['trace.log'] },
+        ],
+      },
+    });
+  });
+
+  it('AC-30: a DM’s thread names no channel', async () => {
+    slack.use(
+      people,
+      slackChannels({ D0ARJUN01: 'dm' }),
+      slackThreads({ 'D0ARJUN01/1793613600.000100': [{ ts: '1793613600.000100', user: 'U0ARJUN001', text: 'hey' }] }),
+    );
+
+    const answer = await client.thread(slackToken, { channel: 'D0ARJUN01', ts: '1793613600.000100' });
+    expect(answer.ok && answer.thread.label).toEqual({ from: 'Arjun M.', channel: null, server: null });
+  });
+
+  it('AC-32: a deleted thread, or a channel the token can’t read, is not found', async () => {
+    slack.use(people, slackChannels({ C024BE91L: 'web-platform' }), slackThreads({}));
+    expect(await client.thread(slackToken, { channel: 'C024BE91L', ts: '1793613600.000100' })).toEqual({
+      ok: false,
+      problem: { kind: 'not_found' },
+    });
+    expect(await client.thread(slackToken, { channel: 'C0SECRET1', ts: '1793613600.000100' })).toEqual({
+      ok: false,
+      problem: { kind: 'not_found' },
+    });
   });
 });

@@ -64,11 +64,11 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 16: (saving `replyWaitMinutes` landed in task 6) `reply_waiting` fires once per new Slack or Discord row (AC-18, AC-25)
       Check: pnpm test packages/core/src/preferences/preferences-service.test.ts packages/core/src/notifications/
       Files: packages/core/src/preferences/preferences-service.ts, packages/core/src/notifications/inbox-notifications.ts, notification-service.ts, their tests
-- [ ] Task 17: Reading a thread: Slack's whole thread, Discord's thread channel or a message and its Replies; names, files by name; `context-reader` maps not found, no access and not connected to `context_failed` (AC-30, AC-32)
-      Check: pnpm test packages/core/src/integrations/slack/client.test.ts packages/core/src/integrations/discord/client.test.ts packages/core/src/sessions/context-reader.test.ts
-      Files: packages/core/src/integrations/slack/client.ts, packages/core/src/integrations/discord/client.ts, packages/core/src/sessions/context-reader.ts, their tests
-- [ ] Task 18: The brief's thread section (header, "Neha K., 14:05: …", oldest first, 200 messages and 40,000 characters, "N earlier messages left out."); the stored chip's label comes from what was read; a session's no-leaks test covers thread text (AC-30, AC-31, AC-33)
-      Check: pnpm test packages/core/src/sessions/brief.test.ts packages/core/src/sessions/compose.test.ts packages/core/src/sessions/no-leaks.test.ts
+- [x] Task 17: Reading a thread: Slack's whole thread, Discord's thread channel or a message and its Replies; names, files by name; deleted or unreadable is not found (the context reader moved to task 18, so each commit type-checks) (AC-30, AC-32)
+      Check: pnpm test packages/core/src/integrations/slack/client.test.ts packages/core/src/integrations/discord/client.test.ts
+      Files: packages/core/src/integrations/slack/client.ts, packages/core/src/integrations/discord/client.ts, their tests, packages/core/src/test/fake-slack.ts, packages/core/src/test/fake-discord.ts
+- [ ] Task 18: `context-reader` reads thread chips (not found, no access and not connected become `context_failed`); the brief's thread section (header, "Neha K., 14:05: …", oldest first, 200 messages and 40,000 characters, "N earlier messages left out."); the stored chip's label comes from what was read; a session's no-leaks test covers thread text (AC-30, AC-31, AC-33)
+      Check: pnpm test packages/core/src/sessions/context-reader.test.ts packages/core/src/sessions/brief.test.ts packages/core/src/sessions/compose.test.ts packages/core/src/sessions/no-leaks.test.ts
       Files: packages/core/src/sessions/brief.ts, packages/core/src/sessions/compose.ts, packages/core/src/sessions/no-leaks.test.ts, their tests
 - [ ] Task 19: `GET /api/threads/preview?link=` answers the sender and place, `not_connected` or `not_found` (AC-26, AC-27)
       Check: pnpm test packages/core/src/routes/threads.test.ts
