@@ -23,8 +23,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: Create ticket on Jira: made, made-but (read-only, Open in Jira and Close), refused and unreachable, and one ticket per press (AC-3, AC-9, AC-10, AC-11, AC-12)
       Check: pnpm test packages/app/src/features/tickets/components/new-ticket.test.tsx
       Files: packages/app/src/features/tickets/components/new-ticket.tsx, packages/app/src/features/tickets/components/new-ticket.test.tsx, packages/app/src/features/tickets/components/ticket-form.tsx, packages/app/src/features/tickets/ticket-words.ts
-- [ ] Task 8: e2e: the dialog on Jira at 360 and 1280 px, in light and dark, with axe on each state (AC-16, AC-17)
-      Check: pnpm test:e2e e2e/orynx-tickets.spec.ts
-      Files: e2e/orynx-tickets.spec.ts, e2e/fake-tools (if the fake Jira needs the new endpoints)
+- [ ] Task 8: e2e: the dialog on Jira at 360 and 1280 px, in light and dark, with axe on each state (AC-16, AC-17). Written, not run yet: the build that wrote it wasn't to run e2e, so its first run is /review's
+      Check: pnpm test:e2e e2e/tickets.spec.ts
+      Files: e2e/tickets.spec.ts
 - [ ] Task 9: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
