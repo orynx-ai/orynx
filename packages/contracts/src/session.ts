@@ -202,6 +202,10 @@ export type RefusalReason = z.infer<typeof RefusalReasonSchema>;
  * One step in "Claude's progress". It's data, not words: the app says each kind in its own words
  * (spec 011, Q10a), so the server never holds copy.
  */
+/** Where Claude is with one of its to-dos, as its `TodoWrite` says (spec 046). */
+export const TodoStatusSchema = z.enum(['pending', 'in_progress', 'completed']);
+export type TodoStatus = z.infer<typeof TodoStatusSchema>;
+
 export const SessionActivitySchema = z.discriminatedUnion('kind', [
   /**
    * Orynx made the branch and the worktree, from `base`; `fetched` is false when the fetch failed (Q1a). With
@@ -277,7 +281,7 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
     kind: z.literal('plan'),
     items: z.array(z.string().min(1)),
     /** Each item's status, by its place in `items` (spec 046, Q5); absent before spec 046. */
-    statuses: z.array(z.enum(['pending', 'in_progress', 'completed'])).optional(),
+    statuses: z.array(TodoStatusSchema).optional(),
   }),
   ActivityBaseSchema.extend({ kind: z.literal('edit'), files: FilesSchema }),
   /**

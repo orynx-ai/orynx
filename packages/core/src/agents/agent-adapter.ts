@@ -14,6 +14,7 @@ import type {
   ChangeLine,
   EffortLevel,
   JiraChangeAsk,
+  TodoStatus,
   Permissions,
 } from '@devhub/contracts';
 import type { TicketTool, TicketToolDone } from '../orynx-tickets/tools.ts';
@@ -95,8 +96,8 @@ export interface AgentRefusal {
 export type AgentWork =
   /** A read (with its file) or a search (no single file). */
   | { kind: 'explore'; file: string | null }
-  /** The agent's to-do list, which is its plan. */
-  | { kind: 'plan'; items: readonly string[] }
+  /** The agent's to-do list, which is its plan, with each item's status when the agent gives every one (spec 046). */
+  | { kind: 'plan'; items: readonly string[]; statuses?: readonly TodoStatus[] }
   | { kind: 'edit'; file: string }
   | { kind: 'refused'; refusal: AgentRefusal }
   /** A command is running now: allowed by the list, or by you (spec 012). `id` is its call's, which its end names (spec 036). */

@@ -7,7 +7,7 @@ Before Task 1: the user applies the design-system patch (Q1a) and it's committed
 - [x] Task 1: Contracts: each command's result on the command step, each to-do's status on the plan step, both optional (AC-12, AC-14, AC-16)
       Check: pnpm test packages/contracts/src/session.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, packages/contracts/src/session.test.ts
-- [ ] Task 2: Core: keep each to-do's status from `TodoWrite` on the plan step, re-planned in place (AC-16, AC-17)
+- [x] Task 2: Core: keep each to-do's status from `TodoWrite` on the plan step, re-planned in place (AC-16, AC-17)
       Check: pnpm test packages/core/src/agents/claude/sdk-messages.test.ts packages/core/src/sessions/progress.test.ts
       Files: packages/core/src/agents/agent-adapter.ts, packages/core/src/agents/claude/sdk-messages.ts, packages/core/src/agents/claude/sdk-messages.test.ts, packages/core/src/sessions/progress.ts, packages/core/src/sessions/progress.test.ts
 - [ ] Task 3: Core: the command step keeps each call's id, and `command_ended` marks it failed or not (AC-12, AC-13)

@@ -252,12 +252,20 @@ export function addWork(progress: Progress, work: ClaudeWork): Progress {
     case 'plan': {
       // Claude ticks its to-do list as it goes: that changes the plan, not what Claude is doing now.
       const plan = progress.activities.find((activity) => activity.kind === 'plan');
-      if (plan === undefined) return addStep(progress, { kind: 'plan', items: [...work.items] }, 'running');
+      const next = {
+        kind: 'plan' as const,
+        items: [...work.items],
+        ...(work.statuses === undefined ? {} : { statuses: [...work.statuses] }),
+      };
+      if (plan === undefined) return addStep(progress, next, 'running');
       return {
         ...progress,
-        activities: progress.activities.map((activity) =>
-          activity === plan ? { ...plan, items: [...work.items] } : activity,
-        ),
+        activities: progress.activities.map((activity) => {
+          if (activity !== plan) return activity;
+          // Claude's next list replaces the marks too, or drops them when it gives none.
+          const { statuses: _, ...was } = plan;
+          return { ...was, ...next };
+        }),
       };
     }
     case 'refused':

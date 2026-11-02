@@ -64,6 +64,18 @@ describe('session progress', () => {
     ]);
   });
 
+  it('AC-16, AC-17 (spec 046): the plan keeps each to-do’s status, and Claude’s next update replaces them in place', () => {
+    const progress = fold([
+      { kind: 'plan', items: ['One', 'Two'], statuses: ['in_progress', 'pending'] },
+      { kind: 'edit', file: 'src/a.ts' },
+      { kind: 'plan', items: ['One', 'Two'], statuses: ['completed', 'in_progress'] },
+    ]);
+    expect(progress.activities).toEqual([
+      { id: 'step-1', state: 'done', kind: 'plan', items: ['One', 'Two'], statuses: ['completed', 'in_progress'] },
+      { id: 'step-2', state: 'running', kind: 'edit', files: ['src/a.ts'] },
+    ]);
+  });
+
   it('AC-4: starts a new group when Claude goes back to reading after editing', () => {
     const progress = fold([
       { kind: 'edit', file: 'src/a.ts' },
