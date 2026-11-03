@@ -8,9 +8,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: Contracts: the agent on `AgentChoice`, on a session's summary and record (defaulting to claude), and models by agent (AC-5, AC-23)
       Check: pnpm test packages/contracts/src/agent-models.test.ts packages/contracts/src/session.test.ts packages/core/src/sessions/file-session-store.test.ts; pnpm typecheck
       Files: packages/contracts/src/agent-models.ts, session.ts; packages/core/src/sessions/session-store.ts, file-session-store.test.ts, session-service.ts
-- [ ] Task 3: The app-server connection: spawn, newline JSON-RPC, requests with ids, notifications, server requests, close (AC-17, AC-20)
+- [x] Task 3: The app-server connection: spawn, newline JSON-RPC, requests with ids, notifications, server requests, close (AC-17, AC-20)
       Check: pnpm test packages/core/src/agents/codex/app-server.test.ts
-      Files: packages/core/src/agents/codex/app-server.ts, app-server.test.ts, protocol.ts
+      Files: packages/core/src/agents/codex/app-server.ts, app-server.test.ts, protocol.ts, packages/core/src/test/fake-codex.ts
 - [ ] Task 4: Finding Codex (`DEVHUB_CODEX` or `PATH`, version 0.166 or later) and its login through `account/read`, cached as Claude's is (AC-1, AC-2)
       Check: pnpm test packages/core/src/agents/codex/codex-program.test.ts packages/core/src/agents/codex/codex-login.test.ts
       Files: packages/core/src/agents/codex/codex-program.ts, codex-program.test.ts, codex-login.ts, codex-login.test.ts
