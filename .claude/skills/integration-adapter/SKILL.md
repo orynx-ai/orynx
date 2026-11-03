@@ -1,6 +1,6 @@
 ---
 name: integration-adapter
-description: Use when connecting DevHub to Jira, GitHub or Slack, or changing what DevHub reads from or writes to them (inbox rules, tickets, PRs, mentions). Forbids storing or logging tokens outside the OS keychain, mapping Jira by status name, network calls outside the integration's client.ts, and faking our own modules in tests.
+description: Use when connecting DevHub to Jira, GitHub, Slack or Discord, or changing what DevHub reads from or writes to them (inbox rules, tickets, PRs, mentions). Forbids storing or logging tokens outside the OS keychain, mapping Jira by status name, network calls outside the integration's client.ts, and faking our own modules in tests.
 ---
 
 # How to build an integration
@@ -27,11 +27,12 @@ Shared by every tool, never copied:
 - `integrations/checked-status.ts`: the status line's "at most every 2 minutes, one shared check, the last answer while re-checking".
 - `packages/app/src/features/settings/components/managed-connection-row.tsx`: the row whose Connect, Manage and Close button opens the tool's form; the Connections panel owns the one live region.
 
-| Tool   | SDK (planned, see `docs/architecture.md`) | Connects with                                                |
-| ------ | ----------------------------------------- | ------------------------------------------------------------ |
-| Jira   | `jira.js`                                 | site + email + personal API token                            |
-| GitHub | `@octokit/rest` (decided, spec 004)       | the `gh` CLI login, or a personal access token               |
-| Slack  | `@slack/web-api`                          | user token (`search:read`, `channels:history`, `im:history`) |
+| Tool    | SDK (planned, see `docs/architecture.md`) | Connects with                                         |
+| ------- | ----------------------------------------- | ----------------------------------------------------- |
+| Jira    | `jira.js`                                 | site + email + personal API token                     |
+| GitHub  | `@octokit/rest` (decided, spec 004)       | the `gh` CLI login, or a personal access token        |
+| Slack   | `@slack/web-api` (spec 016)               | user token, checked against `slackScopes`             |
+| Discord | none: Node's `fetch` (spec 016, Q4)       | a bot's token you make; your user ID for a team's bot |
 
 Adding the SDK is part of that integration's spec. Any other library: stop and ask.
 
@@ -56,11 +57,12 @@ Never throw from a route because one integration failed. Return the other source
 
 ## What DevHub may write
 
-| Tool   | Writes in v1                                                                                                                                                                                                                                                                        |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jira   | A new issue, from a board column's + button; from a session (spec 044), a comment, a move through the issue's own transitions, or an assignment to the user or nobody, each after the user's Allow or with Claude changes Jira on                                                   |
-| GitHub | Push the session branch and open the PR, only after the user clicks Create pull request; reply to and resolve review threads, only after the user clicks Post replies (spec 049); post one review of someone else's pull request, only after the user clicks Post review (spec 050) |
-| Slack  | Nothing (Reply opens Slack)                                                                                                                                                                                                                                                         |
+| Tool    | Writes in v1                                                                                                                                                                                                                                                                        |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jira    | A new issue, from a board column's + button; from a session (spec 044), a comment, a move through the issue's own transitions, or an assignment to the user or nobody, each after the user's Allow or with Claude changes Jira on                                                   |
+| GitHub  | Push the session branch and open the PR, only after the user clicks Create pull request; reply to and resolve review threads, only after the user clicks Post replies (spec 049); post one review of someone else's pull request, only after the user clicks Post review (spec 050) |
+| Slack   | One reply with a pull request's link in the session's thread, only after the user clicks Post reply (spec 016)                                                                                                                                                                      |
+| Discord | The same one reply, from the user's bot, as a Reply that pings nobody (spec 016)                                                                                                                                                                                                    |
 
 Any other write: stop and ask.
 

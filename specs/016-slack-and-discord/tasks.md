@@ -133,8 +133,8 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 33: (narrowed, in the same spec and commit) from Slack's tab and its row: the thread into the composer and Fix this filled in, with axe in both themes and widths. The rest of the way (a Build that opens a pull request, then Post reply) would need fake Claude, git and GitHub on this hub too; fix-this.test.tsx and tell-the-thread.test.tsx cover it against the real screens (AC-10, AC-19, AC-29, AC-34, AC-45)
       Check: pnpm exec playwright test e2e/slack-and-discord.spec.ts
       Files: e2e/slack-and-discord.spec.ts
-- [ ] Task 34: Docs: `learn/connecting-slack-and-discord.md`; `docs/architecture.md` (Slack's library, Discord over fetch, the thread routes); the integration-adapter skill's writes table; the roadmap's 016 row; a script for the people-owned edits to `docs/product/spec.md` and `docs/design/design-system.md`
+- [x] Task 34: Docs: `learn/connecting-slack-and-discord.md`; `docs/architecture.md` (Slack's library, Discord over fetch, the thread routes); the integration-adapter skill's writes table; the roadmap's 016 row; a script for the people-owned edits to `docs/product/spec.md` and `docs/design/design-system.md`
       Check: pnpm gate learn-freshness; pnpm gate specs; pnpm gate handbook-size
-      Files: learn/connecting-slack-and-discord.md, docs/architecture.md, .claude/skills/integration-adapter/SKILL.md, docs/product/roadmap.md, specs/016-slack-and-discord/people-edits.sh
+      Files: learn/connecting-slack-and-discord.md, docs/architecture.md, .claude/skills/integration-adapter/SKILL.md, docs/product/roadmap.md, specs/016-slack-and-discord/people-files.sh
 - [ ] Task 35: STOP and run /review
       Check: the review stamp matches the branch (pnpm review:stamp verify)
