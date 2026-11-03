@@ -23,9 +23,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 7: The Codex adapter (a): start a thread in the worktree with the brief, model and effort, give events, list models, Stop with interrupt then kill (AC-5, AC-7, AC-20)
       Check: pnpm test packages/core/src/agents/codex/codex-adapter.test.ts
       Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts, packages/core/src/agents/agent-adapter.ts (`id: AgentId`)
-- [ ] Task 8: The Codex adapter (b): command approvals through `decideToolUse('Bash')`, including the allow list, Always allow, push refused and escalation on the unsandboxed row (AC-8 to AC-12)
-      Check: pnpm test packages/core/src/agents/codex/codex-adapter.test.ts
-      Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts
+- [x] Task 8: The Codex adapter (b): command approvals through `decideToolUse('Bash')`, including the allow list, Always allow, push refused, escalation on the unsandboxed row, and plain reads inside the worktree decided as Claude's Read (AC-7 to AC-12)
+      Check: pnpm test packages/core/src/agents/codex/codex-adapter.test.ts packages/core/src/agents/codex/plain-read.test.ts
+      Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts, plain-read.ts, plain-read.test.ts
 - [ ] Task 9: The Codex adapter (c): edit approvals, with each changed path through the edit decision and the ask's lines from `parseUnifiedDiff`, and outside the worktree refused (AC-13, AC-14)
       Check: pnpm test packages/core/src/agents/codex/codex-adapter.test.ts
       Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts

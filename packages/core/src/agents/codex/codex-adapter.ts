@@ -5,10 +5,12 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { AgentModelIdSchema, EffortLevelSchema, type AgentModel, type AgentModels } from '@devhub/contracts';
 import { briefText } from '../../sessions/brief.ts';
-import type { AgentAdapter, AgentEvent } from '../agent-adapter.ts';
+import { askText, type AgentAdapter, type AgentAsk, type AgentEvent } from '../agent-adapter.ts';
+import { decideToolUse, type ToolContext } from '../claude/tool-decision.ts';
 import { startAppServer, type AppServer } from './app-server.ts';
 import { createCodexReader, type CodexRead, type SeenCommand } from './items.ts';
 import { codexCheckArgs, codexSessionArgs } from './launch.ts';
+import { innerCommand, plainReadPaths } from './plain-read.ts';
 
 /**
  * Codex behind the agent adapter (spec 052), through `codex app-server`: one program per session, in its worktree,
@@ -95,6 +97,28 @@ function agentModel(listed: z.infer<typeof ModelListSchema>['data'][number]): Ag
   ];
 }
 
+const CommandApprovalSchema = z.looseObject({
+  kind: z.string().default('command'),
+  itemId: z.string(),
+  command: z.string().nullish(),
+  /** Codex's own words for an escalation, or a rule of yours that prompts. */
+  reason: z.string().nullish(),
+  additionalPermissions: z.unknown().nullish(),
+});
+
+const accept = { decision: 'accept' } as const;
+const decline = { decision: 'decline' } as const;
+
+/** Whether a plain read names only what Claude's Read would read without asking: the worktree, and the brief's files. */
+async function readsInside(command: string, context: ToolContext): Promise<boolean> {
+  const paths = plainReadPaths(command);
+  if (paths === null) return false;
+  for (const path of paths) {
+    if ((await decideToolUse('Read', { file_path: path }, context)).behavior !== 'allow') return false;
+  }
+  return true;
+}
+
 /** How a waiting call ended: your answer, Stop, or Codex dropping it. */
 type Outcome = 'allow' | 'deny' | 'stopped' | 'dropped';
 
@@ -120,6 +144,11 @@ interface Running {
   parked: Map<string, (outcome: Outcome) => void>;
   /** What Orynx made of each command it was asked about, by Codex's item id. */
   seen: Map<string, SeenCommand>;
+  /**
+   * The decision before this one: calls are decided one at a time, in the order Codex asked, so calls asked together
+   * wait in that order whichever reads Settings faster.
+   */
+  deciding: Promise<unknown>;
 }
 
 export function createCodexAdapter({
@@ -155,18 +184,89 @@ export function createCodexAdapter({
     return true;
   }
 
-  /** Codex's own requests: until Orynx decides them, every approval is declined and no tool runs. */
-  function answer(method: string): Promise<unknown> {
-    if (method === 'item/commandExecution/requestApproval' || method === 'item/fileChange/requestApproval') {
-      return Promise.resolve({ decision: 'decline' });
+  /** Parks a call until it's answered, telling the session it waits. */
+  function waitForAnswer(sessionId: string, running: Running, ask: AgentAsk): Promise<Outcome> {
+    if (running.done || running.stopping) return Promise.resolve('stopped');
+    const approvalId = randomUUID();
+    const answer = new Promise<Outcome>((resolve) => {
+      running.parked.set(approvalId, resolve);
+    });
+    emit(running, { type: 'approval', sessionId, approvalId, ask });
+    return answer;
+  }
+
+  /**
+   * A command Codex wants to run (spec 052, part C), decided as Claude's `Bash` is: its rows, its list, its callout.
+   * A plain read inside the worktree runs as Claude's Read does. Every command stays in Codex's sandbox, so an allowed
+   * network command runs there too; one Codex asks to run with more than the sandbox gives is the unsandboxed row's.
+   */
+  async function decideCommand(
+    sessionId: string,
+    running: Running,
+    params: unknown,
+    context: () => Promise<ToolContext>,
+  ): Promise<unknown> {
+    const asked = CommandApprovalSchema.safeParse(params);
+    // Without a sandbox nothing runs (Q2b); writing to a running command's input is never asked about.
+    if (!asked.success || !runsCommands || running.stopping || asked.data.kind !== 'command') return decline;
+    const { itemId, command: given, reason, additionalPermissions } = asked.data;
+    if (given == null || given === '') return decline;
+    const command = innerCommand(given);
+    const escalated = reason != null || additionalPermissions != null;
+    const rows = await context();
+    if (!escalated && (await readsInside(command, rows))) {
+      running.seen.set(itemId, 'read');
+      return accept;
     }
-    if (method === 'item/tool/call') {
-      return Promise.resolve({
-        contentItems: [{ type: 'inputText', text: 'Orynx has no such tool.' }],
-        success: false,
-      });
+    running.seen.set(itemId, 'command');
+    const input = {
+      command,
+      ...(escalated ? { dangerouslyDisableSandbox: true } : {}),
+      ...(reason == null ? {} : { description: reason }),
+    };
+    const decision = await decideToolUse('Bash', input, rows);
+    const runs = () => {
+      emit(running, { type: 'work', sessionId, work: { kind: 'command', id: itemId, command } });
+      return accept;
+    };
+    if (decision.behavior === 'allow') return runs();
+    if (decision.behavior === 'deny') {
+      if (decision.refusal !== null) {
+        emit(running, { type: 'work', sessionId, work: { kind: 'refused', refusal: decision.refusal } });
+      }
+      return decline;
     }
-    return Promise.reject(new Error(`Orynx takes no ${method}`));
+    const { ask } = decision;
+    const outcome = await waitForAnswer(sessionId, running, ask);
+    if (outcome === 'allow') return runs();
+    if (outcome === 'deny') {
+      emit(running, { type: 'work', sessionId, work: { kind: 'denied', about: ask.kind, text: askText(ask) } });
+    }
+    return decline;
+  }
+
+  /** Codex's own requests to a session, decided one at a time in the order Codex asked. */
+  function answer(
+    sessionId: string,
+    running: Running,
+    method: string,
+    params: unknown,
+    context: () => Promise<ToolContext>,
+  ): Promise<unknown> {
+    const decide = (): Promise<unknown> => {
+      if (method === 'item/commandExecution/requestApproval') return decideCommand(sessionId, running, params, context);
+      if (method === 'item/fileChange/requestApproval') return Promise.resolve(decline);
+      if (method === 'item/tool/call') {
+        return Promise.resolve({
+          contentItems: [{ type: 'inputText', text: 'Orynx has no such tool.' }],
+          success: false,
+        });
+      }
+      return Promise.reject(new Error(`Orynx takes no ${method}`));
+    };
+    const turn = running.deciding.then(decide);
+    running.deciding = turn.catch(() => undefined);
+    return turn;
   }
 
   async function listModels(): Promise<AgentModels> {
@@ -241,8 +341,11 @@ export function createCodexAdapter({
         settled: false,
         parked: new Map(),
         seen: new Map(),
+        deciding: Promise.resolve(),
       };
       sessions.set(id, running);
+      /** The rows, the list and the session's branch, read again for every call (spec 012, AC-11). */
+      const context = async (): Promise<ToolContext> => ({ worktree, home, ...(await permissions()) });
 
       const problem = (code: string) => {
         if (running.settled) return;
@@ -284,7 +387,7 @@ export function createCodexAdapter({
           return;
         }
         running.server = server;
-        server.onRequest((method) => answer(method));
+        server.onRequest((method, params) => answer(id, running, method, params, context));
         const read = createCodexReader({ worktree, seen: (itemId) => running.seen.get(itemId) ?? null });
         server.onNotification((method, params) => {
           if (method === 'turn/started') {

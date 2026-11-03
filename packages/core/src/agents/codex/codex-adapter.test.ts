@@ -317,3 +317,177 @@ describe.skipIf(process.platform === 'win32')('the Codex adapter (spec 052)', ()
     expect(await listing).toEqual({ state: 'unavailable' });
   });
 });
+
+/** Codex asks Orynx before a command, as `untrusted` makes it. */
+function askToRun(codex: CodexPeer, command: string, fields: Record<string, unknown> = {}) {
+  return codex.ask('item/commandExecution/requestApproval', {
+    kind: 'command',
+    threadId: 'thread-1',
+    turnId: 'turn-1',
+    itemId: fields['itemId'] ?? 'item-1',
+    startedAtMs: 0,
+    approvalId: null,
+    command,
+    cwd: '/',
+    commandActions: [],
+    reason: null,
+    ...fields,
+  });
+}
+
+describe.skipIf(process.platform === 'win32')("the Codex adapter's commands (spec 052)", () => {
+  async function running(overrides: Partial<AgentPermissions> = {}, options: Partial<CodexAdapterOptions> = {}) {
+    const { fake, adapter, worktree } = await setup(options);
+    const id = await adapter.startSession(brief, worktree, permissionsFrom(overrides), '');
+    const events = heard(adapter, id);
+    const { codex } = await answerStart(fake);
+    return { adapter, id, events, codex, worktree };
+  }
+
+  it('AC-8: Commands on Ask first waits for you, and Allow once runs it, in the sandbox', async () => {
+    const { adapter, id, events, codex } = await running();
+    const answer = askToRun(codex, 'npm test');
+    await until(() => events.some((event) => event.type === 'approval'));
+    const approval = events.find((event) => event.type === 'approval');
+    expect(approval).toMatchObject({
+      ask: { kind: 'command', command: 'npm test', description: null, alwaysAsk: null, alwaysAllow: null },
+    });
+    if (approval?.type !== 'approval') throw new Error('no approval');
+
+    expect(await adapter.respond(id, approval.approvalId, 'allow')).toBe(true);
+    expect((await answer).result).toEqual({ decision: 'accept' });
+    expect(events.slice(-2)).toEqual([
+      { type: 'answered', sessionId: id, approvalId: approval.approvalId, allowed: true },
+      { type: 'work', sessionId: id, work: { kind: 'command', id: 'item-1', command: 'npm test' } },
+    ]);
+  });
+
+  it('AC-8: with Allowed only, a command off the list offers Always allow, which runs it as Allow does', async () => {
+    const { adapter, id, events, codex } = await running({ commands: 'allowed_list' });
+    const answer = askToRun(codex, 'npm test');
+    await until(() => events.some((event) => event.type === 'approval'));
+    const approval = events.find((event) => event.type === 'approval');
+    expect(approval).toMatchObject({ ask: { kind: 'command', alwaysAllow: 'npm test' } });
+    if (approval?.type !== 'approval') throw new Error('no approval');
+    await adapter.respond(id, approval.approvalId, 'always');
+    expect((await answer).result).toEqual({ decision: 'accept' });
+  });
+
+  it('AC-8: Deny declines it, and says so as a step', async () => {
+    const { adapter, id, events, codex } = await running();
+    const answer = askToRun(codex, 'npm test');
+    await until(() => events.some((event) => event.type === 'approval'));
+    const approval = events.find((event) => event.type === 'approval');
+    if (approval?.type !== 'approval') throw new Error('no approval');
+    await adapter.respond(id, approval.approvalId, 'deny');
+
+    expect((await answer).result).toEqual({ decision: 'decline' });
+    expect(events.at(-1)).toEqual({
+      type: 'work',
+      sessionId: id,
+      work: { kind: 'denied', about: 'command', text: 'npm test' },
+    });
+  });
+
+  it('AC-9: a command on the allow list runs without asking, inside the sandbox', async () => {
+    const { events, codex, id } = await running({ commands: 'allowed_list', allowedCommands: ['npm test'] });
+    expect((await askToRun(codex, 'npm test')).result).toEqual({ decision: 'accept' });
+    expect(events.some((event) => event.type === 'approval')).toBe(false);
+    expect(events.at(-1)).toEqual({
+      type: 'work',
+      sessionId: id,
+      work: { kind: 'command', id: 'item-1', command: 'npm test' },
+    });
+  });
+
+  it("AC-12: a push its row doesn't allow is refused with a step, even inside Codex's shell", async () => {
+    const { events, codex, id } = await running({ commands: 'any' });
+    expect((await askToRun(codex, "/bin/zsh -lc 'git push origin main'")).result).toEqual({ decision: 'decline' });
+    expect(events.at(-1)).toMatchObject({
+      sessionId: id,
+      work: { kind: 'refused', refusal: { access: 'run', reason: 'push', path: 'git push origin main' } },
+    });
+  });
+
+  it('AC-10: a network command asks with Allow once and Deny only, and Allow runs it in the sandbox', async () => {
+    const { adapter, id, events, codex } = await running({ commands: 'any' });
+    const answer = askToRun(codex, 'npm install');
+    await until(() => events.some((event) => event.type === 'approval'));
+    const approval = events.find((event) => event.type === 'approval');
+    expect(approval).toMatchObject({ ask: { kind: 'command', alwaysAsk: 'network', alwaysAllow: null } });
+    if (approval?.type !== 'approval') throw new Error('no approval');
+    await adapter.respond(id, approval.approvalId, 'allow');
+    expect((await answer).result).toEqual({ decision: 'accept' });
+  });
+
+  it('AC-11: Codex asking for more than its sandbox gives goes to the Commands outside the sandbox row', async () => {
+    const { events, codex } = await running({ commands: 'any' });
+    void askToRun(codex, 'npm test', { reason: 'Needs to write ~/.npm' });
+    await until(() => events.some((event) => event.type === 'approval'));
+    expect(events.find((event) => event.type === 'approval')).toMatchObject({
+      ask: { kind: 'command', command: 'npm test', description: 'Needs to write ~/.npm', alwaysAsk: 'unsandboxed' },
+    });
+  });
+
+  it("AC-7: a plain read inside the worktree runs as Claude's reads do, without asking, and shows as a read", async () => {
+    const { events, codex, id, worktree } = await running();
+    expect((await askToRun(codex, 'cat src/a.ts', { itemId: 'item-2' })).result).toEqual({ decision: 'accept' });
+    expect(events.some((event) => event.type === 'approval')).toBe(false);
+    codex.notify('item/completed', {
+      threadId: 'thread-1',
+      turnId: 'turn-1',
+      item: {
+        type: 'commandExecution',
+        id: 'item-2',
+        command: 'cat src/a.ts',
+        status: 'completed',
+        exitCode: 0,
+        commandActions: [{ type: 'read', command: 'cat src/a.ts', name: 'a.ts', path: `${worktree}/src/a.ts` }],
+      },
+    });
+    await until(() => events.at(-1)?.type === 'work');
+    expect(events.at(-1)).toEqual({ type: 'work', sessionId: id, work: { kind: 'explore', file: 'src/a.ts' } });
+  });
+
+  it('AC-8: a read outside the worktree asks, as any command does', async () => {
+    const { events, codex } = await running();
+    void askToRun(codex, 'cat /etc/hosts');
+    await until(() => events.some((event) => event.type === 'approval'));
+    expect(events.find((event) => event.type === 'approval')).toMatchObject({ ask: { command: 'cat /etc/hosts' } });
+  });
+
+  it('an Ask runs no command, and says so as a step; a plain read still runs', async () => {
+    const { events, codex, id } = await running({ readOnly: true, commands: 'any' });
+    expect((await askToRun(codex, 'npm test')).result).toEqual({ decision: 'decline' });
+    expect(events.at(-1)).toMatchObject({
+      sessionId: id,
+      work: { kind: 'refused', refusal: { access: 'run', reason: 'ask_session', path: 'npm test' } },
+    });
+    expect((await askToRun(codex, 'ls src', { itemId: 'item-3' })).result).toEqual({ decision: 'accept' });
+  });
+
+  it('with no sandbox on this computer, no command runs, and nothing asks', async () => {
+    const { events, codex } = await running({ commands: 'any' }, { runsCommands: false });
+    expect((await askToRun(codex, 'npm test')).result).toEqual({ decision: 'decline' });
+    expect((await askToRun(codex, 'cat src/a.ts')).result).toEqual({ decision: 'decline' });
+    expect(events.some((event) => event.type === 'approval')).toBe(false);
+  });
+
+  it("declines writing to a command's input, which Orynx never asks you about", async () => {
+    const { events, codex } = await running({ commands: 'any' });
+    expect((await askToRun(codex, 'y', { kind: 'writeStdin' })).result).toEqual({ decision: 'decline' });
+    expect(events.some((event) => event.type === 'approval')).toBe(false);
+  });
+
+  it('Stop declines a command that waits for you', async () => {
+    const { adapter, id, events, codex } = await running();
+    const answer = askToRun(codex, 'npm test');
+    await until(() => events.some((event) => event.type === 'approval'));
+    const stopping = adapter.stop(id);
+
+    expect((await answer).result).toEqual({ decision: 'decline' });
+    codex.reply((await codex.expectRequest('turn/interrupt')).id, {});
+    await stopping;
+    expect(events).toContainEqual(expect.objectContaining({ type: 'answered', allowed: false }));
+  });
+});
