@@ -56,6 +56,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), devhubToken()],
   server: { host: 'localhost', port: webPort, strictPort: true, proxy },
   preview: { host: 'localhost', port: webPort, strictPort: true, proxy },
-  // DevHub is served from this laptop, so one ~550 kB bundle loads instantly; split by route when it grows.
+  // DevHub is served from this laptop, so one bundle loads fast; only the terminal's xterm (a quarter of the code) loads
+  // apart, when a terminal first opens. Split by route if it keeps growing.
   build: { outDir: 'dist', sourcemap: true, chunkSizeWarningLimit: 800 },
 });
