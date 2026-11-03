@@ -2,37 +2,38 @@
 
 **Hand your agent the ticket. Keep your flow.**
 
-Orynx is a developer-first, plug-and-play app on your laptop. Connectors bring the Jira tickets and GitHub reviews that need you into one inbox, and the coding agent you plug in, Claude today, builds a ticket in its own git worktree. You choose how far it goes: ask before every command, or push the branch and open the pull request on its own.
+Orynx is a developer-first, plug-and-play app on your laptop. Connectors bring the tickets, reviews and messages that need you into one inbox, and the coding agent you plug in, Claude or Codex today, builds a ticket in its own git worktree. You choose how far it goes: ask before every command, or push the branch and open the pull request on its own.
 
-![Orynx Home. The composer asks what to ship today, and Needs your attention lists Jira tickets and GitHub pull requests with reasons such as Review requested, Checks failing and Due tomorrow.](apps/landing/src/assets/screens/home-1440.webp)
+![Orynx Home. The sidebar lists sessions, two Working and the others Done or PR open. The composer asks What should we ship today?, set to Build in the storefront-web folder with the agent picker on Opus · High. Needs your attention has tabs All 8, Jira 3, Pull requests 3, Slack 1 and Discord 1. Its rows: SHOP-482 Add CSV export, In progress · 4 min; a Slack message from Neha K. in #checkout, No reply · 48 min; a Discord message from sam.r in #payments on Acme Eng, No reply · 1 h; payments-api #318 Retry failed webhook deliveries, Review requested · 4 h; and storefront-web #1179 Fix rounding, Checks failing · 5 h.](apps/landing/src/assets/screens/home-1440.webp)
 
 ## What it does
 
 ### One inbox: know what needs you, and why
 
-Orynx reads your assigned tickets, review requests and your own pull requests, then shows only what is waiting on you. Each row says why it is there and how long it has waited, so the next step is obvious.
+Orynx reads your assigned tickets, review requests, your own pull requests and the messages that name you, then shows only what is waiting on you. Each row says why it is there and how long it has waited, so the next step is obvious.
 
 - **Approve command**: an agent session is waiting for your click before it runs a command.
 - **Review requested**: pull requests that asked for your review, longest wait first.
 - **Checks failing**: your own pull requests with red checks or unresolved comments.
 - **Due tomorrow**: assigned tickets by due date, with high-priority bugs on top.
+- **No reply**: Slack and Discord messages that named you and still wait on your reply.
 
 ### Your sprint, with your agent on the board
 
 Board or list, filtered by assignee, status, type, priority and due date. Every card shows where its agent session stands, and any card can start one.
 
-![Orynx Tickets. A sprint board with To do, In progress, In review and Done columns. Cards show each ticket's priority, due date and Claude's state, such as Needs you, Working and Done, ready for PR.](apps/landing/src/assets/screens/tickets-1440.webp)
+![Orynx Tickets, the board for Sprint 18, with columns To do 3, In progress 3, In review 2 and Done 2. Cards show each ticket's priority, due date and the agent's state: Needs you, Working, Done, ready to push, PR open and PR merged.](apps/landing/src/assets/screens/tickets-1440.webp)
 
 ### Delegate the work, stay close to the change
 
 A session takes a ticket from brief to pull request in five visible steps: plan, build, test, review and pull request. Step in at any of them, or let it run.
 
-1. **Start from a ticket or a sentence.** Paste a Jira key, pick a ticket from the board, or describe the task. Add pull requests and files as context, then choose the repository and the model.
+1. **Start from a ticket or a sentence.** Paste a Jira key, pick a ticket from the board, or describe the task. Add pull requests, files and Slack or Discord threads as context, then choose the repository, the agent and the model.
 2. **The agent works in its own worktree.** Each session gets a fresh git worktree and branch, so your main checkout stays untouched. Watch the plan, the files the agent reads and every edit as it happens.
 3. **Your settings decide what runs.** The agent does what you allowed in Settings and asks for the rest: allow once, always allow, or deny. Review the diff file by file and ask for changes without starting over.
 4. **Ship your way.** The agent drafts the pull request title and description. Push and open it with one click, or allow it to push the branch and open the pull request on its own.
 
-![An Orynx session for a Jira story. On the left, Claude's progress: made a worktree, made a plan and edited 4 files, then Claude asks to run the orders tests, with Allow once, Always allow and Deny. On the right, the live diff of four changed files.](apps/landing/src/assets/screens/session-1440.webp)
+![An Orynx session on SHOP-476, Show a delivery estimate on checkout, marked Needs your answer, with the stepper at Build: Plan done, then Build, Test and Pull request. Under What agent did, Claude has a question: Where should the estimate come from? The choices are Carrier API, Zone table and Other, with Send answer and Skip. On the right, the Changes tab shows the diff of estimate.ts.](apps/landing/src/assets/screens/session-1440.webp)
 
 ### Your rules: as hands-on or hands-off as you like
 
@@ -44,27 +45,29 @@ Pick a level in Settings › Coding agent, then set any kind of call to Allow, A
 - **Sandboxed unless you say so.** Commands run with no network and write only to the session's copy. Each risky row warns you when you allow it.
 - **Stop at any moment.** Stop the agent mid-step, or discard the session and its worktree.
 
-![Orynx Settings, Coding agent. Under What Claude can do without asking, four levels: Cautious, Balanced, Hands-off and Custom. Hands-off is picked: Claude edits files, runs any command, uses the network, pushes the branch and opens pull requests without asking, and asks before deleting outside its copy.](apps/landing/src/assets/screens/agent-1440.webp)
+![Orynx Settings, Coding agent. Under Agent, Claude is Active, a company login signed in as alex@acme.dev at Acme, and Codex is Active, signed in with ChatGPT. Other agents and Claude changes Jira are switched off. Under What the agent can do without asking, four levels: Cautious, Balanced (Recommended, picked), Hands-off and Custom.](apps/landing/src/assets/screens/agent-1440.webp)
 
 ### Local-first: your workspace, on your machine
 
 There is no Orynx cloud. Orynx is a small server and a web app, both on your laptop.
 
-- **Tokens in your OS keychain.** Jira and GitHub tokens are saved in your keychain and never reach the browser.
+- **Tokens in your OS keychain.** Jira, GitHub, Slack and Discord tokens are saved in your keychain and never reach the browser.
 - **Bound to 127.0.0.1.** The server listens only on this computer and checks a token on every request. Your other devices reach it at `https://orynx.local` through a front door that asks for the password you choose when you set up Orynx (see [Install](#install)).
 - **A local cache.** Synced tickets and pull requests live in one file on your disk.
-- **Only what you connect.** Orynx talks only to the connectors and agent you plug in: Jira, GitHub and Claude today, Slack and more next.
+- **Only what you connect.** Orynx talks only to the connectors and agent you plug in: Jira, GitHub, Slack and Discord, and Claude or Codex, today.
 
-![Orynx Settings, Connections. A note says everything stays on this computer: tokens live in your OS keychain and the cache is a local file. Jira and GitHub are connected; Slack is not connected yet.](apps/landing/src/assets/screens/settings-1440.webp)
+![Orynx Settings, Connections, 4 of 4 connected. A note says everything stays on this computer: tokens live in your OS keychain and the cache is a local file. Jira, GitHub through the gh command, Slack in the Acme workspace and Discord with the bot Orynx in Acme Eng are all connected.](apps/landing/src/assets/screens/settings-1440.webp)
 
 ### The details
 
 - **Search everything with ⌘K.** Jump to any ticket, pull request or session from anywhere in the app.
-- **Context in a paste.** Add tickets, pull requests and files to a brief, or paste a Jira key or GitHub link.
+- **Context in a paste.** Add tickets, pull requests, files and Slack or Discord threads to a brief, or paste a Jira key or a GitHub, Slack or Discord link.
 - **A live diff.** Every changed file and its diff, updating as the agent edits.
 - **Follow-ups, not restarts.** Ask the agent to change something and it carries on in the same session.
 - **Your own skills.** Save instructions you reuse, then call them with / in the composer.
 - **Model and effort per task.** Pick the model and how hard it works for each task, or keep the agent's default.
+- **Questions, not guesses.** When Claude needs a decision, it asks in the session with its choices as cards, and carries on with your answer.
+- **Reviews you post.** Review with Claude leaves comments under a teammate's diff; you keep or edit them, and nothing reaches GitHub until you press Post review.
 
 Inside the repo the code name is DevHub: the `@devhub/*` packages, the `DEVHUB_*` settings, the `~/.devhub` folder and the keychain item keep that name, so saved tokens and settings carry over.
 
@@ -89,7 +92,7 @@ Open http://127.0.0.1:4317 on this computer. The first time, Orynx asks who you 
 
 Forgot the password? Delete `~/.devhub/password` and restart Orynx (see below): setup opens again on this computer, with your profile filled in.
 
-To update, press Update in Settings › About, or run `git pull && ./install.sh` in the clone. An Orynx installed before Update was there needs `./install.sh` run once more by hand first. You still need Claude Code signed in on this computer, and a Jira Cloud API token and GitHub (the gh CLI or a token) to connect in Settings.
+To update, press Update in Settings › About, or run `git pull && ./install.sh` in the clone. An Orynx installed before Update was there needs `./install.sh` run once more by hand first. You still need Claude Code or Codex signed in on this computer, and a Jira Cloud API token and GitHub (the gh CLI or a token) to connect in Settings.
 
 ### Keep it as an app
 
@@ -146,7 +149,7 @@ Your settings, cache and certificate stay in `~/.devhub` until you delete it.
 To work on Orynx, or try it without installing, clone it (`git clone https://github.com/orynx-ai/orynx.git`) on macOS or Linux. You need:
 
 - Node 24 and pnpm 10
-- Claude Code, signed in on this computer
+- Claude Code or Codex 0.166 or later, signed in on this computer
 - A Jira Cloud API token, and GitHub through the gh CLI or a token
 
 ```sh
@@ -166,22 +169,22 @@ Set up Orynx on the first page that opens, then connect Jira and GitHub in Setti
 
 ## Repo map
 
-| Path                  | What it is                                                                                                              |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `apps/web`            | Browser host: Vite, `index.html`, the web `Platform`                                                                    |
-| `apps/server`         | Node host: env config, session token, serves the web app in production                                                  |
-| `apps/desktop`        | Desktop host: Electron; `pnpm --filter @devhub/desktop package --dir` packs it                                          |
-| `apps/landing`        | The public landing page: static Vite site; `pnpm --filter @devhub/landing dev` serves it on localhost:4319              |
-| `packages/contracts`  | zod schemas for every HTTP body and server event                                                                        |
-| `packages/api-client` | axios client, typed endpoints, TanStack Query options, event stream                                                     |
-| `packages/ui`         | The DevHub design system: tokens, Tailwind theme, shadcn-based components, Storybook                                    |
-| `packages/app`        | The product UI: shell, routes, features, zustand stores                                                                 |
-| `packages/core`       | The local server's logic: Fastify routes, integrations, agent runtime, storage                                          |
-| `specs/`              | One folder per feature: spec, plan, tasks                                                                               |
-| `docs/`               | Product spec, roadmap, design system, screens, architecture, rules                                                      |
-| `learn/`              | Explainer pages: how a request flows, local security, live updates, tokens and the keychain, connecting Jira and GitHub |
-| `scripts/`            | Gates (one rule each), the gate runner, Claude hooks                                                                    |
-| `.claude/`            | Agent kit: settings and hooks, skills, slash commands, helper agents                                                    |
+| Path                  | What it is                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `apps/web`            | Browser host: Vite, `index.html`, the web `Platform`                                                               |
+| `apps/server`         | Node host: env config, session token, serves the web app in production                                             |
+| `apps/desktop`        | Desktop host: Electron; `pnpm --filter @devhub/desktop package --dir` packs it                                     |
+| `apps/landing`        | The public landing page: static Vite site; `pnpm --filter @devhub/landing dev` serves it on localhost:4319         |
+| `packages/contracts`  | zod schemas for every HTTP body and server event                                                                   |
+| `packages/api-client` | axios client, typed endpoints, TanStack Query options, event stream                                                |
+| `packages/ui`         | The DevHub design system: tokens, Tailwind theme, shadcn-based components, Storybook                               |
+| `packages/app`        | The product UI: shell, routes, features, zustand stores                                                            |
+| `packages/core`       | The local server's logic: Fastify routes, integrations, agent runtime, storage                                     |
+| `specs/`              | One folder per feature: spec, plan, tasks                                                                          |
+| `docs/`               | Product spec, roadmap, design system, screens, architecture, rules                                                 |
+| `learn/`              | Explainer pages: how a request flows, local security, live updates, tokens and the keychain, connecting your tools |
+| `scripts/`            | Gates (one rule each), the gate runner, Claude hooks                                                               |
+| `.claude/`            | Agent kit: settings and hooks, skills, slash commands, helper agents                                               |
 
 The packages are split so the desktop app is a third host without a rewrite. See `docs/architecture.md`.
 

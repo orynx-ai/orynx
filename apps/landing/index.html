@@ -6,7 +6,7 @@
     <title>Orynx — Plug in your tools and your coding agent</title>
     <meta
       name="description"
-      content="Orynx is a plug-and-play app on your machine: one inbox for the Jira tickets and GitHub reviews that need you, and your coding agent building each ticket in its own git worktree, asking first or shipping the pull request, as you choose."
+      content="Orynx is a plug-and-play app on your machine: one inbox for the tickets, reviews and threads that need you, and your coding agent taking each one to a pull request in its own git worktree, asking first or shipping, as you choose."
     />
     <meta name="theme-color" content="#12110f" />
     <meta name="color-scheme" content="dark" />
@@ -17,7 +17,7 @@
     <meta property="og:title" content="Orynx — Plug in your tools and your coding agent" />
     <meta
       property="og:description"
-      content="One inbox for the work that needs you, and your coding agent taking tickets to pull requests in a worktree you control. Runs on your machine."
+      content="One inbox for the tickets, reviews and threads that need you, and your coding agent taking each one to a pull request in a worktree you control. Runs on your machine."
     />
     <meta property="og:image" content="/og.png" />
     <meta property="og:image:width" content="1200" />
@@ -31,6 +31,36 @@
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body>
+    <!-- The marks the page draws more than once. Slack's and Discord's shapes come from their own logos, as the app draws them. -->
+    <svg class="sprite" aria-hidden="true" focusable="false">
+      <defs>
+        <g id="slack-mark">
+          <path
+            fill="#e01e5a"
+            d="M25.8 77.6c0 7.1-5.8 12.9-12.9 12.9S0 84.7 0 77.6s5.8-12.9 12.9-12.9h12.9v12.9zm6.5 0c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9v32.3c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V77.6z"
+          />
+          <path
+            fill="#36c5f0"
+            d="M45.2 25.8c-7.1 0-12.9-5.8-12.9-12.9S38.1 0 45.2 0s12.9 5.8 12.9 12.9v12.9H45.2zm0 6.5c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H12.9C5.8 58.1 0 52.3 0 45.2s5.8-12.9 12.9-12.9h32.3z"
+          />
+          <path
+            fill="#2eb67d"
+            d="M97 45.2c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9-5.8 12.9-12.9 12.9H97V45.2zm-6.5 0c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V12.9C64.7 5.8 70.5 0 77.6 0s12.9 5.8 12.9 12.9v32.3z"
+          />
+          <path
+            fill="#ecb22e"
+            d="M77.6 97c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9-12.9-5.8-12.9-12.9V97h12.9zm0-6.5c-7.1 0-12.9-5.8-12.9-12.9s5.8-12.9 12.9-12.9h32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H77.6z"
+          />
+        </g>
+        <path
+          id="discord-mark"
+          fill="#5865f2"
+          d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"
+        />
+        <path id="claude-mark" d="M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7z" />
+        <path id="codex-mark" d="M8.5 7.5L4 12l4.5 4.5M15.5 7.5L20 12l-4.5 4.5" />
+      </defs>
+    </svg>
     <a class="skip-link" href="#main">Skip to content</a>
 
     <header class="site-header">
@@ -46,6 +76,7 @@
           <span>Orynx</span>
         </a>
         <nav class="site-nav" aria-label="Main">
+          <a href="#new">What's new</a>
           <a href="#product">Product</a>
           <a href="#how-it-works">How it works</a>
           <a href="#local-first">Local-first</a>
@@ -60,14 +91,26 @@
       <section class="hero" id="top" aria-labelledby="hero-title">
         <div class="hero-glow" aria-hidden="true"></div>
         <div class="wrap hero-copy">
-          <p class="pill rise"><span class="pill-dot" aria-hidden="true"></span>Plug and play · Runs on your machine</p>
+          <a class="pill pill-link rise" href="#new">
+            <span class="pill-new">New</span
+            ><span>Codex, Slack, Discord<span class="pill-more">, and an agent that asks</span></span>
+            <svg class="pill-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
+          </a>
+          <!-- The last word takes turns (styles.css); a screen reader hears the first one, once. -->
           <h1 id="hero-title">
-            <span class="rise" style="--i: 1">Hand your agent the ticket.</span>
+            <span class="rise" style="--i: 1">Hand your agent</span>
+            <span class="rise" style="--i: 1"
+              >the
+              <span class="cycle" aria-hidden="true"
+                ><span style="--w: 0">ticket.</span><span style="--w: 1">review.</span
+                ><span style="--w: 2">thread.</span><span style="--w: 3">bug.</span></span
+              ><span class="sr-only">ticket.</span></span
+            >
             <em class="rise" style="--i: 2">Keep your flow.</em>
           </h1>
           <p class="lede rise" style="--i: 3">
-            One inbox for your Jira and GitHub work. Claude builds each ticket in its own git worktree, and asks first
-            or ships the pull request, as you choose.
+            One inbox for the tickets, reviews and threads that need you. Your coding agent takes each one to a pull
+            request in its own git worktree, and asks first or ships, as you choose.
           </p>
           <div class="actions rise" style="--i: 4">
             <a class="btn btn-primary" href="#get-started">Get started</a>
@@ -89,7 +132,7 @@
               height="900"
               fetchpriority="high"
               decoding="async"
-              alt="Orynx Home. The composer asks what to ship today, and Needs your attention lists Jira tickets and GitHub pull requests with reasons such as Review requested, Checks failing and Due tomorrow."
+              alt="Orynx Home. The composer asks what to ship today, and Needs your attention has tabs for Jira, Pull requests, Slack and Discord, with rows such as a Slack message waiting on your reply, a review request and a pull request whose checks are failing."
             />
           </figure>
 
@@ -108,11 +151,17 @@
             </span>
             <div>
               <p class="float-title">Pull request opened</p>
-              <p class="float-sub">storefront-web #1186 · by Claude</p>
+              <p class="float-sub">storefront-web #1186 · by Codex</p>
             </div>
           </div>
-          <div class="float float-tag" aria-hidden="true">
-            <span class="tag tag-danger"><i></i>Checks failing · 5 h</span>
+          <div class="float float-thread" aria-hidden="true">
+            <svg class="float-mark" viewBox="0 0 122.8 122.8">
+              <use href="#slack-mark" />
+            </svg>
+            <div>
+              <p class="float-title">Told #checkout</p>
+              <p class="float-sub">“#1186 is up for review”</p>
+            </div>
           </div>
         </div>
 
@@ -168,31 +217,20 @@
               GitHub
             </li>
             <li class="tool">
-              <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
-                <path d="M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7z" />
-              </svg>
+              <svg viewBox="0 0 122.8 122.8" aria-hidden="true"><use href="#slack-mark" /></svg>
+              Slack
+            </li>
+            <li class="tool">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#discord-mark" /></svg>
+              Discord
+            </li>
+            <li class="tool">
+              <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon"><use href="#claude-mark" /></svg>
               Claude
             </li>
-            <li class="tool tool-soon">
-              <svg viewBox="0 0 122.8 122.8" aria-hidden="true">
-                <path
-                  fill="#e01e5a"
-                  d="M25.8 77.6c0 7.1-5.8 12.9-12.9 12.9S0 84.7 0 77.6s5.8-12.9 12.9-12.9h12.9v12.9zm6.5 0c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9v32.3c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V77.6z"
-                />
-                <path
-                  fill="#36c5f0"
-                  d="M45.2 25.8c-7.1 0-12.9-5.8-12.9-12.9S38.1 0 45.2 0s12.9 5.8 12.9 12.9v12.9H45.2zm0 6.5c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H12.9C5.8 58.1 0 52.3 0 45.2s5.8-12.9 12.9-12.9h32.3z"
-                />
-                <path
-                  fill="#2eb67d"
-                  d="M97 45.2c0-7.1 5.8-12.9 12.9-12.9s12.9 5.8 12.9 12.9-5.8 12.9-12.9 12.9H97V45.2zm-6.5 0c0 7.1-5.8 12.9-12.9 12.9s-12.9-5.8-12.9-12.9V12.9C64.7 5.8 70.5 0 77.6 0s12.9 5.8 12.9 12.9v32.3z"
-                />
-                <path
-                  fill="#ecb22e"
-                  d="M77.6 97c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9-12.9-5.8-12.9-12.9V97h12.9zm0-6.5c-7.1 0-12.9-5.8-12.9-12.9s5.8-12.9 12.9-12.9h32.3c7.1 0 12.9 5.8 12.9 12.9s-5.8 12.9-12.9 12.9H77.6z"
-                />
-              </svg>
-              Slack <span class="soon">Soon</span>
+            <li class="tool">
+              <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon"><use href="#codex-mark" /></svg>
+              Codex
             </li>
             <li class="tool tool-soon">
               <svg viewBox="0 0 24 24" aria-hidden="true" class="stroke-icon">
@@ -200,6 +238,157 @@
                 <path d="M12 8v8M8 12h8" />
               </svg>
               More plug-ins <span class="soon">Coming</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="section" id="new" aria-labelledby="new-title">
+        <div class="wrap">
+          <div class="section-head section-head-center reveal">
+            <p class="eyebrow">What's new</p>
+            <h2 id="new-title">More of your day, <em>handed off.</em></h2>
+            <p>A second agent, two more tools, and an agent that asks when the choice is yours.</p>
+          </div>
+
+          <!-- Each card's words say it all; its little scene is decoration, still without motion. -->
+          <ul class="bento">
+            <li class="card card-wide reveal" style="--i: 0">
+              <div class="card-copy">
+                <p class="card-tag">Questions</p>
+                <h3>It asks instead of guessing.</h3>
+                <p>
+                  When a choice is yours, Claude stops and asks. Pick an answer, write your own or skip it, right in the
+                  session or from your phone.
+                </p>
+              </div>
+              <div class="demo demo-ask" aria-hidden="true">
+                <div class="ask">
+                  <p class="ask-title">Claude has a question</p>
+                  <p class="ask-q">Where should the estimate come from?</p>
+                  <span class="choice">Carrier API<small>Live dates from each carrier</small></span>
+                  <span class="choice choice-pick">Zone table<small>Fixed days per zone, no call</small></span>
+                  <span class="choice">Other</span>
+                  <span class="ask-actions"><span class="ask-send">Send answer</span><span>Skip</span></span>
+                </div>
+                <p class="ask-sent">
+                  <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>Answered · Zone table
+                </p>
+              </div>
+            </li>
+
+            <li class="card reveal" style="--i: 1">
+              <div class="card-copy">
+                <p class="card-tag">Agents</p>
+                <h3>Claude or Codex, per task.</h3>
+                <p>Pick the agent in the composer. Same screens, same rules for what it may do.</p>
+              </div>
+              <div class="demo demo-agents" aria-hidden="true">
+                <div class="switch">
+                  <span class="switch-thumb"></span>
+                  <span class="switch-opt">
+                    <svg viewBox="0 0 24 24" class="stroke-icon"><use href="#claude-mark" /></svg>Claude
+                  </span>
+                  <span class="switch-opt">
+                    <svg viewBox="0 0 24 24" class="stroke-icon"><use href="#codex-mark" /></svg>Codex
+                  </span>
+                </div>
+                <div class="composer">
+                  <p>Add CSV export to the orders report</p>
+                  <span class="composer-bar">
+                    <span class="composer-chip">storefront-web</span>
+                    <span class="composer-agent">
+                      <span class="agent-claude">Opus · High</span><span class="agent-codex">Codex</span>
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </li>
+
+            <li class="card reveal" style="--i: 0">
+              <div class="card-copy">
+                <p class="card-tag">Slack and Discord</p>
+                <h3>Threads in the inbox.</h3>
+                <p>
+                  Messages waiting on your reply sit beside your tickets. Hand one to the agent, then tell the thread.
+                </p>
+              </div>
+              <div class="demo demo-threads" aria-hidden="true">
+                <span class="msg">
+                  <svg viewBox="0 0 122.8 122.8"><use href="#slack-mark" /></svg>
+                  <span><b>Neha K.</b> in #checkout<small>Can checkout show a range?</small></span>
+                  <em>48 min</em>
+                </span>
+                <span class="msg">
+                  <svg viewBox="0 0 24 24"><use href="#discord-mark" /></svg>
+                  <span><b>sam.r</b> in #payments<small>Webhooks stuck at 3 retries</small></span>
+                  <em>1 h</em>
+                </span>
+                <span class="told">
+                  <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>Posted in #checkout: #1186 is up
+                </span>
+              </div>
+            </li>
+
+            <li class="card card-wide reveal" style="--i: 1">
+              <div class="card-copy">
+                <p class="card-tag">Reviews</p>
+                <h3>Review a pull request with Claude.</h3>
+                <p>
+                  Claude reads the change and leaves its notes under the lines. Keep, edit or drop each one. Post review
+                  is the only press that writes to GitHub.
+                </p>
+              </div>
+              <div class="demo demo-review" aria-hidden="true">
+                <div class="diff">
+                  <span class="ln"><i>17</i>// Back off: 1 s, 2 s, 4 s …</span>
+                  <span class="ln"><i>18</i>const delay = base * 2 ** attempt;</span>
+                  <div class="note">
+                    <p class="note-who">
+                      <svg viewBox="0 0 24 24" class="stroke-icon"><use href="#claude-mark" /></svg>Claude
+                    </p>
+                    <p>The delay never caps. Cap it at <code>maxDelayMs</code> and add jitter.</p>
+                    <p class="note-actions"><span class="tick"></span>Keep<span>Edit</span></p>
+                  </div>
+                  <span class="ln"><i>19</i>await schedule(job, delay);</span>
+                </div>
+              </div>
+            </li>
+
+            <li class="card card-wide reveal" style="--i: 0">
+              <div class="card-copy">
+                <p class="card-tag">Review replies</p>
+                <h3>Answer reviewers in one pass.</h3>
+                <p>
+                  Claude drafts a reply to each open thread its changes answer. Edit them, tick Resolve, and post them
+                  together.
+                </p>
+              </div>
+              <div class="demo demo-replies" aria-hidden="true">
+                <div class="thread">
+                  <p class="who"><b>priya</b> · ContentList.tsx:42</p>
+                  <p>Use the existing useSelection hook here.</p>
+                </div>
+                <div class="draft">
+                  <p class="who">Your reply</p>
+                  <p class="typed">Done: the list uses useSelection now.</p>
+                  <span class="resolve"><span class="tick"></span>Resolve</span>
+                </div>
+              </div>
+            </li>
+
+            <li class="card reveal" style="--i: 1">
+              <div class="card-copy">
+                <p class="card-tag">The plan</p>
+                <h3>Watch the plan tick off.</h3>
+                <p>The agent's to-do list shows what's done, what's running and what comes next.</p>
+              </div>
+              <ul class="demo demo-todos" aria-hidden="true">
+                <li class="is-done"><span class="mark"></span>Add a getEstimate helper</li>
+                <li class="is-done"><span class="mark"></span>Show it under Shipping</li>
+                <li class="is-running"><span class="mark"></span>Cover slow carriers</li>
+                <li><span class="mark"></span>Test the helper</li>
+              </ul>
             </li>
           </ul>
         </div>
@@ -293,6 +482,12 @@
               <button class="showcase-tab" type="button" role="tab" id="tab-session" aria-controls="panel-session">
                 Session
               </button>
+              <button class="showcase-tab" type="button" role="tab" id="tab-review" aria-controls="panel-review">
+                Review
+              </button>
+              <button class="showcase-tab" type="button" role="tab" id="tab-codex" aria-controls="panel-codex">
+                Codex
+              </button>
               <button class="showcase-tab" type="button" role="tab" id="tab-rules" aria-controls="panel-rules">
                 Rules
               </button>
@@ -320,12 +515,12 @@
                     height="900"
                     loading="lazy"
                     decoding="async"
-                    alt="Orynx Tickets. A sprint board with To do, In progress, In review and Done columns. Cards show each ticket's priority, due date and Claude's state, such as Needs you, Working and Done, ready for PR."
+                    alt="Orynx Tickets. A sprint board with To do, In progress, In review and Done columns. Cards show each ticket's priority, due date and the agent's state, such as Needs you, Working, Done, ready to push and PR merged."
                   />
                 </figure>
               </div>
               <div class="showcase-panel" role="tabpanel" id="panel-session" aria-labelledby="tab-session">
-                <p class="showcase-caption">Watch every step. Approve with one click.</p>
+                <p class="showcase-caption">It asks when the choice is yours. You answer in one click.</p>
                 <figure class="window">
                   <img
                     src="./src/assets/screens/session-1440.webp"
@@ -334,12 +529,40 @@
                     width="1440"
                     height="900"
                     decoding="async"
-                    alt="An Orynx session for a Jira story. On the left, Claude's progress: made a worktree, made a plan and edited 4 files, then Claude asks to run the orders tests, with Allow once, Always allow and Deny. On the right, the live diff of four changed files."
+                    alt="An Orynx session for the Jira story SHOP-476, Show a delivery estimate on checkout, marked Needs your answer. Under What agent did, Claude has a question: Where should the estimate come from? The choices are Carrier API, Zone table and Other, with Send answer and Skip. On the right, the live diff of the new estimate.ts file."
+                  />
+                </figure>
+              </div>
+              <div class="showcase-panel" role="tabpanel" id="panel-review" aria-labelledby="tab-review">
+                <p class="showcase-caption">Claude reviews the pull request. You keep what goes out.</p>
+                <figure class="window">
+                  <img
+                    src="./src/assets/screens/review-1440.webp"
+                    srcset="./src/assets/screens/review-1440.webp 1440w, ./src/assets/screens/review-2880.webp 2880w"
+                    sizes="(min-width: 1248px) 1200px, calc(100vw - 48px)"
+                    width="1440"
+                    height="900"
+                    decoding="async"
+                    alt="An Orynx review of the pull request payments-api #318, Retry failed webhook deliveries with backoff. A bar says Claude left 3 comments, with Post review. Claude's progress lists where it commented, and in the diff its comment sits under line 18: the delay never caps, so cap it and add jitter, with Keep ticked and Edit."
+                  />
+                </figure>
+              </div>
+              <div class="showcase-panel" role="tabpanel" id="panel-codex" aria-labelledby="tab-codex">
+                <p class="showcase-caption">Prefer Codex? Same screens, same rules.</p>
+                <figure class="window">
+                  <img
+                    src="./src/assets/screens/codex-1440.webp"
+                    srcset="./src/assets/screens/codex-1440.webp 1440w, ./src/assets/screens/codex-2880.webp 2880w"
+                    sizes="(min-width: 1248px) 1200px, calc(100vw - 48px)"
+                    width="1440"
+                    height="900"
+                    decoding="async"
+                    alt="An Orynx session for SHOP-482, Add CSV export to the orders report, run on Codex. Plan and Build are done, and Codex wants to run pnpm test -- orders, with Allow once, Always allow pnpm test and Deny. The follow-up box says Ask Codex to change something, and the diff of four changed files is on the right."
                   />
                 </figure>
               </div>
               <div class="showcase-panel" role="tabpanel" id="panel-rules" aria-labelledby="tab-rules">
-                <p class="showcase-caption">Pick how far the agent goes on its own.</p>
+                <p class="showcase-caption">Pick how far each agent goes on its own.</p>
                 <figure class="window">
                   <img
                     src="./src/assets/screens/agent-1440.webp"
@@ -348,12 +571,12 @@
                     width="1440"
                     height="900"
                     decoding="async"
-                    alt="Orynx Settings, Coding agent. Under What Claude can do without asking, four levels: Cautious, Balanced, Hands-off and Custom. Hands-off is picked: Claude edits files, runs any command, uses the network, pushes the branch and opens pull requests without asking, and asks before deleting outside its copy."
+                    alt="Orynx Settings, Coding agent. Claude and Codex are both signed in and active. Under What the agent can do without asking, four levels: Cautious, Balanced, Hands-off and Custom. Balanced, the recommended level, is picked: the agent edits files and runs your allowed commands without asking, and asks before anything else."
                   />
                 </figure>
               </div>
               <div class="showcase-panel" role="tabpanel" id="panel-connections" aria-labelledby="tab-connections">
-                <p class="showcase-caption">Your own logins, kept in your keychain.</p>
+                <p class="showcase-caption">Jira, GitHub, Slack and Discord, on your own logins.</p>
                 <figure class="window">
                   <img
                     src="./src/assets/screens/settings-1440.webp"
@@ -365,7 +588,7 @@
                     width="1440"
                     height="900"
                     decoding="async"
-                    alt="Orynx Settings, Connections. A note says everything stays on this computer: tokens live in your OS keychain and the cache is a local file. Jira and GitHub are connected; Slack is not connected yet."
+                    alt="Orynx Settings, Connections, with 4 of 4 connected: Jira with a personal API token, GitHub through the gh command, Slack in the Acme workspace and Discord through a bot. A note says everything stays on this computer: tokens live in your OS keychain and the cache is a local file."
                   />
                 </figure>
               </div>
@@ -378,15 +601,15 @@
         <div class="wrap">
           <div class="section-head section-head-center reveal">
             <p class="eyebrow">How it works</p>
-            <h2 id="how-title">Ticket to pull request. <em>Four steps.</em></h2>
+            <h2 id="how-title">Anything to a pull request. <em>Four steps.</em></h2>
           </div>
           <ol class="flow reveal">
             <li style="--i: 0">
               <span class="flow-dot" aria-hidden="true">
                 <svg viewBox="0 0 24 24" class="stroke-icon"><path d="M4 6h16M4 12h10M4 18h7" /></svg>
               </span>
-              <h3>Pick a ticket</h3>
-              <p>Or describe the task, with pull requests and files as context.</p>
+              <h3>Pick the work</h3>
+              <p>A ticket, a pull request, a Slack or Discord thread, or your own words.</p>
             </li>
             <li style="--i: 1">
               <span class="flow-dot" aria-hidden="true">
@@ -408,7 +631,7 @@
                 </svg>
               </span>
               <h3>Your rules decide</h3>
-              <p>Allow, ask or block each kind of call it makes.</p>
+              <p>Allow, ask or block each kind of call. It asks you when a choice is yours.</p>
             </li>
             <li style="--i: 3">
               <span class="flow-dot" aria-hidden="true">
@@ -420,7 +643,7 @@
                 </svg>
               </span>
               <h3>Ship it</h3>
-              <p>Open the pull request in one click, or let the agent do it.</p>
+              <p>Open the pull request in one click, then tell the thread it's up.</p>
             </li>
           </ol>
         </div>
@@ -432,7 +655,10 @@
             <div class="section-head">
               <p class="eyebrow">On any device</p>
               <h2 id="anywhere-title">Approve from <em>your phone.</em></h2>
-              <p>Open orynx.local on your wifi, enter your Orynx password, and add it to your home screen.</p>
+              <p>
+                Open orynx.local on your wifi, enter your Orynx password, and add it to your home screen. Approvals and
+                questions wait for you there.
+              </p>
             </div>
             <ul class="chips">
               <li>https://orynx.local</li>
@@ -449,7 +675,7 @@
                 height="1576"
                 loading="lazy"
                 decoding="async"
-                alt="An Orynx session on a phone. Claude made a plan and edited 4 files, and asks to run pnpm test -- orders, with Allow once, Always allow pnpm test and Deny."
+                alt="An Orynx session on a phone. Plan and Build are done, and under Test, Codex wants to run pnpm test -- orders, with Allow once, Always allow pnpm test and Deny."
               />
             </figure>
           </div>
@@ -466,37 +692,45 @@
         <div class="marquee reveal">
           <ul class="marquee-track">
             <li>⌘K to search everything</li>
-            <li>Paste a Jira key or PR link</li>
+            <li>Paste a Jira key, PR or Slack link</li>
             <li>A live diff</li>
             <li>Follow-ups, not restarts</li>
             <li>Your own /skills</li>
             <li>Model and effort per task</li>
+            <li>Fix this on any row</li>
+            <li>New Jira tickets, in the sprint</li>
           </ul>
           <ul class="marquee-track" aria-hidden="true">
             <li>⌘K to search everything</li>
-            <li>Paste a Jira key or PR link</li>
+            <li>Paste a Jira key, PR or Slack link</li>
             <li>A live diff</li>
             <li>Follow-ups, not restarts</li>
             <li>Your own /skills</li>
             <li>Model and effort per task</li>
+            <li>Fix this on any row</li>
+            <li>New Jira tickets, in the sprint</li>
           </ul>
         </div>
         <div class="marquee marquee-reverse reveal">
           <ul class="marquee-track">
             <li>A real terminal per session</li>
-            <li>The servers Claude started</li>
+            <li>The servers the agent started</li>
             <li>Board or list</li>
             <li>Pin and rename sessions</li>
-            <li>Alerts when Claude waits</li>
+            <li>Alerts when the agent waits</li>
             <li>A log of every sync</li>
+            <li>Push fixes to your pull request</li>
+            <li>Time and cost per session</li>
           </ul>
           <ul class="marquee-track" aria-hidden="true">
             <li>A real terminal per session</li>
-            <li>The servers Claude started</li>
+            <li>The servers the agent started</li>
             <li>Board or list</li>
             <li>Pin and rename sessions</li>
-            <li>Alerts when Claude waits</li>
+            <li>Alerts when the agent waits</li>
             <li>A log of every sync</li>
+            <li>Push fixes to your pull request</li>
+            <li>Time and cost per session</li>
           </ul>
         </div>
       </section>
@@ -539,7 +773,7 @@
                 <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" />
               </svg>
               <h3>Only what you connect</h3>
-              <p>Jira, GitHub and Claude today.</p>
+              <p>Jira, GitHub, Slack, Discord, Claude and Codex today.</p>
             </li>
           </ul>
         </div>
@@ -555,8 +789,9 @@
             </div>
             <ul class="needs">
               <li>Node 24, or nvm to install it</li>
-              <li>Claude Code, signed in</li>
+              <li>Claude Code or Codex, signed in</li>
               <li>A Jira API token, and gh or a GitHub token</li>
+              <li>Slack or Discord, if you want their messages too</li>
             </ul>
             <p class="after">Then open http://127.0.0.1:4317 to pick your name and password.</p>
           </div>
@@ -572,7 +807,7 @@
               </button>
               <span class="sr-only" role="status" data-copy-status></span>
             </div>
-            <pre><code><span class="dim"># Clone, build, start at log-in</span>
+            <pre tabindex="0"><code><span class="dim"># Clone, build, start at log-in</span>
 <span class="type" style="--n: 44; --i: 0">git clone https://github.com/orynx-ai/orynx.git</span>
 <span class="type" style="--n: 8; --i: 1">cd orynx</span>
 <span class="type" style="--n: 12; --i: 2">./install.sh</span>
@@ -592,15 +827,16 @@
             <details>
               <summary>Does my code leave my computer?</summary>
               <p>
-                Orynx has no cloud. Claude reads the files a task needs through your own login, exactly as Claude Code
-                does in your terminal. Jira and GitHub are called with your own tokens.
+                Orynx has no cloud. Your coding agent reads the files a task needs through your own login, exactly as it
+                does in your terminal. Jira, GitHub, Slack and Discord are called with your own tokens.
               </p>
             </details>
             <details>
-              <summary>Which Claude account does it use?</summary>
+              <summary>Which agent account does it use?</summary>
               <p>
-                The one Claude Code already has on your computer: a claude.ai account, an API key, Amazon Bedrock or
-                Google Vertex. Orynx needs no key of its own.
+                The ones already on your computer. Claude uses Claude Code's login: a claude.ai account, an API key,
+                Amazon Bedrock or Google Vertex. Codex uses its own: ChatGPT or an API key. Orynx needs no key of its
+                own, and you pick the agent for each task.
               </p>
             </details>
             <details>
@@ -608,6 +844,13 @@
               <p>
                 Only if you allow it. A fresh Orynx never pushes. Pick Hands-off in Settings › Coding agent, or set Push
                 the branch and Open a pull request to Allow.
+              </p>
+            </details>
+            <details>
+              <summary>Does it post to GitHub, Slack or Discord without me?</summary>
+              <p>
+                No. A review, replies to reviewers and the note in a thread go out only when you press Post review, Post
+                replies or Post reply. Until then they stay in Orynx, for you to keep, edit or drop.
               </p>
             </details>
             <details>
@@ -625,8 +868,8 @@
             <details>
               <summary>What comes next?</summary>
               <p>
-                Slack mentions, once your workspace admin approves the Slack app. Then more connectors and coding
-                agents, each a small adapter that gets the same screens and permissions.
+                More connectors and coding agents. Each is a small adapter that gets the same screens and permissions,
+                the way Slack, Discord and Codex just did.
               </p>
             </details>
           </div>

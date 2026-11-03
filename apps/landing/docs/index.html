@@ -6,7 +6,7 @@
     <title>Orynx Docs — From install to pull request</title>
     <meta
       name="description"
-      content="How to use Orynx end to end: install it, connect Jira, GitHub and Claude, work from the inbox and the board, watch Claude build a ticket in its own worktree, approve its steps and open the pull request."
+      content="How to use Orynx end to end: install it, connect Jira, GitHub, Slack and Discord, pick Claude or Codex, work from the inbox and the board, watch the agent build a ticket in its own worktree, answer and approve its steps, open the pull request and review your teammates' pull requests."
     />
     <meta name="theme-color" content="#12110f" />
     <meta name="color-scheme" content="dark" />
@@ -77,7 +77,7 @@
               <li><a href="#setup">Set up Orynx</a></li>
               <li><a href="#connect">Connect your tools</a></li>
               <li><a href="#repositories">Add your repositories</a></li>
-              <li><a href="#permissions">Choose what Claude may do</a></li>
+              <li><a href="#permissions">Choose what the agent may do</a></li>
             </ol>
           </div>
           <div>
@@ -85,10 +85,13 @@
             <ol>
               <li><a href="#home">Home and the inbox</a></li>
               <li><a href="#start">Start a task</a></li>
+              <li><a href="#agents">Claude or Codex</a></li>
               <li><a href="#tickets">The tickets board</a></li>
               <li><a href="#search">Search</a></li>
               <li><a href="#sessions">Work in a session</a></li>
               <li><a href="#ship">Ship the pull request</a></li>
+              <li><a href="#review">Review a pull request</a></li>
+              <li><a href="#threads">Slack and Discord</a></li>
               <li><a href="#notifications">Notifications</a></li>
             </ol>
           </div>
@@ -116,29 +119,30 @@
           <p class="eyebrow">Docs</p>
           <h1>From install to <em>pull request.</em></h1>
           <p class="lede">
-            Everything you need to run Orynx: install it, connect your tools, and hand Claude a ticket while you watch
-            and approve.
+            Everything you need to run Orynx: install it, connect your tools, and hand your coding agent a ticket while
+            you watch and approve.
           </p>
         </header>
 
         <section id="overview" aria-labelledby="overview-title">
           <h2 id="overview-title">What Orynx is</h2>
           <p>
-            Orynx is an app on your own machine. It brings the Jira tickets and GitHub pull requests that need you into
-            one inbox, and runs Claude on a ticket in its own git worktree while you watch, approve and ship.
+            Orynx is an app on your own machine. It brings the Jira tickets, GitHub pull requests and Slack and Discord
+            messages that need you into one inbox, and runs your coding agent, Claude or Codex, on a ticket in its own
+            git worktree while you watch, approve and ship.
           </p>
           <ul>
             <li>
               <strong>A small server</strong> runs on your machine at <code>127.0.0.1:4317</code>. It talks to Jira,
-              GitHub and Claude with your own logins.
+              GitHub, Slack, Discord, Claude and Codex with your own logins.
             </li>
             <li>
               <strong>The app</strong> is a web page served by that server. Open it in a browser, install it as an app,
               or reach it from your phone at <code>https://orynx.local</code>.
             </li>
             <li>
-              <strong>There is no Orynx cloud.</strong> Tokens live in your OS keychain, and tickets and pull requests
-              are cached in a file on your disk.
+              <strong>There is no Orynx cloud.</strong> Tokens live in your OS keychain, and tickets, pull requests and
+              messages are cached in a file on your disk.
             </li>
           </ul>
           <p>
@@ -152,8 +156,9 @@
           <p>Orynx runs on macOS and Linux. You need:</p>
           <ul>
             <li>Node 24, or nvm to install it</li>
-            <li>Claude Code, signed in on this machine</li>
+            <li>Claude Code or Codex 0.166 or later, signed in on this machine (or both)</li>
             <li>A Jira Cloud API token, and the gh CLI or a GitHub token</li>
+            <li>Optional: a Slack app your workspace admin approves, or a Discord bot you make</li>
           </ul>
           <p>Clone the repository and run its install script:</p>
           <figure class="terminal" aria-label="Commands to install Orynx">
@@ -168,7 +173,7 @@
               </button>
               <span class="sr-only" role="status" data-copy-status></span>
             </div>
-            <pre><code>git clone https://github.com/orynx-ai/orynx.git
+            <pre tabindex="0"><code>git clone https://github.com/orynx-ai/orynx.git
 cd orynx
 ./install.sh</code></pre>
           </figure>
@@ -230,21 +235,29 @@ cd orynx
               height="900"
               loading="lazy"
               decoding="async"
-              alt="Orynx Settings, Connections. A note says everything stays on this machine: tokens live in your OS keychain and the cache is a local file. Jira and GitHub are connected; Slack is not connected yet."
+              alt="Orynx Settings, Connections, 4 of 4 connected. A note says everything stays on this computer: tokens live in your OS keychain and the cache is a local file. Jira, GitHub through the gh command, Slack in the Acme workspace and Discord with the bot Orynx in Acme Eng are all connected."
             />
-            <figcaption>Settings › Connections, with Jira and GitHub connected.</figcaption>
+            <figcaption>Settings › Connections, with all four tools connected.</figcaption>
           </figure>
-          <h3>Claude</h3>
+          <h3>Claude and Codex</h3>
           <p>
-            There is nothing to connect. Orynx uses the login Claude Code already has on this machine: a claude.ai
-            account, an API key, Amazon Bedrock or Google Vertex AI. Check it in
-            <strong>Settings › Coding agent</strong>: the Claude card says <strong>Active</strong> and who you are
-            signed in as.
+            There is nothing to connect. Orynx uses the login your coding agent already has on this machine. Check it in
+            <strong>Settings › Coding agent</strong>: each agent's card says <strong>Active</strong> and who you are
+            signed in as. You need one of them; Orynx works with both.
           </p>
-          <p>
-            If it says <strong>Not signed in</strong>, run <code>claude</code> in a terminal, sign in, then press
-            <strong>Check again</strong>.
-          </p>
+          <ul>
+            <li>
+              <strong>Claude</strong> uses Claude Code's login: a claude.ai account, an API key, Amazon Bedrock or
+              Google Vertex AI. If it says <strong>Not signed in</strong>, run <code>claude</code> in a terminal, sign
+              in, then press <strong>Check again</strong>.
+            </li>
+            <li>
+              <strong>Codex</strong> uses the <code>codex</code> already on this machine, version 0.166 or later, and
+              its ChatGPT sign-in or API key. Orynx ships no Codex and never keeps an OpenAI key. If it says
+              <strong>Not installed</strong>, run <code>npm install -g @openai/codex</code>; if it says
+              <strong>Not signed in</strong>, run <code>codex login</code>. Then press <strong>Check again</strong>.
+            </li>
+          </ul>
           <h3>Jira</h3>
           <p>Orynx works with Jira Cloud (<code>your-team.atlassian.net</code>).</p>
           <ol class="steps">
@@ -285,10 +298,48 @@ cd orynx
           </p>
           <h3>Slack</h3>
           <p>
-            Reading your Slack mentions needs a Slack app your workspace admin approves. Open <strong>Slack</strong> and
-            press <strong>Copy request for your admin</strong> to send them what it needs. Until then, Slack items are
-            left out of your inbox.
+            Reading your Slack mentions needs a Slack app your workspace admin approves. Open <strong>Slack</strong>:
           </p>
+          <ol class="steps">
+            <li>
+              <strong>Ask your Slack admin to approve the Orynx app.</strong> Press
+              <strong>Copy request for your admin</strong> and send it to them. It names the scopes Orynx needs, only
+              for your account.
+            </li>
+            <li>
+              <strong>Paste your Slack token</strong>: the User OAuth Token from your Slack app, starting
+              <code>xoxp-</code>. Press <strong>Connect</strong>. Orynx checks the token and its scopes before it saves
+              anything.
+            </li>
+          </ol>
+          <p>
+            Orynx reads your mentions, your DMs and the threads you add. It writes only a pull request's link in a
+            thread, on your click.
+          </p>
+          <h3>Discord</h3>
+          <p>
+            Orynx reads Discord through a bot you make, because Discord forbids automating a person's account. Open
+            <strong>Discord</strong>:
+          </p>
+          <ol class="steps">
+            <li>
+              <strong>Make a Discord bot for Orynx.</strong> In Discord's
+              <a href="https://discord.com/developers/applications">Developer Portal</a>: New Application, then Bot.
+              Turn on Message Content Intent, and add the bot to your servers with View Channels, Read Message History,
+              Send Messages and Send Messages in Threads.
+            </li>
+            <li>
+              <strong>Paste your bot's token</strong> from the bot's page in the Developer Portal, and press
+              <strong>Connect</strong>. If a team owns the bot, Orynx also asks for
+              <strong>Your Discord user ID</strong>: in Discord, turn on Developer Mode, then right-click your name ›
+              Copy User ID.
+            </li>
+          </ol>
+          <p>
+            Orynx reads mentions of you in your bot's servers and the threads you add. It writes only a pull request's
+            link in a thread, as your bot, on your click.
+          </p>
+          <p>Both tokens live in your keychain. Until a tool is connected, its messages are left out of your inbox.</p>
         </section>
 
         <section id="repositories" aria-labelledby="repositories-title">
@@ -325,11 +376,11 @@ cd orynx
         </section>
 
         <section id="permissions" aria-labelledby="permissions-title">
-          <h2 id="permissions-title">Choose what Claude may do</h2>
+          <h2 id="permissions-title">Choose what the agent may do</h2>
           <p>
-            Open <strong>Settings › Coding agent</strong>. Under <strong>What Claude can do without asking</strong>,
+            Open <strong>Settings › Coding agent</strong>. Under <strong>What the agent can do without asking</strong>,
             start from a level, then change any row. Anything set to Ask waits for your click in the session. Changes
-            save automatically.
+            save automatically. The same rows decide for Claude and for Codex.
           </p>
           <figure class="window">
             <img
@@ -340,11 +391,13 @@ cd orynx
               height="900"
               loading="lazy"
               decoding="async"
-              alt="Orynx Settings, Coding agent. Under What Claude can do without asking, four levels: Cautious, Balanced, Hands-off and Custom."
+              alt="Orynx Settings, Coding agent. Under Agent, Claude is Active, a company login signed in as alex@acme.dev at Acme, and Codex is Active, signed in with ChatGPT. Other agents and Claude changes Jira are switched off. Under What the agent can do without asking, four levels: Cautious, Balanced (Recommended, picked), Hands-off and Custom."
             />
-            <figcaption>Settings › Coding agent: pick a level, then adjust any row.</figcaption>
+            <figcaption>
+              Settings › Coding agent: both agents' logins, then a level you can adjust row by row.
+            </figcaption>
           </figure>
-          <div class="table-scroll">
+          <div class="table-scroll" tabindex="0">
             <table>
               <thead>
                 <tr>
@@ -372,7 +425,7 @@ cd orynx
               </tbody>
             </table>
           </div>
-          <div class="table-scroll">
+          <div class="table-scroll" tabindex="0">
             <table>
               <thead>
                 <tr>
@@ -437,27 +490,31 @@ cd orynx
             </table>
           </div>
           <p>
-            A fresh Orynx shows <strong>Custom</strong>: Claude edits files freely, asks before any command, and never
-            pushes or opens a pull request by itself. You still can, with one click.
+            A fresh Orynx shows <strong>Custom</strong>: the agent edits files freely, asks before any command, and
+            never pushes or opens a pull request by itself. You still can, with one click.
           </p>
           <ul>
             <li><strong>Rules for</strong> sets the rules for all repositories or gives one repository its own.</li>
             <li>
               <strong>Allowed commands</strong> run without asking, inside the sandbox with no network, when Run
-              commands is set to Allowed only. Add one here, or press <strong>Always allow</strong> when Claude asks.
+              commands is set to Allowed only. Add one here, or press <strong>Always allow</strong> when the agent asks.
             </li>
             <li>
-              <strong>Claude changes Jira</strong>, off by default, lets Claude comment, change status and assign
+              <strong>Claude changes Jira</strong>, off by default, lets the agent comment, change status and assign
               without asking.
             </li>
           </ul>
+          <p>
+            Codex keeps its commands inside its sandbox even when a row allows more: see
+            <a href="#agents">Claude or Codex</a>.
+          </p>
         </section>
 
         <section id="home" aria-labelledby="home-title">
           <h2 id="home-title">Home and the inbox</h2>
           <p>
-            Home answers two questions: what should Claude build next, and who is waiting on you. The composer is at the
-            top and <strong>Needs your attention</strong> is below it.
+            Home answers two questions: what should your agent build next, and who is waiting on you. The composer is at
+            the top and <strong>Needs your attention</strong> is below it.
           </p>
           <figure class="window">
             <img
@@ -468,14 +525,15 @@ cd orynx
               height="900"
               loading="lazy"
               decoding="async"
-              alt="Orynx Home. The composer asks what to ship today, and Needs your attention lists Jira tickets and GitHub pull requests with reasons such as Review requested, Checks failing and Due tomorrow."
+              alt="Orynx Home. The sidebar lists sessions, two Working and the others Done or PR open. The composer asks What should we ship today?, set to Build in the storefront-web folder with the agent picker on Opus · High. Needs your attention has tabs All 8, Jira 3, Pull requests 3, Slack 1 and Discord 1. Its rows: SHOP-482 Add CSV export, In progress · 4 min; a Slack message from Neha K. in #checkout, No reply · 48 min; a Discord message from sam.r in #payments on Acme Eng, No reply · 1 h; payments-api #318 Retry failed webhook deliveries, Review requested · 4 h; and storefront-web #1179 Fix rounding, Checks failing · 5 h."
             />
             <figcaption>Home: the composer, then everything that needs you, each with its reason.</figcaption>
           </figure>
           <h3>Needs your attention</h3>
           <p>
-            One list of the tickets and pull requests that need you, in tabs <strong>All</strong>,
-            <strong>Jira</strong> and <strong>Pull requests</strong>. Every row says why it is there and for how long:
+            One list of the tickets, pull requests and messages that need you, in tabs <strong>All</strong>,
+            <strong>Jira</strong> and <strong>Pull requests</strong>, plus <strong>Slack</strong> and
+            <strong>Discord</strong> once each is connected. Every row says why it is there and for how long:
           </p>
           <ul>
             <li><strong>Review requested · 2 d</strong>: a pull request waits for your review.</li>
@@ -487,16 +545,34 @@ cd orynx
               <strong>Due tomorrow</strong>, <strong>Overdue · 3 d</strong>, <strong>Bug</strong>,
               <strong>To do</strong>, <strong>In progress</strong>: a Jira ticket assigned to you.
             </li>
-            <li><strong>Approve command</strong>: a Claude session waits for you.</li>
+            <li><strong>Approve command</strong>: a session waits for you.</li>
+            <li>
+              <strong>No reply · 48 min</strong>: someone named you in Slack or Discord, or sent you a Slack DM, and you
+              haven't answered.
+            </li>
           </ul>
           <p>On a row:</p>
           <ul>
-            <li><strong>+</strong> adds the item to the composer as context.</li>
             <li>
-              <strong>Fix failing checks</strong> or <strong>Fix review comments</strong> starts Claude on your pull
-              request.
+              <strong>+</strong> adds the item to the composer as context: a ticket, a pull request, or a message's
+              whole thread.
             </li>
-            <li>A ticket's title opens its details; a pull request's title opens it on GitHub.</li>
+            <li>
+              <strong>Fix failing checks</strong> or <strong>Fix review comments</strong> starts the agent on your pull
+              request's own branch, in one press.
+            </li>
+            <li>
+              <strong>Review with Claude</strong>, on a review request, starts a review of that pull request. See
+              <a href="#review">Review a pull request</a>.
+            </li>
+            <li>
+              <strong>Fix this</strong>, on a Slack or Discord message, makes a ticket from it and starts a Build. See
+              <a href="#threads">Slack and Discord</a>.
+            </li>
+            <li>
+              A ticket's title opens its details, a pull request's opens it on GitHub, and a message's opens it in Slack
+              or Discord.
+            </li>
           </ul>
           <p>
             Sort with <strong>Newest first</strong> or <strong>Longest wait first</strong>, search, and filter by
@@ -505,15 +581,16 @@ cd orynx
           </p>
           <h3>Sync</h3>
           <p>
-            Orynx syncs Jira and GitHub every 2 minutes. The page bar says when it last did; press
+            Orynx syncs Jira, GitHub, Slack and Discord every 2 minutes. The page bar says when it last did; press
             <strong>Sync</strong> to sync now, or <strong>Sync activity</strong> to see each tool's last sync and fix
             one that needs reconnecting.
           </p>
-          <h3>When Claude is waiting</h3>
+          <h3>When the agent is waiting</h3>
           <p>
             If a session needs your approval, a banner on Home says
-            <strong>Claude is waiting for your approval</strong> and what it wants to do. Press
-            <strong>Review</strong> to open the session.
+            <strong>Claude is waiting for your approval</strong> and what it wants to do. If Claude asked a question, it
+            says <strong>Claude is waiting for your answer</strong> and what it asks. Press <strong>Review</strong> to
+            open the session.
           </p>
         </section>
 
@@ -526,11 +603,15 @@ cd orynx
               answers and changes nothing).
             </li>
             <li>
-              Describe the task, or paste a Jira key like <code>PROJ-1423</code> or a GitHub pull request link: it turns
-              into a chip. With a ticket added, the ticket is the brief, and the box can stay empty.
+              Describe the task, or paste a Jira key like <code>PROJ-1423</code>, a GitHub pull request link, or a Slack
+              or Discord message link: it turns into a chip. With a ticket added, the ticket is the brief, and the box
+              can stay empty.
             </li>
             <li>Check the <strong>Repository</strong>. Orynx picks it from the ticket, and you can change it.</li>
-            <li>Press <strong>Send to Claude</strong>, or <kbd>Enter</kbd>. The session opens.</li>
+            <li>
+              Press <strong>Send to Claude</strong> (<strong>Send to Codex</strong> when a Codex model is picked), or
+              <kbd>Enter</kbd>. The session opens.
+            </li>
           </ol>
           <h3>Add context</h3>
           <p>The <strong>+</strong> button tells Claude what to work from:</p>
@@ -548,12 +629,18 @@ cd orynx
               <strong>File</strong>: any file on your machine. Claude reads it where it is. Files that look like
               secrets, such as <code>id_rsa</code>, are refused.
             </li>
+            <li>
+              <strong>Slack or Discord thread</strong>: from the messages waiting on you, or paste any message's link.
+              Claude gets the whole thread: who said what, oldest first.
+            </li>
           </ul>
           <p>Remove a chip with its ×. Past two chips, <strong>+N</strong> shows them all.</p>
-          <h3>Model and effort</h3>
+          <h3>Agent, model and effort</h3>
           <p>
-            The agent picker shows Claude's state and lets you choose the model for this task, and an
-            <strong>Effort</strong> from Low to Max. The list of models is whatever Claude Code offers today.
+            The agent picker shows the agent's state and lets you choose the model for this task, and an
+            <strong>Effort</strong> from Low up to what that model takes. It lists Claude's models, then Codex's, each
+            under its agent's name, as each agent offers them today. An agent that isn't signed in has none. Picking a
+            Codex model runs the task on Codex: see <a href="#agents">Claude or Codex</a>.
           </p>
           <h3>Skills</h3>
           <p>
@@ -565,6 +652,60 @@ cd orynx
             <strong>Limits.</strong> Up to three sessions work at once. If a ticket already has a session, Orynx offers
             <strong>Open session</strong> or <strong>Start a new session</strong>.
           </p>
+        </section>
+
+        <section id="agents" aria-labelledby="agents-title">
+          <h2 id="agents-title">Claude or Codex</h2>
+          <p>
+            Orynx runs a session on Claude or on Codex. Pick a model from either in the composer's agent picker, and
+            Build, Ask, Fix and Review all start on that agent. If the agent you picked signs out, the picker falls back
+            to the other one.
+          </p>
+          <figure class="window">
+            <img
+              src="/src/assets/screens/codex-1440.webp"
+              srcset="/src/assets/screens/codex-1440.webp 1440w, /src/assets/screens/codex-2880.webp 2880w"
+              sizes="(min-width: 1248px) 720px, calc(100vw - 48px)"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="An Orynx session on SHOP-482, Add CSV export to the orders report, run on Codex. What agent did groups the steps: Plan, 3 min, Build, 10 min, and Test, open and waiting for your approval. The callout says Codex wants to run a command, pnpm test -- orders, with Allow once, Always allow pnpm test and Deny. The follow-up box says Ask Codex to change something. On the right, the Changes tab lists four files."
+            />
+            <figcaption>A session on Codex: the same steps, callout and diff as Claude's, in Codex's name.</figcaption>
+          </figure>
+          <ul>
+            <li>
+              <strong>A session keeps its agent.</strong> Follow-ups, the pull request's title and description, the
+              commit message and replies to reviewers all go to it. Its follow-up box offers only that agent's models.
+            </li>
+            <li>
+              <strong>The words name it.</strong> A Codex session says Codex wherever this guide says Claude:
+              <strong>Codex wants to run a command</strong>, <strong>Message Codex</strong>, the Codex tab in the
+              terminal.
+            </li>
+            <li>
+              <strong>The same rules.</strong> The rows in <a href="#permissions">Settings › Coding agent</a> decide
+              Codex's edits and commands, with the same Allow once, Always allow and Deny. Codex reads code by running
+              commands such as <code>cat</code>, <code>rg</code> or <code>git diff</code>; a plain read inside the
+              worktree doesn't ask.
+            </li>
+            <li>
+              <strong>Codex stays in its sandbox.</strong> Its commands run with no network and write only to the
+              worktree, even when a row allows the network. When Codex asks for more room, the
+              <strong>Commands outside the sandbox</strong> row decides, and the command runs in Codex's wider sandbox,
+              still away from Orynx's own files.
+            </li>
+            <li>
+              <strong>Codex's own rules count too.</strong> Commands you allowed in <code>~/.codex/rules</code> run
+              without asking Orynx. They still run in the sandbox and show as steps.
+            </li>
+            <li>
+              <strong>No questions from Codex.</strong> Only Claude asks you questions in a session. When Codex needs a
+              decision, it asks in its summary, and you answer with a follow-up.
+            </li>
+            <li><strong>Cost.</strong> Codex gives no price, so a Codex session shows its time and turns only.</li>
+          </ul>
         </section>
 
         <section id="tickets" aria-labelledby="tickets-title">
@@ -582,9 +723,9 @@ cd orynx
               height="900"
               loading="lazy"
               decoding="async"
-              alt="Orynx Tickets. A sprint board with To do, In progress, In review and Done columns. Cards show each ticket's priority, due date and Claude's state, such as Needs you, Working and Done, ready for PR."
+              alt="Orynx Tickets, the board for Sprint 18, with columns To do 3, In progress 3, In review 2 and Done 2. Cards show each ticket's priority, due date and the agent's state: Needs you, Working, Done, ready to push, PR open and PR merged."
             />
-            <figcaption>Tickets: your sprint, with Claude's state on every card it works on.</figcaption>
+            <figcaption>Tickets: your sprint, with the agent's state on every card it works on.</figcaption>
           </figure>
           <ul>
             <li><strong>Columns</strong>: To do, In progress, In review and Done.</li>
@@ -597,22 +738,22 @@ cd orynx
               ticket, with <strong>Open in Jira</strong> and <strong>Add to composer</strong>.
             </li>
           </ul>
-          <h3>Hand a ticket to Claude</h3>
+          <h3>Hand a ticket to the agent</h3>
           <p>
             Press <strong>Ship</strong> on a card. Orynx adds the ticket to the composer on Home; add anything else,
             then press Send to Claude. To start several, tick their checkboxes and press <strong>Ship all</strong>.
           </p>
-          <p>Once a ticket has a session, its card shows Claude's state and links to the session:</p>
-          <div class="table-scroll">
+          <p>Once a ticket has a session, its card shows the agent's state and links to the session:</p>
+          <div class="table-scroll" tabindex="0">
             <table>
               <tbody>
                 <tr>
                   <td>Needs you</td>
-                  <td>Claude waits for your approval.</td>
+                  <td>The agent waits for your approval or your answer.</td>
                 </tr>
                 <tr>
                   <td>Working</td>
-                  <td>Claude is on it.</td>
+                  <td>The agent is on it.</td>
                 </tr>
                 <tr>
                   <td>Done, ready for PR</td>
@@ -628,17 +769,30 @@ cd orynx
                 </tr>
                 <tr>
                   <td>Stopped</td>
-                  <td>You or Claude stopped the session.</td>
+                  <td>You or the agent stopped the session.</td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <h3>Orynx tickets</h3>
+          <h3>New tickets</h3>
           <p>
-            For work that is not in Jira, press <strong>New</strong> in the page bar, or + on a column. An Orynx ticket
-            (<code>ORX-12</code>) has a title, description, type, priority, status and due date. It is saved in Orynx on
-            this machine and never added to Jira. Without Jira connected, the board shows only Orynx tickets.
+            Press <strong>New</strong> in the page bar, or + on a column to start the ticket in that column. Fill it in
+            and press <strong>Create ticket</strong>. <strong>Save in</strong> picks where it goes:
           </p>
+          <ul>
+            <li>
+              <strong>Jira · PROJ</strong>, while the board shows a Jira project: Orynx makes the issue in that project,
+              with the project's own types and priorities, assigns it to you, adds it to the sprint on screen and moves
+              it to the column you started from. If Jira refuses, the dialog shows Jira's reason and keeps what you
+              typed. If Jira makes the issue but can't add it to the sprint or move it, the dialog says so and links to
+              it.
+            </li>
+            <li>
+              <strong>Orynx</strong>, for work that is not in Jira. An Orynx ticket (<code>ORX-12</code>) has a title,
+              description, type, priority, status and due date. It is saved in Orynx on this machine and never added to
+              Jira. Without Jira connected, the board shows only Orynx tickets.
+            </li>
+          </ul>
           <p>Claude can list, create and update Orynx tickets during a session. Deleting one always asks you first.</p>
         </section>
 
@@ -660,10 +814,11 @@ cd orynx
         <section id="sessions" aria-labelledby="sessions-title">
           <h2 id="sessions-title">Work in a session</h2>
           <p>
-            A session is one task for Claude. In Build, it gets its own git worktree under
+            A session is one task for your agent. In Build, it gets its own git worktree under
             <code>~/.devhub/worktrees</code>, so your own checkout stays untouched. The branch is made at Claude's first
             edit and named after the ticket, like <code>feat/PROJ-1423</code>, following your repository's style. An Ask
-            session reads the folder in place and changes nothing.
+            session reads the folder in place and changes nothing. This section says Claude; a Codex session reads the
+            same in Codex's name (see <a href="#agents">Claude or Codex</a>).
           </p>
           <figure class="window">
             <img
@@ -674,22 +829,28 @@ cd orynx
               height="900"
               loading="lazy"
               decoding="async"
-              alt="An Orynx session for a Jira story. On the left, Claude's progress: made a worktree, made a plan and edited 4 files, then Claude asks to run the orders tests, with Allow once, Always allow and Deny. On the right, the live diff of four changed files."
+              alt="An Orynx session on SHOP-476, Show a delivery estimate on checkout, marked Needs your answer, with the stepper at Build: Plan done, then Build, Test and Pull request. Under What agent did, Claude has a question: Where should the estimate come from? The choices are Carrier API, Zone table and Other, with Send answer and Skip. On the right, the Changes tab shows the diff of estimate.ts."
             />
-            <figcaption>A session: Claude's steps on the left, the live diff on the right.</figcaption>
+            <figcaption>A session: what the agent did on the left, the live diff on the right.</figcaption>
           </figure>
           <h3>Follow along</h3>
           <ul>
             <li>
-              <strong>The stepper</strong> at the top shows where Claude is: Plan, Build, Test, Review, Pull request.
-              For a question or a run, Claude names its own steps.
+              <strong>The stepper</strong> beside the title shows where Claude is: Plan, Build, Test, Review, Pull
+              request. For a question or a run, Claude names its own steps.
             </li>
             <li>
-              <strong>What agent did</strong> lists every step as it happens, with time, turns and cost: made a
-              worktree, made a plan, edited files, ran commands. Open <strong>Sent Claude the brief</strong> to see
-              exactly what Claude was sent.
+              <strong>What agent did</strong> groups everything under the stepper's steps, each with how long it took,
+              and shows the session's time, turns and cost. The step Claude is on starts open; press any step to open it
+              in place, or <strong>Expand all</strong>. Inside are the files read and edited, each command, and Claude's
+              to-do list, with a tick for what's done, a shimmer on what it's doing and an empty dot for what's to come.
+              The running step's title shimmers, and a command step turns red when one of its commands failed. Open
+              <strong>Sent Claude the brief</strong> to see exactly what Claude was sent.
             </li>
-            <li><strong>Changes</strong> shows the live diff, file by file, with a Viewed box on each.</li>
+            <li>
+              <strong>Changes</strong> shows the live diff, file by file, with a Viewed box on each and
+              <strong>Wrap lines</strong> for long lines.
+            </li>
             <li>
               <strong>Ports</strong> lists the servers Claude or you started in this session, with Open, Restart and
               Stop.
@@ -714,16 +875,38 @@ cd orynx
             You can answer from the session, the banner on Home, a notification, or your phone. What Claude may do
             without asking is set in <a href="#permissions">Settings › Coding agent</a>.
           </p>
+          <h3>Answer Claude's questions</h3>
+          <p>
+            When Claude needs a decision the code, the brief and the repository's rules don't answer, it stops and asks:
+            <strong>Claude has a question</strong>, and the session reads <strong>Needs your answer</strong>. Each
+            question shows its choices as cards:
+          </p>
+          <ul>
+            <li>Pick a choice, or several when the question takes more than one.</li>
+            <li><strong>Other</strong> opens a box for your own answer.</li>
+            <li><strong>Send answer</strong> sends your picks, and Claude carries on with them.</li>
+            <li>
+              <strong>Skip</strong> lets Claude carry on with its best judgement. It says in its summary what it
+              assumed.
+            </li>
+          </ul>
+          <p>
+            A question asks you whatever level you picked in Settings, and has no Always allow. Once sent, an answer
+            can't be changed: correct Claude with a follow-up. Home's banner and the bell tell you a question is
+            waiting; answer it in the session. Codex doesn't ask questions this way.
+          </p>
           <h3>Steer with follow-ups</h3>
           <p>
             Use <strong>Message Claude</strong> at the bottom of the session to ask for a change. Claude carries on in
-            the same worktree with everything it already knows; there is no need to start over.
+            the same worktree with everything it already knows; there is no need to start over. Its
+            <strong>+</strong> adds more context, as the composer's does.
           </p>
           <h3>Terminal and editor</h3>
           <ul>
             <li>
-              Press <kbd>⌃`</kbd> for the terminal. The <strong>Claude</strong> tab shows the commands Claude ran; add
-              your own shell in the session's worktree with New terminal.
+              Press <kbd>⌃`</kbd>, or <strong>More actions › Terminal</strong>, for the terminal. The
+              <strong>Claude</strong> tab shows the commands Claude ran; add your own shell in the session's worktree
+              with New terminal.
             </li>
             <li>
               <strong>More actions › Open in VS Code</strong> (or Cursor, chosen in Settings › Coding agent) opens the
@@ -765,13 +948,135 @@ cd orynx
             <strong>Open a pull request</strong> to Allow, or pick Hands-off, in
             <a href="#permissions">Settings › Coding agent</a>.
           </p>
+          <h3>Answer your reviewers</h3>
+          <p>
+            When reviewers leave comments, press <strong>Fix review comments</strong> on the pull request's row on Home,
+            or ask for the fixes with a follow-up. Once they are pushed, press <strong>Reply to reviewers</strong>, in
+            the page bar while the pull request is open:
+          </p>
+          <ol class="steps">
+            <li>
+              Orynx lists the pull request's unresolved review threads. Claude drafts a reply for each one its changes
+              address, with <strong>Resolve</strong> ticked; the others start empty.
+            </li>
+            <li>Edit any reply, and tick or untick Resolve.</li>
+            <li>
+              Press <strong>Post replies</strong>. It is the only press that writes: the replies go out as you, and the
+              ticked threads are resolved. A thread left empty and unticked stays as it is.
+            </li>
+          </ol>
+          <h3>After the merge</h3>
+          <p>
+            Orynx checks each open pull request at every sync. Once it's merged, the session reads
+            <strong>PR merged</strong>, and when nothing would be lost, Orynx removes the worktree and keeps the branch.
+            A closed pull request keeps its worktree. To free disk space on a schedule, pick
+            <strong>Delete old sessions</strong> in Settings › Coding agent.
+          </p>
+          <p>
+            If the session was sent a Slack or Discord thread, Orynx also offers to tell the thread once the pull
+            request opens: see <a href="#threads">Slack and Discord</a>.
+          </p>
+        </section>
+
+        <section id="review" aria-labelledby="review-title">
+          <h2 id="review-title">Review a pull request</h2>
+          <p>
+            A review request on Home has <strong>Review with Claude</strong> in place of +. One press starts a review
+            session and opens it. It is read-only, like an Ask: Claude reads the pull request's code in its own
+            worktree, from the folder in Settings › Repositories that holds that repository. Without one, Claude reviews
+            from GitHub's diff alone.
+          </p>
+          <figure class="window">
+            <img
+              src="/src/assets/screens/review-1440.webp"
+              srcset="/src/assets/screens/review-1440.webp 1440w, /src/assets/screens/review-2880.webp 2880w"
+              sizes="(min-width: 1248px) 720px, calc(100vw - 48px)"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="An Orynx review session on PR #318, Retry failed webhook deliveries with backoff. The bar says Claude left 3 comments, with Post review. What agent did lists the comments and Claude's summary. In the Changes tab, Claude's comment sits under line 18 of src/webhooks/retry.ts, with Keep ticked and Edit."
+            />
+            <figcaption>
+              A review: Claude's comments under their lines, posted only when you press Post review.
+            </figcaption>
+          </figure>
+          <ol class="steps">
+            <li>
+              Claude leaves comments under lines of the diff in Changes, at most 20. The file list counts each file's
+              comments.
+            </li>
+            <li>
+              Each comment has <strong>Keep</strong>, ticked, and <strong>Edit</strong>. Untick Keep to leave one out.
+            </li>
+            <li>
+              When Claude is done, the bar says how many it left, such as <strong>Claude left 3 comments</strong>. Press
+              <strong>Post review</strong>.
+            </li>
+            <li>
+              The dialog holds Claude's summary, <strong>Your verdict</strong> (Comment, Approve or Request changes)
+              with what Claude would pick, and how many comments will be posted. Its <strong>Post review</strong> posts
+              one review, as you.
+            </li>
+          </ol>
+          <p>
+            Nothing reaches GitHub until that last press. Ask Claude to look again with a follow-up; new comments go out
+            as another review. If the author pushed after Claude read the pull request, the dialog says so, and the
+            comments go on the commit Claude read. To review again after a push, press Review with Claude and pick
+            <strong>Start a new session</strong>.
+          </p>
+        </section>
+
+        <section id="threads" aria-labelledby="threads-title">
+          <h2 id="threads-title">Slack and Discord</h2>
+          <p>
+            Once Slack or Discord is <a href="#connect">connected</a>, Home lists the people waiting on your reply,
+            beside your tickets and pull requests.
+          </p>
+          <h3>Who is waiting on you</h3>
+          <ul>
+            <li>
+              A message counts when someone names you, or sends you a Slack DM, and nothing of yours comes after it.
+              Mentions of @here or a group, and messages from bots, don't count. Orynx looks back 7 days.
+            </li>
+            <li>
+              It shows once it has waited longer than <strong>Wait before a message counts</strong> in Settings › Inbox
+              rules: 30 min, 1 h, 2 h (the default), 4 h or 1 day. Each tool has its own rule there to turn it off.
+            </li>
+            <li>
+              Past the wait, Orynx tells you once that they are waiting on your reply. Its row in Settings ›
+              Notifications is <strong>Someone is waiting on your reply</strong>.
+            </li>
+          </ul>
+          <h3>Hand a thread to the agent</h3>
+          <ul>
+            <li>
+              Press + on the message's row, pick <strong>Slack or Discord thread</strong> under the composer's +, or
+              paste any message's link into the composer. The thread becomes a chip like
+              <strong>Neha K. in #checkout</strong>, and Claude gets the whole thread, oldest first.
+            </li>
+            <li>
+              <strong>Fix this</strong> on a row opens New ticket, filled in as a Bug with who reported it, where, and
+              the link. It goes to the Jira project of the composer's folder, in its active sprint, or to Orynx. Once
+              the ticket is made, a Build starts on it with the thread as context, and opens.
+            </li>
+          </ul>
+          <h3>Tell the thread</h3>
+          <p>
+            Once the session's pull request is open, a session that was sent a thread offers
+            <strong>Tell the thread</strong>: a reply with the pull request's link, ready to edit.
+            <strong>Post reply</strong> posts it in the first thread the session was sent, in Slack as you and in
+            Discord as your bot. <strong>Not now</strong> puts it away for that session. Nothing else is ever written to
+            Slack or Discord.
+          </p>
         </section>
 
         <section id="notifications" aria-labelledby="notifications-title">
           <h2 id="notifications-title">Notifications</h2>
           <p>
-            Orynx tells you when Claude waits for you, when a session finishes, and when someone requests your review,
-            your checks fail or a ticket is assigned to you.
+            Orynx tells you when the agent waits for your approval or your answer, when a session finishes, and when
+            someone requests your review, your checks fail, a ticket is assigned to you or a Slack or Discord message
+            waits past your wait time.
           </p>
           <ul>
             <li>
@@ -780,7 +1085,8 @@ cd orynx
             </li>
             <li>
               <strong>Pop-ups</strong> appear in the corner, up to three. An approval stays until you answer it; for a
-              command, press <strong>Allow once</strong> right there.
+              command, press <strong>Allow once</strong> right there. A question says
+              <strong>Claude has a question</strong>, with Review to open the session.
             </li>
             <li>
               <strong>Desktop notifications and sounds</strong> reach you while you work elsewhere. Turn them on in
@@ -894,7 +1200,7 @@ cd orynx
 
         <section id="settings" aria-labelledby="settings-title">
           <h2 id="settings-title">Settings</h2>
-          <div class="table-scroll">
+          <div class="table-scroll" tabindex="0">
             <table>
               <thead>
                 <tr>
@@ -905,13 +1211,14 @@ cd orynx
               <tbody>
                 <tr>
                   <td>Connections</td>
-                  <td>Jira, GitHub and Slack: connect, test, reconnect, disconnect.</td>
+                  <td>Jira, GitHub, Slack and Discord: connect, test, reconnect, disconnect.</td>
                 </tr>
                 <tr>
                   <td>Coding agent</td>
                   <td>
-                    Claude's login, what it may do without asking, allowed commands, Claude changes Jira, other agents
-                    (MCP), the editor for Open in editor, and deleting old sessions to free disk space.
+                    Claude's and Codex's logins, what the agent may do without asking, allowed commands, Claude changes
+                    Jira, other agents (MCP), the editor for Open in editor, and deleting old sessions to free disk
+                    space.
                   </td>
                 </tr>
                 <tr>
@@ -933,7 +1240,10 @@ cd orynx
                 </tr>
                 <tr>
                   <td>Inbox rules</td>
-                  <td>What shows under Needs your attention, and Clear cache.</td>
+                  <td>
+                    What shows under Needs your attention, how long a Slack or Discord message waits before it counts,
+                    and Clear cache.
+                  </td>
                 </tr>
                 <tr>
                   <td>About</td>
@@ -954,7 +1264,7 @@ cd orynx
 
         <section id="shortcuts" aria-labelledby="shortcuts-title">
           <h2 id="shortcuts-title">Keyboard shortcuts</h2>
-          <div class="table-scroll">
+          <div class="table-scroll" tabindex="0">
             <table>
               <thead>
                 <tr>
@@ -1010,17 +1320,17 @@ cd orynx
             Delete <code>~/.devhub/password</code> and restart Orynx. Setup opens again on this machine, with your
             profile filled in, and every other device must sign in with the new password.
           </p>
-          <pre><code># macOS
+          <pre tabindex="0"><code># macOS
 launchctl kickstart -k gui/$(id -u)/dev.orynx.server
 # Linux
 systemctl --user restart orynx</code></pre>
           <h3>Uninstall</h3>
           <p>macOS:</p>
-          <pre><code>launchctl bootout gui/$(id -u)/dev.orynx.server
+          <pre tabindex="0"><code>launchctl bootout gui/$(id -u)/dev.orynx.server
 rm ~/Library/LaunchAgents/dev.orynx.server.plist
 sudo security remove-trusted-cert -d ~/.devhub/tls/ca.crt</code></pre>
           <p>Linux:</p>
-          <pre><code>systemctl --user disable --now orynx && rm ~/.config/systemd/user/orynx.service
+          <pre tabindex="0"><code>systemctl --user disable --now orynx && rm ~/.config/systemd/user/orynx.service
 sudo rm /usr/local/share/ca-certificates/orynx-local-ca.crt /etc/sysctl.d/60-orynx.conf
 sudo update-ca-certificates</code></pre>
           <p>Your settings, cache and certificate stay in <code>~/.devhub</code> until you delete it.</p>
@@ -1039,6 +1349,12 @@ sudo update-ca-certificates</code></pre>
           <p>
             Orynx looks for gh on the PATH of the terminal that started it. Run <code>which gh</code> there, or connect
             GitHub with a personal access token instead.
+          </p>
+          <h3>Settings says Codex is "Not installed"</h3>
+          <p>
+            Orynx looks for <code>codex</code> on the PATH of the terminal that started it (the desktop app uses your
+            login shell's), and needs version 0.166 or later. Run <code>codex --version</code> there; an older Codex
+            counts as not installed.
           </p>
           <h3><code>./install.sh</code> says Orynx didn't answer</h3>
           <p>
