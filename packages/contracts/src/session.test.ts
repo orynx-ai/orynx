@@ -30,6 +30,7 @@ import {
 import {
   makeComposerStart,
   makeSession,
+  makeQuestionApproval,
   makeSessionApproval,
   makeSessionList,
   makeSessionSummary,
@@ -310,6 +311,89 @@ describe('session approvals (spec 012)', () => {
   });
 });
 
+describe("Claude's questions (spec 051)", () => {
+  it('AC-1, AC-5, AC-21: a question carries 1 to 4 questions, each with its header, whether it takes several, and 2 to 4 choices, never their previews', () => {
+    const asked = makeQuestionApproval();
+    expect(asked).toEqual({
+      id: 'approval-q1',
+      kind: 'question',
+      questions: [
+        {
+          question: 'Which date library should we use?',
+          header: 'Library',
+          multiSelect: false,
+          options: [
+            { label: 'date-fns', description: 'Already a dependency' },
+            { label: 'Day.js', description: 'Smaller, a new dependency' },
+            { label: 'Temporal', description: 'Built in, needs a polyfill' },
+          ],
+        },
+      ],
+      askedAt: '2026-10-16T10:00:00.000Z',
+    });
+    const [first] = asked.questions;
+    if (first === undefined) throw new Error('no question');
+    const withPreview = {
+      ...asked,
+      questions: [{ ...first, options: first.options.map((option) => ({ ...option, preview: '<b>x</b>' })) }],
+    };
+    expect(SessionApprovalSchema.parse(withPreview)).toEqual(asked);
+    const four = [1, 2, 3, 4].map((n) => ({ ...first, question: `Question ${String(n)}?` }));
+    expect(SessionApprovalSchema.safeParse({ ...asked, questions: four }).success).toBe(true);
+  });
+
+  it('AC-19: refuses no question, five, one choice, five, an empty question or label, and the same question twice', () => {
+    const asked = makeQuestionApproval();
+    const [first] = asked.questions;
+    if (first === undefined) throw new Error('no question');
+    const option = { label: 'A', description: '' };
+    const bad = [
+      [],
+      [1, 2, 3, 4, 5].map((n) => ({ ...first, question: `Question ${String(n)}?` })),
+      [{ ...first, options: [option] }],
+      [
+        {
+          ...first,
+          options: [option, option, option, option, option].map((one, n) => ({ ...one, label: String(n) })),
+        },
+      ],
+      [{ ...first, question: '' }],
+      [{ ...first, options: [option, { label: '', description: 'x' }] }],
+      [first, { ...first, header: 'Again' }],
+    ];
+    for (const questions of bad) {
+      expect(SessionApprovalSchema.safeParse({ ...asked, questions }).success).toBe(false);
+    }
+  });
+
+  it('AC-1, AC-2, AC-7: holds the steps a question adds: waiting, answered with each header and answer, and skipped', () => {
+    const activities: SessionActivity[] = [
+      {
+        id: 'a1',
+        state: 'running',
+        kind: 'waiting',
+        approvalId: 'approval-q1',
+        about: 'question',
+        text: 'Which date library should we use?',
+      },
+      {
+        id: 'a2',
+        state: 'done',
+        kind: 'answered',
+        answers: [
+          { header: 'Library', answer: 'date-fns' },
+          { header: 'Checks', answer: 'Unit tests, Types' },
+        ],
+      },
+      { id: 'a3', state: 'done', kind: 'denied', about: 'question', text: 'Which date library should we use?' },
+    ];
+    expect(SessionSchema.parse(makeSession({ activities })).activities).toEqual(activities);
+    expect(SessionActivitySchema.safeParse({ id: 'a4', state: 'done', kind: 'answered', answers: [] }).success).toBe(
+      false,
+    );
+  });
+});
+
 describe('a session in spec 013', () => {
   it('AC-11, AC-12: holds the step with your message, never an empty one', () => {
     const activities: SessionActivity[] = [
@@ -453,6 +537,37 @@ describe('answering an approval', () => {
       expect(RespondToApprovalRequestSchema.parse({ decision })).toEqual({ decision });
     }
     expect(RespondToApprovalRequestSchema.safeParse({ decision: 'allow' }).success).toBe(false);
+  });
+
+  it("051 AC-2 to AC-5: takes an answer to each of Claude's questions: the labels picked, and Other's text", () => {
+    const answers = [
+      { picked: ['date-fns'], other: null },
+      { picked: ['Unit tests', 'Types'], other: 'And a smoke test' },
+      { picked: [], other: "Use date-fns, it's already a dependency" },
+    ];
+    expect(RespondToApprovalRequestSchema.parse({ decision: 'answer', answers })).toEqual({
+      decision: 'answer',
+      answers,
+    });
+  });
+
+  it('051 AC-6: refuses no answers, five, an empty Other and an Other past 2,000 characters', () => {
+    const one = { picked: ['date-fns'], other: null };
+    for (const answers of [
+      [],
+      [one, one, one, one, one],
+      [{ picked: [], other: '  ' }],
+      [{ picked: [], other: 'x'.repeat(2001) }],
+    ]) {
+      expect(RespondToApprovalRequestSchema.safeParse({ decision: 'answer', answers }).success).toBe(false);
+    }
+    expect(RespondToApprovalRequestSchema.safeParse({ decision: 'answer' }).success).toBe(false);
+    expect(
+      RespondToApprovalRequestSchema.safeParse({
+        decision: 'answer',
+        answers: [{ picked: [], other: 'x'.repeat(2000) }],
+      }).success,
+    ).toBe(true);
   });
 
   it('has its path under the session', () => {

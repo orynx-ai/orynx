@@ -50,6 +50,28 @@ describe('ChoiceCard', () => {
     expect(ref.current).toBe(screen.getByRole('radio', { name: 'Use a personal access token' }));
   });
 
+  it('051 Q2: with multiple, is a checkbox in the same card, so several can be picked', async () => {
+    const { container } = render(
+      <fieldset>
+        <legend>Which checks should run?</legend>
+        <ChoiceCard multiple name="checks" value="unit" title="Unit tests" detail="Vitest, about a minute" />
+        <ChoiceCard multiple name="checks" value="types" title="Types" />
+      </fieldset>,
+    );
+
+    await userEvent.click(screen.getByText('Vitest, about a minute'));
+    await userEvent.click(screen.getByText('Types'));
+
+    const unit = screen.getByRole('checkbox', { name: 'Unit tests' });
+    expect(unit).toBeChecked();
+    expect(unit).toHaveAccessibleDescription('Vitest, about a minute');
+    expect(screen.getByRole('checkbox', { name: 'Types' })).toBeChecked();
+    expect(screen.queryByRole('radio')).toBeNull();
+    await userEvent.click(screen.getByText('Types'));
+    expect(screen.getByRole('checkbox', { name: 'Types' })).not.toBeChecked();
+    await expectNoAxeViolations(container);
+  });
+
   it('has no accessibility violations, checked or not', async () => {
     const { container } = render(
       <fieldset>

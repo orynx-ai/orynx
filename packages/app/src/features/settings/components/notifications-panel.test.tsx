@@ -270,17 +270,21 @@ describe('Settings › Notifications: what you’re told about (spec 029)', () =
     ).toEqual(['Event', 'Pop-up', 'Desktop', 'Sound', 'Claude sessions', 'Inbox', 'Orynx']);
     expect(within(table).getByRole('columnheader', { name: 'Claude sessions' })).toBeVisible();
     expect(within(table).getByRole('columnheader', { name: 'Inbox' })).toBeVisible();
-    const approval = within(table).getByRole('row', { name: /Claude is waiting for your approval/ });
+    // Questions share the row (spec 051, Q6).
+    const approval = within(table).getByRole('row', { name: /Claude is waiting for you/ });
     expect(within(approval).getByText('Needs you')).toBeVisible();
+    expect(
+      within(approval).getByText('A command, an edit, a push, a pull request or a question needs you'),
+    ).toBeVisible();
     await waitFor(() => {
       expect(within(table).getByRole('checkbox', { name: 'Pop-up for Session finished' })).toBeChecked();
     });
     expect(
       within(table).getByRole('checkbox', { name: 'Desktop notification for Session hit a limit' }),
     ).not.toBeChecked();
-    expect(
-      within(table).getByRole('combobox', { name: 'Sound for Claude is waiting for your approval' }),
-    ).toHaveTextContent('Knock');
+    expect(within(table).getByRole('combobox', { name: 'Sound for Claude is waiting for you' })).toHaveTextContent(
+      'Knock',
+    );
     expect(within(table).getByRole('combobox', { name: 'Sound for Jira ticket assigned to you' })).toHaveTextContent(
       'None',
     );

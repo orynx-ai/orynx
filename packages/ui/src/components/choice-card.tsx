@@ -8,14 +8,17 @@ export interface ChoiceCardProps extends Omit<ComponentProps<'input'>, 'type' | 
   detail?: ReactNode;
   /** Beside the title, such as a "Recommended" pill; it doesn't name the radio. */
   aside?: ReactNode;
+  /** A checkbox in place of the radio, for a choice that takes several, as Claude's questions can (spec 051, Q2). */
+  multiple?: boolean;
 }
 
 /**
  * Design system: Choice card (`dh-choice`, "radio as a card"). A native radio with a title and a
  * detail line; the whole card picks it. Put the cards of one choice inside `<ChoiceGroup>`, which
  * names them and gives arrow-key movement for free. The checked card takes the `info` border and wash.
+ * With `multiple` it's a checkbox in the same card, inside `<ChoiceGroup multiple>`.
  */
-export function ChoiceCard({ title, detail, aside, className, id, ...props }: ChoiceCardProps) {
+export function ChoiceCard({ title, detail, aside, multiple = false, className, id, ...props }: ChoiceCardProps) {
   const madeUpId = useId();
   const radioId = id ?? `${madeUpId}-radio`;
   const titleId = `${radioId}-title`;
@@ -33,7 +36,7 @@ export function ChoiceCard({ title, detail, aside, className, id, ...props }: Ch
       {/* Named by the title alone: the card wraps the detail line too, which describes it instead.
           2 px down, so the 20 px radio sits on the title's 24 px line. */}
       <input
-        type="radio"
+        type={multiple ? 'checkbox' : 'radio'}
         id={radioId}
         aria-labelledby={titleId}
         aria-describedby={hasDetail ? detailId : undefined}

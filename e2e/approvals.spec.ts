@@ -45,6 +45,9 @@ const tools: FakeTools = {
     { key: 'PROJ-2015', summary: 'Ask from the bell (runs tests)', status: 'To Do', category: 'new' },
     { key: 'PROJ-2016', summary: 'Ask in a pop-up (runs tests)', status: 'To Do', category: 'new' },
     { key: 'PROJ-2017', summary: 'Answer from the bell (runs tests)', status: 'To Do', category: 'new' },
+    { key: 'PROJ-2018', summary: 'Pick a date library (asks)', status: 'To Do', category: 'new' },
+    { key: 'PROJ-2019', summary: 'Skip the library question (asks)', status: 'To Do', category: 'new' },
+    { key: 'PROJ-2020', summary: 'Look at a question (asks)', status: 'To Do', category: 'new' },
   ],
   reviews: [],
   mine: [],
@@ -109,6 +112,11 @@ function worktreeOf(key: string): string {
     .find((path) => id !== '' && path.endsWith(`/${id}`));
   if (worktree === undefined) throw new Error(`No worktree for ${key}`);
   return worktree;
+}
+
+/** What the fake Claude Code got back for its question (spec 051): your answers, or the words for Skip. */
+function answered(key: string): string {
+  return readFileSync(join(worktreeOf(key), 'answers.txt'), 'utf8');
 }
 
 /** The commands the fake Claude Code ran in a ticket's worktree; empty when it ran none. */
@@ -547,4 +555,55 @@ test('spec 029, AC-23, AC-46: Claude asking pops up on another page, and Allow o
   await finished(page);
   expect(ran('PROJ-2016')).toEqual(['npm test -- content-list']);
   await home.close();
+});
+
+test("spec 051, AC-1, AC-2, AC-3: Claude's question asks in place, and your answer reaches Claude", async ({
+  page,
+}) => {
+  await build(page, 'PROJ-2018');
+
+  const callout = progress(page).getByRole('alert');
+  await expect(callout.getByText('Claude has a question')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('main').getByText('Needs your answer')).toBeVisible();
+  await expect(progress(page).getByText('Waiting for your answer')).toBeVisible();
+  const group = callout.getByRole('radiogroup', { name: 'Which date library should we use?' });
+  await expect(group.getByRole('radio')).toHaveCount(3);
+
+  await group.getByRole('radio', { name: 'Other' }).check();
+  await callout.getByRole('textbox', { name: 'Your answer' }).fill("Use date-fns, it's already a dependency");
+  await callout.getByRole('textbox', { name: 'Your answer' }).press('Enter');
+
+  await finished(page);
+  // Claude asked while planning, and a finished step's group is folded (spec 048).
+  await progress(page).getByRole('button', { name: 'Expand all' }).click();
+  await expect(progress(page).getByText('You answered')).toBeVisible();
+  await expect(progress(page).getByText("Library: Use date-fns, it's already a dependency")).toBeVisible();
+  expect(JSON.parse(answered('PROJ-2018'))).toEqual({
+    'Which date library should we use?': "Use date-fns, it's already a dependency",
+  });
+});
+
+test('spec 051, AC-7: Skip tells Claude to carry on, and the progress says you skipped', async ({ page }) => {
+  await build(page, 'PROJ-2019');
+  await progress(page).getByRole('button', { name: 'Skip' }).click({ timeout: 15_000 });
+  await finished(page);
+  await progress(page).getByRole('button', { name: 'Expand all' }).click();
+  await expect(progress(page).getByText("You skipped Claude's question")).toBeVisible();
+  expect(answered('PROJ-2019')).toBe(
+    'The user skipped your question. Carry on with your best judgement, and say in your summary what you assumed.',
+  );
+});
+
+test("spec 051, AC-20, AC-22: Claude's question has no axe violations, at 1280 and 360 px, in light and dark", async ({
+  page,
+}) => {
+  await build(page, 'PROJ-2020');
+  const callout = progress(page).getByRole('alert');
+  await expect(callout.getByText('Claude has a question')).toBeVisible({ timeout: 15_000 });
+  await callout.getByRole('radio', { name: 'Day.js' }).check();
+  await checkEverywhere(page, () => expect(callout.getByRole('radio', { name: 'Day.js' })).toBeChecked(), 'a question');
+
+  await callout.getByRole('button', { name: 'Send answer' }).click();
+  await finished(page);
+  expect(JSON.parse(answered('PROJ-2020'))).toEqual({ 'Which date library should we use?': 'Day.js' });
 });

@@ -379,6 +379,32 @@ export function makeSessionApproval(overrides: Partial<CommandApproval> = {}): C
   return approval;
 }
 
+type QuestionApproval = Extract<SessionApproval, { kind: 'question' }>;
+
+/** Claude's question waiting for your answer (spec 051): one question, three choices, one at a time. */
+export function makeQuestionApproval(overrides: Partial<QuestionApproval> = {}): QuestionApproval {
+  const approval = SessionApprovalSchema.parse({
+    id: 'approval-q1',
+    kind: 'question',
+    questions: [
+      {
+        question: 'Which date library should we use?',
+        header: 'Library',
+        multiSelect: false,
+        options: [
+          { label: 'date-fns', description: 'Already a dependency' },
+          { label: 'Day.js', description: 'Smaller, a new dependency' },
+          { label: 'Temporal', description: 'Built in, needs a polyfill' },
+        ],
+      },
+    ],
+    askedAt: '2026-10-16T10:00:00.000Z',
+    ...overrides,
+  });
+  if (approval.kind !== 'question') throw new Error('makeQuestionApproval builds a question');
+  return approval;
+}
+
 /**
  * A list in the order the server sends it. Each item gets id `session-<n>` and an
  * `updatedAt` one minute older than the one before, unless the override says otherwise.

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  questionOtherLimit,
   sessionTitleLimit,
   mostCommitMessageCharacters,
   mostMessageCharacters,
@@ -8,6 +9,8 @@ import {
   mostReplyCharacters,
   mostReviewTextCharacters,
 } from '@devhub/contracts';
+import type { QuestionAnswer, SessionQuestion } from '@devhub/contracts';
+import { questionWords } from './approval-words.ts';
 import { tooLongLine } from './follow-up-words.ts';
 import { reviewWords } from './review-words.ts';
 
@@ -65,3 +68,46 @@ export const reviewCommentFormSchema = z.object({
   text: z.string().trim().min(1, reviewWords.empty).max(mostReviewTextCharacters, reviewWords.tooLong),
 });
 export type ReviewCommentFormValues = z.input<typeof reviewCommentFormSchema>;
+
+/** Other's value among a question's choices; the options are their places, "0" to "3", so a label can't match it. */
+export const otherChoice = 'other';
+
+/** One question as the form holds it (spec 051): a radio's value or none, or the checked boxes; and Other's text. */
+export interface QuestionFormValues {
+  answers: { picked: string | string[] | null; other: string }[];
+}
+
+/**
+ * Claude's questions (spec 051): each needs a pick, and Other its text, at most 2,000 characters (AC-6). Gives the
+ * answers as the contract sends them: the labels picked, and Other's text or null.
+ */
+export function questionFormSchema(questions: readonly SessionQuestion[]) {
+  const chosen = (picked: string | string[] | null) => (picked === null ? [] : [picked].flat());
+  return z
+    .object({
+      answers: z.array(z.object({ picked: z.union([z.string(), z.array(z.string())]).nullable(), other: z.string() })),
+    })
+    .superRefine(({ answers }, context) => {
+      answers.forEach(({ picked, other }, index) => {
+        const picks = chosen(picked);
+        const typed = other.trim();
+        if (picks.length === 0) {
+          context.addIssue({ code: 'custom', path: ['answers', index, 'picked'], message: questionWords.pick });
+        } else if (picks.includes(otherChoice) && typed === '') {
+          context.addIssue({ code: 'custom', path: ['answers', index, 'other'], message: questionWords.type });
+        } else if (picks.includes(otherChoice) && typed.length > questionOtherLimit) {
+          context.addIssue({ code: 'custom', path: ['answers', index, 'other'], message: questionWords.tooLong });
+        }
+      });
+    })
+    .transform(({ answers }): QuestionAnswer[] =>
+      answers.map(({ picked, other }, index) => {
+        const picks = chosen(picked);
+        const options = questions[index]?.options ?? [];
+        return {
+          picked: picks.flatMap((pick) => options[Number(pick)]?.label ?? []),
+          other: picks.includes(otherChoice) ? other.trim() : null,
+        };
+      }),
+    );
+}

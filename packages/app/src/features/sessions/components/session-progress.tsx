@@ -81,6 +81,7 @@ const kindIcons = {
   commented: Comment01Icon,
   diff_only: FileSearchIcon,
   message: BubbleChatIcon,
+  answered: BubbleChatIcon,
   pull_request: GitPullRequestIcon,
   pushed: GitPullRequestIcon,
   ticket: Ticket01Icon,
@@ -93,6 +94,7 @@ const kindIcons = {
 /** Steps that ended the work, were refused, or are your own message aren't something done, so they keep the plain dot. */
 const plainKinds = new Set<SessionActivity['kind']>([
   'message',
+  'answered',
   'refused',
   'denied',
   'no_commands',
@@ -113,7 +115,13 @@ function look(activity: SessionActivity): { state: ActivityStepState | undefined
   // A call waiting for you is amber, with the kind of work it waits to do (spec 012, as session.html draws it).
   if (activity.kind === 'waiting') {
     const waitsFor =
-      activity.about === 'edit' ? PencilEdit01Icon : activity.about === 'jira' ? Ticket01Icon : TerminalIcon;
+      activity.about === 'edit'
+        ? PencilEdit01Icon
+        : activity.about === 'jira'
+          ? Ticket01Icon
+          : activity.about === 'question'
+            ? BubbleChatIcon
+            : TerminalIcon;
     return { state: 'waiting', icon: <Icon icon={waitsFor} /> };
   }
   return { state: undefined, icon: <Icon icon={kindIcons[activity.kind]} /> };

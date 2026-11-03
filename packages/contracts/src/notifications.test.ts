@@ -32,6 +32,20 @@ describe('notifications (spec 029)', () => {
     });
   });
 
+  it("051 AC-13: Claude's question is an approval about a question, with no command", () => {
+    const what = {
+      kind: 'approval',
+      session: { id: '00000000000000aa', title: 'Add bulk archive', source: { kind: 'jira', key: 'PROJ-1423' } },
+      approvalId: 'call-2',
+      about: 'question',
+      command: null,
+      waiting: true,
+    } as const;
+    expect(
+      NotificationListSchema.parse(makeNotificationList([makeNotification({ what })])).notifications[0]?.what,
+    ).toEqual(what);
+  });
+
   it('047 AC-19: a cleanup run says how many sessions it deleted and the space it freed, in the bell only', () => {
     const cleaned = makeNotification({ what: { kind: 'sessions_cleaned', count: 3, bytes: 4_100_000_000 } });
     expect(NotificationListSchema.parse(makeNotificationList([cleaned])).notifications).toEqual([cleaned]);

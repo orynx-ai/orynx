@@ -9,6 +9,9 @@
 // text: a pull request's title and description, or with "Changed files since the last push" in it, a commit
 // message; spec 042: or, starting "The ask:", the quick read of an ask. "(no draft)" in the ticket's title makes it fail as a signed-out Claude Code would.
 //
+// Spec 051: "(asks)" makes it ask a question after its first read, and write what it got back, your answers or the
+// words for Skip, into `answers.txt` in its working folder.
+//
 // Spec 013: a message that comes while it works waits, and is taken into the turn after its next tool call;
 // each result says which messages its turn took and how many still wait. `--resume` with its own session id
 // plays a follow-up (it writes the message it got into `src/follow-up.ts` and finishes); any other id exits
@@ -119,6 +122,35 @@ async function call(tool: string, input: Message, effect?: Effect): Promise<void
   const id = nextId('toolu');
   const { allowed, said } = await decide(tool, input, id, effect);
   sendCall(tool, input, id, allowed, said);
+  fold();
+}
+
+/** The question "(asks)" puts to the user (spec 051). */
+const libraryQuestion = {
+  question: 'Which date library should we use?',
+  header: 'Library',
+  multiSelect: false,
+  options: [
+    { label: 'date-fns', description: 'Already a dependency' },
+    { label: 'Day.js', description: 'Smaller, a new dependency' },
+  ],
+};
+
+/** Claude asks its question, as Claude Code asks `can_use_tool` about it, and keeps what it got (spec 051). */
+async function askQuestion(): Promise<void> {
+  const id = nextId('toolu');
+  const input = { questions: [libraryQuestion] };
+  const answer = await ask('AskUserQuestion', input, id);
+  const allowed = answer['behavior'] === 'allow';
+  const updated = answer['updatedInput'] as Message | undefined;
+  const message = answer['message'];
+  const said = allowed
+    ? JSON.stringify(updated?.['answers'] ?? {})
+    : typeof message === 'string'
+      ? message
+      : 'Refused.';
+  writeFileSync(join(process.cwd(), 'answers.txt'), said);
+  sendCall('AskUserQuestion', input, id, allowed, said);
   fold();
 }
 
@@ -257,6 +289,7 @@ async function play(brief: string): Promise<void> {
     ...commandsFor(brief),
   ];
   if (brief.includes('(slow)')) steps.splice(1, 0, () => aMessage().then(() => undefined));
+  if (brief.includes('(asks)')) steps.splice(1, 0, askQuestion);
   for (const step of steps) {
     await pause(stepMs);
     if (stopped) return;

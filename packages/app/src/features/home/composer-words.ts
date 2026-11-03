@@ -164,7 +164,12 @@ export const composerWords = {
     remove: 'Remove',
     done: 'Done',
   },
-  banner: { title: 'Claude is waiting for your approval', action: 'Review' },
+  // Claude's question waits for your answer instead (spec 051, Q3).
+  banner: {
+    title: 'Claude is waiting for your approval',
+    answerTitle: 'Claude is waiting for your answer',
+    action: 'Review',
+  },
 } as const;
 
 /** Why a chip of a full kind wasn't added (spec 022, Q5, Q12). */
@@ -355,7 +360,9 @@ export function bannerDetail({
             ? `wants to edit ${approval.path}`
             : approval.kind === 'jira'
               ? `wants to change ${approval.key}`
-              : `wants to delete ${approval.key}`,
+              : approval.kind === 'question'
+                ? `asks: ${approval.questions[0]?.question ?? 'a question'}`
+                : `wants to delete ${approval.key}`,
     );
   }
   if (more > 0) parts.push(`${String(more)} more waiting`);

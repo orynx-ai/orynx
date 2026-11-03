@@ -13,7 +13,7 @@ const session = {
   source: { kind: 'jira' as const, key: 'PROJ-1423' },
 };
 
-function asking(about: 'command' | 'edit' | 'push' | 'pull_request', waiting = true): Notification {
+function asking(about: 'command' | 'edit' | 'push' | 'pull_request' | 'question', waiting = true): Notification {
   return makeNotification({
     id: `approval-${about}`,
     at: new Date().toISOString(),
@@ -22,7 +22,7 @@ function asking(about: 'command' | 'edit' | 'push' | 'pull_request', waiting = t
       session,
       approvalId: 'call-1',
       about,
-      command: about === 'edit' ? null : 'npm test -- content-list',
+      command: about === 'edit' || about === 'question' ? null : 'npm test -- content-list',
       waiting,
     },
   });
@@ -89,12 +89,23 @@ describe('answering from the panel (spec 029)', () => {
     expect(asked).toEqual([{ url: '/api/notifications/read', body: { ids: ['approval-command'] } }]);
   });
 
-  it.each(['edit', 'push', 'pull_request'] as const)('AC-11: a waiting %s shows Review only', async (about) => {
-    listing([asking(about)]);
+  it.each(['edit', 'push', 'pull_request', 'question'] as const)(
+    'AC-11, 051 AC-13: a waiting %s shows Review only',
+    async (about) => {
+      listing([asking(about)]);
+      const { user } = await renderApp();
+      const panel = await openPanel(user);
+
+      expect(within(panel).getByRole('button', { name: 'Review' })).toBeVisible();
+      expect(within(panel).queryByRole('button', { name: 'Allow once' })).toBeNull();
+    },
+  );
+
+  it("051 AC-13: Claude's question says so in the bell, with the ticket and the session", async () => {
+    listing([asking('question')]);
     const { user } = await renderApp();
     const panel = await openPanel(user);
-
-    expect(within(panel).getByRole('button', { name: 'Review' })).toBeVisible();
-    expect(within(panel).queryByRole('button', { name: 'Allow once' })).toBeNull();
+    expect(within(panel).getByText('Claude has a question')).toBeVisible();
+    expect(within(panel).getByText('PROJ-1423 · Add bulk archive')).toBeVisible();
   });
 });

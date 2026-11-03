@@ -32,7 +32,7 @@ import { terminalShortcut } from '../../../shell/shortcuts.ts';
 import { useWide } from '../../../shell/use-wide.ts';
 import { agoText } from '../../../words/ago.ts';
 import { useNow } from '../../../words/use-now.ts';
-import { needsApprovalLabel } from '../approval-words.ts';
+import { needsAnswerLabel, needsApprovalLabel } from '../approval-words.ts';
 import { editorLink, openInLabel } from '../change-words.ts';
 import { openPullRequestLabel, replyWords } from '../pull-request-words.ts';
 import { useEditor, useSessionPorts } from '../queries.ts';
@@ -126,7 +126,11 @@ export function SessionHeader({
       <div className="flex min-w-0 flex-wrap items-center gap-2 text-small text-muted-foreground">
         <Pill tone={stateTones[session.state]}>
           {/* The sidebar's "Needs you" is said in full here, where you answer (spec 012, Q8d). */}
-          {session.state === 'needs_you' ? needsApprovalLabel : sessionStateLabel(session.state, session.ready)}
+          {session.state !== 'needs_you'
+            ? sessionStateLabel(session.state, session.ready)
+            : session.approvals[0]?.kind === 'question'
+              ? needsAnswerLabel
+              : needsApprovalLabel}
         </Pill>
         {skills.map((skill) => (
           <code key={skill} className="rounded-sm bg-subtle px-2 font-mono text-code text-foreground">

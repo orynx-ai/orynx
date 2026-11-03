@@ -27,6 +27,10 @@ export function approvalTitle(approval: SessionApproval): string {
   if (approval.kind === 'jira') return jiraChangeTitle(approval.key, approval.change);
   if (approval.kind === 'ticket') return 'Claude wants to delete a ticket';
   if (approval.kind === 'server') return 'Claude wants to start a server';
+  if (approval.kind === 'question') {
+    const count = approval.questions.length;
+    return count === 1 ? 'Claude has a question' : `Claude has ${String(count)} questions`;
+  }
   return approval.creates ? 'Claude wants to create a file' : 'Claude wants to edit a file';
 }
 
@@ -92,8 +96,31 @@ export function moreLinesText(count: number): string {
   return `and ${String(count)} more ${count === 1 ? 'line' : 'lines'}`;
 }
 
+/** The words of Claude's question in the callout (spec 051, Q3). */
+export const questionWords = {
+  other: 'Other',
+  yourAnswer: 'Your answer',
+  send: 'Send answer',
+  skip: 'Skip',
+  pick: 'Pick an answer.',
+  type: 'Type your answer.',
+  tooLong: 'Keep it under 2,000 characters.',
+} as const;
+
 /** The Session screen's pill while a call waits (Q8d); the sidebar and Home say "Needs you". */
 export const needsApprovalLabel = 'Needs your approval';
 
+/** The pill while Claude's question waits (spec 051, Q3). */
+export const needsAnswerLabel = 'Needs your answer';
+
 /** The bar pinned to the window's bottom while the waiting call is out of view (the user's call, 19 Oct 2026). */
 export const approvalBar = { title: 'Claude is waiting for your approval', review: 'Review' };
+
+/** The same bar while Claude's question waits (spec 051, Q3). */
+export const answerBar = { title: 'Claude is waiting for your answer', answer: 'Answer' };
+
+/** A question's short name: its first question's header, or the question itself when it has none (spec 051). */
+export function questionHeading(approval: Extract<SessionApproval, { kind: 'question' }>): string {
+  const [first] = approval.questions;
+  return first === undefined ? '' : first.header === '' ? first.question : first.header;
+}

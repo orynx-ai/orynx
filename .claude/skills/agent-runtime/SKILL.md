@@ -84,6 +84,7 @@ States come from `SessionStateSchema` in `packages/contracts/src/session.ts`: `w
 3. An ask parks the call in the adapter, which says `approval`. `session-service.ts` adds it to `session.approvals` and a waiting step, the session becomes `needs_you`, and `sessions.changed` and `session.changed` go out. The call waits with no time limit.
 4. The Session screen shows the oldest waiting call in the amber callout (`role="alert"`, never focused by itself) with Allow once, Always allow <entry> (only where offered) and Deny.
 5. `POST /api/sessions/:id/approvals/:approvalId` reaches `SessionService.respond()`: Always allow saves the entry first (a failed save decides nothing), then `adapter.respond()` ends the wait. The first answer counts; a late one is 409. Stop, Discard and closing deny every waiting call. Each call is kept in `session.json`'s `approvalLog`; the log names only kinds and answers.
+6. **Claude's questions (spec 051)** are a `question` approval from `AskUserQuestion`, in every mode and every session with tools. They're never a permission and never Always allow. The answer goes back as `updatedInput` with `answers` keyed by each question's text, after `respond()` checks it against the question; Skip is `deny`. Never change any other field of the call's input: Claude Code refuses that.
 
 ## Session data
 

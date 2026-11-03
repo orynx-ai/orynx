@@ -14,7 +14,10 @@ const pullRequest = {
   title: 'Rate-limit the export endpoint',
   url: 'https://github.com/acme/api/pull/977',
 };
-const approval = (about: 'command' | 'edit' | 'push' | 'pull_request', command: string | null): NotificationWhat => ({
+const approval = (
+  about: 'command' | 'edit' | 'push' | 'pull_request' | 'question',
+  command: string | null,
+): NotificationWhat => ({
   kind: 'approval',
   session,
   approvalId: 'call-1',
@@ -35,6 +38,14 @@ describe('notification words (spec 029)', () => {
     expect(notificationWords(approval('pull_request', 'gh pr create')).title).toBe(
       'Claude wants to open a pull request',
     );
+  });
+
+  it("051 AC-13: Claude's question says so, with the ticket and the session, and never its text", () => {
+    expect(notificationWords(approval('question', null))).toEqual({
+      title: 'Claude has a question',
+      detail: 'PROJ-1423 · Add bulk archive',
+      desktop: 'PROJ-1423 · Add bulk archive',
+    });
   });
 
   it('AC-19, AC-20: names how a session ended, and a session with no ticket by its title alone', () => {

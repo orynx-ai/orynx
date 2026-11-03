@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionApproval } from '@devhub/contracts';
-import { makeSessionApproval } from '@devhub/contracts/testing';
+import { makeQuestionApproval, makeSessionApproval } from '@devhub/contracts/testing';
 import {
   alwaysAllowLabel,
   alwaysAskLine,
@@ -35,6 +35,15 @@ describe('approval words (spec 012, Q8)', () => {
     expect(approvalTitle(makeSessionApproval())).toBe('Claude wants to run a command');
     expect(approvalTitle(edit(false))).toBe('Claude wants to edit a file');
     expect(approvalTitle(edit(true))).toBe('Claude wants to create a file');
+  });
+
+  it('051 AC-1, AC-5, Q3: a question says how many Claude asks', () => {
+    const asked = makeQuestionApproval();
+    const [first] = asked.questions;
+    if (first === undefined) throw new Error('no question');
+    expect(approvalTitle(asked)).toBe('Claude has a question');
+    const three = [1, 2, 3].map((n) => ({ ...first, question: `Question ${String(n)}?` }));
+    expect(approvalTitle({ ...asked, questions: three })).toBe('Claude has 3 questions');
   });
 
   it('AC-1, AC-5, Q8a: the buttons say what each answer does', () => {

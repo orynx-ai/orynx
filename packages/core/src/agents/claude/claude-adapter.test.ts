@@ -156,7 +156,7 @@ describe('the Claude adapter', () => {
       type: 'started',
       sessionId: id,
       agentSessionId: 'b2c7e0f4-0000-4000-8000-000000000001',
-      loaded: { tools: 8, mcpServers: 0, plugins: 0 },
+      loaded: { tools: 9, mcpServers: 0, plugins: 0 },
     });
     expect(works(events)).toEqual([
       { kind: 'explore', file: 'src/a.ts' },
@@ -777,6 +777,90 @@ describe('the Claude adapter', () => {
     const { id } = await runToEnd(adapter);
     await expect(adapter.stop(id)).resolves.toBeUndefined();
     await expect(adapter.stop('never-started')).resolves.toBeUndefined();
+  });
+});
+
+describe("Claude's questions (spec 051)", () => {
+  const library = {
+    question: 'Which date library should we use?',
+    header: 'Library',
+    multiSelect: false,
+    options: [
+      { label: 'date-fns', description: 'Already a dependency' },
+      { label: 'Day.js', description: 'Smaller, a new dependency' },
+    ],
+  };
+  const checks = {
+    question: 'Which checks should run?',
+    header: 'Checks',
+    multiSelect: true,
+    options: [
+      { label: 'Unit tests', description: '' },
+      { label: 'Types', description: '' },
+    ],
+  };
+  const input = { questions: [library, checks] };
+
+  it('AC-2, AC-4, AC-5: your answers reach Claude in the call, keyed by each question, and show as a step', async () => {
+    const { sdk, adapter } = setUp([{ tool: 'AskUserQuestion', input }, { finish: 'Used date-fns.' }]);
+    const session = await watch(adapter);
+    const [approval] = await session.approvals();
+    expect(approval?.ask).toEqual({ kind: 'question', questions: [library, checks] });
+    const answers = { [library.question]: 'date-fns', [checks.question]: ['Unit tests', 'Types'] };
+    expect(await adapter.respond(session.id, approval?.approvalId ?? '', { answers })).toBe(true);
+    await session.ended();
+
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({ behavior: 'allow', updatedInput: { ...input, answers } });
+    expect(session.events).toContainEqual({
+      type: 'answered',
+      sessionId: session.id,
+      approvalId: approval?.approvalId,
+      allowed: true,
+    });
+    expect(works(session.events)).toEqual([
+      {
+        kind: 'answered',
+        answers: [
+          { header: 'Library', answer: 'date-fns' },
+          { header: 'Checks', answer: 'Unit tests, Types' },
+        ],
+      },
+      { kind: 'finished', summary: 'Used date-fns.' },
+    ]);
+  });
+
+  it('AC-7: Skip tells Claude to carry on with its best judgement, and shows the question skipped', async () => {
+    const { sdk, adapter } = setUp([{ tool: 'AskUserQuestion', input }, { finish: 'Picked date-fns myself.' }]);
+    const session = await watch(adapter);
+    const [approval] = await session.approvals();
+    await adapter.respond(session.id, approval?.approvalId ?? '', 'deny');
+    await session.ended();
+
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({
+      behavior: 'deny',
+      message:
+        'The user skipped your question. Carry on with your best judgement, and say in your summary what you assumed.',
+    });
+    expect(works(session.events)).toEqual([
+      { kind: 'denied', about: 'question', text: 'Which date library should we use?' },
+      { kind: 'finished', summary: 'Picked date-fns myself.' },
+    ]);
+  });
+
+  it('AC-8: Stop while a question waits interrupts Claude, and nothing is answered', async () => {
+    const { sdk, adapter } = setUp([{ tool: 'AskUserQuestion', input }, { finish: 'never' }]);
+    const session = await watch(adapter);
+    const [approval] = await session.approvals();
+    await adapter.stop(session.id);
+    await session.ended();
+
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({
+      behavior: 'deny',
+      message: 'The user stopped the session.',
+      interrupt: true,
+    });
+    expect(works(session.events)).toEqual([]);
+    expect(await adapter.respond(session.id, approval?.approvalId ?? '', { answers: {} })).toBe(false);
   });
 });
 

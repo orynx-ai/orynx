@@ -25,6 +25,7 @@ import {
   SessionSchema,
   StartSessionAnswerSchema,
   type ApprovalDecision,
+  type QuestionAnswer,
   type CreatePullRequestAnswer,
   type CreatePullRequestRequest,
   type FileDiff,
@@ -91,15 +92,16 @@ export async function deleteSession(http: AxiosInstance, id: string, query: Sess
   await http.delete(pathFor(apiRoutes.session, id), { params: query });
 }
 
-/** Your answer to a call waiting in a session (spec 012). */
+/** Your answer to a call waiting in a session (spec 012), or your answers to Claude's question (spec 051). */
 export async function postApproval(
   http: AxiosInstance,
   id: string,
   approvalId: string,
-  decision: ApprovalDecision,
+  decision: ApprovalDecision | { answers: QuestionAnswer[] },
 ): Promise<void> {
   const path = pathFor(apiRoutes.sessionApproval, id).replace(':approvalId', encodeURIComponent(approvalId));
-  await http.post(path, RespondToApprovalRequestSchema.parse({ decision }));
+  const body = typeof decision === 'object' ? { decision: 'answer', answers: decision.answers } : { decision };
+  await http.post(path, RespondToApprovalRequestSchema.parse(body));
 }
 
 /** A follow-up (spec 013): exactly your text, which the server sends Claude, or why it can't. */

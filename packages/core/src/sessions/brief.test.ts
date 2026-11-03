@@ -73,7 +73,7 @@ describe('the note added to Claude Code’s system prompt', () => {
         'If the sandbox stops another command, run it again with dangerouslyDisableSandbox, once the user allows it. ' +
         "Run the project's tests and checks before you finish. " +
         "When you're done, summarise what you changed and which checks you ran, in a few sentences. " +
-        'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
+        "If you need a decision from the user before you can go on, ask it with AskUserQuestion. Ask only what the code, the brief and the repository's rules don't answer, and don't use previews.",
     );
   });
 
@@ -109,7 +109,7 @@ describe('the note added to Claude Code’s system prompt', () => {
         'If the sandbox stops another command, run it again with dangerouslyDisableSandbox. ' +
         "Run the project's tests and checks before you finish. " +
         "When you're done, summarise what you changed and which checks you ran, in a few sentences. " +
-        'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
+        "If you need a decision from the user before you can go on, ask it with AskUserQuestion. Ask only what the code, the brief and the repository's rules don't answer, and don't use previews.",
     );
   });
 
@@ -135,7 +135,8 @@ describe('the note added to Claude Code’s system prompt', () => {
     expect(askNote(false)).toBe(
       "You're answering from the brief alone: this is an Ask session with no folder. " +
         "You can read the files the brief names. You can't change files or run commands, and nothing you try will be allowed. " +
-        'Answer what the user asks. If it needs changes, describe them; the user can start a Build session to make them.',
+        'Answer what the user asks. If it needs changes, describe them; the user can start a Build session to make them. ' +
+        "If you need a decision from the user before you can go on, ask it with AskUserQuestion. Ask only what the code, the brief and the repository's rules don't answer, and don't use previews.",
     );
     expect(askNote()).toContain("You're answering in the user's own folder, as it is");
   });
@@ -149,7 +150,7 @@ describe('the note added to Claude Code’s system prompt', () => {
         "Don't push, open pull requests or change git settings. " +
         "You can't run commands on this computer, so say which ones you'd run to check your work. " +
         "When you're done, summarise what you changed in a few sentences. " +
-        'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
+        "If you need a decision from the user before you can go on, ask it with AskUserQuestion. Ask only what the code, the brief and the repository's rules don't answer, and don't use previews.",
     );
   });
 });
@@ -340,6 +341,25 @@ describe('the note without a ticket (spec 015, Q8c)', () => {
     );
     expect(note).not.toContain('ticket');
     expect(sessionNote('feat/PROJ-1423', false, true)).toContain('Make the change the ticket asks for.');
+  });
+});
+
+describe("Claude's questions in the notes (spec 051)", () => {
+  it('AC-24, Q5: every note tells Claude to ask with AskUserQuestion when it must, never in its summary, and without previews', () => {
+    const line =
+      "If you need a decision from the user before you can go on, ask it with AskUserQuestion. Ask only what the code, the brief and the repository's rules don't answer, and don't use previews.";
+    for (const note of [
+      sessionNote('feat/PROJ-1423', true),
+      sessionNote('feat/PROJ-1423', false),
+      askNote(),
+      askNote(false),
+      reviewNote(true),
+      reviewNote(false),
+    ]) {
+      expect(note).toContain(line);
+      expect(note).not.toContain('in your summary. The user answers in a follow-up');
+    }
+    expect(reviewNote(true).endsWith('`Verdict: request changes`.')).toBe(true);
   });
 });
 

@@ -336,6 +336,13 @@ describe('commands and approvals (spec 012)', () => {
     ]);
   });
 
+  it("051 AC-2: your answer to Claude's question is a finished step of its own", () => {
+    const answers = [{ header: 'Library', answer: 'date-fns' }];
+    expect(fold([{ kind: 'answered', answers }]).activities).toEqual([
+      { id: 'step-1', state: 'done', kind: 'answered', answers },
+    ]);
+  });
+
   it('AC-12, AC-21: stopping or closing takes away the steps still waiting', () => {
     const waiting = addWaiting(fold([{ kind: 'edit', file: 'src/a.ts' }]), asking);
     for (const last of [{ kind: 'stopped' } as const, { kind: 'interrupted' } as const, null]) {

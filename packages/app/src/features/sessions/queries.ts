@@ -18,6 +18,7 @@ import {
 import {
   terminalLimits,
   type ApprovalDecision,
+  type QuestionAnswer,
   type ReplyRequest,
   type SendMessageInput,
   type Session,
@@ -71,8 +72,13 @@ export function useSession(sessionId: string, enabled = true) {
 export function useRespondToApproval(sessionId: string) {
   const api = useApi();
   return useMutation({
-    mutationFn: ({ approvalId, decision }: { approvalId: string; decision: ApprovalDecision }) =>
-      api.respondToApproval(sessionId, approvalId, decision),
+    mutationFn: ({
+      approvalId,
+      decision,
+    }: {
+      approvalId: string;
+      decision: ApprovalDecision | { answers: QuestionAnswer[] };
+    }) => api.respondToApproval(sessionId, approvalId, decision),
   });
 }
 

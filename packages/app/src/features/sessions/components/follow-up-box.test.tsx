@@ -137,7 +137,7 @@ describe('FollowUpBox', () => {
     });
   });
 
-  it('spec 025: + offers tickets, pull requests and files, not a folder: the session has its own', async () => {
+  it('spec 025: + offers tickets, pull requests, threads and files, not a folder: the session has its own', async () => {
     serve(done);
     const { user } = await renderApp({ route });
     await user.click(await screen.findByRole('button', { name: 'Add context' }));
@@ -147,9 +147,13 @@ describe('FollowUpBox', () => {
         .getAllByRole('menuitem')
         .map((item) => item.textContent),
     ).toEqual(
-      ['TicketSearch by key or title', 'Pull requestSearch by repo, number or title', 'File from this computer'].map(
-        (start) => expect.stringContaining(start) as unknown as string,
-      ),
+      [
+        'TicketSearch by key or title',
+        'Pull requestSearch by repo, number or title',
+        // A Slack or Discord thread (spec 016).
+        'Slack or Discord thread',
+        'File from this computer',
+      ].map((start) => expect.stringContaining(start) as unknown as string),
     );
   });
 
