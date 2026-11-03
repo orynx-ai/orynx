@@ -1,54 +1,15 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
 import { spawn } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { createInterface } from 'node:readline';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import { orynxTicketsHubPort } from './fake-tools/config.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Orynx's own tickets (spec 037) on their own hub, with no Jira: the real server and its tickets.json. The desktop
 // and phone projects share the hub, so each test makes tickets with a name of its own and looks only at those.
 test.use({ baseURL: `http://127.0.0.1:${String(orynxTicketsHubPort)}` });
 test.describe.configure({ mode: 'serial' });
-
-/** Waits for every finite animation, so axe never reads a colour half-drawn (memory: e2e axe runs mid-animation). */
-async function settled(page: Page) {
-  await page.evaluate(async () => {
-    // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-    const moving = document
-      .getAnimations()
-      .filter(
-        (animation) =>
-          animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-      );
-    await Promise.allSettled(moving.map((animation) => animation.finished));
-  });
-}
-
-async function axeViolations(page: Page, within?: string): Promise<string[]> {
-  await settled(page);
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async (selector) => {
-    const context = selector === undefined ? document.documentElement : document.querySelector(selector);
-    if (context === null) throw new Error(`Nothing on the page matches ${String(selector)}`);
-    const results = await window.axe.run(context, { resultTypes: ['violations'] });
-    return results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
-  }, within);
-}
 
 function horizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -194,7 +155,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     });
     await expect(page.getByRole('tooltip')).toHaveCount(0);
 
-    expect(await axeViolations(page)).toEqual([]);
+    expect(await axeViolations(page, 'html')).toEqual([]);
     expect(await horizontalOverflow(page)).toBe(0);
 
     await page.getByRole('button', { name: 'New ticket', exact: true }).first().click();
@@ -205,7 +166,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
     await page.goto('/settings/coding-agent');
     await expect(page.getByRole('switch', { name: 'Other agents' })).toBeVisible();
-    expect(await axeViolations(page)).toEqual([]);
+    expect(await axeViolations(page, 'html')).toEqual([]);
     expect(await horizontalOverflow(page)).toBe(0);
   });
 }

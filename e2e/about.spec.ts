@@ -1,50 +1,11 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
-import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
+import { axeViolations } from './axe.ts';
 
 // Settings › About (spec 045) on the first hub: this clone started with `pnpm start`, so it's started by hand, and its
 // releases come from e2e/fake-tools/releases.ts: 0.1.40 with notes and 0.1.39 with none, both newer than a clone with
 // no release tag in its history.
-
-/**
- * Waits for every finite animation, so axe never reads a colour half-drawn (memory: e2e axe runs mid-animation). A
- * scroll-driven one, such as the sidebar's fade, never finishes, so it's left out.
- */
-async function settled(page: Page) {
-  await page.evaluate(async () => {
-    const moving = document
-      .getAnimations()
-      .filter(
-        (animation) =>
-          animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-      );
-    await Promise.allSettled(moving.map((animation) => animation.finished));
-  });
-}
-
-async function axeViolations(page: Page): Promise<string[]> {
-  await settled(page);
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async () => {
-    const results = await window.axe.run(document.documentElement, { resultTypes: ['violations'] });
-    return results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
-  });
-}
 
 /** Sums every layout shift the page reports, the way Core Web Vitals counts CLS. */
 async function layoutShiftScore(page: Page): Promise<number> {
@@ -118,5 +79,5 @@ test('AC-5: Given About, then nothing scrolls sideways and axe finds nothing', a
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(
     0,
   );
-  expect(await axeViolations(page)).toEqual([]);
+  expect(await axeViolations(page, 'html')).toEqual([]);
 });

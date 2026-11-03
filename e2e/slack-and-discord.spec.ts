@@ -1,42 +1,15 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
-import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import { chatHubPort, controlPortFor, type FakeTools } from './fake-tools/config.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
 
 // Slack and Discord on a hub of their own (spec 016), so Home's inbox spec never sees their tabs.
 test.use({ baseURL: `http://127.0.0.1:${String(chatHubPort)}` });
 
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 // The fakes' own tokens, as packages/core's tests use them: Slack and Discord accept these and no others.
 const slackToken = 'fake-slack-token-for-tests';
 const discordToken = 'fake-discord-token-for-tests';
-
-async function axeViolations(page: Page): Promise<string[]> {
-  // Only the document's own animations: the sidebar's fade never finishes (memory, spec 049).
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .filter((animation) => animation.timeline === document.timeline)
-      .every((animation) => animation.playState !== 'running'),
-  );
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async () => {
-    const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
-    return results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
-  });
-}
 
 const sidewaysScroll = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

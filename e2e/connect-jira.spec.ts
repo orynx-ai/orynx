@@ -1,21 +1,7 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
-import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
+import { axeViolations } from './axe.ts';
 
 const saved = { site: 'your-team.atlassian.net', email: 'dev@example.com' };
 const refused = "Jira didn't accept this email and API token. Check both, or create a new token.";
@@ -74,18 +60,6 @@ async function layoutShiftScore(page: Page): Promise<number> {
         }, 1000);
       }),
   );
-}
-
-async function axeViolations(page: Page): Promise<string[]> {
-  // The dialog fades in; axe on a half-drawn dialog reads its text as low contrast.
-  await page.waitForFunction(() =>
-    document.getAnimations().every((animation) => animation.playState !== 'running' || !animation.effect),
-  );
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async () => {
-    const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
-    return results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
-  });
 }
 
 const sidewaysScroll = (page: Page) =>

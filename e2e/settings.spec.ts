@@ -1,24 +1,10 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
+import { axeViolations } from './axe.ts';
 
 // The desktop and phone runs share one server and one settings.json, so each test changes only what it
 // owns: its own folder, its own inbox rule, and the permission mode on desktop alone.
@@ -55,24 +41,6 @@ async function layoutShiftScore(page: Page): Promise<number> {
         }, 1000);
       }),
   );
-}
-
-async function axeViolations(page: Page): Promise<string[]> {
-  // Controls fade from their loading look (Coding agent's rows); mid-fade colours aren't the page's real ones. A
-  // scroll-driven animation, such as the sidebar's fade, never finishes, so it's left out.
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((animation) => animation.timeline === document.timeline)
-        .map((animation) => animation.finished.catch(() => undefined)),
-    ),
-  );
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async () => {
-    const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
-    return results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
-  });
 }
 
 function horizontalOverflow(page: Page): Promise<number> {

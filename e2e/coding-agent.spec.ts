@@ -1,48 +1,13 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
-import { createRequire } from 'node:module';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import { apiRoutes, tokenHeader } from '../packages/contracts/src/routes.ts';
 import { answerClaudeAs } from './fake-claude/config.ts';
 import { fakeToolsHubPort } from './fake-tools/config.ts';
 
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
-
 const notSignedIn =
   "Claude Code isn't signed in on this computer. Run claude in a terminal and sign in with your company login, then check again.";
-
-async function axeViolations(page: Page): Promise<string[]> {
-  // Controls fade between looks (PR #12's one quiet motion); mid-fade colours aren't the page's real ones. Only
-  // animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-  await page.evaluate(() =>
-    Promise.allSettled(
-      document
-        .getAnimations()
-        .filter(
-          (animation) =>
-            animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-        )
-        .map((animation) => animation.finished),
-    ),
-  );
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async () => {
-    const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
-    return results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
-  });
-}
 
 function claudeCard(page: Page): Locator {
   return page.getByRole('group', { name: 'Claude' });

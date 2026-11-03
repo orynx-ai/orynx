@@ -1,24 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import { answerClaudeAs, fakeClaudeDirFor } from './fake-claude/config.ts';
 import { composerHubPort, controlPortFor, type FakeTools } from './fake-tools/config.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Spec 015 on its own hub (playwright.config.ts): its sessions and worktrees never reach the other specs.
 test.use({ baseURL: `http://127.0.0.1:${String(composerHubPort)}` });
@@ -110,25 +97,6 @@ async function openKind(page: Page, kind: RegExp, title: string) {
   await page.getByRole('button', { name: 'Add context' }).click();
   await page.getByRole('menuitem', { name: kind }).click();
   return page.getByRole('dialog', { name: title });
-}
-
-/** axe on one part of the page, once anything fading in has settled (memory: e2e axe runs mid-animation). */
-async function axe(page: Page, selector = 'body') {
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async (context) => {
-    const target = document.querySelector(context);
-    if (target === null) throw new Error(`Nothing matches ${context}`);
-    // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-    const moving = document
-      .getAnimations()
-      .filter(
-        (animation) =>
-          animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-      );
-    await Promise.allSettled(moving.map((animation) => animation.finished));
-    const results = await window.axe.run(target, { resultTypes: ['violations'] });
-    return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
-  }, selector);
 }
 
 test.beforeAll(async ({ browser }, testInfo) => {
@@ -247,7 +215,7 @@ test('031 AC-2, AC-3, AC-5, AC-25: Ask, picked with the keyboard, reads no folde
   await expect(mode.getByRole('button', { name: 'Ask' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('heading', { level: 1, name: 'What do you want to know?' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Repository: No folder' })).toBeVisible();
-  expect(await axe(page, 'main')).toEqual([]);
+  expect(await axeViolations(page, 'main')).toEqual([]);
 
   await box(page).fill('What does the README say?');
   await box(page).press('Enter');
@@ -260,7 +228,7 @@ test('031 AC-2, AC-3, AC-5, AC-25: Ask, picked with the keyboard, reads no folde
   await expect(page.getByRole('region', { name: 'What agent did' }).getByText('Finished')).toBeVisible({
     timeout: 15_000,
   });
-  expect(await axe(page, 'main')).toEqual([]);
+  expect(await axeViolations(page, 'main')).toEqual([]);
 
   // Ask stays picked; with a folder, Claude reads it where it is (spec 026).
   await page.goto('/');
@@ -339,7 +307,7 @@ test('047 AC-1 to AC-3, AC-25: a ticket with a session offers Open session or a 
       await page.setViewportSize({ width, height: 800 });
       await page.emulateMedia({ colorScheme });
       await expect(choice).toBeVisible();
-      expect(await axe(page, 'main'), `the choice at ${String(width)} px, ${colorScheme}`).toEqual([]);
+      expect(await axeViolations(page, 'main'), `the choice at ${String(width)} px, ${colorScheme}`).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     }
   }
@@ -397,7 +365,7 @@ test('022 AC-1, AC-4, AC-20, AC-28: two tickets and a pull request added to the 
     /^PROJ-1377Fix the header on small screens/,
     /^PROJ-1423Add bulk archive to the content list/,
   ]);
-  expect(await axe(page, '[role="dialog"]')).toEqual([]);
+  expect(await axeViolations(page, '[role="dialog"]')).toEqual([]);
   await all.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: '+1: Show all 3 items of context' })).toBeFocused();
 
@@ -481,7 +449,7 @@ test('AC-30, AC-31: Home, its chips and the + popup fit 360 px and have no axe v
         await page.keyboard.press('Escape');
       }
       await expect(chips(page)).toHaveText(['PROJ-1377']);
-      expect(await axe(page), `Home at ${String(width)} px, ${colorScheme}`).toEqual([]);
+      expect(await axeViolations(page), `Home at ${String(width)} px, ${colorScheme}`).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       // Ask or Build (spec 031, AC-24): both options whole, with no scrolling inside the switch.
       const mode = page.getByRole('group', { name: 'Session' });
@@ -496,7 +464,7 @@ test('AC-30, AC-31: Home, its chips and the + popup fit 360 px and have no axe v
       // An open popup hides the rest of the page from screen readers, so it is checked on its own.
       await page.getByRole('button', { name: 'Add context' }).click();
       await expect(page.getByRole('menu', { name: 'Add context' })).toBeVisible();
-      expect(await axe(page, '[data-slot="context-picker"]'), `the kinds at ${String(width)} px`).toEqual([]);
+      expect(await axeViolations(page, '[data-slot="context-picker"]'), `the kinds at ${String(width)} px`).toEqual([]);
       await page.getByRole('menuitem', { name: /Pull request/ }).click();
       const list = page.getByRole('dialog', { name: 'Pull request' });
       await expect(list.getByRole('option', { name: /web-app #2836/ })).toBeVisible();
@@ -507,7 +475,7 @@ test('AC-30, AC-31: Home, its chips and the + popup fit 360 px and have no axe v
           return popup === null ? Infinity : popup.x + popup.width;
         })
         .toBeLessThanOrEqual(width - 16);
-      expect(await axe(page, '[data-slot="context-picker"]'), `a list at ${String(width)} px`).toEqual([]);
+      expect(await axeViolations(page, '[data-slot="context-picker"]'), `a list at ${String(width)} px`).toEqual([]);
       await page.keyboard.press('Escape');
       await expect(page.getByRole('button', { name: 'Add context' })).toBeFocused();
     }
@@ -560,7 +528,7 @@ test('047 AC-6, AC-10, AC-25: Fix review comments, by keyboard, starts a Build o
       await page.setViewportSize({ width, height: 800 });
       await page.emulateMedia({ colorScheme });
       await expect(fix).toBeVisible();
-      expect(await axe(page, 'main'), `Fix at ${String(width)} px, ${colorScheme}`).toEqual([]);
+      expect(await axeViolations(page, 'main'), `Fix at ${String(width)} px, ${colorScheme}`).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     }
   }

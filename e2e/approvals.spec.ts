@@ -1,24 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import { answerClaudeAs, fakeClaudeDirFor } from './fake-claude/config.ts';
 import { approvalsHubPort, controlPortFor, type FakeTools } from './fake-tools/config.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Spec 012 on its own hub (playwright.config.ts): its permission modes and allow list change from test to test.
 test.use({ baseURL: `http://127.0.0.1:${String(approvalsHubPort)}` });
@@ -155,25 +142,6 @@ async function expectButtons(callout: Locator, names: (string | RegExp)[]) {
   }
 }
 
-/** axe's violations in the page or one part of it, once anything fading in has settled. */
-async function axe(page: Page, selector = 'body'): Promise<string[]> {
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async (context) => {
-    const target = document.querySelector(context);
-    if (target === null) throw new Error(`Nothing matches ${context}`);
-    // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-    const moving = document
-      .getAnimations()
-      .filter(
-        (animation) =>
-          animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-      );
-    await Promise.allSettled(moving.map((animation) => animation.finished));
-    const results = await window.axe.run(target, { resultTypes: ['violations'] });
-    return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
-  }, selector);
-}
-
 /** No axe violations and nothing scrolling sideways, at 1280 and 360 px, in light and dark. */
 async function checkEverywhere(page: Page, ready: () => Promise<void>, what: string) {
   for (const width of [1280, 360]) {
@@ -181,7 +149,7 @@ async function checkEverywhere(page: Page, ready: () => Promise<void>, what: str
       await page.setViewportSize({ width, height: 800 });
       await page.emulateMedia({ colorScheme });
       await ready();
-      expect(await axe(page), `${what} at ${String(width)} px, ${colorScheme}`).toEqual([]);
+      expect(await axeViolations(page), `${what} at ${String(width)} px, ${colorScheme}`).toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     }
   }
@@ -547,7 +515,7 @@ test('spec 029, AC-23, AC-46: Claude asking pops up on another page, and Allow o
     .getByRole('region', { name: 'Pop-ups' })
     .getByRole('alert', { name: 'Claude wants to run a command' });
   await expect(popUp).toContainText('PROJ-2016 · Ask in a pop-up (runs tests) · npm test -- content-list');
-  expect(await axe(home, 'section[aria-label="Pop-ups"]')).toEqual([]);
+  expect(await axeViolations(home, 'section[aria-label="Pop-ups"]')).toEqual([]);
   await popUp.getByRole('button', { name: 'Allow once' }).click();
   await expect(popUp).toBeHidden({ timeout: 5_000 });
 

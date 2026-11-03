@@ -1,22 +1,8 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
-import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations, settled } from './axe.ts';
 import { makeJiraTicketTypes, makeTicket, makeTickets } from '../packages/contracts/src/testing.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // The e2e server has no Jira: its keychain is in memory and its DEVHUB_HOME is new, so Tickets says Jira
 // isn't connected. To see the board and the list, the browser's request for the sprint is answered here,
@@ -56,22 +42,6 @@ async function layoutShifts(page: Page): Promise<{ score: number; moved: string 
   );
 }
 
-/**
- * The whole page, so page-level rules (one `h1`, landmarks) count too. It waits for every colour fade and
- * grow-in to end first, so axe never reads a colour half-drawn (see the e2e axe notes).
- */
-async function axeViolations(page: Page, within?: string): Promise<string[]> {
-  await settled(page);
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async (selector) => {
-    // An open menu hides the page behind it from screen readers, so a check while one is open looks at it alone.
-    const context = selector === undefined ? document.documentElement : document.querySelector(selector);
-    if (context === null) throw new Error(`Nothing on the page matches ${String(selector)}`);
-    const results = await window.axe.run(context, { resultTypes: ['violations'] });
-    return results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
-  }, within);
-}
-
 function horizontalOverflow(page: Page): Promise<number> {
   return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 }
@@ -96,7 +66,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.goto('/tickets');
     await expect(page.getByText('No Orynx tickets yet.')).toBeVisible();
 
-    expect(await axeViolations(page)).toEqual([]);
+    expect(await axeViolations(page, 'html')).toEqual([]);
     expect(await horizontalOverflow(page)).toBe(0);
   });
 }
@@ -144,7 +114,7 @@ for (const view of ['board', 'list'] as const) {
       await expect(page.getByRole('heading', { level: 1, name: 'Sprint 42 tickets' })).toBeAttached();
       await expect(page.getByText('PROJ-1423').first()).toBeVisible();
 
-      expect(await axeViolations(page)).toEqual([]);
+      expect(await axeViolations(page, 'html')).toEqual([]);
       // Hidden words inside the scroll box once widened the page at 360 px (spec 008, task 21).
       expect(await horizontalOverflow(page)).toBe(0);
     });
@@ -211,20 +181,6 @@ test.describe('the Project and Sprint pickers (spec 020)', () => {
     expect(await axeViolations(page, '[data-slot="menu"]')).toEqual([]);
   });
 });
-
-/** Waits for every finite animation to end, so axe never reads a list still fading in (e2e axe notes). */
-async function settled(page: Page) {
-  await page.evaluate(async () => {
-    // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-    const moving = document
-      .getAnimations()
-      .filter(
-        (animation) =>
-          animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-      );
-    await Promise.allSettled(moving.map((animation) => animation.finished));
-  });
-}
 
 test.describe('New ticket in Jira (spec 019)', () => {
   for (const colorScheme of ['light', 'dark'] as const) {

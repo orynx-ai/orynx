@@ -1,24 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, realpathSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import { answerClaudeAs, fakeClaudeDirFor } from './fake-claude/config.ts';
 import { controlPortFor, pullRequestsHubPort, type FakeTools } from './fake-tools/config.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Spec 014 on its own hub (playwright.config.ts): its sessions commit and push, to a bare repository standing in for
 // github.com, its git has a name of its own, and its fake GitHub opens pull requests.
@@ -314,21 +301,6 @@ const atHand = (p: Page, width: number, name: string, role: 'button' | 'link' = 
 test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360 px, in light and dark', async ({
   page,
 }) => {
-  const check = async () => {
-    await page.addScriptTag({ path: axePath });
-    return page.evaluate(async () => {
-      // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-      const moving = document
-        .getAnimations()
-        .filter(
-          (animation) =>
-            animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-        );
-      await Promise.allSettled(moving.map((animation) => animation.finished));
-      const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
-      return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
-    });
-  };
   const states = [
     {
       name: 'Done, with Create pull request',
@@ -373,7 +345,7 @@ test('AC-22: the page bar and the dialog have no axe violations, at 1280 and 360
         await page.goto(state.url);
         await state.show(page, width);
         const where = `${state.name} at ${String(width)} px, ${colorScheme}`;
-        expect(await check(), where).toEqual([]);
+        expect(await axeViolations(page), where).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth), where).toBeLessThanOrEqual(width);
       }
     }
@@ -439,21 +411,6 @@ test('spec 047, AC-11, AC-12, AC-25: after Sync, a merged pull request makes the
     page.getByText('This pull request is merged. Start a new session from the ticket to carry on.'),
   ).toBeVisible();
 
-  const check = async () => {
-    await page.addScriptTag({ path: axePath });
-    return page.evaluate(async () => {
-      // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-      const moving = document
-        .getAnimations()
-        .filter(
-          (animation) =>
-            animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-        );
-      await Promise.allSettled(moving.map((animation) => animation.finished));
-      const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
-      return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
-    });
-  };
   for (const width of [1280, 360]) {
     for (const colorScheme of ['light', 'dark'] as const) {
       await page.setViewportSize({ width, height: 800 });
@@ -462,7 +419,7 @@ test('spec 047, AC-11, AC-12, AC-25: after Sync, a merged pull request makes the
         await page.goto(where);
         await expect(page.getByText('PR merged', { exact: true }).filter({ visible: true }).first()).toBeVisible();
         const said = `${where} at ${String(width)} px, ${colorScheme}`;
-        expect(await check(), said).toEqual([]);
+        expect(await axeViolations(page), said).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth), said).toBeLessThanOrEqual(width);
       }
     }
@@ -620,20 +577,6 @@ test.describe('Review with Claude (spec 050)', () => {
     // Claude read and finished: GitHub has nothing yet (AC-17).
     expect(await posted(page)).toEqual([]);
 
-    const check = async () => {
-      await page.addScriptTag({ path: axePath });
-      return page.evaluate(async () => {
-        const moving = document
-          .getAnimations()
-          .filter(
-            (animation) =>
-              animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-          );
-        await Promise.allSettled(moving.map((animation) => animation.finished));
-        const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
-        return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
-      });
-    };
     const url = page.url();
     for (const width of [1280, 360]) {
       for (const colorScheme of ['light', 'dark'] as const) {
@@ -643,7 +586,7 @@ test.describe('Review with Claude (spec 050)', () => {
         await page.getByRole('button', { name: 'Post review' }).click();
         const said = `${String(width)} px, ${colorScheme}`;
         await expect(dialog(page, `Post your review on #${String(reviewed)}`)).toBeVisible();
-        expect(await check(), said).toEqual([]);
+        expect(await axeViolations(page), said).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth), said).toBeLessThanOrEqual(width);
         await page.keyboard.press('Escape');
       }

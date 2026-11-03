@@ -1,22 +1,8 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
-import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import { controlPortFor, syncActivityHubPort, type FakeTools } from './fake-tools/config.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Sync activity (spec 035) on its own hub, with Jira and GitHub faked inside it (e2e/fake-tools/preload.ts).
 test.use({ baseURL: `http://127.0.0.1:${String(syncActivityHubPort)}` });
@@ -71,28 +57,6 @@ async function openSyncActivity(page: Page) {
   const dialog = page.getByRole('dialog', { name: 'Sync activity' });
   await expect(dialog.getByRole('list', { name: 'Tools' })).toBeVisible();
   return dialog;
-}
-
-/** axe on the open dialog once its fade-in has ended: a half-drawn dialog would fail on contrast. */
-async function axe(page: Page) {
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async () => {
-    const dialog = document.querySelector('[role="dialog"]');
-    if (dialog === null) throw new Error('No dialog');
-    // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-    const moving = document
-      .getAnimations()
-      .filter(
-        (animation) =>
-          animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-      );
-    await Promise.allSettled(moving.map((animation) => animation.finished));
-    const results = await window.axe.run(dialog, { resultTypes: ['violations'] });
-    return results.violations.map(
-      (violation) =>
-        `${violation.id}: ${violation.help} (${violation.nodes.map((node) => node.target.join(' ')).join(', ')})`,
-    );
-  });
 }
 
 test('AC-1, AC-20: Given Jira and GitHub connected, when I open Sync activity from Home and press Sync now on Jira, then Jira alone syncs and its run tops the history', async ({
@@ -158,7 +122,7 @@ for (const theme of ['light', 'dark'] as const) {
     const dialog = await openSyncActivity(page);
     await dialog.getByRole('list', { name: 'Sync history' }).getByRole('button').first().click();
 
-    expect(await axe(page)).toEqual([]);
+    expect(await axeViolations(page, '[role="dialog"]')).toEqual([]);
     const box = await dialog.boundingBox();
     const viewport = page.viewportSize();
     expect(box && viewport).toBeTruthy();
