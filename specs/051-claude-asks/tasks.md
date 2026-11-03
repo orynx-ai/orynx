@@ -8,7 +8,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 2: `AskUserQuestion` in every session's tools: a valid call asks as a `question`, a malformed one is refused with no step, in every mode and in Ask sessions (AC-17, AC-18, AC-19)
       Check: pnpm test packages/core/src/agents/claude/tool-decision.test.ts
       Files: packages/core/src/agents/claude/tool-decision.ts, tool-decision.test.ts
-- [ ] Task 3: The adapter answers a question: `answers` in `updatedInput`, Skip's line, the `answered` and skipped steps, and Stop interrupting (AC-2 to AC-5, AC-7, AC-8)
+- [x] Task 3: The adapter answers a question: `answers` in `updatedInput`, Skip's line, the `answered` and skipped steps, and Stop interrupting (AC-2 to AC-5, AC-7, AC-8)
       Check: pnpm test packages/core/src/agents/claude/claude-adapter.test.ts
       Files: packages/core/src/agents/agent-adapter.ts, claude/claude-adapter.ts, claude-adapter.test.ts, packages/core/src/test/fake-claude-sdk.ts
 - [ ] Task 4: The route and the service check an answer against the waiting question (400 `bad_answer`); the first answer counts; the steps and the log (AC-2 to AC-5, AC-9, AC-10)

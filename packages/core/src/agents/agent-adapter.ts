@@ -56,8 +56,17 @@ export interface AgentBrief {
   }[];
 }
 
-/** Your answer to a waiting call. `always` runs the call as `allow` does; the session saves the entry first. */
-export type ApprovalDecision = 'allow' | 'deny' | 'always';
+/**
+ * Your answers to Claude's question (spec 051), keyed by each question's text as Claude Code reads them: a choice's
+ * label or your own words, or a multi-select's list, which Claude Code joins with ", ".
+ */
+export type QuestionAnswers = Readonly<Record<string, string | readonly string[]>>;
+
+/**
+ * Your answer to a waiting call. `always` runs the call as `allow` does; the session saves the entry first. A question
+ * takes your answers, and `deny` is Skip (spec 051).
+ */
+export type ApprovalDecision = 'allow' | 'deny' | 'always' | { answers: QuestionAnswers };
 
 /** A call waiting for your answer (spec 012): a command, or an edit while Edit files is on Ask first (spec 026). */
 export type AgentAsk =
@@ -106,8 +115,10 @@ export type AgentWork =
   | { kind: 'refused'; refusal: AgentRefusal }
   /** A command is running now: allowed by the list, or by you (spec 012). `id` is its call's, which its end names (spec 036). */
   | { kind: 'command'; id: string; command: string }
-  /** You denied a waiting call; `text` is the command, the edit's path, or the ticket's key. */
+  /** You denied a waiting call; `text` is the command, the edit's path, the ticket's key, or the question you skipped. */
   | { kind: 'denied'; about: AgentAsk['kind']; text: string }
+  /** You answered Claude's question (spec 051): each question's header and the answer Claude got. */
+  | { kind: 'answered'; answers: { header: string; answer: string }[] }
   /** The agent can't run commands in this session: there's no sandbox on this computer (spec 012, Q2b). */
   | { kind: 'no_commands' }
   /** The agent used one of Orynx's ticket tools (spec 037), and this is what it did. */

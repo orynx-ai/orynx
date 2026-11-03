@@ -387,7 +387,9 @@ function stopping(run: Run): boolean {
 /** Whether Claude has done anything yet: a problem before that means it couldn't start (Q10f). */
 function claudeWorked(session: Session): boolean {
   return session.activities.some((activity) =>
-    ['explore', 'plan', 'edit', 'refused', 'finished', 'waiting', 'command', 'denied'].includes(activity.kind),
+    ['explore', 'plan', 'edit', 'refused', 'finished', 'waiting', 'command', 'denied', 'answered'].includes(
+      activity.kind,
+    ),
   );
 }
 

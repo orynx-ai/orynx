@@ -19,6 +19,7 @@ import {
   type AgentModel,
   type AgentModels,
   type EffortLevel,
+  type SessionQuestion,
 } from '@devhub/contracts';
 import { briefText } from '../../sessions/brief.ts';
 import type { TicketTool, TicketToolDone } from '../../orynx-tickets/tools.ts';
@@ -29,6 +30,7 @@ import {
   type AgentEvent,
   type AgentWritten,
   type OrynxTool,
+  type QuestionAnswers,
 } from '../agent-adapter.ts';
 import { createMessageReader } from './sdk-messages.ts';
 import {
@@ -165,12 +167,25 @@ async function ticketTitle(tools: readonly TicketTool[], key: string): Promise<s
 /** The tools that write a file, before the first of which the session makes its branch (spec 042). */
 const editTools = new Set(['Edit', 'Write', 'NotebookEdit']);
 
-/** How a waiting call ended: your answer, Stop, or Claude Code dropping it. */
-type Outcome = 'allow' | 'deny' | 'stopped' | 'dropped';
+/** How a waiting call ended: your answer (a question's answers, spec 051), Stop, or Claude Code dropping it. */
+type Outcome = 'allow' | 'deny' | 'stopped' | 'dropped' | { answers: QuestionAnswers };
 
 /** Said to Claude when you deny a call (spec 012). */
 const deniedMessage =
   "The user denied this. Don't try it another way. Carry on without it, or say in your summary what you needed.";
+
+/** Said to Claude when you skip its question (spec 051, Q4). */
+const skippedMessage =
+  'The user skipped your question. Carry on with your best judgement, and say in your summary what you assumed.';
+
+/** Each question's header and the answer Claude got, as the step shows them (spec 051, AC-2). */
+function answeredSteps(questions: readonly SessionQuestion[], answers: QuestionAnswers) {
+  return questions.flatMap(({ question, header }) => {
+    const given = answers[question];
+    const answer = typeof given === 'string' ? given : (given ?? []).join(', ');
+    return answer === '' ? [] : [{ header, answer }];
+  });
+}
 
 interface Running {
   handlers: Set<(event: AgentEvent) => void>;
@@ -226,7 +241,12 @@ export function createClaudeAdapter({
     const resolve = running.parked.get(approvalId);
     if (resolve === undefined) return false;
     running.parked.delete(approvalId);
-    emit(running, { type: 'answered', sessionId, approvalId, allowed: outcome === 'allow' });
+    emit(running, {
+      type: 'answered',
+      sessionId,
+      approvalId,
+      allowed: outcome === 'allow' || typeof outcome === 'object',
+    });
     resolve(outcome);
     return true;
   }
@@ -521,6 +541,16 @@ export function createClaudeAdapter({
           if (outcome === 'stopped')
             return { behavior: 'deny', message: 'The user stopped the session.', interrupt: true };
           if (outcome === 'dropped') return { behavior: 'deny', message: 'Cancelled.' };
+          // A question is answered in its own input, keyed as Claude Code reads it; anything else is Skip (spec 051).
+          if (ask.kind === 'question') {
+            if (typeof outcome !== 'object') {
+              send({ type: 'work', sessionId: id, work: { kind: 'denied', about: 'question', text: askText(ask) } });
+              return { behavior: 'deny', message: skippedMessage };
+            }
+            const answers = answeredSteps(ask.questions, outcome.answers);
+            send({ type: 'work', sessionId: id, work: { kind: 'answered', answers } });
+            return { behavior: 'allow', updatedInput: { ...input, answers: outcome.answers } };
+          }
           if (outcome === 'deny') {
             send({ type: 'work', sessionId: id, work: { kind: 'denied', about: ask.kind, text: askText(ask) } });
             return { behavior: 'deny', message: deniedMessage };
@@ -651,7 +681,8 @@ export function createClaudeAdapter({
     respond(sessionId, approvalId, decision) {
       const running = sessions.get(sessionId);
       if (running === undefined || running.stopping) return Promise.resolve(false);
-      return Promise.resolve(settle(sessionId, running, approvalId, decision === 'deny' ? 'deny' : 'allow'));
+      const outcome = decision === 'deny' ? 'deny' : typeof decision === 'object' ? decision : 'allow';
+      return Promise.resolve(settle(sessionId, running, approvalId, outcome));
     },
 
     sendMessage(sessionId, text) {

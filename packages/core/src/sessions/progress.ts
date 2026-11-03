@@ -301,6 +301,8 @@ export function addWork(progress: Progress, work: ClaudeWork): Progress {
     }
     case 'denied':
       return addStep(progress, { kind: 'denied', about: work.about, text: work.text });
+    case 'answered':
+      return addStep(progress, { kind: 'answered', answers: work.answers });
     case 'no_commands':
       return addStep(progress, { kind: 'no_commands', reason: 'no_sandbox' });
     case 'ticket': {
