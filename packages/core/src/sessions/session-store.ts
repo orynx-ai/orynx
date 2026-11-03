@@ -26,13 +26,14 @@ export const ApprovalRecordSchema = z.object({
   /** The command, the edit's path, the ticket's key (spec 037), or the first question (spec 051). */
   text: z.string().min(1),
   askedAt: z.iso.datetime(),
-  /** Your answer; null when the call ended without one. */
-  answer: ApprovalDecisionSchema.nullable(),
+  /** Your answer, `answer` for a question you answered and never what you said (spec 051); null when it ended without one. */
+  answer: z.union([ApprovalDecisionSchema, z.literal('answer')]).nullable(),
   /** Who ended it: you, Stop, Discard, Orynx closing, or Claude Code dropping it. Null while it waits. */
   by: z.enum(['you', 'stopped', 'discarded', 'closed', 'dropped']).nullable(),
   answeredAt: z.iso.datetime().nullable(),
 });
 export type ApprovalRecord = z.infer<typeof ApprovalRecordSchema>;
+export type ApprovalAnswer = NonNullable<ApprovalRecord['answer']>;
 
 /** A session as the server keeps it: what the Session screen shows, plus what only the server needs. */
 export const StoredSessionSchema = z.object({

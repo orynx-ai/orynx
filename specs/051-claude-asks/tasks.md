@@ -11,7 +11,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 3: The adapter answers a question: `answers` in `updatedInput`, Skip's line, the `answered` and skipped steps, and Stop interrupting (AC-2 to AC-5, AC-7, AC-8)
       Check: pnpm test packages/core/src/agents/claude/claude-adapter.test.ts
       Files: packages/core/src/agents/agent-adapter.ts, claude/claude-adapter.ts, claude-adapter.test.ts, packages/core/src/test/fake-claude-sdk.ts
-- [ ] Task 4: The route and the service check an answer against the waiting question (400 `bad_answer`); the first answer counts; the steps and the log (AC-2 to AC-5, AC-9, AC-10)
+- [x] Task 4: The route and the service check an answer against the waiting question (400 `bad_answer`); the first answer counts; the steps and the log (AC-2 to AC-5, AC-9, AC-10)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/routes/sessions.test.ts packages/core/src/sessions/progress.test.ts
       Files: packages/core/src/sessions/session-service.ts, progress.ts, packages/core/src/routes/sessions.ts, their tests, packages/contracts/src/errors.ts
 - [ ] Task 5: The brief's new line, and the question's notification without its text on the desktop (AC-13, AC-24, Q5)

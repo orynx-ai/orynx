@@ -22,6 +22,7 @@ import type {
   PushAnswer,
   PushDraftAnswer,
   PushRequest,
+  QuestionAnswer,
   ReplyAnswer,
   ReplyDraftAnswer,
   ReplyRequest,
@@ -34,6 +35,7 @@ import type {
   SessionChanges,
   SessionFollowUp,
   SessionPort,
+  SessionQuestion,
   PortActionAnswer,
   SessionStep,
   SessionStepItem,
@@ -53,6 +55,7 @@ import {
   type AgentAsk,
   type AgentBrief,
   type AgentEvent,
+  type QuestionAnswers,
 } from '../agents/agent-adapter.ts';
 import type { EventBus } from '../events/event-bus.ts';
 import { createGitHubClient, type GitHubClient } from '../integrations/github/client.ts';
@@ -113,6 +116,7 @@ import { createPullRequests, type PullRequestReport } from './pull-requests.ts';
 import {
   pullKey,
   readyFor,
+  type ApprovalAnswer,
   type ApprovalRecord,
   type ListedSession,
   type SessionRecords,
@@ -147,7 +151,7 @@ export type SessionReport =
       session: string;
       ticket: string;
       about: AgentAsk['kind'];
-      answer: ApprovalDecision | null;
+      answer: ApprovalAnswer | null;
       by: ApprovalEnd;
     }
   /** You sent a follow-up (spec 013): into the running Claude, or resuming it. Never its text (AC-23). */
@@ -160,9 +164,10 @@ export type SendResult = SendMessageAnswer | { result: 'not_found' };
 
 /**
  * The answer to `respond()`: the call was answered; there's no such session or call; it was answered
- * already; Always allow isn't offered for it; or Always allow couldn't save the list, so nothing was decided.
+ * already; Always allow isn't offered for it; Always allow couldn't save the list, so nothing was decided; or the
+ * answers don't fit Claude's question (spec 051).
  */
-export type RespondResult = 'answered' | 'not_found' | 'already_answered' | 'not_offered' | 'not_saved';
+export type RespondResult = 'answered' | 'not_found' | 'already_answered' | 'not_offered' | 'not_saved' | 'bad_answer';
 
 export interface SessionService {
   /** What listens from the session (spec 042): none for an Ask or a gone worktree; null when it couldn't be read. */
@@ -190,7 +195,12 @@ export interface SessionService {
     options?: { branch?: boolean | undefined },
   ): Promise<'deleted' | 'not_found' | 'working' | 'failed'>;
   /** Your answer to a call waiting in this session (spec 012). The first answer counts. */
-  respond(id: string, approvalId: string, decision: ApprovalDecision): Promise<RespondResult>;
+  /** A question takes your answers, in its order, or `deny` for Skip (spec 051). */
+  respond(
+    id: string,
+    approvalId: string,
+    decision: ApprovalDecision | { answers: readonly QuestionAnswer[] },
+  ): Promise<RespondResult>;
   /**
    * A follow-up (spec 013, Q1): read by Claude after its current step while it works, or carried on in Claude
    * Code's own session once it has finished or stopped. Sends one at a time for each session.
@@ -405,13 +415,37 @@ function ticketOf(record: StoredSession): string {
 }
 
 /**
+ * Your answers as Claude Code reads them (spec 051), or null when they don't fit the questions: one for each question,
+ * picks among its own labels, each once, and exactly one answer where it takes one. Its schema checks Other's text.
+ */
+function questionAnswers(
+  questions: readonly SessionQuestion[],
+  given: readonly QuestionAnswer[],
+): QuestionAnswers | null {
+  if (given.length !== questions.length) return null;
+  const answers: Record<string, string | string[]> = {};
+  for (const [index, { question, multiSelect, options }] of questions.entries()) {
+    const answer = given[index];
+    if (answer === undefined) return null;
+    const { picked, other } = answer;
+    const labels = new Set(options.map((option) => option.label));
+    if (new Set(picked).size !== picked.length || picked.some((label) => !labels.has(label))) return null;
+    const all = other === null ? picked : [...picked, other];
+    const [only] = all;
+    if (only === undefined || (!multiSelect && all.length > 1)) return null;
+    answers[question] = multiSelect ? all : only;
+  }
+  return answers;
+}
+
+/**
  * Ends the waiting calls `which` picks: they leave the session's approvals and their steps go, the log says
  * how each ended, and a session with none left waiting is Working again. Gives the log's entries it ended.
  */
 function endApprovals(
   record: StoredSession,
   which: (id: string) => boolean,
-  answer: ApprovalDecision | null,
+  answer: ApprovalAnswer | null,
   by: ApprovalEnd,
   at: string,
 ): { record: StoredSession; ended: ApprovalRecord[] } {
@@ -498,7 +532,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   }
   const stepTimers = new Map<string, { timer: NodeJS.Timeout; again: boolean }>();
   /** Your answers on their way to Claude, by approval id, so the log says what you answered. */
-  const given = new Map<string, ApprovalDecision>();
+  const given = new Map<string, ApprovalAnswer>();
   /** The calls an answer has been taken for, so a second answer, from another tab, is late. */
   const claimed = new Set<string>();
   /** Follow-ups one at a time for each session (spec 013). */
@@ -631,7 +665,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     id: string,
     update: (record: StoredSession) => StoredSession,
     which: (approvalId: string) => boolean,
-    answer: ApprovalDecision | null,
+    answer: ApprovalAnswer | null,
     by: ApprovalEnd,
   ): Promise<StoredSession | null> {
     let ended: ApprovalRecord[] = [];
@@ -2195,14 +2229,22 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       }
       const run = runs.get(id);
       if (run?.agentId == null || adapter === null || claimed.has(approvalId)) return 'already_answered';
+      // A question takes your answers or Skip, and nothing else takes answers (spec 051).
+      const choice = typeof decision === 'object' ? null : decision;
+      const answers =
+        typeof decision === 'object' && waiting.kind === 'question'
+          ? questionAnswers(waiting.questions, decision.answers)
+          : null;
+      if (choice === null && answers === null) return 'bad_answer';
+      if (waiting.kind === 'question' && choice !== null && choice !== 'deny') return 'not_offered';
       const entry = waiting.kind === 'command' || waiting.kind === 'server' ? waiting.alwaysAllow : null;
       // A Jira change's Always allow turns Claude changes Jira on (spec 044, AC-17).
       const save =
         waiting.kind === 'jira' ? { jiraChanges: true as const } : entry === null ? null : { allowCommand: entry };
-      if (decision === 'always_allow' && save === null) return 'not_offered';
+      if (choice === 'always_allow' && save === null) return 'not_offered';
       // The first answer counts (AC-13): from here, before anything waits, any other answer to this call is late.
       claimed.add(approvalId);
-      if (decision === 'always_allow' && save !== null) {
+      if (choice === 'always_allow' && save !== null) {
         // The entry is saved first: if it can't be, nothing is decided and the call keeps waiting (AC-14).
         try {
           await options.preferences.change(save);
@@ -2211,11 +2253,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
           return 'not_saved';
         }
       }
-      given.set(approvalId, decision);
+      given.set(approvalId, choice ?? 'answer');
       const answered = await adapter.respond(
         run.agentId,
         approvalId,
-        decision === 'deny' ? 'deny' : decision === 'always_allow' ? 'always' : 'allow',
+        answers !== null ? { answers } : choice === 'deny' ? 'deny' : choice === 'always_allow' ? 'always' : 'allow',
       );
       if (!answered) {
         given.delete(approvalId);

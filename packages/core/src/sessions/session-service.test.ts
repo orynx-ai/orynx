@@ -963,6 +963,196 @@ describe('approvals (spec 012)', () => {
   });
 });
 
+describe("Claude's questions (spec 051)", () => {
+  const library = {
+    question: 'Which date library should we use?',
+    header: 'Library',
+    multiSelect: false,
+    options: [
+      { label: 'date-fns', description: 'Already a dependency' },
+      { label: 'Day.js', description: 'Smaller, a new dependency' },
+    ],
+  };
+  const checks = {
+    question: 'Which checks should run?',
+    header: 'Checks',
+    multiSelect: true,
+    options: [
+      { label: 'Unit tests', description: '' },
+      { label: 'Types', description: '' },
+    ],
+  };
+  const asksTwo = [{ tool: 'AskUserQuestion', input: { questions: [library, checks] } }, { finish: 'Used date-fns.' }];
+
+  it('AC-1: a question waits for you, and the session needs you', async () => {
+    const { service, records, reports } = await setUp({ script: asksTwo });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+
+    expect(approval).toMatchObject({ kind: 'question', questions: [library, checks] });
+    const record = await records.get('0000000000000001');
+    expect(record?.session.state).toBe('needs_you');
+    expect(record?.session.activities.at(-1)).toMatchObject({
+      kind: 'waiting',
+      about: 'question',
+      text: 'Which date library should we use?',
+    });
+    await vi.waitFor(() => {
+      expect(reports).toContainEqual({
+        what: 'asked',
+        session: '0000000000000001',
+        ticket: 'PROJ-1423',
+        about: 'question',
+      });
+    });
+    await service.stop('0000000000000001');
+  });
+
+  it('AC-2 to AC-5: your picks and Other reach Claude, the step shows them, and the log keeps only that you answered', async () => {
+    const { service, records, sdk, reports } = await setUp({ script: asksTwo });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+
+    const answers = [
+      { picked: ['date-fns'], other: null },
+      { picked: ['Unit tests'], other: 'And a smoke test' },
+    ];
+    expect(await service.respond('0000000000000001', approval?.id ?? '', { answers })).toBe('answered');
+
+    const record = await settled(records);
+    expect(record.session.state).toBe('done');
+    expect(sdk.runs[0]?.decisions[0]?.result).toEqual({
+      behavior: 'allow',
+      updatedInput: {
+        questions: [library, checks],
+        answers: { [library.question]: 'date-fns', [checks.question]: ['Unit tests', 'And a smoke test'] },
+      },
+    });
+    expect(record.session.activities).toContainEqual(
+      expect.objectContaining({
+        kind: 'answered',
+        answers: [
+          { header: 'Library', answer: 'date-fns' },
+          { header: 'Checks', answer: 'Unit tests, And a smoke test' },
+        ],
+      }) as unknown,
+    );
+    expect(record.approvalLog[0]).toMatchObject({ about: 'question', answer: 'answer', by: 'you' });
+    expect(JSON.stringify(record.approvalLog)).not.toContain('smoke');
+    expect(reports).toContainEqual(expect.objectContaining({ what: 'answered', about: 'question', answer: 'answer' }));
+  });
+
+  it('AC-3: Other alone is the answer to a question that takes one', async () => {
+    const { service, records, sdk } = await setUp({
+      script: [{ tool: 'AskUserQuestion', input: { questions: [library] } }, { finish: 'Done.' }],
+    });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    const other = "Use date-fns, it's already a dependency";
+    await service.respond('0000000000000001', approval?.id ?? '', { answers: [{ picked: [], other }] });
+    await settled(records);
+    expect(sdk.runs[0]?.decisions[0]?.result).toMatchObject({
+      updatedInput: { answers: { [library.question]: other } },
+    });
+  });
+
+  it.each([
+    ['one answer for two questions', [{ picked: ['date-fns'], other: null }]],
+    [
+      'a label Claude never offered',
+      [
+        { picked: ['Moment'], other: null },
+        { picked: ['Types'], other: null },
+      ],
+    ],
+    [
+      'two picks where one is asked',
+      [
+        { picked: ['date-fns', 'Day.js'], other: null },
+        { picked: ['Types'], other: null },
+      ],
+    ],
+    [
+      'a pick and Other where one is asked',
+      [
+        { picked: ['date-fns'], other: 'x' },
+        { picked: ['Types'], other: null },
+      ],
+    ],
+    [
+      'nothing picked',
+      [
+        { picked: [], other: null },
+        { picked: ['Types'], other: null },
+      ],
+    ],
+    [
+      'the same pick twice',
+      [
+        { picked: ['date-fns'], other: null },
+        { picked: ['Types', 'Types'], other: null },
+      ],
+    ],
+  ])('AC-6: refuses %s, and the question keeps waiting', async (_case, answers) => {
+    const { service, records } = await setUp({ script: asksTwo });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    expect(await service.respond('0000000000000001', approval?.id ?? '', { answers })).toBe('bad_answer');
+    expect((await records.get('0000000000000001'))?.session.state).toBe('needs_you');
+    expect(await service.respond('0000000000000001', approval?.id ?? '', 'deny')).toBe('answered');
+    await settled(records);
+  });
+
+  it('refuses Allow once or Always allow for a question, and answers for a command', async () => {
+    const { service, records } = await setUp({ script: asksTwo });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    expect(await service.respond('0000000000000001', approval?.id ?? '', 'allow_once')).toBe('not_offered');
+    expect(await service.respond('0000000000000001', approval?.id ?? '', 'always_allow')).toBe('not_offered');
+    await service.stop('0000000000000001');
+
+    const command = await setUp({
+      script: [{ tool: 'Bash', input: { command: 'npm test -- content-list' } }, { finish: 'Done.' }],
+    });
+    await command.service.start({ ticketKey: 'PROJ-1423' });
+    const [call] = await waitingCalls(command.records);
+    const answers = [{ picked: ['npm test'], other: null }];
+    expect(await command.service.respond('0000000000000001', call?.id ?? '', { answers })).toBe('bad_answer');
+    await command.service.stop('0000000000000001');
+  });
+
+  it('AC-7: Skip shows the question skipped, and Claude works on', async () => {
+    const { service, records } = await setUp({ script: asksTwo });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    await service.respond('0000000000000001', approval?.id ?? '', 'deny');
+
+    const record = await settled(records);
+    expect(record.session.state).toBe('done');
+    expect(record.session.activities).toContainEqual(
+      expect.objectContaining({ kind: 'denied', about: 'question', text: library.question }) as unknown,
+    );
+    expect(record.approvalLog[0]).toMatchObject({ answer: 'deny', by: 'you' });
+  });
+
+  it('AC-9: the first answer counts; one from another tab changes nothing', async () => {
+    const { service, records } = await setUp({ script: asksTwo });
+    await service.start({ ticketKey: 'PROJ-1423' });
+    const [approval] = await waitingCalls(records);
+    const id = approval?.id ?? '';
+    const answers = [
+      { picked: ['date-fns'], other: null },
+      { picked: ['Types'], other: null },
+    ];
+    const both = await Promise.all([
+      service.respond('0000000000000001', id, { answers }),
+      service.respond('0000000000000001', id, 'deny'),
+    ]);
+    expect(both).toEqual(['answered', 'already_answered']);
+    expect((await settled(records)).approvalLog[0]).toMatchObject({ answer: 'answer' });
+  });
+});
+
 describe('stopping a session', () => {
   it('AC-9: stops Claude while it works: Stopped, every step done, the worktree kept', async () => {
     const { service, records, home, sdk, heard } = await setUp({

@@ -78,6 +78,7 @@ const approvalErrors: Record<Exclude<RespondResult, 'answered'>, { status: 400 |
   not_found: { status: 404, body: { code: 'not_found', message: 'Nothing is waiting with this id.' } },
   already_answered: { status: 409, body: { code: 'already_answered', message: 'This call was answered already.' } },
   not_offered: { status: 400, body: { code: 'bad_request', message: 'Always allow isn’t offered for this call.' } },
+  bad_answer: { status: 400, body: { code: 'bad_request', message: 'This answer doesn’t fit Claude’s question.' } },
   not_saved: {
     status: 503,
     body: { code: 'settings_unsaved', message: 'The allow list could not be saved. See the terminal for details.' },
@@ -415,9 +416,12 @@ export const sessionsRoutes: FastifyPluginCallbackZod<{ sessions: SessionStore; 
     },
     async (request, reply) => {
       const { id, approvalId } = request.params;
-      const { decision } = request.body;
-      // shortcut: an answer to Claude's question is refused until spec 051's task 4 checks it against the question.
-      const result = decision === 'answer' ? 'not_offered' : await service.respond(id, approvalId, decision);
+      const answer = request.body;
+      const result = await service.respond(
+        id,
+        approvalId,
+        answer.decision === 'answer' ? { answers: answer.answers } : answer.decision,
+      );
       if (result === 'answered') return reply.code(204).send();
       const { status, body } = approvalErrors[result];
       return reply.code(status).send(body);

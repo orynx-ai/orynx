@@ -128,7 +128,14 @@ async function hub({ script, mode = 'edit_freely_ask_commands', sandbox = true }
       headers,
       payload: { decision },
     });
-  return { server, sessionId, session, waiting, answer, saving, settings: memory, sdk, repos, home };
+  const answerQuestion = (approvalId: string, answers: unknown) =>
+    server.inject({
+      method: 'POST',
+      url: apiRoutes.sessionApproval.replace(':id', sessionId).replace(':approvalId', approvalId),
+      headers,
+      payload: { decision: 'answer', answers },
+    });
+  return { server, sessionId, session, waiting, answer, answerQuestion, saving, settings: memory, sdk, repos, home };
 }
 
 const npmTest: FakeTurn = { tool: 'Bash', input: { command: 'npm test', description: 'Run the tests' } };
@@ -233,6 +240,42 @@ describe.skipIf(process.platform === 'win32')('POST /api/sessions/:id/approvals/
     expect(sdk.runs[0]?.options.tools).toEqual([...sessionToolsWithoutCommands]);
     expect(sdk.runs[0]?.options).not.toHaveProperty('sandbox');
     expect((await session()).activities).toContainEqual(expect.objectContaining({ kind: 'no_commands' }) as unknown);
+  });
+
+  it("051 AC-2, AC-6: an answer to Claude's question gets 204; one that doesn't fit, or a long Other, gets 400", async () => {
+    const library = {
+      question: 'Which date library should we use?',
+      header: 'Library',
+      multiSelect: false,
+      options: [
+        { label: 'date-fns', description: 'Already a dependency' },
+        { label: 'Day.js', description: 'Smaller' },
+      ],
+    };
+    const { session, waiting, answerQuestion, sdk } = await hub({
+      script: [{ tool: 'AskUserQuestion', input: { questions: [library] } }, { finish: 'Used date-fns.' }],
+    });
+    const [approval] = await waiting();
+    expect(approval).toMatchObject({ kind: 'question', questions: [library] });
+    const id = approval?.id ?? '';
+
+    const unoffered = await answerQuestion(id, [{ picked: ['Moment'], other: null }]);
+    expect(unoffered.statusCode).toBe(400);
+    expect(ApiErrorSchema.parse(unoffered.json())).toEqual({
+      code: 'bad_request',
+      message: 'This answer doesn’t fit Claude’s question.',
+    });
+    expect((await answerQuestion(id, [{ picked: [], other: 'x'.repeat(2001) }])).statusCode).toBe(400);
+    expect((await session()).state).toBe('needs_you');
+
+    expect((await answerQuestion(id, [{ picked: ['date-fns'], other: null }])).statusCode).toBe(204);
+    await vi.waitFor(async () => {
+      expect((await session()).state).toBe('done');
+    });
+    expect(sdk.runs[0]?.decisions[0]?.result).toMatchObject({
+      behavior: 'allow',
+      updatedInput: { answers: { [library.question]: 'date-fns' } },
+    });
   });
 
   it('answers 401 without the session token', async () => {
