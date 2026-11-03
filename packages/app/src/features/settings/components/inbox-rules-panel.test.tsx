@@ -13,6 +13,8 @@ const rules = [
   'My pull requests with failing checks',
   'My pull requests with unresolved review comments',
   'Claude sessions waiting for my approval',
+  "Slack mentions and DMs you haven't answered",
+  "Discord mentions you haven't answered",
 ];
 
 async function openTab() {
@@ -25,13 +27,34 @@ async function openTab() {
 }
 
 describe('InboxRulesPanel', () => {
-  it('AC-12: lists the five rules, in the product spec order, all on', async () => {
+  it('AC-12, 016 AC-18: lists the seven rules, in the product spec order, all on', async () => {
     const { group } = await openTab();
 
     const boxes = within(group).getAllByRole('checkbox');
     expect(boxes).toEqual(rules.map((name) => within(group).getByRole('checkbox', { name })));
     for (const box of boxes) expect(box).toBeChecked();
-    expect(within(group).queryByText(/slack/i)).not.toBeInTheDocument();
+  });
+
+  it('016 AC-18: the wait before a message counts starts at 2 h, and a change sends only it', async () => {
+    const sent: PreferencesChange[] = [];
+    server.use(
+      http.patch(apiUrl(apiRoutes.preferences), async ({ request }) => {
+        sent.push((await request.json()) as PreferencesChange);
+        return HttpResponse.json(makePreferences({ replyWaitMinutes: 240 }));
+      }),
+    );
+    const { user } = await openTab();
+    const wait = screen.getByRole('combobox', { name: 'Wait before a message counts' });
+    expect(wait).toHaveTextContent('2 h');
+
+    await user.click(wait);
+    await user.click(await screen.findByRole('option', { name: '4 h' }));
+
+    // At once, before the server answers.
+    expect(screen.getByRole('combobox', { name: 'Wait before a message counts' })).toHaveTextContent('4 h');
+    await waitFor(() => {
+      expect(sent).toEqual([{ replyWaitMinutes: 240 }]);
+    });
   });
 
   it('AC-13: unchecks a rule at once and sends only that rule', async () => {
@@ -117,7 +140,7 @@ describe('InboxRulesPanel', () => {
     await renderApp({ route: '/settings/inbox-rules' });
 
     const boxes = within(await screen.findByRole('group', { name: intro })).getAllByRole('checkbox');
-    expect(boxes).toHaveLength(5);
+    expect(boxes).toHaveLength(7);
     for (const box of boxes) {
       expect(box).toBeDisabled();
       expect(box).not.toBeChecked();

@@ -1,6 +1,16 @@
 import { useId } from 'react';
-import type { InboxRuleId } from '@devhub/contracts';
-import { Button, Checkbox } from '@devhub/ui';
+import { replyWaitMinutes, ReplyWaitMinutesSchema, type InboxRuleId, type ReplyWaitMinutes } from '@devhub/contracts';
+import {
+  Button,
+  Checkbox,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SettingList,
+  SettingRow,
+} from '@devhub/ui';
 import { useChangePreferences, useClearInboxCache, usePreferences } from '../queries.ts';
 import { SaveError } from './save-error.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
@@ -12,15 +22,22 @@ const rules: readonly { id: InboxRuleId; label: string }[] = [
   { id: 'checks_failing', label: 'My pull requests with failing checks' },
   { id: 'unresolved_comments', label: 'My pull requests with unresolved review comments' },
   { id: 'session_waiting', label: 'Claude sessions waiting for my approval' },
+  // Spec 016, Q8.
+  { id: 'slack_waiting', label: "Slack mentions and DMs you haven't answered" },
+  { id: 'discord_waiting', label: "Discord mentions you haven't answered" },
 ];
+
+/** The wait's choices as the select says them (spec 016, B). */
+const waitNames: Record<ReplyWaitMinutes, string> = { 30: '30 min', 60: '1 h', 120: '2 h', 240: '4 h', 1440: '1 day' };
 
 /**
  * Settings › Inbox rules: what shows up under Needs your attention on Home (spec 007 applies them). Saved
- * as you change them. Slack's rule and its wait time join in spec 016 (spec 005, Q6).
+ * as you change them. Slack's and Discord's rules share one wait (spec 016).
  */
 export function InboxRulesPanel() {
   const introId = useId();
   const cacheLineId = useId();
+  const waitId = useId();
   const preferences = usePreferences();
   const change = useChangePreferences();
   const clear = useClearInboxCache();
@@ -50,6 +67,34 @@ export function InboxRulesPanel() {
           />
         ))}
       </fieldset>
+      <SettingList>
+        <SettingRow
+          title="Wait before a message counts"
+          titleId={waitId}
+          description="How long a Slack or Discord message waits on your reply before Home lists it."
+          control={
+            <Select
+              // While loading, 2 h and disabled, so nothing moves when the answer comes.
+              value={String(preferences.data?.replyWaitMinutes ?? 120)}
+              disabled={preferences.data === undefined}
+              onValueChange={(value) => {
+                change.mutate({ replyWaitMinutes: ReplyWaitMinutesSchema.parse(Number(value)) });
+              }}
+            >
+              <SelectTrigger aria-labelledby={waitId} className="w-auto min-w-28">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {replyWaitMinutes.map((minutes) => (
+                  <SelectItem key={minutes} value={String(minutes)}>
+                    {waitNames[minutes]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+      </SettingList>
       {change.isError ? <SaveError /> : null}
 
       {/* Clear cache (spec 002 Q3, spec 007 Q7): only cache.db, never tokens, settings, sessions or worktrees. */}

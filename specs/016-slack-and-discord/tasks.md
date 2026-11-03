@@ -91,7 +91,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 23: (built with task 22, one shared form for both tools, so one commit) Discord's row and dialog: step 1 with the Developer Portal link, step 2's token form, the user ID field when a team owns the bot, intent-off words, Disconnect (AC-5 to AC-9)
       Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx packages/app/src/features/settings/components/connections-panel.test.tsx
       Files: packages/app/src/features/settings/components/connection-dialog.tsx, discord-connection-form.tsx, connections-panel.tsx, connection-words.ts, packages/app/src/features/settings/schemas.ts, packages/app/src/features/settings/queries.ts, their tests
-- [ ] Task 24: Inbox rules: Slack's and Discord's rows and "Wait before a message counts"; Notifications: "Someone is waiting on your reply" (AC-18, AC-25)
+- [x] Task 24: Inbox rules: Slack's and Discord's rows and "Wait before a message counts"; Notifications: "Someone is waiting on your reply" (AC-18, AC-25)
       Check: pnpm test packages/app/src/features/settings/components/inbox-rules-panel.test.tsx packages/app/src/features/settings/components/notifications-panel.test.tsx packages/app/src/features/notifications/
       Files: packages/app/src/features/settings/components/inbox-rules-panel.tsx, notifications-panel.tsx, packages/app/src/features/notifications/words.ts, packages/app/src/features/notifications/components/notification-centre.tsx, their tests
 
