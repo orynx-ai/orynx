@@ -11,14 +11,17 @@ export interface ChoiceGroupProps {
   className?: string;
   /** The `<ChoiceCard>`s, sharing one `name`. */
   children: ReactNode;
+  /** Its cards are checkboxes (`<ChoiceCard multiple>`), so it's a plain group, which can't be marked invalid (spec 051). */
+  multiple?: boolean;
 }
 
 /**
  * A set of `<ChoiceCard>`s where one is picked, as the design system draws Settings › Coding agent and
  * Appearance: a fieldset with its legend, then the cards. It is a `radiogroup`, so an error can mark it
- * invalid and describe it, the way `<Field>` does for one input.
+ * invalid and describe it, the way `<Field>` does for one input. With `multiple`, several are picked
+ * (spec 051): a plain group of checkboxes, which the error describes.
  */
-export function ChoiceGroup({ legend, help, error, className, children }: ChoiceGroupProps) {
+export function ChoiceGroup({ legend, help, error, multiple = false, className, children }: ChoiceGroupProps) {
   const id = useId();
   const legendId = `${id}-legend`;
   const messageId = `${id}-message`;
@@ -28,11 +31,11 @@ export function ChoiceGroup({ legend, help, error, className, children }: Choice
   return (
     <fieldset
       // ARIA in HTML allows `radiogroup` on a fieldset; `group`, its own role, can't carry aria-invalid.
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- see above
-      role="radiogroup"
+       
+      role={multiple ? undefined : 'radiogroup'}
       aria-labelledby={legendId}
       aria-describedby={message === undefined ? undefined : messageId}
-      aria-invalid={hasError || undefined}
+      aria-invalid={(!multiple && hasError) || undefined}
       className={cn('m-0 flex min-w-0 flex-col gap-2 border-0 p-0', className)}
     >
       <legend id={legendId} className="mb-2 p-0 font-medium">

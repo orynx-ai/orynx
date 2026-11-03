@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: `postApproval` sends the answers (AC-2)
       Check: pnpm test packages/api-client/src/sessions.test.ts
       Files: packages/api-client/src/endpoints/sessions.ts, packages/api-client/src/sessions.test.ts, packages/api-client/src/client.ts, packages/app/src/features/sessions/queries.ts
-- [ ] Task 7: `ChoiceCard` with `multiple`: a checkbox in the same card, with a story for each state and a test (Q2)
+- [x] Task 7: `ChoiceCard` with `multiple`: a checkbox in the same card, with a story for each state and a test (Q2)
       Check: pnpm test packages/ui/src/components/choice-card.test.tsx; pnpm gate component-coverage
       Files: packages/ui/src/components/choice-card.tsx, choice-card.stories.tsx, choice-card.test.tsx
 - [ ] Task 8: The question form in the callout: a group per question, Other with its box, Send answer, and errors that say what to do (AC-1, AC-3 to AC-6, AC-11, AC-20, AC-21)

@@ -44,3 +44,7 @@ export const LongDetail: Story = {
       'Orynx keeps the token in your keychain. Create a classic token with the repo scope, and authorize it for single sign-on if your company uses it.',
   },
 };
+/** A checkbox in the card, for a choice that takes several, as Claude's questions can (spec 051). */
+export const Multiple: Story = {
+  args: { multiple: true, name: 'checks', title: 'Unit tests', detail: 'Vitest, about a minute', defaultChecked: true },
+};

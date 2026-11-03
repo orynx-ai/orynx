@@ -53,3 +53,15 @@ export const WithHelp: Story = { args: { help: 'You can switch later from Manage
 export const WithError: Story = {
   args: { error: "gh isn't signed in to github.com. Run gh auth login in a terminal, then try again." },
 };
+const checks = (
+  <>
+    <ChoiceCard multiple name="checks" value="unit" title="Unit tests" detail="Vitest, about a minute" defaultChecked />
+    <ChoiceCard multiple name="checks" value="types" title="Types" detail="tsc across the workspace" defaultChecked />
+    <ChoiceCard multiple name="checks" value="e2e" title="End to end" detail="Playwright, about ten minutes" />
+  </>
+);
+/** Checkboxes, for a question that takes several answers (spec 051). */
+export const Multiple: Story = { args: { multiple: true, legend: 'Which checks should run?', children: checks } };
+export const MultipleWithError: Story = {
+  args: { ...Multiple.args, error: 'Pick an answer.' },
+};

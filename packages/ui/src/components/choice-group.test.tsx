@@ -60,6 +60,21 @@ describe('ChoiceGroup', () => {
     expect(group).toHaveAccessibleDescription('Pick one way.');
   });
 
+  it('051 Q2: with multiple, is a group of checkboxes named by its legend, its error describing it', async () => {
+    const { container } = render(
+      <ChoiceGroup multiple legend="Which checks should run?" error="Pick an answer.">
+        <ChoiceCard multiple name="checks" value="unit" title="Unit tests" />
+        <ChoiceCard multiple name="checks" value="types" title="Types" />
+      </ChoiceGroup>,
+    );
+
+    const group = screen.getByRole('group', { name: 'Which checks should run?' });
+    expect(group).toHaveAccessibleDescription('Pick an answer.');
+    expect(screen.queryByRole('radiogroup')).toBeNull();
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2);
+    await expectNoAxeViolations(container);
+  });
+
   it('has no accessibility violations with help, with an error, and with neither', async () => {
     const { container } = render(
       <>
