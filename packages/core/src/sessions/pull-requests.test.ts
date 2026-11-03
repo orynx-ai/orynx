@@ -7,6 +7,8 @@ import type { Session } from '@devhub/contracts';
 import { makeSession, makeSessionPullRequest } from '@devhub/contracts/testing';
 import { gitEnvironment } from '../agents/agent-environment.ts';
 import { createClaudeAdapter } from '../agents/claude/claude-adapter.ts';
+import { createCodexAdapter } from '../agents/codex/codex-adapter.ts';
+import { useFakeCodex } from '../test/fake-codex.ts';
 import { createEventBus } from '../events/event-bus.ts';
 import { createGitHubClient } from '../integrations/github/client.ts';
 import { createGitHubConnection } from '../integrations/github/connection.ts';
@@ -64,6 +66,8 @@ interface SetUpOptions {
   session?: Partial<Session>;
   /** The base the worktree step names. */
   base?: string;
+  /** Codex's program, for a session on Codex (spec 052). */
+  codexProgram?: string;
 }
 
 async function setUp({
@@ -72,6 +76,7 @@ async function setUp({
   noClaude = false,
   session = {},
   base = 'origin/main',
+  codexProgram,
 }: SetUpOptions = {}) {
   const repos = await repositories();
   const home = await realpath(await mkdtemp(join(tmpdir(), 'devhub-pull-requests-')));
@@ -152,6 +157,19 @@ async function setUp({
     git: createBranchGit({ env }),
     changes: createChangesReader({ env }),
     adapter,
+    ...(codexProgram === undefined
+      ? {}
+      : {
+          codex: createCodexAdapter({
+            program: codexProgram,
+            env: { PATH: '/usr/bin:/bin' },
+            home: repos.root,
+            devhubHome: home,
+            temporary: tmpdir(),
+            platform: 'darwin',
+            runsCommands: true,
+          }),
+        }),
   });
   return { repos, home, worktree, records, sdk, pulls, reports, settings };
 }
@@ -161,7 +179,30 @@ const hashOf = async (path: string) =>
     .update(await readFile(path))
     .digest('hex');
 
+const codexPrograms = useFakeCodex();
+
 describe('drafting the pull request (spec 014)', () => {
+  it("052 AC-22: a session on Codex gets Codex's draft, and Claude writes nothing", async () => {
+    const fake = await codexPrograms();
+    const { worktree, sdk, pulls } = await setUp({ session: { agent: 'codex' }, codexProgram: fake.program });
+    await writeFile(join(worktree, 'README.md'), '# web-app\n\nBulk archive.\n');
+
+    const drafting = pulls.draft(id);
+    const codex = await fake.next();
+    codex.reply((await codex.expectRequest('initialize')).id, {});
+    await codex.read();
+    codex.reply((await codex.expectRequest('config/read')).id, { config: {} });
+    const thread = await codex.expectRequest('thread/start');
+    expect(thread.params).toMatchObject({ ephemeral: true });
+    codex.reply(thread.id, { thread: { id: 'thread-w' } });
+    codex.reply((await codex.expectRequest('turn/start')).id, { turn: { id: 'turn-w' } });
+    codex.notify('item/completed', { item: { type: 'agentMessage', id: 'm', text: claudeDraft } });
+    codex.notify('turn/completed', { threadId: 'thread-w', turn: { id: 'turn-w', status: 'completed' } });
+
+    expect(await drafting).toMatchObject({ result: 'draft', title: 'PROJ-1423: Add bulk archive to the content list' });
+    expect(sdk.runs).toHaveLength(0);
+  });
+
   it("AC-2, AC-3: gives Claude's draft with the key and the Jira line, and what will happen", async () => {
     const { worktree, sdk, pulls } = await setUp();
     await writeFile(join(worktree, 'README.md'), '# web-app\n\nBulk archive.\n');

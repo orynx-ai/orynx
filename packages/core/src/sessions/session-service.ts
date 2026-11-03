@@ -12,6 +12,7 @@ import type {
   Storage,
   ClaudeCommandList,
   AgentChoice,
+  AgentId,
   ApprovalDecision,
   ComposerChip,
   CreatePullRequestAnswer,
@@ -303,6 +304,11 @@ export interface SessionServiceOptions {
   chat?: Pick<ThreadRepliesOptions, 'slack' | 'discord'>;
   /** Null when the server was built without Claude Code: then no session can start (AC-22). */
   adapter: AgentAdapter | null;
+  /**
+   * Codex beside Claude (spec 052): its adapter, null when there's no `codex` here, and its login check, which a
+   * session on Codex needs signed in. Left out, no session runs on Codex.
+   */
+  codex?: { adapter: AgentAdapter | null; login: { connected(): Promise<boolean> } };
   /** Orynx's own tickets, whose tools every session's agent gets (spec 037); left out, it gets none. */
   tickets?: OrynxTicketService;
   /** Your shell tabs (spec 036). Left out where there are none (Windows): then no session offers its Terminal. */
@@ -367,6 +373,8 @@ interface Run {
   controller: AbortController;
   /** The adapter's id for Claude's session, once it has started. */
   agentId: string | null;
+  /** The adapter the run started on: its session's agent's (spec 052). */
+  adapter: AgentAdapter | null;
   stopping: boolean;
   /** The adapter's id once Claude has started; null when it never will. A follow-up waits for it (spec 013). */
   started: Promise<string | null>;
@@ -378,7 +386,7 @@ function newRun(): Run {
   const started = new Promise<string | null>((resolve) => {
     markStarted = resolve;
   });
-  return { controller: new AbortController(), agentId: null, stopping: false, started, markStarted };
+  return { controller: new AbortController(), agentId: null, adapter: null, stopping: false, started, markStarted };
 }
 
 /** A run has ended: its time joins Claude's working time, and nothing runs now (spec 013, Q3). */
@@ -519,6 +527,12 @@ function withProgress(record: StoredSession, change: (progress: Progress) => Pro
 
 export function createSessionService(options: SessionServiceOptions): SessionService {
   const { records, repositories, claude, connection, describeTicket, events, adapter } = options;
+  /** The adapter a session's agent runs on (spec 052); null when this server has none for it. */
+  const adapterOf = (agent: AgentId): AgentAdapter | null =>
+    agent === 'codex' ? (options.codex?.adapter ?? null) : adapter;
+  /** Whether the agent is signed in, so a session can start on it. */
+  const signedIn = (agent: AgentId): Promise<boolean> =>
+    agent === 'codex' ? (options.codex?.login.connected() ?? Promise.resolve(false)) : claude.connected();
   const now = options.now ?? Date.now;
   const newId = options.newId ?? (() => randomBytes(8).toString('hex'));
   const stepEventMs = options.stepEventMs ?? 250;
@@ -1029,6 +1043,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
    * read, the session's intent, steps and, with no ticket or pull request, its title. Null when it couldn't read.
    */
   async function readAsk(id: string, record: StoredSession, start: StartPlan): Promise<AskReading | null> {
+    const adapter = adapterOf(record.session.agent);
     if (adapter === null || record.repository === null) return null;
     const shown = await change(id, (current) =>
       withProgress(current, (progress) => addStep(progress, unread, 'running')),
@@ -1091,8 +1106,11 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     const planned = startPlans.get(id);
     startPlans.delete(id);
     const shipKey = record.session.source?.kind === 'jira' ? record.session.source.key : null;
-    const start = planned ?? (shipKey === null ? null : await shipPlan(id, shipKey, run));
-    if (start === null) return;
+    const shipped = planned ?? (shipKey === null ? null : await shipPlan(id, shipKey, run));
+    if (shipped === null) return;
+    // A ticket's Build carries the model and effort you picked (spec 052) to its plan, read only now.
+    const start = planned === undefined ? { ...shipped, choice: shipChoices.get(id) ?? {} } : shipped;
+    shipChoices.delete(id);
     const { signal } = run.controller;
 
     const reading = options.readAsks === true ? await readAsk(id, record, start) : null;
@@ -1307,7 +1325,10 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     /** The model and effort you picked for this run; left out, Claude Code's own default. */
     { model, effort }: AgentChoice = {},
   ): Promise<void> {
-    if (adapter === null) return fail(id, 'other', 'no_claude_code');
+    const agent = (await records.get(id))?.session.agent ?? 'claude';
+    const adapter = adapterOf(agent);
+    if (adapter === null) return fail(id, 'other', agent === 'codex' ? 'no_codex' : 'no_claude_code');
+    run.adapter = adapter;
     // Settings are read before Claude starts, and again for each call it makes (spec 012, AC-11).
     const permissions = async () => {
       const [preferences, current] = await Promise.all([options.preferences.read(), records.get(id)]);
@@ -1438,7 +1459,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       run.stopping = true;
       runs.delete(id);
       run.controller.abort();
-      if (run.agentId !== null && adapter !== null) await adapter.stop(run.agentId);
+      if (run.agentId !== null && run.adapter !== null) await run.adapter.stop(run.agentId);
     }
     await changeEnding(
       id,
@@ -1506,9 +1527,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       if (read !== null) await change(id, withContext);
       if (
         agentId !== null &&
-        adapter !== null &&
+        live.adapter !== null &&
         !stopping(live) &&
-        (await adapter.sendMessage(agentId, briefText(brief)))
+        (await live.adapter.sendMessage(agentId, briefText(brief)))
       ) {
         await change(id, (current) =>
           withProgress(current, (progress) => addStep(progress, { kind: 'message', text })),
@@ -1545,9 +1566,16 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     // An Ask session carries on in its repository folder, with no branch (spec 026).
     const ask = session.mode === 'ask';
     const folder = ask ? askPlace(record) : record.worktree;
-    if (claudeSessionId === null || folder === null || (!ask && !worktreeMade(record)) || adapter === null) {
+    if (
+      claudeSessionId === null ||
+      folder === null ||
+      (!ask && !worktreeMade(record)) ||
+      adapterOf(session.agent) === null
+    ) {
       return cannot('never_started');
     }
+    // A session keeps its agent for life (spec 052): a model picked for another agent gives way to this one's own.
+    const own: AgentChoice = choice.agent === undefined || choice.agent === session.agent ? choice : {};
     const key = ticketOf(record);
     if ((await workingCount()) >= mostWorking) return cannot('too_many');
 
@@ -1574,7 +1602,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         ask ? null : (branch ?? record.branchPlan?.name ?? null),
         claudeSessionId,
         ticketNote(session),
-        choice,
+        own,
       )
         .catch(() => fail(id, 'other', 'unexpected'))
         .finally(() => {
@@ -1587,6 +1615,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
   const starting = new Map<string, Promise<unknown>>();
   /** A composer start's plan, from its record being made until its run takes it (spec 015). */
   const startPlans = new Map<string, StartPlan>();
+  /** The model and effort a ticket's Build was started with, until its run reads the ticket (spec 052). */
+  const shipChoices = new Map<string, AgentChoice>();
 
   /** The newest live Build that `holds` matches: an Ask session reads only, so it never holds anything (spec 026). */
   async function newestLive(holds: (session: ListedSession) => boolean): Promise<string | null> {
@@ -1649,11 +1679,17 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     return credentials === null ? null : `https://${credentials.site}/browse/${key}`;
   }
 
-  async function startNow({ ticketKey, repositoryId }: TicketStart): Promise<StartSessionAnswer> {
+  async function startNow({
+    ticketKey,
+    repositoryId,
+    agent = 'claude',
+    model,
+    effort,
+  }: TicketStart): Promise<StartSessionAnswer> {
     const live = await liveSessionOn(ticketKey);
     if (live !== null) return { result: 'existing', sessionId: live };
 
-    if (!(await claude.connected())) return { result: 'cannot_start', reason: 'signed_out' };
+    if (!(await signedIn(agent))) return { result: 'cannot_start', reason: 'signed_out' };
     if ((await workingCount()) >= mostWorking) return { result: 'cannot_start', reason: 'too_many' };
 
     const project = projectOf(ticketKey);
@@ -1677,8 +1713,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         state: 'working',
         ready: 'nothing',
         pinnedAt: null,
-        // Every session runs on Claude until the session service picks the agent's adapter (spec 052, task 12).
-        agent: 'claude',
+        agent,
         source: { kind: 'jira', key: ticketKey },
         updatedAt: at,
         folder: { name: folder.name, displayPath: folder.displayPath },
@@ -1723,6 +1758,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       commandLog: [],
       commandsDropped: 0,
     };
+    shipChoices.set(id, { model, effort });
     await records.create(record);
     events.publish({ type: 'sessions.changed' });
     begin(id);
@@ -1750,7 +1786,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
       const live = await liveReviewOn(pullKey(`${reviewing.owner}/${reviewing.name}`, reviewing.number));
       if (live !== null) return { result: 'existing', sessionId: live };
     }
-    if (!(await claude.connected())) return { result: 'cannot_start', reason: 'signed_out' };
+    if (!(await signedIn(request.agent ?? 'claude'))) return { result: 'cannot_start', reason: 'signed_out' };
     if ((await workingCount()) >= mostWorking) return { result: 'cannot_start', reason: 'too_many' };
     // An Ask sent with no folder reads none (spec 031); a Build always has one. A review reads the folder whose origin
     // is its pull request's repository, or the diff alone when there's none (spec 050, AC-6).
@@ -1784,8 +1820,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         state: 'working',
         ready: 'nothing',
         pinnedAt: null,
-        // Every session runs on Claude until the session service picks the agent's adapter (spec 052, task 12).
-        agent: 'claude',
+        agent: request.agent ?? 'claude',
         source:
           pull !== null
             ? { kind: 'pull_request', number: pull.number }
@@ -2022,6 +2057,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
     git: branchGit,
     changes: options.changes,
     adapter,
+    codex: options.codex?.adapter ?? null,
     ensureBranch: (id) => makeBranch(id),
   });
   const threadReplies = createThreadReplies({ records, save: change, ...options.chat });
@@ -2232,7 +2268,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         return record.approvalLog.some((entry) => entry.id === approvalId) ? 'already_answered' : 'not_found';
       }
       const run = runs.get(id);
-      if (run?.agentId == null || adapter === null || claimed.has(approvalId)) return 'already_answered';
+      if (run?.agentId == null || run.adapter === null || claimed.has(approvalId)) return 'already_answered';
       // A question takes your answers or Skip, and nothing else takes answers (spec 051).
       const choice = typeof decision === 'object' ? null : decision;
       const answers =
@@ -2258,7 +2294,7 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         }
       }
       given.set(approvalId, choice ?? 'answer');
-      const answered = await adapter.respond(
+      const answered = await run.adapter.respond(
         run.agentId,
         approvalId,
         answers !== null ? { answers } : choice === 'deny' ? 'deny' : choice === 'always_allow' ? 'always' : 'allow',

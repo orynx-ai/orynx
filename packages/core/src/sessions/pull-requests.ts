@@ -72,6 +72,8 @@ export interface PullRequestsOptions {
   changes: ChangesReader;
   /** Null when the server was built without Claude Code: then every draft starts from the ticket (AC-6). */
   adapter: AgentAdapter | null;
+  /** Codex's, for a session on Codex (spec 052): its draft, commit message and replies are Codex's own. */
+  codex?: AgentAdapter | null;
   /** Makes the session's branch when its first edit never came (spec 042); a message when it couldn't. */
   ensureBranch?: (id: string) => Promise<string | null>;
 }
@@ -200,7 +202,10 @@ export function replyProblem(problem: GitHubOpenProblem | { kind: 'refused'; mes
 }
 
 export function createPullRequests(options: PullRequestsOptions): PullRequests {
-  const { records, client, git, changes, adapter } = options;
+  const { records, client, git, changes } = options;
+  /** The agent that writes a session's text: the one it runs on (spec 052). */
+  const writer = (session: Session): AgentAdapter | null =>
+    session.agent === 'codex' ? (options.codex ?? null) : options.adapter;
   const now = options.now ?? Date.now;
   /** One create or push at a time for each session (AC-13). */
   const turns = new Map<string, Promise<unknown>>();
@@ -338,6 +343,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
         baseSubjects,
         base,
       });
+      const adapter = writer(session);
       const written = adapter === null ? null : await adapter.write(prompt, draftInstructionsFor(ticket));
       const drafted = written?.ok === true ? readDraft(written.text, ticket) : null;
       const text = drafted ?? fallbackDraft(ticket, summaries);
@@ -368,6 +374,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
       const diffs = listed.ok ? await diffsFor(worktree, since, listed.changes).catch(() => []) : [];
       const ticket = ticketOf(session);
       const prompt = pushPrompt({ ticket, summaries: summariesSincePush(session), ...files, diffs });
+      const adapter = writer(session);
       const written = adapter === null ? null : await adapter.write(prompt, pushInstructions);
       const message = written?.ok === true ? readCommitMessage(written.text) : null;
       return {
@@ -410,6 +417,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
           ? await diffsFor(record.worktree, start, listed.changes).catch(() => [])
           : [];
       const prompt = replyPrompt({ threads, summaries: summariesOf(session), ...files, diffs });
+      const adapter = writer(session);
       const written = adapter === null ? null : await adapter.write(prompt, replyInstructions);
       const replies =
         written?.ok === true
