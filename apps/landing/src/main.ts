@@ -97,6 +97,27 @@ if (showcase) {
   }
 }
 
+// The plan's to-dos tick off one at a time while the card is in view, then start over. With reduced motion they stay
+// as drawn: two done, one running.
+for (const list of document.querySelectorAll<HTMLElement>('.demo-todos')) {
+  if (reducedMotion) break;
+  const items = [...list.children];
+  let step = 0;
+  let timer = 0;
+  const next = () => {
+    items.forEach((item, at) => {
+      item.classList.toggle('is-done', at < step);
+      item.classList.toggle('is-running', at === step);
+    });
+    // Two beats with everything done, then back to the first.
+    step = (step + 1) % (items.length + 2);
+  };
+  new IntersectionObserver(([entry]) => {
+    clearInterval(timer);
+    if (entry?.isIntersecting) timer = window.setInterval(next, 1100);
+  }).observe(list);
+}
+
 // Each typed line is as many characters wide as it holds.
 for (const line of document.querySelectorAll<HTMLElement>('.terminal .type')) {
   line.style.setProperty('--n', String(line.textContent.length));
