@@ -184,6 +184,29 @@ export function useCreatePullRequest(sessionId: string) {
   });
 }
 
+/** Post reply: the pull request's link in the session's thread, on your press only (spec 016, E). */
+export function usePostThreadReply(sessionId: string) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (text: string) => api.postThreadReply(sessionId, text),
+    // Posted: the session now says where it went.
+    onSuccess: (answer) => {
+      if (answer.result === 'posted') void queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) });
+    },
+  });
+}
+
+/** Not now on the reply in the thread (spec 016, AC-43). */
+export function useDismissThreadReply(sessionId: string) {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.dismissThreadReply(sessionId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionId) }),
+  });
+}
+
 /** Claude's commit message for what's new since the last push (spec 014, Q7): asked on opening, never cached. */
 export function useDraftPush(sessionId: string) {
   const api = useApi();

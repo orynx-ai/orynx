@@ -8,6 +8,7 @@ import { ChangesSkeleton } from './components/changes-panel.tsx';
 import { contextOf } from './components/context-panel.tsx';
 import { FollowUpBox } from './components/follow-up-box.tsx';
 import { NextMove } from './components/next-move.tsx';
+import { TellTheThread } from './components/tell-the-thread.tsx';
 import { SessionDetails } from './components/session-details.tsx';
 import { SessionActions, SessionHeader, SessionHeaderSkeleton } from './components/session-header.tsx';
 import {
@@ -138,7 +139,12 @@ export function SessionScreen() {
               stepper={found.mode === 'ask' ? undefined : <SessionStepper session={found} />}
             />
           }
-          nextMove={<NextMove session={found} focusPullRequest={focusPullRequest} />}
+          nextMove={
+            <>
+              <NextMove session={found} focusPullRequest={focusPullRequest} />
+              <TellTheThread session={found} />
+            </>
+          }
           progress={<SessionProgress session={found} footer={<FollowUpBox session={found} />} />}
           details={found.mode === 'ask' && contextOf(found).length === 0 ? null : <SessionDetails session={found} />}
         />
