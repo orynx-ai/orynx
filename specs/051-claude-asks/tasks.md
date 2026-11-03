@@ -26,7 +26,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 8: The question form in the callout: a group per question, Other with its box, Send answer, and errors that say what to do (AC-1, AC-3 to AC-6, AC-11, AC-20, AC-21)
       Check: pnpm test packages/app/src/features/sessions/components/question-form.test.tsx packages/app/src/features/sessions/components/approval-callout.test.tsx; pnpm gate design-source
       Files: packages/app/src/features/sessions/components/question-form.tsx, question-form.test.tsx, approval-callout.tsx, approval-callout.test.tsx, schemas.ts, approval-words.ts, session-screen.tsx (Design note)
-- [ ] Task 9: Skip, a failed send, another tab answering first, focus, and the pinned bar (AC-7, AC-9, AC-10, AC-14, AC-15, AC-16)
+- [x] Task 9: Skip, a failed send, another tab answering first, focus, and the pinned bar (AC-7, AC-9, AC-10, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/sessions/components/approval-callout.test.tsx packages/app/src/features/sessions/components/question-form.test.tsx
       Files: packages/app/src/features/sessions/components/approval-callout.tsx, question-form.tsx, their tests
 - [ ] Task 10: The words around a question: the pill, the steps, Home's banner, the bell, and Settings › Notifications' row (AC-1, AC-2, AC-7, AC-12, AC-13, Q6)

@@ -5,7 +5,9 @@ import { Button, Callout, CalloutCode, DiffView, ResumeBanner } from '@devhub/ui
 import {
   alwaysAllowLabel,
   alwaysAskLine,
+  answerBar,
   approvalBar,
+  questionHeading,
   answerErrorLine,
   approvalButtons,
   approvalTitle,
@@ -93,6 +95,11 @@ export function ApprovalCallout({
   // Whether the callout is in view; out of it, a bar pinned to the window's bottom leads back (19 Oct 2026).
   const box = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(true);
+  /** Where focus lands on the call shown: a question's first choice (spec 051, AC-15), or the first button. */
+  const firstControl = useCallback(
+    () => box.current?.querySelector<HTMLElement>('form input') ?? firstButton.current,
+    [],
+  );
   const waiting = approval !== undefined;
   useEffect(() => {
     const element = box.current;
@@ -110,8 +117,8 @@ export function ApprovalCallout({
   const moveOn = useCallback(() => {
     answered.current = null;
     if (shown.current === undefined) afterAll.current?.focus();
-    else firstButton.current?.focus();
-  }, [afterAll]);
+    else firstControl()?.focus();
+  }, [afterAll, firstControl]);
 
   useEffect(() => {
     shown.current = approval?.id;
@@ -232,19 +239,22 @@ export function ApprovalCallout({
         <div className="fixed inset-x-4 bottom-4 z-20 mx-auto max-w-180 rounded-md shadow-overlay max-md:bottom-19">
           <ResumeBanner
             asChild
-            title={approvalBar.title}
+            title={approval.kind === 'question' ? answerBar.title : approvalBar.title}
             detail={
-              <code className="font-mono text-code">
-                {approval.kind === 'command' || approval.kind === 'server'
-                  ? approval.command
-                  : approval.kind === 'edit'
-                    ? approval.path
-                    : approval.kind === 'question'
-                      ? approval.questions[0]?.header
+              approval.kind === 'question' ? (
+                // The first question's header, or the question when it has none (spec 051, AC-14).
+                questionHeading(approval)
+              ) : (
+                <code className="font-mono text-code">
+                  {approval.kind === 'command' || approval.kind === 'server'
+                    ? approval.command
+                    : approval.kind === 'edit'
+                      ? approval.path
                       : approval.key}
-              </code>
+                </code>
+              )
             }
-            action={approvalBar.review}
+            action={approval.kind === 'question' ? answerBar.answer : approvalBar.review}
             className="w-full cursor-pointer border-0 text-start text-body"
           >
             <button
@@ -252,7 +262,7 @@ export function ApprovalCallout({
               onClick={() => {
                 const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
                 box.current?.scrollIntoView({ block: 'center', behavior: reduced ? 'auto' : 'smooth' });
-                firstButton.current?.focus({ preventScroll: true });
+                firstControl()?.focus({ preventScroll: true });
               }}
             />
           </ResumeBanner>

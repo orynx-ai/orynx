@@ -112,3 +112,12 @@ export const needsApprovalLabel = 'Needs your approval';
 
 /** The bar pinned to the window's bottom while the waiting call is out of view (the user's call, 19 Oct 2026). */
 export const approvalBar = { title: 'Claude is waiting for your approval', review: 'Review' };
+
+/** The same bar while Claude's question waits (spec 051, Q3). */
+export const answerBar = { title: 'Claude is waiting for your answer', answer: 'Answer' };
+
+/** A question's short name: its first question's header, or the question itself when it has none (spec 051). */
+export function questionHeading(approval: Extract<SessionApproval, { kind: 'question' }>): string {
+  const [first] = approval.questions;
+  return first === undefined ? '' : first.header === '' ? first.question : first.header;
+}

@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Session, type SessionApproval } from '@devhub/contracts';
-import { makeSession, makeSessionApproval } from '@devhub/contracts/testing';
+import { makeQuestionApproval, makeSession, makeSessionApproval } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { FakeIntersectionObserver } from '../../../test/fake-intersection-observer.ts';
 import { apiUrl, server, sessionHandler } from '../../../test/msw.ts';
@@ -310,5 +310,91 @@ describe('ApprovalCallout (spec 012)', () => {
     expect(within(callout).getByText(/Fixed in \*\*main\*\*\./)).toBeVisible();
     await user.click(within(callout).getByRole('button', { name: 'Always allow Jira changes' }));
     expect(await screen.findByText("Couldn't turn on Claude changes Jira. Try again, or allow it once.")).toBeVisible();
+  });
+});
+
+describe("Claude's question: Skip, errors, focus and the bar (spec 051)", () => {
+  const question = makeQuestionApproval({ id: 'approval-q1' });
+
+  it('AC-7: Skip sends Skip, and nothing else', async () => {
+    const { answers } = setUp([question]);
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('button', { name: 'Skip' }));
+    await waitFor(() => {
+      expect(answers).toEqual([{ approvalId: 'approval-q1', decision: 'deny' }]);
+    });
+  });
+
+  it('AC-10: an answer that can’t be sent says so above the buttons, keeps your pick, and Send answer works again', async () => {
+    const { answers } = setUp([question], () => HttpResponse.json({ code: 'internal', message: 'x' }, { status: 500 }));
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('radio', { name: 'Day.js' }));
+    await user.click(screen.getByRole('button', { name: 'Send answer' }));
+
+    const said = await screen.findByText("Couldn't send your answer. Try again.");
+    expect(said.compareDocumentPosition(screen.getByRole('button', { name: 'Send answer' }))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(screen.getByRole('radio', { name: 'Day.js' })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Send answer' }));
+    await waitFor(() => {
+      expect(answers).toHaveLength(2);
+    });
+  });
+
+  it('AC-9: an answer another tab beat says nothing', async () => {
+    const { answers } = setUp([question], () =>
+      HttpResponse.json({ code: 'already_answered', message: 'x' }, { status: 409 }),
+    );
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('radio', { name: 'date-fns' }));
+    await user.click(screen.getByRole('button', { name: 'Send answer' }));
+    await waitFor(() => {
+      expect(answers).toHaveLength(1);
+    });
+    expect(screen.queryByText(/Couldn't/)).toBeNull();
+  });
+
+  it('AC-15, AC-16: after a command, the question shows next with focus on its first choice; after it, Claude’s progress', async () => {
+    const { answered } = setUp([lint, question]);
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('button', { name: 'Allow once' }));
+    answered(question);
+
+    expect(await screen.findByText('Claude has a question')).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'date-fns' })).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('radio', { name: 'Day.js' })).toBeChecked();
+    await user.keyboard('{Enter}');
+    answered();
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).toBeNull();
+    });
+    expect(screen.getByRole('region', { name: 'What agent did' })).toHaveFocus();
+  });
+
+  it('AC-16: after a question, the command shows next with focus on Allow once', async () => {
+    const { answered } = setUp([question, lint]);
+    const { user } = await renderApp({ route });
+    await user.click(await screen.findByRole('button', { name: 'Skip' }));
+    answered(lint);
+    expect(await screen.findByText('npm run lint')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Allow once' })).toHaveFocus();
+  });
+
+  it('AC-14: out of view, the bar says Claude waits for your answer, with the header, and Answer focuses the first choice', async () => {
+    setUp([question]);
+    const { user } = await renderApp({ route });
+    await screen.findByRole('alert');
+
+    act(() => {
+      FakeIntersectionObserver.scrollOutOfView();
+    });
+    const bar = await screen.findByRole('button', { name: /^Claude is waiting for your answer/ });
+    expect(within(bar).getByText('Library')).toBeVisible();
+    expect(within(bar).getByText('Answer')).toBeVisible();
+    vi.spyOn(Element.prototype, 'scrollIntoView');
+    await user.click(bar);
+    expect(screen.getByRole('radio', { name: 'date-fns' })).toHaveFocus();
   });
 });
