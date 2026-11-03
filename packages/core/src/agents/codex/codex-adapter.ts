@@ -1,14 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { z } from 'zod';
-import { AgentModelIdSchema, EffortLevelSchema, type AgentModel, type AgentModels } from '@devhub/contracts';
+import {
+  AgentModelIdSchema,
+  EffortLevelSchema,
+  type AgentModel,
+  type AgentModels,
+  type ChangeLine,
+} from '@devhub/contracts';
 import { briefText } from '../../sessions/brief.ts';
+import { parseUnifiedDiff } from '../../sessions/unified-diff.ts';
 import { askText, type AgentAdapter, type AgentAsk, type AgentEvent } from '../agent-adapter.ts';
+import { previewLineLimit } from '../claude/edit-preview.ts';
 import { decideToolUse, type ToolContext } from '../claude/tool-decision.ts';
 import { startAppServer, type AppServer } from './app-server.ts';
-import { createCodexReader, type CodexRead, type SeenCommand } from './items.ts';
+import { createCodexReader, FileChangeItemSchema, type CodexRead, type SeenCommand } from './items.ts';
 import { codexCheckArgs, codexSessionArgs } from './launch.ts';
 import { innerCommand, plainReadPaths } from './plain-read.ts';
 
@@ -106,6 +114,28 @@ const CommandApprovalSchema = z.looseObject({
   additionalPermissions: z.unknown().nullish(),
 });
 
+const EditApprovalSchema = z.looseObject({ itemId: z.string() });
+const ItemStartedSchema = z.looseObject({ item: z.unknown() });
+
+type FileChange = z.infer<typeof FileChangeItemSchema>['changes'][number];
+
+/**
+ * The lines an edit takes out and puts in, for the callout (spec 012, Q9): the first 20, and how many more. A new
+ * file's diff is its lines, each with a `+`; any other's is a unified diff.
+ */
+function editLines(change: FileChange): { lines: ChangeLine[]; moreLines: number } {
+  const changed: ChangeLine[] =
+    change.kind.type === 'add'
+      ? change.diff
+          .split('\n')
+          .filter((row, index, rows) => !(row === '' && index === rows.length - 1))
+          .map((row, index) => ({ kind: 'added', number: index + 1, text: row.startsWith('+') ? row.slice(1) : row }))
+      : parseUnifiedDiff(change.diff).lines.filter(
+          (line): line is ChangeLine => line.kind === 'added' || line.kind === 'removed',
+        );
+  return { lines: changed.slice(0, previewLineLimit), moreLines: Math.max(0, changed.length - previewLineLimit) };
+}
+
 const accept = { decision: 'accept' } as const;
 const decline = { decision: 'decline' } as const;
 
@@ -144,6 +174,8 @@ interface Running {
   parked: Map<string, (outcome: Outcome) => void>;
   /** What Orynx made of each command it was asked about, by Codex's item id. */
   seen: Map<string, SeenCommand>;
+  /** Each edit Codex has started, by its item id, for the ask that follows it. */
+  changes: Map<string, FileChange[]>;
   /**
    * The decision before this one: calls are decided one at a time, in the order Codex asked, so calls asked together
    * wait in that order whichever reads Settings faster.
@@ -245,6 +277,51 @@ export function createCodexAdapter({
     return decline;
   }
 
+  /**
+   * An edit Codex wants to make (spec 052, part C): every file it touches must be inside the worktree, checked as
+   * Claude's Write is, and with Edit files on Ask first each one waits in the callout with its lines. The session
+   * makes its branch before the first edit it lets in (spec 042).
+   */
+  async function decideEdit(
+    sessionId: string,
+    running: Running,
+    params: unknown,
+    context: () => Promise<ToolContext>,
+    worktree: string,
+    onEdit: (() => Promise<string | null>) | undefined,
+  ): Promise<unknown> {
+    const asked = EditApprovalSchema.safeParse(params);
+    const changes = asked.success ? running.changes.get(asked.data.itemId) : undefined;
+    if (changes === undefined || changes.length === 0 || running.stopping) return decline;
+    const rows = await context();
+    // The row is applied below, with the diff Codex gave; here only where each file is counts.
+    const where = { ...rows, edits: 'allow' as const };
+    for (const change of changes) {
+      for (const path of [change.path, ...(change.kind.movePath == null ? [] : [change.kind.movePath])]) {
+        const verdict = await decideToolUse('Write', { file_path: path, content: '' }, where);
+        if (verdict.behavior === 'deny') {
+          if (verdict.refusal !== null) {
+            emit(running, { type: 'work', sessionId, work: { kind: 'refused', refusal: verdict.refusal } });
+          }
+          return decline;
+        }
+      }
+    }
+    if (rows.edits === 'ask') {
+      for (const change of changes) {
+        const absolute = isAbsolute(change.path) ? change.path : resolve(worktree, change.path);
+        const path = relative(worktree, absolute);
+        const ask: AgentAsk = { kind: 'edit', path, creates: change.kind.type === 'add', ...editLines(change) };
+        const outcome = await waitForAnswer(sessionId, running, ask);
+        if (outcome === 'deny') {
+          emit(running, { type: 'work', sessionId, work: { kind: 'denied', about: 'edit', text: path } });
+        }
+        if (outcome !== 'allow') return decline;
+      }
+    }
+    return (await onEdit?.()) == null ? accept : decline;
+  }
+
   /** Codex's own requests to a session, decided one at a time in the order Codex asked. */
   function answer(
     sessionId: string,
@@ -252,10 +329,14 @@ export function createCodexAdapter({
     method: string,
     params: unknown,
     context: () => Promise<ToolContext>,
+    worktree: string,
+    onEdit: (() => Promise<string | null>) | undefined,
   ): Promise<unknown> {
     const decide = (): Promise<unknown> => {
       if (method === 'item/commandExecution/requestApproval') return decideCommand(sessionId, running, params, context);
-      if (method === 'item/fileChange/requestApproval') return Promise.resolve(decline);
+      if (method === 'item/fileChange/requestApproval') {
+        return decideEdit(sessionId, running, params, context, worktree, onEdit);
+      }
       if (method === 'item/tool/call') {
         return Promise.resolve({
           contentItems: [{ type: 'inputText', text: 'Orynx has no such tool.' }],
@@ -316,7 +397,7 @@ export function createCodexAdapter({
       return Promise.resolve({ ok: false, problem: 'other' });
     },
 
-    startSession(brief, worktree, permissions, instructions, { resume, model, effort } = {}) {
+    startSession(brief, worktree, permissions, instructions, { resume, model, effort, onEdit } = {}) {
       const id = randomUUID();
       let endTurn: () => void = () => undefined;
       let turnStarted: () => void = () => undefined;
@@ -341,6 +422,7 @@ export function createCodexAdapter({
         settled: false,
         parked: new Map(),
         seen: new Map(),
+        changes: new Map(),
         deciding: Promise.resolve(),
       };
       sessions.set(id, running);
@@ -387,9 +469,13 @@ export function createCodexAdapter({
           return;
         }
         running.server = server;
-        server.onRequest((method, params) => answer(id, running, method, params, context));
+        server.onRequest((method, params) => answer(id, running, method, params, context, worktree, onEdit));
         const read = createCodexReader({ worktree, seen: (itemId) => running.seen.get(itemId) ?? null });
         server.onNotification((method, params) => {
+          if (method === 'item/started') {
+            const edit = FileChangeItemSchema.safeParse(ItemStartedSchema.safeParse(params).data?.item);
+            if (edit.success) running.changes.set(edit.data.id, edit.data.changes);
+          }
           if (method === 'turn/started') {
             const turn = TurnStartedSchema.safeParse(params);
             if (turn.success) running.turnId = turn.data.turn.id;

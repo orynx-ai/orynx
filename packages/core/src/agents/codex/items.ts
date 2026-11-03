@@ -40,7 +40,8 @@ const CommandItemSchema = z.looseObject({
   durationMs: z.number().nullish(),
 });
 
-const FileChangeItemSchema = z.looseObject({
+/** An edit Codex makes: each file, with its unified diff (a new file's is its lines, each with a `+`). */
+export const FileChangeItemSchema = z.looseObject({
   type: z.literal('fileChange'),
   id: z.string(),
   changes: z.array(

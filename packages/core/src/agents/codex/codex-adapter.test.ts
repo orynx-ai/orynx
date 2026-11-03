@@ -491,3 +491,161 @@ describe.skipIf(process.platform === 'win32')("the Codex adapter's commands (spe
     expect(events).toContainEqual(expect.objectContaining({ type: 'answered', allowed: false }));
   });
 });
+
+/** Codex starts an edit, with its diff, then asks Orynx before it goes in. */
+function askToEdit(codex: CodexPeer, changes: { path: string; kind: string; diff: string; movePath?: string }[]) {
+  codex.notify('item/started', {
+    threadId: 'thread-1',
+    turnId: 'turn-1',
+    startedAtMs: 0,
+    item: {
+      type: 'fileChange',
+      id: 'edit-1',
+      status: 'inProgress',
+      changes: changes.map(({ path, kind, diff, movePath }) => ({
+        path,
+        kind: kind === 'update' ? { type: 'update', movePath: movePath ?? null } : { type: kind },
+        diff,
+      })),
+    },
+  });
+  return codex.ask('item/fileChange/requestApproval', {
+    threadId: 'thread-1',
+    turnId: 'turn-1',
+    itemId: 'edit-1',
+    startedAtMs: 0,
+    reason: null,
+    grantRoot: null,
+  });
+}
+
+describe.skipIf(process.platform === 'win32')("the Codex adapter's edits (spec 052)", () => {
+  async function running(overrides: Partial<AgentPermissions> = {}, onEdit?: () => Promise<string | null>) {
+    const { fake, adapter, worktree } = await setup();
+    const id = await adapter.startSession(brief, worktree, permissionsFrom(overrides), '', { onEdit });
+    const events = heard(adapter, id);
+    const { codex } = await answerStart(fake);
+    return { adapter, id, events, codex, worktree };
+  }
+
+  it('AC-13: Edit files on Ask first shows the change, and the edit goes in only after Allow', async () => {
+    let branches = 0;
+    const { adapter, id, events, codex, worktree } = await running({ edits: 'ask' }, () => {
+      branches += 1;
+      return Promise.resolve(null);
+    });
+    let answered = false;
+    const answer = askToEdit(codex, [
+      { path: `${worktree}/src/a.ts`, kind: 'update', diff: '@@ -3,2 +3,2 @@\n keep\n-old\n+new\n' },
+    ]).then((reply) => {
+      answered = true;
+      return reply;
+    });
+    await until(() => events.some((event) => event.type === 'approval'));
+    const approval = events.find((event) => event.type === 'approval');
+    expect(approval).toMatchObject({
+      ask: {
+        kind: 'edit',
+        path: 'src/a.ts',
+        creates: false,
+        lines: [
+          { kind: 'removed', number: 4, text: 'old' },
+          { kind: 'added', number: 4, text: 'new' },
+        ],
+        moreLines: 0,
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(answered).toBe(false);
+    if (approval?.type !== 'approval') throw new Error('no approval');
+
+    await adapter.respond(id, approval.approvalId, 'allow');
+    expect((await answer).result).toEqual({ decision: 'accept' });
+    // The session makes its branch before the first edit it lets in (spec 042).
+    expect(branches).toBe(1);
+  });
+
+  it('AC-13: a new file shows its lines, the first 20 and a count of the rest', async () => {
+    const { events, codex, worktree } = await running({ edits: 'ask' });
+    const content = Array.from({ length: 25 }, (_, line) => `+line ${String(line + 1)}`).join('\n');
+    void askToEdit(codex, [{ path: `${worktree}/src/new.ts`, kind: 'add', diff: `${content}\n` }]);
+    await until(() => events.some((event) => event.type === 'approval'));
+    const approval = events.find((event) => event.type === 'approval');
+    if (approval?.type !== 'approval' || approval.ask.kind !== 'edit') throw new Error('no edit approval');
+    expect(approval.ask).toMatchObject({ path: 'src/new.ts', creates: true, moreLines: 5 });
+    expect(approval.ask.lines).toHaveLength(20);
+    expect(approval.ask.lines[0]).toEqual({ kind: 'added', number: 1, text: 'line 1' });
+  });
+
+  it('Edit files on Allow lets the edit in without asking', async () => {
+    const { events, codex, worktree } = await running({ edits: 'allow' });
+    const reply = await askToEdit(codex, [
+      { path: `${worktree}/src/a.ts`, kind: 'update', diff: '@@ -1 +1 @@\n-a\n+b\n' },
+    ]);
+    expect(reply.result).toEqual({ decision: 'accept' });
+    expect(events.some((event) => event.type === 'approval')).toBe(false);
+  });
+
+  it('AC-14: an edit outside the worktree is refused with a step, whatever the row says', async () => {
+    const { events, codex, id, worktree } = await running({ edits: 'allow' });
+    const reply = await askToEdit(codex, [
+      { path: `${worktree}/src/a.ts`, kind: 'update', diff: '' },
+      { path: '/etc/hosts', kind: 'update', diff: '' },
+    ]);
+    expect(reply.result).toEqual({ decision: 'decline' });
+    expect(events.at(-1)).toEqual({
+      type: 'work',
+      sessionId: id,
+      work: { kind: 'refused', refusal: { access: 'edit', reason: 'outside_worktree', path: '/etc/hosts' } },
+    });
+  });
+
+  it('AC-14: a move out of the worktree is refused too', async () => {
+    const { codex, worktree } = await running({ edits: 'allow' });
+    const reply = await askToEdit(codex, [
+      { path: `${worktree}/src/a.ts`, kind: 'update', diff: '', movePath: '/Users/you/elsewhere.ts' },
+    ]);
+    expect(reply.result).toEqual({ decision: 'decline' });
+  });
+
+  it('Deny keeps the edit out, and says so as a step', async () => {
+    const { adapter, id, events, codex, worktree } = await running({ edits: 'ask' });
+    const answer = askToEdit(codex, [{ path: `${worktree}/src/a.ts`, kind: 'update', diff: '@@ -1 +1 @@\n-a\n+b\n' }]);
+    await until(() => events.some((event) => event.type === 'approval'));
+    const approval = events.find((event) => event.type === 'approval');
+    if (approval?.type !== 'approval') throw new Error('no approval');
+    await adapter.respond(id, approval.approvalId, 'deny');
+
+    expect((await answer).result).toEqual({ decision: 'decline' });
+    expect(events.at(-1)).toEqual({
+      type: 'work',
+      sessionId: id,
+      work: { kind: 'denied', about: 'edit', text: 'src/a.ts' },
+    });
+  });
+
+  it('an Ask edits nothing, and says so as a step', async () => {
+    const { events, codex, id, worktree } = await running({ readOnly: true, edits: 'allow' });
+    const reply = await askToEdit(codex, [{ path: `${worktree}/src/a.ts`, kind: 'update', diff: '' }]);
+    expect(reply.result).toEqual({ decision: 'decline' });
+    expect(events.at(-1)).toMatchObject({
+      sessionId: id,
+      work: { kind: 'refused', refusal: { access: 'edit', reason: 'ask_session', path: 'src/a.ts' } },
+    });
+  });
+
+  it("an edit the session can't make its branch for, or one Orynx never saw start, is declined", async () => {
+    const { codex, worktree } = await running({ edits: 'allow' }, () =>
+      Promise.resolve("Orynx couldn't make the session's branch."),
+    );
+    const reply = await askToEdit(codex, [{ path: `${worktree}/src/a.ts`, kind: 'update', diff: '' }]);
+    expect(reply.result).toEqual({ decision: 'decline' });
+
+    const unseen = await codex.ask('item/fileChange/requestApproval', {
+      threadId: 'thread-1',
+      turnId: 'turn-1',
+      itemId: 'nope',
+    });
+    expect(unseen.result).toEqual({ decision: 'decline' });
+  });
+});
