@@ -467,6 +467,19 @@ describe("Codex's note (spec 052)", () => {
     expect(sessionNote('feat/PROJ-1423', true, true, rows)).toContain('dangerouslyDisableSandbox');
   });
 
+  it('asks Codex to put a decision it needs in its summary, since it has no AskUserQuestion here (spec 051)', () => {
+    const summaryLine = 'If you need a decision from the user, finish and ask it in your summary.';
+    for (const note of [
+      sessionNote('feat/PROJ-1423', true, true, rows, null, 'codex'),
+      askNote(true, 'codex'),
+      reviewNote(true, 'codex'),
+    ]) {
+      expect(note).toContain(summaryLine);
+      expect(note).not.toContain('AskUserQuestion');
+    }
+    expect(sessionNote('feat/PROJ-1423', true, true, rows)).toContain('AskUserQuestion');
+  });
+
   it('an Ask or a review on Codex names AGENTS.md too', () => {
     expect(askNote(true, 'codex')).toContain('If the repository has an AGENTS.md or a CLAUDE.md, read it first.');
     expect(reviewNote(true, 'codex')).toContain("the repository's AGENTS.md or CLAUDE.md if it has one");

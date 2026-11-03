@@ -310,6 +310,14 @@ function handbook(agent: AgentId): string {
 const askLine =
   "If you need a decision from the user before you can go on, ask it with AskUserQuestion. Ask only what the code, the brief and the repository's rules don't answer, and don't use previews.";
 
+/** Codex has no AskUserQuestion here (spec 052): it asks in its summary, as Claude did before spec 051. */
+const summaryAskLine =
+  'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.';
+
+function askLineFor(agent: AgentId): string {
+  return agent === 'codex' ? summaryAskLine : askLine;
+}
+
 export function sessionNote(
   branch: string,
   commands: boolean,
@@ -357,7 +365,7 @@ export function sessionNote(
     // A detached worktree has no branch for `git push origin <branch>` to send (spec 031).
     ...(pull === null ? gitLines(branch, commands, rows) : pullLines(branch, number, commands, rows)),
     ...ending,
-    askLine,
+    askLineFor(agent),
   ].join(' ');
 }
 
@@ -378,7 +386,7 @@ export function askNote(folder = true, agent: AgentId = 'claude'): string {
           "You can read the files the brief names. You can't change files or run commands, and nothing you try will be allowed.",
         ]),
     'Answer what the user asks. If it needs changes, describe them; the user can start a Build session to make them.',
-    askLine,
+    askLineFor(agent),
   ].join(' ');
 }
 
@@ -397,7 +405,7 @@ export function reviewNote(checkout: boolean, agent: AgentId = 'claude'): string
     "Don't repeat a comment that's already on the pull request.",
     'Leave each comment with review_comment on a line of the diff, at most 20 in all.',
     'Nothing goes to GitHub: the user keeps, edits or drops each comment, then posts the review.',
-    askLine,
+    askLineFor(agent),
     'End with a short summary for the author, then a last line of its own: `Verdict: approve`, `Verdict: comment` or `Verdict: request changes`.',
   ].join(' ');
 }
