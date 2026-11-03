@@ -1,4 +1,5 @@
 import type { FakeIssue } from '../../packages/core/src/test/fake-jira.ts';
+import type { FakeMention, FakeSlackMessage } from '../../packages/core/src/test/fake-slack.ts';
 import type {
   FakeOpenedPull,
   FakePull,
@@ -57,6 +58,12 @@ export const terminalHubPort = 4380;
  */
 export const orynxTicketsHubPort = 4382;
 
+/**
+ * The eleventh, for Slack and Discord (spec 016): connecting them, and their rows on Home, stay away from the inbox
+ * spec, which expects neither.
+ */
+export const chatHubPort = 4378;
+
 /** Where a spec tells a hub's fakes what Jira and GitHub hold, with `PUT /tools`: the port below the hub's. */
 export function controlPortFor(hubPort: number): number {
   return hubPort - 1;
@@ -85,4 +92,13 @@ export interface FakeTools {
   threadWrites?: FakeThreadWrite[];
   /** Every review posted (spec 050), in order. */
   postedReviews?: FakePostedReview[];
+  /** Slack's mentions of you and their threads (spec 016), and every reply Orynx posts. */
+  slack?: { mentions: FakeMention[]; threads: Record<string, FakeSlackMessage[]>; posted?: FakeSlackPost[] };
+}
+
+/** A reply Orynx posted in a Slack thread. */
+export interface FakeSlackPost {
+  channel: string;
+  thread_ts: string;
+  text: string;
 }
