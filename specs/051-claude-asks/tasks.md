@@ -14,7 +14,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 4: The route and the service check an answer against the waiting question (400 `bad_answer`); the first answer counts; the steps and the log (AC-2 to AC-5, AC-9, AC-10)
       Check: pnpm test packages/core/src/sessions/session-service.test.ts packages/core/src/routes/sessions.test.ts packages/core/src/sessions/progress.test.ts
       Files: packages/core/src/sessions/session-service.ts, progress.ts, packages/core/src/routes/sessions.ts, their tests, packages/contracts/src/errors.ts
-- [ ] Task 5: The brief's new line, and the question's notification without its text on the desktop (AC-13, AC-24, Q5)
+- [x] Task 5: The brief's new line, and the question's notification without its text on the desktop (AC-13, AC-24, Q5)
       Check: pnpm test packages/core/src/sessions/brief.test.ts packages/core/src/notifications
       Files: packages/core/src/sessions/brief.ts, brief.test.ts, packages/core/src/notifications/session-notifications.ts, its test
 - [ ] Task 6: `postApproval` sends the answers (AC-2)

@@ -299,6 +299,10 @@ function pullLines(branch: string, number: string, commands: boolean, { push }: 
  * how they run (012 Q8g); where the sandbox can't run, that it can't (012 Q2b). Without a ticket, Claude does
  * what the brief asks (spec 015, Q8c). It may push or open the pull request only as Settings says (spec 026).
  */
+/** Claude asks mid-task, and only what it can't find out (spec 051; it asked in its summary before, spec 013 Q2a). */
+const askLine =
+  "If you need a decision from the user before you can go on, ask it with AskUserQuestion. Ask only what the code, the brief and the repository's rules don't answer, and don't use previews.";
+
 export function sessionNote(
   branch: string,
   commands: boolean,
@@ -333,8 +337,7 @@ export function sessionNote(
     // A detached worktree has no branch for `git push origin <branch>` to send (spec 031).
     ...(pull === null ? gitLines(branch, commands, rows) : pullLines(branch, number, commands, rows)),
     ...ending,
-    // Claude can't ask mid-task: it asks in its summary, and you answer in the follow-up box (spec 013, Q2a).
-    'If you need a decision from the user, finish and ask it in your summary. The user answers in a follow-up.',
+    askLine,
   ].join(' ');
 }
 
@@ -355,6 +358,7 @@ export function askNote(folder = true): string {
           "You can read the files the brief names. You can't change files or run commands, and nothing you try will be allowed.",
         ]),
     'Answer what the user asks. If it needs changes, describe them; the user can start a Build session to make them.',
+    askLine,
   ].join(' ');
 }
 
@@ -373,6 +377,7 @@ export function reviewNote(checkout: boolean): string {
     "Don't repeat a comment that's already on the pull request.",
     'Leave each comment with review_comment on a line of the diff, at most 20 in all.',
     'Nothing goes to GitHub: the user keeps, edits or drops each comment, then posts the review.',
+    askLine,
     'End with a short summary for the author, then a last line of its own: `Verdict: approve`, `Verdict: comment` or `Verdict: request changes`.',
   ].join(' ');
 }
