@@ -1,4 +1,5 @@
-export { agentEnvironment, gitEnvironment } from './agents/agent-environment.ts';
+export { agentEnvironment, codexEnvironment, gitEnvironment } from './agents/agent-environment.ts';
+export { findCodex } from './agents/codex/codex-program.ts';
 export { claudeWorkFolder, createClaudeCode, findSdkClaudeCode, type ClaudeCode } from './agents/claude/claude-code.ts';
 export { sandboxAvailable } from './agents/claude/sandbox.ts';
 export { createServer, redactToken, type CoreOptions } from './create-server.ts';

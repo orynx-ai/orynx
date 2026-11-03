@@ -41,9 +41,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 13: The note for Codex (`AGENTS.md` and `CLAUDE.md`, commands that stay in its sandbox, no push), and no `Co-Authored-By` line on a Codex session's commits (AC-22, Q8)
       Check: pnpm test packages/core/src/sessions/brief.test.ts packages/core/src/sessions/pull-request-text.test.ts
       Files: packages/core/src/sessions/brief.ts, brief.test.ts, pull-request-text.ts, pull-request-text.test.ts
-- [ ] Task 14: Routes and wiring: `GET /api/codex/login`, `POST /api/codex/login/check`, models by agent, `createServer` building the Codex adapter, and `DEVHUB_CODEX` in the server config (AC-1, AC-2, AC-4)
+- [x] Task 14: Routes and wiring: `GET /api/codex/login`, `POST /api/codex/login/check`, models by agent, `createServer` building the Codex adapter, and `DEVHUB_CODEX` in the server config (AC-1, AC-2, AC-4)
       Check: pnpm test packages/core/src/routes/codex.test.ts packages/core/src/routes/agent.test.ts apps/server/src/config.test.ts; pnpm gate env-policy
-      Files: packages/core/src/routes/codex.ts, codex.test.ts, agent.ts, agent.test.ts, create-server.ts, packages/core/src/status/status-service.ts, apps/server/src/config.ts, config.test.ts, main.ts, .env.example
+      Files: packages/core/src/routes/codex.ts, codex.test.ts, agent.ts, agent.test.ts, create-server.ts, packages/core/src/status/status-service.ts, apps/server/src/config.ts, config.test.ts, main.ts, .env.example, packages/core/src/index.ts, packages/core/src/test/fake-codex/relay (the fake's body, out of the env gate's .ts scope)
 - [ ] Task 15: api-client: Codex login and check, and models by agent, with query keys and refresh on status change (AC-1, AC-4)
       Check: pnpm test packages/api-client/src/endpoints/codex.test.ts packages/api-client/src/queries.test.ts
       Files: packages/api-client/src/endpoints/codex.ts, codex.test.ts, endpoints/claude.ts, queries.ts, index.ts

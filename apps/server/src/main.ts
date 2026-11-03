@@ -16,6 +16,7 @@ import {
   createOsKeychain,
   createPasswordStore,
   createServer,
+  findCodex,
   findSdkClaudeCode,
   openFileSessionStore,
   openInboxCache,
@@ -60,6 +61,8 @@ const cache = openInboxCache(cacheFilePath(config.home), {
 
 // The Claude Code inside the Agent SDK, or the fake the e2e run names with DEVHUB_CLAUDE_CODE.
 const claudeProgram = config.claudeCode ?? findSdkClaudeCode();
+// The Codex already on this computer (spec 052, Q1): DEVHUB_CODEX, or `codex` on the shell's PATH. Orynx ships none.
+const codexProgram = await findCodex({ configured: config.codex, searchPath: config.ghSearchPath });
 // Claude runs commands only inside Claude Code's sandbox (spec 012, Q2). The e2e run's fake has none.
 const sandbox =
   config.sandbox === 'assume' ||
@@ -111,6 +114,8 @@ const app = await createServer({
   ...(claudeProgram === null
     ? {}
     : { agent: { query, program: claudeProgram, env: config.agentEnvironment, sandbox } }),
+  // Codex beside Claude, with its own part of the environment; its sessions' commands need the same sandbox (spec 052).
+  codex: { program: codexProgram, env: config.codexEnvironment, sandbox },
   gitEnvironment: config.gitEnvironment,
   // Your shell tabs in a session's Terminal (spec 036); Windows has none, as it has no commands for Claude.
   ...(process.platform === 'win32' ? {} : { terminal: { env: config.terminalEnvironment } }),

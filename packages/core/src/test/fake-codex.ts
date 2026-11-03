@@ -55,29 +55,11 @@ export interface FakeCodex {
   ignoresStop(): Promise<void>;
 }
 
+/** The one fake program every test's `codex` runs, with that test's folder. */
+const relay = join(import.meta.dirname, 'fake-codex', 'relay');
+
 function script(folder: string): string {
-  return `#!${process.execPath}
-const fs = require('node:fs');
-const net = require('node:net');
-const folder = ${JSON.stringify(folder)};
-fs.appendFileSync(folder + '/runs.jsonl', JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), env: process.env }) + '\\n');
-if (process.argv[2] === '--version') {
-  process.stdout.write(fs.readFileSync(folder + '/version.txt', 'utf8'));
-  process.exit(0);
-}
-// A stubborn program ignores SIGTERM and the end of its input alike, so only SIGKILL ends it.
-const stubborn = fs.existsSync(folder + '/stubborn');
-if (stubborn) process.on('SIGTERM', () => {});
-const socket = net.connect(folder + '/codex.sock');
-process.stdin.pipe(socket, { end: !stubborn });
-socket.pipe(process.stdout);
-let code = 0;
-socket.on('data', () => {});
-socket.on('close', () => {
-  try { code = Number(fs.readFileSync(folder + '/exit-code.txt', 'utf8')); } catch {}
-  process.exit(code);
-});
-`;
+  return `#!${process.execPath}\nrequire(${JSON.stringify(relay)})(${JSON.stringify(folder)});\n`;
 }
 
 function peer(socket: Socket, folder: string): CodexPeer {
