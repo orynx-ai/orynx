@@ -118,7 +118,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 29: `NewTicketDialog` takes `prefill` (title, description, type name) and `onMade(key)`, and opens without the Tickets store; Tickets' use is unchanged (AC-34)
       Check: pnpm test packages/app/src/features/tickets/components/new-ticket.test.tsx packages/app/src/features/tickets/tickets-screen.test.tsx
       Files: packages/app/src/features/tickets/components/new-ticket.tsx, ticket-form.tsx, their tests
-- [ ] Task 30: Fix this on message rows: the dialog on the folder's Jira project and its one active sprint, or Orynx; Save makes the ticket and starts a Build with the ticket and thread chips; Jira's refusal and a session that can't start; keyboard and focus (AC-34 to AC-39)
+- [x] Task 30: Fix this on message rows: the dialog on the folder's Jira project and its one active sprint, or Orynx; Save makes the ticket and starts a Build with the ticket and thread chips; Jira's refusal and a session that can't start; keyboard and focus (AC-34 to AC-39)
       Check: pnpm test packages/app/src/features/home/components/fix-this.test.tsx packages/app/src/features/home/components/attention-panel.test.tsx; pnpm gate icon-buttons
       Files: packages/app/src/features/home/components/fix-this.tsx, fix-this.test.tsx, attention-panel.tsx, packages/app/src/features/home/inbox-words.ts
 - [ ] Task 31: "Tell the thread" on the Session screen once the PR is open and the context holds a thread: an editable reply, Post reply (posting, posted with Open thread, failed with the tool's words), Not now; none without a thread (AC-40 to AC-44)

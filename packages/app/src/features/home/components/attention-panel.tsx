@@ -42,6 +42,7 @@ import { defaultView, filterMenus, searchFor, showView, searchForTab, viewOf, ty
 import { useInbox, useInboxRules, useStartFromComposer, type HomeItem } from '../queries.ts';
 import { useAgentChoice } from './agent-picker.tsx';
 import { useNow } from '../use-now.ts';
+import { FixThis } from './fix-this.tsx';
 import { InboxToolbar } from './inbox-toolbar.tsx';
 import { OrderMenu } from './order-menu.tsx';
 import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
@@ -498,6 +499,14 @@ function RowActionButton({ item, onSaid }: { item: HomeItem; onSaid: (said: stri
             <Icon icon={ArrowRight01Icon} aria-hidden />
           </Link>
         </IconButton>
+      </AttentionActions>
+    );
+  }
+  if (action.kind === 'message') {
+    return (
+      <AttentionActions>
+        <AddToComposer chip={action.chip} label={action.label} onSaid={onSaid} />
+        <FixThis item={item} thread={action.chip} />
       </AttentionActions>
     );
   }

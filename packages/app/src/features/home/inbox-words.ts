@@ -128,6 +128,8 @@ export type RowAction =
       message: string;
     }
   | { kind: 'review'; chip: Extract<ComposerChip, { kind: 'pull_request' }>; label: string; name: string }
+  /** A Slack or Discord message (spec 016): Add to composer for its thread, and Fix this. */
+  | { kind: 'message'; chip: Extract<ComposerChip, { kind: 'slack_thread' | 'discord_thread' }>; label: string }
   | { kind: 'none' };
 
 /** A message row's thread as a chip, named as the row says it (spec 016, C); null for any other row. */
@@ -149,7 +151,7 @@ export function rowAction(item: InboxItem): RowAction {
   // A message's thread can go to Claude as context (spec 016, AC-29).
   if (subject.kind === 'message') {
     const thread = threadChipOf(item);
-    return thread === null ? { kind: 'none' } : { kind: 'compose', chip: thread, label: chipLabel(thread) };
+    return thread === null ? { kind: 'none' } : { kind: 'message', chip: thread, label: chipLabel(thread) };
   }
   if (subject.kind === 'issue')
     return { kind: 'compose', chip: { kind: 'jira', key: subject.key }, label: subject.key };
