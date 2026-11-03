@@ -170,3 +170,20 @@ describe('notification words (spec 029)', () => {
     expect(notificationGroups([yesterday], now)).toEqual([{ heading: 'Earlier', notifications: [yesterday] }]);
   });
 });
+
+describe('notification words for a session on Codex (spec 052, Q4)', () => {
+  it('AC-21: names Codex in what it waits for and in its usage limit', () => {
+    const codex = { ...session, agent: 'codex' as const };
+    const asked: NotificationWhat = {
+      kind: 'approval',
+      session: codex,
+      approvalId: 'call-1',
+      about: 'push',
+      command: 'git push',
+      waiting: true,
+    };
+    expect(notificationWords(asked).title).toBe('Codex wants to push');
+    expect(notificationWords({ kind: 'session_limit', session: codex }).title).toBe('Session hit Codex’s usage limit');
+    expect(notificationWords(approval('push', 'git push')).title).toBe('Claude wants to push');
+  });
+});

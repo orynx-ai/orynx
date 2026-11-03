@@ -21,6 +21,7 @@ import { useTerminalTabs } from '../../store.ts';
 import { ClaudeTab } from './claude-tab.tsx';
 import { ShellTab, ShellTabPending } from './shell-tab.tsx';
 import { shellTabName, terminalWords } from './terminal-words.ts';
+import { forAgent } from '../../../../words/agent-words.ts';
 
 /**
  * The session's Terminal (spec 036, spec 038): Terminal in More actions, or `⌃`` anywhere on the Session screen,
@@ -150,7 +151,7 @@ function TerminalDialog({
               pick(shells.id, 'claude');
             }}
           >
-            {terminalWords.claudeNeedsYou}
+            {forAgent(terminalWords.claudeNeedsYou, session.agent)}
           </Button>
         ) : null}
         <IconButton variant="ghost" size="sm" label={terminalWords.closeTerminal} onClick={onClose}>
@@ -169,7 +170,7 @@ function TerminalDialog({
           <TabsList aria-label={terminalWords.tabs} className="min-w-0 flex-1 gap-5 border-b-0">
             {session === null ? null : (
               <TabsTrigger value="claude">
-                {terminalWords.claude}
+                {forAgent(terminalWords.claude, session.agent)}
                 {waiting ? (
                   <>
                     {' '}

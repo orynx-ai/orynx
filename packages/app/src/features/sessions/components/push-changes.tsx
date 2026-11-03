@@ -7,6 +7,7 @@ import { Button, Dialog, DialogContent, DialogTitle, DialogTrigger, Field, Icon,
 import { cannotPushWords, failureLine, pullRequestWords, pushHappensLine, pushToLabel } from '../pull-request-words.ts';
 import { useDraftPush, usePushChanges } from '../queries.ts';
 import { pushFormSchema, type PushFormValues } from '../schemas.ts';
+import { forAgent } from '../../../words/agent-words.ts';
 
 /** Claude's commit message, editable, and what pressing Push changes will do (Q7, Q10e). */
 function PushForm({
@@ -161,7 +162,7 @@ export function PushChanges({
     body = (
       <div className="flex flex-col gap-4">
         <p role="status" className="m-0 text-small text-muted-foreground">
-          {pullRequestWords.draftingMessage}
+          {forAgent(pullRequestWords.draftingMessage, session.agent)}
         </p>
         <div aria-hidden className="flex flex-col gap-1.5">
           <span className="text-small font-medium text-foreground">{pullRequestWords.commitMessage}</span>

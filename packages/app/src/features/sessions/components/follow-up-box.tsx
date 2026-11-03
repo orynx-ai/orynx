@@ -15,6 +15,7 @@ import { cannotSendLine, followUpBox, followUpOffLine, sendFailedLine } from '..
 import { useSendMessage } from '../queries.ts';
 import { followUpFormSchema, type FollowUpFormValues } from '../schemas.ts';
 import { useSessionDrafts } from '../store.ts';
+import { forAgent } from '../../../words/agent-words.ts';
 
 const noChips: ComposerChip[] = [];
 
@@ -80,7 +81,7 @@ function FollowUpForm({ session }: { session: Session }) {
         : send.isError
           ? { line: sendFailedLine, link: null }
           : answer?.result === 'cannot_send'
-            ? { line: cannotSendLine(answer.reason), link: null }
+            ? { line: forAgent(cannotSendLine(answer.reason), session.agent), link: null }
             : answer?.result === 'context_failed'
               ? failed === undefined
                 ? { line: sendFailedLine, link: null }
@@ -110,8 +111,8 @@ function FollowUpForm({ session }: { session: Session }) {
         <Composer canSend={canSend} pending={send.isPending} onSubmit={submit}>
           <ContextStrip box={() => box.current} />
           <ComposerTextarea
-            label={followUpBox.label}
-            placeholder={followUpBox.placeholder}
+            label={forAgent(followUpBox.label, session.agent)}
+            placeholder={forAgent(followUpBox.placeholder, session.agent)}
             {...field}
             // A paste that is exactly one key, pull request link or message link becomes its chip, as on Home.
             onPaste={pasteToChip}

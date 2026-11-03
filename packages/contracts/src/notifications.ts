@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { DiscordLinkSchema } from './discord.ts';
 import { GitHubLinkSchema } from './github.ts';
 import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
+import { AgentIdSchema } from './agent-models.ts';
 import { SessionIdSchema, SessionReadySchema, SessionSourceSchema } from './session.ts';
 import { SlackLinkSchema } from './slack.ts';
 import { OrynxVersionSchema } from './updates.ts';
@@ -16,6 +17,8 @@ export const NotificationSessionSchema = z.object({
   id: SessionIdSchema,
   title: z.string().min(1),
   source: SessionSourceSchema.nullable(),
+  /** The agent it runs on (spec 052); left out, Claude, as before spec 052. */
+  agent: AgentIdSchema.optional(),
 });
 export type NotificationSession = z.infer<typeof NotificationSessionSchema>;
 

@@ -56,9 +56,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 18: Words (a): the composer and Home name the picked agent ("Send to Codex", "Review with Codex") (AC-24)
       Check: pnpm test packages/app/src/features/home
       Files: packages/app/src/words/agent-words.ts (`forAgent`), agent-words.test.ts, packages/app/src/features/home/components/home-composer.tsx, attention-panel.tsx and their tests
-- [ ] Task 19: Words (b): a session's screens, notifications and terminal tab name its agent (AC-7, AC-21)
-      Check: pnpm test packages/app/src/features/sessions packages/app/src/features/notifications
-      Files: packages/app/src/features/sessions/approval-words.ts, step-words.ts, follow-up-words.ts, review-words.ts, pull-request-words.ts, ticket-tab-words.ts, port-words.ts, components/terminal/terminal-words.ts, packages/app/src/features/notifications/words.ts
+- [x] Task 19: Words (b): a session's screens, notifications and terminal tab name its agent (AC-7, AC-21)
+      Check: pnpm test packages/app/src/features/sessions packages/app/src/features/notifications packages/core/src/notifications
+      Files: packages/app/src/features/sessions/step-words.ts, approval-words.ts, session-screen.test.tsx, components (progress, step details, callout, follow-up box, terminal, pull request, push, replies, review, context), packages/app/src/features/notifications/words.ts, packages/contracts/src/notifications.ts, packages/core/src/notifications/session-notifications.ts
 - [ ] Task 20: Words (c): Settings words that cover both agents say "the agent" (Q4)
       Check: pnpm test packages/app/src/features/settings
       Files: packages/app/src/features/settings/permission-levels.ts, components/coding-agent-panel.tsx, jira-changes.tsx, settings-screen.tsx
