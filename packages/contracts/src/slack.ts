@@ -28,10 +28,13 @@ export const SlackLinkSchema = z.url({ protocol: /^https$/, hostname: slackWorks
 
 export const SlackTokenSchema = tokenSchema('Paste your Slack token.');
 
+/** A token field that may be left empty: keep the saved token, or use the `.env` one. */
+export const SlackTokenOrBlankSchema = tokenOrBlankSchema(SlackTokenSchema);
+
 /** PUT /api/slack/connection: check the token with Slack, then save it. */
 export const SlackConnectionRequestSchema = z.object({
   /** Empty or left out: keep the saved token, or use DEVHUB_SLACK_USER_TOKEN from `.env`. */
-  token: tokenOrBlankSchema(SlackTokenSchema).optional(),
+  token: SlackTokenOrBlankSchema.optional(),
 });
 export type SlackConnectionRequest = z.input<typeof SlackConnectionRequestSchema>;
 

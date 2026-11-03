@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Cancel01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
-import type { IntegrationId, IntegrationStatus } from '@devhub/contracts';
+import { slackScopes, type IntegrationId, type IntegrationStatus } from '@devhub/contracts';
 import {
   Button,
   Callout,
@@ -12,6 +12,7 @@ import {
   DialogFoot,
   DialogTitle,
   DialogTrigger,
+  ExternalLink,
   Icon,
   IconButton,
   Pill,
@@ -20,19 +21,32 @@ import {
   type DetailListProps,
 } from '@devhub/ui';
 import { useNow } from '../../../words/use-now.ts';
-import { githubReconnectSchema, jiraReconnectSchema } from '../schemas.ts';
+import { usePlatform } from '../../../platform.tsx';
+import {
+  discordReconnectSchema,
+  githubReconnectSchema,
+  jiraReconnectSchema,
+  slackReconnectSchema,
+} from '../schemas.ts';
 import {
   useCheckConnection,
+  useConnectDiscord,
   useConnectGitHub,
   useConnectJira,
+  useConnectSlack,
+  useDisconnectDiscord,
   useDisconnectGitHub,
   useDisconnectJira,
+  useDisconnectSlack,
+  useDiscordConnection,
   useGitHubConnection,
   useJiraConnection,
+  useSlackConnection,
   useRunningTicketSessions,
 } from '../queries.ts';
 import {
   changedLine,
+  chatWrites,
   disconnectText,
   githubWrites,
   lastCheckedText,
@@ -46,6 +60,7 @@ import {
 } from './connection-words.ts';
 import { GitHubConnectionForm, newTokenUrl } from './github-connection-form.tsx';
 import { apiTokensUrl, JiraConnectionForm } from './jira-connection-form.tsx';
+import { ChatConnectionForm } from './chat-connection-form.tsx';
 import { ReconnectTokenForm } from './reconnect-token-form.tsx';
 
 interface ConnectionDialogProps {
@@ -145,7 +160,7 @@ function RunningTicketSessions() {
 }
 
 interface ManagedDialogProps extends ToolDialogProps {
-  tool: 'jira' | 'github';
+  tool: IntegrationId;
   /** What Orynx is using, for Connected. */
   details: DetailListProps['items'];
   /** Reconnecting means signing gh in again, not a new token: GitHub through gh. */
@@ -170,7 +185,7 @@ interface ManagedDialogProps extends ToolDialogProps {
 
 const ghLogin = 'gh auth login';
 
-/** A tool Orynx can connect itself: Jira or GitHub. */
+/** A tool Orynx can connect itself: Jira, GitHub, Slack or Discord. */
 function ManagedDialog({
   tool,
   status,
@@ -535,48 +550,191 @@ export function GitHubConnectionDialog({ status, announce, openAtStart }: ToolDi
   );
 }
 
-/** What step 1 copies for a Slack admin (spec 030, Q4). */
-export const slackRequest =
-  'Could you approve the Orynx app in our Slack workspace? It needs search:read, channels:history and im:history, only for my account, so Orynx can show my mentions and DMs. It runs on my computer.';
+/** What step 1 copies for a Slack admin (spec 030, Q4), naming every scope Orynx asks for (spec 016, Q3). */
+export const slackRequest = `Could you approve the Orynx app in our Slack workspace? It needs ${slackScopes.join(', ')}, only for my account, so Orynx can show my mentions and DMs, read threads I add, and post a pull request's link when I ask. It runs on my computer.`;
 
-/**
- * Slack's status button and dialog: the first of its two steps, asking the admin. Pasting the token, the
- * second, comes with spec 016 (spec 030, Q4).
- */
-export function SlackConnectionDialog({ status }: Pick<ToolDialogProps, 'status'>) {
-  const [open, setOpen] = useState(false);
+/** Where a person makes Orynx's Discord bot (spec 016, A). */
+export const developerPortalUrl = 'https://discord.com/developers/applications';
+/** Where a Slack app's User OAuth Token is. */
+const slackAppsUrl = 'https://api.slack.com/apps';
+
+/** Slack's step 1: ask the admin, with the request ready to copy. */
+function AskSlackAdmin() {
   const [copied, setCopied] = useState(false);
   return (
-    <ConnectionDialog
+    <div className="flex flex-col items-start gap-1.5">
+      <span className="font-medium">Ask your Slack admin to approve the Orynx app</span>
+      <span className="text-small text-muted-foreground">
+        It needs {slackScopes.join(', ')}, only for your account.
+      </span>
+      <Button
+        size="sm"
+        className="mt-1"
+        onClick={() => {
+          // A copy the browser refuses changes nothing.
+          void navigator.clipboard.writeText(slackRequest).then(
+            () => {
+              setCopied(true);
+            },
+            () => undefined,
+          );
+        }}
+      >
+        {copied ? 'Request copied' : 'Copy request for your admin'}
+      </Button>
+    </div>
+  );
+}
+
+/** Discord's step 1: make the bot (spec 016, Q8). */
+function MakeDiscordBot() {
+  const platform = usePlatform();
+  return (
+    <div className="flex flex-col items-start gap-1.5">
+      <span className="font-medium">Make a Discord bot for Orynx</span>
+      <span className="text-small text-muted-foreground">
+        In Discord&apos;s Developer Portal: New Application, then Bot. Turn on Message Content Intent, and add the bot
+        to your servers with View Channels, Read Message History, Send Messages and Send Messages in Threads.
+      </span>
+      <ExternalLink
+        href={developerPortalUrl}
+        onOpen={(href) => {
+          platform.openExternal(href);
+        }}
+      >
+        Open the Developer Portal
+      </ExternalLink>
+    </div>
+  );
+}
+
+/** Slack's status button and dialog (spec 016): ask the admin, then paste the token. */
+export function SlackConnectionDialog({ status, announce, openAtStart }: ToolDialogProps) {
+  const connection = useSlackConnection();
+  const connect = useConnectSlack();
+  const disconnect = useDisconnectSlack();
+  const now = useNow();
+  const loaded = connection.data;
+  const saved = loaded?.saved ?? null;
+  return (
+    <ManagedDialog
       tool="slack"
       status={status}
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        setCopied(false);
-      }}
-      body={
-        <div className="flex flex-col items-start gap-1.5">
-          <span className="font-medium">Ask your Slack admin to approve the Orynx app</span>
-          <span className="text-small text-muted-foreground">
-            It needs search:read, channels:history and im:history, only for your account.
-          </span>
-          <Button
-            size="sm"
-            className="mt-1"
-            onClick={() => {
-              // A copy the browser refuses changes nothing.
-              void navigator.clipboard.writeText(slackRequest).then(
-                () => {
-                  setCopied(true);
-                },
-                () => undefined,
-              );
-            }}
-          >
-            {copied ? 'Request copied' : 'Copy request for your admin'}
-          </Button>
-        </div>
+      openAtStart={openAtStart}
+      announce={announce}
+      throughGh={false}
+      tokenForm={
+        saved === null
+          ? undefined
+          : (id, done) => (
+              <ReconnectTokenForm
+                id={id}
+                label="Slack token"
+                schema={slackReconnectSchema}
+                createUrl={slackAppsUrl}
+                createLabel="Open your Slack apps"
+                send={(token) => connect.mutateAsync(token === undefined ? {} : { token })}
+                onReconnected={done}
+              />
+            )
+      }
+      connect={connect}
+      disconnect={disconnect}
+      disconnectText={disconnectText.slack}
+      loadFailed={connection.isLoadingError}
+      details={[
+        ...(saved === null ? [] : [{ term: 'Workspace', detail: saved.workspace }]),
+        ...(status.account === undefined ? [] : [{ term: 'Account', detail: status.account }]),
+        { term: 'Signed in with', detail: 'User token' },
+        { term: 'Orynx reads', detail: reads.slack },
+        { term: 'Orynx writes', detail: chatWrites },
+        ...(status.checkedAt === undefined
+          ? []
+          : [{ term: 'Last checked', detail: lastCheckedText(status.checkedAt, now) }]),
+      ]}
+      form={
+        loaded
+          ? (id, close) => (
+              <ChatConnectionForm
+                tool="slack"
+                id={id}
+                first={<AskSlackAdmin />}
+                saved={saved !== null}
+                envToken={loaded.envToken}
+                send={({ token }) => connect.mutateAsync(token === undefined ? {} : { token })}
+                onConnected={() => {
+                  close(changedLine.connected('Slack'));
+                }}
+              />
+            )
+          : undefined
+      }
+    />
+  );
+}
+
+/** Discord's status button and dialog (spec 016): make the bot, then paste its token. */
+export function DiscordConnectionDialog({ status, announce, openAtStart }: ToolDialogProps) {
+  const connection = useDiscordConnection();
+  const connect = useConnectDiscord();
+  const disconnect = useDisconnectDiscord();
+  const now = useNow();
+  const loaded = connection.data;
+  const saved = loaded?.saved ?? null;
+  return (
+    <ManagedDialog
+      tool="discord"
+      status={status}
+      openAtStart={openAtStart}
+      announce={announce}
+      throughGh={false}
+      tokenForm={
+        saved === null
+          ? undefined
+          : (id, done) => (
+              <ReconnectTokenForm
+                id={id}
+                label="Bot token"
+                schema={discordReconnectSchema}
+                createUrl={developerPortalUrl}
+                createLabel="Open the Developer Portal"
+                // Your user ID goes too, so a team's bot keeps reading your mentions.
+                send={(token) =>
+                  connect.mutateAsync({ userId: saved.userId, ...(token === undefined ? {} : { token }) })
+                }
+                onReconnected={done}
+              />
+            )
+      }
+      connect={connect}
+      disconnect={disconnect}
+      disconnectText={disconnectText.discord}
+      loadFailed={connection.isLoadingError}
+      details={[
+        ...(saved === null ? [] : [{ term: 'Bot', detail: saved.bot }]),
+        { term: 'Signed in with', detail: 'Bot token' },
+        { term: 'Orynx reads', detail: reads.discord },
+        { term: 'Orynx writes', detail: chatWrites },
+        ...(status.checkedAt === undefined
+          ? []
+          : [{ term: 'Last checked', detail: lastCheckedText(status.checkedAt, now) }]),
+      ]}
+      form={
+        loaded
+          ? (id, close) => (
+              <ChatConnectionForm
+                tool="discord"
+                id={id}
+                first={<MakeDiscordBot />}
+                saved={saved !== null}
+                envToken={loaded.envToken}
+                send={(request) => connect.mutateAsync(request)}
+                onConnected={() => {
+                  close(changedLine.connected('Discord'));
+                }}
+              />
+            )
+          : undefined
       }
     />
   );

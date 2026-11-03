@@ -10,6 +10,8 @@ import {
 } from '@devhub/contracts';
 import {
   makeGitHubConnection,
+  makeSlackConnection,
+  makeDiscordConnection,
   makeNotificationList,
   makeInbox,
   makeJiraConnection,
@@ -110,6 +112,9 @@ export const server = setupServer(
   http.post(apiUrl(apiRoutes.sessionTerminalSize), () => new HttpResponse(null, { status: 204 })),
   http.get(apiUrl(apiRoutes.jiraConnection), () => HttpResponse.json(makeJiraConnection())),
   http.get(apiUrl(apiRoutes.githubConnection), () => HttpResponse.json(makeGitHubConnection())),
+  // Slack and Discord not connected (spec 016).
+  http.get(apiUrl(apiRoutes.slackConnection), () => HttpResponse.json(makeSlackConnection({ saved: null }))),
+  http.get(apiUrl(apiRoutes.discordConnection), () => HttpResponse.json(makeDiscordConnection({ saved: null }))),
   http.get(apiUrl(apiRoutes.preferences), () => HttpResponse.json(makePreferences())),
   // No session has a worktree yet, so Delete old sessions would delete nothing (spec 047).
   http.get(apiUrl(apiRoutes.storage), () => HttpResponse.json(makeStorage())),

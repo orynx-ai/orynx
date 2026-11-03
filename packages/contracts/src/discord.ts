@@ -11,6 +11,9 @@ export const DiscordLinkSchema = z
 
 export const DiscordTokenSchema = tokenSchema("Paste your bot's token.");
 
+/** A token field that may be left empty: keep the saved token, or use the `.env` one. */
+export const DiscordTokenOrBlankSchema = tokenOrBlankSchema(DiscordTokenSchema);
+
 /** Your Discord user ID, which Orynx asks for only when a team owns the bot's application (spec 016, AC-8). */
 export const DiscordUserIdSchema = z
   .string()
@@ -20,7 +23,7 @@ export const DiscordUserIdSchema = z
 /** PUT /api/discord/connection: check the bot's token with Discord, then save it. */
 export const DiscordConnectionRequestSchema = z.object({
   /** Empty or left out: keep the saved token, or use DEVHUB_DISCORD_BOT_TOKEN from `.env`. */
-  token: tokenOrBlankSchema(DiscordTokenSchema).optional(),
+  token: DiscordTokenOrBlankSchema.optional(),
   /** Left out when you own the application: then you are its owner. */
   userId: DiscordUserIdSchema.optional(),
 });

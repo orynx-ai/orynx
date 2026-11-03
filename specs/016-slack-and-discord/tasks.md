@@ -85,10 +85,10 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **app: Settings**
 
-- [ ] Task 22: Slack's dialog: the request names all ten scopes; step 2 is a token form (react-hook-form, zod) that connects, shows refused and missing-scope words, and Disconnect; the "talks only to" line names Discord (AC-1 to AC-4, AC-9)
+- [x] Task 22: Slack's dialog: the request names all ten scopes; step 2 is a token form (react-hook-form, zod) that connects, shows refused and missing-scope words, and Disconnect; the "talks only to" line names Discord (AC-1 to AC-4, AC-9)
       Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx packages/app/src/features/settings/components/connections-panel.test.tsx
       Files: packages/app/src/features/settings/components/connection-dialog.tsx, slack-connection-form.tsx, connection-words.ts, connections-panel.tsx, settings-screen.tsx, packages/app/src/features/settings/schemas.ts, packages/app/src/features/settings/queries.ts, their tests
-- [ ] Task 23: Discord's row and dialog: step 1 with the Developer Portal link, step 2's token form, the user ID field when a team owns the bot, intent-off words, Disconnect (AC-5 to AC-9)
+- [x] Task 23: (built with task 22, one shared form for both tools, so one commit) Discord's row and dialog: step 1 with the Developer Portal link, step 2's token form, the user ID field when a team owns the bot, intent-off words, Disconnect (AC-5 to AC-9)
       Check: pnpm test packages/app/src/features/settings/components/connection-dialog.test.tsx packages/app/src/features/settings/components/connections-panel.test.tsx
       Files: packages/app/src/features/settings/components/connection-dialog.tsx, discord-connection-form.tsx, connections-panel.tsx, connection-words.ts, packages/app/src/features/settings/schemas.ts, packages/app/src/features/settings/queries.ts, their tests
 - [ ] Task 24: Inbox rules: Slack's and Discord's rows and "Wait before a message counts"; Notifications: "Someone is waiting on your reply" (AC-18, AC-25)

@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import {
   AllowedCommandSchema,
+  DiscordTokenOrBlankSchema,
+  DiscordTokenSchema,
+  DiscordUserIdSchema,
   GitHubTokenOrBlankSchema,
   GitHubTokenSchema,
   JiraApiTokenOrBlankSchema,
@@ -8,6 +11,8 @@ import {
   JiraConnectionRequestSchema,
   JiraProjectKeySchema,
   RepositoryPathSchema,
+  SlackTokenOrBlankSchema,
+  SlackTokenSchema,
   type AddRepositoryRequestSchema,
   type GitHubCredentials,
   type GitHubMethod,
@@ -93,4 +98,33 @@ export function allowedCommandFormSchema(
       if (saved.includes(entry)) ctx.addIssue({ code: 'custom', message: `${entry} is already on the list.` });
     }),
   });
+}
+
+/** Slack's and Discord's Reconnect field (spec 016): empty tries the saved token again. */
+export const slackReconnectSchema = z.object({ token: SlackTokenOrBlankSchema });
+export const discordReconnectSchema = z.object({ token: DiscordTokenOrBlankSchema });
+
+/** What Slack's or Discord's connect form holds while a person types (spec 016). */
+export interface ChatFormValues {
+  token: string;
+  userId: string;
+}
+
+/**
+ * Slack's or Discord's connect form (spec 016): the token, which may stay empty only when Orynx has one already, and
+ * Discord's user ID, asked only once a team's bot needs it (AC-8).
+ */
+export function chatFormSchema(
+  tool: 'slack' | 'discord',
+  { tokenKept, askUserId }: { tokenKept: boolean; askUserId: boolean },
+): z.ZodType<{ token?: string | undefined; userId?: string | undefined }, ChatFormValues> {
+  const token =
+    tool === 'slack'
+      ? tokenKept
+        ? SlackTokenOrBlankSchema
+        : SlackTokenSchema
+      : tokenKept
+        ? DiscordTokenOrBlankSchema
+        : DiscordTokenSchema;
+  return z.object({ token, userId: askUserId ? DiscordUserIdSchema : z.string().transform(() => undefined) });
 }

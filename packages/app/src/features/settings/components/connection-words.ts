@@ -46,6 +46,7 @@ export function leadLine(tool: IntegrationId, look: StatusButtonState): string {
     return `Orynx can no longer reach ${name}, so your ${items[tool]} have stopped updating. Reconnect to pick up where you left off.`;
   }
   if (tool === 'slack') return 'Two steps. Until then, Slack items are left out of your inbox.';
+  if (tool === 'discord') return 'Two steps. Until then, Discord mentions are left out of your inbox.';
   return `Connect ${name} to see your ${items[tool]} in Orynx.`;
 }
 
@@ -64,7 +65,14 @@ export const disconnectText = {
   gh: 'Pull requests leave your inbox and sessions can no longer create pull requests. Your gh login on this computer is not changed.',
   token:
     'Pull requests leave your inbox and sessions can no longer create pull requests. Your token is removed from the keychain.',
+  slack:
+    'Slack mentions and DMs leave your inbox, and sessions can no longer read Slack threads. Your token is removed from the keychain. Slack itself is not changed.',
+  discord:
+    "Discord mentions leave your inbox, and sessions can no longer read Discord threads. Your bot's token is removed from the keychain. The bot stays in your servers.",
 } as const;
+
+/** What Orynx writes to Slack or Discord (spec 016, E). */
+export const chatWrites = "Only a pull request's link in a thread, on your click";
 
 /** Under Disconnect Jira's warning, while sessions on a ticket are running. */
 export function runningSessionsLine(count: number): string {
