@@ -62,9 +62,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 20: Words (c): Settings words that cover both agents say "the agent" (Q4)
       Check: pnpm test packages/app/src/features/settings
       Files: packages/app/src/features/settings/permission-levels.ts, settings-screen.tsx, components (coding agent, allowed commands, repositories, inbox rules, notifications, skills) and their tests, e2e/coding-agent.spec.ts, e2e/skills.spec.ts. "Claude changes Jira" keeps its name: other messages name the setting
-- [ ] Task 21: e2e: a fake `codex` app-server. Connect it, pick a Codex model, Build, Allow a command, see Done (AC-1, AC-4, AC-5, AC-8, AC-27)
+- [x] Task 21: e2e: a fake `codex` app-server. Connect it, pick a Codex model, Build, Allow a command, see Done (AC-1, AC-4, AC-5, AC-8, AC-27)
       Check: pnpm test:e2e e2e/codex.spec.ts
-      Files: e2e/fake-codex/codex, e2e/fake-codex/config.ts, e2e/codex.spec.ts, playwright.config.ts
+      Files: e2e/fake-codex/codex, e2e/fake-codex/app-server.ts, e2e/fake-codex/config.ts, e2e/codex.spec.ts, e2e/fake-tools/config.ts (`codexHubPort`), playwright.config.ts (every other hub names no Codex), e2e/coding-agent.spec.ts (the Codex card in the place of more agents)
 - [ ] Task 22: Docs: the architecture's Coding agent and sandbox rows, `learn/checking-codex.md`, the agent-runtime skill, and the manual real-Codex check list for `/review` (needs the user's OK: it uses their ChatGPT login)
       Check: pnpm gate handbook-size; pnpm gate specs
       Files: docs/architecture.md, learn/checking-codex.md, .claude/skills/agent-runtime/SKILL.md

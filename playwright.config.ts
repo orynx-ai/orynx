@@ -3,11 +3,13 @@ import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 import { fakeClaude, fakeClaudeDir, fakeClaudeDirFor } from './e2e/fake-claude/config.ts';
+import { fakeCodex, noCodex } from './e2e/fake-codex/config.ts';
 import { fakeReleasesPort, fakeReleasesUrl } from './e2e/fake-tools/releases.ts';
 import { setUpHome } from './e2e/set-up.ts';
 import {
   approvalsHubPort,
   changesHubPort,
+  codexHubPort,
   composerHubPort,
   fakeToolsHubPort,
   pullRequestsHubPort,
@@ -31,6 +33,7 @@ const chatHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-chat-')));
 const terminalHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-terminal-')));
 const orynxTicketsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-orynx-tickets-')));
 const pullRequestsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-')));
+const codexHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-codex-')));
 // The pull requests hub's git commits with a name of its own, and never reads your ~/.gitconfig: your
 // name, your signing (which could ask for a passphrase) or your aliases (spec 014).
 const pullRequestsGitHome = mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-git-'));
@@ -109,6 +112,8 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         // Always signed out: this hub's fake Claude Code gets no answer folder.
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        // No Codex, whatever is on your PATH: only the Codex hub has one (spec 052).
+        DEVHUB_CODEX: noCodex,
         // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
         DEVHUB_SANDBOX: 'assume',
         // Every hub checks for updates with the fake releases, never api.github.com (spec 045, AC-24).
@@ -132,6 +137,7 @@ export default defineConfig({
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         // This hub's fake Claude Code answers what coding-agent.spec.ts writes into its folder.
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: noCodex,
         // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
         DEVHUB_SANDBOX: 'assume',
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
@@ -155,6 +161,7 @@ export default defineConfig({
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: noCodex,
         // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
         DEVHUB_SANDBOX: 'assume',
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
@@ -177,6 +184,7 @@ export default defineConfig({
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: noCodex,
         DEVHUB_SANDBOX: 'assume',
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
@@ -199,6 +207,7 @@ export default defineConfig({
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: noCodex,
         DEVHUB_SANDBOX: 'assume',
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
@@ -222,6 +231,7 @@ export default defineConfig({
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: noCodex,
         DEVHUB_SANDBOX: 'assume',
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
@@ -244,6 +254,7 @@ export default defineConfig({
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: noCodex,
         DEVHUB_SANDBOX: 'assume',
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
@@ -265,6 +276,7 @@ export default defineConfig({
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: noCodex,
         DEVHUB_SANDBOX: 'assume',
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
@@ -286,6 +298,7 @@ export default defineConfig({
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: noCodex,
         DEVHUB_SANDBOX: 'assume',
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
@@ -309,6 +322,7 @@ export default defineConfig({
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: noCodex,
         DEVHUB_SANDBOX: 'assume',
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
@@ -331,6 +345,29 @@ export default defineConfig({
         DEVHUB_KEYCHAIN: 'memory',
         PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
         DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: noCodex,
+        DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
+      },
+    },
+    {
+      // Codex beside Claude (spec 052) on a hub of its own: the only one whose Codex is there, a fake signed in with
+      // ChatGPT that plays one scripted run (e2e/fake-codex/app-server.ts). Claude stays signed out here.
+      command: 'node apps/server/dist/main.mjs --serve-web',
+      url: `http://127.0.0.1:${String(codexHubPort)}/`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        DEVHUB_PORT: String(codexHubPort),
+        DEVHUB_HOME: codexHome,
+        LOG_LEVEL: 'warn',
+        NODE_ENV: 'production',
+        DEVHUB_TOKENS_FROM_ENV: 'false',
+        DEVHUB_KEYCHAIN: 'memory',
+        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
+        DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_CODEX: fakeCodex,
+        // The fake Codex has no sandbox; Orynx would otherwise give its sessions no commands (spec 012).
         DEVHUB_SANDBOX: 'assume',
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
       },
