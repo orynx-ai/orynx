@@ -42,7 +42,7 @@ function shownModel(models: readonly AgentModel[], model: string | null): AgentM
  * takes. Anything else is left to Claude Code, as is everything while the list isn't in.
  */
 export function useAgentChoice(model: string | null, effort: EffortLevel | null): AgentChoice {
-  const connected = useStatus().data?.agent.connected ?? false;
+  const connected = useStatus().data?.agents.claude.connected ?? false;
   const listed = useAgentModels(connected).data;
   if (listed?.state !== 'ready') return {};
   const shown = shownModel(listed.models, model);
@@ -69,7 +69,7 @@ export interface AgentPickerProps {
  */
 export function AgentPicker({ model, effort, onModelChange, onEffortChange }: AgentPickerProps) {
   const status = useStatus();
-  const connected = status.data?.agent.connected ?? false;
+  const connected = status.data?.agents.claude.connected ?? false;
   const listed = useAgentModels(connected).data;
   if (status.data === undefined) return null;
   const models = listed?.state === 'ready' ? listed.models : [];

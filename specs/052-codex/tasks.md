@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: Contracts: `AgentIdSchema`, `CodexLoginSchema`, both agents in `/api/status`, and the Codex login routes (AC-1, AC-2)
+- [x] Task 1: Contracts: `AgentIdSchema`, `CodexLoginSchema`, both agents in `/api/status`, and the Codex login routes (AC-1, AC-2)
       Check: pnpm test packages/contracts/src/codex.test.ts packages/contracts/src/status.test.ts; pnpm typecheck
       Files: packages/contracts/src/codex.ts, codex.test.ts, status.ts, status.test.ts, agent-models.ts, routes.ts, index.ts, testing.ts; every use of `status.agent` (core status service, app queries and picker)
 - [ ] Task 2: Contracts: the agent on `AgentChoice`, on a session's summary and record (defaulting to claude), and models by agent (AC-5, AC-23)

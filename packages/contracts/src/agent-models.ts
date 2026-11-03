@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+/** The coding agents a session can run on (spec 052): Claude, the first, and Codex. */
+export const AgentIdSchema = z.enum(['claude', 'codex']);
+export type AgentId = z.infer<typeof AgentIdSchema>;
+
 /** How hard Claude works on its answer, as Claude Code names the levels. */
 export const EffortLevelSchema = z.enum(['low', 'medium', 'high', 'xhigh', 'max']);
 export type EffortLevel = z.infer<typeof EffortLevelSchema>;

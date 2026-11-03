@@ -27,7 +27,7 @@ describe('Sidebar footer', () => {
   it('shows the bio under the name, in place of whether Claude is connected', async () => {
     server.use(
       http.get(apiUrl(apiRoutes.status), () =>
-        HttpResponse.json(makeStatus({ user: { name: 'Rakesh Dhariwal' }, agent: { id: 'claude', connected: true } })),
+        HttpResponse.json(makeStatus({ user: { name: 'Rakesh Dhariwal' }, agents: { claude: { connected: true } } })),
       ),
     );
     serveProfile({ bio: 'Ships on Fridays' });

@@ -216,7 +216,7 @@ describe('AttentionPanel', () => {
       const posted: unknown[] = [];
       server.use(
         http.get(apiUrl(apiRoutes.status), () =>
-          HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+          HttpResponse.json(makeStatus({ agents: { claude: { connected: true } } })),
         ),
         http.get(apiUrl(apiRoutes.agentModels), () =>
           HttpResponse.json({
@@ -298,7 +298,7 @@ describe('AttentionPanel', () => {
       const posted: unknown[] = [];
       server.use(
         http.get(apiUrl(apiRoutes.status), () =>
-          HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+          HttpResponse.json(makeStatus({ agents: { claude: { connected: true } } })),
         ),
         http.get(apiUrl(apiRoutes.agentModels), () =>
           HttpResponse.json({

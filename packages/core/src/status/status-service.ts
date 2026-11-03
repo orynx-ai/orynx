@@ -18,6 +18,8 @@ export interface StatusServiceOptions {
   discord?: () => Promise<IntegrationStatus>;
   /** Whether Claude Code is signed in (spec 010). Not connected when left out. */
   claude?: () => Promise<boolean>;
+  /** Whether Codex is signed in (spec 052). Not connected when left out. */
+  codex?: () => Promise<boolean>;
 }
 
 const notConnected: IntegrationStatus = { state: 'not_connected', detail: null };
@@ -32,18 +34,19 @@ export function createStatusService(options: StatusServiceOptions): StatusServic
     async getStatus() {
       // A failed lookup means "no name", so a broken git never turns /api/status into a 500.
       userName ??= options.userName().catch(() => null);
-      const [name, jira, github, slack, discord, claude] = await Promise.all([
+      const [name, jira, github, slack, discord, claude, codex] = await Promise.all([
         userName,
         options.jira?.() ?? notConnected,
         options.github?.() ?? notConnected,
         options.slack?.() ?? notConnected,
         options.discord?.() ?? notConnected,
         options.claude?.() ?? false,
+        options.codex?.() ?? false,
       ]);
       return {
         version: options.version,
         user: { name },
-        agent: { id: 'claude', connected: claude },
+        agents: { claude: { connected: claude }, codex: { connected: codex } },
         integrations: { jira, github, slack, discord },
       };
     },

@@ -30,7 +30,7 @@ describe('LiveUpdates', () => {
   it('refetches the status when the server says it changed', async () => {
     let connected = false;
     server.use(
-      http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(makeStatus({ agent: { id: 'claude', connected } }))),
+      http.get(apiUrl(apiRoutes.status), () => HttpResponse.json(makeStatus({ agents: { claude: { connected } } }))),
     );
     await renderApp();
     // Home's agent picker says whether Claude is connected.

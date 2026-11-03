@@ -19,7 +19,7 @@ function connected(answer: AgentModels = listed) {
   const posted: unknown[] = [];
   server.use(
     http.get(apiUrl(apiRoutes.status), () =>
-      HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+      HttpResponse.json(makeStatus({ agents: { claude: { connected: true } } })),
     ),
     http.get(apiUrl(apiRoutes.agentModels), () => HttpResponse.json(answer)),
     http.get(apiUrl(apiRoutes.repositories), () => HttpResponse.json({ repositories: [makeRepository()] })),
@@ -48,7 +48,7 @@ describe('the composer’s agent picker (spec 015, Q10)', () => {
   it('AC-19: Claude connected runs locally, with nothing to fix', async () => {
     server.use(
       http.get(apiUrl(apiRoutes.status), () =>
-        HttpResponse.json(makeStatus({ agent: { id: 'claude', connected: true } })),
+        HttpResponse.json(makeStatus({ agents: { claude: { connected: true } } })),
       ),
     );
     const { user } = await renderApp();
