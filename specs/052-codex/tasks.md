@@ -44,9 +44,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 14: Routes and wiring: `GET /api/codex/login`, `POST /api/codex/login/check`, models by agent, `createServer` building the Codex adapter, and `DEVHUB_CODEX` in the server config (AC-1, AC-2, AC-4)
       Check: pnpm test packages/core/src/routes/codex.test.ts packages/core/src/routes/agent.test.ts apps/server/src/config.test.ts; pnpm gate env-policy
       Files: packages/core/src/routes/codex.ts, codex.test.ts, agent.ts, agent.test.ts, create-server.ts, packages/core/src/status/status-service.ts, apps/server/src/config.ts, config.test.ts, main.ts, .env.example, packages/core/src/index.ts, packages/core/src/test/fake-codex/relay (the fake's body, out of the env gate's .ts scope)
-- [ ] Task 15: api-client: Codex login and check, and models by agent, with query keys and refresh on status change (AC-1, AC-4)
-      Check: pnpm test packages/api-client/src/endpoints/codex.test.ts packages/api-client/src/queries.test.ts
-      Files: packages/api-client/src/endpoints/codex.ts, codex.test.ts, endpoints/claude.ts, queries.ts, index.ts
+- [x] Task 15: api-client: Codex login and check, and models by agent, with query keys beneath the one status.changed refreshes (AC-1, AC-4)
+      Check: pnpm test packages/api-client/src/codex.test.ts packages/api-client/src/claude.test.ts
+      Files: packages/api-client/src/endpoints/codex.ts, codex.test.ts, endpoints/claude.ts, client.ts, queries.ts, index.ts, claude.test.ts
 - [ ] Task 16: Settings › Coding agent: the Codex card in place of "More agents", with its four states, Check again, no shift while checking, and keyboard use (AC-1, AC-2, AC-3, AC-26, AC-27)
       Check: pnpm test packages/app/src/features/settings/components/codex-card.test.tsx packages/app/src/features/settings/components/coding-agent-panel.test.tsx
       Files: packages/app/src/features/settings/components/codex-card.tsx, codex-card.test.tsx, coding-agent-panel.tsx, packages/app/src/features/settings/queries.ts
