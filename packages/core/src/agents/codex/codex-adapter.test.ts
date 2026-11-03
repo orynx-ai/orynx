@@ -2,7 +2,13 @@ import { mkdtemp, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { defaultPreferences } from '@devhub/contracts';
+import { z } from 'zod';
+import { CreateOrynxTicketSchema, defaultPreferences } from '@devhub/contracts';
+import { createEventBus } from '../../events/event-bus.ts';
+import { createOrynxTicketService } from '../../orynx-tickets/ticket-service.ts';
+import { createOrynxTicketStore } from '../../orynx-tickets/ticket-store.ts';
+import { ticketTools } from '../../orynx-tickets/tools.ts';
+import { createMemorySessionStore } from '../../sessions/session-store.ts';
 import { useFakeCodex, type CodexPeer, type FakeCodex } from '../../test/fake-codex.ts';
 import type { AgentEvent, AgentPermissions, AgentRunOptions } from '../agent-adapter.ts';
 import { createCodexAdapter, type CodexAdapterOptions } from './codex-adapter.ts';
@@ -647,5 +653,142 @@ describe.skipIf(process.platform === 'win32')("the Codex adapter's edits (spec 0
       itemId: 'nope',
     });
     expect(unseen.result).toEqual({ decision: 'decline' });
+  });
+});
+
+describe.skipIf(process.platform === 'win32')("the Codex adapter's Orynx tools (spec 052)", () => {
+  const inSession = { kind: 'session', sessionId: 's-1', title: 'Fix the date test' } as const;
+
+  async function tickets() {
+    const service = createOrynxTicketService({
+      store: createOrynxTicketStore(),
+      sessions: createMemorySessionStore(),
+      events: createEventBus(),
+    });
+    await service.create(CreateOrynxTicketSchema.parse({ title: 'Fix the date test', status: 'in_progress' }), {
+      kind: 'you',
+    });
+    return service;
+  }
+
+  async function running(run: AgentRunOptions, overrides: Partial<AgentPermissions> = {}) {
+    const { fake, adapter, worktree } = await setup();
+    const id = await adapter.startSession(brief, worktree, permissionsFrom(overrides), '', run);
+    const events = heard(adapter, id);
+    const started = await answerStart(fake);
+    return { adapter, id, events, ...started };
+  }
+
+  const call = (codex: CodexPeer, tool: string, args: unknown) =>
+    codex.ask('item/tool/call', {
+      threadId: 'thread-1',
+      turnId: 'turn-1',
+      callId: 'call-1',
+      namespace: null,
+      tool,
+      arguments: args,
+    });
+
+  it("AC-17: offers Orynx's tools as Codex's own, each with its input's JSON schema", async () => {
+    const { thread, events } = await running({ tools: ticketTools(await tickets(), inSession) });
+    const offered = (thread as { dynamicTools: { type: string; name: string; inputSchema: { type: string } }[] })
+      .dynamicTools;
+    expect(offered.map((tool) => tool.name)).toEqual([
+      'list_tickets',
+      'get_ticket',
+      'create_ticket',
+      'update_ticket',
+      'delete_ticket',
+    ]);
+    expect(offered[2]).toMatchObject({ type: 'function', inputSchema: { type: 'object' } });
+    await until(() => events.length > 0);
+    expect(events[0]).toMatchObject({ type: 'started', loaded: { tools: 5 } });
+  });
+
+  it('AC-17: makes and changes tickets without asking, and each call that did something is a step', async () => {
+    const service = await tickets();
+    const { codex, events, id } = await running({ tools: ticketTools(service, inSession) });
+
+    const made = await call(codex, 'create_ticket', { title: 'Flaky date test', type: 'Bug' });
+    expect(made.result).toMatchObject({ success: true, contentItems: [{ type: 'inputText' }] });
+    expect(await service.get('ORX-2')).toMatchObject({ title: 'Flaky date test', createdBy: inSession });
+    expect(events.at(-1)).toEqual({
+      type: 'work',
+      sessionId: id,
+      work: { kind: 'ticket', done: { action: 'created', key: 'ORX-2', title: 'Flaky date test' } },
+    });
+  });
+
+  it('AC-17: deleting a ticket waits for you, and Deny keeps it', async () => {
+    const service = await tickets();
+    const { adapter, codex, events, id } = await running({ tools: ticketTools(service, inSession) });
+    const answer = call(codex, 'delete_ticket', { key: 'ORX-1' });
+    await until(() => events.some((event) => event.type === 'approval'));
+    const approval = events.find((event) => event.type === 'approval');
+    expect(approval).toMatchObject({ ask: { kind: 'ticket', key: 'ORX-1', title: 'Fix the date test' } });
+    if (approval?.type !== 'approval') throw new Error('no approval');
+    await adapter.respond(id, approval.approvalId, 'deny');
+
+    expect((await answer).result).toMatchObject({ success: false });
+    expect(await service.get('ORX-1')).not.toBeNull();
+    expect(events.at(-1)).toEqual({
+      type: 'work',
+      sessionId: id,
+      work: { kind: 'denied', about: 'ticket', text: 'ORX-1' },
+    });
+  });
+
+  it('an Ask reads tickets and changes none', async () => {
+    const service = await tickets();
+    const { codex } = await running({ tools: ticketTools(service, inSession) }, { readOnly: true });
+    expect((await call(codex, 'get_ticket', { key: 'ORX-1' })).result).toMatchObject({ success: true });
+    expect((await call(codex, 'update_ticket', { key: 'ORX-1', status: 'done' })).result).toMatchObject({
+      success: false,
+    });
+    expect(await service.get('ORX-1')).toMatchObject({ status: 'in_progress' });
+  });
+
+  it('AC-17: a session tool asks as it says, runs on Allow, and one it turns down runs nothing', async () => {
+    let ran = 0;
+    const { adapter, codex, events, id } = await running({
+      orynxTools: [
+        {
+          name: 'start_server',
+          description: 'Starts a server.',
+          input: z.object({ command: z.string() }),
+          asks: (input) =>
+            Promise.resolve(
+              input['command'] === 'rm'
+                ? { refused: 'Only servers.' }
+                : { kind: 'server', command: String(input['command']), folder: '.', alwaysAllow: 'server:repo' },
+            ),
+          run: () => {
+            ran += 1;
+            return Promise.resolve({ text: 'Started on port 5173.' });
+          },
+        },
+      ],
+    });
+    const answer = call(codex, 'start_server', { command: 'npm run dev' });
+    await until(() => events.some((event) => event.type === 'approval'));
+    const approval = events.find((event) => event.type === 'approval');
+    expect(approval).toMatchObject({ ask: { kind: 'server', command: 'npm run dev' } });
+    if (approval?.type !== 'approval') throw new Error('no approval');
+    await adapter.respond(id, approval.approvalId, 'allow');
+    expect((await answer).result).toEqual({
+      contentItems: [{ type: 'inputText', text: 'Started on port 5173.' }],
+      success: true,
+    });
+
+    expect((await call(codex, 'start_server', { command: 'rm' })).result).toEqual({
+      contentItems: [{ type: 'inputText', text: 'Only servers.' }],
+      success: false,
+    });
+    expect(ran).toBe(1);
+  });
+
+  it('a tool Orynx never offered runs nothing', async () => {
+    const { codex } = await running({});
+    expect((await call(codex, 'shell', { command: 'rm -rf /' })).result).toMatchObject({ success: false });
   });
 });

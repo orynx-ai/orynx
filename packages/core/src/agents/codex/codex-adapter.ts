@@ -10,11 +10,12 @@ import {
   type AgentModels,
   type ChangeLine,
 } from '@devhub/contracts';
+import { ticketTitle, type TicketTool } from '../../orynx-tickets/tools.ts';
 import { briefText } from '../../sessions/brief.ts';
 import { parseUnifiedDiff } from '../../sessions/unified-diff.ts';
-import { askText, type AgentAdapter, type AgentAsk, type AgentEvent } from '../agent-adapter.ts';
+import { askText, type AgentAdapter, type AgentAsk, type AgentEvent, type OrynxTool } from '../agent-adapter.ts';
 import { previewLineLimit } from '../claude/edit-preview.ts';
-import { decideToolUse, type ToolContext } from '../claude/tool-decision.ts';
+import { decideToolUse, orynxToolPrefix, type ToolContext } from '../claude/tool-decision.ts';
 import { startAppServer, type AppServer } from './app-server.ts';
 import { createCodexReader, FileChangeItemSchema, type CodexRead, type SeenCommand } from './items.ts';
 import { codexCheckArgs, codexSessionArgs } from './launch.ts';
@@ -134,6 +135,27 @@ function editLines(change: FileChange): { lines: ChangeLine[]; moreLines: number
           (line): line is ChangeLine => line.kind === 'added' || line.kind === 'removed',
         );
   return { lines: changed.slice(0, previewLineLimit), moreLines: Math.max(0, changed.length - previewLineLimit) };
+}
+
+const ToolCallSchema = z.looseObject({ tool: z.string(), arguments: z.unknown() });
+
+/** Said to Codex when you deny a call (spec 012). */
+const deniedMessage =
+  "The user denied this. Don't try it another way. Carry on without it, or say in your summary what you needed.";
+
+/** Orynx's answer to one of its tools' calls. */
+function toolAnswer(text: string, success: boolean) {
+  return { contentItems: [{ type: 'inputText', text }], success };
+}
+
+/** Orynx's tools as Codex's dynamic tools (spec 052): the same names, words and inputs Claude gets. */
+function dynamicTools(tools: readonly (TicketTool | OrynxTool)[]) {
+  return tools.map((tool) => ({
+    type: 'function',
+    name: tool.name,
+    description: tool.description,
+    inputSchema: z.toJSONSchema(tool.input),
+  }));
 }
 
 const accept = { decision: 'accept' } as const;
@@ -322,6 +344,58 @@ export function createCodexAdapter({
     return (await onEdit?.()) == null ? accept : decline;
   }
 
+  /**
+   * A call to one of Orynx's tools (spec 037, spec 042, spec 044), answered in this process as Claude's are: a ticket
+   * tool by the ticket decision, a session tool by its own `asks()`. Each call that did something is a step.
+   */
+  async function callTool(
+    sessionId: string,
+    running: Running,
+    params: unknown,
+    context: () => Promise<ToolContext>,
+    tools: readonly TicketTool[],
+    orynxTools: readonly OrynxTool[],
+  ): Promise<unknown> {
+    const called = ToolCallSchema.safeParse(params);
+    if (!called.success || running.stopping) return toolAnswer('The user stopped the session.', false);
+    const { tool, arguments: given } = called.data;
+    const input = typeof given === 'object' && given !== null ? (given as Record<string, unknown>) : {};
+    const ticketTool = tools.find((one) => one.name === tool);
+    const own = orynxTools.find((one) => one.name === tool);
+    if (ticketTool === undefined && own === undefined)
+      return toolAnswer(`${tool} isn't available in this session.`, false);
+
+    let ask: AgentAsk | null = null;
+    if (ticketTool !== undefined) {
+      const rows = { ...(await context()), ticketTitle: (key: string) => ticketTitle(tools, key) };
+      const decision = await decideToolUse(`${orynxToolPrefix}${tool}`, input, rows);
+      if (decision.behavior === 'deny') return toolAnswer(decision.message, false);
+      if (decision.behavior === 'ask') ask = decision.ask;
+    } else if (own !== undefined) {
+      const asks = await own.asks(input);
+      // Turned down before anyone's asked: no step, only words for Codex (spec 044, AC-15).
+      if (asks !== null && 'refused' in asks) return toolAnswer(asks.refused, false);
+      ask = asks;
+    }
+    if (ask !== null) {
+      const outcome = await waitForAnswer(sessionId, running, ask);
+      if (outcome === 'deny') {
+        emit(running, { type: 'work', sessionId, work: { kind: 'denied', about: ask.kind, text: askText(ask) } });
+        return toolAnswer(deniedMessage, false);
+      }
+      if (outcome !== 'allow') return toolAnswer('The user stopped the session.', false);
+    }
+    if (ticketTool !== undefined) {
+      const done = await ticketTool.run(input);
+      if (done.error !== true) emit(running, { type: 'work', sessionId, work: { kind: 'ticket', done: done.done } });
+      return toolAnswer(done.text, done.error !== true);
+    }
+    if (own === undefined) return toolAnswer(`${tool} isn't available in this session.`, false);
+    // The session's own tools say themselves, in the session, what they did (spec 042).
+    const done = await own.run(input);
+    return toolAnswer(done.text, done.error !== true);
+  }
+
   /** Codex's own requests to a session, decided one at a time in the order Codex asked. */
   function answer(
     sessionId: string,
@@ -331,18 +405,15 @@ export function createCodexAdapter({
     context: () => Promise<ToolContext>,
     worktree: string,
     onEdit: (() => Promise<string | null>) | undefined,
+    tools: readonly TicketTool[],
+    orynxTools: readonly OrynxTool[],
   ): Promise<unknown> {
     const decide = (): Promise<unknown> => {
       if (method === 'item/commandExecution/requestApproval') return decideCommand(sessionId, running, params, context);
       if (method === 'item/fileChange/requestApproval') {
         return decideEdit(sessionId, running, params, context, worktree, onEdit);
       }
-      if (method === 'item/tool/call') {
-        return Promise.resolve({
-          contentItems: [{ type: 'inputText', text: 'Orynx has no such tool.' }],
-          success: false,
-        });
-      }
+      if (method === 'item/tool/call') return callTool(sessionId, running, params, context, tools, orynxTools);
       return Promise.reject(new Error(`Orynx takes no ${method}`));
     };
     const turn = running.deciding.then(decide);
@@ -397,7 +468,13 @@ export function createCodexAdapter({
       return Promise.resolve({ ok: false, problem: 'other' });
     },
 
-    startSession(brief, worktree, permissions, instructions, { resume, model, effort, onEdit } = {}) {
+    startSession(
+      brief,
+      worktree,
+      permissions,
+      instructions,
+      { resume, model, effort, onEdit, tools = [], orynxTools = [] } = {},
+    ) {
       const id = randomUUID();
       let endTurn: () => void = () => undefined;
       let turnStarted: () => void = () => undefined;
@@ -469,7 +546,10 @@ export function createCodexAdapter({
           return;
         }
         running.server = server;
-        server.onRequest((method, params) => answer(id, running, method, params, context, worktree, onEdit));
+        server.onRequest((method, params) =>
+          answer(id, running, method, params, context, worktree, onEdit, tools, orynxTools),
+        );
+        const offered = dynamicTools([...tools, ...orynxTools]);
         const read = createCodexReader({ worktree, seen: (itemId) => running.seen.get(itemId) ?? null });
         server.onNotification((method, params) => {
           if (method === 'item/started') {
@@ -498,6 +578,7 @@ export function createCodexAdapter({
                 approvalPolicy: 'untrusted',
                 approvalsReviewer: 'user',
                 config: Object.fromEntries(servers.map((name) => [`mcp_servers.${name}.enabled`, false])),
+                ...(offered.length === 0 ? {} : { dynamicTools: offered }),
               },
               requestTimeoutMs,
             ),
@@ -509,7 +590,7 @@ export function createCodexAdapter({
             type: 'started',
             sessionId: id,
             agentSessionId: threadId,
-            loaded: { tools: 0, mcpServers: 0, plugins: 0 },
+            loaded: { tools: offered.length, mcpServers: 0, plugins: 0 },
           });
           if (!runsCommands) emit(running, { type: 'work', sessionId: id, work: { kind: 'no_commands' } });
           const turn = TurnAnswerSchema.safeParse(

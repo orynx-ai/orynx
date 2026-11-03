@@ -29,9 +29,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: The Codex adapter (c): edit approvals, with each changed path through the edit decision and the ask's lines from `parseUnifiedDiff`, and outside the worktree refused (AC-13, AC-14)
       Check: pnpm test packages/core/src/agents/codex/codex-adapter.test.ts
       Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts
-- [ ] Task 10: The Codex adapter (d): Orynx's ticket and session tools as `dynamicTools`, answered on `item/tool/call` with their asks (AC-17)
+- [x] Task 10: The Codex adapter (d): Orynx's ticket and session tools as `dynamicTools`, answered on `item/tool/call` with their asks (AC-17)
       Check: pnpm test packages/core/src/agents/codex/codex-adapter.test.ts
-      Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts
+      Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts, packages/core/src/orynx-tickets/tools.ts (`ticketTitle`, shared with Claude's adapter)
 - [ ] Task 11: The Codex adapter (e): follow-ups through `turn/steer`, resume through `thread/resume`, problems (login, limit, resume), and `write()` in an empty folder with a read-only sandbox and no tools (AC-18, AC-19, AC-21, AC-22)
       Check: pnpm test packages/core/src/agents/codex/codex-adapter.test.ts
       Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts
