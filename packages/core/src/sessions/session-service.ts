@@ -1677,6 +1677,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         state: 'working',
         ready: 'nothing',
         pinnedAt: null,
+        // Every session runs on Claude until the session service picks the agent's adapter (spec 052, task 12).
+        agent: 'claude',
         source: { kind: 'jira', key: ticketKey },
         updatedAt: at,
         folder: { name: folder.name, displayPath: folder.displayPath },
@@ -1782,6 +1784,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
         state: 'working',
         ready: 'nothing',
         pinnedAt: null,
+        // Every session runs on Claude until the session service picks the agent's adapter (spec 052, task 12).
+        agent: 'claude',
         source:
           pull !== null
             ? { kind: 'pull_request', number: pull.number }

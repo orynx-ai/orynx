@@ -339,8 +339,23 @@ describe('listSessions', () => {
         // Spec 039: the pin and the kind, for the lists' Pinned group and Kind filter.
         pinnedAt: null,
         mode: 'build',
+        // Spec 052: the agent, for the words of the session's screens.
+        agent: 'claude',
       },
     ]);
+  });
+
+  it('052 AC-23: reads a session saved before spec 052, with no agent, as Claude', async () => {
+    const folder = join(sessionsFolder(home), '0123456789abcdef');
+    await mkdir(folder, { recursive: true });
+    const { session, ...older } = record();
+    const { agent: _agent, ...olderSession } = session;
+    await writeFile(join(folder, 'session.json'), JSON.stringify({ ...older, session: olderSession }));
+
+    const store = await openFileSessionStore(home, { now });
+
+    expect((await store.get('0123456789abcdef'))?.session.agent).toBe('claude');
+    expect((await listSessions(store, { now })).sessions[0]?.agent).toBe('claude');
   });
 
   it('says what each finished session is ready for, from what Claude did (spec 031)', async () => {

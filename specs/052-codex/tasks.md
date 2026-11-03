@@ -5,9 +5,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 1: Contracts: `AgentIdSchema`, `CodexLoginSchema`, both agents in `/api/status`, and the Codex login routes (AC-1, AC-2)
       Check: pnpm test packages/contracts/src/codex.test.ts packages/contracts/src/status.test.ts; pnpm typecheck
       Files: packages/contracts/src/codex.ts, codex.test.ts, status.ts, status.test.ts, agent-models.ts, routes.ts, index.ts, testing.ts; every use of `status.agent` (core status service, app queries and picker)
-- [ ] Task 2: Contracts: the agent on `AgentChoice`, on a session's summary and record (defaulting to claude), and models by agent (AC-5, AC-23)
-      Check: pnpm test packages/contracts/src/agent-models.test.ts packages/contracts/src/session.test.ts packages/core/src/sessions/session-store.test.ts; pnpm typecheck
-      Files: packages/contracts/src/agent-models.ts, session.ts, routes.ts, testing.ts; packages/core/src/sessions/session-store.ts
+- [x] Task 2: Contracts: the agent on `AgentChoice`, on a session's summary and record (defaulting to claude), and models by agent (AC-5, AC-23)
+      Check: pnpm test packages/contracts/src/agent-models.test.ts packages/contracts/src/session.test.ts packages/core/src/sessions/file-session-store.test.ts; pnpm typecheck
+      Files: packages/contracts/src/agent-models.ts, session.ts; packages/core/src/sessions/session-store.ts, file-session-store.test.ts, session-service.ts
 - [ ] Task 3: The app-server connection: spawn, newline JSON-RPC, requests with ids, notifications, server requests, close (AC-17, AC-20)
       Check: pnpm test packages/core/src/agents/codex/app-server.test.ts
       Files: packages/core/src/agents/codex/app-server.ts, app-server.test.ts, protocol.ts

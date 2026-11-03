@@ -30,8 +30,13 @@ export const AgentModelsSchema = z.discriminatedUnion('state', [
 ]);
 export type AgentModels = z.infer<typeof AgentModelsSchema>;
 
-/** What the composer picked; both left out means Claude Code's own default. */
+/** GET /api/agent/models?agent= (spec 052): one agent's models, Claude's when the query names none. */
+export const AgentModelsQuerySchema = z.object({ agent: AgentIdSchema.default('claude') });
+
+/** What the composer picked; left out, Claude, and its own default model and effort. */
 export const AgentChoiceSchema = z.object({
+  /** The agent the session runs on (spec 052). A follow-up goes to the session's own agent whatever this says. */
+  agent: AgentIdSchema.optional(),
   model: AgentModelIdSchema.optional(),
   effort: EffortLevelSchema.optional(),
 });
