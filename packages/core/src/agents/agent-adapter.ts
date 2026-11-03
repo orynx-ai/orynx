@@ -9,6 +9,7 @@
  */
 import type { z } from 'zod';
 import type {
+  AgentId,
   AgentModels,
   AlwaysAskReason,
   ChangeLine,
@@ -198,7 +199,7 @@ export interface AgentRunOptions {
 }
 
 export interface AgentAdapter {
-  readonly id: 'claude';
+  readonly id: AgentId;
   /** Whether a session's agent can run commands here: only inside a sandbox (spec 012, Q2b). */
   readonly runsCommands: boolean;
   /**

@@ -20,7 +20,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 6: Items to steps: reads and searches, the plan, edits, commands with output, the last message, usage (pure) (AC-7)
       Check: pnpm test packages/core/src/agents/codex/items.test.ts
       Files: packages/core/src/agents/codex/items.ts, items.test.ts
-- [ ] Task 7: The Codex adapter (a): start a thread in the worktree with the brief, model and effort, give events, list models, Stop with interrupt then kill (AC-5, AC-7, AC-20)
+- [x] Task 7: The Codex adapter (a): start a thread in the worktree with the brief, model and effort, give events, list models, Stop with interrupt then kill (AC-5, AC-7, AC-20)
       Check: pnpm test packages/core/src/agents/codex/codex-adapter.test.ts
       Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts, packages/core/src/agents/agent-adapter.ts (`id: AgentId`)
 - [ ] Task 8: The Codex adapter (b): command approvals through `decideToolUse('Bash')`, including the allow list, Always allow, push refused and escalation on the unsandboxed row (AC-8 to AC-12)
