@@ -96,6 +96,17 @@ export function moreLinesText(count: number): string {
   return `and ${String(count)} more ${count === 1 ? 'line' : 'lines'}`;
 }
 
+/** The words of Claude's question in the callout (spec 051, Q3). */
+export const questionWords = {
+  other: 'Other',
+  yourAnswer: 'Your answer',
+  send: 'Send answer',
+  skip: 'Skip',
+  pick: 'Pick an answer.',
+  type: 'Type your answer.',
+  tooLong: 'Keep it under 2,000 characters.',
+} as const;
+
 /** The Session screen's pill while a call waits (Q8d); the sidebar and Home say "Needs you". */
 export const needsApprovalLabel = 'Needs your approval';
 

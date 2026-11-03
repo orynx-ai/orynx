@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { ApiRequestError } from '@devhub/api-client';
-import type { ApprovalDecision, Session, SessionApproval } from '@devhub/contracts';
+import type { ApprovalDecision, QuestionAnswer, Session, SessionApproval } from '@devhub/contracts';
 import { Button, Callout, CalloutCode, DiffView, ResumeBanner } from '@devhub/ui';
 import {
   alwaysAllowLabel,
@@ -16,9 +16,10 @@ import {
   type AnswerError,
 } from '../approval-words.ts';
 import { useRespondToApproval } from '../queries.ts';
+import { QuestionForm } from './question-form.tsx';
 
 /** What the callout shows under its title: the command as written, the edit's change (Q9), or the ticket (spec 037). */
-function What({ approval }: { approval: SessionApproval }) {
+function What({ approval }: { approval: Exclude<SessionApproval, { kind: 'question' }> }) {
   if (approval.kind === 'command') {
     return (
       <>
@@ -41,8 +42,6 @@ function What({ approval }: { approval: SessionApproval }) {
       </>
     );
   }
-  // shortcut: the question's form comes in spec 051's task 8; until then nothing asks one.
-  if (approval.kind === 'question') return null;
   return (
     <>
       <DiffView path={approval.path} lines={approval.lines} />
@@ -120,7 +119,8 @@ export function ApprovalCallout({
   }, [approval?.id, moveOn]);
 
   if (approval === undefined) return null;
-  const busy = respond.isPending ? respond.variables.decision : null;
+  const sending = respond.isPending ? respond.variables.decision : null;
+  const busy = sending === null ? null : typeof sending === 'object' ? 'answer' : sending;
   const error = failed?.approvalId === approval.id ? failed.error : null;
 
   /** The answer went through: the call goes once the session changes, which may already have happened. */
@@ -129,7 +129,7 @@ export function ApprovalCallout({
     else moveOn();
   }
 
-  function answer(decision: ApprovalDecision) {
+  function answer(decision: ApprovalDecision | { answers: QuestionAnswer[] }) {
     if (approval === undefined) return;
     const call = approval;
     setFailed(null);
@@ -167,46 +167,65 @@ export function ApprovalCallout({
         role="alert"
         title={approvalTitle(approval)}
         actions={
-          <>
-            <Button
-              ref={firstButton}
-              size="sm"
-              pending={busy === 'allow_once'}
-              disabled={busy !== null && busy !== 'allow_once'}
-              onClick={() => {
-                answer('allow_once');
-              }}
-            >
-              {approvalButtons.allowOnce}
-            </Button>
-            {alwaysAllow === null ? null : (
+          approval.kind === 'question' ? undefined : (
+            <>
               <Button
+                ref={firstButton}
                 size="sm"
-                pending={busy === 'always_allow'}
-                disabled={busy !== null && busy !== 'always_allow'}
+                pending={busy === 'allow_once'}
+                disabled={busy !== null && busy !== 'allow_once'}
                 onClick={() => {
-                  answer('always_allow');
+                  answer('allow_once');
                 }}
               >
-                {alwaysAllow}
+                {approvalButtons.allowOnce}
               </Button>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              pending={busy === 'deny'}
-              disabled={busy !== null && busy !== 'deny'}
-              onClick={() => {
-                answer('deny');
-              }}
-            >
-              {approvalButtons.deny}
-            </Button>
-          </>
+              {alwaysAllow === null ? null : (
+                <Button
+                  size="sm"
+                  pending={busy === 'always_allow'}
+                  disabled={busy !== null && busy !== 'always_allow'}
+                  onClick={() => {
+                    answer('always_allow');
+                  }}
+                >
+                  {alwaysAllow}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                pending={busy === 'deny'}
+                disabled={busy !== null && busy !== 'deny'}
+                onClick={() => {
+                  answer('deny');
+                }}
+              >
+                {approvalButtons.deny}
+              </Button>
+            </>
+          )
         }
       >
-        <What approval={approval} />
-        {error === null ? null : <p className="m-0 text-small text-danger">{answerErrorLine(error)}</p>}
+        {approval.kind === 'question' ? (
+          // Its buttons are inside its form, so Enter in Other's box sends; the error goes above them.
+          <QuestionForm
+            approval={approval}
+            busy={busy === 'answer' ? 'answer' : busy === 'deny' ? 'skip' : null}
+            error={error === null ? null : answerErrorLine(error)}
+            onAnswer={(answers) => {
+              answer({ answers });
+            }}
+            onSkip={() => {
+              answer('deny');
+            }}
+          />
+        ) : (
+          <>
+            <What approval={approval} />
+            {error === null ? null : <p className="m-0 text-small text-danger">{answerErrorLine(error)}</p>}
+          </>
+        )}
       </Callout>
       {inView ? null : (
         // Not a second alert: the callout already said it. Review brings it into view, on its first answer.
