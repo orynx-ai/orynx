@@ -1,22 +1,8 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
-import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import { fakeToolsControlPort, fakeToolsHubPort, type FakeTools } from './fake-tools/config.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Home with Jira and GitHub faked inside the hub (e2e/fake-tools/preload.ts): the real server syncs them,
 // and the real page shows the rows.
@@ -299,30 +285,12 @@ test('AC-34, AC-45: Given the toolbar and the pager, when axe checks Home and th
   page,
 }) => {
   await openHome(page, { ...everything, issues: backlog });
-  await page.addScriptTag({ path: axePath });
-  const check = (selector: string) =>
-    page.evaluate(async (context) => {
-      const target = document.querySelector(context);
-      if (target === null) throw new Error(`Nothing matches ${context}`);
-      // axe reads colours as drawn, so a menu still fading in would fail on contrast: let it settle first. A scroll-driven
-      // animation (the sidebar's scroll-fade-y) never ends, so only those on the page's clock count.
-      const moving = target
-        .getAnimations({ subtree: true })
-        .filter(
-          (animation) =>
-            animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-        );
-      await Promise.allSettled(moving.map((animation) => animation.finished));
-      const results = await window.axe.run(target, { resultTypes: ['violations'] });
-      return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
-    }, selector);
-
-  expect(await check('body')).toEqual([]);
+  expect(await axeViolations(page)).toEqual([]);
 
   // An open menu hides the rest of the page from screen readers, so it is checked on its own.
   await attentionPanel(page).getByRole('button', { name: 'Reason' }).click();
   await expect(page.getByRole('menu', { name: 'Reason' })).toBeVisible();
-  expect(await check('[role="menu"]')).toEqual([]);
+  expect(await axeViolations(page, '[role="menu"]')).toEqual([]);
 });
 
 test('AC-43: Given a 360 px window and nine pages, when I look at the toolbar and the pager, then the box takes a line of its own, the filter wraps under it, the pager keeps its arrows and fits, and nothing scrolls sideways', async ({

@@ -3,7 +3,7 @@ import { cn, Icon, IconButton } from '@devhub/ui';
 import { SyncActivityButton } from '../../sync-activity/components/sync-activity-button.tsx';
 import { syncLine } from '../inbox-words.ts';
 import { useInbox, useRefreshInbox } from '../queries.ts';
-import { useNow } from '../use-now.ts';
+import { useNow } from '../../../words/use-now.ts';
 
 /**
  * Sync: one sync of Jira and GitHub now, which also reads Tickets' sprint. Home's page bar has it, and Tickets'

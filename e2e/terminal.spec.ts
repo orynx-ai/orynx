@@ -1,24 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { axePath } from './axe.ts';
 import { answerClaudeAs, fakeClaudeDirFor } from './fake-claude/config.ts';
 import { controlPortFor, terminalHubPort, type FakeTools } from './fake-tools/config.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Spec 036 on its own hub (playwright.config.ts): your commands run in its sessions' worktrees.
 test.use({ baseURL: `http://127.0.0.1:${String(terminalHubPort)}` });

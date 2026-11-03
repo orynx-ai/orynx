@@ -2,23 +2,10 @@ import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import { answerClaudeAs, fakeClaudeDirFor } from './fake-claude/config.ts';
 import { controlPortFor, sessionsHubPort, type FakeTools } from './fake-tools/config.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Spec 011 on its own hub (playwright.config.ts): its sessions and worktrees never reach the other specs.
 test.use({ baseURL: `http://127.0.0.1:${String(sessionsHubPort)}` });
@@ -341,24 +328,6 @@ test('AC-15, AC-18, 022 AC-28: Home opens a live session, and a row’s +, Send,
 });
 
 test('AC-19: each session state has no axe violations, at 1280 and 360 px, in light and dark', async ({ page }) => {
-  const check = async (selector = 'body') => {
-    await page.addScriptTag({ path: axePath });
-    return page.evaluate(async (context) => {
-      const target = document.querySelector(context);
-      if (target === null) throw new Error(`Nothing matches ${context}`);
-      // axe reads colours as drawn, so anything still fading in must settle first.
-      // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-      const moving = document
-        .getAnimations()
-        .filter(
-          (animation) =>
-            animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-        );
-      await Promise.allSettled(moving.map((animation) => animation.finished));
-      const results = await window.axe.run(target, { resultTypes: ['violations'] });
-      return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
-    }, selector);
-  };
   // The finished session has the next-move bar (spec 048); the one that couldn't start has none.
   for (const [url, bar] of [
     [seen.done, true],
@@ -385,7 +354,7 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
             await expect(step).toBeFocused();
           }
         }
-        expect(await check(), `${url} at ${String(width)} px, ${colorScheme}`).toEqual([]);
+        expect(await axeViolations(page), `${url} at ${String(width)} px, ${colorScheme}`).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       }
     }
@@ -397,7 +366,7 @@ test('AC-19: each session state has no axe violations, at 1280 and 360 px, in li
   const card = page.getByRole('article', { name: 'Speed up the site picker' });
   await card.getByRole('button', { name: 'Speed up the site picker' }).click();
   await expect(page.getByRole('dialog').getByRole('heading', { name: 'Description' })).toBeVisible();
-  expect(await check('[role="dialog"]')).toEqual([]);
+  expect(await axeViolations(page, '[role="dialog"]')).toEqual([]);
 });
 
 test('AC-17 (spec 048): side by side, What agent did scrolls on its own, with the follow-up box at its foot', async ({

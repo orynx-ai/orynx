@@ -2,7 +2,7 @@ import { accessSync, constants, existsSync, mkdtempSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
-import { fakeClaude, fakeClaudeDir, fakeClaudeDirFor } from './e2e/fake-claude/config.ts';
+import { fakeClaude, fakeClaudeDirFor } from './e2e/fake-claude/config.ts';
 import { fakeCodex, noCodex } from './e2e/fake-codex/config.ts';
 import { fakeReleasesPort, fakeReleasesUrl } from './e2e/fake-tools/releases.ts';
 import { setUpHome } from './e2e/set-up.ts';
@@ -68,6 +68,47 @@ try {
   throw new Error('e2e/fake-claude/claude must be executable (chmod +x), or the e2e run could not check Claude.');
 }
 
+// Every hub's settings. The shell beats the repo's .env, so a developer's .env tokens never reach an e2e server.
+const hubEnv = {
+  LOG_LEVEL: 'warn',
+  NODE_ENV: 'production',
+  DEVHUB_TOKENS_FROM_ENV: 'false',
+  // Tokens in memory only: the e2e run never reads or writes your real "DevHub" keychain item.
+  DEVHUB_KEYCHAIN: 'memory',
+  // A fake gh, always signed out, comes first on the server's PATH: the e2e run never reads your
+  // real gh login, and a press of Connect GitHub never reaches github.com (spec 004, AC-20).
+  PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
+  // Always signed out, unless the hub gives it an answer folder (CLAUDE_CONFIG_DIR).
+  DEVHUB_CLAUDE_CODE: fakeClaude,
+  // No Codex, whatever is on your PATH: only the Codex hub has one (spec 052).
+  DEVHUB_CODEX: noCodex,
+  // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
+  DEVHUB_SANDBOX: 'assume',
+  // Every hub checks for updates with the fake releases, never api.github.com (spec 045, AC-24).
+  DEVHUB_RELEASES_URL: fakeReleasesUrl,
+};
+
+/**
+ * A hub on the build the first one made, with Jira and GitHub faked inside the server (e2e/fake-tools/preload.ts), a
+ * port and data folder of its own, and a fake Claude Code that answers what its specs write into its folder.
+ */
+function hub(port: number, home: string, env: Record<string, string> = {}) {
+  return {
+    command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
+    url: `http://127.0.0.1:${String(port)}/`,
+    reuseExistingServer: false,
+    timeout: 60_000,
+    env: {
+      DEVHUB_PORT: String(port),
+      DEVHUB_HOME: home,
+      ...hubEnv,
+      // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
+      CLAUDE_CONFIG_DIR: fakeClaudeDirFor(port),
+      ...env,
+    },
+  };
+}
+
 export default defineConfig({
   testDir: 'e2e',
   // The desktop app's own run (playwright.desktop.config.ts) launches the packed app instead of these hubs.
@@ -94,283 +135,54 @@ export default defineConfig({
       timeout: 30_000,
     },
     {
+      // The first hub builds the app, with nothing faked: no Jira, no GitHub, and Claude Code always signed out.
       command: 'pnpm start',
       url: `http://127.0.0.1:${String(port)}/`,
       reuseExistingServer: false,
       timeout: 180_000,
-      // The shell beats the repo's .env, so a developer's .env tokens never reach the e2e server.
-      env: {
-        DEVHUB_PORT: String(port),
-        DEVHUB_HOME: home,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        // Tokens in memory only: the e2e run never reads or writes your real "DevHub" keychain item.
-        DEVHUB_KEYCHAIN: 'memory',
-        // A fake gh, always signed out, comes first on the server's PATH: the e2e run never reads your
-        // real gh login, and a press of Connect GitHub never reaches github.com (spec 004, AC-20).
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        // Always signed out: this hub's fake Claude Code gets no answer folder.
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        // No Codex, whatever is on your PATH: only the Codex hub has one (spec 052).
-        DEVHUB_CODEX: noCodex,
-        // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
-        DEVHUB_SANDBOX: 'assume',
-        // Every hub checks for updates with the fake releases, never api.github.com (spec 045, AC-24).
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-      },
+      env: { DEVHUB_PORT: String(port), DEVHUB_HOME: home, ...hubEnv },
     },
+    // Jira and GitHub faked, for the specs that need rows on Home; coding-agent.spec.ts writes its Claude's answers.
+    hub(fakeToolsHubPort, fakeToolsHome),
+    // Sessions (spec 011): its sessions, worktrees and fake Claude Code stay away from the other specs. The fake
+    // Claude Code plays one scripted run (e2e/fake-claude/session.ts).
+    hub(sessionsHubPort, sessionsHome),
+    // Approvals (spec 012): their tests change the permission mode and the allow list.
+    hub(approvalsHubPort, approvalsHome),
+    // Live changes and follow-ups (spec 013): their sessions resume Claude Code, and their folder maps its own project.
+    hub(changesHubPort, changesHome),
+    // Create pull request (spec 014): its sessions commit and push, to a bare repository standing in for github.com,
+    // and its fake GitHub opens pull requests.
+    hub(pullRequestsHubPort, pullRequestsHome, { HOME: pullRequestsGitHome }),
+    // Home's composer (spec 015): its sessions start without Ship, and its fakes give pull requests' details and diffs.
+    hub(composerHubPort, composerHome),
+    // Sync activity (spec 035): its Sync now and its log never move Home's inbox spec.
+    hub(syncActivityHubPort, syncActivityHome),
+    // Slack and Discord (spec 016): connecting them never adds tabs to Home's inbox spec.
+    hub(chatHubPort, chatHome),
+    // The session Terminal (spec 036): your commands run in its sessions' worktrees.
+    hub(terminalHubPort, terminalHome, {
+      // env-policy-ignore-next-line: the shell your Terminal runs; /bin/sh keeps your own shell's startup files out
+      SHELL: '/bin/sh',
+    }),
     {
-      // The same build with Jira and GitHub faked inside the server (e2e/fake-tools/preload.ts), for the
-      // specs that need rows on Home. It starts after the first server, so the build is already there.
-      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
-      url: `http://127.0.0.1:${String(fakeToolsHubPort)}/`,
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(fakeToolsHubPort),
-        DEVHUB_HOME: fakeToolsHome,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        // This hub's fake Claude Code answers what coding-agent.spec.ts writes into its folder.
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: noCodex,
-        // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
-        CLAUDE_CONFIG_DIR: fakeClaudeDir,
-      },
-    },
-    {
-      // The same again for sessions (spec 011): its sessions, worktrees and fake Claude Code stay away from
-      // the other specs. The fake Claude Code plays one scripted run (e2e/fake-claude/session.ts).
-      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
-      url: `http://127.0.0.1:${String(sessionsHubPort)}/`,
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(sessionsHubPort),
-        DEVHUB_HOME: sessionsHome,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: noCodex,
-        // The fake Claude Code has no sandbox; Orynx would otherwise give it no commands (spec 012).
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
-        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(sessionsHubPort),
-      },
-    },
-    {
-      // Approvals (spec 012) on a hub of their own: their tests change the permission mode and the allow list.
-      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
-      url: `http://127.0.0.1:${String(approvalsHubPort)}/`,
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(approvalsHubPort),
-        DEVHUB_HOME: approvalsHome,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: noCodex,
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
-        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(approvalsHubPort),
-      },
-    },
-    {
-      // Live changes and follow-ups (spec 013) on a hub of their own: their sessions resume Claude Code, and
-      // their folder maps its own project.
-      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
-      url: `http://127.0.0.1:${String(changesHubPort)}/`,
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(changesHubPort),
-        DEVHUB_HOME: changesHome,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: noCodex,
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
-        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(changesHubPort),
-      },
-    },
-    {
-      // Create pull request (spec 014) on a hub of its own: its sessions commit and push, to a bare repository
-      // standing in for github.com, and its fake GitHub opens pull requests.
-      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
-      url: `http://127.0.0.1:${String(pullRequestsHubPort)}/`,
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(pullRequestsHubPort),
-        DEVHUB_HOME: pullRequestsHome,
-        HOME: pullRequestsGitHome,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: noCodex,
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
-        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(pullRequestsHubPort),
-      },
-    },
-    {
-      // Home's composer (spec 015) on a hub of its own: its sessions start without Ship, and its fakes give
-      // pull requests' details and diffs.
-      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
-      url: `http://127.0.0.1:${String(composerHubPort)}/`,
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(composerHubPort),
-        DEVHUB_HOME: composerHome,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: noCodex,
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
-        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(composerHubPort),
-      },
-    },
-    {
-      // Sync activity (spec 035) on a hub of its own: its Sync now and its log never move Home's inbox spec.
-      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
-      url: `http://127.0.0.1:${String(syncActivityHubPort)}/`,
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(syncActivityHubPort),
-        DEVHUB_HOME: syncActivityHome,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: noCodex,
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
-        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(syncActivityHubPort),
-      },
-    },
-    {
-      // Slack and Discord (spec 016) on a hub of their own: connecting them never adds tabs to Home's inbox spec.
-      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
-      url: `http://127.0.0.1:${String(chatHubPort)}/`,
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(chatHubPort),
-        DEVHUB_HOME: chatHome,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: noCodex,
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
-        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(chatHubPort),
-      },
-    },
-    {
-      // The session Terminal (spec 036) on a hub of its own: your commands run in its sessions' worktrees.
-      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
-      url: `http://127.0.0.1:${String(terminalHubPort)}/`,
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(terminalHubPort),
-        DEVHUB_HOME: terminalHome,
-        // env-policy-ignore-next-line: the shell your Terminal runs; /bin/sh keeps your own shell's startup files out
-        SHELL: '/bin/sh',
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: noCodex,
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
-        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(terminalHubPort),
-      },
-    },
-    {
-      // Orynx's own tickets (spec 037) on a hub of their own, with no Jira and no fakes: the tickets made here and
-      // its agents' door never reach the Tickets spec, which expects none.
+      // Orynx's own tickets (spec 037), with no Jira and no fakes: the tickets made here and its agents' door never
+      // reach the Tickets spec, which expects none.
       command: 'node apps/server/dist/main.mjs --serve-web',
       url: `http://127.0.0.1:${String(orynxTicketsHubPort)}/`,
       reuseExistingServer: false,
       timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(orynxTicketsHubPort),
-        DEVHUB_HOME: orynxTicketsHome,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: noCodex,
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-      },
+      env: { DEVHUB_PORT: String(orynxTicketsHubPort), DEVHUB_HOME: orynxTicketsHome, ...hubEnv },
     },
     {
-      // Codex beside Claude (spec 052) on a hub of its own: the only one whose Codex is there, a fake signed in with
-      // ChatGPT that plays one scripted run (e2e/fake-codex/app-server.ts). Claude stays signed out here.
+      // Codex beside Claude (spec 052): the only hub whose Codex is there, a fake signed in with ChatGPT that plays
+      // one scripted run (e2e/fake-codex/app-server.ts). Claude stays signed out here.
       command: 'node apps/server/dist/main.mjs --serve-web',
       url: `http://127.0.0.1:${String(codexHubPort)}/`,
       reuseExistingServer: false,
       timeout: 60_000,
-      env: {
-        DEVHUB_PORT: String(codexHubPort),
-        DEVHUB_HOME: codexHome,
-        LOG_LEVEL: 'warn',
-        NODE_ENV: 'production',
-        DEVHUB_TOKENS_FROM_ENV: 'false',
-        DEVHUB_KEYCHAIN: 'memory',
-        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
-        DEVHUB_CLAUDE_CODE: fakeClaude,
-        DEVHUB_CODEX: fakeCodex,
-        // The fake Codex has no sandbox; Orynx would otherwise give its sessions no commands (spec 012).
-        DEVHUB_SANDBOX: 'assume',
-        DEVHUB_RELEASES_URL: fakeReleasesUrl,
-      },
+      // The fake Codex has no sandbox either; hubEnv's DEVHUB_SANDBOX gives its sessions commands (spec 012).
+      env: { DEVHUB_PORT: String(codexHubPort), DEVHUB_HOME: codexHome, ...hubEnv, DEVHUB_CODEX: fakeCodex },
     },
   ],
 });

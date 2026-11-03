@@ -3,7 +3,7 @@
 //
 // Usage: pnpm --filter @devhub/desktop package [--dir]   (--dir: the app folder only, no .dmg or AppImage)
 import { execFileSync } from 'node:child_process';
-import { cpSync, rmSync } from 'node:fs';
+import { cpSync, globSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { repoRoot } from './lib/repo.ts';
 
@@ -30,9 +30,23 @@ run(
   root,
 );
 cpSync(join(root, 'apps', 'server', 'dist'), join(stage, 'server', 'dist'), { recursive: true });
-for (const unused of ['src', 'node_modules/.bin', 'tsconfig.json', 'tsdown.config.ts', 'vitest.config.ts']) {
+// node_modules/@devhub: main.mjs has every workspace package bundled in, so their TypeScript source never runs.
+for (const unused of [
+  'src',
+  'node_modules/.bin',
+  'node_modules/@devhub',
+  'tsconfig.json',
+  'tsdown.config.ts',
+  'vitest.config.ts',
+]) {
   rmSync(join(stage, 'server', unused), { recursive: true, force: true });
 }
 cpSync(join(root, 'apps', 'web', 'dist'), join(stage, 'web', 'dist'), { recursive: true });
+// Type declarations and source maps never load in the app: about half the stage's files, and signing opens every file.
+const neverLoaded = globSync(['server/node_modules/**/*.{d.ts,d.mts,d.cts,map}', 'web/dist/**/*.map'], {
+  cwd: stage,
+  withFileTypes: true,
+});
+for (const file of neverLoaded) if (file.isFile()) rmSync(join(file.parentPath, file.name));
 
 run('pnpm', ['exec', 'electron-builder', '--config', 'electron-builder.yml', ...process.argv.slice(2)], desktop);

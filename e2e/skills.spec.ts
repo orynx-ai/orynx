@@ -1,21 +1,7 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
-import { createRequire } from 'node:module';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
+import { axeViolations } from './axe.ts';
 
 // The desktop and phone runs share one hub and one skills folder, so each test names its skills after its run
 // and its own purpose, and never relies on the folder being empty.
@@ -29,23 +15,6 @@ function nameFor(testInfo: TestInfo, what: string): string {
 /** The folder a Name makes, as Orynx makes it. */
 function folderOf(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-}
-
-/** axe on the page, once anything fading in has settled (memory: e2e axe runs mid-animation). */
-async function axeViolations(page: Page): Promise<string[]> {
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async () => {
-    // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-    const moving = document
-      .getAnimations()
-      .filter(
-        (animation) =>
-          animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-      );
-    await Promise.allSettled(moving.map((animation) => animation.finished));
-    const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
-    return results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
-  });
 }
 
 function horizontalOverflow(page: Page): Promise<number> {

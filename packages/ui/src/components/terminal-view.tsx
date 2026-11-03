@@ -1,8 +1,9 @@
 import { useEffect, useEffectEvent, useRef, type ComponentProps } from 'react';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebglAddon } from '@xterm/addon-webgl';
-import { Terminal, type ITheme } from '@xterm/xterm';
+import type { ITheme, Terminal } from '@xterm/xterm';
 import { cn } from '../lib/cn.ts';
+
+/** xterm and its addons, a quarter of the app's code: loaded when the first terminal opens, not with the app. */
+const loadXterm = () => Promise.all([import('@xterm/xterm'), import('@xterm/addon-fit'), import('@xterm/addon-webgl')]);
 
 /** What feeds a {@link TerminalView} draws with. */
 export interface TerminalScreen {
@@ -84,79 +85,95 @@ export function TerminalView({
   const feed = useEffectEvent(connect);
   const typed = useEffectEvent(onData);
   const sized = useEffectEvent(onResize);
+  // xterm arrives after the first render, so it takes the props it missed once it's drawn.
+  const drawn = useEffectEvent((term: Terminal) => {
+    term.textarea?.setAttribute('aria-label', label);
+    term.options.screenReaderMode = screenReader;
+    if (takeFocus) term.focus();
+  });
 
   useEffect(() => {
     const element = host.current;
     if (element === null) return;
-    const style = getComputedStyle(element);
-    const fontSize = Number.parseFloat(style.fontSize);
-    const lineHeight = Number.parseFloat(style.lineHeight) / fontSize;
-    const term = new Terminal({
-      cursorBlink: true,
-      screenReaderMode: true,
-      scrollback: 5_000,
-      minimumContrastRatio: 4.5,
-      theme: themeOf(element),
-      // The type scale's code size and the mono font, from the box's own classes; xterm's defaults without them.
-      ...(style.fontFamily === '' ? {} : { fontFamily: style.fontFamily }),
-      ...(Number.isFinite(fontSize) ? { fontSize } : {}),
-      ...(Number.isFinite(lineHeight) ? { lineHeight } : {}),
-    });
-    terminal.current = term;
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.attachCustomKeyEventHandler((event) => !event.defaultPrevented);
-    term.open(element);
-    // Drawn on the GPU, so a busy program (Claude, a test run) keeps up. Disposing it hands back to the DOM renderer.
-    try {
-      const gpu = new WebglAddon();
-      gpu.onContextLoss(() => {
-        gpu.dispose();
+    let gone = false;
+    let undraw: (() => void) | undefined;
+    void loadXterm().then(([{ Terminal }, { FitAddon }, { WebglAddon }]) => {
+      if (gone) return;
+      const style = getComputedStyle(element);
+      const fontSize = Number.parseFloat(style.fontSize);
+      const lineHeight = Number.parseFloat(style.lineHeight) / fontSize;
+      const term = new Terminal({
+        cursorBlink: true,
+        screenReaderMode: true,
+        scrollback: 5_000,
+        minimumContrastRatio: 4.5,
+        theme: themeOf(element),
+        // The type scale's code size and the mono font, from the box's own classes; xterm's defaults without them.
+        ...(style.fontFamily === '' ? {} : { fontFamily: style.fontFamily }),
+        ...(Number.isFinite(fontSize) ? { fontSize } : {}),
+        ...(Number.isFinite(lineHeight) ? { lineHeight } : {}),
       });
-      term.loadAddon(gpu);
-    } catch {
-      // No WebGL2 here: xterm's DOM renderer, already drawing, carries on.
-    }
-    const listening = [
-      term.onData((data) => {
-        typed(data);
-      }),
-      term.onResize(({ cols, rows }) => {
-        sized({ cols, rows });
-      }),
-    ];
-    fit.fit();
-    sized({ cols: term.cols, rows: term.rows });
-
-    const box = new ResizeObserver(() => {
+      terminal.current = term;
+      const fit = new FitAddon();
+      term.loadAddon(fit);
+      term.attachCustomKeyEventHandler((event) => !event.defaultPrevented);
+      term.open(element);
+      drawn(term);
+      // Drawn on the GPU, so a busy program (Claude, a test run) keeps up. Disposing it hands back to the DOM renderer.
+      try {
+        const gpu = new WebglAddon();
+        gpu.onContextLoss(() => {
+          gpu.dispose();
+        });
+        term.loadAddon(gpu);
+      } catch {
+        // No WebGL2 here: xterm's DOM renderer, already drawing, carries on.
+      }
+      const listening = [
+        term.onData((data) => {
+          typed(data);
+        }),
+        term.onResize(({ cols, rows }) => {
+          sized({ cols, rows });
+        }),
+      ];
       fit.fit();
-    });
-    box.observe(element);
-    const retheme = () => {
-      term.options.theme = themeOf(element);
-    };
-    const scheme = window.matchMedia('(prefers-color-scheme: dark)');
-    scheme.addEventListener('change', retheme);
-    const picked = new MutationObserver(retheme);
-    picked.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+      sized({ cols: term.cols, rows: term.rows });
 
-    const stop = feed({
-      write: (data) => {
-        term.write(data);
-      },
-      reset: (data) => {
-        term.reset();
-        term.write(data);
-      },
+      const box = new ResizeObserver(() => {
+        fit.fit();
+      });
+      box.observe(element);
+      const retheme = () => {
+        term.options.theme = themeOf(element);
+      };
+      const scheme = window.matchMedia('(prefers-color-scheme: dark)');
+      scheme.addEventListener('change', retheme);
+      const picked = new MutationObserver(retheme);
+      picked.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+      const stop = feed({
+        write: (data) => {
+          term.write(data);
+        },
+        reset: (data) => {
+          term.reset();
+          term.write(data);
+        },
+      });
+      undraw = () => {
+        stop();
+        picked.disconnect();
+        scheme.removeEventListener('change', retheme);
+        box.disconnect();
+        for (const one of listening) one.dispose();
+        terminal.current = null;
+        term.dispose();
+      };
     });
     return () => {
-      stop();
-      picked.disconnect();
-      scheme.removeEventListener('change', retheme);
-      box.disconnect();
-      for (const one of listening) one.dispose();
-      terminal.current = null;
-      term.dispose();
+      gone = true;
+      undraw?.();
     };
   }, []);
 

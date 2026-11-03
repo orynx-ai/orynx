@@ -1,24 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import { answerClaudeAs, fakeClaudeDirFor } from './fake-claude/config.ts';
 import { changesHubPort, controlPortFor, type FakeTools } from './fake-tools/config.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // Spec 013 on its own hub (playwright.config.ts): its sessions resume Claude Code and write into worktrees the
 // other specs never see.
@@ -439,22 +426,6 @@ test('AC-21: the box, the tabs and the file list all work from the keyboard, in 
 });
 
 test('AC-22: the Session screen has no axe violations, at 1280 and 360 px, in light and dark', async ({ page }) => {
-  const check = async () => {
-    await page.addScriptTag({ path: axePath });
-    return page.evaluate(async () => {
-      // axe reads colours as drawn, so anything still fading in must settle first.
-      // Only animations on the page's clock end: a scroll-driven one (the sidebar's scroll-fade-y) never does.
-      const moving = document
-        .getAnimations()
-        .filter(
-          (animation) =>
-            animation.timeline === document.timeline && animation.effect?.getComputedTiming().endTime !== Infinity,
-        );
-      await Promise.allSettled(moving.map((animation) => animation.finished));
-      const results = await window.axe.run(document.body, { resultTypes: ['violations'] });
-      return results.violations.map((violation) => `${violation.id}: ${violation.help}`);
-    });
-  };
   const states = [
     { name: 'Done, with its changes', url: seen.done, shows: (p: Page) => changedFiles(p) },
     {
@@ -474,7 +445,7 @@ test('AC-22: the Session screen has no axe violations, at 1280 and 360 px, in li
         // The next-move bar comes once the changes have loaded, fading in (spec 048): axe reads it once it's there.
         await expect(page.getByRole('status', { name: 'Ready for a pull request' })).toBeVisible();
         const where = `${state.name} at ${String(width)} px, ${colorScheme}`;
-        expect(await check(), where).toEqual([]);
+        expect(await axeViolations(page), where).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth), where).toBeLessThanOrEqual(width);
       }
     }

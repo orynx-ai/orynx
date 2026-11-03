@@ -1,7 +1,7 @@
 // The callbacks passed to page.evaluate() run in the browser.
 /// <reference lib="dom" />
-import { createRequire } from 'node:module';
 import { expect, test, type Page } from '@playwright/test';
+import { axeViolations } from './axe.ts';
 import {
   makeSearchIndex,
   makeSearchPullRequest,
@@ -9,20 +9,6 @@ import {
   makeSessionSummary,
   makeTicketDetail,
 } from '../packages/contracts/src/testing.ts';
-
-declare global {
-  interface Window {
-    axe: {
-      run: (
-        context: Element,
-        options: object,
-      ) => Promise<{ violations: { id: string; help: string; nodes: { target: string[] }[] }[] }>;
-    };
-  }
-}
-
-// axe-core comes with @devhub/ui's tests; here it runs in a real browser, so contrast counts too.
-const axePath = createRequire(new URL('../packages/ui/package.json', import.meta.url)).resolve('axe-core/axe.min.js');
 
 // The e2e server has no Jira or GitHub: its keychain is in memory and its DEVHUB_HOME is new. To search
 // something, the browser's request for the search index is answered here, the network being the one thing
@@ -122,14 +108,6 @@ async function layoutShiftScore(page: Page): Promise<number> {
   );
 }
 
-async function axeViolations(page: Page): Promise<string[]> {
-  await page.addScriptTag({ path: axePath });
-  return page.evaluate(async () => {
-    const results = await window.axe.run(document.documentElement, { resultTypes: ['violations'] });
-    return results.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.map((n) => n.target.join(' ')).join(', ')})`);
-  });
-}
-
 test('AC-1, AC-6, AC-11, AC-12, 022 AC-40: Given tickets to find, when I press the search key, type and pick one with the arrow keys and Enter, then search closes and the ticket dialog opens, whose Open in Jira opens a new tab', async ({
   page,
 }) => {
@@ -201,7 +179,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(page.getByRole('option')).toHaveCount(8);
 
     expect(await layoutShiftScore(page)).toBeLessThan(0.01);
-    expect(await axeViolations(page)).toEqual([]);
+    expect(await axeViolations(page, 'html')).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(
       0,
     );
