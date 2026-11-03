@@ -8,7 +8,12 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-const browserCode = ['packages/ui/**/*.{ts,tsx}', 'packages/app/**/*.{ts,tsx}', 'apps/web/**/*.{ts,tsx}'];
+const browserCode = [
+  'packages/ui/**/*.{ts,tsx}',
+  'packages/app/**/*.{ts,tsx}',
+  'apps/web/**/*.{ts,tsx}',
+  'apps/demo/**/*.{ts,tsx}',
+];
 
 export default defineConfig(
   globalIgnores([
