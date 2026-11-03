@@ -79,9 +79,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **api-client**
 
-- [ ] Task 21: Slack's and Discord's connection calls and query options; the preview; the reply and dismiss calls (AC-2, AC-6, AC-26, AC-41, AC-43)
-      Check: pnpm test packages/api-client/src/endpoints/slack.test.ts packages/api-client/src/endpoints/discord.test.ts packages/api-client/src/endpoints/threads.test.ts
-      Files: packages/api-client/src/endpoints/slack.ts, discord.ts, threads.ts, their tests, packages/api-client/src/client.ts, packages/api-client/src/queries.ts
+- [x] Task 21: Slack's and Discord's connection calls and query options; the preview; the reply and dismiss calls (AC-2, AC-6, AC-26, AC-41, AC-43)
+      Check: pnpm test packages/api-client/src/chat.test.ts
+      Files: packages/api-client/src/endpoints/slack.ts, discord.ts, threads.ts, packages/api-client/src/chat.test.ts, packages/api-client/src/client.ts, packages/api-client/src/queries.ts, packages/api-client/src/index.ts
 
 **app: Settings**
 

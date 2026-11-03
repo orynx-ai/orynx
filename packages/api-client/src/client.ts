@@ -12,6 +12,12 @@ import {
   type ConnectionCheck,
   type GitHubConnection,
   type GitHubConnectionRequest,
+  type SlackConnection,
+  type SlackConnectionRequest,
+  type DiscordConnection,
+  type DiscordConnectionRequest,
+  type ThreadPreviewAnswer,
+  type ThreadReplyAnswer,
   type Inbox,
   type InboxSource,
   type JiraConnection,
@@ -98,6 +104,19 @@ import {
   postGitHubConnectionCheck,
   putGitHubConnection,
 } from './endpoints/github.ts';
+import {
+  deleteSlackConnection,
+  getSlackConnection,
+  postSlackConnectionCheck,
+  putSlackConnection,
+} from './endpoints/slack.ts';
+import {
+  deleteDiscordConnection,
+  getDiscordConnection,
+  postDiscordConnectionCheck,
+  putDiscordConnection,
+} from './endpoints/discord.ts';
+import { getThreadPreview, postThreadReply, postThreadReplyDismiss } from './endpoints/threads.ts';
 import { deleteInboxCache, getInbox, postInboxRefresh } from './endpoints/inbox.ts';
 import { getSyncActivity } from './endpoints/sync-activity.ts';
 import { getStorage } from './endpoints/storage.ts';
@@ -259,6 +278,12 @@ export interface ApiClient {
   reviewStatus(id: string): Promise<ReviewStatus>;
   /** Posts one review, only on your press: its link, why it can't, or GitHub's problem (spec 050). */
   postReview(id: string, request: PostReviewRequest): Promise<PostReviewAnswer>;
+  /** Posts the pull request's link in the session's thread, only on your press (spec 016, E). */
+  postThreadReply(id: string, text: string): Promise<ThreadReplyAnswer>;
+  /** Not now on the reply in the thread (spec 016, AC-43). */
+  dismissThreadReply(id: string): Promise<void>;
+  /** The thread a pasted Slack or Discord link names, as its chip will read (spec 016, AC-26). */
+  threadPreview(link: string): Promise<ThreadPreviewAnswer>;
   /** The saved Jira site and email, and whether `.env` holds a Jira token. */
   jiraConnection(): Promise<JiraConnection>;
   /** Checks with Jira, then saves; rejects with integration_rejected, integration_unreachable or keychain_unavailable. */
@@ -275,6 +300,18 @@ export interface ApiClient {
   disconnectGitHub(): Promise<void>;
   /** Test connection and Reconnect: gh and GitHub asked now, and how long it took (spec 030). */
   checkGitHubConnection(): Promise<ConnectionCheck>;
+  /** Who the saved Slack token belongs to, and whether `.env` holds a Slack token (spec 016). */
+  slackConnection(): Promise<SlackConnection>;
+  /** Checks the token and its scopes with Slack, then saves; rejects like {@link connectJira}. */
+  connectSlack(request: SlackConnectionRequest): Promise<SlackConnection>;
+  disconnectSlack(): Promise<void>;
+  checkSlackConnection(): Promise<ConnectionCheck>;
+  /** The saved bot and whose mentions it reads, and whether `.env` holds a Discord token (spec 016). */
+  discordConnection(): Promise<DiscordConnection>;
+  /** Checks the bot with Discord, then saves; rejects like {@link connectJira}, or user_id_needed for a team's bot. */
+  connectDiscord(request: DiscordConnectionRequest): Promise<DiscordConnection>;
+  disconnectDiscord(): Promise<void>;
+  checkDiscordConnection(): Promise<ConnectionCheck>;
   /** Settings › Coding agent and Inbox rules, with the default for anything never chosen. */
   preferences(): Promise<Preferences>;
   /** Saves one change and returns every preference. */
@@ -453,6 +490,12 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     reviewStatus: (id) => getReviewStatus(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     postReview: (id, request) =>
       postReview(http, id, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    postThreadReply: (id, text) =>
+      postThreadReply(http, id, { text }).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    dismissThreadReply: (id) =>
+      postThreadReplyDismiss(http, id).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    threadPreview: (link) =>
+      getThreadPreview(http, link).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     jiraConnection: () => getJiraConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     connectJira: (request) =>
       putJiraConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
@@ -469,6 +512,21 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       deleteGitHubConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     checkGitHubConnection: () =>
       postGitHubConnectionCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    slackConnection: () => getSlackConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    connectSlack: (request) =>
+      putSlackConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    disconnectSlack: () =>
+      deleteSlackConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    checkSlackConnection: () =>
+      postSlackConnectionCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    discordConnection: () =>
+      getDiscordConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    connectDiscord: (request) =>
+      putDiscordConnection(http, request).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    disconnectDiscord: () =>
+      deleteDiscordConnection(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
+    checkDiscordConnection: () =>
+      postDiscordConnectionCheck(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     preferences: () => getPreferences(http).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
     changePreferences: (change) =>
       patchPreferences(http, change).catch((error: unknown) => Promise.reject(toApiRequestError(error))),
