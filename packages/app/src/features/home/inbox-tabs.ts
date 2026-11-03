@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import type { InboxItem, InboxTab } from '@devhub/contracts';
+import type { Inbox, InboxItem, InboxSource, InboxTab } from '@devhub/contracts';
 
 /**
- * Home's inbox tabs (spec 007, Q1a: no Slack tab until 016). The tab is part of the address: All has no
- * parameter, the others are `/?inbox=jira` and `/?inbox=pull-requests`.
+ * Home's inbox tabs (spec 007; Slack and Discord from spec 016). The tab is part of the address: All has no
+ * parameter, the others are `/?inbox=jira`, `/?inbox=pull-requests`, `/?inbox=slack` and `/?inbox=discord`.
  */
-export const homeTabs = ['all', 'jira', 'pull-requests'] as const;
+export const homeTabs = ['all', 'jira', 'pull-requests', 'slack', 'discord'] as const;
 export type HomeTab = (typeof homeTabs)[number];
 
 /** Text in the address; the router reads `q=2841` as a number. */
@@ -17,7 +17,7 @@ const text = z.union([z.string(), z.number()]).transform(String);
  * hand-typed address still opens, on All.
  */
 export const HomeSearchSchema = z.object({
-  inbox: z.enum(['jira', 'pull-requests']).optional().catch(undefined),
+  inbox: z.enum(['jira', 'pull-requests', 'slack', 'discord']).optional().catch(undefined),
   q: text.optional().catch(undefined),
   reason: text.optional().catch(undefined),
   project: text.optional().catch(undefined),
@@ -29,16 +29,40 @@ export const HomeSearchSchema = z.object({
 });
 export type HomeSearch = z.infer<typeof HomeSearchSchema>;
 
-export const homeTabLabels: Record<HomeTab, string> = { all: 'All', jira: 'Jira', 'pull-requests': 'Pull requests' };
+export const homeTabLabels: Record<HomeTab, string> = {
+  all: 'All',
+  jira: 'Jira',
+  'pull-requests': 'Pull requests',
+  slack: 'Slack',
+  discord: 'Discord',
+};
 
-const inboxTabs: Record<Exclude<HomeTab, 'all'>, InboxTab> = { jira: 'jira', 'pull-requests': 'pull_requests' };
+const inboxTabs: Record<Exclude<HomeTab, 'all'>, InboxTab> = {
+  jira: 'jira',
+  'pull-requests': 'pull_requests',
+  slack: 'slack',
+  discord: 'discord',
+};
 
 /** The tools whose rows a tab shows. */
-export const tabTools: Record<HomeTab, readonly ('jira' | 'github')[]> = {
-  all: ['jira', 'github'],
+export const tabTools: Record<HomeTab, readonly InboxSource[]> = {
+  all: ['jira', 'github', 'slack', 'discord'],
   jira: ['jira'],
   'pull-requests': ['github'],
+  slack: ['slack'],
+  discord: ['discord'],
 };
+
+/**
+ * The tabs Home shows (spec 016, Q6): Slack's and Discord's only once that tool is connected, so someone who uses
+ * neither never sees an empty tab. While the list loads, the tools' tabs wait too.
+ */
+export function shownTabs(inbox: Pick<Inbox, 'tools'> | undefined): HomeTab[] {
+  return homeTabs.filter(
+    (tab) =>
+      (tab !== 'slack' && tab !== 'discord') || (inbox !== undefined && inbox.tools[tab].state !== 'not_connected'),
+  );
+}
 
 /** The tab's own key in `tabCounts` and `emptyText`. */
 export function countKey(tab: HomeTab): 'all' | InboxTab {

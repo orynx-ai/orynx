@@ -97,7 +97,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **app: Home**
 
-- [ ] Task 25: The Slack and Discord tabs, shown once connected, in the address (`/?inbox=slack`), with counts and arrow keys; `/?inbox=slack` without Slack opens on All (AC-19, AC-20)
+- [x] Task 25: The Slack and Discord tabs, shown once connected, in the address (`/?inbox=slack`), with counts and arrow keys; `/?inbox=slack` without Slack opens on All (AC-19, AC-20)
       Check: pnpm test packages/app/src/features/home/inbox-tabs.test.ts packages/app/src/features/home/components/attention-panel.test.tsx
       Files: packages/app/src/features/home/inbox-tabs.ts, packages/app/src/features/home/components/attention-panel.tsx, their tests
 - [ ] Task 26: Message rows: (the pill, sub line, counts and Reason filter landed in task 5) logo, title, "Neha K. in #web-platform" / "· direct message" / "· Acme", "No reply · 3 h", Reply; skeletons, the empty line, the not-connected and failed lines; Sync activity names both tools (AC-10, AC-11, AC-16, AC-21, AC-22, AC-23)

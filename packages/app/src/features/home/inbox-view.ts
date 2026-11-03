@@ -215,6 +215,9 @@ const tabFilters: Record<HomeTab, readonly FilterKey[]> = {
   all: ['reason'],
   jira: ['reason', 'project', 'status', 'type'],
   'pull-requests': ['reason', 'repo'],
+  // One reason only, No reply, so search alone (spec 016).
+  slack: [],
+  discord: [],
 };
 
 /**

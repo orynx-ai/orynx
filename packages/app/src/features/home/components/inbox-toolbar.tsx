@@ -10,6 +10,8 @@ const searchLabels: Record<HomeTab, string> = {
   all: 'Search',
   jira: 'Search tickets',
   'pull-requests': 'Search pull requests',
+  slack: 'Search Slack messages',
+  discord: 'Search Discord messages',
 };
 
 /**

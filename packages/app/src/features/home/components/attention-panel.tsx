@@ -27,7 +27,7 @@ import {
   TabsTrigger,
 } from '@devhub/ui';
 import { usePlatform } from '../../../platform.tsx';
-import { countKey, homeTabLabels, homeTabs, itemsInTab, tabTools, type HomeTab } from '../inbox-tabs.ts';
+import { countKey, homeTabLabels, itemsInTab, shownTabs, tabTools, type HomeTab } from '../inbox-tabs.ts';
 import {
   emptyText,
   reasonPill,
@@ -62,9 +62,12 @@ export function AttentionPanel() {
   const search = useSearch({ from: '/' });
   const navigate = useNavigate();
   const now = useNow();
-  const view = viewOf(search);
-  const { tab } = view;
   const { data } = inbox;
+  const tabs = shownTabs(data);
+  const asked = viewOf(search);
+  // A tab the address names but Home doesn't show, such as Slack's before it's connected, opens on All (spec 016).
+  const view = tabs.includes(asked.tab) ? asked : { ...asked, tab: 'all' as const };
+  const { tab } = view;
 
   if (data === undefined && inbox.isError) {
     return (
@@ -83,7 +86,7 @@ export function AttentionPanel() {
     );
   }
 
-  if (data?.tools.jira.state === 'not_connected' && data.tools.github.state === 'not_connected') {
+  if (data !== undefined && Object.values(data.tools).every((each) => each.state === 'not_connected')) {
     return (
       <Panel title={panelTitle}>
         <EmptyState
@@ -96,7 +99,7 @@ export function AttentionPanel() {
             </Button>
           }
         >
-          <span>Connect Jira, GitHub or Slack and the work that needs you shows up here.</span>
+          <span>Connect Jira, GitHub, Slack or Discord and the work that needs you shows up here.</span>
         </EmptyState>
       </Panel>
     );
@@ -119,13 +122,13 @@ export function AttentionPanel() {
       <Tabs
         value={tab}
         onValueChange={(value) => {
-          const picked = homeTabs.find((each) => each === value) ?? 'all';
+          const picked = tabs.find((each) => each === value) ?? 'all';
           // The panel sits low on Home, so picking a tab keeps the page where it is.
           void navigate({ to: '/', search: searchForTab(search, picked), resetScroll: false });
         }}
       >
         <TabsList aria-label="Filter by source">
-          {homeTabs.map((value) => (
+          {tabs.map((value) => (
             <TabsTrigger
               key={value}
               value={value}
@@ -138,7 +141,7 @@ export function AttentionPanel() {
             </TabsTrigger>
           ))}
         </TabsList>
-        {homeTabs.map((value) => (
+        {tabs.map((value) => (
           // Not a stop of its own: Tab goes from the selected tab straight to its toolbar and rows (AC-33, AC-45).
           <TabsContent key={value} value={value} tabIndex={-1}>
             <TabView

@@ -74,7 +74,7 @@ describe('the address', () => {
   });
 
   it('Q10i: ignores what it cannot read, so a hand-typed address still opens', () => {
-    const search = HomeSearchSchema.parse({ inbox: 'slack', sort: 'oldest', page: 'two', q: 2841, reason: ',,' });
+    const search = HomeSearchSchema.parse({ inbox: 'teams', sort: 'oldest', page: 'two', q: 2841, reason: ',,' });
 
     expect(viewOf(search)).toEqual({ ...defaultView, query: '2841' });
   });

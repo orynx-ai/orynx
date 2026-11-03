@@ -5,6 +5,7 @@ import { apiRoutes, type InboxItem } from '@devhub/contracts';
 import {
   makeInbox,
   makeInboxItem,
+  makeSlackItem,
   makePreferences,
   makeStatus,
   makeTicketDetail,
@@ -950,5 +951,52 @@ describe('AttentionPanel pages', () => {
     });
     expect(shownTitles(panel)[0]).toBe('Ticket 16');
     expect(within(panel).getByRole('searchbox', { name: 'Search' })).toHaveValue('ticket');
+  });
+});
+
+describe('Slack and Discord tabs (spec 016)', () => {
+  const slackRow = makeSlackItem({ waitingSince: '2026-10-17T08:00:00.000Z' });
+  const discordRow = makeSlackItem({
+    id: 'discord:1100000000000000002/1434477000000000001',
+    source: 'discord',
+    tab: 'discord',
+    title: 'Mind a look before standup?',
+    subject: { kind: 'message', from: 'Arjun M.', channel: 'web-platform', server: 'Acme' },
+    waitingSince: '2026-10-17T07:00:00.000Z',
+    target: {
+      kind: 'external',
+      url: 'https://discord.com/channels/1100000000000000001/1100000000000000002/1434477000000000001',
+    },
+  });
+  const tabNames = (panel: HTMLElement) =>
+    within(within(panel).getByRole('tablist', { name: 'Filter by source' }))
+      .getAllByRole('tab')
+      .map((tab) => tab.textContent);
+
+  it('AC-19: each connected tool has its tab with its count, and a tab shows only its rows', async () => {
+    inboxWith([...everyRow, slackRow, discordRow], { tools: { slack: synced, discord: synced } });
+    const { user, panel } = await openHome();
+
+    expect(tabNames(panel)).toEqual(['All 7', 'Jira 2', 'Pull requests 3', 'Slack 1', 'Discord 1']);
+    await user.click(within(panel).getByRole('tab', { name: 'Slack 1' }));
+
+    expect(within(panel).getByRole('tab', { name: 'Slack 1' })).toHaveAttribute('aria-selected', 'true');
+    const rows = await within(panel).findAllByRole('listitem');
+    expect(rows.map(titleText)).toEqual([slackRow.title]);
+  });
+
+  it('AC-19: the address opens on Slack’s tab', async () => {
+    inboxWith([...everyRow, slackRow], { tools: { slack: synced } });
+    const { panel } = await openHome('/?inbox=slack');
+
+    expect(within(panel).getByRole('tab', { name: 'Slack 1' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('AC-20: with neither connected there is no Slack or Discord tab, and their address opens on All', async () => {
+    inboxWith(everyRow);
+    const { panel } = await openHome('/?inbox=slack');
+
+    expect(tabNames(panel)).toEqual(['All 5', 'Jira 2', 'Pull requests 3']);
+    expect(within(panel).getByRole('tab', { name: 'All 5' })).toHaveAttribute('aria-selected', 'true');
   });
 });
