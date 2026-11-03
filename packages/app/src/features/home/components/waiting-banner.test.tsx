@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { SessionSummary } from '@devhub/contracts';
-import { makeSession, makeSessionApproval, makeSessionList } from '@devhub/contracts/testing';
+import { makeQuestionApproval, makeSession, makeSessionApproval, makeSessionList } from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { server, sessionHandler, sessionsHandler } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -37,6 +37,21 @@ describe('the waiting banner (spec 015)', () => {
     expect(screen.getByRole('heading', { level: 1 }).parentElement).not.toContainElement(banner);
     await user.click(within(banner).getByRole('link', { name: 'Review' }));
     expect(history.location.pathname).toBe('/sessions/00000000000000a1');
+  });
+
+  it("051 AC-12: for Claude's question, says Claude waits for your answer, and what it asks", async () => {
+    server.use(
+      sessionsHandler(makeSessionList([waiting('00000000000000a1', '2026-10-18T09:00:00.000Z')])),
+      sessionHandler(makeSession({ id: '00000000000000a1', state: 'needs_you', approvals: [makeQuestionApproval()] })),
+    );
+    await renderApp();
+
+    const banner = await screen.findByRole('status', { name: 'Claude is waiting for your answer' });
+    await waitFor(() => {
+      expect(banner).toHaveAccessibleDescription(
+        'PROJ-1423 · Add bulk archive · asks: Which date library should we use?',
+      );
+    });
   });
 
   it('AC-26 (Q11a): with several waiting, one banner for the one waiting longest, and how many more', async () => {

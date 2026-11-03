@@ -110,6 +110,9 @@ export const questionWords = {
 /** The Session screen's pill while a call waits (Q8d); the sidebar and Home say "Needs you". */
 export const needsApprovalLabel = 'Needs your approval';
 
+/** The pill while Claude's question waits (spec 051, Q3). */
+export const needsAnswerLabel = 'Needs your answer';
+
 /** The bar pinned to the window's bottom while the waiting call is out of view (the user's call, 19 Oct 2026). */
 export const approvalBar = { title: 'Claude is waiting for your approval', review: 'Review' };
 

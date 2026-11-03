@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiRoutes, type Session, type SessionActivity } from '@devhub/contracts';
 import {
   makePushDraft,
+  makeQuestionApproval,
   makeSession,
   makeSessionChanges,
   makeSessionPort,
@@ -218,6 +219,13 @@ describe('SessionHeader', () => {
     const main = screen.getByRole('main');
     expect(within(main).getByText('Needs your approval')).toBeVisible();
     expect(within(main).getByRole('button', { name: 'Stop' })).toBeVisible();
+  });
+
+  it("051 AC-1: while Claude's question waits, the pill says the session needs your answer", async () => {
+    server.use(sessionHandler({ ...working, state: 'needs_you', approvals: [makeQuestionApproval()] }));
+    await renderApp({ route });
+    await screen.findByRole('heading', { level: 1 });
+    expect(within(screen.getByRole('main')).getByText('Needs your answer')).toBeVisible();
   });
 
   it.each([

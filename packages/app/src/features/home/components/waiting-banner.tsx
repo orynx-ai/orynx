@@ -15,7 +15,7 @@ function WaitingFor({ waiting, more }: { waiting: SessionSummary; more: number }
       icon={Alert02Icon}
       tone="warning"
       role="status"
-      title={composerWords.banner.title}
+      title={approval?.kind === 'question' ? composerWords.banner.answerTitle : composerWords.banner.title}
       detail={bannerDetail({ key: sourceLabel(waiting.source) ?? null, title: waiting.title, approval, more })}
       actions={
         <Button asChild variant="secondary" size="sm">

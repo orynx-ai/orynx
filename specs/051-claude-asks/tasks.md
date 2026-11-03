@@ -29,7 +29,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 9: Skip, a failed send, another tab answering first, focus, and the pinned bar (AC-7, AC-9, AC-10, AC-14, AC-15, AC-16)
       Check: pnpm test packages/app/src/features/sessions/components/approval-callout.test.tsx packages/app/src/features/sessions/components/question-form.test.tsx
       Files: packages/app/src/features/sessions/components/approval-callout.tsx, question-form.tsx, their tests
-- [ ] Task 10: The words around a question: the pill, the steps, Home's banner, the bell, and Settings › Notifications' row (AC-1, AC-2, AC-7, AC-12, AC-13, Q6)
+- [x] Task 10: The words around a question: the pill, the steps, Home's banner, the bell, and Settings › Notifications' row (AC-1, AC-2, AC-7, AC-12, AC-13, Q6)
       Check: pnpm test packages/app/src/features/sessions packages/app/src/features/home/components/waiting-banner.test.tsx packages/app/src/features/notifications packages/app/src/features/settings/components/notifications-panel.test.tsx
       Files: packages/app/src/features/sessions/components/session-header.tsx, step-words.ts, packages/app/src/features/home/components/waiting-banner.tsx, composer-words.ts, packages/app/src/features/notifications/words.ts, packages/app/src/features/settings/components/notifications-panel.tsx, their tests
 - [ ] Task 11: e2e: the fake Claude Code asks with "(asks)"; answer, Other, Skip, and both themes with no axe violations (AC-2, AC-3, AC-7, AC-22)

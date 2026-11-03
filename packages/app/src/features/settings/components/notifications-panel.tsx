@@ -267,8 +267,9 @@ const eventGroups: readonly {
     events: [
       {
         id: 'approval',
-        label: 'Claude is waiting for your approval',
-        line: 'A command, an edit, a push or a pull request needs your click',
+        // Questions share the row (spec 051, Q6).
+        label: 'Claude is waiting for you',
+        line: 'A command, an edit, a push, a pull request or a question needs you',
       },
       { id: 'session_finished', label: 'Session finished', line: 'Ready for you to review the changes' },
       { id: 'session_ended', label: 'Session failed or stopped', line: 'An error, or you pressed Stop' },
