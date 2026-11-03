@@ -50,6 +50,8 @@ function useSubLine(): (chip: ComposerChip) => string | null {
       const id = `${chip.owner}/${chip.name}#${String(chip.number)}`.toLowerCase();
       return index.data?.pullRequests.find((known) => known.id.toLowerCase() === id)?.title ?? null;
     }
+    if (chip.kind === 'slack_thread') return 'Slack thread';
+    if (chip.kind === 'discord_thread') return 'Discord thread';
     return chip.path;
   };
 }

@@ -31,13 +31,23 @@ describe('sync activity (spec 035)', () => {
     expect(SyncRunSchema.safeParse(elsewhere).success).toBe(false);
   });
 
+  it('016: a Slack or Discord sync names its tool, and its changes link to Slack or Discord', () => {
+    for (const [tool, url] of [
+      ['slack', 'https://acme.slack.com/archives/C024BE91L/p1700000000123456'],
+      ['discord', 'https://discord.com/channels/1100000000000000001/1100000000000000002/1100000000000000003'],
+    ] as const) {
+      const run = { ...makeSyncRun(), tool, changes: [{ ...makeSyncChange(), url }] };
+      expect(SyncRunSchema.parse(run).tool).toBe(tool);
+    }
+  });
+
   it('AC-18: the query picks a tool and failed runs only, and defaults to every run of every tool', () => {
     expect(SyncActivityQuerySchema.parse({})).toEqual({ show: 'all' });
     expect(SyncActivityQuerySchema.parse({ tool: 'github', show: 'failed' })).toEqual({
       tool: 'github',
       show: 'failed',
     });
-    expect(SyncActivityQuerySchema.safeParse({ tool: 'slack' }).success).toBe(false);
+    expect(SyncActivityQuerySchema.safeParse({ tool: 'teams' }).success).toBe(false);
   });
 
   it('AC-20: Refresh can name one tool', () => {

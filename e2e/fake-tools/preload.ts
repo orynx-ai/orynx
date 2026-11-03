@@ -28,6 +28,21 @@ import {
   acceptingReviews,
   acceptingUser,
 } from '../../packages/core/src/test/fake-github.ts';
+import {
+  acceptingBot,
+  discordChannels,
+  discordHistory,
+  discordMentions,
+} from '../../packages/core/src/test/fake-discord.ts';
+import {
+  acceptingAuthTest,
+  knownUsers,
+  slackChannels,
+  slackDms,
+  slackMentions,
+  slackPosts,
+  slackThreads,
+} from '../../packages/core/src/test/fake-slack.ts';
 import { http, HttpResponse } from 'msw';
 import { controlPortFor, type FakeTools } from './config.ts';
 import { fakeReleasesUrl } from './releases.ts';
@@ -90,6 +105,18 @@ function handlers() {
     // Create pull request (spec 014): the pull requests GitHub opens join the spec's list.
     ...acceptingPulls({ opened: (tools.pulls ??= []) }),
     acceptingRepository(),
+    // Slack and Discord (spec 016): a token and a bot that connect, Slack's mentions, threads and replies.
+    acceptingAuthTest(),
+    knownUsers({ U0NEHA0001: { display: 'Neha K.' } }),
+    slackMentions(tools.slack?.mentions ?? []),
+    slackThreads(tools.slack?.threads ?? {}),
+    ...slackDms({}),
+    slackChannels({ C024BE91L: 'web-platform' }),
+    slackPosts(tools.slack === undefined ? [] : (tools.slack.posted ??= [])),
+    ...acceptingBot({ servers: [{ id: '1100000000000000001', name: 'Acme' }] }),
+    discordMentions({}),
+    discordChannels({}),
+    discordHistory({}),
     // Settings › About's check for updates (spec 045): no release yet, so these hubs put nothing in the bell.
     http.get(fakeReleasesUrl, () => HttpResponse.json([])),
   ];

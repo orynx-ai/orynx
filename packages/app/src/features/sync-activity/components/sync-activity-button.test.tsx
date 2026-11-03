@@ -6,7 +6,7 @@ import { makeInbox, makeSyncActivity } from '@devhub/contracts/testing';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
-function inboxWith(tools: Inbox['tools']) {
+function inboxWith(tools: Partial<Inbox['tools']>) {
   server.use(
     http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json(makeInbox({ tools }))),
     http.get(apiUrl(apiRoutes.syncActivity), () => HttpResponse.json(makeSyncActivity())),

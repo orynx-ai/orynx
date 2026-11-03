@@ -15,17 +15,28 @@ export const lookWords: Record<StatusButtonState, { label: string; tip: string; 
   not_connected: { label: 'Not connected', tip: 'Not connected · select to connect', tone: 'neutral' },
 };
 
-export const toolNames: Record<IntegrationId, string> = { jira: 'Jira', github: 'GitHub', slack: 'Slack' };
+export const toolNames: Record<IntegrationId, string> = {
+  jira: 'Jira',
+  github: 'GitHub',
+  slack: 'Slack',
+  discord: 'Discord',
+};
 
 /** Under a tool's name until the server has a line for it (specs 003 and 004). */
 export const howToConnect: Record<IntegrationId, string> = {
   jira: 'Connect with your site address, email and a personal API token.',
   github: 'Reuses your gh command-line login, or a personal access token.',
   slack: 'Reading your mentions needs a Slack app your admin approves.',
+  discord: 'Reading your mentions needs a Discord bot you make.',
 };
 
 /** What leaves the inbox when a tool stops working. */
-const items: Record<IntegrationId, string> = { jira: 'tickets', github: 'pull requests', slack: 'mentions' };
+const items: Record<IntegrationId, string> = {
+  jira: 'tickets',
+  github: 'pull requests',
+  slack: 'mentions',
+  discord: 'mentions',
+};
 
 /** The dialog's first line, by state (spec 030, 10a). */
 export function leadLine(tool: IntegrationId, look: StatusButtonState): string {
@@ -35,6 +46,7 @@ export function leadLine(tool: IntegrationId, look: StatusButtonState): string {
     return `Orynx can no longer reach ${name}, so your ${items[tool]} have stopped updating. Reconnect to pick up where you left off.`;
   }
   if (tool === 'slack') return 'Two steps. Until then, Slack items are left out of your inbox.';
+  if (tool === 'discord') return 'Two steps. Until then, Discord mentions are left out of your inbox.';
   return `Connect ${name} to see your ${items[tool]} in Orynx.`;
 }
 
@@ -43,6 +55,7 @@ export const reads: Record<IntegrationId, string> = {
   jira: 'Issues assigned to you, your sprint, comments',
   github: 'Pull requests, checks, review comments',
   slack: 'Mentions, DMs, threads you add',
+  discord: "Mentions in your bot's servers, threads you add",
 };
 export const githubWrites = 'Pushes session branches and opens pull requests on your click';
 
@@ -52,7 +65,14 @@ export const disconnectText = {
   gh: 'Pull requests leave your inbox and sessions can no longer create pull requests. Your gh login on this computer is not changed.',
   token:
     'Pull requests leave your inbox and sessions can no longer create pull requests. Your token is removed from the keychain.',
+  slack:
+    'Slack mentions and DMs leave your inbox, and sessions can no longer read Slack threads. Your token is removed from the keychain. Slack itself is not changed.',
+  discord:
+    "Discord mentions leave your inbox, and sessions can no longer read Discord threads. Your bot's token is removed from the keychain. The bot stays in your servers.",
 } as const;
+
+/** What Orynx writes to Slack or Discord (spec 016, E). */
+export const chatWrites = "Only a pull request's link in a thread, on your click";
 
 /** Under Disconnect Jira's warning, while sessions on a ticket are running. */
 export function runningSessionsLine(count: number): string {

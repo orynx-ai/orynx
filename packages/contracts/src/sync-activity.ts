@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { GitHubLinkSchema } from './github.ts';
 import { InboxProblemSchema, InboxSourceSchema, InboxToolStateSchema } from './inbox.ts';
+import { DiscordLinkSchema } from './discord.ts';
 import { JiraLinkSchema } from './jira.ts';
+import { SlackLinkSchema } from './slack.ts';
 
 /** How much of the sync log Orynx keeps and shows (spec 035). */
 export const syncActivityLimits = {
@@ -20,7 +22,7 @@ export const SyncChangeSchema = z.object({
   /** The ticket's key, or the pull request's repository and number: "PROJ-1431", "web-app #482". */
   ref: z.string().min(1),
   title: z.string().min(1),
-  url: z.union([JiraLinkSchema, GitHubLinkSchema]),
+  url: z.union([JiraLinkSchema, GitHubLinkSchema, SlackLinkSchema, DiscordLinkSchema]),
 });
 export type SyncChange = z.infer<typeof SyncChangeSchema>;
 

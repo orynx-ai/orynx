@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, InboxItemSchema, InboxSchema, InboxToolStateSchema, ServerEventSchema } from './index.ts';
-import { makeInbox, makeInboxItem } from './testing.ts';
+import { makeInbox, makeInboxItem, makeSlackItem } from './testing.ts';
 
 describe('InboxSchema', () => {
   it('AC-1: carries the rows in the order the server sorted them, each tool’s sync state and the sync time', () => {
@@ -61,6 +61,52 @@ describe('InboxSchema', () => {
     ]) {
       expect(InboxItemSchema.safeParse({ ...makeInboxItem(), target: { kind: 'external', url } }).success).toBe(false);
     }
+  });
+
+  it('016 AC-10, AC-11: a Slack message waiting on your reply, in a channel or a DM, links to Slack', () => {
+    const inChannel = makeSlackItem();
+    expect(InboxItemSchema.parse(inChannel)).toEqual(inChannel);
+    const direct = makeSlackItem({ subject: { kind: 'message', from: 'Arjun M.', channel: null, server: null } });
+    expect(InboxItemSchema.parse(direct).subject).toEqual({
+      kind: 'message',
+      from: 'Arjun M.',
+      channel: null,
+      server: null,
+    });
+  });
+
+  it('016 AC-16: a Discord message names its server, and links to discord.com', () => {
+    const item = makeSlackItem({
+      id: 'discord:1100000000000000003',
+      source: 'discord',
+      tab: 'discord',
+      subject: { kind: 'message', from: 'Neha K.', channel: 'web-platform', server: 'Acme' },
+      target: {
+        kind: 'external',
+        url: 'https://discord.com/channels/1100000000000000001/1100000000000000002/1100000000000000003',
+      },
+    });
+    expect(InboxItemSchema.parse(item)).toEqual(item);
+  });
+
+  it('016: links to Slack and Discord only on their own https hosts', () => {
+    for (const url of [
+      'http://acme.slack.com/archives/C024BE91L/p1700000000123456',
+      'https://acme.slack.com.evil.example/archives/C1/p1',
+      'https://slack.com@evil.example/archives/C1/p1',
+      'https://discord.com.evil.example/channels/1/2/3',
+      'https://discordapp.example/channels/1/2/3',
+    ]) {
+      expect(InboxItemSchema.safeParse({ ...makeSlackItem(), target: { kind: 'external', url } }).success).toBe(false);
+    }
+  });
+
+  it('016 AC-20: carries Slack’s and Discord’s sync states beside Jira’s and GitHub’s', () => {
+    const inbox = makeInbox();
+    expect(inbox.tools.slack).toEqual({ state: 'not_connected' });
+    expect(inbox.tools.discord).toEqual({ state: 'not_connected' });
+    const { slack: _left, ...withoutSlack } = inbox.tools;
+    expect(InboxSchema.safeParse({ ...inbox, tools: withoutSlack }).success).toBe(false);
   });
 
   it('keeps a due date as a calendar day, because the app works out "Due Mon" in the laptop’s own calendar', () => {

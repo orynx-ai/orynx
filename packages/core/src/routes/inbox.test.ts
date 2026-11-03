@@ -79,7 +79,12 @@ describe('/api/inbox', () => {
 
     expect(await readInbox(app)).toEqual({
       items: [],
-      tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } },
+      tools: {
+        jira: { state: 'not_connected' },
+        github: { state: 'not_connected' },
+        slack: { state: 'not_connected' },
+        discord: { state: 'not_connected' },
+      },
       syncedAt: null,
     });
   });

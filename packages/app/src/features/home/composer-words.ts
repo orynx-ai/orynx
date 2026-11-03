@@ -5,6 +5,7 @@ import {
   type ContextProblem,
   type SessionApproval,
   type SessionMode,
+  type ThreadChip,
   isOrynxKey,
 } from '@devhub/contracts';
 import type { ChipRefusal } from './composer-rules.ts';
@@ -58,6 +59,15 @@ export const composerWords = {
       notConnected: 'Connect GitHub in Settings to add pull requests.',
     },
     file: { title: 'File from this computer', description: 'Any file. Claude reads it where it is.' },
+    // Spec 016, Q8: the item's name; the rest follows the other lists' words.
+    thread: {
+      title: 'Slack or Discord thread',
+      description: 'From the messages waiting on you',
+      search: 'Search messages by who, where or what they said',
+      note: 'Claude gets the whole thread: who said what, oldest first.',
+      empty: 'Nobody is waiting on a reply. Paste a message link to add any thread.',
+      notConnected: 'Connect Slack or Discord in Settings to add threads.',
+    },
   },
   noMatches: 'No matches. Try a key like PROJ-1423 or a repo name.',
   folder: {
@@ -166,6 +176,8 @@ export function refusedLine(refusal: ChipRefusal): string {
       return `A session takes up to ${String(composerLimits.pullRequests)} pull requests.`;
     case 'too_many_files':
       return `Add up to ${String(composerLimits.files)} files.`;
+    case 'too_many_threads':
+      return `Add up to ${String(composerLimits.threads)} threads.`;
   }
 }
 
@@ -203,7 +215,17 @@ export function chipLabel(chip: ComposerChip): string {
       return `${chip.name} #${String(chip.number)}`;
     case 'file':
       return shortFileName(fileName(chip.path));
+    case 'slack_thread':
+    case 'discord_thread':
+      return threadLabel(chip);
   }
+}
+
+/** A thread by who started it and where (spec 016): "Neha K. in #web-platform", "Arjun M. · direct message". */
+export function threadLabel(chip: ThreadChip): string {
+  const { label } = chip;
+  if (label === undefined) return chip.kind === 'slack_thread' ? 'Slack thread' : 'Discord thread';
+  return label.channel === null ? `${label.from} · direct message` : `${label.from} in #${label.channel}`;
 }
 
 /** Said to screen readers when a chip's × takes it away (AC-15). */
@@ -265,6 +287,24 @@ export function cannotStartLine(reason: CannotStartReason): { line: string; link
   }
 }
 
+/** A thread Slack or Discord couldn't give (spec 016, AC-27, AC-32). */
+function threadFailedLine(chip: ThreadChip, problem: ContextProblem): { line: string; link: SettingsLink | null } {
+  const tool = chip.kind === 'slack_thread' ? 'Slack' : 'Discord';
+  switch (problem) {
+    case 'not_found':
+      return { line: `${tool} can't find that thread, or Orynx can't read it.`, link: null };
+    case 'unreachable':
+      return { line: `${tool} didn't answer. Try again.`, link: null };
+    case 'not_connected':
+      return {
+        line: `Connect ${tool} in Settings to add its threads.`,
+        link: { label: 'Open Settings › Connections', tab: 'connections' },
+      };
+    case 'other':
+      return { line: `${tool} couldn't give that thread. Try again.`, link: null };
+  }
+}
+
 /** AC-21: the chip Jira or GitHub couldn't give, and what to do. */
 export function contextFailedLine(
   chip: ComposerChip,
@@ -272,6 +312,7 @@ export function contextFailedLine(
 ): { line: string; link: SettingsLink | null } {
   // A file is checked on this computer, and only for being there (spec 022, AC-16).
   if (chip.kind === 'file') return { line: addFileWords.notFound(chip.path), link: null };
+  if (chip.kind === 'slack_thread' || chip.kind === 'discord_thread') return threadFailedLine(chip, problem);
   const jira = chip.kind === 'jira';
   // A ticket is Jira's or Orynx's own by its key (spec 037).
   const tool = chip.kind === 'jira' ? (isOrynxKey(chip.key) ? 'Orynx' : 'Jira') : 'GitHub';

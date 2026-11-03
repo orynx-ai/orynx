@@ -21,7 +21,7 @@ export interface ToolLine {
   action: { text: string; tab: 'connections' } | null;
 }
 
-const toolNames = { jira: 'Jira', github: 'GitHub' } as const;
+const toolNames = { jira: 'Jira', github: 'GitHub', slack: 'Slack', discord: 'Discord' } as const;
 
 /**
  * Spec 007 Q5: one quiet line for a tool that isn't connected or whose last sync failed; null otherwise.

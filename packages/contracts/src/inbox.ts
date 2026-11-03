@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { GitHubLinkSchema } from './github.ts';
+import { DiscordLinkSchema } from './discord.ts';
 import { JiraLinkSchema } from './jira.ts';
+import { SlackLinkSchema } from './slack.ts';
 import { SessionSourceSchema } from './session.ts';
 
 /**
@@ -10,11 +12,11 @@ import { SessionSourceSchema } from './session.ts';
  */
 
 /** The tool whose logo leads a row. Null for a Claude session on neither a ticket nor a pull request. */
-export const InboxSourceSchema = z.enum(['jira', 'github']);
+export const InboxSourceSchema = z.enum(['jira', 'github', 'slack', 'discord']);
 export type InboxSource = z.infer<typeof InboxSourceSchema>;
 
 /** The tab that counts a row besides All. Null: All only. */
-export const InboxTabSchema = z.enum(['jira', 'pull_requests']);
+export const InboxTabSchema = z.enum(['jira', 'pull_requests', 'slack', 'discord']);
 export type InboxTab = z.infer<typeof InboxTabSchema>;
 
 /** What a row is about. The app writes the sub line from it (spec 007, Q8a). */
@@ -44,6 +46,16 @@ export const InboxSubjectSchema = z.discriminatedUnion('kind', [
   }),
   /** A waiting Claude session with no row of its own to take over. */
   z.object({ kind: z.literal('session'), source: SessionSourceSchema.nullable() }),
+  /**
+   * A Slack or Discord message waiting on your reply (spec 016). `from` is the sender's name; `channel` is the
+   * channel's name without its #, or null for a DM; `server` is Discord's server name, null on Slack.
+   */
+  z.object({
+    kind: z.literal('message'),
+    from: z.string().min(1),
+    channel: z.string().min(1).nullable(),
+    server: z.string().min(1).nullable(),
+  }),
 ]);
 export type InboxSubject = z.infer<typeof InboxSubjectSchema>;
 
@@ -61,15 +73,20 @@ export const InboxReasonSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('bug') }),
   /** Any other unfinished issue, by its status category. */
   z.object({ kind: z.literal('status'), category: z.enum(['to_do', 'in_progress']) }),
+  /** A mention or DM you haven't answered for your wait time (spec 016). */
+  z.object({ kind: z.literal('no_reply') }),
 ]);
 export type InboxReason = z.infer<typeof InboxReasonSchema>;
 
 /**
- * Where a row's title and action go: out to Jira or GitHub (https, and only their hosts, so a cached or
+ * Where a row's title and action go: out to Jira, GitHub, Slack or Discord (https, and only their hosts, so a cached or
  * forged row can't send the person anywhere else), or to a session inside DevHub.
  */
 export const InboxTargetSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('external'), url: z.union([JiraLinkSchema, GitHubLinkSchema]) }),
+  z.object({
+    kind: z.literal('external'),
+    url: z.union([JiraLinkSchema, GitHubLinkSchema, SlackLinkSchema, DiscordLinkSchema]),
+  }),
   z.object({ kind: z.literal('session'), sessionId: z.string().min(1) }),
 ]);
 export type InboxTarget = z.infer<typeof InboxTargetSchema>;
@@ -118,7 +135,12 @@ export type InboxToolState = z.infer<typeof InboxToolStateSchema>;
 /** GET /api/inbox: the rows the inbox rules let through, longest wait first. */
 export const InboxSchema = z.object({
   items: z.array(InboxItemSchema),
-  tools: z.object({ jira: InboxToolStateSchema, github: InboxToolStateSchema }),
+  tools: z.object({
+    jira: InboxToolStateSchema,
+    github: InboxToolStateSchema,
+    slack: InboxToolStateSchema,
+    discord: InboxToolStateSchema,
+  }),
   /** When every connected tool last answered in the same sync; null before that ever happened. */
   syncedAt: z.iso.datetime().nullable(),
 });

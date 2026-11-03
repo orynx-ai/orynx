@@ -31,7 +31,7 @@ describe('ConnectionsPanel (spec 030)', () => {
     answerWith(mixedStatus);
     await renderApp({ route: '/settings/connections' });
 
-    expect(await screen.findByText('1 of 3 connected · 1 needs attention')).toBeVisible();
+    expect(await screen.findByText('1 of 4 connected · 1 needs attention')).toBeVisible();
     expect(screen.queryByText('Changes save automatically')).not.toBeInTheDocument();
   });
 
@@ -42,7 +42,7 @@ describe('ConnectionsPanel (spec 030)', () => {
     );
     await renderApp({ route: '/settings/connections' });
 
-    expect(await screen.findByText('1 of 3 connected')).toBeVisible();
+    expect(await screen.findByText('1 of 4 connected')).toBeVisible();
   });
 
   it('AC-3: spells out the three looks in a key under the list', async () => {
@@ -78,12 +78,12 @@ describe('ConnectionsPanel (spec 030)', () => {
     );
     await renderApp({ route: '/settings/connections' });
 
-    expect(await rows()).toHaveLength(3);
+    expect(await rows()).toHaveLength(4);
     expect(screen.getByRole('list', { name: 'Connections' })).toHaveAttribute('aria-busy', 'true');
     expect(screen.queryByRole('button', { name: /Manage connection$/ })).not.toBeInTheDocument();
     answer();
 
-    expect(await screen.findAllByRole('button', { name: /: Not connected\. Manage connection$/ })).toHaveLength(3);
+    expect(await screen.findAllByRole('button', { name: /: Not connected\. Manage connection$/ })).toHaveLength(4);
     expect(screen.getByRole('list', { name: 'Connections' })).not.toHaveAttribute('aria-busy');
   });
 
@@ -100,8 +100,8 @@ describe('ConnectionsPanel (spec 030)', () => {
     expect(await screen.findByRole('dialog', { name: 'GitHub' })).toBeVisible();
   });
 
-  it('spec 035: opens no dialog for a tool it can’t open', async () => {
-    await renderApp({ route: '/settings/connections?tool=slack' });
+  it('spec 035: opens no dialog for a tool it doesn’t know', async () => {
+    await renderApp({ route: '/settings/connections?tool=teams' });
     await screen.findByRole('list', { name: 'Connections' });
 
     expect(screen.queryByRole('dialog')).toBeNull();

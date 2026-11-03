@@ -376,6 +376,8 @@ describe('creating the pull request (spec 014)', () => {
       step: 'pull_request',
       pullRequest: { number: 2841, url: pullUrl, repository: 'acme/web-app', openedAt: '2026-10-18T10:30:00.000Z' },
     });
+    // 016 AC-40: the reply in the thread names the pull request by the title it opened with.
+    expect(saved?.session.pullRequest?.title).toBe(asked.title);
     expect(saved?.session.activities.at(-1)).toMatchObject({
       kind: 'pull_request',
       number: 2841,

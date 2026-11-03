@@ -117,4 +117,38 @@ describe('the Context tab (the user’s call, 19 Oct 2026)', () => {
     expect(within(panel).queryByText("Claude's brief")).toBeNull();
     expect(within(panel).queryByRole('link', { name: 'Open in Jira' })).toBeNull();
   });
+
+  it('016 AC-30: lists each thread Claude was sent, with its tool and who started it where', async () => {
+    server.use(
+      sessionHandler({
+        ...sent,
+        source: null,
+        ticket: null,
+        jiraUrl: null,
+        context: [
+          {
+            kind: 'slack_thread',
+            channel: 'C024BE91L',
+            ts: '1793613600.000100',
+            label: { from: 'Neha K.', channel: 'web-platform', server: null },
+          },
+          {
+            kind: 'discord_thread',
+            guild: '1100000000000000001',
+            channel: '1100000000000000002',
+            message: '1434477000000000001',
+            label: { from: 'Arjun M.', channel: 'web-platform', server: 'Acme' },
+          },
+        ],
+      }),
+    );
+    await renderApp({ route: `${route}?tab=context` });
+    const panel = await screen.findByRole('tabpanel', { name: 'Context 2' });
+
+    expect(within(panel).getByText('Neha K. in #web-platform')).toBeVisible();
+    expect(within(panel).getByText('Slack thread')).toBeVisible();
+    expect(within(panel).getByText('Arjun M. in #web-platform')).toBeVisible();
+    expect(within(panel).getByText('Discord thread')).toBeVisible();
+    await expectNoAxeViolations(panel);
+  });
 });

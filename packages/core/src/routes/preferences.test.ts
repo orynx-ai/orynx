@@ -108,6 +108,7 @@ describe('/api/preferences', () => {
       editor: 'vscode',
       jiraChanges: false,
       deleteSessionsAfterDays: null,
+      replyWaitMinutes: 120,
     });
   });
 

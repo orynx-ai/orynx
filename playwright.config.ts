@@ -13,6 +13,7 @@ import {
   pullRequestsHubPort,
   sessionsHubPort,
   syncActivityHubPort,
+  chatHubPort,
   terminalHubPort,
   orynxTicketsHubPort,
 } from './e2e/fake-tools/config.ts';
@@ -26,6 +27,7 @@ const approvalsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-approvals
 const changesHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-changes-')));
 const composerHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-composer-')));
 const syncActivityHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-sync-activity-')));
+const chatHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-chat-')));
 const terminalHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-terminal-')));
 const orynxTicketsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-orynx-tickets-')));
 const pullRequestsHome = setUpHome(mkdtempSync(join(tmpdir(), 'devhub-e2e-pull-requests-')));
@@ -267,6 +269,27 @@ export default defineConfig({
         DEVHUB_RELEASES_URL: fakeReleasesUrl,
         // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
         CLAUDE_CONFIG_DIR: fakeClaudeDirFor(syncActivityHubPort),
+      },
+    },
+    {
+      // Slack and Discord (spec 016) on a hub of their own: connecting them never adds tabs to Home's inbox spec.
+      command: 'node --import ./e2e/fake-tools/preload.ts apps/server/dist/main.mjs --serve-web',
+      url: `http://127.0.0.1:${String(chatHubPort)}/`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        DEVHUB_PORT: String(chatHubPort),
+        DEVHUB_HOME: chatHome,
+        LOG_LEVEL: 'warn',
+        NODE_ENV: 'production',
+        DEVHUB_TOKENS_FROM_ENV: 'false',
+        DEVHUB_KEYCHAIN: 'memory',
+        PATH: `${fakeGh}${delimiter}${process.env['PATH'] ?? ''}`,
+        DEVHUB_CLAUDE_CODE: fakeClaude,
+        DEVHUB_SANDBOX: 'assume',
+        DEVHUB_RELEASES_URL: fakeReleasesUrl,
+        // env-policy-ignore-next-line: Claude Code's own setting, which only the fake reads; DevHub never does
+        CLAUDE_CONFIG_DIR: fakeClaudeDirFor(chatHubPort),
       },
     },
     {

@@ -89,6 +89,7 @@ const reasons = [
   { value: 'bug', label: 'Bug' },
   { value: 'to-do', label: 'To do' },
   { value: 'in-progress', label: 'In progress' },
+  { value: 'no-reply', label: 'No reply' },
 ] as const;
 
 function reasonOf(item: InboxItem): string {
@@ -102,6 +103,8 @@ function reasonOf(item: InboxItem): string {
       return 'unresolved-comments';
     case 'status':
       return reason.category === 'to_do' ? 'to-do' : 'in-progress';
+    case 'no_reply':
+      return 'no-reply';
     case 'approval':
     case 'due':
     case 'bug':
@@ -212,6 +215,9 @@ const tabFilters: Record<HomeTab, readonly FilterKey[]> = {
   all: ['reason'],
   jira: ['reason', 'project', 'status', 'type'],
   'pull-requests': ['reason', 'repo'],
+  // One reason only, No reply, so search alone (spec 016).
+  slack: [],
+  discord: [],
 };
 
 /**

@@ -9,6 +9,10 @@ import { createEventBus, type EventBus } from './events/event-bus.ts';
 import { ConnectionError } from './integrations/connection-error.ts';
 import { createGitHubClient } from './integrations/github/client.ts';
 import { createGitHubConnection } from './integrations/github/connection.ts';
+import { createSlackClient } from './integrations/slack/client.ts';
+import { createDiscordClient } from './integrations/discord/client.ts';
+import { createDiscordConnection } from './integrations/discord/connection.ts';
+import { createSlackConnection } from './integrations/slack/connection.ts';
 import { createGhCli, type GhCli } from './integrations/github/gh.ts';
 import { createJiraClient } from './integrations/jira/client.ts';
 import { createJiraConnection } from './integrations/jira/connection.ts';
@@ -33,6 +37,10 @@ import { agentRoutes } from './routes/agent.ts';
 import { claudeRoutes } from './routes/claude.ts';
 import { eventsRoutes } from './routes/events.ts';
 import { githubRoutes } from './routes/github.ts';
+import { slackRoutes } from './routes/slack.ts';
+import { discordRoutes } from './routes/discord.ts';
+import { threadsRoutes } from './routes/threads.ts';
+import { createThreadPreview } from './threads/thread-preview.ts';
 import { inboxRoutes } from './routes/inbox.ts';
 import { syncActivityRoutes } from './routes/sync-activity.ts';
 import { jiraRoutes } from './routes/jira.ts';
@@ -172,6 +180,8 @@ const statusFor: Record<ConnectionError['code'], number> = {
   integration_rejected: 422,
   integration_unreachable: 502,
   keychain_unavailable: 503,
+  // A team's Discord bot: the form asks for your user ID (spec 016, AC-8).
+  user_id_needed: 422,
 };
 
 declare module 'fastify' {
@@ -302,6 +312,40 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       app.log.error(error, "GitHub's status line failed");
     },
   });
+  const slackClient = createSlackClient();
+  const slack = createSlackConnection({
+    settings,
+    tokens: app.tokens,
+    slack: slackClient,
+    events,
+    envToken: options.envTokens?.slack !== undefined,
+    onProblem: (problem) => {
+      app.log.warn(
+        { slack: problem },
+        problem.kind === 'keychain_unavailable' ? 'The keychain could not be reached' : 'The Slack check failed',
+      );
+    },
+    onError: (error) => {
+      app.log.error(error, "Slack's status line failed");
+    },
+  });
+  const discordClient = createDiscordClient();
+  const discord = createDiscordConnection({
+    settings,
+    tokens: app.tokens,
+    discord: discordClient,
+    events,
+    envToken: options.envTokens?.discord !== undefined,
+    onProblem: (problem) => {
+      app.log.warn(
+        { discord: problem },
+        problem.kind === 'keychain_unavailable' ? 'The keychain could not be reached' : 'The Discord check failed',
+      );
+    },
+    onError: (error) => {
+      app.log.error(error, "Discord's status line failed");
+    },
+  });
   const claude = createClaudeLogin({
     // No program, so the folder is never made and nothing runs.
     claudeCode: options.claudeCode ?? createClaudeCode({ program: null, env: {}, workFolder: tmpdir() }),
@@ -347,9 +391,11 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     cache,
     settings,
     sprint: tickets,
-    connections: { jira, github },
+    connections: { jira, github, slack, discord },
     jira: jiraClient,
     github: githubClient,
+    slack: slackClient,
+    discord: discordClient,
     sessions,
     preferences,
     events,
@@ -359,8 +405,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     onError: (error) => {
       app.log.error(error, 'The inbox sync failed');
     },
-    onSynced: (tool, before, after) => {
-      notifications.inboxSynced(tool, before, after);
+    onSynced: (tool, before, after, chat) => {
+      notifications.inboxSynced(tool, before, after, chat);
       // Each time GitHub answers, a session's pull request may have been merged or closed (spec 047).
       if (tool === 'github') {
         watchPulls().catch((error: unknown) => {
@@ -442,6 +488,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       jiraConnection: jira,
       github: githubClient,
       githubConnection: github,
+      slack: slackClient,
+      slackConnection: slack,
+      discord: discordClient,
+      discordConnection: discord,
     }),
     describeTicket: async (key) => {
       if (isOrynxKey(key)) return describeOrynxTicket(orynxTickets, key);
@@ -473,6 +523,10 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     // The pull request's token, the gh way or the token way, and the client that opens it (spec 014).
     github,
     githubClient,
+    chat: {
+      slack: { client: slackClient, connection: slack },
+      discord: { client: discordClient, connection: discord },
+    },
     adapter,
     tickets: orynxTickets,
     events,
@@ -553,6 +607,8 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
     userName: options.userName ?? readGitUserName,
     jira: () => jira.status(),
     github: () => github.status(),
+    slack: () => slack.status(),
+    discord: () => discord.status(),
     claude: () => claude.connected(),
   });
 
@@ -598,6 +654,16 @@ export async function createServer(options: CoreOptions): Promise<FastifyInstanc
       if (terminal !== null) await api.register(terminalRoutes, { sessions, terminal, orynxHome: devhubHome });
       await api.register(jiraRoutes, { jira });
       await api.register(githubRoutes, { github });
+      await api.register(slackRoutes, { slack });
+      await api.register(discordRoutes, { discord });
+      await api.register(threadsRoutes, {
+        preview: createThreadPreview({
+          slack: slackClient,
+          slackConnection: slack,
+          discord: discordClient,
+          discordConnection: discord,
+        }),
+      });
       await api.register(claudeRoutes, { claude });
       await api.register(agentRoutes, {
         // Signed out, Claude Code has nothing to offer, so it isn't started.

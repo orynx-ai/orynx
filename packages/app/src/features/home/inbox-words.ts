@@ -1,4 +1,11 @@
-import type { ComposerChip, Inbox, InboxItem, InboxRules, InboxTab } from '@devhub/contracts';
+import {
+  threadFromLink,
+  type ComposerChip,
+  type Inbox,
+  type InboxItem,
+  type InboxRules,
+  type InboxTab,
+} from '@devhub/contracts';
 import type { PillTone } from '@devhub/ui';
 import { personName } from '../../shell/person-name.ts';
 import { agoText } from '../../words/ago.ts';
@@ -72,6 +79,8 @@ export function reasonPill(item: InboxItem, now: Date): ReasonPill {
         : withWait('In progress', waited, 'warning');
     case 'due':
       return duePill(reason.on, reason.highPriorityBug, now);
+    case 'no_reply':
+      return withWait('No reply', waited, 'warning');
   }
 }
 
@@ -93,6 +102,12 @@ export function subLine(item: InboxItem): string {
       const what = source.kind === 'jira' ? source.key : `PR #${String(source.number)}`;
       return `${what} · Claude session`;
     }
+    case 'message': {
+      // Spec 016, B: "Neha K. in #web-platform", "· Acme" on Discord, "Arjun M. · direct message".
+      if (subject.channel === null) return `${subject.from} · direct message`;
+      const where = `${subject.from} in #${subject.channel}`;
+      return subject.server === null ? where : `${where} · ${subject.server}`;
+    }
   }
 }
 
@@ -113,12 +128,30 @@ export type RowAction =
       message: string;
     }
   | { kind: 'review'; chip: Extract<ComposerChip, { kind: 'pull_request' }>; label: string; name: string }
+  /** A Slack or Discord message (spec 016): Add to composer for its thread, and Fix this. */
+  | { kind: 'message'; chip: Extract<ComposerChip, { kind: 'slack_thread' | 'discord_thread' }>; label: string }
   | { kind: 'none' };
+
+/** A message row's thread as a chip, named as the row says it (spec 016, C); null for any other row. */
+export function threadChipOf(
+  item: InboxItem,
+): Extract<ComposerChip, { kind: 'slack_thread' | 'discord_thread' }> | null {
+  const { subject, target } = item;
+  if (subject.kind !== 'message' || target.kind !== 'external') return null;
+  const chip = threadFromLink(target.url);
+  if (chip === null) return null;
+  return { ...chip, label: { from: subject.from, channel: subject.channel, server: subject.server } };
+}
 
 export function rowAction(item: InboxItem): RowAction {
   const { subject, target } = item;
   if (target.kind === 'session') {
     return { kind: 'session', sessionId: target.sessionId, label: 'Open session', name: `Open session: ${item.title}` };
+  }
+  // A message's thread can go to Claude as context (spec 016, AC-29).
+  if (subject.kind === 'message') {
+    const thread = threadChipOf(item);
+    return thread === null ? { kind: 'none' } : { kind: 'message', chip: thread, label: chipLabel(thread) };
   }
   if (subject.kind === 'issue')
     return { kind: 'compose', chip: { kind: 'jira', key: subject.key }, label: subject.key };
@@ -145,6 +178,8 @@ export function tabCounts(items: readonly InboxItem[]): Record<'all' | InboxTab,
     all: items.length,
     jira: items.filter((item) => item.tab === 'jira').length,
     pull_requests: items.filter((item) => item.tab === 'pull_requests').length,
+    slack: items.filter((item) => item.tab === 'slack').length,
+    discord: items.filter((item) => item.tab === 'discord').length,
   };
 }
 
@@ -184,6 +219,19 @@ export function emptyText(tab: 'all' | InboxTab, rules: InboxRules): EmptyText {
           rulesOff: false,
         }
       : { title: 'The Jira rule is off', line: 'Turn them on in Settings › Inbox rules.', rulesOff: true };
+  }
+  if (tab === 'slack' || tab === 'discord') {
+    // Spec 016, Q8.
+    const name = tab === 'slack' ? 'Slack' : 'Discord';
+    if (!rules[`${tab}_waiting`]) {
+      return { title: `The ${name} rule is off`, line: 'Turn it on in Settings › Inbox rules.', rulesOff: true };
+    }
+    const what = tab === 'slack' ? 'Mentions and DMs' : 'Mentions';
+    return {
+      title: `Nobody is waiting on a reply in ${name}`,
+      line: `${what} you haven't answered show up here.`,
+      rulesOff: false,
+    };
   }
   return pullRequestRules.some((rule) => rules[rule])
     ? {

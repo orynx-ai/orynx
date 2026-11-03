@@ -4,7 +4,12 @@ import { Plug01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import type { IntegrationId, IntegrationStatus } from '@devhub/contracts';
 import { Callout, Icon, Panel, Skeleton, SourceMark, StatusSign, type StatusButtonState } from '@devhub/ui';
 import { useStatus } from '../queries.ts';
-import { GitHubConnectionDialog, JiraConnectionDialog, SlackConnectionDialog } from './connection-dialog.tsx';
+import {
+  DiscordConnectionDialog,
+  GitHubConnectionDialog,
+  JiraConnectionDialog,
+  SlackConnectionDialog,
+} from './connection-dialog.tsx';
 import { howToConnect, lookOf, lookWords, toolNames } from './connection-words.ts';
 import { SectionHeading } from './section-heading.tsx';
 import { ServerUnreachable } from './server-unreachable.tsx';
@@ -34,7 +39,7 @@ function ConnectionRow({
 }
 
 /**
- * The page bar on Settings › Connections: "2 of 3 connected · 1 needs attention" (spec 030). Empty until the
+ * The page bar on Settings › Connections: "2 of 4 connected · 1 needs attention" (spec 030). Empty until the
  * status comes, and under 768 px, where the bar has room only for the crumbs.
  */
 export function ConnectionsSummary() {
@@ -89,7 +94,14 @@ export function ConnectionsPanel() {
             ) : null}
           </ConnectionRow>
           <ConnectionRow tool="slack" status={tools?.slack}>
-            {tools ? <SlackConnectionDialog status={tools.slack} /> : null}
+            {tools ? (
+              <SlackConnectionDialog status={tools.slack} announce={setChanged} openAtStart={named === 'slack'} />
+            ) : null}
+          </ConnectionRow>
+          <ConnectionRow tool="discord" status={tools?.discord}>
+            {tools ? (
+              <DiscordConnectionDialog status={tools.discord} announce={setChanged} openAtStart={named === 'discord'} />
+            ) : null}
           </ConnectionRow>
         </ul>
       </Panel>

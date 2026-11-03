@@ -1,7 +1,9 @@
 import { z } from 'zod';
+import { DiscordLinkSchema } from './discord.ts';
 import { GitHubLinkSchema } from './github.ts';
 import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
 import { SessionIdSchema, SessionReadySchema, SessionSourceSchema } from './session.ts';
+import { SlackLinkSchema } from './slack.ts';
 import { OrynxVersionSchema } from './updates.ts';
 
 /**
@@ -63,6 +65,18 @@ export const NotificationWhatSchema = z.discriminatedUnion('kind', [
     kind: z.literal('jira_assigned'),
     ticket: z.object({ key: JiraIssueKeySchema, title: z.string().min(1), url: JiraLinkSchema }),
   }),
+  /**
+   * A Slack or Discord message waits on your reply (spec 016, AC-25): who wrote it and where, as Home's sub line
+   * reads, never the message itself.
+   */
+  z.object({
+    kind: z.literal('reply_waiting'),
+    tool: z.enum(['slack', 'discord']),
+    from: z.string().min(1),
+    channel: z.string().min(1).nullable(),
+    server: z.string().min(1).nullable(),
+    url: z.union([SlackLinkSchema, DiscordLinkSchema]),
+  }),
   /** A newer Orynx is out, told once per version (spec 045, AC-13). */
   z.object({ kind: z.literal('update_available'), version: OrynxVersionSchema }),
   /** A cleanup run deleted old sessions (spec 047, D): in the bell only, never a pop-up. */
@@ -108,6 +122,7 @@ export const NotificationEventSchema = z.enum([
   'review_requested',
   'checks_failed',
   'jira_assigned',
+  'reply_waiting',
   'update_available',
 ]);
 export type NotificationEvent = z.infer<typeof NotificationEventSchema>;
@@ -185,6 +200,7 @@ export const defaultNotificationSettings: NotificationSettings = {
     review_requested: { popUp: true, desktop: false, sound: 'none' },
     checks_failed: { popUp: true, desktop: false, sound: 'none' },
     jira_assigned: { popUp: false, desktop: false, sound: 'none' },
+    reply_waiting: { popUp: true, desktop: false, sound: 'none' },
     update_available: { popUp: true, desktop: false, sound: 'none' },
   },
   doNotDisturb: { on: false, length: 'hour', until: null },

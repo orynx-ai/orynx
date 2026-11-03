@@ -1,8 +1,16 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { delay, http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiRoutes, type Inbox, type InboxItem } from '@devhub/contracts';
-import { makeInbox, makeInboxItem, makePreferences, makeStatus, makeTicketDetail } from '@devhub/contracts/testing';
+import { apiRoutes, type InboxItem } from '@devhub/contracts';
+import {
+  makeInbox,
+  makeInboxItem,
+  makeSlackItem,
+  makePreferences,
+  makeStatus,
+  makeTicketDetail,
+  type InboxOverrides,
+} from '@devhub/contracts/testing';
 import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
@@ -48,7 +56,7 @@ const approval = makeInboxItem({
 });
 const everyRow = [review, ticket, comments, checks, approval];
 
-function inboxWith(items: InboxItem[], overrides: Partial<Inbox> = {}) {
+function inboxWith(items: InboxItem[], overrides: InboxOverrides = {}) {
   server.use(http.get(apiUrl(apiRoutes.inbox), () => HttpResponse.json(makeInbox({ items, ...overrides }))));
 }
 
@@ -685,7 +693,15 @@ describe('AttentionPanel states', () => {
 
   it('AC-26: says when every rule is off', async () => {
     inboxWith([]);
-    rulesOff('jira_assigned', 'review_requested', 'checks_failing', 'unresolved_comments', 'session_waiting');
+    rulesOff(
+      'jira_assigned',
+      'review_requested',
+      'checks_failing',
+      'unresolved_comments',
+      'session_waiting',
+      'slack_waiting',
+      'discord_waiting',
+    );
     const { panel } = await openTab('/', 'Every inbox rule is off');
 
     expect(within(panel).getByRole('link', { name: 'Turn some on in Settings › Inbox rules.' })).toBeVisible();
@@ -935,5 +951,116 @@ describe('AttentionPanel pages', () => {
     });
     expect(shownTitles(panel)[0]).toBe('Ticket 16');
     expect(within(panel).getByRole('searchbox', { name: 'Search' })).toHaveValue('ticket');
+  });
+});
+
+describe('Slack and Discord tabs (spec 016)', () => {
+  const slackRow = makeSlackItem({ waitingSince: '2026-10-17T08:00:00.000Z' });
+  const discordRow = makeSlackItem({
+    id: 'discord:1100000000000000002/1434477000000000001',
+    source: 'discord',
+    tab: 'discord',
+    title: 'Mind a look before standup?',
+    subject: { kind: 'message', from: 'Arjun M.', channel: 'web-platform', server: 'Acme' },
+    waitingSince: '2026-10-17T07:00:00.000Z',
+    target: {
+      kind: 'external',
+      url: 'https://discord.com/channels/1100000000000000001/1100000000000000002/1434477000000000001',
+    },
+  });
+  const tabNames = (panel: HTMLElement) =>
+    within(within(panel).getByRole('tablist', { name: 'Filter by source' }))
+      .getAllByRole('tab')
+      .map((tab) => tab.textContent);
+
+  it('AC-19: each connected tool has its tab with its count, and a tab shows only its rows', async () => {
+    inboxWith([...everyRow, slackRow, discordRow], { tools: { slack: synced, discord: synced } });
+    const { user, panel } = await openHome();
+
+    expect(tabNames(panel)).toEqual(['All 7', 'Jira 2', 'Pull requests 3', 'Slack 1', 'Discord 1']);
+    await user.click(within(panel).getByRole('tab', { name: 'Slack 1' }));
+
+    expect(within(panel).getByRole('tab', { name: 'Slack 1' })).toHaveAttribute('aria-selected', 'true');
+    const rows = await within(panel).findAllByRole('listitem');
+    expect(rows.map(titleText)).toEqual([slackRow.title]);
+  });
+
+  it('AC-19: the address opens on Slack’s tab', async () => {
+    inboxWith([...everyRow, slackRow], { tools: { slack: synced } });
+    const { panel } = await openHome('/?inbox=slack');
+
+    expect(within(panel).getByRole('tab', { name: 'Slack 1' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('AC-20: with neither connected there is no Slack or Discord tab, and their address opens on All', async () => {
+    inboxWith(everyRow);
+    const { panel } = await openHome('/?inbox=slack');
+
+    expect(tabNames(panel)).toEqual(['All 5', 'Jira 2', 'Pull requests 3']);
+    expect(within(panel).getByRole('tab', { name: 'All 5' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('AC-10, AC-11, AC-16: a message row reads its tool, who and where, how long it waited, and opens in its tool', async () => {
+    const dm = makeSlackItem({
+      id: 'slack:D0ARJUN01/1',
+      title: 'Pushed the rate-limit change, mind a look?',
+      subject: { kind: 'message', from: 'Arjun M.', channel: null, server: null },
+      waitingSince: '2026-10-17T07:00:00.000Z',
+    });
+    inboxWith([slackRow, dm, discordRow], { tools: { slack: synced, discord: synced } });
+    const { panel } = await openHome('/?inbox=slack');
+
+    const row = within(panel).getByRole('link', { name: slackRow.title }).closest('li');
+    if (row === null) throw new Error('No row');
+    expect(within(row).getByText('Slack')).toHaveClass('sr-only');
+    expect(within(row).getByText('Neha K. in #web-platform')).toBeVisible();
+    expect(within(row).getByText(/^No reply · \d+ h$/)).toBeVisible();
+    expect(within(panel).getByText('Arjun M. · direct message')).toBeVisible();
+    expect(within(panel).getByRole('link', { name: slackRow.title })).toHaveAttribute(
+      'href',
+      'https://acme.slack.com/archives/C024BE91L/p1700000000123456',
+    );
+  });
+
+  it('AC-21: Slack’s tab shows loading rows while its first sync runs', async () => {
+    inboxWith([], { tools: { slack: { state: 'syncing' } } });
+    await renderApp({ route: '/?inbox=slack' });
+    const panel = screen.getByRole('region', { name: 'Needs your attention' });
+
+    expect(await within(panel).findByRole('list')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('AC-22: Slack’s tab says nobody is waiting on a reply when nobody is', async () => {
+    inboxWith([], { tools: { slack: synced } });
+    await renderApp({ route: '/?inbox=slack' });
+
+    expect(await screen.findByText('Nobody is waiting on a reply in Slack')).toBeVisible();
+  });
+
+  it('AC-23: a Slack that refused its token says so on its tab, and its last rows stay', async () => {
+    inboxWith([slackRow], {
+      tools: { slack: { state: 'failed', problem: { kind: 'rejected' }, lastSyncedAt: '2026-10-17T11:00:00.000Z' } },
+    });
+    const { panel } = await openHome('/?inbox=slack');
+
+    const reconnect = within(panel).getByRole('link', { name: 'Reconnect it in Settings' });
+    expect(reconnect.closest('p')?.textContent).toContain('Slack refused the saved token.');
+    expect(within(panel).getByRole('link', { name: slackRow.title })).toBeVisible();
+  });
+
+  it('AC-29: a message row’s Add to composer adds its thread, and pressing it again takes it out', async () => {
+    inboxWith([slackRow], { tools: { slack: synced } });
+    const { user, panel } = await openHome('/?inbox=slack');
+
+    await user.click(within(panel).getByRole('button', { name: /Add Neha K\. in #web-platform/ }));
+    const strip = await screen.findByRole('list', { name: 'Context for Claude' });
+    expect(
+      within(strip)
+        .getAllByRole('listitem')
+        .map((chip) => chip.textContent),
+    ).toEqual(['Neha K. in #web-platform']);
+
+    await user.click(within(panel).getByRole('button', { name: /Remove Neha K\. in #web-platform/ }));
+    expect(screen.queryByRole('list', { name: 'Context for Claude' })).not.toBeInTheDocument();
   });
 });

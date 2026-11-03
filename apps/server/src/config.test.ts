@@ -169,6 +169,18 @@ describe('loadConfig', () => {
 
     expect(config.tokens).toEqual({ fromEnv: true, env: { jira: jiraToken, github: githubToken }, ignored: [] });
   });
+
+  it('016 AC-6: reads the Discord bot token from DEVHUB_DISCORD_BOT_TOKEN, and only with the switch on', () => {
+    const discordToken = 'fake-discord-token-for-tests';
+    const on = loadConfig({
+      env: {},
+      envFile: `DEVHUB_TOKENS_FROM_ENV=true\nDEVHUB_DISCORD_BOT_TOKEN=${discordToken}\n`,
+    });
+    expect(on.tokens.env).toEqual({ discord: discordToken });
+
+    const off = loadConfig({ env: { DEVHUB_DISCORD_BOT_TOKEN: discordToken } });
+    expect(off.tokens).toEqual({ fromEnv: false, env: {}, ignored: ['DEVHUB_DISCORD_BOT_TOKEN'] });
+  });
 });
 
 describe('forgetTokenSettings', () => {

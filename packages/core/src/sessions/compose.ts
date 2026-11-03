@@ -160,7 +160,21 @@ export function composerPlan(
 function chipId(chip: ComposerChip): string {
   if (chip.kind === 'jira') return `jira:${chip.key}`;
   if (chip.kind === 'pull_request') return `pr:${chip.owner}/${chip.name}#${String(chip.number)}`.toLowerCase();
+  if (chip.kind === 'slack_thread') return `slack:${chip.channel}/${chip.ts}`;
+  if (chip.kind === 'discord_thread') return `discord:${chip.message}`;
   return `file:${chip.path}`;
+}
+
+/**
+ * The chips as the session keeps them (spec 016, C): a thread with the names its tool gave, not what the page said,
+ * since a label is only how the chip reads. `read` is the context reader's chips, in the same order.
+ */
+export function labelled(context: readonly ComposerChip[], read: readonly BriefChip[]): ComposerChip[] {
+  return context.map((chip, place) => {
+    const found = read[place];
+    if ((chip.kind !== 'slack_thread' && chip.kind !== 'discord_thread') || found?.kind !== 'thread') return chip;
+    return { ...chip, label: found.label };
+  });
 }
 
 /**

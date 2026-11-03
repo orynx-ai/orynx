@@ -41,6 +41,8 @@ export {
   sessionPagesQueryOptions,
   sessionsQueryOptions,
   setupQueryOptions,
+  slackConnectionQueryOptions,
+  discordConnectionQueryOptions,
   sessionTerminalQueryKey,
   sessionTerminalQueryOptions,
   statusQueryOptions,

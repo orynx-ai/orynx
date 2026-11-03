@@ -721,7 +721,7 @@ describe("the composer's start (spec 015)", () => {
       ...upTo(100).map((n) => file(`notes-${String(n)}.md`)),
     ];
     expect(ComposerStartSchema.safeParse(body({ context: most })).success).toBe(true);
-    expect(composerLimits).toEqual({ tickets: 100, pullRequests: 100, files: 100, skills: 5 });
+    expect(composerLimits).toEqual({ tickets: 100, pullRequests: 100, files: 100, threads: 10, skills: 5 });
   });
 
   it('022 AC-10, AC-13, AC-14: a file is its path, of any kind; never one that looks like a secret, or the same twice', () => {

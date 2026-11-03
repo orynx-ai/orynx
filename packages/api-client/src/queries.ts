@@ -12,6 +12,8 @@ export const queryKeys = {
   jiraConnection: ['jira', 'connection'] as const,
   jiraProjects: ['jira', 'projects'] as const,
   githubConnection: ['github', 'connection'] as const,
+  slackConnection: ['slack', 'connection'] as const,
+  discordConnection: ['discord', 'connection'] as const,
   preferences: ['preferences'] as const,
   setup: ['setup'] as const,
   profile: ['profile'] as const,
@@ -192,6 +194,25 @@ export function githubConnectionQueryOptions(api: ApiClient) {
     queryKey: queryKeys.githubConnection,
     queryFn: () => api.githubConnection(),
     // Connect and Disconnect publish status.changed, which refreshes this too.
+    staleTime: Infinity,
+  });
+}
+
+/** Who the saved Slack token belongs to (spec 016). */
+export function slackConnectionQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.slackConnection,
+    queryFn: () => api.slackConnection(),
+    // Connect and Disconnect publish status.changed, which refreshes this too.
+    staleTime: Infinity,
+  });
+}
+
+/** The saved Discord bot and whose mentions it reads (spec 016). */
+export function discordConnectionQueryOptions(api: ApiClient) {
+  return queryOptions({
+    queryKey: queryKeys.discordConnection,
+    queryFn: () => api.discordConnection(),
     staleTime: Infinity,
   });
 }

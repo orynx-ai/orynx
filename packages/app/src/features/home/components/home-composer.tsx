@@ -16,13 +16,13 @@ import {
 } from '@devhub/ui';
 import { newTaskTargetId } from '../../../shell/main-content.ts';
 import { useRepositories, useStatus } from '../../settings/queries.ts';
-import { chipFromPaste, firstTicket, folderFor } from '../composer-rules.ts';
+import { firstTicket, folderFor } from '../composer-rules.ts';
+import { usePasteToChip } from '../use-paste-to-chip.ts';
 import {
   cannotStartLine,
   composerWords,
   contextFailedLine,
   placeholderFor,
-  refusedLine,
   type SettingsLink,
 } from '../composer-words.ts';
 import { useStartFromComposer } from '../queries.ts';
@@ -88,6 +88,7 @@ export function HomeComposer() {
   const pickers = repositories.data !== undefined && status.data !== undefined;
   // Why a file wasn't added (AC-12); it goes when the draft changes or another file is added.
   const [refused, setRefused] = useState<string | null>(null);
+  const pasteToChip = usePasteToChip(addChip, setRefused);
   const box = useRef<HTMLTextAreaElement | null>(null);
 
   const form = useForm<ComposerFormValues, unknown, { message: string }>({
@@ -181,14 +182,8 @@ export function HomeComposer() {
             placeholder={placeholderFor(ticketKeys, mode)}
             readOnly={start.isPending}
             {...field}
-            onPaste={(event) => {
-              // A paste that is exactly one key or pull request link becomes its chip (AC-14, Q6).
-              const chip = chipFromPaste(event.clipboardData.getData('text/plain'));
-              if (chip === null) return;
-              event.preventDefault();
-              const refusal = addChip(chip);
-              setRefused(refusal === null ? null : refusedLine(refusal));
-            }}
+            // A paste that is exactly one key, pull request link or message link becomes its chip (AC-14, Q6).
+            onPaste={pasteToChip}
             ref={(element) => {
               field.ref(element);
               box.current = element;

@@ -357,3 +357,66 @@ describe('the review note (spec 050)', () => {
     expect(reviewNote(false)).not.toContain('checkout');
   });
 });
+
+describe('a thread in the brief (spec 016, C)', () => {
+  const at = (minute: number) => new Date(Date.UTC(2026, 10, 2, 14, minute)).toISOString();
+  const clock = (iso: string) => {
+    const time = new Date(iso);
+    return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+  };
+  const thread = (count: number, words = 'Seeing it too') => ({
+    kind: 'thread' as const,
+    tool: 'slack' as const,
+    label: { from: 'Neha K.', channel: 'web-platform', server: null },
+    messages: Array.from({ length: count }, (_, n) => ({
+      from: n === 0 ? 'Neha K.' : 'Arjun M.',
+      at: at(n % 60),
+      text: n === 0 ? 'Search returns archived sites for guest users' : `${words} ${String(n)}`,
+      files: n === 1 ? ['trace.log'] : [],
+    })),
+  });
+
+  it('AC-30: says where the thread is and who started it, then each message oldest first, files by name', () => {
+    const [chip] = composerBrief('Fix it', [thread(2)]).context;
+    expect(chip?.kind).toBe('slack_thread');
+    expect(chip?.title).toBe('Slack thread in #web-platform, started by Neha K.');
+    expect(chip?.body).toBe(
+      [
+        'The user added this thread from Slack. Its messages, oldest first:',
+        `Neha K., ${clock(at(0))}: Search returns archived sites for guest users`,
+        `Arjun M., ${clock(at(1))}: Seeing it too 1 (files: trace.log)`,
+      ].join('\n\n'),
+    );
+  });
+
+  it('AC-30: a DM’s thread and a Discord thread say where they are', () => {
+    const dm = { ...thread(1), label: { from: 'Arjun M.', channel: null, server: null } };
+    expect(composerBrief('', [dm]).context[0]?.title).toBe('Slack thread in a direct message, started by Arjun M.');
+    const discord = {
+      ...thread(1),
+      tool: 'discord' as const,
+      label: { from: 'Neha K.', channel: 'web-platform', server: 'Acme' },
+    };
+    expect(composerBrief('', [discord]).context[0]).toMatchObject({
+      kind: 'discord_thread',
+      title: 'Discord thread in #web-platform on Acme, started by Neha K.',
+    });
+  });
+
+  it('AC-31: a thread past 200 messages keeps its first and the latest 199, and says how many were left out', () => {
+    const body = composerBrief('', [thread(350)]).context[0]?.body ?? '';
+    const lines = body.split('\n\n');
+    expect(lines[1]).toContain('Search returns archived sites');
+    expect(lines[2]).toBe('150 earlier messages left out.');
+    expect(lines.at(-1)).toContain('Seeing it too 349');
+    expect(lines).toHaveLength(1 + 1 + 1 + 199);
+  });
+
+  it('AC-31: a thread past 40,000 characters drops its oldest messages after the first until it fits', () => {
+    const body = composerBrief('', [thread(50, 'x'.repeat(1000))]).context[0]?.body ?? '';
+    expect(body.length).toBeLessThanOrEqual(40_000);
+    expect(body).toContain('Search returns archived sites');
+    expect(body).toMatch(/\n\n\d+ earlier messages left out\.\n\n/);
+    expect(body).toContain(`${'x'.repeat(1000)} 49`);
+  });
+});

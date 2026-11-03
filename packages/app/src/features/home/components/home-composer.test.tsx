@@ -275,6 +275,45 @@ describe('pasting and removing chips (spec 015)', () => {
     expect(within(screen.getByRole('list', { name: 'Context for Claude' })).getAllByRole('listitem')).toHaveLength(2);
   });
 
+  it('016 AC-26: a pasted Slack link becomes its thread’s chip, named for who started it and where', async () => {
+    serve();
+    server.use(
+      http.get(apiUrl(apiRoutes.threadPreview), () =>
+        HttpResponse.json({
+          result: 'found',
+          chip: { kind: 'slack_thread', channel: 'C024BE91L', ts: '1793613600.000100' },
+          label: { from: 'Neha K.', channel: 'web-platform', server: null },
+        }),
+      ),
+    );
+    const { user } = await renderApp();
+    await user.click(await screen.findByRole('textbox', { name: 'Describe a task for Claude' }));
+
+    await user.paste('https://acme.slack.com/archives/C024BE91L/p1793613600000100');
+
+    const strip = await screen.findByRole('list', { name: 'Context for Claude' });
+    expect(
+      within(strip)
+        .getAllByRole('listitem')
+        .map((chip) => chip.textContent),
+    ).toEqual(['Neha K. in #web-platform']);
+    expect(box()).toHaveValue('');
+  });
+
+  it('016 AC-27: a pasted link whose tool isn’t connected says to connect it, and adds nothing', async () => {
+    serve();
+    server.use(
+      http.get(apiUrl(apiRoutes.threadPreview), () => HttpResponse.json({ result: 'not_connected', tool: 'discord' })),
+    );
+    const { user } = await renderApp();
+    await user.click(await screen.findByRole('textbox', { name: 'Describe a task for Claude' }));
+
+    await user.paste('https://discord.com/channels/1100000000000000001/1100000000000000002/1434477000000000001');
+
+    expect(await screen.findByText('Connect Discord in Settings to add its threads.')).toBeVisible();
+    expect(screen.queryByRole('list', { name: 'Context for Claude' })).not.toBeInTheDocument();
+  });
+
   it('022 AC-3: an eleventh pasted pull request or ticket is said, not added', async () => {
     serve();
     const pulls = Array.from({ length: 100 }, (_, n) => ({

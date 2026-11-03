@@ -7,7 +7,7 @@ export const ApiErrorCodeSchema = z.enum([
   'not_found',
   /** The OS keychain is locked, refused access or does not exist, so a token can't be read or saved (spec 002). */
   'keychain_unavailable',
-  /** Jira, GitHub or Slack refused the credentials it was given (spec 003). */
+  /** Jira, GitHub, Slack or Discord refused the credentials it was given (spec 003). */
   'integration_rejected',
   /** The tool can't be reached at that address: no such site, the network, a timeout or the tool's own error (spec 003). */
   'integration_unreachable',
@@ -33,6 +33,8 @@ export const ApiErrorCodeSchema = z.enum([
   'update_unavailable',
   /** A review comment went to GitHub already, so it stays as it went (spec 050). */
   'already_posted',
+  /** A team owns the Discord bot's application, so Orynx needs your Discord user ID to connect (spec 016, AC-8). */
+  'user_id_needed',
   'internal',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;

@@ -10,6 +10,7 @@ import {
   PermissionsSchema,
   PreferencesChangeSchema,
   PreferencesSchema,
+  replyWaitMinutes,
   ServerEventSchema,
 } from './index.ts';
 import { makePreferences } from './testing.ts';
@@ -56,11 +57,14 @@ describe('PreferencesSchema', () => {
         checks_failing: true,
         unresolved_comments: true,
         session_waiting: true,
+        slack_waiting: true,
+        discord_waiting: true,
       },
       allowedCommands: [],
       editor: 'vscode',
       jiraChanges: false,
       deleteSessionsAfterDays: null,
+      replyWaitMinutes: 120,
     });
     expect(PreferencesSchema.parse(defaultPreferences)).toEqual(defaultPreferences);
   });
@@ -91,9 +95,22 @@ describe('PreferencesSchema', () => {
     expect(PreferencesSchema.safeParse({ ...defaultPreferences, allowedCommands: [''] }).success).toBe(false);
   });
 
-  it('AC-12: has five rules until Slack joins in spec 016 (Q6)', () => {
-    expect(InboxRuleIdSchema.options).toHaveLength(5);
-    expect(InboxRuleIdSchema.options.some((rule) => rule.includes('slack'))).toBe(false);
+  it('016 AC-18: Slack and Discord join the rules, each on by default', () => {
+    expect(InboxRuleIdSchema.options).toEqual([
+      'jira_assigned',
+      'review_requested',
+      'checks_failing',
+      'unresolved_comments',
+      'session_waiting',
+      'slack_waiting',
+      'discord_waiting',
+    ]);
+  });
+
+  it('016 AC-13, AC-18: a message waits 2 h by default, and the wait is 30 min, 1 h, 2 h, 4 h or 1 day', () => {
+    expect(replyWaitMinutes).toEqual([30, 60, 120, 240, 1440]);
+    expect(PreferencesSchema.parse({ ...defaultPreferences, replyWaitMinutes: 240 }).replyWaitMinutes).toBe(240);
+    expect(PreferencesSchema.safeParse({ ...defaultPreferences, replyWaitMinutes: 90 }).success).toBe(false);
   });
 
   it('refuses preferences with a rule missing, so the server always answers with all of them', () => {
@@ -143,6 +160,11 @@ describe('PreferencesChangeSchema', () => {
     expect(PreferencesChangeSchema.safeParse({ permissions: { push: 'never' }, repository: 'orynx' }).success).toBe(
       false,
     );
+  });
+
+  it('016 AC-18: takes the reply wait alone', () => {
+    expect(PreferencesChangeSchema.parse({ replyWaitMinutes: 240 })).toEqual({ replyWaitMinutes: 240 });
+    expect(PreferencesChangeSchema.safeParse({ replyWaitMinutes: 5 }).success).toBe(false);
   });
 
   it('047 AC-17: takes Delete old sessions alone, Never included', () => {

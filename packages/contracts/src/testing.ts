@@ -12,6 +12,8 @@ import {
 } from './changes.ts';
 import { ClaudeSignedInSchema, type ClaudeSignedIn } from './claude.ts';
 import { GitHubConnectionSchema, type GitHubConnection } from './github.ts';
+import { SlackConnectionSchema, type SlackConnection } from './slack.ts';
+import { DiscordConnectionSchema, type DiscordConnection } from './discord.ts';
 import { InboxItemSchema, InboxSchema, type Inbox, type InboxItem } from './inbox.ts';
 import { JiraConnectionSchema, type JiraConnection } from './jira.ts';
 import {
@@ -116,7 +118,13 @@ export function makeStatus(overrides: StatusOverrides = {}): Status {
     version: overrides.version ?? '0.0.0-test',
     user: { name: null, ...overrides.user },
     agent: { id: 'claude', connected: false, ...overrides.agent },
-    integrations: { jira: notConnected, github: notConnected, slack: notConnected, ...overrides.integrations },
+    integrations: {
+      jira: notConnected,
+      github: notConnected,
+      slack: notConnected,
+      discord: notConnected,
+      ...overrides.integrations,
+    },
   });
 }
 
@@ -398,6 +406,24 @@ export function makeGitHubConnection(overrides: Partial<GitHubConnection> = {}):
   return GitHubConnectionSchema.parse({ saved: null, envToken: false, ghFound: false, ...overrides });
 }
 
+/** Slack connected as Neha K. in Acme, unless the override says otherwise (spec 016). */
+export function makeSlackConnection(overrides: Partial<SlackConnection> = {}): SlackConnection {
+  return SlackConnectionSchema.parse({
+    saved: { workspace: 'Acme', url: 'https://acme.slack.com/', userId: 'U024BE7LH', name: 'Neha K.' },
+    envToken: false,
+    ...overrides,
+  });
+}
+
+/** Discord connected through a bot named Orynx, unless the override says otherwise (spec 016). */
+export function makeDiscordConnection(overrides: Partial<DiscordConnection> = {}): DiscordConnection {
+  return DiscordConnectionSchema.parse({
+    saved: { bot: 'Orynx', userId: '80351110224678912' },
+    envToken: false,
+    ...overrides,
+  });
+}
+
 export interface PreferencesOverrides {
   /** Override some rows and keep the others at their defaults, as a change sends them. */
   permissions?: PreferencesChange['permissions'];
@@ -409,6 +435,7 @@ export interface PreferencesOverrides {
   editor?: Preferences['editor'];
   jiraChanges?: boolean;
   deleteSessionsAfterDays?: Preferences['deleteSessionsAfterDays'];
+  replyWaitMinutes?: Preferences['replyWaitMinutes'];
 }
 
 /** Preferences as a fresh DevHub reports them, unless the override says otherwise. */
@@ -424,6 +451,7 @@ export function makePreferences(overrides: PreferencesOverrides = {}): Preferenc
     editor: overrides.editor ?? defaultPreferences.editor,
     jiraChanges: overrides.jiraChanges ?? defaultPreferences.jiraChanges,
     deleteSessionsAfterDays: overrides.deleteSessionsAfterDays ?? defaultPreferences.deleteSessionsAfterDays,
+    replyWaitMinutes: overrides.replyWaitMinutes ?? defaultPreferences.replyWaitMinutes,
   });
 }
 
@@ -476,14 +504,44 @@ export function makeInboxItem(overrides: Partial<InboxItem> = {}): InboxItem {
   });
 }
 
-/** The list with no rows, both tools synced at 10:00 on 17 Oct 2026, unless the override says otherwise. */
-export function makeInbox(overrides: Partial<Inbox> = {}): Inbox {
+/**
+ * Neha K.'s mention in #web-platform on Slack, waiting on your reply since 10:00 on 15 Oct 2026, unless the override
+ * says otherwise (spec 016).
+ */
+export function makeSlackItem(overrides: Partial<InboxItem> = {}): InboxItem {
+  return makeInboxItem({
+    id: 'slack:C024BE91L/1700000000.123456',
+    source: 'slack',
+    tab: 'slack',
+    title: 'Can you confirm the archive API returns 207 for partial failures?',
+    subject: { kind: 'message', from: 'Neha K.', channel: 'web-platform', server: null },
+    reason: { kind: 'no_reply' },
+    target: { kind: 'external', url: 'https://acme.slack.com/archives/C024BE91L/p1700000000123456' },
+    ...overrides,
+  });
+}
+
+/**
+ * The list with no rows, Jira and GitHub synced at 10:00 on 17 Oct 2026 and Slack and Discord not connected, unless
+ * the override says otherwise.
+ */
+/** What a test may change in the list: any field, and any tools' states, the rest kept. */
+export type InboxOverrides = Omit<Partial<Inbox>, 'tools'> & { tools?: Partial<Inbox['tools']> };
+
+export function makeInbox(overrides: InboxOverrides = {}): Inbox {
   const synced = { state: 'synced', at: '2026-10-17T10:00:00.000Z' } as const;
+  const { tools, ...rest } = overrides;
   return InboxSchema.parse({
     items: [],
-    tools: { jira: synced, github: synced },
     syncedAt: '2026-10-17T10:00:00.000Z',
-    ...overrides,
+    ...rest,
+    tools: {
+      jira: synced,
+      github: synced,
+      slack: { state: 'not_connected' },
+      discord: { state: 'not_connected' },
+      ...tools,
+    },
   });
 }
 

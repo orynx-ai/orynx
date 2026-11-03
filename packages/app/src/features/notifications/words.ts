@@ -68,6 +68,12 @@ export function notificationWords(what: NotificationWhat): NotificationWords {
     }
     case 'jira_assigned':
       return { title: `${what.ticket.key} assigned to you`, detail: what.ticket.title, desktop: what.ticket.title };
+    case 'reply_waiting': {
+      // Who and where, as Home's row says it (spec 016), never the message itself.
+      const where = what.channel === null ? 'Direct message' : joined(`#${what.channel}`, what.server);
+      const place = joined(where, what.tool === 'slack' ? 'Slack' : 'Discord');
+      return { title: `${what.from} is waiting on your reply`, detail: place, desktop: place };
+    }
     case 'update_available':
       return { title: `Orynx ${what.version} is out`, detail: 'Settings › About', desktop: 'Settings › About' };
     case 'sessions_cleaned': {
@@ -103,6 +109,7 @@ export function notificationPlace(what: NotificationWhat): NotificationPlace {
   if (what.kind === 'sessions_cleaned') return { kind: 'settings', tab: 'coding-agent' };
   if ('session' in what) return { kind: 'session', sessionId: what.session.id };
   if (what.kind === 'update_available') return { kind: 'about' };
+  if (what.kind === 'reply_waiting') return { kind: 'external', url: what.url };
   return { kind: 'external', url: 'pullRequest' in what ? what.pullRequest.url : what.ticket.url };
 }
 

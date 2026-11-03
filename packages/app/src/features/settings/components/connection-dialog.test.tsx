@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { apiRoutes, type ConnectionCheck } from '@devhub/contracts';
-import { makeSessionSummary, makeStatus } from '@devhub/contracts/testing';
+import { makeDiscordConnection, makeSessionSummary, makeSlackConnection, makeStatus } from '@devhub/contracts/testing';
 import { expectNoAxeViolations } from '@devhub/ui/testing';
 import { answerWith, mixedStatus } from '../../../test/connections.ts';
 import { jiraServer } from '../../../test/jira.ts';
@@ -353,7 +353,7 @@ describe('ConnectionDialog (spec 030)', () => {
       expect(await screen.findByRole('button', { name: 'Jira: Connected. Manage connection' })).toHaveFocus();
     });
 
-    it('AC-22: Slack asks its admin first, with the request ready to copy', async () => {
+    it('AC-22, 016 AC-1: Slack asks its admin first, with the request ready to copy, then takes the token', async () => {
       const { user } = await renderApp({ route: '/settings/connections' });
       await user.click(await screen.findByRole('button', { name: 'Slack: Not connected. Manage connection' }));
       const dialog = await screen.findByRole('dialog', { name: 'Slack' });
@@ -361,17 +361,99 @@ describe('ConnectionDialog (spec 030)', () => {
       expect(dialog).toHaveAccessibleDescription('Two steps. Until then, Slack items are left out of your inbox.');
       expect(within(dialog).getByText('Ask your Slack admin to approve the Orynx app')).toBeVisible();
       expect(
-        within(dialog).getByText('It needs search:read, channels:history and im:history, only for your account.'),
+        within(dialog).getByText(/^It needs search:read, im:history, .*chat:write, only for your account\.$/),
       ).toBeVisible();
       await user.click(within(dialog).getByRole('button', { name: 'Copy request for your admin' }));
 
-      expect(await navigator.clipboard.readText()).toBe(
-        'Could you approve the Orynx app in our Slack workspace? It needs search:read, channels:history and im:history, only for my account, so Orynx can show my mentions and DMs. It runs on my computer.',
+      expect(await navigator.clipboard.readText()).toMatch(
+        /^Could you approve the Orynx app in our Slack workspace\? It needs search:read, .*, chat:write, only for my account/,
       );
       expect(await within(dialog).findByRole('button', { name: 'Request copied' })).toBeInTheDocument();
+      expect(within(dialog).getByLabelText('Paste your Slack token')).toBeVisible();
+      expect(within(dialog).getByRole('button', { name: 'Connect' })).toBeVisible();
       await expectNoAxeViolations(dialog);
       await user.click(within(dialog).getByRole('button', { name: 'Close' }));
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('Slack and Discord connections (spec 016)', () => {
+  it('AC-2: Connect sends the pasted token, then says Slack is connected', async () => {
+    const sent: unknown[] = [];
+    server.use(
+      http.put(apiUrl(apiRoutes.slackConnection), async ({ request }) => {
+        sent.push(await request.json());
+        return HttpResponse.json(makeSlackConnection());
+      }),
+    );
+    const { user } = await renderApp({ route: '/settings/connections' });
+    await user.click(await screen.findByRole('button', { name: 'Slack: Not connected. Manage connection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Slack' });
+
+    await user.type(within(dialog).getByLabelText('Paste your Slack token'), 'fake-slack-token');
+    await user.click(within(dialog).getByRole('button', { name: 'Connect' }));
+
+    expect(sent).toEqual([{ token: 'fake-slack-token' }]);
+    expect(await screen.findByText(/^Slack connected/)).toBeVisible();
+  });
+
+  it('AC-3: missing scopes show under the token, in Slack’s answer', async () => {
+    const missing = "Slack's app is missing chat:write. Ask your admin to add them, then reinstall the app.";
+    server.use(
+      http.put(apiUrl(apiRoutes.slackConnection), () =>
+        HttpResponse.json({ code: 'integration_rejected', message: missing }, { status: 422 }),
+      ),
+    );
+    const { user } = await renderApp({ route: '/settings/connections' });
+    await user.click(await screen.findByRole('button', { name: 'Slack: Not connected. Manage connection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Slack' });
+
+    await user.type(within(dialog).getByLabelText('Paste your Slack token'), 'fake-slack-token');
+    await user.click(within(dialog).getByRole('button', { name: 'Connect' }));
+
+    expect(await within(dialog).findByText(missing)).toBeVisible();
+    expect(within(dialog).getByLabelText('Paste your Slack token')).toHaveFocus();
+  });
+
+  it('AC-5: Discord has its own row, whose dialog says how to make the bot', async () => {
+    const { user } = await renderApp({ route: '/settings/connections' });
+    await user.click(await screen.findByRole('button', { name: 'Discord: Not connected. Manage connection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Discord' });
+
+    expect(dialog).toHaveAccessibleDescription('Two steps. Until then, Discord mentions are left out of your inbox.');
+    expect(within(dialog).getByText('Make a Discord bot for Orynx')).toBeVisible();
+    expect(within(dialog).getByRole('link', { name: /Open the Developer Portal/ })).toBeVisible();
+    expect(within(dialog).getByLabelText("Paste your bot's token")).toBeVisible();
+    await expectNoAxeViolations(dialog);
+  });
+
+  it('AC-8: a team’s bot asks for your Discord user ID, and Connect sends it', async () => {
+    const sent: unknown[] = [];
+    server.use(
+      http.put(apiUrl(apiRoutes.discordConnection), async ({ request }) => {
+        const body = (await request.json()) as { userId?: string };
+        sent.push(body);
+        return body.userId === undefined
+          ? HttpResponse.json({ code: 'user_id_needed', message: 'A team owns this bot.' }, { status: 422 })
+          : HttpResponse.json(makeDiscordConnection());
+      }),
+    );
+    const { user } = await renderApp({ route: '/settings/connections' });
+    await user.click(await screen.findByRole('button', { name: 'Discord: Not connected. Manage connection' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Discord' });
+
+    await user.type(within(dialog).getByLabelText("Paste your bot's token"), 'fake-discord-token');
+    await user.click(within(dialog).getByRole('button', { name: 'Connect' }));
+    const userId = await within(dialog).findByLabelText('Your Discord user ID');
+    expect(userId).toHaveFocus();
+    await user.type(userId, '80351110224678912');
+    await user.click(within(dialog).getByRole('button', { name: 'Connect' }));
+
+    expect(sent).toEqual([
+      { token: 'fake-discord-token' },
+      { token: 'fake-discord-token', userId: '80351110224678912' },
+    ]);
+    expect(await screen.findByText(/^Discord connected/)).toBeVisible();
   });
 });

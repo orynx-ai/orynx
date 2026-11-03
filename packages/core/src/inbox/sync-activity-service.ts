@@ -21,7 +21,7 @@ export interface SyncActivityServiceOptions {
   now?: () => number;
 }
 
-const tools = ['jira', 'github'] as const satisfies readonly InboxTool[];
+const tools = ['jira', 'github', 'slack', 'discord'] as const satisfies readonly InboxTool[];
 
 export function createSyncActivityService({
   cache,
@@ -42,7 +42,10 @@ export function createSyncActivityService({
         limit: syncActivityLimits.shown,
       });
       return {
-        tools: tools.map((each) => ({ tool: each, state: state[each], ...cache.syncFigures(each, since) })),
+        // Slack and Discord show once connected, as Home's tabs do (spec 016, Q6).
+        tools: tools
+          .filter((each) => each === 'jira' || each === 'github' || state[each].state !== 'not_connected')
+          .map((each) => ({ tool: each, state: state[each], ...cache.syncFigures(each, since) })),
         // A run from an older shape is left out rather than failing the whole log.
         runs: runs.flatMap(({ data, ...run }) => {
           const parsed = SyncRunSchema.safeParse({ ...run, ...(typeof data === 'object' ? data : {}) });

@@ -1,7 +1,9 @@
 /* DevHub design tokens, copied verbatim from docs/design/design-system.md (section 4, tokens.css).
    Do not edit by hand: tokens come from the design system. If a value is wrong or missing, stop and ask.
    One change from that copy, the user's call for the Orynx brand (18 Oct 2026): no blue. --accent is the
-   brand's ink (the text colour), --accent-subtle a neutral wash one step past --bg-subtle, --accent-text ink. */
+   brand's ink (the text colour), --accent-subtle a neutral wash one step past --bg-subtle, --accent-text ink.
+   A second, also the user's call (spec 016, Q5, 2 Nov 2026): Discord's --source-discord, -subtle and --brand-discord,
+   until the design system draws Discord. */
 /* DevHub — generated from tokens.json */
 :root, [data-theme="light"] {
   --bg-canvas: #fcfcfb; --bg-sidebar: #f6f5f2; --bg-subtle: #efeee9; --bg-raised: #ffffff;
@@ -13,6 +15,7 @@
   --warning: #8f5a12; --warning-subtle: #fbf2e2;
   --danger: #b3372b; --danger-subtle: #fcebe8; --on-danger: #ffffff;
   --source-jira: var(--accent); --source-github: var(--text-primary); --source-slack: #7b3f8c; --source-slack-subtle: #f5edf7;
+  --source-discord: #4752c4; --source-discord-subtle: #eef0fd;
   --shadow-overlay: 0 1px 2px rgba(28,27,24,0.05), 0 8px 24px rgba(28,27,24,0.08);
 }
 [data-theme="dark"] {
@@ -25,6 +28,7 @@
   --warning: #eab565; --warning-subtle: #2f2513;
   --danger: #ff9286; --danger-subtle: #361a16; --on-danger: #171614;
   --source-slack: #d6a3e4; --source-slack-subtle: #2b1d31;
+  --source-discord: #a3abf5; --source-discord-subtle: #1e2138;
   --shadow-overlay: 0 8px 24px rgba(0,0,0,0.55);
   color-scheme: dark;
 }
@@ -39,6 +43,7 @@
     --warning: #eab565; --warning-subtle: #2f2513;
     --danger: #ff9286; --danger-subtle: #361a16; --on-danger: #171614;
     --source-slack: #d6a3e4; --source-slack-subtle: #2b1d31;
+    --source-discord: #a3abf5; --source-discord-subtle: #1e2138;
     --shadow-overlay: 0 8px 24px rgba(0,0,0,0.55);
     color-scheme: dark;
   }
@@ -53,4 +58,5 @@
      GitHub's mark takes --source-github: black on light, white on dark, as GitHub draws it. */
   --brand-jira: #2684ff; --brand-jira-deep: #0052cc;
   --brand-slack-red: #e01e5a; --brand-slack-blue: #36c5f0; --brand-slack-green: #2eb67d; --brand-slack-yellow: #ecb22e;
+  --brand-discord: #5865f2;
 }

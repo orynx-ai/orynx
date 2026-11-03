@@ -7,6 +7,7 @@ import { JiraIssueKeySchema, JiraLinkSchema } from './jira.ts';
 import { RepositoryIdSchema } from './repositories.ts';
 import { looksLikeSecret } from './secret-names.ts';
 import { TicketColumnSchema } from './ticket-column.ts';
+import { DiscordThreadChipSchema, SlackThreadChipSchema, ThreadReplySchema, type ThreadChip } from './threads.ts';
 
 /**
  * Where a Claude session is, as the sidebar shows it (spec: "Session states").
@@ -519,6 +520,8 @@ export const SessionPullRequestSchema = z.object({
   /** `owner/name`, as the dialog and the lines say it. */
   repository: GitHubRepositorySchema,
   openedAt: z.iso.datetime(),
+  /** Its title as it was opened (spec 016, E's reply); none on one opened before spec 016. */
+  title: z.string().min(1).max(256).optional(),
 });
 export type SessionPullRequest = z.infer<typeof SessionPullRequestSchema>;
 
@@ -543,6 +546,9 @@ export const ComposerChipSchema = z.discriminatedUnion('kind', [
     kind: z.literal('file'),
     path: FilePathSchema.refine((path) => !looksLikeSecret(path), { message: 'A file that looks like a secret.' }),
   }),
+  /** A Slack or Discord thread, which the server reads at Send (spec 016, C). */
+  SlackThreadChipSchema,
+  DiscordThreadChipSchema,
 ]);
 export type ComposerChip = z.infer<typeof ComposerChipSchema>;
 
@@ -663,6 +669,8 @@ export const SessionSchema = SessionSummarySchema.extend({
   unpushed: z.boolean().default(true),
   /** An Ask that reviews someone else's pull request (spec 050); null for any other session, and before spec 050. */
   review: SessionReviewSchema.nullable().default(null),
+  /** Its reply in the first thread it was sent (spec 016, E); null while offered, and on every other session. */
+  threadReply: ThreadReplySchema.nullable().default(null),
 });
 export type Session = z.infer<typeof SessionSchema>;
 
@@ -692,10 +700,10 @@ export type TicketStart = z.infer<typeof TicketStartSchema>;
 export const mostMessageCharacters = 10_000;
 
 /**
- * What one session can take from the composer (spec 022, Q5): its tickets, pull requests and files, and the skills
+ * What one session can take from the composer (spec 022, Q5): its tickets, pull requests, files and threads (spec 016), and the skills
  * its message names. A file has no size or type limit: Claude reads it where it is.
  */
-export const composerLimits = { tickets: 100, pullRequests: 100, files: 100, skills: 5 } as const;
+export const composerLimits = { tickets: 100, pullRequests: 100, files: 100, threads: 10, skills: 5 } as const;
 
 function pullRequestId(chip: Extract<ComposerChip, { kind: 'pull_request' }>): string {
   return `${chip.owner}/${chip.name}#${String(chip.number)}`.toLowerCase();
@@ -716,6 +724,13 @@ function checkChips(context: readonly ComposerChip[], check: z.RefinementCtx): v
   if (new Set(pulls.map(pullRequestId)).size < pulls.length) issue('The same pull request twice.');
   if (files.length > composerLimits.files) issue(`${String(composerLimits.files)} files at most.`);
   if (new Set(files.map((chip) => chip.path)).size < files.length) issue('The same file twice.');
+  const threads = context.filter((chip) => chip.kind === 'slack_thread' || chip.kind === 'discord_thread');
+  if (threads.length > composerLimits.threads) issue(`${String(composerLimits.threads)} threads at most.`);
+  if (new Set(threads.map(threadId)).size < threads.length) issue('The same thread twice.');
+}
+
+function threadId(chip: ThreadChip): string {
+  return chip.kind === 'slack_thread' ? `slack:${chip.channel}/${chip.ts}` : `discord:${chip.channel}/${chip.message}`;
 }
 
 /**

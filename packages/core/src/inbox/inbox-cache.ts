@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 import { and, count, desc, eq, gt, gte, inArray, lt, max, min, notInArray, sum } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-import { InboxProblemSchema, notificationLimits, type InboxProblem } from '@devhub/contracts';
+import { InboxProblemSchema, notificationLimits, type InboxProblem, type InboxSource } from '@devhub/contracts';
 
 /**
  * `<DEVHUB_HOME>/cache.db` (spec 007): what the last sync read from each tool, so Home opens at once, the
@@ -13,7 +13,7 @@ import { InboxProblemSchema, notificationLimits, type InboxProblem } from '@devh
  * can't read, or one another version wrote, is deleted and made again.
  */
 
-export type InboxTool = 'jira' | 'github';
+export type InboxTool = InboxSource;
 
 /** A part of the cache with its own records and last sync: a tool's inbox, or Tickets' sprint (spec 008). */
 export type CachePart = InboxTool | 'jira_sprint';
@@ -169,7 +169,7 @@ export interface InboxCache {
   /** Adds a run to the sync log, then drops the runs that started before `keep.after`. */
   logSync(run: SyncRunWrite, keep: { after: string }): void;
   /** The newest runs, of one tool or all, every run or the failed ones. */
-  syncRuns(query: { tool?: InboxTool; failedOnly: boolean; limit: number }): CachedSyncRun[];
+  syncRuns(query: { tool?: InboxSource; failedOnly: boolean; limit: number }): CachedSyncRun[];
   /** One tool's figures: `today` is local midnight and `twoHours` two hours ago, as ISO times. */
   syncFigures(tool: InboxTool, since: { today: string; twoHours: string }): SyncFigures;
   /** Clear cache: everything goes, the notifications and the sync log too. */

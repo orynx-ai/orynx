@@ -10,7 +10,12 @@ import { clockText, dayMonth, minute, plural } from '../../words/calendar.ts';
 
 /** The words of the Sync activity modal (spec 035, Q3). */
 
-export const toolNames: Record<InboxSource, string> = { jira: 'Jira', github: 'GitHub' };
+export const toolNames: Record<InboxSource, string> = {
+  jira: 'Jira',
+  github: 'GitHub',
+  slack: 'Slack',
+  discord: 'Discord',
+};
 
 export const changeKinds = { new: 'New', updated: 'Updated', removed: 'Removed' } as const;
 

@@ -12,6 +12,10 @@ export interface StatusServiceOptions {
   jira?: () => Promise<IntegrationStatus>;
   /** GitHub's line (spec 004). Not connected when left out. */
   github?: () => Promise<IntegrationStatus>;
+  /** Slack's line (spec 016). Not connected when left out. */
+  slack?: () => Promise<IntegrationStatus>;
+  /** Discord's line (spec 016). Not connected when left out. */
+  discord?: () => Promise<IntegrationStatus>;
   /** Whether Claude Code is signed in (spec 010). Not connected when left out. */
   claude?: () => Promise<boolean>;
 }
@@ -20,7 +24,7 @@ const notConnected: IntegrationStatus = { state: 'not_connected', detail: null }
 
 /**
  * Reports what the hub is connected to. Jira (spec 003), GitHub (spec 004) and Claude (spec 010) have
- * real checks, which run side by side; Slack is not connected until spec 016 replaces its line.
+ * real checks, which run side by side, as do Slack and Discord (spec 016).
  */
 export function createStatusService(options: StatusServiceOptions): StatusService {
   let userName: Promise<string | null> | undefined;
@@ -28,17 +32,19 @@ export function createStatusService(options: StatusServiceOptions): StatusServic
     async getStatus() {
       // A failed lookup means "no name", so a broken git never turns /api/status into a 500.
       userName ??= options.userName().catch(() => null);
-      const [name, jira, github, claude] = await Promise.all([
+      const [name, jira, github, slack, discord, claude] = await Promise.all([
         userName,
         options.jira?.() ?? notConnected,
         options.github?.() ?? notConnected,
+        options.slack?.() ?? notConnected,
+        options.discord?.() ?? notConnected,
         options.claude?.() ?? false,
       ]);
       return {
         version: options.version,
         user: { name },
         agent: { id: 'claude', connected: claude },
-        integrations: { jira, github, slack: notConnected },
+        integrations: { jira, github, slack, discord },
       };
     },
   };

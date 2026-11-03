@@ -73,8 +73,56 @@ export interface BriefSkill {
 }
 
 /** One chip as the server read it, in the order you added it. */
+/** A Slack or Discord thread as its tool gave it (spec 016, C). */
+export interface BriefThread {
+  tool: 'slack' | 'discord';
+  label: { from: string; channel: string | null; server: string | null };
+  messages: readonly { from: string; at: string; text: string; files: readonly string[] }[];
+}
+
 export type BriefChip =
-  ({ kind: 'jira' } & BriefTicket) | ({ kind: 'pull_request' } & BriefPullRequest) | ({ kind: 'file' } & BriefFile);
+  | ({ kind: 'jira' } & BriefTicket)
+  | ({ kind: 'pull_request' } & BriefPullRequest)
+  | ({ kind: 'file' } & BriefFile)
+  | ({ kind: 'thread' } & BriefThread);
+
+/** A thread goes to Claude with at most this many messages and characters (spec 016, C). */
+const threadLimits = { messages: 200, characters: 40_000 } as const;
+
+/** 24-hour local time, as the person read the thread. */
+function clock(iso: string): string {
+  const time = new Date(iso);
+  return `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * A thread's section (spec 016, C): where it is and who started it, then each message oldest first. A longer one
+ * keeps its first message and the latest ones, and says how many it left out.
+ */
+function threadChip(thread: BriefThread): AgentBrief['context'][number] {
+  const tool = thread.tool === 'slack' ? 'Slack' : 'Discord';
+  const { from, channel, server } = thread.label;
+  const where = channel === null ? 'a direct message' : `#${channel}${server === null ? '' : ` on ${server}`}`;
+  const lines = thread.messages.map((message) => {
+    const files = message.files.length === 0 ? '' : ` (files: ${message.files.join(', ')})`;
+    return `${message.from}, ${clock(message.at)}: ${message.text}${files}`;
+  });
+  const intro = `The user added this thread from ${tool}. Its messages, oldest first:`;
+  const [first, ...rest] = lines;
+  let kept = rest.slice(Math.max(0, rest.length - (threadLimits.messages - 1)));
+  const body = () => {
+    const left = rest.length - kept.length;
+    return [intro, first, ...(left > 0 ? [`${String(left)} earlier messages left out.`] : []), ...kept]
+      .filter((part) => part !== undefined)
+      .join('\n\n');
+  };
+  while (kept.length > 0 && body().length > threadLimits.characters) kept = kept.slice(1);
+  return {
+    kind: thread.tool === 'slack' ? 'slack_thread' : 'discord_thread',
+    title: `${tool} thread in ${where}, started by ${from}`,
+    body: body(),
+  };
+}
 
 /** A diff goes to Claude whole up to this many lines, then as counts only (013 Q5, 014 Q4). */
 const mostDiffLines = 2000;
@@ -179,6 +227,7 @@ export function composerBrief(
       ...chips.map((chip): AgentBrief['context'][number] => {
         if (chip.kind === 'jira') return ticketChip(chip);
         if (chip.kind === 'pull_request') return pullRequestChip(chip);
+        if (chip.kind === 'thread') return threadChip(chip);
         return {
           kind: 'file',
           title: `File ${chip.path}`,

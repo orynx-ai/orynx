@@ -18,6 +18,7 @@ const EnvSchema = z.object({
   DEVHUB_JIRA_API_TOKEN: z.string().optional(),
   DEVHUB_GITHUB_TOKEN: z.string().optional(),
   DEVHUB_SLACK_USER_TOKEN: z.string().optional(),
+  DEVHUB_DISCORD_BOT_TOKEN: z.string().optional(),
   DEVHUB_KEYCHAIN: z.enum(['os', 'memory']).default('os'),
   DEVHUB_SANDBOX: z.enum(['required', 'assume']).default('required'),
   DEVHUB_LAN: z.enum(['true', 'false']).default('false'),
@@ -38,6 +39,7 @@ export const tokenKeys = {
   jira: 'DEVHUB_JIRA_API_TOKEN',
   github: 'DEVHUB_GITHUB_TOKEN',
   slack: 'DEVHUB_SLACK_USER_TOKEN',
+  discord: 'DEVHUB_DISCORD_BOT_TOKEN',
 } as const satisfies Record<IntegrationId, keyof z.infer<typeof EnvSchema>>;
 
 export interface ServerConfig {

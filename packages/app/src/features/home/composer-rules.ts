@@ -44,7 +44,7 @@ export function fileChipFor(
 }
 
 /** Why a chip wasn't added: its kind is full (spec 022, Q5). */
-export type ChipRefusal = 'too_many_tickets' | 'too_many_pull_requests' | 'too_many_files';
+export type ChipRefusal = 'too_many_tickets' | 'too_many_pull_requests' | 'too_many_files' | 'too_many_threads';
 
 export type AddChip = { ok: true; chips: ComposerChip[] } | { ok: false; refusal: ChipRefusal };
 
@@ -54,13 +54,21 @@ export function sameChip(a: ComposerChip, b: ComposerChip): boolean {
     return `${a.owner}/${a.name}`.toLowerCase() === `${b.owner}/${b.name}`.toLowerCase() && a.number === b.number;
   }
   if (a.kind === 'file' && b.kind === 'file') return a.path === b.path;
+  // A thread by its ids; its label is only how it reads (spec 016).
+  if (a.kind === 'slack_thread' && b.kind === 'slack_thread') return a.channel === b.channel && a.ts === b.ts;
+  if (a.kind === 'discord_thread' && b.kind === 'discord_thread') return a.message === b.message;
   return a.kind === 'jira' && b.kind === 'jira' && a.key === b.key;
 }
+
+/** Slack's and Discord's threads share one limit (spec 016). */
+const isThread = (kind: ComposerChip['kind']) => kind === 'slack_thread' || kind === 'discord_thread';
 
 const limits = {
   jira: { most: composerLimits.tickets, refusal: 'too_many_tickets' },
   pull_request: { most: composerLimits.pullRequests, refusal: 'too_many_pull_requests' },
   file: { most: composerLimits.files, refusal: 'too_many_files' },
+  slack_thread: { most: composerLimits.threads, refusal: 'too_many_threads' },
+  discord_thread: { most: composerLimits.threads, refusal: 'too_many_threads' },
 } as const satisfies Record<ComposerChip['kind'], { most: number; refusal: ChipRefusal }>;
 
 /** Whether the composer holds this chip already. */
@@ -81,7 +89,8 @@ export function addChip(chips: readonly ComposerChip[], chip: ComposerChip): Add
 /** Why no more chips of this kind can be added, or null while there's room (spec 022, Q5). */
 export function refusalFor(chips: readonly ComposerChip[], kind: ComposerChip['kind']): ChipRefusal | null {
   const { most, refusal } = limits[kind];
-  return chips.filter((held) => held.kind === kind).length >= most ? refusal : null;
+  const same = (held: ComposerChip['kind']) => held === kind || (isThread(held) && isThread(kind));
+  return chips.filter((held) => same(held.kind)).length >= most ? refusal : null;
 }
 
 /** The session's own ticket: the first one added (spec 022, Q2), or null. */

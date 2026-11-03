@@ -80,6 +80,7 @@ describe('the composer’s words (spec 015, Q13)', () => {
     expect(refusedLine('too_many_tickets')).toBe('A session takes up to 100 tickets.');
     expect(refusedLine('too_many_pull_requests')).toBe('A session takes up to 100 pull requests.');
     expect(refusedLine('too_many_files')).toBe('Add up to 100 files.');
+    expect(refusedLine('too_many_threads')).toBe('Add up to 10 threads.');
   });
 
   it('AC-18, AC-22, AC-23: says why Send started nothing, and where to fix it', () => {
@@ -172,5 +173,24 @@ describe('the composer’s words (spec 015, Q13)', () => {
     expect(contextFailedLine({ kind: 'jira', key: 'ORX-99' }, 'not_found').line).toBe(
       "Orynx can't find ORX-99, or you can't see it.",
     );
+  });
+
+  it('016 AC-26, AC-32: a thread chip reads who started it and where, and says when its tool can’t give it', () => {
+    const slack = { kind: 'slack_thread', channel: 'C024BE91L', ts: '1700000000.123456' } as const;
+    const label = { from: 'Neha K.', channel: 'web-platform', server: null };
+    expect(chipLabel({ ...slack, label })).toBe('Neha K. in #web-platform');
+    expect(chipLabel({ ...slack, label: { ...label, from: 'Arjun M.', channel: null } })).toBe(
+      'Arjun M. · direct message',
+    );
+    expect(chipLabel(slack)).toBe('Slack thread');
+
+    expect(contextFailedLine(slack, 'not_found')).toEqual({
+      line: "Slack can't find that thread, or Orynx can't read it.",
+      link: null,
+    });
+    expect(contextFailedLine(slack, 'not_connected')).toEqual({
+      line: 'Connect Slack in Settings to add its threads.',
+      link: { label: 'Open Settings › Connections', tab: 'connections' },
+    });
   });
 });

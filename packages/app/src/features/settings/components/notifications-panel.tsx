@@ -257,7 +257,7 @@ function SoundSection({ saved, loading, save }: SectionProps) {
   );
 }
 
-/** Settings' rows, grouped as the design draws them; automations (024) and Slack (016) join with their features. */
+/** Settings' rows, grouped as the design draws them; automations (024) join with their feature. */
 const eventGroups: readonly {
   heading: string;
   events: readonly { id: NotificationEvent; label: string; line: string }[];
@@ -281,6 +281,12 @@ const eventGroups: readonly {
       { id: 'review_requested', label: 'Someone asked for your review', line: 'On GitHub' },
       { id: 'checks_failed', label: 'Checks failed on your pull request', line: 'On GitHub' },
       { id: 'jira_assigned', label: 'Jira ticket assigned to you', line: 'In Jira' },
+      // Spec 016, Q8.
+      {
+        id: 'reply_waiting',
+        label: 'Someone is waiting on your reply',
+        line: 'A Slack or Discord message past your wait time',
+      },
     ],
   },
   {

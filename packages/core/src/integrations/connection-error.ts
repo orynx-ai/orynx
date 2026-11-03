@@ -7,7 +7,7 @@ import type { ApiErrorCode } from '@devhub/contracts';
 export class ConnectionError extends Error {
   readonly code: Extract<
     ApiErrorCode,
-    'bad_request' | 'integration_rejected' | 'integration_unreachable' | 'keychain_unavailable'
+    'bad_request' | 'integration_rejected' | 'integration_unreachable' | 'keychain_unavailable' | 'user_id_needed'
   >;
 
   constructor(code: ConnectionError['code'], message: string) {

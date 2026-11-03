@@ -669,7 +669,7 @@ export function createPullRequests(options: PullRequestsOptions): PullRequests {
           step,
           steps: [...steps],
           activities: [...activities],
-          pullRequest: { number: pull.number, url: pull.url, repository, openedAt: at },
+          pullRequest: { number: pull.number, url: pull.url, repository, openedAt: at, title },
         },
       };
     });

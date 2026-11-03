@@ -144,6 +144,9 @@ function requests(): () => string[] {
   return () => urls;
 }
 
+/** Slack and Discord, which these tests never connect. */
+const chatNotConnected = { slack: { state: 'not_connected' }, discord: { state: 'not_connected' } } as const;
+
 describe('inbox service', () => {
   it('AC-21: with nothing connected the list is empty, and a sync asks nobody', async () => {
     const asked = requests();
@@ -153,7 +156,7 @@ describe('inbox service', () => {
 
     expect(await inbox.read()).toEqual({
       items: [],
-      tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' } },
+      tools: { jira: { state: 'not_connected' }, github: { state: 'not_connected' }, ...chatNotConnected },
       syncedAt: null,
     });
     expect(asked()).toEqual([]);
@@ -182,6 +185,7 @@ describe('inbox service', () => {
     expect(read.tools).toEqual({
       jira: { state: 'synced', at: '2026-10-17T10:00:00.000Z' },
       github: { state: 'synced', at: '2026-10-17T10:00:00.000Z' },
+      ...chatNotConnected,
     });
     expect(read.syncedAt).toBe('2026-10-17T10:00:00.000Z');
     expect(seen).toEqual([{ type: 'inbox.changed' }]);
@@ -255,6 +259,7 @@ describe('inbox service', () => {
     expect(read.tools).toEqual({
       jira: { state: 'synced', at: '2026-10-17T10:12:00.000Z' },
       github: { state: 'failed', problem: { kind: 'no_answer' }, lastSyncedAt: '2026-10-17T10:00:00.000Z' },
+      ...chatNotConnected,
     });
     expect(read.items.map((item) => item.id).sort()).toEqual(['github:acme/web-app#2841', 'jira:PROJ-7']);
     // The last time every connected tool answered together.
@@ -295,6 +300,7 @@ describe('inbox service', () => {
     expect((await inbox.read()).tools).toEqual({
       jira: { state: 'failed', problem: { kind: 'sign_in_needed', site: jiraSite }, lastSyncedAt: null },
       github: { state: 'failed', problem: { kind: 'rejected' }, lastSyncedAt: null },
+      ...chatNotConnected,
     });
   });
 
@@ -490,6 +496,7 @@ describe('inbox service', () => {
       expect(found.tools).toEqual({
         jira: { state: 'synced', at: '2026-10-17T10:00:00.000Z' },
         github: { state: 'synced', at: '2026-10-17T10:00:00.000Z' },
+        ...chatNotConnected,
       });
       expect(asked()).toEqual([]);
     });
@@ -500,7 +507,9 @@ describe('inbox service', () => {
       expect(await inbox.records()).toEqual({
         jira: [],
         github: [],
-        tools: { jira: { state: 'syncing' }, github: { state: 'not_connected' } },
+        slack: [],
+        discord: [],
+        tools: { jira: { state: 'syncing' }, github: { state: 'not_connected' }, ...chatNotConnected },
       });
     });
 

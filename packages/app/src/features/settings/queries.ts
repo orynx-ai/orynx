@@ -1,7 +1,9 @@
 import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   claudeLoginQueryOptions,
+  discordConnectionQueryOptions,
   githubConnectionQueryOptions,
+  slackConnectionQueryOptions,
   jiraConnectionQueryOptions,
   jiraProjectsQueryOptions,
   preferencesQueryOptions,
@@ -19,6 +21,11 @@ import { InboxRuleIdSchema, permissionsFor } from '@devhub/contracts';
 import type {
   ClaudeLogin,
   ConnectionCheck,
+  DiscordConnection,
+  DiscordConnectionRequest,
+  IntegrationId,
+  SlackConnection,
+  SlackConnectionRequest,
   GitHubConnection,
   GitHubConnectionRequest,
   JiraConnection,
@@ -181,15 +188,90 @@ export function useDisconnectGitHub() {
   });
 }
 
+/** Who the saved Slack token belongs to (spec 016). */
+export function useSlackConnection() {
+  const api = useApi();
+  return useQuery(slackConnectionQueryOptions(api));
+}
+
+/** Checks the token and its scopes with Slack, then saves; fails with an ApiRequestError that says where it belongs. */
+export function useConnectSlack() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<SlackConnection, ApiRequestError, SlackConnectionRequest>({
+    mutationKey: queryKeys.slackConnection,
+    mutationFn: (request) => api.connectSlack(request),
+    // The request holds the typed token: drop it from the mutation cache as soon as nothing shows it.
+    gcTime: 0,
+    onSuccess: async (connection) => {
+      queryClient.setQueryData(queryKeys.slackConnection, connection);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    },
+  });
+}
+
+export function useDisconnectSlack() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: queryKeys.slackConnection,
+    mutationFn: () => api.disconnectSlack(),
+    onSuccess: async () => {
+      queryClient.setQueryData<SlackConnection>(queryKeys.slackConnection, (old) => old && { ...old, saved: null });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    },
+  });
+}
+
+/** The saved Discord bot and whose mentions it reads (spec 016). */
+export function useDiscordConnection() {
+  const api = useApi();
+  return useQuery(discordConnectionQueryOptions(api));
+}
+
+/** Checks the bot with Discord, then saves; a team's bot fails with user_id_needed (AC-8). */
+export function useConnectDiscord() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation<DiscordConnection, ApiRequestError, DiscordConnectionRequest>({
+    mutationKey: queryKeys.discordConnection,
+    mutationFn: (request) => api.connectDiscord(request),
+    gcTime: 0,
+    onSuccess: async (connection) => {
+      queryClient.setQueryData(queryKeys.discordConnection, connection);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    },
+  });
+}
+
+export function useDisconnectDiscord() {
+  const api = useApi();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: queryKeys.discordConnection,
+    mutationFn: () => api.disconnectDiscord(),
+    onSuccess: async () => {
+      queryClient.setQueryData<DiscordConnection>(queryKeys.discordConnection, (old) => old && { ...old, saved: null });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.status });
+    },
+  });
+}
+
 /**
  * Test connection and Reconnect (spec 030): asks Jira or GitHub now. The answer is the tool's new line, so
  * the row and the dialog show it at once; other tabs hear `status.changed` when it changed.
  */
-export function useCheckConnection(tool: 'jira' | 'github') {
+export function useCheckConnection(tool: IntegrationId) {
   const api = useApi();
   const queryClient = useQueryClient();
+  const checks = {
+    jira: () => api.checkJiraConnection(),
+    github: () => api.checkGitHubConnection(),
+    slack: () => api.checkSlackConnection(),
+    discord: () => api.checkDiscordConnection(),
+  } satisfies Record<IntegrationId, () => Promise<ConnectionCheck>>;
   return useMutation<ConnectionCheck, ApiRequestError>({
-    mutationFn: () => (tool === 'jira' ? api.checkJiraConnection() : api.checkGitHubConnection()),
+    mutationFn: checks[tool],
     onSuccess: (check) => {
       queryClient.setQueryData<Status>(
         queryKeys.status,
@@ -268,6 +350,7 @@ function withChange(preferences: Preferences, change: PreferencesChange): Prefer
       change.deleteSessionsAfterDays === undefined
         ? preferences.deleteSessionsAfterDays
         : change.deleteSessionsAfterDays,
+    replyWaitMinutes: change.replyWaitMinutes ?? preferences.replyWaitMinutes,
   };
 }
 
@@ -313,6 +396,7 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
   const jiraStillSet = change.jiraChanges !== undefined && current.jiraChanges === change.jiraChanges;
   const cleanupStillSet =
     change.deleteSessionsAfterDays !== undefined && current.deleteSessionsAfterDays === change.deleteSessionsAfterDays;
+  const waitStillSet = change.replyWaitMinutes !== undefined && current.replyWaitMinutes === change.replyWaitMinutes;
   return {
     permissions,
     repositoryPermissions,
@@ -321,6 +405,7 @@ function withoutChange(current: Preferences, change: PreferencesChange, saved: P
     editor: editorStillSet ? saved.editor : current.editor,
     jiraChanges: jiraStillSet ? saved.jiraChanges : current.jiraChanges,
     deleteSessionsAfterDays: cleanupStillSet ? saved.deleteSessionsAfterDays : current.deleteSessionsAfterDays,
+    replyWaitMinutes: waitStillSet ? saved.replyWaitMinutes : current.replyWaitMinutes,
   };
 }
 
