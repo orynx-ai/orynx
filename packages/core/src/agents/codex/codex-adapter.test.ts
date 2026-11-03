@@ -792,3 +792,140 @@ describe.skipIf(process.platform === 'win32')("the Codex adapter's Orynx tools (
     expect((await call(codex, 'shell', { command: 'rm -rf /' })).result).toMatchObject({ success: false });
   });
 });
+
+describe.skipIf(process.platform === 'win32')("the Codex adapter's follow-ups and text (spec 052)", () => {
+  it('AC-18: a follow-up while Codex works goes into its turn', async () => {
+    const { fake, adapter, worktree } = await setup();
+    const id = await adapter.startSession(brief, worktree, permissionsFrom(), '');
+    const { codex } = await answerStart(fake);
+
+    const sending = adapter.sendMessage(id, 'Also add a test');
+    const steer = await codex.expectRequest('turn/steer');
+    expect(steer.params).toEqual({
+      threadId: 'thread-1',
+      expectedTurnId: 'turn-1',
+      input: [{ type: 'text', text: 'Also add a test' }],
+    });
+    codex.reply(steer.id, { turnId: 'turn-1' });
+    expect(await sending).toBe(true);
+  });
+
+  it('AC-18: a follow-up that comes as the turn ends, or after, is left for the session to resume with', async () => {
+    const { fake, adapter, worktree } = await setup();
+    const id = await adapter.startSession(brief, worktree, permissionsFrom(), '');
+    const events = heard(adapter, id);
+    const { codex } = await answerStart(fake);
+
+    const sending = adapter.sendMessage(id, 'Also add a test');
+    codex.fail((await codex.expectRequest('turn/steer')).id, -32600, 'no active turn');
+    expect(await sending).toBe(false);
+
+    finishTurn(codex, 'Done.');
+    await until(() => events.at(-1)?.type === 'ended');
+    expect(await adapter.sendMessage(id, 'One more')).toBe(false);
+  });
+
+  it("AC-19: after Done or Stop, a follow-up resumes Codex's own thread with your message", async () => {
+    const { fake, adapter, worktree } = await setup();
+    const id = await adapter.startSession({ message: 'Now add a test', context: [] }, worktree, permissionsFrom(), '', {
+      resume: 'thread-1',
+    });
+    const events = heard(adapter, id);
+    const codex = await fake.next();
+    codex.reply((await codex.expectRequest('initialize')).id, {});
+    await codex.read();
+    codex.reply((await codex.expectRequest('config/read')).id, { config: {} });
+    const resumed = await codex.expectRequest('thread/resume');
+    expect(resumed.params).toMatchObject({ threadId: 'thread-1', cwd: worktree });
+    codex.reply(resumed.id, { thread: { id: 'thread-1' } });
+    const turn = await codex.expectRequest('turn/start');
+    expect(turn.params).toMatchObject({ threadId: 'thread-1', input: [{ type: 'text', text: 'Now add a test' }] });
+    codex.reply(turn.id, { turn: { id: 'turn-2' } });
+
+    await until(() => events.length > 0);
+    expect(events[0]).toMatchObject({ type: 'started', agentSessionId: 'thread-1' });
+  });
+
+  it('AC-19: a thread Codex no longer has is the resume problem', async () => {
+    const { fake, adapter, worktree } = await setup();
+    const id = await adapter.startSession(brief, worktree, permissionsFrom(), '', { resume: 'thread-gone' });
+    const events = heard(adapter, id);
+    const codex = await fake.next();
+    codex.reply((await codex.expectRequest('initialize')).id, {});
+    await codex.read();
+    codex.reply((await codex.expectRequest('config/read')).id, { config: {} });
+    codex.fail((await codex.expectRequest('thread/resume')).id, -32600, 'no rollout found for thread id thread-gone');
+
+    await until(() => events.at(-1)?.type === 'ended');
+    expect(events).toEqual([
+      { type: 'problem', sessionId: id, kind: 'resume', code: 'no_conversation' },
+      { type: 'ended', sessionId: id },
+    ]);
+  });
+
+  /** Plays Codex for one `write()`: answers its start, and gives `answer` once the turn has started. */
+  async function answerWrite(fake: FakeCodex, answer: (codex: CodexPeer) => void) {
+    const codex = await fake.next();
+    codex.reply((await codex.expectRequest('initialize')).id, {});
+    await codex.read();
+    codex.reply((await codex.expectRequest('config/read')).id, { config: {} });
+    const thread = await codex.expectRequest('thread/start');
+    codex.reply(thread.id, { thread: { id: 'thread-w' } });
+    const turn = await codex.expectRequest('turn/start');
+    codex.reply(turn.id, { turn: { id: 'turn-w' } });
+    answer(codex);
+    return { codex, thread: thread.params, turn: turn.params };
+  }
+
+  it("AC-22: writes text alone, from an empty folder it can only read, in a thread that isn't kept", async () => {
+    const { fake, adapter } = await setup();
+    const writing = adapter.write('Draft the pull request.', 'Write a title and a body.', {
+      model: 'gpt-5.5-codex',
+      effort: 'low',
+    });
+    let declined: unknown = null;
+    const { thread, turn } = await answerWrite(fake, (codex) => {
+      void codex
+        .ask('item/commandExecution/requestApproval', { kind: 'command', itemId: 'c', command: 'ls ~' })
+        .then((reply) => {
+          declined = reply.result;
+          codex.notify('item/completed', { item: { type: 'agentMessage', id: 'm', text: 'Add bulk archive' } });
+          codex.notify('turn/completed', { threadId: 'thread-w', turn: { id: 'turn-w', status: 'completed' } });
+        });
+    });
+
+    expect(await writing).toEqual({ ok: true, text: 'Add bulk archive' });
+    expect(declined).toEqual({ decision: 'decline' });
+    expect(thread).toMatchObject({
+      ephemeral: true,
+      developerInstructions: 'Write a title and a body.',
+      model: 'gpt-5.5-codex',
+    });
+    expect(thread).not.toHaveProperty('dynamicTools');
+    expect(turn).toMatchObject({ input: [{ type: 'text', text: 'Draft the pull request.' }], effort: 'low' });
+    const [run] = await fake.runs();
+    expect(run?.cwd).toMatch(/orynx-codex-write-/);
+    expect(run?.args.join(' ')).toMatch(/orynx-codex-write-[^"]*"="read"/);
+  });
+
+  it('AC-22: gives up after its time, and says the login or limit problem when the turn fails', async () => {
+    const { fake, adapter } = await setup();
+    const late = adapter.write('Draft it.', '', { timeoutMs: 1500 });
+    await answerWrite(fake, () => undefined);
+    expect(await late).toEqual({ ok: false, problem: 'timeout' });
+
+    const failing = adapter.write('Draft it.', '');
+    await answerWrite(fake, (codex) => {
+      codex.notify('turn/completed', {
+        threadId: 'thread-w',
+        turn: { id: 'turn-w', status: 'failed', error: { message: 'x', codexErrorInfo: 'usageLimitExceeded' } },
+      });
+    });
+    expect(await failing).toEqual({ ok: false, problem: 'limit' });
+
+    expect(await (await setup({ program: null })).adapter.write('Draft it.', '')).toEqual({
+      ok: false,
+      problem: 'other',
+    });
+  });
+});

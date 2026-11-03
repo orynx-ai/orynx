@@ -13,7 +13,15 @@ import {
 import { ticketTitle, type TicketTool } from '../../orynx-tickets/tools.ts';
 import { briefText } from '../../sessions/brief.ts';
 import { parseUnifiedDiff } from '../../sessions/unified-diff.ts';
-import { askText, type AgentAdapter, type AgentAsk, type AgentEvent, type OrynxTool } from '../agent-adapter.ts';
+import {
+  askText,
+  type AgentAdapter,
+  type AgentAsk,
+  type AgentEvent,
+  type AgentProblemKind,
+  type AgentWritten,
+  type OrynxTool,
+} from '../agent-adapter.ts';
 import { previewLineLimit } from '../claude/edit-preview.ts';
 import { decideToolUse, orynxToolPrefix, type ToolContext } from '../claude/tool-decision.ts';
 import { startAppServer, type AppServer } from './app-server.ts';
@@ -45,6 +53,8 @@ export interface CodexAdapterOptions {
   runsCommands: boolean;
   /** How long Stop waits after interrupting before it ends the program; 5 seconds. */
   stopGraceMs?: number;
+  /** How long `write()` waits for Codex's text; 60 seconds (spec 014, Q4). */
+  writeTimeoutMs?: number;
   /** How long Codex may take to list its models; 15 seconds. */
   modelsTimeoutMs?: number;
   /** How long a list of models is kept before Codex is asked again; 10 minutes. */
@@ -214,6 +224,7 @@ export function createCodexAdapter({
   platform,
   runsCommands,
   stopGraceMs = 5_000,
+  writeTimeoutMs = 60_000,
   modelsTimeoutMs = 15_000,
   modelsMaxAgeMs = 10 * 60_000,
   now = Date.now,
@@ -464,8 +475,67 @@ export function createCodexAdapter({
       return listing;
     },
 
-    write() {
-      return Promise.resolve({ ok: false, problem: 'other' });
+    async write(prompt, instructions, { timeoutMs = writeTimeoutMs, model, effort } = {}) {
+      if (program === null) return { ok: false, problem: 'other' };
+      const folder = await mkdtemp(join(tmpdir(), 'orynx-codex-write-'));
+      let server: AppServer | null = null;
+      // Codex's text for one prompt (spec 014, Q4): from an empty folder it may only read, every command and edit
+      // declined, none of Orynx's tools, in a thread Codex doesn't keep.
+      const attempt = async (): Promise<AgentWritten> => {
+        const places = { platform, worktree: folder, devhubHome, home, temporary, readOnly: true };
+        const started = await startAppServer({ program, args: codexSessionArgs(places), cwd: folder, env });
+        server = started;
+        started.onRequest((method) =>
+          method === 'item/tool/call' ? Promise.resolve(toolAnswer('No tools here.', false)) : Promise.resolve(decline),
+        );
+        const read = createCodexReader({ worktree: folder, seen: () => 'command' });
+        const turnEnded = new Promise<Extract<CodexRead, { type: 'turn_ended' }>>((resolve) => {
+          started.onNotification((method, params) => {
+            for (const said of read(method, params)) if (said.type === 'turn_ended') resolve(said);
+          });
+        });
+        const config = ConfigReadSchema.safeParse(await started.request('config/read', {}, timeoutMs));
+        const servers = config.success ? Object.keys(config.data.config.mcp_servers ?? {}) : [];
+        const thread = ThreadAnswerSchema.parse(
+          await started.request(
+            'thread/start',
+            {
+              cwd: folder,
+              ephemeral: true,
+              ...(model === undefined ? {} : { model }),
+              developerInstructions: instructions,
+              approvalPolicy: 'untrusted',
+              approvalsReviewer: 'user',
+              config: Object.fromEntries(servers.map((name) => [`mcp_servers.${name}.enabled`, false])),
+            },
+            timeoutMs,
+          ),
+        );
+        await started.request(
+          'turn/start',
+          {
+            threadId: thread.thread.id,
+            input: [{ type: 'text', text: prompt }],
+            ...(model === undefined ? {} : { model }),
+            ...(effort === undefined ? {} : { effort }),
+          },
+          timeoutMs,
+        );
+        const ended = await turnEnded;
+        if (ended.status === 'completed') return { ok: true, text: ended.summary };
+        return { ok: false, problem: ended.problem?.kind ?? 'other' };
+      };
+      let timer: NodeJS.Timeout | undefined;
+      const late = new Promise<AgentWritten>((resolve) => {
+        timer = setTimeout(resolve, timeoutMs, { ok: false, problem: 'timeout' });
+      });
+      try {
+        return await Promise.race([attempt().catch((): AgentWritten => ({ ok: false, problem: 'other' })), late]);
+      } finally {
+        clearTimeout(timer);
+        await (server as AppServer | null)?.close(1_000);
+        await rm(folder, { recursive: true, force: true });
+      }
     },
 
     startSession(
@@ -506,10 +576,10 @@ export function createCodexAdapter({
       /** The rows, the list and the session's branch, read again for every call (spec 012, AC-11). */
       const context = async (): Promise<ToolContext> => ({ worktree, home, ...(await permissions()) });
 
-      const problem = (code: string) => {
+      const problem = (code: string, kind: AgentProblemKind = 'other') => {
         if (running.settled) return;
         running.settled = true;
-        emit(running, { type: 'problem', sessionId: id, kind: 'other', code });
+        emit(running, { type: 'problem', sessionId: id, kind, code });
       };
 
       function heard(said: CodexRead, server: AppServer) {
@@ -585,6 +655,13 @@ export function createCodexAdapter({
           );
           if (!thread.success) throw new Error('unreadable thread');
           const threadId = thread.data.thread.id;
+          // Codex started a new conversation: it would work without its history (spec 013).
+          if (resume !== undefined && threadId !== resume) {
+            problem('new_conversation', 'resume');
+            void server.close(stopGraceMs);
+            await server.ended;
+            return;
+          }
           running.threadId = threadId;
           emit(running, {
             type: 'started',
@@ -608,7 +685,16 @@ export function createCodexAdapter({
           // A turn that has already ended said so first.
           if (turn.success && !running.settled) running.turnId = turn.data.turn.id;
         } catch {
-          if (!running.stopping) problem(running.threadId === null ? 'thread_start' : 'turn_start');
+          if (running.stopping) {
+            // Nothing to say: you stopped it.
+          } else if (running.threadId !== null) {
+            problem('turn_start');
+          } else if (resume !== undefined) {
+            // A follow-up Codex can't carry on: it no longer has the thread (spec 013).
+            problem('no_conversation', 'resume');
+          } else {
+            problem('thread_start');
+          }
           void server.close(stopGraceMs);
         } finally {
           turnStarted();
@@ -653,8 +739,25 @@ export function createCodexAdapter({
       return Promise.resolve(settle(sessionId, running, approvalId, decision === 'deny' ? 'deny' : 'allow'));
     },
 
-    sendMessage() {
-      return Promise.resolve(false);
+    async sendMessage(sessionId, text) {
+      const running = sessions.get(sessionId);
+      if (running === undefined) return false;
+      // A follow-up sent as the session starts waits for its first turn.
+      await within(running.turnStarted, requestTimeoutMs);
+      const { server, threadId, turnId } = running;
+      if (running.done || running.stopping || running.settled) return false;
+      if (server === null || threadId === null || turnId === null) return false;
+      // Into the turn under way (spec 013, AC-12); one that has just ended refuses it, and the session resumes instead.
+      try {
+        await server.request(
+          'turn/steer',
+          { threadId, expectedTurnId: turnId, input: [{ type: 'text', text }] },
+          requestTimeoutMs,
+        );
+        return true;
+      } catch {
+        return false;
+      }
     },
 
     async stop(sessionId) {

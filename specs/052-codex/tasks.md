@@ -32,7 +32,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 10: The Codex adapter (d): Orynx's ticket and session tools as `dynamicTools`, answered on `item/tool/call` with their asks (AC-17)
       Check: pnpm test packages/core/src/agents/codex/codex-adapter.test.ts
       Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts, packages/core/src/orynx-tickets/tools.ts (`ticketTitle`, shared with Claude's adapter)
-- [ ] Task 11: The Codex adapter (e): follow-ups through `turn/steer`, resume through `thread/resume`, problems (login, limit, resume), and `write()` in an empty folder with a read-only sandbox and no tools (AC-18, AC-19, AC-21, AC-22)
+- [x] Task 11: The Codex adapter (e): follow-ups through `turn/steer`, resume through `thread/resume`, problems (login, limit, resume), and `write()` in an empty folder with a read-only sandbox and no tools (AC-18, AC-19, AC-21, AC-22)
       Check: pnpm test packages/core/src/agents/codex/codex-adapter.test.ts
       Files: packages/core/src/agents/codex/codex-adapter.ts, codex-adapter.test.ts
 - [ ] Task 12: The session service runs each session on its own agent's adapter, with a sign-in gate per agent. Follow-ups, the quick read, the PR draft and review replies use it, and older sessions read as Claude (AC-5, AC-6, AC-22, AC-23)
