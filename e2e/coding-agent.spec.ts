@@ -124,7 +124,7 @@ test.describe('the first hub, whose Claude Code is never signed in', () => {
     });
     await page.goto('/settings/coding-agent');
     const card = claudeCard(page);
-    const modes = page.getByRole('region', { name: 'What Claude can do without asking' });
+    const modes = page.getByRole('region', { name: 'What the agent can do without asking' });
     const button = card.getByRole('button', { name: 'Check again' });
     await expect(button).toBeVisible();
     // Measured where the click leaves the page: at 360 px the button can start just below the fold, and the

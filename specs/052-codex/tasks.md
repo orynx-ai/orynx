@@ -59,9 +59,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 19: Words (b): a session's screens, notifications and terminal tab name its agent (AC-7, AC-21)
       Check: pnpm test packages/app/src/features/sessions packages/app/src/features/notifications packages/core/src/notifications
       Files: packages/app/src/features/sessions/step-words.ts, approval-words.ts, session-screen.test.tsx, components (progress, step details, callout, follow-up box, terminal, pull request, push, replies, review, context), packages/app/src/features/notifications/words.ts, packages/contracts/src/notifications.ts, packages/core/src/notifications/session-notifications.ts
-- [ ] Task 20: Words (c): Settings words that cover both agents say "the agent" (Q4)
+- [x] Task 20: Words (c): Settings words that cover both agents say "the agent" (Q4)
       Check: pnpm test packages/app/src/features/settings
-      Files: packages/app/src/features/settings/permission-levels.ts, components/coding-agent-panel.tsx, jira-changes.tsx, settings-screen.tsx
+      Files: packages/app/src/features/settings/permission-levels.ts, settings-screen.tsx, components (coding agent, allowed commands, repositories, inbox rules, notifications, skills) and their tests, e2e/coding-agent.spec.ts, e2e/skills.spec.ts. "Claude changes Jira" keeps its name: other messages name the setting
 - [ ] Task 21: e2e: a fake `codex` app-server. Connect it, pick a Codex model, Build, Allow a command, see Done (AC-1, AC-4, AC-5, AC-8, AC-27)
       Check: pnpm test:e2e e2e/codex.spec.ts
       Files: e2e/fake-codex/codex, e2e/fake-codex/config.ts, e2e/codex.spec.ts, playwright.config.ts

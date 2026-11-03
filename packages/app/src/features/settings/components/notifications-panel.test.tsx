@@ -267,11 +267,11 @@ describe('Settings › Notifications: what you’re told about (spec 029)', () =
       within(table)
         .getAllByRole('columnheader')
         .map((head) => head.textContent),
-    ).toEqual(['Event', 'Pop-up', 'Desktop', 'Sound', 'Claude sessions', 'Inbox', 'Orynx']);
-    expect(within(table).getByRole('columnheader', { name: 'Claude sessions' })).toBeVisible();
+    ).toEqual(['Event', 'Pop-up', 'Desktop', 'Sound', 'Agent sessions', 'Inbox', 'Orynx']);
+    expect(within(table).getByRole('columnheader', { name: 'Agent sessions' })).toBeVisible();
     expect(within(table).getByRole('columnheader', { name: 'Inbox' })).toBeVisible();
     // Questions share the row (spec 051, Q6).
-    const approval = within(table).getByRole('row', { name: /Claude is waiting for you/ });
+    const approval = within(table).getByRole('row', { name: /The agent is waiting for you/ });
     expect(within(approval).getByText('Needs you')).toBeVisible();
     expect(
       within(approval).getByText('A command, an edit, a push, a pull request or a question needs you'),
@@ -282,7 +282,7 @@ describe('Settings › Notifications: what you’re told about (spec 029)', () =
     expect(
       within(table).getByRole('checkbox', { name: 'Desktop notification for Session hit a limit' }),
     ).not.toBeChecked();
-    expect(within(table).getByRole('combobox', { name: 'Sound for Claude is waiting for you' })).toHaveTextContent(
+    expect(within(table).getByRole('combobox', { name: 'Sound for The agent is waiting for you' })).toHaveTextContent(
       'Knock',
     );
     expect(within(table).getByRole('combobox', { name: 'Sound for Jira ticket assigned to you' })).toHaveTextContent(
@@ -433,7 +433,7 @@ describe('Settings › Notifications: do not disturb (spec 029)', () => {
     const changes = serving();
     const { user } = await renderApp({ route: '/settings/notifications' });
     const still = within(await screen.findByRole('region', { name: 'Do not disturb' })).getByRole('checkbox', {
-      name: 'Still tell me when Claude is waiting for approval',
+      name: 'Still tell me when the agent is waiting for approval',
     });
     await waitFor(() => {
       expect(still).toBeEnabled();

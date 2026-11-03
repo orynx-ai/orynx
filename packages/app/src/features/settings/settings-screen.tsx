@@ -95,8 +95,8 @@ export function SettingsScreen() {
                 }}
               >
                 <span>
-                  Tokens live in your OS keychain and the cache is a local file. Orynx talks only to Jira, GitHub, Slack
-                  and Claude.
+                  Tokens live in your OS keychain and the cache is a local file. Orynx talks only to Jira, GitHub,
+                  Slack, Claude and Codex.
                 </span>
               </Callout>
             )}

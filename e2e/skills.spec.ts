@@ -77,7 +77,7 @@ async function addSkill(page: Page, name: string) {
   await expect(page.getByRole('textbox', { name: 'Name', exact: true })).toBeFocused();
   await page.keyboard.type(name);
   await page.getByRole('textbox', { name: 'When to use it' }).fill(`When ${name} helps.`);
-  await page.getByRole('textbox', { name: 'Instructions for Claude' }).fill(`# ${name}\n\nReport only.`);
+  await page.getByRole('textbox', { name: 'Instructions for the agent' }).fill(`# ${name}\n\nReport only.`);
   await page.getByRole('button', { name: 'Save skill' }).click();
   await expect(page.getByRole('heading', { level: 2, name })).toBeVisible();
   await expect(page.getByRole('status')).toHaveText('Saved');
@@ -127,7 +127,7 @@ test('AC-11, AC-26: Given unsaved changes, when I pick another skill, then Orynx
   await addSkill(page, first);
   await addSkill(page, second);
 
-  await page.getByRole('textbox', { name: 'Instructions for Claude' }).press('End');
+  await page.getByRole('textbox', { name: 'Instructions for the agent' }).press('End');
   await page.keyboard.type(' More.');
   await expect(page.getByRole('status')).toHaveText('Unsaved changes');
   const firstItem = page.getByRole('button', { name: first });

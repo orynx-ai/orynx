@@ -8,7 +8,7 @@ import { FakeEventSource } from '../../../test/fake-event-source.ts';
 import { apiUrl, server } from '../../../test/msw.ts';
 import { renderApp } from '../../../test/render.tsx';
 
-const heading = 'What Claude can do without asking';
+const heading = 'What the agent can do without asking';
 const saveFailed = "Couldn't save that change. Check that Orynx is still running, then try again.";
 /** A row's options, named by the row. */
 const row = (name: string) => screen.getByRole('group', { name });
@@ -85,7 +85,11 @@ describe('CodingAgentPanel', () => {
         'Such as npm install, curl or git fetch. Allowed, they run outside the sandbox.',
       ],
       ["Deleting outside the session's copy", 'Ask', 'Such as rm ~/notes.txt. Allowed, it runs outside the sandbox.'],
-      ['Commands outside the sandbox', 'Ask', "When Claude asks to run one there. One Orynx can't read always asks."],
+      [
+        'Commands outside the sandbox',
+        'Ask',
+        "When the agent asks to run one there. One Orynx can't read always asks.",
+      ],
       ['Push the branch', 'Block', "Only the session's branch to origin, never forced, with your own git login."],
       ['Open a pull request', 'Block', "With gh pr create for the session's branch, as you on GitHub."],
     ] as const;
@@ -120,7 +124,7 @@ describe('CodingAgentPanel', () => {
       'Asks you firstRun commands, run outside the sandbox, delete outside its copy, open pull requests.',
     );
     expect(summary).toHaveTextContent('NeverPush the branch.');
-    expect(screen.getByText('Anything Claude downloads runs on your computer.')).toBeVisible();
+    expect(screen.getByText('Anything the agent downloads runs on your computer.')).toBeVisible();
     expect(screen.queryByText('These can change files and settings anywhere on your computer.')).toBeNull();
   });
 

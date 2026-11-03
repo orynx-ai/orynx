@@ -100,7 +100,7 @@ export function CodingAgentPanel() {
         <SectionHeading
           id={headingId}
           icon={SecurityCheckIcon}
-          title="What Claude can do without asking"
+          title="What the agent can do without asking"
           line={
             repository === null ? (
               'Start from a level, then change any row. Anything set to Ask waits for your click in the session.'

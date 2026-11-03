@@ -117,10 +117,10 @@ export function SkillsPanel() {
       <Callout
         tone="info"
         icon={<Icon icon={Book02Icon} aria-hidden />}
-        title="A skill tells Claude how to do one kind of work"
+        title="A skill tells the agent how to do one kind of work"
       >
         <span>
-          Claude reads a skill only in a session where you name it with / in the composer. Skills live in your own
+          The agent reads a skill only in a session where you name it with / in the composer. Skills live in your own
           folder, outside your repos and ~/.claude.
         </span>
       </Callout>

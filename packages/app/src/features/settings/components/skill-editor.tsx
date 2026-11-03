@@ -189,7 +189,7 @@ export function SkillEditor({ skill, pluginFolder, onSaved, onDeleted, className
             <Textarea rows={2} {...form.register('description')} />
           </Field>
           <Field
-            label="Instructions for Claude"
+            label="Instructions for the agent"
             help="Markdown. Steps, what good output looks like, what not to do."
             error={errors.instructions?.message}
           >

@@ -21,7 +21,7 @@ const rules: readonly { id: InboxRuleId; label: string }[] = [
   { id: 'review_requested', label: 'Pull requests waiting for my review' },
   { id: 'checks_failing', label: 'My pull requests with failing checks' },
   { id: 'unresolved_comments', label: 'My pull requests with unresolved review comments' },
-  { id: 'session_waiting', label: 'Claude sessions waiting for my approval' },
+  { id: 'session_waiting', label: 'Agent sessions waiting for my approval' },
   // Spec 016, Q8.
   { id: 'slack_waiting', label: "Slack mentions and DMs you haven't answered" },
   { id: 'discord_waiting', label: "Discord mentions you haven't answered" },
