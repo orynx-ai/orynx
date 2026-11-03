@@ -49,6 +49,7 @@ import { useTicketDialogStore } from '../../tickets/ticket-dialog-store.ts';
 import { holds } from '../composer-rules.ts';
 import { composerWords, refusedLine } from '../composer-words.ts';
 import { useComposerStore } from '../store.ts';
+import { forAgent } from '../../../words/agent-words.ts';
 
 const panelTitle = 'Needs your attention';
 
@@ -588,8 +589,8 @@ function ReviewPullRequest({ action }: { action: Extract<RowAction, { kind: 'rev
     <IconButton
       variant="ghost"
       size="sm"
-      label={action.label}
-      aria-label={action.name}
+      label={forAgent(action.label, choice.agent ?? 'claude')}
+      aria-label={forAgent(action.name, choice.agent ?? 'claude')}
       disabled={start.isPending}
       onClick={() => {
         const request: ComposerStart = { message: '', context: [action.chip], ...choice, mode: 'ask', review: true };

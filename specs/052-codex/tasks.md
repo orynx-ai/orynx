@@ -53,9 +53,9 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 17: The picker: a group per signed-in agent, the agent kept with the model and effort, falling back when an agent signs out, and the agent sent on start and follow-up (AC-4, AC-5, AC-6, AC-26)
       Check: pnpm test packages/app/src/features/home/components/agent-picker.test.tsx packages/app/src/features/home/store.test.ts
       Files: packages/app/src/features/home/components/agent-picker.tsx, agent-picker.test.tsx, store.ts, queries.ts, composer-words.ts, home-composer.tsx, packages/app/src/features/sessions/components/follow-up-box.tsx
-- [ ] Task 18: Words (a): the composer and Home name the picked agent ("Send to Codex", "Review with Codex") (AC-24)
+- [x] Task 18: Words (a): the composer and Home name the picked agent ("Send to Codex", "Review with Codex") (AC-24)
       Check: pnpm test packages/app/src/features/home
-      Files: packages/app/src/features/home/composer-words.ts, inbox-words.ts, components that read them
+      Files: packages/app/src/words/agent-words.ts (`forAgent`), agent-words.test.ts, packages/app/src/features/home/components/home-composer.tsx, attention-panel.tsx and their tests
 - [ ] Task 19: Words (b): a session's screens, notifications and terminal tab name its agent (AC-7, AC-21)
       Check: pnpm test packages/app/src/features/sessions packages/app/src/features/notifications
       Files: packages/app/src/features/sessions/approval-words.ts, step-words.ts, follow-up-words.ts, review-words.ts, pull-request-words.ts, ticket-tab-words.ts, port-words.ts, components/terminal/terminal-words.ts, packages/app/src/features/notifications/words.ts
