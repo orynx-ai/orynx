@@ -41,6 +41,8 @@ function What({ approval }: { approval: SessionApproval }) {
       </>
     );
   }
+  // shortcut: the question's form comes in spec 051's task 8; until then nothing asks one.
+  if (approval.kind === 'question') return null;
   return (
     <>
       <DiffView path={approval.path} lines={approval.lines} />
@@ -218,7 +220,9 @@ export function ApprovalCallout({
                   ? approval.command
                   : approval.kind === 'edit'
                     ? approval.path
-                    : approval.key}
+                    : approval.kind === 'question'
+                      ? approval.questions[0]?.header
+                      : approval.key}
               </code>
             }
             action={approvalBar.review}

@@ -80,6 +80,27 @@ describe('stepWords (Q10a)', () => {
     });
   });
 
+  it("051 AC-1, AC-2, AC-7, Q3: Claude's question waiting for you, your answer, and one you skipped", () => {
+    const question = 'Which date library should we use?';
+    expect(
+      step({ kind: 'waiting', state: 'running', approvalId: 'approval-q1', about: 'question', text: question }),
+    ).toEqual({ title: 'Waiting for your answer', detail: question });
+    expect(
+      step({
+        kind: 'answered',
+        state: 'done',
+        answers: [
+          { header: 'Library', answer: 'date-fns' },
+          { header: '', answer: 'Unit tests, Types' },
+        ],
+      }),
+    ).toEqual({ title: 'You answered', detail: 'Library: date-fns · Unit tests, Types' });
+    expect(step({ kind: 'denied', state: 'done', about: 'question', text: question })).toEqual({
+      title: "You skipped Claude's question",
+      detail: question,
+    });
+  });
+
   it('AC-2: the worktree, while git works and once made', () => {
     const worktree = { kind: 'worktree', branch: 'feat/PROJ-1423', base: 'origin/main', fetched: true } as const;
     expect(step({ ...worktree, state: 'running', fetched: false })).toEqual({

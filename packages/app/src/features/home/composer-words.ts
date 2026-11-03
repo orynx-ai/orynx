@@ -355,7 +355,9 @@ export function bannerDetail({
             ? `wants to edit ${approval.path}`
             : approval.kind === 'jira'
               ? `wants to change ${approval.key}`
-              : `wants to delete ${approval.key}`,
+              : approval.kind === 'question'
+                ? `asks: ${approval.questions[0]?.question ?? 'a question'}`
+                : `wants to delete ${approval.key}`,
     );
   }
   if (more > 0) parts.push(`${String(more)} more waiting`);

@@ -300,7 +300,7 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
   ActivityBaseSchema.extend({
     kind: z.literal('waiting'),
     approvalId: z.string().min(1),
-    about: z.enum(['command', 'edit', 'ticket', 'server', 'jira']),
+    about: z.enum(['command', 'edit', 'ticket', 'server', 'jira', 'question']),
     text: z.string().nullable(),
   }),
   /** Commands that ran, in the order they were allowed. */
@@ -313,11 +313,19 @@ export const SessionActivitySchema = z.discriminatedUnion('kind', [
      */
     calls: z.array(z.object({ id: z.string().min(1), failed: z.boolean().nullable() })).optional(),
   }),
-  /** You denied a call: `text` is the command, the edit's path, or the ticket's key (spec 037). */
+  /**
+   * You denied a call: `text` is the command, the edit's path, or the ticket's key (spec 037); or you skipped Claude's
+   * question, and `text` is its first question (spec 051).
+   */
   ActivityBaseSchema.extend({
     kind: z.literal('denied'),
-    about: z.enum(['command', 'edit', 'ticket', 'server', 'jira']),
+    about: z.enum(['command', 'edit', 'ticket', 'server', 'jira', 'question']),
     text: z.string().min(1),
+  }),
+  /** You answered Claude's question (spec 051): each question's header and the answer Claude got, in order. */
+  ActivityBaseSchema.extend({
+    kind: z.literal('answered'),
+    answers: z.array(z.object({ header: z.string(), answer: z.string().min(1) })).min(1),
   }),
   /** Claude can't run commands in this session (spec 012, Q2b). */
   ActivityBaseSchema.extend({ kind: z.literal('no_commands'), reason: z.enum(['no_sandbox']) }),
@@ -435,6 +443,28 @@ export const JiraChangeAskSchema = z.discriminatedUnion('action', [
 ]);
 export type JiraChangeAsk = z.infer<typeof JiraChangeAskSchema>;
 
+/**
+ * One of Claude's questions (spec 051), as Claude Code's `AskUserQuestion` gives it: the question, its short header,
+ * whether it takes several choices, and 2 to 4 choices. An option's `preview` is dropped (Q5).
+ */
+export const SessionQuestionSchema = z.object({
+  question: z.string().min(1),
+  header: z.string(),
+  multiSelect: z.boolean(),
+  options: z
+    .array(z.object({ label: z.string().min(1), description: z.string() }))
+    .min(2)
+    .max(4),
+});
+export type SessionQuestion = z.infer<typeof SessionQuestionSchema>;
+
+/** 1 to 4 questions, each asked once: Claude Code keys the answers by the question's text (AC-19). */
+export const SessionQuestionsSchema = z
+  .array(SessionQuestionSchema)
+  .min(1)
+  .max(4)
+  .refine((questions) => new Set(questions.map((one) => one.question)).size === questions.length);
+
 /** A call waiting for your answer (spec 012): a command, or an edit while Ask before everything is on. */
 export const SessionApprovalSchema = z.discriminatedUnion('kind', [
   ApprovalBaseSchema.extend({
@@ -478,6 +508,8 @@ export const SessionApprovalSchema = z.discriminatedUnion('kind', [
    * Jira on in Settings › Coding agent, or Deny.
    */
   ApprovalBaseSchema.extend({ kind: z.literal('jira'), key: JiraIssueKeySchema, change: JiraChangeAskSchema }),
+  /** Claude asks you something (spec 051): it waits for your answer, or Skip, and is never a permission. */
+  ApprovalBaseSchema.extend({ kind: z.literal('question'), questions: SessionQuestionsSchema }),
 ]);
 export type SessionApproval = z.infer<typeof SessionApprovalSchema>;
 
@@ -796,7 +828,21 @@ export type ContextProblem = Extract<StartSessionAnswer, { result: 'context_fail
 export const ApprovalDecisionSchema = z.enum(['allow_once', 'always_allow', 'deny']);
 export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 
-export const RespondToApprovalRequestSchema = z.object({ decision: ApprovalDecisionSchema });
+/** Other's text, at most 2,000 characters (spec 051). */
+export const questionOtherLimit = 2000;
+
+/** Your answer to one of Claude's questions (spec 051): the labels you picked, and Other's text when you typed one. */
+export const QuestionAnswerSchema = z.object({
+  picked: z.array(z.string().min(1)).max(4),
+  other: z.string().trim().min(1).max(questionOtherLimit).nullable(),
+});
+export type QuestionAnswer = z.infer<typeof QuestionAnswerSchema>;
+
+/** Allow once, Always allow or Deny; or, for Claude's question, your answers in its order, and Deny is Skip (spec 051). */
+export const RespondToApprovalRequestSchema = z.discriminatedUnion('decision', [
+  z.object({ decision: ApprovalDecisionSchema }),
+  z.object({ decision: z.literal('answer'), answers: z.array(QuestionAnswerSchema).min(1).max(4) }),
+]);
 export type RespondToApprovalRequest = z.infer<typeof RespondToApprovalRequestSchema>;
 
 /** POST /api/sessions/:id/messages: what you typed in the follow-up box, exactly as Claude gets it (spec 013). */

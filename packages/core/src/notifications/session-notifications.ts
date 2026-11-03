@@ -19,7 +19,8 @@ function aboutOf(approval: SessionApproval): Extract<NotificationWhat, { kind: '
     approval.kind === 'edit' ||
     approval.kind === 'ticket' ||
     approval.kind === 'server' ||
-    approval.kind === 'jira'
+    approval.kind === 'jira' ||
+    approval.kind === 'question'
   ) {
     return approval.kind;
   }

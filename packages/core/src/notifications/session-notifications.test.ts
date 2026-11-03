@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeSession, makeSessionApproval } from '@devhub/contracts/testing';
+import { makeQuestionApproval, makeSession, makeSessionApproval } from '@devhub/contracts/testing';
 import { approvalNotificationId, sessionNotifications } from './session-notifications.ts';
 
 const working = makeSession({ id: '00000000000000aa', title: 'Add bulk archive', state: 'working' });
@@ -66,6 +66,18 @@ describe('the notifications a session change raises (spec 029)', () => {
       session,
       approvalId: 'call-5',
       about: 'ticket',
+      command: null,
+      waiting: true,
+    });
+  });
+
+  it("051 AC-13: Claude's question raises one about a question, with no command", () => {
+    const asked = { ...working, state: 'needs_you' as const, approvals: [makeQuestionApproval()] };
+    expect(sessionNotifications(working, asked).added[0]?.what).toEqual({
+      kind: 'approval',
+      session,
+      approvalId: 'approval-q1',
+      about: 'question',
       command: null,
       waiting: true,
     });

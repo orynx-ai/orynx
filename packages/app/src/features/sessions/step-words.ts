@@ -121,12 +121,14 @@ const deniedTitles: Record<Extract<SessionActivity, { kind: 'denied' }>['about']
   ticket: 'You denied deleting a ticket',
   server: 'You denied a server',
   jira: 'You denied a Jira change',
+  question: "You skipped Claude's question",
 };
 
 /** What Claude wants: its own line about the command when it gave one, or the file it would edit (spec 012, Q8c). */
 function waitingDetail(activity: Extract<SessionActivity, { kind: 'waiting' }>): string {
   if (activity.about === 'edit') return `Wants to edit ${activity.text ?? 'a file'}`;
   if (activity.about === 'jira') return `Wants to change ${activity.text ?? 'an issue'} in Jira`;
+  if (activity.about === 'question') return activity.text ?? 'Asks you something';
   return activity.text ?? 'Wants to run a command';
 }
 
@@ -255,7 +257,10 @@ export function stepWords(activity: SessionActivity): StepWords {
     case 'refused':
       return { title: refusedTitle(activity), detail: activity.path };
     case 'waiting':
-      return { title: 'Waiting for your approval', detail: waitingDetail(activity) };
+      return {
+        title: activity.about === 'question' ? 'Waiting for your answer' : 'Waiting for your approval',
+        detail: waitingDetail(activity),
+      };
     case 'command': {
       const count = activity.commands.length;
       const failed = failedCommands(activity);
@@ -281,6 +286,14 @@ export function stepWords(activity: SessionActivity): StepWords {
     }
     case 'message':
       return { title: 'You asked Claude', detail: firstLines(activity.text) };
+    // Each question's header and your answer (spec 051, Q3): "Library: date-fns · Checks: Unit tests, Types".
+    case 'answered':
+      return {
+        title: 'You answered',
+        detail: activity.answers
+          .map(({ header, answer }) => (header === '' ? answer : `${header}: ${answer}`))
+          .join(' · '),
+      };
     case 'pull_request':
       return {
         title: `${activity.linked ? 'Linked' : 'Opened'} pull request #${String(activity.number)}`,

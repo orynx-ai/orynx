@@ -14,6 +14,7 @@ import type {
   ChangeLine,
   EffortLevel,
   JiraChangeAsk,
+  SessionQuestion,
   TodoStatus,
   Permissions,
 } from '@devhub/contracts';
@@ -76,11 +77,14 @@ export type AgentAsk =
   /** Claude asks to start a server (spec 042): it runs in a Terminal tab, as you, so it always asks. */
   | { kind: 'server'; command: string; folder: string; alwaysAllow: string }
   /** Claude asks to change a Jira issue (spec 044): its key, and the comment, move or assignment. */
-  | { kind: 'jira'; key: string; change: JiraChangeAsk };
+  | { kind: 'jira'; key: string; change: JiraChangeAsk }
+  /** Claude asks you something (spec 051): 1 to 4 questions, each with its choices. */
+  | { kind: 'question'; questions: SessionQuestion[] };
 
 /** What a waiting call is about, as the log and a denied step keep it: the command, the edit's path or the key. */
 export function askText(ask: AgentAsk): string {
   if (ask.kind === 'command' || ask.kind === 'server') return ask.command;
+  if (ask.kind === 'question') return ask.questions[0]?.question ?? 'A question';
   return ask.kind === 'edit' ? ask.path : ask.key;
 }
 

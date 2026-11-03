@@ -753,7 +753,8 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
               addWaiting(progress, {
                 approvalId,
                 about: ask.kind,
-                // Claude's line about a command; the edit's path; the ticket's key and title (spec 037).
+                // Claude's line about a command; the edit's path; the ticket's key and title (spec 037); the first
+                // question (spec 051).
                 text:
                   ask.kind === 'command'
                     ? ask.description
@@ -763,7 +764,9 @@ export function createSessionService(options: SessionServiceOptions): SessionSer
                         ? ask.command
                         : ask.kind === 'jira'
                           ? ask.key
-                          : `${ask.key}${ask.title === null ? '' : ` · ${ask.title}`}`,
+                          : ask.kind === 'question'
+                            ? text
+                            : `${ask.key}${ask.title === null ? '' : ` · ${ask.title}`}`,
               }),
             );
             return {

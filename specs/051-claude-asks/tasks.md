@@ -2,7 +2,7 @@
 
 One task is one commit. Test first, then code. Tick a task only when its Check passes.
 
-- [ ] Task 1: The `question` approval kind, the `answered` step and the answer in the request, with their words wherever the unions are switched on (AC-1, AC-2, AC-7, AC-23, Q3)
+- [x] Task 1: The `question` approval kind, the `answered` step and the answer in the request, with their words wherever the unions are switched on (AC-1, AC-2, AC-7, AC-23, Q3)
       Check: pnpm test packages/contracts/src/session.test.ts packages/contracts/src/notifications.test.ts; pnpm typecheck
       Files: packages/contracts/src/session.ts, session.test.ts, notifications.ts, testing.ts, packages/core/src/agents/agent-adapter.ts, packages/core/src/sessions/session-store.ts, packages/app/src/features/sessions/approval-words.ts, step-words.ts, packages/app/src/features/home/composer-words.ts, packages/app/src/features/notifications/words.ts
 - [ ] Task 2: `AskUserQuestion` in every session's tools: a valid call asks as a `question`, a malformed one is refused with no step, in every mode and in Ask sessions (AC-17, AC-18, AC-19)

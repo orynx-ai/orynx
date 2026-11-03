@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SessionApproval } from '@devhub/contracts';
-import { makeSessionApproval } from '@devhub/contracts/testing';
+import { makeQuestionApproval, makeSessionApproval } from '@devhub/contracts/testing';
 import {
   addRow,
   bannerDetail,
@@ -167,6 +167,12 @@ describe('the composer’s words (spec 015, Q13)', () => {
     expect(bannerDetail({ key: 'PROJ-1', title: 'Fix it', approval: null, more: 1 })).toBe(
       'PROJ-1 · Fix it · 1 more waiting',
     );
+  });
+
+  it("051 AC-12: the banner says Claude's first question", () => {
+    expect(
+      bannerDetail({ key: 'PROJ-1423', title: 'Add bulk archive', approval: makeQuestionApproval(), more: 0 }),
+    ).toBe('PROJ-1423 · Add bulk archive · asks: Which date library should we use?');
   });
 
   it('AC-25 (spec 037): an Orynx key Orynx doesn’t hold is said as Orynx’s', () => {

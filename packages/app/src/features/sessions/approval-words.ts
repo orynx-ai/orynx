@@ -27,6 +27,10 @@ export function approvalTitle(approval: SessionApproval): string {
   if (approval.kind === 'jira') return jiraChangeTitle(approval.key, approval.change);
   if (approval.kind === 'ticket') return 'Claude wants to delete a ticket';
   if (approval.kind === 'server') return 'Claude wants to start a server';
+  if (approval.kind === 'question') {
+    const count = approval.questions.length;
+    return count === 1 ? 'Claude has a question' : `Claude has ${String(count)} questions`;
+  }
   return approval.creates ? 'Claude wants to create a file' : 'Claude wants to edit a file';
 }
 
