@@ -74,9 +74,10 @@ export function HomeComposer() {
   const sent = useComposerStore((state) => state.sent);
   const model = useComposerStore((state) => state.model);
   const effort = useComposerStore((state) => state.effort);
+  const agent = useComposerStore((state) => state.agent);
   const setModel = useComposerStore((state) => state.setModel);
   const setEffort = useComposerStore((state) => state.setEffort);
-  const choice = useAgentChoice(model, effort);
+  const choice = useAgentChoice(model, effort, agent);
   const mode = useComposerStore((state) => state.mode);
   const setMode = useComposerStore((state) => state.setMode);
   const tried = useComposerStore((state) => state.tried);
@@ -219,7 +220,13 @@ export function HomeComposer() {
               {pickers ? (
                 <>
                   <FolderPicker />
-                  <AgentPicker model={model} effort={effort} onModelChange={setModel} onEffortChange={setEffort} />
+                  <AgentPicker
+                    agent={agent}
+                    model={model}
+                    effort={effort}
+                    onModelChange={setModel}
+                    onEffortChange={setEffort}
+                  />
                 </>
               ) : null}
             </div>

@@ -1,6 +1,13 @@
-import { ClaudeIcon } from '@hugeicons/core-free-icons';
+import { Fragment } from 'react';
+import { ClaudeIcon, CodeIcon } from '@hugeicons/core-free-icons';
 import { Link } from '@tanstack/react-router';
-import { EffortLevelSchema, type AgentChoice, type AgentModel, type EffortLevel } from '@devhub/contracts';
+import {
+  EffortLevelSchema,
+  type AgentChoice,
+  type AgentId,
+  type AgentModel,
+  type EffortLevel,
+} from '@devhub/contracts';
 import {
   cn,
   Icon,
@@ -37,49 +44,93 @@ function shownModel(models: readonly AgentModel[], model: string | null): AgentM
   return models.find((listed) => listed.value === (model ?? defaultValue));
 }
 
+const agents: readonly AgentId[] = ['claude', 'codex'];
+
 /**
- * What a start sends for the picker's choice: only a model Claude still offers, and only an effort that model
- * takes. Anything else is left to Claude Code, as is everything while the list isn't in.
+ * What the picker works with (spec 052): whether each agent is signed in, the models each offers, and the agent in use:
+ * the one picked, or the other while it's signed out and the other isn't. `only` is a session's own agent.
  */
-export function useAgentChoice(model: string | null, effort: EffortLevel | null): AgentChoice {
-  const connected = useStatus().data?.agents.claude.connected ?? false;
-  const listed = useAgentModels(connected).data;
-  if (listed?.state !== 'ready') return {};
-  const shown = shownModel(listed.models, model);
-  if (shown === undefined) return {};
+function usePicked(agent: AgentId, only: AgentId | undefined) {
+  const status = useStatus().data;
+  const on: Record<AgentId, boolean> = {
+    claude: status?.agents.claude.connected ?? false,
+    codex: status?.agents.codex.connected ?? false,
+  };
+  const claude = useAgentModels('claude', on.claude && only !== 'codex').data;
+  const codex = useAgentModels('codex', on.codex && only !== 'claude').data;
+  const models: Record<AgentId, readonly AgentModel[]> = {
+    claude: claude?.state === 'ready' ? claude.models : [],
+    codex: codex?.state === 'ready' ? codex.models : [],
+  };
+  const other: AgentId = agent === 'claude' ? 'codex' : 'claude';
+  const using: AgentId = only ?? (on[agent] || !on[other] ? agent : other);
+  return { status, on, models, using };
+}
+
+/**
+ * What a start sends for the picker's choice: the agent in use, only a model it still offers, and only an effort that
+ * model takes. A model picked for the other agent gives way to this one's default, as does everything while the list
+ * isn't in. Claude needs no name: a start without one runs on Claude (spec 052).
+ */
+export function useAgentChoice(
+  model: string | null,
+  effort: EffortLevel | null,
+  agent: AgentId = 'claude',
+  only?: AgentId,
+): AgentChoice {
+  const { models, using } = usePicked(agent, only);
+  const own = using === agent;
+  const named: AgentChoice = using === 'codex' ? { agent: 'codex' } : {};
+  const shown = shownModel(models[using], own ? model : null);
+  if (shown === undefined) return named;
   return {
-    ...(model === null ? {} : { model: shown.value }),
-    ...(effort !== null && shown.efforts.includes(effort) ? { effort } : {}),
+    ...named,
+    ...(own && model !== null ? { model: shown.value } : {}),
+    ...(own && effort !== null && shown.efforts.includes(effort) ? { effort } : {}),
   };
 }
 
 export interface AgentPickerProps {
-  /** The model picked; null is Claude Code's own default. */
+  /** The agent the model is from (spec 052). */
+  agent?: AgentId;
+  /** The model picked; null is the agent's own default. */
   model: string | null;
   /** The effort picked; null is the model's own default. */
   effort: EffortLevel | null;
-  onModelChange: (model: string | null) => void;
+  /** A session's own agent, the only one its follow-ups go to (spec 052). */
+  only?: AgentId;
+  onModelChange: (model: string | null, agent: AgentId) => void;
   onEffortChange: (effort: EffortLevel | null) => void;
 }
 
 /**
- * The composer's agent picker (`dh-picker`, spec 015, Q10): Claude, with the model and effort to work at, as
- * Claude Code lists them now. Its menu has the models, then the effort levels the picked one takes, and the way
- * to Settings › Coding agent when signed out. Until the list is in, or when Claude can't say, Claude alone.
+ * The composer's agent picker (`dh-picker`, spec 015, Q10): the agent, with the model and effort to work at, as each
+ * agent lists them now. Its menu has each signed-in agent's models under its name (spec 052), then the effort levels
+ * the picked one takes, and the way to Settings › Coding agent when the agent in use is signed out. Until a list is
+ * in, or when no agent can say, the agent alone.
  */
-export function AgentPicker({ model, effort, onModelChange, onEffortChange }: AgentPickerProps) {
-  const status = useStatus();
-  const connected = status.data?.agents.claude.connected ?? false;
-  const listed = useAgentModels(connected).data;
-  if (status.data === undefined) return null;
-  const models = listed?.state === 'ready' ? listed.models : [];
-  const shown = shownModel(models, model);
+export function AgentPicker({
+  agent = 'claude',
+  model,
+  effort,
+  only,
+  onModelChange,
+  onEffortChange,
+}: AgentPickerProps) {
+  const { status, on, models, using } = usePicked(agent, only);
+  if (status === undefined) return null;
+  const own = using === agent;
+  const shown = shownModel(models[using], own ? model : null);
   const efforts = shown?.efforts ?? [];
-  const shownEffort = effort !== null && efforts.includes(effort) ? effort : null;
+  const shownEffort = own && effort !== null && efforts.includes(effort) ? effort : null;
+  const name = words.names[using];
   const choice =
     shown === undefined
       ? undefined
       : `${shown.displayName}${shownEffort === null ? '' : ` · ${words.efforts[shownEffort]}`}`;
+  const groups = (only === undefined ? agents : [only]).filter((one) => models[one].length > 0);
+  // With Codex's models there, each group says whose they are; Claude's alone need no name.
+  const named = groups.includes('codex');
 
   return (
     <Menu>
@@ -87,39 +138,49 @@ export function AgentPicker({ model, effort, onModelChange, onEffortChange }: Ag
         <Picker
           icon={
             <span className="relative inline-flex shrink-0">
-              <Icon icon={ClaudeIcon} aria-hidden />
-              <Dot connected={connected} className="absolute -end-0.5 -bottom-0.5 size-1.5" />
+              <Icon icon={using === 'codex' ? CodeIcon : ClaudeIcon} aria-hidden />
+              <Dot connected={on[using]} className="absolute -end-0.5 -bottom-0.5 size-1.5" />
             </span>
           }
-          aria-label={words.label(connected, choice)}
+          aria-label={words.label(on[using], choice, name)}
         >
-          {choice ?? words.name}
+          {choice ?? name}
         </Picker>
       </MenuTrigger>
       <MenuContent size="sm" aria-label={words.menu}>
-        {models.length === 0 ? (
-          <MenuRadioGroup value="claude">
-            <MenuRadioItem value="claude" description={connected ? words.connected : words.signedOut}>
-              {words.name}
+        {groups.length === 0 ? (
+          <MenuRadioGroup value={using}>
+            <MenuRadioItem value={using} description={on[using] ? words.connected : words.signedOut}>
+              {name}
             </MenuRadioItem>
           </MenuRadioGroup>
         ) : (
-          <MenuRadioGroup
-            // Nothing is checked while you've picked none and Claude Code lists no default of its own.
-            value={shown?.value ?? ''}
-            onValueChange={(value) => {
-              onModelChange(value === defaultValue ? null : value);
-              // A level the new model doesn't take goes back to its default.
-              const next = models.find((listedModel) => listedModel.value === value);
-              if (effort !== null && next !== undefined && !next.efforts.includes(effort)) onEffortChange(null);
-            }}
-          >
-            {models.map((listedModel) => (
-              <MenuRadioItem key={listedModel.value} value={listedModel.value} description={listedModel.description}>
-                {listedModel.displayName}
-              </MenuRadioItem>
-            ))}
-          </MenuRadioGroup>
+          groups.map((group, index) => (
+            <Fragment key={group}>
+              {index === 0 ? null : <MenuSeparator />}
+              {named ? <MenuLabel>{words.names[group]}</MenuLabel> : null}
+              <MenuRadioGroup
+                // Nothing is checked while you've picked none and the agent lists no default of its own.
+                value={group === using ? (shown?.value ?? '') : ''}
+                onValueChange={(value) => {
+                  onModelChange(value === defaultValue ? null : value, group);
+                  // A level the new model doesn't take goes back to its default.
+                  const next = models[group].find((listedModel) => listedModel.value === value);
+                  if (effort !== null && next !== undefined && !next.efforts.includes(effort)) onEffortChange(null);
+                }}
+              >
+                {models[group].map((listedModel) => (
+                  <MenuRadioItem
+                    key={listedModel.value}
+                    value={listedModel.value}
+                    description={listedModel.description}
+                  >
+                    {listedModel.displayName}
+                  </MenuRadioItem>
+                ))}
+              </MenuRadioGroup>
+            </Fragment>
+          ))
         )}
         {efforts.length === 0 ? null : (
           <>
@@ -141,7 +202,7 @@ export function AgentPicker({ model, effort, onModelChange, onEffortChange }: Ag
             </MenuRadioGroup>
           </>
         )}
-        {connected ? null : (
+        {on[using] ? null : (
           <>
             <MenuSeparator />
             <MenuItem asChild>

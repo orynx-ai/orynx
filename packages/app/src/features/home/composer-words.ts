@@ -85,12 +85,14 @@ export const composerWords = {
   agent: {
     menu: 'Agent',
     name: 'Claude',
+    /** Each agent's name, in the picker and over its models (spec 052). */
+    names: { claude: 'Claude', codex: 'Codex' },
     connected: 'Connected · runs locally',
     signedOut: 'Signed out',
     settings: 'Open Settings › Coding agent',
     /** `choice` is the picked model and effort as the picker shows them ("Opus · High"). */
-    label: (connected: boolean, choice?: string) =>
-      `Agent: Claude${choice === undefined ? '' : `, ${choice}`}, ${connected ? 'connected' : 'signed out'}`,
+    label: (connected: boolean, choice?: string, name = 'Claude') =>
+      `Agent: ${name}${choice === undefined ? '' : `, ${choice}`}, ${connected ? 'connected' : 'signed out'}`,
     effort: 'Effort',
     efforts: {
       default: 'Default',

@@ -533,7 +533,8 @@ function FixPullRequest({ action }: { action: Extract<RowAction, { kind: 'fix' }
   const start = useStartFromComposer();
   const model = useComposerStore((state) => state.model);
   const effort = useComposerStore((state) => state.effort);
-  const choice = useAgentChoice(model, effort);
+  const agent = useComposerStore((state) => state.agent);
+  const choice = useAgentChoice(model, effort, agent);
   const addChip = useComposerStore((state) => state.addChip);
   const setMode = useComposerStore((state) => state.setMode);
   const setTried = useComposerStore((state) => state.setTried);
@@ -580,7 +581,8 @@ function ReviewPullRequest({ action }: { action: Extract<RowAction, { kind: 'rev
   const start = useStartFromComposer();
   const model = useComposerStore((state) => state.model);
   const effort = useComposerStore((state) => state.effort);
-  const choice = useAgentChoice(model, effort);
+  const agent = useComposerStore((state) => state.agent);
+  const choice = useAgentChoice(model, effort, agent);
   const setTried = useComposerStore((state) => state.setTried);
   return (
     <IconButton

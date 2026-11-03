@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ComposerChip, ComposerStart, EffortLevel, SessionMode, StartSessionAnswer } from '@devhub/contracts';
+import type {
+  AgentId,
+  ComposerChip,
+  ComposerStart,
+  EffortLevel,
+  SessionMode,
+  StartSessionAnswer,
+} from '@devhub/contracts';
 import { addChip, sameChip, type AddChip } from './composer-rules.ts';
 
 /**
@@ -29,6 +36,8 @@ interface ComposerState {
   model: string | null;
   /** The effort you picked for that model; null is the model's own default. */
   effort: EffortLevel | null;
+  /** The agent that model is Claude's or Codex's (spec 052); Claude until you pick a Codex model. */
+  agent: AgentId;
   /** Ask or Build, as you last picked it; Build the first time (spec 031, Q1). */
   mode: SessionMode;
   tried: StartTried | null;
@@ -40,7 +49,8 @@ interface ComposerState {
   dropChip: (chip: ComposerChip) => void;
   /** A folder by its id, or none: an Ask's No folder (spec 031). */
   pickFolder: (id: string | null) => void;
-  setModel: (model: string | null) => void;
+  /** The model you picked, and the agent it's from when the picker says (spec 052). */
+  setModel: (model: string | null, agent?: AgentId) => void;
   setEffort: (effort: EffortLevel | null) => void;
   setMode: (mode: SessionMode) => void;
   setTried: (tried: StartTried | null) => void;
@@ -50,7 +60,7 @@ interface ComposerState {
 
 export const initialComposer: Pick<
   ComposerState,
-  'text' | 'chips' | 'picked' | 'lastUsed' | 'model' | 'effort' | 'mode' | 'tried'
+  'text' | 'chips' | 'picked' | 'lastUsed' | 'model' | 'effort' | 'agent' | 'mode' | 'tried'
 > = {
   text: '',
   chips: [],
@@ -58,6 +68,7 @@ export const initialComposer: Pick<
   lastUsed: null,
   model: null,
   effort: null,
+  agent: 'claude',
   mode: 'build',
   tried: null,
 };
@@ -84,8 +95,8 @@ export const useComposerStore = create<ComposerState>()(
       pickFolder: (id) => {
         set({ picked: id });
       },
-      setModel: (model) => {
-        set({ model });
+      setModel: (model, agent) => {
+        set(agent === undefined ? { model } : { model, agent });
       },
       setEffort: (effort) => {
         set({ effort });
@@ -102,7 +113,13 @@ export const useComposerStore = create<ComposerState>()(
     }),
     {
       name: 'devhub.home',
-      partialize: (state) => ({ lastUsed: state.lastUsed, model: state.model, effort: state.effort, mode: state.mode }),
+      partialize: (state) => ({
+        lastUsed: state.lastUsed,
+        model: state.model,
+        effort: state.effort,
+        agent: state.agent,
+        mode: state.mode,
+      }),
     },
   ),
 );

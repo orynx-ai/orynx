@@ -32,7 +32,8 @@ export function FixThis({ item, thread }: { item: InboxItem; thread: ComposerChi
   const start = useStartFromComposer();
   const model = useComposerStore((state) => state.model);
   const effort = useComposerStore((state) => state.effort);
-  const choice = useAgentChoice(model, effort);
+  const agent = useComposerStore((state) => state.agent);
+  const choice = useAgentChoice(model, effort, agent);
   const picked = useComposerStore((state) => state.picked);
   const lastUsed = useComposerStore((state) => state.lastUsed);
   const addChip = useComposerStore((state) => state.addChip);

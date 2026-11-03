@@ -69,7 +69,7 @@ describe('the composer’s draft (spec 015, Q14)', () => {
       effort: 'high',
     });
     expect(JSON.parse(localStorage.getItem('devhub.home') ?? '{}')).toEqual({
-      state: { lastUsed: '00000000000000bb', model: 'sonnet', effort: 'high', mode: 'build' },
+      state: { lastUsed: '00000000000000bb', model: 'sonnet', effort: 'high', agent: 'claude', mode: 'build' },
       version: 0,
     });
   });
