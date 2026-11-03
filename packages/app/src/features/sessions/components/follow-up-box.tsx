@@ -8,8 +8,8 @@ import { AddContext } from '../../home/components/add-context.tsx';
 import { AgentPicker, useAgentChoice } from '../../home/components/agent-picker.tsx';
 import { ContextStrip } from '../../home/components/context-strip.tsx';
 import { ComposerChipsProvider, type ComposerChips } from '../../home/composer-chips.tsx';
-import { chipFromPaste } from '../../home/composer-rules.ts';
-import { contextFailedLine, refusedLine, type SettingsLink } from '../../home/composer-words.ts';
+import { usePasteToChip } from '../../home/use-paste-to-chip.ts';
+import { contextFailedLine, type SettingsLink } from '../../home/composer-words.ts';
 import { useComposerStore } from '../../home/store.ts';
 import { cannotSendLine, followUpBox, followUpOffLine, sendFailedLine } from '../follow-up-words.ts';
 import { useSendMessage } from '../queries.ts';
@@ -65,6 +65,7 @@ function FollowUpForm({ session }: { session: Session }) {
     }),
     [chips, session.id, addChipTo, removeChipFrom, dropChipFrom],
   );
+  const pasteToChip = usePasteToChip(given.addChip, setRefused);
   const canSend = useWatch({ control: form.control, name: 'text' }).trim() !== '';
   const answer = send.data;
   const failed = answer?.result === 'context_failed' ? send.variables?.context?.[answer.chip] : undefined;
@@ -110,14 +111,8 @@ function FollowUpForm({ session }: { session: Session }) {
             label={followUpBox.label}
             placeholder={followUpBox.placeholder}
             {...field}
-            onPaste={(event) => {
-              // A paste that is exactly one key or pull request link becomes its chip, as on Home.
-              const chip = chipFromPaste(event.clipboardData.getData('text/plain'));
-              if (chip === null) return;
-              event.preventDefault();
-              const refusal = given.addChip(chip);
-              setRefused(refusal === null ? null : refusedLine(refusal));
-            }}
+            // A paste that is exactly one key, pull request link or message link becomes its chip, as on Home.
+            onPaste={pasteToChip}
             ref={(element) => {
               field.ref(element);
               box.current = element;
