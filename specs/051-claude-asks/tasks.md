@@ -35,7 +35,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 - [x] Task 11: e2e: the fake Claude Code asks with "(asks)"; answer, Other, Skip, and both themes with no axe violations (AC-2, AC-3, AC-7, AC-22)
       Check: pnpm test:e2e e2e/approvals.spec.ts -g "spec 051"
       Files: e2e/fake-claude/session.ts, e2e/approvals.spec.ts (on the approvals hub it already owns)
-- [ ] Task 12: Docs: questions in the sessions guide and the agent-runtime skill
+- [x] Task 12: Docs: questions in the sessions guide and the agent-runtime skill
       Check: pnpm gate learn-freshness; pnpm gate handbook-size
       Files: learn/sessions-and-worktrees.md, .claude/skills/agent-runtime/SKILL.md
 - [ ] Task 13: STOP and run /review

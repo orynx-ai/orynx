@@ -96,7 +96,7 @@ A review is an Ask on someone else's pull request: the composer's start says `re
 The SDK's defaults load every settings file (`~/.claude` and the repository's) and let Claude Code allow tool calls by its own rules, so `claude-adapter.ts` sets every option on purpose:
 
 - `settingSources: []`, `settings: { disableAllHooks: true }`, `strictMcpConfig: true`, `mcpServers: {}`: none of your or the repository's hooks, plugins, MCP servers or allow rules. A skill named with `/` in the composer (spec 022) adds only its text to the brief and its folder to `reads`; it brings none of these, and its `allowed-tools` line is ignored.
-- `tools`: `Read`, `Glob`, `Grep`, `Edit`, `Write`, `NotebookEdit`, `TodoWrite` and `Bash` (spec 012). Where Claude Code's sandbox can't run, `Bash` is left out. No web, no sub-agents and no questions.
+- `tools`: `Read`, `Glob`, `Grep`, `Edit`, `Write`, `NotebookEdit`, `TodoWrite`, `AskUserQuestion` (spec 051) and `Bash` (spec 012). Where Claude Code's sandbox can't run, `Bash` is left out. No web and no sub-agents.
 - `sandbox`: every command runs in Claude Code's own sandbox (`sandbox.ts`, spec 012 Q2), set below under "Keeping commands away from Orynx".
 - `permissionMode: 'default'` with `canUseTool`: every call Claude Code doesn't allow by itself comes to `tool-decision.ts`, which allows it, asks you (next section) or refuses it. It refuses any path outside the worktree once symlinks are followed (a glob's fixed start too, and a symlink to a file that doesn't exist yet), anything under the worktree's `.git`, a push or `gh pr create` its row in Settings › Coding agent doesn't allow (spec 026), and a background command. A refusal is a step: "Couldn't edit outside the worktree", "Couldn't push or open a pull request: Settings didn't allow it".
 - `reads` (spec 022): the one way out of the worktree. A composer start saves the real paths of the files you picked, a named command's file and a named skill's folder in `session.json`, and `permissions()` hands them to `tool-decision.ts` with the permission rows, the allow list and the branch on every call, so a follow-up's resume keeps them. `Read`, `Glob` and `Grep` may reach exactly those files and inside those folders, once every symlink is followed; an edit there is refused as outside the worktree. A ticket alone, or a session saved before spec 022, has none.
@@ -133,6 +133,27 @@ canUseTool(tool, input)                              claude-adapter.ts; one call
 - **Deny** tells Claude "The user denied this. Don't try it another way…" and Claude carries on. Stop, Discard and Orynx closing deny every waiting call. Each call that asked is kept in `session.json`'s `approvalLog` (the command or path, the answer, who gave it), never in the log: the terminal hears only kinds and answers.
 - **The callout** (`approval-callout.tsx`) is `role="alert"` and never takes focus, so no key pressed for something else answers it. After you answer, focus moves to the next waiting call's first button, or to What agent did.
 - **Always in reach** (spec 026). While a call waits and its callout is scrolled out of view, a bar pinned to the window's bottom says Claude is waiting for your approval, shows the command or file as code, and has Review, which scrolls the callout into view and focuses Allow once. It watches the callout with an `IntersectionObserver`, isn't a second alert, and goes once the callout is in view or the call ends.
+
+## Claude's questions (spec 051)
+
+Claude asks you something with `AskUserQuestion`, which every session with tools has, an Ask and a review too: 1 to 4 questions, each with a short header and 2 to 4 choices, one or several. A question isn't a permission: it waits for you in every mode, and has no Always allow.
+
+```
+canUseTool('AskUserQuestion', { questions })          tool-decision.ts checks them with contracts' SessionQuestionsSchema
+  ├─ malformed → refused with no step; Claude is told to ask 1 to 4 questions, each once, with 2 to 4 labelled choices
+  └─ ask { kind: 'question' } → waits as an approval does (above): a waiting step, Needs you, "Needs your answer"
+       POST /api/sessions/:id/approvals/:approvalId { decision: 'answer', answers: [{ picked, other }] } or { deny }
+       └─ respond(): questionAnswers() checks one answer per question, only its own labels, each once, one where it
+          takes one; a misfit is 400 and the question keeps waiting
+            answered → allow with updatedInput { ...input, answers: { [question]: label | words | list } }
+                       and a "You answered" step with each header and answer
+            Skip     → deny: "The user skipped your question. Carry on with your best judgement…"
+```
+
+- **Why `updatedInput`.** Claude Code reads the answers from the call's own input, keyed by each question's text (a multi-select's list it joins with ", "), and refuses a host that changes any other field. So two questions with the same text are refused before they're shown.
+- **The callout** draws each question as a `ChoiceGroup` named by its question, under its header, with a `ChoiceCard` for each choice (`multiple` for a question that takes several) and Other, which opens a one-line box. Send answer and Skip are inside its form, so Enter in Other's box sends. Previews are dropped; the note tells Claude not to use them.
+- **The log** keeps `answer: 'answer'` for a question you answered, never what you said; the step holds your answer.
+- **Elsewhere**: Home's banner says Claude is waiting for your answer and what it asks, the bell says "Claude has a question" with Review only (the desktop never shows its text), and Settings › Notifications' first row covers questions. The Terminal's Claude tab doesn't answer them.
 
 ## Jira in a session (spec 044)
 
