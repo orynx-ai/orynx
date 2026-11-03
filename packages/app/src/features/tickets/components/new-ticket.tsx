@@ -112,13 +112,24 @@ export function NewTicketDialog({
   jira,
   target = null,
   orynx = true,
+  opened,
+  prefill,
+  onMade,
 }: {
   jira: boolean;
   target?: JiraTarget | null;
   orynx?: boolean;
+  /** Opened from elsewhere than Tickets, such as Home's Fix this (spec 016): its own open state, not the board's. */
+  opened?: { column: TicketColumn | null; close: () => void };
+  /** Fix this: a Bug with this title and description (spec 016, D). */
+  prefill?: { title: string; description: string };
+  /** Told the new ticket's key once it's made, in Jira or in Orynx (spec 016, D). */
+  onMade?: (key: string) => void;
 }) {
-  const column = useTicketsStore((state) => state.newTicket);
-  const close = useTicketsStore((state) => state.closeNewTicket);
+  const boardColumn = useTicketsStore((state) => state.newTicket);
+  const closeBoard = useTicketsStore((state) => state.closeNewTicket);
+  const column = opened === undefined ? boardColumn : opened.column;
+  const close = opened?.close ?? closeBoard;
   const create = useCreateOrynxTicket();
   const createJira = useCreateJiraTicket();
   const types = useJiraTicketTypes(target?.project ?? null, column !== null);
@@ -206,6 +217,7 @@ export function NewTicketDialog({
                       </p>
                     ),
                     orynx,
+                    preferType: prefill === undefined ? undefined : 'Bug',
                     types: types.isSuccess
                       ? { state: 'ready', types: types.data.types }
                       : types.isError
@@ -216,6 +228,7 @@ export function NewTicketDialog({
                         .mutateAsync({ ...fields, projectKey: target.project, sprintId: target.sprint?.id ?? null })
                         .then(
                           (answer) => {
+                            if (answer.result === 'made' || answer.result === 'made_but') onMade?.(answer.key);
                             if (answer.result !== 'made') return;
                             close();
                             reset();
@@ -225,16 +238,19 @@ export function NewTicketDialog({
                         ),
                   }
             }
-            defaults={newTicketFields(column)}
+            defaults={
+              prefill === undefined ? newTicketFields(column) : { ...newTicketFields(column), ...prefill, type: 'Bug' }
+            }
             submitLabel={words.create}
             saving={saving}
             problem={create.isError || createJira.isError ? words.saveFailed : line}
             done={done}
             onSubmit={(fields) =>
               create.mutateAsync(fields).then(
-                () => {
+                (ticket) => {
                   close();
                   reset();
+                  onMade?.(ticket.key);
                 },
                 // The form says the save failed; the dialog stays open with your values.
                 () => undefined,

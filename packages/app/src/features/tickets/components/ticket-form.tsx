@@ -48,6 +48,8 @@ export interface TicketFormJira {
   /** Orynx is on offer too, so Save in shows (AC-7). */
   orynx: boolean;
   types: JiraTypesState;
+  /** The type to start on when the project has it: Bug for Fix this (spec 016); Task when left out. */
+  preferType?: string | undefined;
   onSubmit: (fields: JiraTicketFields) => Promise<unknown>;
 }
 
@@ -120,7 +122,7 @@ export function TicketForm({
   const onJira = jira !== undefined && place === 'jira';
   const types = onJira && jira.types.state === 'ready' ? jira.types.types : null;
   // Undefined while the types are on their way, refused, or the project has none: there's nothing to send yet.
-  const type = types === null ? undefined : typeIn(types, jiraType);
+  const type = types === null ? undefined : typeIn(types, jiraType, jira?.preferType);
 
   function send({ place: to, jiraType: _, jiraPriority, ...fields }: TicketFormValues): Promise<unknown> {
     if (to === 'orynx' || jira === undefined) return onSubmit(fields);

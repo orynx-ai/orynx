@@ -115,7 +115,7 @@ One task is one commit. Test first, then code. Tick a task only when its Check p
 
 **app: Fix this and the reply**
 
-- [ ] Task 29: `NewTicketDialog` takes `prefill` (title, description, type name) and `onMade(key)`, and opens without the Tickets store; Tickets' use is unchanged (AC-34)
+- [x] Task 29: `NewTicketDialog` takes `prefill` (title, description, type name) and `onMade(key)`, and opens without the Tickets store; Tickets' use is unchanged (AC-34)
       Check: pnpm test packages/app/src/features/tickets/components/new-ticket.test.tsx packages/app/src/features/tickets/tickets-screen.test.tsx
       Files: packages/app/src/features/tickets/components/new-ticket.tsx, ticket-form.tsx, their tests
 - [ ] Task 30: Fix this on message rows: the dialog on the folder's Jira project and its one active sprint, or Orynx; Save makes the ticket and starts a Build with the ticket and thread chips; Jira's refusal and a session that can't start; keyboard and focus (AC-34 to AC-39)

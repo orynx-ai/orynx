@@ -13,9 +13,18 @@ export const TicketFormSchema = OrynxTicketFieldsSchema.extend({
 });
 export type TicketFormValues = z.infer<typeof TicketFormSchema>;
 
-/** The picked type, else Task when the project has one, else Jira's first (Q2). */
-export function typeIn(types: readonly JiraTicketType[], picked: string): JiraTicketType | undefined {
-  return types.find((type) => type.id === picked) ?? types.find((type) => type.name === 'Task') ?? types[0];
+/** The picked type, else `preferred` (Task, or Bug for Fix this, spec 016) when the project has it, else Jira's first (Q2). */
+export function typeIn(
+  types: readonly JiraTicketType[],
+  picked: string,
+  preferred = 'Task',
+): JiraTicketType | undefined {
+  return (
+    types.find((type) => type.id === picked) ??
+    types.find((type) => type.name === preferred) ??
+    types.find((type) => type.name === 'Task') ??
+    types[0]
+  );
 }
 
 /** The picked priority while the type allows it, else Medium, else the type's default, else its first (AC-4). */
